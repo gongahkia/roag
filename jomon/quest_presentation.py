@@ -28,6 +28,13 @@ def regional_choice_presentation(region_id: str, choice_id: str) -> tuple[str, s
     raise KeyError(f"unknown regional quest choice {region_id!r}:{choice_id!r}")
 
 
+def regional_result_text(region_id: str, choice_id: str) -> str:
+    for key, text in regional_quest_presentation(region_id).results:
+        if key == choice_id:
+            return text
+    raise KeyError(f"unknown regional quest result {region_id!r}:{choice_id!r}")
+
+
 def arc_presentation(arc_id: str) -> QuestPresentation:
     return selected_content_pack().quest_presentation(f"quest.arc.{arc_id}")
 

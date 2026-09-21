@@ -12,6 +12,10 @@
           "label": "Recognise the reeve's faster private repair claim",
           "requirement": ""
         }
+      },
+      "results": {
+        "l": "Public sluice access keeps the mill door and wetland bypass open on later visits.",
+        "r": "The reeve funds fast repairs, but the millwrights remember the private claim."
       }
     },
     "quest.regional.greywash": {
@@ -26,6 +30,10 @@
           "label": "Take the ebb salvage while the chain route is exposed",
           "requirement": "open the wreck locker or dog the tide chain"
         }
+      },
+      "results": {
+        "s": "Later salt work waits for the safe road; profit is modest and the tide window is longer.",
+        "e": "Jomon secures the exposed salvage, while the registrar records a disputed risk."
       }
     },
     "quest.regional.greenwold": {
@@ -40,6 +48,10 @@
           "label": "Feed the charcoal contract and accept a wider managed burn",
           "requirement": ""
         }
+      },
+      "results": {
+        "m": "A narrow managed burn preserves medicine growth and removes smoke-tenders from later patrols.",
+        "c": "Expanded charcoal output eases fuel demand but leaves a smokier patrol ecology."
       }
     },
     "quest.regional.whitecairn": {
@@ -54,6 +66,10 @@
           "label": "Expose the false toll with recovered quarry evidence",
           "requirement": "recover the bridge coffer or brace the quarry"
         }
+      },
+      "results": {
+        "w": "The honest bell closes unstable work and removes the private alarm from later approaches.",
+        "x": "The false toll is exposed; carriers reopen the ridge while quarry claims remain contested."
       }
     },
     "quest.regional.dunmire": {

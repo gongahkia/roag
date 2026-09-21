@@ -762,7 +762,8 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
     for slot in slots:
         row = rows[slot.id]
         path = f"quests.{slot.id}"
-        required = {"title", "lead", "choices"} if slot.kind == "regional" else ({"title"} if slot.kind == "arc" else {"evidence_name", "evidence_description"})
+        core_regional = slot.engine_id in {"hearthford", "greywash", "greenwold", "whitecairn"}
+        required = ({"title", "lead", "choices", "results"} if core_regional else {"title", "lead", "choices"}) if slot.kind == "regional" else ({"title"} if slot.kind == "arc" else {"evidence_name", "evidence_description"})
         if not isinstance(row, dict) or set(row) != required:
             missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
             details = []
@@ -773,10 +774,11 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
             if not details:
                 details.append("must be an object")
             raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} " + "; ".join(details))
-        text_fields = required - {"choices"}
+        text_fields = required - {"choices", "results"}
         if any(not isinstance(row[field], str) or not row[field].strip() for field in text_fields):
             raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} fields must be non-empty strings")
         choices: tuple[tuple[str, str, str], ...] = ()
+        results: tuple[tuple[str, str], ...] = ()
         if slot.kind == "regional":
             choice_rows = row["choices"]
             expected_choices = slot.choice_ids
@@ -793,8 +795,13 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
                     raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.choices.{choice}.label must be a non-empty string")
                 validated.append((choice, choice_row["label"], choice_row["requirement"]))
             choices = tuple(validated)
+            if core_regional:
+                regional_result_rows = row["results"]
+                if (not isinstance(regional_result_rows, dict) or set(regional_result_rows) != set(expected_choices)
+                        or any(not isinstance(value, str) or not value.strip() for value in regional_result_rows.values())):
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.results must contain exactly regional branch results")
+                results = tuple((choice, regional_result_rows[choice]) for choice in expected_choices)
         arc_choices: tuple[tuple[str, str, str], ...] = ()
-        results: tuple[tuple[str, str], ...] = ()
         if slot.kind == "arc":
             rows_by_stage = arc_rows[slot.engine_id]
             flat = {}

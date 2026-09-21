@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
-from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title
+from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title, regional_result_text
 from .state import GameState, QuestProgress
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -294,26 +294,26 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         market.stock += 2
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)
-        consequence = "Public sluice access keeps the mill door and wetland bypass open on later visits."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "hearthford":
         region.changes["mill_reeve_charter"] = True
         state.trade_credit += 2
         market.stock += 1
         market.demand = max(0, market.demand - 1)
         _contact_changes(state, 2, -1)
-        consequence = "The reeve funds fast repairs, but the millwrights remember the private claim."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "greywash" and choice == "s":
         region.changes["safe_salt_delay"] = True
         region.process_thresholds = [threshold + 8 for threshold in region.process_thresholds]
         market.stock += 1
         _contact_changes(state, 1, 1)
-        consequence = "Later salt work waits for the safe road; profit is modest and the tide window is longer."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "greywash":
         region.changes["ebb_salvage_claim"] = True
         state.trade_credit += 3
         market.stock += 2
         _contact_changes(state, 2, -1)
-        consequence = "Jomon secures the exposed salvage, while the registrar records a disputed risk."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "greenwold" and choice == "m":
         region.changes["medicine_coppice_saved"] = True
         state.smoke.clear()
@@ -322,13 +322,13 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
                 threat.status = "retreated"
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)
-        consequence = "A narrow managed burn preserves medicine growth and removes smoke-tenders from later patrols."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "greenwold":
         region.changes["charcoal_burn_expanded"] = True
         market.stock += 3
         state.regional_markets[region_id]["timber"].demand += 1
         _contact_changes(state, 2, -1)
-        consequence = "Expanded charcoal output eases fuel demand but leaves a smokier patrol ecology."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "whitecairn" and choice == "w":
         region.changes["honest_bell"] = True
         for threat in state.threats:
@@ -336,13 +336,13 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
                 threat.status = "retreated"
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)
-        consequence = "The honest bell closes unstable work and removes the private alarm from later approaches."
+        consequence = regional_result_text(region_id, choice)
     elif region_id == "whitecairn":
         region.changes["false_toll_exposed"] = True
         state.trade_credit += 3
         market.stock += 2
         _contact_changes(state, 2, -1)
-        consequence = "The false toll is exposed; carriers reopen the ridge while quarry claims remain contested."
+        consequence = regional_result_text(region_id, choice)
     else:
         from .frontiers import settle_frontier_claim
 
