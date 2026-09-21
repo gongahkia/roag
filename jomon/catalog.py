@@ -70,6 +70,7 @@ HISTORY_PRESENTATION_FILE = "history_text.json"
 AFTERMATH_PRESENTATION_FILE = "aftermath_text.json"
 WORKLINE_PRESENTATION_FILE = "worklines.json"
 INTERFERENCE_PRESENTATION_FILE = "interference_text.json"
+LEGENDARY_PRESENTATION_FILE = "legendary_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -159,6 +160,31 @@ _INTERFERENCE_TEMPLATE_CONTRACT = {
     "interference.notice": ("title", "origin"),
     "interference.ledger.arrival": ("title", "destination_change"),
     "interference.ledger.departure": ("title", "origin_change"),
+}
+
+_ARC_RELIC_IDS = ("common-work-rivet", "counterclaim-lodestone", "lee-cloth-brooch", "channel-surety-shuttle")
+_LEGENDARY_TEMPLATE_CONTRACT = {
+    "legendary.object.noun.0": (), "legendary.object.noun.1": (), "legendary.object.noun.2": (),
+    "legendary.object.name": ("maker", "noun"),
+    "legendary.object.effect": ("epithet", "tags", "range", "verbs"),
+    "legendary.object.tradeoff": (),
+    "legendary.object.provenance": ("maker", "institution", "crisis", "repair", "dispute"),
+    "legendary.object.clue": ("account", "cache_name", "cache_id"),
+    "legendary.object.description": ("provenance", "effect", "tradeoff", "interested", "clue"),
+    "legendary.object.ledger": ("clue",),
+    **{f"legendary.arc.{relic}.display_name": () for relic in _ARC_RELIC_IDS},
+    **{f"legendary.arc.{relic}.description": () for relic in _ARC_RELIC_IDS},
+    "legendary.arc.unavailable": (),
+    "legendary.arc.common-work-rivet.unavailable": (), "legendary.arc.common-work-rivet.status_cause": (),
+    "legendary.arc.common-work-rivet.status_consequence": (), "legendary.arc.common-work-rivet.result": ("equipment", "supports"),
+    "legendary.arc.counterclaim-lodestone.unavailable": (), "legendary.arc.counterclaim-lodestone.intent": (),
+    "legendary.arc.counterclaim-lodestone.result": ("dropped",),
+    "legendary.arc.lee-cloth-brooch.unavailable": (), "legendary.arc.lee-cloth-brooch.result": (),
+    "legendary.arc.channel-surety-shuttle.unavailable": (), "legendary.arc.channel-surety-shuttle.cargo": ("cargo",),
+    "legendary.arc.channel-surety-shuttle.no_cargo": (), "legendary.arc.channel-surety-shuttle.result": ("water", "x", "y", "cargo"),
+    "legendary.arc.grant.provenance": ("arc", "choice"), "legendary.arc.grant.packed": (),
+    "legendary.arc.grant.ground": (), "legendary.arc.grant.memory": ("courier", "name", "arc", "where"),
+    "legendary.arc.grant.result": ("name", "where"),
 }
 
 _HISTORY_TEMPLATE_CONTRACT = {
@@ -449,6 +475,12 @@ class InterferencePresentation:
 
 
 @dataclass(frozen=True)
+class LegendaryPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -471,6 +503,7 @@ class ContentPack:
     aftermath_result_presentations: tuple[AftermathResultPresentation, ...]
     workline_presentations: tuple[WorklinePresentation, ...]
     interference_presentations: tuple[InterferencePresentation, ...]
+    legendary_presentations: tuple[LegendaryPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -566,6 +599,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown interference presentation id: {semantic_id}")
 
+    def legendary_presentation(self, semantic_id: str) -> LegendaryPresentation:
+        for presentation in self.legendary_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown legendary presentation id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -595,8 +634,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, and interference")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, and legendary")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1318,6 +1357,30 @@ def _interference_presentations(root: Path, pack_id: str) -> tuple[InterferenceP
     ) for key, placeholders in _INTERFERENCE_TEMPLATE_CONTRACT.items())
 
 
+def _legendary_presentations(root: Path, pack_id: str) -> tuple[LegendaryPresentation, ...]:
+    source = root / LEGENDARY_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid legendary presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _LEGENDARY_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("legendary") != expected_contract:
+        raise RuntimeError(f"invalid engine legendary content contract at {contract_source}: legendary does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid legendary presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_LEGENDARY_TEMPLATE_CONTRACT):
+        missing, unknown = set(_LEGENDARY_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_LEGENDARY_TEMPLATE_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required legendary keys " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown legendary keys " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid legendary presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(LegendaryPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _LEGENDARY_TEMPLATE_CONTRACT.items())
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -1446,10 +1509,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     history = _history_presentations(root, pack_id)
     worklines = _workline_presentations(root, pack_id)
     interference = _interference_presentations(root, pack_id)
+    legendary = _legendary_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, household_template,
     )
 
 

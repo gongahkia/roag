@@ -3180,5 +3180,204 @@
         "origin_change"
       ]
     }
+  ],
+  "legendary": [
+    {
+      "id": "legendary.object.noun.0",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.object.noun.1",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.object.noun.2",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.object.name",
+      "placeholders": [
+        "maker",
+        "noun"
+      ]
+    },
+    {
+      "id": "legendary.object.effect",
+      "placeholders": [
+        "epithet",
+        "tags",
+        "range",
+        "verbs"
+      ]
+    },
+    {
+      "id": "legendary.object.tradeoff",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.object.provenance",
+      "placeholders": [
+        "maker",
+        "institution",
+        "crisis",
+        "repair",
+        "dispute"
+      ]
+    },
+    {
+      "id": "legendary.object.clue",
+      "placeholders": [
+        "account",
+        "cache_name",
+        "cache_id"
+      ]
+    },
+    {
+      "id": "legendary.object.description",
+      "placeholders": [
+        "provenance",
+        "effect",
+        "tradeoff",
+        "interested",
+        "clue"
+      ]
+    },
+    {
+      "id": "legendary.object.ledger",
+      "placeholders": [
+        "clue"
+      ]
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.display_name",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.counterclaim-lodestone.display_name",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.lee-cloth-brooch.display_name",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.display_name",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.description",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.counterclaim-lodestone.description",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.lee-cloth-brooch.description",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.description",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.status_cause",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.status_consequence",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.common-work-rivet.result",
+      "placeholders": [
+        "equipment",
+        "supports"
+      ]
+    },
+    {
+      "id": "legendary.arc.counterclaim-lodestone.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.counterclaim-lodestone.intent",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.counterclaim-lodestone.result",
+      "placeholders": [
+        "dropped"
+      ]
+    },
+    {
+      "id": "legendary.arc.lee-cloth-brooch.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.lee-cloth-brooch.result",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.cargo",
+      "placeholders": [
+        "cargo"
+      ]
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.no_cargo",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.channel-surety-shuttle.result",
+      "placeholders": [
+        "water",
+        "x",
+        "y",
+        "cargo"
+      ]
+    },
+    {
+      "id": "legendary.arc.grant.provenance",
+      "placeholders": [
+        "arc",
+        "choice"
+      ]
+    },
+    {
+      "id": "legendary.arc.grant.packed",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.grant.ground",
+      "placeholders": []
+    },
+    {
+      "id": "legendary.arc.grant.memory",
+      "placeholders": [
+        "courier",
+        "name",
+        "arc",
+        "where"
+      ]
+    },
+    {
+      "id": "legendary.arc.grant.result",
+      "placeholders": [
+        "name",
+        "where"
+      ]
+    }
   ]
 }

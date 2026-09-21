@@ -179,9 +179,10 @@ def item_spec(kind: str) -> ItemSpec:
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]
         from .content import RELICS
+        from .legendary_presentation import arc_relic_display_name
 
         presentation = contracted_item_presentation(name)
-        return ItemSpec(presentation.display_name if presentation else name.title(), "RL", 2, 2, 2,
+        return ItemSpec(presentation.display_name if presentation else arc_relic_display_name(name) or name.title(), "RL", 2, 2, 2,
                         "relic", RELICS[name])
     raise KeyError(f"unknown item kind {kind!r}")
 

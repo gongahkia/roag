@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import ARC_RELIC_SECTIONS, CatalogError, load_catalog
+from .legendary_presentation import arc_relic_description, arc_relic_display_name, legendary_format, legendary_text
 
 _rows = load_catalog("arc_relics.json", ARC_RELIC_SECTIONS)["relics"]
 if (not isinstance(_rows, list) or len(_rows) != 4
@@ -13,7 +14,7 @@ if (not isinstance(_rows, list) or len(_rows) != 4
         or len({row[2] for row in _rows}) != len(_rows)):
     raise CatalogError("arc_relics.json has invalid ending relics")
 ARC_RELICS = {(arc_id, choice): name for arc_id, choice, name, _ in _rows}
-ARC_RELIC_DESCRIPTIONS = {name: description for _, _, name, description in _rows}
+ARC_RELIC_DESCRIPTIONS = {name: arc_relic_description(name) or description for _, _, name, description in _rows}
 
 
 def lee_sheltered(state) -> bool:
@@ -58,7 +59,7 @@ def _channel_lane(state):
 def use_arc_relic(state, name: str) -> tuple[bool, str]:
     """Apply one selected relic; callers own the ordinary action-clock advance."""
     if state.carried_relic != name or not state.relics.get(name):
-        return False, "That relic is not at hand."
+        return False, legendary_text("legendary.arc.unavailable")
     from .actions import add_status, emit_sound
     from .materials import fields, point_at
     from .world import distance
@@ -77,15 +78,15 @@ def use_arc_relic(state, name: str) -> tuple[bool, str]:
             and (cell.support < 3 or cell.collapse_due)
         ][:3]
         if not equipment and not supports:
-            return False, "No worn physical equipment or nearby damaged support can take the common-work rivet; it remains whole."
+            return False, legendary_text("legendary.arc.common-work-rivet.unavailable")
         for item in equipment:
             item.condition = min(100, item.condition + 20)
         for cell in supports:
             cell.support = min(3, cell.support + 1)
             cell.collapse_due = 0
         _spend(state, name)
-        add_status(state, "fatigued", "the common-work rivet's resisting repair", 3, "movement may take another action; rest or wait it out")
-        return True, f"The master rivet repairs {len(equipment)} worn items and seats {len(supports)} supports; shared resistance leaves three-action fatigue."
+        add_status(state, "fatigued", legendary_text("legendary.arc.common-work-rivet.status_cause"), 3, legendary_text("legendary.arc.common-work-rivet.status_consequence"))
+        return True, legendary_format("legendary.arc.common-work-rivet.result", equipment=len(equipment), supports=len(supports))
 
     if name == "counterclaim lodestone":
         from .enemy_equipment import readied_weapon
@@ -99,7 +100,7 @@ def use_arc_relic(state, name: str) -> tuple[bool, str]:
             and readied_weapon(state, actor)
         ][:3]
         if not targets:
-            return False, "No nearby embodied claimant carries a physical weapon; the lodestone remains quiet."
+            return False, legendary_text("legendary.arc.counterclaim-lodestone.unavailable")
         origin = state.position
         dropped = 0
         for actor in targets:
@@ -107,7 +108,7 @@ def use_arc_relic(state, name: str) -> tuple[bool, str]:
             weapon.location, weapon.owner_id = "ground", None
             weapon.region_id, weapon.ground_position = state.spatial_id, origin
             actor.morale -= 1
-            actor.intent = "disarmed into the lodestone pile; deciding whether to recover or withdraw"
+            actor.intent = legendary_text("legendary.arc.counterclaim-lodestone.intent")
             dropped += 1
         own = equipped_item(state, "readied")
         if own:
@@ -118,25 +119,25 @@ def use_arc_relic(state, name: str) -> tuple[bool, str]:
         _spend(state, name)
         sounds = emit_sound(state, 6)
         return True, " ".join([
-            f"The lodestone strips {dropped} physical weapons into one recoverable pile, including the courier's; every nearby claimant hears the iron report.",
+            legendary_format("legendary.arc.counterclaim-lodestone.result", dropped=dropped),
             *sounds,
         ])
 
     if name == "lee-cloth brooch":
         if state.weather not in {"river fog", "hard rain", "coast squall", "forest rain", "crosswind", "ridge gust", "salt wind"}:
-            return False, "No present wind, rain or fog can fill the lee cloth; the brooch remains fastened."
+            return False, legendary_text("legendary.arc.lee-cloth-brooch.unavailable")
         changes = state.region.changes if state.location == "region" else state.vessel_changes
         changes[f"lee-shelter-until:{state.spatial_id}"] = state.world_time + 9
         _spend(state, name)
         sounds = emit_sound(state, 3)
         return True, " ".join([
-            "The clasp raises an eight-action local lee: storm movement, sight and prepared aim remain usable, while the snapping cloth reports the shelter.",
+            legendary_text("legendary.arc.lee-cloth-brooch.result"),
             *sounds,
         ])
 
     lane = _channel_lane(state)
     if state.location != "region" or lane is None:
-        return False, "The shuttle needs a straight lane of two to four marked water cells and a dry landing; it remains wound."
+        return False, legendary_text("legendary.arc.channel-surety-shuttle.unavailable")
     origin = state.position
     _, _, _, landing, water = lane
     cargo = [
@@ -155,9 +156,9 @@ def use_arc_relic(state, name: str) -> tuple[bool, str]:
     sync_legacy_load(state)
     _spend(state, name)
     sounds = emit_sound(state, 5, landing)
-    cargo_text = f"; {dropped.kind.split(':', 1)[1]} remains physically at the launch" if dropped else "; no cargo was carried to pay the surety"
+    cargo_text = legendary_format("legendary.arc.channel-surety-shuttle.cargo", cargo=dropped.kind.split(":", 1)[1]) if dropped else legendary_text("legendary.arc.channel-surety-shuttle.no_cargo")
     return True, " ".join([
-        f"The shuttle crosses {len(water)} water cells to {landing.x},{landing.y}{cargo_text}. The landing line rings.",
+        legendary_format("legendary.arc.channel-surety-shuttle.result", water=len(water), x=landing.x, y=landing.y, cargo=cargo_text),
         *sounds,
     ])
 
@@ -166,15 +167,16 @@ def grant_arc_relic(state, arc_id: str, choice: str) -> str:
     from .inventory import auto_place, create_item, record_acquisition
 
     name = ARC_RELICS[(arc_id, choice)]
-    item = create_item(state, f"relic:{name}", f"{arc_id} arc ending {choice}")
+    item = create_item(state, f"relic:{name}", legendary_format("legendary.arc.grant.provenance", arc=arc_id, choice=choice))
     if auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         record_acquisition(state, item)
-        where = "packed and selected if no other relic is readied"
+        where = legendary_text("legendary.arc.grant.packed")
     else:
         item.location, item.region_id, item.ground_position = "ground", state.spatial_id, state.position
-        where = "left physically beside the final witness"
-    state.remember(f"{state.courier.name} received {name} from the {arc_id} ending; {where}.")
-    return f" The final witness issues {name}, {where}."
+        where = legendary_text("legendary.arc.grant.ground")
+    display_name = arc_relic_display_name(name) or name
+    state.remember(legendary_format("legendary.arc.grant.memory", courier=state.courier.name, name=display_name, arc=arc_id, where=where))
+    return legendary_format("legendary.arc.grant.result", name=display_name, where=where)
 
 
 def validate_arc_relics() -> None:

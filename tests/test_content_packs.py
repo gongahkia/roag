@@ -45,6 +45,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "aftermath_text.json", root / "aftermath_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "worklines.json", root / "worklines.json")
     shutil.copy(DEFAULT_PACK_ROOT / "interference_text.json", root / "interference_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "legendary_text.json", root / "legendary_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -163,6 +164,18 @@ def alternate_pack(root: Path) -> Path:
         "interference.ledger.arrival": "FIXTURE ARRIVAL — {title}: {destination_change}.",
     })
     source.write_text(json.dumps(interference, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "legendary_text.json"
+    legendary = json.loads(source.read_text(encoding="utf-8"))
+    legendary["text"].update({
+        "legendary.object.noun.0": "Fixture Measure",
+        "legendary.object.name": "{maker}'s Fixture {noun}",
+        "legendary.object.provenance": "Fixture-made by {maker} for {institution} after {crisis}; {repair} Claim: {dispute}.",
+        "legendary.object.clue": "Fixture trail: {account} ends at {cache_name} ({cache_id}).",
+        "legendary.arc.common-work-rivet.display_name": "Fixture Rivet",
+        "legendary.arc.common-work-rivet.description": "Fixture repair still applies the same fatigue and support mechanics.",
+        "legendary.arc.common-work-rivet.result": "Fixture rivet repairs {equipment} items and seats {supports} supports with the same fatigue.",
+    })
+    source.write_text(json.dumps(legendary, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -291,6 +304,26 @@ def interference_presentation_snapshot(environment: dict[str, str]) -> dict[str,
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'notice': state.messages[-1], 'chronicle': state.chronicle[-1], 'ledger': lines_for_region(state, row.destination), "
             "'mechanics': [row.id, row.kind, row.origin, row.destination, row.cargo, before, source.stock, destination.stock, destination.demand, state.vessel_changes['interference:' + row.id], state.institutions['work:' + row.destination].confidence, sorted(key for key in state.regions[row.origin].changes if key.startswith('interference-out:')), sorted(key for key in state.regions[row.destination].changes if key.startswith('interference-in:'))]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def legendary_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.arc_relics import use_arc_relic; from jomon.frontiers import FRONTIERS; from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load; "
+            "from jomon.materials import fields; from jomon.regions import activate_region; from jomon.state import MaterialCell, Position, create_world; "
+            "state = create_world('legendary-pack-proof'); [activate_region(state, region) for region in FRONTIERS]; "
+            "legends = sorted((legend.id, legend.region_id, legend.base_kind, legend.institution_id, legend.historical_event_id, legend.tags, legend.range_bonus, legend.material_verbs) for legend in state.legendary_objects.values()); "
+            "presented = sorted((legend.id, legend.name, legend.provenance, legend.clue) for legend in state.legendary_objects.values()); "
+            "state.location = 'region'; state.position = Position(40, 24); item = create_item(state, 'relic:common-work rivet', 'legendary fixture'); auto_place(state, item.id, 'pack', owner_id=state.active_courier_id); state.relics['common-work rivet'] = 1; state.carried_relic = 'common-work rivet'; sync_legacy_load(state); state.carried_relic = 'common-work rivet'; "
+            "worn = next(item for item in state.items if item.location == 'readied' and item.owner_id == state.active_courier_id); worn.condition = 50; fields(state)['41,24,0'] = MaterialCell(material='timber', support=1, collapse_due=10); used = use_arc_relic(state, 'common-work rivet'); "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'legends': legends, 'presented': presented, 'relic': [item_spec('relic:common-work rivet').name, item_spec('relic:common-work rivet').description, used[1]], 'mechanics': [used[0], worn.condition, fields(state)['41,24,0'].support, fields(state)['41,24,0'].collapse_due, state.relics, state.carried_relic, state.legendary_objects['legend:hearthford'].base_kind]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -700,6 +733,65 @@ class ContentPackTests(unittest.TestCase):
                 source.write_text(json.dumps(document), encoding="utf-8")
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*interference\.notice.*malformed template"):
                     load_content_pack(root)
+
+    def test_alternate_pack_changes_legendary_and_arc_relic_presentation_not_mechanics(self):
+        default = legendary_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = legendary_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["legends"], alternate["legends"])
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("Fixture", " ".join(part for row in alternate["presented"] for part in row[1:]))
+        self.assertEqual(alternate["relic"][0], "Fixture Rivet")
+        self.assertIn("Fixture repair", alternate["relic"][1])
+        self.assertIn("Fixture rivet repairs", alternate["relic"][2])
+        self.assertIn("Common-Work Rivet", default["relic"][0])
+
+    def test_legendary_presentation_validation_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "legendary_text.json"
+            original = source.read_text(encoding="utf-8")
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*legendary_text\.json"):
+                    load_content_pack(root)
+                source.write_text(original, encoding="utf-8")
+            with self.subTest("unknown key"):
+                document = json.loads(original)
+                document["text"]["legendary.unknown"] = "unexpected"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*unknown legendary keys"):
+                    load_content_pack(root)
+            with self.subTest("invalid placeholder"):
+                document = json.loads(original)
+                document["text"]["legendary.object.name"] = "{maker.name}"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*legendary\.object\.name.*malformed template"):
+                    load_content_pack(root)
+
+    def test_default_legendary_presentation_preserves_existing_text(self):
+        from jomon.arc_relics import ARC_RELIC_DESCRIPTIONS
+        from jomon.legendary_presentation import legendary_format, legendary_text
+
+        self.assertEqual(legendary_format("legendary.object.name", maker="Asha", noun="Measure"), "Asha's Measure")
+        self.assertEqual(
+            legendary_format("legendary.object.effect", epithet="braced", tags="iron", range="", verbs="brace"),
+            "Its braced construction grants iron handling; it can brace material where appropriate.",
+        )
+        self.assertEqual(
+            legendary_text("legendary.arc.common-work-rivet.result"),
+            "The master rivet repairs {equipment} worn items and seats {supports} supports; shared resistance leaves three-action fatigue.",
+        )
+        self.assertEqual(
+            ARC_RELIC_DESCRIPTIONS["common-work rivet"],
+            "A master rivet repairs worn equipment and nearby supports together, but the resisting work leaves the bearer fatigued.",
+        )
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title

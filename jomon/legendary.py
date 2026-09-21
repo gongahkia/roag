@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
+from .legendary_presentation import legendary_format, legendary_text
 from .state import GameState, LegendaryObject, stage_rng
 
 _HISTORY = load_catalog("history.json", HISTORY_SECTIONS)
@@ -44,23 +45,18 @@ def initialise_region_legend(state: GameState, region_id: str) -> None:
     # institutions later add their own embodied regional contact.
     maker = state.contacts[region_id][1].name
     account = state.institutions[f"work:{region_id}"]
-    noun = stage_rng(state.seed, f"legendary-object-v1:{region_id}").choice(("Measure", "Witness", "Working"))
-    short_name = f"{maker.split()[0]}'s {noun}"
+    noun = stage_rng(state.seed, f"legendary-object-v1:{region_id}").choice(tuple(
+        legendary_text(f"legendary.object.noun.{index}") for index in range(3)
+    ))
+    short_name = legendary_format("legendary.object.name", maker=maker.split()[0], noun=noun)
     tags = tuple(sorted(set(base_tags) | {CRISIS_TAG[crisis.kind]}))
-    effect = (
-        f"Its {epithet} construction grants {', '.join(tags)} handling"
-        + (f" and {range_bonus:+d} prepared range" if range_bonus else "")
-        + f"; it can {', '.join(verbs)} material where appropriate."
-    )
-    tradeoff = "The historic reinforcement adds one carried weight and one noise when committed."
-    provenance = (
-        f"Made or repaired by {maker} for {account.name} after {crisis.kind}; "
-        f"{repair.account} Current claim: {account.dispute}."
-    )
+    effect = legendary_format("legendary.object.effect", epithet=epithet, tags=", ".join(tags), range=f" and {range_bonus:+d} prepared range" if range_bonus else "", verbs=", ".join(verbs))
+    tradeoff = legendary_text("legendary.object.tradeoff")
+    provenance = legendary_format("legendary.object.provenance", maker=maker, institution=account.name, crisis=crisis.kind, repair=repair.account, dispute=account.dispute)
     state.legendary_objects[legend_id] = LegendaryObject(
         legend_id, short_name, region_id, base_kind, maker, account.id,
         crisis.id, provenance, effect, tradeoff, account.name,
-        f"{crisis.account} The trail ends at {cache.name} ({cache.id}).",
+        legendary_format("legendary.object.clue", account=crisis.account, cache_name=cache.name, cache_id=cache.id),
         tags, range_bonus, verbs,
     )
 

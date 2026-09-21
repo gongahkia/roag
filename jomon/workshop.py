@@ -67,13 +67,14 @@ def effective_spec(state: GameState, item: Item):
         tags.add("resin-coated")
     scales = int("iron scales" in names)
     from .legendary import legend_for_item
+    from .legendary_presentation import legendary_format
     legend = legend_for_item(state, item)
     if legend:
         tags.update(legend.tags)
     return replace(
         spec,
         name=legend.name if legend else spec.name,
-        description=(f"{legend.provenance} {legend.major_effect} Trade-off: {legend.tradeoff} Interested: {legend.interested_party}. Clue: {legend.clue}" if legend else spec.description),
+        description=(legendary_format("legendary.object.description", provenance=legend.provenance, effect=legend.major_effect, tradeoff=legend.tradeoff, interested=legend.interested_party, clue=legend.clue) if legend else spec.description),
         weight=spec.weight + int(legend is not None),
         tags=tuple(sorted(tags)),
         pierce=max(0, spec.pierce + scales - int("reed lining" in names)),

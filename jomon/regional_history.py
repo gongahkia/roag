@@ -492,7 +492,8 @@ def ledger_lines(state: GameState) -> list[str]:
         ]
     legend = state.legendary_objects.get(f"legend:{state.active_region_id}")
     if legend:
-        lines.append(f"RUMOR — {legend.clue}")
+        from .legendary_presentation import legendary_format
+        lines.append(legendary_format("legendary.object.ledger", clue=legend.clue))
     lines += [str(region.changes.get("last_work_account", history_format("history.ledger.no_recent"))), ""]
     for event in region.regional_history:
         lines += [history_format("history.ledger.testimony", account=event.account), history_format("history.ledger.evidence", evidence=event.evidence, consequence=event.consequence), ""]

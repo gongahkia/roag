@@ -45,4 +45,7 @@ def contracted_item_presentation(engine_id: str) -> ItemPresentation | None:
 def item_display_name_or_legacy(engine_id: str) -> str:
     """Render contracted base items while retaining deliberate dynamic fallbacks."""
     presentation = contracted_item_presentation(engine_id)
-    return presentation.display_name if presentation else engine_id
+    if presentation:
+        return presentation.display_name
+    from .legendary_presentation import arc_relic_display_name
+    return arc_relic_display_name(item_engine_id(engine_id)) or engine_id
