@@ -85,8 +85,9 @@ local slot=W.slot(world(1),schoolGX,schoolGY);local school=assert(world(1).struc
 local function policy(mode,topic)
  school=assert(world(1).structures[slot]);queue({type='school_policy',slot=slot,schoolId=school.education.id,expectedPolicyRevision=school.education.policyRevision,enabled=true,mode=mode,topicId=topic,topicVersion=1,priority=3})
 end
-policy('record','identify/flora/filter/v1');advance(650);policy('teach','identify/flora/filter/v1');advance(1500)
-assert(Knowledge.identified(worker(1,2),'flora','filter'),'2x4 school pair did not complete instruction')
+policy('record','identify/flora/filter/v1');advance(650);policy('teach','identify/flora/filter/v1');advance(3500)
+local pupil=worker(1,2)
+assert(Knowledge.identified(pupil,'flora','filter'),string.format('2x4 school pair did not complete instruction (records=%d session=%s tuition=%d hunger=%d fatigue=%d)',#school.education.records,tostring(school.education.session and school.education.session.mode),#pupil.frontier.education.tuition,pupil.hunger,pupil.fatigue))
 
 -- A loose coil takes one real craft slot and uses the normal hauling route.
 local cargoCoil=Equipment.forSite(h.live,1,'rope_coil','loose')[1]
