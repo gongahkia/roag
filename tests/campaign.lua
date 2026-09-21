@@ -190,12 +190,35 @@ function T.run()
   local rename=os.rename;os.rename=function() return nil,'injected campaign rename failure' end
   saved=Store.saveCampaign(history);os.rename=rename
   check(not saved,'Injected campaign rename failure passed')
-  eq(assert(love.filesystem.read('campaign.run.dat')),original,'Rename failure replaced prior bytes')
-  check(history:advance())
-  saved=Store.saveCampaign(history);check(saved,'Campaign replacement save failed')
-  check(assert(love.filesystem.read('campaign.run.dat'))~=original,'Successful campaign replacement kept old bytes')
-  eq(assert(love.filesystem.read('run.dat')),legacy,'Campaign replacement touched legacy save')
-  check(Store.loadCampaign()~=nil,'Saved campaign did not load')
+ eq(assert(love.filesystem.read('campaign.run.dat')),original,'Rename failure replaced prior bytes')
+ check(history:advance())
+ saved=Store.saveCampaign(history);check(saved,'Campaign replacement save failed')
+ check(assert(love.filesystem.read('campaign.run.dat'))~=original,'Successful campaign replacement kept old bytes')
+ -- Windows refuses an overwrite rename. The replacement path rotates the old
+ -- file only after retaining it, then removes the recovery copy on success.
+ local nativeRename=os.rename;os.rename=function(source,target)
+  local existing=source==directory..'/campaign.run.tmp' and target==directory..'/campaign.run.dat' and io.open(target,'rb') or nil
+  if existing then existing:close();return nil,'File exists' end
+  return nativeRename(source,target)
+ end
+ check(history:advance())
+ saved,why=Store.saveCampaign(history);os.rename=nativeRename
+ check(saved,why or 'Windows-style replacement save failed')
+ check(not love.filesystem.getInfo('campaign.run.dat.replace-backup'),'Successful Windows-style replacement retained a backup')
+ eq(assert(love.filesystem.read('run.dat')),legacy,'Campaign replacement touched legacy save')
+ check(Store.loadCampaign()~=nil,'Saved campaign did not load')
+ local LocalHistory=require('src.history');local localHistory=LocalHistory.new(campaignWorld())
+ saved,why=Store.save(localHistory);check(saved,why)
+ nativeRename=os.rename;os.rename=function(source,target)
+  local existing=source==directory..'/run.tmp' and target==directory..'/run.dat' and io.open(target,'rb') or nil
+  if existing then existing:close();return nil,'File exists' end
+  return nativeRename(source,target)
+ end
+ check(localHistory:advance())
+ saved,why=Store.save(localHistory);os.rename=nativeRename
+ check(saved,why or 'Windows-style local replacement save failed')
+ check(not love.filesystem.getInfo('run.dat.replace-backup'),'Successful local Windows-style replacement retained a backup')
+ check(Store.load()~=nil,'Windows-style local replacement did not load')
  end)
 
  group('P01-J checkpoints remain bounded and old seeks rebuild from the campaign initial state',function()

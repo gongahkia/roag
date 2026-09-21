@@ -118,7 +118,7 @@ and reports a 104,869.2 KiB Lua heap sample; all saves are below 32 MiB.
 | V01-G | PASS — physical construction/cargo values and bounded save/state counts above reconcile. |
 | V01-H | PASS — runs were serial, scoped, timed, logged below private roots, and left no task process. |
 | V01-I | Guide and exact launcher commands are ready; current execution is NOT RUN until LÖVE is installed. |
-| V01-J | PASS — no simulation-rule repair. Tool portability, P06-H regression coverage, Ctrl+Q quit, bounded camera panning, and block-area delegation were the narrow interaction changes. |
+| V01-J | PASS — no simulation-rule repair. Tool portability, P06-H regression coverage, Ctrl+Q quit, bounded camera panning, block-area delegation, and Windows-compatible save replacement were the narrow changes. |
 
 Fresh commands: `luajit tests/syntax.lua` (93 files), the 19-group/57-assertion
 P06 suite, all eight mocked GUI adapters, the guarded `luajit tests/run.lua`
@@ -141,6 +141,35 @@ personal facts and field schools. `src/playtest.lua`, `src/storage.lua`,
 `src/mapstore.lua`, and `tools/playtest.sh` are the isolated-playtest seam.
 Culture, industry, additional ecology, physics, relic progression, and P07 remain
 deferred.
+
+### Windows save-replacement update
+
+An actual Windows local-save exit reproduced the direct replacement failure: a
+valid `run.tmp` could not be renamed over an existing `run.dat` and the game
+correctly remained open. Both files were decoded before recovery; the temporary
+file held tick 1,052 while the prior primary save held tick 0. The older primary
+save was copied to a timestamped recovery file and the validated temporary save
+was restored as the new primary. The real save location is intentionally omitted
+from this shareable handoff.
+
+`src/storage.lua` now attempts the direct same-directory rename first, retaining
+POSIX atomic replacement. Where overwrite rename is unavailable, it moves the
+prior target to a unique same-directory recovery name, promotes the temporary
+file, then removes the recovery copy. A failed promotion restores the prior save
+and reports the retained temporary state. The same helper serves local and
+campaign saves; it does not alter save formats or simulation state.
+
+`P01-I` now simulates Windows-style overwrite refusal for both save names and
+verifies that the replacement loads and leaves no recovery copy after success.
+Focused syntax and P01 campaign checks passed. A fresh guarded full suite passed
+with 150 groups / 121,091 assertions in 79.52 seconds and 78,624 KiB maximum
+RSS under a 50% CPU, 1,615,897 KiB `MemoryMax`, 1,211,922 KiB `MemoryHigh`,
+300-second child scope. Its exact source state is owner commit
+`c9aad533397805f4988bb63292e27727b43a368c` plus uncommitted
+`src/storage.lua` and `tests/campaign.lua`; its 19-file fingerprint is
+`1929e92db42d052c56cca4543872c53306438e0b56479a1341c45eb6e4caa06f`.
+The owner commit occurred during this follow-up; no agent commit or push was
+made.
 
 ## Isolation and launch contract
 
