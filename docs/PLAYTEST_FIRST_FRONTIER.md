@@ -134,6 +134,39 @@ travels. At each checkpoint inspect these visible/authoritative outcomes:
 | Save/history/layout | F5/Ctrl+Q/resume does not duplicate state; archive has no future record; middle-drag pans the camera; left-drag selection batch-delegates only after a right-click; Cozette text, long blocked reasons, Escape, focus, scrolling and global pause remain usable. |
 | G01 geometry/fog | A settler is visibly half a build block wide and one full block tall; its top cell selects it, a just-above cell does not. Panels stay live, black cells remain unknown, remembered terrain does not update off-screen, and a torch consumes one metal. |
 
+## G02 safe excavation, ropes, and tools
+
+This is a new-frontier-only route. It uses the same isolated root and does not
+upgrade old campaign histories.
+
+1. Right-click a visible block and choose **Delegate tool bench**. Watch four
+   stone and two metal arrive before construction completes. Right-click the
+   completed bench and choose **Fabricate pickaxe** or **Fabricate rope coil**;
+   the status reports real delivered metal and 120/60 work actions.
+2. Designate a vertical downward dig that would remove a miner's support. The
+   designated block remains pending instead of making the worker fall. With no
+   coil, the worker reports **Unsafe descent — rope required**. With a loose coil
+   at a reachable anchor, right-click the visible anchor and choose **Delegate
+   rope**. Watch a real coil get fetched and a finite climb lane appear.
+3. Select the Crew panel while the colony runs. Each G02 settler shows steady or
+   panicked stress. Trigger a controlled existing danger and confirm a panicked
+   person abandons ordinary work to escape; do not expect panic to make a miner
+   continue a deliberate unsafe dig.
+4. Compare a pickless mining job with a miner who has autonomously collected a
+   loose pickaxe. The pick speeds soft terrain to two work units and rock/ore to
+   three, while it remains that person's physical equipment through travel.
+5. In Region → Prepare craft, the **TOOLS / ACTUAL CUSTODY** section lists tool
+   IDs already aboard. Press **Load** beside a loose local tool; it consumes one
+   ordinary cargo slot and is physically hauled. The same ID appears at the
+   destination after actual launch/landing/unload flow.
+6. Demolition charge remains the existing single explosive. Build it through the
+   normal Delegate action, select it, and use **T** only when its worker has an
+   escape path. It arms after ordinary field work; it is never a free grenade.
+
+Record the worker, tool and rope IDs, the blocked reason if any, cargo slots, and
+the actual effect of a panic or blast. These checks remain **NOT RUN** until a
+human completes them in a native isolated LÖVE session.
+
 ## Evidence labels
 
 `HEADLESS` means real simulation, commands, save, and replay without a window.

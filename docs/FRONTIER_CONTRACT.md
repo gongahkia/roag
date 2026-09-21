@@ -27,6 +27,46 @@ shuttle lights radius 20; a travelling shuttle lights no site. Fog memory is
 campaign/history state but templates exclude it. New spatial commands and P05
 environmental witnessing use this same local visibility boundary.
 
+COS-G02 adds `features.equipment=1` and `features.safe_excavation=1` to current
+frontier campaigns. Both require G01 body and visibility; safe excavation also
+requires equipment. Worlds in those campaigns carry matching frontier markers,
+bounded local rope arrays, and persistent worker `stress`/`panic` state. Older
+recorded histories carry none of those fields and retain their former digging,
+fall, starter and visibility behavior.
+
+Equipment is campaign-owned, stable-ID physical custody: a pickaxe or rope coil
+is loose at one site, carried/equipped by one persistent person, in one craft,
+or (for a coil) embodied in one local rope. There are at most 128 site items, 64
+craft/transit items and 128 ropes per site. New frontiers begin with two loose
+pickaxes and four loose rope coils, with their metal value in the initial
+accounting baseline. One equipped pickaxe follows its owner during actual travel;
+each loose tool consumes one of the craft's ordinary 24 shared cargo slots.
+
+A rope coil creates one two-cell-wide, 1–24-cell-long local climb lane. It needs
+an ordinary reachable anchor and physical fetch/deploy work, grants no light or
+map information, and returns its same coil only when intact and deliberately
+removed. Ropes destroyed by ordinary blasts are lost. The Tool bench is a
+one-block normal construction costing four stone and two metal. It fabricates a
+pickaxe from two metal in 120 work actions or a rope coil from one metal in 60;
+inputs remain real escrow until output placement.
+
+Safe-feature miners recheck post-dig body support at the actual terrain mutation.
+They prefer a safe alternate pose, then a controlled existing/physically deployed
+rope route, otherwise retain the player's order with `Unsafe descent — rope
+required`. A pickless dig contributes one work unit; an equipped pick contributes
+two against soil/sand/ice and three against rock/ore. Feature-on falls of at most
+four cells are safe; each begun additional four cells deals 15% of maximum HP,
+capped at 90% for a fall. Existing demolition charges remain the sole explosive
+system and need normal construction, field-work arming, an escape route and fuse.
+
+Stress is deterministic and bounded 0–100. Damage, a transition to critical
+breath, an unsafe-task abort, and established blast danger add stress; safe living
+conditions recover one every 20 ticks. Panic begins at 80 and clears only at 50
+outside an immediate emergency. A panicked person releases ordinary work and seeks
+safe lit footing; only when no such escape exists may they take one emergency drop
+up to eight cells. Panic never authorizes a deliberate support-removing dig or
+charge arming.
+
 ## State and identity
 
 P01 campaigns remain valid exactly as before:
