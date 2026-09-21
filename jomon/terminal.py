@@ -683,6 +683,7 @@ def observed_life_lines(state: GameState) -> list[str]:
     from .content import ENEMY_ARCHETYPES
     from .enemy_equipment import actor_items, readied_weapon
     from .inventory import item_spec
+    from .ship_crisis_presentation import crisis_goal_display
 
     from .combat_forecast import forecast_lines, observed_forecasts
 
@@ -696,7 +697,7 @@ def observed_life_lines(state: GameState) -> list[str]:
         lines.extend((
             "", f"{_threat_glyph(actor)} {actor.name}; {actor.position.x},{actor.position.y} z{actor.position.z:+d}; {actor.health}/{actor.max_health} health.",
             f"OBSERVED INTENT: {actor.intent}.",
-            f"Duty: {actor.goal}; {actor.goal_reason}.",
+            f"Duty: {crisis_goal_display(actor.goal)}; {actor.goal_reason}.",
             f"Working charges {actor.supplies}; recovery {actor.reload_turns}; morale {actor.morale}." if actor.id.startswith("frontier-elite:") else f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
         ))
         if actor.uses_physical_equipment:

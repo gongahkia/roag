@@ -50,6 +50,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "action_text.json", root / "action_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "vessel_text.json", root / "vessel_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "travel_text.json", root / "travel_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "ship_crisis_text.json", root / "ship_crisis_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -226,6 +227,17 @@ def alternate_pack(root: Path) -> Path:
         "travel.finish.message": "FIXTURE {consequence} reaches {destination}.",
     })
     source.write_text(json.dumps(travel_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "ship_crisis_text.json"
+    crisis_text = json.loads(source.read_text(encoding="utf-8"))
+    crisis_text["text"].update({
+        "crisis.raiders.title": "Fixture Rail Claim",
+        "crisis.choice.raiders.repel": "Fixture repel the same reach threat",
+        "crisis.begin.alarm.boarders": "FIXTURE DECK ALARM: {title}. The same clock advances; observe or withdraw.",
+        "crisis.work.repair": "Fixture timber restores the same three integrity.",
+        "crisis.finish.abandon": "FIXTURE withdrawal: {loss}; the same hull damage remains.",
+        "intent.crisis.observe": "watches the fixture deck before committing",
+    })
+    source.write_text(json.dumps(crisis_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

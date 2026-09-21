@@ -8215,5 +8215,587 @@
       "id": "travel.route.reachable",
       "placeholders": []
     }
+  ],
+  "ship_crisis": [
+    {
+      "id": "crisis.raiders.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.creature.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.lure.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.boarders.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.hold-thieves.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.storm.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.shoal.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.driftwood.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.galley-fire.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.split-seam.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.flooded-hold.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.inspection.title",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.raiders.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.creature.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.lure.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.boarders.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.hold-thieves.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.storm.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.shoal.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.driftwood.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.galley-fire.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.split-seam.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.flooded-hold.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.inspection.description",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.deck.return",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.deck.withdraw",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.raiders.repel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.raiders.distract",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.raiders.yield",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.creature.repel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.creature.evade",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.creature.bait.single",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.creature.bait.pair",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.lure.anchor",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.lure.counsel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.lure.navigate",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.shoal.navigate",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.shoal.navigate.variant",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.shoal.yield",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.shoal.yield.variant",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.driftwood.repel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.driftwood.repel.variant",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.driftwood.yield",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.inspection.navigate",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.inspection.counsel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.inspection.counsel.variant",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.inspection.yield",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.boarders.counsel",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.default.withdraw",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.choice.tactical.deck",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.line.variant.cause",
+      "placeholders": [
+        "cause"
+      ]
+    },
+    {
+      "id": "crisis.line.variant.effect",
+      "placeholders": [
+        "effect"
+      ]
+    },
+    {
+      "id": "crisis.line.variant.counterplay",
+      "placeholders": [
+        "counterplay"
+      ]
+    },
+    {
+      "id": "crisis.line.integrity",
+      "placeholders": [
+        "integrity",
+        "threats"
+      ]
+    },
+    {
+      "id": "crisis.line.work_position",
+      "placeholders": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "crisis.line.boarders",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.line.pump",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.line.help",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.line.pending",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.raider_hook",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.raider_ward",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.raider_caller",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.boarder_bow",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.boarder_shield",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.boarder_hook",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.boarder_claimant",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.hold_recoverer",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.hold_net",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.rudder_grazer",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.actor.rudder_mate",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.goal.cargo_claim",
+      "placeholders": []
+    },
+    {
+      "id": "intent.crisis.observe",
+      "placeholders": []
+    },
+    {
+      "id": "intent.crisis.netting",
+      "placeholders": []
+    },
+    {
+      "id": "intent.crisis.baited",
+      "placeholders": []
+    },
+    {
+      "id": "intent.crisis.retreated",
+      "placeholders": []
+    },
+    {
+      "id": "intent.crisis.surrendered",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.begin.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.begin.continues",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.begin.alarm.station",
+      "placeholders": [
+        "title",
+        "station"
+      ]
+    },
+    {
+      "id": "crisis.begin.alarm.boarders",
+      "placeholders": [
+        "title"
+      ]
+    },
+    {
+      "id": "crisis.finish.hazard_settled",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.finish.abandon",
+      "placeholders": [
+        "loss"
+      ]
+    },
+    {
+      "id": "crisis.finish.chronicle",
+      "placeholders": [
+        "voyage",
+        "kind",
+        "message"
+      ]
+    },
+    {
+      "id": "crisis.advance.work_undone",
+      "placeholders": [
+        "title",
+        "x",
+        "y",
+        "z",
+        "integrity"
+      ]
+    },
+    {
+      "id": "crisis.advance.assist",
+      "placeholders": [
+        "person",
+        "target"
+      ]
+    },
+    {
+      "id": "crisis.advance.leave",
+      "placeholders": [
+        "threat"
+      ]
+    },
+    {
+      "id": "crisis.finish.decks_clear",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.bait",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.emergency",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.gangplank",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.repair",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.pump",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.meal",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.station.treat",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.repair",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.pump",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.meal",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.emergency",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.bait",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.detail.treat",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.line.header",
+      "placeholders": [
+        "integrity",
+        "detail"
+      ]
+    },
+    {
+      "id": "crisis.work.line.hold",
+      "placeholders": [
+        "cargo",
+        "ready"
+      ]
+    },
+    {
+      "id": "crisis.work.line.cargo",
+      "placeholders": [
+        "item",
+        "quantity"
+      ]
+    },
+    {
+      "id": "crisis.work.line.variant",
+      "placeholders": [
+        "effect",
+        "counterplay"
+      ]
+    },
+    {
+      "id": "crisis.work.line.confirm",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.no_readied",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.moored",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.none",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.invalid_station",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.bait_requirement",
+      "placeholders": [
+        "required",
+        "suffix"
+      ]
+    },
+    {
+      "id": "crisis.work.bait",
+      "placeholders": [
+        "required",
+        "suffix",
+        "animal"
+      ]
+    },
+    {
+      "id": "crisis.work.repair_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.repair",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.pump_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.pump",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.pump.strainers",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.meal_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.meal",
+      "placeholders": [
+        "food",
+        "restored"
+      ]
+    },
+    {
+      "id": "crisis.work.treat.cot",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.treat.injury",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.treat.wool",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.treat",
+      "placeholders": [
+        "injury",
+        "location"
+      ]
+    },
+    {
+      "id": "crisis.work.emergency.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.emergency",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.emergency.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.work.emergency.accelerated",
+      "placeholders": []
+    },
+    {
+      "id": "crisis.item.unsecured_shipment",
+      "placeholders": [
+        "voyage"
+      ]
+    },
+    {
+      "id": "crisis.defeat.message",
+      "placeholders": [
+        "text",
+        "outcome",
+        "x",
+        "y",
+        "z"
+      ]
+    }
   ]
 }

@@ -75,6 +75,7 @@ TOPOLOGY_PRESENTATION_FILE = "topology_text.json"
 ACTION_PRESENTATION_FILE = "action_text.json"
 VESSEL_PRESENTATION_FILE = "vessel_text.json"
 TRAVEL_PRESENTATION_FILE = "travel_text.json"
+SHIP_CRISIS_PRESENTATION_FILE = "ship_crisis_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -276,6 +277,35 @@ _TRAVEL_TEMPLATE_CONTRACT = {
     "travel.resolve.memory": ("family", "response", "success"),
     "travel.route.no_leg": (), "travel.route.closed": ("hazard", "season"), "travel.route.integrity": ("required", "current"), "travel.route.reachable": (),
 }
+
+# Crisis mechanics stay in vessel.json; this contract owns only the rendered
+# deck-event language selected after those mechanics choose an outcome.
+_SHIP_CRISIS_FAMILIES = ("raiders", "creature", "lure", "boarders", "hold-thieves", "storm", "shoal", "driftwood", "galley-fire", "split-seam", "flooded-hold", "inspection")
+_SHIP_CRISIS_TEMPLATE_CONTRACT = {
+    **{f"crisis.{kind}.title": () for kind in _SHIP_CRISIS_FAMILIES},
+    **{f"crisis.{kind}.description": () for kind in _SHIP_CRISIS_FAMILIES},
+    "crisis.choice.deck.return": (), "crisis.choice.deck.withdraw": (),
+    "crisis.choice.raiders.repel": (), "crisis.choice.raiders.distract": (), "crisis.choice.raiders.yield": (),
+    "crisis.choice.creature.repel": (), "crisis.choice.creature.evade": (), "crisis.choice.creature.bait.single": (), "crisis.choice.creature.bait.pair": (),
+    "crisis.choice.lure.anchor": (), "crisis.choice.lure.counsel": (), "crisis.choice.lure.navigate": (),
+    "crisis.choice.shoal.navigate": (), "crisis.choice.shoal.navigate.variant": (), "crisis.choice.shoal.yield": (), "crisis.choice.shoal.yield.variant": (),
+    "crisis.choice.driftwood.repel": (), "crisis.choice.driftwood.repel.variant": (), "crisis.choice.driftwood.yield": (),
+    "crisis.choice.inspection.navigate": (), "crisis.choice.inspection.counsel": (), "crisis.choice.inspection.counsel.variant": (), "crisis.choice.inspection.yield": (),
+    "crisis.choice.boarders.counsel": (), "crisis.choice.default.withdraw": (), "crisis.choice.tactical.deck": (),
+    "crisis.line.variant.cause": ("cause",), "crisis.line.variant.effect": ("effect",), "crisis.line.variant.counterplay": ("counterplay",),
+    "crisis.line.integrity": ("integrity", "threats"), "crisis.line.work_position": ("x", "y", "z"), "crisis.line.boarders": (), "crisis.line.pump": (), "crisis.line.help": (), "crisis.line.pending": (),
+    "crisis.actor.raider_hook": (), "crisis.actor.raider_ward": (), "crisis.actor.raider_caller": (), "crisis.actor.boarder_bow": (), "crisis.actor.boarder_shield": (), "crisis.actor.boarder_hook": (), "crisis.actor.boarder_claimant": (), "crisis.actor.hold_recoverer": (), "crisis.actor.hold_net": (), "crisis.actor.rudder_grazer": (), "crisis.actor.rudder_mate": (),
+    "crisis.goal.cargo_claim": (), "intent.crisis.observe": (), "intent.crisis.netting": (), "intent.crisis.baited": (), "intent.crisis.retreated": (), "intent.crisis.surrendered": (),
+    "crisis.begin.invalid": (), "crisis.begin.continues": (), "crisis.begin.alarm.station": ("title", "station"), "crisis.begin.alarm.boarders": ("title",),
+    "crisis.finish.hazard_settled": (), "crisis.finish.abandon": ("loss",), "crisis.finish.chronicle": ("voyage", "kind", "message"),
+    "crisis.advance.work_undone": ("title", "x", "y", "z", "integrity"), "crisis.advance.assist": ("person", "target"), "crisis.advance.leave": ("threat",), "crisis.finish.decks_clear": (),
+    "crisis.station.bait": (), "crisis.station.emergency": (), "crisis.station.gangplank": (), "crisis.station.repair": (), "crisis.station.pump": (), "crisis.station.meal": (), "crisis.station.treat": (),
+    "crisis.work.detail.repair": (), "crisis.work.detail.pump": (), "crisis.work.detail.meal": (), "crisis.work.detail.emergency": (), "crisis.work.detail.bait": (), "crisis.work.detail.treat": (),
+    "crisis.work.line.header": ("integrity", "detail"), "crisis.work.line.hold": ("cargo", "ready"), "crisis.work.line.cargo": ("item", "quantity"), "crisis.work.line.variant": ("effect", "counterplay"), "crisis.work.line.confirm": (), "crisis.work.no_readied": (), "crisis.work.moored": (), "crisis.work.none": (),
+    "crisis.work.invalid_station": (), "crisis.work.bait_requirement": ("required", "suffix"), "crisis.work.bait": ("required", "suffix", "animal"), "crisis.work.repair_requirement": (), "crisis.work.repair": (), "crisis.work.pump_requirement": (), "crisis.work.pump": (), "crisis.work.pump.strainers": (), "crisis.work.meal_requirement": (), "crisis.work.meal": ("food", "restored"), "crisis.work.treat.cot": (), "crisis.work.treat.injury": (), "crisis.work.treat.wool": (), "crisis.work.treat": ("injury", "location"), "crisis.work.emergency.requirement": (), "crisis.work.emergency": (), "crisis.work.emergency.pressure": (), "crisis.work.emergency.accelerated": (),
+    "crisis.item.unsecured_shipment": ("voyage",), "crisis.defeat.message": ("text", "outcome", "x", "y", "z"),
+}
+
 
 _ACTION_TEMPLATE_CONTRACT.update({'combat.attack.effect.partial_cover': (), 'combat.attack.effect.injury': (), 'combat.attack.effect.thorn': (), 'combat.attack.effect.billhook': (), 'combat.attack.effect.spear': (), 'combat.attack.effect.cudgel': (), 'combat.attack.effect.staff': (), 'combat.attack.effect.axe': (), 'combat.attack.effect.pike': (), 'combat.attack.effect.boar_spear': (), 'combat.attack.effect.knives': (), 'combat.attack.effect.hammer': (), 'combat.attack.effect.net': (), 'combat.attack.effect.net_bind': (), 'combat.attack.effect.net_recover': (), 'combat.attack.effect.hooked_javelin': (), 'combat.attack.effect.retrieval': (), 'combat.attack.effect.handgonne': (), 'combat.attack.effect.high_arc': (), 'combat.attack.effect.high_arc_daze': (), 'combat.attack.effect.smoke_braid': (), 'combat.attack.no_physical_ammunition': ('ammunition',), 'combat.guard.handgonne_loading': ('current', 'required', 'stage'), 'combat.guard.no_engaged': ()})
 
@@ -736,6 +766,12 @@ class TravelPresentation:
 
 
 @dataclass(frozen=True)
+class ShipCrisisPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -763,6 +799,7 @@ class ContentPack:
     action_presentations: tuple[ActionPresentation, ...]
     vessel_presentations: tuple[VesselPresentation, ...]
     travel_presentations: tuple[TravelPresentation, ...]
+    ship_crisis_presentations: tuple[ShipCrisisPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -833,6 +870,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown travel presentation id: {semantic_id}")
+
+    def ship_crisis_presentation(self, semantic_id: str) -> ShipCrisisPresentation:
+        for presentation in self.ship_crisis_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown ship crisis presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -917,8 +960,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, and travel")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, and ship_crisis")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1725,6 +1768,26 @@ def _travel_presentations(root: Path, pack_id: str) -> tuple[TravelPresentation,
     return tuple(TravelPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _TRAVEL_TEMPLATE_CONTRACT.items())
 
 
+def _ship_crisis_presentations(root: Path, pack_id: str) -> tuple[ShipCrisisPresentation, ...]:
+    source = root / SHIP_CRISIS_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid ship crisis presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _SHIP_CRISIS_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("ship_crisis") != expected_contract:
+        raise RuntimeError(f"invalid engine ship crisis content contract at {contract_source}: ship_crisis does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid ship crisis presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_SHIP_CRISIS_TEMPLATE_CONTRACT):
+        missing, unknown = set(_SHIP_CRISIS_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_SHIP_CRISIS_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required ship crisis keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown ship crisis keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid ship crisis presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(ShipCrisisPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _SHIP_CRISIS_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -1892,10 +1955,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     actions = _action_presentations(root, pack_id)
     vessel = _vessel_presentations(root, pack_id)
     travel = _travel_presentations(root, pack_id)
+    ship_crisis = _ship_crisis_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, household_template,
     )
 
 

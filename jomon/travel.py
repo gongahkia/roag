@@ -9,6 +9,7 @@ from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
 from .route_chart import edge_between, leg_travel_time, route_availability
 from .travel_presentation import travel_format
+from .ship_crisis_presentation import crisis_description
 
 
 DESTINATIONS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -131,7 +132,7 @@ def choose_destination(
             state.vessel_changes["active_voyage_variant"] = variant.id
         else:
             state.vessel_changes.pop("active_voyage_variant", None)
-        state.voyage_detail = VOYAGES[event][1]
+        state.voyage_detail = crisis_description(event)
         if variant:
             state.voyage_detail += travel_format("travel.variant.detail", name=variant.name, cause=variant.cause, effect=variant.effect)
         state.add_message(state.voyage_detail, priority=3)

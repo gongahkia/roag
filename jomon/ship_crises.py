@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .catalog import VESSEL_SECTIONS, load_catalog
 from .item_presentation import item_display_name_or_legacy
+from .ship_crisis_presentation import crisis_description, crisis_title, ship_crisis_format, ship_crisis_text
 from .state import GameState, Position, Threat
 
 _VESSEL = load_catalog("vessel.json", VESSEL_SECTIONS)
@@ -13,31 +14,26 @@ HAZARD_STATIONS = {kind: Position(**row) for kind, row in _VESSEL["hazard_statio
 
 
 def choices(state: GameState) -> list[tuple[str, str, str]]:
+    """Return engine response keys with selected-pack labels."""
     kind = state.voyage_kind
     from .voyage_variants import active_variant
 
     variant = active_variant(state, kind)
     if state.vessel_changes.get("deck_crisis"):
-        return [("P", "Return to the deck while danger advances", "danger"), ("Y", "Abandon contested cargo and withdraw with hull damage", "refusal")]
+        return [("P", ship_crisis_text("crisis.choice.deck.return"), "danger"), ("Y", ship_crisis_text("crisis.choice.deck.withdraw"), "refusal")]
     options = {
-        "raiders": [("R", "Repel with readied reach", "danger"), ("D", "Distract with material preparation", "commitment"), ("Y", "Yield one cargo lot", "refusal")],
-        "creature": [("R", "Repel with a spaced weapon", "danger"), ("E", "Evade through pilot knowledge", "commitment"), ("B", f"Bait with {'two' if variant else 'one'} salt-fish lot{'s' if variant else ''}", "commitment")],
-        "lure": [("A", "Anchor to the real bank", "commitment"), ("C", "Counsel named crew", "ordinary"), ("N", "Navigate by chart and lead line", "commitment")],
-        "shoal": [("N", "Sound a slower channel: four extra actions", "commitment"), ("Y", "Force the shoal: two hull integrity", "danger")],
-        "driftwood": [("R", "Secure timber: one rope use, three actions", "commitment"), ("Y", "Let the raft pass without a claim", "refusal")],
-        "inspection": [("N", "Offer witnessed institutional trust or one paper lot", "ordinary"), ("C", "Pay two accountable credits", "commitment"), ("Y", "Refuse: lose one cargo lot to detention", "refusal")],
-    }.get(kind, [("Y", "Withdraw: abandon cargo and accept two hull damage", "refusal")])
+        "raiders": [("R", "crisis.choice.raiders.repel", "danger"), ("D", "crisis.choice.raiders.distract", "commitment"), ("Y", "crisis.choice.raiders.yield", "refusal")],
+        "creature": [("R", "crisis.choice.creature.repel", "danger"), ("E", "crisis.choice.creature.evade", "commitment"), ("B", "crisis.choice.creature.bait.pair" if variant else "crisis.choice.creature.bait.single", "commitment")],
+        "lure": [("A", "crisis.choice.lure.anchor", "commitment"), ("C", "crisis.choice.lure.counsel", "ordinary"), ("N", "crisis.choice.lure.navigate", "commitment")],
+        "shoal": [("N", "crisis.choice.shoal.navigate.variant" if variant else "crisis.choice.shoal.navigate", "commitment"), ("Y", "crisis.choice.shoal.yield.variant" if variant else "crisis.choice.shoal.yield", "danger")],
+        "driftwood": [("R", "crisis.choice.driftwood.repel.variant" if variant else "crisis.choice.driftwood.repel", "commitment"), ("Y", "crisis.choice.driftwood.yield", "refusal")],
+        "inspection": [("N", "crisis.choice.inspection.navigate", "ordinary"), ("C", "crisis.choice.inspection.counsel.variant" if variant else "crisis.choice.inspection.counsel", "commitment"), ("Y", "crisis.choice.inspection.yield", "refusal")],
+    }.get(kind, [("Y", "crisis.choice.default.withdraw", "refusal")])
     if kind == "boarders" and variant:
-        options = [("C", "Settle one named institutional obligation before boarding", "commitment"), *options]
-    if kind == "shoal" and variant:
-        options = [(key, label.replace("four extra actions", "six extra actions").replace("two hull integrity", "three hull integrity"), semantic) for key, label, semantic in options]
-    if kind == "driftwood" and variant:
-        options = [(key, label.replace("three actions", "four actions; gain timber and charcoal"), semantic) for key, label, semantic in options]
-    if kind == "inspection" and variant:
-        options = [(key, label.replace("two accountable credits", "three accountable credits"), semantic) for key, label, semantic in options]
+        options = [("C", "crisis.choice.boarders.counsel", "commitment"), *options]
     if kind in TACTICAL:
-        options = [("P", "Take the deck and face the boarding danger", "danger"), *options]
-    return options
+        options = [("P", "crisis.choice.tactical.deck", "danger"), *options]
+    return [(key, ship_crisis_text(text_id), semantic) for key, text_id, semantic in options]
 
 
 def crisis_lines(state: GameState) -> list[str]:
@@ -46,23 +42,32 @@ def crisis_lines(state: GameState) -> list[str]:
 
     variant = active_variant(state, state.voyage_kind)
     if variant:
-        lines += [f"CAUSE {variant.cause}", f"WHAT HAS CHANGED {variant.effect}", f"POSSIBLE ANSWERS {variant.counterplay}"]
+        lines += [
+            ship_crisis_format("crisis.line.variant.cause", cause=variant.cause),
+            ship_crisis_format("crisis.line.variant.effect", effect=variant.effect),
+            ship_crisis_format("crisis.line.variant.counterplay", counterplay=variant.counterplay),
+        ]
     if state.vessel_changes.get("deck_crisis"):
         kind = state.voyage_kind
         station = HAZARD_STATIONS.get(kind)
-        lines += [f"Integrity {state.vessel_integrity}/10. {sum(a.status in {'watching', 'engaged'} for a in state.vessel_threats)} active deck threats."]
-        lines += [f"Work position: {station.x},{station.y},z{station.z:+d}. E previews the intervention."] if station else ["Defeat, negotiate or drive off the boarders. V offers nearby terms; R accepts withdrawal losses."]
+        lines += [ship_crisis_format("crisis.line.integrity", integrity=state.vessel_integrity, threats=sum(a.status in {"watching", "engaged"} for a in state.vessel_threats))]
+        lines += [ship_crisis_format("crisis.line.work_position", x=station.x, y=station.y, z=f"{station.z:+d}")] if station else [ship_crisis_text("crisis.line.boarders")]
         if kind == "flooded-hold":
             from .circuits import cell_key
-
             pump = state.circuits.get(cell_key("vessel", Position(station.x + 2, station.y, station.z), "surface"))
             if pump and pump.kind == "drain":
-                lines += ["A fitted bilge pump can clear water without repairing a seam. Inspect nearby wiring with \\."]
-        lines += ["F inspects materials; A targets visible threats; O reads intent. Hatches take one action under danger."]
-    return lines + ["Inspection and Escape cost no time. The event remains pending until resolved."]
+                lines += [ship_crisis_text("crisis.line.pump")]
+        lines += [ship_crisis_text("crisis.line.help")]
+    return lines + [ship_crisis_text("crisis.line.pending")]
 
 
-def _spawn(state: GameState, name: str, position: Position, role: str, *, weapon="spear", duty="", profile="pursuer", health=6) -> Threat:
+def _set_crisis_intent(actor: Threat, intent_id: str) -> None:
+    actor.intent_id = intent_id
+    actor.intent = ship_crisis_text(intent_id)
+
+
+def _spawn(state: GameState, actor_slot: str, position: Position, role: str, *, weapon="spear", duty="", profile="pursuer", health=6) -> Threat:
+    name = ship_crisis_text(f"crisis.actor.{actor_slot}")
     from .world import distance, is_walkable
 
     occupied = {a.position for a in state.vessel_threats}
@@ -80,7 +85,8 @@ def _spawn(state: GameState, name: str, position: Position, role: str, *, weapon
                    home_position=start, region_id="jomon", group=f"boarding-{state.travel_count}", allegiance="cargo-skiffs",
                    ecology="raider" if profile != "animal" else "territorial", duty=duty,
                    capabilities=["stairs", "doors", "steal", "escape"] if profile != "animal" else ["no-climb", "defends rudder territory"],
-                   intent="observes the deck before committing", goal="secure a physical cargo claim")
+                   goal="crisis.cargo_claim")
+    _set_crisis_intent(actor, "intent.crisis.observe")
     state.vessel_threats.append(actor)
     from .enemy_equipment import issue_enemy_equipment
 
@@ -94,9 +100,9 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
     from .state import MaterialCell
 
     if state.voyage_status != "active" or state.voyage_kind not in TACTICAL or state.jomon_space != "vessel":
-        return False, "Only an active physical voyage can open the working decks."
+        return False, ship_crisis_text("crisis.begin.invalid")
     if state.vessel_changes.get("deck_crisis"):
-        return True, "The deck crisis continues; no extra time passes while inspecting."
+        return True, ship_crisis_text("crisis.begin.continues")
     state.vessel_threats.clear()
     state.vessel_changes.update(deck_crisis=True, deck_ticks=0, deck_work_done=False)
     state.smoke, state.water, state.sound_events, state.group_alerts = {}, {}, [], {}
@@ -107,22 +113,22 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
     variant = active_variant(state, kind)
 
     if kind == "raiders":
-        _spawn(state, "cargo-rail hook bearer", Position(54, 10), "thief", duty="scavenge")
-        _spawn(state, "skiff ward", Position(52, 12), "protector", profile="reach")
+        _spawn(state, "raider_hook", Position(54, 10), "thief", duty="scavenge")
+        _spawn(state, "raider_ward", Position(52, 12), "protector", profile="reach")
         if variant:
-            _spawn(state, "shortage lot-caller", Position(50, 8), "controller", profile="ranged", weapon="sling", duty="escort")
+            _spawn(state, "raider_caller", Position(50, 8), "controller", profile="ranged", weapon="sling", duty="escort")
     elif kind == "boarders":
-        _spawn(state, "upper-rail bow bearer", Position(55, 10, 1), "skirmisher", profile="ranged", weapon="longbow")
-        _spawn(state, "stair shield bearer", Position(47, 11, 0), "protector", profile="reach")
-        _spawn(state, "cross-deck hook runner", Position(35, 12, 0), "flanker")
+        _spawn(state, "boarder_bow", Position(55, 10, 1), "skirmisher", profile="ranged", weapon="longbow")
+        _spawn(state, "boarder_shield", Position(47, 11, 0), "protector", profile="reach")
+        _spawn(state, "boarder_hook", Position(35, 12, 0), "flanker")
         if variant:
-            _spawn(state, "obligation claimant", Position(31, 12, 0), "protector", profile="reach", duty="escort")
+            _spawn(state, "boarder_claimant", Position(31, 12, 0), "protector", profile="reach", duty="escort")
     elif kind == "hold-thieves":
-        thief = _spawn(state, "hold recoverer", Position(14, 11, -1), "thief", duty="scavenge")
+        thief = _spawn(state, "hold_recoverer", Position(14, 11, -1), "thief", duty="scavenge")
         if installed(state, "cargo-rail-netting"):
             thief.conditions["net-drag"] = 3
-            thief.intent = "cuts through fitted cargo-rail netting before reaching the loose shipment"
-        _spawn(state, "hatch net bearer", Position(19, 10, -1), "controller", weapon="weighted net", duty="escort")
+            _set_crisis_intent(thief, "intent.crisis.netting")
+        _spawn(state, "hold_net", Position(19, 10, -1), "controller", weapon="weighted net", duty="escort")
         available = [name for name, stack in state.vessel_cargo.items() if stack.quantity > 0]
         if variant:
             def shortage(name: str) -> int:
@@ -134,13 +140,13 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
             state.vessel_cargo[cargo].quantity -= 1
             if state.vessel_cargo[cargo].quantity == 0:
                 del state.vessel_cargo[cargo]
-            item = create_item(state, f"commodity:{cargo}", f"unsecured Jomon shipment, voyage {state.travel_count}", location="ground")
+            item = create_item(state, f"commodity:{cargo}", ship_crisis_format("crisis.item.unsecured_shipment", voyage=state.travel_count), location="ground")
             item.region_id, item.ground_position = "jomon", Position(17, 11, -1)
             thief.objective_position = item.ground_position
     elif kind == "creature":
-        _spawn(state, "rudder shoal grazer", Position(59, 10), "territorial", profile="animal", health=9)
+        _spawn(state, "rudder_grazer", Position(59, 10), "territorial", profile="animal", health=9)
         if variant:
-            _spawn(state, "displaced shoal mate", Position(54, 15), "territorial", profile="animal", health=7)
+            _spawn(state, "rudder_mate", Position(54, 15), "territorial", profile="animal", health=7)
     else:
         station = HAZARD_STATIONS[kind]
         point = Position(station.x + 1, station.y, station.z)
@@ -172,7 +178,7 @@ def begin_deck(state: GameState) -> tuple[bool, str]:
             )
             if variant:
                 state.vessel_materials[key(Position(station.x + 2, station.y, station.z))] = MaterialCell(material="timber", water=2, support=1 if kind == "split-seam" else 2)
-    message = f"Deck alarm: {VOYAGES[kind][0]}. Every move now takes time; the boarders are still preparing. " + (f"Work the marked station at {HAZARD_STATIONS[kind]}." if kind in HAZARD_STATIONS else "Watch the boarders or leave with R.")
+    message = (ship_crisis_format("crisis.begin.alarm.station", title=crisis_title(kind), station=HAZARD_STATIONS[kind]) if kind in HAZARD_STATIONS else ship_crisis_format("crisis.begin.alarm.boarders", title=crisis_title(kind)))
     state.remember(message)
     state.add_message(message, priority=3)
     return True, message
@@ -186,13 +192,14 @@ def _finish(state: GameState, message: str) -> str:
     for actor in state.vessel_threats:
         release_enemy_possession(state, actor)
         if actor.status in {"watching", "engaged"}:
-            actor.status, actor.intent = "retreated", "left the resolved deck dispute"
+            actor.status = "retreated"
+            _set_crisis_intent(actor, "intent.crisis.retreated")
     state.vessel_changes["deck_crisis"] = False
     state.vessel_changes[f"voyage_outcome:{kind}"] = message
     state.voyage_status = "resolved"
     _finish_travel(state, message)
     state.voyage_kind = None
-    state.chronicle.append(f"Voyage {state.travel_count}, {kind}: {message}")
+    state.chronicle.append(ship_crisis_format("crisis.finish.chronicle", voyage=state.travel_count, kind=kind, message=message))
     del state.chronicle[:-40]
     return message
 
@@ -202,7 +209,7 @@ def abandon_deck(state: GameState) -> str:
 
     loss = _lose_vessel_cargo(state)
     state.vessel_integrity = max(1, state.vessel_integrity - 2)
-    return _finish(state, f"The courier orders withdrawal; {loss}; hull loses two integrity. Existing fire and water remain for repair.")
+    return _finish(state, ship_crisis_format("crisis.finish.abandon", loss=loss))
 
 
 def advance_deck(state: GameState) -> None:
@@ -222,7 +229,7 @@ def advance_deck(state: GameState) -> None:
                    or kind == "split-seam" and cell and cell.support >= 3 and cell.water <= 1
                    or kind == "flooded-hold" and sum(c.water for c in state.vessel_materials.values()) <= 1)
         if settled:
-            _finish(state, "The physical hazard is no longer active; material intervention or endurance clears the passage. Earlier damage remains.")
+            _finish(state, ship_crisis_text("crisis.finish.hazard_settled"))
             return
     from .vessel_refits import installed
 
@@ -234,7 +241,7 @@ def advance_deck(state: GameState) -> None:
             cell.water = min(3, cell.water + 1)
         if kind in {"split-seam", "flooded-hold"} and ticks >= 12 and ticks % 8 == 0:
             state.vessel_integrity = max(1, state.vessel_integrity - 1)
-        state.add_message(f"{VOYAGES[kind][0]}: the work at {station.x},{station.y},z{station.z:+d} remains undone; hull {state.vessel_integrity}/10.", priority=3)
+        state.add_message(ship_crisis_format("crisis.advance.work_undone", title=crisis_title(kind), x=station.x, y=station.y, z=f"{station.z:+d}", integrity=state.vessel_integrity), priority=3)
     # nearby adults help physically; no remote attack or silent named death.
     if ticks % 3 == 0:
         for person in state.household:
@@ -245,19 +252,21 @@ def advance_deck(state: GameState) -> None:
             if targets and person.role in {"guard", "carpenter", "bargemaster"}:
                 target = min(targets, key=lambda actor: actor.id)
                 affect_body(state, target, "debris", 1, target.position)
-                state.add_message(f"{person.name} assists from the adjacent deck position against {target.name}.", priority=3)
+                state.add_message(ship_crisis_format("crisis.advance.assist", person=person.name, target=target.name), priority=3)
                 break
     for actor in state.vessel_threats:
         withdrawing = actor.morale <= 0 or actor.goal == "break contact"
         if actor.status != "engaged" or not withdrawing:
             continue
         if actor.home_position and distance(actor.position, actor.home_position) <= 2:
-            actor.status, actor.intent = "retreated", "abandons the claim and returns to its boarding point"
-            state.add_message(f"{actor.name} leaves by its boarding point; the failed claim is recorded.", priority=3)
+            actor.status = "retreated"
+            _set_crisis_intent(actor, "intent.crisis.retreated")
+            state.add_message(ship_crisis_format("crisis.advance.leave", threat=actor.name), priority=3)
         elif actor.stalled_turns >= 3:
-            actor.status, actor.intent = "negotiated", "surrenders after failing to find a withdrawal route"
+            actor.status = "negotiated"
+            _set_crisis_intent(actor, "intent.crisis.surrendered")
     if not station and state.vessel_threats and all(actor.status not in {"watching", "engaged"} for actor in state.vessel_threats):
-        _finish(state, "The contested decks are clear. Unclaimed physical possessions remain where they fell.")
+        _finish(state, ship_crisis_text("crisis.finish.decks_clear"))
 
 
 def station_action(state: GameState, tile: str):
@@ -265,43 +274,35 @@ def station_action(state: GameState, tile: str):
 
     if state.combat_active:
         if state.voyage_kind == "creature" and tile in {"G", "H"}:
-            return ActionResult(False, False, "Offer counted fish from a physical hold position.", "ship-work:bait")
+            return ActionResult(False, False, ship_crisis_text("crisis.station.bait"), "ship-work:bait")
         if state.position == HAZARD_STATIONS.get(state.voyage_kind):
-            return ActionResult(False, False, "Preview the physical emergency work.", "ship-work:emergency")
+            return ActionResult(False, False, ship_crisis_text("crisis.station.emergency"), "ship-work:emergency")
         if tile == "+" and state.position.x == 63:
-            return ActionResult(False, False, "The gangplank cannot leave an unresolved voyage.", "voyage")
+            return ActionResult(False, False, ship_crisis_text("crisis.station.gangplank"), "voyage")
     if tile == "R":
-        return ActionResult(False, False, "Count repair material before working.", "ship-work:repair")
+        return ActionResult(False, False, ship_crisis_text("crisis.station.repair"), "ship-work:repair")
     if tile == "U":
-        return ActionResult(False, False, "Inspect the bilge before pumping.", "ship-work:pump")
+        return ActionResult(False, False, ship_crisis_text("crisis.station.pump"), "ship-work:pump")
     if tile == "G":
-        return ActionResult(False, False, "Prepare a meal from counted provisions.", "ship-work:meal")
+        return ActionResult(False, False, ship_crisis_text("crisis.station.meal"), "ship-work:meal")
     if tile == "b":
-        return ActionResult(False, False, "Inspect injury treatment at this berth.", "ship-work:treat")
+        return ActionResult(False, False, ship_crisis_text("crisis.station.treat"), "ship-work:treat")
     return None
 
 
 def work_lines(state: GameState, task: str) -> list[str]:
-    details = {
-        "repair": "Two action-clock steps and one timber lot restore three hull integrity. No timber means no work or time charged.",
-        "pump": "Three action-clock steps pump sparse water from this deck, without erasing fire or changing cargo ownership.",
-        "meal": "One grain or salt-fish lot and four action-clock steps restore two health and clear fatigue; persistent injury remains.",
-        "emergency": "Three exposed action-clock steps secure this physical control. A rope/lever preparation helps a cracked stay; the galley cover smothers oil, the repair brace seats the seam, and the bilge pumps water.",
-        "bait": "One salt-fish lot and one exposed action draw the rudder grazer clear. Fish is consumed; no animal is summoned or slain.",
-        "treat": "With a fitted sickbay sling cot, one wool lot and six action-clock steps clear one persistent injury. Lost health and other injuries remain.",
-    }
-    cargo = "; ".join(
-        f"{item_display_name_or_legacy(name)}: {state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0}"
-        for name in ("timber", "grain", "salt fish")
-    )
-    lines = [f"Hull {state.vessel_integrity}/10; {state.voyage_detail if state.combat_active else 'moored work'}", details[task],
-             f"Counted hold — {cargo}. Readied: {item_display_name_or_legacy(state.gear) if state.gear else 'none'}."]
+    cargo = "; ".join(ship_crisis_format("crisis.work.line.cargo", item=item_display_name_or_legacy(name), quantity=state.vessel_cargo[name].quantity if name in state.vessel_cargo else 0) for name in ("timber", "grain", "salt fish"))
+    detail = state.voyage_detail if state.combat_active else ship_crisis_text("crisis.work.moored")
+    lines = [
+        ship_crisis_format("crisis.work.line.header", integrity=state.vessel_integrity, detail=detail),
+        ship_crisis_text(f"crisis.work.detail.{task}"),
+        ship_crisis_format("crisis.work.line.hold", cargo=cargo, ready=item_display_name_or_legacy(state.gear) if state.gear else ship_crisis_text("crisis.work.no_readied")),
+    ]
     from .voyage_variants import active_variant
-
     variant = active_variant(state, state.voyage_kind)
     if variant and task in {"emergency", "bait"}:
-        lines.append(f"Variant work: {variant.effect} {variant.counterplay}")
-    return lines + ["Confirm F; Escape cancels. Damage already suffered and lost items are not undone."]
+        lines.append(ship_crisis_format("crisis.work.line.variant", effect=variant.effect, counterplay=variant.counterplay))
+    return lines + [ship_crisis_text("crisis.work.line.confirm")]
 
 
 def work(state: GameState, task: str) -> tuple[bool, str]:
@@ -310,7 +311,7 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
     from .materials import key
 
     if state.location != "jomon" or state.jomon_space != "vessel":
-        return False, "Work requires the physical vessel station."
+        return False, ship_crisis_text("crisis.work.invalid_station")
     tile = base_tile(state, state.position)
     from .vessel_refits import installed
     from .voyage_variants import active_variant
@@ -322,38 +323,39 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
         fish = state.vessel_cargo.get("salt fish")
         required = 2 if variant else 1
         if not fish or fish.quantity < required:
-            return False, f"This shoal needs {required} counted salt-fish lot{'s' if required > 1 else ''} for bait."
+            return False, ship_crisis_format("crisis.work.bait_requirement", required=required, suffix="s" if required > 1 else "")
         fish.quantity -= required
         if not fish.quantity:
             del state.vessel_cargo["salt fish"]
         for actor in state.vessel_threats:
             if actor.profile == "animal":
-                actor.status, actor.intent = "evaded", "follows the material bait out of the rudder shoal"
-        cost, message = 1, f"{required} salt-fish lot{'s' if required > 1 else ''} draw the territorial {'pair' if variant else 'grazer'} clear of the rudder."
+                actor.status = "evaded"
+                _set_crisis_intent(actor, "intent.crisis.baited")
+        cost, message = 1, ship_crisis_format("crisis.work.bait", required=required, suffix="s" if required > 1 else "", animal="pair" if variant else "grazer")
     elif task == "repair" and tile == "R":
         stack = state.vessel_cargo.get("timber")
         if not stack or stack.quantity <= 0 or state.vessel_integrity >= 10:
-            return False, "Repair needs a timber lot and actual hull damage."
+            return False, ship_crisis_text("crisis.work.repair_requirement")
         stack.quantity -= 1
         if not stack.quantity:
             del state.vessel_cargo["timber"]
         state.vessel_integrity = min(10, state.vessel_integrity + 3)
         state.vessel_changes["hull_repairs"] = min(1000, int(state.vessel_changes.get("hull_repairs", 0)) + 1)
-        message = "One timber lot seats a physical hull repair: three integrity restored."
+        message = ship_crisis_text("crisis.work.repair")
     elif task == "pump" and tile == "U":
         if not any(cell.water for cell in state.vessel_materials.values()):
-            return False, "The bilge is already dry; no pumping work is needed."
+            return False, ship_crisis_text("crisis.work.pump_requirement")
         for coordinate, cell in state.vessel_materials.items():
             if coordinate.endswith(f",{state.position.z}"):
                 cell.water = 0
         cost = 1 if installed(state, "twin-bilge-strainers") else 3
-        message = "The bilge shift pumps this deck's counted water. Active unseated seams may admit more."
+        message = ship_crisis_text("crisis.work.pump")
         if cost == 1:
-            message += " Twin strainers make the physical stroke one action."
+            message += " " + ship_crisis_text("crisis.work.pump.strainers")
     elif task == "meal" and tile == "G":
         food = next((name for name in ("grain", "salt fish") if state.vessel_cargo.get(name) and state.vessel_cargo[name].quantity > 0), None)
         if food is None or state.courier is None:
-            return False, "The galley needs one counted grain or salt-fish lot."
+            return False, ship_crisis_text("crisis.work.meal_requirement")
         state.vessel_cargo[food].quantity -= 1
         if not state.vessel_cargo[food].quantity:
             del state.vessel_cargo[food]
@@ -363,25 +365,25 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
         restored = 3 if installed(state, "galley-fire-cover") else 2
         state.courier.health = min(state.courier.max_health, state.courier.health + max(0, restored - 2))
         cost = 3 if installed(state, "galley-fire-cover") else 4
-        message = f"A shared {food} meal restores {restored} health and eases fatigue; injuries still need treatment."
+        message = ship_crisis_format("crisis.work.meal", food=food, restored=restored)
     elif task == "treat" and tile == "b":
         if not installed(state, "sickbay-sling-cot"):
-            return False, "This berth has no fitted sickbay sling cot."
+            return False, ship_crisis_text("crisis.work.treat.cot")
         if state.courier is None or not state.courier.injuries:
-            return False, "The courier has no persistent injury for the sling cot."
+            return False, ship_crisis_text("crisis.work.treat.injury")
         wool = state.vessel_cargo.get("wool")
         if not wool or wool.quantity <= 0:
-            return False, "Sling-cot treatment needs one clean wool hold lot."
+            return False, ship_crisis_text("crisis.work.treat.wool")
         wool.quantity -= 1
         if wool.quantity == 0:
             del state.vessel_cargo["wool"]
         location = sorted(state.courier.injuries)[0]
         injury = state.courier.injuries.pop(location)
         state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
-        cost, message = 6, f"The sling cot and one wool lot clear {injury} at {location}; lost health and other injuries remain."
+        cost, message = 6, ship_crisis_format("crisis.work.treat", injury=injury, location=location)
     elif task == "emergency" and state.combat_active and state.position == HAZARD_STATIONS.get(state.voyage_kind):
         if state.voyage_kind == "storm" and state.gear != "rope" and not (state.courier and state.courier.technique == "lever craft") and not installed(state, "storm-backstay"):
-            return False, "The stay needs a readied rope or lever craft; another courier can prepare it before the next voyage."
+            return False, ship_crisis_text("crisis.work.emergency.requirement")
         point = Position(state.position.x + 1, state.position.y, state.position.z)
         cell = state.vessel_materials.get(key(point))
         pressure = False
@@ -411,13 +413,13 @@ def work(state: GameState, task: str) -> tuple[bool, str]:
             or state.voyage_kind in {"split-seam", "flooded-hold"} and installed(state, "twin-bilge-strainers")
         )
         cost = 3 + int(pressure) - int(accelerated)
-        message = "Physical emergency work secures the marked position; existing damage elsewhere remains."
+        message = ship_crisis_text("crisis.work.emergency")
         if pressure:
-            message += " The active voyage variant adds one exposed action for its second material front."
+            message += " " + ship_crisis_text("crisis.work.emergency.pressure")
         if accelerated:
-            message += " The fitted station removes one exposed action."
+            message += " " + ship_crisis_text("crisis.work.emergency.accelerated")
     else:
-        return False, "This is not the selected physical work position."
+        return False, ship_crisis_text("crisis.work.none")
     _advance_world(state, steps=cost)
     if task == "emergency" and state.voyage_status == "active":
         _finish(state, message)
@@ -450,7 +452,7 @@ def deck_defeat(state: GameState, text: str, permanent: bool) -> str:
         courier.health = max(2, courier.health)
     state.position = JOMON_GANGPLANK
     sync_legacy_load(state)
-    message = f"{text} {'Death' if permanent else 'Injury'} during a declared deck crisis; the physical load remains at {site.x},{site.y},z{site.z:+d}. Regional quests were not reset."
+    message = ship_crisis_format("crisis.defeat.message", text=text, outcome="Death" if permanent else "Injury", x=site.x, y=site.y, z=f"{site.z:+d}")
     if state.vessel_changes.get("deck_crisis"):
         message += " " + abandon_deck(state)
     state.remember(message)

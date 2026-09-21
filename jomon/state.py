@@ -294,6 +294,11 @@ LEGACY_THREAT_INTENT_IDS = {
     "pinned outside close range by the crossbar brace": "intent.pinned.crossbar",
     "pinned between the fork tines": "intent.pinned.fork",
     "pinned across the forked guard line": "intent.pinned.fork_line",
+    "observes the deck before committing": "intent.crisis.observe",
+    "cuts through fitted cargo-rail netting before reaching the loose shipment": "intent.crisis.netting",
+    "follows the material bait out of the rudder shoal": "intent.crisis.baited",
+    "abandons the claim and returns to its boarding point": "intent.crisis.retreated",
+    "surrenders after failing to find a withdrawal route": "intent.crisis.surrendered",
 }
 
 def legacy_threat_intent_id(intent: str) -> str:
