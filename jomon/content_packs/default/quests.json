@@ -460,5 +460,107 @@
       "__completed": "{arc_title} ended. {consequence}",
       "__replacement": "Two credits funded a witnessed replacement for the lost {evidence}."
     }
+  },
+  "services": {
+    "quest.service.cache_mark": {
+      "label": "Mark a named regional cache",
+      "requirement": "",
+      "results": {
+        "marked": "The local worker places a persistent named cache mark on Jomon's account.",
+        "none_left": "There are no unopened, unmarked local caches left to name.",
+        "marker": "A named local worker marks {name} at {x},{y}, level {level}."
+      }
+    },
+    "quest.service.practical_instruction": {
+      "label": "Take local practical instruction",
+      "requirement": "",
+      "results": {
+        "already_known": "{courier} already knows {technique}.",
+        "completed": "{contact} teaches {technique}: {effect}."
+      },
+      "effects": {
+        "mill hearing": "control work is quieter; weak supports can be braced without a heavy tool",
+        "shoreline measure": "released water no longer adds a crossing action; coastal weather leaves a longer sightline",
+        "smoke spoor": "movement through smoke is quiet; smoke leaves five paces of local visibility",
+        "bell interval": "warning controls are worked quietly; brace work can be timed without a heavy tool"
+      }
+    },
+    "quest.service.treatment": {
+      "label": "Treat one persistent injury",
+      "requirement": "the courier has no persistent injury",
+      "results": {
+        "no_care": "Treatment needs one credit or the prepared healer's field care.",
+        "memory": "Treated {courier}'s {location} injury for a recorded obligation.",
+        "completed": "{contact} treats the {location} injury; the care takes time and leaves an obligation.",
+        "remaining_injury": "treated soreness"
+      }
+    },
+    "quest.service.public_field_report": {
+      "label": "Publish field report: {report_name}",
+      "requirement": "settle an unreported regional situation",
+      "results": {
+        "missing_account": "A completed site and its working account are needed for a report.",
+        "missing_outcome": "The changed site has no recorded outcome to report.",
+        "record": "{contact} hears {report_name}: {outcome}. {response}",
+        "completed": "{record} Public trust and confidence are recorded.",
+        "fallback_report_name": "a changed regional site"
+      },
+      "responses": {
+        "hearthford": "The mill board posts the crossing under a shared load measure.",
+        "greywash": "The salt-house ledger marks the safer shore margin for every crew.",
+        "greenwold": "The medicine cutters add the refuge margin to their common route.",
+        "whitecairn": "The bell watch calls the stable step on its next public interval.",
+        "dunmire": "The peat crews enter the raised margin in their shared bank account.",
+        "rillscar": "The bridge witness marks the load limit for both banks.",
+        "marlbank": "The seed court records the changed water turn for all terraces.",
+        "frostmere": "The pilots sound the changed braid aloud for the net crews."
+      }
+    },
+    "quest.service.private_field_report": {
+      "label": "Sell private field lead: {report_name}",
+      "requirement": "settle an unreported regional situation",
+      "results": {
+        "missing_account": "A completed site and its working account are needed for a report.",
+        "missing_outcome": "The changed site has no recorded outcome to report.",
+        "record": "{contact} hears {report_name}: {outcome}. {response}",
+        "completed": "{record} Two credits arrive; the account and local standing carry the cost.",
+        "fallback_report_name": "a changed regional site"
+      },
+      "responses": {
+        "hearthford": "A freight factor buys the crossing note before the public tally is made.",
+        "greywash": "A salvage factor keeps the dry approach for a private fitting run.",
+        "greenwold": "A resin buyer reserves the changed trail ahead of the cutters.",
+        "whitecairn": "A private carrier takes first passage over the marked step.",
+        "dunmire": "A fuel runner buys the dry-bank measure before the crews hear it.",
+        "rillscar": "An iron factor buys the first safe crossing under a private account.",
+        "marlbank": "A kiln buyer reserves the altered release for one private firing.",
+        "frostmere": "A freight pilot buys the first private sounding through the braid."
+      }
+    },
+    "quest.service.workline_discussion": {
+      "label": "Discuss the second local undertaking",
+      "requirement": "",
+      "results": {}
+    },
+    "quest.service.dependency_delivery": {
+      "label": "Deliver one {dependency} to the working account",
+      "requirement": "stores already supplied",
+      "results": {}
+    },
+    "quest.service.aftermath_contracts": {
+      "label": "Open aftermath contracts ({open_count} unresolved)",
+      "requirement": "",
+      "results": {}
+    },
+    "quest.service.frontier_claim": {
+      "label": "Settle {claimant}'s claim: 2 credit",
+      "requirement": "needs a witnessed material result and two credits",
+      "results": {}
+    },
+    "quest.service.unavailable": {
+      "results": {
+        "unavailable": "That service is unavailable."
+      }
+    }
   }
 }

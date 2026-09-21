@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .catalog import QuestPresentation, quest_contract, selected_content_pack
+from .catalog import QuestPresentation, QuestServicePresentation, quest_contract, selected_content_pack
 
 
 def regional_quest_presentation(region_id: str) -> QuestPresentation:
@@ -82,3 +82,49 @@ def evidence_presentation_for_engine_id(engine_id: str) -> QuestPresentation | N
         if slot.kind == "evidence" and slot.engine_id == engine_id:
             return selected_content_pack().quest_presentation(slot.id)
     return None
+
+
+_SERVICE_IDS = {
+    "c": "quest.service.cache_mark", "t": "quest.service.practical_instruction",
+    "h": "quest.service.treatment", "p": "quest.service.public_field_report",
+    "r": "quest.service.private_field_report", "w": "quest.service.workline_discussion",
+    "d": "quest.service.dependency_delivery", "a": "quest.service.aftermath_contracts",
+    "s": "quest.service.frontier_claim",
+}
+
+
+def secondary_service_presentation(service_id: str) -> QuestServicePresentation:
+    try:
+        return selected_content_pack().quest_service_presentation(_SERVICE_IDS[service_id])
+    except KeyError as exc:
+        raise KeyError(f"unknown secondary service {service_id!r}") from exc
+
+
+def secondary_service_text(service_id: str, field: str, /, **values: object) -> str:
+    presentation = secondary_service_presentation(service_id)
+    if field == "label":
+        text = presentation.label
+    elif field == "requirement":
+        text = presentation.requirement
+    else:
+        for key, value in presentation.results:
+            if key == field:
+                text = value
+                break
+        else:
+            raise KeyError(f"unknown secondary service text {service_id!r}:{field!r}")
+    return text.format(**values)
+
+
+def secondary_service_response(service_id: str, region_id: str) -> str:
+    for region, values in secondary_service_presentation(service_id).responses:
+        if region == region_id:
+            return values[0]
+    raise KeyError(f"unknown secondary service response {service_id!r}:{region_id!r}")
+
+
+def secondary_service_effect(service_id: str, technique: str) -> str:
+    for key, text in secondary_service_presentation(service_id).effects:
+        if key == technique:
+            return text
+    raise KeyError(f"unknown secondary service effect {service_id!r}:{technique!r}")

@@ -67,6 +67,21 @@ ITEM_PRESENTATION_FILE = "items.json"
 UI_PRESENTATION_FILE = "ui_text.json"
 QUEST_PRESENTATION_FILE = "quests.json"
 
+# Stable engine service keys and their permitted presentation templates.  These
+# are deliberately separate from the human-readable text in quests.json.
+_QUEST_SERVICE_CONTRACT = {
+    "quest.service.unavailable": ("unavailable", (), (), {"unavailable": ()}),
+    "quest.service.cache_mark": ("c", (), (), {"marker": ("name", "x", "y", "level"), "marked": (), "none_left": ()}),
+    "quest.service.practical_instruction": ("t", (), (), {"already_known": ("courier", "technique"), "completed": ("contact", "technique", "effect")}),
+    "quest.service.treatment": ("h", (), (), {"no_care": (), "remaining_injury": (), "memory": ("courier", "location"), "completed": ("contact", "location")}),
+    "quest.service.public_field_report": ("p", ("report_name",), (), {"fallback_report_name": (), "missing_account": (), "missing_outcome": (), "record": ("contact", "report_name", "outcome", "response"), "completed": ("record",)}),
+    "quest.service.private_field_report": ("r", ("report_name",), (), {"fallback_report_name": (), "missing_account": (), "missing_outcome": (), "record": ("contact", "report_name", "outcome", "response"), "completed": ("record",)}),
+    "quest.service.workline_discussion": ("w", (), (), {}),
+    "quest.service.dependency_delivery": ("d", ("dependency",), (), {}),
+    "quest.service.aftermath_contracts": ("a", ("open_count",), (), {}),
+    "quest.service.frontier_claim": ("s", ("claimant",), (), {}),
+}
+
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
 REQUIRED_CATALOGS = (
@@ -211,6 +226,19 @@ class QuestPresentation:
 
 
 @dataclass(frozen=True)
+class QuestServicePresentation:
+    """Immutable selected-pack wording for a stable secondary service."""
+
+    id: str
+    engine_id: str
+    label: str
+    requirement: str
+    results: tuple[tuple[str, str], ...]
+    responses: tuple[tuple[str, tuple[str, str]], ...] = ()
+    effects: tuple[tuple[str, str], ...] = ()
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -225,6 +253,7 @@ class ContentPack:
     item_presentations: tuple[ItemPresentation, ...]
     ui_presentations: tuple[UiPresentation, ...]
     quest_presentations: tuple[QuestPresentation, ...]
+    quest_service_presentations: tuple[QuestServicePresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -266,6 +295,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown quest semantic id: {semantic_id}")
 
+    def quest_service_presentation(self, semantic_id: str) -> QuestServicePresentation:
+        for presentation in self.quest_service_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown quest service semantic id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -295,8 +330,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, and quests")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, and services")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -481,6 +516,17 @@ def _quest_contract() -> tuple[QuestContractSlot, ...]:
 def quest_contract() -> tuple[QuestContractSlot, ...]:
     """Return engine-owned quest-facing presentation slots."""
     return _quest_contract()
+
+
+def _service_contract_ids() -> tuple[str, ...]:
+    source, document = _content_contract_document()
+    rows = document["services"]
+    if (not isinstance(rows, list) or len(rows) != len(_QUEST_SERVICE_CONTRACT)
+            or {row.get("id") for row in rows if isinstance(row, dict)} != set(_QUEST_SERVICE_CONTRACT)
+            or any(not isinstance(row, dict) or set(row) != {"id", "engine_id"}
+                   or row["engine_id"] != _QUEST_SERVICE_CONTRACT[row["id"]][0] for row in rows)):
+        raise RuntimeError(f"invalid engine service content contract at {source}: services must contain exactly stable service ids and engine ids")
+    return tuple(row["id"] for row in rows)
 
 
 def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
@@ -734,16 +780,86 @@ def _ui_presentations(root: Path, pack_id: str) -> tuple[UiPresentation, ...]:
     return tuple(presentations)
 
 
-def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, ...]:
+def _validate_quest_service_template(source: Path, pack_id: str, path: str, text: object, placeholders: tuple[str, ...], *, allow_empty: bool = False) -> str:
+    if not isinstance(text, str) or (not allow_empty and not text.strip()):
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} must be a non-empty string")
+    formatter = string.Formatter()
+    try:
+        fields = []
+        for _, field, spec, conversion in formatter.parse(text):
+            if field is not None:
+                if spec or conversion or re.fullmatch(r"[a-z][a-z0-9_]*", field) is None:
+                    raise ValueError("unsupported placeholder")
+                fields.append(field)
+    except ValueError as exc:
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} has malformed template: {exc}") from exc
+    if set(fields) != set(placeholders) or len(fields) != len(placeholders):
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} must contain exactly placeholders {', '.join(placeholders) or 'none'}")
+    return text
+
+
+def _quest_service_presentations(root: Path, pack_id: str, rows: object) -> tuple[QuestServicePresentation, ...]:
+    source = root / QUEST_PRESENTATION_FILE
+    _service_contract_ids()
+    if not isinstance(rows, dict) or set(rows) != set(_QUEST_SERVICE_CONTRACT):
+        expected = set(_QUEST_SERVICE_CONTRACT)
+        actual = set(rows) if isinstance(rows, dict) else set()
+        details = []
+        if expected - actual:
+            details.append("missing required service slots " + ", ".join(sorted(expected - actual)))
+        if actual - expected:
+            details.append("unknown service slots " + ", ".join(sorted(actual - expected)))
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: " + "; ".join(details or ["services must be an object"]))
+    presentations = []
+    for semantic_id, (engine_id, label_fields, requirement_fields, expected_results) in _QUEST_SERVICE_CONTRACT.items():
+        row = rows[semantic_id]
+        required = {"results"} if engine_id == "unavailable" else {"label", "requirement", "results"}
+        if engine_id in {"p", "r"}:
+            required.add("responses")
+        if engine_id == "t":
+            required.add("effects")
+        if not isinstance(row, dict) or set(row) != required:
+            raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: services.{semantic_id} has missing or unknown fields")
+        label = "" if engine_id == "unavailable" else _validate_quest_service_template(source, pack_id, f"services.{semantic_id}.label", row["label"], label_fields)
+        requirement = "" if engine_id == "unavailable" else _validate_quest_service_template(source, pack_id, f"services.{semantic_id}.requirement", row["requirement"], requirement_fields, allow_empty=True)
+        result_rows = row["results"]
+        if not isinstance(result_rows, dict) or set(result_rows) != set(expected_results):
+            raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: services.{semantic_id}.results has missing or unknown result keys")
+        results = tuple((key, _validate_quest_service_template(source, pack_id, f"services.{semantic_id}.results.{key}", result_rows[key], fields)) for key, fields in expected_results.items())
+        responses: tuple[tuple[str, tuple[str, str]], ...] = ()
+        if engine_id in {"p", "r"}:
+            response_rows = row["responses"]
+            region_ids = {slot.engine_id for slot in region_contract()}
+            if not isinstance(response_rows, dict) or set(response_rows) != region_ids:
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: services.{semantic_id}.responses must contain every contracted region")
+            parsed = []
+            for region_id in sorted(region_ids):
+                value = response_rows[region_id]
+                if not isinstance(value, str) or not value.strip():
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: services.{semantic_id}.responses.{region_id} must be a non-empty string")
+                parsed.append((region_id, (value, value)))
+            responses = tuple(parsed)
+        effects: tuple[tuple[str, str], ...] = ()
+        if engine_id == "t":
+            effect_rows = row["effects"]
+            expected_effects = {"mill hearing", "shoreline measure", "smoke spoor", "bell interval"}
+            if not isinstance(effect_rows, dict) or set(effect_rows) != expected_effects or any(not isinstance(value, str) or not value.strip() for value in effect_rows.values()):
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: services.{semantic_id}.effects must contain exactly contracted techniques")
+            effects = tuple((key, effect_rows[key]) for key in sorted(expected_effects))
+        presentations.append(QuestServicePresentation(semantic_id, engine_id, label, requirement, results, responses, effects))
+    return tuple(presentations)
+
+
+def _quest_presentations(root: Path, pack_id: str) -> tuple[tuple[QuestPresentation, ...], tuple[QuestServicePresentation, ...]]:
     source = root / QUEST_PRESENTATION_FILE
     try:
         document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {exc}") from exc
-    if (not isinstance(document, dict) or set(document) != {"quests", "arc_choices", "arc_results"}
+    if (not isinstance(document, dict) or set(document) != {"quests", "arc_choices", "arc_results", "services"}
             or not isinstance(document["quests"], dict) or not isinstance(document["arc_choices"], dict)
             or not isinstance(document["arc_results"], dict)):
-        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: quests, arc_choices, and arc_results must be objects")
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: quests, arc_choices, arc_results, and services must be objects")
     rows = document["quests"]
     slots = quest_contract()
     expected, actual = {slot.id for slot in slots}, set(rows)
@@ -846,7 +962,7 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
             slot.id, slot.engine_id, slot.kind, row.get("title", ""), row.get("lead"),
             row.get("evidence_name"), row.get("evidence_description"), choices, arc_choices, results,
         ))
-    return tuple(presentations)
+    return tuple(presentations), _quest_service_presentations(root, pack_id, document["services"])
 
 
 def _manifest_document(root: Path) -> dict[str, Any]:
@@ -915,10 +1031,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     characters, roles, household_template = _character_presentations(root, pack_id)
     items = _item_presentations(root, pack_id)
     ui = _ui_presentations(root, pack_id)
-    quests = _quest_presentations(root, pack_id)
+    quests, services = _quest_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, household_template,
     )
 
 

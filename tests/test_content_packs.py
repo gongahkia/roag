@@ -111,6 +111,11 @@ def alternate_pack(root: Path) -> Path:
     quests["arc_choices"]["soundings"]["3"]["s"]["requirement"] = "recover the fixture sounding record"
     quests["arc_results"]["banks"]["o"] = "Fixture banks ease the same routes."
     quests["arc_results"]["soundings"]["s"] = "Fixture soundings preserve the same winter route effects."
+    quests["services"]["quest.service.cache_mark"]["label"] = "Fixture cache service"
+    quests["services"]["quest.service.treatment"]["requirement"] = "fixture care is unnecessary"
+    quests["services"]["quest.service.practical_instruction"]["results"]["completed"] = "Fixture tutor {contact} grants {technique}: {effect}."
+    quests["services"]["quest.service.treatment"]["results"]["completed"] = "Fixture healer {contact} treats the {location} injury; the care takes time and leaves an obligation."
+    quests["services"]["quest.service.public_field_report"]["results"]["completed"] = "{record} Fixture trust is recorded."
     source.write_text(json.dumps(quests, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
@@ -474,6 +479,17 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("Fixture Bank Accord", alternate["bank_result"][0][1])
         self.assertEqual(default["bank_result"][1:], alternate["bank_result"][1:])
         self.assertEqual(alternate["overlay"], "FIXTURE WATER CLAIM")
+
+    def test_alternate_pack_changes_secondary_service_presentation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pack = load_content_pack(alternate_pack(Path(directory) / "fixture"))
+        cache = pack.quest_service_presentation("quest.service.cache_mark")
+        training = pack.quest_service_presentation("quest.service.practical_instruction")
+        treatment = pack.quest_service_presentation("quest.service.treatment")
+        self.assertEqual(cache.engine_id, "c")
+        self.assertEqual(cache.label, "Fixture cache service")
+        self.assertIn(("completed", "Fixture tutor {contact} grants {technique}: {effect}."), training.results)
+        self.assertIn(("completed", "Fixture healer {contact} treats the {location} injury; the care takes time and leaves an obligation."), treatment.results)
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title

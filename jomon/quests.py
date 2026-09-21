@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
-from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title, regional_result_text
+from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title, regional_result_text, secondary_service_effect, secondary_service_response, secondary_service_text
 from .state import GameState, QuestProgress
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -210,7 +210,10 @@ def mark_secondary_lead(state: GameState) -> bool:
         return False
     return mark_treasure(
         state, region, candidate.id,
-        f"A named local worker marks {candidate.name} at {candidate.position.x},{candidate.position.y}, level {candidate.position.z:+d}.",
+        secondary_service_text(
+            "c", "marker", name=candidate.name, x=candidate.position.x,
+            y=candidate.position.y, level=f"{candidate.position.z:+d}",
+        ),
     )
 
 
@@ -781,22 +784,20 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
     return True, message
 
 
-_REPORT_CATALOG = load_catalog("field_reports.json", ("responses",))
-_responses = _REPORT_CATALOG["responses"]
-if (not isinstance(_responses, dict) or not _responses
-        or any(not isinstance(region, str) or not isinstance(lines, list) or len(lines) != 2
-               or any(not isinstance(line, str) or not line for line in lines)
-               for region, lines in _responses.items())):
-    raise CatalogError("field_reports.json has invalid regional responses")
-FIELD_REPORT_RESPONSES = {region: tuple(lines) for region, lines in _responses.items()}
-
-
 def _pending_field_report(state: GameState):
     from .situations import SITUATIONS
 
     return next((row for row in SITUATIONS if row.region_id == state.active_region_id
                  and state.region.changes.get(f"micro-site:resolved:{row.id}")
                  and not state.region.changes.get(f"micro-site:report:{row.id}")), None)
+
+
+# Compatibility export for callers that historically inspected the catalog.
+# The selected quest pack is now the sole wording owner.
+FIELD_REPORT_RESPONSES = {
+    region: (secondary_service_response("p", region), secondary_service_response("r", region))
+    for region in ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
+}
 
 
 def secondary_service_options(
@@ -812,21 +813,21 @@ def secondary_service_options(
     institution = account_for(state)
     injured = bool(state.courier and state.courier.injuries)
     rows = [
-        ("c", "Mark a named regional cache", "ordinary", True, ""),
-        ("t", "Take local practical instruction", "ordinary", True, ""),
-        ("h", "Treat one persistent injury", "commitment", injured, "the courier has no persistent injury"),
+        ("c", secondary_service_text("c", "label"), "ordinary", True, secondary_service_text("c", "requirement")),
+        ("t", secondary_service_text("t", "label"), "ordinary", True, secondary_service_text("t", "requirement")),
+        ("h", secondary_service_text("h", "label"), "commitment", injured, secondary_service_text("h", "requirement")),
     ]
     report = _pending_field_report(state)
-    report_name = report.name if report else "a changed regional site"
+    report_name = report.name if report else secondary_service_text("p", "fallback_report_name")
     rows.extend((
-        ("p", f"Publish field report: {report_name}", "commitment", bool(report), "settle an unreported regional situation"),
-        ("r", f"Sell private field lead: {report_name}", "commitment", bool(report), "settle an unreported regional situation"),
+        ("p", secondary_service_text("p", "label", report_name=report_name), "commitment", bool(report), secondary_service_text("p", "requirement")),
+        ("r", secondary_service_text("r", "label", report_name=report_name), "commitment", bool(report), secondary_service_text("r", "requirement")),
     ))
     from .worklines import WORKLINES
     if state.active_region_id in WORKLINES:
-        rows.append(("w", "Discuss the second local undertaking", "ordinary", True, ""))
+        rows.append(("w", secondary_service_text("w", "label"), "ordinary", True, secondary_service_text("w", "requirement")))
     if institution:
-        rows.append(("d", f"Deliver one {institution.dependency} to the working account", "commitment", state.market[institution.dependency].stock < 5, "stores already supplied"))
+        rows.append(("d", secondary_service_text("d", "label", dependency=institution.dependency), "commitment", state.market[institution.dependency].stock < 5, secondary_service_text("d", "requirement")))
     from .aftermath import contracts_for
 
     contracts = contracts_for(state)
@@ -835,15 +836,15 @@ def secondary_service_options(
             contract.status not in {"completed", "failed"} for contract in contracts
         )
         rows.append((
-            "a", f"Open aftermath contracts ({open_count} unresolved)",
-            "ordinary", True, "",
+            "a", secondary_service_text("a", "label", open_count=open_count),
+            "ordinary", True, secondary_service_text("a", "requirement"),
         ))
     from .frontier_elites import claimant_terms
     claimant = claimant_terms(state)
     if claimant:
-        rows.append(("s", f"Settle {claimant.name}'s claim: 2 credit", "commitment",
+        rows.append(("s", secondary_service_text("s", "label", claimant=claimant.name), "commitment",
                      state.questlines[state.active_region_id].stage >= 2 and state.trade_credit >= 2,
-                     "needs a witnessed material result and two credits"))
+                     secondary_service_text("s", "requirement")))
     return tuple(rows)
 
 
@@ -861,7 +862,7 @@ def use_secondary_service(
         None,
     )
     if option is None or not option[3]:
-        return False, option[4] if option else "That service is unavailable."
+        return False, option[4] if option else secondary_service_text("unavailable", "unavailable")
     if network:
         from .regional_history import deliver_network_dependency, open_network_shelter
         from .practices import teach_network_practice
@@ -876,10 +877,10 @@ def use_secondary_service(
         report = _pending_field_report(state)
         account = state.institutions.get(f"work:{state.active_region_id}")
         if report is None or account is None:
-            return False, "A completed site and its working account are needed for a report."
+            return False, secondary_service_text(choice, "missing_account")
         outcome = state.region.changes.get(f"micro-site:outcome:{report.id}")
         if not isinstance(outcome, str) or not outcome:
-            return False, "The changed site has no recorded outcome to report."
+            return False, secondary_service_text(choice, "missing_outcome")
         public = choice == "p"
         state.region.changes[f"micro-site:report:{report.id}"] = "public" if public else "private"
         if public:
@@ -890,14 +891,14 @@ def use_secondary_service(
             state.trade_credit += 2
             account.obligation = min(9, account.obligation + 1)
             contact.disposition = max(-3, contact.disposition - 1)
-        response = FIELD_REPORT_RESPONSES[state.active_region_id][0 if public else 1]
-        record = f"{contact.name} hears {report.name}: {outcome}. {response}"
+        response = secondary_service_response(choice, state.active_region_id)
+        record = secondary_service_text(choice, "record", contact=contact.name, report_name=report.name, outcome=outcome, response=response)
         contact.memories.append(record)
         del contact.memories[:-8]
         account.witnessed_acts.append(record)
         del account.witnessed_acts[:-12]
         state.remember(record)
-        return True, f"{record} {'Public trust and confidence are recorded.' if public else 'Two credits arrive; the account and local standing carry the cost.'}"
+        return True, secondary_service_text(choice, "completed", record=record)
     if choice == "s":
         from .frontier_elites import settle_claimant
         return settle_claimant(state)
@@ -907,7 +908,7 @@ def use_secondary_service(
         return deliver_dependency(state)
     if choice == "c":
         changed = mark_secondary_lead(state)
-        return changed, ("The local worker places a persistent named cache mark on Jomon's account." if changed else "There are no unopened, unmarked local caches left to name.")
+        return changed, secondary_service_text("c", "marked" if changed else "none_left")
     if choice == "t":
         technique = {
             "hearthford": "mill hearing",
@@ -920,22 +921,16 @@ def use_secondary_service(
             "frostmere": "shoreline measure",
         }[state.active_region_id]
         if technique in state.courier.learned_techniques:
-            return False, f"{state.courier.name} already knows {technique}."
+            return False, secondary_service_text("t", "already_known", courier=state.courier.name, technique=technique)
         state.courier.learned_techniques.append(technique)
         contact.disposition = min(3, contact.disposition + 1)
-        effects = {
-            "mill hearing": "control work is quieter; weak supports can be braced without a heavy tool",
-            "shoreline measure": "released water no longer adds a crossing action; coastal weather leaves a longer sightline",
-            "smoke spoor": "movement through smoke is quiet; smoke leaves five paces of local visibility",
-            "bell interval": "warning controls are worked quietly; brace work can be timed without a heavy tool",
-        }
-        return True, f"{contact.name} teaches {technique}: {effects[technique]}."
+        return True, secondary_service_text("t", "completed", contact=contact.name, technique=technique, effect=secondary_service_effect("t", technique))
     from .regional_history import account_for
 
     account = account_for(state)
     entrusted_care = bool(account and account.trust >= 2 and account.obligation < 3)
     if state.trade_credit <= 0 and state.support != "field care" and not entrusted_care:
-        return False, "Treatment needs one credit or the prepared healer's field care."
+        return False, secondary_service_text("h", "no_care")
     if entrusted_care:
         account.obligation += 1
     elif state.support != "field care":
@@ -943,10 +938,10 @@ def use_secondary_service(
     location = sorted(state.courier.injuries)[0]
     state.courier.injuries.pop(location)
     state.courier.health = min(state.courier.max_health, state.courier.health + 3)
-    state.courier.injury = next(iter(state.courier.injuries.values()), "treated soreness")
-    contact.memories.append(f"Treated {state.courier.name}'s {location} injury for a recorded obligation.")
+    state.courier.injury = next(iter(state.courier.injuries.values()), secondary_service_text("h", "remaining_injury"))
+    contact.memories.append(secondary_service_text("h", "memory", courier=state.courier.name, location=location))
     state.region.changes["care_obligation_settled"] = True
-    return True, f"{contact.name} treats the {location} injury; the care takes time and leaves an obligation."
+    return True, secondary_service_text("h", "completed", contact=contact.name, location=location)
 
 
 def quest_reachability_audit(sample_count: int = 25) -> dict[str, object]:

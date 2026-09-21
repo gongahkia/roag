@@ -2106,5 +2106,47 @@
       "kind": "evidence",
       "choice_ids": []
     }
+  ],
+  "services": [
+    {
+      "id": "quest.service.unavailable",
+      "engine_id": "unavailable"
+    },
+    {
+      "id": "quest.service.cache_mark",
+      "engine_id": "c"
+    },
+    {
+      "id": "quest.service.practical_instruction",
+      "engine_id": "t"
+    },
+    {
+      "id": "quest.service.treatment",
+      "engine_id": "h"
+    },
+    {
+      "id": "quest.service.public_field_report",
+      "engine_id": "p"
+    },
+    {
+      "id": "quest.service.private_field_report",
+      "engine_id": "r"
+    },
+    {
+      "id": "quest.service.workline_discussion",
+      "engine_id": "w"
+    },
+    {
+      "id": "quest.service.dependency_delivery",
+      "engine_id": "d"
+    },
+    {
+      "id": "quest.service.aftermath_contracts",
+      "engine_id": "a"
+    },
+    {
+      "id": "quest.service.frontier_claim",
+      "engine_id": "s"
+    }
   ]
 }
