@@ -505,9 +505,10 @@ def ledger_lines(state: GameState) -> list[str]:
         lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
                      f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")
     lines += ["FORECAST — " + forecast(state), history_format("history.ledger.reading")]
+    from .workline_presentation import workline_text
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:
-        lines += ["", "UNDERTAKING — optional second regional work", *work_lines(state)]
+        lines += ["", workline_text("workline.ui.ledger_heading"), *work_lines(state)]
     from .aftermath import AFTERMATH_LINES, contracts_for
 
     contracts = contracts_for(state)

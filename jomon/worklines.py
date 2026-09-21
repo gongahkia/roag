@@ -143,10 +143,10 @@ def lines(state: GameState):
     evidence = workline_evidence_name(region)
     result = [workline_title(region), workline_format("workline.line.witness", witness=witness.name, status=quest.status)]
     if quest.stage == 2:
-        result += [workline_format("workline.line.field", x=site.x, y=site.y, z=site.z, requirement=workline_text(_work_requirement(state)[1])),
+        result += [workline_format("workline.line.field", x=site.x, y=site.y, z=f"{site.z:+d}", requirement=workline_text(_work_requirement(state)[1])),
                    workline_format("workline.line.carry", evidence=evidence)]
     elif quest.stage == 1:
-        result += [workline_format("workline.line.survey", evidence=evidence, x=survey.x, y=survey.y, z=survey.z),
+        result += [workline_format("workline.line.survey", evidence=evidence, x=survey.x, y=survey.y, z=f"{survey.z:+d}"),
                    workline_text("workline.line.survey_help")]
     elif quest.stage == 3:
         result.append(workline_text("workline.line.resolution"))
