@@ -605,3 +605,6 @@ Security is an opt-in `security=1` campaign feature requiring factions,
 industry, and psychology.  It serializes local policy and people security
 state, plus bounded raid/loot state.  Feature-off histories must not receive
 weapons, Guard designation, grievance, or raid scheduling on load.
+Security commands are site-bound and policy-revision checked. Weapons, vests,
+and ammunition retain one physical custody through local fetch/reload, death,
+and travel; an external raider only becomes player loot when that actor dies.

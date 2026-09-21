@@ -12,6 +12,7 @@ local S={version=1,maxRaids=4,maxRaiders=16,maxEvents=64,maxReceipts=128}
 local hostile,targetFor
 local function clamp(v,a,b) return math.max(a,math.min(b,v)) end
 local function site(c,id) for _,s in ipairs(c.sites) do if s.id==id then return s end end end
+local function structureById(w,id) for _,s in pairs(w.structures) do if s.id==id then return s end end end
 local function actorId(a) return a.personId or a.id end
 local function events(w,kind,text,subject)
  w.security.events[#w.security.events+1]={tick=w.tick,kind=kind,text=text,subject=subject}
@@ -265,7 +266,7 @@ function S.offer(c,w,a,f,closest)
  end
  local cell=cellFor(w,a)
  if cell and cell.state=='sabotage' and cell.saboteurId==a.personId then
-  local target=require('src.industry').find(w,cell.targetId)
+  local target=structureById(w,cell.targetId)
   if target then return walkTask(w,a,f,closest,function(x,y) return N.reachRect(w,x,y,target.gx,target.gy) end,'Sabotaging '..target.kind,'sabotage',{cellId=cell.id,targetId=target.id}) end
  end
  if cell and cell.state=='organizing' and c.tick%100<20 then
@@ -348,7 +349,7 @@ function S.act(c,w,a,t,context)
   local ok,hit=S.attack(c,w,a,target,localActors(c,w),context)
   return ok,true,ok and (hit and 'Combat hit' or 'Combat shot') or 'Combat action unavailable'
  elseif t.securityMode=='sabotage' then
-  local cell=w.security.cell;local target=cell and cell.id==t.cellId and require('src.industry').find(w,t.targetId)
+  local cell=w.security.cell;local target=cell and cell.id==t.cellId and structureById(w,t.targetId)
   if not target or cell.state~='sabotage' or cell.saboteurId~=a.personId or not N.reachRect(w,a.x,a.y,target.gx,target.gy) then return false,nil,'Sabotage target changed or is unreachable' end
   cell.progress=cell.progress+1
   if cell.progress>=120 then completeSabotage(c,w,cell,target);return true,true,'Sabotage completed' end

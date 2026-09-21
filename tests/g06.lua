@@ -52,6 +52,16 @@ function T.run()
   local c=campaign();local copy=Campaign.clone(c);eq(copy.sites[1].world.security.policyRevision,c.sites[1].world.security.policyRevision)
   local bad=Campaign.clone(c);for i=1,9 do bad.sites[1].world.security.posts[i]={x=10,y=24} end;check(not pcall(Campaign.validate,bad),'Oversized defense-post state was accepted')
  end)
+ group('G06-L/M/N protest becomes a physical cell sabotage with unchanged people',function()
+  local c,a,b=campaign();local w=c.sites[1].world;local Psychology=require('src.psychology');local Structures=require('src.structures');local World=require('src.world');local target=Structures.install(w,5,6,'training_target')
+  for _,person in ipairs({a,b}) do person.security.grievance=90;person.security.causes={{kind='hunger',amount=90,tick=0}};person.stress=90;person.psychology.facets.independence=70 end
+  Psychology.relation(a,b.personId,false).trust=30;Psychology.relation(b,a.personId,false).trust=30
+  c.tick=999;w.tick=999;Campaign.step(c);check(w.security.protest,'Qualifying dissidents did not form a protest')
+  w.security.protest.untilTick=c.tick;c.tick=1999;w.tick=1999;a.stress,b.stress=90,90;Campaign.step(c);check(w.security.cell and w.security.cell.state=='organizing','Post-protest severe dissidents did not form an organizing cell')
+  w.security.cell.readyTick=c.tick;Security.step(c);eq(w.security.cell.state,'sabotage');for _,person in ipairs({a,b}) do person.stress=40;person.panic=false end
+  for _=1,850 do Campaign.step(c) end;eq(w.security.cell.state,'hostile');eq(a.security.allegiance,'insurgent');eq(b.security.allegiance,'insurgent');check(target.sabotagedUntil and target.sabotagedUntil>w.tick,'Physical sabotage did not disable its exact structure')
+  Campaign.validate(c)
+ end)
  print(r.groups..' G06 groups; '..r.assertions..' assertions passed.');return r
 end
 return T
