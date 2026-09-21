@@ -4,6 +4,7 @@ local N=require('src.nav')
 local M=require('src.materials')
 local J=require('src.jobs')
 local C=require('config')
+local B=require('src.body')
 local A={}
 
 -- The cabin is deliberately the local ground-rest rule without terrain exposure,
@@ -34,11 +35,12 @@ function A.step(w,context)
    -- Slow recovery only while fed and resting in a bed; death is never reversed.
    if a.task.slot and a.hunger<50 and a.hp>0 then a.hp=math.min(100,a.hp+0.003) end
   else a.fatigue=math.min(100,a.fatigue+w.rules.fatigueRate*(a.worked and 1.4 or 1)) end
-  local headWet=W.get(w,a.x,a.y-2)==M.WATER or W.get(w,a.x+1,a.y-2)==M.WATER
+  local eyeX,eyeY=B.eye(w,a)
+  local headWet=W.get(w,eyeX,eyeY)==M.WATER or W.get(w,eyeX+B.width(w)-1,eyeY)==M.WATER
   local hot,steam=false,false
-  for y=a.y-2,a.y do for x=a.x,a.x+1 do
+  B.occupied(w,a.x,a.y,function(x,y)
    local m=W.get(w,x,y); if m==M.LAVA then hot=true elseif m==M.STEAM then steam=true end
-  end end
+  end)
   local reason=a.injuryCause
   local function hurt(amount,cause)
    local before=a.hp;a.hp=a.hp-amount

@@ -6,6 +6,7 @@ local S=require('src.structures')
 local C=require('config')
 local Labor=require('src.labor')
 local Field=require('src.fieldwork')
+local Body=require('src.body')
 local J={}
 local function deliveredTotal(value)
  if type(value)=='number' then return value end
@@ -74,7 +75,8 @@ local function workPose(w,j,x,y)
  if j.kind=='dig' then return J.digCell(w,j,x,y)~=nil end
  if j.kind=='build' and (j.build=='wall' or j.build=='platform') then
   local x1,y1,x2,y2=W.rect(j.gx,j.gy)
-  if x<=x2 and x+1>=x1 and y>=y1 and y-2<=y2 then return false end
+  local ax1,ay1,ax2,ay2=Body.rect(w,x,y)
+  if ax1<=x2 and ax2>=x1 and ay2>=y1 and ay1<=y2 then return false end
  end
  return true
 end

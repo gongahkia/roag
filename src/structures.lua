@@ -1,6 +1,7 @@
 local W=require('src.world')
 local M=require('src.materials')
 local C=require('config')
+local B=require('src.body')
 local S={}
 S.def={
  wall={label='Wall',cost=16,resource='stone',work=44},
@@ -42,7 +43,7 @@ function S.siteClear(w,gx,gy,kind)
   if W.get(w,x,y)~=M.AIR then return false,'Site occupied: dig or drain it first' end
  end end
  if kind=='wall' or kind=='platform' then
-  for _,a in ipairs(w.workers) do if a.alive and a.x<=x2 and a.x+1>=x1 and a.y>=y1 and a.y-2<=y2 then
+  for _,a in ipairs(w.workers) do local ax1,ay1,ax2,ay2=B.rect(w,a.x,a.y);if a.alive and ax1<=x2 and ax2>=x1 and ay2>=y1 and ay1<=y2 then
    return false,'Worker occupies the site'
   end end
   for _,p in ipairs(w.items) do if p.n>0 and p.x>=x1 and p.x<=x2 and p.y>=y1 and p.y<=y2 then

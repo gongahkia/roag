@@ -1,10 +1,12 @@
 local W=require('src.world')
 local M=require('src.materials')
+local B=require('src.body')
 local N={}
--- A worker occupies two cells wide and three cells tall; x is the left foot.
+-- A worker uses the world's versioned body profile; x is the left foot.
 function N.occupy(w,x,y,safe)
- if x<3 or x>w.width-3 or y<5 or y>w.height-2 then return false end
- for yy=y-2,y do for xx=x,x+1 do
+ local x1,y1,x2,y2=B.rect(w,x,y)
+ if x1<1 or x2>w.width or y1<1 or y2>w.height then return false end
+ for yy=y1,y2 do for xx=x1,x2 do
   if W.solid(w,xx,yy) then return false end
   local m=W.get(w,xx,yy)
   if safe and (m==M.LAVA or m==M.STEAM or (m==M.WATER and yy<=y-1)) then return false end
@@ -16,7 +18,9 @@ function N.ladder(w,x,y)
  return s and s.kind=='ladder' or false
 end
 function N.support(w,x,y)
- return W.solid(w,x,y+1) or W.solid(w,x+1,y+1) or N.ladder(w,x,y)
+ local width=B.width(w)
+ for xx=x,x+width-1 do if W.solid(w,xx,y+1) then return true end end
+ return N.ladder(w,x,y)
 end
 function N.stand(w,x,y,safe) return N.occupy(w,x,y,safe) and N.support(w,x,y) end
 function N.neighbours(w,x,y)
@@ -92,7 +96,7 @@ end
 -- A hand can reach a nearby item/cell only if the straight segment is unobstructed.
 -- The endpoint itself may be solid (mining); intervening cells may not.
 function N.reach(w,x,y,tx,ty,range)
- local sx,sy=x+0.5,y-1
+ local sx,sy=B.hand(w,{x=x,y=y})
  if math.abs(tx-sx)+math.abs(ty-sy)>(range or 4) then return false end
  local steps=math.max(1,math.ceil(math.max(math.abs(tx-sx),math.abs(ty-sy))*2))
  for k=1,steps-1 do
@@ -104,7 +108,8 @@ function N.reach(w,x,y,tx,ty,range)
 end
 function N.reachRect(w,x,y,gx,gy)
  local x1,y1,x2,y2=W.rect(gx,gy)
- local tx=math.max(x1,math.min(x2,x)); local ty=math.max(y1,math.min(y2,y-1))
+ local sx,sy=B.hand(w,{x=x,y=y})
+ local tx=math.max(x1,math.min(x2,math.floor(sx+.5))); local ty=math.max(y1,math.min(y2,math.floor(sy+.5)))
  return N.reach(w,x,y,tx,ty,4)
 end
 return N

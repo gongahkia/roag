@@ -2,6 +2,7 @@
 -- A crew-built charge is inert until a worker completes an arming order.
 local W=require('src.world')
 local M=require('src.materials')
+local Body=require('src.body')
 local S=require('src.structures')
 local Signals=require('src.signals')
 local B={fuse=80,radius=10}
@@ -73,7 +74,7 @@ function B.detonate(w,slot)
  if w.structures[slot] then destroyStructure(w,slot,source,true) end
  for _,a in ipairs(w.workers) do if a.alive then
   local hit=0
-  for y=a.y-2,a.y do for x=a.x,a.x+1 do hit=math.max(hit,wave[W.index(w,x,y)] or 0) end end
+  Body.occupied(w,a.x,a.y,function(x,y) hit=math.max(hit,wave[W.index(w,x,y)] or 0) end)
   if hit>0 then a.hp=math.max(0,a.hp-hit*9);a.injuryCause='blast trauma' end
  end end
  if w.content then
