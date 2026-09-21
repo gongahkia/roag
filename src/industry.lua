@@ -132,7 +132,7 @@ local function solar(w,s)
  local n=0;for half=0,(s.width or 1)-1 do if sky(w,s,half) then n=n+3 end end;return n
 end
 local function recipeReady(s)
- local r=s.recipe and I.recipes[s.recipe];if not r or not s.enabled or s.wear>=600 then return false end
+ local r=s.recipe and I.recipes[s.recipe];if not r or not s.enabled or s.wear>=600 or (s.sabotagedUntil and s.sabotagedUntil>=(s._tick or 0)) then return false end
  if s.progress>=r.ticks-1 and capacity(s.output)>=16 then return false end
  if not s.inprocess then for kind,n in pairs(r.input) do if count(s.input,kind)<n then return false end end end
  return true
@@ -164,7 +164,7 @@ local function rigTarget(w,s)
  end end;return best
 end
 local function rigReady(w,s)
- return s.enabled and s.wear<600 and capacity(s.output)<16 and rigTarget(w,s)~=nil
+ return s.enabled and s.wear<600 and (not s.sabotagedUntil or s.sabotagedUntil<w.tick) and capacity(s.output)<16 and rigTarget(w,s)~=nil
 end
 local function consumerReady(w,s)
  if s.kind=='fabricator' then return recipeReady(s) end
@@ -290,6 +290,7 @@ local function transfers(w,context)
 end
 function I.step(w,context)
  if not (context and I.enabled(context.campaign) and w.industry) then return end
+ for _,s in ipairs(sorted(w)) do s._tick=w.tick end
  allocation(w)
  for _,s in ipairs(sorted(w)) do
   if s.kind=='fabricator' then fabricate(w,s,context)

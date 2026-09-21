@@ -24,6 +24,9 @@ end
 
 function A.kill(w,a,reason,context)
  if not a.alive then return end
+ if context and context.campaign and context.campaign.features.equipment==1 then
+  require('src.equipment').dropPerson(context.campaign,a.personId,context.siteId,a.x,a.y)
+ end
  J.release(w,a,true);a.alive=false;a.hp=0;a.status='Dead';a.reason=reason;a.deathTick=w.tick
  W.event(w,'death',a.name..' died: '..reason..'. No replacement will arrive.',a.id)
  if context and context.campaign and context.campaign.features.psychology==1 then require('src.psychology').death(context.campaign,w,a,reason,context) end

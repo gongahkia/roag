@@ -73,7 +73,7 @@ local function makeFaction(c,id)
  for _,a in ipairs(axes) do culture[a]=20+R.uniform(r,61) end
  local f={id=id,endonym=root,name=root..' '..pick(r,forms),language=root:lower()..'i',culture=culture,norms=normList(culture),
   economy={agriculture=R.uniform(r,101)-1,extraction=R.uniform(r,101)-1,manufacturing=R.uniform(r,101)-1,scholarshipCapacity=R.uniform(r,101)-1},
-  population=20+R.uniform(r,61)-1,stocks={food=150+R.uniform(r,351),minerals=100+R.uniform(r,401),components=R.uniform(r,151)-1,tools=R.uniform(r,25)-1,influence=R.uniform(r,251)-1},
+  population=20+R.uniform(r,61)-1,stocks={food=150+R.uniform(r,351),metal=80+R.uniform(r,201),minerals=100+R.uniform(r,401),components=R.uniform(r,151)-1,tools=R.uniform(r,25)-1,influence=R.uniform(r,251)-1},
   relations={},prehistory={},incidents={},contact={signal=false,established=false,protocol=nil,audienceProgress=0,audienceCooldown=0},offers={},reserved={},turns=0}
  f.strategicGoal=goal(f);return f
 end
@@ -265,7 +265,7 @@ function F.step(c)
 end
 function F.validate(c)
  local s=c.factions;assert(type(s)=='table' and s.version==1,'Invalid factions state');assert(#s.factions==4,'G05 needs exactly four external factions');assert(#s.scan.order==4,'Invalid contact order')
- local ids={};for _,f in ipairs(s.factions) do assert(not ids[f.id] and f.id>=2 and f.id<=5,'Invalid faction ID');ids[f.id]=true;assert(type(f.name)=='string' and #f.name<=64,'Invalid faction name');assert(#f.norms>=3 and #f.norms<=4,'Invalid faction norms');for _,a in ipairs(axes) do U.integer(f.culture[a],'culture '..a,0,100) end;U.integer(f.population,'faction population',20,80);for _,k in ipairs({'food','minerals','components','tools','influence'}) do U.integer(f.stocks[k],'faction stock',0,k=='components' and 500 or k=='tools' and 128 or 1000) end;for id,r in pairs(f.relations) do U.integer(id,'relation target',1,5);assert(id~=f.id,'Self relation');for _,k in ipairs({'trust','respect','tension','grievance'}) do U.integer(r[k],'relation '..k,0,100) end end end
+ local ids={};for _,f in ipairs(s.factions) do assert(not ids[f.id] and f.id>=2 and f.id<=5,'Invalid faction ID');ids[f.id]=true;assert(type(f.name)=='string' and #f.name<=64,'Invalid faction name');assert(#f.norms>=3 and #f.norms<=4,'Invalid faction norms');for _,a in ipairs(axes) do U.integer(f.culture[a],'culture '..a,0,100) end;U.integer(f.population,'faction population',20,80);local stocks={'food','minerals','components','tools','influence'};if c.features.security==1 then stocks[#stocks+1]='metal' end;for _,k in ipairs(stocks) do U.integer(f.stocks[k],'faction stock',0,k=='components' and 500 or k=='tools' and 128 or 1000) end;for id,r in pairs(f.relations) do U.integer(id,'relation target',1,5);assert(id~=f.id,'Self relation');for _,k in ipairs({'trust','respect','tension','grievance'}) do U.integer(r[k],'relation '..k,0,100) end end end
  assert(#s.incidents<=128 and #s.shipments<=16 and #s.receipts<=128,'Faction bounds exceeded');return true
 end
 return F

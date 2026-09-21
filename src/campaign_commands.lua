@@ -36,6 +36,11 @@ local fields={
  faction_depot_load={type=true,structureId=true,itemId=true,amount=true},
  faction_dispatch={type=true,structureId=true,offerId=true},
  faction_rebind={type=true,shipmentId=true,structureId=true},
+ security_posture={type=true,posture=true,expectedPolicyRevision=true},
+ security_policy={type=true,posts=true,refuge=true,expectedPolicyRevision=true},
+ security_guard={type=true,personId=true,enabled=true},
+ security_equip={type=true,personId=true,equipmentId=true},
+ security_reload={type=true,personId=true,amount=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
@@ -119,6 +124,7 @@ function Command.valid(campaign,envelope)
     local s=require('src.industry').find(site.world,envelope.payload.structureId)
     valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
     if valid then valid,reason=pcall(require('src.industry').validConfig,s,envelope.payload) end
+   elseif envelope.payload.type:sub(1,9)=='security_' then valid,reason=campaign.features.security==1,'Security is unavailable'
    elseif envelope.payload.type:sub(1,8)=='faction_' then
     valid=campaign.features.factions==1;reason='Factions are unavailable'
    else valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=Cmd.valid(site.world,envelope.payload) end end
@@ -145,6 +151,7 @@ function Command.apply(campaign,envelope)
  elseif envelope.payload.type=='industry_config' then
   local s=require('src.industry').find(site.world,envelope.payload.structureId);valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
   if valid then valid,why=pcall(require('src.industry').validConfig,s,envelope.payload) end
+ elseif envelope.payload.type:sub(1,9)=='security_' then valid,why=campaign.features.security==1,'Security is unavailable'
  elseif envelope.payload.type:sub(1,8)=='faction_' then valid,why=campaign.features.factions==1,'Factions are unavailable'
  else valid,why=visibleTarget(campaign,site,envelope.payload);if valid then valid,why=Cmd.valid(site.world,envelope.payload) end end
  if not valid then
@@ -155,6 +162,11 @@ function Command.apply(campaign,envelope)
  if envelope.payload.type=='school_policy' then applied=require('src.education').applyPolicy(campaign,site,envelope.payload)
  elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then applied=require('src.equipment_commands').apply(campaign,site,envelope.payload)
  elseif envelope.payload.type=='industry_config' then applied=require('src.industry').configure(site.world,require('src.industry').find(site.world,envelope.payload.structureId),envelope.payload)
+ elseif envelope.payload.type=='security_posture' then applied=require('src.security').configure(site.world,envelope.payload,envelope.payload.expectedPolicyRevision)
+ elseif envelope.payload.type=='security_policy' then applied=require('src.security').setPosts(site.world,envelope.payload.posts,envelope.payload.refuge,envelope.payload.expectedPolicyRevision)
+ elseif envelope.payload.type=='security_guard' then applied=require('src.security').toggleGuard(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.enabled)
+ elseif envelope.payload.type=='security_equip' then applied=require('src.security').equip(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.equipmentId)
+ elseif envelope.payload.type=='security_reload' then applied=require('src.security').reload(campaign,envelope.siteId,envelope.payload.personId,envelope.payload.amount)
  elseif envelope.payload.type=='faction_contact' then applied=require('src.factions').beginContact(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId)
  elseif envelope.payload.type=='faction_protocol' then applied=require('src.factions').resolveProtocol(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId,envelope.payload.action)
  elseif envelope.payload.type=='faction_accept_offer' then applied=require('src.factions').acceptOffer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.offerId,envelope.payload.representativeId)

@@ -52,7 +52,7 @@ function E.create(c,siteId,kind,x,y)
 end
 function E.drop(c,item,siteId,x,y)
  assert(item and value[item.kind],'Invalid equipment')
- item.state='loose';item.siteId=siteId;item.x=x;item.y=y;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
+ item.state='loose';item.slot=nil;item.siteId=siteId;item.x=x;item.y=y;item.personId=nil;item.craftId=nil;item.ropeId=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
  return item
 end
 function E.toIndustry(item,siteId,structureId,owner)
@@ -104,6 +104,19 @@ end
 function E.carry(c,item,worker)
  assert(item and item.state=='loose' and item.reservedBy==worker.personId,'Equipment pickup changed')
  item.state='carried';item.slot=nil;item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
+end
+-- A person never owns an abstract duplicate of an equipped item.  This is
+-- also used by the ordinary death path: equipped and carried portable items
+-- become one local loose item at the body, while the same item record keeps
+-- its identity.  Travel deliberately does not call this helper.
+function E.dropPerson(c,personId,siteId,x,y)
+ local dropped={}
+ for _,item in ipairs(c.equipment.items) do
+  if (item.state=='equipped' or item.state=='carried') and item.personId==personId then
+   E.drop(c,item,siteId,x,y);dropped[#dropped+1]=item
+  end
+ end
+ return dropped
 end
 function E.carried(c,worker,kind)
  for _,item in ipairs(c.equipment.items) do if item.state=='carried' and item.personId==worker.personId and (not kind or item.kind==kind) then return item end end
