@@ -73,6 +73,7 @@ INTERFERENCE_PRESENTATION_FILE = "interference_text.json"
 LEGENDARY_PRESENTATION_FILE = "legendary_text.json"
 TOPOLOGY_PRESENTATION_FILE = "topology_text.json"
 ACTION_PRESENTATION_FILE = "action_text.json"
+VESSEL_PRESENTATION_FILE = "vessel_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -179,6 +180,81 @@ _ACTION_TEMPLATE_CONTRACT = {
     "combat.attack.unready": (), "combat.attack.no_target": (), "combat.attack.throwing_axe": (), "combat.attack.flail_prepare": (), "combat.attack.crossbow_unloaded": (), "combat.attack.arbalest_reload": ("remaining",), "combat.attack.handgonne_load": ("remaining",), "combat.attack.no_ammunition": ("ammunition",), "combat.attack.path_blocked": (), "combat.attack.prepare": ("weapon", "threat", "range", "cover"), "combat.attack.weather_spoiled": (),
     "combat.attack.defeat_memory": ("courier", "outcome", "threat", "weapon"), "combat.attack.defeat_armour": ("protection", "location"), "combat.attack.defeat_uncovered": ("location", "verb"), "combat.attack.defeated": ("threat", "weapon", "armour", "recovered"), "combat.attack.hit_armour": ("protection", "location"), "combat.attack.hit_uncovered": ("location",), "combat.attack.hit_injury": ("injury",), "combat.attack.hit": ("weapon", "damage", "armour", "injury", "threat", "health", "maximum"),
     "combat.guard.no_danger": (), "combat.guard.no_powder": (), "combat.guard.gun_loading": ("weapon", "current", "required"), "combat.guard.no_crossbow_ammo": (), "combat.guard.crossbow_reload": (), "combat.guard.no_heavy_bolts": (), "combat.guard.arbalest_reload": ("current", "stage"), "combat.guard.no_brace_target": ("reason",), "combat.guard.base.shielded": (), "combat.guard.base.strong": (), "combat.guard.base.normal": (), "combat.guard.wet.strong": (), "combat.guard.wet.weak": (), "combat.guard.counterbrace": (), "combat.guard.support": (), "combat.guard.brace": ("weapon", "threat"), "combat.guard.brace_expired": ("threat",),
+}
+
+# Vessel catalog entries retain drink identity, stock and effect mechanics.  This
+# contract is the selected-pack surface for the words around those mechanics.
+_VESSEL_DRINK_IDS = (
+    "hearth-ale", "winter-juniper", "willow-bitter", "miller-small-beer",
+    "stillroom-cordial", "smokeleaf-infusion", "reed-tonic", "ebbglass-measure",
+)
+_VESSEL_SCHEDULE_LABELS = {
+    "ready_departure": "ready for departure",
+    "regional_work": "working at a regional site",
+    "regional_rest": "resting near home",
+    "serving": "serving",
+    "sleeping": "sleeping",
+    "merchant_present": "trading from a counted berth",
+    "merchant_away": "away on a regional circuit",
+    "securing_tavern": "securing the tavern",
+    "defending_cargo": "defending cargo",
+    "bracing_hull": "bracing the hull",
+    "answering_crew": "answering named crew",
+    "dullest": "playing Dullest Dungeon",
+    "draw": "playing Tavern Draw",
+    "bones": "playing Quay Bones",
+    "eating": "eating",
+    "drinking": "drinking",
+    "socialising": "socialising",
+    "waiting": "waiting",
+    "watch": "standing watch",
+    "steering": "steering",
+    "chart": "consulting chart",
+    "repairing": "repairing",
+    "cargo": "moving cargo",
+    "treating": "treating injuries",
+    "resting": "resting",
+    "training": "training",
+    "working": "working",
+    "between_watches": "between watches",
+    "between_duties": "between duties",
+    "between_routes": "between recorded routes",
+}
+_VESSEL_TEMPLATE_CONTRACT = {
+    **{f"vessel.drink.{drink_id}.name": () for drink_id in _VESSEL_DRINK_IDS},
+    **{f"vessel.drink.{drink_id}.benefit": () for drink_id in _VESSEL_DRINK_IDS},
+    **{f"vessel.drink.{drink_id}.drawback": () for drink_id in _VESSEL_DRINK_IDS},
+    **{f"vessel.schedule.{key}": () for key in _VESSEL_SCHEDULE_LABELS},
+    "vessel.drink.unavailable": (),
+    "vessel.drink.credit_refused": ("bartender",),
+    "vessel.drink.insufficient_credit": ("drink", "cost"),
+    "vessel.drink.incompatible.bartender": ("bartender", "drink", "incompatible"),
+    "vessel.drink.bottle_no_pack": (),
+    "vessel.drink.bottled": ("drink",),
+    "vessel.drink.served": ("drink", "benefit", "drawback"),
+    "vessel.drink.memory": ("drink", "courier"),
+    "vessel.drink.bottle_unknown": (),
+    "vessel.drink.bottle_incompatible": ("drink", "incompatible"),
+    "vessel.drink.bottle_missing": ("drink",),
+    "vessel.drink.uncorked": ("drink", "benefit", "drawback"),
+    "vessel.drink.expired": ("drink", "drawback"),
+    "vessel.drink.status.served.cause": (),
+    "vessel.drink.status.bottled.cause": (),
+    "vessel.drink.status.consequence": ("benefit", "drawback"),
+    "vessel.drink.bottle.origin": ("bartender",),
+    "vessel.drink.status.willow.cause": (),
+    "vessel.drink.status.willow.consequence": (),
+    "vessel.bar.choice.browse": (), "vessel.bar.choice.support": (), "vessel.bar.choice.leave": (),
+    "vessel.bar.stock.choice": ("drink", "cost", "stock"), "vessel.bar.stock.requirement": (),
+    "vessel.bar.choice.drink": (), "vessel.bar.choice.bottle": (),
+    "vessel.bar.drink.requirement": ("cost",), "vessel.bar.bottle.requirement": ("cost",),
+    "vessel.bar.profile": ("role", "schedule"), "vessel.bar.opinion": ("opinion",),
+    "vessel.bar.stock_note": ("bartender",), "vessel.bar.menu": (), "vessel.bar.support": (), "vessel.bar.leave": (),
+    "vessel.bar.credit": ("credit", "season"), "vessel.bar.stock.line": ("index", "drink", "benefit", "drawback", "stock"),
+    "vessel.bar.stock.title": ("bartender",), "vessel.bar.stock.prompt": (),
+    "vessel.bar.detail.benefit": ("benefit",), "vessel.bar.detail.drawback": ("drawback",),
+    "vessel.bar.detail.duration": ("duration", "cost"), "vessel.bar.detail.stock": ("stock",),
+    "vessel.bar.detail.drink": (), "vessel.bar.detail.bottle": (),
 }
 
 _ACTION_TEMPLATE_CONTRACT.update({'combat.attack.effect.partial_cover': (), 'combat.attack.effect.injury': (), 'combat.attack.effect.thorn': (), 'combat.attack.effect.billhook': (), 'combat.attack.effect.spear': (), 'combat.attack.effect.cudgel': (), 'combat.attack.effect.staff': (), 'combat.attack.effect.axe': (), 'combat.attack.effect.pike': (), 'combat.attack.effect.boar_spear': (), 'combat.attack.effect.knives': (), 'combat.attack.effect.hammer': (), 'combat.attack.effect.net': (), 'combat.attack.effect.net_bind': (), 'combat.attack.effect.net_recover': (), 'combat.attack.effect.hooked_javelin': (), 'combat.attack.effect.retrieval': (), 'combat.attack.effect.handgonne': (), 'combat.attack.effect.high_arc': (), 'combat.attack.effect.high_arc_daze': (), 'combat.attack.effect.smoke_braid': (), 'combat.attack.no_physical_ammunition': ('ammunition',), 'combat.guard.handgonne_loading': ('current', 'required', 'stage'), 'combat.guard.no_engaged': ()})
@@ -628,6 +704,12 @@ class ActionPresentation:
 
 
 @dataclass(frozen=True)
+class VesselPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -653,6 +735,7 @@ class ContentPack:
     legendary_presentations: tuple[LegendaryPresentation, ...]
     topology_presentations: tuple[TopologyPresentation, ...]
     action_presentations: tuple[ActionPresentation, ...]
+    vessel_presentations: tuple[VesselPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -711,6 +794,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown action presentation id: {semantic_id}")
+
+    def vessel_presentation(self, semantic_id: str) -> VesselPresentation:
+        for presentation in self.vessel_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown vessel presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -795,8 +884,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, and actions")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, and vessel")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1563,6 +1652,26 @@ def _action_presentations(root: Path, pack_id: str) -> tuple[ActionPresentation,
     return tuple(ActionPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _ACTION_TEMPLATE_CONTRACT.items())
 
 
+def _vessel_presentations(root: Path, pack_id: str) -> tuple[VesselPresentation, ...]:
+    source = root / VESSEL_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid vessel presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _VESSEL_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("vessel") != expected_contract:
+        raise RuntimeError(f"invalid engine vessel content contract at {contract_source}: vessel does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid vessel presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_VESSEL_TEMPLATE_CONTRACT):
+        missing, unknown = set(_VESSEL_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_VESSEL_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required vessel keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown vessel keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid vessel presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(VesselPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _VESSEL_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -1728,10 +1837,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     legendary = _legendary_presentations(root, pack_id)
     topology = _topology_presentations(root, pack_id)
     actions = _action_presentations(root, pack_id)
+    vessel = _vessel_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, household_template,
     )
 
 

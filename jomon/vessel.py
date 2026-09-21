@@ -9,6 +9,7 @@ from .calendar import calendar_at, initial_origin_day, seasonal_stock_modifier
 from .catalog import CatalogError, VESSEL_SECTIONS, load_catalog
 from .state import ActorSchedule, GameState, Person, Position, SocialIncident, TerrainStatus, stage_rng
 from .action_presentation import action_format
+from .vessel_presentation import drink_benefit, drink_display_name, drink_drawback, vessel_format
 from .visuals import TAVERN_MAP, VESSEL_LEVELS
 
 VESSEL_WIDTH = 64
@@ -542,9 +543,14 @@ def advance_living_world(state: GameState) -> None:
         effect.remaining -= 1
         if effect.remaining <= 0:
             del state.drink_effects[effect_id]
-            state.add_message(f"{DRINKS[effect_id].name} clears: {DRINKS[effect_id].drawback} ends.", priority=2)
+            state.add_message(vessel_format(
+                "vessel.drink.expired", drink=drink_display_name(effect_id), drawback=drink_drawback(effect_id),
+            ), priority=2)
             if effect_id == "willow-bitter":
-                state.terrain_statuses["fatigued"] = TerrainStatus("spent willow bitter", 6, "guard and climbing are slower")
+                state.terrain_statuses["fatigued"] = TerrainStatus(
+                    vessel_format("vessel.drink.status.willow.cause"), 6,
+                    vessel_format("vessel.drink.status.willow.consequence"),
+                )
     if not state.actor_schedules:
         return
     visible_area = current_area(state)
@@ -654,29 +660,38 @@ def advance_living_world(state: GameState) -> None:
 def buy_drink(state: GameState, drink_id: str, *, bottle: bool) -> tuple[bool, str]:
     drink = DRINKS.get(drink_id)
     if drink is None or state.bartender_stock.get(drink_id, 0) <= 0:
-        return False, "That drink is not in the current counted stock."
+        return False, vessel_format("vessel.drink.unavailable")
     if state.bartender.relationships.get(state.active_courier_id or "", 0) <= -3:
-        return False, f"{state.bartender.name.split()[0]} refuses further credit after the remembered dispute."
+        return False, vessel_format("vessel.drink.credit_refused", bartender=state.bartender.name.split()[0])
     if state.trade_credit < drink.cost:
-        return False, f"{drink.name} requires {drink.cost} credit."
+        return False, vessel_format("vessel.drink.insufficient_credit", drink=drink_display_name(drink_id), cost=drink.cost)
     for incompatible in drink.incompatible:
         if incompatible in state.drink_effects:
-            return False, f"{state.bartender.name.split()[0]} will not mix {drink.name} with {DRINKS[incompatible].name}."
+            return False, vessel_format(
+                "vessel.drink.incompatible.bartender", bartender=state.bartender.name.split()[0],
+                drink=drink_display_name(drink_id), incompatible=drink_display_name(incompatible),
+            )
     if bottle:
         from .inventory import auto_place, create_item
 
-        item = create_item(state, f"consumable:bottle:{drink_id}", f"bought from {state.bartender.name}")
+        item = create_item(state, f"consumable:bottle:{drink_id}", vessel_format("vessel.drink.bottle.origin", bartender=state.bartender.name))
         if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
             state.items.remove(item)
             state.next_item_id -= 1
-            return False, "The bottle remains at the bar because no valid pack placement exists."
-        text = f"{drink.name} is corked into the courier's pack."
+            return False, vessel_format("vessel.drink.bottle_no_pack")
+        text = vessel_format("vessel.drink.bottled", drink=drink_display_name(drink_id))
     else:
-        state.drink_effects[drink_id] = TerrainStatus("served at Jomon's bar", drink.duration, f"{drink.benefit}; drawback: {drink.drawback}")
-        text = f"You drink {drink.name}: {drink.benefit}; drawback: {drink.drawback}."
+        benefit, drawback = drink_benefit(drink_id), drink_drawback(drink_id)
+        state.drink_effects[drink_id] = TerrainStatus(
+            vessel_format("vessel.drink.status.served.cause"), drink.duration, vessel_format("vessel.drink.status.consequence", benefit=benefit, drawback=drawback),
+        )
+        text = vessel_format("vessel.drink.served", drink=drink_display_name(drink_id), benefit=benefit, drawback=drawback)
     state.trade_credit -= drink.cost
     state.bartender_stock[drink_id] -= 1
-    state.bartender.memories.append(f"Served {drink.name} to {state.courier.name if state.courier else 'Jomon'}.")
+    state.bartender.memories.append(vessel_format(
+        "vessel.drink.memory", drink=drink_display_name(drink_id),
+        courier=state.courier.name if state.courier else "Jomon",
+    ))
     return True, text
 
 
@@ -684,25 +699,23 @@ def drink_bottled(state: GameState, drink_id: str) -> tuple[bool, str]:
     """Consume one physical bottle without charging the bar a second time."""
     drink = DRINKS.get(drink_id)
     if drink is None:
-        return False, "The bottle has no known Jomon measure."
+        return False, vessel_format("vessel.drink.bottle_unknown")
     for incompatible in drink.incompatible:
         if incompatible in state.drink_effects:
-            return False, (
-                f"{drink.name} cannot be safely mixed with "
-                f"{DRINKS[incompatible].name}."
+            return False, vessel_format(
+                "vessel.drink.bottle_incompatible", drink=drink_display_name(drink_id),
+                incompatible=drink_display_name(incompatible),
             )
     from .inventory import consume_carried
 
     if not consume_carried(state, f"consumable:bottle:{drink_id}"):
-        return False, f"No physical bottle of {drink.name} is in the pack."
+        return False, vessel_format("vessel.drink.bottle_missing", drink=drink_display_name(drink_id))
+    benefit, drawback = drink_benefit(drink_id), drink_drawback(drink_id)
     state.drink_effects[drink_id] = TerrainStatus(
-        "opened expedition bottle", drink.duration,
-        f"{drink.benefit}; drawback: {drink.drawback}",
+        vessel_format("vessel.drink.status.bottled.cause"), drink.duration,
+        vessel_format("vessel.drink.status.consequence", benefit=benefit, drawback=drawback),
     )
-    return True, (
-        f"You uncork {drink.name}: {drink.benefit}; "
-        f"drawback: {drink.drawback}."
-    )
+    return True, vessel_format("vessel.drink.uncorked", drink=drink_display_name(drink_id), benefit=benefit, drawback=drawback)
 
 
 def validate_living_vessel(state: GameState) -> None:

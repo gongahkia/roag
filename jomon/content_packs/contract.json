@@ -7490,5 +7490,469 @@
       "id": "combat.attack.outcome.drove_off",
       "placeholders": []
     }
+  ],
+  "vessel": [
+    {
+      "id": "vessel.drink.hearth-ale.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.winter-juniper.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.willow-bitter.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.miller-small-beer.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.stillroom-cordial.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.smokeleaf-infusion.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.reed-tonic.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.ebbglass-measure.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.hearth-ale.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.winter-juniper.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.willow-bitter.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.miller-small-beer.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.stillroom-cordial.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.smokeleaf-infusion.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.reed-tonic.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.ebbglass-measure.benefit",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.hearth-ale.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.winter-juniper.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.willow-bitter.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.miller-small-beer.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.stillroom-cordial.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.smokeleaf-infusion.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.reed-tonic.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.ebbglass-measure.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.ready_departure",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.regional_work",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.regional_rest",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.serving",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.sleeping",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.merchant_present",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.merchant_away",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.securing_tavern",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.defending_cargo",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.bracing_hull",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.answering_crew",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.dullest",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.draw",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.bones",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.eating",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.drinking",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.socialising",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.waiting",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.watch",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.steering",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.chart",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.repairing",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.cargo",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.treating",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.resting",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.training",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.working",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.between_watches",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.between_duties",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.schedule.between_routes",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.credit_refused",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "vessel.drink.insufficient_credit",
+      "placeholders": [
+        "drink",
+        "cost"
+      ]
+    },
+    {
+      "id": "vessel.drink.incompatible.bartender",
+      "placeholders": [
+        "bartender",
+        "drink",
+        "incompatible"
+      ]
+    },
+    {
+      "id": "vessel.drink.bottle_no_pack",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.bottled",
+      "placeholders": [
+        "drink"
+      ]
+    },
+    {
+      "id": "vessel.drink.served",
+      "placeholders": [
+        "drink",
+        "benefit",
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.drink.memory",
+      "placeholders": [
+        "drink",
+        "courier"
+      ]
+    },
+    {
+      "id": "vessel.drink.bottle_unknown",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.bottle_incompatible",
+      "placeholders": [
+        "drink",
+        "incompatible"
+      ]
+    },
+    {
+      "id": "vessel.drink.bottle_missing",
+      "placeholders": [
+        "drink"
+      ]
+    },
+    {
+      "id": "vessel.drink.uncorked",
+      "placeholders": [
+        "drink",
+        "benefit",
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.drink.expired",
+      "placeholders": [
+        "drink",
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.drink.status.served.cause",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.status.bottled.cause",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.status.consequence",
+      "placeholders": [
+        "benefit",
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.drink.bottle.origin",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "vessel.drink.status.willow.cause",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.drink.status.willow.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.choice.browse",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.choice.support",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.choice.leave",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.stock.choice",
+      "placeholders": [
+        "drink",
+        "cost",
+        "stock"
+      ]
+    },
+    {
+      "id": "vessel.bar.stock.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.choice.drink",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.choice.bottle",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.drink.requirement",
+      "placeholders": [
+        "cost"
+      ]
+    },
+    {
+      "id": "vessel.bar.bottle.requirement",
+      "placeholders": [
+        "cost"
+      ]
+    },
+    {
+      "id": "vessel.bar.profile",
+      "placeholders": [
+        "role",
+        "schedule"
+      ]
+    },
+    {
+      "id": "vessel.bar.opinion",
+      "placeholders": [
+        "opinion"
+      ]
+    },
+    {
+      "id": "vessel.bar.stock_note",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "vessel.bar.menu",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.support",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.leave",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.credit",
+      "placeholders": [
+        "credit",
+        "season"
+      ]
+    },
+    {
+      "id": "vessel.bar.stock.line",
+      "placeholders": [
+        "index",
+        "drink",
+        "benefit",
+        "drawback",
+        "stock"
+      ]
+    },
+    {
+      "id": "vessel.bar.stock.title",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "vessel.bar.stock.prompt",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.detail.benefit",
+      "placeholders": [
+        "benefit"
+      ]
+    },
+    {
+      "id": "vessel.bar.detail.drawback",
+      "placeholders": [
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.bar.detail.duration",
+      "placeholders": [
+        "duration",
+        "cost"
+      ]
+    },
+    {
+      "id": "vessel.bar.detail.stock",
+      "placeholders": [
+        "stock"
+      ]
+    },
+    {
+      "id": "vessel.bar.detail.drink",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.bar.detail.bottle",
+      "placeholders": []
+    }
   ]
 }

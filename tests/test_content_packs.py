@@ -48,6 +48,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "legendary_text.json", root / "legendary_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "topology_text.json", root / "topology_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "action_text.json", root / "action_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "vessel_text.json", root / "vessel_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -204,6 +205,16 @@ def alternate_pack(root: Path) -> Path:
         "topology.frostmere.condition": "Fixture gravel and water preserve the same estuary geometry.",
     })
     source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "vessel_text.json"
+    vessel_text = json.loads(source.read_text(encoding="utf-8"))
+    vessel_text["text"].update({
+        "vessel.drink.hearth-ale.name": "Fixture Hearth Measure",
+        "vessel.drink.hearth-ale.benefit": "fixture guard effect",
+        "vessel.schedule.serving": "fixture service watch",
+        "vessel.bar.choice.browse": "Browse fixture measures",
+        "vessel.drink.served": "Fixture drink {drink}: {benefit}; drawback: {drawback}.",
+    })
+    source.write_text(json.dumps(vessel_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

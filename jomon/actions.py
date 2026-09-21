@@ -1449,7 +1449,7 @@ def depart(state: GameState) -> ActionResult:
     merchant_schedule = state.actor_schedules.get(state.merchant.id)
     if merchant_schedule:
         merchant_schedule.available = False
-        merchant_schedule.activity = action_format("action.depart.merchant_away")
+        merchant_schedule.activity = "away on a regional circuit"
     field_of_view(state)
     from .situations import activate_for_band
 
@@ -3849,8 +3849,8 @@ def _finish_expedition_return(state: GameState) -> ActionResult:
     if merchant_schedule:
         merchant_schedule.available = state.merchant_present
         merchant_schedule.activity = (
-            action_format("action.return.merchant_present")
-            if state.merchant_present else action_format("action.depart.merchant_away")
+            "trading from a counted berth"
+            if state.merchant_present else "away on a regional circuit"
         )
     state.remember(
         action_format("action.return.memory", courier=courier.name)

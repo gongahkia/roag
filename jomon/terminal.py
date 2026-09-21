@@ -94,6 +94,7 @@ from .travel import DESTINATIONS, choose_destination, resolve_voyage, travel_ani
 from .route_chart import chart_move, edge_between, neighbours, route_availability
 from .calendar import calendar_at, seasonal_route_note
 from .vessel import DRINKS
+from .vessel_presentation import drink_benefit, drink_display_name, drink_drawback, schedule_display_name, vessel_format
 from .visuals import (
     ENTITY_GLYPHS, PHYSICAL_ROLE_OVERRIDES, REGIONAL_GROUND_ROLES,
     REGIONAL_TILE_ROLES, ROUTE_NODE_SYMBOLS, SEMANTIC_GLYPH_ROLES,
@@ -1636,13 +1637,13 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return rows + [ChoiceOption("B", "Back without work")]
     if kind == "bartender":
         return [
-            ChoiceOption("D", "Browse the counted drink stock"),
-            ChoiceOption("S", "Choose crew support"),
-            ChoiceOption("L", "Leave the bar"),
+            ChoiceOption("D", vessel_format("vessel.bar.choice.browse")),
+            ChoiceOption("S", vessel_format("vessel.bar.choice.support")),
+            ChoiceOption("L", vessel_format("vessel.bar.choice.leave")),
         ]
     if kind == "bartender:drinks":
         return [
-            ChoiceOption(str(index + 1), f"{drink.name} — {drink.cost} credit; stock {state.bartender_stock.get(drink_id, 0)}", "commitment", state.bartender_stock.get(drink_id, 0) > 0, "current counted stock")
+            ChoiceOption(str(index + 1), vessel_format("vessel.bar.stock.choice", drink=drink_display_name(drink_id), cost=drink.cost, stock=state.bartender_stock.get(drink_id, 0)), "commitment", state.bartender_stock.get(drink_id, 0) > 0, vessel_format("vessel.bar.stock.requirement"))
             for index, (drink_id, drink) in enumerate(DRINKS.items())
         ]
     if kind.startswith("bartender:drink:"):
@@ -1650,8 +1651,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         drink = DRINKS[drink_id]
         available = state.bartender_stock.get(drink_id, 0) > 0 and state.trade_credit >= drink.cost
         return [
-            ChoiceOption("D", "Drink one measure now", "commitment", available, f"{drink.cost} credit and stock"),
-            ChoiceOption("B", "Buy one bottle into the pack", "commitment", available, f"{drink.cost} credit and pack space"),
+            ChoiceOption("D", vessel_format("vessel.bar.choice.drink"), "commitment", available, vessel_format("vessel.bar.drink.requirement", cost=drink.cost)),
+            ChoiceOption("B", vessel_format("vessel.bar.choice.bottle"), "commitment", available, vessel_format("vessel.bar.bottle.requirement", cost=drink.cost)),
         ]
     if kind == "incident":
         return [
@@ -2985,25 +2986,26 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         schedule = state.actor_schedules.get(state.bartender.id)
         from .inspection import contextual_advice
         return state.bartender.name.upper(), [
-            f"{role_display_name(state.bartender.role).title()}; {schedule.activity if schedule else 'between duties'}.",
+            vessel_format("vessel.bar.profile", role=role_display_name(state.bartender.role).title(), schedule=schedule_display_name(schedule.activity, absent="duties") if schedule else schedule_display_name("", absent="duties")),
             state.bartender.background,
-            f"Opinion of courier: {state.bartender.relationships.get(state.active_courier_id or '', 0):+d}",
-            f"{state.bartender.name.split()[0]}'s stock follows region arrivals, counted supplies, and season.",
+            vessel_format("vessel.bar.opinion", opinion=f"{state.bartender.relationships.get(state.active_courier_id or '', 0):+d}"),
+            vessel_format("vessel.bar.stock_note", bartender=state.bartender.name.split()[0]),
             contextual_advice(state, state.bartender.name),
-            "D. Browse drinks", "S. Choose crew support", "L. Leave the bar",
+            vessel_format("vessel.bar.menu"), vessel_format("vessel.bar.support"), vessel_format("vessel.bar.leave"),
         ]
     if kind == "bartender:drinks":
-        lines = [f"Credit: {state.trade_credit}; {calendar_at(state).season} stock"]
+        lines = [vessel_format("vessel.bar.credit", credit=state.trade_credit, season=calendar_at(state).season)]
         for index, (drink_id, drink) in enumerate(DRINKS.items()):
-            lines.append(f"{index + 1}. {drink.name} — {drink.benefit}; drawback: {drink.drawback}; stock {state.bartender_stock.get(drink_id, 0)}")
-        return f"{state.bartender.name.split()[0].upper()}'S COUNTED DRINKS", lines + ["Name a measure to inspect drinking or bottling."]
+            lines.append(vessel_format("vessel.bar.stock.line", index=index + 1, drink=drink_display_name(drink_id), benefit=drink_benefit(drink_id), drawback=drink_drawback(drink_id), stock=state.bartender_stock.get(drink_id, 0)))
+        return vessel_format("vessel.bar.stock.title", bartender=state.bartender.name.split()[0].upper()), lines + [vessel_format("vessel.bar.stock.prompt")]
     if kind.startswith("bartender:drink:"):
-        drink = DRINKS[kind.split(":", 2)[2]]
-        return drink.name.upper(), [
-            f"Benefit: {drink.benefit}.", f"Drawback: {drink.drawback}.",
-            f"Duration: {drink.duration} actions; cost {drink.cost} credit.",
-            f"Current stock: {state.bartender_stock.get(drink.id, 0)}.",
-            "D. Drink now", "B. Buy a physical bottle",
+        drink_id = kind.split(":", 2)[2]
+        drink = DRINKS[drink_id]
+        return drink_display_name(drink_id).upper(), [
+            vessel_format("vessel.bar.detail.benefit", benefit=drink_benefit(drink_id)), vessel_format("vessel.bar.detail.drawback", drawback=drink_drawback(drink_id)),
+            vessel_format("vessel.bar.detail.duration", duration=drink.duration, cost=drink.cost),
+            vessel_format("vessel.bar.detail.stock", stock=state.bartender_stock.get(drink.id, 0)),
+            vessel_format("vessel.bar.detail.drink"), vessel_format("vessel.bar.detail.bottle"),
         ]
     if kind == "incident" and state.pending_incident:
         people = {person.id: person.name for person in state.household}
@@ -3029,7 +3031,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         schedule = state.actor_schedules.get(state.merchant.id)
         lines = [
             f"{state.merchant.name}, {role_display_name(state.merchant.role)}; "
-            f"{schedule.activity if schedule else 'between recorded routes'}.",
+            f"{schedule_display_name(schedule.activity, absent='routes') if schedule else schedule_display_name('', absent='routes')}.",
             state.merchant.background,
             f"Opinion of courier: {state.merchant.relationships.get(state.active_courier_id or '', 0):+d}.",
             f"Jomon credit: {state.trade_credit}",
