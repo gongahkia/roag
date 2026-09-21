@@ -124,10 +124,12 @@ def item_spec(kind: str) -> ItemSpec:
     if kind in ITEM_SPECS:
         return ITEM_SPECS[kind]
     if kind.startswith("evidence:"):
+        from .workline_presentation import workline_evidence_name, workline_format
         from .worklines import EVIDENCE
         name = kind.split(":", 1)[1]
-        title, _ = EVIDENCE[name]
-        return ItemSpec(name.title(), "EV", 1, 2, 1, "cargo", f"Site testimony for {title}; supports field work and terms with its assigned guard. Recover after loss, or pay for a replacement copy at the survey site.")
+        region = EVIDENCE[name]
+        title = workline_evidence_name(region)
+        return ItemSpec(title.title(), "EV", 1, 2, 1, "cargo", workline_format("workline.item.evidence.description", title=title))
     if kind.startswith("contract:"):
         return ItemSpec(
             "Witnessed contract copy", "WC", 1, 2, 1, "cargo",

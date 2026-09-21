@@ -1565,7 +1565,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .worklines import WORKLINES
         rows = [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
         if state.location == "region" and state.active_region_id in WORKLINES:
-            rows.append(ChoiceOption("W", "Local undertaking: evidence and field work"))
+            from .workline_presentation import workline_text
+            rows.append(ChoiceOption("W", workline_text("workline.ui.material_entry")))
         from .aftermath import contracts_for, near_contract_site
 
         if any(

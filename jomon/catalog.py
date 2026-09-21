@@ -68,6 +68,7 @@ UI_PRESENTATION_FILE = "ui_text.json"
 QUEST_PRESENTATION_FILE = "quests.json"
 HISTORY_PRESENTATION_FILE = "history_text.json"
 AFTERMATH_PRESENTATION_FILE = "aftermath_text.json"
+WORKLINE_PRESENTATION_FILE = "worklines.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -93,6 +94,55 @@ _AFTERMATH_RESULT_CONTRACT = {
     "remember": ("title", "outcome"), "missing_contract": (), "invalid_action": (),
     "ledger_cause": ("cause",), "ledger_witness": ("name", "role"), "ledger_site": ("site", "commodity"), "ledger_worksite": ("topology",), "ledger_account": ("status", "approach"), "ledger_answers": (), "ledger_copy": (), "ledger_outcome": ("outcome",),
     "service_shared": (), "service_claimed": (), "actor_shared_goal": (), "actor_shared_reason": (), "actor_claimed_goal": (), "actor_claimed_reason": (),
+}
+
+# Stable workline keys and formatting surfaces.  The history catalog continues
+# to own container, evidence, reward, and branch mechanics; this contract owns
+# only the selected-pack words rendered for those mechanics.
+_WORKLINE_REGIONS = ("hearthford", "greywash", "greenwold", "whitecairn")
+_WORKLINE_TEMPLATE_CONTRACT = {
+    **{f"workline.{region}.title": () for region in _WORKLINE_REGIONS},
+    **{f"workline.{region}.evidence": () for region in _WORKLINE_REGIONS},
+    **{f"workline.{region}.reward": () for region in _WORKLINE_REGIONS},
+    "workline.hearthford.branch.h": (), "workline.hearthford.branch.s": (),
+    "workline.greywash.branch.l": (), "workline.greywash.branch.q": (),
+    "workline.greenwold.branch.c": (), "workline.greenwold.branch.w": (),
+    "workline.whitecairn.branch.b": (), "workline.whitecairn.branch.r": (),
+    "workline.requirement.crowded": (), "workline.requirement.hearthford.timber": (),
+    "workline.requirement.greywash.oil": (), "workline.requirement.greenwold.cutting": (),
+    "workline.requirement.greenwold.brine": (), "workline.requirement.whitecairn.ironwork": (),
+    "workline.requirement.whitecairn.release": (),
+    "workline.option.near_witness": (), "workline.option.copy.label": ("replacement",),
+    "workline.option.copy.replacement": (), "workline.option.copy.requirement": (),
+    "workline.option.field.label": (), "workline.option.field.requirement": ("requirement",),
+    "workline.option.settle_public.label": (), "workline.option.settle_private.label": (),
+    "workline.option.settle.requirement": (), "workline.option.abandon.label": (),
+    "workline.option.abandon.requirement": (), "workline.line.none": (),
+    "workline.line.witness": ("witness", "status"),
+    "workline.line.field": ("x", "y", "z", "requirement"),
+    "workline.line.carry": ("evidence",), "workline.line.survey": ("evidence", "x", "y", "z"),
+    "workline.line.survey_help": (), "workline.line.resolution": (), "workline.line.general": (),
+    "workline.line.available": (), "workline.line.chosen": ("branch",),
+    "workline.line.evidence": (), "workline.line.fact": ("consequence",),
+    "workline.line.beacon": ("status", "account"),
+    "workline.guard.goal": (), "workline.guard.reason": (), "workline.guard.notice": ("actor",),
+    "workline.survey.item": ("title", "source"), "workline.survey.original": (),
+    "workline.survey.replacement": (), "workline.survey.whitecairn": (),
+    "workline.survey.result": ("evidence", "copy_state"), "workline.survey.packed": (),
+    "workline.survey.ground": (),
+    "workline.result.hearthford.h": (), "workline.result.hearthford.s": (),
+    "workline.result.greywash.l": (), "workline.result.greywash.q": (),
+    "workline.result.greenwold.c": (), "workline.result.greenwold.w": (),
+    "workline.result.whitecairn.b": (), "workline.result.whitecairn.r": (),
+    "workline.settle.public": (), "workline.settle.private": (), "workline.settle.actor_intent": (),
+    "workline.settle.reward": ("title",), "workline.settle.result": ("consequence", "reward", "location", "optional"),
+    "workline.settle.packed": (), "workline.settle.ground": (), "workline.settle.optional": (),
+    "workline.resolve.unavailable": (), "workline.open.mark": ("title", "evidence"),
+    "workline.open.message": ("title", "witness"), "workline.abandon": (),
+    "workline.memory": ("courier", "message"), "workline.beacon.account": ("supplied", "status"),
+    "workline.beacon.lit": (), "workline.beacon.dark": (),
+    "workline.ui.material_entry": (), "workline.ui.ledger_heading": (),
+    "workline.item.evidence.description": ("title",),
 }
 
 _HISTORY_TEMPLATE_CONTRACT = {
@@ -367,6 +417,14 @@ class AftermathResultPresentation:
 
 
 @dataclass(frozen=True)
+class WorklinePresentation:
+    """Immutable selected-pack wording for a stable workline presentation key."""
+
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -387,6 +445,7 @@ class ContentPack:
     aftermath_openings: tuple[tuple[str, str, str, str], ...]
     aftermath_action_presentations: tuple[AftermathActionPresentation, ...]
     aftermath_result_presentations: tuple[AftermathResultPresentation, ...]
+    workline_presentations: tuple[WorklinePresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -470,6 +529,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown aftermath result id: {semantic_id}")
 
+    def workline_presentation(self, semantic_id: str) -> WorklinePresentation:
+        for presentation in self.workline_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown workline presentation id: {semantic_id}")
+
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
@@ -499,8 +564,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, and aftermath")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, and worklines")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1164,6 +1229,35 @@ def _history_presentations(root: Path, pack_id: str) -> tuple[HistoryPresentatio
     ) for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items())
 
 
+def _workline_presentations(root: Path, pack_id: str) -> tuple[WorklinePresentation, ...]:
+    source = root / WORKLINE_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid workline presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [
+        {"id": key, "placeholders": list(placeholders)}
+        for key, placeholders in _WORKLINE_TEMPLATE_CONTRACT.items()
+    ]
+    if engine_contract.get("worklines") != expected_contract:
+        raise RuntimeError(f"invalid engine workline content contract at {contract_source}: worklines does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid workline presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_WORKLINE_TEMPLATE_CONTRACT):
+        missing, unknown = set(_WORKLINE_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_WORKLINE_TEMPLATE_CONTRACT)
+        details = []
+        if missing:
+            details.append("missing required workline keys " + ", ".join(sorted(missing)))
+        if unknown:
+            details.append("unknown workline keys " + ", ".join(sorted(unknown)))
+        raise ContentPackError(f"invalid workline presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(WorklinePresentation(
+        key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)
+    ) for key, placeholders in _WORKLINE_TEMPLATE_CONTRACT.items())
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -1290,10 +1384,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
     history = _history_presentations(root, pack_id)
+    worklines = _workline_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, household_template,
     )
 
 

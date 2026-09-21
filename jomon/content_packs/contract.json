@@ -2611,5 +2611,414 @@
     "aftermath.contract.marlbank.scar",
     "aftermath.contract.frostmere.supply",
     "aftermath.contract.frostmere.scar"
+  ],
+  "worklines": [
+    {
+      "id": "workline.hearthford.title",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greywash.title",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greenwold.title",
+      "placeholders": []
+    },
+    {
+      "id": "workline.whitecairn.title",
+      "placeholders": []
+    },
+    {
+      "id": "workline.hearthford.evidence",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greywash.evidence",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greenwold.evidence",
+      "placeholders": []
+    },
+    {
+      "id": "workline.whitecairn.evidence",
+      "placeholders": []
+    },
+    {
+      "id": "workline.hearthford.reward",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greywash.reward",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greenwold.reward",
+      "placeholders": []
+    },
+    {
+      "id": "workline.whitecairn.reward",
+      "placeholders": []
+    },
+    {
+      "id": "workline.hearthford.branch.h",
+      "placeholders": []
+    },
+    {
+      "id": "workline.hearthford.branch.s",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greywash.branch.l",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greywash.branch.q",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greenwold.branch.c",
+      "placeholders": []
+    },
+    {
+      "id": "workline.greenwold.branch.w",
+      "placeholders": []
+    },
+    {
+      "id": "workline.whitecairn.branch.b",
+      "placeholders": []
+    },
+    {
+      "id": "workline.whitecairn.branch.r",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.crowded",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.hearthford.timber",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.greywash.oil",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.greenwold.cutting",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.greenwold.brine",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.whitecairn.ironwork",
+      "placeholders": []
+    },
+    {
+      "id": "workline.requirement.whitecairn.release",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.near_witness",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.copy.label",
+      "placeholders": [
+        "replacement"
+      ]
+    },
+    {
+      "id": "workline.option.copy.replacement",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.copy.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.field.label",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.field.requirement",
+      "placeholders": [
+        "requirement"
+      ]
+    },
+    {
+      "id": "workline.option.settle_public.label",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.settle_private.label",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.settle.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.abandon.label",
+      "placeholders": []
+    },
+    {
+      "id": "workline.option.abandon.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.none",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.witness",
+      "placeholders": [
+        "witness",
+        "status"
+      ]
+    },
+    {
+      "id": "workline.line.field",
+      "placeholders": [
+        "x",
+        "y",
+        "z",
+        "requirement"
+      ]
+    },
+    {
+      "id": "workline.line.carry",
+      "placeholders": [
+        "evidence"
+      ]
+    },
+    {
+      "id": "workline.line.survey",
+      "placeholders": [
+        "evidence",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "workline.line.survey_help",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.resolution",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.general",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.available",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.chosen",
+      "placeholders": [
+        "branch"
+      ]
+    },
+    {
+      "id": "workline.line.evidence",
+      "placeholders": []
+    },
+    {
+      "id": "workline.line.fact",
+      "placeholders": [
+        "consequence"
+      ]
+    },
+    {
+      "id": "workline.line.beacon",
+      "placeholders": [
+        "status",
+        "account"
+      ]
+    },
+    {
+      "id": "workline.guard.goal",
+      "placeholders": []
+    },
+    {
+      "id": "workline.guard.reason",
+      "placeholders": []
+    },
+    {
+      "id": "workline.guard.notice",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "workline.survey.item",
+      "placeholders": [
+        "title",
+        "source"
+      ]
+    },
+    {
+      "id": "workline.survey.original",
+      "placeholders": []
+    },
+    {
+      "id": "workline.survey.replacement",
+      "placeholders": []
+    },
+    {
+      "id": "workline.survey.whitecairn",
+      "placeholders": []
+    },
+    {
+      "id": "workline.survey.result",
+      "placeholders": [
+        "evidence",
+        "copy_state"
+      ]
+    },
+    {
+      "id": "workline.survey.packed",
+      "placeholders": []
+    },
+    {
+      "id": "workline.survey.ground",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.hearthford.h",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.hearthford.s",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.greywash.l",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.greywash.q",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.greenwold.c",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.greenwold.w",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.whitecairn.b",
+      "placeholders": []
+    },
+    {
+      "id": "workline.result.whitecairn.r",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.public",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.private",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.actor_intent",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.reward",
+      "placeholders": [
+        "title"
+      ]
+    },
+    {
+      "id": "workline.settle.result",
+      "placeholders": [
+        "consequence",
+        "reward",
+        "location",
+        "optional"
+      ]
+    },
+    {
+      "id": "workline.settle.packed",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.ground",
+      "placeholders": []
+    },
+    {
+      "id": "workline.settle.optional",
+      "placeholders": []
+    },
+    {
+      "id": "workline.resolve.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "workline.open.mark",
+      "placeholders": [
+        "title",
+        "evidence"
+      ]
+    },
+    {
+      "id": "workline.open.message",
+      "placeholders": [
+        "title",
+        "witness"
+      ]
+    },
+    {
+      "id": "workline.abandon",
+      "placeholders": []
+    },
+    {
+      "id": "workline.memory",
+      "placeholders": [
+        "courier",
+        "message"
+      ]
+    },
+    {
+      "id": "workline.beacon.account",
+      "placeholders": [
+        "supplied",
+        "status"
+      ]
+    },
+    {
+      "id": "workline.beacon.lit",
+      "placeholders": []
+    },
+    {
+      "id": "workline.beacon.dark",
+      "placeholders": []
+    },
+    {
+      "id": "workline.ui.material_entry",
+      "placeholders": []
+    },
+    {
+      "id": "workline.ui.ledger_heading",
+      "placeholders": []
+    },
+    {
+      "id": "workline.item.evidence.description",
+      "placeholders": [
+        "title"
+      ]
+    }
   ]
 }
