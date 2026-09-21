@@ -27,3 +27,14 @@ def aftermath_opening(region_id: str) -> str:
 
 def aftermath_opening_format(region_id: str, field: str, /, **values: object) -> str:
     return selected_content_pack().aftermath_opening_text(region_id, field).format(**values)
+
+_ACTION_IDS = {"a": "aftermath.action.accept", "d": "aftermath.action.deliver", "w": "aftermath.action.work", "s": "aftermath.action.settle", "x": "aftermath.action.abandon", "b": "aftermath.action.back"}
+
+
+def aftermath_action_text(action: str, field: str = "label", /, **values: object) -> str:
+    presentation = selected_content_pack().aftermath_action_presentation(_ACTION_IDS[action])
+    if field == "label":
+        text = presentation.label
+    else:
+        text = dict(presentation.requirements)[field]
+    return text.format(**values)

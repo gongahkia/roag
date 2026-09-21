@@ -128,6 +128,10 @@ def alternate_pack(root: Path) -> Path:
     aftermath = json.loads(source.read_text(encoding="utf-8"))
     aftermath["contracts"]["aftermath.contract.hearthford.supply"]["title"] = "Fixture Flood Marks"
     aftermath["contracts"]["aftermath.contract.greywash.scar"]["title"] = "Fixture Wreck Title"
+    aftermath["actions"]["aftermath.action.accept"]["label"] = "Fixture accept copy"
+    aftermath["actions"]["aftermath.action.deliver"]["requirements"]["missing_supply"] = "Fixture needs {commodity}."
+    aftermath["actions"]["aftermath.action.work"]["requirements"]["field_site"] = "Fixture work at {site}."
+    aftermath["actions"]["aftermath.action.settle"]["requirements"]["missing_copy"] = "Fixture replacement copy required."
     source.write_text(json.dumps(aftermath, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
@@ -525,6 +529,12 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(
             pack.aftermath_presentation("aftermath.contract.hearthford.supply").cause,
             "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}",
+        )
+        accept = pack.aftermath_action_presentation("aftermath.action.accept")
+        self.assertEqual(accept.label, "Fixture accept copy")
+        self.assertEqual(
+            dict(pack.aftermath_action_presentation("aftermath.action.deliver").requirements)["missing_supply"],
+            "Fixture needs {commodity}.",
         )
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):

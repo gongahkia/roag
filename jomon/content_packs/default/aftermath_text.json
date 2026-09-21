@@ -106,5 +106,50 @@
       "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
       "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
     }
+  },
+  "actions": {
+    "aftermath.action.back": {
+      "label": "Back to the regional account",
+      "requirements": {}
+    },
+    "aftermath.action.accept": {
+      "label": "Accept one physical witnessed copy",
+      "requirements": {
+        "near_witness": "speak beside the named witness",
+        "unavailable": "This contract must be accepted once beside its named witness."
+      }
+    },
+    "aftermath.action.deliver": {
+      "label": "Deliver one physical {commodity} lot",
+      "requirements": {
+        "near_witness_supply": "return beside the witness carrying one {commodity} lot",
+        "missing_supply": "Carry one physical {commodity} lot.",
+        "unavailable": "Supply must be handed to the named witness after acceptance."
+      }
+    },
+    "aftermath.action.work": {
+      "label": "Perform field work at the recorded scar",
+      "requirements": {
+        "field_site": "reach {site} with a working or levering tool",
+        "missing_tool": "A working or levering tool is required.",
+        "crowded_site": "The worksite is too crowded with altered material for this task.",
+        "unavailable": "The disclosed work must be performed beside its recorded scar."
+      }
+    },
+    "aftermath.action.abandon": {
+      "label": "Abandon the account and record the failure",
+      "requirements": {
+        "near_witness": "return to the named witness",
+        "unavailable": "Return to the witness before abandoning the accepted account."
+      }
+    },
+    "aftermath.action.settle": {
+      "label": "Settle the worked account{replacement}",
+      "requirements": {
+        "near_witness_copy": "return beside the witness with the contract copy, or one credit only if that copy was destroyed or lost",
+        "missing_copy": "Recover the physical copy; only a destroyed or lost copy can be replaced for one credit.",
+        "unavailable": "The worked account must be settled beside its named witness."
+      }
+    }
   }
 }

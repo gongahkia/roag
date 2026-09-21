@@ -74,6 +74,14 @@ _AFTERMATH_CONTRACT = tuple(
     for region in ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
     for kind in ("supply", "scar")
 )
+_AFTERMATH_ACTION_CONTRACT = {
+    "aftermath.action.back": ({}, {}),
+    "aftermath.action.accept": ({}, {"near_witness": (), "unavailable": ()}),
+    "aftermath.action.deliver": ({"commodity": ()}, {"near_witness_supply": ("commodity",), "missing_supply": ("commodity",), "unavailable": ()}),
+    "aftermath.action.work": ({}, {"field_site": ("site",), "missing_tool": (), "crowded_site": (), "unavailable": ()}),
+    "aftermath.action.abandon": ({}, {"near_witness": (), "unavailable": ()}),
+    "aftermath.action.settle": ({"replacement": ()}, {"near_witness_copy": (), "missing_copy": (), "unavailable": ()}),
+}
 
 _HISTORY_TEMPLATE_CONTRACT = {
     'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),
@@ -334,6 +342,13 @@ class AftermathPresentation:
 
 
 @dataclass(frozen=True)
+class AftermathActionPresentation:
+    id: str
+    label: str
+    requirements: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -352,6 +367,7 @@ class ContentPack:
     history_presentations: tuple[HistoryPresentation, ...]
     aftermath_presentations: tuple[AftermathPresentation, ...]
     aftermath_openings: tuple[tuple[str, str, str, str], ...]
+    aftermath_action_presentations: tuple[AftermathActionPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -422,6 +438,12 @@ class ContentPack:
             if region == region_id:
                 return {"title": title, "notice": notice, "memory": memory}[field]
         raise KeyError(f"unknown aftermath opening region: {region_id}")
+
+    def aftermath_action_presentation(self, semantic_id: str) -> AftermathActionPresentation:
+        for presentation in self.aftermath_action_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown aftermath action id: {semantic_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -1117,7 +1139,7 @@ def _history_presentations(root: Path, pack_id: str) -> tuple[HistoryPresentatio
     ) for key, placeholders in _HISTORY_TEMPLATE_CONTRACT.items())
 
 
-def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...]]:
+def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
     if engine_contract["aftermath"] != list(_AFTERMATH_CONTRACT):
@@ -1126,8 +1148,8 @@ def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathP
         document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"contracts", "openings"} or not isinstance(document["contracts"], dict) or not isinstance(document["openings"], dict):
-        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: expected contracts and openings objects")
+    if not isinstance(document, dict) or set(document) != {"contracts", "openings", "actions"} or not isinstance(document["contracts"], dict) or not isinstance(document["openings"], dict) or not isinstance(document["actions"], dict):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: expected contracts, openings, and actions objects")
     rows = document["contracts"]
     if set(rows) != set(_AFTERMATH_CONTRACT):
         missing, unknown = set(_AFTERMATH_CONTRACT) - set(rows), set(rows) - set(_AFTERMATH_CONTRACT)
@@ -1153,7 +1175,20 @@ def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathP
     for region in regions:
         for field, placeholders in {"notice": {"title"}, "memory": {"branch", "region"}}.items():
             _validate_quest_service_template(source, pack_id, f"openings.{region}.{field}", document["openings"][region][field], tuple(sorted(placeholders)))
-    return tuple(presentations), tuple((region, document["openings"][region]["title"], document["openings"][region]["notice"], document["openings"][region]["memory"]) for region in sorted(regions))
+    action_rows = document["actions"]
+    if set(action_rows) != set(_AFTERMATH_ACTION_CONTRACT):
+        raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: actions has missing or unknown action slots")
+    actions = []
+    for action_id, (label_fields, requirement_fields) in _AFTERMATH_ACTION_CONTRACT.items():
+        row = action_rows[action_id]
+        if not isinstance(row, dict) or set(row) != {"label", "requirements"} or not isinstance(row["requirements"], dict):
+            raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: actions.{action_id} must contain label and requirements")
+        label = _validate_quest_service_template(source, pack_id, f"actions.{action_id}.label", row["label"], tuple(label_fields))
+        if set(row["requirements"]) != set(requirement_fields):
+            raise ContentPackError(f"invalid aftermath presentation for content pack {pack_id!r} at {source}: actions.{action_id}.requirements has missing or unknown reasons")
+        requirements = tuple((reason, _validate_quest_service_template(source, pack_id, f"actions.{action_id}.requirements.{reason}", row["requirements"][reason], fields)) for reason, fields in requirement_fields.items())
+        actions.append(AftermathActionPresentation(action_id, label, requirements))
+    return tuple(presentations), tuple((region, document["openings"][region]["title"], document["openings"][region]["notice"], document["openings"][region]["memory"]) for region in sorted(regions)), tuple(actions)
 
 
 def _manifest_document(root: Path) -> dict[str, Any]:
@@ -1224,10 +1259,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
     history = _history_presentations(root, pack_id)
-    aftermath, aftermath_openings = _aftermath_presentations(root, pack_id)
+    aftermath, aftermath_openings, aftermath_actions = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, household_template,
     )
 
 
