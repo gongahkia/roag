@@ -184,6 +184,15 @@ def alternate_pack(root: Path) -> Path:
         "topology.hearthford.landmark.mill": "fixture engine house",
         "topology.hearthford.link.mill_ladder": "fixture service climb",
         "topology.hearthford.container.cellar": "Fixture submerged strongbox",
+        "topology.greywash.zone.salt_pans": "Fixture brine terraces",
+        "topology.greywash.container.quay": "Fixture tide coffer",
+        "topology.greywash.contact.1.name": "Fixture Ebbwarden",
+        "topology.greenwold.zone.resin_yard": "Fixture pitch enclosure",
+        "topology.greenwold.link.canopy_ladder": "fixture bough ascent",
+        "topology.greenwold.contact.1.role": "fixture charcoal steward",
+        "topology.whitecairn.zone.quarry_face": "Fixture stone shelf",
+        "topology.whitecairn.container.tower": "Fixture bell cache",
+        "topology.whitecairn.landmark.bell_tower": "fixture signal tower",
     })
     source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
@@ -353,6 +362,22 @@ def topology_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'mechanics': [region.id, region.width, region.height, region.levels, sorted((key, point.x, point.y, point.z) for key, point in region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in region.containers), region.geography_signature], "
             "'presentation': [list(region.zones), [(link.id, link.name) for link in region.vertical_links], [(box.id, box.name) for box in region.containers], [(target.id, target.label) for target in targets if target.id.startswith(('landmark:mill', 'link:hearthford:mill_ladder', 'container:cellar'))]]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def regional_generator_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.navigation import navigation_targets; from jomon.regions import activate_region; from jomon.state import create_world; "
+            "state=create_world('regional-generator-pack-proof'); mechanics={}; presentation={}; "
+            "[(activate_region(state, region_id), setattr(state, 'location', 'region'), setattr(state, 'position', state.region.landmarks['landing']), setattr(state.region, 'seen', [f'{point.x},{point.y},{point.z}' for point in state.region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in state.region.containers] + [f'{point.x},{point.y},{point.z}' for link in state.region.vertical_links for point in (link.first, link.second)]), mechanics.update({region_id: [state.region.id, state.region.width, state.region.height, state.region.levels, sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in state.region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in state.region.containers), sorted((contact.id, contact.disposition, contact.interest, contact.position.x, contact.position.y, contact.position.z) for contact in state.contacts[region_id]), sorted((threat.id, threat.profile, threat.position.x, threat.position.y, threat.position.z, threat.health, threat.elite, threat.group) for threat in state.region_threats[region_id]), state.region.geography_signature]}), presentation.update({region_id: [[state.region.condition, state.region.work, state.region.pressure, state.region.objective_text, state.region.hazard, state.region.process_name], list(state.region.zones), [(link.id, link.name) for link in state.region.vertical_links if link.id.startswith(region_id + ':')], [(box.id, box.name) for box in state.region.containers], [(contact.id, contact.name, contact.role) for contact in state.contacts[region_id]], [(target.id, target.label) for target in navigation_targets(state) if target.id.startswith('landmark:')] ]})) for region_id in ('greywash', 'greenwold', 'whitecairn')]; "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -839,6 +864,52 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("fixture engine house", " ".join(label for _id, label in alternate["presentation"][3]))
         self.assertIn("Hearthford millworks", default["presentation"][0])
 
+    def test_default_regional_generator_presentation_preserves_existing_text(self):
+        from jomon.state import create_world
+
+        state = create_world("regional-generator-default-text")
+        expected = {
+            "greywash": (
+                "Wind and tide expose a wreck road only while the flats drain.",
+                "working tide", "Salt pans", "Quayside salt coffer", "Edda Marr", "salt reeve",
+            ),
+            "greenwold": (
+                "A shifting forest wind carries an illicit charcoal burn toward medicine coppice.",
+                "shifting burn wind", "Raised burnworks", "Canopy cache", "Nera Holt", "charcoal reeve",
+            ),
+            "whitecairn": (
+                "Repeated quarry bells warn of a ridge cut that is becoming unstable.",
+                "quarry instability", "Quarry face", "Bell parapet chest", "Pera Chalk", "quarry factor",
+            ),
+        }
+        for region_id, (condition, process, zone, container, contact_name, role) in expected.items():
+            with self.subTest(region_id=region_id):
+                region = state.regions[region_id]
+                self.assertEqual(region.condition, condition)
+                self.assertEqual(region.process_name, process)
+                self.assertIn(zone, region.zones)
+                self.assertIn(container, [box.name for box in region.containers])
+                self.assertEqual((state.contacts[region_id][0].name, state.contacts[region_id][0].role), (contact_name, role))
+
+    def test_alternate_pack_changes_regional_generator_presentation_not_generation(self):
+        default = regional_generator_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = regional_generator_presentation_snapshot(environment)
+
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("Fixture brine terraces", alternate["presentation"]["greywash"][1])
+        self.assertIn(["greywash-quay", "Fixture tide coffer"], alternate["presentation"]["greywash"][3])
+        self.assertIn("Fixture pitch enclosure", alternate["presentation"]["greenwold"][1])
+        self.assertIn(["greenwold:canopy_ladder", "fixture bough ascent"], alternate["presentation"]["greenwold"][2])
+        self.assertIn("Fixture stone shelf", alternate["presentation"]["whitecairn"][1])
+        self.assertIn(["whitecairn-tower", "Fixture bell cache"], alternate["presentation"]["whitecairn"][3])
+        self.assertIn("fixture signal tower", " ".join(label for _id, label in alternate["presentation"]["whitecairn"][5]))
+
     def test_topology_presentation_validation_rejects_invalid_authoring(self):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
@@ -850,6 +921,8 @@ class ContentPackTests(unittest.TestCase):
                 "empty value": lambda value: value["text"].update({"topology.hearthford.container.cellar": ""}),
                 "malformed template": lambda value: value["text"].update({"topology.hearthford.zone.millworks": "{"}),
                 "unknown placeholder": lambda value: value["text"].update({"topology.hearthford.zone.millworks": "{zone}"}),
+                "missing regional slot": lambda value: value["text"].pop("topology.greywash.container.quay"),
+                "wrong regional type": lambda value: value["text"].update({"topology.greenwold.contact.1.name": 1}),
             }
             for name, mutate in cases.items():
                 with self.subTest(name):
@@ -883,6 +956,10 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(topology_text("topology.hearthford.zone.millworks"), "Hearthford millworks")
         self.assertEqual(topology_text("topology.hearthford.link.mill_ladder"), "mill ladder")
         self.assertEqual(topology_text("topology.hearthford.container.cellar"), "Buried mill strongbox")
+        self.assertEqual(topology_text("topology.greywash.zone.salt_pans"), "Salt pans")
+        self.assertEqual(topology_text("topology.greenwold.link.canopy_ladder"), "canopy ladder")
+        self.assertEqual(topology_text("topology.whitecairn.container.tower"), "Bell parapet chest")
+        self.assertEqual(topology_text("topology.greywash.contact.1.name"), "Edda Marr")
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
         from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title

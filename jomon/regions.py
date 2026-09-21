@@ -10,6 +10,10 @@ import weakref
 from .content import COMMODITIES, ENEMY_ARCHETYPES
 from .encounters import production_encounter_groups, threat_from_archetype
 from .state import Contact, Container, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
+from .topology_presentation import (
+    regional_contact_name, regional_contact_role, regional_container_name,
+    regional_generator_text, regional_link_name, regional_zone_name,
+)
 
 
 _REACHABLE_CACHE: OrderedDict[
@@ -74,12 +78,12 @@ def _levels(ground: list[list[str]], others: dict[int, list[list[str]]]) -> dict
     }
 
 
-def _containers(seed: str, region_id: str, specifications: list[tuple[str, str, Position, str | None]], rewards: list[str]) -> list[Container]:
+def _containers(seed: str, region_id: str, specifications: list[tuple[str, Position, str | None]], rewards: list[str]) -> list[Container]:
     values = list(rewards)
     stage_rng(seed, f"{region_id}:treasure").shuffle(values)
     return [
-        Container(f"{region_id}-{key}", name, position, values[index], requirement)
-        for index, (key, name, position, requirement) in enumerate(specifications)
+        Container(f"{region_id}-{key}", regional_container_name(region_id, key), position, values[index], requirement)
+        for index, (key, position, requirement) in enumerate(specifications)
     ]
 
 
@@ -97,7 +101,7 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
         id(region), stable_geography or tuple((z, tuple(region.levels[str(z)])) for z in levels),
         width, height, start,
         tuple(sorted(region.tile_changes.items())),
-        tuple((link.first, link.second, link.name) for link in region.vertical_links),
+        tuple((link.first, link.second, link.id or link.name) for link in region.vertical_links),
     )
     cached = _REACHABLE_CACHE.get(cache_key)
     if cached is not None and cached[0]() is region:
@@ -265,20 +269,20 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
     roof[22][94] = "C"
 
     links = [
-        VerticalLink(cave, Position(cave.x, cave.y, -1), "sea-cave steps"),
-        VerticalLink(Position(59, 17), Position(59, 17, 1), "signal-mast ladder"),
-        VerticalLink(Position(59, 14, 1), Position(59, 14, 2), "mast roof ladder"),
-        VerticalLink(Position(90, 28), Position(90, 28, 1), "chain-house stair"),
-        VerticalLink(Position(90, 23, 1), Position(90, 23, 2), "chain roof hatch"),
+        VerticalLink(cave, Position(cave.x, cave.y, -1), regional_link_name("greywash", "sea_cave_steps"), "greywash:sea_cave_steps"),
+        VerticalLink(Position(59, 17), Position(59, 17, 1), regional_link_name("greywash", "signal_mast_ladder"), "greywash:signal_mast_ladder"),
+        VerticalLink(Position(59, 14, 1), Position(59, 14, 2), regional_link_name("greywash", "mast_roof_ladder"), "greywash:mast_roof_ladder"),
+        VerticalLink(Position(90, 28), Position(90, 28, 1), regional_link_name("greywash", "chain_house_stair"), "greywash:chain_house_stair"),
+        VerticalLink(Position(90, 23, 1), Position(90, 23, 2), regional_link_name("greywash", "chain_roof_hatch"), "greywash:chain_roof_hatch"),
     ]
     containers = _containers(seed, "greywash", [
-        ("quay", "Quayside salt coffer", Position(27, 29), None),
-        ("pan", "Salt-pan tool chest", Position(42, 36), None),
-        ("wreck", "Distinctive wreck locker", Position(75, 39), "rope"),
-        ("cave", "Sea-cave smuggler cache", Position(90, 44, -1), "light"),
-        ("mast", "Signal-mast chest", Position(62, 13, 2), None),
-        ("chain", "Chain-house strongbox", Position(92, 23, 1), "key"),
-        ("tide-account", "Tide-account roof coffer", Position(89, 25, 2), None),
+        ("quay", Position(27, 29), None),
+        ("pan", Position(42, 36), None),
+        ("wreck", Position(75, 39), "rope"),
+        ("cave", Position(90, 44, -1), "light"),
+        ("mast", Position(62, 13, 2), None),
+        ("chain", Position(92, 23, 1), "key"),
+        ("tide-account", Position(89, 25, 2), None),
     ], ["tide ledger", "cork float", "wreck key", "brine wash", "longbow", "ebbglass spindle", "sighting knot"])
     _stock_containers(
         containers,
@@ -297,14 +301,20 @@ def build_greywash(seed: str, *, layout: str | None = None) -> Region:
         "objective": Position(90, 24, 1), "elevated": Position(59, 14, 2),
     }
     region = Region(
-        "Wind and tide expose a wreck road only while the flats drain.",
-        "Greywash salts fish, tends broad pans, and recovers accountable wreck cargo.",
-        "A broken tide chain will drown the salt road before the next working ebb.",
-        "Reach the upper chain house and secure two iron links or alter the sluice schedule.",
-        "ironwork", "salt fish", "closing tide", width, height, levels, landmarks,
-        {"Greywash village": (10, 19, 31, 33), "Salt pans": (30, 28, 47, 40), "Dune road": (47, 9, 70, 23), "Wreck flats": (63, 34, 84, 45), "Tide-chain house": (83, 19, 98, 35)},
+        regional_generator_text("greywash", "condition"),
+        regional_generator_text("greywash", "work"),
+        regional_generator_text("greywash", "pressure"),
+        regional_generator_text("greywash", "objective"),
+        "ironwork", "salt fish", regional_generator_text("greywash", "hazard"), width, height, levels, landmarks,
+        {
+            regional_zone_name("greywash", "village"): (10, 19, 31, 33),
+            regional_zone_name("greywash", "salt_pans"): (30, 28, 47, 40),
+            regional_zone_name("greywash", "dune_road"): (47, 9, 70, 23),
+            regional_zone_name("greywash", "wreck_flats"): (63, 34, 84, 45),
+            regional_zone_name("greywash", "tide_chain_house"): (83, 19, 98, 35),
+        },
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="greywash", name=region_display_name("greywash"), process_name="working tide",
+        id="greywash", name=region_display_name("greywash"), process_name=regional_generator_text("greywash", "process"),
         process_thresholds=[28, 55, 82],
     )
     from .geography import orient_region
@@ -416,20 +426,20 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
     roof[8][64] = "<"
     roof[7][67] = "C"
     links = [
-        VerticalLink(root, Position(root.x, root.y, -1), "root-cellar steps"),
-        VerticalLink(Position(64, 10), Position(64, 10, 1), "watch-tree ladder"),
-        VerticalLink(Position(64, 8, 1), Position(64, 8, 2), "canopy ladder"),
-        VerticalLink(Position(80, 39), Position(80, 39, 1), "burn-walk ladder"),
-        VerticalLink(Position(82, 37, 1), Position(82, 37, 2), "smoke roof ladder"),
+        VerticalLink(root, Position(root.x, root.y, -1), regional_link_name("greenwold", "root_cellar_steps"), "greenwold:root_cellar_steps"),
+        VerticalLink(Position(64, 10), Position(64, 10, 1), regional_link_name("greenwold", "watch_tree_ladder"), "greenwold:watch_tree_ladder"),
+        VerticalLink(Position(64, 8, 1), Position(64, 8, 2), regional_link_name("greenwold", "canopy_ladder"), "greenwold:canopy_ladder"),
+        VerticalLink(Position(80, 39), Position(80, 39, 1), regional_link_name("greenwold", "burn_walk_ladder"), "greenwold:burn_walk_ladder"),
+        VerticalLink(Position(82, 37, 1), Position(82, 37, 2), regional_link_name("greenwold", "smoke_roof_ladder"), "greenwold:smoke_roof_ladder"),
     ]
     containers = _containers(seed, "greenwold", [
-        ("village", "Greenwold medicine chest", Position(26, 28), None),
-        ("clearing", "Abandoned hunter pack", Position(51, 24), None),
-        ("root", "Root-cellar locked box", Position(62, 48, -1), "key"),
-        ("resin", "Resin-yard tool cabinet", Position(79, 19), None),
-        ("watch", "Canopy cache", Position(67, 7, 2), "rope"),
-        ("burn", "Raised burn-store coffer", Position(84, 38, 1), None),
-        ("burn-account", "Burn-boundary ledger chest", Position(81, 37, 2), None),
+        ("village", Position(26, 28), None),
+        ("clearing", Position(51, 24), None),
+        ("root", Position(62, 48, -1), "key"),
+        ("resin", Position(79, 19), None),
+        ("watch", Position(67, 7, 2), "rope"),
+        ("burn", Position(84, 38, 1), None),
+        ("burn-account", Position(81, 37, 2), None),
     ], ["charcoal mask", "resin grip", "bird whistle", "pine resin dressing", "paired knives", "coalheart seed", "cache bell"])
     _stock_containers(
         containers,
@@ -449,14 +459,20 @@ def build_greenwold(seed: str, *, layout: str | None = None) -> Region:
         "elevated": Position(64, 8, 2),
     }
     region = Region(
-        "A shifting forest wind carries an illicit charcoal burn toward medicine coppice.",
-        "Greenwold cuts managed timber, burns charcoal, gathers resin, and tends healing plants.",
-        "The burn crew moved the water key into a root store while smoke thickens.",
-        "Recover the water key below, rescue the wounded reeve, or redirect the burn shutters.",
-        "charcoal", "timber", "spreading burn smoke", width, height, levels, landmarks,
-        {"Greenwold clearing village": (10, 18, 30, 32), "Open woodland": (30, 16, 64, 43), "Resin yard": (68, 9, 84, 23), "Raised burnworks": (73, 32, 90, 46), "Root hollows": (44, 40, 67, 55)},
+        regional_generator_text("greenwold", "condition"),
+        regional_generator_text("greenwold", "work"),
+        regional_generator_text("greenwold", "pressure"),
+        regional_generator_text("greenwold", "objective"),
+        "charcoal", "timber", regional_generator_text("greenwold", "hazard"), width, height, levels, landmarks,
+        {
+            regional_zone_name("greenwold", "village"): (10, 18, 30, 32),
+            regional_zone_name("greenwold", "woodland"): (30, 16, 64, 43),
+            regional_zone_name("greenwold", "resin_yard"): (68, 9, 84, 23),
+            regional_zone_name("greenwold", "burnworks"): (73, 32, 90, 46),
+            regional_zone_name("greenwold", "root_hollows"): (44, 40, 67, 55),
+        },
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="greenwold", name=region_display_name("greenwold"), process_name="shifting burn wind",
+        id="greenwold", name=region_display_name("greenwold"), process_name=regional_generator_text("greenwold", "process"),
         process_thresholds=[32, 62, 92],
     )
     from .geography import orient_region
@@ -537,24 +553,24 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
         roof[29 + (x % 3)][x] = "^"
     roof[30][57] = "C"
     links = [
-        VerticalLink(sink, Position(sink.x, sink.y, -1), "sinkhole ladder"),
-        VerticalLink(Position(57, 36), Position(57, 36, 1), "quarry hoist ladder"),
-        VerticalLink(Position(57, 31, 1), Position(57, 30, 2), "ridge climbing pegs"),
-        VerticalLink(Position(83, 18), Position(83, 18, 1), "bell-tower stair"),
-        VerticalLink(Position(83, 15, 1), Position(83, 15, 2), "bell parapet ladder"),
+        VerticalLink(sink, Position(sink.x, sink.y, -1), regional_link_name("whitecairn", "sinkhole_ladder"), "whitecairn:sinkhole_ladder"),
+        VerticalLink(Position(57, 36), Position(57, 36, 1), regional_link_name("whitecairn", "quarry_hoist_ladder"), "whitecairn:quarry_hoist_ladder"),
+        VerticalLink(Position(57, 31, 1), Position(57, 30, 2), regional_link_name("whitecairn", "ridge_climbing_pegs"), "whitecairn:ridge_climbing_pegs"),
+        VerticalLink(Position(83, 18), Position(83, 18, 1), regional_link_name("whitecairn", "bell_tower_stair"), "whitecairn:bell_tower_stair"),
+        VerticalLink(Position(83, 15, 1), Position(83, 15, 2), regional_link_name("whitecairn", "bell_parapet_ladder"), "whitecairn:bell_parapet_ladder"),
     ]
     # Make the authored ridge-peg endpoints explicit floor.
     upper[32][57] = "."
     upper[31][57] = ">"
     roof[30][57] = "<"
     containers = _containers(seed, "whitecairn", [
-        ("village", "Carrier's limestone chest", Position(25, 51), None),
-        ("quarry", "Quarry tool cabinet", Position(62, 39), None),
-        ("cave", "Sink-cave buried cache", Position(69, 52, -1), "light"),
-        ("kiln", "Limehouse strongbox", Position(77, 49), "key"),
-        ("bridge", "Ridge bridge coffer", Position(57, 30, 2), "rope"),
-        ("tower", "Bell parapet chest", Position(88, 13, 2), None),
-        ("sink-account", "Sink-foundation deed box", Position(68, 51, -1), "light"),
+        ("village", Position(25, 51), None),
+        ("quarry", Position(62, 39), None),
+        ("cave", Position(69, 52, -1), "light"),
+        ("kiln", Position(77, 49), "key"),
+        ("bridge", Position(57, 30, 2), "rope"),
+        ("tower", Position(88, 13, 2), None),
+        ("sink-account", Position(68, 51, -1), "light"),
     ], ["limestone cleat", "sling cup", "quarry brace", "quarrel case", "war hammer", "hollow-bell shard", "roof nail"])
     _stock_containers(
         containers,
@@ -573,14 +589,20 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
         "objective": Position(73, 51, -1), "elevated": Position(83, 15, 2),
     }
     region = Region(
-        "Repeated quarry bells warn of a ridge cut that is becoming unstable.",
-        "Whitecairn burns lime, cuts building stone, and moves wool over high switchbacks.",
-        "A private toll crew is ringing false blasts while the real quarry face slips.",
-        "Reach the lower cave braces and secure lime wedges, or expose the false bell from above.",
-        "lime", "wool", "scree and rockfall", width, height, levels, landmarks,
-        {"Whitecairn terrace village": (9, 42, 29, 55), "Lower switchbacks": (27, 35, 50, 53), "Quarry face": (49, 28, 66, 43), "Lime kilns": (66, 39, 81, 53), "Bell ridge": (70, 10, 92, 31)},
+        regional_generator_text("whitecairn", "condition"),
+        regional_generator_text("whitecairn", "work"),
+        regional_generator_text("whitecairn", "pressure"),
+        regional_generator_text("whitecairn", "objective"),
+        "lime", "wool", regional_generator_text("whitecairn", "hazard"), width, height, levels, landmarks,
+        {
+            regional_zone_name("whitecairn", "village"): (9, 42, 29, 55),
+            regional_zone_name("whitecairn", "switchbacks"): (27, 35, 50, 53),
+            regional_zone_name("whitecairn", "quarry_face"): (49, 28, 66, 43),
+            regional_zone_name("whitecairn", "lime_kilns"): (66, 39, 81, 53),
+            regional_zone_name("whitecairn", "bell_ridge"): (70, 10, 92, 31),
+        },
         links, containers, {}, {}, [], _signature(levels, landmarks),
-        id="whitecairn", name=region_display_name("whitecairn"), process_name="quarry instability",
+        id="whitecairn", name=region_display_name("whitecairn"), process_name=regional_generator_text("whitecairn", "process"),
         process_thresholds=[30, 60, 88],
     )
     from .geography import orient_region
@@ -601,19 +623,15 @@ def build_whitecairn(seed: str, *, layout: str | None = None) -> Region:
 
 
 def _contacts(seed: str, region: Region) -> list[Contact]:
-    authored = {
-        "greywash": (("Edda Marr", "salt reeve"), ("Colm Vey", "wreck registrar")),
-        "greenwold": (("Nera Holt", "charcoal reeve"), ("Ivo Briar", "resin tender")),
-        "whitecairn": (("Pera Chalk", "quarry factor"), ("Olin Sward", "upland carter")),
-    }[region.id]
     return [
         Contact(
-            f"{region.id}-contact-{index + 1}", name, role,
-            stage_rng(seed, f"{region.id}:contact:{index}").choice((-1, 0, 1)), [],
-            region.objective_commodity if index == 0 else region.opportunity_commodity,
-            region.id, region.landmarks["contact" if index == 0 else "second_contact"],
+            f"{region.id}-contact-{index}",
+            regional_contact_name(region.id, index), regional_contact_role(region.id, index),
+            stage_rng(seed, f"{region.id}:contact:{index - 1}").choice((-1, 0, 1)), [],
+            region.objective_commodity if index == 1 else region.opportunity_commodity,
+            region.id, region.landmarks["contact" if index == 1 else "second_contact"],
         )
-        for index, (name, role) in enumerate(authored)
+        for index in (1, 2)
     ]
 
 

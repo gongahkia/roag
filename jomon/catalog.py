@@ -188,7 +188,7 @@ _LEGENDARY_TEMPLATE_CONTRACT = {
     "legendary.arc.grant.result": ("name", "where"),
 }
 
-_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT = {
+_TOPOLOGY_TEMPLATE_CONTRACT = {
     "topology.hearthford.zone.settlement": (),
     "topology.hearthford.zone.floodplain": (),
     "topology.hearthford.zone.watch": (),
@@ -211,6 +211,45 @@ _HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT = {
     "topology.hearthford.container.roof": (),
     "topology.hearthford.container.compact": (),
 }
+
+_REGIONAL_GENERATOR_SLOTS = {
+    "greywash": {
+        "zones": ("village", "salt_pans", "dune_road", "wreck_flats", "tide_chain_house"),
+        "landmarks": ("landing", "contact", "second_contact", "settlement", "saltworks", "dunes", "wreck", "chain_house", "cave_entrance", "objective", "elevated"),
+        "links": ("sea_cave_steps", "signal_mast_ladder", "mast_roof_ladder", "chain_house_stair", "chain_roof_hatch"),
+        "containers": ("quay", "pan", "wreck", "cave", "mast", "chain", "tide_account"),
+    },
+    "greenwold": {
+        "zones": ("village", "woodland", "resin_yard", "burnworks", "root_hollows"),
+        "landmarks": ("landing", "contact", "second_contact", "settlement", "clearing", "resin_yard", "burn_walk", "root_cellar", "cave_entrance", "watch_tree", "objective", "elevated"),
+        "links": ("root_cellar_steps", "watch_tree_ladder", "canopy_ladder", "burn_walk_ladder", "smoke_roof_ladder"),
+        "containers": ("village", "clearing", "root", "resin", "watch", "burn", "burn_account"),
+    },
+    "whitecairn": {
+        "zones": ("village", "switchbacks", "quarry_face", "lime_kilns", "bell_ridge"),
+        "landmarks": ("landing", "contact", "second_contact", "settlement", "quarry", "lime_kiln", "bell_tower", "sinkhole", "cave_entrance", "objective", "elevated"),
+        "links": ("sinkhole_ladder", "quarry_hoist_ladder", "ridge_climbing_pegs", "bell_tower_stair", "bell_parapet_ladder"),
+        "containers": ("village", "quarry", "cave", "kiln", "bridge", "tower", "sink_account"),
+    },
+}
+
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    f"topology.{region}.{field}": ()
+    for region in _REGIONAL_GENERATOR_SLOTS
+    for field in ("condition", "work", "pressure", "objective", "hazard", "process")
+})
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    f"topology.{region}.{category[:-1]}.{slot}": ()
+    for region, categories in _REGIONAL_GENERATOR_SLOTS.items()
+    for category, slots in categories.items()
+    for slot in slots
+})
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    f"topology.{region}.contact.{index}.{field}": ()
+    for region in _REGIONAL_GENERATOR_SLOTS
+    for index in (1, 2)
+    for field in ("name", "role")
+})
 
 _HISTORY_TEMPLATE_CONTRACT = {
     'history.event.water_and_stone.account': ('climate', 'production', 'dependency'),
@@ -1428,16 +1467,16 @@ def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentat
     contract_source, engine_contract = _content_contract_document()
     expected_contract = [
         {"id": key, "placeholders": list(placeholders)}
-        for key, placeholders in _HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT.items()
+        for key, placeholders in _TOPOLOGY_TEMPLATE_CONTRACT.items()
     ]
     if engine_contract.get("topology") != expected_contract:
         raise RuntimeError(f"invalid engine topology content contract at {contract_source}: topology does not match engine template contract")
     if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
         raise ContentPackError(f"invalid topology presentation for content pack {pack_id!r} at {source}: expected text object")
     rows = document["text"]
-    if set(rows) != set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT):
-        missing = set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT) - set(rows)
-        unknown = set(rows) - set(_HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT)
+    if set(rows) != set(_TOPOLOGY_TEMPLATE_CONTRACT):
+        missing = set(_TOPOLOGY_TEMPLATE_CONTRACT) - set(rows)
+        unknown = set(rows) - set(_TOPOLOGY_TEMPLATE_CONTRACT)
         details = []
         if missing:
             details.append("missing required topology keys " + ", ".join(sorted(missing)))
@@ -1449,7 +1488,7 @@ def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentat
             key,
             _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders),
         )
-        for key, placeholders in _HEARTHFORD_TOPOLOGY_TEMPLATE_CONTRACT.items()
+        for key, placeholders in _TOPOLOGY_TEMPLATE_CONTRACT.items()
     )
 
 

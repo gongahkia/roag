@@ -3464,6 +3464,466 @@
     {
       "id": "topology.hearthford.container.compact",
       "placeholders": []
+    },
+    {
+      "id": "topology.greywash.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.condition",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.work",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.pressure",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.process",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.zone.village",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.zone.salt_pans",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.zone.dune_road",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.zone.wreck_flats",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.zone.tide_chain_house",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.saltworks",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.dunes",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.wreck",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.chain_house",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.link.sea_cave_steps",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.link.signal_mast_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.link.mast_roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.link.chain_house_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.link.chain_roof_hatch",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.quay",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.pan",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.wreck",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.cave",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.mast",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.chain",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.container.tide_account",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.zone.village",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.zone.woodland",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.zone.resin_yard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.zone.burnworks",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.zone.root_hollows",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.clearing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.resin_yard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.burn_walk",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.root_cellar",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.watch_tree",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.link.root_cellar_steps",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.link.watch_tree_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.link.canopy_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.link.burn_walk_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.link.smoke_roof_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.village",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.clearing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.root",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.resin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.watch",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.burn",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.container.burn_account",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.zone.village",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.zone.switchbacks",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.zone.quarry_face",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.zone.lime_kilns",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.zone.bell_ridge",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.quarry",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.lime_kiln",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.bell_tower",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.sinkhole",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.link.sinkhole_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.link.quarry_hoist_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.link.ridge_climbing_pegs",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.link.bell_tower_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.link.bell_parapet_ladder",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.village",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.quarry",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.cave",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.kiln",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.bridge",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.tower",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.container.sink_account",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greywash.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.greenwold.contact.2.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.contact.1.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.contact.1.role",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.contact.2.name",
+      "placeholders": []
+    },
+    {
+      "id": "topology.whitecairn.contact.2.role",
+      "placeholders": []
     }
   ]
 }

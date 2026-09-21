@@ -1,4 +1,4 @@
-"""Resolve selected-pack presentation for Hearthford's fixed topology slots."""
+"""Resolve selected-pack presentation for fixed regional topology slots."""
 from __future__ import annotations
 
 from .catalog import selected_content_pack
@@ -21,7 +21,35 @@ def hearthford_link_name(link_id: str) -> str:
 
 
 def hearthford_landmark_label(landmark_id: str) -> str | None:
+    return regional_landmark_label("hearthford", landmark_id)
+
+
+def regional_generator_text(region_id: str, field: str) -> str:
+    return topology_text(f"topology.{region_id}.{field}")
+
+
+def regional_zone_name(region_id: str, zone_id: str) -> str:
+    return topology_text(f"topology.{region_id}.zone.{zone_id}")
+
+
+def regional_container_name(region_id: str, container_id: str) -> str:
+    return topology_text(f"topology.{region_id}.container.{container_id.replace('-', '_')}")
+
+
+def regional_link_name(region_id: str, link_id: str) -> str:
+    return topology_text(f"topology.{region_id}.link.{link_id}")
+
+
+def regional_contact_name(region_id: str, contact_index: int) -> str:
+    return topology_text(f"topology.{region_id}.contact.{contact_index}.name")
+
+
+def regional_contact_role(region_id: str, contact_index: int) -> str:
+    return topology_text(f"topology.{region_id}.contact.{contact_index}.role")
+
+
+def regional_landmark_label(region_id: str, landmark_id: str) -> str | None:
     try:
-        return topology_text(f"topology.hearthford.landmark.{landmark_id}")
+        return topology_text(f"topology.{region_id}.landmark.{landmark_id}")
     except KeyError:
         return None
