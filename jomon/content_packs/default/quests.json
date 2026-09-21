@@ -1,21 +1,396 @@
 {
   "quests": {
-    "quest.regional.hearthford": {"title": "The Mill Race Compact", "lead": "Mara's flood marks point to the Flood-islet cache south of the road loop.", "choices": {"l": {"label": "Bind the mill labour and sluice as a public compact", "requirement": ""}, "r": {"label": "Recognise the reeve's faster private repair claim", "requirement": ""}}},
-    "quest.regional.greywash": {"title": "The Ledger Beneath the Ebb", "lead": "Edda names the Distinctive wreck locker on the low road before the tide covers it.", "choices": {"s": {"label": "Wait for the safer delayed salt road", "requirement": ""}, "e": {"label": "Take the ebb salvage while the chain route is exposed", "requirement": "open the wreck locker or dog the tide chain"}}},
-    "quest.regional.greenwold": {"title": "A Fire Kept to Its Bounds", "lead": "Nera's bird counts mark a Canopy cache above the western clearing.", "choices": {"m": {"label": "Save the medicine coppice and narrow the burn", "requirement": ""}, "c": {"label": "Feed the charcoal contract and accept a wider managed burn", "requirement": ""}}},
-    "quest.regional.whitecairn": {"title": "The Honest Bell", "lead": "Pera's load marks identify the Ridge bridge coffer above the quarry hoist.", "choices": {"w": {"label": "Ring an honest warning and close the unstable face", "requirement": ""}, "x": {"label": "Expose the false toll with recovered quarry evidence", "requirement": "recover the bridge coffer or brace the quarry"}}},
-    "quest.regional.dunmire": {"title": "The Ground Owed to Water", "lead": "Deren's drain marks lead from the store cellar to the buried peat strongbox.", "choices": {"b": {"label": "Breach the drying bank; save the islands, lose this fuel yield", "requirement": ""}, "h": {"label": "Hold the drying bank and honour the winter fuel obligation", "requirement": "brace the drying control or recover the drain record"}}},
-    "quest.regional.rillscar": {"title": "A Bridge with Two Owners", "lead": "Vessa kept the bridge load account in the Weatherward roof coffer, above the cutworks.", "choices": {"o": {"label": "Open the tailrace and retire the private bridge guard", "requirement": ""}, "b": {"label": "Bind the two bridge claims with the recovered load account", "requirement": "secure the upper coffer or brace the tailrace control"}}},
-    "quest.regional.marlbank": {"title": "The Kiln and the Seed Bed", "lead": "Odrin's Witnessed market coffer records which kiln water also feeds the seed terraces.", "choices": {"f": {"label": "Give the release to the fields; cool the working kilns", "requirement": ""}, "k": {"label": "Preserve the kiln firing and ration the seed terraces", "requirement": "read the water account or operate the release"}}},
-    "quest.regional.frostmere": {"title": "The Last Marked Channel", "lead": "Brenna's sounding board rests in the Loft survey cabinet, above the winter nets.", "choices": {"l": {"label": "Mark the long lee channel; shelter the nets and delay trade", "requirement": ""}, "c": {"label": "Open the direct ice cut under a witnessed pilot obligation", "requirement": "recover the sounding board or secure the ice control"}}},
-    "quest.arc.marks": {"title": "The Four Working Marks"},
-    "quest.arc.banks": {"title": "Banks That Hold"},
-    "quest.arc.soundings": {"title": "Soundings and Spans"},
-    "quest.arc.repairs": {"title": "Scars Kept in Use"},
-    "quest.arc.refuges": {"title": "Refuges at Low Water"},
-    "quest.evidence.banks": {"evidence_name": "Bound Bank Roll", "evidence_description": "A counted expedition supply."},
-    "quest.evidence.soundings": {"evidence_name": "Sounding Chain Account", "evidence_description": "A counted expedition supply."},
-    "quest.evidence.repairs": {"evidence_name": "Scar Repair Folio", "evidence_description": "A counted expedition supply."},
-    "quest.evidence.refuges": {"evidence_name": "Ebb Refuge Chart", "evidence_description": "A counted expedition supply."}
+    "quest.regional.hearthford": {
+      "title": "The Mill Race Compact",
+      "lead": "Mara's flood marks point to the Flood-islet cache south of the road loop.",
+      "choices": {
+        "l": {
+          "label": "Bind the mill labour and sluice as a public compact",
+          "requirement": ""
+        },
+        "r": {
+          "label": "Recognise the reeve's faster private repair claim",
+          "requirement": ""
+        }
+      }
+    },
+    "quest.regional.greywash": {
+      "title": "The Ledger Beneath the Ebb",
+      "lead": "Edda names the Distinctive wreck locker on the low road before the tide covers it.",
+      "choices": {
+        "s": {
+          "label": "Wait for the safer delayed salt road",
+          "requirement": ""
+        },
+        "e": {
+          "label": "Take the ebb salvage while the chain route is exposed",
+          "requirement": "open the wreck locker or dog the tide chain"
+        }
+      }
+    },
+    "quest.regional.greenwold": {
+      "title": "A Fire Kept to Its Bounds",
+      "lead": "Nera's bird counts mark a Canopy cache above the western clearing.",
+      "choices": {
+        "m": {
+          "label": "Save the medicine coppice and narrow the burn",
+          "requirement": ""
+        },
+        "c": {
+          "label": "Feed the charcoal contract and accept a wider managed burn",
+          "requirement": ""
+        }
+      }
+    },
+    "quest.regional.whitecairn": {
+      "title": "The Honest Bell",
+      "lead": "Pera's load marks identify the Ridge bridge coffer above the quarry hoist.",
+      "choices": {
+        "w": {
+          "label": "Ring an honest warning and close the unstable face",
+          "requirement": ""
+        },
+        "x": {
+          "label": "Expose the false toll with recovered quarry evidence",
+          "requirement": "recover the bridge coffer or brace the quarry"
+        }
+      }
+    },
+    "quest.regional.dunmire": {
+      "title": "The Ground Owed to Water",
+      "lead": "Deren's drain marks lead from the store cellar to the buried peat strongbox.",
+      "choices": {
+        "b": {
+          "label": "Breach the drying bank; save the islands, lose this fuel yield",
+          "requirement": ""
+        },
+        "h": {
+          "label": "Hold the drying bank and honour the winter fuel obligation",
+          "requirement": "brace the drying control or recover the drain record"
+        }
+      }
+    },
+    "quest.regional.rillscar": {
+      "title": "A Bridge with Two Owners",
+      "lead": "Vessa kept the bridge load account in the Weatherward roof coffer, above the cutworks.",
+      "choices": {
+        "o": {
+          "label": "Open the tailrace and retire the private bridge guard",
+          "requirement": ""
+        },
+        "b": {
+          "label": "Bind the two bridge claims with the recovered load account",
+          "requirement": "secure the upper coffer or brace the tailrace control"
+        }
+      }
+    },
+    "quest.regional.marlbank": {
+      "title": "The Kiln and the Seed Bed",
+      "lead": "Odrin's Witnessed market coffer records which kiln water also feeds the seed terraces.",
+      "choices": {
+        "f": {
+          "label": "Give the release to the fields; cool the working kilns",
+          "requirement": ""
+        },
+        "k": {
+          "label": "Preserve the kiln firing and ration the seed terraces",
+          "requirement": "read the water account or operate the release"
+        }
+      }
+    },
+    "quest.regional.frostmere": {
+      "title": "The Last Marked Channel",
+      "lead": "Brenna's sounding board rests in the Loft survey cabinet, above the winter nets.",
+      "choices": {
+        "l": {
+          "label": "Mark the long lee channel; shelter the nets and delay trade",
+          "requirement": ""
+        },
+        "c": {
+          "label": "Open the direct ice cut under a witnessed pilot obligation",
+          "requirement": "recover the sounding board or secure the ice control"
+        }
+      }
+    },
+    "quest.arc.marks": {
+      "title": "The Four Working Marks"
+    },
+    "quest.arc.banks": {
+      "title": "Banks That Hold"
+    },
+    "quest.arc.soundings": {
+      "title": "Soundings and Spans"
+    },
+    "quest.arc.repairs": {
+      "title": "Scars Kept in Use"
+    },
+    "quest.arc.refuges": {
+      "title": "Refuges at Low Water"
+    },
+    "quest.evidence.banks": {
+      "evidence_name": "Bound Bank Roll",
+      "evidence_description": "A counted expedition supply."
+    },
+    "quest.evidence.soundings": {
+      "evidence_name": "Sounding Chain Account",
+      "evidence_description": "A counted expedition supply."
+    },
+    "quest.evidence.repairs": {
+      "evidence_name": "Scar Repair Folio",
+      "evidence_description": "A counted expedition supply."
+    },
+    "quest.evidence.refuges": {
+      "evidence_name": "Ebb Refuge Chart",
+      "evidence_description": "A counted expedition supply."
+    }
+  },
+  "arc_choices": {
+    "marks": {
+      "0": {
+        "o": {
+          "label": "Open the compared accounts to every named settlement",
+          "requirement": ""
+        },
+        "q": {
+          "label": "Carry the accounts quietly under Jomon's surety",
+          "requirement": ""
+        }
+      },
+      "1": {
+        "s": {
+          "label": "Take Greywash's witnessed salt measure",
+          "requirement": ""
+        },
+        "w": {
+          "label": "Take the disputed wreck measure as leverage",
+          "requirement": "open Greywash's named wreck locker"
+        }
+      },
+      "2": {
+        "m": {
+          "label": "Bind the medicine coppice need into the account",
+          "requirement": ""
+        },
+        "f": {
+          "label": "Bind the larger fuel contract into the account",
+          "requirement": ""
+        }
+      },
+      "3": {
+        "b": {
+          "label": "Carry the honest bell record down the ridge",
+          "requirement": ""
+        },
+        "t": {
+          "label": "Carry the exposed toll claim instead",
+          "requirement": ""
+        }
+      },
+      "4": {
+        "c": {
+          "label": "Found an open carriers' compact",
+          "requirement": ""
+        },
+        "h": {
+          "label": "Keep the marks under Jomon household surety",
+          "requirement": ""
+        },
+        "l": {
+          "label": "Return each mark to local control",
+          "requirement": ""
+        }
+      }
+    },
+    "banks": {
+      "0": {
+        "p": {
+          "label": "Bind the three flood accounts as a public bank record",
+          "requirement": ""
+        },
+        "f": {
+          "label": "Carry them as a fuel-and-repair surety",
+          "requirement": ""
+        }
+      },
+      "1": {
+        "r": {
+          "label": "Open Dunmire's drain and record the safe water line",
+          "requirement": ""
+        },
+        "g": {
+          "label": "Put the armed drying-bank claim on notice",
+          "requirement": ""
+        }
+      },
+      "2": {
+        "s": {
+          "label": "Give Marlbank's next release to seed terraces",
+          "requirement": ""
+        },
+        "k": {
+          "label": "Hold kiln heat and accept a tighter flood margin",
+          "requirement": ""
+        }
+      },
+      "3": {
+        "o": {
+          "label": "Publish a shared bank-and-sluice compact",
+          "requirement": "recover the bound bank roll or fund a two-credit witnessed copy"
+        },
+        "b": {
+          "label": "Let Jomon bond repair fuel against the banks",
+          "requirement": "recover the bound bank roll or fund a two-credit witnessed copy"
+        }
+      }
+    },
+    "soundings": {
+      "0": {
+        "l": {
+          "label": "Carry a sheltered-channel sounding chain",
+          "requirement": ""
+        },
+        "d": {
+          "label": "Compare direct cuts and rapid bridge spans",
+          "requirement": ""
+        }
+      },
+      "1": {
+        "i": {
+          "label": "Mark Frostmere's lee route through the ice",
+          "requirement": ""
+        },
+        "n": {
+          "label": "Challenge the armed fast-cut net claim",
+          "requirement": ""
+        }
+      },
+      "2": {
+        "w": {
+          "label": "Carry Rillscar's warning span and brace account",
+          "requirement": ""
+        },
+        "q": {
+          "label": "Carry the quarry guard's faster private span",
+          "requirement": ""
+        }
+      },
+      "3": {
+        "s": {
+          "label": "Publish sheltered winter soundings and honest spans",
+          "requirement": "recover the sounding chain account or fund a two-credit witnessed copy"
+        },
+        "r": {
+          "label": "Open a rapid freight cut under Jomon's surety",
+          "requirement": "recover the sounding chain account or fund a two-credit witnessed copy"
+        }
+      }
+    },
+    "repairs": {
+      "0": {
+        "p": {
+          "label": "Publish three aftermath scars as common repair duties",
+          "requirement": ""
+        },
+        "j": {
+          "label": "Carry the scars under Jomon's salvage surety",
+          "requirement": ""
+        }
+      },
+      "1": {
+        "r": {
+          "label": "Reinforce Hearthford's public flood-mark circuit",
+          "requirement": ""
+        },
+        "a": {
+          "label": "Put the armed wheel-timber claim on notice",
+          "requirement": ""
+        }
+      },
+      "2": {
+        "s": {
+          "label": "Seat Rillscar's shared switchback braces",
+          "requirement": ""
+        },
+        "q": {
+          "label": "Carry the convoy counterweight as private leverage",
+          "requirement": ""
+        }
+      },
+      "3": {
+        "m": {
+          "label": "Maintain the three scars as common working approaches",
+          "requirement": "recover the scar repair folio or replace it after physical loss"
+        },
+        "j": {
+          "label": "Give Jomon first salvage against future failures",
+          "requirement": "recover the scar repair folio or replace it after physical loss"
+        }
+      }
+    },
+    "refuges": {
+      "0": {
+        "l": {
+          "label": "Publish low-water refuges on a common chart",
+          "requirement": ""
+        },
+        "c": {
+          "label": "Carry refuge access as a household channel claim",
+          "requirement": ""
+        }
+      },
+      "1": {
+        "i": {
+          "label": "Raise Dunmire's inhabited peat walk",
+          "requirement": ""
+        },
+        "g": {
+          "label": "Confront the armed submerged-fuel claim",
+          "requirement": ""
+        }
+      },
+      "2": {
+        "w": {
+          "label": "Restake Frostmere's sheltered thaw channel",
+          "requirement": ""
+        },
+        "n": {
+          "label": "Carry the broken-ice net claim as a fast route",
+          "requirement": ""
+        }
+      },
+      "3": {
+        "p": {
+          "label": "Publish free storm and thaw refuges",
+          "requirement": "recover the ebb refuge chart or replace it after physical loss"
+        },
+        "c": {
+          "label": "Let Jomon collect surety on the marked refuge cuts",
+          "requirement": "recover the ebb refuge chart or replace it after physical loss"
+        }
+      }
+    }
+  },
+  "arc_results": {
+    "marks": {
+      "c": "Open compact: safer known routes and lower demand, but no single household controls the credit.",
+      "h": "Household surety: Jomon gains credit and obligation while regional route risks remain.",
+      "l": "Local marks: contacts gain authority and markets remain distinct, but chart risks do not ease."
+    },
+    "banks": {
+      "o": "Shared banks: flood routes and food demand ease; institutions retain local control.",
+      "b": "Bonded banks: repair stocks and household credit rise, while private fuel obligations remain."
+    },
+    "soundings": {
+      "s": "Sheltered soundings: winter exposure falls and the marked lee routes remain public.",
+      "r": "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises."
+    },
+    "repairs": {
+      "m": "Common repairs: worked scars stay braced and connected cargo approaches become safer.",
+      "j": "Salvage surety: repair stock and household credit rise, but each work account records an obligation."
+    },
+    "refuges": {
+      "p": "Public refuges: storm and thaw shelter opens without toll, easing weather exposure and local trust.",
+      "c": "Channel surety: marked refuge cuts shorten freight passage and pay Jomon, while exposed cargo risk rises."
+    }
   }
 }

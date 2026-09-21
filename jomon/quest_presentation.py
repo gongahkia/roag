@@ -36,6 +36,21 @@ def arc_title(arc_id: str) -> str:
     return arc_presentation(arc_id).title
 
 
+def arc_choice_presentation(arc_id: str, stage: int, choice_id: str) -> tuple[str, str]:
+    key = f"{stage}.{choice_id}"
+    for entry, label, requirement in arc_presentation(arc_id).arc_choices:
+        if entry == key:
+            return label, requirement
+    raise KeyError(f"unknown arc choice {arc_id!r}:{key}")
+
+
+def arc_result_text(arc_id: str, choice_id: str) -> str:
+    for key, text in arc_presentation(arc_id).results:
+        if key == choice_id:
+            return text
+    raise KeyError(f"unknown arc result {arc_id!r}:{choice_id!r}")
+
+
 def evidence_presentation(arc_id: str) -> QuestPresentation:
     return selected_content_pack().quest_presentation(f"quest.evidence.{arc_id}")
 

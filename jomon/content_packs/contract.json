@@ -1932,22 +1932,179 @@
     }
   ],
   "quests": [
-    {"id": "quest.regional.hearthford", "engine_id": "hearthford", "kind": "regional", "choice_ids": ["l", "r"]},
-    {"id": "quest.regional.greywash", "engine_id": "greywash", "kind": "regional", "choice_ids": ["s", "e"]},
-    {"id": "quest.regional.greenwold", "engine_id": "greenwold", "kind": "regional", "choice_ids": ["m", "c"]},
-    {"id": "quest.regional.whitecairn", "engine_id": "whitecairn", "kind": "regional", "choice_ids": ["w", "x"]},
-    {"id": "quest.regional.dunmire", "engine_id": "dunmire", "kind": "regional", "choice_ids": ["b", "h"]},
-    {"id": "quest.regional.rillscar", "engine_id": "rillscar", "kind": "regional", "choice_ids": ["o", "b"]},
-    {"id": "quest.regional.marlbank", "engine_id": "marlbank", "kind": "regional", "choice_ids": ["f", "k"]},
-    {"id": "quest.regional.frostmere", "engine_id": "frostmere", "kind": "regional", "choice_ids": ["l", "c"]},
-    {"id": "quest.arc.marks", "engine_id": "marks", "kind": "arc", "choice_ids": []},
-    {"id": "quest.arc.banks", "engine_id": "banks", "kind": "arc", "choice_ids": []},
-    {"id": "quest.arc.soundings", "engine_id": "soundings", "kind": "arc", "choice_ids": []},
-    {"id": "quest.arc.repairs", "engine_id": "repairs", "kind": "arc", "choice_ids": []},
-    {"id": "quest.arc.refuges", "engine_id": "refuges", "kind": "arc", "choice_ids": []},
-    {"id": "quest.evidence.banks", "engine_id": "bound bank roll", "kind": "evidence", "choice_ids": []},
-    {"id": "quest.evidence.soundings", "engine_id": "sounding chain account", "kind": "evidence", "choice_ids": []},
-    {"id": "quest.evidence.repairs", "engine_id": "scar repair folio", "kind": "evidence", "choice_ids": []},
-    {"id": "quest.evidence.refuges", "engine_id": "ebb refuge chart", "kind": "evidence", "choice_ids": []}
+    {
+      "id": "quest.regional.hearthford",
+      "engine_id": "hearthford",
+      "kind": "regional",
+      "choice_ids": [
+        "l",
+        "r"
+      ]
+    },
+    {
+      "id": "quest.regional.greywash",
+      "engine_id": "greywash",
+      "kind": "regional",
+      "choice_ids": [
+        "s",
+        "e"
+      ]
+    },
+    {
+      "id": "quest.regional.greenwold",
+      "engine_id": "greenwold",
+      "kind": "regional",
+      "choice_ids": [
+        "m",
+        "c"
+      ]
+    },
+    {
+      "id": "quest.regional.whitecairn",
+      "engine_id": "whitecairn",
+      "kind": "regional",
+      "choice_ids": [
+        "w",
+        "x"
+      ]
+    },
+    {
+      "id": "quest.regional.dunmire",
+      "engine_id": "dunmire",
+      "kind": "regional",
+      "choice_ids": [
+        "b",
+        "h"
+      ]
+    },
+    {
+      "id": "quest.regional.rillscar",
+      "engine_id": "rillscar",
+      "kind": "regional",
+      "choice_ids": [
+        "o",
+        "b"
+      ]
+    },
+    {
+      "id": "quest.regional.marlbank",
+      "engine_id": "marlbank",
+      "kind": "regional",
+      "choice_ids": [
+        "f",
+        "k"
+      ]
+    },
+    {
+      "id": "quest.regional.frostmere",
+      "engine_id": "frostmere",
+      "kind": "regional",
+      "choice_ids": [
+        "l",
+        "c"
+      ]
+    },
+    {
+      "id": "quest.arc.marks",
+      "engine_id": "marks",
+      "kind": "arc",
+      "choice_ids": [
+        "0.o",
+        "0.q",
+        "1.s",
+        "1.w",
+        "2.m",
+        "2.f",
+        "3.b",
+        "3.t",
+        "4.c",
+        "4.h",
+        "4.l"
+      ]
+    },
+    {
+      "id": "quest.arc.banks",
+      "engine_id": "banks",
+      "kind": "arc",
+      "choice_ids": [
+        "0.p",
+        "0.f",
+        "1.r",
+        "1.g",
+        "2.s",
+        "2.k",
+        "3.o",
+        "3.b"
+      ]
+    },
+    {
+      "id": "quest.arc.soundings",
+      "engine_id": "soundings",
+      "kind": "arc",
+      "choice_ids": [
+        "0.l",
+        "0.d",
+        "1.i",
+        "1.n",
+        "2.w",
+        "2.q",
+        "3.s",
+        "3.r"
+      ]
+    },
+    {
+      "id": "quest.arc.repairs",
+      "engine_id": "repairs",
+      "kind": "arc",
+      "choice_ids": [
+        "0.p",
+        "0.j",
+        "1.r",
+        "1.a",
+        "2.s",
+        "2.q",
+        "3.m",
+        "3.j"
+      ]
+    },
+    {
+      "id": "quest.arc.refuges",
+      "engine_id": "refuges",
+      "kind": "arc",
+      "choice_ids": [
+        "0.l",
+        "0.c",
+        "1.i",
+        "1.g",
+        "2.w",
+        "2.n",
+        "3.p",
+        "3.c"
+      ]
+    },
+    {
+      "id": "quest.evidence.banks",
+      "engine_id": "bound bank roll",
+      "kind": "evidence",
+      "choice_ids": []
+    },
+    {
+      "id": "quest.evidence.soundings",
+      "engine_id": "sounding chain account",
+      "kind": "evidence",
+      "choice_ids": []
+    },
+    {
+      "id": "quest.evidence.repairs",
+      "engine_id": "scar repair folio",
+      "kind": "evidence",
+      "choice_ids": []
+    },
+    {
+      "id": "quest.evidence.refuges",
+      "engine_id": "ebb refuge chart",
+      "kind": "evidence",
+      "choice_ids": []
+    }
   ]
 }

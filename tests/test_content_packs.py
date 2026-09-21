@@ -106,6 +106,11 @@ def alternate_pack(root: Path) -> Path:
         "evidence_name": "fixture bank record",
         "evidence_description": "A fixture physical record that keeps the same evidence mechanics.",
     }
+    quests["arc_choices"]["banks"]["0"]["p"]["label"] = "Publish the fixture bank record"
+    quests["arc_choices"]["marks"]["0"]["o"]["label"] = "Open the fixture marks"
+    quests["arc_choices"]["soundings"]["3"]["s"]["requirement"] = "recover the fixture sounding record"
+    quests["arc_results"]["banks"]["o"] = "Fixture banks ease the same routes."
+    quests["arc_results"]["soundings"]["s"] = "Fixture soundings preserve the same winter route effects."
     source.write_text(json.dumps(quests, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
@@ -223,15 +228,15 @@ def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import item_spec; from jomon.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options; "
+            "import json; from jomon.inventory import item_spec; from jomon.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options, arc_options, resolve_arc_choice; "
             "from jomon.quest_presentation import regional_quest_lead, regional_quest_title, arc_title, evidence_display_name; "
-            "from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
-            "state=create_world('quest-pack-proof'); state.location='region'; "
+            "from jomon.state import create_world; from jomon.frontiers import ensure_frontier; from jomon.terminal import _overlay_lines; "
+            "state=create_world('quest-pack-proof'); ensure_frontier(state, 'dunmire'); state.location='region'; state.cross_region_arcs['banks'].status='available'; bank_options=arc_options(state); bank_result=resolve_arc_choice(state, 'p'); "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'title': regional_quest_title('hearthford'), 'lead': regional_quest_lead('hearthford'), "
             "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
             "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
-            "'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
+            "'bank_options': bank_options, 'bank_result': [bank_result, state.cross_region_arcs['banks'].stage, state.cross_region_arcs['banks'].branch], 'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -463,6 +468,11 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(default["seed"], alternate["seed"])
         self.assertEqual([(row[0], row[2:]) for row in default["choices"]], [(row[0], row[2:]) for row in alternate["choices"]])
         self.assertEqual(alternate["choices"][0][1], "Make the fixture public settlement")
+        self.assertEqual([(row[0], row[2:]) for row in default["bank_options"]], [(row[0], row[2:]) for row in alternate["bank_options"]])
+        self.assertEqual(alternate["bank_options"][0][1], "Publish the fixture bank record")
+        self.assertTrue(alternate["bank_result"][0][0])
+        self.assertIn("Fixture Bank Accord", alternate["bank_result"][0][1])
+        self.assertEqual(default["bank_result"][1:], alternate["bank_result"][1:])
         self.assertEqual(alternate["overlay"], "FIXTURE WATER CLAIM")
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
-from .quest_presentation import arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title
+from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title
 from .state import GameState, QuestProgress
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -440,7 +440,7 @@ def arc_available_here(state: GameState) -> bool:
     return current_arc_key(state) is not None
 
 
-def arc_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
+def _arc_options_legacy(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
     key = current_arc_key(state)
     if key and key != "marks":
         return _additional_arc_options(state, key)
@@ -560,6 +560,18 @@ def _additional_arc_options(state: GameState, arc_id: str) -> tuple[tuple[str, s
     }.get(arc.stage, ())
 
 
+def arc_options(state: GameState) -> tuple[tuple[str, str, str, bool, str], ...]:
+    """Attach selected-pack wording to stable arc choice mechanics."""
+    arc_id = current_arc_key(state) or "marks"
+    arc = current_arc(state) if current_arc_key(state) else state.cross_region_arc
+    stage = arc.stage if arc else 0
+    return tuple(
+        (choice, arc_choice_presentation(arc_id, stage, choice)[0], semantic, available,
+         arc_choice_presentation(arc_id, stage, choice)[1])
+        for choice, _legacy_label, semantic, available, _legacy_requirement in _arc_options_legacy(state)
+    )
+
+
 def _give_arc_record(state: GameState, arc_id: str) -> None:
     evidence = str(ADDITIONAL_ARCS[arc_id]["evidence"])
     item = create_item(state, f"consumable:{evidence}", f"{presented_arc_title(arc_id)} witnessed opening")
@@ -632,7 +644,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
         arc.stage, arc.status = 4, "completed"
         involved = set(definition["requires"])
         if arc_id == "banks" and choice == "o":
-            arc.consequence = "Shared banks: flood routes and food demand ease; institutions retain local control."
+            arc.consequence = arc_result_text("banks", "o")
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
                     edge.weather_exposure = max(0, edge.weather_exposure - 1)
@@ -641,13 +653,13 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                 state.regions[region_id].changes["shared_bank_compact"] = True
                 state.regional_markets[region_id]["grain"].demand = max(0, state.regional_markets[region_id]["grain"].demand - 1)
         elif arc_id == "banks":
-            arc.consequence = "Bonded banks: repair stocks and household credit rise, while private fuel obligations remain."
+            arc.consequence = arc_result_text("banks", "b")
             state.trade_credit += 6
             for region_id in involved:
                 state.regions[region_id].changes["bonded_bank_repairs"] = True
                 state.institutions[f"work:{region_id}"].obligation = min(9, state.institutions[f"work:{region_id}"].obligation + 1)
         elif arc_id == "soundings" and choice == "s":
-            arc.consequence = "Sheltered soundings: winter exposure falls and the marked lee routes remain public."
+            arc.consequence = arc_result_text("soundings", "s")
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
                     edge.weather_exposure = max(0, edge.weather_exposure - 1)
@@ -655,7 +667,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
             for region_id in involved:
                 state.regions[region_id].changes["sheltered_soundings"] = True
         elif arc_id == "soundings":
-            arc.consequence = "Rapid soundings: freight time falls and Jomon gains credit, but exposed cargo risk rises."
+            arc.consequence = arc_result_text("soundings", "r")
             state.trade_credit += 5
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
@@ -664,7 +676,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
             for region_id in involved:
                 state.regions[region_id].changes["rapid_sounding_surety"] = True
         elif arc_id == "repairs" and choice == "m":
-            arc.consequence = "Common repairs: worked scars stay braced and connected cargo approaches become safer."
+            arc.consequence = arc_result_text("repairs", "m")
             for region_id in involved:
                 state.regions[region_id].changes["common_aftermath_repairs"] = True
                 state.institutions[f"work:{region_id}"].confidence = min(
@@ -678,7 +690,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                 if {edge.first, edge.second} & involved:
                     edge.cargo_risk = max(0, edge.cargo_risk - 1)
         elif arc_id == "repairs":
-            arc.consequence = "Salvage surety: repair stock and household credit rise, but each work account records an obligation."
+            arc.consequence = arc_result_text("repairs", "j")
             state.trade_credit += 5
             for region_id in involved:
                 state.regions[region_id].changes["jomon_salvage_surety"] = True
@@ -687,7 +699,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                 market = state.regional_markets[region_id][account.production]
                 market.stock = min(10, market.stock + 1)
         elif choice == "p":
-            arc.consequence = "Public refuges: storm and thaw shelter opens without toll, easing weather exposure and local trust."
+            arc.consequence = arc_result_text("refuges", "p")
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
                     edge.weather_exposure = max(0, edge.weather_exposure - 1)
@@ -700,7 +712,7 @@ def _resolve_additional_arc(state: GameState, arc_id: str, choice: str) -> tuple
                     3, state.contacts[region_id][0].disposition + 1
                 )
         else:
-            arc.consequence = "Channel surety: marked refuge cuts shorten freight passage and pay Jomon, while exposed cargo risk rises."
+            arc.consequence = arc_result_text("refuges", "c")
             state.trade_credit += 5
             for edge in state.route_edges:
                 if {edge.first, edge.second} & involved:
@@ -751,7 +763,7 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
     else:
         arc.stage, arc.status = 5, "completed"
         if choice == "c":
-            arc.consequence = "Open compact: safer known routes and lower demand, but no single household controls the credit."
+            arc.consequence = arc_result_text("marks", "c")
             for edge in state.route_edges:
                 edge.cargo_risk = max(0, edge.cargo_risk - 1)
             for market in state.regional_markets.values():
@@ -759,11 +771,11 @@ def resolve_arc_choice(state: GameState, choice: str) -> tuple[bool, str]:
                     entry.demand = max(0, entry.demand - 1)
             state.vessel_changes["route_reputation"] = "open compact"
         elif choice == "h":
-            arc.consequence = "Household surety: Jomon gains credit and obligation while regional route risks remain."
+            arc.consequence = arc_result_text("marks", "h")
             state.trade_credit += 6
             state.vessel_changes["route_reputation"] = "Jomon surety"
         else:
-            arc.consequence = "Local marks: contacts gain authority and markets remain distinct, but chart risks do not ease."
+            arc.consequence = arc_result_text("marks", "l")
             for contacts in state.contacts.values():
                 contacts[0].disposition = min(3, contacts[0].disposition + 1)
             state.vessel_changes["route_reputation"] = "local marks"

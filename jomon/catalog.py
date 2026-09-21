@@ -206,6 +206,8 @@ class QuestPresentation:
     evidence_name: str | None = None
     evidence_description: str | None = None
     choices: tuple[tuple[str, str, str], ...] = ()
+    arc_choices: tuple[tuple[str, str, str], ...] = ()
+    results: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -467,8 +469,8 @@ def _quest_contract() -> tuple[QuestContractSlot, ...]:
                 or not isinstance(engine_id, str) or not engine_id
                 or kind not in {"regional", "arc", "evidence"}
                 or not isinstance(choice_ids, list) or len(set(choice_ids)) != len(choice_ids)
-                or any(not isinstance(choice_id, str) or re.fullmatch(r"[a-z]", choice_id) is None for choice_id in choice_ids)
-                or (kind == "regional" and len(choice_ids) != 2) or (kind != "regional" and choice_ids)):
+                or any(not isinstance(choice_id, str) or re.fullmatch(r"(?:[a-z]|[0-9]+\.[a-z])", choice_id) is None for choice_id in choice_ids)
+                or (kind == "regional" and len(choice_ids) != 2) or (kind == "evidence" and choice_ids)):
             raise RuntimeError(f"invalid engine quest content contract at {source}: quests[{index}] has invalid fields")
         slots.append(QuestContractSlot(semantic_id, engine_id, kind, tuple(choice_ids)))
     if len({slot.id for slot in slots}) != len(slots) or len({(slot.kind, slot.engine_id) for slot in slots}) != len(slots):
@@ -738,8 +740,10 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
         document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"quests"} or not isinstance(document["quests"], dict):
-        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: quests must be an object")
+    if (not isinstance(document, dict) or set(document) != {"quests", "arc_choices", "arc_results"}
+            or not isinstance(document["quests"], dict) or not isinstance(document["arc_choices"], dict)
+            or not isinstance(document["arc_results"], dict)):
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: quests, arc_choices, and arc_results must be objects")
     rows = document["quests"]
     slots = quest_contract()
     expected, actual = {slot.id for slot in slots}, set(rows)
@@ -750,6 +754,10 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
         if actual - expected:
             details.append("unknown quest slots " + ", ".join(sorted(actual - expected)))
         raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    arc_rows, result_rows = document["arc_choices"], document["arc_results"]
+    arc_slots = [slot for slot in slots if slot.kind == "arc"]
+    if set(arc_rows) != {slot.engine_id for slot in arc_slots} or set(result_rows) != {slot.engine_id for slot in arc_slots}:
+        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_choices and arc_results must contain exactly contracted arcs")
     presentations: list[QuestPresentation] = []
     for slot in slots:
         row = rows[slot.id]
@@ -785,9 +793,31 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
                     raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path}.choices.{choice}.label must be a non-empty string")
                 validated.append((choice, choice_row["label"], choice_row["requirement"]))
             choices = tuple(validated)
+        arc_choices: tuple[tuple[str, str, str], ...] = ()
+        results: tuple[tuple[str, str], ...] = ()
+        if slot.kind == "arc":
+            rows_by_stage = arc_rows[slot.engine_id]
+            flat = {}
+            if not isinstance(rows_by_stage, dict):
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_choices.{slot.engine_id} must be an object")
+            for stage, stage_rows in rows_by_stage.items():
+                if not isinstance(stage, str) or not stage.isdecimal() or not isinstance(stage_rows, dict):
+                    raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_choices.{slot.engine_id} has invalid stage")
+                for key, choice_row in stage_rows.items():
+                    if not isinstance(choice_row, dict) or set(choice_row) != {"label", "requirement"} or any(not isinstance(value, str) for value in choice_row.values()) or not choice_row["label"].strip():
+                        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_choices.{slot.engine_id}.{stage}.{key} must contain non-empty label and string requirement")
+                    flat[f"{stage}.{key}"] = (choice_row["label"], choice_row["requirement"])
+            if set(flat) != set(slot.choice_ids):
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_choices.{slot.engine_id} has missing or unknown choice")
+            arc_choices = tuple((choice_id, *flat[choice_id]) for choice_id in slot.choice_ids)
+            result = result_rows[slot.engine_id]
+            final_keys = {choice_id.split(".", 1)[1] for choice_id in slot.choice_ids if choice_id.startswith(("4." if slot.engine_id == "marks" else "3."))}
+            if not isinstance(result, dict) or set(result) != final_keys or any(not isinstance(value, str) or not value.strip() for value in result.values()):
+                raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: arc_results.{slot.engine_id} must contain exactly final result keys")
+            results = tuple((key, result[key]) for key in sorted(result))
         presentations.append(QuestPresentation(
             slot.id, slot.engine_id, slot.kind, row.get("title", ""), row.get("lead"),
-            row.get("evidence_name"), row.get("evidence_description"), choices,
+            row.get("evidence_name"), row.get("evidence_description"), choices, arc_choices, results,
         ))
     return tuple(presentations)
 

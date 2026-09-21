@@ -2,8 +2,9 @@
 
 `content_packs/default/quests.json` owns the player-facing title, lead, regional
 choice label and availability wording for each contracted regional quest. It also
-owns cross-region arc titles and the visible names and descriptions of their
-physical evidence records. A writer may rewrite those strings and nothing else.
+owns cross-region arc titles, staged choice labels and requirements, final result
+text, and the visible names and descriptions of physical evidence records. A
+writer may rewrite those strings and nothing else.
 
 For example, a safe change is:
 
@@ -15,7 +16,7 @@ For example, a safe change is:
 }
 ```
 
-Do not add, remove, or rename quest keys or choice keys. Do not edit engine IDs,
+Do not add, remove, or rename quest keys, arc stages, result keys, or choice keys. Do not edit engine IDs,
 cache IDs, evidence IDs, requirements, rewards, branch outcomes, or catalog
 ordering. Those values remain in the engine-owned contract and mechanics
 catalog. Evidence keeps its stable `consumable:` item kind even when its visible
