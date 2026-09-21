@@ -6,6 +6,7 @@ from .arc_relics import ARC_RELIC_DESCRIPTIONS
 from .catalog import ACTOR_SECTIONS, CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .expanded_weapons import ARSENAL, BOMB_AMMUNITION
 from .item_presentation import item_description, item_display_name, item_short_description
+from .ui_presentation import ui_text
 from .frontier_elites import ELITE_DEFINITIONS
 from .preparations import PREPARATIONS
 from .work_weapons import WORK_WEAPONS
@@ -226,8 +227,21 @@ CONTACT_NAMES = _text_rows(_PEOPLE["CONTACT_NAMES"], "CONTACT_NAMES")
 
 JOMON_MAP = _text_rows(_WORLD_TEXT["JOMON_MAP"], "JOMON_MAP")
 
-HELP_LINES = _text_rows(_WORLD_TEXT["HELP_LINES"], "HELP_LINES")
-
-INTERFACE_LEDGERS = _interface_ledgers(_WORLD_TEXT["interface_ledgers"])
-
-INTERFACE_LABELS = _interface_labels(_WORLD_TEXT["interface_labels"])
+HELP_LINES = tuple(ui_text(f"ui.help.general.{index:02}") for index in range(1, 19))
+INTERFACE_LEDGERS = {
+    "inventory": tuple(ui_text(f"ui.help.inventory.{index:02}") for index in range(1, 3)),
+    "target": ui_text("ui.help.target.01"),
+    "route": tuple(ui_text(f"ui.help.route.{index:02}") for index in range(1, 3)),
+    "base": tuple(ui_text(f"ui.help.base.{index:02}") for index in range(1, 3)),
+    "look": ui_text("ui.help.look.01"),
+}
+INTERFACE_LABELS = {
+    key: ui_text(f"ui.label.{key}")
+    for key in (
+        "watch_log", "chronicle", "charted_passage", "pack_and_stores", "ordered_stowage",
+        "free_stowage", "carried_kit", "placement_mark", "pack_tally", "drop_tally",
+        "household_counsel", "relic_case", "carried_relic", "field_kit", "packed_findings",
+        "leave_book", "courier_record", "vacant_berth", "clerk_slate", "stores_ledger",
+        "watch_records", "field_materials", "recorded_notice",
+    )
+}

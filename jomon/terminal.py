@@ -42,6 +42,7 @@ from .actions import (
 )
 from .character_presentation import role_display_name
 from .item_presentation import item_display_name, item_display_name_or_legacy
+from .ui_presentation import notice_kind, notice_label, render_notice, ui_format
 from .inventory import (
     BODY_SLOTS,
     WEAPON_AMMUNITION,
@@ -536,6 +537,9 @@ def _wrapped(text: str, width: int) -> list[str]:
 def information_colour_role(text: str) -> str:
     """Classify provenance-bearing prose; its prefix remains the primary cue."""
     upper = text.strip().upper()
+    typed_notice = notice_kind(text)
+    if typed_notice:
+        return {"rumour": "rumour", "fact": "fact", "forecast": "forecast", "warning": "warning"}[typed_notice]
     if upper.startswith(("FACT", "OBSERVED", "CURRENTLY VISIBLE", "PHYSICAL KIT", "BODY:")):
         return "fact"
     if upper.startswith(("RUMOUR", "RUMOR", "CLAIM", "TESTIMONY", "INFERRED")):
@@ -594,8 +598,8 @@ def _routine_event_kind(text: str) -> str:
     return ""
 
 
-def event_feed_lines(messages: Iterable[str], width: int, max_rows: int) -> list[str]:
-    """Compact adjacent routine updates but retain exact causal consequences."""
+def _event_feed_entries(messages: Iterable[str], width: int, max_rows: int) -> list[tuple[str, str]]:
+    """Render persisted messages while retaining their engine-recognized source."""
     groups: list[tuple[str, int, str]] = []
     for message in messages:
         kind = "" if _causal_event(message) else _routine_event_kind(message)
@@ -604,11 +608,16 @@ def event_feed_lines(messages: Iterable[str], width: int, max_rows: int) -> list
             groups[-1] = (kind, count + 1, message)
         else:
             groups.append((kind, 1, message))
-    rendered: list[str] = []
+    rendered: list[tuple[str, str]] = []
     for kind, count, message in groups:
         text = f"ROUTINE {kind.upper()} x{count} — {message}" if kind and count > 1 else message
-        rendered.extend(_wrapped(text, width))
+        rendered.extend((part, text) for part in _wrapped(render_notice(text), width))
     return rendered[-max_rows:]
+
+
+def event_feed_lines(messages: Iterable[str], width: int, max_rows: int) -> list[str]:
+    """Compact adjacent routine updates but retain exact causal consequences."""
+    return [line for line, _ in _event_feed_entries(messages, width, max_rows)]
 
 
 def status_colour_role(text: str) -> str:
@@ -678,7 +687,7 @@ def observed_life_lines(state: GameState) -> list[str]:
 
     visible = field_of_view(state, remember=False)
     forecasts = {row.actor_id: row for row in observed_forecasts(state, visible)}
-    lines = ["FACT: only presently visible actors are listed. No inspection advances time."]
+    lines = [f"{notice_label('fact')}: only presently visible actors are listed. No inspection advances time."]
     for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
         if not courier_sees(state, actor.position) or actor.status not in {"watching", "engaged"}:
             continue
@@ -839,8 +848,8 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
 def _draw_minimum_size_notice(screen: curses.window) -> None:
     height, width = screen.getmaxyx()
     messages = (
-        f"Jomon's chart needs at least {MIN_WIDTH}x{MIN_HEIGHT} terminal marks.",
-        f"Present frame: {width}x{height}. Widen it, or Q signs the leave book.",
+        ui_format("ui.minimum_size.need", width=MIN_WIDTH, height=MIN_HEIGHT),
+        ui_format("ui.minimum_size.present", width=width, height=height),
     )
     lines = [
         (part, index == 0)
@@ -875,9 +884,9 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
             attr |= curses.A_BOLD
         _put(screen, 1 + index, map_width + 2, _clip(line, status_width - 4), attr)
     _frame(screen, main_height, 0, event_height, width, INTERFACE_LABELS["chronicle"])
-    event_lines = event_feed_lines(state.messages, width - 4, event_height - 2)
-    for index, line in enumerate(event_lines):
-        _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(line)])
+    event_lines = _event_feed_entries(state.messages, width - 4, event_height - 2)
+    for index, (line, source) in enumerate(event_lines):
+        _put(screen, main_height + 1 + index, 2, _clip(line, width - 4), _COLOUR_ATTRIBUTES[event_colour_role(source)])
     screen.refresh()
 
 
@@ -1375,9 +1384,10 @@ def information_lines(lines: Iterable[str], width: int) -> list[str]:
 
 def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: OverlayView | None = None) -> None:
     height, width = screen.getmaxyx()
-    material = list(lines)
-    box_width = min(width - 4, max(44, max((len(line) for line in material), default=20) + 4))
-    material = information_lines(material, box_width - 4)
+    source_material = list(lines)
+    material = [(render_notice(line), line) for line in source_material]
+    box_width = min(width - 4, max(44, max((len(line) for line, _ in material), default=20) + 4))
+    material = [(part, source) for line, source in material for part in information_lines([line], box_width - 4)]
     box_height = min(height - 4, len(material) + (5 if view else 4))
     page_rows = max(1, box_height - (5 if view else 3))
     offset = min(view.scroll_offset, max(0, len(material) - page_rows)) if view else 0
@@ -1387,10 +1397,10 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
     for y in range(top, top + box_height):
         _put(screen, y, left, " " * box_width, curses.A_REVERSE)
     _frame(screen, top, left, box_height, box_width, title)
-    for index, line in enumerate(material[offset:offset + page_rows]):
+    for index, (line, source) in enumerate(material[offset:offset + page_rows]):
         _put(
             screen, top + 2 + index, left + 2, _clip(line, box_width - 4),
-            _COLOUR_ATTRIBUTES[information_colour_role(line)],
+            _COLOUR_ATTRIBUTES[information_colour_role(source)],
         )
     if view:
         footer = f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
@@ -2234,7 +2244,7 @@ def _draw_inventory(screen: curses.window, state: GameState, view: InventoryView
         held_item = next(item for item in state.items if item.id == view.held_id)
         owner = state.active_courier_id if view.pane == "pack" else None
         preview = placement_preview(state, held_item, view.pane, view.cursor_x, view.cursor_y, rotated=view.held_rotated, owner_id=owner)
-        view.status = f"{INTERFACE_LABELS['placement_mark']}: {preview.reason}; load {preview.resulting_weight}/{weight_capacity(state)} {preview.resulting_load}"
+        view.status = ui_format("ui.inventory.preview_load", label=INTERFACE_LABELS["placement_mark"], used=preview.reason, weight=preview.resulting_weight, total=weight_capacity(state), load=preview.resulting_load)
     count = len(view.selected_ids or ())
     if count:
         marked = [item for item in state.items if item.id in (view.selected_ids or set())]

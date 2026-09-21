@@ -12,6 +12,7 @@ from .tavern_draw import (
 )
 from .tavern_games import npc_credit
 from .tavern_games_ui import accent, border, put as _put
+from .ui_presentation import ui_text
 from .visuals import TAVERN_CARDS
 
 RANKS = TAVERN_CARDS["ranks"]
@@ -33,9 +34,9 @@ def card_frame(card: int, *, selected: bool = False) -> tuple[str, ...]:
 def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cursor: int,
                 wagering: bool, message: str) -> list:
     screen.erase()
-    border(screen, "TAVERN DRAW / FOUR SEATS")
+    border(screen, ui_text("ui.tavern.draw.title"))
     people = available_opponents(state)
-    _put(screen, 1, 2, "FIVE PRIVATE CARDS  /  ONE DRAW  /  BEST HIGH HAND", accent("ui_heading", curses.A_BOLD))
+    _put(screen, 1, 2, ui_text("ui.tavern.draw.rules"), accent("ui_heading", curses.A_BOLD))
     _put(screen, 2, 2, "Five-card draw: deal, bet, exchange, bet, showdown.")
     _put(screen, 3, 2, "Free practice pays nothing. Wagered: 1-credit ante, 1-credit bet,")
     _put(screen, 4, 2, f"one raise per round; maximum loss {MAX_EXPOSURE} credit per seat.")
@@ -53,7 +54,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
         _put(screen, 19, 2, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)} tavern adults.")
     _put(screen, 20, 2, message[:75] if message else "Only adults at this table play. Their cards stay hidden until showdown.",
          accent("warning") if message else 0)
-    _put(screen, 22, 2, "J/K choose  Space invite  W stakes/free  Enter deal  Q leave", accent("ui_accent", curses.A_BOLD))
+    _put(screen, 22, 2, ui_text("ui.tavern.draw.controls"), accent("ui_accent", curses.A_BOLD))
     screen.refresh()
     return people
 

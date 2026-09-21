@@ -11,6 +11,7 @@ from .character import (
 from .character_presentation import role_display_name
 from .state import ATTRIBUTES, GameState
 from .tavern_games_ui import accent, meter, put
+from .ui_presentation import ui_format, ui_text
 
 FIELDS = ("crew", "name", "ancestry", "origin", "trait", *ATTRIBUTES, *COMPETENCIES)
 PANEL_WIDTH = 78
@@ -30,9 +31,9 @@ def _draw(screen: curses.window, state: GameState, crew_index: int, name: str,
     screen.erase()
     top, left = _panel_origin(screen)
     height, width = screen.getmaxyx()
-    _frame(screen, top, left, min(PANEL_HEIGHT, height), min(PANEL_WIDTH, width), "COURIER SPECIFICATION / FIRST WATCH")
-    put(screen, top + 1, left + 3, "Choose a household adult; their role and existing bonds remain.", accent("ui_accent"))
-    put(screen, top + 2, left + 3, "H/L changes the selected field. Enter names your courier. S accepts.")
+    _frame(screen, top, left, min(PANEL_HEIGHT, height), min(PANEL_WIDTH, width), ui_text("ui.character.title"))
+    put(screen, top + 1, left + 3, ui_text("ui.character.intro"), accent("ui_accent"))
+    put(screen, top + 2, left + 3, ui_text("ui.character.controls"))
     crew = state.household[crew_index]
     values = {
         "crew": f"{crew.name}  /  {role_display_name(crew.role)}", "name": name,
@@ -53,18 +54,18 @@ def _draw(screen: curses.window, state: GameState, crew_index: int, name: str,
             put(screen, row, left + 51, meter(competencies[key], maximum=5, width=12), accent("technique"))
     attribute_spent = sum(attributes.values()) - 6 * 6
     skill_spent = sum(competencies.values())
-    put(screen, top + 19, left + 3, f"Attributes {attribute_spent}/{ATTRIBUTE_POINTS}    Starting competencies {skill_spent}/{COMPETENCY_POINTS}",
+    put(screen, top + 19, left + 3, ui_format("ui.character.attributes", used=attribute_spent, total=ATTRIBUTE_POINTS, skills=skill_spent, skill_total=COMPETENCY_POINTS),
         accent("success" if attribute_spent == ATTRIBUTE_POINTS and skill_spent == COMPETENCY_POINTS else "warning"))
     put(screen, top + 20, left + 3, f"{ancestry}: {PEOPLE_EFFECTS[ancestry]}.")
     put(screen, top + 21, left + 3, message[:72] if message else f"Trait: {TRAITS[trait][1]}; origin grants one practical competency.",
         accent("warning") if message else accent("terrain"))
-    put(screen, top + 22, left + 3, "J/K select  H/L adjust  Enter edit name  S begin  Q back", accent("ui_accent", curses.A_BOLD))
+    put(screen, top + 22, left + 3, ui_text("ui.character.controls_footer"), accent("ui_accent", curses.A_BOLD))
     screen.refresh()
 
 
 def _read_name(screen: curses.window) -> str:
     top, left = _panel_origin(screen)
-    put(screen, top + 21, left + 3, "New name (2-32 letters): " + " " * 44, accent("ui_accent"))
+    put(screen, top + 21, left + 3, ui_text("ui.character.name_prompt") + " " * 44, accent("ui_accent"))
     screen.refresh()
     curses.echo()
     try:

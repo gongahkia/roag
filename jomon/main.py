@@ -12,6 +12,7 @@ from .character_ui import run_character_creation
 from .save import SaveError, load_game, save_path
 from .state import create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
+from .ui_presentation import ui_format, ui_text
 
 _SEED_WORDS = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["seed_words"]
 if (not isinstance(_SEED_WORDS, list) or len(_SEED_WORDS) < 2
@@ -79,11 +80,11 @@ def _draw_notice_landing(
     from .terminal import _frame
 
     layout = landing_notice_layout(width, height, notice, str(save_path()))
-    title = "J O M O N"
-    subtitle = "A household between river and coast"
+    title = ui_text("ui.title.game")
+    subtitle = ui_text("ui.title.subtitle")
     _put(screen, layout.top - 6, _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
     _put(screen, layout.top - 4, _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
-    _frame(screen, layout.top, layout.left, layout.height, layout.width, "SAVE VERSION MISMATCH")
+    _frame(screen, layout.top, layout.left, layout.height, layout.width, ui_text("ui.start.save_mismatch"))
     inner_left = layout.left + 4
     for index, line in enumerate(layout.lines):
         _put(screen, layout.top + 2 + index, _centered_x(width, line), line, colour_attribute("warning") | curses.A_BOLD)
@@ -93,10 +94,10 @@ def _draw_notice_landing(
     option_row = path_row + len(layout.path_lines) + 2
     _put(screen, option_row, inner_left, "> ", colour_attribute("ui_accent") | curses.A_BOLD)
     _put(screen, option_row, inner_left + 2, "N", colour_attribute("success") | curses.A_BOLD | curses.A_REVERSE)
-    _put(screen, option_row, inner_left + 4, "Start a new world", colour_attribute("success") | curses.A_BOLD)
+    _put(screen, option_row, inner_left + 4, ui_text("ui.start.new_world"), colour_attribute("success") | curses.A_BOLD)
     _put(screen, option_row + 1, inner_left, "  ")
     _put(screen, option_row + 1, inner_left + 2, "Q", colour_attribute("warning") | curses.A_BOLD | curses.A_REVERSE)
-    _put(screen, option_row + 1, inner_left + 4, "Leave this chronicle unopened")
+    _put(screen, option_row + 1, inner_left + 4, ui_text("ui.start.leave_unopened"))
 
 
 def _generated_seed() -> str:
@@ -107,8 +108,8 @@ def _generated_seed() -> str:
 def _read_seed(screen: curses.window) -> str:
     height, width = screen.getmaxyx()
     screen.erase()
-    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), "BEGIN JOMON'S CHRONICLE", colour_attribute("ui_heading") | curses.A_BOLD)
-    _put(screen, max(2, height // 2), max(1, width // 2 - 28), "Chronicle mark (blank draws one): ", colour_attribute("ui_accent"))
+    _put(screen, max(1, height // 2 - 2), max(1, width // 2 - 28), ui_text("ui.start.begin"), colour_attribute("ui_heading") | curses.A_BOLD)
+    _put(screen, max(2, height // 2), max(1, width // 2 - 28), ui_text("ui.start.seed_prompt"), colour_attribute("ui_accent"))
     screen.refresh()
     curses.echo()
     _set_cursor_visibility(1)
@@ -156,18 +157,18 @@ def run(screen: curses.window) -> None:
                     play(screen, state)
                     return
             continue
-        title = "J O M O N"
-        subtitle = "A household between river and coast"
+        title = ui_text("ui.title.game")
+        subtitle = ui_text("ui.title.subtitle")
         _put(screen, max(1, height // 2 - 6), _centered_x(width, title), title, colour_attribute("ui_heading") | curses.A_BOLD)
         _put(screen, max(2, height // 2 - 4), _centered_x(width, subtitle), subtitle, colour_attribute("ui_accent"))
         title_x = max(1, width // 2 - 8)
         row = max(3, height // 2 - 1)
         if has_save:
-            _put(screen, row, title_x, "C  Continue", colour_attribute("success"))
+            _put(screen, row, title_x, ui_text("ui.start.continue"), colour_attribute("success"))
             row += 1
-        _put(screen, row, title_x, "N  New Chronicle", colour_attribute("ui_accent"))
-        _put(screen, row + 1, title_x, "Q  Close Book", colour_attribute("warning"))
-        path_text = f"Save: {save_path()}"
+        _put(screen, row, title_x, ui_text("ui.start.new_chronicle"), colour_attribute("ui_accent"))
+        _put(screen, row + 1, title_x, ui_text("ui.start.close"), colour_attribute("warning"))
+        path_text = ui_format("ui.start.save_path", path=save_path())
         _put(screen, row + 3, max(1, (width - min(len(path_text), width - 4)) // 2), path_text)
         screen.refresh()
         key = screen.getch()

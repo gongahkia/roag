@@ -1514,5 +1514,421 @@
         "description"
       ]
     }
+  ],
+  "ui": [
+    {
+      "id": "ui.help.general.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.02",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.03",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.04",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.05",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.06",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.07",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.08",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.09",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.10",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.11",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.12",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.13",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.14",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.15",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.16",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.17",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.general.18",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.inventory.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.inventory.02",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.target.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.route.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.route.02",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.base.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.base.02",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.help.look.01",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.label.watch_log",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.chronicle",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.charted_passage",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.pack_and_stores",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.ordered_stowage",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.free_stowage",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.carried_kit",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.placement_mark",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.pack_tally",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.drop_tally",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.household_counsel",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.relic_case",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.carried_relic",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.field_kit",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.packed_findings",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.leave_book",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.courier_record",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.vacant_berth",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.clerk_slate",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.stores_ledger",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.watch_records",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.field_materials",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.label.recorded_notice",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.title.game",
+      "placeholders": [],
+      "max_length": 20
+    },
+    {
+      "id": "ui.title.subtitle",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.start.save_mismatch",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.start.new_world",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.leave_unopened",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.begin",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.start.seed_prompt",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.continue",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.new_chronicle",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.close",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.start.save_path",
+      "placeholders": [
+        "path"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.title",
+      "placeholders": [],
+      "max_length": 40
+    },
+    {
+      "id": "ui.character.intro",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.controls",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.attributes",
+      "placeholders": [
+        "used",
+        "total",
+        "skills",
+        "skill_total"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.controls_footer",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.name_prompt",
+      "placeholders": [],
+      "max_length": 36
+    },
+    {
+      "id": "ui.tavern.draw.title",
+      "placeholders": [],
+      "max_length": 32
+    },
+    {
+      "id": "ui.tavern.draw.rules",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.tavern.draw.controls",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.tavern.dice.title",
+      "placeholders": [],
+      "max_length": 32
+    },
+    {
+      "id": "ui.tavern.dice.bones",
+      "placeholders": [],
+      "max_length": 32
+    },
+    {
+      "id": "ui.tavern.dice.controls",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.notice.rumour.label",
+      "placeholders": [],
+      "max_length": 16
+    },
+    {
+      "id": "ui.notice.fact.label",
+      "placeholders": [],
+      "max_length": 16
+    },
+    {
+      "id": "ui.notice.forecast.label",
+      "placeholders": [],
+      "max_length": 16
+    },
+    {
+      "id": "ui.notice.warning.label",
+      "placeholders": [],
+      "max_length": 16
+    },
+    {
+      "id": "ui.inventory.preview_load",
+      "placeholders": [
+        "label",
+        "used",
+        "weight",
+        "total",
+        "load"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.minimum_size.need",
+      "placeholders": [
+        "width",
+        "height"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.minimum_size.present",
+      "placeholders": [
+        "width",
+        "height"
+      ],
+      "max_length": null
+    }
   ]
 }

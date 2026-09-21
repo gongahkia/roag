@@ -11,6 +11,7 @@ from jomon.catalog import (
     EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, HISTORY_SECTIONS, PRACTICE_SECTIONS,
     RECRUITMENT_SECTIONS, VESSEL_SECTIONS, WORLD_TEXT_SECTIONS,
     CatalogError, decode_catalog, load_catalog,
+    ui_contract,
 )
 from jomon.aftermath import (
     AFTERMATH_LINES, AFTERMATH_TOPOLOGIES, DRAINAGE_TOPOLOGIES,
@@ -42,6 +43,7 @@ from jomon.inventory import (
 )
 from jomon.magic import SPELL_ROWS
 from jomon.main import SEED_WORDS
+from jomon.ui_presentation import ui_text
 from jomon.navigation import LANDMARK_LABELS
 from jomon.preparations import PREPARATIONS
 from jomon.practices import AFTERMATH_REGION_PRACTICE, NETWORK_CONTACT_PRACTICE, PRACTICES
@@ -111,11 +113,9 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(world_text["seed_words"], list(SEED_WORDS))
         self.assertEqual(world_text["terrain_names"], TERRAIN_NAMES)
         self.assertEqual(world_text["landmark_labels"], LANDMARK_LABELS)
-        self.assertEqual(world_text["interface_ledgers"], {
-            key: list(value) if isinstance(value, tuple) else value
-            for key, value in INTERFACE_LEDGERS.items()
-        })
-        self.assertEqual(world_text["interface_labels"], INTERFACE_LABELS)
+        self.assertEqual(len(ui_contract()), 79)
+        self.assertEqual(ui_text("ui.label.watch_log"), INTERFACE_LABELS["watch_log"])
+        self.assertEqual(ui_text("ui.help.inventory.01"), INTERFACE_LEDGERS["inventory"][0])
         vessel = load_catalog("vessel.json", VESSEL_SECTIONS)
         self.assertEqual(vessel["drinks"], json.loads(json.dumps([asdict(drink) for drink in DRINKS.values()])))
         vehicles = load_catalog("vehicles.json", ("harbour", "vehicles"))
@@ -127,9 +127,7 @@ class CatalogTests(unittest.TestCase):
 
     def test_world_text_avoids_out_of_world_terms(self):
         world_text = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)
-        strings = [*world_text["HELP_LINES"], *world_text["interface_labels"].values()]
-        for value in world_text["interface_ledgers"].values():
-            strings.extend(value if isinstance(value, list) else [value])
+        strings = [ui_text(slot.id) for slot in ui_contract()]
         forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
         self.assertFalse([line for line in strings if forbidden.search(line)])
 

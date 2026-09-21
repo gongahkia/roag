@@ -8,6 +8,7 @@ from importlib.resources import files
 import os
 from pathlib import Path
 import re
+import string
 from typing import Any
 
 
@@ -37,8 +38,7 @@ CHARACTER_SECTIONS = (
 ARC_RELIC_SECTIONS = ("relics",)
 RECRUITMENT_SECTIONS = ("requirements",)
 WORLD_TEXT_SECTIONS = (
-    "JOMON_MAP", "HELP_LINES", "seed_words", "terrain_names", "landmark_labels",
-    "interface_ledgers", "interface_labels",
+    "JOMON_MAP", "seed_words", "terrain_names", "landmark_labels",
 )
 AFTERMATH_SECTIONS = (
     "lines", "topologies", "drainage_topologies", "fire_topologies",
@@ -64,6 +64,7 @@ REGION_CONTRACT_FORMAT = 1
 REGION_PRESENTATION_FILE = "regions.json"
 CHARACTER_PRESENTATION_FILE = "characters.json"
 ITEM_PRESENTATION_FILE = "items.json"
+UI_PRESENTATION_FILE = "ui_text.json"
 
 # Main-world modules load these files into module constants. Selecting a pack
 # therefore validates that it is complete before any one catalog is consumed.
@@ -166,6 +167,23 @@ class ItemPresentation:
 
 
 @dataclass(frozen=True)
+class UiContractSlot:
+    """One engine-owned UI string and its safe formatting surface."""
+
+    id: str
+    placeholders: tuple[str, ...]
+    max_length: int | None = None
+
+
+@dataclass(frozen=True)
+class UiPresentation:
+    """Immutable selected-pack terminal text."""
+
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -178,6 +196,7 @@ class ContentPack:
     character_presentations: tuple[CharacterPresentation, ...]
     role_presentations: tuple[RolePresentation, ...]
     item_presentations: tuple[ItemPresentation, ...]
+    ui_presentations: tuple[UiPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -206,6 +225,12 @@ class ContentPack:
             if presentation.engine_id == engine_id:
                 return presentation
         raise KeyError(f"unknown engine item id: {engine_id}")
+
+    def ui_presentation(self, semantic_id: str) -> UiPresentation:
+        for presentation in self.ui_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown UI semantic id: {semantic_id}")
 
 
 _selected_pack: ContentPack | None = None
@@ -236,8 +261,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, and items")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, and ui")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -368,6 +393,32 @@ def _item_contract() -> tuple[ItemContractSlot, ...]:
 def item_contract() -> tuple[ItemContractSlot, ...]:
     """Return the ordered engine-owned base-item presentation contract."""
     return _item_contract()
+
+
+def _ui_contract() -> tuple[UiContractSlot, ...]:
+    source, document = _content_contract_document()
+    rows = document["ui"]
+    if not isinstance(rows, list) or not rows:
+        raise RuntimeError(f"invalid engine UI content contract at {source}: ui must be a non-empty list")
+    slots: list[UiContractSlot] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict) or set(row) != {"id", "placeholders", "max_length"}:
+            raise RuntimeError(f"invalid engine UI content contract at {source}: ui[{index}] must contain id, placeholders, and max_length")
+        semantic_id, placeholders, max_length = row["id"], row["placeholders"], row["max_length"]
+        if (not isinstance(semantic_id, str) or re.fullmatch(r"ui\.[a-z][a-z0-9_.-]*", semantic_id) is None
+                or not isinstance(placeholders, list) or len(set(placeholders)) != len(placeholders)
+                or any(not isinstance(name, str) or re.fullmatch(r"[a-z][a-z0-9_]*", name) is None for name in placeholders)
+                or max_length is not None and (type(max_length) is not int or max_length < 1)):
+            raise RuntimeError(f"invalid engine UI content contract at {source}: ui[{index}] has invalid fields")
+        slots.append(UiContractSlot(semantic_id, tuple(placeholders), max_length))
+    if len({slot.id for slot in slots}) != len(slots):
+        raise RuntimeError(f"invalid engine UI content contract at {source}: UI ids must be unique")
+    return tuple(slots)
+
+
+def ui_contract() -> tuple[UiContractSlot, ...]:
+    """Return engine-owned UI wording and formatting requirements."""
+    return _ui_contract()
 
 
 def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation, ...]:
@@ -579,6 +630,48 @@ def _item_presentations(root: Path, pack_id: str) -> tuple[ItemPresentation, ...
     return tuple(presentations)
 
 
+def _ui_presentations(root: Path, pack_id: str) -> tuple[UiPresentation, ...]:
+    source = root / UI_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: text must be an object")
+    rows = document["text"]
+    slots = ui_contract()
+    expected, actual = {slot.id for slot in slots}, set(rows)
+    if actual != expected:
+        details = []
+        if expected - actual:
+            details.append("missing required UI keys " + ", ".join(sorted(expected - actual)))
+        if actual - expected:
+            details.append("unknown UI keys " + ", ".join(sorted(actual - expected)))
+        raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    presentations: list[UiPresentation] = []
+    formatter = string.Formatter()
+    for slot in slots:
+        text = rows[slot.id]
+        if not isinstance(text, str) or not text:
+            raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: text.{slot.id} must be a non-empty string")
+        if slot.max_length is not None and len(text) > slot.max_length:
+            raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: text.{slot.id} exceeds maximum length {slot.max_length}")
+        try:
+            fields = []
+            for _, field_name, format_spec, conversion in formatter.parse(text):
+                if field_name is not None:
+                    if (field_name not in slot.placeholders or format_spec or conversion
+                            or not re.fullmatch(r"[a-z][a-z0-9_]*", field_name)):
+                        raise ValueError("unsupported placeholder")
+                    fields.append(field_name)
+        except ValueError as exc:
+            raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: text.{slot.id} has malformed template: {exc}") from exc
+        if set(fields) != set(slot.placeholders) or len(fields) != len(slot.placeholders):
+            raise ContentPackError(f"invalid UI presentation for content pack {pack_id!r} at {source}: text.{slot.id} must contain exactly placeholders {', '.join(slot.placeholders) or 'none'}")
+        presentations.append(UiPresentation(slot.id, text))
+    return tuple(presentations)
+
+
 def _manifest_document(root: Path) -> dict[str, Any]:
     source = root / "manifest.json"
     try:
@@ -644,9 +737,10 @@ def load_content_pack(path: str | Path) -> ContentPack:
         )
     characters, roles, household_template = _character_presentations(root, pack_id)
     items = _item_presentations(root, pack_id)
+    ui = _ui_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, household_template,
     )
 
 

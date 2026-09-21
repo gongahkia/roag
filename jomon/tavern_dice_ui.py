@@ -11,6 +11,7 @@ from .tavern_dice import (
     hold, roll, start_match,
 )
 from .tavern_games_ui import accent, border, dice_face, meter, put
+from .ui_presentation import ui_text
 
 
 def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cursor: int,
@@ -47,7 +48,7 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
     assert match is not None
     screen.erase()
     complete = match["phase"] == "complete"
-    border(screen, "QUAY BONES / FINAL SCORE" if complete else "QUAY BONES / ROLL OR BANK",
+    border(screen, "QUAY BONES / FINAL SCORE" if complete else ui_text("ui.tavern.dice.title"),
            "success" if complete and 0 in match["winners"] else "ui_frame")
     put(screen, 2, 3,
         f"Round {min(match['round'] + 1, ROUNDS)}/{ROUNDS}   Prize purse {state.tavern_dice['purse']} credit   Your credit {state.trade_credit}",
@@ -59,7 +60,7 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
         put(screen, row, 3, label, accent("player" if seat == 0 else "neutral", curses.A_BOLD if active else 0))
         put(screen, row + 1, 5, meter(match["scores"][seat]) + f"  busts {match['busts'][seat]}",
             accent("success" if complete and seat in match["winners"] else "ui_accent" if active else "terrain"))
-    put(screen, 4, 45, "THE BONES", accent("ui_heading", curses.A_BOLD))
+    put(screen, 4, 45, ui_text("ui.tavern.dice.bones"), accent("ui_heading", curses.A_BOLD))
     dice = shown_dice or tuple(match["last_dice"])
     if dice:
         for index, value in enumerate(dice):
@@ -80,7 +81,7 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
         put(screen, 21, 3, "Enter clear result  Q return to tavern", accent("ui_accent"))
     else:
         put(screen, 17, 3, f"Acting: {match['names'][match['turn']]}", accent("ui_heading"))
-        put(screen, 21, 3, "R/Enter roll  H bank when allowed  Q pause contest", accent("ui_accent"))
+        put(screen, 21, 3, ui_text("ui.tavern.dice.controls"), accent("ui_accent"))
     put(screen, 19, 3, (message or match["log"][-1])[:72], accent("warning") if message else accent("terrain"))
     put(screen, 22, 3, f"No entry fee. {state.bartender.name.split()[0]} pays prizes from the purse on the table.")
     screen.refresh()

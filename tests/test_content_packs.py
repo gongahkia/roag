@@ -19,6 +19,7 @@ from jomon.catalog import (
     load_content_pack,
     region_contract,
     role_contract,
+    ui_contract,
 )
 
 
@@ -38,6 +39,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "regions.json", root / "regions.json")
     shutil.copy(DEFAULT_PACK_ROOT / "characters.json", root / "characters.json")
     shutil.copy(DEFAULT_PACK_ROOT / "items.json", root / "items.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "ui_text.json", root / "ui_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -82,6 +84,17 @@ def alternate_pack(root: Path) -> Path:
     items["items"]["item.goods_014"]["display_name"] = "Fixture Dressing"
     items["items"]["item.goods_050"]["display_name"] = "Fixture Rain Cape"
     source.write_text(json.dumps(items, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "ui_text.json"
+    ui = json.loads(source.read_text(encoding="utf-8"))
+    ui["text"].update({
+        "ui.title.game": "F I X T U R E",
+        "ui.label.stores_ledger": "FIXTURE PACK",
+        "ui.help.general.01": "Fixture help explains the unchanged lookout control.",
+        "ui.notice.rumour.label": "HEARSAY",
+        "ui.notice.warning.label": "CAUTION",
+        "ui.tavern.draw.title": "FIXTURE DRAW",
+    })
+    source.write_text(json.dumps(ui, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     return root
 
 
@@ -174,6 +187,25 @@ def item_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]
     return json.loads(result.stdout)
 
 
+def ui_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, event_feed_lines, information_colour_role; from jomon.ui_presentation import notice_kind, render_notice, ui_text; "
+            "state = create_world('ui-pack-proof'); print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'title': ui_text('ui.title.game'), 'inventory': _overlay_lines(state, 'inventory')[0], 'help': ui_text('ui.help.general.01'), "
+            "'notices': event_feed_lines(['RUMOUR: old save claim', 'WARNING: old save risk'], 80, 4), "
+            "'kinds': [notice_kind('RUMOUR: old save claim'), notice_kind('WARNING: old save risk')], "
+            "'roles': [information_colour_role('RUMOUR: old save claim'), information_colour_role('WARNING: old save risk')], "
+            "'mechanics': [state.seed, state.household[0].role, state.weapon]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
 class ContentPackTests(unittest.TestCase):
     def test_default_pack_keeps_existing_catalog_root_and_data(self):
         pack = bundled_default_pack()
@@ -217,6 +249,7 @@ class ContentPackTests(unittest.TestCase):
         )
         slots = item_contract()
         self.assertEqual(len(slots), 154)
+        self.assertEqual(len(ui_contract()), 79)
         self.assertEqual(
             [(slot.id, slot.engine_id) for slot in slots if slot.engine_id in {
                 "spear", "marsh waders", "willow dressing", "rain cape",
@@ -265,6 +298,41 @@ class ContentPackTests(unittest.TestCase):
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*items\.json"):
                     load_content_pack(root)
 
+    def test_ui_presentation_contract_rejects_invalid_pack_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "ui_text.json"
+            cases = {
+                "missing key": lambda value: value["text"].pop("ui.title.game"),
+                "unknown key": lambda value: value["text"].update({"ui.extra": "extra"}),
+                "wrong type": lambda value: value["text"].update({"ui.title.game": 1}),
+                "empty text": lambda value: value["text"].update({"ui.title.game": ""}),
+                "malformed template": lambda value: value["text"].update({"ui.start.save_path": "Save {path"}),
+                "unknown placeholder": lambda value: value["text"].update({"ui.start.save_path": "Save: {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"ui.start.save_path": "Save"}),
+                "too wide label": lambda value: value["text"].update({"ui.notice.warning.label": "x" * 17}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    content = json.loads((DEFAULT_PACK_ROOT / "ui_text.json").read_text(encoding="utf-8"))
+                    mutate(content)
+                    source.write_text(json.dumps(content), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ui_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate key"):
+                content = (DEFAULT_PACK_ROOT / "ui_text.json").read_text(encoding="utf-8")
+                source.write_text(content.replace('"ui.title.subtitle"', '"ui.title.game"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ui_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("malformed JSON"):
+                source.write_text("{", encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ui_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ui_text\.json"):
+                    load_content_pack(root)
+
     def test_default_item_presentation_matches_legacy_base_catalog_text(self):
         from jomon.content import SUPPORTS
         from jomon.inventory import item_spec
@@ -291,6 +359,32 @@ class ContentPackTests(unittest.TestCase):
                 f"Equipment use: {logistics['equipment_use']}. Buyers: {', '.join(logistics['buyers'])}."
             )
             self.assertEqual((item_spec(f"commodity:{engine_id}").name, item_spec(f"commodity:{engine_id}").description), (engine_id.title(), description))
+
+    def test_alternate_pack_changes_ui_text_and_preserves_legacy_notice_kinds(self):
+        default = ui_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = ui_presentation_snapshot(environment)
+        self.assertEqual(default["pack"], "default")
+        self.assertEqual(alternate["pack"], "fixture-alternate")
+        self.assertEqual(default["title"], "J O M O N")
+        self.assertEqual(alternate["title"], "F I X T U R E")
+        self.assertEqual(alternate["inventory"], "FIXTURE PACK")
+        self.assertIn("Fixture help", alternate["help"])
+        self.assertIn("HEARSAY: old save claim", " ".join(alternate["notices"]))
+        self.assertIn("CAUTION: old save risk", " ".join(alternate["notices"]))
+        self.assertEqual(default["kinds"], alternate["kinds"])
+        self.assertEqual(default["roles"], alternate["roles"])
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+
+    def test_ui_formatter_accepts_only_the_engine_placeholder_contract(self):
+        from jomon.ui_presentation import ui_format
+
+        self.assertEqual(ui_format("ui.start.save_path", path="save.json"), "Save: save.json")
+        with self.assertRaises(ValueError):
+            ui_format("ui.start.save_path", other="save.json")
 
     def test_invalid_pack_manifests_and_missing_catalogs_name_the_failure(self):
         with tempfile.TemporaryDirectory() as directory:
