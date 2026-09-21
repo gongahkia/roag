@@ -84,6 +84,10 @@
           "label": "Hold the drying bank and honour the winter fuel obligation",
           "requirement": "brace the drying control or recover the drain record"
         }
+      },
+      "results": {
+        "b": "The breached drying bank gives the bank animals a refuge and spares the inhabited islands; winter fuel grows dearer.",
+        "h": "The bank holds the winter fuel, but its timber obligation grows and bank animals keep the far shore."
       }
     },
     "quest.regional.rillscar": {
@@ -98,6 +102,10 @@
           "label": "Bind the two bridge claims with the recovered load account",
           "requirement": "secure the upper coffer or brace the tailrace control"
         }
+      },
+      "results": {
+        "o": "Public tailrace access retires the bridge guard; cutworkers lose a private iron premium.",
+        "b": "Two signed load accounts keep the bridge ward employed and release iron, with a fuel debt to the cutworkers."
       }
     },
     "quest.regional.marlbank": {
@@ -112,6 +120,10 @@
           "label": "Preserve the kiln firing and ration the seed terraces",
           "requirement": "read the water account or operate the release"
         }
+      },
+      "results": {
+        "f": "Water returns to the seed terraces; grain recovers while the potters lose a kiln firing.",
+        "k": "The pottery account pays Jomon, but rationed fields keep grain scarce and the old firing bed active."
       }
     },
     "quest.regional.frostmere": {
@@ -126,6 +138,10 @@
           "label": "Open the direct ice cut under a witnessed pilot obligation",
           "requirement": "recover the sounding board or secure the ice control"
         }
+      },
+      "results": {
+        "l": "Marked lee soundings lower voyage exposure but lengthen every future approach to the net houses.",
+        "c": "The witnessed ice cut stays charted in winter for a sound hull; pilots accept greater cargo exposure."
       }
     },
     "quest.arc.marks": {

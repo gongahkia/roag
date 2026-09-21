@@ -299,6 +299,7 @@ def control_frontier(state) -> str:
 
 
 def settle_frontier_claim(state, choice: str) -> str:
+    from .quest_presentation import regional_result_text
     region = state.region
     regional = [
         contact for contact in state.contacts[region.id]
@@ -316,12 +317,12 @@ def settle_frontier_claim(state, choice: str) -> str:
             for actor in state.threats:
                 if actor.role == "territorial":
                     actor.status = "retreated"
-            text = "The breached drying bank gives the bank animals a refuge and spares the inhabited islands; winter fuel grows dearer."
+            text = regional_result_text(region.id, choice)
         else:
             region.changes["drying_bank_held"] = True
             market.stock += 3
             state.market["timber"].demand += 2
-            text = "The bank holds the winter fuel, but its timber obligation grows and bank animals keep the far shore."
+            text = regional_result_text(region.id, choice)
     elif region.id == "rillscar":
         control_frontier(state)
         if choice == "o":
@@ -329,35 +330,35 @@ def settle_frontier_claim(state, choice: str) -> str:
                 if actor.role == "protector":
                     actor.status = "negotiated"
             market.demand = max(0, market.demand - 2)
-            text = "Public tailrace access retires the bridge guard; cutworkers lose a private iron premium."
+            text = regional_result_text(region.id, choice)
         else:
             state.trade_credit += 3
             market.stock += 2
             state.market["charcoal"].demand += 1
-            text = "Two signed load accounts keep the bridge ward employed and release iron, with a fuel debt to the cutworkers."
+            text = regional_result_text(region.id, choice)
     elif region.id == "marlbank":
         if choice == "f":
             control_frontier(state)
             market.stock += 3
             state.market["charcoal"].stock = max(0, state.market["charcoal"].stock - 1)
-            text = "Water returns to the seed terraces; grain recovers while the potters lose a kiln firing."
+            text = regional_result_text(region.id, choice)
         else:
             region.changes["kiln_claim"] = True
             state.market["grain"].demand += 2
             state.trade_credit += 3
-            text = "The pottery account pays Jomon, but rationed fields keep grain scarce and the old firing bed active."
+            text = regional_result_text(region.id, choice)
     else:
         control_frontier(state)
         edge = next(edge for edge in state.route_edges if edge.id == "c-f")
         if choice == "l":
             edge.weather_exposure, edge.travel_time = 1, 8
-            text = "Marked lee soundings lower voyage exposure but lengthen every future approach to the net houses."
+            text = regional_result_text(region.id, choice)
         else:
             direct = next(edge for edge in state.route_edges if edge.id == "g-f")
             direct.closed_seasons = []
             direct.integrity_required = 7
             market.stock += 2
-            text = "The witnessed ice cut stays charted in winter for a sound hull; pilots accept greater cargo exposure."
+            text = regional_result_text(region.id, choice)
     region.changes[f"claim:{choice}"] = True
     primary.disposition = min(3, primary.disposition + 1)
     secondary.disposition = max(-3, min(3, secondary.disposition + (2 if choice in {"b", "o", "f", "l"} else -1)))

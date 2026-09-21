@@ -762,7 +762,7 @@ def _quest_presentations(root: Path, pack_id: str) -> tuple[QuestPresentation, .
     for slot in slots:
         row = rows[slot.id]
         path = f"quests.{slot.id}"
-        core_regional = slot.engine_id in {"hearthford", "greywash", "greenwold", "whitecairn"}
+        core_regional = slot.kind == "regional"
         required = ({"title", "lead", "choices", "results"} if core_regional else {"title", "lead", "choices"}) if slot.kind == "regional" else ({"title"} if slot.kind == "arc" else {"evidence_name", "evidence_description"})
         if not isinstance(row, dict) or set(row) != required:
             missing, unknown = (required - set(row), set(row) - required) if isinstance(row, dict) else (required, set())
