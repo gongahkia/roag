@@ -9,7 +9,7 @@ local E=require('src.expedition')
 local F={version='frontier-v2'}
 function F.options(o)
  o=o or {};local v={layout=o.layout or 'hybrid',climate=o.climate or 'balanced',
-  openness=o.openness or 0.48,biomeScale=o.biomeScale or 1,features=o.features or 'living',density=o.density or 1,crew=o.crew or 3}
+  openness=o.openness or 0.48,biomeScale=o.biomeScale or 1,features=o.features or 'living',density=o.density or 1,crew=o.crew or 3,environment=o.environment}
  assert(v.features=='living' or v.features=='ruins' or v.features=='none','Features must be living, ruins or none')
  assert(v.crew==3 or v.crew==6 or v.crew==9,'Crew must be 3, 6 or 9')
  assert(U.finite(v.density) and v.density>=0.5 and v.density<=1.5,'Density must be 0.5..1.5')
@@ -21,7 +21,7 @@ function F.options(o)
  for k in pairs(o) do assert(v[k]~=nil,'Unknown generation option: '..tostring(k)) end
  return v
 end
-local function geology(w,open)
+local function geology(w,open,environment)
  local seed=w.seed
  for y=3,w.height-2 do for x=3,w.width-2 do
   local i=W.index(w,x,y);local b=w.biomes[i];local m=M.ROCK
@@ -35,10 +35,21 @@ local function geology(w,open)
   elseif vein<((b==6 or b==10) and 0.09 or 0.015) then m=M.ORE
   elseif b==11 and (y%9)<2 then m=M.ORE
   elseif b==5 and layer>0.78 then m=M.SOIL end
+  if environment=='airless_crag' or environment=='twilight_moon' then
+   if m==M.ICE or m==M.SOIL then m=M.ROCK end
+   if m==M.ROCK and vein<0.055 then m=M.ORE end
+  elseif environment=='dust_basin' or environment=='ash_world' then
+   if m==M.SOIL or (m==M.ROCK and layer>0.34) then m=M.SAND end
+   if m==M.ICE then m=M.ROCK end
+  elseif environment=='cold_hollow' then
+   if m==M.ROCK and layer>0.56 then m=M.ICE end
+  elseif environment=='heavy_garden' then
+   if m==M.ROCK and layer>0.56 then m=M.SOIL end
+  end
   W.put(w,x,y,m)
  end end
 end
-local function pockets(w)
+local function pockets(w,environment)
  local rnd=R.new((w.seed+66203)%2147483647)
  for _=1,math.max(8,math.floor(w.n/1600)) do
   local cx=8+math.floor(rnd()*(w.width-16));local cy=8+math.floor(rnd()*(w.height-16))
@@ -47,7 +58,12 @@ local function pockets(w)
   local fill=M.AIR
   if b==1 then fill=M.ICE elseif b==2 then fill=M.SAND elseif b==4 then fill=M.WATER
   elseif b==5 then fill=M.WATER;rx=rx+4;ry=ry+2 elseif b==7 or b==12 then fill=M.LAVA elseif b==9 then fill=M.WATER elseif b==10 then fill=M.ICE end
-  local full=(b==5 and rnd()<0.50)
+  if environment=='airless_crag' or environment=='twilight_moon' or environment=='dust_basin' or environment=='ash_world' then
+   if fill==M.WATER or fill==M.ICE or fill==M.SOIL then fill=M.AIR end
+  elseif environment=='cold_hollow' and fill==M.AIR and rnd()<0.45 then fill=M.ICE
+  elseif environment=='heavy_garden' and (fill==M.AIR or fill==M.SOIL) and rnd()<0.55 then fill=M.WATER
+  end
+  local full=(b==5 and rnd()<0.50) or (environment=='heavy_garden' and fill==M.WATER and rnd()<0.45)
   for y=math.max(3,cy-ry-2),math.min(w.height-2,cy+ry+2) do
    for x=math.max(3,cx-rx-2),math.min(w.width-2,cx+rx+2) do
     local d=((x-cx)/rx)^2+((y-cy)/ry)^2
@@ -70,14 +86,16 @@ local function make(seed,mode,width,height,options,populated)
  assert(width>=128 and height>=80,'Frontier generation needs at least 128 x 80 cells')
  w.biomes=B.generateLiving(seed,width,height,o.climate,o.biomeScale)
  local open=L.make(o.layout,seed,width,height,o.openness,w.biomes)
- geology(w,open);pockets(w)
+ geology(w,open,o.environment);pockets(w,o.environment)
  for y=1,height do for x=1,width do
   if x<=2 or x>=width-1 or y<=2 or y>=height-1 then W.put(w,x,y,M.BEDROCK) end
  end end
  local features=require('src.generation.wonders').place(w,o)
  if populated then E.stamp(w,o.crew) else E.unpopulated(w) end
  require('src.content').install(w,features)
+ require('src.content').applyEnvironment(w,o.environment)
  w.generation={version=F.version,layout=o.layout,climate=o.climate,openness=o.openness,biomeScale=o.biomeScale,features=o.features,density=o.density,crew=o.crew}
+ if o.environment then w.generation.environment=o.environment end
  w.mapTitle='Frontier / '..o.layout..' / '..o.climate..' / '..seed
  return w
 end

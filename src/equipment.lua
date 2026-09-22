@@ -6,7 +6,7 @@ local W=require('src.world')
 local N=require('src.nav')
 
 local E={version=1,maxSiteItems=128,maxTransitItems=64,maxRopes=128}
-local value={pickaxe=2,rope_coil=1,frontier_carbine=4,shock_baton=3,protective_vest=4}
+local value={pickaxe=2,rope_coil=1,frontier_carbine=4,shock_baton=3,protective_vest=4,frontier_suit=4}
 local recipes={pickaxe={metal=2,work=120},rope_coil={metal=1,work=60},component={metal=2,work=120}}
 
 local function dense(t,label,limit)
@@ -20,7 +20,7 @@ local function site(c,id)
  for _,s in ipairs(c.sites or {}) do if s.id==id then return s end end
 end
 local function person(c,id)
- for _,s in ipairs(c.sites or {}) do for _,a in ipairs(s.world.workers) do if a.personId==id then return s,a end end end
+ for _,s in ipairs(c.sites or {}) do for _,a in ipairs(s.world and s.world.workers or {}) do if a.personId==id then return s,a end end end
  if c.logistics then for _,craft in ipairs(c.logistics.crafts) do for _,a in ipairs(craft.passengers or {}) do if a.personId==id then return nil,a end end end end
 end
 
@@ -45,6 +45,7 @@ end
 function E.create(c,siteId,kind,x,y)
  assert(E.enabled(c),'Equipment is unavailable in this older campaign')
  assert(site(c,siteId),'Equipment site is missing');assert(value[kind],'Unknown equipment kind')
+ assert(kind~='frontier_suit' or c.features.environments==1,'Frontier suits require environments')
  assert(#E.forSite(c,siteId)<E.maxSiteItems,'Equipment site limit reached')
  local id=c.equipment.nextId;c.equipment.nextId=id+1
  local item={id=id,kind=kind,state='loose',siteId=siteId,x=x,y=y}
@@ -62,8 +63,8 @@ function E.toIndustry(item,siteId,structureId,owner)
 end
 function E.equip(c,item,worker,slot)
  assert(item and item.state=='loose','Equipment is no longer loose')
- slot=slot or (item.kind=='pickaxe' and 'tool' or item.kind=='protective_vest' and 'armor' or 'weapon')
- assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest'),'Invalid equipment slot')
+ slot=slot or (item.kind=='pickaxe' and 'tool' or item.kind=='protective_vest' and 'armor' or item.kind=='frontier_suit' and 'environment' or 'weapon')
+ assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest') or (slot=='environment' and item.kind=='frontier_suit'),'Invalid equipment slot')
  assert(not E.equipped(c,worker.personId,slot),'Worker already has equipped '..slot)
  item.state='equipped';item.slot=slot;item.personId=worker.personId;item.siteId=nil;item.x=nil;item.y=nil;item.structureId=nil;item.owner=nil;item.reservedBy=nil
  return item
@@ -142,6 +143,10 @@ function E.transitMineral(c)
  for _,item in ipairs(c.equipment and c.equipment.items or {}) do
   if item.state=='craft' then
    for _,craft in ipairs(c.logistics and c.logistics.crafts or {}) do if craft.id==item.craftId and craft.journey then n=n+E.value(item.kind) end end
+  elseif item.state=='equipped' or item.state=='carried' then
+   for _,craft in ipairs(c.logistics and c.logistics.crafts or {}) do if craft.journey then
+    for _,passenger in ipairs(craft.passengers or {}) do if passenger.personId==item.personId then n=n+E.value(item.kind);break end end
+   end end
   end
  end
  return n
@@ -209,10 +214,10 @@ function E.validate(c)
   assert(type(item)=='table','Malformed equipment item');for key in pairs(item) do assert(({id=true,kind=true,state=true,siteId=true,x=true,y=true,personId=true,craftId=true,ropeId=true,reservedBy=true,structureId=true,owner=true,slot=true})[key],'Unknown equipment key') end
   U.integer(item.id,'Equipment ID',1,state.nextId-1);assert(not seen[item.id],'Duplicate equipment ID');seen[item.id]=true;max=math.max(max,item.id);assert(value[item.kind],'Unknown equipment kind')
   assert(item.state=='loose' or item.state=='carried' or item.state=='equipped' or item.state=='craft' or item.state=='rope' or item.state=='industry','Unknown equipment state')
-  if item.state=='loose' then local s=site(c,item.siteId);assert(s,'Loose equipment site missing');U.integer(item.x,'Equipment x',1,s.world.width);U.integer(item.y,'Equipment y',1,s.world.height);siteCount[item.siteId]=(siteCount[item.siteId] or 0)+1
+  if item.state=='loose' then local s=site(c,item.siteId);assert(s and s.world,'Loose equipment site missing');U.integer(item.x,'Equipment x',1,s.world.width);U.integer(item.y,'Equipment y',1,s.world.height);siteCount[item.siteId]=(siteCount[item.siteId] or 0)+1
   elseif item.state=='carried' or item.state=='equipped' then
    local _,a=person(c,item.personId);assert(a,'Equipment person is missing');if item.state=='equipped' then
-    local slot=item.slot or 'tool';assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest'),'Invalid equipped item')
+    local slot=item.slot or 'tool';assert((slot=='tool' and item.kind=='pickaxe') or (slot=='weapon' and (item.kind=='frontier_carbine' or item.kind=='shock_baton')) or (slot=='armor' and item.kind=='protective_vest') or (slot=='environment' and item.kind=='frontier_suit'),'Invalid equipped item')
     local key=item.personId..':'..slot;assert(not equipped[key],'More than one equipped '..slot);equipped[key]=true
    end
   elseif item.state=='craft' then
@@ -228,7 +233,7 @@ function E.validate(c)
  end
  for _,n in pairs(siteCount) do assert(n<=E.maxSiteItems,'Equipment site limit exceeded') end
  assert(transit<=E.maxTransitItems,'Transit equipment limit exceeded');assert(state.nextId>max,'Equipment allocator regressed')
- for _,s in ipairs(c.sites) do
+ for _,s in ipairs(c.sites) do if s.world then
   local w=s.world
   if E.safe(c) then
    assert(type(w.ropes)=='table','Safe-excavation world lacks ropes');dense(w.ropes,'Ropes',E.maxRopes);U.integer(w.nextRopeId,'Next rope ID',1,100000000)
@@ -240,7 +245,7 @@ function E.validate(c)
    end
    assert(w.nextRopeId>maxRope,'Rope allocator regressed')
   else assert(w.ropes==nil and w.nextRopeId==nil,'Legacy world gained rope state') end
- end
+ end end
  return true
 end
 

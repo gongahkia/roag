@@ -27,7 +27,7 @@ function S.attachPerson(c,a)
 end
 function S.initialise(c)
  c.security=c.security or {version=S.version,nextRaidId=1,nextActorId=1,nextCellId=1,raids={},lootReceipts={}}
- for _,s in ipairs(c.sites) do if not s.world.security then S.attach(s.world) end;for _,a in ipairs(s.world.workers) do if not a.security then S.attachPerson(c,a) end end end
+ for _,s in ipairs(c.sites) do if s.world then if not s.world.security then S.attach(s.world) end;for _,a in ipairs(s.world.workers) do if not a.security then S.attachPerson(c,a) end end end end
 end
 function S.configure(w,p,expected)
  assert(w.security,'Security is unavailable');if expected~=nil then assert(expected==w.security.policyRevision,'Stale security policy') end
@@ -403,7 +403,7 @@ function S.grieve(c,a,kind,amount,source)
 end
 local function pressure(f) return 50+math.floor(f.culture.expansion/2)+math.floor(f.culture.hierarchy/4)+math.min(40,f.relations[1].grievance)+((f.strategicGoal=='expand_influence' or f.strategicGoal=='expand_industry') and 20 or 0)-math.min(30,f.recentLossPenalty or 0) end
 local function targetSite(c)
- local best;for _,s in ipairs(c.sites) do if s.ownerSocietyId==c.society.id then local score=W.alive(s.world)*10;for _,st in pairs(s.world.structures) do if st.kind=='signal_relay' or st.kind=='trade_depot' or st.kind=='fabricator' or st.kind=='battery' or st.kind=='solar_array' then score=score+20 end end;if not best or score>best.score or (score==best.score and s.id<best.s.id) then best={s=s,score=score} end end end;return best and best.s
+ local best;for _,s in ipairs(c.sites) do if s.world and s.ownerSocietyId==c.society.id then local score=W.alive(s.world)*10;for _,st in pairs(s.world.structures) do if st.kind=='signal_relay' or st.kind=='trade_depot' or st.kind=='fabricator' or st.kind=='battery' or st.kind=='solar_array' then score=score+20 end end;if not best or score>best.score or (score==best.score and s.id<best.s.id) then best={s=s,score=score} end end end;return best and best.s
 end
 local function schedule(c)
  if c.tick%1000~=0 then return end
@@ -411,10 +411,12 @@ local function schedule(c)
  for _,f in ipairs(c.factions.factions) do local active=false;for _,r in ipairs(c.security.raids) do if r.factionId==f.id and r.status~='resolved' then active=true end end;local last=f.lastRaidResolvedTick or -4000
   if not active and c.tick-last>=4000 and activeCount<S.maxRaids and F.attitude(f.relations[1])=='HOSTILE' and (f.stocks.food or 0)>=2 and (f.stocks.metal or 0)>=2 and pressure(f)>=100 then
    local s=targetSite(c);local size=clamp(1+math.floor(f.culture.expansion/34),1,4)
-   if s and f.stocks.food>=size and f.stocks.metal>=size then
-    f.stocks.food=f.stocks.food-size;f.stocks.metal=f.stocks.metal-size
+   local hazardous=s and c.features.environments==1 and require('src.environments').profile(c,s.id).atmosphere~='breathable'
+   local suitCost=hazardous and size or 0
+   if s and f.stocks.food>=size and f.stocks.metal>=size+suitCost then
+    f.stocks.food=f.stocks.food-size;f.stocks.metal=f.stocks.metal-size-suitCost
     local id=c.security.nextRaidId;c.security.nextRaidId=id+1
-    c.security.raids[#c.security.raids+1]={id=id,factionId=f.id,siteId=s.id,size=size,initialSize=size,committedTick=c.tick,arrivalTick=c.tick+800,status='approaching',goal=(f.culture.expansion>=f.culture.hierarchy and 'sabotage' or 'assault'),actors={},lastContactTick=nil,withdrawTick=nil}
+    c.security.raids[#c.security.raids+1]={id=id,factionId=f.id,siteId=s.id,size=size,initialSize=size,committedTick=c.tick,arrivalTick=c.tick+800,status='approaching',goal=(f.culture.expansion>=f.culture.hierarchy and 'sabotage' or 'assault'),actors={},lastContactTick=nil,withdrawTick=nil,suitCost=suitCost}
     activeCount=activeCount+1
    end
   end
@@ -430,7 +432,8 @@ local function spawn(c,r)
  end end end
  if #poses<r.size then r.status='holding';return end
  r.ingress={x=anchor.x,y=anchor.y}
- for i=1,r.size do local id=c.security.nextActorId;c.security.nextActorId=id+1;local weapon=((f.culture.expansion+i)%2==0) and 'frontier_carbine' or 'shock_baton';r.actors[#r.actors+1]={id=id,alive=true,allegiance='raider',factionId=f.id,x=poses[i].x,y=poses[i].y,hp=100,combatXP=clamp(80+math.floor((f.culture.hierarchy+f.culture.expansion)/2),80,240),weapon={kind=weapon},ammo=weapon=='frontier_carbine' and 6 or 0,armor=(i==1 and f.culture.hierarchy>=60) and {kind='protective_vest'} or nil} end
+ local needsSuit=c.features.environments==1 and w.environment.atmosphere~='breathable'
+ for i=1,r.size do local id=c.security.nextActorId;c.security.nextActorId=id+1;local weapon=((f.culture.expansion+i)%2==0) and 'frontier_carbine' or 'shock_baton';r.actors[#r.actors+1]={id=id,alive=true,allegiance='raider',factionId=f.id,x=poses[i].x,y=poses[i].y,hp=100,combatXP=clamp(80+math.floor((f.culture.hierarchy+f.culture.expansion)/2),80,240),weapon={kind=weapon},ammo=weapon=='frontier_carbine' and 6 or 0,armor=(i==1 and f.culture.hierarchy>=60) and {kind='protective_vest'} or nil,suit=needsSuit and {kind='frontier_suit'} or nil,environment=needsSuit and {atmosphere=0,thermal=0,radiation=0,danger=false,warnedAtmosphere=false,warnedThermal=false,warnedRadiation=false} or nil} end
  r.status='active';r.lastContactTick=c.tick;events(w,'raid_arrived','Hostile expedition arrived.',r.id)
 end
 local function pathMove(w,a,predicate,blockers)
@@ -473,11 +476,12 @@ local function dropRaidLoot(c,r,w,a)
  local receipt={raidId=r.id,factionId=r.factionId,tick=c.tick,actorId=a.id,itemIds={},ammo=a.ammo or 0}
  if a.weapon then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.weapon.kind,a.x,a.y).id end
  if a.armor then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.armor.kind,a.x,a.y).id end
+ if a.suit then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.suit.kind,a.x,a.y).id end
  if a.ammo and a.ammo>0 then W.stack(w,'ammunition',a.ammo,a.x,a.y) end
  c.security.lootReceipts[#c.security.lootReceipts+1]=receipt;while #c.security.lootReceipts>S.maxReceipts do table.remove(c.security.lootReceipts,1) end
 end
 local function raidStep(c,r)
- local s=site(c,r.siteId);if not s then return end;local w=s.world
+ local s=site(c,r.siteId);if not s or not s.world then return end;local w=s.world
  if r.status=='approaching' and c.tick>=r.arrivalTick then spawn(c,r) elseif r.status=='holding' then spawn(c,r) end
  if r.status~='active' and r.status~='withdrawing' then return end
  local actors=localActors(c,w);local alive=0
@@ -583,10 +587,10 @@ local function unrest(c,s)
 end
 function S.step(c)
  if not S.enabled(c) then return end;schedule(c);for _,r in ipairs(c.security.raids) do
-  if r.status=='approaching' and not r.warned and c.tick==r.arrivalTick-300 then local s=site(c,r.siteId);if s and F.relay(s.world) and c.factions.scan.known[r.factionId] then r.warned=true;events(s.world,'raid_warning','Inbound hostile expedition detected.',r.id) end end
+  if r.status=='approaching' and not r.warned and c.tick==r.arrivalTick-300 then local s=site(c,r.siteId);if s and s.world and F.relay(s.world) and c.factions.scan.known[r.factionId] then r.warned=true;events(s.world,'raid_warning','Inbound hostile expedition detected.',r.id) end end
   raidStep(c,r)
  end
- for _,s in ipairs(c.sites) do local w=s.world;for _,a in ipairs(w.workers) do if a.alive and a.security.guardEnabled and w.security.posture=='normal' and not a.task then S.train(c,w,a) end end;if c.tick%1000==0 then for _,a in ipairs(w.workers) do if a.alive and a.security.grievance>0 and (a.stress or 0)<40 then S.grieve(c,a,'stable_period',-1,'stable:'..math.floor(c.tick/1000)) end end end;unrest(c,s) end
+ for _,s in ipairs(c.sites) do if s.world then local w=s.world;for _,a in ipairs(w.workers) do if a.alive and a.security.guardEnabled and w.security.posture=='normal' and not a.task then S.train(c,w,a) end end;if c.tick%1000==0 then for _,a in ipairs(w.workers) do if a.alive and a.security.grievance>0 and (a.stress or 0)<40 then S.grieve(c,a,'stable_period',-1,'stable:'..math.floor(c.tick/1000)) end end end;unrest(c,s) end end
  -- Terminal entries retain their compact public outcome briefly for history
  -- and then make room for later expeditions.  The persistent faction/security
  -- incidents and loot receipts are the bounded durable record.
@@ -620,12 +624,12 @@ function S.validate(c)
  local root=c.security;assert(type(root)=='table' and root.version==S.version,'Invalid security campaign state');U.integer(root.nextRaidId,'Next raid ID',1,100000000);U.integer(root.nextActorId,'Next security actor ID',1,100000000);U.integer(root.nextCellId,'Next cell ID',1,100000000);assert(type(root.raids)=='table' and type(root.lootReceipts)=='table' and #root.raids<=S.maxRaids and #root.lootReceipts<=S.maxReceipts,'Security bounds exceeded')
  local raidIds,actorIds={},{}
  for _,r in ipairs(root.raids) do
-  for key in pairs(r) do assert(({id=true,factionId=true,siteId=true,size=true,initialSize=true,committedTick=true,arrivalTick=true,status=true,goal=true,actors=true,lastContactTick=true,withdrawTick=true,warned=true,ingress=true,targetId=true,sabotageProgress=true,sabotageActorId=true,resolvedTick=true,resolution=true})[key],'Unknown raid key '..tostring(key)) end
-  U.integer(r.id,'raid ID',1,root.nextRaidId-1);assert(not raidIds[r.id],'Duplicate raid ID');raidIds[r.id]=true;U.integer(r.factionId,'raid faction',2,5);assert(F.find(c,r.factionId));assert(site(c,r.siteId));U.integer(r.size,'raid size',1,4);U.integer(r.initialSize or r.size,'raid initial size',1,4);U.integer(r.committedTick,'raid committed tick',0,c.tick);U.integer(r.arrivalTick,'raid arrival tick',r.committedTick+800,10000000);assert(r.status=='approaching' or r.status=='holding' or r.status=='active' or r.status=='withdrawing' or r.status=='resolved');assert(r.goal=='assault' or r.goal=='sabotage');assert(type(r.actors)=='table' and #r.actors<=r.size)
+  for key in pairs(r) do assert(({id=true,factionId=true,siteId=true,size=true,initialSize=true,committedTick=true,arrivalTick=true,status=true,goal=true,actors=true,lastContactTick=true,withdrawTick=true,warned=true,ingress=true,targetId=true,sabotageProgress=true,sabotageActorId=true,resolvedTick=true,resolution=true,suitCost=true})[key],'Unknown raid key '..tostring(key)) end
+  U.integer(r.id,'raid ID',1,root.nextRaidId-1);assert(not raidIds[r.id],'Duplicate raid ID');raidIds[r.id]=true;U.integer(r.factionId,'raid faction',2,5);assert(F.find(c,r.factionId));assert(site(c,r.siteId));U.integer(r.size,'raid size',1,4);U.integer(r.initialSize or r.size,'raid initial size',1,4);if r.suitCost~=nil then U.integer(r.suitCost,'raid suit cost',0,4) end;U.integer(r.committedTick,'raid committed tick',0,c.tick);U.integer(r.arrivalTick,'raid arrival tick',r.committedTick+800,10000000);assert(r.status=='approaching' or r.status=='holding' or r.status=='active' or r.status=='withdrawing' or r.status=='resolved');assert(r.goal=='assault' or r.goal=='sabotage');assert(type(r.actors)=='table' and #r.actors<=r.size)
   local sabotageActor=false
   for _,a in ipairs(r.actors) do
-   for key in pairs(a) do assert(({id=true,alive=true,allegiance=true,factionId=true,x=true,y=true,hp=true,combatXP=true,weapon=true,ammo=true,armor=true,dead=true,lootDropped=true,lastCombatActionTick=true})[key],'Unknown raid actor key') end
-   U.integer(a.id,'raid actor ID',1,root.nextActorId-1);assert(not actorIds[a.id],'Duplicate raid actor ID');actorIds[a.id]=true;if a.id==r.sabotageActorId then sabotageActor=true end;assert(type(a.alive)=='boolean' and a.allegiance=='raider' and a.factionId==r.factionId);local w=site(c,r.siteId).world;U.integer(a.x,'raid actor x',1,w.width);U.integer(a.y,'raid actor y',1,w.height);assert(U.finite(a.hp) and a.hp>=0 and a.hp<=100);U.integer(a.combatXP,'raid combat expertise',80,240);assert(type(a.weapon)=='table' and (a.weapon.kind=='frontier_carbine' or a.weapon.kind=='shock_baton'));U.integer(a.ammo,'raid ammo',0,6);assert(a.armor==nil or (type(a.armor)=='table' and a.armor.kind=='protective_vest'))
+   for key in pairs(a) do assert(({id=true,alive=true,allegiance=true,factionId=true,x=true,y=true,hp=true,combatXP=true,weapon=true,ammo=true,armor=true,suit=true,environment=true,dead=true,lootDropped=true,lastCombatActionTick=true})[key],'Unknown raid actor key') end
+   U.integer(a.id,'raid actor ID',1,root.nextActorId-1);assert(not actorIds[a.id],'Duplicate raid actor ID');actorIds[a.id]=true;if a.id==r.sabotageActorId then sabotageActor=true end;assert(type(a.alive)=='boolean' and a.allegiance=='raider' and a.factionId==r.factionId);local w=site(c,r.siteId).world;U.integer(a.x,'raid actor x',1,w.width);U.integer(a.y,'raid actor y',1,w.height);assert(U.finite(a.hp) and a.hp>=0 and a.hp<=100);U.integer(a.combatXP,'raid combat expertise',80,240);assert(type(a.weapon)=='table' and (a.weapon.kind=='frontier_carbine' or a.weapon.kind=='shock_baton'));U.integer(a.ammo,'raid ammo',0,6);assert(a.armor==nil or (type(a.armor)=='table' and a.armor.kind=='protective_vest'));assert(a.suit==nil or (type(a.suit)=='table' and a.suit.kind=='frontier_suit'));if a.environment then require('src.environments').validatePerson(a.environment) end
    end
   if r.sabotageActorId then U.integer(r.sabotageActorId,'raid sabotage actor ID',1,root.nextActorId-1);assert(sabotageActor,'Raid sabotage actor is missing') end
  end
@@ -634,10 +638,10 @@ function S.validate(c)
   for key in pairs(receipt) do assert(({raidId=true,factionId=true,tick=true,actorId=true,itemIds=true,ammo=true})[key],'Unknown loot receipt key') end
   U.integer(receipt.raidId,'loot raid ID',1,root.nextRaidId-1);U.integer(receipt.factionId,'loot faction ID',2,5);U.integer(receipt.tick,'loot tick',0,c.tick);U.integer(receipt.actorId,'loot actor ID',1,root.nextActorId-1)
   local receiptKey=receipt.raidId..':'..receipt.actorId;assert(not receiptActors[receiptKey],'Duplicate foreign-loot receipt');receiptActors[receiptKey]=true
-  local itemIds=ids(receipt.itemIds,'loot item ID',2);for itemId in pairs(itemIds) do assert(E.find(c,itemId),'Foreign-loot receipt item is missing') end;U.integer(receipt.ammo,'loot ammo',0,6)
+  local itemIds=ids(receipt.itemIds,'loot item ID',3);for itemId in pairs(itemIds) do assert(E.find(c,itemId),'Foreign-loot receipt item is missing') end;U.integer(receipt.ammo,'loot ammo',0,6)
  end
  local cellIds={}
- for _,s in ipairs(c.sites) do local w=s.world;assert(w.frontier.security==1 and type(w.security)=='table' and w.security.version==S.version,'Missing security state');local p=w.security
+ for _,s in ipairs(c.sites) do if s.world then local w=s.world;assert(w.frontier.security==1 and type(w.security)=='table' and w.security.version==S.version,'Missing security state');local p=w.security
   for key in pairs(p) do assert(({version=true,posture=true,posts=true,refuge=true,policyRevision=true,events=true,protest=true,cell=true,lastProtest=true})[key],'Unknown site security key '..tostring(key)) end
   assert(p.posture=='normal' or p.posture=='alert' or p.posture=='lockdown','Invalid security posture');assert(type(p.posts)=='table' and #p.posts<=8 and type(p.events)=='table' and #p.events<=S.maxEvents,'Security policy exceeds bound');U.integer(p.policyRevision,'Security policy revision',1,100000000)
   for _,post in ipairs(p.posts) do U.integer(post.x,'post x',1,w.width);U.integer(post.y,'post y',1,w.height);assert(N.stand(w,post.x,post.y,true),'Invalid defense post') end
@@ -655,6 +659,7 @@ function S.validate(c)
    for key,label in pairs({completedTick='cell completed tick',blockedTick='cell blocked tick',resolvedTick='cell resolved tick'}) do if q[key] then U.integer(q[key],label,0,c.tick) end end
   end
   for _,a in ipairs(w.workers) do S.validatePersonal(a.security,c.tick) end
+ end
  end
  return true
 end

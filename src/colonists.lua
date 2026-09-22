@@ -73,6 +73,7 @@ function A.step(w,context)
      local damage
      if context and Equipment.safe(context.campaign) then
       local blocks=math.max(0,math.ceil((a.fall-4)/4));damage=math.min(90,math.ceil(blocks*15))
+      if context.campaign.features.environments==1 then damage=require('src.environments').fallDamage(damage,w) end
      else damage=math.max(0,a.fall-5)*3 end
      if damage>0 then a.hp=a.hp-damage;W.event(w,'injury',a.name..' fell '..a.fall..' cells and took '..damage..' damage.',a.id) end
      a.fall=0
@@ -88,12 +89,14 @@ function A.step(w,context)
     else
      local unsafe=not N.occupy(w,a.x,a.y,true)
      if a.evacuate and w.tick<=a.evacuate.untilTick and a.task and a.task.kind~='escape' then J.release(w,a,true);a.thinkAt=w.tick end
-     if a.task and ((unsafe and a.task.kind~='escape') or (a.hunger>=82 and a.task.kind~='eat' and w.tick%100==a.id%100 and J.canEat(w,a))
+     local environmental=context and context.campaign.features.environments==1 and a.environment and a.environment.danger
+     if a.task and ((unsafe and a.task.kind~='escape') or (environmental and a.task.kind~='escape') or (a.hunger>=82 and a.task.kind~='eat' and w.tick%100==a.id%100 and J.canEat(w,a))
         or (a.fatigue>=95 and a.task.kind~='rest' and a.task.kind~='eat')) then
       if unsafe and context and Equipment.safe(context.campaign) and a.task.kind=='work' then Equipment.stress(context.campaign,a,15,w.tick,'unsafe_abort') end
       J.release(w,a,true);a.thinkAt=w.tick
      end
-     if not a.task and w.tick>=a.thinkAt then J.plan(w,a,context);a.thinkAt=w.tick+w.rules.planEvery end
+     if environmental then require('src.environments').seekSafety(context.campaign,w,a)
+     elseif not a.task and w.tick>=a.thinkAt then J.plan(w,a,context);a.thinkAt=w.tick+w.rules.planEvery end
      local interval=w.rules.moveEvery+(a.hp<45 and 1 or 0)+(a.fatigue>85 and 1 or 0)
      if w.tick%interval==0 then J.act(w,a,context) end
     end

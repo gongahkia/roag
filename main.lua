@@ -117,7 +117,7 @@ local function startNew()
 end
 local function campaignOptions(n)
  return {preset=n.preset,mode=n.mode,width=n.width,height=n.height,layout=n.layout,climate=n.climate,
- openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true}
+ openness=n.openness,biomeScale=n.biomeScale,features=n.features,density=n.density,crew=n.crew,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true,environments=true}
 end
 local function startCampaign()
  local n=app.newRun;local seed=tonumber(n.seed)
@@ -593,7 +593,7 @@ function love.mousepressed(mx,my,button)
     local d=app.expedition
     if b.action=='close' then app.expedition=nil
     elseif b.action=='destination' then
-     local ids={};for _,candidate in ipairs(Campaign.sites(app.history.view)) do if candidate.id~=d.sourceSiteId then ids[#ids+1]=candidate.id end end
+     local ids={};for _,candidate in ipairs(Campaign.sites(app.history.view)) do if candidate.id~=d.sourceSiteId and require('src.travel').duration(app.history.view,d.sourceSiteId,candidate.id) then ids[#ids+1]=candidate.id end end
      table.sort(ids);local at=1;for i,id in ipairs(ids) do if id==d.destinationSiteId then at=i end end;d.destinationSiteId=ids[(at-1+(b.delta or 1))%#ids+1]
     elseif b.action=='passenger' then
      local found;for i,id in ipairs(d.passengers) do if id==b.personId then table.remove(d.passengers,i);found=true;break end end

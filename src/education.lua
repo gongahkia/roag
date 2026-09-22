@@ -156,7 +156,7 @@ end
 function E.validateCampaign(campaign)
  exact(campaign.education,{version=true,rulesVersion=true},'Campaign education')
  assert(campaign.education.version==E.version and campaign.education.rulesVersion==1,'Unsupported campaign education version')
- for _,site in ipairs(campaign.sites) do E.validateWorld(site.world,campaign.tick) end
+ for _,site in ipairs(campaign.sites) do if site.world then E.validateWorld(site.world,campaign.tick) end end
  return true
 end
 function E.install(world,structure)

@@ -18,7 +18,7 @@ local function randint(seed,key,n)
 end
 local function allPeople(c,includeDead)
  local out={}
- for _,site in ipairs(c.sites or {}) do for _,worker in ipairs(site.world.workers or {}) do
+ for _,site in ipairs(c.sites or {}) do for _,worker in ipairs(site.world and site.world.workers or {}) do
   if includeDead or worker.alive then out[#out+1]={worker=worker,site=site} end
  end end
  table.sort(out,function(a,b) return a.worker.personId<b.worker.personId end)
@@ -238,6 +238,7 @@ end
 function P.social(c)
  if not enabled(c) or c.tick%200~=0 then return end
  for _,site in ipairs(c.sites) do
+  if site.world then
   local people={};for _,a in ipairs(site.world.workers) do if a.alive and not a.panic and not a.task and a.hunger<60 and a.fatigue<75 then people[#people+1]=a end end;table.sort(people,function(a,b)return a.personId<b.personId end)
   local used={}
   for i=1,#people do for j=i+1,#people do local a,b=people[i],people[j]
@@ -255,9 +256,10 @@ function P.social(c)
      end
      if kind~='neutral' then used[a.personId]=true;used[b.personId]=true end
     end
-   end
-  end end
+  end
+ end end
  end
+end
 end
 function P.autoBias(worker,role)
  local s=state(worker);if not s then return 0 end

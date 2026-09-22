@@ -76,7 +76,7 @@ local function normalizePeople(value)
 end
 local function findPerson(c,id)
  for _,record in ipairs(c.sites) do
-  local worker=workerByPerson(record.world,id)
+  local worker=record.world and workerByPerson(record.world,id)
   if worker then return record,worker end
  end
 end
@@ -204,8 +204,9 @@ function L.validate(c)
   local key=record.craftId..':'..record.resource;assert(not operationByCraftResource[key],'Duplicate cargo unload operation');operationByCraftResource[key]=true
  end
  assert(logistics.nextOperationId>maxOperation,'Next cargo operation ID was already allocated')
- for _,record in ipairs(c.sites) do for _,worker in ipairs(record.world.workers) do validateDirective(worker,logistics,record) end end
+ for _,record in ipairs(c.sites) do if record.world then for _,worker in ipairs(record.world.workers) do validateDirective(worker,logistics,record) end end end
  for _,record in ipairs(c.sites) do
+  if record.world then
   for _,job in ipairs(record.world.jobs) do if job.logistics then
    allowed(job.logistics,{craftId=true,manifestId=true,revision=true,resource=true,remaining=true,operationId=true},'Cargo job reference')
    for _,key in ipairs({'craftId','resource','remaining'}) do assert(job.logistics[key]~=nil,'Missing Cargo job reference key '..key) end
@@ -218,8 +219,9 @@ function L.validate(c)
     assert((job.kind=='load' and m and not op) or (job.kind=='unload' and op and not m),'Invalid cargo job kind/reference')
     if m then assert(m.sourceSiteId==record.id and m.revision==job.logistics.revision,'Stale cargo job manifest reference') end
     if op then assert(op.sourceSiteId==record.id and op.craftId==vehicle.id,'Cargo job operation reference mismatch') end
-   else assert(job.kind=='load' or job.kind=='unload','Invalid terminal cargo job kind') end
+  else assert(job.kind=='load' or job.kind=='unload','Invalid terminal cargo job kind') end
   end end
+  end
  end
  return true
 end
@@ -431,6 +433,7 @@ local function addJob(w,kind,vehicle,resource,remaining,manifestRecord,operation
 end
 local function cancelStale(c,siteId)
  local J=require('src.jobs');local source=site(c,siteId)
+ if not source or not source.world then return end
  for _,job in ipairs(source.world.jobs) do if job.logistics and job.state=='open' and not jobRecord(c,siteId,job) then J.cancel(source.world,job) end end
 end
 local function pendingLoad(c,source,m,resource)
@@ -446,7 +449,7 @@ local function activeUnloadJob(source,op)
 end
 function L.reconcile(c)
  if not L.enabled(c) then return end
- for _,record in ipairs(c.sites) do cancelStale(c,record.id) end
+ for _,record in ipairs(c.sites) do if record.world then cancelStale(c,record.id) end end
  for _,m in ipairs(c.logistics.manifests) do
   local source=site(c,m.sourceSiteId);local vehicle=craft(c.logistics,m.craftId)
   for _,resource in ipairs(resources) do

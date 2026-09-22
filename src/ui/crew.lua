@@ -75,7 +75,8 @@ function UI.key(app,key,queue)
   elseif key=='g' and worker then queue({type='security_guard',personId=worker.personId,enabled=not worker.security.guardEnabled})
   elseif key=='r' and worker then queue({type='security_reload',personId=worker.personId,amount=12})
   elseif key=='e' and worker then
-   for _,item in ipairs(E.forSite(app.history.view,app.siteId)) do if item.state=='loose' and (item.kind=='frontier_carbine' or item.kind=='shock_baton' or item.kind=='protective_vest') then queue({type='security_equip',personId=worker.personId,equipmentId=item.id});break end end
+   local wanted=app.history.view.features.environments==1 and not E.equipped(app.history.view,worker.personId,'environment') and 'frontier_suit' or nil
+   for _,item in ipairs(E.forSite(app.history.view,app.siteId)) do if item.state=='loose' and (item.kind==wanted or (not wanted and (item.kind=='frontier_carbine' or item.kind=='shock_baton' or item.kind=='protective_vest'))) then queue({type='security_equip',personId=worker.personId,equipmentId=item.id});break end end
   elseif key=='p' and app.selectedCell then
    local posts={};for _,old in ipairs(policy.posts) do posts[#posts+1]={x=old.x,y=old.y} end
    if #posts<8 then posts[#posts+1]={x=app.selectedCell.x,y=app.selectedCell.y};policyCommand(posts,policy.refuge) end
@@ -196,14 +197,15 @@ function UI.draw(app,r)
   for row,p in ipairs(c.draft.people) do
    local a=W.find(w.workers,p.id);local yy=y+248+(row-1)*35
    if row==c.row then box(x+16,yy-3,pw-32,31,colors.edge) end
-   local weapon=a and E.equipped(app.history.view,a.personId,'weapon');local armor=a and E.equipped(app.history.view,a.personId,'armor')
+   local weapon=a and E.equipped(app.history.view,a.personId,'weapon');local armor=a and E.equipped(app.history.view,a.personId,'armor');local suit=a and E.equipped(app.history.view,a.personId,'environment')
    local status=a and (a.security.allegiance=='insurgent' and 'HOSTILE INSURGENT' or a.security.guardEnabled and 'GUARD' or 'civilian') or 'unavailable'
    text((a and a.name or 'Departed')..' / '..status,x+24,yy+4,a and a.security.allegiance=='insurgent' and colors.red or colors.text,r.small)
-   text('XP '..(a and a.security.combatXP or 0)..'  '..(weapon and weapon.kind:gsub('_',' ') or 'unarmed')..' / '..(a and a.security.ammo or 0)..' ammo'..(armor and ' / vest' or ''),x+260,yy+4,colors.cyan,r.small)
+   local exposure=a and a.environment and (' / suit '..(suit and 'on' or 'off')..' / exposure '..a.environment.atmosphere..'/'..a.environment.thermal..'/'..a.environment.radiation) or ''
+   text('XP '..(a and a.security.combatXP or 0)..'  '..(weapon and weapon.kind:gsub('_',' ') or 'unarmed')..' / '..(a and a.security.ammo or 0)..' ammo'..(armor and ' / vest' or '')..exposure,x+260,yy+4,colors.cyan,r.small)
    c.buttons[#c.buttons+1]={action='security_key',key='g',row=row,x=x+24,y=yy,w=210,h=28}
   end
   local bottom=y+265+#c.draft.people*35
-  wrap('G toggles the selected Guard. E orders the first accessible loose weapon/vest fetched by that person; R orders a physical reload. Select a visible map cell, then P adds it as a defense post or F sets a one-block refuge. X clears policy. These are live orders; a stale policy revision is rejected.',x+24,bottom,pw-48,colors.muted,r.small)
+  wrap('G toggles the selected Guard. E first fetches a Frontier Suit when one is missing on an environment campaign, then an accessible loose weapon/vest; R orders a physical reload. Exposure is atmosphere / thermal / radiation. Select a visible map cell, then P adds a defense post or F sets a one-block refuge. X clears policy.',x+24,bottom,pw-48,colors.muted,r.small)
   local shown=0;local ey=bottom+55;text('PUBLIC SECURITY EVENTS',x+24,ey,colors.amber,r.small);ey=ey+22
   for i=#policy.events,1,-1 do local event=policy.events[i];wrap(event.text,x+28,ey,pw-56,colors.muted,r.small);ey=ey+20;shown=shown+1;if shown>=4 then break end end
  end

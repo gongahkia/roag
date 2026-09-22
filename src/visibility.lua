@@ -106,7 +106,7 @@ local function mergeLight(w,light,mask,x,y,radius)
  end
 end
 local function sourceMasks(w,context,light)
- for _,s in pairs(w.structures) do if s.kind=='torch' and s.enabled and S.supported(w,s) then
+ for _,s in pairs(w.structures) do if s.kind=='torch' and s.enabled and S.supported(w,s) and require('src.environments').torchWorks(w) then
   local x,y=s.gx*4-2,s.gy*4-2;mergeLight(w,light,V.fov(w,x,y,V.torchRadius),x,y,V.torchRadius)
  end end
  if w.frontier and w.frontier.industry==1 then

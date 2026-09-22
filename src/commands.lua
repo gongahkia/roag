@@ -22,6 +22,7 @@ function C.valid(w,c)
   end
   if c.kind=='build' and S.def[c.build] and S.def[c.build].industry and not (w.frontier and w.frontier.industry==1) then return false,'Industrial structures require an industry frontier campaign' end
   if c.kind=='build' and S.def[c.build] and S.def[c.build].security and not (w.frontier and w.frontier.security==1) then return false,'Security structures require a security frontier campaign' end
+  if c.kind=='build' and S.def[c.build] and S.def[c.build].environments and not (w.frontier and w.frontier.environments==1) then return false,'Environmental structures require an environments frontier campaign' end
   if c.priority~=nil and c.priority~=1 and c.priority~=2 and c.priority~=3 then return false,'Priority must be 1, 2 or 3' end
  elseif c.type=='priority' then
   if c.value~=1 and c.value~=2 and c.value~=3 then return false,'Priority must be 1, 2 or 3' end

@@ -33,6 +33,7 @@ local function addBlockActions(world,actions)
   add(actions,'build:industrial_bin','Build industrial bin','Physical belt-accessible storage.')
   add(actions,'build:conveyor','Build conveyor','Floor-level physical item transport.')
  add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
+ if world.frontier and world.frontier.environments==1 then add(actions,'build:environmental_regulator','Build environmental regulator','Powered local thermal and radiation protection, radius 24.') end
  if world.frontier and world.frontier.factions==1 then
    add(actions,'build:signal_relay','Build signal relay','Powered contact scanning; does not reveal terrain.')
    add(actions,'build:trade_depot','Build trade depot','Physical barter buffer for off-map courier trade.')
@@ -108,8 +109,9 @@ function H.model(app,world)
     add(actions,'industry:recipe:protective_vest','Set vest recipe','Consumes two metal and one machine component in 150 powered ticks.')
     add(actions,'industry:recipe:ammunition','Set ammunition recipe','Consumes one metal and produces six physical rounds in 60 powered ticks.')
    end
+   if world.frontier and world.frontier.environments==1 then add(actions,'industry:recipe:frontier_suit','Set Frontier Suit recipe','Consumes two metal and one machine component in 150 powered ticks.') end
    add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
-  elseif structure.kind=='mining_rig' or structure.kind=='electric_lamp' then add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
+  elseif structure.kind=='mining_rig' or structure.kind=='electric_lamp' or structure.kind=='environmental_regulator' then add(actions,'industry:priority','Cycle power priority','Sets local consumer priority from 1 through 3.')
   elseif structure.kind=='conveyor' then add(actions,'industry:direction','Rotate conveyor','Cycles north, east, south and west.')
   elseif structure.kind=='industrial_bin' then add(actions,'industry:direction','Rotate bin output','Cycles north, east, south and west.');add(actions,'industry:mode','Toggle bin mode','Switches between receive and supply.')
   elseif structure.kind=='pump' then

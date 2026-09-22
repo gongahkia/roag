@@ -82,6 +82,30 @@ Record each checkpoint as PASS, FAIL, or NOT RUN. A failed expedition, death,
 or blocked landing is a game outcome; unexplained control, accounting, identity,
 or save errors are playtest findings.
 
+## G07 environments and wider local frontier
+
+Start a new `environments=1` frontier. Region should list seven destinations:
+Home, both existing moons, and four coarse surveyed frontier bodies. Confirm the
+three old direct durations remain 400/600/800. Region may show gravity,
+atmosphere, thermal/radiation and solar; it must not show a remote ore seam,
+water pocket, or ecological specimen.
+
+Fabricate a **Frontier Suit** in the normal Fabricator, then inspect that its ID
+is either local, carried/equipped, or in shuttle custody—not two at once. The
+Crew Security page shows suit state and atmosphere/thermal/radiation exposure.
+Prepare a passenger for a vacuum/toxic frontier without a suit and confirm the
+Expedition panel gives a hazard warning but permits the choice. Repeat with a
+suit, take the 900+ tick local route, and confirm one normal cargo-metal
+maintenance debit, the same person ID, and the same suit after arrival.
+
+On an airless landing, ordinary Torches remain physical but should not light the
+area; a powered Electric Lamp should. Build/power an **Environmental Regulator**
+and inspect its power/status/radius. It clears thermal/radiation exposure only;
+removing a suit in vacuum remains dangerous. Compare an equivalent safe gap and
+fall across low/baseline/high gravity sites. Opening Region/Crew/inspection must
+not pause the clock. These checks are **NOT RUN** until completed in a native
+isolated LÖVE session.
+
 ## Route B — controlled discovery, school, and travel chain
 
 The existing education scenario is an explicitly arranged developer fixture:

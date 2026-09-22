@@ -54,6 +54,28 @@ function Content.install(w,t)
  for _,p in ipairs(t.sites) do local v=U.deep(p);v.id=W.id(w);v.alive=true;v.active=false;e.sites[#e.sites+1]=v end
  w.labor=require('src.labor').default(w)
 end
+-- Environment generation deliberately adjusts the *existing* ecology rather
+-- than introducing a second species catalogue.  It is called only while a
+-- deterministic frontier world is first created, before people can observe
+-- anything, so discovery remains personal and no runtime ecology is rerolled.
+function Content.applyEnvironment(w,environment)
+ if not environment or not w.content then return end
+ local keep
+ if environment=='airless_crag' or environment=='twilight_moon' then
+  keep=function(i) return i%4==1 end
+ elseif environment=='dust_basin' or environment=='ash_world' then
+  keep=function(i) return i%2==1 end
+ elseif environment=='cold_hollow' then
+  keep=function(i) return i%3~=0 end
+ else
+  return -- Heavy Garden and established bodies retain the normal density.
+ end
+ for _,kind in ipairs({'flora','fauna'}) do
+  local source=w.content[kind];local retained={}
+  for i,p in ipairs(source) do if keep(i) then retained[#retained+1]=p end end
+  w.content[kind]=retained
+ end
+end
 function Content.template(w)
  if not w.content then return nil end
  local e=w.content;local t={version=1,crew=#w.workers,flora={},fauna={},sites={},ruins=U.deep(e.ruins)}

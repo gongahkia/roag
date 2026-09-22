@@ -133,13 +133,13 @@ local function takeCargo(list,kind,n)
  for i,r in ipairs(list or {}) do if r.kind==kind and r.n and r.n>=n then r.n=r.n-n;if r.n==0 then table.remove(list,i) end;return {kind=kind,n=n} end end
 end
 function F.deposit(c,siteId,depotId,itemId,n)
- local site=require('src.campaign').site(c,siteId);local depot=site and F.depot(site.world,depotId);if not depot then return false,'Trade depot is unavailable' end
+ local site=require('src.campaign').site(c,siteId);local depot=site and site.world and F.depot(site.world,depotId);if not depot then return false,'Trade depot is unavailable' end
  U.integer(n,'Trade deposit quantity',1,8);local item=W.find(site.world.items,itemId);if not item or item.reserved or item.n<n then return false,'Physical local goods are unavailable' end
  local ok=addCargo(depot.trade.cargo,{kind=item.kind,n=n},24);if not ok then return false,'Trade depot is full' end
  item.n=item.n-n;depot.trade.revision=depot.trade.revision+1;return true
 end
 function F.acceptOffer(c,siteId,depotId,offerId,representativeId)
- local site=require('src.campaign').site(c,siteId);local depot=site and F.depot(site.world,depotId);if not depot then return false,'Trade depot is unavailable' end
+ local site=require('src.campaign').site(c,siteId);local depot=site and site.world and F.depot(site.world,depotId);if not depot then return false,'Trade depot is unavailable' end
  for _,f in ipairs(c.factions.factions) do for _,o in ipairs(f.offers) do if o.id==offerId and not o.expired and not o.accepted and f.contact.established and attitude(f.relations[1])~='HOSTILE' then
   o.accepted=true;o.acceptedTick=c.tick;o.lockedUntil=c.tick+2000;o.siteId=siteId;o.depotId=depot.id;o.depotRevision=depot.trade.revision;o.representativeId=representativeId;return true
  end end end
@@ -152,7 +152,7 @@ local function totalsAdd(t,bundle)
  for _,b in ipairs(bundle) do t[b.kind]=(t[b.kind] or 0)+b.n end
 end
 function F.dispatch(c,siteId,depotId,offerId)
- local site=require('src.campaign').site(c,siteId);local depot=site and F.depot(site.world,depotId);if not depot or not F.relay(site.world) then return false,'Powered relay and exact trade depot are required' end
+ local site=require('src.campaign').site(c,siteId);local depot=site and site.world and F.depot(site.world,depotId);if not depot or not F.relay(site.world) then return false,'Powered relay and exact trade depot are required' end
  local f,o
  for _,ff in ipairs(c.factions.factions) do for _,oo in ipairs(ff.offers) do if oo.id==offerId then f,o=ff,oo end end end
  if not f or not o or not o.accepted or o.siteId~=siteId or o.depotId~=depot.id or o.depotRevision~=depot.trade.revision or c.tick>o.lockedUntil or attitude(f.relations[1])=='HOSTILE' then return false,'Trade contract is stale or unavailable' end
@@ -165,7 +165,7 @@ function F.dispatch(c,siteId,depotId,offerId)
  local state=c.factions;local shipment={id=state.nextShipmentId,factionId=f.id,siteId=siteId,depotId=depot.id,bundle=o.promised,departTick=c.tick,arrivalTick=c.tick+400,status='in_flight'};state.nextShipmentId=shipment.id+1;state.shipments[#state.shipments+1]=shipment;o.dispatched=true;totalsAdd(state.totals.exports,o.requested);change(f.relations[1],5,2,-2,0);addIncident(state,{tick=c.tick,kind='trade_dispatched',factionId=f.id,offerId=o.id,shipmentId=shipment.id});return true
 end
 function F.rebindShipment(c,shipmentId,siteId,depotId)
- local s;for _,x in ipairs(c.factions.shipments) do if x.id==shipmentId then s=x end end;local site=require('src.campaign').site(c,siteId);local d=site and F.depot(site.world,depotId)
+ local s;for _,x in ipairs(c.factions.shipments) do if x.id==shipmentId then s=x end end;local site=require('src.campaign').site(c,siteId);local d=site and site.world and F.depot(site.world,depotId)
  if not s or s.status~='awaiting_depot' or s.siteId~=siteId or not d then return false,'Shipment cannot be rebound' end;s.depotId=d.id;return true
 end
 function F.familiarity(a,id)
@@ -180,7 +180,7 @@ function F.addFamiliarity(a,id,n,tick,first)
 end
 local function representative(c,siteId,personId)
  local site=require('src.campaign').site(c,siteId);if not site then return nil end
- for _,a in ipairs(site.world.workers) do if a.personId==personId and a.alive and not a.panic then return a,site end end
+ for _,a in ipairs(site and site.world and site.world.workers or {}) do if a.personId==personId and a.alive and not a.panic then return a,site end end
 end
 function F.beginContact(c,siteId,factionId,personId)
  local f=F.find(c,factionId);local a,site=representative(c,siteId,personId)
@@ -250,13 +250,13 @@ end
 function F.step(c)
  if not F.enabled(c) then return end;local state=c.factions
  -- Relay scans are global institutional progress; a second relay is no faster.
- local powered=false;for _,site in ipairs(require('src.campaign').sites(c)) do if F.relay(site.world) then powered=true;break end end
+ local powered=false;for _,site in ipairs(require('src.campaign').sites(c)) do if site.world and F.relay(site.world) then powered=true;break end end
  if powered then state.scan.progress=state.scan.progress+1;if state.scan.progress>=300 then state.scan.progress=0;for _,id in ipairs(state.scan.order) do if not state.scan.known[id] then state.scan.known[id]=true;F.find(c,id).contact.signal=true;addIncident(state,{tick=c.tick,kind='signal_detected',factionId=id});break end end end end
  for _,f in ipairs(state.factions) do local a=f.contact.audience;if a then local rep=representative(c,a.siteId,a.personId);if rep and F.relay(require('src.campaign').site(c,a.siteId).world) then a.progress=a.progress+1;if a.progress>=60 then f.contact.audience=nil;f.contact.protocol=protocol(f);F.addFamiliarity(rep,f.id,10,c.tick,true);addIncident(state,{tick=c.tick,kind='audience_ready',factionId=f.id,personId=rep.personId}) end end end end
  if c.tick%200==0 then for _,f in ipairs(state.factions) do background(c,f) end end
  if c.tick%1000==0 then interactions(c);for _,f in ipairs(state.factions) do offer(c,f) end end
  for _,shipment in ipairs(state.shipments) do if shipment.status=='in_flight' and c.tick>=shipment.arrivalTick then
-  local site=require('src.campaign').site(c,shipment.siteId);local depot=site and F.depot(site.world,shipment.depotId)
+  local site=require('src.campaign').site(c,shipment.siteId);local depot=site and site.world and F.depot(site.world,shipment.depotId)
   if depot and F.relay(site.world) and units(depot.trade.cargo)+units(shipment.bundle)<=24 then
    for _,b in ipairs(shipment.bundle) do assert(addCargo(depot.trade.cargo,b,24),'Shipment capacity changed') end;shipment.status='delivered';totalsAdd(state.totals.imports,shipment.bundle);state.receipts[#state.receipts+1]={id=shipment.id,tick=c.tick,kind='import',siteId=shipment.siteId,bundle=shipment.bundle};while #state.receipts>128 do table.remove(state.receipts,1) end;addIncident(state,{tick=c.tick,kind='trade_arrived',factionId=shipment.factionId,shipmentId=shipment.id})
   else shipment.status='awaiting_depot' end

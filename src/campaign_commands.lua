@@ -117,12 +117,14 @@ function Command.valid(campaign,envelope)
    local site=Campaign.site(campaign,envelope.siteId)
    assert(site,'Unknown campaign site')
    assert(site.ownerSocietyId==campaign.society.id,'Site is not owned by this society')
+   assert(site.world,'Site has not been physically instantiated')
    local valid,reason
    if envelope.payload.type=='school_policy' then valid,reason=require('src.education').policyValid(campaign,site,envelope.payload)
    elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=require('src.equipment_commands').valid(campaign,site,envelope.payload) end
    elseif envelope.payload.type=='industry_config' then
-    local s=require('src.industry').find(site.world,envelope.payload.structureId)
-    valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
+   local s=require('src.industry').find(site.world,envelope.payload.structureId)
+   valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
+   if valid and envelope.payload.recipe=='frontier_suit' and site.world.frontier.environments~=1 then valid=false;reason='Frontier suits require environments' end
     if valid then valid,reason=pcall(require('src.industry').validConfig,s,envelope.payload) end
    elseif envelope.payload.type:sub(1,9)=='security_' then valid,reason=campaign.features.security==1,'Security is unavailable'
    elseif envelope.payload.type:sub(1,8)=='faction_' then
@@ -144,12 +146,14 @@ function Command.apply(campaign,envelope)
  local site=Campaign.site(campaign,envelope.siteId)
  if not site then return false,'Unknown campaign site' end
  if site.ownerSocietyId~=campaign.society.id then return false,'Site is not owned by this society' end
+ if not site.world then return false,'Site has not been physically instantiated' end
  local valid,why
  if envelope.payload.type=='school_policy' then valid,why=require('src.education').policyValid(campaign,site,envelope.payload)
  elseif envelope.payload.type=='fabricate' or envelope.payload.type=='place_rope' or envelope.payload.type=='remove_rope' or envelope.payload.type=='drop_tool' or envelope.payload.type=='load_tool' or envelope.payload.type=='unload_tool' then
   valid,why=require('src.equipment_commands').valid(campaign,site,envelope.payload)
  elseif envelope.payload.type=='industry_config' then
-  local s=require('src.industry').find(site.world,envelope.payload.structureId);valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
+ local s=require('src.industry').find(site.world,envelope.payload.structureId);valid=s and site.world.frontier and site.world.frontier.industry==1,'Industrial structure is unavailable'
+  if valid and envelope.payload.recipe=='frontier_suit' and site.world.frontier.environments~=1 then valid=false;why='Frontier suits require environments' end
   if valid then valid,why=pcall(require('src.industry').validConfig,s,envelope.payload) end
  elseif envelope.payload.type:sub(1,9)=='security_' then valid,why=campaign.features.security==1,'Security is unavailable'
  elseif envelope.payload.type:sub(1,8)=='faction_' then valid,why=campaign.features.factions==1,'Factions are unavailable'

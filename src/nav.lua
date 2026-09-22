@@ -57,7 +57,7 @@ function N.neighbours(w,x,y)
   elseif N.occupy(w,x+dx,y,true) then
    local landing
    if w.rules and w.rules.jumpVersion==1 then
-    for gap=1,2 do
+    for gap=1,require('src.environments').jumpMax(w) do
      landing=jumpLanding(w,x,y,dx,gap)
      if landing then add(landing,y) break end
     end

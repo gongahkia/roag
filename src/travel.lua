@@ -70,10 +70,11 @@ local function portable(worker)
  if worker.psychology then record.psychology=U.deep(worker.psychology) end
  if worker.factions then record.factions=U.deep(worker.factions) end
  if worker.security then record.security=U.deep(worker.security) end
+ if worker.environment then record.environment=U.deep(worker.environment) end
  return record
 end
-local function validatePassenger(record,knowledge,education,psychology,security,tick)
- allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true,psychology=true,factions=true,security=true},'Transit passenger')
+local function validatePassenger(record,knowledge,education,psychology,security,environments,tick)
+ allowed(record,{personId=true,name=true,alive=true,hp=true,hunger=true,fatigue=true,breath=true,mine=true,build=true,status=true,reason=true,fall=true,worked=true,progress=true,deathTick=true,frontier=true,stress=true,panic=true,lastStressTick=true,psychology=true,factions=true,security=true,environment=true},'Transit passenger')
  for _,key in ipairs({'personId','name','alive','hp','hunger','fatigue','breath','mine','build','status','reason','fall','worked','progress'}) do assert(record[key]~=nil,'Missing transit passenger key '..key) end
  U.integer(record.personId,'Transit person ID',1,100000000);assert(type(record.name)=='string' and type(record.alive)=='boolean' and type(record.status)=='string' and type(record.reason)=='string','Malformed transit identity')
  for _,key in ipairs({'hp','hunger','fatigue','breath'}) do assert(U.finite(record[key]) and record[key]>=0 and record[key]<=100,'Invalid transit '..key) end
@@ -85,6 +86,7 @@ local function validatePassenger(record,knowledge,education,psychology,security,
  if record.stress~=nil then U.integer(record.stress,'Transit stress',0,100);assert(type(record.panic)=='boolean','Invalid transit panic');U.integer(record.lastStressTick,'Transit stress tick',0,tick) end
  if psychology then require('src.psychology').validatePersonal(record.psychology,tick,record.personId) else assert(record.psychology==nil,'Transit psychology requires feature') end
  if security then require('src.security').validatePersonal(record.security,tick) else assert(record.security==nil,'Personal security requires feature') end
+ if environments then require('src.environments').validatePerson(record.environment) else assert(record.environment==nil,'Environmental exposure requires feature') end
 end
 local function notice(c,siteId,kind,text,ordinal)
  local Campaign=require('src.campaign')
@@ -137,6 +139,7 @@ local function landingPlan(c,vehicle,journey)
  local _,destinationId=journeyEndpoints(journey);local destination=site(c,destinationId);assert(destination,'Journey destination is missing')
  local livingCount=living(vehicle.passengers)
  if destination.ownerSocietyId~=c.society.id and livingCount==0 then return nil,'No living landing party' end
+ if not destination.world then require('src.campaign').instantiate(c,destinationId) end
  if #destination.world.workers+#vehicle.passengers>32 then return nil,'Destination worker capacity is full' end
  local anchor=destination.world.home and {x=destination.world.home.x,y=destination.world.home.y}
  if not anchor then return nil,'Destination has no landing anchor' end
@@ -157,6 +160,7 @@ local function addArrivalWorker(world,passenger,pose)
  if passenger.psychology then worker.psychology=U.deep(passenger.psychology) end
  if passenger.factions then worker.factions=U.deep(passenger.factions) end
  if passenger.security then worker.security=U.deep(passenger.security) end
+ if passenger.environment then worker.environment=U.deep(passenger.environment) end
  worker.x,worker.y=pose.x,pose.y
  if not worker.alive then worker.hp=0;worker.status='Dead';worker.deathTick=passenger.deathTick end
  world.workers[#world.workers+1]=worker
@@ -193,9 +197,20 @@ local function hold(c,vehicle,journey,reason)
 end
 
 function T.enabled(c) return c.features and c.features.travel==1 end
-function T.new()
- return {version=T.version,rules={version=1,routes={{from=1,to=2,duration=400},{from=1,to=3,duration=600},{from=2,to=3,duration=800}}},
-  nextJourneyId=1,nextReceiptId=1,receipts={},accounts={sites={{siteId=1,imports=zero(),exports=zero(),consumed=zero()},{siteId=2,imports=zero(),exports=zero(),consumed=zero()},{siteId=3,imports=zero(),exports=zero(),consumed=zero()}},transit={imports=zero(),exports=zero(),consumed=zero()}}}
+local function expectedRoutes(c)
+ local routes={{from=1,to=2,duration=400},{from=1,to=3,duration=600},{from=2,to=3,duration=800}}
+ if c.features and c.features.environments==1 then
+  local home={900,1100,1300,1500};local links={700,850,1000,1200}
+  for id=4,7 do routes[#routes+1]={from=1,to=id,duration=home[id-3]} end
+  for id=4,7 do routes[#routes+1]={from=id%2==0 and 2 or 3,to=id,duration=links[id-3]} end
+ end
+ return routes
+end
+function T.new(c)
+ local accounts={};local count=c and c.features and c.features.environments==1 and 7 or 3
+ for id=1,count do accounts[id]={siteId=id,imports=zero(),exports=zero(),consumed=zero()} end
+ return {version=T.version,rules={version=1,routes=expectedRoutes(c or {features={}})},
+  nextJourneyId=1,nextReceiptId=1,receipts={},accounts={sites=accounts,transit={imports=zero(),exports=zero(),consumed=zero()}}}
 end
 function T.duration(c,a,b) return route(c,a,b) end
 function T.living(c)
@@ -218,11 +233,12 @@ function T.validate(c)
  exact(travel,{version=true,rules=true,nextJourneyId=true,nextReceiptId=true,receipts=true,accounts=true},'Campaign travel')
  assert(travel.version==T.version,'Unsupported campaign travel version')
  exact(travel.rules,{version=true,routes=true},'Campaign travel rules');assert(travel.rules.version==1,'Unsupported campaign travel rules version')
- assert(dense(travel.rules.routes,'Campaign travel routes',3)==3,'Campaign travel requires three routes')
- local expected={{from=1,to=2,duration=400},{from=1,to=3,duration=600},{from=2,to=3,duration=800}}
+ local expected=expectedRoutes(c)
+ assert(dense(travel.rules.routes,'Campaign travel routes',#expected)==#expected,'Campaign travel route count differs')
  for i,record in ipairs(travel.rules.routes) do exact(record,{from=true,to=true,duration=true},'Campaign travel route');assert(record.from==expected[i].from and record.to==expected[i].to and record.duration==expected[i].duration,'Unsupported campaign travel route') end
  U.integer(travel.nextJourneyId,'Next journey ID',1,100000000);U.integer(travel.nextReceiptId,'Next transfer receipt ID',1,100000000)
- exact(travel.accounts,{sites=true,transit=true},'Campaign travel accounts');assert(dense(travel.accounts.sites,'Campaign travel site accounts',3)==3,'Campaign travel needs all site accounts')
+ local siteCount=c.features.environments==1 and 7 or 3
+ exact(travel.accounts,{sites=true,transit=true},'Campaign travel accounts');assert(dense(travel.accounts.sites,'Campaign travel site accounts',siteCount)==siteCount,'Campaign travel needs all site accounts')
  for i,record in ipairs(travel.accounts.sites) do exact(record,{siteId=true,imports=true,exports=true,consumed=true},'Campaign travel site account');assert(record.siteId==i,'Campaign travel account order');vector(record.imports,'Campaign site imports');vector(record.exports,'Campaign site exports');vector(record.consumed,'Campaign site consumption') end
  exact(travel.accounts.transit,{imports=true,exports=true,consumed=true},'Campaign transit account');vector(travel.accounts.transit.imports,'Campaign transit imports');vector(travel.accounts.transit.exports,'Campaign transit exports');vector(travel.accounts.transit.consumed,'Campaign transit consumption')
  local receiptCount=dense(travel.receipts,'Campaign transfer receipts',T.maxReceipts);local prior,maxReceipt=0,0
@@ -245,15 +261,15 @@ function T.validate(c)
    local journey=vehicle.journey;allowed(journey,{id=true,originSiteId=true,destinationSiteId=true,leg=true,status=true,legStartTick=true,duration=true,remainingTicks=true,physiology=true,holdingReason=true},'Craft journey')
    for _,key in ipairs({'id','originSiteId','destinationSiteId','leg','status','legStartTick','duration','remainingTicks','physiology'}) do assert(journey[key]~=nil,'Missing Craft journey key '..key) end
    U.integer(journey.id,'Journey ID',1,travel.nextJourneyId-1);assert(not seenJourney[journey.id],'Duplicate journey ID');seenJourney[journey.id]=true;maxJourney=math.max(maxJourney,journey.id)
-   U.integer(journey.originSiteId,'Journey origin site ID',1,3);U.integer(journey.destinationSiteId,'Journey destination site ID',1,3);assert(journey.originSiteId~=journey.destinationSiteId and route(c,journey.originSiteId,journey.destinationSiteId)==journey.duration,'Invalid journey route')
+   U.integer(journey.originSiteId,'Journey origin site ID',1,siteCount);U.integer(journey.destinationSiteId,'Journey destination site ID',1,siteCount);assert(journey.originSiteId~=journey.destinationSiteId and route(c,journey.originSiteId,journey.destinationSiteId)==journey.duration,'Invalid journey route')
    assert(journey.leg=='outbound' or journey.leg=='return','Invalid journey leg');assert(journey.status=='travelling' or journey.status=='holding','Invalid journey status');U.integer(journey.legStartTick,'Journey leg start tick',0,c.tick);U.integer(journey.duration,'Journey duration',1,100000);U.integer(journey.remainingTicks,'Journey remaining ticks',0,journey.duration)
    exact(journey.physiology,{hungerRate=true,fatigueRate=true},'Journey physiology');assert(U.finite(journey.physiology.hungerRate) and journey.physiology.hungerRate>=0 and journey.physiology.hungerRate<=1 and U.finite(journey.physiology.fatigueRate) and journey.physiology.fatigueRate>=0 and journey.physiology.fatigueRate<=1,'Invalid journey physiology')
    if journey.status=='travelling' then assert(journey.remainingTicks>0 and journey.holdingReason==nil,'Travelling journey timing mismatch') else assert(journey.remainingTicks==0 and type(journey.holdingReason)=='string' and #journey.holdingReason<=160,'Holding journey state mismatch') end
   else assert(vehicle.dockedSiteId~=nil and #vehicle.passengers==0,'Docked craft has transit state') end
   local priorPerson=0
   for _,passenger in ipairs(vehicle.passengers) do
-   validatePassenger(passenger,c.features.knowledge==1,c.features.education==1,c.features.psychology==1,c.features.security==1,c.tick);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
-   for _,localSite in ipairs(c.sites) do for _,worker in ipairs(localSite.world.workers) do assert(worker.personId~=passenger.personId,'Portable person still exists locally') end end
+   validatePassenger(passenger,c.features.knowledge==1,c.features.education==1,c.features.psychology==1,c.features.security==1,c.features.environments==1,c.tick);assert(passenger.personId>priorPerson,'Craft passengers are not ordered');priorPerson=passenger.personId;assert(not seenPeople[passenger.personId],'Duplicate portable person');seenPeople[passenger.personId]=true;maxPerson=math.max(maxPerson,passenger.personId)
+   for _,localSite in ipairs(c.sites) do if localSite.world then for _,worker in ipairs(localSite.world.workers) do assert(worker.personId~=passenger.personId,'Portable person still exists locally') end end end
   end
  end
  assert(travel.nextJourneyId>maxJourney,'Next journey ID was already allocated');assert(c.nextPersonId>maxPerson,'Next person ID was already allocated')
@@ -318,11 +334,12 @@ function T.step(c)
   local journey=vehicle.journey
   if journey then
    for _,passenger in ipairs(vehicle.passengers) do if passenger.alive then
-    local died,reason=Colonists.transitStep(passenger,journey.physiology,function()
+   local died,reason=Colonists.transitStep(passenger,journey.physiology,function()
      if (vehicle.cargo.food or 0)<1 then return false end
      vehicle.cargo.food=vehicle.cargo.food-1;if vehicle.cargo.food==0 then vehicle.cargo.food=nil end
      transfer(c,'transit',nil,'sink',nil,'meal',vehicle,journey,one('food'));return true
     end)
+    if c.features.environments==1 then require('src.environments').transitRecover(passenger,c.tick) end
     if died then passenger.alive=false;passenger.hp=0;passenger.status='Dead';passenger.reason=reason or 'injuries';passenger.deathTick=c.tick;notice(c,journey.originSiteId,'transit_death',passenger.name..' died in transit: '..passenger.reason..'.',vehicle.id) end
    end end
    if journey.status=='travelling' then journey.remainingTicks=journey.remainingTicks-1 end

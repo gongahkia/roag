@@ -611,3 +611,23 @@ and travel; an external raider only becomes player loot when that actor dies.
 Combat and public sabotage feed the existing bounded psychology memories; they
 do not create a separate unbounded security or combat journal. G06 validation
 also rejects repeated foreign-loot receipts and unknown insurgent-cell state.
+
+# G07 environments and bounded local frontier
+
+`environments=1` requires the current travel/logistics/industry/equipment/security
+frontier stack. It retains the three stable established sites and their 400/600/800
+direct routes, and adds exactly four saved, lazy frontier body records. Their
+integer environment profiles are mechanical: gravity changes existing safe-jump
+and fall outcomes; atmosphere/thermal/radiation create bounded personal exposure;
+vacuum extinguishes normal torch light; solar percentage changes actual G04
+generation; and wear percentage changes productive machine wear. Old campaigns
+carry none of these fields or effects.
+
+The Frontier Suit is a unique physical environment-slot item, independent from
+Protective Vest. A powered Environmental Regulator protects thermal/radiation in
+a local radius but cannot make vacuum breathable. Unvisited frontier sites retain
+only persisted identity/seed/profile/route metadata and never run a hidden local
+world; first physical living arrival instantiates the saved deterministic map.
+Region shows only coarse astronomical conditions, never terrain/resource/ecology
+positions. G07 stops at the starting local system: no relics, interstellar routes,
+or G08 technology are present.

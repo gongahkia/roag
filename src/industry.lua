@@ -14,11 +14,12 @@ I.recipes={
  frontier_carbine={id='frontier-carbine/v1',input={metal=2,component=1},output={frontier_carbine=1},ticks=180},
  shock_baton={id='shock-baton/v1',input={metal=1,component=1},output={shock_baton=1},ticks=100},
  protective_vest={id='protective-vest/v1',input={metal=2,component=1},output={protective_vest=1},ticks=150},
+ frontier_suit={id='frontier-suit/v1',input={metal=2,component=1},output={frontier_suit=1},ticks=150},
  ammunition={id='ammunition/v1',input={metal=1},output={ammunition=6},ticks=60},
 }
-local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true}
-local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1}
-local unique={pickaxe=true,rope_coil=true,frontier_carbine=true,shock_baton=true,protective_vest=true}
+local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true,environmental_regulator=true}
+local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1,environmental_regulator=2}
+local unique={pickaxe=true,rope_coil=true,frontier_carbine=true,shock_baton=true,protective_vest=true,frontier_suit=true}
 local resources={metal=true,component=true,stone=true,soil=true,food=true,water=true,ammunition=true}
 
 function I.enabled(c) return c and c.features and c.features.industry==1 end
@@ -26,12 +27,13 @@ function I.attach(w)
  w.industry={version=I.version,topologyRevision=1,rules={version=1,poleRange=6,coverage=3,batteryCap=200,batteryRate=6,conveyorEvery=2}}
 end
 function I.install(w,s)
- if s.kind=='battery' then s.charge=0
- elseif s.kind=='fabricator' then s.input={};s.output={};s.recipe=nil;s.progress=0;s.inprocess=nil;s.wear=0;s.powerPriority=2
- elseif s.kind=='mining_rig' then s.output={};s.wear=0;s.powerPriority=2;s.rigProgress={}
+ if s.kind=='solar_array' then s.solarRemainder=0
+ elseif s.kind=='battery' then s.charge=0
+ elseif s.kind=='fabricator' then s.input={};s.output={};s.recipe=nil;s.progress=0;s.inprocess=nil;s.wear=0;s.wearRemainder=0;s.powerPriority=2
+ elseif s.kind=='mining_rig' then s.output={};s.wear=0;s.wearRemainder=0;s.powerPriority=2;s.rigProgress={}
  elseif s.kind=='industrial_bin' then s.cargo={};s.mode='receive';s.filter=nil;s.direction='east'
  elseif s.kind=='conveyor' then s.cargo={};s.direction='east'
- elseif s.kind=='electric_lamp' or s.kind=='signal_relay' then s.powerPriority=1 end
+ elseif s.kind=='electric_lamp' or s.kind=='signal_relay' or s.kind=='environmental_regulator' then s.powerPriority=1 end
 end
 function I.recipe(kind) return I.recipes[kind] end
 function I.find(w,id)
@@ -129,7 +131,9 @@ local function sky(w,s,half)
  return true
 end
 local function solar(w,s)
- local n=0;for half=0,(s.width or 1)-1 do if sky(w,s,half) then n=n+3 end end;return n
+ local n=0;for half=0,(s.width or 1)-1 do if sky(w,s,half) then n=n+3 end end
+ local pct=w.environment and w.environment.solarPct or 100
+ local raw=n*pct+(s.solarRemainder or 0);s.solarRemainder=raw%100;return math.floor(raw/100)
 end
 local function recipeReady(s)
  local r=s.recipe and I.recipes[s.recipe];if not r or not s.enabled or s.wear>=600 or (s.sabotagedUntil and s.sabotagedUntil>=(s._tick or 0)) then return false end
@@ -172,6 +176,7 @@ local function consumerReady(w,s)
  if s.kind=='mining_rig' then return rigReady(w,s) end
  if s.kind=='electric_lamp' then return s.enabled end
  if s.kind=='signal_relay' then return s.enabled end
+ if s.kind=='environmental_regulator' then return s.enabled end
  return false
 end
 local function allocation(w)
@@ -205,11 +210,15 @@ local function consumeInputs(s,r)
 end
 local function outputFits(s,r)
  local n=0;for _,amount in pairs(r.output) do n=n+amount end;return capacity(s.output)+n<=16 end
+local function addWear(w,s)
+ local raw=(s.wearRemainder or 0)+(w.environment and w.environment.machineWearPct or 100)
+ s.wear=s.wear+math.floor(raw/100);s.wearRemainder=raw%100
+end
 local function fabricate(w,s,context)
  local r=I.recipes[s.recipe];if not r or not s._powerGranted or not recipeReady(s) then return end
  if not s.inprocess then consumeInputs(s,r) end
  if s.progress>=r.ticks-1 and not outputFits(s,r) then s.status='Output full';return end
- s.progress=s.progress+1;s.wear=s.wear+1
+ s.progress=s.progress+1;addWear(w,s)
  if s.progress>=r.ticks then
   local c=context and context.campaign
   for kind,n in pairs(r.output) do
@@ -237,7 +246,7 @@ local function mine(w,s)
    W.put(w,t.x,t.y,M.AIR);assert(add(s.output,{kind=M.def[t.m].resource,n=1},16),'Rig output changed');w.ledger.mined=w.ledger.mined+1
   end
  end
- s.wear=s.wear+1;s.status='Mining designated face'
+ addWear(w,s);s.status='Mining designated face'
 end
 local dirs={north={0,-1},south={0,1},east={1,0},west={-1,0}}
 local function neighbor(w,s,direction)
@@ -298,6 +307,7 @@ function I.step(w,context)
   elseif s.kind=='fabricator' then fabricate(w,s,context)
   elseif s.kind=='mining_rig' then mine(w,s)
   elseif s.kind=='electric_lamp' then s.status=s._powerGranted and 'Lighting work area' or 'No power' end
+  if s.kind=='environmental_regulator' then s.status=s._powerGranted and 'Protecting thermal/radiation radius 24' or 'No power' end
   if (s.kind=='fabricator' or s.kind=='mining_rig') and s.wear>=600 then s.status='Maintenance required' end
  end
  transfers(w,context)
@@ -318,6 +328,7 @@ function I.validConfig(s,payload)
 end
 function I.configure(w,s,payload)
  I.validConfig(s,payload)
+ if payload.recipe=='frontier_suit' then assert(w.frontier and w.frontier.environments==1,'Frontier suits require environments') end
  if payload.recipe then s.recipe=payload.recipe;s.progress=0;s.inprocess=nil end
  if payload.priority then s.powerPriority=payload.priority end
  if payload.direction then s.direction=payload.direction end
@@ -361,12 +372,14 @@ function I.validateWorld(w)
  for _,s in pairs(w.structures) do if industrial[s.kind] then
   assert((s.width or 1)==S.width(s.kind),'Industrial footprint mismatch')
   if s.kind=='battery' then U.integer(s.charge,'Battery charge',0,200)
-  elseif s.kind=='fabricator' then assert(type(s.input)=='table' and type(s.output)=='table' and type(s.wear)=='number' and (s.recipe==nil or I.recipes[s.recipe]),'Invalid fabricator');U.integer(s.wear,'Fabricator wear',0,600);U.integer(s.progress,'Fabricator progress',0,1000000);U.integer(s.powerPriority,'Fabricator priority',1,3);validateCargo(s.input,16,'Fabricator input');validateCargo(s.output,16,'Fabricator output');if s.inprocess then validateCargo(s.inprocess,16,'Fabricator in-process') end
-  elseif s.kind=='mining_rig' then U.integer(s.wear,'Rig wear',0,600);U.integer(s.powerPriority,'Rig priority',1,3);assert(type(s.output)=='table' and type(s.rigProgress)=='table','Invalid mining rig');validateCargo(s.output,16,'Mining rig output')
+  elseif s.kind=='fabricator' then assert(type(s.input)=='table' and type(s.output)=='table' and type(s.wear)=='number' and (s.recipe==nil or I.recipes[s.recipe]),'Invalid fabricator');U.integer(s.wear,'Fabricator wear',0,600);if s.wearRemainder~=nil then U.integer(s.wearRemainder,'Fabricator wear remainder',0,99) end;U.integer(s.progress,'Fabricator progress',0,1000000);U.integer(s.powerPriority,'Fabricator priority',1,3);validateCargo(s.input,16,'Fabricator input');validateCargo(s.output,16,'Fabricator output');if s.inprocess then validateCargo(s.inprocess,16,'Fabricator in-process') end
+  elseif s.kind=='mining_rig' then U.integer(s.wear,'Rig wear',0,600);if s.wearRemainder~=nil then U.integer(s.wearRemainder,'Rig wear remainder',0,99) end;U.integer(s.powerPriority,'Rig priority',1,3);assert(type(s.output)=='table' and type(s.rigProgress)=='table','Invalid mining rig');validateCargo(s.output,16,'Mining rig output')
   elseif s.kind=='industrial_bin' then assert((s.mode=='receive' or s.mode=='supply') and dirs[s.direction],'Invalid industrial bin');validateCargo(s.cargo,32,'Industrial bin')
   elseif s.kind=='conveyor' then assert(dirs[s.direction],'Invalid conveyor');validateCargo(s.cargo,8,'Conveyor')
   elseif s.kind=='electric_lamp' then U.integer(s.powerPriority,'Lamp priority',1,3)
-  elseif s.kind=='signal_relay' then U.integer(s.powerPriority,'Relay priority',1,3) end
+  elseif s.kind=='signal_relay' then U.integer(s.powerPriority,'Relay priority',1,3)
+  elseif s.kind=='environmental_regulator' then U.integer(s.powerPriority,'Regulator priority',1,3)
+  elseif s.kind=='solar_array' and s.solarRemainder~=nil then U.integer(s.solarRemainder,'Solar remainder',0,99) end
  end end;return true
 end
 return I
