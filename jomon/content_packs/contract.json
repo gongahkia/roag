@@ -8797,5 +8797,325 @@
         "z"
       ]
     }
+  ],
+  "vehicle": [
+    {
+      "id": "vehicle.tug.name",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.horse_cart.name",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.steam_crawler.name",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.rootwalker.name",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.aether_glider.name",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.tug.resource",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.horse_cart.resource",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.steam_crawler.resource",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.rootwalker.resource",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.aether_glider.resource",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.domain.water",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.domain.road",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.domain.rough",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.domain.air",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.tug.position",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.tug.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.tug.route",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.tug.mooring",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.tug.success",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.region.none",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.board.region.damaged",
+      "placeholders": [
+        "vehicle"
+      ]
+    },
+    {
+      "id": "vehicle.board.region.success",
+      "placeholders": [
+        "vehicle"
+      ]
+    },
+    {
+      "id": "vehicle.disembark.none",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.disembark.ground",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.disembark.success",
+      "placeholders": [
+        "vehicle"
+      ]
+    },
+    {
+      "id": "vehicle.navigate.none",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.disabled",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.landscape",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.no_charge",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.result",
+      "placeholders": [
+        "vehicle",
+        "travelled",
+        "suffix",
+        "fuel",
+        "capacity",
+        "resource"
+      ]
+    },
+    {
+      "id": "vehicle.navigate.tug_manual",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.glider_manual",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.navigate.frame",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.none",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.frame_full",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.frame_stand",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.frame_jury",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.reserve_full",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.halt",
+      "placeholders": [
+        "resource"
+      ]
+    },
+    {
+      "id": "vehicle.service.mana_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.mana",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.charcoal",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.credit",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.service.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.none.title",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.none",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.header",
+      "placeholders": [
+        "vehicle",
+        "domain"
+      ]
+    },
+    {
+      "id": "vehicle.interior.reserve",
+      "placeholders": [
+        "fuel",
+        "capacity",
+        "resource",
+        "condition",
+        "maximum"
+      ]
+    },
+    {
+      "id": "vehicle.interior.location.region",
+      "placeholders": [
+        "region",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "vehicle.interior.location.water",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "vehicle.interior.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.controls",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.tug_marks",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.tug_manual",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.draw.status",
+      "placeholders": [
+        "fuel",
+        "capacity",
+        "resource",
+        "condition",
+        "maximum"
+      ]
+    },
+    {
+      "id": "vehicle.interior.draw.location.region",
+      "placeholders": [
+        "region",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "vehicle.interior.draw.location.water",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "vehicle.interior.draw.controls",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.cargo",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.interior.fixture",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.choice.ashore",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.choice.tug",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.title",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.line.ashore",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "vehicle.gangplank.line.tug",
+      "placeholders": []
+    },
+    {
+      "id": "vehicle.gangplank.line.crossing",
+      "placeholders": []
+    }
   ]
 }

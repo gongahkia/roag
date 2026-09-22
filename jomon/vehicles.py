@@ -6,6 +6,7 @@ from functools import lru_cache
 
 from .catalog import CatalogError, load_catalog
 from .state import GameState, Position, Vehicle, stage_rng
+from .vehicle_presentation import vehicle_display_name, vehicle_domain_label, vehicle_format, vehicle_resource_label, vehicle_text
 
 
 _CONTENT = load_catalog("vehicles.json", ("harbour", "vehicles"))
@@ -170,16 +171,16 @@ def board_tug(state: GameState):
 
     tug = state.vehicles["tug"]
     if state.location != "jomon" or state.jomon_space != "vessel" or state.position != JOMON_GANGPLANK:
-        return _plain(state, "Board the tug from Jomon's gangplank.")
+        return _plain(state, vehicle_text("vehicle.board.tug.position"))
     if state.voyage_status == "active" or state.courier is None or not state.courier.alive:
-        return _plain(state, "The tug cannot cast off during a voyage crisis or without an able courier.")
+        return _plain(state, vehicle_text("vehicle.board.tug.unavailable"))
     route_node = state.route_nodes.get(state.route_current_node)
     if route_node is None or route_node.region_id != state.active_region_id:
-        return _plain(state, "This route stop has no charted regional shore for the tug.")
+        return _plain(state, vehicle_text("vehicle.board.tug.route"))
     if tug.position != JOMON_DOCK:
-        return _plain(state, "The tug is not at Jomon's mooring.")
+        return _plain(state, vehicle_text("vehicle.board.tug.mooring"))
     state.jomon_space, state.position, state.active_vehicle_id = "harbour", JOMON_DOCK, "tug"
-    return _time_result(state, "You board the steam tug; Jomon lies at J and the regional shore at L.")
+    return _time_result(state, vehicle_text("vehicle.board.tug.success"))
 
 
 def board_region_vehicle(state: GameState):
@@ -187,12 +188,12 @@ def board_region_vehicle(state: GameState):
 
     vehicle = vehicle_at(state, state.position)
     if state.location != "region" or vehicle is None:
-        return _plain(state, "No vehicle is here to board.")
+        return _plain(state, vehicle_text("vehicle.board.region.none"))
     if vehicle.condition <= 0:
-        return _plain(state, f"The {SPECS[vehicle.id]['name']} needs repair before moving.")
+        return _plain(state, vehicle_format("vehicle.board.region.damaged", vehicle=vehicle_display_name(vehicle.id)))
     state.active_vehicle_id = vehicle.id
     state.aimed_target = None
-    return _time_result(state, f"You take the controls of the {SPECS[vehicle.id]['name']}. Tab opens its interior.")
+    return _time_result(state, vehicle_format("vehicle.board.region.success", vehicle=vehicle_display_name(vehicle.id)))
 
 
 def disembark(state: GameState):
@@ -201,11 +202,11 @@ def disembark(state: GameState):
 
     vehicle = active_vehicle(state)
     if vehicle is None or state.location != "region":
-        return _plain(state, "There is no safe place to disembark.")
+        return _plain(state, vehicle_text("vehicle.disembark.none"))
     if not is_walkable(state, state.position, ignore_threat=True):
-        return _plain(state, "Steer onto firm, walkable ground before disembarking.")
+        return _plain(state, vehicle_text("vehicle.disembark.ground"))
     state.active_vehicle_id = None
-    return _time_result(state, f"You step down from the {SPECS[vehicle.id]['name']}; it remains here.")
+    return _time_result(state, vehicle_format("vehicle.disembark.success", vehicle=vehicle_display_name(vehicle.id)))
 
 
 def navigate(state: GameState, dx: int, dy: int):
@@ -214,13 +215,13 @@ def navigate(state: GameState, dx: int, dy: int):
 
     vehicle = active_vehicle(state)
     if vehicle is None:
-        return _plain(state, "No vehicle is under your control.")
+        return _plain(state, vehicle_text("vehicle.navigate.none"))
     spec = SPECS[vehicle.id]
     if vehicle.condition <= 0:
-        return _plain(state, "The vehicle is disabled. Open its interior with Tab to jury-rig it.")
+        return _plain(state, vehicle_text("vehicle.navigate.disabled"))
     water = vehicle.region_id == "harbour"
     if water != (state.location == "jomon" and state.jomon_space == "harbour"):
-        return _plain(state, "The vehicle is not in this landscape.")
+        return _plain(state, vehicle_text("vehicle.navigate.landscape"))
     manual_drive = vehicle.id in {"tug", "aether_glider"}
     pace = 1 if vehicle.fuel == 0 and manual_drive else spec["pace"]
     current = state.position
@@ -269,8 +270,8 @@ def navigate(state: GameState, dx: int, dy: int):
             break
     if not travelled:
         if vehicle.fuel == 0 and not manual_drive:
-            return _plain(state, "The vehicle has no charge. Open its interior with Tab to service it.")
-        return _plain(state, "That heading is blocked by terrain, a shoal, or an actor.")
+            return _plain(state, vehicle_text("vehicle.navigate.no_charge"))
+        return _plain(state, vehicle_text("vehicle.navigate.blocked"))
     state.position = vehicle.position = current
     vehicle.travelled += travelled
     vehicle.strain += strain
@@ -287,15 +288,15 @@ def navigate(state: GameState, dx: int, dy: int):
 
         if spec["domain"] != "air":
             terrain_message = apply_terrain_status(state, displayed_tile(state, current))
-    message = f"{spec['name']} travels {travelled} tile{'s' if travelled != 1 else ''}; {vehicle.fuel}/{spec['capacity']} {spec['resource']} remains."
+    message = vehicle_format("vehicle.navigate.result", vehicle=vehicle_display_name(vehicle.id), travelled=travelled, suffix="s" if travelled != 1 else "", fuel=vehicle.fuel, capacity=spec["capacity"], resource=vehicle_resource_label(vehicle.id))
     if terrain_message:
         message += " " + terrain_message
     if vehicle.id == "tug" and vehicle.fuel == 0:
-        message += " Sweep oars keep the tug moving, one tile per two actions."
+        message += " " + vehicle_text("vehicle.navigate.tug_manual")
     if vehicle.id == "aether_glider" and vehicle.fuel == 0:
-        message += " Manual wing trim keeps the glider moving, one tile per two actions."
+        message += " " + vehicle_text("vehicle.navigate.glider_manual")
     if vehicle.condition == 0:
-        message += " The frame needs a jury-rig before it can move again."
+        message += " " + vehicle_text("vehicle.navigate.frame")
     return _time_result(state, message, steps=2 if manual_used else 1)
 
 
@@ -305,37 +306,37 @@ def service(state: GameState, *, repair: bool = False):
 
     vehicle = active_vehicle(state)
     if vehicle is None:
-        return _plain(state, "No vehicle is being serviced.")
+        return _plain(state, vehicle_text("vehicle.service.none"))
     spec = SPECS[vehicle.id]
     at_stand = vehicle.position == vehicle.home or vehicle.id == "tug" and vehicle.position == SHORE_DOCK
     if repair:
         if vehicle.condition >= spec["condition"]:
-            return _plain(state, "The frame is already sound.")
+            return _plain(state, vehicle_text("vehicle.service.frame_full"))
         if at_stand and state.trade_credit > 0:
             state.trade_credit -= 1
             vehicle.condition = min(spec["condition"], vehicle.condition + 4)
-            return _time_result(state, "A counted repair at the stand restores four measures of frame soundness.", steps=2)
+            return _time_result(state, vehicle_text("vehicle.service.frame_stand"), steps=2)
         vehicle.condition = min(spec["condition"], vehicle.condition + 1)
-        return _time_result(state, "A three-action jury-rig restores one measure of frame soundness.", steps=3)
+        return _time_result(state, vehicle_text("vehicle.service.frame_jury"), steps=3)
     if vehicle.fuel >= spec["capacity"]:
-        return _plain(state, "The reserve is already full.")
+        return _plain(state, vehicle_text("vehicle.service.reserve_full"))
     if vehicle.id in {"horse_cart", "rootwalker"}:
         vehicle.fuel = min(spec["capacity"], vehicle.fuel + 12)
-        return _time_result(state, f"The {spec['resource']} recovers by twelve after a three-action halt.", steps=3)
+        return _time_result(state, vehicle_format("vehicle.service.halt", resource=vehicle_resource_label(vehicle.id)), steps=3)
     if vehicle.id == "aether_glider":
         if state.courier is None or state.courier.mana < 2:
-            return _plain(state, "The glider needs two personal mana to recharge.")
+            return _plain(state, vehicle_text("vehicle.service.mana_requirement"))
         state.courier.mana -= 2
         vehicle.fuel = min(spec["capacity"], vehicle.fuel + 12)
-        return _time_result(state, "Two mana enter the glider crystal; twelve aether charge returns.")
+        return _time_result(state, vehicle_text("vehicle.service.mana"))
     if consume_carried(state, "commodity:charcoal"):
         vehicle.fuel = min(spec["capacity"], vehicle.fuel + 48)
-        return _time_result(state, "One carried charcoal lot feeds the boiler for forty-eight charge.")
+        return _time_result(state, vehicle_text("vehicle.service.charcoal"))
     if at_stand and state.trade_credit > 0:
         state.trade_credit -= 1
         vehicle.fuel = min(spec["capacity"], vehicle.fuel + 48)
-        return _time_result(state, "One trade credit buys a counted charcoal charge at the stand.")
-    return _plain(state, "Bring a charcoal lot, or refuel for one credit at a mooring or vehicle stand.")
+        return _time_result(state, vehicle_text("vehicle.service.credit"))
+    return _plain(state, vehicle_text("vehicle.service.requirement"))
 
 
 def deck_rows(vehicle_id: str) -> tuple[str, ...]:
@@ -368,20 +369,19 @@ def interior_fixture(vehicle_id: str, point: Position) -> str:
 def interior_lines(state: GameState) -> tuple[str, list[str]]:
     vehicle = active_vehicle(state)
     if vehicle is None:
-        return "NO VEHICLE", ["No vehicle is under your control."]
+        return vehicle_text("vehicle.interior.none.title"), [vehicle_text("vehicle.interior.none")]
     spec = SPECS[vehicle.id]
+    location = (vehicle_format("vehicle.interior.location.region", region=state.active_region_id, x=vehicle.position.x, y=vehicle.position.y)
+                if state.location == "region" else vehicle_format("vehicle.interior.location.water", x=vehicle.position.x, y=vehicle.position.y))
     lines = [
-        f"{spec['name']} — {spec['domain']} navigation",
+        vehicle_format("vehicle.interior.header", vehicle=vehicle_display_name(vehicle.id), domain=vehicle_domain_label(spec["domain"])),
         *spec["deck"],
-        f"Reserve: {vehicle.fuel}/{spec['capacity']} {spec['resource']}; frame {vehicle.condition}/{spec['condition']}.",
-        f"Location: {state.active_region_id if state.location == 'region' else 'open water'} at {vehicle.position.x},{vehicle.position.y}.",
-        "Tab opens this walkable deck from the landscape; E uses the fixture underfoot.",
-        "H helm, R reserve, F frame, C cargo manifest, E hatch. Tab/Escape returns to steering.",
+        vehicle_format("vehicle.interior.reserve", fuel=vehicle.fuel, capacity=spec["capacity"], resource=vehicle_resource_label(vehicle.id), condition=vehicle.condition, maximum=spec["condition"]),
+        location, vehicle_text("vehicle.interior.guidance"), vehicle_text("vehicle.interior.controls"),
     ]
     if vehicle.id == "tug":
-        lines.append("J marks Jomon; L marks the regional shore.")
-        lines.append("With no coal, sweep oars remain usable at half pace.")
-    return spec["name"].upper(), lines
+        lines.extend((vehicle_text("vehicle.interior.tug_marks"), vehicle_text("vehicle.interior.tug_manual")))
+    return vehicle_display_name(vehicle.id).upper(), lines
 
 
 def validate_vehicles(state: GameState) -> None:

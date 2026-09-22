@@ -51,6 +51,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "vessel_text.json", root / "vessel_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "travel_text.json", root / "travel_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ship_crisis_text.json", root / "ship_crisis_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "vehicle_text.json", root / "vehicle_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -238,6 +239,16 @@ def alternate_pack(root: Path) -> Path:
         "intent.crisis.observe": "watches the fixture deck before committing",
     })
     source.write_text(json.dumps(crisis_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "vehicle_text.json"
+    vehicle_text = json.loads(source.read_text(encoding="utf-8"))
+    vehicle_text["text"].update({
+        "vehicle.tug.name": "Fixture water tractor",
+        "vehicle.tug.resource": "fixture reserve",
+        "vehicle.board.tug.success": "Fixture boards the same water vehicle.",
+        "vehicle.navigate.result": "Fixture {vehicle} crosses {travelled} mark{suffix}; {fuel}/{capacity} {resource} remains.",
+        "vehicle.interior.controls": "Fixture controls retain the same fixture actions.",
+    })
+    source.write_text(json.dumps(vehicle_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

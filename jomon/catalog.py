@@ -76,6 +76,7 @@ ACTION_PRESENTATION_FILE = "action_text.json"
 VESSEL_PRESENTATION_FILE = "vessel_text.json"
 TRAVEL_PRESENTATION_FILE = "travel_text.json"
 SHIP_CRISIS_PRESENTATION_FILE = "ship_crisis_text.json"
+VEHICLE_PRESENTATION_FILE = "vehicle_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -304,6 +305,23 @@ _SHIP_CRISIS_TEMPLATE_CONTRACT = {
     "crisis.work.line.header": ("integrity", "detail"), "crisis.work.line.hold": ("cargo", "ready"), "crisis.work.line.cargo": ("item", "quantity"), "crisis.work.line.variant": ("effect", "counterplay"), "crisis.work.line.confirm": (), "crisis.work.no_readied": (), "crisis.work.moored": (), "crisis.work.none": (),
     "crisis.work.invalid_station": (), "crisis.work.bait_requirement": ("required", "suffix"), "crisis.work.bait": ("required", "suffix", "animal"), "crisis.work.repair_requirement": (), "crisis.work.repair": (), "crisis.work.pump_requirement": (), "crisis.work.pump": (), "crisis.work.pump.strainers": (), "crisis.work.meal_requirement": (), "crisis.work.meal": ("food", "restored"), "crisis.work.treat.cot": (), "crisis.work.treat.injury": (), "crisis.work.treat.wool": (), "crisis.work.treat": ("injury", "location"), "crisis.work.emergency.requirement": (), "crisis.work.emergency": (), "crisis.work.emergency.pressure": (), "crisis.work.emergency.accelerated": (),
     "crisis.item.unsecured_shipment": ("voyage",), "crisis.defeat.message": ("text", "outcome", "x", "y", "z"),
+}
+
+
+_VEHICLE_IDS = ("tug", "horse_cart", "steam_crawler", "rootwalker", "aether_glider")
+_VEHICLE_TEMPLATE_CONTRACT = {
+    **{f"vehicle.{vehicle_id}.name": () for vehicle_id in _VEHICLE_IDS},
+    **{f"vehicle.{vehicle_id}.resource": () for vehicle_id in _VEHICLE_IDS},
+    **{f"vehicle.domain.{domain}": () for domain in ("water", "road", "rough", "air")},
+    "vehicle.board.tug.position": (), "vehicle.board.tug.unavailable": (), "vehicle.board.tug.route": (), "vehicle.board.tug.mooring": (), "vehicle.board.tug.success": (),
+    "vehicle.board.region.none": (), "vehicle.board.region.damaged": ("vehicle",), "vehicle.board.region.success": ("vehicle",),
+    "vehicle.disembark.none": (), "vehicle.disembark.ground": (), "vehicle.disembark.success": ("vehicle",),
+    "vehicle.navigate.none": (), "vehicle.navigate.disabled": (), "vehicle.navigate.landscape": (), "vehicle.navigate.no_charge": (), "vehicle.navigate.blocked": (),
+    "vehicle.navigate.result": ("vehicle", "travelled", "suffix", "fuel", "capacity", "resource"), "vehicle.navigate.tug_manual": (), "vehicle.navigate.glider_manual": (), "vehicle.navigate.frame": (),
+    "vehicle.service.none": (), "vehicle.service.frame_full": (), "vehicle.service.frame_stand": (), "vehicle.service.frame_jury": (), "vehicle.service.reserve_full": (), "vehicle.service.halt": ("resource",), "vehicle.service.mana_requirement": (), "vehicle.service.mana": (), "vehicle.service.charcoal": (), "vehicle.service.credit": (), "vehicle.service.requirement": (),
+    "vehicle.interior.none.title": (), "vehicle.interior.none": (), "vehicle.interior.header": ("vehicle", "domain"), "vehicle.interior.reserve": ("fuel", "capacity", "resource", "condition", "maximum"), "vehicle.interior.location.region": ("region", "x", "y"), "vehicle.interior.location.water": ("x", "y"), "vehicle.interior.guidance": (), "vehicle.interior.controls": (), "vehicle.interior.tug_marks": (), "vehicle.interior.tug_manual": (),
+    "vehicle.interior.draw.status": ("fuel", "capacity", "resource", "condition", "maximum"), "vehicle.interior.draw.location.region": ("region", "x", "y"), "vehicle.interior.draw.location.water": ("x", "y"), "vehicle.interior.draw.controls": (), "vehicle.interior.cargo": (), "vehicle.interior.fixture": (),
+    "vehicle.gangplank.choice.ashore": (), "vehicle.gangplank.choice.tug": (), "vehicle.gangplank.requirement": (), "vehicle.gangplank.title": (), "vehicle.gangplank.line.ashore": ("region",), "vehicle.gangplank.line.tug": (), "vehicle.gangplank.line.crossing": (),
 }
 
 
@@ -772,6 +790,12 @@ class ShipCrisisPresentation:
 
 
 @dataclass(frozen=True)
+class VehiclePresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -800,6 +824,7 @@ class ContentPack:
     vessel_presentations: tuple[VesselPresentation, ...]
     travel_presentations: tuple[TravelPresentation, ...]
     ship_crisis_presentations: tuple[ShipCrisisPresentation, ...]
+    vehicle_presentations: tuple[VehiclePresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -876,6 +901,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown ship crisis presentation id: {semantic_id}")
+
+    def vehicle_presentation(self, semantic_id: str) -> VehiclePresentation:
+        for presentation in self.vehicle_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown vehicle presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -960,8 +991,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, and ship_crisis")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, and vehicle")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1768,6 +1799,26 @@ def _travel_presentations(root: Path, pack_id: str) -> tuple[TravelPresentation,
     return tuple(TravelPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _TRAVEL_TEMPLATE_CONTRACT.items())
 
 
+def _vehicle_presentations(root: Path, pack_id: str) -> tuple[VehiclePresentation, ...]:
+    source = root / VEHICLE_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid vehicle presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _VEHICLE_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("vehicle") != expected_contract:
+        raise RuntimeError(f"invalid engine vehicle content contract at {contract_source}: vehicle does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid vehicle presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_VEHICLE_TEMPLATE_CONTRACT):
+        missing, unknown = set(_VEHICLE_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_VEHICLE_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required vehicle keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown vehicle keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid vehicle presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(VehiclePresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _VEHICLE_TEMPLATE_CONTRACT.items())
+
+
 def _ship_crisis_presentations(root: Path, pack_id: str) -> tuple[ShipCrisisPresentation, ...]:
     source = root / SHIP_CRISIS_PRESENTATION_FILE
     try:
@@ -1956,10 +2007,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     vessel = _vessel_presentations(root, pack_id)
     travel = _travel_presentations(root, pack_id)
     ship_crisis = _ship_crisis_presentations(root, pack_id)
+    vehicle = _vehicle_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, household_template,
     )
 
 

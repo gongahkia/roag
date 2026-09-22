@@ -1412,6 +1412,7 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
 
 def _draw_vehicle_interior(screen: curses.window, state: GameState, view: OverlayView) -> None:
     from .vehicles import SPECS, active_vehicle, deck_rows, interior_entry
+    from .vehicle_presentation import vehicle_display_name, vehicle_format, vehicle_resource_label, vehicle_text
 
     vehicle = active_vehicle(state)
     if vehicle is None:
@@ -1420,7 +1421,7 @@ def _draw_vehicle_interior(screen: curses.window, state: GameState, view: Overla
     if view.cursor is None:
         view.cursor = interior_entry(vehicle.id)
     spec = SPECS[vehicle.id]
-    title = spec["name"].upper()
+    title = vehicle_display_name(vehicle.id).upper()
     height, width = screen.getmaxyx()
     box_width, box_height = width - 4, height - 4
     top, left = (height - box_height) // 2, (width - box_width) // 2
@@ -1436,23 +1437,24 @@ def _draw_vehicle_interior(screen: curses.window, state: GameState, view: Overla
                     else "exit" if tile == "E" else "cargo" if tile == "C"
                     else "interactable" if tile in "HRF" else "terrain")
             _put(screen, map_top + y, map_left + x, shown, _COLOUR_ATTRIBUTES[role])
-    status = f"Reserve {vehicle.fuel}/{spec['capacity']} {spec['resource']}; frame {vehicle.condition}/{spec['condition']}"
-    location = f"Outside: {state.active_region_id if state.location == 'region' else 'open water'} at {vehicle.position.x},{vehicle.position.y}"
+    status = vehicle_format("vehicle.interior.draw.status", fuel=vehicle.fuel, capacity=spec["capacity"], resource=vehicle_resource_label(vehicle.id), condition=vehicle.condition, maximum=spec["condition"])
+    location = (vehicle_format("vehicle.interior.draw.location.region", region=state.active_region_id, x=vehicle.position.x, y=vehicle.position.y) if state.location == "region" else vehicle_format("vehicle.interior.draw.location.water", x=vehicle.position.x, y=vehicle.position.y))
     _put(screen, map_top + len(rows) + 1, left + 2, _clip(status, box_width - 4), _COLOUR_ATTRIBUTES["fact"])
     _put(screen, map_top + len(rows) + 2, left + 2, _clip(location, box_width - 4), _COLOUR_ATTRIBUTES["fact"])
     _put(screen, top + box_height - 2, left + 2,
-         _clip("Arrows/HJKL walk; E uses the fixture; Tab/Esc returns to steering.", box_width - 4),
+         _clip(vehicle_text("vehicle.interior.draw.controls"), box_width - 4),
          _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_BOLD)
     screen.refresh()
 
 
 def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
     if kind == "gangplank":
+        from .vehicle_presentation import vehicle_text
         node = state.route_nodes.get(state.route_current_node)
         can_land = bool(node and node.region_id == state.active_region_id and state.voyage_status != "active")
         return [
-            ChoiceOption("1", "Walk ashore into the current region", "ordinary", can_land, "charted regional mooring"),
-            ChoiceOption("2", "Board Jomon's steam tug and steer across open water", "ordinary", can_land, "charted regional mooring"),
+            ChoiceOption("1", vehicle_text("vehicle.gangplank.choice.ashore"), "ordinary", can_land, vehicle_text("vehicle.gangplank.requirement")),
+            ChoiceOption("2", vehicle_text("vehicle.gangplank.choice.tug"), "ordinary", can_land, vehicle_text("vehicle.gangplank.requirement")),
         ]
     if kind == "station:gathering":
         from .household_stories import station_choices
@@ -1762,9 +1764,11 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
             if fixture in {"R", "F"}:
                 service(state, repair=fixture == "F")
             elif fixture == "C":
-                state.add_message("The cargo rack is part of the cabin; carried lots remain in the courier's pack.")
+                from .vehicle_presentation import vehicle_text
+                state.add_message(vehicle_text("vehicle.interior.cargo"))
             else:
-                state.add_message("Walk to H, R, F, C or E before using a cabin fixture.")
+                from .vehicle_presentation import vehicle_text
+                state.add_message(vehicle_text("vehicle.interior.fixture"))
         return False, False
     options = dialogue_choices(state, view.kind)
     if options:
@@ -2530,10 +2534,11 @@ def _tavern_lines(state: GameState) -> list[str]:
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "gangplank":
-        return "JOMON GANGPLANK", [
-            f"1. Walk ashore into {state.region.name}.",
-            "2. Board the tug. J is Jomon's mooring; L is the regional shore.",
-            "The water crossing uses fuel, shoal wear, and one action per helm order.",
+        from .vehicle_presentation import vehicle_format, vehicle_text
+        return vehicle_text("vehicle.gangplank.title"), [
+            vehicle_format("vehicle.gangplank.line.ashore", region=state.region.name),
+            vehicle_text("vehicle.gangplank.line.tug"),
+            vehicle_text("vehicle.gangplank.line.crossing"),
         ]
     if kind == "vehicle-interior":
         from .vehicles import interior_lines
