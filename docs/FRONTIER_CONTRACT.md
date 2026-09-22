@@ -608,3 +608,6 @@ weapons, Guard designation, grievance, or raid scheduling on load.
 Security commands are site-bound and policy-revision checked. Weapons, vests,
 and ammunition retain one physical custody through local fetch/reload, death,
 and travel; an external raider only becomes player loot when that actor dies.
+Combat and public sabotage feed the existing bounded psychology memories; they
+do not create a separate unbounded security or combat journal. G06 validation
+also rejects repeated foreign-loot receipts and unknown insurgent-cell state.

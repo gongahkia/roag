@@ -97,13 +97,32 @@ function S.perceives(c,w,a,b,context)
  if d>20 or (d>10 and d>3) then return false end
  return V.fov(w,ax,ay,20)[W.index(w,x,y)]==true
 end
+local function combatMemory(c,w,actor,kind,data)
+ if actor and actor.personId and actor.alive and actor.security then
+  data=data or {};data.siteId=data.siteId or w.frontier.siteId
+  require('src.psychology').memory(c,actor,kind,data)
+ end
+end
+local function combatWitnesses(c,w,victim,context)
+ local victimId=actorId(victim)
+ for _,observer in ipairs(w.workers) do
+  if observer.alive and observer~=victim and observer.security and S.perceives(c,w,observer,victim,context) then
+   combatMemory(c,w,observer,'witnessed_combat_death',{source='combat-death:'..victimId..':'..w.tick..':'..observer.personId,participants=victim.personId and {victim.personId} or nil,stress=18,siteId=context and context.siteId})
+  end
+ end
+end
 function S.damage(c,w,target,amount,source,context)
  if vest(c,target) then amount=math.max(1,math.floor(amount*.75)) end;target.hp=target.hp-amount
  if target.personId and target.security then
+  combatMemory(c,w,target,'came_under_attack',{source='combat-threat:'..actorId(source)..':'..target.personId,stress=8,siteId=context and context.siteId})
   require('src.psychology').memory(c,target,'was_injured_in_combat',{source='combat-hit:'..actorId(source)..':'..w.tick,stress=10,siteId=w.frontier.siteId})
   if amount>=20 and target.task and target.task.kind=='work' then S.grieve(c,target,'ordinary_job_injury',8,'combat-hit:'..actorId(source)..':'..w.tick) end
  end
- if target.hp<=0 then target.hp=0;if target.personId then require('src.colonists').kill(w,target,'combat',context) else target.alive=false;target.dead=true end end;return amount
+ if source and source.personId and hostile(source,target) then
+  if source.security and source.security.guardEnabled and source.security.allegiance=='society' then combatMemory(c,w,source,'defended_settlement',{source='combat-defense:'..source.personId..':'..actorId(target),siteId=context and context.siteId}) end
+  if target.hp<=0 then combatMemory(c,w,source,'killed_hostile',{source='combat-kill:'..source.personId..':'..actorId(target),siteId=context and context.siteId}) end
+ end
+ if target.hp<=0 then target.hp=0;combatWitnesses(c,w,target,context);if target.personId then require('src.colonists').kill(w,target,'combat',context) else target.alive=false;target.dead=true end end;return amount
 end
 local function canAct(w,a,kind) local last=a.security and a.security.lastCombatActionTick or a.lastCombatActionTick or -999999;return w.tick-last>=S.cooldown(a,kind) end
 local function markAct(a,tick) if a.security then a.security.lastCombatActionTick=tick else a.lastCombatActionTick=tick end end
@@ -112,7 +131,7 @@ function S.attack(c,w,from,to,actors,context)
  local fx,fy=point(from);local tx,ty=point(to);local distance=math.abs(fx-tx)+math.abs(fy-ty)
  if kind=='frontier_carbine' then
   if distance>28 then return false,'Out of range' end;if (from.security and from.security.ammo or from.ammo or 0)<1 then return false,'No ammunition' end
-  local hit=S.ray(w,from,to,actors);if hit and hit.kind=='body' and hit.actor~=to and hit.actor.allegiance==from.allegiance then return false,'Friendly blocks line of fire' end
+  local hit=S.ray(w,from,to,actors);if hit and hit.kind=='body' and hit.actor~=to and not hostile(from,hit.actor) then return false,'Friendly blocks line of fire' end
   if from.security then from.security.ammo=from.security.ammo-1 else from.ammo=from.ammo-1 end;markAct(from,w.tick)
   if hit and hit.kind=='body' then
    S.damage(c,w,hit.actor,24,from,context)
@@ -207,7 +226,11 @@ targetFor=function(c,w,a)
    candidates[#candidates+1]={actor=b,priority=priority,distance=distance(a,b),id=actorId(b)}
   end
  end
- table.sort(candidates,function(x,y) return x.priority~=y.priority and x.priority<y.priority or x.distance~=y.distance and x.distance<y.distance or x.id<y.id end)
+ table.sort(candidates,function(x,y)
+  if x.priority~=y.priority then return x.priority<y.priority end
+  if x.distance~=y.distance then return x.distance<y.distance end
+  return x.id<y.id
+ end)
  return candidates[1] and candidates[1].actor
 end
 local function walkTask(w,a,f,closest,predicate,label,mode,extra)
@@ -325,10 +348,14 @@ end
 local function completeSabotage(c,w,cell,target)
  target.sabotagedUntil=c.tick+600;cell.state='hostile';cell.completedTick=c.tick
  for _,id in ipairs(cell.members) do for _,a in ipairs(w.workers) do if a.personId==id and a.alive then
+  if a.personId==cell.saboteurId then combatMemory(c,w,a,'sabotaged_colony',{source='cell-sabotage:'..cell.id,siteId=localSite(c,w).id}) end
   a.security.allegiance='insurgent';a.security.insurgentCellId=cell.id;a.directive=nil
   require('src.jobs').release(w,a,true)
   require('src.psychology').memory(c,a,'insurgency_began',{source='cell:'..cell.id,siteId=localSite(c,w).id})
  end end end
+ for _,observer in ipairs(w.workers) do if observer.alive and observer.security and observer.security.allegiance=='society' and S.perceives(c,w,observer,{x=target.gx*4-2,y=target.gy*4},{campaign=c,siteId=localSite(c,w).id}) then
+  combatMemory(c,w,observer,'witnessed_sabotage',{source='cell-sabotage:'..cell.id..':'..observer.personId,siteId=localSite(c,w).id})
+ end end
  events(w,'insurgent_sabotage','Internal sabotage disabled '..target.kind..'.',target.id)
 end
 function S.act(c,w,a,t,context)
@@ -414,14 +441,24 @@ local function pathMove(w,a,predicate,blockers)
  if N.edge(w,a.x,a.y,x,y) then a.x,a.y=x,y;return true end
  return false
 end
+local function reachesRaidTarget(w,raider,target)
+ if N.reachRect(w,raider.x,raider.y,target.gx,target.gy) then return true end
+ local flood=N.flood(w,raider.x,raider.y,true)
+ return select(1,N.closest(w,flood,function(x,y) return N.reachRect(w,x,y,target.gx,target.gy) end))~=nil
+end
 local function raidTarget(w,raider,c)
  local candidates={}
  for _,st in pairs(w.structures) do
-  if (st.kind=='signal_relay' or st.kind=='trade_depot' or st.kind=='fabricator' or st.kind=='mining_rig' or st.kind=='battery' or st.kind=='solar_array') and not st.sabotagedUntil and S.perceives(c,w,raider,{x=st.gx*4-3,y=st.gy*4}, {campaign=c,siteId=localSite(c,w).id}) then candidates[#candidates+1]=st end
+  local x,y=W.rect(st.gx,st.gy)
+  -- A solid structure's lower cells cannot be used as its own sight sample:
+  -- the structure correctly occludes those cells.  Raiders perceive its
+  -- exposed upper edge, then still path to and work its actual footprint.
+  if (st.kind=='signal_relay' or st.kind=='trade_depot' or st.kind=='fabricator' or st.kind=='mining_rig' or st.kind=='battery' or st.kind=='solar_array') and not st.sabotagedUntil and S.perceives(c,w,raider,{x=x,y=math.max(1,y-1)}, {campaign=c,siteId=localSite(c,w).id}) and reachesRaidTarget(w,raider,st) then candidates[#candidates+1]=st end
  end
  table.sort(candidates,function(a,b)
   local da=math.abs(a.gx*4-2-raider.x)+math.abs(a.gy*4-raider.y);local db=math.abs(b.gx*4-2-raider.x)+math.abs(b.gy*4-raider.y)
-  return da~=db and da<db or a.id<b.id
+  if da~=db then return da<db end
+  return a.id<b.id
  end)
  return candidates[1]
 end
@@ -447,6 +484,10 @@ local function raidStep(c,r)
  for _,a in ipairs(r.actors) do if a.alive then alive=alive+1 else dropRaidLoot(c,r,w,a) end end
  if alive==0 then resolveRaid(c,r,w,'losses');return end
  if r.status=='active' and alive<math.ceil(r.initialSize/2) then r.status='withdrawing';r.withdrawTick=c.tick end
+ if r.status=='active' and r.goal=='sabotage' then
+  local found=false;for _,a in ipairs(r.actors) do if a.alive and a.id==r.sabotageActorId then found=true end end
+  if not found then for _,a in ipairs(r.actors) do if a.alive then r.sabotageActorId=a.id;break end end end
+ end
  for _,raider in ipairs(r.actors) do if raider.alive then
   if r.status=='withdrawing' then pathMove(w,raider,function(x,y) return math.abs(x-r.ingress.x)+math.abs(y-r.ingress.y)<=2 end,actors)
   else
@@ -455,9 +496,9 @@ local function raidStep(c,r)
     r.lastContactTick=c.tick
     local kind=raider.weapon and raider.weapon.kind or 'unarmed';local reach=kind=='frontier_carbine' and 28 or 4
     if distance(raider,target)<=reach then S.attack(c,w,raider,target,actors,{campaign=c,siteId=s.id}) else pathMove(w,raider,function(x,y) return math.abs(x-target.x)+math.abs(y-target.y)<=reach end,actors) end
-   elseif r.goal=='sabotage' then
+   elseif r.goal=='sabotage' and r.sabotageActorId==raider.id then
     local target0=r.targetId and require('src.industry').find(w,r.targetId) or nil
-    if not target0 or target0.sabotagedUntil then target0=raidTarget(w,raider,c);r.targetId=target0 and target0.id or nil;r.sabotageProgress=target0 and 0 or r.sabotageProgress end
+    if not target0 or target0.sabotagedUntil or not reachesRaidTarget(w,raider,target0) then target0=raidTarget(w,raider,c);r.targetId=target0 and target0.id or nil;r.sabotageProgress=target0 and 0 or r.sabotageProgress end
     if target0 then
      if N.reachRect(w,raider.x,raider.y,target0.gx,target0.gy) then r.sabotageProgress=(r.sabotageProgress or 0)+1;if r.sabotageProgress>=120 then target0.sabotagedUntil=c.tick+600;r.status='withdrawing';r.withdrawTick=c.tick;events(w,'raid_sabotage','Hostile expedition disabled '..target0.kind..'.',target0.id) end
      else pathMove(w,raider,function(x,y) return N.reachRect(w,x,y,target0.gx,target0.gy) end,actors) end
@@ -490,7 +531,8 @@ local function chooseCellTarget(w,cell)
  table.sort(out,function(a,b)
   local score={signal_relay=8,trade_depot=7,fabricator=6,mining_rig=5,battery=4,solar_array=3,field_school=2,training_target=1}
   local aa,bb=score[a.kind] or 0,score[b.kind] or 0
-  return aa~=bb and aa>bb or a.id<b.id
+  if aa~=bb then return aa>bb end
+  return a.id<b.id
  end)
  return out[1]
 end
@@ -578,16 +620,21 @@ function S.validate(c)
  local root=c.security;assert(type(root)=='table' and root.version==S.version,'Invalid security campaign state');U.integer(root.nextRaidId,'Next raid ID',1,100000000);U.integer(root.nextActorId,'Next security actor ID',1,100000000);U.integer(root.nextCellId,'Next cell ID',1,100000000);assert(type(root.raids)=='table' and type(root.lootReceipts)=='table' and #root.raids<=S.maxRaids and #root.lootReceipts<=S.maxReceipts,'Security bounds exceeded')
  local raidIds,actorIds={},{}
  for _,r in ipairs(root.raids) do
-  for key in pairs(r) do assert(({id=true,factionId=true,siteId=true,size=true,initialSize=true,committedTick=true,arrivalTick=true,status=true,goal=true,actors=true,lastContactTick=true,withdrawTick=true,warned=true,ingress=true,targetId=true,sabotageProgress=true,resolvedTick=true,resolution=true})[key],'Unknown raid key '..tostring(key)) end
+  for key in pairs(r) do assert(({id=true,factionId=true,siteId=true,size=true,initialSize=true,committedTick=true,arrivalTick=true,status=true,goal=true,actors=true,lastContactTick=true,withdrawTick=true,warned=true,ingress=true,targetId=true,sabotageProgress=true,sabotageActorId=true,resolvedTick=true,resolution=true})[key],'Unknown raid key '..tostring(key)) end
   U.integer(r.id,'raid ID',1,root.nextRaidId-1);assert(not raidIds[r.id],'Duplicate raid ID');raidIds[r.id]=true;U.integer(r.factionId,'raid faction',2,5);assert(F.find(c,r.factionId));assert(site(c,r.siteId));U.integer(r.size,'raid size',1,4);U.integer(r.initialSize or r.size,'raid initial size',1,4);U.integer(r.committedTick,'raid committed tick',0,c.tick);U.integer(r.arrivalTick,'raid arrival tick',r.committedTick+800,10000000);assert(r.status=='approaching' or r.status=='holding' or r.status=='active' or r.status=='withdrawing' or r.status=='resolved');assert(r.goal=='assault' or r.goal=='sabotage');assert(type(r.actors)=='table' and #r.actors<=r.size)
+  local sabotageActor=false
   for _,a in ipairs(r.actors) do
    for key in pairs(a) do assert(({id=true,alive=true,allegiance=true,factionId=true,x=true,y=true,hp=true,combatXP=true,weapon=true,ammo=true,armor=true,dead=true,lootDropped=true,lastCombatActionTick=true})[key],'Unknown raid actor key') end
-   U.integer(a.id,'raid actor ID',1,root.nextActorId-1);assert(not actorIds[a.id],'Duplicate raid actor ID');actorIds[a.id]=true;assert(type(a.alive)=='boolean' and a.allegiance=='raider' and a.factionId==r.factionId);local w=site(c,r.siteId).world;U.integer(a.x,'raid actor x',1,w.width);U.integer(a.y,'raid actor y',1,w.height);assert(U.finite(a.hp) and a.hp>=0 and a.hp<=100);U.integer(a.combatXP,'raid combat expertise',80,240);assert(type(a.weapon)=='table' and (a.weapon.kind=='frontier_carbine' or a.weapon.kind=='shock_baton'));U.integer(a.ammo,'raid ammo',0,6);assert(a.armor==nil or (type(a.armor)=='table' and a.armor.kind=='protective_vest'))
-  end
+   U.integer(a.id,'raid actor ID',1,root.nextActorId-1);assert(not actorIds[a.id],'Duplicate raid actor ID');actorIds[a.id]=true;if a.id==r.sabotageActorId then sabotageActor=true end;assert(type(a.alive)=='boolean' and a.allegiance=='raider' and a.factionId==r.factionId);local w=site(c,r.siteId).world;U.integer(a.x,'raid actor x',1,w.width);U.integer(a.y,'raid actor y',1,w.height);assert(U.finite(a.hp) and a.hp>=0 and a.hp<=100);U.integer(a.combatXP,'raid combat expertise',80,240);assert(type(a.weapon)=='table' and (a.weapon.kind=='frontier_carbine' or a.weapon.kind=='shock_baton'));U.integer(a.ammo,'raid ammo',0,6);assert(a.armor==nil or (type(a.armor)=='table' and a.armor.kind=='protective_vest'))
+   end
+  if r.sabotageActorId then U.integer(r.sabotageActorId,'raid sabotage actor ID',1,root.nextActorId-1);assert(sabotageActor,'Raid sabotage actor is missing') end
  end
+ local receiptActors={}
  for _,receipt in ipairs(root.lootReceipts) do
   for key in pairs(receipt) do assert(({raidId=true,factionId=true,tick=true,actorId=true,itemIds=true,ammo=true})[key],'Unknown loot receipt key') end
-  U.integer(receipt.raidId,'loot raid ID',1,root.nextRaidId-1);U.integer(receipt.factionId,'loot faction ID',2,5);U.integer(receipt.tick,'loot tick',0,c.tick);U.integer(receipt.actorId,'loot actor ID',1,root.nextActorId-1);ids(receipt.itemIds,'loot item ID',2);U.integer(receipt.ammo,'loot ammo',0,6)
+  U.integer(receipt.raidId,'loot raid ID',1,root.nextRaidId-1);U.integer(receipt.factionId,'loot faction ID',2,5);U.integer(receipt.tick,'loot tick',0,c.tick);U.integer(receipt.actorId,'loot actor ID',1,root.nextActorId-1)
+  local receiptKey=receipt.raidId..':'..receipt.actorId;assert(not receiptActors[receiptKey],'Duplicate foreign-loot receipt');receiptActors[receiptKey]=true
+  local itemIds=ids(receipt.itemIds,'loot item ID',2);for itemId in pairs(itemIds) do assert(E.find(c,itemId),'Foreign-loot receipt item is missing') end;U.integer(receipt.ammo,'loot ammo',0,6)
  end
  local cellIds={}
  for _,s in ipairs(c.sites) do local w=s.world;assert(w.frontier.security==1 and type(w.security)=='table' and w.security.version==S.version,'Missing security state');local p=w.security
@@ -598,7 +645,14 @@ function S.validate(c)
   for _,event in ipairs(p.events) do U.integer(event.tick,'security event tick',0,c.tick);assert(type(event.kind)=='string' and type(event.text)=='string');assert(event.subject==nil or type(event.subject)=='number') end
   if p.protest then ids(p.protest.members,'protest member',4);U.integer(p.protest.untilTick,'protest end tick',0,10000000);assert(type(p.protest.cause)=='string') end
   if p.cell then
-   local q=p.cell;U.integer(q.id,'cell ID',1,root.nextCellId-1);assert(not cellIds[q.id],'Duplicate cell ID');cellIds[q.id]=true;ids(q.members,'cell member',4);assert(q.state=='organizing' or q.state=='sabotage' or q.state=='hostile' or q.state=='blocked' or q.state=='cancelled' or q.state=='resolved');assert(type(q.cause)=='string');if q.readyTick then U.integer(q.readyTick,'cell ready tick',0,10000000) end;if q.targetId then U.integer(q.targetId,'cell target',1,w.nextId-1) end;if q.saboteurId then U.integer(q.saboteurId,'cell saboteur',1,100000000) end;if q.progress then U.integer(q.progress,'cell sabotage progress',0,120) end
+   local q=p.cell
+   for key in pairs(q) do assert(({id=true,members=true,state=true,cause=true,readyTick=true,formedTick=true,detected=true,detectedTick=true,meeting=true,targetId=true,saboteurId=true,progress=true,completedTick=true,blockedTick=true,resolvedTick=true})[key],'Unknown insurgent-cell key '..tostring(key)) end
+   U.integer(q.id,'cell ID',1,root.nextCellId-1);assert(not cellIds[q.id],'Duplicate cell ID');cellIds[q.id]=true;ids(q.members,'cell member',4);assert(q.state=='organizing' or q.state=='sabotage' or q.state=='hostile' or q.state=='blocked' or q.state=='cancelled' or q.state=='resolved');assert(type(q.cause)=='string' and #q.cause<=48)
+   if q.readyTick then U.integer(q.readyTick,'cell ready tick',0,10000000) end;if q.formedTick then U.integer(q.formedTick,'cell formed tick',0,c.tick) end
+   if q.detected~=nil then assert(type(q.detected)=='boolean','Invalid cell detection state') end;if q.detectedTick then U.integer(q.detectedTick,'cell detection tick',0,c.tick);assert(q.detected==true,'Undetected cell has detection tick') end
+   if q.meeting then for _,key in ipairs({'x','y'}) do U.integer(q.meeting[key],'cell meeting '..key,1,key=='x' and w.width or w.height) end end
+   if q.targetId then U.integer(q.targetId,'cell target',1,w.nextId-1) end;if q.saboteurId then U.integer(q.saboteurId,'cell saboteur',1,100000000) end;if q.progress then U.integer(q.progress,'cell sabotage progress',0,120) end
+   for key,label in pairs({completedTick='cell completed tick',blockedTick='cell blocked tick',resolvedTick='cell resolved tick'}) do if q[key] then U.integer(q[key],label,0,c.tick) end end
   end
   for _,a in ipairs(w.workers) do S.validatePersonal(a.security,c.tick) end
  end
