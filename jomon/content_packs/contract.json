@@ -9850,5 +9850,675 @@
         "stock"
       ]
     }
+  ],
+  "magic": [
+    {
+      "id": "magic.spell.ember-spark.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.rain-bead.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.mender-thread.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.wind-nudge.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.smoke-call.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.salt-scour.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.ice-lace.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.ash-shot.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.stone-stitch.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.hearth-ward.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.clear-breath.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.lime-haze.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.echo-decoy.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.quiet-veil.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.river-pull.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.reed-snare.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.ember-sweep.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.storm-chord.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.deep-wash.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.iron-echo.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.fireball.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.frostbolt.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.lightning-bolt.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.magic-missile.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spell.ember-spark.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.rain-bead.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.mender-thread.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.wind-nudge.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.smoke-call.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.salt-scour.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.ice-lace.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.ash-shot.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.stone-stitch.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.hearth-ward.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.clear-breath.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.lime-haze.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.echo-decoy.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.quiet-veil.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.river-pull.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.reed-snare.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.ember-sweep.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.storm-chord.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.deep-wash.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.iron-echo.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.fireball.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.frostbolt.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.lightning-bolt.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.spell.magic-missile.description",
+      "placeholders": [
+        "effect",
+        "power",
+        "radius",
+        "cost",
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.effect.fire.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.water.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.heal.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.push.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.smoke.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.salt.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.ice.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.blunt.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.support.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.ward.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.cleanse.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.lime.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.decoy.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.quiet.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.pull.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.bind.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.thunder.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.effect.pierce.name",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.unlearned",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.tavern",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.mana",
+      "placeholders": [
+        "cost",
+        "mana"
+      ]
+    },
+    {
+      "id": "magic.status.self",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.range",
+      "placeholders": [
+        "reach"
+      ]
+    },
+    {
+      "id": "magic.status.enemy",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "magic.cast.invalid_ground",
+      "placeholders": []
+    },
+    {
+      "id": "magic.cast.material_budget",
+      "placeholders": []
+    },
+    {
+      "id": "magic.cast.detail.heal",
+      "placeholders": [
+        "before",
+        "after"
+      ]
+    },
+    {
+      "id": "magic.cast.detail.ward",
+      "placeholders": []
+    },
+    {
+      "id": "magic.cast.detail.cleanse",
+      "placeholders": [
+        "statuses"
+      ]
+    },
+    {
+      "id": "magic.cast.detail.no_exposure",
+      "placeholders": []
+    },
+    {
+      "id": "magic.cast.detail.quiet",
+      "placeholders": [
+        "duration"
+      ]
+    },
+    {
+      "id": "magic.cast.detail.enemy",
+      "placeholders": [
+        "target",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "magic.cast.detail.cell",
+      "placeholders": [
+        "count",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "magic.cast.result",
+      "placeholders": [
+        "courier",
+        "spell",
+        "cost",
+        "detail"
+      ]
+    },
+    {
+      "id": "magic.status.clear_breath.cause",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.clear_breath.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.quiet_veil.cause",
+      "placeholders": []
+    },
+    {
+      "id": "magic.status.quiet_veil.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "intent.magic.push",
+      "placeholders": []
+    },
+    {
+      "id": "intent.magic.pull",
+      "placeholders": []
+    },
+    {
+      "id": "intent.magic.bind",
+      "placeholders": []
+    },
+    {
+      "id": "intent.magic.defeated",
+      "placeholders": [
+        "spell",
+        "location"
+      ]
+    },
+    {
+      "id": "magic.rest.berth.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "magic.rest.full",
+      "placeholders": []
+    },
+    {
+      "id": "magic.rest.berth.result",
+      "placeholders": [
+        "courier",
+        "mana"
+      ]
+    },
+    {
+      "id": "magic.shrine.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "magic.shrine.entrance",
+      "placeholders": []
+    },
+    {
+      "id": "magic.shrine.threat",
+      "placeholders": []
+    },
+    {
+      "id": "magic.shrine.used",
+      "placeholders": []
+    },
+    {
+      "id": "magic.shrine.result",
+      "placeholders": [
+        "courier",
+        "before",
+        "restored"
+      ]
+    },
+    {
+      "id": "magic.target.detail",
+      "placeholders": [
+        "distance",
+        "reach",
+        "z",
+        "mana",
+        "max_mana",
+        "cost"
+      ]
+    },
+    {
+      "id": "magic.target.header",
+      "placeholders": [
+        "spell",
+        "description"
+      ]
+    },
+    {
+      "id": "magic.target.legality",
+      "placeholders": [
+        "status",
+        "reason"
+      ]
+    },
+    {
+      "id": "magic.target.ready",
+      "placeholders": []
+    },
+    {
+      "id": "magic.target.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "magic.target.observed",
+      "placeholders": [
+        "target",
+        "intent"
+      ]
+    },
+    {
+      "id": "magic.target.empty",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spellbook.title",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spellbook.summary",
+      "placeholders": [
+        "courier",
+        "mana",
+        "max_mana"
+      ]
+    },
+    {
+      "id": "magic.spellbook.tier",
+      "placeholders": [
+        "index",
+        "discipline",
+        "learned"
+      ]
+    },
+    {
+      "id": "magic.spellbook.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spellbook.row",
+      "placeholders": [
+        "index",
+        "spell",
+        "status",
+        "description"
+      ]
+    },
+    {
+      "id": "magic.spellbook.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spellbook.status.unlearned",
+      "placeholders": []
+    },
+    {
+      "id": "magic.spellbook.tier.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "magic.selection.unlearned",
+      "placeholders": []
+    }
   ]
 }

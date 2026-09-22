@@ -79,6 +79,7 @@ SHIP_CRISIS_PRESENTATION_FILE = "ship_crisis_text.json"
 VEHICLE_PRESENTATION_FILE = "vehicle_text.json"
 CHEMISTRY_PRESENTATION_FILE = "chemistry_text.json"
 PRODUCTION_PRESENTATION_FILE = "production_text.json"
+MAGIC_PRESENTATION_FILE = "magic_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -475,6 +476,43 @@ _PRODUCTION_TEMPLATE_CONTRACT = {
     "production.overlay.catalog.requirement_item": ("quantity", "item", "held"),
     "production.overlay.catalog.guidance": (),
     "production.overlay.catalog.gather": ("first", "second", "stock"),
+}
+
+
+# Spell IDs, effects, costs, ranges, targets, and durations are engine-owned.
+# These slots select only selected-pack rendering for magic results.
+_MAGIC_SPELL_IDS = ('ember-spark', 'rain-bead', 'mender-thread', 'wind-nudge', 'smoke-call', 'salt-scour', 'ice-lace', 'ash-shot', 'stone-stitch', 'hearth-ward', 'clear-breath', 'lime-haze', 'echo-decoy', 'quiet-veil', 'river-pull', 'reed-snare', 'ember-sweep', 'storm-chord', 'deep-wash', 'iron-echo', 'fireball', 'frostbolt', 'lightning-bolt', 'magic-missile')
+_MAGIC_EFFECT_IDS = ('fire', 'water', 'heal', 'push', 'smoke', 'salt', 'ice', 'blunt', 'support', 'ward', 'cleanse', 'lime', 'decoy', 'quiet', 'pull', 'bind', 'thunder', 'pierce')
+_MAGIC_TEMPLATE_CONTRACT = {
+    **{f"magic.spell.{spell_id}.name": () for spell_id in _MAGIC_SPELL_IDS},
+    **{f"magic.spell.{spell_id}.description": ("effect", "power", "radius", "cost", "reach") for spell_id in _MAGIC_SPELL_IDS},
+    **{f"magic.effect.{effect}.name": () for effect in _MAGIC_EFFECT_IDS},
+    "magic.status.unlearned": (), "magic.status.tavern": (),
+    "magic.status.mana": ("cost", "mana"), "magic.status.self": (),
+    "magic.status.range": ("reach",), "magic.status.enemy": (), "magic.status.ready": (),
+    "magic.cast.invalid_ground": (), "magic.cast.material_budget": (),
+    "magic.cast.detail.heal": ("before", "after"), "magic.cast.detail.ward": (),
+    "magic.cast.detail.cleanse": ("statuses",), "magic.cast.detail.no_exposure": (),
+    "magic.cast.detail.quiet": ("duration",), "magic.cast.detail.enemy": ("target", "x", "y"),
+    "magic.cast.detail.cell": ("count", "x", "y"),
+    "magic.cast.result": ("courier", "spell", "cost", "detail"),
+    "magic.status.clear_breath.cause": (), "magic.status.clear_breath.consequence": (),
+    "magic.status.quiet_veil.cause": (), "magic.status.quiet_veil.consequence": (),
+    "intent.magic.push": (), "intent.magic.pull": (), "intent.magic.bind": (),
+    "intent.magic.defeated": ("spell", "location"),
+    "magic.rest.berth.invalid": (), "magic.rest.full": (),
+    "magic.rest.berth.result": ("courier", "mana"),
+    "magic.shrine.invalid": (), "magic.shrine.entrance": (), "magic.shrine.threat": (),
+    "magic.shrine.used": (), "magic.shrine.result": ("courier", "before", "restored"),
+    "magic.target.detail": ("distance", "reach", "z", "mana", "max_mana", "cost"),
+    "magic.target.header": ("spell", "description"),
+    "magic.target.legality": ("status", "reason"), "magic.target.ready": (),
+    "magic.target.blocked": (), "magic.target.observed": ("target", "intent"), "magic.target.empty": (),
+    "magic.spellbook.title": (), "magic.spellbook.summary": ("courier", "mana", "max_mana"),
+    "magic.spellbook.tier": ("index", "discipline", "learned"), "magic.spellbook.guidance": (),
+    "magic.spellbook.row": ("index", "spell", "status", "description"),
+    "magic.spellbook.status.ready": (), "magic.spellbook.status.unlearned": (),
+    "magic.spellbook.tier.guidance": (), "magic.selection.unlearned": (),
 }
 
 
@@ -961,6 +999,12 @@ class ProductionPresentation:
 
 
 @dataclass(frozen=True)
+class MagicPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -992,6 +1036,7 @@ class ContentPack:
     vehicle_presentations: tuple[VehiclePresentation, ...]
     chemistry_presentations: tuple[ChemistryPresentation, ...]
     production_presentations: tuple[ProductionPresentation, ...]
+    magic_presentations: tuple[MagicPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1087,6 +1132,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown production presentation id: {semantic_id}")
 
+    def magic_presentation(self, semantic_id: str) -> MagicPresentation:
+        for presentation in self.magic_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown magic presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1170,8 +1221,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, and production")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, and magic")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1620,9 +1671,9 @@ def _ui_presentations(root: Path, pack_id: str) -> tuple[UiPresentation, ...]:
     return tuple(presentations)
 
 
-def _validate_quest_service_template(source: Path, pack_id: str, path: str, text: object, placeholders: tuple[str, ...], *, allow_empty: bool = False) -> str:
+def _validate_quest_service_template(source: Path, pack_id: str, path: str, text: object, placeholders: tuple[str, ...], *, allow_empty: bool = False, presentation_name: str = "quest") -> str:
     if not isinstance(text, str) or (not allow_empty and not text.strip()):
-        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} must be a non-empty string")
+        raise ContentPackError(f"invalid {presentation_name} presentation for content pack {pack_id!r} at {source}: {path} must be a non-empty string")
     formatter = string.Formatter()
     try:
         fields = []
@@ -1632,9 +1683,9 @@ def _validate_quest_service_template(source: Path, pack_id: str, path: str, text
                     raise ValueError("unsupported placeholder")
                 fields.append(field)
     except ValueError as exc:
-        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} has malformed template: {exc}") from exc
+        raise ContentPackError(f"invalid {presentation_name} presentation for content pack {pack_id!r} at {source}: {path} has malformed template: {exc}") from exc
     if set(fields) != set(placeholders) or len(fields) != len(placeholders):
-        raise ContentPackError(f"invalid quest presentation for content pack {pack_id!r} at {source}: {path} must contain exactly placeholders {', '.join(placeholders) or 'none'}")
+        raise ContentPackError(f"invalid {presentation_name} presentation for content pack {pack_id!r} at {source}: {path} must contain exactly placeholders {', '.join(placeholders) or 'none'}")
     return text
 
 
@@ -2058,6 +2109,26 @@ def _production_presentations(root: Path, pack_id: str) -> tuple[ProductionPrese
     return tuple(ProductionPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _PRODUCTION_TEMPLATE_CONTRACT.items())
 
 
+def _magic_presentations(root: Path, pack_id: str) -> tuple[MagicPresentation, ...]:
+    source = root / MAGIC_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid magic presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _MAGIC_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("magic") != expected_contract:
+        raise RuntimeError(f"invalid engine magic content contract at {contract_source}: magic does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid magic presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_MAGIC_TEMPLATE_CONTRACT):
+        missing, unknown = set(_MAGIC_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_MAGIC_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required magic keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown magic keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid magic presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(MagicPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="magic")) for key, placeholders in _MAGIC_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2229,10 +2300,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     vehicle = _vehicle_presentations(root, pack_id)
     chemistry = _chemistry_presentations(root, pack_id)
     production = _production_presentations(root, pack_id)
+    magic = _magic_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, household_template,
     )
 
 

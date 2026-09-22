@@ -1092,9 +1092,11 @@ def _ammunition_status(state: GameState, ammunition: str | None = None) -> tuple
 def targeting_detail(state: GameState, view: TargetView) -> str:
     if view.spell_id:
         from .magic import SPELLS
+        from .magic_presentation import magic_format
 
         spell = SPELLS[view.spell_id]
-        return f"R{distance(state.position, view.cursor)}/{spell.reach} z{view.cursor.z:+d} Mana:{state.courier.mana}/{state.courier.max_mana} Cost:{spell.cost}"
+        return magic_format("magic.target.detail", distance=distance(state.position, view.cursor), reach=spell.reach,
+                            z=f"{view.cursor.z:+d}", mana=state.courier.mana, max_mana=state.courier.max_mana, cost=spell.cost)
     available, ammo_label = _ammunition_status(state, view.ammunition)
     detail = (
         f"R{distance(state.position, view.cursor)}/{effective_weapon_range(state)} "
@@ -1114,14 +1116,15 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
     selected = _target_at_cursor(state, view)
     if view.spell_id:
         from .magic import SPELLS, spell_status
+        from .magic_presentation import magic_format, magic_text, spell_description, spell_display_name
 
         spell = SPELLS[view.spell_id]
         legal, reason = spell_status(state, view.spell_id, view.cursor)
         return information_lines([
-            f"{spell.name.upper()} — {spell.description}",
+            magic_format("magic.target.header", spell=spell_display_name(spell.id).upper(), description=spell_description(spell)),
             targeting_detail(state, view),
-            ("READY" if legal else "BLOCKED") + f" — {reason}; Enter casts at cursor; Escape cancels without time.",
-            f"Observed target: {selected.name}; {selected.intent}" if selected else "The cursor marks a place in sight.",
+            magic_format("magic.target.legality", status=magic_text("magic.target.ready" if legal else "magic.target.blocked"), reason=reason),
+            magic_format("magic.target.observed", target=selected.name, intent=selected.intent) if selected else magic_text("magic.target.empty"),
         ], width)
     ready = "Enter commits one cast; Escape costs no time."
     if state.weapon == "pot sling":
@@ -1778,7 +1781,8 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
         if spell_id in state.courier.known_spells:
             view.result = "spell:" + spell_id
             return True, False
-        state.add_message("That spell is not yet learned.", priority=2)
+        from .magic_presentation import magic_text
+        state.add_message(magic_text("magic.selection.unlearned"), priority=2)
         return False, False
     if not options:
         scrolling = {
@@ -2657,23 +2661,28 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "spellbook":
         from .magic import SPELL_TIERS
+        from .magic_presentation import magic_format, magic_text
         from .skill_tree import NODES
 
-        return "PERSONAL SPELLBOOK", [
-            f"{state.courier.name}: mana {state.courier.mana}/{state.courier.max_mana}. Rest at moored berths, brew, or visit a cave-mouth shrine; no passive combat recovery.",
-            *[f"{index + 1}. {NODES[node].name}: {sum(spell in state.courier.known_spells for spell in spells)}/4 learned"
+        return magic_text("magic.spellbook.title"), [
+            magic_format("magic.spellbook.summary", courier=state.courier.name, mana=state.courier.mana, max_mana=state.courier.max_mana),
+            *[magic_format("magic.spellbook.tier", index=index + 1, discipline=NODES[node].name,
+                           learned=sum(spell in state.courier.known_spells for spell in spells))
               for index, (node, spells) in enumerate(SPELL_TIERS.items())],
-            "Choose a discipline to place a spell cursor. R keeps a three-action vigil at a nearby cave-mouth shrine, once each day.",
+            magic_text("magic.spellbook.guidance"),
         ]
     if kind.startswith("spell-tier:"):
         from .magic import SPELLS, SPELL_TIERS
+        from .magic_presentation import magic_format, magic_text, spell_description, spell_display_name
         from .skill_tree import NODES
 
         node = kind.split(":", 1)[1]
         return NODES[node].name.upper(), [
-            *[f"{index + 1}. {SPELLS[spell_id].name} [{'READY' if spell_id in state.courier.known_spells else 'UNLEARNED'}] — {SPELLS[spell_id].description}"
+            *[magic_format("magic.spellbook.row", index=index + 1, spell=spell_display_name(spell_id),
+                           status=magic_text("magic.spellbook.status.ready" if spell_id in state.courier.known_spells else "magic.spellbook.status.unlearned"),
+                           description=spell_description(SPELLS[spell_id]))
               for index, spell_id in enumerate(SPELL_TIERS[node])],
-            "B. Return to disciplines. Selection opens spatial targeting; it does not cast.",
+            magic_text("magic.spellbook.tier.guidance"),
         ]
     if kind == "skill-tree":
         from .skill_tree import BRANCHES, NODES

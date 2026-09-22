@@ -54,6 +54,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "vehicle_text.json", root / "vehicle_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "chemistry_text.json", root / "chemistry_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "production_text.json", root / "production_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "magic_text.json", root / "magic_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -276,6 +277,18 @@ def alternate_pack(root: Path) -> Path:
         "production.overlay.catalog.title": "FIXTURE WORKING PLANS",
     })
     source.write_text(json.dumps(production_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "magic_text.json"
+    magic_text = json.loads(source.read_text(encoding="utf-8"))
+    magic_text["text"].update({
+        "magic.spell.ember-spark.name": "Fixture coal spark",
+        "magic.spell.ash-shot.name": "Fixture ash shot",
+        "magic.spell.ember-spark.description": "fixture {effect} {power}; radius {radius}; {cost} mana, reach {reach}",
+        "magic.cast.result": "FIXTURE {courier} works {spell} ({cost} mana): {detail}.",
+        "magic.status.mana": "FIXTURE needs {cost} mana; {mana} remains",
+        "magic.rest.berth.result": "FIXTURE {courier} restores mana to {mana}.",
+        "intent.magic.push": "fixture wind displacement",
+    })
+    source.write_text(json.dumps(magic_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

@@ -5,13 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import CatalogError, load_catalog
+from .magic_presentation import magic_format, magic_text, spell_display_name
 from .state import GameState, Position
 
 
 @dataclass(frozen=True)
 class Spell:
     id: str
-    name: str
     cost: int
     reach: int
     effect: str
@@ -19,19 +19,15 @@ class Spell:
     radius: int = 0
     target: str = "cell"
 
-    @property
-    def description(self) -> str:
-        return f"{self.effect.replace('-', ' ')} {self.power}; radius {self.radius}; {self.cost} mana, reach {self.reach}"
-
 
 _rows = load_catalog("spells.json", ("spells",))["spells"]
 if not isinstance(_rows, list):
     raise CatalogError("spells.json must provide spell rows")
-SPELL_ROWS = tuple(tuple(row) for row in _rows if isinstance(row, list) and len(row) == 8)
+SPELL_ROWS = tuple(tuple(row) for row in _rows if isinstance(row, list) and len(row) == 7)
 if len(SPELL_ROWS) != len(_rows):
     raise CatalogError("spells.json has invalid spell rows")
-for spell_id, name, cost, reach, effect, power, radius, target in SPELL_ROWS:
-    if (any(not isinstance(part, str) or not part for part in (spell_id, name, effect, target))
+for spell_id, cost, reach, effect, power, radius, target in SPELL_ROWS:
+    if (any(not isinstance(part, str) or not part for part in (spell_id, effect, target))
             or any(type(part) is not int or part < 0 for part in (cost, reach, power, radius))
             or target not in {"cell", "enemy", "self"}):
         raise CatalogError("spells.json has invalid spell fields")
@@ -40,6 +36,24 @@ if len({row[0] for row in SPELL_ROWS}) != len(SPELL_ROWS):
 
 
 SPELLS = {row[0]: Spell(*row) for row in SPELL_ROWS}
+
+# These historical display values remain engine-only inputs to the pre-existing
+# deterministic enemy-hit seed. Selected-pack display names never enter combat RNG.
+_LEGACY_DAMAGE_SOURCES = {
+    "ash-shot": "Ash shot", "storm-chord": "Storm chord", "iron-echo": "Iron echo",
+    "frostbolt": "Frostbolt", "lightning-bolt": "Lightning bolt", "magic-missile": "Magic missile",
+}
+
+
+def _damage_source(spell_id: str) -> str:
+    return _LEGACY_DAMAGE_SOURCES[spell_id]
+
+
+def _set_intent(threat, intent_id: str, **values: object) -> None:
+    threat.intent_id = intent_id
+    threat.intent = magic_format(intent_id, **values)
+
+
 SPELL_TIERS = {
     node: tuple(row[0] for row in SPELL_ROWS[index * 4:(index + 1) * 4])
     for index, node in enumerate(("attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"))
@@ -61,21 +75,21 @@ def spell_status(state: GameState, spell_id: str, point: Position) -> tuple[bool
     person = state.courier
     spell = SPELLS.get(spell_id)
     if person is None or spell is None or spell_id not in person.known_spells:
-        return False, "the courier has not learned this spell"
+        return False, magic_text("magic.status.unlearned")
     if state.location == "jomon" and state.jomon_space == "tavern":
-        return False, "spellwork belongs outside the crowded common room"
+        return False, magic_text("magic.status.tavern")
     if person.mana < spell.cost:
-        return False, f"needs {spell.cost} mana; {person.mana} remains"
+        return False, magic_format("magic.status.mana", cost=spell.cost, mana=person.mana)
     if spell.target == "self":
-        return (point == state.position, "self-cast must be placed on the courier")
+        return (point == state.position, magic_text("magic.status.self"))
     if distance(state.position, point) > spell.reach or not courier_sees(state, point):
-        return False, f"needs a place in sight within {spell.reach} paces"
+        return False, magic_format("magic.status.range", reach=spell.reach)
     if spell.target == "enemy" and not any(
         actor.position == point and actor.status in {"watching", "engaged"}
         for actor in state.combatants
     ):
-        return False, "needs an active opponent at the marked place"
-    return True, "ready"
+        return False, magic_text("magic.status.enemy")
+    return True, magic_text("magic.status.ready")
 
 
 def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
@@ -95,47 +109,48 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
                  for dx in range(-spell.radius, spell.radius + 1)
                  if max(abs(dx), abs(dy)) <= spell.radius]
     if spell.target == "cell" and any(base_tile(state, place) == " " for place in positions):
-        return False, "one affected place lies beyond reach of the working ground"
+        return False, magic_text("magic.cast.invalid_ground")
     if spell.target == "cell" and len(fields(state)) + sum(key(place) not in fields(state) for place in positions) > MAX_CELLS:
-        return False, "the sparse material budget is full"
+        return False, magic_text("magic.cast.material_budget")
     state.courier.mana -= spell.cost
     detail = []
     if spell.target == "self":
         if spell.effect == "heal":
             before = state.courier.health
             state.courier.health = min(state.courier.max_health, before + spell.power)
-            detail.append(f"health {before}→{state.courier.health}")
+            detail.append(magic_format("magic.cast.detail.heal", before=before, after=state.courier.health))
         elif spell.effect == "ward":
             state.guarded_step = True
-            detail.append("guard readied")
+            detail.append(magic_text("magic.cast.detail.ward"))
         elif spell.effect == "cleanse":
             removed = [name for name in ("smoke-inhalation", "salt-grit", "lime-grit", "wet") if state.terrain_statuses.pop(name, None)]
-            add_status(state, "clear-breath", "a cleansing spell", spell.power + 1, "fresh smoke cannot be inhaled while the ward lasts")
-            detail.append("cleared " + (", ".join(removed) or "no current exposure"))
+            add_status(state, "clear-breath", magic_text("magic.status.clear_breath.cause"), spell.power + 1, magic_text("magic.status.clear_breath.consequence"))
+            detail.append(magic_format("magic.cast.detail.cleanse", statuses=", ".join(removed) or magic_text("magic.cast.detail.no_exposure")))
         elif spell.effect == "quiet":
-            add_status(state, "quiet-veil", "a veiling spell", spell.power + 1, "movement sheds one less sound")
-            detail.append(f"quiet for {spell.power} actions")
+            add_status(state, "quiet-veil", magic_text("magic.status.quiet_veil.cause"), spell.power + 1, magic_text("magic.status.quiet_veil.consequence"))
+            detail.append(magic_format("magic.cast.detail.quiet", duration=spell.power))
     elif spell.target == "enemy":
         target = next(actor for actor in state.combatants if actor.position == point and actor.status in {"watching", "engaged"})
         target.status = "engaged"
         if spell.effect == "push":
             target.position = _step_away(state, target)
-            target.intent = "displaced by wind magic"
+            _set_intent(target, "intent.magic.push")
         elif spell.effect == "pull":
             target.position = _step_toward(state, target, state.position)
-            target.intent = "hauled by river magic"
+            _set_intent(target, "intent.magic.pull")
         elif spell.effect == "bind":
-            target.intent = "bound in enchanted reeds; loses a turn breaking free"
+            _set_intent(target, "intent.magic.bind")
         else:
             kind = "pierce" if spell.effect == "pierce" else "blunt"
-            harm = harm_enemy(state, target, spell.power, spell.name, damage_kind=kind)
+            harm = harm_enemy(state, target, spell.power, _damage_source(spell.id), damage_kind=kind)
             if spell.effect == "ice":
                 target.conditions["chilled"] = max(3, target.conditions.get("chilled", 0))
             if spell.effect == "thunder":
                 target.morale -= 1
             if harm.defeated:
                 target.status = "defeated"
-        detail.append(f"{target.name} at {point.x},{point.y}")
+                _set_intent(target, "intent.magic.defeated", spell=spell_display_name(spell.id), location=harm.location)
+        detail.append(magic_format("magic.cast.detail.enemy", target=target.name, x=point.x, y=point.y))
     else:
         for place in positions:
             cell = ensure_cell(state, place)
@@ -155,11 +170,11 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
                 cell.coating, cell.smoke = "lime", max(2, cell.smoke)
             elif spell.effect == "decoy":
                 emit_sound(state, spell.power, place)
-        detail.append(f"{len(positions)} patches altered at {point.x},{point.y}")
+        detail.append(magic_format("magic.cast.detail.cell", count=len(positions), x=point.x, y=point.y))
     if spell.effect not in {"quiet", "decoy"}:
         emit_sound(state, 1 if spell.cost < 3 else 3, point)
     record_milestone(state, "combat:spellcraft")
-    message = f"{state.courier.name} casts {spell.name} ({spell.cost} mana): {'; '.join(detail)}."
+    message = magic_format("magic.cast.result", courier=state.courier.name, spell=spell_display_name(spell.id), cost=spell.cost, detail="; ".join(detail))
     _advance_world(state)
     state.add_message(message, priority=3)
     return True, message
@@ -170,12 +185,12 @@ def rest_at_berths(state: GameState) -> tuple[bool, str]:
     from .world import base_tile
 
     if state.location != "jomon" or state.jomon_space != "vessel" or base_tile(state, state.position) != "b" or state.voyage_status == "active":
-        return False, "rest for mana at Jomon's berth while moored"
+        return False, magic_text("magic.rest.berth.invalid")
     if state.courier.mana >= state.courier.max_mana:
-        return False, "mana is already full"
+        return False, magic_text("magic.rest.full")
     _advance_world(state, steps=6)
     state.courier.mana = state.courier.max_mana
-    message = f"{state.courier.name} rests six actions at a berth; mana returns to {state.courier.mana}."
+    message = magic_format("magic.rest.berth.result", courier=state.courier.name, mana=state.courier.mana)
     state.add_message(message, priority=3)
     return True, message
 
@@ -185,26 +200,26 @@ def restore_at_shrine(state: GameState) -> tuple[bool, str]:
     from .world import distance
 
     if state.location != "region" or state.courier is None or not state.courier.known_spells:
-        return False, "shrine restoration needs an attuned courier out of combat"
+        return False, magic_text("magic.shrine.invalid")
     entrance = state.region.landmarks.get("cave_entrance")
     if entrance is None or distance(state.position, entrance) > 1:
-        return False, "stand beside the marked cave-mouth shrine"
+        return False, magic_text("magic.shrine.entrance")
     if any(threat.status in {"watching", "engaged"} and distance(state.position, threat.position) <= 5
            for threat in state.combatants):
-        return False, "nearby opponents interrupt the cave-mouth vigil"
+        return False, magic_text("magic.shrine.threat")
     if state.courier.mana >= state.courier.max_mana:
-        return False, "mana is already full"
+        return False, magic_text("magic.rest.full")
     key = f"shrine:{state.courier.id}"
     today = state.world_time // 36
     if state.region.changes.get(key) == today:
-        return False, "this courier has already used the shrine today"
+        return False, magic_text("magic.shrine.used")
     courier = state.courier
     state.region.changes[key] = today
     before = courier.mana
     courier.mana = min(courier.max_mana, before + 3)
     restored = courier.mana
     _advance_world(state, steps=3)
-    message = f"{courier.name} keeps a three-action vigil at the cave-mouth shrine; mana {before}→{restored}."
+    message = magic_format("magic.shrine.result", courier=courier.name, before=before, restored=restored)
     state.add_message(message, priority=3)
     return True, message
 

@@ -2,7 +2,6 @@
   "spells": [
     [
       "ember-spark",
-      "Ember spark",
       1,
       5,
       "fire",
@@ -12,7 +11,6 @@
     ],
     [
       "rain-bead",
-      "Rain bead",
       1,
       5,
       "water",
@@ -22,7 +20,6 @@
     ],
     [
       "mender-thread",
-      "Mender's thread",
       2,
       0,
       "heal",
@@ -32,7 +29,6 @@
     ],
     [
       "wind-nudge",
-      "Wind nudge",
       1,
       5,
       "push",
@@ -42,7 +38,6 @@
     ],
     [
       "smoke-call",
-      "Smoke call",
       2,
       6,
       "smoke",
@@ -52,7 +47,6 @@
     ],
     [
       "salt-scour",
-      "Salt scour",
       2,
       5,
       "salt",
@@ -62,7 +56,6 @@
     ],
     [
       "ice-lace",
-      "Ice lace",
       2,
       5,
       "ice",
@@ -72,7 +65,6 @@
     ],
     [
       "ash-shot",
-      "Ash shot",
       2,
       6,
       "blunt",
@@ -82,7 +74,6 @@
     ],
     [
       "stone-stitch",
-      "Stone stitch",
       2,
       4,
       "support",
@@ -92,7 +83,6 @@
     ],
     [
       "hearth-ward",
-      "Hearth ward",
       2,
       0,
       "ward",
@@ -102,7 +92,6 @@
     ],
     [
       "clear-breath",
-      "Clear breath",
       2,
       0,
       "cleanse",
@@ -112,7 +101,6 @@
     ],
     [
       "lime-haze",
-      "Lime haze",
       2,
       5,
       "lime",
@@ -122,7 +110,6 @@
     ],
     [
       "echo-decoy",
-      "Echo decoy",
       2,
       7,
       "decoy",
@@ -132,7 +119,6 @@
     ],
     [
       "quiet-veil",
-      "Quiet veil",
       2,
       0,
       "quiet",
@@ -142,7 +128,6 @@
     ],
     [
       "river-pull",
-      "River pull",
       2,
       5,
       "pull",
@@ -152,7 +137,6 @@
     ],
     [
       "reed-snare",
-      "Reed snare",
       2,
       5,
       "bind",
@@ -162,7 +146,6 @@
     ],
     [
       "ember-sweep",
-      "Ember sweep",
       3,
       5,
       "fire",
@@ -172,7 +155,6 @@
     ],
     [
       "storm-chord",
-      "Storm chord",
       3,
       6,
       "thunder",
@@ -182,7 +164,6 @@
     ],
     [
       "deep-wash",
-      "Deep wash",
       3,
       5,
       "water",
@@ -192,7 +173,6 @@
     ],
     [
       "iron-echo",
-      "Iron echo",
       3,
       6,
       "pierce",
@@ -202,7 +182,6 @@
     ],
     [
       "fireball",
-      "Fireball",
       5,
       7,
       "fire",
@@ -212,7 +191,6 @@
     ],
     [
       "frostbolt",
-      "Frostbolt",
       3,
       7,
       "ice",
@@ -222,7 +200,6 @@
     ],
     [
       "lightning-bolt",
-      "Lightning bolt",
       4,
       7,
       "thunder",
@@ -232,7 +209,6 @@
     ],
     [
       "magic-missile",
-      "Magic missile",
       2,
       7,
       "pierce",
