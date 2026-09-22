@@ -237,6 +237,7 @@ def threat_from_archetype(
     return Threat(
         id=f"{encounter_id}:{archetype}", name=str(data["name"]), profile=str(data["profile"]),
         position=position, health=maximum, max_health=maximum, morale=int(data["morale"]),
+        archetype_id=archetype,
         elite=bool(data.get("elite")), role=str(data["role"]), goal=str(data["goal"]),
         goal_reason=f"regional duty: {data['goal']}", vision=int(data["vision"]),
         hearing=int(data["hearing"]), home_position=position, group=group,
@@ -247,6 +248,13 @@ def threat_from_archetype(
         ecology=str(data.get("ecology", "")), duty=str(data.get("duty", "")),
         supplies=int(data.get("supplies", 0)), glyph=str(data.get("glyph", "")),
     )
+
+
+def threat_definition(actor: Threat) -> dict | None:
+    """Look up mechanics by stable actor identity, never rendered text."""
+    from .frontier_elites import definition
+
+    return definition(actor) or ENEMY_ARCHETYPES.get(actor.archetype_id or "")
 
 
 def frontier_population(seed: str, region) -> list[Threat]:

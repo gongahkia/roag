@@ -680,7 +680,7 @@ def _threat_glyph(threat: Threat) -> str:
 
 
 def observed_life_lines(state: GameState) -> list[str]:
-    from .content import ENEMY_ARCHETYPES
+    from .encounters import threat_definition
     from .enemy_equipment import actor_items, readied_weapon
     from .inventory import item_spec
     from .ship_crisis_presentation import crisis_goal_display
@@ -693,7 +693,7 @@ def observed_life_lines(state: GameState) -> list[str]:
     for actor in sorted(state.combatants, key=lambda a: (distance(a.position, state.position), a.id)):
         if not courier_sees(state, actor.position) or actor.status not in {"watching", "engaged"}:
             continue
-        data = next((data for data in ENEMY_ARCHETYPES.values() if data["name"] == actor.name), None)
+        data = threat_definition(actor)
         lines.extend((
             "", f"{_threat_glyph(actor)} {actor.name}; {actor.position.x},{actor.position.y} z{actor.position.z:+d}; {actor.health}/{actor.max_health} health.",
             f"OBSERVED INTENT: {actor.intent}.",
@@ -1107,7 +1107,7 @@ def targeting_detail(state: GameState, view: TargetView) -> str:
 
 
 def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]:
-    from .content import ENEMY_ARCHETYPES
+    from .encounters import threat_definition
     from .enemy_equipment import actor_items
     from .work_weapons import WORK_WEAPONS
 
@@ -1171,10 +1171,7 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
             + ("protection " + ", ".join(armour) if armour else "no worn protection")
             + "."
         )
-        data = next(
-            (row for row in ENEMY_ARCHETYPES.values() if row["name"] == selected.name),
-            None,
-        )
+        data = threat_definition(selected)
         if data:
             lines.append(f"COUNTERS — {data['counterplay']}.")
         from .combat_forecast import forecast_lines, observed_forecasts

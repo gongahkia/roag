@@ -677,7 +677,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     special = elite_action(state, threat, guarded)
     if special is not None:
         return special
-    if threat.elite and threat.id == "floodgate-claimant":
+    if threat.elite and threat.archetype_id == "hearth-elite-claimant":
         if (
             state.region.changes.get("mill_public_compact")
             or state.region.changes.get("flood_control_used")
@@ -708,7 +708,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             )
         return action_format("combat.elite.floodgate.safe")
     if threat.elite and state.active_region_id == "greywash":
-        if threat.name == "wreck-chain reeve":
+        if threat.archetype_id == "coast-elite-wreck":
             if (
                 state.region.changes.get("tide_held")
                 or state.questlines["greywash"].optional_done
@@ -757,7 +757,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             )
         return action_format("combat.elite.tide_chain.safe")
     if threat.elite and state.active_region_id == "greenwold":
-        if threat.name == "resin-fire tracker":
+        if threat.archetype_id == "forest-elite-resin":
             if state.region.changes.get("medicine_coppice_saved"):
                 threat.morale -= 2
                 _set_combat_intent(threat, "combat.intent.will_not_burn_the_witnessed_medicine_stand")
@@ -795,7 +795,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
         _set_combat_intent(threat, "combat.intent.drives_smoke_across_three_paces_of_your_current_route")
         return action_format("combat.elite.ash_cloak.smoke", threat=threat.name, intent=threat.intent)
     if threat.elite and state.active_region_id == "whitecairn":
-        if threat.name == "bridge-breaker bellward":
+        if threat.archetype_id == "upland-elite-bridge":
             if state.region.changes.get("honest_bell"):
                 threat.morale -= 2
                 _set_combat_intent(threat, "combat.intent.cannot_break_a_crossing_under_the_honest_warning")

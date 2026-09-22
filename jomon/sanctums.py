@@ -375,6 +375,7 @@ def enter_tier(state: GameState, destination: Position) -> str:
                 id=f"sanctum:{state.active_region_id}:boss", name=boss_row["name"],
                 profile=boss_row["profile"], position=point,
                 health=boss_row["health"], max_health=boss_row["health"],
+                archetype_id="",
                 morale=5, elite=True, role=boss_row["role"], goal=boss_row["goal"],
                 goal_reason=boss_row["capability"], region_id=state.active_region_id,
                 home_position=point, group=f"sanctum:{state.active_region_id}",

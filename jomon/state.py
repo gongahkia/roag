@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import copy
 import hashlib
+from functools import lru_cache
+from importlib.resources import files
+import json
 import random
 import re
 from typing import Any
@@ -233,6 +236,7 @@ class Threat:
     status: str = "watching"
     intent: str = "has not noticed you"
     intent_id: str = ""
+    archetype_id: str | None = None
     turn: int = 0
     morale: int = 2
     elite: bool = False
@@ -267,6 +271,10 @@ class Threat:
     injuries: dict[str, str] = field(default_factory=dict)
     conditions: dict[str, int] = field(default_factory=dict)
     uses_physical_equipment: bool = False
+
+    def __post_init__(self) -> None:
+        if self.archetype_id is None:
+            self.archetype_id = legacy_threat_archetype_id(self.id, self.name)
 
 
 # Legacy saves persisted rendered intent only. These mappings are intentionally
@@ -304,6 +312,31 @@ LEGACY_THREAT_INTENT_IDS = {
 def legacy_threat_intent_id(intent: str) -> str:
     """Return a stable compatibility identity without interpreting new prose."""
     return LEGACY_THREAT_INTENT_IDS.get(intent, "intent.legacy.unknown")
+
+
+@lru_cache(maxsize=1)
+def _legacy_threat_archetype_maps() -> tuple[dict[str, str], frozenset[str]]:
+    """Load only bundled-default actor names for old-save compatibility."""
+    source = files("jomon").joinpath("data", "actors.json")
+    raw = json.loads(source.read_text(encoding="utf-8"))
+    names: dict[str, str] = {}
+    for identity, row in raw["ENEMY_ARCHETYPES"].items():
+        names[str(row["name"])] = str(identity)
+    for section in ("FRONTIER_ACTORS", "EXPANDED_STANDARD_ACTORS"):
+        for row in raw[section]:
+            names[str(row[2])] = str(row[0])
+    for row in raw["FRONTIER_ELITES"]["rows"]:
+        names[str(row[2])] = str(row[0])
+    return names, frozenset(names.values())
+
+
+def legacy_threat_archetype_id(threat_id: str, name: str) -> str:
+    """Recover only known bundled-default actor IDs, never selected-pack prose."""
+    names, identities = _legacy_threat_archetype_maps()
+    candidate = threat_id.rsplit(":", 1)[-1]
+    if candidate in identities:
+        return candidate
+    return names.get(name, "")
 
 
 # These are historical deterministic hit-location seeds.  They deliberately
@@ -748,6 +781,7 @@ def _threats(seed: str, region: Region) -> list[Threat]:
             "floodgate-claimant" if alternate_elite else "wheel-train",
             "floodgate claimant" if alternate_elite else "runaway crown wheel",
             "reach" if alternate_elite else "machinery", layout_point(region, Position(82, 27)), 7, 7,
+            archetype_id="hearth-elite-claimant" if alternate_elite else "",
             status="dormant", morale=4 if alternate_elite else 99, elite=True,
             role="elite" if alternate_elite else "hazard",
             goal="open disputed sluice" if alternate_elite else "deny lane",
@@ -1228,6 +1262,10 @@ def game_state_from_dict(data: Any) -> GameState:
             values = dict(raw)
             values["position"] = _position(values["position"], "threat position")
             values.setdefault("intent_id", legacy_threat_intent_id(str(values.get("intent", ""))))
+            values.setdefault(
+                "archetype_id",
+                legacy_threat_archetype_id(str(values.get("id", "")), str(values.get("name", ""))),
+            )
             values["patrol"] = [_position(value, "patrol position") for value in values.get("patrol", [])]
             for key in ("last_known_position", "home_position", "objective_position", "aimed_at", "marked_position"):
                 if values.get(key) is not None:

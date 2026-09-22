@@ -5,10 +5,11 @@ import curses
 import unittest
 from unittest.mock import patch
 
-from jomon.combat_forecast import danger_cells, forecast_lines, observed_forecasts
+from jomon.combat_forecast import _definition_for, danger_cells, forecast_lines, observed_forecasts
+from jomon.encounters import threat_from_archetype
 from jomon.inspection import contextual_hints, inspect_lines, movement_preview
 from jomon.actions import move
-from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world
+from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
 from jomon.terminal import InputEvent, LookView, _draw_base, _handle_look, _status_lines
 from jomon.world import field_of_view
 
@@ -147,6 +148,72 @@ class InspectionAndForecastTests(unittest.TestCase):
         ):
             rows = observed_forecasts(state, visible)
         self.assertEqual([row.actor_id for row in rows], [actor.id])
+
+    def test_catalog_archetype_selects_forecast_after_display_name_changes(self):
+        state = self.state
+        actor = threat_from_archetype(
+            "coast-elite-wreck", Position(46, 25),
+            encounter_id="frontier-elite", group="fixture",
+        )
+        actor.status, actor.aimed_at = "engaged", state.position
+        state.threats = [actor]
+        expected = _definition_for(actor.archetype_id)
+        actor.name = "alternate displayed reeve"
+        forecasts = observed_forecasts(state)
+        self.assertEqual(actor.archetype_id, "coast-elite-wreck")
+        self.assertEqual(_definition_for(actor.archetype_id), expected)
+        self.assertEqual(forecasts[0].counter, expected["counterplay"])
+
+    def test_new_threat_archetype_round_trip_is_exact(self):
+        state = self.state
+        actor = threat_from_archetype(
+            "coast-elite-wreck", Position(46, 25),
+            encounter_id="round-trip-identity", group="fixture",
+        )
+        state.threats = [actor]
+        state.region_threats[state.active_region_id] = state.threats
+        loaded = game_state_from_dict(state.to_dict())
+        restored = next(row for row in loaded.threats if row.id == actor.id)
+        self.assertEqual(restored.archetype_id, "coast-elite-wreck")
+        self.assertEqual(restored, actor)
+
+    def test_old_known_actor_name_recovers_bundled_archetype_only(self):
+        state = self.state
+        actor = Threat(
+            "legacy-actor", "wreck-chain reeve", "ranged", Position(46, 25),
+            8, 8, status="engaged",
+        )
+        state.threats = [actor]
+        state.region_threats[state.active_region_id] = state.threats
+        data = state.to_dict()
+        raw = next(row for row in data["region_threats"][state.active_region_id] if row["id"] == actor.id)
+        raw.pop("archetype_id")
+        loaded = game_state_from_dict(data)
+        restored = next(row for row in loaded.threats if row.id == actor.id)
+        self.assertEqual(restored.archetype_id, "coast-elite-wreck")
+
+    def test_old_unknown_actor_name_stays_unidentified_and_forecast_safe(self):
+        state = self.state
+        actor = Threat(
+            "legacy-unknown", "unrecognised old display wording", "ranged",
+            Position(46, 25), 8, 8, status="engaged", aimed_at=state.position,
+        )
+        state.threats = [actor]
+        state.region_threats[state.active_region_id] = state.threats
+        data = state.to_dict()
+        raw = next(row for row in data["region_threats"][state.active_region_id] if row["id"] == actor.id)
+        raw.pop("archetype_id")
+        loaded = game_state_from_dict(data)
+        restored = next(row for row in loaded.threats if row.id == actor.id)
+        self.assertEqual(restored.archetype_id, "")
+        self.assertEqual(observed_forecasts(loaded)[0].counter, "move, use cover, guard, or interrupt")
+
+    def test_bespoke_threat_can_explicitly_have_no_catalog_archetype(self):
+        actor = Threat(
+            "crisis-bespoke", "wreck-chain reeve", "ranged", Position(46, 25),
+            8, 8, archetype_id="",
+        )
+        self.assertEqual(actor.archetype_id, "")
 
 
 class _PanelSink:

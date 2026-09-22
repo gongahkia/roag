@@ -80,6 +80,7 @@ def _spawn(state: GameState, actor_slot: str, position: Position, role: str, *, 
         raise ValueError("no fair physical boarding position")
     start = min(valid, key=lambda p: (distance(p, position), p.y, p.x))
     actor = Threat(f"voyage-{state.travel_count}-{len(state.vessel_threats)}", name, profile, start, health, health,
+                   archetype_id="",
                    status="watching", role=role, ranged_kind=weapon, ammunition=4 if profile == "ranged" else 0,
                    morale=4, vision=14 if profile == "ranged" else 10, hearing=8,
                    home_position=start, region_id="jomon", group=f"boarding-{state.travel_count}", allegiance="cargo-skiffs",

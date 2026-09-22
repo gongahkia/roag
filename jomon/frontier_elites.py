@@ -38,7 +38,10 @@ ELITE_DEFINITIONS = {
 
 
 def definition(actor):
-    return ELITE_DEFINITIONS.get(actor.id.removeprefix("frontier-elite:")) if actor.id.startswith("frontier-elite:") else None
+    if not actor.id.startswith("frontier-elite:"):
+        return None
+    identity = actor.archetype_id or actor.id.removeprefix("frontier-elite:")
+    return ELITE_DEFINITIONS.get(identity)
 
 
 def install_elite(seed, region, actors):

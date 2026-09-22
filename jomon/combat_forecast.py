@@ -27,21 +27,19 @@ class CombatForecast:
 
 
 @lru_cache(maxsize=128)
-def _definition_for(actor_id: str, actor_name: str) -> dict | None:
-    from .content import ENEMY_ARCHETYPES
-    from .frontier_elites import definition
+def _definition_for(archetype_id: str) -> dict | None:
+    from .encounters import threat_definition
 
     class Identity:
-        id = actor_id
+        def __init__(self, identity: str) -> None:
+            self.archetype_id = identity
+            self.id = ""
 
-    return definition(Identity()) or next(
-        (row for row in ENEMY_ARCHETYPES.values() if row["name"] == actor_name),
-        None,
-    )
+    return threat_definition(Identity(archetype_id))
 
 
 def _affected_cells(actor: Threat, point: Position) -> tuple[Position, ...]:
-    data = _definition_for(actor.id, actor.name)
+    data = _definition_for(actor.archetype_id or "")
     mode = data.get("mode", "") if data else ""
     offsets = (-1, 0, 1) if mode in {"surge", "firing", "shutters", "slip"} else (0,)
     return tuple(Position(point.x + dx, point.y, point.z) for dx in offsets)
@@ -63,9 +61,12 @@ def observed_forecasts(
             continue
         target = actor.marked_position or actor.aimed_at
         action = actor.intent.rstrip(".")
-        if target is None and "charges next turn" in actor.intent:
+        if target is None and actor.intent_id in {
+            "combat.intent.lowers_its_head_and_charges_next_turn",
+            "intent.animal.charge_warning",
+        }:
             target = state.position
-        data = _definition_for(actor.id, actor.name)
+        data = _definition_for(actor.archetype_id or "")
         counter = str(data.get("counterplay", "move, use cover, guard, or interrupt")) if data else "move, use cover, guard, or interrupt"
         if target is not None:
             affected = _affected_cells(actor, target)
