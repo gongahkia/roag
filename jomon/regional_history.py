@@ -444,12 +444,12 @@ def network_service_options(
     if institution is None:
         return ()
     marker = f"network-shelter:{institution.id}:{state.active_region_id}"
-    from .practices import NETWORK_CONTACT_PRACTICE
+    from .practices import NETWORK_CONTACT_PRACTICE, learned_practice_ids
+    from .progression_presentation import practice_display_name
 
     practice = NETWORK_CONTACT_PRACTICE[contact_id]
-    learned = bool(
-        state.courier and practice in state.courier.learned_techniques
-    )
+    learned = bool(state.courier and practice in learned_practice_ids(state.courier))
+    practice_name = practice_display_name(practice)
     return (
         (
             "d", history_format("history.network_service.delivery.label", dependency=institution.dependency),
@@ -462,7 +462,7 @@ def network_service_options(
             history_format("history.network_service.shelter.requirement"),
         ),
         (
-            "t", history_format("history.network_service.practice.label", practice=practice), "ordinary",
+            "t", history_format("history.network_service.practice.label", practice=practice_name), "ordinary",
             institution.trust >= 1 and not learned,
             history_format("history.network_service.practice.requirement"),
         ),

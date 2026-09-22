@@ -202,6 +202,7 @@ def character_sheet(person: Person) -> list[str]:
     rows.append(f"People's practice: {PEOPLE_EFFECTS.get(person.ancestry, 'No listed effect')}.")
     rows.append(f"Mana: {person.mana}/{person.max_mana}; skill points: {person.skill_points}; milestones: {len(person.skill_milestones)}.")
     from .skill_tree import NODES
-    rows.append("Learned practices: " + (", ".join(NODES[node].name for node in person.skill_nodes) or "none") + ". Press P outside this page to cross-train.")
+    from .progression_presentation import progression_format, progression_text
+    rows.append(progression_format("progression.character.learned_nodes", nodes=", ".join(NODES[node].name for node in person.skill_nodes) or progression_text("progression.character.none")))
     rows.extend((f"Technique: {person.technique}", f"Background: {person.background}"))
     return rows

@@ -11,12 +11,13 @@ from jomon.practices import (
     AFTERMATH_REGION_PRACTICE,
     NETWORK_CONTACT_PRACTICE,
     PRACTICES,
+    learned_practice_ids,
     validate_practices,
 )
 from jomon.quests import secondary_service_options, use_secondary_service
 from jomon.regional_history import network_institution_for_contact
 from jomon.regions import activate_region
-from jomon.state import MaterialCell, Position, Threat, create_world
+from jomon.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
 from jomon.world import position_key, sight_radius
 
 
@@ -61,7 +62,8 @@ class LearnedPracticeTests(unittest.TestCase):
             self.assertTrue(option[3])
             changed, message = use_secondary_service(self.state, "t", contact_id)
             self.assertTrue(changed)
-            self.assertIn(practice, message)
+            from jomon.progression_presentation import practice_display_name
+            self.assertIn(practice_display_name(practice), message)
             self.assertFalse(use_secondary_service(self.state, "t", contact_id)[0])
             learned.add(practice)
         self.assertEqual(learned, set(NETWORK_CONTACT_PRACTICE.values()))
@@ -242,6 +244,32 @@ class LearnedPracticeTests(unittest.TestCase):
         self.assertIn("Wreck-title hold", result.message)
         self.assertEqual(account.confidence, min(3, before + 1))
         self.assertTrue(self.state.vessel_changes["wreck_title_hold:hearthford"])
+
+
+    def test_legacy_practice_names_normalize_without_selected_pack_lookup(self):
+        raw = self.state.to_dict()
+        raw["household"][0]["learned_techniques"] = ["bank-water cadence"]
+        loaded = game_state_from_dict(raw)
+        self.assertEqual(loaded.courier.learned_techniques, ["practice.bank_water_cadence"])
+        self.assertEqual(learned_practice_ids(loaded.courier), {"practice.bank_water_cadence"})
+
+    def test_unknown_legacy_practice_remains_inert_and_round_trips(self):
+        raw = self.state.to_dict()
+        raw["household"][0]["learned_techniques"] = ["arbitrary old prose"]
+        loaded = game_state_from_dict(raw)
+        self.assertEqual(loaded.courier.learned_techniques, ["arbitrary old prose"])
+        self.assertEqual(learned_practice_ids(loaded.courier), {"arbitrary old prose"})
+        from jomon.manoeuvres import known
+        self.assertFalse(known(loaded))
+        self.assertEqual(game_state_from_dict(loaded.to_dict()).courier.learned_techniques, ["arbitrary old prose"])
+
+    def test_new_personal_practice_id_round_trips_without_role_presentation(self):
+        from jomon.people import personal_practice
+        practice = personal_practice(self.state.courier)
+        self.state.courier.learned_techniques = [practice]
+        loaded = game_state_from_dict(self.state.to_dict())
+        self.assertEqual(loaded.courier.learned_techniques, [practice])
+        self.assertTrue(practice.startswith("practice.personal:"))
 
 
 if __name__ == "__main__":

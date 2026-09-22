@@ -7489,6 +7489,14 @@
     {
       "id": "combat.attack.outcome.drove_off",
       "placeholders": []
+    },
+    {
+      "id": "combat.intent.skill.weapon_bind",
+      "placeholders": []
+    },
+    {
+      "id": "combat.intent.skill.line_intercept",
+      "placeholders": []
     }
   ],
   "vessel": [
@@ -10518,6 +10526,1426 @@
     },
     {
       "id": "magic.selection.unlearned",
+      "placeholders": []
+    }
+  ],
+  "progression": [
+    {
+      "id": "progression.branch.blades.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.edge-measure.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.edge-measure.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.guard-feint.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.guard-feint.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.slip-cut.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.slip-cut.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.weapon-bind.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.weapon-bind.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.riposte.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.riposte.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.river-duelist.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.river-duelist.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.reach.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.measured-stance.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.measured-stance.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.countercharge.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.countercharge.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.haft-breaker.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.haft-breaker.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.hook-haul.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.hook-haul.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.line-intercept.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.line-intercept.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.ferryman-wall.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.ferryman-wall.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.bows.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.sighted-draw.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.sighted-draw.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.quick-nock.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.quick-nock.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.shaft-recovery.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.shaft-recovery.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.called-shot.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.called-shot.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.wind-hold.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.wind-hold.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.moving-volley.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.moving-volley.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.gunworks.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.charge-handling.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.charge-handling.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.dry-load.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.dry-load.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.braced-tube.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.braced-tube.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.vent-care.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.vent-care.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.smoke-shaping.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.smoke-shaping.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.payload-master.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.payload-master.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.devices.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.safe-throw.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.safe-throw.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.scatter-bank.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.scatter-bank.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.delayed-fuse.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.delayed-fuse.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.adhesive-coat.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.adhesive-coat.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.line-trap.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.line-trap.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.controlled-chain.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.controlled-chain.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.spellcraft.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.attunement.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.attunement.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.elemental-shape.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.elemental-shape.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.ward-script.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.ward-script.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.veiling.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.veiling.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.echo-binding.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.echo-binding.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.spell-weave.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.spell-weave.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.smithing.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.tool-care.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.tool-care.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.fuel-husbandry.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.fuel-husbandry.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.bloom-sorting.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.bloom-sorting.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.armour-fitting.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.armour-fitting.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.gun-assembly.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.gun-assembly.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.masterwork.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.masterwork.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.alchemy.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.substance-sense.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.substance-sense.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.safe-decant.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.safe-decant.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.field-triage.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.field-triage.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.controlled-distil.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.controlled-distil.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.antitoxin.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.antitoxin.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.catalyst-brewing.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.catalyst-brewing.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.navigation.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.route-reading.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.route-reading.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.weather-eye.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.weather-eye.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.load-balance.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.load-balance.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.current-rescue.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.current-rescue.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.station-repair.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.station-repair.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.deep-pilotage.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.deep-pilotage.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.branch.diplomacy.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.careful-terms.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.careful-terms.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.price-sense.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.price-sense.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.mediation.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.mediation.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.teaching.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.teaching.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.work-order.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.work-order.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.guild-broker.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.node.guild-broker.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.bank_water_cadence.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.bank_water_cadence.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.field_rill_measure.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.field_rill_measure.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.wreck_title_hold.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.wreck_title_hold.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.span_watch_stance.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.span_watch_stance.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ash_refuge_breathing.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ash_refuge_breathing.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.island_porter_relay.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.island_porter_relay.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ridge_sounding_line.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ridge_sounding_line.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.winter_braid_reading.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.winter_braid_reading.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.siltgate_hand.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.siltgate_hand.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ebb_beacon_watch.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.ebb_beacon_watch.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.living_firebreak.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.living_firebreak.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.honest_stair_breath.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.honest_stair_breath.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.peat_brace_seating.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.peat_brace_seating.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.two_span_withdrawal.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.two_span_withdrawal.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.seed_clay_tread.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.seed_clay_tread.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.thaw_net_recovery.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.thaw_net_recovery.description",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.braced-advance.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.braced-advance.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.braced-advance.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.braced-advance.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.quiet-crossing.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.quiet-crossing.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.quiet-crossing.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.quiet-crossing.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.hook-and-pass.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.hook-and-pass.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.hook-and-pass.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.hook-and-pass.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.shield-bind.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.shield-bind.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.shield-bind.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.shield-bind.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.smoke-takedown.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.smoke-takedown.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.smoke-takedown.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.smoke-takedown.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.porter-shove.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.porter-shove.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.porter-shove.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.porter-shove.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.high-cast.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.high-cast.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.high-cast.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.high-cast.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.ice-feint.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.ice-feint.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.ice-feint.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.ice-feint.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.flood-turn.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.flood-turn.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.flood-turn.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.flood-turn.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.firebreak-cut.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.firebreak-cut.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.firebreak-cut.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.firebreak-cut.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.support-set.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.support-set.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.support-set.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.support-set.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.controlled-withdrawal.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.controlled-withdrawal.setup",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.controlled-withdrawal.counter",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.controlled-withdrawal.effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.buy.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.buy.already",
+      "placeholders": [
+        "courier",
+        "node"
+      ]
+    },
+    {
+      "id": "progression.skill.buy.parents",
+      "placeholders": [
+        "node",
+        "parents"
+      ]
+    },
+    {
+      "id": "progression.skill.buy.points",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.buy.learned",
+      "placeholders": [
+        "courier",
+        "node",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.skill.milestone",
+      "placeholders": [
+        "courier",
+        "milestone"
+      ]
+    },
+    {
+      "id": "progression.skill.teach.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.teach.distance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.teach.known",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.teach.limit",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.teach.parents",
+      "placeholders": []
+    },
+    {
+      "id": "progression.skill.teach.result",
+      "placeholders": [
+        "teacher",
+        "node",
+        "recipient"
+      ]
+    },
+    {
+      "id": "progression.journal.write.location",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.choice",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.paper",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.space",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.result",
+      "placeholders": [
+        "courier",
+        "node",
+        "journal"
+      ]
+    },
+    {
+      "id": "progression.journal.study.location",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.study.known",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.study.limit",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.study.parents",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.study.result",
+      "placeholders": [
+        "courier",
+        "node",
+        "journal"
+      ]
+    },
+    {
+      "id": "progression.practice.network.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "progression.practice.network.already",
+      "placeholders": [
+        "courier",
+        "practice"
+      ]
+    },
+    {
+      "id": "progression.practice.network.learned",
+      "placeholders": [
+        "courier",
+        "practice",
+        "contact",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.practice.network.result",
+      "placeholders": [
+        "courier",
+        "practice",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.practice.aftermath.learned",
+      "placeholders": [
+        "courier",
+        "practice",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.status.unlearned",
+      "placeholders": [
+        "practice"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.status.danger",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.lines.none",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.lines.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.lines.intro",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.lines.row",
+      "placeholders": [
+        "index",
+        "manoeuvre",
+        "status"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.lines.effect",
+      "placeholders": [
+        "effect",
+        "counter"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.lines.footer",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.perform.failed",
+      "placeholders": [
+        "manoeuvre",
+        "reason"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.perform.result",
+      "placeholders": [
+        "manoeuvre",
+        "effect"
+      ]
+    },
+    {
+      "id": "progression.manoeuvre.memory",
+      "placeholders": [
+        "courier",
+        "manoeuvre",
+        "effect"
+      ]
+    },
+    {
+      "id": "progression.overlay.skill.title",
+      "placeholders": []
+    },
+    {
+      "id": "progression.overlay.skill.summary",
+      "placeholders": [
+        "courier",
+        "points",
+        "learned"
+      ]
+    },
+    {
+      "id": "progression.overlay.skill.branch",
+      "placeholders": [
+        "index",
+        "branch",
+        "learned"
+      ]
+    },
+    {
+      "id": "progression.overlay.skill.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.overlay.branch.summary",
+      "placeholders": [
+        "courier",
+        "points"
+      ]
+    },
+    {
+      "id": "progression.overlay.branch.row",
+      "placeholders": [
+        "index",
+        "node",
+        "status",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.overlay.status.learned",
+      "placeholders": []
+    },
+    {
+      "id": "progression.overlay.status.needs",
+      "placeholders": [
+        "parents"
+      ]
+    },
+    {
+      "id": "progression.overlay.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "progression.overlay.status.point",
+      "placeholders": []
+    },
+    {
+      "id": "progression.overlay.mastery.title",
+      "placeholders": []
+    },
+    {
+      "id": "progression.target.mastery",
+      "placeholders": [
+        "manoeuvre",
+        "effect",
+        "status"
+      ]
+    },
+    {
+      "id": "progression.target.ready",
+      "placeholders": []
+    },
+    {
+      "id": "progression.target.needs",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "progression.personal.name",
+      "placeholders": [
+        "role"
+      ]
+    },
+    {
+      "id": "progression.technique.mill_hearing.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.technique.shoreline_measure.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.technique.smoke_spoor.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.technique.bell_interval.name",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.journal.write.label",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.journal.write.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.journal.study.label",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.journal.study.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.manoeuvre.label",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.manoeuvre.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.teach.label",
+      "placeholders": []
+    },
+    {
+      "id": "progression.station.gathering.journal_guidance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.person.learned",
+      "placeholders": [
+        "practices"
+      ]
+    },
+    {
+      "id": "progression.person.none",
+      "placeholders": []
+    },
+    {
+      "id": "progression.person.practice_effect",
+      "placeholders": [
+        "practice",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.person.personal_effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.person.teach",
+      "placeholders": []
+    },
+    {
+      "id": "progression.household.none",
+      "placeholders": []
+    },
+    {
+      "id": "progression.household.personal_effect",
+      "placeholders": []
+    },
+    {
+      "id": "progression.personal.memory",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "progression.personal.development",
+      "placeholders": [
+        "courier",
+        "practice"
+      ]
+    },
+    {
+      "id": "progression.character.learned_nodes",
+      "placeholders": [
+        "nodes"
+      ]
+    },
+    {
+      "id": "progression.character.none",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.guard_feint",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.slip_cut",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.weapon_bind",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.riposte_pressure",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.duelist_finish",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.edge_measure_guard",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.countercharge",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.timber_chipped",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.hook_haul",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.line_intercepted",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.ferryman_guard",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.called_shot",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.shaft_falls",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.measured_charge",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.matched_payload",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.target_veiled",
+      "placeholders": []
+    },
+    {
+      "id": "progression.combat.note.masterwork_edge",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.title",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.write.summary",
+      "placeholders": [
+        "courier",
+        "written"
+      ]
+    },
+    {
+      "id": "progression.journal.write.row",
+      "placeholders": [
+        "index",
+        "node",
+        "description"
+      ]
+    },
+    {
+      "id": "progression.journal.write.page",
+      "placeholders": [
+        "page",
+        "pages"
+      ]
+    },
+    {
+      "id": "progression.journal.write.provenance",
+      "placeholders": [
+        "courier"
+      ]
+    },
+    {
+      "id": "progression.journal.study.title",
+      "placeholders": []
+    },
+    {
+      "id": "progression.journal.study.summary",
+      "placeholders": [
+        "courier",
+        "inherited"
+      ]
+    },
+    {
+      "id": "progression.journal.study.row",
+      "placeholders": [
+        "index",
+        "journal",
+        "node",
+        "provenance"
+      ]
+    },
+    {
+      "id": "progression.journal.study.page",
+      "placeholders": [
+        "page",
+        "pages"
+      ]
+    },
+    {
+      "id": "progression.teach.title",
+      "placeholders": [
+        "person"
+      ]
+    },
+    {
+      "id": "progression.teach.summary",
+      "placeholders": [
+        "person",
+        "inherited",
+        "teacher"
+      ]
+    },
+    {
+      "id": "progression.teach.row",
+      "placeholders": [
+        "index",
+        "node",
+        "parents"
+      ]
+    },
+    {
+      "id": "progression.teach.none",
+      "placeholders": []
+    },
+    {
+      "id": "progression.teach.page",
+      "placeholders": [
+        "page",
+        "pages"
+      ]
+    },
+    {
+      "id": "progression.combat.shaft.provenance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.choice.manoeuvre.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "progression.manoeuvre.unavailable",
       "placeholders": []
     }
   ]

@@ -479,10 +479,10 @@
         "completed": "{contact} teaches {technique}: {effect}."
       },
       "effects": {
-        "mill hearing": "control work is quieter; weak supports can be braced without a heavy tool",
-        "shoreline measure": "released water no longer adds a crossing action; coastal weather leaves a longer sightline",
-        "smoke spoor": "movement through smoke is quiet; smoke leaves five paces of local visibility",
-        "bell interval": "warning controls are worked quietly; brace work can be timed without a heavy tool"
+        "technique.mill_hearing": "control work is quieter; weak supports can be braced without a heavy tool",
+        "technique.shoreline_measure": "released water no longer adds a crossing action; coastal weather leaves a longer sightline",
+        "technique.smoke_spoor": "movement through smoke is quiet; smoke leaves five paces of local visibility",
+        "technique.bell_interval": "warning controls are worked quietly; brace work can be timed without a heavy tool"
       }
     },
     "quest.service.treatment": {

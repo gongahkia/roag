@@ -1,40 +1,120 @@
 {
   "practices": [
-    ["bank-water cadence", "hearthford", "network", "shallow-water-step", "Fresh shallows no longer add a crossing action; deep current still does."],
-    ["field-rill measure", "marlbank", "network", "mud-quiet", "Mud no longer adds routine step noise, though deep bogging still slows."],
-    ["wreck-title hold", "greywash", "network", "secured-salvage", "The first difficult cache recovery in a region earns one witnessed confidence."],
-    ["span-watch stance", "rillscar", "network", "support-guard", "Guarding on a damaged support seats one measure of bracing and cancels its warning."],
-    ["ash-refuge breathing", "greenwold", "network", "smoke-sight", "Smoke leaves five paces of sight and inhalation clears sooner."],
-    ["island porter relay", "dunmire", "network", "wet-load-step", "A laden pack does not add a second action on mud or shallow water."],
-    ["ridge-sounding line", "whitecairn", "network", "elevated-range", "A ranged weapon gains one pace from a higher level."],
-    ["winter-braid reading", "frostmere", "network", "ice-step", "Known ice no longer causes poor footing; salt water remains open."],
-    ["siltgate hand", "hearthford", "aftermath", "material-dig", "Digging a worked watercourse no longer needs a heavy tool."],
-    ["ebb beacon watch", "greywash", "aftermath", "storm-sight", "Coastal rain, fog and squall leave one additional pace of sight."],
-    ["living firebreak", "greenwold", "aftermath", "material-cut", "Dry burning reeds and timber can be cut or extinguished without a heavy tool."],
-    ["honest stair breath", "whitecairn", "aftermath", "stair-economy", "A lower-limb injury or heavy armour cannot both double a known upward climb."],
-    ["peat brace seating", "dunmire", "aftermath", "material-brace", "Wet timber support can be braced without a levering tool."],
-    ["two-span withdrawal", "rillscar", "aftermath", "reach-retreat", "A guarded reach weapon preserves one controlled reposition and presses morale."],
-    ["seed-clay tread", "marlbank", "aftermath", "clay-step", "Clay mud neither bogs the courier nor adds routine movement noise."],
-    ["thaw-net recovery", "frostmere", "aftermath", "net-recover", "A committed weighted net remains as one physical recoverable bundle."]
+    [
+      "practice.bank_water_cadence",
+      "hearthford",
+      "network",
+      "shallow-water-step"
+    ],
+    [
+      "practice.field_rill_measure",
+      "marlbank",
+      "network",
+      "mud-quiet"
+    ],
+    [
+      "practice.wreck_title_hold",
+      "greywash",
+      "network",
+      "secured-salvage"
+    ],
+    [
+      "practice.span_watch_stance",
+      "rillscar",
+      "network",
+      "support-guard"
+    ],
+    [
+      "practice.ash_refuge_breathing",
+      "greenwold",
+      "network",
+      "smoke-sight"
+    ],
+    [
+      "practice.island_porter_relay",
+      "dunmire",
+      "network",
+      "wet-load-step"
+    ],
+    [
+      "practice.ridge_sounding_line",
+      "whitecairn",
+      "network",
+      "elevated-range"
+    ],
+    [
+      "practice.winter_braid_reading",
+      "frostmere",
+      "network",
+      "ice-step"
+    ],
+    [
+      "practice.siltgate_hand",
+      "hearthford",
+      "aftermath",
+      "material-dig"
+    ],
+    [
+      "practice.ebb_beacon_watch",
+      "greywash",
+      "aftermath",
+      "storm-sight"
+    ],
+    [
+      "practice.living_firebreak",
+      "greenwold",
+      "aftermath",
+      "material-cut"
+    ],
+    [
+      "practice.honest_stair_breath",
+      "whitecairn",
+      "aftermath",
+      "stair-economy"
+    ],
+    [
+      "practice.peat_brace_seating",
+      "dunmire",
+      "aftermath",
+      "material-brace"
+    ],
+    [
+      "practice.two_span_withdrawal",
+      "rillscar",
+      "aftermath",
+      "reach-retreat"
+    ],
+    [
+      "practice.seed_clay_tread",
+      "marlbank",
+      "aftermath",
+      "clay-step"
+    ],
+    [
+      "practice.thaw_net_recovery",
+      "frostmere",
+      "aftermath",
+      "net-recover"
+    ]
   ],
   "network_contacts": {
-    "network-contact-hearthford": "bank-water cadence",
-    "network-contact-marlbank": "field-rill measure",
-    "network-contact-greywash": "wreck-title hold",
-    "network-contact-rillscar": "span-watch stance",
-    "network-contact-greenwold": "ash-refuge breathing",
-    "network-contact-dunmire": "island porter relay",
-    "network-contact-whitecairn": "ridge-sounding line",
-    "network-contact-frostmere": "winter-braid reading"
+    "network-contact-hearthford": "practice.bank_water_cadence",
+    "network-contact-marlbank": "practice.field_rill_measure",
+    "network-contact-greywash": "practice.wreck_title_hold",
+    "network-contact-rillscar": "practice.span_watch_stance",
+    "network-contact-greenwold": "practice.ash_refuge_breathing",
+    "network-contact-dunmire": "practice.island_porter_relay",
+    "network-contact-whitecairn": "practice.ridge_sounding_line",
+    "network-contact-frostmere": "practice.winter_braid_reading"
   },
   "aftermath_regions": {
-    "hearthford": "siltgate hand",
-    "greywash": "ebb beacon watch",
-    "greenwold": "living firebreak",
-    "whitecairn": "honest stair breath",
-    "dunmire": "peat brace seating",
-    "rillscar": "two-span withdrawal",
-    "marlbank": "seed-clay tread",
-    "frostmere": "thaw-net recovery"
+    "hearthford": "practice.siltgate_hand",
+    "greywash": "practice.ebb_beacon_watch",
+    "greenwold": "practice.living_firebreak",
+    "whitecairn": "practice.honest_stair_breath",
+    "dunmire": "practice.peat_brace_seating",
+    "rillscar": "practice.two_span_withdrawal",
+    "marlbank": "practice.seed_clay_tread",
+    "frostmere": "practice.thaw_net_recovery"
   }
 }

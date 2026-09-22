@@ -6,46 +6,36 @@ from dataclasses import dataclass
 
 from .catalog import CatalogError, load_catalog
 from .state import GameState, Person
+from .progression_presentation import branch_display_name, node_description, node_display_name, progression_format, progression_text
 
 
 @dataclass(frozen=True)
 class SkillNode:
     id: str
     branch: str
-    name: str
     parents: tuple[str, ...]
-    effect: str
+    @property
+    def name(self) -> str: return node_display_name(self.id)
+    @property
+    def effect(self) -> str: return node_description(self.id)
 
 
 _CATALOG = load_catalog("skills.json", ("branches", "role_roots"))
 _raw_branches = _CATALOG["branches"]
-if not isinstance(_raw_branches, dict) or not _raw_branches:
-    raise CatalogError("skills.json must provide branches")
-BRANCHES = {}
-_seen_nodes = set()
-for branch_id, row in _raw_branches.items():
-    if (not isinstance(branch_id, str) or not isinstance(row, list) or len(row) != 2
-            or not isinstance(row[0], str) or not isinstance(row[1], list) or not row[1]):
-        raise CatalogError("skills.json has an invalid branch")
-    definitions = []
-    for node in row[1]:
-        if (not isinstance(node, list) or len(node) != 3
-                or any(not isinstance(part, str) or not part for part in node)
-                or node[0] in _seen_nodes):
-            raise CatalogError("skills.json has an invalid or repeated node")
-        _seen_nodes.add(node[0])
-        definitions.append(tuple(node))
-    BRANCHES[branch_id] = (row[0], tuple(definitions))
-
-
+if (not isinstance(_raw_branches, dict) or not _raw_branches
+        or any(not isinstance(branch_id, str) or not isinstance(node_ids, list) or len(node_ids) != 6
+               or any(not isinstance(node_id, str) or not node_id for node_id in node_ids)
+               for branch_id, node_ids in _raw_branches.items())):
+    raise CatalogError("skills.json has an invalid branch")
+BRANCHES = {branch_id: tuple(node_ids) for branch_id, node_ids in _raw_branches.items()}
+if len({node_id for ids in BRANCHES.values() for node_id in ids}) != 60:
+    raise CatalogError("skills.json has invalid or repeated node")
 NODES: dict[str, SkillNode] = {}
-for branch_id, (branch_name, definitions) in BRANCHES.items():
-    ids = [definition[0] for definition in definitions]
-    for index, (node_id, name, effect) in enumerate(definitions):
-        parents = () if index == 0 else (ids[0],) if index in (1, 2) else (
-            (ids[1],) if index == 3 else (ids[2],) if index == 4 else (ids[3], ids[4])
-        )
-        NODES[node_id] = SkillNode(node_id, branch_id, name, parents, effect)
+for branch_id, ids in BRANCHES.items():
+    for index, node_id in enumerate(ids):
+        parents = () if index == 0 else (ids[0],) if index in (1, 2) else ((ids[1],) if index == 3 else (ids[2],) if index == 4 else (ids[3], ids[4]))
+        NODES[node_id] = SkillNode(node_id, branch_id, parents)
+
 
 _raw_roots = _CATALOG["role_roots"]
 if (not isinstance(_raw_roots, dict) or any(not isinstance(role, str) or not isinstance(roots, list)
@@ -104,72 +94,86 @@ def apply_weapon_skills(state: GameState, target, damage: int, *, weapon_name: s
     if family == "blade":
         if has_node(person, "guard-feint") and target.role == "protector":
             damage += 1
-            notes.append("guard feint")
+            notes.append(progression_text("progression.combat.note.guard_feint"))
         if has_node(person, "slip-cut") and guarding_before:
             damage += 1
-            notes.append("slip cut")
+            notes.append(progression_text("progression.combat.note.slip_cut"))
         if has_node(person, "weapon-bind") and target.aimed_at is not None:
             target.aimed_at = None
-            target.intent = "marked aim spoiled by a blade bind"
-            notes.append("weapon bind")
+            from .actions import _set_combat_intent
+            _set_combat_intent(target, "combat.intent.skill.weapon_bind")
+            notes.append(progression_text("progression.combat.note.weapon_bind"))
         if has_node(person, "riposte") and guarding_before:
             target.morale -= 1
-            notes.append("riposte pressure")
+            notes.append(progression_text("progression.combat.note.riposte_pressure"))
         if has_node(person, "river-duelist") and target.morale <= 2:
             damage += 1
-            notes.append("duelist's finish")
+            notes.append(progression_text("progression.combat.note.duelist_finish"))
         if has_node(person, "edge-measure"):
             state.guarded_step = guards_response = True
-            notes.append("edge measure guard")
+            notes.append(progression_text("progression.combat.note.edge_measure_guard"))
     elif family in {"reach", "impact"}:
         if has_node(person, "countercharge") and target.turn > 0:
             damage += 1
-            notes.append("countercharge")
+            notes.append(progression_text("progression.combat.note.countercharge"))
         if has_node(person, "haft-breaker") and material_at(state, target.position) == "timber":
             cell = ensure_cell(state, target.position)
             if cell:
                 cell.support = max(0, cell.support - 1)
-                notes.append("timber chipped")
+                notes.append(progression_text("progression.combat.note.timber_chipped"))
         if has_node(person, "hook-haul"):
             target.position = _step_toward(state, target, state.position)
-            notes.append("hook haul")
+            notes.append(progression_text("progression.combat.note.hook_haul"))
         if has_node(person, "line-intercept"):
-            target.intent = "entangled by a trained intercept; loses a turn"
-            notes.append("line intercepted")
+            from .actions import _set_combat_intent
+            _set_combat_intent(target, "combat.intent.skill.line_intercept")
+            notes.append(progression_text("progression.combat.note.line_intercepted"))
         if has_node(person, "ferryman-wall"):
             state.guarded_step = guards_response = True
-            notes.append("ferryman guard")
+            notes.append(progression_text("progression.combat.note.ferryman_guard"))
     elif family == "bow":
         if has_node(person, "called-shot") and target.elite:
             damage += 1
-            notes.append("called shot")
+            notes.append(progression_text("progression.combat.note.called_shot"))
         if has_node(person, "shaft-recovery"):
             from .inventory import AMMUNITION_ITEMS, WEAPON_AMMUNITION
 
             ammunition = WEAPON_AMMUNITION.get(weapon_name or state.weapon)
             if ammunition in {"arrows", "bolts", "heavy bolts", "javelins"}:
-                shaft = create_item(state, AMMUNITION_ITEMS[ammunition], "recoverable shaft from learned shot", location="ground")
+                shaft = create_item(state, AMMUNITION_ITEMS[ammunition], progression_text("progression.combat.shaft.provenance"), location="ground")
                 shaft.region_id, shaft.ground_position = state.spatial_id, target.position
-                notes.append("shaft falls recoverably")
+                notes.append(progression_text("progression.combat.note.shaft_falls"))
     elif family == "gun":
         if has_node(person, "charge-handling"):
             damage += 1
-            notes.append("measured charge")
+            notes.append(progression_text("progression.combat.note.measured_charge"))
         if has_node(person, "payload-master") and (target.elite or target.role == "protector" or target.profile == "machinery"):
             damage += 1
-            notes.append("matched payload")
+            notes.append(progression_text("progression.combat.note.matched_payload"))
         if has_node(person, "smoke-shaping"):
             cell = ensure_cell(state, target.position)
             if cell:
                 cell.smoke = max(2, cell.smoke)
-                notes.append("target veiled by shot smoke")
+                notes.append(progression_text("progression.combat.note.target_veiled"))
     from .inventory import equipped_item
 
     readied = equipped_item(state, "readied")
     if readied and readied.kind == (weapon_name or state.weapon) and readied.masterwork:
         damage += 1
-        notes.append("masterwork edge")
+        notes.append(progression_text("progression.combat.note.masterwork_edge"))
     return damage, "; ".join(notes), guards_response
+
+
+# Existing deterministic enemy-hit seed inputs stay frozen engine data.  Pack
+# names are never used as damage sources.
+_LEGACY_DAMAGE_SOURCES = {
+    "smoke-takedown": "Quiet smoke takedown",
+    "high-cast": "High cast",
+}
+
+
+def manoeuvre_damage_source(manoeuvre_id: str) -> str:
+    return _LEGACY_DAMAGE_SOURCES[manoeuvre_id]
 
 
 def seed_role_nodes(person: Person) -> None:
@@ -186,21 +190,21 @@ def buy_node(state: GameState, node_id: str) -> tuple[bool, str]:
     person = state.courier
     node = NODES.get(node_id)
     if person is None or node is None:
-        return False, "Choose a practice this courier can learn."
+        return False, progression_text("progression.skill.buy.invalid")
     if node_id in person.skill_nodes:
-        return False, f"{person.name} already knows {node.name}."
+        return False, progression_format("progression.skill.buy.already", courier=person.name, node=node_display_name(node_id))
     if any(parent not in person.skill_nodes for parent in node.parents):
-        return False, f"{node.name} needs {', '.join(NODES[parent].name for parent in node.parents)}."
+        return False, progression_format("progression.skill.buy.parents", node=node_display_name(node_id), parents=", ".join(node_display_name(parent) for parent in node.parents))
     if person.skill_points < 1:
-        return False, "No unspent training mark remains."
+        return False, progression_text("progression.skill.buy.points")
     person.skill_points -= 1
     person.skill_nodes.append(node_id)
     if node_id in {"attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"}:
         from .magic import grant_tier
 
         grant_tier(person, node_id)
-    state.remember(f"{person.name} learns {node.name}: {node.effect}.")
-    return True, f"{person.name} learns {node.name}: {node.effect}."
+    state.remember(progression_format("progression.skill.buy.learned", courier=person.name, node=node_display_name(node_id), description=node_description(node_id)))
+    return True, progression_format("progression.skill.buy.learned", courier=person.name, node=node_display_name(node_id), description=node_description(node_id))
 
 
 def record_milestone(state: GameState, milestone: str) -> bool:
@@ -209,7 +213,7 @@ def record_milestone(state: GameState, milestone: str) -> bool:
         return False
     person.skill_milestones.append(milestone)
     person.skill_points += 1
-    state.add_message(f"{person.name} earns a training mark: {milestone.replace(':', ' / ')}.")
+    state.add_message(progression_format("progression.skill.milestone", courier=person.name, milestone=milestone.replace(":", " / ")))
     return True
 
 
@@ -223,15 +227,15 @@ def teach_node(state: GameState, recipient_id: str, node_id: str) -> tuple[bool,
     recipient = person_by_id(state, recipient_id)
     schedule = state.actor_schedules.get(recipient_id)
     if teacher is None or recipient is None or recipient.id == teacher.id or not has_node(teacher, "teaching"):
-        return False, "A courier with the Teaching skill must choose another named adult."
+        return False, progression_text("progression.skill.teach.invalid")
     if state.location != "jomon" or not schedule or schedule.area != current_area(state) or distance(state.position, schedule.position) > 1:
-        return False, "Teach face to face within one pace aboard Jomon."
+        return False, progression_text("progression.skill.teach.distance")
     if node_id not in teacher.skill_nodes or node_id in recipient.skill_nodes:
-        return False, "The teacher must know a practice the recipient has not learned."
+        return False, progression_text("progression.skill.teach.known")
     if recipient.taught_nodes >= 2:
-        return False, "This adult has already inherited two taught practices."
+        return False, progression_text("progression.skill.teach.limit")
     if any(parent not in recipient.skill_nodes for parent in NODES[node_id].parents):
-        return False, "The recipient needs the listed earlier practices first."
+        return False, progression_text("progression.skill.teach.parents")
     recipient.skill_nodes.append(node_id)
     recipient.taught_nodes += 1
     if node_id in {"attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"}:
@@ -240,7 +244,7 @@ def teach_node(state: GameState, recipient_id: str, node_id: str) -> tuple[bool,
         grant_tier(recipient, node_id)
     record_milestone(state, "social:teaching")
     _advance_world(state, steps=2)
-    message = f"{teacher.name} teaches {NODES[node_id].name} to {recipient.name}; one of two inherited lessons is used."
+    message = progression_format("progression.skill.teach.result", teacher=teacher.name, node=node_display_name(node_id), recipient=recipient.name)
     state.remember(message)
     state.add_message(message, priority=3)
     return True, message
@@ -264,22 +268,22 @@ def write_journal(state: GameState, node_id: str) -> tuple[bool, str]:
 
     person = state.courier
     if not _at_gathering(state) or person is None:
-        return False, "Write a lesson at Jomon's physical common deck while moored."
+        return False, progression_text("progression.journal.write.location")
     if node_id not in person.skill_nodes or node_id in person.journal_nodes or len(person.journal_nodes) >= 3:
-        return False, "Choose one learned, unwritten practice; each adult can preserve three."
+        return False, progression_text("progression.journal.write.choice")
     if input_count(state, "commodity:paper") < 1:
-        return False, "A written lesson consumes one physical paper lot."
+        return False, progression_text("progression.journal.write.paper")
     transaction = InventoryTransaction.begin(state)
     _consume_input(state, "commodity:paper", 1)
-    item = create_item(state, "skill journal", f"{person.name}'s witnessed lesson")
+    item = create_item(state, "skill journal", progression_format("progression.journal.write.provenance", courier=person.name))
     item.lesson_node = node_id
     if not auto_place(state, item.id, "locker"):
         transaction.cancel(state)
-        return False, "Jomon's locker needs one free place for the journal; no paper was spent."
+        return False, progression_text("progression.journal.write.space")
     person.journal_nodes.append(node_id)
     sync_legacy_load(state)
     _advance_world(state, steps=2)
-    message = f"{person.name} writes {NODES[node_id].name} into physical journal {item.id}; one paper lot is spent."
+    message = progression_format("progression.journal.write.result", courier=person.name, node=node_display_name(node_id), journal=item.id)
     state.remember(message)
     state.add_message(message, priority=3)
     return True, message
@@ -291,14 +295,14 @@ def study_journal(state: GameState, item_id: str) -> tuple[bool, str]:
     person = state.courier
     item = next((item for item in journals_at_hand(state) if item.id == item_id), None)
     if not _at_gathering(state) or person is None or item is None:
-        return False, "Study a physical journal at Jomon's common deck."
+        return False, progression_text("progression.journal.study.location")
     node_id = item.lesson_node
     if node_id in person.skill_nodes:
-        return False, "This courier already knows the journal's lesson."
+        return False, progression_text("progression.journal.study.known")
     if person.taught_nodes >= 2:
-        return False, "This courier has already inherited two taught or written practices."
+        return False, progression_text("progression.journal.study.limit")
     if any(parent not in person.skill_nodes for parent in NODES[node_id].parents):
-        return False, "Study the prerequisite lessons before this journal."
+        return False, progression_text("progression.journal.study.parents")
     person.skill_nodes.append(node_id)
     person.taught_nodes += 1
     if node_id in {"attunement", "elemental-shape", "ward-script", "veiling", "echo-binding", "spell-weave"}:
@@ -307,7 +311,7 @@ def study_journal(state: GameState, item_id: str) -> tuple[bool, str]:
         grant_tier(person, node_id)
     record_milestone(state, "social:teaching")
     _advance_world(state, steps=2)
-    message = f"{person.name} studies {NODES[node_id].name} from {item.id}; the physical journal remains for another adult."
+    message = progression_format("progression.journal.study.result", courier=person.name, node=node_display_name(node_id), journal=item.id)
     state.remember(message)
     state.add_message(message, priority=3)
     return True, message

@@ -911,20 +911,23 @@ def use_secondary_service(
         return changed, secondary_service_text("c", "marked" if changed else "none_left")
     if choice == "t":
         technique = {
-            "hearthford": "mill hearing",
-            "greywash": "shoreline measure",
-            "greenwold": "smoke spoor",
-            "whitecairn": "bell interval",
-            "dunmire": "shoreline measure",
-            "rillscar": "bell interval",
-            "marlbank": "mill hearing",
-            "frostmere": "shoreline measure",
+            "hearthford": "technique.mill_hearing",
+            "greywash": "technique.shoreline_measure",
+            "greenwold": "technique.smoke_spoor",
+            "whitecairn": "technique.bell_interval",
+            "dunmire": "technique.shoreline_measure",
+            "rillscar": "technique.bell_interval",
+            "marlbank": "technique.mill_hearing",
+            "frostmere": "technique.shoreline_measure",
         }[state.active_region_id]
-        if technique in state.courier.learned_techniques:
-            return False, secondary_service_text("t", "already_known", courier=state.courier.name, technique=technique)
+        from .practices import learned_practice_ids
+        from .progression_presentation import technique_display_name
+        display = technique_display_name(technique)
+        if technique in learned_practice_ids(state.courier):
+            return False, secondary_service_text("t", "already_known", courier=state.courier.name, technique=display)
         state.courier.learned_techniques.append(technique)
         contact.disposition = min(3, contact.disposition + 1)
-        return True, secondary_service_text("t", "completed", contact=contact.name, technique=technique, effect=secondary_service_effect("t", technique))
+        return True, secondary_service_text("t", "completed", contact=contact.name, technique=display, effect=secondary_service_effect("t", technique))
     from .regional_history import account_for
 
     account = account_for(state)

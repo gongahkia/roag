@@ -55,6 +55,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "chemistry_text.json", root / "chemistry_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "production_text.json", root / "production_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "magic_text.json", root / "magic_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "progression_text.json", root / "progression_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -289,6 +290,21 @@ def alternate_pack(root: Path) -> Path:
         "intent.magic.push": "fixture wind displacement",
     })
     source.write_text(json.dumps(magic_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "progression_text.json"
+    progression_text = json.loads(source.read_text(encoding="utf-8"))
+    progression_text["text"].update({
+        "progression.branch.blades.name": "Fixture Blades",
+        "progression.node.edge-measure.name": "Fixture Edge Measure",
+        "progression.practice.bank_water_cadence.name": "fixture water cadence",
+        "progression.manoeuvre.braced-advance.name": "Fixture Braced Advance",
+        "progression.skill.buy.learned": "FIXTURE {courier} learns {node}: {description}.",
+        "progression.journal.write.result": "FIXTURE {courier} records {node} in {journal}.",
+        "progression.skill.teach.result": "FIXTURE {teacher} demonstrates {node} to {recipient}.",
+        "progression.choice.journal.write.requirement": "fixture lesson and paper",
+        "progression.choice.manoeuvre.label": "Use fixture active manoeuvre",
+        "progression.person.practice_effect": "FIXTURE practice {practice}: {description}",
+    })
+    source.write_text(json.dumps(progression_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -636,6 +652,20 @@ def chemistry_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
             "first=fill_flask(state, flask.id, herb.id); second=fill_flask(state, flask.id, water.id); reaction=predicted_reactions(flask.contents); before=state.courier.health; drank=drink_flask(state, flask.id); "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'messages': [first[1], second[1], drank[1]], 'mechanics': [reaction, state.courier.known_formulas, before, state.courier.health, flask.contents, herb.location, water.location, state.world_time, flask.kind, herb.kind, water.kind]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def progression_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.manoeuvres import BY_ID, known; from jomon.practices import practice_display_name; from jomon.progression_presentation import progression_format, progression_text, technique_display_name; from jomon.skill_tree import buy_node, record_milestone; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "state=create_world('progression-pack-proof'); record_milestone(state,'return:hearthford'); bought=buy_node(state,'edge-measure'); state.courier.learned_techniques.extend(('practice.bank_water_cadence','practice.personal:bargemaster')); manoeuvres=known(state); overlay=_overlay_lines(state,'skill-tree'); mastery=_overlay_lines(state,'mastery'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[bought[1], practice_display_name('practice.bank_water_cadence'), BY_ID['braced-advance'].name, overlay[0], overlay[1], mastery[0], progression_format('progression.journal.write.result',courier=state.courier.name,node='Edge measure',journal='journal-1'), progression_format('progression.skill.teach.result',teacher='Arel',node='Edge measure',recipient='Bryn'), progression_text('progression.choice.journal.write.requirement'), technique_display_name('practice.personal:bargemaster')], 'mechanics':{'nodes':state.courier.skill_nodes,'practices':state.courier.learned_techniques,'manoeuvres':[row.id for row in manoeuvres],'effects':[row.practice for row in manoeuvres],'points':state.courier.skill_points,'milestones':state.courier.skill_milestones,'personal_id':'practice.personal:bargemaster'}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1764,6 +1794,71 @@ class ContentPackTests(unittest.TestCase):
             with self.subTest("missing file"):
                 source.unlink()
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*chemistry_text\.json"):
+                    load_content_pack(root)
+
+
+    def test_default_progression_presentation_preserves_existing_text(self):
+        from jomon.progression_presentation import manoeuvre_display, practice_display_name, progression_format
+
+        self.assertEqual(practice_display_name("practice.bank_water_cadence"), "bank-water cadence")
+        self.assertEqual(manoeuvre_display("braced-advance", "name"), "Braced advance")
+        self.assertEqual(
+            progression_format("progression.skill.buy.learned", courier="Rowan", node="Edge measure", description="Hold a guard."),
+            "Rowan learns Edge measure: Hold a guard..",
+        )
+
+    def test_alternate_pack_changes_progression_presentation_not_mechanics(self):
+        default = progression_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = progression_presentation_snapshot(environment)
+
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("FIXTURE", alternate["messages"][0])
+        self.assertEqual(alternate["messages"][1], "fixture water cadence")
+        self.assertEqual(alternate["messages"][2], "Fixture Braced Advance")
+        self.assertEqual(alternate["messages"][3], "COURIER SKILLS")
+        self.assertIn("Fixture Blades", "\n".join(alternate["messages"][4]))
+        self.assertEqual(alternate["messages"][5], "PRACTISED MANOEUVRES")
+        self.assertIn("FIXTURE", alternate["messages"][6])
+        self.assertIn("FIXTURE", alternate["messages"][7])
+        self.assertEqual(alternate["messages"][8], "fixture lesson and paper")
+        self.assertEqual(alternate["messages"][9], "seasoned fixture navigator")
+        self.assertEqual(alternate["mechanics"]["personal_id"], "practice.personal:bargemaster")
+
+    def test_progression_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "progression_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing branch": lambda value: value["text"].pop("progression.branch.blades.name"),
+                "missing node": lambda value: value["text"].pop("progression.node.edge-measure.name"),
+                "missing practice": lambda value: value["text"].pop("progression.practice.bank_water_cadence.name"),
+                "missing manoeuvre": lambda value: value["text"].pop("progression.manoeuvre.braced-advance.name"),
+                "unknown key": lambda value: value["text"].update({"progression.node.extra.name": "extra"}),
+                "empty text": lambda value: value["text"].update({"progression.manoeuvre.braced-advance.name": ""}),
+                "non-string": lambda value: value["text"].update({"progression.person.personal_effect": 2}),
+                "unknown placeholder": lambda value: value["text"].update({"progression.skill.buy.learned": "learns {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"progression.skill.buy.learned": "learns {courier}"}),
+                "malformed template": lambda value: value["text"].update({"progression.person.practice_effect": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*progression_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"progression.node.edge-measure.name"', '"progression.skill.buy.invalid"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*progression_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*progression_text\.json"):
                     load_content_pack(root)
 
 

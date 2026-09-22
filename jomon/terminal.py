@@ -1150,7 +1150,8 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
 
         manoeuvre = BY_ID[view.mastery_id]
         legal, reason = status(state, view.mastery_id, selected.id if selected else None)
-        ready = f"MASTERY — {manoeuvre.name}: {manoeuvre.effect}; {'READY' if legal else 'NEEDS ' + reason}. Enter commits; M cycles."
+        from .progression_presentation import progression_format, progression_text
+        ready = progression_format("progression.target.mastery", manoeuvre=manoeuvre.name, effect=manoeuvre.effect, status=progression_text("progression.target.ready") if legal else progression_format("progression.target.needs", reason=reason))
     label = f"Target: {selected.name}" if selected else "No presently visible actor at cursor."
     if view.cursor.z != state.position.z:
         label += " [ABOVE]" if view.cursor.z > state.position.z else " [BELOW]"
@@ -1460,9 +1461,10 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .household_stories import station_choices
         from .skill_tree import journals_at_hand
 
+        from .progression_presentation import progression_text
         return [ChoiceOption(*row) for row in station_choices(state)] + [
-            ChoiceOption("J", "Write a lesson in a paper journal", "commitment", bool(state.courier and state.courier.skill_nodes), "a learned practice and paper"),
-            ChoiceOption("K", "Study a physical skill journal", "commitment", bool(journals_at_hand(state)), "a written journal in the pack or locker"),
+            ChoiceOption("J", progression_text("progression.choice.journal.write.label"), "commitment", bool(state.courier and state.courier.skill_nodes), progression_text("progression.choice.journal.write.requirement")),
+            ChoiceOption("K", progression_text("progression.choice.journal.study.label"), "commitment", bool(journals_at_hand(state)), progression_text("progression.choice.journal.study.requirement")),
         ]
     if kind.startswith("household-story:"):
         from .household_stories import story_choices
@@ -1496,7 +1498,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .manoeuvres import known
 
         if known(state):
-            rows.append(ChoiceOption("M", "Use a learned active manoeuvre", "commitment", bool(state.combat_active), "requires active danger"))
+            from .progression_presentation import progression_text
+            rows.append(ChoiceOption("M", progression_text("progression.choice.manoeuvre.label"), "commitment", bool(state.combat_active), progression_text("progression.choice.manoeuvre.requirement")))
         rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
         return rows
     if kind == "field-traveller":
@@ -1581,7 +1584,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .manoeuvres import known
 
         if known(state):
-            rows.append(ChoiceOption("M", "Use a learned active manoeuvre"))
+            from .progression_presentation import progression_text
+            rows.append(ChoiceOption("M", progression_text("progression.choice.manoeuvre.label")))
         return rows
     if kind == "workline":
         from .worklines import options
@@ -1677,7 +1681,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         person = person_by_id(state, kind.split(":", 1)[1])
         options = [ChoiceOption("C", "Open full character sheet")]
         if person and person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
-            options.append(ChoiceOption("T", "Teach one learned practice", "commitment"))
+            from .progression_presentation import progression_text
+            options.append(ChoiceOption("T", progression_text("progression.choice.teach.label"), "commitment"))
         if person in state.household and person and person.id != state.active_courier_id and person.alive and person.available:
             return options + [ChoiceOption("S", "Switch to this courier", "commitment")]
         if person and person not in state.household:
@@ -2547,39 +2552,45 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return interior_lines(state)
     if kind.startswith("journal-write:"):
         from .skill_tree import NODES
+        from .progression_presentation import progression_format, progression_text
 
         page = int(kind.split(":", 1)[1])
         nodes = [node for node in state.courier.skill_nodes if node not in state.courier.journal_nodes]
-        return "WRITE A PHYSICAL LESSON", [
-            f"{state.courier.name}: {len(state.courier.journal_nodes)}/3 written; one physical paper lot and two actions per page.",
-            *[f"{index + 1}. {NODES[node].name} — {NODES[node].effect}"
+        pages = max(1, (len(nodes) + 7) // 8)
+        return progression_text("progression.journal.write.title"), [
+            progression_format("progression.journal.write.summary", courier=state.courier.name, written=len(state.courier.journal_nodes)),
+            *[progression_format("progression.journal.write.row", index=index + 1, node=NODES[node].name, description=NODES[node].effect)
               for index, node in enumerate(nodes[page * 8:page * 8 + 8])],
-            f"Page {page + 1}/{max(1, (len(nodes) + 7) // 8)}; N/P pages; Escape returns to the common deck.",
+            progression_format("progression.journal.write.page", page=page + 1, pages=pages),
         ]
     if kind.startswith("journal-study:"):
         from .skill_tree import NODES, journals_at_hand
+        from .progression_presentation import progression_format, progression_text
 
         page = int(kind.split(":", 1)[1])
         journals = journals_at_hand(state)
-        return "STUDY A PHYSICAL LESSON", [
-            f"{state.courier.name}: {state.courier.taught_nodes}/2 inherited lessons; prerequisites still matter.",
-            *[f"{index + 1}. {item.id}: {NODES[item.lesson_node].name} — {item.provenance}"
+        pages = max(1, (len(journals) + 7) // 8)
+        return progression_text("progression.journal.study.title"), [
+            progression_format("progression.journal.study.summary", courier=state.courier.name, inherited=state.courier.taught_nodes),
+            *[progression_format("progression.journal.study.row", index=index + 1, journal=item.id, node=NODES[item.lesson_node].name, provenance=item.provenance)
               for index, item in enumerate(journals[page * 8:page * 8 + 8])],
-            f"Page {page + 1}/{max(1, (len(journals) + 7) // 8)}; N/P pages; Escape returns to the common deck.",
+            progression_format("progression.journal.study.page", page=page + 1, pages=pages),
         ]
     if kind.startswith("teach-person:"):
         from .people import person_by_id
         from .skill_tree import NODES
+        from .progression_presentation import progression_format, progression_text
 
         _, recipient_id, page_text = kind.split(":")
         person = person_by_id(state, recipient_id)
         page = int(page_text)
         nodes = [node for node in state.courier.skill_nodes if node not in person.skill_nodes]
-        return f"TEACH {person.name.upper()}", [
-            f"{person.name}: {person.taught_nodes}/2 inherited lessons; teacher {state.courier.name} must remain adjacent.",
-            *[f"{index + 1}. {NODES[node].name} — needs {', '.join(NODES[parent].name for parent in NODES[node].parents) or 'no prerequisites'}"
+        pages = max(1, (len(nodes) + 7) // 8)
+        return progression_format("progression.teach.title", person=person.name.upper()), [
+            progression_format("progression.teach.summary", person=person.name, inherited=person.taught_nodes, teacher=state.courier.name),
+            *[progression_format("progression.teach.row", index=index + 1, node=NODES[node].name, parents=", ".join(NODES[parent].name for parent in NODES[node].parents) or progression_text("progression.teach.none"))
               for index, node in enumerate(nodes[page * 8:page * 8 + 8])],
-            f"Page {page + 1}/{max(1, (len(nodes) + 7) // 8)}; N/P pages; Escape returns to this person.",
+            progression_format("progression.teach.page", page=page + 1, pages=pages),
         ]
     if kind.startswith("craft-catalog:"):
         from .chemistry_presentation import reagent_display_name
@@ -2686,25 +2697,28 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "skill-tree":
         from .skill_tree import BRANCHES, NODES
+        from .progression_presentation import branch_display_name, progression_format, progression_text
 
         person = state.courier
-        return "COURIER SKILLS", [
-            f"{person.name}: {person.skill_points} training mark(s) available; {len(person.skill_nodes)} practices learned.",
-            *[f"{'123456789a'[index]}. {title} — {sum(node.branch == branch and node.id in person.skill_nodes for node in NODES.values())}/6"
-              for index, (branch, (title, _)) in enumerate(BRANCHES.items())],
-            "Select a field of practice. Any household adult may cross-train.",
+        return progression_text("progression.overlay.skill.title"), [
+            progression_format("progression.overlay.skill.summary", courier=person.name, points=person.skill_points, learned=len(person.skill_nodes)),
+            *[progression_format("progression.overlay.skill.branch", index="123456789a"[index], branch=title, learned=sum(node.branch == branch and node.id in person.skill_nodes for node in NODES.values()))
+              for index, (branch, _) in enumerate(BRANCHES.items())
+              for title in (branch_display_name(branch),)],
+            progression_text("progression.overlay.skill.guidance"),
         ]
     if kind.startswith("skill-branch:"):
         from .skill_tree import BRANCHES, NODES
+        from .progression_presentation import branch_display_name, progression_format, progression_text
 
         branch = kind.split(":", 1)[1]
-        title, _ = BRANCHES[branch]
+        title = branch_display_name(branch)
         person = state.courier
-        rows = [f"{person.name}: {person.skill_points} training mark(s) available; B returns to all fields."]
+        rows = [progression_format("progression.overlay.branch.summary", courier=person.name, points=person.skill_points)]
         for index, node in enumerate(node for node in NODES.values() if node.branch == branch):
             unmet = [NODES[parent].name for parent in node.parents if parent not in person.skill_nodes]
-            status = "LEARNED" if node.id in person.skill_nodes else "needs " + ", ".join(unmet) if unmet else "READY" if person.skill_points else "needs a training mark"
-            rows.append(f"{index + 1}. {node.name} [{status}] — {node.effect}.")
+            status = (progression_text("progression.overlay.status.learned") if node.id in person.skill_nodes else progression_format("progression.overlay.status.needs", parents=", ".join(unmet)) if unmet else progression_text("progression.overlay.status.ready") if person.skill_points else progression_text("progression.overlay.status.point"))
+            rows.append(progression_format("progression.overlay.branch.row", index=index + 1, node=node.name, status=status, description=node.effect))
         return title.upper(), rows
     if kind.startswith("household-story:"):
         from .household_stories import BY_ID, story_lines
@@ -2714,7 +2728,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "mastery":
         from .manoeuvres import lines
 
-        return "PRACTISED MANOEUVRES", lines(state)
+        from .progression_presentation import progression_text
+        return progression_text("progression.overlay.mastery.title"), lines(state)
     if kind.startswith("situation:"):
         from .situations import BY_ID, inspect_lines
 
@@ -2807,18 +2822,22 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "household":
         from .people import personal_practice
+        from .practices import learned_practice_ids
 
         lines: list[str] = []
         for person in state.household:
             strongest = max(person.relationships.items(), key=lambda item: (item[1], item[0]))
             related = next(candidate.name for candidate in state.household if candidate.id == strongest[0])
-            learned = ", ".join(person.learned_techniques) or "no expedition technique"
+            from .progression_presentation import technique_display_name
+            from .progression_presentation import progression_text
+            learned = ", ".join(technique_display_name(value) for value in person.learned_techniques) or progression_text("progression.household.none")
             lines.extend((
                 f"{person.name} — {person.ancestry} {role_display_name(person.role)}; {person.technique}; {person.injury}",
                 f"  {learned}; closest standing: {related} ({strongest[1]:+d})",
             ))
-            if personal_practice(person) in person.learned_techniques:
-                lines.append("  Personal practice: +4 weight capacity and a reinforced guard.")
+            if personal_practice(person) in learned_practice_ids(person):
+                from .progression_presentation import progression_text
+                lines.append("  " + progression_text("progression.household.personal_effect"))
         return "JOMON HOUSEHOLD", lines + ["Escape closes without advancing time."]
     if kind == "chronicle":
         from .echoes import lines as echo_lines
@@ -2891,7 +2910,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             from .household_stories import station_choices
 
             lines.extend(f"{key}. {label} — {'AVAILABLE' if available else 'NEEDS ' + requirement}" for key, label, _, available, requirement in station_choices(state))
-            lines.append("J. Write one learned practice into a paper journal; K. Study an existing journal (two inherited lessons maximum).")
+            from .progression_presentation import progression_text
+            lines.append(progression_text("progression.station.gathering.journal_guidance"))
         if station in STATION_REFITS:
             lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
         return title, lines + ["Inspection costs no time. Escape closes."]
@@ -3008,7 +3028,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .manoeuvres import known
 
         if known(state):
-            lines.append("M. Open learned active manoeuvres; every entry previews setup and counter.")
+            from .progression_presentation import progression_text
+            lines.append(progression_text("progression.choice.manoeuvre.guidance"))
         lines.append("The field slate records the needed conditions; a refused use spends neither watch nor carried thing.")
         return INTERFACE_LABELS["field_kit"], lines
     if kind == "tavern:passive":
@@ -3112,6 +3133,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return (f"{person.name.upper()} / {INTERFACE_LABELS['courier_record']}", character_sheet(person)) if person else (INTERFACE_LABELS["vacant_berth"], ["This person is no longer aboard."])
     if kind.startswith("person:"):
         from .people import person_by_id, personal_practice
+        from .practices import learned_practice_ids
+        from .progression_presentation import progression_format, progression_text, technique_display_name
 
         person_id = kind.split(":", 1)[1]
         person = person_by_id(state, person_id)
@@ -3126,7 +3149,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         lines = [
             f"{person.name} — {person.ancestry} {role_display_name(person.role)}; {standing}",
             f"Technique: {person.technique}",
-            "Learned practices: " + (", ".join(person.learned_techniques) or "none"),
+            progression_format("progression.person.learned", practices=", ".join(technique_display_name(value) for value in person.learned_techniques) or progression_text("progression.person.none")),
             f"Health: {person.health}/{person.max_health}; {person.injury}",
             f"Competencies /20: Strategy {person.strategy}; Speech {person.speech}; Wayfinding {person.wayfinding}",
             f"Fieldcraft {person.fieldcraft}; Craft {person.craft}",
@@ -3139,18 +3162,18 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .practices import PRACTICES
 
         practice_details = [
-            f"Practice effect — {name}: {PRACTICES[name].description}"
-            for name in person.learned_techniques if name in PRACTICES
+            progression_format("progression.person.practice_effect", practice=technique_display_name(name), description=PRACTICES[name].description)
+            for name in learned_practice_ids(person) if name in PRACTICES
         ]
         lines[3:3] = practice_details
-        if personal_practice(person) in person.learned_techniques:
-            lines.insert(3, "Seasoned return effect: +4 weight capacity; reinforced guard.")
+        if personal_practice(person) in learned_practice_ids(person):
+            lines.insert(3, progression_text("progression.person.personal_effect"))
         if person in state.household and person.id != state.active_courier_id and person.alive and person.available:
             lines.append("S. Switch to this courier (zero time)")
         elif person not in state.household:
             lines.extend((f"Terms: {person.recruitment_terms}", "R. Offer a voluntary berth", "D. Defer without closing the invitation"))
         if person.id != state.active_courier_id and state.courier and "teaching" in state.courier.skill_nodes:
-            lines.append("T. Teach one learned practice face to face; recipient may inherit at most two.")
+            lines.append(progression_text("progression.person.teach"))
         return person.name.upper(), lines + ["Escape closes without time."]
     return INTERFACE_LABELS["recorded_notice"], [kind, "Escape closes without advancing time."]
 
@@ -3887,7 +3910,8 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             if state.combat_active:
                 overlay = OverlayView("mastery")
             else:
-                state.add_message("Active mastery is available during expedition or deck danger.")
+                from .progression_presentation import progression_text
+                state.add_message(progression_text("progression.manoeuvre.unavailable"))
         elif normalized == ord("z"):
             overlay = OverlayView("regional-ledger")
         elif normalized == ord("c") and state.courier:

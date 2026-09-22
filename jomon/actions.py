@@ -9,6 +9,7 @@ from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_go
 from .expanded_weapons import ARSENAL
 from .item_presentation import item_display_name, item_display_name_or_legacy
 from .action_presentation import action_format
+from .practices import learned_practice_ids
 from .inventory import (
     add_status,
     apply_terrain_status,
@@ -1600,7 +1601,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         )
         or "surveyed soft-step" in build_combinations(state)
         or "quiet-veil" in state.terrain_statuses
-        or ("smoke spoor" in state.courier.learned_techniques and position_key(target) in state.smoke)
+        or ("technique.smoke_spoor" in learned_practice_ids(state.courier) and position_key(target) in state.smoke)
     )
     if state.courier and state.courier.character_specified:
         from .character import effective_competency
@@ -1644,7 +1645,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if position_key(target) in state.water:
         protected = (
             state.gear == "rope"
-            or (state.courier and "shoreline measure" in state.courier.learned_techniques)
+            or (state.courier and "technique.shoreline_measure" in learned_practice_ids(state.courier))
             or has_practice_effect(state, "shallow-water-step")
             or (
                 has_practice_effect(state, "wet-load-step")
@@ -1952,7 +1953,7 @@ def _control_interaction(state: GameState) -> ActionResult:
         or state.support == "carpenter rig"
         or (courier and courier.technique == "lever craft")
         or "sluice token" in state.carried_passives
-        or (courier and {"mill hearing", "bell interval"} & set(courier.learned_techniques))
+        or (courier and {"technique.mill_hearing", "technique.bell_interval"} & learned_practice_ids(courier))
     )
     if state.active_region_id != "hearthford":
         state.region.changes["environment_control_used"] = True
@@ -2994,6 +2995,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         )
         return _plain(state, action_format("combat.guard.no_brace_target", reason=reason))
     from .people import personal_practice
+    from .practices import learned_practice_ids
 
     strong = (
         state.gear == "buckler"
@@ -3001,7 +3003,7 @@ def guard(state: GameState, target_id: str | None = None) -> ActionResult:
         or (state.courier and state.courier.technique == "set stance")
         or (
             state.courier
-            and personal_practice(state.courier) in state.courier.learned_techniques
+            and personal_practice(state.courier) in learned_practice_ids(state.courier)
         )
         or "hearth-ale" in state.drink_effects
         or ("brace" in worn_tags(state, ("arms",)) and "wet" not in state.terrain_statuses)

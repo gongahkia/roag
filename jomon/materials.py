@@ -428,7 +428,8 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         or (existing and existing.water)
     ):
         return False, "Ignition needs dry fuel and one measure of lamp oil."
-    learned_brace = verb == "brace" and bool({"mill hearing", "bell interval"} & set(state.courier.learned_techniques))
+    from .practices import learned_practice_ids
+    learned_brace = verb == "brace" and bool({"technique.mill_hearing", "technique.bell_interval"} & learned_practice_ids(state.courier))
     from .practices import has_effect as has_practice_effect
 
     practice_work = (

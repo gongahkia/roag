@@ -1,354 +1,84 @@
 {
   "branches": {
     "blades": [
-      "Blades",
-      [
-        [
-          "edge-measure",
-          "Edge measure",
-          "blade strikes leave a guarded stance"
-        ],
-        [
-          "guard-feint",
-          "Guard feint",
-          "blade strikes gain one harm against protectors"
-        ],
-        [
-          "slip-cut",
-          "Slip cut",
-          "blade strikes gain one harm after a guarded step"
-        ],
-        [
-          "weapon-bind",
-          "Weapon bind",
-          "blade strikes spoil a marked enemy aim"
-        ],
-        [
-          "riposte",
-          "Riposte",
-          "guarded blade strikes press one extra morale"
-        ],
-        [
-          "river-duelist",
-          "River duelist",
-          "blade strikes gain one harm against wavering morale"
-        ]
-      ]
+      "edge-measure",
+      "guard-feint",
+      "slip-cut",
+      "weapon-bind",
+      "riposte",
+      "river-duelist"
     ],
     "reach": [
-      "Reach and impact",
-      [
-        [
-          "measured-stance",
-          "Measured stance",
-          "reach arms gain one maximum pace"
-        ],
-        [
-          "countercharge",
-          "Countercharge",
-          "reach strikes gain one harm against engaged enemies"
-        ],
-        [
-          "haft-breaker",
-          "Haft breaker",
-          "reach strikes chip timber support beneath targets"
-        ],
-        [
-          "hook-haul",
-          "Hook haul",
-          "reach strikes pull the target one open pace"
-        ],
-        [
-          "line-intercept",
-          "Line intercept",
-          "reach strikes bind one targeted enemy action"
-        ],
-        [
-          "ferryman-wall",
-          "Ferryman's wall",
-          "reach strikes leave a guarded stance"
-        ]
-      ]
+      "measured-stance",
+      "countercharge",
+      "haft-breaker",
+      "hook-haul",
+      "line-intercept",
+      "ferryman-wall"
     ],
     "bows": [
-      "Bows and throwing",
-      [
-        [
-          "sighted-draw",
-          "Sighted draw",
-          "bows gain one pace of maximum range"
-        ],
-        [
-          "quick-nock",
-          "Quick nock",
-          "bows fire without a separate aim action"
-        ],
-        [
-          "shaft-recovery",
-          "Shaft recovery",
-          "recover one spent physical throw"
-        ],
-        [
-          "called-shot",
-          "Called shot",
-          "bow shots gain one harm against elites"
-        ],
-        [
-          "wind-hold",
-          "Wind hold",
-          "rain no longer spoils a prepared bow shot"
-        ],
-        [
-          "moving-volley",
-          "Moving volley",
-          "one walkable step retains bow aim"
-        ]
-      ]
+      "sighted-draw",
+      "quick-nock",
+      "shaft-recovery",
+      "called-shot",
+      "wind-hold",
+      "moving-volley"
     ],
     "gunworks": [
-      "Gunworks",
-      [
-        [
-          "charge-handling",
-          "Charge handling",
-          "gun shots gain one harm when fully loaded"
-        ],
-        [
-          "dry-load",
-          "Dry load",
-          "wet weather no longer spoils gun aim"
-        ],
-        [
-          "braced-tube",
-          "Braced tube",
-          "guarded gun lanes gain one maximum pace"
-        ],
-        [
-          "vent-care",
-          "Vent care",
-          "gun reloads need one fewer guarded action"
-        ],
-        [
-          "smoke-shaping",
-          "Smoke shaping",
-          "gun shots also veil the struck place with smoke"
-        ],
-        [
-          "payload-master",
-          "Payload master",
-          "gun shots gain one harm against rigid protection"
-        ]
-      ]
+      "charge-handling",
+      "dry-load",
+      "braced-tube",
+      "vent-care",
+      "smoke-shaping",
+      "payload-master"
     ],
     "devices": [
-      "Devices and fieldcraft",
-      [
-        [
-          "safe-throw",
-          "Safe throw",
-          "device throws gain one maximum pace"
-        ],
-        [
-          "scatter-bank",
-          "Scatter bank",
-          "spread a smoke payload into a neighbouring place"
-        ],
-        [
-          "delayed-fuse",
-          "Delayed fuse",
-          "thunder bombs become warned mineral flashes on the next beat"
-        ],
-        [
-          "adhesive-coat",
-          "Adhesive coat",
-          "pitch and resin bombs leave two more fuel"
-        ],
-        [
-          "line-trap",
-          "Line trap",
-          "resin bombs also bind adjacent enemies"
-        ],
-        [
-          "controlled-chain",
-          "Controlled chain",
-          "thunder bombs press one more adjacent morale"
-        ]
-      ]
+      "safe-throw",
+      "scatter-bank",
+      "delayed-fuse",
+      "adhesive-coat",
+      "line-trap",
+      "controlled-chain"
     ],
     "spellcraft": [
-      "Spellcraft",
-      [
-        [
-          "attunement",
-          "Attunement",
-          "increase the personal mana reserve by two"
-        ],
-        [
-          "elemental-shape",
-          "Elemental shape",
-          "learn smoke, salt, ice and ash spell forms"
-        ],
-        [
-          "ward-script",
-          "Ward script",
-          "learn support, ward, cleanse and lime spell forms"
-        ],
-        [
-          "veiling",
-          "Veiling",
-          "learn decoy, quiet, pull and snare spell forms"
-        ],
-        [
-          "echo-binding",
-          "Echo binding",
-          "learn sweep, storm, wash and iron spell forms"
-        ],
-        [
-          "spell-weave",
-          "Spell weave",
-          "learn four high-cost classic spell forms"
-        ]
-      ]
+      "attunement",
+      "elemental-shape",
+      "ward-script",
+      "veiling",
+      "echo-binding",
+      "spell-weave"
     ],
     "smithing": [
-      "Smithing and fabrication",
-      [
-        [
-          "tool-care",
-          "Tool care",
-          "improve a physical repair by five condition"
-        ],
-        [
-          "fuel-husbandry",
-          "Fuel husbandry",
-          "one charcoal lot is spared in a prepared smelt"
-        ],
-        [
-          "bloom-sorting",
-          "Bloom sorting",
-          "a prepared smelt yields one extra iron billet"
-        ],
-        [
-          "armour-fitting",
-          "Armour fitting",
-          "fitted armour gains five condition after installation"
-        ],
-        [
-          "gun-assembly",
-          "Gun assembly",
-          "a physical forge also offers gunworks fabrication"
-        ],
-        [
-          "masterwork",
-          "Masterwork",
-          "newly made personal weapons gain one harm"
-        ]
-      ]
+      "tool-care",
+      "fuel-husbandry",
+      "bloom-sorting",
+      "armour-fitting",
+      "gun-assembly",
+      "masterwork"
     ],
     "alchemy": [
-      "Alchemy and medicine",
-      [
-        [
-          "substance-sense",
-          "Substance sense",
-          "healing drafts restore one extra health"
-        ],
-        [
-          "safe-decant",
-          "Safe decant",
-          "one ingredient gives two flask measures when room permits"
-        ],
-        [
-          "field-triage",
-          "Field triage",
-          "healing drafts restore one more health"
-        ],
-        [
-          "controlled-distil",
-          "Controlled distil",
-          "remove one chosen flask reagent at a still"
-        ],
-        [
-          "antitoxin",
-          "Antitoxin",
-          "breath tonic also clears salt and lime exposure"
-        ],
-        [
-          "catalyst-brewing",
-          "Catalyst brewing",
-          "attunement drafts restore one extra mana"
-        ]
-      ]
+      "substance-sense",
+      "safe-decant",
+      "field-triage",
+      "controlled-distil",
+      "antitoxin",
+      "catalyst-brewing"
     ],
     "navigation": [
-      "Navigation and seamanship",
-      [
-        [
-          "route-reading",
-          "Route reading",
-          "gain one sight radius in known regional ground"
-        ],
-        [
-          "weather-eye",
-          "Weather eye",
-          "gain one sight radius in fog and rain"
-        ],
-        [
-          "load-balance",
-          "Load balance",
-          "carry four more physical weight"
-        ],
-        [
-          "current-rescue",
-          "Current rescue",
-          "winter water no longer adds a new chill"
-        ],
-        [
-          "station-repair",
-          "Station repair",
-          "vessel refit installations need one fewer action"
-        ],
-        [
-          "deep-pilotage",
-          "Deep pilotage",
-          "charted route legs need one fewer travel action"
-        ]
-      ]
+      "route-reading",
+      "weather-eye",
+      "load-balance",
+      "current-rescue",
+      "station-repair",
+      "deep-pilotage"
     ],
     "diplomacy": [
-      "Diplomacy and trade",
-      [
-        [
-          "careful-terms",
-          "Careful terms",
-          "negotiated groups include one more listener"
-        ],
-        [
-          "price-sense",
-          "Price sense",
-          "merchant purchases cost one less credit"
-        ],
-        [
-          "mediation",
-          "Mediation",
-          "tavern mediation improves relationship settlement"
-        ],
-        [
-          "teaching",
-          "Teaching",
-          "teach a learned practice to another courier"
-        ],
-        [
-          "work-order",
-          "Work order",
-          "delegate one physical production job"
-        ],
-        [
-          "guild-broker",
-          "Guild broker",
-          "witnessed regional supply deliveries earn one extra credit"
-        ]
-      ]
+      "careful-terms",
+      "price-sense",
+      "mediation",
+      "teaching",
+      "work-order",
+      "guild-broker"
     ]
   },
   "role_roots": {

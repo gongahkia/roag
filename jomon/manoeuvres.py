@@ -5,32 +5,31 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import GameState, Position, Threat
+from .progression_presentation import manoeuvre_display, practice_display_name, progression_format, progression_text
 
 
 @dataclass(frozen=True)
 class Manoeuvre:
     id: str
-    name: str
     practice: str
     mode: str
-    setup: str
-    counter: str
-    effect: str
+    @property
+    def name(self) -> str: return manoeuvre_display(self.id, "name")
+    @property
+    def setup(self) -> str: return manoeuvre_display(self.id, "setup")
+    @property
+    def counter(self) -> str: return manoeuvre_display(self.id, "counter")
+    @property
+    def effect(self) -> str: return manoeuvre_display(self.id, "effect")
 
 
 MANOEUVRES = tuple(Manoeuvre(*row) for row in (
-    ("braced-advance", "Braced advance", "bank-water cadence", "target", "a reach weapon and a visible actor within three paces", "sidestep, elevation, or broken footing", "advance one safe pace, guard, and press morale"),
-    ("quiet-crossing", "Quiet crossing", "field-rill measure", "field", "regional ground and a visible destination", "an alarm, direct sight, or deep water", "take one pace without adding movement noise"),
-    ("hook-and-pass", "Hook-and-pass", "wreck-title hold", "target", "a hook weapon and an adjacent or near actor", "brace, greater reach, or blocked ground", "pull the actor across the courier's old lane"),
-    ("shield-bind", "Shield bind", "span-watch stance", "guard", "a buckler or shield and an adjacent trained actor", "reach, withdrawal, or an ally's interruption", "deny its prepared lane and hold guard"),
-    ("smoke-takedown", "Quiet smoke takedown", "ash-refuge breathing", "target", "dense smoke and an adjacent visible actor", "clear air, distance, or smoke protection", "strike through cover with reduced sound"),
-    ("porter-shove", "Burdened porter shove", "island porter relay", "target", "a laden pack and an adjacent actor", "open distance or immovable terrain", "push the actor while keeping the carried load"),
-    ("high-cast", "High cast", "ridge-sounding line", "target", "a ranged weapon, ammunition, and lower target", "overhead cover, elevation, or closing distance", "make one plunging cast that ignores low cover"),
-    ("ice-feint", "Ice-channel feint", "winter-braid reading", "guard", "known ice underfoot and a nearby actor", "saltwater, reach, or leaving the ice", "break its aim and step to stable ice"),
-    ("flood-turn", "Siltgate flood turn", "siltgate hand", "field", "adjacent shallow fresh water", "deep current or a sealed stone edge", "redirect one depth into a neighbouring opening"),
-    ("firebreak-cut", "Living firebreak cut", "living firebreak", "field", "adjacent burning reeds or timber", "oil, wind, or fire beyond the cut", "remove fuel, extinguish that patch, and make noise"),
-    ("support-set", "Peat support set", "peat brace seating", "guard", "a wet or weakened adjacent support", "falling debris or a second severed support", "restore support and cancel its warning"),
-    ("controlled-withdrawal", "Two-span withdrawal", "two-span withdrawal", "guard", "a reach weapon and a nearby engaged actor", "flanking, blocked retreat, or pinning", "withdraw one safe pace under guard and press morale"),
+    ("braced-advance", "practice.bank_water_cadence", "target"), ("quiet-crossing", "practice.field_rill_measure", "field"),
+    ("hook-and-pass", "practice.wreck_title_hold", "target"), ("shield-bind", "practice.span_watch_stance", "guard"),
+    ("smoke-takedown", "practice.ash_refuge_breathing", "target"), ("porter-shove", "practice.island_porter_relay", "target"),
+    ("high-cast", "practice.ridge_sounding_line", "target"), ("ice-feint", "practice.winter_braid_reading", "guard"),
+    ("flood-turn", "practice.siltgate_hand", "field"), ("firebreak-cut", "practice.living_firebreak", "field"),
+    ("support-set", "practice.peat_brace_seating", "guard"), ("controlled-withdrawal", "practice.two_span_withdrawal", "guard"),
 ))
 
 BY_ID = {row.id: row for row in MANOEUVRES}
@@ -38,7 +37,8 @@ BY_PRACTICE = {row.practice: row for row in MANOEUVRES}
 
 
 def known(state: GameState, mode: str | None = None) -> list[Manoeuvre]:
-    learned = set(state.courier.learned_techniques) if state.courier else set()
+    from .practices import learned_practice_ids
+    learned = learned_practice_ids(state.courier) if state.courier else set()
     return [row for row in MANOEUVRES if row.practice in learned and (mode is None or row.mode == mode)]
 
 
@@ -67,9 +67,9 @@ def _ammo_ready(state: GameState) -> bool:
 def status(state: GameState, manoeuvre_id: str, target_id: str | None = None) -> tuple[bool, str]:
     row = BY_ID[manoeuvre_id]
     if row not in known(state):
-        return False, f"learn {row.practice}"
+        return False, progression_format("progression.manoeuvre.status.unlearned", practice=practice_display_name(row.practice))
     if not state.combat_active:
-        return False, "active expedition or deck danger"
+        return False, progression_text("progression.manoeuvre.status.danger")
     target = _target(state, target_id)
     gap = 99 if target is None else max(abs(target.position.x-state.position.x), abs(target.position.y-state.position.y))
     from .world import base_tile
@@ -102,18 +102,19 @@ def status(state: GameState, manoeuvre_id: str, target_id: str | None = None) ->
         okay = any((cell := fields(state).get(key(p))) is not None and (cell.support < 3 or cell.collapse_due) for p in [state.position, *adjacent])
     else:
         okay = state.weapon in {"spear", "pike", "boar spear", "glaive", "billhook", "quarterstaff", "staff"} and target is not None and gap <= 4
-    return (True, "ready; one action") if okay else (False, row.setup)
+    return (True, progression_text("progression.manoeuvre.status.ready")) if okay else (False, row.setup)
 
 
 def lines(state: GameState, mode: str | None = None, target_id: str | None = None) -> list[str]:
     rows = known(state, mode)
     if not rows:
-        return ["No learned practice supplies a manoeuvre in this context.", "Practices are taught by embodied network and aftermath work. Inspection costs no time."]
-    material = ["Learned practices become deliberate one-action choices; passive effects remain active."]
+        return [progression_text("progression.manoeuvre.lines.none"), progression_text("progression.manoeuvre.lines.guidance")]
+    material = [progression_text("progression.manoeuvre.lines.intro")]
     for index, row in enumerate(rows):
         ready, reason = status(state, row.id, target_id)
-        material.extend((f"{index+1}. {row.name} — {'READY' if ready else 'NEEDS ' + reason}.", f"   Effect: {row.effect}. Counter: {row.counter}."))
-    return material + ["A failed choice costs no action. Escape returns without time."]
+        status_text = progression_text("progression.target.ready") if ready else progression_format("progression.target.needs", reason=reason)
+        material.extend((progression_format("progression.manoeuvre.lines.row", index=index + 1, manoeuvre=row.name, status=status_text), progression_format("progression.manoeuvre.lines.effect", effect=row.effect, counter=row.counter)))
+    return material + [progression_text("progression.manoeuvre.lines.footer")]
 
 
 def choices(state: GameState, mode: str | None = None, target_id: str | None = None) -> list[tuple[str, str, str, bool, str]]:
@@ -134,7 +135,7 @@ def _safe_step(state: GameState, dx: int, dy: int) -> Position | None:
 def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -> tuple[bool, str, int]:
     ready, reason = status(state, manoeuvre_id, target_id)
     if not ready:
-        return False, f"{BY_ID[manoeuvre_id].name} needs {reason}.", 0
+        return False, progression_format("progression.manoeuvre.perform.failed", manoeuvre=BY_ID[manoeuvre_id].name, reason=reason), 0
     row, target = BY_ID[manoeuvre_id], _target(state, target_id)
     from .materials import ensure_cell, fields, key
     from .world import is_walkable
@@ -173,7 +174,8 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         target.morale -= 1
         state.guarded_step = True
     elif row.id == "smoke-takedown":
-        harm_enemy(state, target, 2, row.name, damage_kind="blunt")
+        from .skill_tree import manoeuvre_damage_source
+        harm_enemy(state, target, 2, manoeuvre_damage_source(row.id), damage_kind="blunt")
         target.morale -= 1
         state.noise = max(0, state.noise-1)
     elif row.id == "porter-shove":
@@ -187,7 +189,8 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         ammunition = WEAPON_AMMUNITION.get(state.weapon or "", "")
         if ammunition:
             consume_ammunition(state, ammunition)
-        harm_enemy(state, target, 2, row.name, damage_kind="pierce")
+        from .skill_tree import manoeuvre_damage_source
+        harm_enemy(state, target, 2, manoeuvre_damage_source(row.id), damage_kind="pierce")
         target.aimed_at = None
         state.noise += 1
     elif row.id == "ice-feint":
@@ -221,8 +224,8 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         target.morale -= 1
         state.guarded_step = True
     state.vessel_changes[f"manoeuvre:last:{row.id}"] = state.world_time
-    state.remember(f"{state.courier.name} used {row.name}: {row.effect}.")
-    return True, f"{row.name}: {row.effect}.", 1
+    state.remember(progression_format("progression.manoeuvre.memory", courier=state.courier.name, manoeuvre=row.name, effect=row.effect))
+    return True, progression_format("progression.manoeuvre.perform.result", manoeuvre=row.name, effect=row.effect), 1
 
 
 def validate_manoeuvres() -> None:
@@ -231,7 +234,7 @@ def validate_manoeuvres() -> None:
         raise ValueError("exactly twelve distinct active manoeuvres are required")
     if not set(BY_PRACTICE) <= set(PRACTICES):
         raise ValueError("every manoeuvre needs a production practice")
-    if {row.mode for row in MANOEUVRES} != {"target", "guard", "field"} or any(not all((row.setup, row.counter, row.effect)) for row in MANOEUVRES):
+    if {row.mode for row in MANOEUVRES} != {"target", "guard", "field"} :
         raise ValueError("manoeuvres need all three contexts, setup, counter, and effect")
 
 

@@ -132,7 +132,7 @@ class RegionalQuestlineTests(unittest.TestCase):
         self.assertTrue(state.treasure_marks["whitecairn"])
         training = use_contact_service(state, "t")
         self.assertTrue(training.time_advanced)
-        self.assertIn("bell interval", state.courier.learned_techniques)
+        self.assertIn("technique.bell_interval", state.courier.learned_techniques)
         state.courier.injuries["feet"] = "cut foot"
         state.courier.injury = "cut foot"
         state.support = "field care"

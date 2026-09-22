@@ -927,6 +927,7 @@ def pack_weight(state: GameState, owner_id: str | None = None) -> int:
 def weight_capacity(state: GameState) -> int:
     from .character import attribute_modifier
     from .people import personal_practice
+    from .practices import learned_practice_ids
 
     courier = state.courier
     capacity = 34 if courier and courier.role in {"guard", "carpenter", "bargemaster"} else 28
@@ -934,7 +935,7 @@ def weight_capacity(state: GameState) -> int:
         capacity += 2 * attribute_modifier(courier, "strength")
     if courier and courier.ancestry == "Stonefolk":
         capacity += 4
-    if courier and personal_practice(courier) in courier.learned_techniques:
+    if courier and personal_practice(courier) in learned_practice_ids(courier):
         capacity += 4
     if courier and "load-balance" in courier.skill_nodes:
         capacity += 4

@@ -120,7 +120,7 @@ class PhysicalTavernTests(unittest.TestCase):
             state.position = state.region.landmarks["landing"]
             result = return_to_jomon(state)
             self.assertTrue(result.changed)
-        self.assertIn(f"seasoned {courier.role}", courier.learned_techniques)
+        self.assertIn(f"practice.personal:{courier.role}", courier.learned_techniques)
         self.assertNotIn(f"seasoned {other.role}", other.learned_techniques)
         self.assertEqual(weight_capacity(state), initial_capacity + 4)
         self.assertIn("four more weight capacity", result.message)
@@ -128,7 +128,7 @@ class PhysicalTavernTests(unittest.TestCase):
     def test_personal_practice_reinforces_guard_and_survives_save(self):
         state = create_world("personal practiced guard")
         courier = state.courier
-        courier.learned_techniques.append(f"seasoned {courier.role}")
+        courier.learned_techniques.append(f"practice.personal:{courier.role}")
         depart(state)
         threat = state.threats[0]
         threat.position, threat.status = Position(state.position.x + 1, state.position.y), "engaged"
@@ -144,7 +144,7 @@ class PhysicalTavernTests(unittest.TestCase):
             path = Path(directory) / "save.json"
             save_game(state, path)
             loaded = load_game(path)
-        self.assertIn(f"seasoned {courier.role}", loaded.courier.learned_techniques)
+        self.assertIn(f"practice.personal:{courier.role}", loaded.courier.learned_techniques)
 
     def test_a_recruited_adult_earns_the_same_personal_return_path(self):
         state = create_world("recruited return development")
@@ -161,4 +161,4 @@ class PhysicalTavernTests(unittest.TestCase):
             self.assertTrue(depart(state).changed)
             state.position = state.region.landmarks["landing"]
             self.assertTrue(return_to_jomon(state).changed)
-        self.assertIn(f"seasoned {recruit.role}", recruit.learned_techniques)
+        self.assertIn(f"practice.personal:{recruit.role}", recruit.learned_techniques)

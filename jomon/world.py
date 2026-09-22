@@ -317,10 +317,11 @@ def sight_radius(state: GameState) -> int:
         and state.active_region_id == "greenwold" and state.weather == "crosswind"
     ):
         radius += 2
-    known = set(state.courier.learned_techniques) if state.courier else set()
-    if "shoreline measure" in known and state.weather in {"salt wind", "coast squall"}:
+    from .practices import learned_practice_ids
+    known = learned_practice_ids(state.courier) if state.courier else set()
+    if "technique.shoreline_measure" in known and state.weather in {"salt wind", "coast squall"}:
         radius += 2
-    if "smoke spoor" in known and position_key(state.position) in state.smoke:
+    if "technique.smoke_spoor" in known and position_key(state.position) in state.smoke:
         radius = max(radius, 5)
     from .practices import has_effect as has_practice_effect
 

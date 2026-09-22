@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, RECRUITMENT_SECTIONS, load_catalog
 from .action_presentation import action_format
+from .progression_presentation import progression_format
 from .content import RECRUIT_TEMPLATES
 from .state import GameState, Person, Position, stage_rng
 from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
@@ -27,25 +28,29 @@ if (len(RECRUIT_TEMPLATES) != 6
 
 def personal_practice(person: Person) -> str:
     """The inspectable practice earned by this particular household role."""
-    return f"seasoned {person.role}"
+    return f"practice.personal:{person.role}"
 
 
 def record_personal_return(state: GameState, person: Person, region_id: str) -> str:
     """Advance one actor's bounded, embodied expedition development."""
     prefix = "Courier return:"
-    previous = sum(memory.startswith(prefix) for memory in person.memories)
+    # The counter is engine state.  Old saves lacking it can recover only the
+    # bundled-default historical marker; active-pack wording is never parsed.
+    counter_key = f"personal-return:{person.id}"
+    previous = int(state.vessel_changes.get(counter_key, sum(memory.startswith(prefix) for memory in person.memories)))
+    state.vessel_changes[counter_key] = previous + 1
     region = state.regions[region_id]
-    person.memories.append(
-        f"{prefix} survived working passage through {region.name}."
-    )
+    person.memories.append(progression_format("progression.personal.memory", region=region.name))
     practice = personal_practice(person)
-    if previous + 1 < PERSONAL_RETURN_MILESTONE or practice in person.learned_techniques:
+    from .practices import learned_practice_ids
+    if previous + 1 < PERSONAL_RETURN_MILESTONE or practice in learned_practice_ids(person):
         del person.memories[:-12]
         return ""
     person.learned_techniques.append(practice)
-    development = (
-        f"{person.name} becomes a {practice} after two returns: four more "
-        "weight capacity and a reinforced guard now follow that person, not the office."
+    from .progression_presentation import technique_display_name
+    development = progression_format(
+        "progression.personal.development", courier=person.name,
+        practice=technique_display_name(practice),
     )
     person.memories.append(development)
     del person.memories[:-12]

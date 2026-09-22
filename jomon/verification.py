@@ -60,7 +60,7 @@ def _techniques() -> set[str]:
     return (
         set(ROLE_TECHNIQUE.values())
         | {str(template["technique"]) for template in RECRUIT_TEMPLATES}
-        | {"mill hearing", "shoreline measure", "smoke spoor", "bell interval"}
+        | {"technique.mill_hearing", "technique.shoreline_measure", "technique.smoke_spoor", "technique.bell_interval"}
         | set(PRACTICES)
     )
 

@@ -1278,6 +1278,9 @@ def game_state_from_dict(data: Any) -> GameState:
 
         household = [Person(**person) for person in data["household"]]
         visitors = [Person(**person) for person in data.get("visitors", [])]
+        from .practices import stable_practice_id
+        for person in [*household, *visitors]:
+            person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]
         active_region_id = data["active_region_id"]
         regions = {
             key: parse_region(value)
@@ -1582,6 +1585,9 @@ def game_state_from_dict(data: Any) -> GameState:
         migrate_legacy_chemistry_state(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
+    from .practices import stable_practice_id
+    for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
+        person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]
     validate_state(state)
     return state
 
