@@ -381,6 +381,7 @@ class Item:
     legendary_id: str | None = None
     contents: dict[str, int] = field(default_factory=dict)
     lesson_node: str | None = None
+    masterwork: bool = False
 
 
 @dataclass
@@ -1317,6 +1318,9 @@ def game_state_from_dict(data: Any) -> GameState:
             item_data = dict(raw)
             if item_data.get("ground_position") is not None:
                 item_data["ground_position"] = _position(item_data["ground_position"], "ground item")
+            # Historical masterworks used the default rendered provenance prefix.
+            # Never consult selected-pack prose when restoring this mechanical flag.
+            item_data.setdefault("masterwork", item_data.get("provenance", "").startswith("masterwork:"))
             items.append(Item(**item_data))
         terrain_statuses = {
             name: TerrainStatus(**value) for name, value in data["terrain_statuses"].items()

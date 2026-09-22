@@ -166,7 +166,7 @@ def apply_weapon_skills(state: GameState, target, damage: int, *, weapon_name: s
     from .inventory import equipped_item
 
     readied = equipped_item(state, "readied")
-    if readied and readied.kind == (weapon_name or state.weapon) and readied.provenance.startswith("masterwork:"):
+    if readied and readied.kind == (weapon_name or state.weapon) and readied.masterwork:
         damage += 1
         notes.append("masterwork edge")
     return damage, "; ".join(notes), guards_response

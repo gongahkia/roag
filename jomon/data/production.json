@@ -80,7 +80,6 @@
   "recipes": [
     {
       "id": "field-flask",
-      "name": "Shape a field flask",
       "station": "portable",
       "inputs": [
         [
@@ -98,7 +97,6 @@
     },
     {
       "id": "iron-billet",
-      "name": "Smelt one iron billet",
       "station": "smelter",
       "inputs": [
         [
@@ -116,7 +114,6 @@
     },
     {
       "id": "field-dressing",
-      "name": "Prepare a field dressing",
       "station": "portable",
       "inputs": [
         [
@@ -134,7 +131,6 @@
     },
     {
       "id": "smoke-bombs",
-      "name": "Pack smoke bombs",
       "station": "portable",
       "inputs": [
         [
@@ -152,7 +148,6 @@
     },
     {
       "id": "pitch-bombs",
-      "name": "Pack pitch bombs",
       "station": "portable",
       "inputs": [
         [
@@ -170,7 +165,6 @@
     },
     {
       "id": "lime-bombs",
-      "name": "Pack lime bombs",
       "station": "portable",
       "inputs": [
         [
@@ -188,7 +182,6 @@
     },
     {
       "id": "brine-bombs",
-      "name": "Pack brine bombs",
       "station": "portable",
       "inputs": [
         [
@@ -206,7 +199,6 @@
     },
     {
       "id": "thunder-bombs",
-      "name": "Pack thunder bombs",
       "station": "portable",
       "inputs": [
         [
@@ -224,7 +216,6 @@
     },
     {
       "id": "resin-bombs",
-      "name": "Pack resin bombs",
       "station": "portable",
       "inputs": [
         [
@@ -242,7 +233,6 @@
     },
     {
       "id": "healing-draft",
-      "name": "Brew healing draft",
       "station": "brewery",
       "inputs": [
         [
@@ -263,7 +253,6 @@
     },
     {
       "id": "attunement-draft",
-      "name": "Brew attunement draft",
       "station": "brewery",
       "inputs": [
         [
@@ -284,7 +273,6 @@
     },
     {
       "id": "breath-tonic",
-      "name": "Brew breath tonic",
       "station": "brewery",
       "inputs": [
         [
@@ -305,7 +293,6 @@
     },
     {
       "id": "counted-charges",
-      "name": "Prepare fictional spark-salt charges",
       "station": "gunworks",
       "inputs": [
         [
@@ -323,7 +310,6 @@
     },
     {
       "id": "hearthford-splints",
-      "name": "Bind Hearthford splinted arms",
       "station": "forge",
       "inputs": [
         [
@@ -341,7 +327,6 @@
     },
     {
       "id": "greywash-gauntlets",
-      "name": "Cure Greywash tarred gauntlets",
       "station": "brewery",
       "inputs": [
         [
@@ -363,7 +348,6 @@
     },
     {
       "id": "greenwold-vest",
-      "name": "Lacquer a Greenwold reedscale vest",
       "station": "portable",
       "inputs": [
         [
@@ -385,7 +369,6 @@
     },
     {
       "id": "whitecairn-sleeves",
-      "name": "Stitch Whitecairn quarry sleeves",
       "station": "portable",
       "inputs": [
         [
@@ -403,7 +386,6 @@
     },
     {
       "id": "dunmire-pattens",
-      "name": "Oil Dunmire peat pattens",
       "station": "portable",
       "inputs": [
         [
@@ -421,7 +403,6 @@
     },
     {
       "id": "marlbank-apron",
-      "name": "Fire a Marlbank kiln apron",
       "station": "forge",
       "inputs": [
         [
@@ -439,7 +420,6 @@
     },
     {
       "id": "rillscar-cleats",
-      "name": "Link Rillscar ice cleats",
       "station": "smelter",
       "inputs": [
         [
@@ -457,7 +437,6 @@
     },
     {
       "id": "frostmere-coat",
-      "name": "Line a Frostmere winter felt coat",
       "station": "portable",
       "inputs": [
         [
@@ -475,7 +454,6 @@
     },
     {
       "id": "fletched-arrows",
-      "name": "Fletch three arrows",
       "station": "workshop",
       "inputs": [
         [
@@ -493,7 +471,6 @@
     },
     {
       "id": "quarrel-case",
-      "name": "Forge three heavy quarrels",
       "station": "forge",
       "inputs": [
         [
@@ -511,7 +488,6 @@
     },
     {
       "id": "sling-shot-pouch",
-      "name": "Pack three sling shot pouches",
       "station": "portable",
       "inputs": [
         [
@@ -528,67 +504,67 @@
       "contents": []
     },
     {
-      "id": "circuit-trace", "name": "Lacquer four conductors", "station": "workshop",
+      "id": "circuit-trace", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:wool", 1]],
       "output": "circuit:trace", "quantity": 4, "contents": []
     },
     {
-      "id": "circuit-via", "name": "Fit two insulated vias", "station": "workshop",
+      "id": "circuit-via", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
       "output": "circuit:via", "quantity": 2, "contents": []
     },
     {
-      "id": "circuit-rack", "name": "Build a cell rack", "station": "workshop",
+      "id": "circuit-rack", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
       "output": "circuit:rack", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-cell", "name": "Assemble a galvanic cell", "station": "workshop",
+      "id": "circuit-cell", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:charcoal", 1], ["commodity:paper", 1], ["ingredient:brine", 1]],
       "output": "circuit:cell", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-switch", "name": "Fit a knife switch", "station": "workshop",
+      "id": "circuit-switch", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
       "output": "circuit:switch", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-lamp", "name": "Fit a shielded arc lamp", "station": "workshop",
+      "id": "circuit-lamp", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
       "output": "circuit:lamp", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-gate", "name": "Forge a latch gate", "station": "forge",
+      "id": "circuit-gate", "station": "forge",
       "inputs": [["component:iron billet", 1], ["commodity:timber", 1]],
       "output": "circuit:gate", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-drain", "name": "Assemble a sump pump", "station": "workshop",
+      "id": "circuit-drain", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:timber", 1]],
       "output": "circuit:drain", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-sensor", "name": "Fit a field sensor", "station": "workshop",
+      "id": "circuit-sensor", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
       "output": "circuit:sensor", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-relay", "name": "Fit two one-way relays", "station": "workshop",
+      "id": "circuit-relay", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1]],
       "output": "circuit:relay", "quantity": 2, "contents": []
     },
     {
-      "id": "circuit-counter", "name": "Assemble a counted relay", "station": "workshop",
+      "id": "circuit-counter", "station": "workshop",
       "inputs": [["commodity:ironwork", 1], ["commodity:paper", 1], ["commodity:charcoal", 1]],
       "output": "circuit:counter", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-piston", "name": "Forge a crank piston", "station": "forge",
+      "id": "circuit-piston", "station": "forge",
       "inputs": [["component:iron billet", 1], ["commodity:timber", 1], ["commodity:wool", 1]],
       "output": "circuit:piston", "quantity": 1, "contents": []
     },
     {
-      "id": "circuit-crate", "name": "Build two movable freight crates", "station": "workshop",
+      "id": "circuit-crate", "station": "workshop",
       "inputs": [["commodity:timber", 1], ["commodity:wool", 1]],
       "output": "circuit:crate", "quantity": 2, "contents": []
     }

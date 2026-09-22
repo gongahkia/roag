@@ -2578,26 +2578,42 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             f"Page {page + 1}/{max(1, (len(nodes) + 7) // 8)}; N/P pages; Escape returns to this person.",
         ]
     if kind.startswith("craft-catalog:"):
+        from .chemistry_presentation import reagent_display_name
         from .production import RECIPES, SOURCES, at_shore_site, input_count, recipe_status, stations_here
+        from .production_presentation import (
+            production_format, production_recipe_name, production_station_name, production_text,
+        )
 
         page = int(kind.split(":", 1)[1])
-        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations_here(state)]
+        stations = stations_here(state)
+        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations]
         page = min(page, max(0, (len(ids) - 1) // 8))
-        rows = [f"Physical stations: {', '.join(sorted(stations_here(state)))}; page {page + 1}/{max(1, (len(ids) + 7) // 8)}."]
+        pages = max(1, (len(ids) + 7) // 8)
+        rows = [production_format("production.overlay.catalog.stations",
+                                  stations=", ".join(production_station_name(station) for station in sorted(stations)),
+                                  page=page + 1, pages=pages)]
         for index, recipe_id in enumerate(ids[page * 8:page * 8 + 8]):
             recipe = RECIPES[recipe_id]
             legal, reason = recipe_status(state, recipe_id)
             requirements = ", ".join(
-                f"{quantity} {item_display_name_or_legacy(item_kind)} ({input_count(state, item_kind)} held)"
+                production_format("production.overlay.catalog.requirement_item", quantity=quantity,
+                                  item=item_display_name_or_legacy(item_kind),
+                                  held=input_count(state, item_kind))
                 for item_kind, quantity in recipe.inputs
             )
-            rows.append(f"{index + 1}. {recipe.name} → {recipe.quantity} {recipe.output} [{reason if not legal else 'READY'}]")
-            rows.append("   " + requirements)
-        rows.append("1-8 make; A-H delegate with Speech 7 or Work order; N/P pages; M fill carried flask.")
+            rows.append(production_format("production.overlay.catalog.recipe", index=index + 1,
+                                          recipe=production_recipe_name(recipe.id, recipe.output),
+                                          quantity=recipe.quantity,
+                                          output=item_display_name_or_legacy(recipe.output),
+                                          status=reason if not legal else production_text("production.status.ready").upper()))
+            rows.append(production_format("production.overlay.catalog.requirements", requirements=requirements))
+        rows.append(production_text("production.overlay.catalog.guidance"))
         if at_shore_site(state):
             first, second = SOURCES[state.active_region_id]
-            rows.append(f"9. Gather {first}; 0. Gather {second}; remaining local lots {state.production['sites'][state.active_region_id]['stock']}.")
-        return "WORKING PLANS AND LOCAL SOURCES", rows
+            rows.append(production_format("production.overlay.catalog.gather", first=reagent_display_name(first),
+                                          second=reagent_display_name(second),
+                                          stock=state.production["sites"][state.active_region_id]["stock"]))
+        return production_text("production.overlay.catalog.title"), rows
     if kind == "craft-mix":
         from .chemistry import carried_flasks
         from .chemistry_presentation import chemistry_format, chemistry_text, reagent_contents_display, reaction_list_display

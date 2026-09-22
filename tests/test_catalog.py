@@ -240,10 +240,10 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(production["shore_stations"], {region: list(names) for region, names in SHORE_STATIONS.items()})
         authored = json.loads(json.dumps([asdict(row) for row in RECIPES.values() if not row.id.startswith("make:")]))
         self.assertEqual(production["recipes"], authored)
-        chemistry = load_catalog("chemistry.json", ("reagents", "reactions", "environment_reactions"))
-        self.assertEqual(chemistry["reagents"], list(REAGENTS))
+        chemistry = load_catalog("chemistry.json", ("reagent_ids", "reactions", "environment_reactions"))
+        self.assertEqual(chemistry["reagent_ids"], list(REAGENTS))
         self.assertEqual(chemistry["reactions"], [
-            {"reagents": sorted(pair), "name": name, "effect": effect}
+            {"reagent_ids": sorted(pair), "id": name, "effect": effect}
             for pair, (name, effect) in REACTIONS.items()
         ])
         self.assertEqual(chemistry["environment_reactions"], ENVIRONMENT_REACTIONS)

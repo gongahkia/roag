@@ -557,12 +557,13 @@ def create_item(
     owner_id: str | None = None,
     quantity: int = 1,
     condition: int = 100,
+    masterwork: bool = False,
 ) -> Item:
     item_spec(kind)
     item = Item(
         id=f"item-{state.next_item_id:05d}", kind=kind, location=location,
         provenance=provenance, owner_id=owner_id, quantity=quantity,
-        condition=condition,
+        condition=condition, masterwork=masterwork,
     )
     state.next_item_id += 1
     state.items.append(item)
@@ -1131,6 +1132,8 @@ def validate_inventory(state: GameState) -> None:
     }
     for item in state.items:
         item_spec(item.kind)
+        if type(item.masterwork) is not bool:
+            raise ValueError("invalid masterwork identity")
         if item.location not in valid_locations:
             raise ValueError(f"invalid item location {item.location}")
         if item.location in {"pack", "secondary"} and item.owner_id not in people:

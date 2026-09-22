@@ -8,11 +8,11 @@ from jomon.actions import attack, merchant_stock_for, purchase_merchant_item, re
 from jomon.chemistry import fill_flask, pour_flask, predicted_reactions, react_cell
 from jomon.content import WEAPONS
 from jomon.expanded_weapons import ARSENAL, ammunition_for
-from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item, item_spec
+from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item, equipped_item, item_spec
 from jomon.magic import SPELLS, cast, restore_at_shrine
 from jomon.materials import ensure_cell, fields, key, material_glyph
 from jomon.production import RECIPES, SHORE_STATIONS, SOURCES, advance_craft_economy, delegate, gather, make, site_position
-from jomon.skill_tree import NODES, buy_node, record_milestone, study_journal, write_journal
+from jomon.skill_tree import NODES, apply_weapon_skills, buy_node, record_milestone, study_journal, write_journal
 from jomon.state import MaterialCell, Position, create_world, game_state_from_dict, validate_state
 from jomon.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
 from jomon.world import sight_radius
@@ -187,12 +187,43 @@ class ProgressionProductionTests(unittest.TestCase):
         changed, message = delegate(state, "make:smoke bomb kit")
         self.assertTrue(changed, message)
         self.assertEqual(len(state.production["orders"]), 1)
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertEqual(loaded.production["orders"], state.production["orders"])
+        self.assertEqual(loaded.production["orders"][0]["recipe"], "make:smoke bomb kit")
+        state = loaded
         state.world_time = 36
         advance_craft_economy(state)
         self.assertEqual(state.production["orders"], [])
         self.assertTrue(any(item.kind == "smoke bomb kit" and item.location == "ground"
                             and item.region_id == "hearthford" for item in state.items))
         validate_state(state)
+
+    def test_masterwork_identity_round_trips_without_provenance_lookup(self):
+        item = create_item(self.state, "watch sap", "masterwork: historical forge work", masterwork=True)
+        raw = self.state.to_dict()
+        self.assertTrue(game_state_from_dict(raw).items[-1].masterwork)
+
+        legacy = copy.deepcopy(raw)
+        legacy["items"][-1].pop("masterwork")
+        self.assertTrue(game_state_from_dict(legacy).items[-1].masterwork)
+
+        unknown = copy.deepcopy(raw)
+        unknown["items"][-1].pop("masterwork")
+        unknown["items"][-1]["provenance"] = "Fixture superior historical forge work"
+        self.assertFalse(game_state_from_dict(unknown).items[-1].masterwork)
+
+    def test_masterwork_damage_uses_stable_item_flag(self):
+        state = self.state
+        item = equipped_item(state, "readied")
+        self.assertIsNotNone(item)
+        state.weapon = item.kind
+        item.masterwork = True
+        item.provenance = "Fixture superior edge"
+        target = state.threats[0]
+        self.assertEqual(apply_weapon_skills(state, target, 2)[0], 3)
+        item.masterwork = False
+        item.provenance = "masterwork: historical display prefix"
+        self.assertEqual(apply_weapon_skills(state, target, 2)[0], 2)
 
     def test_format_nine_migration_keeps_jomon_progress(self):
         state = self.state

@@ -9478,5 +9478,377 @@
       "id": "chemistry.overlay.no_longer_carried",
       "placeholders": []
     }
+  ],
+  "production": [
+    {
+      "id": "production.recipe.field-flask.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.iron-billet.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.field-dressing.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.smoke-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.pitch-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.lime-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.brine-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.thunder-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.resin-bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.healing-draft.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.attunement-draft.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.breath-tonic.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.counted-charges.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.hearthford-splints.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.greywash-gauntlets.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.greenwold-vest.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.whitecairn-sleeves.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.dunmire-pattens.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.marlbank-apron.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.rillscar-cleats.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.frostmere-coat.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.fletched-arrows.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.quarrel-case.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.sling-shot-pouch.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-trace.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-via.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-rack.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-cell.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-switch.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-lamp.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-gate.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-drain.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-sensor.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-relay.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-counter.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-piston.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.circuit-crate.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.portable.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.workshop.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.forge.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.smelter.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.still.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.brewery.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.station.gunworks.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.fabricate",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "production.status.station",
+      "placeholders": [
+        "station"
+      ]
+    },
+    {
+      "id": "production.status.empty_flask",
+      "placeholders": []
+    },
+    {
+      "id": "production.status.needs",
+      "placeholders": [
+        "inputs"
+      ]
+    },
+    {
+      "id": "production.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "production.make.unknown",
+      "placeholders": []
+    },
+    {
+      "id": "production.make.space",
+      "placeholders": []
+    },
+    {
+      "id": "production.make.result",
+      "placeholders": [
+        "courier",
+        "recipe",
+        "station"
+      ]
+    },
+    {
+      "id": "production.provenance.work",
+      "placeholders": [
+        "courier",
+        "station"
+      ]
+    },
+    {
+      "id": "production.provenance.masterwork",
+      "placeholders": [
+        "work"
+      ]
+    },
+    {
+      "id": "production.gather.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "production.gather.exhausted",
+      "placeholders": []
+    },
+    {
+      "id": "production.gather.pack",
+      "placeholders": []
+    },
+    {
+      "id": "production.gather.provenance",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "production.gather.result",
+      "placeholders": [
+        "courier",
+        "reagent",
+        "stock"
+      ]
+    },
+    {
+      "id": "production.delegate.location",
+      "placeholders": []
+    },
+    {
+      "id": "production.delegate.competency",
+      "placeholders": []
+    },
+    {
+      "id": "production.delegate.capacity",
+      "placeholders": []
+    },
+    {
+      "id": "production.delegate.recipe",
+      "placeholders": []
+    },
+    {
+      "id": "production.delegate.credit",
+      "placeholders": []
+    },
+    {
+      "id": "production.delegate.result",
+      "placeholders": [
+        "worker",
+        "recipe"
+      ]
+    },
+    {
+      "id": "production.provenance.order",
+      "placeholders": [
+        "worker"
+      ]
+    },
+    {
+      "id": "production.shift.supported",
+      "placeholders": []
+    },
+    {
+      "id": "production.shift.unsupported",
+      "placeholders": []
+    },
+    {
+      "id": "production.shift.default_institution",
+      "placeholders": []
+    },
+    {
+      "id": "production.shift.record",
+      "placeholders": [
+        "day",
+        "stock",
+        "institution",
+        "status"
+      ]
+    },
+    {
+      "id": "production.order.record",
+      "placeholders": [
+        "day",
+        "recipe",
+        "worker",
+        "region",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.title",
+      "placeholders": []
+    },
+    {
+      "id": "production.overlay.catalog.stations",
+      "placeholders": [
+        "stations",
+        "page",
+        "pages"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.recipe",
+      "placeholders": [
+        "index",
+        "recipe",
+        "quantity",
+        "output",
+        "status"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.requirements",
+      "placeholders": [
+        "requirements"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.requirement_item",
+      "placeholders": [
+        "quantity",
+        "item",
+        "held"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "production.overlay.catalog.gather",
+      "placeholders": [
+        "first",
+        "second",
+        "stock"
+      ]
+    }
   ]
 }

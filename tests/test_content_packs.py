@@ -53,6 +53,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "ship_crisis_text.json", root / "ship_crisis_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "vehicle_text.json", root / "vehicle_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "chemistry_text.json", root / "chemistry_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "production_text.json", root / "production_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -262,6 +263,19 @@ def alternate_pack(root: Path) -> Path:
         "chemistry.overlay.flasks.title": "FIXTURE FLASKS",
     })
     source.write_text(json.dumps(chemistry_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "production_text.json"
+    production_text = json.loads(source.read_text(encoding="utf-8"))
+    production_text["text"].update({
+        "production.recipe.field-dressing.name": "Fixture field remedy",
+        "production.recipe.fabricate": "Fixture fabricate {item}",
+        "production.make.result": "FIXTURE {courier} completes {recipe} at {station}.",
+        "production.gather.result": "FIXTURE {courier} takes {reagent}; {stock} fixture lots remain.",
+        "production.delegate.result": "FIXTURE {worker} accepts {recipe}.",
+        "production.order.record": "FIXTURE day {day}: {recipe} by {worker} at {region} ({x},{y}).",
+        "production.provenance.masterwork": "FIXTURE superior {work}",
+        "production.overlay.catalog.title": "FIXTURE WORKING PLANS",
+    })
+    source.write_text(json.dumps(production_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -572,6 +586,23 @@ def combat_presentation_snapshot(environment: dict[str, str]) -> dict[str, objec
             "machine=Threat('wheel','runaway crown wheel','machinery',Position(45,22),7,7,status='engaged',elite=True,morale=99); state.threats=[machine]; state.position=Position(42,22); machine_warning=_threat_action(state,machine,False); state.position=Position(42,23); machine_result=_threat_action(state,machine,False); machine_mechanics=[machine.id,machine.intent_id,machine.turn,machine.health,machine.status]; "
             "net=Threat('net','mudflat netter','reach',Position(45,25),5,5,status='engaged',role='controller'); state.threats=[net]; state.position=Position(42,25); net_warning=_threat_action(state,net,False); state.position=Position(42,26); net_result=_threat_action(state,net,False); net_mechanics=[net.id,net.intent_id,net.turn,net.aimed_at,sorted(state.terrain_statuses)]; "
             "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[flood_warning,flood_result,machine_warning,machine_result,net_warning,net_result],'mechanics':[flood_mechanics,machine_mechanics,net_mechanics]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def production_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.inventory import auto_place, create_item; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "state=create_world('production-pack-proof'); state.courier.skill_nodes.append('masterwork'); state.location='region'; state.position=site_position(state); first=gather(state, 0); "
+            "[auto_place(state, create_item(state, kind, 'fixture input', quantity=quantity).id, 'pack', owner_id=state.active_courier_id) for kind, quantity in (('ingredient:healing herb', 1), ('ingredient:clay', 2), ('commodity:wool', 3))]; "
+            "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=_overlay_lines(state, 'craft-catalog:0'); "
+            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0]], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1615,6 +1646,60 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("invalid world_text.json in content pack 'fixture-alternate'", result.stderr)
         self.assertIn("must contain exactly", result.stderr)
 
+
+    def test_default_production_presentation_preserves_existing_text(self):
+        from jomon.production_presentation import production_format, production_recipe_name, production_station_name
+
+        self.assertEqual(production_recipe_name("field-dressing"), "Prepare a field dressing")
+        self.assertEqual(production_station_name("forge"), "forge")
+        self.assertEqual(production_format("production.make.result", courier="Rowan", recipe="a kit", station="portable"),
+                         "Rowan completes a kit at the portable; every input was physically spent.")
+
+    def test_alternate_pack_changes_production_presentation_not_mechanics(self):
+        default = production_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = production_presentation_snapshot(environment)
+
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("FIXTURE", alternate["messages"][0])
+        self.assertIn("Fixture field remedy", alternate["messages"][1])
+        self.assertIn("Fixture fabricate", alternate["messages"][2])
+        self.assertIn("FIXTURE superior", alternate["messages"][3])
+        self.assertIn("FIXTURE", alternate["messages"][4])
+        self.assertIn("FIXTURE day", alternate["messages"][5])
+        self.assertEqual(alternate["messages"][6], "FIXTURE WORKING PLANS")
+
+    def test_production_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "production_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing recipe": lambda value: value["text"].pop("production.recipe.field-dressing.name"),
+                "unknown key": lambda value: value["text"].update({"production.recipe.extra.name": "extra"}),
+                "empty text": lambda value: value["text"].update({"production.make.result": ""}),
+                "unknown placeholder": lambda value: value["text"].update({"production.make.result": "made {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"production.make.result": "made {courier}"}),
+                "malformed template": lambda value: value["text"].update({"production.gather.result": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*production_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"production.gather.result"', '"production.make.result"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*production_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*production_text\.json"):
+                    load_content_pack(root)
 
     def test_default_chemistry_presentation_preserves_existing_text(self):
         from jomon.chemistry_presentation import chemistry_format, chemistry_text, reaction_display_name

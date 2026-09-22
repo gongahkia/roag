@@ -78,6 +78,7 @@ TRAVEL_PRESENTATION_FILE = "travel_text.json"
 SHIP_CRISIS_PRESENTATION_FILE = "ship_crisis_text.json"
 VEHICLE_PRESENTATION_FILE = "vehicle_text.json"
 CHEMISTRY_PRESENTATION_FILE = "chemistry_text.json"
+PRODUCTION_PRESENTATION_FILE = "production_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -391,6 +392,89 @@ _CHEMISTRY_TEMPLATE_CONTRACT = {
     "chemistry.overlay.none": (),
     "chemistry.overlay.none_yet": (),
     "chemistry.overlay.no_longer_carried": (),
+}
+
+
+# Recipe IDs, station IDs, inputs, outputs, yields, and work-order state are
+# engine-owned.  These semantic slots select only the words shown for them.
+_PRODUCTION_RECIPE_IDS = (
+    'field-flask',
+    'iron-billet',
+    'field-dressing',
+    'smoke-bombs',
+    'pitch-bombs',
+    'lime-bombs',
+    'brine-bombs',
+    'thunder-bombs',
+    'resin-bombs',
+    'healing-draft',
+    'attunement-draft',
+    'breath-tonic',
+    'counted-charges',
+    'hearthford-splints',
+    'greywash-gauntlets',
+    'greenwold-vest',
+    'whitecairn-sleeves',
+    'dunmire-pattens',
+    'marlbank-apron',
+    'rillscar-cleats',
+    'frostmere-coat',
+    'fletched-arrows',
+    'quarrel-case',
+    'sling-shot-pouch',
+    'circuit-trace',
+    'circuit-via',
+    'circuit-rack',
+    'circuit-cell',
+    'circuit-switch',
+    'circuit-lamp',
+    'circuit-gate',
+    'circuit-drain',
+    'circuit-sensor',
+    'circuit-relay',
+    'circuit-counter',
+    'circuit-piston',
+    'circuit-crate',
+
+)
+_PRODUCTION_STATION_IDS = ("portable", "workshop", "forge", "smelter", "still", "brewery", "gunworks")
+_PRODUCTION_TEMPLATE_CONTRACT = {
+    **{f"production.recipe.{recipe_id}.name": () for recipe_id in _PRODUCTION_RECIPE_IDS},
+    **{f"production.station.{station_id}.name": () for station_id in _PRODUCTION_STATION_IDS},
+    "production.recipe.fabricate": ("item",),
+    "production.status.station": ("station",),
+    "production.status.empty_flask": (),
+    "production.status.needs": ("inputs",),
+    "production.status.ready": (),
+    "production.make.unknown": (),
+    "production.make.space": (),
+    "production.make.result": ("courier", "recipe", "station"),
+    "production.provenance.work": ("courier", "station"),
+    "production.provenance.masterwork": ("work",),
+    "production.gather.invalid": (),
+    "production.gather.exhausted": (),
+    "production.gather.pack": (),
+    "production.gather.provenance": ("region",),
+    "production.gather.result": ("courier", "reagent", "stock"),
+    "production.delegate.location": (),
+    "production.delegate.competency": (),
+    "production.delegate.capacity": (),
+    "production.delegate.recipe": (),
+    "production.delegate.credit": (),
+    "production.delegate.result": ("worker", "recipe"),
+    "production.provenance.order": ("worker",),
+    "production.shift.supported": (),
+    "production.shift.unsupported": (),
+    "production.shift.default_institution": (),
+    "production.shift.record": ("day", "stock", "institution", "status"),
+    "production.order.record": ("day", "recipe", "worker", "region", "x", "y"),
+    "production.overlay.catalog.title": (),
+    "production.overlay.catalog.stations": ("stations", "page", "pages"),
+    "production.overlay.catalog.recipe": ("index", "recipe", "quantity", "output", "status"),
+    "production.overlay.catalog.requirements": ("requirements",),
+    "production.overlay.catalog.requirement_item": ("quantity", "item", "held"),
+    "production.overlay.catalog.guidance": (),
+    "production.overlay.catalog.gather": ("first", "second", "stock"),
 }
 
 
@@ -871,6 +955,12 @@ class ChemistryPresentation:
 
 
 @dataclass(frozen=True)
+class ProductionPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -901,6 +991,7 @@ class ContentPack:
     ship_crisis_presentations: tuple[ShipCrisisPresentation, ...]
     vehicle_presentations: tuple[VehiclePresentation, ...]
     chemistry_presentations: tuple[ChemistryPresentation, ...]
+    production_presentations: tuple[ProductionPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -990,6 +1081,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown chemistry presentation id: {semantic_id}")
 
+    def production_presentation(self, semantic_id: str) -> ProductionPresentation:
+        for presentation in self.production_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown production presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1073,8 +1170,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, and chemistry")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, and production")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1941,6 +2038,26 @@ def _chemistry_presentations(root: Path, pack_id: str) -> tuple[ChemistryPresent
     return tuple(ChemistryPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _CHEMISTRY_TEMPLATE_CONTRACT.items())
 
 
+def _production_presentations(root: Path, pack_id: str) -> tuple[ProductionPresentation, ...]:
+    source = root / PRODUCTION_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid production presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _PRODUCTION_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("production") != expected_contract:
+        raise RuntimeError(f"invalid engine production content contract at {contract_source}: production does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid production presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_PRODUCTION_TEMPLATE_CONTRACT):
+        missing, unknown = set(_PRODUCTION_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_PRODUCTION_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required production keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown production keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid production presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(ProductionPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _PRODUCTION_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2111,10 +2228,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ship_crisis = _ship_crisis_presentations(root, pack_id)
     vehicle = _vehicle_presentations(root, pack_id)
     chemistry = _chemistry_presentations(root, pack_id)
+    production = _production_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, household_template,
     )
 
 
