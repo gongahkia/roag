@@ -17,8 +17,8 @@ I.recipes={
  frontier_suit={id='frontier-suit/v1',input={metal=2,component=1},output={frontier_suit=1},ticks=150},
  ammunition={id='ammunition/v1',input={metal=1},output={ammunition=6},ticks=60},
 }
-local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true,environmental_regulator=true}
-local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1,environmental_regulator=2}
+local industrial={solar_array=true,power_pole=true,battery=true,fabricator=true,mining_rig=true,industrial_bin=true,conveyor=true,electric_lamp=true,signal_relay=true,environmental_regulator=true,relic_analyzer=true}
+local consumer={fabricator=2,mining_rig=3,electric_lamp=1,signal_relay=1,environmental_regulator=2,relic_analyzer=2}
 local unique={pickaxe=true,rope_coil=true,frontier_carbine=true,shock_baton=true,protective_vest=true,frontier_suit=true}
 local resources={metal=true,component=true,stone=true,soil=true,food=true,water=true,ammunition=true}
 
@@ -33,7 +33,7 @@ function I.install(w,s)
  elseif s.kind=='mining_rig' then s.output={};s.wear=0;s.wearRemainder=0;s.powerPriority=2;s.rigProgress={}
  elseif s.kind=='industrial_bin' then s.cargo={};s.mode='receive';s.filter=nil;s.direction='east'
  elseif s.kind=='conveyor' then s.cargo={};s.direction='east'
- elseif s.kind=='electric_lamp' or s.kind=='signal_relay' or s.kind=='environmental_regulator' then s.powerPriority=1 end
+ elseif s.kind=='electric_lamp' or s.kind=='signal_relay' or s.kind=='environmental_regulator' or s.kind=='relic_analyzer' then s.powerPriority=1 end
 end
 function I.recipe(kind) return I.recipes[kind] end
 function I.find(w,id)
@@ -177,6 +177,7 @@ local function consumerReady(w,s)
  if s.kind=='electric_lamp' then return s.enabled end
  if s.kind=='signal_relay' then return s.enabled end
  if s.kind=='environmental_regulator' then return s.enabled end
+ if s.kind=='relic_analyzer' then return s.enabled end
  return false
 end
 local function allocation(w)

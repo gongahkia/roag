@@ -216,6 +216,13 @@ function J.plan(w,a,context)
   local task=require('src.security').offer(context.campaign,w,a,f,closest)
   if task then assign(w,a,task);return end
  end
+ if context and context.campaign and context.campaign.features.relics==1 then
+  -- Archaeology, analysis, scans and shuttle refits are ordinary local work.
+  -- They deliberately enter after immediate body/security safety, never as a
+  -- remote research timer.
+  local task=require('src.relics').offer(context.campaign,w,a,f,closest)
+  if task then assign(w,a,task);return end
+ end
  local choices={}
  local function offer(t,score,distance)
   local bias=Labor.score(w,a,t);if bias==nil then return end
@@ -435,6 +442,10 @@ function J.act(w,a,context)
   if not context or not context.campaign or context.campaign.features.security~=1 then blocked(w,a,'Security context is unavailable');return end
   local ok,done,why=require('src.security').act(context.campaign,w,a,t,context)
   if not ok then blocked(w,a,why or 'Security task changed') elseif done then finish(w,a,why or 'Security action complete') else a.status=why or a.status end
+ elseif t.kind=='relic' then
+  if not context or not context.campaign or context.campaign.features.relics~=1 then blocked(w,a,'Relic context is unavailable');return end
+  local ok,done,why=require('src.relics').act(context.campaign,w,a,t,context)
+  if not ok then blocked(w,a,why or 'Relic task changed') elseif done then finish(w,a,why or 'Relic action complete') else a.status=why or a.status end
  elseif t.kind=='cargo' then
   local j=W.find(w.jobs,t.job);local Logistics=require('src.logistics')
   if not context or not j then blocked(w,a,'Cargo context is unavailable') return end

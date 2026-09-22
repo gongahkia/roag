@@ -104,7 +104,7 @@ function W.validate(w)
  for _,p in ipairs(w.items) do U.integer(p.n,'stack',0,1000000) end
  if w.frontier then
   assert(type(w.frontier)=='table' and w.frontier.version==1,'Unsupported campaign world marker')
-  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry' or key=='factions' or key=='security' or key=='environments','Unknown campaign world marker key') end
+  for key in pairs(w.frontier) do assert(key=='version' or key=='siteId' or key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry' or key=='factions' or key=='security' or key=='environments' or key=='relics','Unknown campaign world marker key') end
   U.integer(w.frontier.siteId,'campaign site ID',1,100000000)
   if w.frontier.knowledge~=nil then assert(w.frontier.knowledge==1,'Unsupported campaign world knowledge marker') end
   if w.frontier.education~=nil then assert(w.frontier.education==1 and w.frontier.knowledge==1,'Education requires campaign knowledge') end
@@ -117,6 +117,7 @@ function W.validate(w)
   if w.frontier.factions~=nil then assert(w.frontier.factions==1 and w.frontier.industry==1 and w.frontier.psychology==1,'Factions require industry and psychology') end
   if w.frontier.security~=nil then assert(w.frontier.security==1 and w.frontier.factions==1 and w.frontier.industry==1 and w.frontier.psychology==1,'Security requires factions, industry and psychology') end
   if w.frontier.environments~=nil then assert(w.frontier.environments==1 and w.frontier.industry==1 and w.frontier.equipment==1,'Environments require industry and equipment');require('src.environments').validateProfile(w.environment) else assert(w.environment==nil,'Environment state requires environments') end
+  if w.frontier.relics~=nil then assert(w.frontier.relics==1 and w.frontier.environments==1 and w.frontier.security==1,'Relics require the complete frontier') end
  end
  for _,job in ipairs(w.jobs) do if job.logistics then assert(w.frontier,'Cargo jobs require a campaign world marker') end end
  for _,a in ipairs(w.workers) do

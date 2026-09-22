@@ -190,6 +190,7 @@ local function arrive(c,vehicle,journey,plan)
    elseif journey.leg=='return' then Psychology.memory(c,worker,'returned_from_expedition',{source='return:'..journey.id..':'..worker.personId,siteId=destination.id}) end
   end end
  end
+ if c.features.relics==1 then require('src.relics').arrival(c,journey,destination.world) end
 end
 local function hold(c,vehicle,journey,reason)
  journey.status='holding';journey.remainingTicks=0
@@ -202,12 +203,16 @@ local function expectedRoutes(c)
  if c.features and c.features.environments==1 then
   local home={900,1100,1300,1500};local links={700,850,1000,1200}
   for id=4,7 do routes[#routes+1]={from=1,to=id,duration=home[id-3]} end
-  for id=4,7 do routes[#routes+1]={from=id%2==0 and 2 or 3,to=id,duration=links[id-3]} end
+ for id=4,7 do routes[#routes+1]={from=id%2==0 and 2 or 3,to=id,duration=links[id-3]} end
+  if c.features.relics==1 then
+   routes[#routes+1]={from=1,to=8,duration=2400};routes[#routes+1]={from=1,to=10,duration=3200};routes[#routes+1]={from=8,to=10,duration=2800}
+   routes[#routes+1]={from=8,to=9,duration=700};routes[#routes+1]={from=10,to=11,duration=900}
+  end
  end
  return routes
 end
 function T.new(c)
- local accounts={};local count=c and c.features and c.features.environments==1 and 7 or 3
+ local accounts={};local count=c and c.features and c.features.relics==1 and 11 or (c and c.features and c.features.environments==1 and 7 or 3)
  for id=1,count do accounts[id]={siteId=id,imports=zero(),exports=zero(),consumed=zero()} end
  return {version=T.version,rules={version=1,routes=expectedRoutes(c or {features={}})},
   nextJourneyId=1,nextReceiptId=1,receipts={},accounts={sites=accounts,transit={imports=zero(),exports=zero(),consumed=zero()}}}
@@ -237,7 +242,7 @@ function T.validate(c)
  assert(dense(travel.rules.routes,'Campaign travel routes',#expected)==#expected,'Campaign travel route count differs')
  for i,record in ipairs(travel.rules.routes) do exact(record,{from=true,to=true,duration=true},'Campaign travel route');assert(record.from==expected[i].from and record.to==expected[i].to and record.duration==expected[i].duration,'Unsupported campaign travel route') end
  U.integer(travel.nextJourneyId,'Next journey ID',1,100000000);U.integer(travel.nextReceiptId,'Next transfer receipt ID',1,100000000)
- local siteCount=c.features.environments==1 and 7 or 3
+ local siteCount=c.features.relics==1 and 11 or (c.features.environments==1 and 7 or 3)
  exact(travel.accounts,{sites=true,transit=true},'Campaign travel accounts');assert(dense(travel.accounts.sites,'Campaign travel site accounts',siteCount)==siteCount,'Campaign travel needs all site accounts')
  for i,record in ipairs(travel.accounts.sites) do exact(record,{siteId=true,imports=true,exports=true,consumed=true},'Campaign travel site account');assert(record.siteId==i,'Campaign travel account order');vector(record.imports,'Campaign site imports');vector(record.exports,'Campaign site exports');vector(record.consumed,'Campaign site consumption') end
  exact(travel.accounts.transit,{imports=true,exports=true,consumed=true},'Campaign transit account');vector(travel.accounts.transit.imports,'Campaign transit imports');vector(travel.accounts.transit.exports,'Campaign transit exports');vector(travel.accounts.transit.consumed,'Campaign transit consumption')
@@ -258,12 +263,13 @@ function T.validate(c)
   dense(vehicle.passengers,'Craft passengers',vehicle.seats)
   if vehicle.journey then
    assert(vehicle.dockedSiteId==nil,'Travelling craft is still docked')
-   local journey=vehicle.journey;allowed(journey,{id=true,originSiteId=true,destinationSiteId=true,leg=true,status=true,legStartTick=true,duration=true,remainingTicks=true,physiology=true,holdingReason=true},'Craft journey')
+   local journey=vehicle.journey;allowed(journey,{id=true,originSiteId=true,destinationSiteId=true,leg=true,status=true,legStartTick=true,duration=true,remainingTicks=true,physiology=true,holdingReason=true,deep=true,unstable=true,nextPulseAt=true},'Craft journey')
    for _,key in ipairs({'id','originSiteId','destinationSiteId','leg','status','legStartTick','duration','remainingTicks','physiology'}) do assert(journey[key]~=nil,'Missing Craft journey key '..key) end
    U.integer(journey.id,'Journey ID',1,travel.nextJourneyId-1);assert(not seenJourney[journey.id],'Duplicate journey ID');seenJourney[journey.id]=true;maxJourney=math.max(maxJourney,journey.id)
    U.integer(journey.originSiteId,'Journey origin site ID',1,siteCount);U.integer(journey.destinationSiteId,'Journey destination site ID',1,siteCount);assert(journey.originSiteId~=journey.destinationSiteId and route(c,journey.originSiteId,journey.destinationSiteId)==journey.duration,'Invalid journey route')
    assert(journey.leg=='outbound' or journey.leg=='return','Invalid journey leg');assert(journey.status=='travelling' or journey.status=='holding','Invalid journey status');U.integer(journey.legStartTick,'Journey leg start tick',0,c.tick);U.integer(journey.duration,'Journey duration',1,100000);U.integer(journey.remainingTicks,'Journey remaining ticks',0,journey.duration)
    exact(journey.physiology,{hungerRate=true,fatigueRate=true},'Journey physiology');assert(U.finite(journey.physiology.hungerRate) and journey.physiology.hungerRate>=0 and journey.physiology.hungerRate<=1 and U.finite(journey.physiology.fatigueRate) and journey.physiology.fatigueRate>=0 and journey.physiology.fatigueRate<=1,'Invalid journey physiology')
+   if c.features.relics==1 then assert(type(journey.deep)=='boolean' and type(journey.unstable)=='boolean','G08 journey state is missing');U.integer(journey.nextPulseAt,'Deep transit pulse tick',0,10000000) else assert(journey.deep==nil and journey.unstable==nil and journey.nextPulseAt==nil,'Legacy journey gained G08 state') end
    if journey.status=='travelling' then assert(journey.remainingTicks>0 and journey.holdingReason==nil,'Travelling journey timing mismatch') else assert(journey.remainingTicks==0 and type(journey.holdingReason)=='string' and #journey.holdingReason<=160,'Holding journey state mismatch') end
   else assert(vehicle.dockedSiteId~=nil and #vehicle.passengers==0,'Docked craft has transit state') end
   local priorPerson=0
@@ -286,13 +292,20 @@ function T.valid(c,command)
    assert(manifest.revision==command.expectedManifestRevision,'Manifest revision changed before launch')
    local ready,why=Logistics.readiness(c,manifest);assert(ready,why)
    local duration=route(c,source.id,manifest.destinationSiteId);assert(duration,'No supported travel route')
-   return {source=source,vehicle=vehicle,manifest=manifest,destination=site(c,manifest.destinationSiteId),duration=duration}
+   local deep=c.features.relics==1 and require('src.relics').deepRoute(c,source.id,manifest.destinationSiteId)
+   if c.features.relics==1 then assert(not require('src.relics').hiddenSite(c,manifest.destinationSiteId),'Remote destination has not been detected') end
+   if deep then
+    local d=c.relics.drive;assert(d.installed and d.craftId==vehicle.id,'Relic Drive Frame is not fitted');assert(c.tick>=d.cooldownUntil,'Relic Drive is cooling down');assert((vehicle.cargo.component or 0)>=1,'Deep-space departure needs one Machine Component')
+   end
+   return {source=source,vehicle=vehicle,manifest=manifest,destination=site(c,manifest.destinationSiteId),duration=duration,deep=deep}
   elseif command.type=='return_to_origin' then
    local vehicle=craft(c,command.craftId);assert(vehicle and vehicle.ownerSocietyId==c.society.id and vehicle.journey,'Craft has no active journey')
    local journey=vehicle.journey;assert(journey.id==command.journeyId and journey.leg==command.expectedLeg,'Journey identity changed before return')
    assert(journey.leg=='outbound' and journey.status=='holding','Only outbound holding may return')
    assert((vehicle.cargo.metal or 0)>=c.logistics.rules.maintenanceMetal,'Return needs one metal unit aboard')
-   return {vehicle=vehicle,journey=journey}
+   local deep=c.features.relics==1 and journey.deep
+   if deep then assert((vehicle.cargo.component or 0)>=1,'Deep-space return needs one Machine Component aboard') end
+   return {vehicle=vehicle,journey=journey,deep=deep}
   end
   error('Unknown campaign travel command')
  end)
@@ -307,13 +320,24 @@ function T.apply(c,command)
    for _,worker in ipairs(plan.source.world.workers) do if worker.personId==personId then selected=worker;break end end
    assert(selected,'Launch passenger vanished after validation');workers[#workers+1]=selected
   end
+  local activation
+  if plan.deep then
+   local activated,detail=require('src.relics').activation(c,plan.source,plan.vehicle,workers)
+   if not activated then return false,detail end
+   activation=detail
+  end
   local passengers={};for _,worker in ipairs(workers) do passengers[#passengers+1]=portable(worker) end
   local cost=c.logistics.rules.maintenanceMetal;plan.vehicle.cargo.metal=plan.vehicle.cargo.metal-cost;if plan.vehicle.cargo.metal==0 then plan.vehicle.cargo.metal=nil end
   transfer(c,'site',plan.source.id,'sink',nil,'part',plan.vehicle,nil,one('metal'))
+  if plan.deep then
+   plan.vehicle.cargo.component=plan.vehicle.cargo.component-1;if plan.vehicle.cargo.component==0 then plan.vehicle.cargo.component=nil end
+   transfer(c,'site',plan.source.id,'sink',nil,'part',plan.vehicle,nil,one('component'))
+  end
   closeManifest(c,plan.manifest);detach(c,plan.source,workers)
   local id=c.travel.nextJourneyId;c.travel.nextJourneyId=id+1
   local journey={id=id,originSiteId=plan.source.id,destinationSiteId=plan.destination.id,leg='outbound',status='travelling',legStartTick=c.tick,duration=plan.duration,remainingTicks=plan.duration,
    physiology={hungerRate=plan.source.world.rules.hungerRate,fatigueRate=plan.source.world.rules.fatigueRate},holdingReason=nil}
+  if c.features.relics==1 then journey.deep=plan.deep;journey.unstable=plan.deep and activation and activation.unstable or false;journey.nextPulseAt=plan.deep and c.tick+600 or 0 end
   plan.vehicle.dockedSiteId=nil;plan.vehicle.passengers=passengers;plan.vehicle.journey=journey
   transfer(c,'site',plan.source.id,'transit',nil,'departure',plan.vehicle,journey,plan.vehicle.cargo)
   W.event(plan.source.world,'departure','Craft '..plan.vehicle.id..' departed with '..#passengers..' passengers.',plan.vehicle.id)
@@ -321,7 +345,12 @@ function T.apply(c,command)
  elseif command.type=='return_to_origin' then
   local cost=c.logistics.rules.maintenanceMetal;plan.vehicle.cargo.metal=plan.vehicle.cargo.metal-cost;if plan.vehicle.cargo.metal==0 then plan.vehicle.cargo.metal=nil end
   transfer(c,'transit',nil,'sink',nil,'part',plan.vehicle,plan.journey,one('metal'))
+  if plan.deep then
+   plan.vehicle.cargo.component=plan.vehicle.cargo.component-1;if plan.vehicle.cargo.component==0 then plan.vehicle.cargo.component=nil end
+   transfer(c,'transit',nil,'sink',nil,'part',plan.vehicle,plan.journey,one('component'))
+  end
   plan.journey.leg='return';plan.journey.status='travelling';plan.journey.legStartTick=c.tick;plan.journey.remainingTicks=plan.journey.duration;plan.journey.holdingReason=nil
+  if plan.deep then plan.journey.nextPulseAt=c.tick+600 end
   return true,'Craft began its return journey'
  end
  return false,'Unknown campaign travel command'
@@ -342,6 +371,7 @@ function T.step(c)
     if c.features.environments==1 then require('src.environments').transitRecover(passenger,c.tick) end
     if died then passenger.alive=false;passenger.hp=0;passenger.status='Dead';passenger.reason=reason or 'injuries';passenger.deathTick=c.tick;notice(c,journey.originSiteId,'transit_death',passenger.name..' died in transit: '..passenger.reason..'.',vehicle.id) end
    end end
+   if c.features.relics==1 then require('src.relics').transitPulse(c,vehicle,journey) end
    if journey.status=='travelling' then journey.remainingTicks=journey.remainingTicks-1 end
    if journey.remainingTicks==0 then due[#due+1]=vehicle end
   end

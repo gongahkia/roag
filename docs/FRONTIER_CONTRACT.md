@@ -631,3 +631,32 @@ world; first physical living arrival instantiates the saved deterministic map.
 Region shows only coarse astronomical conditions, never terrain/resource/ecology
 positions. G07 stops at the starting local system: no relics, interstellar routes,
 or G08 technology are present.
+
+# COS-G08 relics and bounded deep space
+
+`relics=1` requires `environments=1` and extends (rather than replaces) the
+G07 campaign. It persists exactly three system records and eleven maximum sites:
+the seven G07 bodies plus two hidden remote systems of two lazy bodies each.
+Only a powered Analyzer/Relay lens scan by a person who knows that Lens reveals
+coarse remote-system information. It never reveals fine terrain, resources,
+ecology, cache locations, relics, or hidden foreign state.
+
+G08 has exactly five Ancient Caches and nine persistent physical relic IDs.
+Cache recovery is 180 reachable work actions. A relic is one custody record at a
+time—cache, ground/stockpile, person, shuttle cargo, Analyzer, drive,
+Depot/courier/faction, or raider—
+and is not consumed by research or travel. Analyzer facts are personal P05/P06
+knowledge: role at 120 powered work, signature at 300, and record/teaching uses
+the existing school system. A core/lens/anchor of the same family powers the
+single existing shuttle after a physical 4-metal/3-component, 300-action Drive
+Frame refit. Deep departures consume one normal cargo metal plus one cargo
+Machine Component; local departures retain their one-metal-only rule. Compatible
+but poorly understood travel is deterministically unstable; incompatible
+activation does not depart and has a bounded local cooldown/discharge.
+
+Remote maps instantiate only on first physical arrival and stay normal G07/G06
+settlements. Relics can enter a powered Trade Depot courier transfer or be
+stolen only when a raider actually perceives and reaches portable local custody;
+death drops the same ID and retreat moves it to faction custody. G08 adds no
+ending, infinite galaxy, additional ships, orbital combat, oxygen/pressure
+model, ancient NPC civilization, or definitive ancient-history answer.

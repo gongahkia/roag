@@ -41,6 +41,19 @@ local fields={
  security_guard={type=true,personId=true,enabled=true},
  security_equip={type=true,personId=true,equipmentId=true},
  security_reload={type=true,personId=true,amount=true},
+ relic_excavate={type=true,cacheId=true,personId=true},
+ relic_pickup={type=true,relicId=true,personId=true},
+ relic_analyzer_load={type=true,structureId=true,relicId=true,personId=true},
+ relic_analyzer_unload={type=true,structureId=true,relicId=true,personId=true},
+ relic_craft_load={type=true,craftId=true,relicId=true,personId=true},
+ relic_craft_unload={type=true,craftId=true,relicId=true,personId=true},
+ relic_analyze={type=true,structureId=true,relicId=true,personId=true},
+ relic_scan={type=true,structureId=true,relicId=true,personId=true},
+ relic_frame={type=true,craftId=true,personId=true},
+ relic_socket={type=true,craftId=true,relicId=true,personId=true,socket=true},
+ relic_unsocket={type=true,craftId=true,personId=true,socket=true},
+ relic_depot_load={type=true,structureId=true,relicId=true,personId=true},
+ relic_trade={type=true,structureId=true,relicId=true,factionId=true},
 }
 local campaignFields={
  prepare_expedition={scope=true,type=true,sourceSiteId=true,craftId=true,destinationSiteId=true,passengers=true,cargo=true},
@@ -127,6 +140,7 @@ function Command.valid(campaign,envelope)
    if valid and envelope.payload.recipe=='frontier_suit' and site.world.frontier.environments~=1 then valid=false;reason='Frontier suits require environments' end
     if valid then valid,reason=pcall(require('src.industry').validConfig,s,envelope.payload) end
    elseif envelope.payload.type:sub(1,9)=='security_' then valid,reason=campaign.features.security==1,'Security is unavailable'
+   elseif envelope.payload.type:sub(1,6)=='relic_' then valid,reason=campaign.features.relics==1,'Relics are unavailable'
    elseif envelope.payload.type:sub(1,8)=='faction_' then
     valid=campaign.features.factions==1;reason='Factions are unavailable'
    else valid,reason=visibleTarget(campaign,site,envelope.payload);if valid then valid,reason=Cmd.valid(site.world,envelope.payload) end end
@@ -156,6 +170,7 @@ function Command.apply(campaign,envelope)
   if valid and envelope.payload.recipe=='frontier_suit' and site.world.frontier.environments~=1 then valid=false;why='Frontier suits require environments' end
   if valid then valid,why=pcall(require('src.industry').validConfig,s,envelope.payload) end
  elseif envelope.payload.type:sub(1,9)=='security_' then valid,why=campaign.features.security==1,'Security is unavailable'
+ elseif envelope.payload.type:sub(1,6)=='relic_' then valid,why=campaign.features.relics==1,'Relics are unavailable'
  elseif envelope.payload.type:sub(1,8)=='faction_' then valid,why=campaign.features.factions==1,'Factions are unavailable'
  else valid,why=visibleTarget(campaign,site,envelope.payload);if valid then valid,why=Cmd.valid(site.world,envelope.payload) end end
  if not valid then
@@ -177,6 +192,19 @@ function Command.apply(campaign,envelope)
   elseif envelope.payload.type=='security_equip' then ok,result,why=pcall(fn,campaign,envelope.siteId,envelope.payload.personId,envelope.payload.equipmentId)
   else ok,result,why=pcall(fn,campaign,envelope.siteId,envelope.payload.personId,envelope.payload.amount) end
   if not ok then return false,tostring(result) end;applied=result
+ elseif envelope.payload.type=='relic_excavate' then applied=require('src.relics').beginExcavation(campaign,envelope.siteId,envelope.payload.cacheId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_pickup' then applied=require('src.relics').pickup(campaign,envelope.siteId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_analyzer_load' then applied=require('src.relics').loadAnalyzer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_analyzer_unload' then applied=require('src.relics').unloadAnalyzer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_craft_load' then applied=require('src.relics').loadCraft(campaign,envelope.siteId,envelope.payload.craftId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_craft_unload' then applied=require('src.relics').unloadCraft(campaign,envelope.siteId,envelope.payload.craftId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_analyze' then applied=require('src.relics').beginAnalysis(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_scan' then applied=require('src.relics').beginScan(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_frame' then applied=require('src.relics').beginFrame(campaign,envelope.siteId,envelope.payload.craftId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_socket' then applied=require('src.relics').socket(campaign,envelope.siteId,envelope.payload.craftId,envelope.payload.relicId,envelope.payload.personId,envelope.payload.socket)
+ elseif envelope.payload.type=='relic_unsocket' then applied=require('src.relics').unsocket(campaign,envelope.siteId,envelope.payload.craftId,envelope.payload.socket,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_depot_load' then applied=require('src.relics').storeDepot(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.personId)
+ elseif envelope.payload.type=='relic_trade' then applied=require('src.relics').trade(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.relicId,envelope.payload.factionId)
  elseif envelope.payload.type=='faction_contact' then applied=require('src.factions').beginContact(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId)
  elseif envelope.payload.type=='faction_protocol' then applied=require('src.factions').resolveProtocol(campaign,envelope.siteId,envelope.payload.factionId,envelope.payload.personId,envelope.payload.action)
  elseif envelope.payload.type=='faction_accept_offer' then applied=require('src.factions').acceptOffer(campaign,envelope.siteId,envelope.payload.structureId,envelope.payload.offerId,envelope.payload.representativeId)

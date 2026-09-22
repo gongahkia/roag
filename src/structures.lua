@@ -25,6 +25,10 @@ S.def={
  conveyor={label='Conveyor',cost=1,resource='metal',work=20,industry=true},
  electric_lamp={label='Electric lamp',cost=2,resource='metal',materials={metal=1,component=1},work=35,industry=true},
  environmental_regulator={label='Environmental regulator',cost=5,resource='metal',materials={metal=2,component=1},work=60,industry=true,environments=true},
+ relic_analyzer={label='Relic Analyzer',cost=6,resource='metal',materials={metal=2,component=2},work=80,industry=true,relics=true},
+ -- Ancient caches are generated G08 entities. They have no build recipe and
+ -- therefore cannot be conjured through ordinary construction commands.
+ ancient_cache={label='Ancient Cache',cost=0,resource='stone',work=1,ancient=true},
  signal_relay={label='Signal relay',cost=5,resource='metal',materials={stone=2,metal=2,component=1},work=60,industry=true,factions=true},
  trade_depot={label='Trade depot',cost=10,resource='metal',materials={stone=4,metal=4,component=2},work=90,width=2,solid=true,factions=true},
  training_target={label='Training target',cost=2,resource='stone',materials={stone=2,metal=1},work=35,security=true},
@@ -122,6 +126,7 @@ function S.install(w,gx,gy,kind)
  if kind=='field_school' then require('src.education').install(w,s) end
  if def.industry then require('src.industry').install(w,s) end
  if def.factions then require('src.factions').install(w,s) end
+ if def.relics then s.relic={slots={0,0},task=nil} end
  w.navRevision=w.navRevision+1
  if w.industry then w.industry.topologyRevision=w.industry.topologyRevision+1 end
  return s
@@ -173,6 +178,7 @@ function S.step(w)
     local f=s.fabrication
     local label=f and (f.kind=='pickaxe' and 'pickaxe' or f.kind=='rope_coil' and 'rope coil' or 'machine component')
     s.status=f and ('Fabricating '..label..' '..f.progress..'/'..f.work) or 'Ready for tool fabrication'
+   elseif S.def[s.kind].ancient then s.status=s.enabled and 'Ancient cache — requires excavation' or 'Excavated ancient cache'
    elseif S.def[s.kind].industry then
     -- The industrial phase gives a more precise live status after power and
     -- logistics have been resolved. Keep this fallback for an unpowered tick.

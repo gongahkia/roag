@@ -25,7 +25,10 @@ end
 function A.kill(w,a,reason,context)
  if not a.alive then return end
  if context and context.campaign and context.campaign.features.equipment==1 then
-  require('src.equipment').dropPerson(context.campaign,a.personId,context.siteId,a.x,a.y)
+ require('src.equipment').dropPerson(context.campaign,a.personId,context.siteId,a.x,a.y)
+ end
+ if context and context.campaign and context.campaign.features.relics==1 then
+  require('src.relics').dropPerson(context.campaign,a.personId,context.siteId,a.x,a.y)
  end
  if context and context.campaign and context.campaign.features.security==1 and a.security and a.security.ammo>0 then
   W.stack(w,'ammunition',a.security.ammo,a.x,a.y);a.security.ammo=0

@@ -17,6 +17,7 @@ C.fauna={
 }
 C.sites={
  cache={name='Sealed cache',color={0.80,0.65,0.33},note='Stored finite supplies. Salvage requires a worker to reach and open it.'},
+ ancient_cache={name='Ancient cache',color={0.56,0.48,0.76},note='An opaque constructed cache. Its contents require physical excavation and personal study.'},
  nursery={name='Root reliquary',color={0.43,0.75,0.50},note='A dormant root nursery. Salvage releases a growth and a grazer, if its surroundings have room.'},
  resonator={name='Buried resonator',color={0.68,0.45,0.86},note='Disturbance activates periodic calls. Survey reveals its rhythm; dismantling stops future calls.'},
  vent={name='Thermal fault',color={0.88,0.46,0.29},note='Intermittently converts adjacent water to steam. It creates no water; removing it ends the local conversion.'},

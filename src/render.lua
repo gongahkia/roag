@@ -252,6 +252,10 @@ function R:drawMap(app)
     box(px+sc*1.8,py+sc,sc*.4,2*sc,colors.amber);box(px+sc*1.25,py+sc*.3,sc*1.5,sc*.8,s._powerGranted and colors.cyan or colors.muted)
    elseif s.kind=='environmental_regulator' then
     box(px+sc*.7,py+sc*.7,sc*2.6,sc*2.6,s._powerGranted and colors.cyan or colors.muted);if sc>=4 then text('R',px+sc*1.55,py+sc*1.35,colors.bg,self.small) end
+   elseif s.kind=='relic_analyzer' then
+    box(px+sc*.6,py+sc*.6,sc*2.8,sc*2.8,s._powerGranted and colors.cyan or colors.muted);if sc>=4 then text('A',px+sc*1.55,py+sc*1.35,colors.bg,self.small) end
+   elseif s.kind=='ancient_cache' then
+    box(px+sc*.55,py+sc*1.15,sc*2.9,sc*2.15,{0.44,0.33,0.62});color(colors.amber);love.graphics.rectangle('line',px+sc*.55,py+sc*1.15,sc*2.9,sc*2.15)
    end
    end
   end
@@ -420,7 +424,7 @@ function R:sidebar(app)
    if s.kind=='pump' then wrap('I intake / O outlet / T toggle\nHose range: 20 cells.',x+16,y,pw-32,colors.cyan,self.small);y=y+36 end
    if s.kind=='charge' then wrap(s.fuseAt and ('ARMED: '..math.max(0,s.fuseAt-w.tick)..' ticks. No disarm.') or 'T: order a field worker to arm. An 80-tick fuse follows.',x+16,y,pw-32,colors.red,self.small);y=y+36 end
    if s.kind=='ward' then text('Stored water '..s.tank..' / T toggle',x+16,y,colors.cyan,self.small);y=y+24 end
-   if s.kind=='solar_array' or s.kind=='power_pole' or s.kind=='battery' or s.kind=='fabricator' or s.kind=='mining_rig' or s.kind=='industrial_bin' or s.kind=='conveyor' or s.kind=='electric_lamp' or s.kind=='environmental_regulator' then
+   if s.kind=='solar_array' or s.kind=='power_pole' or s.kind=='battery' or s.kind=='fabricator' or s.kind=='mining_rig' or s.kind=='industrial_bin' or s.kind=='conveyor' or s.kind=='electric_lamp' or s.kind=='environmental_regulator' or s.kind=='relic_analyzer' then
     local Industry=require('src.industry');local top=Industry.topology(w);local net=top.byStructure[s.id]
     local network=net and ('Network '..net.poles[1].id..' / solar '..(net.generation or 0)) or 'No power pole network'
     wrap(network,x+16,y,pw-32,colors.cyan,self.small);y=y+20
@@ -428,7 +432,18 @@ function R:sidebar(app)
     elseif s.kind=='fabricator' then wrap('Recipe: '..(s.recipe or 'none')..' / input '..Industry.capacity(s.input)..'/16 / output '..Industry.capacity(s.output)..'/16 / wear '..(s.wear or 0)..'/600',x+16,y,pw-32,colors.muted,self.small);y=y+35
     elseif s.kind=='mining_rig' then wrap('Output '..Industry.capacity(s.output)..'/16 / wear '..(s.wear or 0)..'/600',x+16,y,pw-32,colors.muted,self.small);y=y+24
     elseif s.kind=='industrial_bin' or s.kind=='conveyor' then text('Cargo '..Industry.capacity(s.cargo)..' / '..(s.kind=='industrial_bin' and '32' or '8')..' / '..(s.direction or 'east'),x+16,y,colors.muted,self.small);y=y+20
-    elseif s.kind=='environmental_regulator' then text((s._powerGranted and 'Operating' or 'No power')..' / thermal + radiation protection radius 24',x+16,y,s._powerGranted and colors.cyan or colors.amber,self.small);y=y+20 end
+    elseif s.kind=='environmental_regulator' then text((s._powerGranted and 'Operating' or 'No power')..' / thermal + radiation protection radius 24',x+16,y,s._powerGranted and colors.cyan or colors.amber,self.small);y=y+20
+    elseif s.kind=='relic_analyzer' then
+     local data=s.relic or {slots={0,0}};local task=data.task;local slots=(data.slots[1]>0 and ('#'..data.slots[1]) or 'empty')..' / '..(data.slots[2]>0 and ('#'..data.slots[2]) or 'empty')
+     text((s._powerGranted and 'Powered' or 'Paused — no power')..' / relic slots '..slots,x+16,y,s._powerGranted and colors.cyan or colors.amber,self.small);y=y+20
+     local Relics=require('src.relics');local observer=a
+     if task then for _,worker in ipairs(w.workers) do if worker.personId==task.workerId then observer=worker;break end end end
+     for index,id in ipairs(data.slots or {}) do if id and id>0 then
+      local relic=Relics.find(app.history.view,id);local detail=relic and observer and Relics.describe(observer,relic) or nil
+      text('Slot '..index..': '..(detail and (detail.role or 'Unknown relic') or 'Unknown relic')..(detail and detail.family and (' / '..detail.family) or ''),x+16,y,colors.muted,self.small);y=y+18
+     end end
+     if task then text((task.kind=='scan' and 'Deep scan ' or 'Analysis ')..task.progress..' / 300',x+16,y,colors.muted,self.small);y=y+20 end
+    end
    end
    if s.kind=='field_school' and s.education then
     local data=s.education
@@ -568,22 +583,26 @@ function R:drawRegion(app)
  if not region then return end
  box(0,0,self.sw,self.sh,colors.bg,0.95)
  local pw,ph=math.min(1020,self.sw-48),math.min(660,self.sh-48);local x,y=(self.sw-pw)/2,(self.sh-ph)/2
- box(x,y,pw,ph,colors.panel);heading('REGION / LOCAL FRONTIER',x+24,y+20,colors.amber,self.title)
+ box(x,y,pw,ph,colors.panel);heading(campaign.features.relics==1 and 'REGION / DEEP FRONTIER' or 'REGION / LOCAL FRONTIER',x+24,y+20,colors.amber,self.title)
  local travel=campaign.features.travel==1
  wrap(travel and 'One campaign clock advances every generated landing region. Docked shuttles can be prepared and launched; travelling crews remain under this same clock.' or campaign.features.logistics==1 and 'One campaign clock advances every generated landing region. A docked shuttle can be prepared, but departure and founding are pending.' or 'One campaign clock advances every generated landing region. Transport and founding are pending; switching a site changes only this view.',x+24,y+58,pw-152,colors.muted,self.small)
  app.regionButtons={{action='close',x=x+pw-118,y=y+18,w=92,h=28}}
  box(x+pw-118,y+18,92,28,colors.edge);text('ESC close',x+pw-108,y+25,colors.cyan,self.small)
  local sites={};for _,site in ipairs(Campaign.sites(campaign)) do sites[site.id]=site end
  local environment=campaign.features.environments==1 and require('src.environments') or nil
+ local shown=0;local Relics=campaign.features.relics==1 and require('src.relics') or nil
  for _,body in ipairs(Campaign.bodies(campaign)) do
-  local site=sites[body.siteId];local column=(body.id-1)%2;local row=math.floor((body.id-1)/2);local xx=x+24+column*((pw-60)/2);local yy=y+112+row*112;local card=(pw-72)/2;local owned=site.ownerSocietyId==campaign.society.id
+  if not (Relics and Relics.hiddenSite(campaign,body.id)) then
+  shown=shown+1;local site=sites[body.siteId];local column=(shown-1)%2;local row=math.floor((shown-1)/2);local xx=x+24+column*((pw-60)/2);local yy=y+112+row*112;local card=(pw-72)/2;local owned=site.ownerSocietyId==campaign.society.id
   box(xx,yy,card,100,owned and colors.edge or colors.bg)
-  text(body.kind=='planet' and 'PLANET' or body.kind=='moon' and 'MOON' or 'FRONTIER BODY',xx+14,yy+12,colors.muted,self.small)
+  text(body.kind=='planet' and 'PLANET' or body.kind=='moon' and 'MOON' or body.kind:find('remote') and 'REMOTE BODY' or 'FRONTIER BODY',xx+14,yy+12,colors.muted,self.small)
   text(body.name,xx+14,yy+29,owned and colors.cyan or colors.text,self.normal)
   local p=environment and body.environment
   if p then text(string.format('%d%% gravity / %s / %s %d / rad %d / solar %d%%',p.gravityPct,p.atmosphere,p.thermalKind,p.thermalSeverity,p.radiationSeverity,p.solarPct),xx+14,yy+47,colors.muted,self.small) end
   local duration=travel and require('src.travel').duration(campaign,app.siteId,site.id)
-  text(duration and ('Direct route: '..duration..' ticks') or body.parentBodyId and ('Local-system route via '..Campaign.body(campaign,body.parentBodyId).name) or 'Local-system origin',xx+14,yy+66,colors.muted,self.small)
+  local routeLabel=duration and ('Direct route: '..duration..' ticks') or body.parentBodyId and ('Local-system route via '..Campaign.body(campaign,body.parentBodyId).name) or 'Local-system origin'
+  if duration and Relics and Relics.deepRoute(campaign,app.siteId,site.id) then routeLabel=routeLabel..' / requires relic drive' end
+  text(routeLabel,xx+14,yy+66,colors.muted,self.small)
   if owned then
    text(string.format('Owned / %d living crew',W.alive(site.world)),xx+14,yy+82,colors.text,self.small)
    local alerts={};for _,notice in ipairs(region.notices) do if notice.siteId==site.id then alerts[#alerts+1]=notice.kind..(notice.count>1 and (' x'..notice.count) or '') end end
@@ -598,7 +617,9 @@ function R:drawRegion(app)
    app.regionButtons[#app.regionButtons+1]={action='unvisited',siteId=site.id,x=xx+card-104,y=yy+76,w=92,h=20}
    box(xx+card-104,yy+76,92,20,colors.edge);text('Summary only',xx+card-96,yy+80,colors.cyan,self.small)
    end
+  end
  end
+ if Relics and not Relics.revealed(campaign,2) then text('Deep-space systems: unknown — a decoded lens scan may resolve distant signals.',x+24,y+ph-92,colors.amber,self.small) end
  if travel then
   local yy=y+ph-66
   for _,craft in ipairs(campaign.logistics.crafts) do
@@ -663,19 +684,41 @@ function R:drawExpedition(app)
   wrap(hazards,x+24,y+111,pw-48,colors.muted,self.small)
   if p.atmosphere~='breathable' and protected<count then text('Hazard: '..p.atmosphere..' — '..(count-protected)..' passenger(s) lack Frontier Suits.',x+24,y+133,colors.amber,self.small) end
  end
+ if campaign.features.relics==1 then
+  local Relics=require('src.relics');local observer
+  for _,worker in ipairs(source.world.workers) do if worker.alive then observer=worker;break end end
+  local drive=campaign.relics.drive;local socketText={}
+  for socket,id in ipairs(drive.sockets) do
+   local relic=id~=0 and Relics.find(campaign,id) or nil
+   if relic then
+    local detail=Relics.describe(observer,relic)
+    socketText[#socketText+1]='S'..socket..': '..(detail.role or 'Unknown relic')..(detail.family and (' '..detail.family) or '')
+   else socketText[#socketText+1]='S'..socket..': empty' end
+  end
+  local fitted=drive.installed and 'fitted' or (drive.progress>0 and ('fitting '..drive.progress..'/300') or 'not fitted')
+  wrap('Relic Drive Frame: '..fitted..'. '..table.concat(socketText,' / '),x+24,y+148,pw-48,colors.muted,self.small)
+  if destination and Relics.deepRoute(campaign,source.id,destination.id) then
+   local state=Relics.driveStatus(campaign,vehicle.id,observer)
+   local known=Relics.compatibility(campaign,vehicle.id,observer)
+   local line='Deep-space route: needs 1 metal + 1 Machine Component aboard. Drive: '..state..' / compatibility: '..known..'.'
+   if state=='unknown' then line=line..' Drive resonance not understood; transit may be unstable.' end
+   wrap(line,x+24,y+174,pw-48,state=='understood' and colors.cyan or colors.amber,self.small)
+  end
+ end
  button('destination','Previous',x+360,y+84,86,{delta=-1});button('destination','Next',x+452,y+84,68,{delta=1})
  local Equipment=require('src.equipment')
  local cargoCount=0;for _,kind in ipairs(Logistics.resources()) do cargoCount=cargoCount+(vehicle.cargo[kind] or 0) end
  cargoCount=cargoCount+Equipment.craftCount(campaign,vehicle.id)
+ if campaign.features.relics==1 then cargoCount=cargoCount+require('src.relics').craftCount(campaign,vehicle.id) end
  text(string.format('Cargo %d / %d slots',cargoCount,vehicle.capacity),x+24,y+122,colors.amber,self.normal)
  local manifest=vehicle.activeManifestId and Logistics.manifest(campaign,vehicle.activeManifestId) or nil
- local yy=y+154;text('PASSENGERS (selection does not assemble them)',x+24,yy,colors.muted,self.small);yy=yy+24
+ local yy=y+(campaign.features.relics==1 and 204 or 154);text('PASSENGERS (selection does not assemble them)',x+24,yy,colors.muted,self.small);yy=yy+24
  local selected={};for _,id in ipairs(d.passengers) do selected[id]=true end
  for _,worker in ipairs(source.world.workers) do
   local label=(selected[worker.personId] and '[x] ' or '[ ] ')..worker.name..' / person '..worker.personId..(worker.alive and '' or ' / DEAD')
   button('passenger',label,x+24,yy,250,{personId=worker.personId});yy=yy+30
  end
- local cargoY=y+154;text('CARGO TARGET / ACTUAL ABOARD',x+350,cargoY,colors.muted,self.small);cargoY=cargoY+25
+ local cargoY=y+(campaign.features.relics==1 and 204 or 154);text('CARGO TARGET / ACTUAL ABOARD',x+350,cargoY,colors.muted,self.small);cargoY=cargoY+25
  for _,resource in ipairs(Logistics.resources()) do
   local target=manifest and (manifest.cargo[resource] or 0) or (d.cargo[resource] or 0);local actual=vehicle.cargo[resource] or 0
   text(resource..': '..actual..' / '..target,x+350,cargoY+5,colors.text,self.normal)
@@ -699,6 +742,23 @@ function R:drawExpedition(app)
    toolY=toolY+29
   end
   if #loose==0 then text('No loose local tools.',x+630,toolY+5,colors.muted,self.small) end
+  if campaign.features.relics==1 then
+   local Relics=require('src.relics');local aboardRelics={};for _,relic in ipairs(campaign.relics.items) do if relic.state=='craft' and relic.craftId==vehicle.id then aboardRelics[#aboardRelics+1]=relic end end
+   local selectedPerson=d.passengers[1]
+   local localRelics=Relics.atSite(campaign,source.id)
+   local labels={};for _,relic in ipairs(aboardRelics) do labels[#labels+1]='#'..relic.id end
+   local relicY=toolY+28
+   wrap(#labels>0 and ('RELIC CARGO: '..table.concat(labels,', ')..'.') or 'RELIC CARGO: none.',x+630,relicY,pw-650,colors.amber,self.small);relicY=relicY+26
+   for i,relic in ipairs(localRelics) do if i>2 then break end
+    text('Relic #'..relic.id..' / '..relic.descriptor,x+630,relicY+5,colors.text,self.small)
+    if app.siteId==source.id and selectedPerson then button('loadRelic','Load relic',x+770,relicY,72,{relicId=relic.id,personId=selectedPerson}) end
+    relicY=relicY+28
+   end
+   for i,relic in ipairs(aboardRelics) do if i>2 then break end
+    if app.siteId==source.id and selectedPerson then button('unloadRelic','Unload relic #'..relic.id,x+630,relicY,134,{relicId=relic.id,personId=selectedPerson}) end
+    relicY=relicY+28
+   end
+  end
  end
  local canEdit=app.history:atPresent() or campaign.mode=='practice'
  local statusY=y+390

@@ -33,4 +33,13 @@ Campaign.validate(g07)
 local g07Bytes=#CampaignCodec.encode(g07)
 assert(#g07.sites==7 and g07Bytes<32*1024*1024,'G07 seven-destination campaign exceeds 32 MiB whole-save bound')
 print('PASS G07 / 7 destinations / 7 instantiated maps / encoded campaign bytes '..g07Bytes..' / under 32 MiB')
+-- G08 extends the same bounded campaign envelope: remote metadata is cheap
+-- before arrival, but this check deliberately materializes all eleven worlds.
+local g08=Campaign.newRegion(80008,{preset='frontier',mode='practice',width=128,height=80,layout='hybrid',climate='balanced',openness=.48,biomeScale=1,features='living',density=1,crew=9,
+ logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true,environments=true,relics=true})
+for siteId=4,11 do Campaign.instantiate(g08,siteId) end
+Campaign.validate(g08)
+local g08Bytes=#CampaignCodec.encode(g08)
+assert(#g08.sites==11 and #g08.relics.items==9 and #g08.relics.caches==5 and g08Bytes<32*1024*1024,'G08 eleven-destination campaign exceeds 32 MiB whole-save bound')
+print('PASS G08 / 11 destinations / 11 instantiated maps / 5 caches / 9 relics / encoded campaign bytes '..g08Bytes..' / under 32 MiB')
 print('Maximum-dimension boundary smoke only, not an interactive performance or long-term balance claim.')

@@ -44,9 +44,10 @@ local function isIndustry(c) return c.features and c.features.industry==1 end
 local function isFactions(c) return c.features and c.features.factions==1 end
 local function isSecurity(c) return c.features and c.features.security==1 end
 local function isEnvironments(c) return c.features and c.features.environments==1 end
+local function isRelics(c) return c.features and c.features.relics==1 end
 
 function Campaign.sites(c)
- local out={};local limit=isEnvironments(c) and 7 or (isRegion(c) and 3 or 1)
+ local out={};local limit=isRelics(c) and 11 or (isEnvironments(c) and 7 or (isRegion(c) and 3 or 1))
  for i=1,dense(c.sites,'campaign sites',limit) do out[i]=c.sites[i] end
  table.sort(out,function(a,b) return a.id<b.id end);return out
 end
@@ -61,12 +62,12 @@ function Campaign.site(c,siteId)
 end
 function Campaign.body(c,bodyId)
  if not isRegion(c) then return end
- U.integer(bodyId,'campaign body ID',1,isEnvironments(c) and 7 or 3)
+ U.integer(bodyId,'campaign body ID',1,isRelics(c) and 11 or (isEnvironments(c) and 7 or 3))
  for _,body in ipairs(Campaign.bodies(c)) do if body.id==bodyId then return body end end
 end
 function Campaign.bodies(c)
  if not isRegion(c) then return {} end
- local out={};for i=1,dense(c.region.bodies,'campaign bodies',isEnvironments(c) and 7 or 3) do out[i]=c.region.bodies[i] end
+ local out={};for i=1,dense(c.region.bodies,'campaign bodies',isRelics(c) and 11 or (isEnvironments(c) and 7 or 3)) do out[i]=c.region.bodies[i] end
  table.sort(out,function(a,b) return a.id<b.id end);return out
 end
 function Campaign.extinct(c)
@@ -90,27 +91,41 @@ local function validateRecipe(recipe,label)
  assert(recipe.width%4==0 and recipe.height%4==0,'Recipe dimensions must align to the local grid')
 end
 local function validateRegion(c)
- exact(c.region,{version=true,bodies=true,notices=true},'campaign region')
- local count=isEnvironments(c) and 7 or 3
+ exact(c.region,isRelics(c) and {version=true,bodies=true,notices=true,systems=true} or {version=true,bodies=true,notices=true},'campaign region')
+ local count=isRelics(c) and 11 or (isEnvironments(c) and 7 or 3)
  assert(c.region.version==1,'Unsupported campaign region version');assert(#c.sites==count,'Campaign region has the wrong site count')
  assert(dense(c.region.bodies,'campaign bodies',count)==count,'Campaign region has the wrong body count')
  local sitesById={};for _,site in ipairs(Campaign.sites(c)) do sitesById[site.id]=site end
  local seenBodies={}
  for _,body in ipairs(c.region.bodies) do
-  allowed(body,{id=true,kind=true,parentBodyId=true,name=true,siteId=true,terrainSeed=true,recipe=true,environment=true,visited=true},'campaign body')
+  allowed(body,{id=true,kind=true,parentBodyId=true,name=true,siteId=true,terrainSeed=true,recipe=true,environment=true,visited=true,systemId=true},'campaign body')
   U.integer(body.id,'body ID',1,count);assert(not seenBodies[body.id],'Duplicate body ID');seenBodies[body.id]=true;U.integer(body.siteId,'body site ID',1,count);U.integer(body.terrainSeed,'body terrain seed',1,2147483646)
   assert(type(body.name)=='string' and #body.name>0 and #body.name<=64,'Invalid body display name');validateRecipe(body.recipe,'body recipe')
   assert(body.id==body.siteId and sitesById[body.siteId],'Missing body site')
   if isEnvironments(c) then
    require('src.environments').validateProfile(body.environment);assert(type(body.visited)=='boolean','Invalid frontier visited state')
   else assert(body.environment==nil and body.visited==nil,'Legacy region has G07 metadata') end
+  if isRelics(c) then U.integer(body.systemId,'Body system ID',1,3) else assert(body.systemId==nil,'Legacy/G07 body has G08 system metadata') end
   if body.id==1 then assert(body.kind=='planet' and body.parentBodyId==nil and body.name=='Home Planet','Invalid home body')
   elseif body.id<=3 then
    assert(body.kind=='moon' and body.parentBodyId==1 and body.name==('Moon '..(body.id==2 and 'I' or 'II')),'Invalid moon body')
    assert(body.recipe.preset=='frontier' and body.recipe.width==192 and body.recipe.height==112 and not body.recipe.populated,'Invalid moon recipe')
-  else
+  elseif body.id<=7 then
    assert(body.kind=='frontier' and body.parentBodyId==1,'Invalid frontier body')
    assert(body.recipe.preset=='frontier' and body.recipe.width==192 and body.recipe.height==112 and not body.recipe.populated,'Invalid frontier recipe')
+  else
+   assert(isRelics(c) and (body.kind=='remote_primary' or body.kind=='remote_satellite'),'Invalid remote body')
+   if body.kind=='remote_primary' then assert(body.parentBodyId==nil and (body.id==8 or body.id==10),'Invalid remote primary') else assert(body.parentBodyId==body.id-1 and (body.id==9 or body.id==11),'Invalid remote satellite') end
+   assert(body.recipe.preset=='frontier' and body.recipe.width==192 and body.recipe.height==112 and not body.recipe.populated,'Invalid remote recipe')
+  end
+ end
+ if isRelics(c) then
+  assert(dense(c.region.systems,'campaign systems',3)==3,'Campaign needs exactly three systems')
+  local expected={{1,7},{2,2},{3,2}}
+  for i,s in ipairs(c.region.systems) do
+   exact(s,{id=true,seed=true,name=true,siteIds=true,revealed=true},'campaign system');U.integer(s.id,'System ID',1,3);assert(s.id==i,'System ordering changed');U.integer(s.seed,'System seed',1,2147483646);assert(type(s.name)=='string' and #s.name>0 and #s.name<=64 and type(s.revealed)=='boolean','Malformed system metadata');assert(dense(s.siteIds,'system sites',expected[i][2])==expected[i][2],'Wrong system membership')
+   for _,id in ipairs(s.siteIds) do local b=Campaign.body(c,id);assert(b and b.systemId==s.id,'System/body membership mismatch') end
+   if s.id==1 then assert(s.revealed,'Starting system must remain known') end
   end
  end
  local lastTick,lastSite,lastOrdinal=-1,-1,-1
@@ -125,10 +140,10 @@ local function validateRegion(c)
 end
 
 function Campaign.validate(c)
- allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true,factions=true,security=true},'campaign')
+ allowed(c,{format=true,version=true,ruleset=true,features=true,tick=true,mode=true,seed=true,society=true,nextPersonId=true,sites=true,region=true,logistics=true,travel=true,knowledge=true,education=true,equipment=true,factions=true,security=true,relics=true},'campaign')
  for _,key in ipairs({'format','version','ruleset','features','tick','mode','seed','society','nextPersonId','sites'}) do assert(c[key]~=nil,'Missing campaign key '..key) end
  assert(c.format==Campaign.format,'Incompatible campaign state format');assert(c.version==Campaign.version,'Unsupported campaign state version');assert(c.ruleset==Campaign.ruleset,'Unsupported campaign ruleset')
- allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true,environments=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
+ allowed(c.features,{core=true,region=true,logistics=true,travel=true,knowledge=true,education=true,body=true,visibility=true,equipment=true,safe_excavation=true,psychology=true,industry=true,factions=true,security=true,environments=true,relics=true},'campaign features');assert(c.features.core==1,'Unsupported campaign core feature version')
  if c.features.region~=nil then assert(c.features.region==1,'Unsupported campaign region feature version') end
  if c.features.logistics~=nil then assert(c.features.logistics==1,'Unsupported campaign logistics feature version') end
  if c.features.travel~=nil then assert(c.features.travel==1,'Unsupported campaign travel feature version') end
@@ -143,6 +158,7 @@ function Campaign.validate(c)
  if c.features.factions~=nil then assert(c.features.factions==1,'Unsupported campaign factions feature version') end
  if c.features.security~=nil then assert(c.features.security==1,'Unsupported campaign security feature version') end
  if c.features.environments~=nil then assert(c.features.environments==1,'Unsupported campaign environments feature version') end
+ if c.features.relics~=nil then assert(c.features.relics==1,'Unsupported campaign relics feature version') end
  assert((c.features.region==1)==(c.region~=nil),'Campaign region feature/state mismatch')
  assert((c.features.logistics==1)==(c.logistics~=nil),'Campaign logistics feature/state mismatch')
  assert((c.features.travel==1)==(c.travel~=nil),'Campaign travel feature/state mismatch')
@@ -160,8 +176,10 @@ function Campaign.validate(c)
  assert(c.features.factions==nil or (c.features.industry==1 and c.features.psychology==1 and c.features.knowledge==1),'Factions require industry, psychology and knowledge')
  assert(c.features.security==nil or (c.features.factions==1 and c.features.industry==1 and c.features.psychology==1),'Security requires factions, industry and psychology')
  assert(c.features.environments==nil or (c.features.region==1 and c.features.travel==1 and c.features.industry==1 and c.features.equipment==1),'Environments require region travel, industry and equipment')
+ assert(c.features.relics==nil or (c.features.environments==1 and c.features.region==1 and c.features.travel==1 and c.features.industry==1 and c.features.factions==1 and c.features.security==1),'Relics require the complete G07/G06 frontier')
  assert((c.features.factions==1)==(c.factions~=nil),'Campaign factions feature/state mismatch')
  assert((c.features.security==1)==(c.security~=nil),'Campaign security feature/state mismatch')
+ assert((c.features.relics==1)==(c.relics~=nil),'Campaign relic feature/state mismatch')
  U.integer(c.tick,'campaign tick',0,10000000);assert(c.mode=='challenge' or c.mode=='practice','Invalid campaign mode');U.integer(c.seed,'campaign seed',0,2147483646)
  exact(c.society,{id=true,origin=true,independent=true},'campaign society');U.integer(c.society.id,'society ID',1,100000000)
  assert(c.society.id==1 and c.society.origin=='abandoned_convicts' and c.society.independent==true,'Unsupported campaign society');U.integer(c.nextPersonId,'next person ID',1,100000000)
@@ -173,13 +191,13 @@ function Campaign.validate(c)
  for _,site in ipairs(Campaign.sites(c)) do
   allowed(site,isRegion(c) and {id=true,ownerSocietyId=true,bodyId=true,world=true} or {id=true,ownerSocietyId=true,world=true},'campaign site')
   assert(site.id~=nil,'Incomplete campaign site');U.integer(site.id,'site ID',1,100000000);assert(not seenSites[site.id],'Duplicate site ID');seenSites[site.id]=true
-  if isRegion(c) then U.integer(site.bodyId,'site body ID',1,isEnvironments(c) and 7 or 3);assert(site.id==site.bodyId and bodiesBySite[site.id],'Site/body mismatch');assert(site.ownerSocietyId==nil or site.ownerSocietyId==c.society.id,'Invalid site ownership');if site.id==1 then assert(site.ownerSocietyId==c.society.id,'Home site must be owned') end
+  if isRegion(c) then U.integer(site.bodyId,'site body ID',1,isRelics(c) and 11 or (isEnvironments(c) and 7 or 3));assert(site.id==site.bodyId and bodiesBySite[site.id],'Site/body mismatch');assert(site.ownerSocietyId==nil or site.ownerSocietyId==c.society.id,'Invalid site ownership');if site.id==1 then assert(site.ownerSocietyId==c.society.id,'Home site must be owned') end
   else assert(site.id==1 and site.ownerSocietyId==c.society.id,'Invalid core site ownership') end
   if not site.world then
-   assert(isEnvironments(c) and site.id>=4 and site.ownerSocietyId==nil and not bodiesBySite[site.id].visited,'Only unvisited G07 frontier sites may be lazy')
+   assert(isEnvironments(c) and site.id>=4 and site.ownerSocietyId==nil and not bodiesBySite[site.id].visited,'Only unvisited G07/G08 frontier sites may be lazy')
   else
   W.validate(site.world);local world=site.world
-  assert(world.frontier and world.frontier.version==1 and world.frontier.siteId==site.id and (world.frontier.knowledge==1)==isKnowledge(c) and (world.frontier.education==1)==isEducation(c) and (world.frontier.body==1)==isBody(c) and (world.frontier.visibility==1)==isVisibility(c) and (world.frontier.equipment==1)==isEquipment(c) and (world.frontier.safe_excavation==1)==isSafeExcavation(c) and (world.frontier.psychology==1)==isPsychology(c) and (world.frontier.industry==1)==isIndustry(c) and (world.frontier.factions==1)==isFactions(c) and (world.frontier.security==1)==isSecurity(c) and (world.frontier.environments==1)==isEnvironments(c),'Campaign site marker mismatch');assert(world.tick==c.tick,'Campaign and site ticks differ');assert(world.mode==c.mode,'Campaign and site modes differ')
+  assert(world.frontier and world.frontier.version==1 and world.frontier.siteId==site.id and (world.frontier.knowledge==1)==isKnowledge(c) and (world.frontier.education==1)==isEducation(c) and (world.frontier.body==1)==isBody(c) and (world.frontier.visibility==1)==isVisibility(c) and (world.frontier.equipment==1)==isEquipment(c) and (world.frontier.safe_excavation==1)==isSafeExcavation(c) and (world.frontier.psychology==1)==isPsychology(c) and (world.frontier.industry==1)==isIndustry(c) and (world.frontier.factions==1)==isFactions(c) and (world.frontier.security==1)==isSecurity(c) and (world.frontier.environments==1)==isEnvironments(c) and (world.frontier.relics==1)==isRelics(c),'Campaign site marker mismatch');assert(world.tick==c.tick,'Campaign and site ticks differ');assert(world.mode==c.mode,'Campaign and site modes differ')
   if isEnvironments(c) then require('src.environments').validateProfile(world.environment);assert(world.environment.archetype==bodiesBySite[site.id].environment.archetype,'Local environment differs from frontier profile') end
   if isRegion(c) then assert(world.seed==bodiesBySite[site.id].terrainSeed,'Campaign terrain seed differs') else assert(world.seed==c.seed,'Campaign and site identity differ') end
   dense(world.jobs,'jobs',1024);dense(world.items,'items',10000);dense(world.events,'events',240)
@@ -199,10 +217,11 @@ function Campaign.validate(c)
  if isTravel(c) then require('src.travel').validate(c) end
  if isFactions(c) then require('src.factions').validate(c) end
  if isSecurity(c) then require('src.security').validate(c) end
+ if isRelics(c) then require('src.relics').validate(c) end
  return true
 end
 
-local function attach(world,siteId,nextPerson,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,security,environments,environment,seed)
+local function attach(world,siteId,nextPerson,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,security,environments,relics,environment,seed)
  if not world.baseline then world.baseline=Metrics.measure(world) end
  world.frontier={version=1,siteId=siteId};if knowledge then world.frontier.knowledge=1 end;if education then world.frontier.education=1;world.education=require('src.education').newWorld() end
  if body then world.body=1;world.frontier.body=1;world.rules.jumpVersion=C.jumpVersion else world.body=nil end
@@ -214,6 +233,7 @@ local function attach(world,siteId,nextPerson,knowledge,education,body,visibilit
  if factions then world.frontier.factions=1;require('src.factions').attach(world) end
  if security then world.frontier.security=1;require('src.security').attach(world) end
  if environments then world.frontier.environments=1;require('src.environments').attachWorld(world,environment) end
+ if relics then world.frontier.relics=1 end
  for _,worker in ipairs(sortedWorkers(world)) do
   worker.personId=nextPerson;nextPerson=nextPerson+1
  if knowledge then require('src.knowledge').attach(worker) end
@@ -228,7 +248,7 @@ function Campaign.new(source,options)
  local knowledge=options and options.knowledge==true;local education=options and options.education==true;local body=options and options.body==true;local visibility=options and options.visibility==true;local equipment=options and options.equipment==true;local safeExcavation=options and options.safe_excavation==true;local psychology=options and options.psychology==true;local industry=options and options.industry==true;local factions=options and options.factions==true;local security=options and options.security==true
  if options then for key in pairs(options) do assert(key=='knowledge' or key=='education' or key=='body' or key=='visibility' or key=='equipment' or key=='safe_excavation' or key=='psychology' or key=='industry' or key=='factions' or key=='security','Unknown campaign option '..tostring(key)) end end
  assert(not education or knowledge,'Education campaigns require knowledge');assert(not visibility or body,'Visibility campaigns require body');assert(not equipment or (body and visibility),'Equipment campaigns require body and visibility');assert(not safeExcavation or equipment,'Safe excavation requires equipment');assert(not psychology or (safeExcavation and knowledge),'Psychology campaigns require safe excavation and knowledge');assert(not industry or (equipment and safeExcavation),'Industry requires equipment and safe excavation');assert(not factions or (industry and psychology and knowledge),'Factions require industry, psychology and knowledge');assert(not security or (factions and industry and psychology),'Security requires factions, industry and psychology')
- local world=U.deep(source);local nextPerson=attach(world,1,1,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,security,false,nil,world.seed)
+ local world=U.deep(source);local nextPerson=attach(world,1,1,knowledge,education,body,visibility,equipment,safeExcavation,psychology,industry,factions,security,false,false,nil,world.seed)
  local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1},tick=world.tick,mode=world.mode,seed=world.seed,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites={{id=1,ownerSocietyId=1,world=world}}}
  if knowledge then c.features.knowledge=1;c.knowledge=require('src.knowledge').newCampaign() end
  if education then c.features.education=1;c.education=require('src.education').newCampaign() end
@@ -250,7 +270,7 @@ local function recipeFrom(o,populated)
  return {version=1,preset=o.preset,layout=o.layout,climate=o.climate,openness=o.openness,biomeScale=o.biomeScale,features=o.features,density=o.density,crew=o.crew,width=o.width,height=o.height,populated=populated}
 end
 local function regionOptions(options)
- local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true,travel=o.travel==true,knowledge=o.knowledge==true,education=o.education==true,body=o.body==true,visibility=o.visibility==true,equipment=o.equipment==true,safe_excavation=o.safe_excavation==true,psychology=o.psychology==true,industry=o.industry==true,factions=o.factions==true,security=o.security==true,environments=o.environments==true}
+ local o=options or {};local base={preset=o.preset or 'frontier',layout=o.layout or C.layout,climate=o.climate or C.climate,openness=o.openness or C.openness,biomeScale=o.biomeScale or C.biomeScale,features=o.features or C.features,density=o.density or C.density,crew=o.crew or C.crew,width=o.width or C.width,height=o.height or C.height,mode=o.mode or C.mode,logistics=o.logistics==true,travel=o.travel==true,knowledge=o.knowledge==true,education=o.education==true,body=o.body==true,visibility=o.visibility==true,equipment=o.equipment==true,safe_excavation=o.safe_excavation==true,psychology=o.psychology==true,industry=o.industry==true,factions=o.factions==true,security=o.security==true,environments=o.environments==true,relics=o.relics==true}
  for key in pairs(o) do assert(base[key]~=nil or key=='bodyOrder','Unknown campaign region option '..tostring(key)) end;assert(base.mode=='challenge' or base.mode=='practice','Invalid campaign region mode');return base
 end
 local function bodyOrder(order)
@@ -261,6 +281,7 @@ function Campaign.newRegion(master,options)
  local Random=require('src.campaign_random');local G=require('src.generate');local Layouts=require('src.generation.layouts');local Biomes=require('src.biomes')
  U.integer(master,'campaign master seed',1,2147483646);local home=regionOptions(options);local layouts,climates=sortedValues(Layouts.names),sortedValues(Biomes.climates);local bodies,sitesById={},{}
  assert(not home.environments or (home.travel and home.logistics and home.industry and home.equipment),'Environment campaigns require travel, logistics, industry and equipment')
+ assert(not home.relics or (home.environments and home.travel and home.logistics and home.industry and home.factions and home.security),'Relic campaigns require the complete G07/G06 frontier')
  local Environments=home.environments and require('src.environments') or nil
  for _,id in ipairs(bodyOrder(options and options.bodyOrder)) do
   local terrainSeed=Random.derive(master,'region/body/'..id..'/terrain/v1');local recipe,world
@@ -280,16 +301,26 @@ function Campaign.newRegion(master,options)
  local sites={sitesById[1],sitesById[2],sitesById[3]}
  if Environments then
   local profiles,names=Environments.frontierProfiles(master),Environments.names(master,4)
-  for id=4,7 do
+ for id=4,7 do
    local stream=Random.new(Random.derive(master,'region/body/'..id..'/recipe/v1'))
    local frontier={preset='frontier',layout=layouts[Random.uniform(stream,#layouts)],climate=climates[Random.uniform(stream,#climates)],openness=0.48,biomeScale=1,features='living',density=1,crew=3,width=192,height=112}
    bodies[id]={id=id,kind='frontier',parentBodyId=1,name=names[id-3],siteId=id,terrainSeed=Random.derive(master,'region/body/'..id..'/terrain/v1'),recipe=recipeFrom(frontier,false),environment=profiles[id-3],visited=false}
-   sites[id]={id=id,bodyId=id,ownerSocietyId=nil,world=nil}
+  sites[id]={id=id,bodyId=id,ownerSocietyId=nil,world=nil}
+ end
+  if home.relics then
+   local Relics=require('src.relics')
+   for _,spec in ipairs(Relics.remoteBodies(master)) do
+    local stream=Random.new(Random.derive(master,'region/body/'..spec.id..'/recipe/v1'))
+    local frontier={preset='frontier',layout=layouts[Random.uniform(stream,#layouts)],climate=climates[Random.uniform(stream,#climates)],openness=0.48,biomeScale=1,features='living',density=1,crew=3,width=192,height=112}
+    spec.recipe=recipeFrom(frontier,false);bodies[spec.id]=spec;sites[spec.id]={id=spec.id,bodyId=spec.id,ownerSocietyId=nil,world=nil}
+   end
   end
  end
- local nextPerson=1;for _,site in ipairs(sites) do if site.world then nextPerson=attach(site.world,site.id,nextPerson,home.knowledge,home.education,home.body,home.visibility,home.equipment,home.safe_excavation,home.psychology,home.industry,home.factions,home.security,home.environments,Environments and bodies[site.id].environment,master) end end
+ local nextPerson=1;for _,site in ipairs(sites) do if site.world then nextPerson=attach(site.world,site.id,nextPerson,home.knowledge,home.education,home.body,home.visibility,home.equipment,home.safe_excavation,home.psychology,home.industry,home.factions,home.security,home.environments,home.relics,Environments and bodies[site.id].environment,master) end end
  assert(not home.travel or home.logistics,'Travel campaigns require logistics')
- local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1,region=1},tick=0,mode=home.mode,seed=master,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites=sites,region={version=1,bodies=Environments and bodies or {bodies[1],bodies[2],bodies[3]},notices={}}}
+ local region={version=1,bodies=Environments and bodies or {bodies[1],bodies[2],bodies[3]},notices={}}
+ if home.relics then region.systems=require('src.relics').systemRecords(master);for _,body in ipairs(region.bodies) do body.systemId=body.id<=7 and 1 or (body.id<=9 and 2 or 3) end end
+ local c={format=Campaign.format,version=Campaign.version,ruleset=Campaign.ruleset,features={core=1,region=1},tick=0,mode=home.mode,seed=master,society={id=1,origin='abandoned_convicts',independent=true},nextPersonId=nextPerson,sites=sites,region=region}
  if home.logistics then c.features.logistics=1;c.logistics=require('src.logistics').new(c.sites[1],home.travel) end
  if home.travel then c.features.travel=1 end
  if home.knowledge then c.features.knowledge=1;c.knowledge=require('src.knowledge').newCampaign() end
@@ -303,6 +334,7 @@ function Campaign.newRegion(master,options)
  if home.factions then assert(home.industry and home.psychology and home.knowledge,'Factions require industry, psychology and knowledge');c.features.factions=1;c.factions=require('src.factions').new(c) end
  if home.security then assert(home.factions and home.industry and home.psychology,'Security requires factions, industry and psychology');c.features.security=1;require('src.security').initialise(c) end
  if home.environments then c.features.environments=1 end
+ if home.relics then c.features.relics=1;c.relics=require('src.relics').new(c) end
  if home.travel then c.travel=require('src.travel').new(c) end
  if home.equipment then
   local w=c.sites[1].world;local x,y=w.home.x,w.home.y
@@ -325,8 +357,9 @@ function Campaign.instantiate(c,siteId)
  -- An unvisited destination owns no hidden fine-cell time.  Its first local
  -- state joins the one campaign clock only when a physical arrival needs it.
  world.tick=c.tick
- attach(world,site.id,c.nextPersonId,isKnowledge(c),isEducation(c),isBody(c),isVisibility(c),isEquipment(c),isSafeExcavation(c),isPsychology(c),isIndustry(c),isFactions(c),isSecurity(c),true,body.environment,c.seed)
+ attach(world,site.id,c.nextPersonId,isKnowledge(c),isEducation(c),isBody(c),isVisibility(c),isEquipment(c),isSafeExcavation(c),isPsychology(c),isIndustry(c),isFactions(c),isSecurity(c),true,isRelics(c),body.environment,c.seed)
  site.world=world;body.visited=true
+ if isRelics(c) then require('src.relics').installWorld(c,site.id,world) end
  return world
 end
 function Campaign.metrics(c)
@@ -369,7 +402,19 @@ end
 local function appendNotice(c,site,event,ordinal)
  if not isRegion(c) then return end;local notices=c.region.notices;local prior=notices[#notices]
  if prior and prior.siteId==site.id and prior.kind==event.kind and prior.text==event.text then prior.count=prior.count+1;return end
- notices[#notices+1]={tick=c.tick,siteId=site.id,ordinal=ordinal,kind=event.kind,text=event.text,count=1};while #notices>128 do table.remove(notices,1) end
+ local added={tick=c.tick,siteId=site.id,ordinal=ordinal,kind=event.kind,text=event.text,count=1}
+ -- Most notices arrive in campaign site order during Campaign.step, but a
+ -- validated immediate site command (for example a completed Relic Analyzer
+ -- scan) may add a same-tick notice after that ordered pass.  Persisted notices
+ -- have an explicit canonical order, so insert that record rather than making
+ -- a valid command produce a non-loadable save.
+ local occupied={};for _,entry in ipairs(notices) do if entry.tick==added.tick and entry.siteId==added.siteId then occupied[entry.ordinal]=true end end
+ while occupied[added.ordinal] do added.ordinal=added.ordinal+1 end
+ local at=#notices+1
+ for i,entry in ipairs(notices) do
+  if added.tick<entry.tick or (added.tick==entry.tick and (added.siteId<entry.siteId or (added.siteId==entry.siteId and added.ordinal<entry.ordinal))) then at=i;break end
+ end
+ table.insert(notices,at,added);while #notices>128 do table.remove(notices,1) end
 end
 function Campaign.addNotice(c,siteId,kind,text,ordinal)
  local record=Campaign.site(c,siteId);assert(record,'Unknown notice site')
@@ -401,6 +446,7 @@ function Campaign.step(c,commands,clock)
  if isTravel(c) then require('src.travel').step(c) end
  if isPsychology(c) then require('src.psychology').maintenance(c) end
  if isFactions(c) then require('src.factions').step(c) end
+ if isRelics(c) then require('src.relics').step(c) end
  if isSecurity(c) then require('src.security').step(c) end
  for _,site in ipairs(sites) do noticesForSite(c,site) end
  if not clock and #sites==1 then return timings[1] end;return timings

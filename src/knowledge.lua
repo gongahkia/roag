@@ -23,6 +23,12 @@ for effect,spec in pairs(effectSpecs) do
  registry[spec.fact]={id=spec.fact,version=1,kind='operational',category=spec.category,subject=spec.kind,effect=effect,
   label=source.name,note=effect=='filter_steam_to_water' and 'Supported field finding: this growth can change adjacent steam into water.' or 'Supported field finding: this growth can change adjacent sand into rock.'}
 end
+-- G08 facts reuse personal observations, records, and teaching rather than
+-- adding a global technology table. Intrinsic relic properties stay private.
+for id=1,9 do
+ registry['relic/'..id..'/role/v1']={id='relic/'..id..'/role/v1',version=1,kind='identification',category='sites',subject='ancient_cache',label='Ancient relic functional analysis',note='A personally decoded ancient-object function.'}
+ registry['relic/'..id..'/signature/v1']={id='relic/'..id..'/signature/v1',version=1,kind='identification',category='sites',subject='ancient_cache',label='Ancient relic resonance analysis',note='A personally decoded ancient-object signature.'}
+end
 
 local function exact(t,keys,label)
  assert(type(t)=='table',label..' must be a table')
@@ -41,7 +47,7 @@ local function sourceRegistry(category)
 end
 local function validateSource(source,label)
  exact(source,{siteId=true,category=true,id=true,kind=true,definitionVersion=true},label)
- U.integer(source.siteId,label..' site ID',1,3);U.integer(source.id,label..' entity ID',1,100000000)
+ U.integer(source.siteId,label..' site ID',1,11);U.integer(source.id,label..' entity ID',1,100000000)
  assert(type(source.category)=='string' and type(source.kind)=='string' and source.definitionVersion==1,'Invalid '..label)
  assert(sourceRegistry(source.category) and sourceRegistry(source.category)[source.kind],'Unknown '..label..' definition')
 end
@@ -53,7 +59,7 @@ local function sampleKey(sample)
 end
 local function validateSample(sample,label,tick)
  exact(sample,{siteId=true,tick=true,ordinal=true,effect=true,x=true,y=true,before=true,after=true,quantity=true,source=true},label)
- U.integer(sample.siteId,label..' site ID',1,3);U.integer(sample.tick,label..' tick',0,tick);U.integer(sample.ordinal,label..' ordinal',1,100000000)
+ U.integer(sample.siteId,label..' site ID',1,11);U.integer(sample.tick,label..' tick',0,tick);U.integer(sample.ordinal,label..' ordinal',1,100000000)
  assert(effectSpecs[sample.effect],'Unknown '..label..' effect');U.integer(sample.x,label..' x',1,512);U.integer(sample.y,label..' y',1,256)
  U.integer(sample.before,label..' before material',0,100);U.integer(sample.after,label..' after material',0,100);U.integer(sample.quantity,label..' quantity',1,1000000)
  validateSource(sample.source,label..' source')
@@ -129,7 +135,7 @@ function K.validateCampaign(state,tick)
  for _,entry in ipairs(state.history) do
   exact(entry,{id=true,tick=true,siteId=true,personId=true,name=true,fact=true,version=true,method=true,subject=true},'Knowledge history entry')
   U.integer(entry.id,'Knowledge history ID',1,state.nextHistoryId-1);assert(entry.id>prior,'Knowledge history is unordered');prior=entry.id;max=entry.id
-  U.integer(entry.tick,'Knowledge history tick',0,tick);U.integer(entry.siteId,'Knowledge history site ID',1,3);U.integer(entry.personId,'Knowledge history person ID',1,100000000)
+  U.integer(entry.tick,'Knowledge history tick',0,tick);U.integer(entry.siteId,'Knowledge history site ID',1,11);U.integer(entry.personId,'Knowledge history person ID',1,100000000)
   assert(type(entry.name)=='string' and #entry.name<=80 and registry[entry.fact] and entry.version==registry[entry.fact].version and (entry.method=='survey' or entry.method=='study' or entry.method=='taught' or entry.method=='record' or entry.method=='mixed'),'Malformed knowledge history')
   validateSource(entry.subject,'Knowledge history subject')
  end

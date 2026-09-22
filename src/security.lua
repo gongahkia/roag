@@ -467,6 +467,7 @@ local function raidTarget(w,raider,c)
 end
 local function resolveRaid(c,r,w,reason)
  if r.status=='resolved' then return end
+ if reason=='withdrawal' and c.features.relics==1 then for _,actor in ipairs(r.actors) do if actor.alive then require('src.relics').retreatRaider(c,actor) end end end
  r.status='resolved';r.resolvedTick=c.tick;r.resolution=reason
  local f=F.find(c,r.factionId);if f then f.lastRaidResolvedTick=c.tick;f.recentLossPenalty=clamp((f.recentLossPenalty or 0)+(reason=='losses' and 10 or 0),0,30) end
  events(w,'raid_resolved',reason=='withdrawal' and 'Hostile expedition withdrew.' or 'Hostile expedition was repelled.',r.id)
@@ -477,6 +478,7 @@ local function dropRaidLoot(c,r,w,a)
  if a.weapon then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.weapon.kind,a.x,a.y).id end
  if a.armor then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.armor.kind,a.x,a.y).id end
  if a.suit then receipt.itemIds[#receipt.itemIds+1]=E.create(c,localSite(c,w).id,a.suit.kind,a.x,a.y).id end
+ if c.features.relics==1 then require('src.relics').dropRaider(c,w,a) end
  if a.ammo and a.ammo>0 then W.stack(w,'ammunition',a.ammo,a.x,a.y) end
  c.security.lootReceipts[#c.security.lootReceipts+1]=receipt;while #c.security.lootReceipts>S.maxReceipts do table.remove(c.security.lootReceipts,1) end
 end
@@ -495,6 +497,9 @@ local function raidStep(c,r)
  for _,raider in ipairs(r.actors) do if raider.alive then
   if r.status=='withdrawing' then pathMove(w,raider,function(x,y) return math.abs(x-r.ingress.x)+math.abs(y-r.ingress.y)<=2 end,actors)
   else
+   if c.features.relics==1 then
+    for _,relic in ipairs(require('src.relics').atSite(c,s.id)) do if require('src.relics').raidSteal(c,w,raider,relic) then break end end
+   end
    local target=targetFor(c,w,raider)
    if target then
     r.lastContactTick=c.tick

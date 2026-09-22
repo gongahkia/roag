@@ -34,6 +34,7 @@ local function addBlockActions(world,actions)
   add(actions,'build:conveyor','Build conveyor','Floor-level physical item transport.')
  add(actions,'build:electric_lamp','Build electric lamp','Powered light without fuel.')
  if world.frontier and world.frontier.environments==1 then add(actions,'build:environmental_regulator','Build environmental regulator','Powered local thermal and radiation protection, radius 24.') end
+ if world.frontier and world.frontier.relics==1 then add(actions,'build:relic_analyzer','Build Relic Analyzer','Powered two-slot relic analysis; requires 2 metal and 2 Machine Components.') end
  if world.frontier and world.frontier.factions==1 then
    add(actions,'build:signal_relay','Build signal relay','Powered contact scanning; does not reveal terrain.')
    add(actions,'build:trade_depot','Build trade depot','Physical barter buffer for off-map courier trade.')
@@ -97,7 +98,13 @@ function H.model(app,world)
 
  if structure then
   local label=S.def[structure.kind].label
-  if structure.kind=='field_school' and structure.education then add(actions,'school','Open '..label,'Configure records, teaching, or record study.')
+  if structure.kind=='ancient_cache' and world.frontier and world.frontier.relics==1 then
+   add(actions,'relic:excavate','Excavate Ancient Cache','A selected reachable worker performs 180 ordinary archaeology actions.')
+  elseif structure.kind=='relic_analyzer' and world.frontier and world.frontier.relics==1 then
+   add(actions,'relic:analyzer_load','Load carried relic','Transfers the selected worker\'s physical relic into a free Analyzer slot.')
+   add(actions,'relic:analyze','Analyze loaded relic','A powered Analyzer reveals role at 120 and signature at 300 actions.')
+   add(actions,'relic:scan','Deep-space scan','Requires a loaded identified Lens and powered Signal Relay.')
+  elseif structure.kind=='field_school' and structure.education then add(actions,'school','Open '..label,'Configure records, teaching, or record study.')
   elseif structure.kind=='tool_bench' then add(actions,'fabricate:pickaxe','Fabricate pickaxe','Consumes two metal and 120 work actions.');add(actions,'fabricate:rope_coil','Fabricate rope coil','Consumes one metal and 60 work actions.');if world.frontier and world.frontier.industry==1 then add(actions,'fabricate:component','Fabricate machine component','Consumes two metal and 120 work actions.') end
   elseif structure.kind=='fabricator' then
    add(actions,'industry:recipe:component','Set component recipe','Consumes two metal in 40 powered ticks.')

@@ -360,6 +360,26 @@ local function delegateHudAction(action)
  elseif action=='arm' then
   local structure=W.structureAt(w,cell.x,cell.y)
   if structure then return issued({type='arm',slot=W.slot(w,structure.gx,structure.gy),worker=delegatedWorker(),priority=app.priority}) end
+ elseif action:match('^relic:') then
+  local structure=W.structureAt(w,cell.x,cell.y);local worker=delegatedWorker()
+  if not structure or not app.history.view.features.relics then notify('That relic facility is unavailable.');return false end
+  if worker==0 then notify('Select a living settler for this physical relic task.');return false end
+  local relics=require('src.relics');local kind=action:sub(7)
+  if kind=='excavate' and structure.kind=='ancient_cache' then
+   return issued({type='relic_excavate',cacheId=structure.cacheId,personId=worker})
+  elseif structure.kind=='relic_analyzer' then
+   local chosen
+   for _,relic in ipairs(app.history.view.relics.items) do
+    if kind=='analyzer_load' and relic.state=='person' and relic.personId==worker then chosen=relic.id;break end
+    if (kind=='analyze' or kind=='scan') and relic.state=='analyzer' and relic.structureId==structure.id then
+     if kind~='scan' or relic.role=='lens' then chosen=relic.id;break end
+    end
+   end
+   if not chosen then notify(kind=='analyzer_load' and 'The selected settler carries no relic.' or 'No suitable relic occupies this Analyzer.');return false end
+   local typeName=kind=='analyzer_load' and 'relic_analyzer_load' or kind=='analyze' and 'relic_analyze' or 'relic_scan'
+   return issued({type=typeName,structureId=structure.id,relicId=chosen,personId=worker})
+  end
+  notify('That relic action is unavailable.');return false
  elseif action=='rope:down' or action=='rope:up' then return issued({type='place_rope',gx=gx,gy=gy,direction=action:match(':(.+)$'),priority=app.priority})
  elseif action=='fabricate:pickaxe' or action=='fabricate:rope_coil' or action=='fabricate:component' then
   local structure=W.structureAt(w,cell.x,cell.y)
@@ -593,7 +613,7 @@ function love.mousepressed(mx,my,button)
     local d=app.expedition
     if b.action=='close' then app.expedition=nil
     elseif b.action=='destination' then
-     local ids={};for _,candidate in ipairs(Campaign.sites(app.history.view)) do if candidate.id~=d.sourceSiteId and require('src.travel').duration(app.history.view,d.sourceSiteId,candidate.id) then ids[#ids+1]=candidate.id end end
+     local ids={};for _,candidate in ipairs(Campaign.sites(app.history.view)) do if candidate.id~=d.sourceSiteId and require('src.travel').duration(app.history.view,d.sourceSiteId,candidate.id) and not (app.history.view.features.relics==1 and require('src.relics').hiddenSite(app.history.view,candidate.id)) then ids[#ids+1]=candidate.id end end
      table.sort(ids);local at=1;for i,id in ipairs(ids) do if id==d.destinationSiteId then at=i end end;d.destinationSiteId=ids[(at-1+(b.delta or 1))%#ids+1]
     elseif b.action=='passenger' then
      local found;for i,id in ipairs(d.passengers) do if id==b.personId then table.remove(d.passengers,i);found=true;break end end
@@ -603,6 +623,14 @@ function love.mousepressed(mx,my,button)
     elseif b.action=='loadTool' then
      if app.siteId~=d.sourceSiteId then notify('View the tool\'s source settlement before loading it.')
      else queue({type='load_tool',equipmentId=b.equipmentId,craftId=d.craftId,priority=app.priority}) end
+    elseif b.action=='loadRelic' then
+     if app.siteId~=d.sourceSiteId then notify('View the relic\'s source settlement before loading it.')
+     elseif not b.personId then notify('Select a passenger who can physically handle the relic.')
+     else queue({type='relic_craft_load',relicId=b.relicId,craftId=d.craftId,personId=b.personId}) end
+    elseif b.action=='unloadRelic' then
+     if app.siteId~=d.sourceSiteId then notify('View the relic\'s destination settlement before unloading it.')
+     elseif not b.personId then notify('Select a passenger who can physically handle the relic.')
+     else queue({type='relic_craft_unload',relicId=b.relicId,craftId=d.craftId,personId=b.personId}) end
     elseif b.action=='prepare' then queueCampaign({scope='campaign',type='prepare_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,destinationSiteId=d.destinationSiteId,passengers=d.passengers,cargo=d.cargo})
     elseif b.action=='assemble' then queueCampaign({scope='campaign',type='assemble_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
     elseif b.action=='cancel' then queueCampaign({scope='campaign',type='cancel_expedition',sourceSiteId=d.sourceSiteId,craftId=d.craftId,manifestId=b.manifestId})
