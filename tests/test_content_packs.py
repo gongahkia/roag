@@ -52,6 +52,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "travel_text.json", root / "travel_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ship_crisis_text.json", root / "ship_crisis_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "vehicle_text.json", root / "vehicle_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "chemistry_text.json", root / "chemistry_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -249,6 +250,18 @@ def alternate_pack(root: Path) -> Path:
         "vehicle.interior.controls": "Fixture controls retain the same fixture actions.",
     })
     source.write_text(json.dumps(vehicle_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "chemistry_text.json"
+    chemistry_text = json.loads(source.read_text(encoding="utf-8"))
+    chemistry_text["text"].update({
+        "chemistry.reagent.healing_herb.name": "fixture herb",
+        "chemistry.reaction.healing_draft.name": "fixture restorative",
+        "chemistry.fill.result": "FIXTURE fill {measures} {reagent} into {flask}: {contents}.",
+        "chemistry.fill.reaction_potential": " FIXTURE potential: {reactions}.",
+        "chemistry.drink.result": "FIXTURE {courier} drinks {reactions} from {flask}.",
+        "chemistry.pour.prediction": " FIXTURE reaction forecast: {reactions}.",
+        "chemistry.overlay.flasks.title": "FIXTURE FLASKS",
+    })
+    source.write_text(json.dumps(chemistry_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -559,6 +572,26 @@ def combat_presentation_snapshot(environment: dict[str, str]) -> dict[str, objec
             "machine=Threat('wheel','runaway crown wheel','machinery',Position(45,22),7,7,status='engaged',elite=True,morale=99); state.threats=[machine]; state.position=Position(42,22); machine_warning=_threat_action(state,machine,False); state.position=Position(42,23); machine_result=_threat_action(state,machine,False); machine_mechanics=[machine.id,machine.intent_id,machine.turn,machine.health,machine.status]; "
             "net=Threat('net','mudflat netter','reach',Position(45,25),5,5,status='engaged',role='controller'); state.threats=[net]; state.position=Position(42,25); net_warning=_threat_action(state,net,False); state.position=Position(42,26); net_result=_threat_action(state,net,False); net_mechanics=[net.id,net.intent_id,net.turn,net.aimed_at,sorted(state.terrain_statuses)]; "
             "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[flood_warning,flood_result,machine_warning,machine_result,net_warning,net_result],'mechanics':[flood_mechanics,machine_mechanics,net_mechanics]}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+def chemistry_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.chemistry import drink_flask, fill_flask, predicted_reactions; "
+            "from jomon.inventory import auto_place, create_item; from jomon.state import create_world; "
+            "state=create_world('chemistry-pack-proof'); flask=create_item(state, 'field flask', 'fixture flask'); "
+            "herb=create_item(state, 'ingredient:healing herb', 'fixture herb'); water=create_item(state, 'ingredient:spring water', 'fixture water'); "
+            "[auto_place(state, item.id, 'pack', owner_id=state.active_courier_id) for item in (flask, herb, water)]; "
+            "first=fill_flask(state, flask.id, herb.id); second=fill_flask(state, flask.id, water.id); reaction=predicted_reactions(flask.contents); before=state.courier.health; drank=drink_flask(state, flask.id); "
+            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "'messages': [first[1], second[1], drank[1]], 'mechanics': [reaction, state.courier.known_formulas, before, state.courier.health, flask.contents, herb.location, water.location, state.world_time, flask.kind, herb.kind, water.kind]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1581,6 +1614,59 @@ class ContentPackTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("invalid world_text.json in content pack 'fixture-alternate'", result.stderr)
         self.assertIn("must contain exactly", result.stderr)
+
+
+    def test_default_chemistry_presentation_preserves_existing_text(self):
+        from jomon.chemistry_presentation import chemistry_format, chemistry_text, reaction_display_name
+
+        self.assertEqual(chemistry_text("chemistry.reagent.healing_herb.name"), "healing herb")
+        self.assertEqual(reaction_display_name("healing draft"), "healing draft")
+        self.assertEqual(
+            chemistry_format("chemistry.fill.result", measures=1, reagent="healing herb", flask="item-00001", contents="{'healing herb': 1}"),
+            "1 healing herb measure(s) enter item-00001; contents {'healing herb': 1}.",
+        )
+
+    def test_alternate_pack_changes_chemistry_presentation_not_mechanics(self):
+        default = chemistry_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = chemistry_presentation_snapshot(environment)
+
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("FIXTURE fill", alternate["messages"][0])
+        self.assertIn("fixture restorative", alternate["messages"][1])
+        self.assertIn("FIXTURE", alternate["messages"][2])
+
+    def test_chemistry_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "chemistry_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing key": lambda value: value["text"].pop("chemistry.reagent.healing_herb.name"),
+                "unknown key": lambda value: value["text"].update({"chemistry.reagent.extra.name": "extra"}),
+                "empty text": lambda value: value["text"].update({"chemistry.drink.result": ""}),
+                "unknown placeholder": lambda value: value["text"].update({"chemistry.drink.result": "drink {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"chemistry.fill.result": "fixture fill"}),
+                "malformed template": lambda value: value["text"].update({"chemistry.pour.result": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*chemistry_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"chemistry.fill.result"', '"chemistry.drink.result"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*chemistry_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("missing file"):
+                source.unlink()
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*chemistry_text\.json"):
+                    load_content_pack(root)
 
 
 if __name__ == "__main__":

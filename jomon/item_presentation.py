@@ -44,6 +44,9 @@ def contracted_item_presentation(engine_id: str) -> ItemPresentation | None:
 
 def item_display_name_or_legacy(engine_id: str) -> str:
     """Render contracted base items while retaining deliberate dynamic fallbacks."""
+    if engine_id.startswith("ingredient:"):
+        from .chemistry_presentation import reagent_display_name
+        return reagent_display_name(engine_id.split(":", 1)[1])
     presentation = contracted_item_presentation(engine_id)
     if presentation:
         return presentation.display_name

@@ -10,6 +10,7 @@ from .catalog import EQUIPMENT_SECTIONS, load_catalog
 from .chemistry import REAGENTS
 from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
 from .item_presentation import contracted_item_presentation, item_presentation
+from .chemistry_presentation import chemistry_text, reagent_display_name
 from .state import GameState, Item, Person, TerrainStatus
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
 
@@ -112,8 +113,8 @@ ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name
                                   2, 2, 2, "consumable", "One thrown payload; reacts at its landing.", stack_limit=3)
                    for name, kind in BOMB_AMMUNITION.items()})
 
-ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
-                                               1, 1, 1, "consumable", "One local ingredient; can enter a field flask.", stack_limit=4)
+ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(reagent_display_name(name), "".join(word[0] for word in name.split()).upper()[:2],
+                                               1, 1, 1, "consumable", chemistry_text("chemistry.ingredient.description"), stack_limit=4)
                    for name in REAGENTS})
 for pot in POT_AMMUNITION.values():
     ITEM_SPECS[pot] = ItemSpec(pot.split(":", 1)[1].title(), "P" + pot.split()[1][0].upper(), 2, 2, 3,
@@ -1172,7 +1173,7 @@ def initialise_inventory(state: GameState) -> None:
         item = create_item(state, kind, "Jomon household stores")
         if not auto_place(state, item.id, "locker"):
             raise RuntimeError("initial Jomon locker is too small")
-    flask = create_item(state, "field flask", "Jomon's counted field chemistry kit")
+    flask = create_item(state, "field flask", chemistry_text("chemistry.provenance.initial_flask"))
     if not auto_place(state, flask.id, "locker"):
         raise RuntimeError("initial Jomon locker cannot hold a field flask")
     for name, quantity in (

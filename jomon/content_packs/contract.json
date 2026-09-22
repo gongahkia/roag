@@ -9117,5 +9117,366 @@
       "id": "vehicle.gangplank.line.crossing",
       "placeholders": []
     }
+  ],
+  "chemistry": [
+    {
+      "id": "chemistry.reagent.cinder_salt.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.tree_resin.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.brine.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.lime_dust.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.frostwort.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.smoke_leaf.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.healing_herb.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.glow_spore.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.peat_oil.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.iron_filings.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.spring_water.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.spark_salt.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.iron_ore.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.clay.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.flame_bloom.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.oil_flare.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.smoke_bloom.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.conductive_flash.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.caustic_slurry.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.freezing_wash.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.healing_draft.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.attunement_draft.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.luminous_seal.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.corrosive_grit.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.hardening_wash.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.breath_tonic.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.resin_mortar.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.brine_rime.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.phosphor_dust.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.shrapnel_spark.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.peat_haze.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reaction.salt_lime_slurry.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.reagent.legacy_unknown.name",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.ingredient.description",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.provenance.initial_flask",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.provenance.distilled",
+      "placeholders": [
+        "flask"
+      ]
+    },
+    {
+      "id": "chemistry.fill.carried",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.fill.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.fill.result",
+      "placeholders": [
+        "measures",
+        "reagent",
+        "flask",
+        "contents"
+      ]
+    },
+    {
+      "id": "chemistry.fill.reaction_potential",
+      "placeholders": [
+        "reactions"
+      ]
+    },
+    {
+      "id": "chemistry.distill.source",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.distill.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.distill.pack",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.distill.result",
+      "placeholders": [
+        "courier",
+        "reagent",
+        "flask"
+      ]
+    },
+    {
+      "id": "chemistry.pour.carried",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.pour.range",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.pour.ground",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.pour.capacity",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.pour.result",
+      "placeholders": [
+        "courier",
+        "flask",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "chemistry.pour.prediction",
+      "placeholders": [
+        "reactions"
+      ]
+    },
+    {
+      "id": "chemistry.drink.carried",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.drink.unknown",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.drink.dangerous",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.drink.result",
+      "placeholders": [
+        "courier",
+        "reactions",
+        "flask"
+      ]
+    },
+    {
+      "id": "chemistry.status.clear_breath.cause",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.status.clear_breath.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.flasks.title",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.flasks.row",
+      "placeholders": [
+        "index",
+        "flask",
+        "contents",
+        "measures"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.flasks.journal",
+      "placeholders": [
+        "practiced",
+        "household"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.flasks.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.flasks.return",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.distill.title",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.distill.status",
+      "placeholders": [
+        "flask",
+        "contents"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.distill.option",
+      "placeholders": [
+        "index",
+        "reagent"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.distill.return",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.fill.title",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.fill.option",
+      "placeholders": [
+        "index",
+        "item",
+        "reagent",
+        "quantity"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.fill.pages",
+      "placeholders": [
+        "page",
+        "pages"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.pour.title",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.drink.title",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.target",
+      "placeholders": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.flask_prediction",
+      "placeholders": [
+        "index",
+        "flask",
+        "contents",
+        "reactions"
+      ]
+    },
+    {
+      "id": "chemistry.overlay.empty",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.none",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.none_yet",
+      "placeholders": []
+    },
+    {
+      "id": "chemistry.overlay.no_longer_carried",
+      "placeholders": []
+    }
   ]
 }

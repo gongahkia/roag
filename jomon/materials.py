@@ -67,12 +67,13 @@ def ensure_cell(state: GameState, point: Position) -> MaterialCell | None:
 def inspect_material(state: GameState, point: Position) -> list[str]:
     from .world import base_tile
     from .chemistry import predicted_reactions
+    from .chemistry_presentation import reaction_list_display, reagent_contents_display
     cell = fields(state).get(key(point), MaterialCell(material=material_at(state, point)))
     return [
         f"FACT {point.x},{point.y} z{point.z:+d}: {cell.material}; coating {cell.coating or 'none'}.",
         f"Water {cell.water}/3 {cell.fluid}; {'ice' if cell.ice else 'liquid'}; fire {cell.fire}/3; smoke {cell.smoke}/4.",
         f"Support {cell.support}/3; " + (f"COLLAPSE warned after {max(0, cell.collapse_due - state.world_time)} more beats." if cell.collapse_due else "no collapse currently warned."),
-        f"Mixture: {cell.reagents or 'none'}; next reaction: {', '.join(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
+        f"Mixture: {reagent_contents_display(cell.reagents) if cell.reagents else 'none'}; next reaction: {reaction_list_display(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
         "PREDICTION Water extinguishes; smoke rises/drifts; weakened supports fall after warning.",
         *(["FACT Loose cover (%) remains passable and turns low shots; height or arcing weapons can answer it."] if base_tile(state, point) == "%" else []),
         "Handling takes one action. Inspection and cancellation take none. Tools and supplies must be at hand.",

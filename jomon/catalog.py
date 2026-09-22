@@ -77,6 +77,7 @@ VESSEL_PRESENTATION_FILE = "vessel_text.json"
 TRAVEL_PRESENTATION_FILE = "travel_text.json"
 SHIP_CRISIS_PRESENTATION_FILE = "ship_crisis_text.json"
 VEHICLE_PRESENTATION_FILE = "vehicle_text.json"
+CHEMISTRY_PRESENTATION_FILE = "chemistry_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -322,6 +323,74 @@ _VEHICLE_TEMPLATE_CONTRACT = {
     "vehicle.interior.none.title": (), "vehicle.interior.none": (), "vehicle.interior.header": ("vehicle", "domain"), "vehicle.interior.reserve": ("fuel", "capacity", "resource", "condition", "maximum"), "vehicle.interior.location.region": ("region", "x", "y"), "vehicle.interior.location.water": ("x", "y"), "vehicle.interior.guidance": (), "vehicle.interior.controls": (), "vehicle.interior.tug_marks": (), "vehicle.interior.tug_manual": (),
     "vehicle.interior.draw.status": ("fuel", "capacity", "resource", "condition", "maximum"), "vehicle.interior.draw.location.region": ("region", "x", "y"), "vehicle.interior.draw.location.water": ("x", "y"), "vehicle.interior.draw.controls": (), "vehicle.interior.cargo": (), "vehicle.interior.fixture": (),
     "vehicle.gangplank.choice.ashore": (), "vehicle.gangplank.choice.tug": (), "vehicle.gangplank.requirement": (), "vehicle.gangplank.title": (), "vehicle.gangplank.line.ashore": ("region",), "vehicle.gangplank.line.tug": (), "vehicle.gangplank.line.crossing": (),
+}
+
+
+# Raw chemistry values are stable engine IDs.  They remain deliberately
+# compatible with persisted ingredient:<reagent> item kinds and formula journals;
+# selected packs only supply the text shown for those IDs.
+_CHEMISTRY_REAGENT_IDS = (
+    "cinder salt", "tree resin", "brine", "lime dust", "frostwort", "smoke leaf",
+    "healing herb", "glow spore", "peat oil", "iron filings", "spring water",
+    "spark salt", "iron ore", "clay",
+)
+_CHEMISTRY_REACTION_IDS = (
+    "flame bloom", "oil flare", "smoke bloom", "conductive flash", "caustic slurry",
+    "freezing wash", "healing draft", "attunement draft", "luminous seal",
+    "corrosive grit", "hardening wash", "breath tonic", "resin mortar", "brine rime",
+    "phosphor dust", "shrapnel spark", "peat haze", "salt-lime slurry",
+)
+
+def _chemistry_slot(prefix: str, engine_id: str) -> str:
+    return f"chemistry.{prefix}.{engine_id.replace(' ', '_').replace('-', '_')}.name"
+
+_CHEMISTRY_TEMPLATE_CONTRACT = {
+    **{_chemistry_slot("reagent", engine_id): () for engine_id in _CHEMISTRY_REAGENT_IDS},
+    **{_chemistry_slot("reaction", engine_id): () for engine_id in _CHEMISTRY_REACTION_IDS},
+    "chemistry.reagent.legacy_unknown.name": (),
+    "chemistry.ingredient.description": (),
+    "chemistry.provenance.initial_flask": (),
+    "chemistry.provenance.distilled": ("flask",),
+    "chemistry.fill.carried": (),
+    "chemistry.fill.unavailable": (),
+    "chemistry.fill.result": ("measures", "reagent", "flask", "contents"),
+    "chemistry.fill.reaction_potential": ("reactions",),
+    "chemistry.distill.source": (),
+    "chemistry.distill.requirement": (),
+    "chemistry.distill.pack": (),
+    "chemistry.distill.result": ("courier", "reagent", "flask"),
+    "chemistry.pour.carried": (),
+    "chemistry.pour.range": (),
+    "chemistry.pour.ground": (),
+    "chemistry.pour.capacity": (),
+    "chemistry.pour.result": ("courier", "flask", "x", "y"),
+    "chemistry.pour.prediction": ("reactions",),
+    "chemistry.drink.carried": (),
+    "chemistry.drink.unknown": (),
+    "chemistry.drink.dangerous": (),
+    "chemistry.drink.result": ("courier", "reactions", "flask"),
+    "chemistry.status.clear_breath.cause": (),
+    "chemistry.status.clear_breath.consequence": (),
+    "chemistry.overlay.flasks.title": (),
+    "chemistry.overlay.flasks.row": ("index", "flask", "contents", "measures"),
+    "chemistry.overlay.flasks.journal": ("practiced", "household"),
+    "chemistry.overlay.flasks.guidance": (),
+    "chemistry.overlay.flasks.return": (),
+    "chemistry.overlay.distill.title": (),
+    "chemistry.overlay.distill.status": ("flask", "contents"),
+    "chemistry.overlay.distill.option": ("index", "reagent"),
+    "chemistry.overlay.distill.return": (),
+    "chemistry.overlay.fill.title": (),
+    "chemistry.overlay.fill.option": ("index", "item", "reagent", "quantity"),
+    "chemistry.overlay.fill.pages": ("page", "pages"),
+    "chemistry.overlay.pour.title": (),
+    "chemistry.overlay.drink.title": (),
+    "chemistry.overlay.target": ("x", "y", "z"),
+    "chemistry.overlay.flask_prediction": ("index", "flask", "contents", "reactions"),
+    "chemistry.overlay.empty": (),
+    "chemistry.overlay.none": (),
+    "chemistry.overlay.none_yet": (),
+    "chemistry.overlay.no_longer_carried": (),
 }
 
 
@@ -796,6 +865,12 @@ class VehiclePresentation:
 
 
 @dataclass(frozen=True)
+class ChemistryPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -825,6 +900,7 @@ class ContentPack:
     travel_presentations: tuple[TravelPresentation, ...]
     ship_crisis_presentations: tuple[ShipCrisisPresentation, ...]
     vehicle_presentations: tuple[VehiclePresentation, ...]
+    chemistry_presentations: tuple[ChemistryPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -907,6 +983,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown vehicle presentation id: {semantic_id}")
+
+    def chemistry_presentation(self, semantic_id: str) -> ChemistryPresentation:
+        for presentation in self.chemistry_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown chemistry presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -991,8 +1073,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, and vehicle")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, and chemistry")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1839,6 +1921,26 @@ def _ship_crisis_presentations(root: Path, pack_id: str) -> tuple[ShipCrisisPres
     return tuple(ShipCrisisPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _SHIP_CRISIS_TEMPLATE_CONTRACT.items())
 
 
+def _chemistry_presentations(root: Path, pack_id: str) -> tuple[ChemistryPresentation, ...]:
+    source = root / CHEMISTRY_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid chemistry presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected_contract = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _CHEMISTRY_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("chemistry") != expected_contract:
+        raise RuntimeError(f"invalid engine chemistry content contract at {contract_source}: chemistry does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid chemistry presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_CHEMISTRY_TEMPLATE_CONTRACT):
+        missing, unknown = set(_CHEMISTRY_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_CHEMISTRY_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required chemistry keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown chemistry keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid chemistry presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(ChemistryPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders)) for key, placeholders in _CHEMISTRY_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2008,10 +2110,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     travel = _travel_presentations(root, pack_id)
     ship_crisis = _ship_crisis_presentations(root, pack_id)
     vehicle = _vehicle_presentations(root, pack_id)
+    chemistry = _chemistry_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, household_template,
     )
 
 

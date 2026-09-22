@@ -1569,8 +1569,10 @@ def game_state_from_dict(data: Any) -> GameState:
 
         initialise_aftermath(state)
         from .production import initialise_production
+        from .chemistry import migrate_legacy_chemistry_state
 
         initialise_production(state)
+        migrate_legacy_chemistry_state(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
     validate_state(state)
@@ -1600,12 +1602,11 @@ def validate_state(state: GameState) -> None:
         validate_vehicles(state)
         validate_circuits(state)
         validate_skill_journals(state)
-        from .chemistry import REACTIONS
+        from .chemistry import REACTION_IDS
 
         if (not isinstance(state.household_formulas, list)
                 or len(state.household_formulas) != len(set(state.household_formulas))
-                or any(name not in {reaction for reaction, _ in REACTIONS.values()}
-                       for name in state.household_formulas)):
+                or any(name not in REACTION_IDS for name in state.household_formulas)):
             raise ValueError("invalid household formula journal")
         for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
             validate_skills(person)

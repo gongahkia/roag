@@ -322,11 +322,11 @@ def validate_skill_journals(state: GameState) -> None:
 
 
 def validate_skills(person: Person) -> None:
-    from .chemistry import REACTIONS
+    from .chemistry import REACTION_IDS
     from .magic import SPELLS, SPELL_TIERS
 
     earned_spells = {spell for node_id in person.skill_nodes for spell in SPELL_TIERS.get(node_id, ())}
-    formulas = {name for name, _ in REACTIONS.values()}
+    formulas = set(REACTION_IDS)
     if (type(person.skill_points) is not int or not 0 <= person.skill_points <= len(MILESTONES) + 2
             or not isinstance(person.skill_nodes, list)
             or len(person.skill_nodes) != len(set(person.skill_nodes))

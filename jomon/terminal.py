@@ -2600,35 +2600,44 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "WORKING PLANS AND LOCAL SOURCES", rows
     if kind == "craft-mix":
         from .chemistry import carried_flasks
+        from .chemistry_presentation import chemistry_format, chemistry_text, reagent_contents_display, reaction_list_display
 
-        return "FIELD FLASKS", [
-            *[f"{index + 1}. {flask.id}: {flask.contents or 'empty'} ({sum(flask.contents.values())}/4)"
+        return chemistry_text("chemistry.overlay.flasks.title"), [
+            *[chemistry_format("chemistry.overlay.flasks.row", index=index + 1, flask=flask.id,
+                               contents=reagent_contents_display(flask.contents) if flask.contents else chemistry_text("chemistry.overlay.empty"),
+                               measures=sum(flask.contents.values()))
               for index, flask in enumerate(carried_flasks(state)[:9])],
-            f"Practiced formulas: {', '.join(state.courier.known_formulas) or 'none'}; household journal: {', '.join(state.household_formulas) or 'none'}.",
-            "Choose a flask; an ingredient is physically transferred into it. Reactions are inspectable before pouring or drinking.",
-            "B. Return to working plans.",
+            chemistry_format("chemistry.overlay.flasks.journal",
+                             practiced=reaction_list_display(state.courier.known_formulas) or chemistry_text("chemistry.overlay.none"),
+                             household=reaction_list_display(state.household_formulas) or chemistry_text("chemistry.overlay.none")),
+            chemistry_text("chemistry.overlay.flasks.guidance"),
+            chemistry_text("chemistry.overlay.flasks.return"),
         ]
     if kind.startswith("craft-distil:"):
         from .chemistry import carried_flasks
+        from .chemistry_presentation import chemistry_format, chemistry_text, reagent_contents_display, reagent_display_name
 
         flask_id = kind.split(":", 1)[1]
         flask = next((item for item in carried_flasks(state) if item.id == flask_id), None)
-        return "CONTROLLED DISTILLATION", [
-            f"{flask_id}: {flask.contents if flask else 'no longer carried'}; needs a still and the Controlled distil practice.",
-            *[f"{index + 1}. Separate one {reagent} measure into the pack."
+        return chemistry_text("chemistry.overlay.distill.title"), [
+            chemistry_format("chemistry.overlay.distill.status", flask=flask_id,
+                             contents=reagent_contents_display(flask.contents) if flask else chemistry_text("chemistry.overlay.no_longer_carried")),
+            *[chemistry_format("chemistry.overlay.distill.option", index=index + 1, reagent=reagent_display_name(reagent))
               for index, reagent in enumerate(flask.contents if flask else ())],
-            "B. Return to flasks. Separation uses two actions; no measure appears from nothing.",
+            chemistry_text("chemistry.overlay.distill.return"),
         ]
     if kind.startswith("craft-fill:"):
         from .chemistry import carried_ingredients
+        from .chemistry_presentation import chemistry_format, chemistry_text, reagent_display_name
 
         parts = kind.split(":")
         flask_id, page = parts[1], int(parts[2])
         ingredients = carried_ingredients(state)
-        return "FILL ONE PHYSICAL FLASK", [
-            *[f"{index + 1}. {item.id}: {item.kind.split(':', 1)[1]} ×{item.quantity}"
+        return chemistry_text("chemistry.overlay.fill.title"), [
+            *[chemistry_format("chemistry.overlay.fill.option", index=index + 1, item=item.id,
+                               reagent=reagent_display_name(item.kind.split(':', 1)[1]), quantity=item.quantity)
               for index, item in enumerate(ingredients[page * 8:page * 8 + 8])],
-            f"Page {page + 1}/{max(1, (len(ingredients) + 7) // 8)}. N/P pages; D separates a reagent at a still; B returns."
+            chemistry_format("chemistry.overlay.fill.pages", page=page + 1, pages=max(1, (len(ingredients) + 7) // 8))
         ]
     if kind == "spellbook":
         from .magic import SPELL_TIERS
@@ -2733,19 +2742,22 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return "MATERIAL — ONE ACTION PER HANDLING", inspect_material(state, point_at(kind.split(":", 1)[1]))
     if kind.startswith("flask-pour:") or kind.startswith("flask-drink:"):
         from .chemistry import carried_flasks, predicted_reactions
+        from .chemistry_presentation import chemistry_format, chemistry_text, reagent_contents_display, reaction_list_display
         from .materials import fields, key, point_at
 
         pouring = kind.startswith("flask-pour:")
         point = point_at(kind.split(":", 1)[1])
         cell = fields(state).get(key(point))
-        rows = [f"Target {point.x},{point.y} z{point.z:+d}; B returns to material inspection."]
+        rows = [chemistry_format("chemistry.overlay.target", x=point.x, y=point.y, z=f"{point.z:+d}")]
         for index, flask in enumerate(carried_flasks(state)[:9]):
             merged = flask.contents.copy()
             if pouring and cell:
                 for reagent, quantity in cell.reagents.items():
                     merged[reagent] = merged.get(reagent, 0) + quantity
-            rows.append(f"{index + 1}. {flask.id} {flask.contents or 'empty'} — predicted {', '.join(predicted_reactions(merged, cell if pouring else None)) or 'none'}")
-        return ("POUR PHYSICAL FLASK" if pouring else "DRINK PHYSICAL FLASK"), rows
+            rows.append(chemistry_format("chemistry.overlay.flask_prediction", index=index + 1, flask=flask.id,
+                                         contents=reagent_contents_display(flask.contents) if flask.contents else chemistry_text("chemistry.overlay.empty"),
+                                         reactions=reaction_list_display(predicted_reactions(merged, cell if pouring else None)) or chemistry_text("chemistry.overlay.none")))
+        return (chemistry_text("chemistry.overlay.pour.title") if pouring else chemistry_text("chemistry.overlay.drink.title")), rows
     if kind == "help":
         return INTERFACE_LABELS["clerk_slate"], [*BASE_HELP_LINES, "", *HELP_LINES]
     if kind == "inventory":

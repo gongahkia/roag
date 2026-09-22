@@ -1,5 +1,155 @@
 {
-  "reagents": [
+  "reactions": [
+    {
+      "effect": "fire",
+      "reagent_ids": [
+        "cinder salt",
+        "tree resin"
+      ],
+      "id": "flame bloom"
+    },
+    {
+      "effect": "fire",
+      "reagent_ids": [
+        "cinder salt",
+        "peat oil"
+      ],
+      "id": "oil flare"
+    },
+    {
+      "effect": "smoke",
+      "reagent_ids": [
+        "cinder salt",
+        "smoke leaf"
+      ],
+      "id": "smoke bloom"
+    },
+    {
+      "effect": "shock",
+      "reagent_ids": [
+        "brine",
+        "spark salt"
+      ],
+      "id": "conductive flash"
+    },
+    {
+      "effect": "lime",
+      "reagent_ids": [
+        "lime dust",
+        "spring water"
+      ],
+      "id": "caustic slurry"
+    },
+    {
+      "effect": "ice",
+      "reagent_ids": [
+        "frostwort",
+        "spring water"
+      ],
+      "id": "freezing wash"
+    },
+    {
+      "effect": "heal",
+      "reagent_ids": [
+        "healing herb",
+        "spring water"
+      ],
+      "id": "healing draft"
+    },
+    {
+      "effect": "mana",
+      "reagent_ids": [
+        "glow spore",
+        "spring water"
+      ],
+      "id": "attunement draft"
+    },
+    {
+      "effect": "glow",
+      "reagent_ids": [
+        "glow spore",
+        "tree resin"
+      ],
+      "id": "luminous seal"
+    },
+    {
+      "effect": "corrode",
+      "reagent_ids": [
+        "brine",
+        "iron filings"
+      ],
+      "id": "corrosive grit"
+    },
+    {
+      "effect": "seal",
+      "reagent_ids": [
+        "lime dust",
+        "tree resin"
+      ],
+      "id": "hardening wash"
+    },
+    {
+      "effect": "breath",
+      "reagent_ids": [
+        "smoke leaf",
+        "spring water"
+      ],
+      "id": "breath tonic"
+    },
+    {
+      "effect": "seal",
+      "reagent_ids": [
+        "clay",
+        "tree resin"
+      ],
+      "id": "resin mortar"
+    },
+    {
+      "effect": "ice",
+      "reagent_ids": [
+        "brine",
+        "frostwort"
+      ],
+      "id": "brine rime"
+    },
+    {
+      "effect": "glow",
+      "reagent_ids": [
+        "glow spore",
+        "smoke leaf"
+      ],
+      "id": "phosphor dust"
+    },
+    {
+      "effect": "shock",
+      "reagent_ids": [
+        "iron filings",
+        "spark salt"
+      ],
+      "id": "shrapnel spark"
+    },
+    {
+      "effect": "smoke",
+      "reagent_ids": [
+        "peat oil",
+        "smoke leaf"
+      ],
+      "id": "peat haze"
+    },
+    {
+      "effect": "lime",
+      "reagent_ids": [
+        "brine",
+        "lime dust"
+      ],
+      "id": "salt-lime slurry"
+    }
+  ],
+  "environment_reactions": {
+    "water": "spring water",
+    "fire": "cinder salt"
+  },
+  "reagent_ids": [
     "cinder salt",
     "tree resin",
     "brine",
@@ -14,155 +164,5 @@
     "spark salt",
     "iron ore",
     "clay"
-  ],
-  "reactions": [
-    {
-      "reagents": [
-        "cinder salt",
-        "tree resin"
-      ],
-      "name": "flame bloom",
-      "effect": "fire"
-    },
-    {
-      "reagents": [
-        "cinder salt",
-        "peat oil"
-      ],
-      "name": "oil flare",
-      "effect": "fire"
-    },
-    {
-      "reagents": [
-        "cinder salt",
-        "smoke leaf"
-      ],
-      "name": "smoke bloom",
-      "effect": "smoke"
-    },
-    {
-      "reagents": [
-        "brine",
-        "spark salt"
-      ],
-      "name": "conductive flash",
-      "effect": "shock"
-    },
-    {
-      "reagents": [
-        "lime dust",
-        "spring water"
-      ],
-      "name": "caustic slurry",
-      "effect": "lime"
-    },
-    {
-      "reagents": [
-        "frostwort",
-        "spring water"
-      ],
-      "name": "freezing wash",
-      "effect": "ice"
-    },
-    {
-      "reagents": [
-        "healing herb",
-        "spring water"
-      ],
-      "name": "healing draft",
-      "effect": "heal"
-    },
-    {
-      "reagents": [
-        "glow spore",
-        "spring water"
-      ],
-      "name": "attunement draft",
-      "effect": "mana"
-    },
-    {
-      "reagents": [
-        "glow spore",
-        "tree resin"
-      ],
-      "name": "luminous seal",
-      "effect": "glow"
-    },
-    {
-      "reagents": [
-        "brine",
-        "iron filings"
-      ],
-      "name": "corrosive grit",
-      "effect": "corrode"
-    },
-    {
-      "reagents": [
-        "lime dust",
-        "tree resin"
-      ],
-      "name": "hardening wash",
-      "effect": "seal"
-    },
-    {
-      "reagents": [
-        "smoke leaf",
-        "spring water"
-      ],
-      "name": "breath tonic",
-      "effect": "breath"
-    },
-    {
-      "reagents": [
-        "clay",
-        "tree resin"
-      ],
-      "name": "resin mortar",
-      "effect": "seal"
-    },
-    {
-      "reagents": [
-        "brine",
-        "frostwort"
-      ],
-      "name": "brine rime",
-      "effect": "ice"
-    },
-    {
-      "reagents": [
-        "glow spore",
-        "smoke leaf"
-      ],
-      "name": "phosphor dust",
-      "effect": "glow"
-    },
-    {
-      "reagents": [
-        "iron filings",
-        "spark salt"
-      ],
-      "name": "shrapnel spark",
-      "effect": "shock"
-    },
-    {
-      "reagents": [
-        "peat oil",
-        "smoke leaf"
-      ],
-      "name": "peat haze",
-      "effect": "smoke"
-    },
-    {
-      "reagents": [
-        "brine",
-        "lime dust"
-      ],
-      "name": "salt-lime slurry",
-      "effect": "lime"
-    }
-  ],
-  "environment_reactions": {
-    "water": "spring water",
-    "fire": "cinder salt"
-  }
+  ]
 }
