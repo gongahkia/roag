@@ -3040,7 +3040,8 @@
     "archive_policy_title": "COMPANY POLICIES",
     "route_already": "the party is already at that destination",
     "route_missing": "no route reaches the selected destination",
-    "roster_line": "{side} R{rank} {actor}{costume} — {hp}/{maximum} HP, {stress} stress, return {turns}"
+    "roster_line": "{side} R{rank} {actor}{costume} — {hp}/{maximum} HP, {stress} stress, return {turns}",
+    "archive_worker_stats": "{role}  HP {hp}  RANKS {ranks}"
   },
   "narration": {
     "card_join": "{card} joins the {side} deck.",
@@ -3081,7 +3082,8 @@
     "draft_found": "The party finds three office techniques; choose one.",
     "facility_offer": "{biome} service desk offers two procedures.",
     "stores": "Emergency office stores yield two supplies and twenty light.",
-    "combat_start": "The rival departments meet; both hands come onto the table."
+    "combat_start": "The rival departments meet; both hands come onto the table.",
+    "retreat": "The {side} party retreats from ranked combat."
   },
   "catalog": {
     "heroes": {

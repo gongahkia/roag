@@ -1106,7 +1106,7 @@ def retreat(match: dict, destination: tuple[int, int]) -> None:
     if match["phase"] == "pve":
         _close_neutral(match, defeated=False)
     else:
-        _close_combat(match, f"The {('courier', 'patron')[side]} party retreats from ranked combat.")
+        _close_combat(match, dd_text("narration.retreat", side=("courier", "patron")[side]))
     team = _team(match, side)
     team["position"] = list(destination)
     team["orders"] = ORDERS_PER_TURN

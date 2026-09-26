@@ -2540,7 +2540,8 @@ class DullestDungeonPresentationTests(unittest.TestCase):
             "import json; from jomon.dumbest_dungeon.expedition import new_match, pending_choice_labels; "
             "from jomon.dumbest_dungeon.content import load_catalog; c=load_catalog(); roles=list(c.heroes); "
             "m=new_match('dd-pack-proof','crew-a','crew-b',roles[:4],roles[4:8]); "
-            "print(json.dumps({'mechanics':{'world':m['world_id'],'rng':m['rng'],'board':m['board'],'teams':m['teams'],'files':m['files'],'patrols':m['patrols']},'log':m['log']}))"
+            "camp=next(row for row in m['stations'] if row['kind']=='camp'); m['pending']={'side':0,'kind':'camp','station':camp['id'],'choices':['recover','treat']}; "
+            "print(json.dumps({'mechanics':{'world':m['world_id'],'rng':m['rng'],'board':m['board'],'teams':m['teams'],'files':m['files'],'patrols':m['patrols'],'pending':m['pending']},'log':m['log'],'labels':pending_choice_labels(m,m['pending'])}))"
         )
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
@@ -2550,6 +2551,7 @@ class DullestDungeonPresentationTests(unittest.TestCase):
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["mechanics"], second["mechanics"])
         self.assertNotEqual(first["log"], second["log"])
+        self.assertNotEqual(first["labels"], second["labels"])
 
     def test_dd_runtime_templates_and_catalog_overlay_change_without_rules(self):
         script = (

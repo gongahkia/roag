@@ -378,7 +378,7 @@ class ExpeditionUI(TavernUIBase):
                 alternate = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
                 self._begin(OFFICE_ROLES[role].upper())
                 self._draw_sprite(4, 7, office_sprites()[role], curses.A_BOLD)
-                self._put(4, 22, f"{hero['combat_role'].upper()}  HP {hero['max_hp']}  RANKS {','.join(map(str, hero['preferred_ranks']))}")
+                self._put(4, 22, dd_text("ui.archive_worker_stats", role=hero["combat_role"].upper(), hp=hero["max_hp"], ranks=",".join(map(str, hero["preferred_ranks"]))))
                 self._put(6, 22, dd_text("ui.archive_starter"))
                 for row, card in enumerate(hero["starter_deck"], 7):
                     self._put(row, 22, office_catalog()[1][card].name)
@@ -390,7 +390,7 @@ class ExpeditionUI(TavernUIBase):
             elif category == 1:
                 card_ids = list(office_catalog()[1])
                 selected = self._menu(dd_text("ui.office_technique"), [
-                    f"{office_catalog()[1][card].name} / {OFFICE_ROLES[office_catalog()[1][card].role]}"
+                    dd_text("ui.archive_card", card=office_catalog()[1][card].name, role=OFFICE_ROLES[office_catalog()[1][card].role])
                     for card in card_ids])
                 if selected is None:
                     continue
@@ -565,9 +565,7 @@ class ExpeditionUI(TavernUIBase):
                             end_turn(match)
                 elif normalized == ord("v"):
                     body = "\n".join(
-                        f"{('COURIER', 'PATRON', 'PATROL')[side]} R{actor['rank']} {OFFICE_ROLES[actor['role']] if actor['role'] in OFFICE_ROLES else office_costume_name(actor['role'])}"
-                        + (f" / {office_costume_name(rival_costumes(match['world_seed'])[index])} costume" if side == 1 else "")
-                        + f" — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
+                        dd_text("ui.roster_line", side=("COURIER", "PATRON", "PATROL")[side], rank=actor["rank"], actor=OFFICE_ROLES[actor["role"]] if actor["role"] in OFFICE_ROLES else office_costume_name(actor["role"]), costume=(" / " + office_costume_name(rival_costumes(match["world_seed"])[index]) + " costume") if side == 1 else "", hp=actor["hp"], maximum=actor["max_hp"], stress=actor["stress"], turns=actor["respawn"])
                         for side in (0, _opponent_side(match, 0)) for index, actor in enumerate(_team(match, side)["actors"]))
                     self._notice(dd_text("ui.roster_title"), body)
                 elif normalized in (10, 13, curses.KEY_ENTER) and hand:
