@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
-from .equipment_presentation import arsenal_weapon_name, equipment_effect_name, equipment_family_name, equipment_format
+from .equipment_presentation import ammunition_display_name, arsenal_weapon_name, equipment_effect_name, equipment_family_name, equipment_format
 
 @dataclass(frozen=True)
 class ArsenalWeapon:
@@ -27,7 +27,7 @@ class ArsenalWeapon:
         return equipment_format(
             "equipment.weapon.arsenal.description", family=equipment_family_name(self.family), minimum=self.minimum,
             reach=self.reach, damage=self.damage, effects=", ".join(equipment_effect_name(effect) for effect in self.effects),
-            ammunition=f" Consumes one physical {ammunition}." if ammunition else "",
+            ammunition=equipment_format("equipment.weapon.arsenal.ammunition", ammunition=ammunition_display_name(ammunition)) if ammunition else "",
         )
 
     @property
@@ -90,7 +90,7 @@ def strike(state, target_id=None, *, target_position=None):
             return _plain(state, equipment_format("equipment.arsenal.device.material_budget"))
         ammunition = ammunition_for(state.weapon)
         if physical_ammunition(state, ammunition) <= 0 or not consume_ammunition(state, ammunition):
-            return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition))
+            return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition_display_name(ammunition)))
         effect = weapon.effects[0]
         if effect == "smoke":
             cell.smoke = max(cell.smoke, 4)
@@ -131,13 +131,13 @@ def strike(state, target_id=None, *, target_position=None):
         sound = emit_sound(state, weapon.noise, point)
         record_milestone(state, "combat:devices")
         warning = equipment_format("equipment.arsenal.device.warning") if delayed else ""
-        return _time_result(state, equipment_format("equipment.arsenal.device.result", courier=state.courier.name, ammunition=ammunition, x=point.x, y=point.y, effect=effect, warning=warning, sound=" ".join(sound)), priority=3)
+        return _time_result(state, equipment_format("equipment.arsenal.device.result", courier=state.courier.name, ammunition=ammunition_display_name(ammunition), x=point.x, y=point.y, effect=equipment_effect_name(effect), warning=warning, sound=" ".join(sound)), priority=3)
 
     if target is None:
         return _plain(state, equipment_format("equipment.arsenal.no_target"))
     ammunition = ammunition_for(state.weapon)
     if ammunition and physical_ammunition(state, ammunition) <= 0:
-        return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition))
+        return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition_display_name(ammunition)))
     if weapon.family == "gun":
         required = 1 if "quick" in weapon.effects or has_node(state.courier, "vent-care") else 2
         if state.weapon_ready < required:
@@ -153,7 +153,7 @@ def strike(state, target_id=None, *, target_position=None):
         state.aimed_target = None
         return _time_result(state, equipment_format("equipment.arsenal.aim.bow_weather"), priority=3)
     if ammunition and not consume_ammunition(state, ammunition):
-        return _plain(state, equipment_format("equipment.arsenal.ammunition.none_short", ammunition=ammunition))
+        return _plain(state, equipment_format("equipment.arsenal.ammunition.none_short", ammunition=ammunition_display_name(ammunition)))
     if weapon.family == "gun":
         state.weapon_ready = 0
     state.aimed_target = None

@@ -12250,6 +12250,12 @@
       ]
     },
     {
+      "id": "equipment.weapon.arsenal.ammunition",
+      "placeholders": [
+        "ammunition"
+      ]
+    },
+    {
       "id": "equipment.effect.aim.name",
       "placeholders": []
     },
@@ -12631,6 +12637,26 @@
     },
     {
       "id": "equipment.strike.chain_hook",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.arrows.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.bolts.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.heavy_bolts.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.shot.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.handgonne_charges.name",
       "placeholders": []
     },
     {
