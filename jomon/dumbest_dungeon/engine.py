@@ -25,7 +25,7 @@ from .ladder import modifier as ladder_modifier
 from .challenges import ExpeditionConfig, MODIFIER_IDS, validate_config
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
-from .presentation import action_name, catalog_text, enemy_name, role_name, world_name
+from .presentation import action_name, catalog_text, dd_text, enemy_name, role_name, world_name
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
 from .combat_triggers import (
@@ -821,7 +821,7 @@ class GameEngine:
             raise RuleError("the tutorial lesson is not complete")
         self.state.tutorial_stage = 10
         self.state.phase = "tutorial_complete"
-        self.add_log("Training expedition complete. No run progress was retained.")
+        self.add_log(dd_text("engine.training_complete"))
 
     def toggle_hub_crew(self, hero_id: str) -> None:
         if self.state.phase != "hub" or hero_id not in self.catalog.heroes:
@@ -2919,7 +2919,7 @@ class GameEngine:
         self.state.current_room = room.id
         room.visited = True
         self.state.active_patrol_id = patrol.id
-        self.add_log(f"{room.name}: hostile contact at close range.")
+        self.add_log(dd_text("engine.contact", room=room.name))
         self.start_combat(
             patrol.encounter_id,
             room.kind,
@@ -2990,7 +2990,7 @@ class GameEngine:
             intent(control, "control_rod:action:1"),
         ]
         self.state.tutorial_stage = 2
-        self.add_log("Training contact: restore the formation and read the coordinated intents.")
+        self.add_log(dd_text("engine.training_contact"))
 
     def _resolve_exploration_tile(self) -> None:
         position = (self.state.party_x, self.state.party_y)
@@ -3059,7 +3059,7 @@ class GameEngine:
             return
         if room.resolved or room.kind in {"start", "fight", "elite", "boss"}:
             return
-        self.add_log(f"Entered {room.name}.")
+        self.add_log(dd_text("engine.entered", room=room.name))
         self._enter_room(room)
 
     def _trigger_biome_hazard(self, hazard: BiomeHazard) -> None:
@@ -3378,7 +3378,7 @@ class GameEngine:
             "guardian",
             enemy_ids=list(encounter["enemies"]),
         )
-        self.add_log("The secured objective wakes its regional guardian.")
+        self.add_log(dd_text("engine.guardian_wakes"))
 
     def finale_encounter_id(self) -> str | None:
         return next(
@@ -3667,7 +3667,7 @@ class GameEngine:
             prior_plans=prior_plans,
         )
         self.start_combat(encounter["id"], "objective", enemy_ids=enemies)
-        self.add_log("The objective action draws an immediate hostile response.")
+        self.add_log(dd_text("engine.objective_hostile"))
 
     def advance_objective(self) -> str:
         objective = self.current_objective()
@@ -4170,7 +4170,7 @@ class GameEngine:
             self.state.supplies += 2
             self.state.light = min(100, self.state.light + 20)
             room.resolved = True
-            self.add_log("Emergency stores yield 2 supplies and 20 light.")
+            self.add_log(dd_text("engine.stores"))
 
     def _surprised(self) -> bool:
         return (
@@ -4372,11 +4372,11 @@ class GameEngine:
                     pressure_band=pressure_band(self.state.encounter_pressure).id,
                     modules=list(self.state.encounter_modules))
         self._apply_opening_mutations()
-        self.add_log(f"Combat begins: {encounter['id']}. Formation: {names}.")
+        self.add_log(dd_text("engine.combat_begin", encounter=encounter["id"], names=names))
         self._start_player_turn()
         self.state.intents = self._choose_intents()
         if surprised:
-            self.add_log("The crew is surprised in the darkness.")
+            self.add_log(dd_text("engine.surprised"))
             self._enemy_phase()
             if self.state.phase != "combat":
                 return
@@ -5409,7 +5409,7 @@ class GameEngine:
             ):
                 return False
             queue.prevent()
-            self.add_log("RESIST:STUN — Rime Shell consumes the first stun.")
+            self.add_log(dd_text("engine.rime_shell"))
             self.record("mutation_reaction", listener.spec.id, event_id=event.event_id,
                         effect="resist_first_stun", targets=list(event.target_ids))
             return True
@@ -5550,7 +5550,7 @@ class GameEngine:
         if close_root and root is not None:
             self.record("resolution_root", "resolution", root=root, trace=self.resolution.state.trace)
         for seal in self.resolution.state.seals[previous_seals:]:
-            self.add_log("CHAIN SEALED: an automatic chain exceeded its event budget.")
+            self.add_log(dd_text("engine.chain_sealed"))
             self.record("chain_sealed", "resolution", trace=seal)
 
     def _apply_effect_primary(self, actor: Actor, targets: list[Actor], effect: dict[str, Any]) -> None:
@@ -5893,7 +5893,7 @@ class GameEngine:
                 enemy.statuses["stun"] -= 1
                 if enemy.statuses["stun"] <= 0:
                     del enemy.statuses["stun"]
-                self.add_log(f"{enemy.name} is stunned.")
+                self.add_log(dd_text("engine.enemy_stunned", actor=enemy.name))
                 self.record("control_skip", "status:stun", target=enemy.id)
                 self._decay_statuses(enemy)
                 if playback:
@@ -5921,7 +5921,7 @@ class GameEngine:
             else:
                 targets = self._enemy_targets(action["target"], enemy)
             before = self._combat_actor_snapshot()
-            self.add_log(f"{enemy.name} uses {action['name']}.")
+            self.add_log(dd_text("engine.action", actor=enemy.name, action=action_name(action["id"])))
             for effect in action["effects"]:
                 self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect,
                                    source_id=f"{enemy.definition_id}/{action['id']}")
@@ -6528,7 +6528,7 @@ class GameEngine:
             names = " / ".join(enemy_name(enemy_id) for enemy_id in self.room().enemy_ids)
             if self.catalog.raw["schema_version"] < 46:
                 self.state.phase = "victory"
-                self.add_log("The Overseer falls silent. Evacuation is possible.")
+                self.add_log(dd_text("engine.overseer_falls"))
                 return
             finale_id = self.finale_encounter_id() or self.room().content_id or ""
             if finale_id:
@@ -6568,7 +6568,7 @@ class GameEngine:
                 self._freeze_finale(objective)
             if self.boss_unlocked():
                 self.core_patrol().active = True
-            self.add_log("The regional guardian falls. Its signature salvage remains.")
+            self.add_log(dd_text("engine.guardian_falls"))
         if kind not in {"ambush", "objective", "guardian"}:
             self.room().resolved = True
         count = 4 if self.state.light < self.catalog.balance["low_light_threshold"] else 3
@@ -6586,7 +6586,7 @@ class GameEngine:
         self.state.phase = "reward"
         if self.state.tutorial:
             self.state.tutorial_stage = 7
-        self.add_log("Combat won. Choose a recovered technique.")
+        self.add_log(dd_text("engine.combat_won"))
 
     def extract(self) -> None:
         if self.state.phase != "post_victory" or not self.state.base_victory:
@@ -6596,7 +6596,7 @@ class GameEngine:
             score=self.state.score, bosses=list(self.state.boss_sequence),
         )
         self.state.phase = "victory"
-        self.add_log("The surviving crew extracts with the base clear secured.")
+        self.add_log(dd_text("engine.extraction"))
 
     def descend_again(self) -> None:
         if self.state.phase != "post_victory" or not self.state.base_victory:
@@ -6941,7 +6941,7 @@ class GameEngine:
             if not 0 <= index < len(self.state.rewards):
                 raise RuleError("invalid reward")
             self.state.deck.append(self._new_card(self.state.rewards[index]))
-            self.add_log(f"Added {self.catalog.cards[self.state.rewards[index]]['name']} to the deck.")
+            self.add_log(dd_text("engine.reward_added", card=catalog_text("cards", self.state.rewards[index])))
         self.record("card_choice", "reward:technique",
                     picked=self.state.rewards[index] if index is not None else None,
                     skipped=[card for position, card in enumerate(self.state.rewards) if position != index])
@@ -7010,7 +7010,7 @@ class GameEngine:
             for hero in self.living_heroes():
                 self._heal(hero, 7)
                 self._change_stress(hero, -10)
-            self.add_log("The crew rests behind a welded door.")
+            self.add_log(dd_text("engine.rest"))
         elif action == "treat" and self.state.service_type == "camp":
             if self.state.supplies < 2:
                 raise RuleError("curse treatment requires 2 supplies")
@@ -7091,7 +7091,7 @@ class GameEngine:
                 if card.bound_hero_id is None:
                     raise RuleError("curse card is missing its bound hero")
                 self._decrement_curse(card.bound_hero_id, card.card_id)
-            self.add_log(f"Removed {catalog_text('cards', card.card_id)}.")
+            self.add_log(dd_text("engine.card_removed", card=catalog_text("cards", card.card_id)))
         elif action == "transform" and self.state.service_type == "upgrade":
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to transform")
@@ -7108,9 +7108,7 @@ class GameEngine:
             source.upgraded = False
             source.mastery = None
             source.infusion_id = None
-            self.add_log(
-                f"Transformed {old_name} into {catalog_text('cards', replacement_id)}."
-            )
+            self.add_log(dd_text("engine.card_transformed", source=old_name, destination=catalog_text("cards", replacement_id)))
         else:
             raise RuleError("that service is not available here")
         self.room().resolved = True

@@ -5911,5 +5911,29 @@
         "description": "Block is stronger, but cards cost more."
       }
     }
+  },
+  "engine": {
+    "training_complete": "Training expedition complete. No run progress was retained.",
+    "training_contact": "Training contact: restore the formation and read the coordinated intents.",
+    "guardian_wakes": "The secured objective wakes its regional guardian.",
+    "objective_hostile": "The objective action draws an immediate hostile response.",
+    "stores": "Emergency stores yield 2 supplies and 20 light.",
+    "surprised": "The crew is surprised in the darkness.",
+    "rime_shell": "RESIST:STUN — Rime Shell consumes the first stun.",
+    "chain_sealed": "CHAIN SEALED: an automatic chain exceeded its event budget.",
+    "overseer_falls": "The Overseer falls silent. Evacuation is possible.",
+    "guardian_falls": "The regional guardian falls. Its signature salvage remains.",
+    "combat_won": "Combat won. Choose a recovered technique.",
+    "extraction": "The surviving crew extracts with the base clear secured.",
+    "rest": "The crew rests behind a welded door.",
+    "contact": "{room}: hostile contact at close range.",
+    "entered": "Entered {room}.",
+    "combat_begin": "Combat begins: {encounter}. Formation: {names}.",
+    "action": "{actor} uses {action}.",
+    "enemy_stunned": "{actor} is stunned.",
+    "objective_guardian": "{mission} secured, but {enemy} bars the exit.",
+    "reward_added": "Added {card} to the deck.",
+    "card_removed": "Removed {card}.",
+    "card_transformed": "Transformed {source} into {destination}."
   }
 }

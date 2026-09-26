@@ -2825,7 +2825,7 @@ def _dd_template_fields(value: str, path: str) -> frozenset[str]:
         fields = {field for _, field, _, _ in string.Formatter().parse(value) if field}
     except ValueError as exc:
         raise ValueError(f"{path} has malformed template: {exc}") from exc
-    allowed = {"actor", "action", "card", "side", "kind", "biome", "amount", "resource", "target", "department", "operation"}
+    allowed = {"actor", "action", "card", "side", "kind", "biome", "amount", "resource", "target", "department", "operation", "room", "names", "encounter", "mission", "enemy", "source", "destination"}
     if fields - allowed or any("." in field or "[" in field for field in fields):
         raise ValueError(f"{path} has unsupported placeholder")
     return frozenset(fields)
