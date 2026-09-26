@@ -193,6 +193,8 @@
     "vessel.story.status.active": "active",
     "vessel.story.status.completed": "completed",
     "vessel.story.station.row": "{index}. {story} \u2014 {status}",
+    "vessel.story.station.available": "{key}. {label} \u2014 AVAILABLE",
+    "vessel.story.station.needs": "{key}. {label} \u2014 NEEDS {requirement}",
     "vessel.story.line.fact": "FACT \u2014 account: {status}.",
     "vessel.story.line.open": "To open: {requirement}.",
     "vessel.story.line.empty_watch.dead": "Succession record: {people} are mourned as the watch passes to the living.",

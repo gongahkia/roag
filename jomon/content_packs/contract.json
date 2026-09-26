@@ -9017,6 +9017,21 @@
       ]
     },
     {
+      "id": "vessel.story.station.available",
+      "placeholders": [
+        "key",
+        "label"
+      ]
+    },
+    {
+      "id": "vessel.story.station.needs",
+      "placeholders": [
+        "key",
+        "label",
+        "requirement"
+      ]
+    },
+    {
       "id": "vessel.story.line.fact",
       "placeholders": [
         "status"
