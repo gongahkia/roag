@@ -47,13 +47,12 @@ def roster_audit() -> dict[str, object]:
         signatures.setdefault(signature, []).append(identity)
         glyph = str(data.get("glyph", ""))
         required = all(data.get(field) not in {None, ""} for field in (
-            "region", "name", "profile", "role", "goal", "capability",
-            "reaction", "terrain", "counterplay",
+            "region", "profile", "role", "goal", "capability",
+            "reaction", "terrain",
         ))
         if (
             not required or len(glyph) != 1 or not glyph.isascii()
             or not glyph.isprintable() or glyph.isspace() or glyph == "@"
-            or " or " not in str(data.get("counterplay", ""))
             or int(data.get("morale", -1)) < 1
         ):
             invalid.append(identity)

@@ -16,6 +16,7 @@ class EnemyDecision:
     reason: str
     target: Position | None = None
     utility: int = 0
+    goal_id: str = ""
 
 
 def effective_vision(state: GameState, threat: Threat) -> int:
@@ -89,7 +90,7 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     scores.extend(world_options(state, threat, visible))
 
     def option(goal: str, action: str, utility: int, reason: str, target: Position | None = None) -> None:
-        scores.append(EnemyDecision(goal, action, reason, target, utility))
+        scores.append(EnemyDecision(goal, action, reason, target, utility, action))
 
     if threat.carrying_item_id:
         option("escape with cargo", "escape", 120, "it has obtained the cargo it came for", threat.home_position)
@@ -129,7 +130,7 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
             flank = Position(state.position.x + offset_x * 2, state.position.y + offset_y * 2, state.position.z)
             option("flank last sight", "flank", 94, "a side approach avoids the courier's facing", flank)
         if threat.profile == "ranged":
-            wants_height = threat.goal == "seek elevation" or any(
+            wants_height = threat.goal_id == "seek elevation" or any(
                 "height" in capability or "elevation" in capability
                 for capability in threat.capabilities
             )
@@ -198,8 +199,8 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
         option("guard position", "return", 30, "no stronger perceived fact displaces its duty", threat.home_position)
     option("hold", "wait", 10, "no legal higher-value action is apparent", threat.position)
 
-    decision = max(scores, key=lambda item: (item.utility, item.goal, item.action))
-    threat.goal, threat.goal_reason = decision.goal, decision.reason
+    decision = max(scores, key=lambda item: (item.utility, item.goal_id or item.action, item.action))
+    threat.goal, threat.goal_id, threat.goal_reason = decision.goal, decision.goal_id or decision.action, decision.reason
     if state.location == "region" and state.region.changes.get("quest_guard_id") == threat.id:
         duty = state.region.changes.get("quest_guard_reason")
         if duty:
