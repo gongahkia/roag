@@ -6,6 +6,7 @@ from collections import deque
 import hashlib
 
 from .catalog import CatalogError, load_catalog
+from .sanctum_presentation import sanctum_boss_name, sanctum_display_name, sanctum_format, sanctum_text, sanctum_theme
 from .state import Container, GameState, MaterialCell, Position, Region, Threat, VerticalLink, stage_rng
 
 
@@ -17,17 +18,17 @@ SITES = _rows
 ENCOUNTERS = _catalog["encounters"]
 if (not isinstance(ENCOUNTERS, dict) or set(ENCOUNTERS) != {"sheltered", "contested", "network", "open", "disputed"}
         or any(not isinstance(rows, list) or not rows or any(kind not in {
-            "quiet witnesses", "stray claimant", "unstable stone", "dropped parcel",
-            "travelling witness", "wandering beast", "elite surveyor",
+            "quiet_witnesses", "stray_claimant", "unstable_stone", "dropped_parcel",
+            "travelling_witness", "wandering_beast", "elite_surveyor",
         } for kind in rows) for rows in ENCOUNTERS.values())):
     raise CatalogError("sanctums.json has an invalid encounter draw")
 for region_id, row in SITES.items():
     boss = row.get("boss", {}) if isinstance(row, dict) else {}
     if (not isinstance(region_id, str) or not isinstance(row, dict)
-            or set(row) != {"name", "theme", "network", "witness", "boss"}
-            or not all(isinstance(row[key], str) and row[key] for key in ("name", "theme", "network", "witness"))
+            or set(row) != {"network", "boss"}
+            or not isinstance(row["network"], str) or not row["network"]
             or not isinstance(boss, dict)
-            or set(boss) != {"name", "profile", "role", "goal", "duty", "health", "glyph", "capability", "counterplay"}
+            or set(boss) != {"profile", "role", "goal", "duty", "health", "glyph", "capability", "capability_id", "counterplay_id"}
             or not all(isinstance(boss[key], str) and boss[key] for key in boss if key != "health")
             or boss["duty"] not in {"drain", "rally", "kindle", "cut support", "brace", "heal"}
             or type(boss["health"]) is not int or not 8 <= boss["health"] <= 16
@@ -35,6 +36,36 @@ for region_id, row in SITES.items():
         raise CatalogError(f"invalid sanctum definition for {region_id}")
 _PASSABLE = frozenset(".=r")
 _BLOCKED = frozenset(" #~T")
+
+# Bundled-default compatibility only; selected-pack wording never recovers state identity.
+LEGACY_EVENT_IDS = {
+    "quiet witnesses": "quiet_witnesses", "stray claimant": "stray_claimant",
+    "unstable stone": "unstable_stone", "dropped parcel": "dropped_parcel",
+    "travelling witness": "travelling_witness", "wandering beast": "wandering_beast",
+    "elite surveyor": "elite_surveyor",
+}
+
+
+def _link_id(region_id: str, kind: str) -> str:
+    return f"sanctum:{region_id}:link:{kind}"
+
+
+def _normalize_legacy_identities(region: Region) -> None:
+    event = region.changes.get("sanctum:last_event")
+    if event in LEGACY_EVENT_IDS:
+        region.changes["sanctum:last_event"] = LEGACY_EVENT_IDS[event]
+    entry = region.landmarks.get("sanctum_entry")
+    if entry is None:
+        return
+    expected = {
+        (entry, Position(entry.x, entry.y, 1)): "entry",
+        (Position(entry.x + 10, entry.y - 3, 1), Position(entry.x + 10, entry.y - 3, 2)): "reliquary",
+        (Position(entry.x + 9, entry.y + 3, 1), Position(entry.x + 9, entry.y + 3, 2)): "gallery",
+    }
+    for link in region.vertical_links:
+        kind = expected.get((link.first, link.second)) or expected.get((link.second, link.first))
+        if kind and not link.id:
+            link.id = _link_id(region.id, kind)
 
 
 def _tile(region: Region, point: Position) -> str:
@@ -187,6 +218,7 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
     """Add only new geography; old region changes, containers and claims survive."""
     if region.id not in SITES:
         return
+    _normalize_legacy_identities(region)
     old_door = region.landmarks.pop("sanctum_secret_door", None)
     if old_door is not None:
         region.changes.setdefault("sanctum:secret_door", f"{old_door.x},{old_door.y},{old_door.z}")
@@ -221,9 +253,9 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
     region.tile_changes[f"{side_stair.x},{side_stair.y},2"] = "<"
     region.tile_changes[f"{hoard.x},{hoard.y},2"] = "C"
     region.vertical_links.extend((
-        VerticalLink(entry, Position(x, y, 1), "sanctum stair"),
-        VerticalLink(upper_stair, Position(upper_stair.x, upper_stair.y, 2), "reliquary stair"),
-        VerticalLink(side_stair, Position(side_stair.x, side_stair.y, 2), "side gallery stair"),
+        VerticalLink(entry, Position(x, y, 1), sanctum_text("sanctum.link.entry"), _link_id(region.id, "entry")),
+        VerticalLink(upper_stair, Position(upper_stair.x, upper_stair.y, 2), sanctum_text("sanctum.link.reliquary"), _link_id(region.id, "reliquary")),
+        VerticalLink(side_stair, Position(side_stair.x, side_stair.y, 2), sanctum_text("sanctum.link.gallery"), _link_id(region.id, "gallery")),
     ))
     from .expanded_weapons import ARSENAL
     from .content import PASSIVES
@@ -237,10 +269,10 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
     rng = stage_rng(seed, f"sanctum:{region.id}:rewards")
     rng.shuffle(rewards)
     region.containers.extend((
-        Container(f"{region.id}-sanctum-ward", f"{SITES[region.id]['name']} ward chest",
+        Container(f"{region.id}-sanctum-ward", sanctum_format("sanctum.cache.ward", sanctum=sanctum_display_name(region.id)),
                   Position(x + 1, y + 3, 1), rewards[0], "key",
                   extra_rewards=[rng.choice(arms), "willow dressing"]),
-        Container(f"{region.id}-sanctum-hoard", f"{SITES[region.id]['name']} reliquary",
+        Container(f"{region.id}-sanctum-hoard", sanctum_format("sanctum.cache.hoard", sanctum=sanctum_display_name(region.id)),
                   hoard, rewards[1], "light",
                   extra_rewards=[rng.choice(arms), "sealed tally"]),
     ))
@@ -295,312 +327,190 @@ def _witness(state: GameState, shrine: Position) -> str:
     from .state import ActorSchedule, Contact
 
     contact_id = f"sanctum:{state.active_region_id}:witness"
-    existing = next((contact for contact in state.contacts[state.active_region_id]
-                     if contact.id == contact_id), None)
+    existing = next((contact for contact in state.contacts[state.active_region_id] if contact.id == contact_id), None)
     if existing:
-        return f"{existing.name} still keeps a physical witness position by the shrine; speak from beside them with E."
+        return sanctum_format("sanctum.witness.existing", witness=existing.name)
     place = _approach_place(state, shrine)
     if place is None:
-        return "A travelling witness reached the site, but the shrine's working ground is occupied."
-    name = SITES[state.active_region_id]["witness"]
-    contact = Contact(contact_id, name, "sanctum witness", 0,
-                      [f"Saw the {state.region.changes.get('sanctum:control', 'unsettled')} holding at {SITES[state.active_region_id]['name']}."],
-                      state.institutions[SITES[state.active_region_id]["network"]].dependency,
-                      state.active_region_id, place)
-    state.contacts[state.active_region_id].append(contact)
-    state.actor_schedules[contact_id] = ActorSchedule(
-        contact_id, f"region:{state.active_region_id}", place, "keeping the sanctum account",
-        state.world_time + 16, f"region:{state.active_region_id}", place,
-        last_update=state.world_time,
-    )
-    return f"{name} arrives at {place.x},{place.y} to record the site. Speak beside them with E."
+        return sanctum_text("sanctum.witness.unavailable")
+    region_id = state.active_region_id
+    name = sanctum_text(f"sanctum.{region_id}.witness.name")
+    contact = Contact(contact_id, name, sanctum_text("sanctum.witness.role"), 0,
+                      [sanctum_format("sanctum.witness.memory", control=state.region.changes.get("sanctum:control", sanctum_text("sanctum.control.unsettled")), sanctum=sanctum_display_name(region_id))],
+                      state.institutions[SITES[region_id]["network"]].dependency, region_id, place)
+    state.contacts[region_id].append(contact)
+    state.actor_schedules[contact_id] = ActorSchedule(contact_id, f"region:{region_id}", place,
+        sanctum_text("sanctum.witness.schedule"), state.world_time + 16, f"region:{region_id}", place, last_update=state.world_time)
+    return sanctum_format("sanctum.witness.arrival", witness=name, x=place.x, y=place.y)
 
 
 def _site_encounter(state: GameState, shrine: Position, kind: str) -> str:
     from .content import ENEMY_ARCHETYPES
+    kind = LEGACY_EVENT_IDS.get(kind, kind)
     from .encounters import threat_from_archetype
 
-    limit = 1 if kind == "elite surveyor" else 2 if kind == "wandering beast" else 3
-    counter = "elites" if kind == "elite surveyor" else "beasts" if kind == "wandering beast" else "claimants"
+    limit = 1 if kind == "elite_surveyor" else 2 if kind == "wandering_beast" else 3
+    counter = "elites" if kind == "elite_surveyor" else "beasts" if kind == "wandering_beast" else "claimants"
     count = int(state.region.changes.get(f"sanctum:{counter}", 0))
     if count >= limit:
-        return "Old tracks cross the gallery, but no new party arrives."
+        return sanctum_text("sanctum.encounter.limit")
     place = _approach_place(state, shrine)
     if place is None:
-        return "A fresh trail reaches the shrine, but no creature can take the occupied approach."
-    if kind == "stray claimant":
+        return sanctum_text("sanctum.encounter.occupied")
+    if kind == "stray_claimant":
         actor = _regional_guard(state, place, f"claimant:{count + 1}")
         actor.allegiance = f"claim:{state.active_region_id}"
     else:
-        pool = [key for key, data in ENEMY_ARCHETYPES.items()
-                if data["region"] == state.active_region_id
-                and (bool(data.get("elite")) if kind == "elite surveyor"
-                     else data["profile"] == "animal" and not data.get("elite"))]
+        pool = [key for key, data in ENEMY_ARCHETYPES.items() if data["region"] == state.active_region_id and (bool(data.get("elite")) if kind == "elite_surveyor" else data["profile"] == "animal" and not data.get("elite"))]
         if not pool:
-            return "The tracks leave the site without a creature to follow them."
+            return sanctum_text("sanctum.encounter.none")
         archetype = stage_rng(state.seed, f"sanctum:{state.active_region_id}:{kind}:{count + 1}").choice(sorted(pool))
-        actor = threat_from_archetype(
-            archetype, place, encounter_id=f"sanctum:{state.active_region_id}:{counter}:{count + 1}",
-            group=f"sanctum:{state.active_region_id}:{counter}",
-        )
-        if kind == "elite surveyor":
+        actor = threat_from_archetype(archetype, place, encounter_id=f"sanctum:{state.active_region_id}:{counter}:{count + 1}", group=f"sanctum:{state.active_region_id}:{counter}")
+        if kind == "elite_surveyor":
             actor.allegiance = f"claim:{state.active_region_id}"
     actor.status = "watching"
     _add_actor(state, actor)
     state.region.changes[f"sanctum:{counter}"] = count + 1
-    if state.region.changes.get("sanctum:cleared") and kind != "wandering beast":
+    if state.region.changes.get("sanctum:cleared") and kind != "wandering_beast":
         state.region.changes["sanctum:control"] = "disputed"
-    return f"A {actor.name} takes the approach at {place.x},{place.y}; its {actor.goal} is visible before contact."
+    return sanctum_format("sanctum.encounter.arrival", actor=actor.name, x=place.x, y=place.y, goal=actor.goal)
 
 
 def _active_claimants(state: GameState) -> list[Threat]:
     prefix = f"sanctum:{state.active_region_id}:"
-    return [actor for actor in state.combatants
-            if (actor.id.startswith(prefix + "claimant:") or actor.id.startswith(prefix + "elites:"))
-            and actor.status in {"watching", "engaged"}]
+    return [actor for actor in state.combatants if (actor.id.startswith(prefix + "claimant:") or actor.id.startswith(prefix + "elites:")) and actor.status in {"watching", "engaged"}]
 
 
 def enter_tier(state: GameState, destination: Position) -> str:
-    if destination.z == 1 and destination == Position(
-        state.region.landmarks["sanctum_entry"].x,
-        state.region.landmarks["sanctum_entry"].y, 1,
-    ):
+    if destination.z == 1 and destination == Position(state.region.landmarks["sanctum_entry"].x, state.region.landmarks["sanctum_entry"].y, 1):
         if not state.region.changes.get("sanctum:inhabited"):
             ward = _regional_guard(state, state.region.landmarks["sanctum_ward"], "ward")
-            ward.status = "watching"
-            _add_actor(state, ward)
-            boss_row = SITES[state.active_region_id]["boss"]
-            point = state.region.landmarks["sanctum_boss"]
-            boss = Threat(
-                id=f"sanctum:{state.active_region_id}:boss", name=boss_row["name"],
-                profile=boss_row["profile"], position=point,
-                health=boss_row["health"], max_health=boss_row["health"],
-                archetype_id="",
-                morale=5, elite=True, role=boss_row["role"], goal=boss_row["goal"],
-                goal_reason=boss_row["capability"], region_id=state.active_region_id,
-                home_position=point, group=f"sanctum:{state.active_region_id}",
-                allegiance=f"relic:{state.active_region_id}", vision=10, hearing=9,
-                ammunition=8 if boss_row["profile"] == "ranged" else 0,
-                glyph=boss_row["glyph"], duty=boss_row["duty"], supplies=3,
-                capabilities=[boss_row["capability"]],
-                objective_position=Position(point.x + 1, point.y, point.z),
-            )
-            material = boss.objective_position
-            key = f"{material.x},{material.y},{material.z}"
-            if boss.duty == "drain":
-                state.region.materials[key] = MaterialCell(material="stone", water=3)
-            elif boss.duty == "kindle":
-                state.region.materials[key] = MaterialCell(material="timber", fuel=5)
-            elif boss.duty == "cut support":
-                state.region.materials[key] = MaterialCell(material="timber", support=2)
-            elif boss.duty == "brace":
-                state.region.materials[key] = MaterialCell(material="timber", support=1)
+            ward.status = "watching"; _add_actor(state, ward)
+            region_id = state.active_region_id; boss_row = SITES[region_id]["boss"]; point = state.region.landmarks["sanctum_boss"]
+            boss = Threat(id=f"sanctum:{region_id}:boss", name=sanctum_boss_name(region_id), profile=boss_row["profile"], position=point, health=boss_row["health"], max_health=boss_row["health"], archetype_id="", morale=5, elite=True, role=boss_row["role"], goal=boss_row["goal"], goal_reason=boss_row["capability_id"], region_id=region_id, home_position=point, group=f"sanctum:{region_id}", allegiance=f"relic:{region_id}", vision=10, hearing=9, ammunition=8 if boss_row["profile"] == "ranged" else 0, glyph=boss_row["glyph"], duty=boss_row["duty"], supplies=3, capabilities=[boss_row["capability"]], objective_position=Position(point.x + 1, point.y, point.z))
+            material = boss.objective_position; key = f"{material.x},{material.y},{material.z}"
+            if boss.duty == "drain": state.region.materials[key] = MaterialCell(material="stone", water=3)
+            elif boss.duty == "kindle": state.region.materials[key] = MaterialCell(material="timber", fuel=5)
+            elif boss.duty == "cut support": state.region.materials[key] = MaterialCell(material="timber", support=2)
+            elif boss.duty == "brace": state.region.materials[key] = MaterialCell(material="timber", support=1)
             _add_actor(state, boss)
             if boss.duty in {"rally", "heal", "brace"}:
-                escort = _regional_guard(
-                    state, boss.objective_position, "escort"
-                )
-                escort.status = "watching"
-                _add_actor(state, escort)
+                escort = _regional_guard(state, boss.objective_position, "escort"); escort.status = "watching"; _add_actor(state, escort)
             state.region.changes["sanctum:inhabited"] = True
-        return f"{SITES[state.active_region_id]['name']} opens in divided tiers. A warder and named keeper hold the upper route."
+        return sanctum_format("sanctum.enter.tier", sanctum=sanctum_display_name(state.active_region_id))
     return ""
 
 
 def undercroft(state: GameState) -> tuple[bool, str]:
-    if state.position != state.region.landmarks.get("sanctum_undercroft"):
-        return False, ""
-    if state.region.changes.get("sanctum:unsealed"):
-        return False, "The undercroft seal has already been carried upstairs."
-    guard_id = f"sanctum:{state.active_region_id}:lower"
-    guard = next((actor for actor in state.threats if actor.id == guard_id), None)
+    if state.position != state.region.landmarks.get("sanctum_undercroft"): return False, ""
+    if state.region.changes.get("sanctum:unsealed"): return False, sanctum_text("sanctum.undercroft.already")
+    guard_id = f"sanctum:{state.active_region_id}:lower"; guard = next((actor for actor in state.threats if actor.id == guard_id), None)
     if guard is None:
         point = state.position
         from .world import is_walkable
-
-        adjacent = [Position(point.x + dx, point.y + dy, -1)
-                    for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0))]
+        adjacent = [Position(point.x + dx, point.y + dy, -1) for dx, dy in ((0,-1),(1,0),(0,1),(-1,0))]
         place = next((other for other in adjacent if _tile(state.region, other) in _PASSABLE and is_walkable(state, other)), None)
-        if place is None:
-            return False, "The old seal is watched, but the cave gives no space for the warder to emerge."
-        guard = _regional_guard(state, place, "lower")
-        guard.id = guard_id
-        guard.status = "watching"
-        _add_actor(state, guard)
-        return True, "A buried warder answers the inscription. Defeat or evade it, then read the seal again."
-    if guard.status in {"watching", "engaged"}:
-        return False, "The buried warder still contests the inscription."
-    state.region.changes["sanctum:unsealed"] = True
-    state.region.changes["sanctum:opened_by"] = "undercroft"
-    return True, "You copy the undercroft measure; the sanctum stair's seal releases."
+        if place is None: return False, sanctum_text("sanctum.undercroft.no_space")
+        guard = _regional_guard(state, place, "lower"); guard.id = guard_id; guard.status = "watching"; _add_actor(state, guard)
+        return True, sanctum_text("sanctum.undercroft.spawned")
+    if guard.status in {"watching", "engaged"}: return False, sanctum_text("sanctum.undercroft.contested")
+    state.region.changes["sanctum:unsealed"] = True; state.region.changes["sanctum:opened_by"] = "undercroft"
+    return True, sanctum_text("sanctum.undercroft.opened")
 
 
 def open_secret(state: GameState) -> tuple[bool, str]:
-    marker = state.region.landmarks.get("sanctum_secret")
-    door = state.region.changes.get("sanctum:secret_door")
-    if state.position != marker or not isinstance(door, str):
-        return False, "No scored gallery seam is here."
-    if state.region.changes.get("sanctum:secret_open"):
-        return False, "The gallery shortcut is already open."
-    state.region.tile_changes[door] = "+"
-    state.region.changes["sanctum:secret_open"] = True
-    return True, "The scored stone turns aside. A second route through the ward gallery opens."
+    marker = state.region.landmarks.get("sanctum_secret"); door = state.region.changes.get("sanctum:secret_door")
+    if state.position != marker or not isinstance(door, str): return False, sanctum_text("sanctum.secret.none")
+    if state.region.changes.get("sanctum:secret_open"): return False, sanctum_text("sanctum.secret.open")
+    state.region.tile_changes[door] = "+"; state.region.changes["sanctum:secret_open"] = True
+    return True, sanctum_text("sanctum.secret.opened")
 
 
 def inspect_lines(state: GameState) -> list[str]:
-    row = SITES[state.active_region_id]
-    account = _network(state)
-    boss = next((actor for actor in state.threats if actor.id == f"sanctum:{state.active_region_id}:boss"), None)
-    standing = f"{account.name}: trust {account.trust:+d}; obligation {account.obligation}" if account else "No travelling witness has arrived."
-    lines = [
-        f"{row['name']} — {row['theme']}.",
-        standing,
-        f"Seal: {'open' if state.region.changes.get('sanctum:unsealed') else 'closed'}; keeper: {'defeated' if boss and boss.status == 'defeated' else 'unseen' if boss is None else 'present'}.",
-        f"Keeper: {row['boss']['capability']}; answer: {row['boss']['counterplay']}.",
-        "O. Offer one physical faction dependency lot; improve the shared account and open the stair (once).",
-        "B. Break the seal without a lot; open the stair, but incur a witnessed obligation (once).",
-        "S. Study the inscription and the current encounter. Escape leaves the shrine.",
-    ]
+    region_id = state.active_region_id; row = SITES[region_id]; account = _network(state)
+    boss = next((actor for actor in state.threats if actor.id == f"sanctum:{region_id}:boss"), None)
+    standing = sanctum_format("sanctum.inspect.standing", account=account.name, trust=f"{account.trust:+d}", obligation=account.obligation) if account else sanctum_text("sanctum.inspect.no_witness")
+    lines = [sanctum_format("sanctum.inspect.site", sanctum=sanctum_display_name(region_id), theme=sanctum_theme(region_id)), standing,
+      sanctum_format("sanctum.inspect.seal", seal=sanctum_text("sanctum.status.seal.open") if state.region.changes.get("sanctum:unsealed") else sanctum_text("sanctum.status.seal.closed"), keeper=sanctum_text("sanctum.status.keeper.defeated") if boss and boss.status == "defeated" else sanctum_text("sanctum.status.keeper.unseen") if boss is None else sanctum_text("sanctum.status.keeper.present")),
+      sanctum_format("sanctum.inspect.keeper", capability=sanctum_text(row["boss"]["capability_id"]), counterplay=sanctum_text(row["boss"]["counterplay_id"])), sanctum_text("sanctum.inspect.offer"), sanctum_text("sanctum.inspect.breach"), sanctum_text("sanctum.inspect.study")]
     marker = state.region.landmarks.get("sanctum_secret")
-    if marker:
-        lines.append(f"A scored seam lies in the ward gallery near {marker.x},{marker.y},z+1; stand on its mark and press E.")
+    if marker: lines.append(sanctum_format("sanctum.inspect.secret", x=marker.x, y=marker.y))
     control = state.region.changes.get("sanctum:control")
-    if control:
-        lines.append(f"Aftermath: {control}; the next visit can change who holds the gallery.")
-        lines.append("H. At a network-held, cleared site, ask its witness to open the existing one-time route shelter; this records one obligation.")
+    if control: lines += [sanctum_format("sanctum.inspect.aftermath", control=control), sanctum_text("sanctum.inspect.shelter")]
     return lines
 
 
 def shrine_choice(state: GameState, choice: str) -> tuple[bool, str, int]:
     from .inventory import consume_carried
-
-    account = _network(state)
-    if choice == "s":
-        event = state.region.changes.get("sanctum:last_event", "no fresh sign")
-        return False, f"{SITES[state.active_region_id]['theme']}. This visit: {event}.", 0
-    if account is None:
-        return False, "The travelling institution account is not ready here.", 0
+    region_id = state.active_region_id; account = _network(state)
+    if choice == "s": return False, sanctum_format("sanctum.choice.study", theme=sanctum_theme(region_id), event=state.region.changes.get("sanctum:last_event", sanctum_text("sanctum.event.none"))), 0
+    if account is None: return False, sanctum_text("sanctum.choice.account_unavailable"), 0
     if choice == "h":
-        if not state.region.changes.get("sanctum:cleared") or state.region.changes.get("sanctum:control") != "network":
-            return False, "Only a cleared site held by its travelling network can open a route shelter.", 0
+        if not state.region.changes.get("sanctum:cleared") or state.region.changes.get("sanctum:control") != "network": return False, sanctum_text("sanctum.choice.shelter_unavailable"), 0
         from .regional_history import NETWORK_CONTACTS, open_network_shelter
-
-        contact_id = next((contact_id for network_id, region_id, contact_id, *_ in NETWORK_CONTACTS
-                           if network_id == account.id and region_id == state.active_region_id), None)
-        if contact_id is None:
-            return False, "No regional witness represents this route account.", 0
-        changed, message = open_network_shelter(state, contact_id)
-        return changed, message, 2 if changed else 0
+        contact_id = next((contact_id for network_id, rid, contact_id, *_ in NETWORK_CONTACTS if network_id == account.id and rid == region_id), None)
+        if contact_id is None: return False, sanctum_text("sanctum.choice.shelter_witness"), 0
+        changed, message = open_network_shelter(state, contact_id); return changed, message, 2 if changed else 0
     if choice == "o":
-        if state.region.changes.get("sanctum:offered"):
-            return False, "This shrine has already accepted one witnessed offering.", 0
-        if not consume_carried(state, f"commodity:{account.dependency}"):
-            return False, f"Bring one physical {account.dependency} lot in the courier's pack.", 0
-        state.region.changes["sanctum:offered"] = True
-        state.region.changes["sanctum:unsealed"] = True
-        state.region.changes["sanctum:opened_by"] = "offering"
-        if state.region.changes.get("sanctum:cleared"):
-            state.region.changes["sanctum:control"] = "disputed" if _active_claimants(state) else "network"
-        account.trust = min(3, account.trust + 1)
-        account.obligation = max(0, account.obligation - 1)
-        account.witnessed_acts.append(f"{state.courier.name} offered {account.dependency} at {SITES[state.active_region_id]['name']}.")
-        del account.witnessed_acts[:-8]
-        return True, f"The physical {account.dependency} is witnessed. {account.name} trust rises and the stair opens across its paired regions.", 2
+        if state.region.changes.get("sanctum:offered"): return False, sanctum_text("sanctum.choice.offered"), 0
+        if not consume_carried(state, f"commodity:{account.dependency}"): return False, sanctum_format("sanctum.choice.requirement", commodity=account.dependency), 0
+        state.region.changes["sanctum:offered"] = True; state.region.changes["sanctum:unsealed"] = True; state.region.changes["sanctum:opened_by"] = "offering"
+        if state.region.changes.get("sanctum:cleared"): state.region.changes["sanctum:control"] = "disputed" if _active_claimants(state) else "network"
+        account.trust = min(3, account.trust + 1); account.obligation = max(0, account.obligation - 1)
+        account.witnessed_acts.append(sanctum_format("sanctum.choice.offering_memory", courier=state.courier.name, commodity=account.dependency, sanctum=sanctum_display_name(region_id))); del account.witnessed_acts[:-8]
+        return True, sanctum_format("sanctum.choice.offering", commodity=account.dependency, account=account.name), 2
     if choice == "b":
-        if state.region.changes.get("sanctum:unsealed"):
-            return False, "The seal is already open; there is nothing left to break.", 0
-        state.region.changes["sanctum:unsealed"] = True
-        state.region.changes["sanctum:opened_by"] = "breach"
-        account.trust = max(-3, account.trust - 1)
-        account.obligation = min(9, account.obligation + 1)
-        account.witnessed_acts.append(f"{state.courier.name} broke the {SITES[state.active_region_id]['name']} seal without an account.")
-        del account.witnessed_acts[:-8]
-        return True, f"The seal breaks. {account.name} records the breach; future site encounters grow less sheltered.", 2
-    return False, "Choose Offer, Break, Study, or a held-site shelter.", 0
+        if state.region.changes.get("sanctum:unsealed"): return False, sanctum_text("sanctum.choice.breach_unavailable"), 0
+        state.region.changes["sanctum:unsealed"] = True; state.region.changes["sanctum:opened_by"] = "breach"; account.trust = max(-3, account.trust - 1); account.obligation = min(9, account.obligation + 1)
+        account.witnessed_acts.append(sanctum_format("sanctum.choice.breach_memory", courier=state.courier.name, sanctum=sanctum_display_name(region_id))); del account.witnessed_acts[:-8]
+        return True, sanctum_format("sanctum.choice.breach", account=account.name), 2
+    return False, sanctum_text("sanctum.choice.invalid"), 0
 
 
 def approach(state: GameState) -> str:
-    """Draw at most one physical site event per expedition and region."""
-    if state.location != "region" or "sanctum_shrine" not in state.region.landmarks:
-        return ""
+    if state.location != "region" or "sanctum_shrine" not in state.region.landmarks: return ""
     shrine = state.region.landmarks["sanctum_shrine"]
-    if state.position.z != 0 or max(abs(state.position.x - shrine.x), abs(state.position.y - shrine.y)) > 4:
-        return ""
-    if state.region.changes.get("sanctum:event_visit") == state.expedition_count:
-        return ""
-    state.region.changes["sanctum:event_visit"] = state.expedition_count
-    account = _network(state)
-    trust = account.trust if account else 0
-    control = state.region.changes.get("sanctum:control")
-    options = ENCOUNTERS[control if control in {"network", "open", "disputed"}
-                         else "sheltered" if trust >= 1 else "contested"]
+    if state.position.z != 0 or max(abs(state.position.x-shrine.x),abs(state.position.y-shrine.y)) > 4: return ""
+    if state.region.changes.get("sanctum:event_visit") == state.expedition_count: return ""
+    state.region.changes["sanctum:event_visit"] = state.expedition_count; account = _network(state); trust = account.trust if account else 0; control = state.region.changes.get("sanctum:control")
+    options = ENCOUNTERS[control if control in {"network","open","disputed"} else "sheltered" if trust >= 1 else "contested"]
     kind = stage_rng(state.seed, f"sanctum:{state.active_region_id}:visit:{state.expedition_count}").choice(options)
-    if kind == "dropped parcel" and int(state.region.changes.get("sanctum:parcels", 0)) >= 2:
-        kind = "quiet witnesses"
+    if kind == "dropped_parcel" and int(state.region.changes.get("sanctum:parcels",0)) >= 2: kind = "quiet_witnesses"
     state.region.changes["sanctum:last_event"] = kind
-    if kind == "quiet witnesses":
-        return f"Quiet witnesses mark the way to {SITES[state.active_region_id]['name']}; the shrine records their account."
-    if kind in {"stray claimant", "wandering beast", "elite surveyor"}:
-        return _site_encounter(state, shrine, kind)
-    if kind == "travelling witness":
-        return _witness(state, shrine)
-    if kind == "dropped parcel":
+    if kind == "quiet_witnesses": return sanctum_format("sanctum.event.quiet_witnesses", sanctum=sanctum_display_name(state.active_region_id))
+    if kind in {"stray_claimant","wandering_beast","elite_surveyor"}: return _site_encounter(state, shrine, kind)
+    if kind == "travelling_witness": return _witness(state, shrine)
+    if kind == "dropped_parcel":
         from .inventory import create_item
         from .world import is_walkable
-
-        candidates = [Position(shrine.x + dx, shrine.y + dy, 0)
-                      for dx, dy in ((2, 1), (-2, 1), (1, -2), (-1, -2))]
-        place = next((point for point in candidates
-                      if _tile(state.region, point) in _PASSABLE and is_walkable(state, point)
-                      and not any(item.location == "ground" and item.region_id == state.active_region_id
-                                  and item.ground_position == point for item in state.items)), None)
-        if place is None or account is None:
-            return "A parcel's trail reaches the shrine, but the working ground holds no recoverable lot."
-        item = create_item(state, f"commodity:{account.dependency}",
-                           f"lost travelling account near {SITES[state.active_region_id]['name']}", location="ground")
-        item.region_id, item.ground_position = state.active_region_id, place
-        state.region.changes["sanctum:parcels"] = int(state.region.changes.get("sanctum:parcels", 0)) + 1
-        return f"A physical {account.dependency} parcel lies at {place.x},{place.y}; recover it with I, offer it, trade it, or leave it."
+        candidates=[Position(shrine.x+dx,shrine.y+dy,0) for dx,dy in ((2,1),(-2,1),(1,-2),(-1,-2))]
+        place=next((point for point in candidates if _tile(state.region,point) in _PASSABLE and is_walkable(state,point) and not any(item.location=="ground" and item.region_id==state.active_region_id and item.ground_position==point for item in state.items)),None)
+        if place is None or account is None: return sanctum_text("sanctum.event.parcel_unavailable")
+        item=create_item(state,f"commodity:{account.dependency}",sanctum_format("sanctum.event.parcel_provenance",sanctum=sanctum_display_name(state.active_region_id)),location="ground"); item.region_id,item.ground_position=state.active_region_id,place
+        state.region.changes["sanctum:parcels"]=int(state.region.changes.get("sanctum:parcels",0))+1
+        return sanctum_format("sanctum.event.parcel",commodity=account.dependency,x=place.x,y=place.y)
     from .materials import ensure_cell
-
-    point = Position(shrine.x + 2, shrine.y, 0)
-    cell = ensure_cell(state, point)
+    point=Position(shrine.x+2,shrine.y,0); cell=ensure_cell(state,point)
     if cell:
-        cell.material, cell.support = "stone", 0
-        cell.collapse_due = state.world_time + 3
-        return "The shrine's outer stone cracks. Debris will fall in three actions; brace it or move clear."
-    return "The shrine's outer stone sounds hollow, but the ground does not take a new fracture."
+        cell.material,cell.support="stone",0; cell.collapse_due=state.world_time+3; return sanctum_text("sanctum.event.stone")
+    return sanctum_text("sanctum.event.stone_safe")
 
 
 def record_boss_defeat(state: GameState, actor: Threat) -> None:
-    if actor.id != f"sanctum:{state.active_region_id}:boss" or state.region.changes.get("sanctum:cleared"):
-        return
-    state.region.changes["sanctum:cleared"] = True
-    opening = state.region.changes.get("sanctum:opened_by")
-    state.region.changes["sanctum:control"] = (
-        "disputed" if _active_claimants(state) else
-        "network" if opening == "offering" else "disputed" if opening == "breach" else "open"
-    )
-    state.trade_credit += 4
-    strategy_gained = False
-    if state.courier:
-        strategy_gained = state.courier.strategy < 20
-        state.courier.strategy = min(20, state.courier.strategy + 1)
-    state.remember(f"{state.courier.name if state.courier else 'A courier'} defeated {actor.name} at {SITES[state.active_region_id]['name']}.")
-    strategy_note = ("one Strategy" if strategy_gained else
-                     "Strategy is already at its bound" if state.courier else
-                     "no active courier receives Strategy")
-    state.add_message(f"{SITES[state.active_region_id]['name']} is cleared: four credits; {strategy_note}. Its physical reliquary remains to be opened.", priority=3)
+    if actor.id != f"sanctum:{state.active_region_id}:boss" or state.region.changes.get("sanctum:cleared"): return
+    state.region.changes["sanctum:cleared"] = True; opening=state.region.changes.get("sanctum:opened_by")
+    state.region.changes["sanctum:control"]="disputed" if _active_claimants(state) else "network" if opening=="offering" else "disputed" if opening=="breach" else "open"; state.trade_credit += 4
+    strategy_gained=False
+    if state.courier: strategy_gained=state.courier.strategy<20; state.courier.strategy=min(20,state.courier.strategy+1)
+    state.remember(sanctum_format("sanctum.record.defeat",courier=state.courier.name if state.courier else sanctum_text("sanctum.record.courier.unknown"),boss=actor.name,sanctum=sanctum_display_name(state.active_region_id)))
+    strategy_note=sanctum_text("sanctum.record.strategy_gained") if strategy_gained else sanctum_text("sanctum.record.strategy_bound") if state.courier else sanctum_text("sanctum.record.strategy_none")
+    state.add_message(sanctum_format("sanctum.record.cleared",sanctum=sanctum_display_name(state.active_region_id),strategy=strategy_note),priority=3)
 
 
 def record_site_defeat(state: GameState, actor: Threat) -> None:
-    record_boss_defeat(state, actor)
-    if not state.region.changes.get("sanctum:cleared") or state.region.changes.get("sanctum:control") != "disputed":
-        return
-    prefix = f"sanctum:{state.active_region_id}:"
-    if not (actor.id.startswith(prefix + "claimant:") or actor.id.startswith(prefix + "elites:")):
-        return
-    if _active_claimants(state):
-        return
-    state.region.changes["sanctum:control"] = "network" if state.region.changes.get("sanctum:opened_by") == "offering" else "open"
-    state.add_message(f"The last armed claimant leaves {SITES[state.active_region_id]['name']}; its holding is {state.region.changes['sanctum:control']} again.", priority=2)
+    record_boss_defeat(state,actor)
+    if not state.region.changes.get("sanctum:cleared") or state.region.changes.get("sanctum:control") != "disputed": return
+    prefix=f"sanctum:{state.active_region_id}:"
+    if not (actor.id.startswith(prefix+"claimant:") or actor.id.startswith(prefix+"elites:")) or _active_claimants(state): return
+    state.region.changes["sanctum:control"]="network" if state.region.changes.get("sanctum:opened_by")=="offering" else "open"
+    state.add_message(sanctum_format("sanctum.record.claimants_left",sanctum=sanctum_display_name(state.active_region_id),control=state.region.changes["sanctum:control"]),priority=2)

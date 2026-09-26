@@ -123,7 +123,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             "container",
         ))
         occupied.add(container.position)
-    for link in sorted(state.region.vertical_links, key=lambda item: item.name):
+    for link in sorted(state.region.vertical_links, key=lambda item: (item.id or item.name, item.name)):
         for point in (link.first, link.second):
             if point == state.position or point not in known or point in occupied:
                 continue
@@ -136,7 +136,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             occupied.add(point)
     return tuple(sorted(
         targets,
-        key=lambda item: (distance(state.position, item.position), item.label, item.id),
+        key=lambda item: (distance(state.position, item.position), item.id),
     ))
 
 

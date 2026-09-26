@@ -694,10 +694,17 @@ def observed_life_lines(state: GameState) -> list[str]:
         if not courier_sees(state, actor.position) or actor.status not in {"watching", "engaged"}:
             continue
         data = threat_definition(actor)
+        if actor.id == f"sanctum:{state.active_region_id}:boss":
+            from .sanctum_presentation import sanctum_boss_goal, sanctum_text
+            goal = sanctum_boss_goal(state.active_region_id)
+            reason = sanctum_text(f"sanctum.{state.active_region_id}.boss.capability")
+        else:
+            goal = crisis_goal_display(actor.goal)
+            reason = actor.goal_reason
         lines.extend((
             "", f"{_threat_glyph(actor)} {actor.name}; {actor.position.x},{actor.position.y} z{actor.position.z:+d}; {actor.health}/{actor.max_health} health.",
             f"OBSERVED INTENT: {actor.intent}.",
-            f"Duty: {crisis_goal_display(actor.goal)}; {actor.goal_reason}.",
+            f"Duty: {goal}; {reason}.",
             f"Working charges {actor.supplies}; recovery {actor.reload_turns}; morale {actor.morale}." if actor.id.startswith("frontier-elite:") else f"Readied {actor.ranged_kind}; ammunition {actor.ammunition}, reload {actor.reload_turns}." if actor.profile == "ranged" else f"Role: {actor.role}; morale {actor.morale}; supplies {actor.supplies}.",
         ))
         if actor.uses_physical_equipment:
@@ -2750,9 +2757,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         situation_id = kind.split(":", 1)[1]
         return BY_ID[situation_id].name.upper(), inspect_lines(state, situation_id)
     if kind == "sanctum":
-        from .sanctums import SITES, inspect_lines
+        from .sanctums import inspect_lines
+        from .sanctum_presentation import sanctum_display_name
 
-        return SITES[state.active_region_id]["name"].upper(), inspect_lines(state)
+        return sanctum_display_name(state.active_region_id).upper(), inspect_lines(state)
     if kind == "field-traveller":
         from .landscape_variation import VARIANTS
 

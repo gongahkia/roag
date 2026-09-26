@@ -59,6 +59,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "equipment_text.json", root / "equipment_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "preparation_text.json", root / "preparation_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "material_text.json", root / "material_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "sanctum_text.json", root / "sanctum_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -340,6 +341,19 @@ def alternate_pack(root: Path) -> Path:
         "material.inspection.advice.fire": "FIXTURE ADVICE — {speaker}: unchanged fire simulation needs an unchanged response.",
     })
     source.write_text(json.dumps(material_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "sanctum_text.json"
+    sanctum_text = json.loads(source.read_text(encoding="utf-8"))
+    sanctum_text["text"].update({
+        "sanctum.hearthford.name": "Fixture Silt Hall",
+        "sanctum.hearthford.theme": "fixture flood account",
+        "sanctum.hearthford.witness.name": "Fixture Mera",
+        "sanctum.hearthford.boss.name": "Fixture Abbot",
+        "sanctum.link.entry": "fixture threshold stair",
+        "sanctum.cache.ward": "Fixture {sanctum} cache",
+        "sanctum.choice.offering": "FIXTURE offering of {commodity} preserves the same account effect for {account}.",
+        "sanctum.record.cleared": "FIXTURE {sanctum} cleared: four credits; {strategy}.",
+    })
+    source.write_text(json.dumps(sanctum_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -2046,6 +2060,67 @@ def material_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
     if result.returncode:
         raise AssertionError(result.stderr)
     return json.loads(result.stdout)
+
+def sanctum_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.actions import interact; from jomon.inventory import auto_place, create_item; from jomon.sanctums import inspect_lines, shrine_choice; from jomon.state import create_world; "
+            "state=create_world('sanctum-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['sanctum_shrine']; account=state.institutions[__import__('jomon.sanctums',fromlist=['SITES']).SITES[state.active_region_id]['network']]; lot=create_item(state, f'commodity:{account.dependency}', 'sanctum fixture offering'); auto_place(state,lot.id,'pack',owner_id=state.active_courier_id); before=[account.trust,account.obligation]; lines=inspect_lines(state); offered=shrine_choice(state,'o'); state.position=region.landmarks['sanctum_entry']; entered=interact(state); boss=next(actor for actor in state.threats if actor.id=='sanctum:hearthford:boss'); mechanics={'site':region.id,'network':account.id,'entry':[region.landmarks['sanctum_entry'].x,region.landmarks['sanctum_entry'].y], 'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('sanctum:')), 'caches':sorted((box.id,box.reward,box.requirement,tuple(box.extra_rewards)) for box in region.containers if '-sanctum-' in box.id), 'offered':[offered[0],offered[2],before,account.trust,account.obligation,region.changes['sanctum:opened_by']], 'boss':[boss.id,boss.profile,boss.role,boss.goal,boss.duty,boss.health,boss.glyph,boss.archetype_id,tuple(boss.capabilities)], 'inhabited':region.changes['sanctum:inhabited'], 'time':state.world_time}; print(json.dumps({'presentation':[lines,offered[1],entered.message,boss.name,[(link.id,link.name) for link in region.vertical_links if link.id.startswith('sanctum:')],[(box.id,box.name) for box in region.containers if '-sanctum-' in box.id]],'mechanics':mechanics}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class SanctumPresentationTests(unittest.TestCase):
+    def test_default_sanctum_presentation_preserves_existing_text(self):
+        from jomon.sanctum_presentation import sanctum_display_name, sanctum_text
+        self.assertEqual(sanctum_display_name("hearthford"), "The Silt-Chancel")
+        self.assertEqual(sanctum_text("sanctum.link.gallery"), "side gallery stair")
+
+    def test_alternate_sanctum_presentation_changes_text_not_mechanics(self):
+        default = sanctum_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = sanctum_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        rendered = "\n".join(map(str, alternate["presentation"]))
+        self.assertIn("Fixture Silt Hall", rendered)
+        self.assertIn("fixture threshold stair", rendered)
+        self.assertIn("Fixture Abbot", rendered)
+        self.assertIn("FIXTURE offering", rendered)
+
+    def test_sanctum_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "sanctum_text.json"; original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing site": lambda value: value["text"].pop("sanctum.hearthford.name"),
+                "missing text": lambda value: value.pop("text"),
+                "unknown slot": lambda value: value["text"].update({"sanctum.extra": "extra"}),
+                "empty": lambda value: value["text"].update({"sanctum.link.entry": ""}),
+                "non-string": lambda value: value["text"].update({"sanctum.link.entry": 3}),
+                "unknown placeholder": lambda value: value["text"].update({"sanctum.cache.ward": "{other}"}),
+                "missing placeholder": lambda value: value["text"].update({"sanctum.cache.ward": "cache"}),
+                "malformed": lambda value: value["text"].update({"sanctum.cache.ward": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document=json.loads(original); mutate(document); source.write_text(json.dumps(document),encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*sanctum_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("unknown field"):
+                document=json.loads(original); document["extra"]="no"; source.write_text(json.dumps(document),encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*sanctum_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"sanctum.link.entry"', '"sanctum.link.gallery"', 1),encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*sanctum_text\.json"):
+                    load_content_pack(root)
 
 
 class MaterialPresentationTests(unittest.TestCase):

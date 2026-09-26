@@ -471,14 +471,14 @@ def area_name(state: GameState) -> str:
         entry.x - 2 <= state.position.x <= entry.x + 12
         and entry.y - 5 <= state.position.y <= entry.y + 5
     ):
-        from .sanctums import SITES
+        from .sanctum_presentation import sanctum_display_name, sanctum_text
 
-        tier = "ward gallery" if state.position.z == 1 else "reliquary roof"
-        return f"{SITES[state.active_region_id]['name']} — {tier}"
+        tier = sanctum_text("sanctum.area.tier.one" if state.position.z == 1 else "sanctum.area.tier.two")
+        return f"{sanctum_display_name(state.active_region_id)} — {tier}"
     if state.position == state.region.landmarks.get("sanctum_undercroft"):
-        from .sanctums import SITES
+        from .sanctum_presentation import sanctum_display_name, sanctum_text
 
-        return f"{SITES[state.active_region_id]['name']} — undercroft seal"
+        return f"{sanctum_display_name(state.active_region_id)} — {sanctum_text('sanctum.area.undercroft')}"
     from .landscape_variation import VARIANTS
 
     for key, level in (("field_upper", 1), ("field_lower", -1)):

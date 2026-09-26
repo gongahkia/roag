@@ -14899,6 +14899,38 @@
       "placeholders": []
     },
     {
+      "id": "sanctum.event.none",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.control.unsettled",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.status.seal.open",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.status.seal.closed",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.status.keeper.defeated",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.status.keeper.unseen",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.status.keeper.present",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.record.courier.unknown",
+      "placeholders": []
+    },
+    {
       "id": "sanctum.event.quiet_witnesses",
       "placeholders": [
         "sanctum"

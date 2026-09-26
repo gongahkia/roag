@@ -49,7 +49,8 @@
         "health": 12,
         "glyph": "A",
         "capability_id": "sanctum.hearthford.boss.capability",
-        "counterplay_id": "sanctum.hearthford.boss.counterplay"
+        "counterplay_id": "sanctum.hearthford.boss.counterplay",
+        "capability": "drains a flooded lane before pressing with a spear"
       }
     },
     "greywash": {
@@ -62,7 +63,8 @@
         "health": 11,
         "glyph": "B",
         "capability_id": "sanctum.greywash.boss.capability",
-        "counterplay_id": "sanctum.greywash.boss.counterplay"
+        "counterplay_id": "sanctum.greywash.boss.counterplay",
+        "capability": "signals a roof escort before firing across an open lane"
       }
     },
     "greenwold": {
@@ -75,7 +77,8 @@
         "health": 11,
         "glyph": "D",
         "capability_id": "sanctum.greenwold.boss.capability",
-        "counterplay_id": "sanctum.greenwold.boss.counterplay"
+        "counterplay_id": "sanctum.greenwold.boss.counterplay",
+        "capability": "kindles carried roof fuel while circling the stalls"
       }
     },
     "whitecairn": {
@@ -88,7 +91,8 @@
         "health": 13,
         "glyph": "E",
         "capability_id": "sanctum.whitecairn.boss.capability",
-        "counterplay_id": "sanctum.whitecairn.boss.counterplay"
+        "counterplay_id": "sanctum.whitecairn.boss.counterplay",
+        "capability": "marks a weakened roof support and denies the stair with a net"
       }
     },
     "dunmire": {
@@ -101,7 +105,8 @@
         "health": 10,
         "glyph": "F",
         "capability_id": "sanctum.dunmire.boss.capability",
-        "counterplay_id": "sanctum.dunmire.boss.counterplay"
+        "counterplay_id": "sanctum.dunmire.boss.counterplay",
+        "capability": "drains its own flooded gallery before firing"
       }
     },
     "rillscar": {
@@ -114,7 +119,8 @@
         "health": 13,
         "glyph": "G",
         "capability_id": "sanctum.rillscar.boss.capability",
-        "counterplay_id": "sanctum.rillscar.boss.counterplay"
+        "counterplay_id": "sanctum.rillscar.boss.counterplay",
+        "capability": "braces a failing crossing while sheltering its guard"
       }
     },
     "marlbank": {
@@ -127,7 +133,8 @@
         "health": 12,
         "glyph": "H",
         "capability_id": "sanctum.marlbank.boss.capability",
-        "counterplay_id": "sanctum.marlbank.boss.counterplay"
+        "counterplay_id": "sanctum.marlbank.boss.counterplay",
+        "capability": "lights stored kiln fuel before closing the aisle"
       }
     },
     "frostmere": {
@@ -140,7 +147,8 @@
         "health": 11,
         "glyph": "J",
         "capability_id": "sanctum.frostmere.boss.capability",
-        "counterplay_id": "sanctum.frostmere.boss.counterplay"
+        "counterplay_id": "sanctum.frostmere.boss.counterplay",
+        "capability": "spends carried dressings on a roof escort while sighting the channel"
       }
     }
   }

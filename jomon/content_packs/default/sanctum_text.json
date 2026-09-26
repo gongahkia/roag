@@ -117,6 +117,14 @@
     "sanctum.record.claimants_left": "The last armed claimant leaves {sanctum}; its holding is {control} again.",
     "sanctum.area.tier.one": "ward gallery",
     "sanctum.area.tier.two": "reliquary roof",
-    "sanctum.area.undercroft": "undercroft seal"
+    "sanctum.area.undercroft": "undercroft seal",
+    "sanctum.event.none": "no fresh sign",
+    "sanctum.control.unsettled": "unsettled",
+    "sanctum.status.seal.open": "open",
+    "sanctum.status.seal.closed": "closed",
+    "sanctum.status.keeper.defeated": "defeated",
+    "sanctum.status.keeper.unseen": "unseen",
+    "sanctum.status.keeper.present": "present",
+    "sanctum.record.courier.unknown": "A courier"
   }
 }

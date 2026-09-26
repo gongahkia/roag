@@ -192,6 +192,19 @@ class SanctumTests(unittest.TestCase):
         self.assertEqual(interact(state).overlay, "sanctum")
         self.assertEqual(game_state_from_dict(state.to_dict()).to_dict(), state.to_dict())
 
+    def test_legacy_event_and_blank_sanctum_link_ids_normalize_without_pack_text(self):
+        state = create_world("sanctum legacy identity")
+        state.region.changes["sanctum:last_event"] = "quiet witnesses"
+        for link in state.region.vertical_links:
+            if link.id.startswith("sanctum:"):
+                link.id = ""
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertEqual(loaded.region.changes["sanctum:last_event"], "quiet_witnesses")
+        self.assertEqual(
+            {link.id for link in loaded.region.vertical_links if link.id.startswith("sanctum:")},
+            {"sanctum:hearthford:link:entry", "sanctum:hearthford:link:reliquary", "sanctum:hearthford:link:gallery"},
+        )
+
     def test_network_held_site_reuses_one_time_route_shelter(self):
         state = create_world("sanctum route consequence")
         state.location = "region"
