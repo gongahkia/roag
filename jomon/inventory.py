@@ -13,6 +13,7 @@ from .item_presentation import contracted_item_presentation, item_presentation
 from .chemistry_presentation import chemistry_text, reagent_display_name
 from .state import GameState, Item, Person, TerrainStatus
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
+from .equipment_presentation import ammunition_display_name, arsenal_weapon_name, equipment_format
 
 PACK_WIDTH = 10
 PACK_HEIGHT = 6
@@ -106,19 +107,19 @@ REGIONAL_ARMOUR = {region: tuple(names) for region, names in _EQUIPMENT["regiona
 ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.split()).upper()[:2], *spec.shape,
                                 spec.weight, "weapon", spec.description)
                    for name, spec in WORK_WEAPONS.items()})
-ITEM_SPECS.update({name: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
+ITEM_SPECS.update({name: ItemSpec(arsenal_weapon_name(name), "".join(word[0] for word in name.split()).upper()[:2],
                                 *spec.shape, spec.weight, "weapon", spec.description)
                    for name, spec in ARSENAL.items()})
-ITEM_SPECS.update({kind: ItemSpec(name.title(), "".join(word[0] for word in name.split()).upper()[:2],
-                                  2, 2, 2, "consumable", "One thrown payload; reacts at its landing.", stack_limit=3)
+ITEM_SPECS.update({kind: ItemSpec(ammunition_display_name(name), "".join(word[0] for word in name.split()).upper()[:2],
+                                  2, 2, 2, "consumable", equipment_format("equipment.arsenal.bomb.description"), stack_limit=3)
                    for name, kind in BOMB_AMMUNITION.items()})
 
 ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(reagent_display_name(name), "".join(word[0] for word in name.split()).upper()[:2],
                                                1, 1, 1, "consumable", chemistry_text("chemistry.ingredient.description"), stack_limit=4)
                    for name in REAGENTS})
 for pot in POT_AMMUNITION.values():
-    ITEM_SPECS[pot] = ItemSpec(pot.split(":", 1)[1].title(), "P" + pot.split()[1][0].upper(), 2, 2, 3,
-                              "consumable", "A packed pot-sling payload; P chooses which pot to cast.", stack_limit=2)
+    ITEM_SPECS[pot] = ItemSpec(ammunition_display_name(next(name for name, kind in POT_AMMUNITION.items() if kind == pot)), "P" + pot.split()[1][0].upper(), 2, 2, 3,
+                              "consumable", equipment_format("equipment.target.pot"), stack_limit=2)
 
 
 def item_spec(kind: str) -> ItemSpec:

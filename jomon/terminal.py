@@ -1128,17 +1128,21 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         ], width)
     ready = "Enter commits one cast; Escape costs no time."
     if state.weapon == "pot sling":
-        ready = "P changes pot; minimum range 3. Enter throws at the marked place."
+        from .equipment_presentation import equipment_text
+        ready = equipment_text("equipment.target.pot")
     from .expanded_weapons import ARSENAL
 
     if state.weapon in ARSENAL:
         expanded = ARSENAL[state.weapon]
         if expanded.family == "device":
-            ready = f"Enter throws one physical {state.weapon.split()[0]} bomb at this visible place; all bodies share its reaction."
+            from .equipment_presentation import equipment_format
+            ready = equipment_format("equipment.target.device", bomb=state.weapon.split()[0])
         elif expanded.family == "gun" and state.weapon_ready < (1 if "quick" in expanded.effects or state.courier and "vent-care" in state.courier.skill_nodes else 2):
-            ready = "Unready: Escape then G loads one guarded action."
+            from .equipment_presentation import equipment_text
+            ready = equipment_text("equipment.target.gun_loading")
         elif expanded.family in {"bow", "gun"} and "quick" not in expanded.effects and not (expanded.family == "bow" and state.courier and "quick-nock" in state.courier.skill_nodes):
-            ready = "Aim set: Enter fires." if selected and state.aimed_target == selected.id else "Enter prepares aim; confirm again to fire."
+            from .equipment_presentation import equipment_text
+            ready = equipment_text("equipment.target.aim.ready" if selected and state.aimed_target == selected.id else "equipment.target.aim.prepare")
     if state.weapon == "crossbow" and not state.crossbow_loaded:
         ready = "Unloaded: Escape then G reloads; no shot is committed here."
     elif state.weapon in {"heavy crossbow", "handgonne"} and state.weapon_ready < 2:
@@ -1162,6 +1166,8 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         weapon = WEAPONS.get(state.weapon or "")
         if state.weapon in WORK_WEAPONS:
             weapon_text = WORK_WEAPONS[state.weapon].description
+        elif state.weapon in ARSENAL:
+            weapon_text = ARSENAL[state.weapon].description
         else:
             weapon_text = weapon[1] if weapon else "No readied effect."
         lines.append("EFFECT — " + weapon_text)
@@ -1534,9 +1540,11 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         from .workshop import FITTINGS, SLOTS, attached, can_fit, compatible, fit_cost
 
         if kind == "station:workshop":
-            return [ChoiceOption(str(index + 1), f"{slot}: {item_spec(item.kind).name if (item := equipped_item(state, slot)) else 'empty'}", available=equipped_item(state, slot) is not None, requirement="equip an item through I") for index, slot in enumerate(SLOTS)] + [ChoiceOption("P", "Buy a loose fitting kit")]
+            from .equipment_presentation import equipment_format
+            return [ChoiceOption(str(index + 1), equipment_format("equipment.overlay.slot", slot=slot, item=item_spec(item.kind).name if (item := equipped_item(state, slot)) else equipment_format("equipment.overlay.slot.empty")), available=equipped_item(state, slot) is not None, requirement=equipment_format("equipment.overlay.slot.requirement")) for index, slot in enumerate(SLOTS)] + [ChoiceOption("P", equipment_format("equipment.overlay.buy.choice"))]
         if kind == "workshop:store":
-            return [ChoiceOption(chr(65 + index), f"{value.name}: {value.price} credit; stock {state.vessel_changes.get('fitting_stock:' + name, 0)}") for index, (name, value) in enumerate(FITTINGS.items())]
+            from .equipment_presentation import equipment_format
+            return [ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.store.row", fitting=value.name, price=value.price, stock=state.vessel_changes.get('fitting_stock:' + name, 0))) for index, (name, value) in enumerate(FITTINGS.items())]
         if kind.startswith("workshop:slot:"):
             target = equipped_item(state, kind.split(":", 2)[2])
             if target is None:
@@ -1545,13 +1553,17 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for index, name in enumerate(FITTINGS):
                 if compatible(target, name):
                     valid, why = can_fit(state, target, name)
-                    options.append(ChoiceOption(chr(65 + index), f"Preview {name}: {fit_cost(state, name)} credit", "commitment", valid, why))
+                    from .equipment_presentation import equipment_format
+                    options.append(ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.preview", fitting=FITTINGS[name].name, cost=fit_cost(state, name)), "commitment", valid, why))
             for key, socket in zip("UVW", ("structure", "treatment", "lining")):
                 if any(FITTINGS[part.kind.split(':', 1)[1]].slot == socket for part in attached(state, target)):
-                    options.append(ChoiceOption(key, f"Remove {socket}: 1 credit, pack room", "commitment"))
-            options.append(ChoiceOption("R", "Repair parent: 2 credit, +35 condition", "commitment", target.condition < 100 and state.trade_credit >= 2, "damaged item and two credit"))
+                    from .equipment_presentation import equipment_format
+                    options.append(ChoiceOption(key, equipment_format("equipment.overlay.remove.choice", slot=socket), "commitment"))
+            from .equipment_presentation import equipment_text
+            options.append(ChoiceOption("R", equipment_text("equipment.overlay.repair.choice"), "commitment", target.condition < 100 and state.trade_credit >= 2, equipment_text("equipment.overlay.repair.requirement")))
             return options
-        return [ChoiceOption("F", "Confirm the previewed work (two actions)", "commitment"), ChoiceOption("B", "Back without changes")]
+        from .equipment_presentation import equipment_text
+        return [ChoiceOption("F", equipment_text("equipment.overlay.confirm.choice"), "commitment"), ChoiceOption("B", equipment_text("equipment.overlay.back.choice"))]
     if kind.startswith("vessel-refits:"):
         from .vessel_refits import REFITS, STATION_REFITS, installation_status
 
@@ -2851,23 +2863,30 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         from .workshop import FITTINGS, describe, fit_cost
 
         if kind == "station:workshop":
-            return "LOWER WORKSHOP — OPTIONAL FITTINGS", [f"Credit {state.trade_credit}. Choose worn/readied equipment or a loose kit.", "One structural fitting plus one treatment per weapon; one lining per armour piece."]
+            from .equipment_presentation import equipment_format, equipment_text
+            return equipment_text("equipment.overlay.station.title"), [equipment_format("equipment.overlay.station.summary", credit=state.trade_credit), equipment_text("equipment.overlay.station.guidance")]
         if kind == "workshop:store":
-            return "COUNTED WORKSHOP KITS", ["Preview before buying. Kits occupy the pack until fitted.", "Only the listed stock is on hand; cancelled or unfittable purchases spend nothing."]
+            from .equipment_presentation import equipment_text
+            return equipment_text("equipment.overlay.store.title"), [equipment_text("equipment.overlay.store.summary"), equipment_text("equipment.overlay.store.stock")]
         if kind.startswith("workshop:slot:"):
             item = equipped_item(state, kind.split(":", 2)[2])
-            return "EQUIPMENT WORK", describe(state, item) if item else ["That equipment slot is empty."]
+            from .equipment_presentation import equipment_text
+            return equipment_text("equipment.overlay.work.title"), describe(state, item) if item else [equipment_text("equipment.overlay.empty")]
         parts = kind.split(":")
         if parts[1] == "buy":
             fitting = FITTINGS[parts[2]]
-            return "BUY KIT — CONFIRM", [fitting.name, fitting.effect, fitting.drawback, f"{fitting.shape[0]}x{fitting.shape[1]} cells, weight {fitting.weight}; {fitting.price} credit; must fit in pack."]
+            from .equipment_presentation import equipment_format, equipment_text
+            return equipment_text("equipment.overlay.buy.title"), [fitting.name, fitting.effect, fitting.drawback, equipment_format("equipment.overlay.buy.detail", fitting=fitting.name, effect=fitting.effect, drawback=fitting.drawback, width=fitting.shape[0], height=fitting.shape[1], weight=fitting.weight, price=fitting.price).split("\n")[-1]]
         item = next((item for item in state.items if item.id == parts[2]), None)
         if item is None:
-            return "EQUIPMENT WORK", ["The selected physical item is no longer here."]
+            from .equipment_presentation import equipment_text
+            return equipment_text("equipment.overlay.work.title"), [equipment_text("equipment.overlay.item.missing")]
         if parts[1] == "fit":
             fitting = FITTINGS[parts[3]]
-            return "FIT EQUIPMENT — CONFIRM", [f"{fitting.name} onto {item_spec(item.kind).name}.", fitting.effect, fitting.drawback, f"Adds {fitting.weight} carried weight; {fit_cost(state, parts[3])} credit; two actions."]
-        return "EQUIPMENT WORK — CONFIRM", describe(state, item) + ["Removal keeps the part if it fits. Repair leaves fitting wear unchanged.", "Removal costs one credit; repair costs two. Both take two actions."]
+            from .equipment_presentation import equipment_format, equipment_text
+            return equipment_text("equipment.overlay.fit.title"), equipment_format("equipment.overlay.fit.detail", fitting=fitting.name, item=item_spec(item.kind).name, effect=fitting.effect, drawback=fitting.drawback, weight=fitting.weight, cost=fit_cost(state, parts[3])).split("\n")
+        from .equipment_presentation import equipment_text
+        return equipment_text("equipment.overlay.confirm.title"), describe(state, item) + [equipment_text("equipment.overlay.confirm.guidance"), equipment_text("equipment.overlay.confirm.costs")]
     if kind.startswith("vessel-refits:"):
         from .vessel_refits import REFITS, STATION_REFITS, installed
 

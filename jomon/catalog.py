@@ -81,6 +81,7 @@ CHEMISTRY_PRESENTATION_FILE = "chemistry_text.json"
 PRODUCTION_PRESENTATION_FILE = "production_text.json"
 MAGIC_PRESENTATION_FILE = "magic_text.json"
 PROGRESSION_PRESENTATION_FILE = "progression_text.json"
+EQUIPMENT_PRESENTATION_FILE = "equipment_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -522,6 +523,77 @@ _PROGRESSION_TEMPLATE_CONTRACT = {'progression.branch.blades.name': (), 'progres
 
 
 _PROGRESSION_TEMPLATE_CONTRACT.update({"progression.personal.name": ("role",), "progression.technique.mill_hearing.name": (), "progression.technique.shoreline_measure.name": (), "progression.technique.smoke_spoor.name": (), "progression.technique.bell_interval.name": ()})
+
+
+# Raw weapon and fitting kinds remain engine-owned inventory/catalog identities.
+# This contract only supplies labels, descriptions, and result wording for them.
+_EQUIPMENT_WORK_WEAPON_IDS = (
+    "pot sling", "throwing axe", "forked pike", "war flail", "spade",
+    "shield and hanger", "glaive", "pollaxe", "arming sword", "long knife",
+    "boat hook", "flanged mace", "estoc", "felling axe", "quarterstaff",
+    "reed sickle", "anchor fluke", "chain hook",
+)
+_EQUIPMENT_ARSENAL_IDS = (
+    "river sabre", "reed cleaver", "court rapier", "crescent knife", "watch backsword",
+    "hooked falchion", "river partisan", "three-prong trident", "coppice halberd",
+    "recurved naginata", "ferry lance", "iron-shod pole", "quarry morningstar",
+    "two-hand maul", "watch sap", "ore pick", "smith's hammer", "knotted club",
+    "reed shortbow", "laminated recurve", "horn composite bow", "broadhead hunting bow",
+    "war yew bow", "line-caster bow", "matchlock arquebus", "deck swivel gun",
+    "fowling piece", "braced long gun", "watch carbine", "signal pistol",
+    "smoke bomb kit", "pitch bomb kit", "lime bomb kit", "brine bomb kit",
+    "thunder bomb kit", "resin bomb kit",
+)
+_EQUIPMENT_FAMILY_IDS = ("blade", "reach", "impact", "bow", "gun", "device")
+_EQUIPMENT_EFFECT_IDS = ("aim", "armour", "bind", "blunt", "brine", "charge", "cut", "guard", "interrupt", "lime", "morale", "pierce", "pitch", "pull", "push", "quick", "reeds", "resin", "smoke", "sweep", "thunder", "timber")
+_EQUIPMENT_FITTING_IDS = (
+    "iron heel", "quiet binding", "retrieval cord", "resin seal", "ash wrap",
+    "wool lining", "reed lining", "iron scales",
+)
+_EQUIPMENT_TEMPLATE_CONTRACT = {
+    **{f"equipment.weapon.work.{weapon.replace(' ', '_')}.name": () for weapon in _EQUIPMENT_WORK_WEAPON_IDS},
+    **{f"equipment.weapon.work.{weapon.replace(' ', '_')}.description": () for weapon in _EQUIPMENT_WORK_WEAPON_IDS},
+    **{f"equipment.weapon.arsenal.{weapon.replace(' ', '_')}.name": () for weapon in _EQUIPMENT_ARSENAL_IDS},
+    "equipment.weapon.arsenal.description": ("family", "minimum", "reach", "damage", "effects", "ammunition"),
+    **{f"equipment.effect.{effect}.name": () for effect in _EQUIPMENT_EFFECT_IDS},
+    **{f"equipment.family.{family}.name": () for family in _EQUIPMENT_FAMILY_IDS},
+    **{f"equipment.fitting.{fitting.replace(' ', '_')}.name": () for fitting in _EQUIPMENT_FITTING_IDS},
+    **{f"equipment.fitting.{fitting.replace(' ', '_')}.effect": () for fitting in _EQUIPMENT_FITTING_IDS},
+    **{f"equipment.fitting.{fitting.replace(' ', '_')}.drawback": () for fitting in _EQUIPMENT_FITTING_IDS},
+    "equipment.pot.invalid_range": ("reach",), "equipment.pot.missing": (), "equipment.pot.no_cell": (),
+    "equipment.pot.pitch.wet": (), "equipment.pot.pitch.dry": (), "equipment.pot.lime": (), "equipment.pot.brine": (), "equipment.pot.fitting": ("fitting",),
+    "equipment.approach.load": (), "equipment.approach.level": (), "equipment.approach.blocked": (), "equipment.approach.wet": (),
+    "equipment.strike.forked_pike": ("target",), "equipment.strike.forked_pike.pair": ("target", "across"), "equipment.strike.war_flail": ("count",),
+    "equipment.strike.spade.dust": (), "equipment.strike.spade.none": (), "equipment.strike.throwing_axe.timber": (), "equipment.strike.throwing_axe.ground": (),
+    "equipment.strike.shield_hanger": (), "equipment.strike.glaive.clip": ("target",), "equipment.strike.glaive.none": (),
+    "equipment.strike.pollaxe.armoured": (), "equipment.strike.pollaxe.unarmoured": (), "equipment.strike.pollaxe.support": (),
+    "equipment.strike.arming_sword": (), "equipment.strike.long_knife.interrupt": (), "equipment.strike.long_knife.normal": (),
+    "equipment.strike.boat_hook": ("moved", "suffix"), "equipment.strike.flanged_mace": (), "equipment.strike.estoc.armoured": (), "equipment.strike.estoc.unarmoured": (),
+    "equipment.strike.felling_axe.cut": (), "equipment.strike.felling_axe.none": (), "equipment.strike.quarterstaff": (),
+    "equipment.strike.reed_sickle.cut": (), "equipment.strike.reed_sickle.none": (), "equipment.strike.anchor_fluke.anchored": (), "equipment.strike.anchor_fluke.normal": (), "equipment.strike.chain_hook": (),
+    **{f"equipment.ammunition.{ammunition.replace(' ', '_')}.name": () for ammunition in ("pitch pots", "lime pots", "brine pots", "smoke bombs", "pitch bombs", "lime bombs", "brine bombs", "thunder bombs", "resin bombs")},
+    "equipment.arsenal.bomb.description": (), "equipment.arsenal.device.range": (), "equipment.arsenal.device.cell": (), "equipment.arsenal.device.material_budget": (), "equipment.arsenal.ammunition.none": ("ammunition",), "equipment.arsenal.ammunition.none_short": ("ammunition",),
+    "equipment.arsenal.device.result": ("courier", "ammunition", "x", "y", "effect", "warning", "sound"), "equipment.arsenal.device.warning": (),
+    "equipment.arsenal.no_target": (), "equipment.arsenal.gun.loading": ("weapon", "remaining"), "equipment.arsenal.aim.prepare": ("courier", "weapon", "target"),
+    "equipment.arsenal.aim.gun_weather": (), "equipment.arsenal.aim.bow_weather": (), "equipment.arsenal.result.defeat": ("weapon", "target", "recovered"),
+    "equipment.arsenal.result.hit": ("weapon", "damage", "kind", "target", "health", "maximum"),
+    "equipment.arsenal.memory": ("courier", "outcome", "target", "weapon"), "equipment.provenance.fitting_installed": ("target",), "equipment.provenance.fitting_kit": (), "equipment.provenance.tethered_throw": (), "equipment.provenance.enemy_weapon": ("issue", "actor"), "equipment.provenance.enemy_armour": ("region", "actor"), "equipment.provenance.enemy_torso": ("actor",),
+    "equipment.workshop.compatible": (), "equipment.workshop.parent_damaged": (), "equipment.workshop.socket_occupied": ("slot",), "equipment.workshop.stock_empty": (),
+    "equipment.workshop.credit": ("cost",), "equipment.workshop.ready": (), "equipment.workshop.install.location": (), "equipment.workshop.install.result": ("fitting", "item", "cost", "effect"),
+    "equipment.workshop.remove.location": (), "equipment.workshop.remove.requirements": (), "equipment.workshop.remove.pack": (), "equipment.workshop.remove.result": ("fitting",),
+    "equipment.workshop.buy.location": (), "equipment.workshop.buy.stock": (), "equipment.workshop.buy.pack": (), "equipment.workshop.buy.result": ("fitting", "cost"),
+    "equipment.workshop.repair.invalid": (), "equipment.workshop.repair.credit": (), "equipment.workshop.repair.result": ("item", "condition"),
+    "equipment.workshop.describe.item": ("item", "condition", "cut", "pierce", "blunt", "coverage"), "equipment.workshop.describe.part": ("fitting", "condition", "slot"), "equipment.workshop.describe.guidance": (),
+    "equipment.fitting.quiet_binding": (), "equipment.fitting.resin_seal": (), "equipment.fitting.ash_wrap": (), "equipment.fitting.retrieval.recovered": (), "equipment.fitting.retrieval.ground": (),
+    "equipment.enemy.protection.broken": (), "equipment.enemy.drop": ("items",), "equipment.enemy.recover.intent": ("weapon",), "equipment.enemy.recover.result": ("threat", "intent"),
+    "intent.pinned.fork": (), "intent.pinned.fork_line": (), "intent.disrupted.long_knife": (), "intent.disrupted.boat_hook": (), "intent.dazed.flanged_mace": (), "intent.disrupted.quarterstaff": (), "intent.disrupted.anchor_fluke": (), "intent.entangled.chain": (), "intent.entangled.resin": (), "intent.dazed.lime": (), "intent.disrupted.equipment_interrupt": (), "intent.entangled.equipment_bind": (), "intent.defeated.removed": (), "intent.defeated.equipment": ("source", "location"), "intent.recovery.weapon_broken": (), "intent.recovery.weapon_recovered": ("weapon",),
+    "equipment.target.pot": (), "equipment.target.device": ("bomb",), "equipment.target.gun_loading": (), "equipment.target.aim.ready": (), "equipment.target.aim.prepare": (),
+    "equipment.overlay.slot": ("slot", "item"), "equipment.overlay.slot.empty": (), "equipment.overlay.slot.requirement": (), "equipment.overlay.buy.choice": (), "equipment.overlay.store.row": ("fitting", "price", "stock"), "equipment.overlay.preview": ("fitting", "cost"), "equipment.overlay.remove.choice": ("slot",), "equipment.overlay.repair.choice": (), "equipment.overlay.repair.requirement": (), "equipment.overlay.confirm.choice": (), "equipment.overlay.back.choice": (),
+    "equipment.overlay.station.title": (), "equipment.overlay.station.summary": ("credit",), "equipment.overlay.station.guidance": (), "equipment.overlay.store.title": (),
+    "equipment.overlay.store.summary": (), "equipment.overlay.store.stock": (), "equipment.overlay.work.title": (), "equipment.overlay.empty": (), "equipment.overlay.item.missing": (), "equipment.overlay.buy.title": (), "equipment.overlay.buy.detail": ("fitting", "effect", "drawback", "width", "height", "weight", "price"),
+    "equipment.overlay.fit.title": (), "equipment.overlay.fit.detail": ("fitting", "item", "effect", "drawback", "weight", "cost"), "equipment.overlay.confirm.title": (),
+    "equipment.overlay.confirm.guidance": (), "equipment.overlay.confirm.costs": (),
+}
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.choice.journal.write.label': (), 'progression.choice.journal.write.requirement': (), 'progression.choice.journal.study.label': (), 'progression.choice.journal.study.requirement': (), 'progression.choice.manoeuvre.label': (), 'progression.choice.manoeuvre.requirement': (), 'progression.choice.teach.label': (), 'progression.station.gathering.journal_guidance': (), 'progression.person.learned': ('practices',), 'progression.person.none': (), 'progression.person.practice_effect': ('practice', 'description'), 'progression.person.personal_effect': (), 'progression.person.teach': (), 'progression.household.none': (), 'progression.household.personal_effect': (), 'progression.personal.memory': ('region',), 'progression.personal.development': ('courier', 'practice'), 'progression.character.learned_nodes': ('nodes',), 'progression.character.none': (), 'progression.combat.note.guard_feint': (), 'progression.combat.note.slip_cut': (), 'progression.combat.note.weapon_bind': (), 'progression.combat.note.riposte_pressure': (), 'progression.combat.note.duelist_finish': (), 'progression.combat.note.edge_measure_guard': (), 'progression.combat.note.countercharge': (), 'progression.combat.note.timber_chipped': (), 'progression.combat.note.hook_haul': (), 'progression.combat.note.line_intercepted': (), 'progression.combat.note.ferryman_guard': (), 'progression.combat.note.called_shot': (), 'progression.combat.note.shaft_falls': (), 'progression.combat.note.measured_charge': (), 'progression.combat.note.matched_payload': (), 'progression.combat.note.target_veiled': (), 'progression.combat.note.masterwork_edge': ()})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.journal.write.title': (), 'progression.journal.write.summary': ('courier', 'written'), 'progression.journal.write.row': ('index', 'node', 'description'), 'progression.journal.write.page': ('page', 'pages'), 'progression.journal.write.provenance': ('courier',), 'progression.journal.study.title': (), 'progression.journal.study.summary': ('courier', 'inherited'), 'progression.journal.study.row': ('index', 'journal', 'node', 'provenance'), 'progression.journal.study.page': ('page', 'pages'), 'progression.teach.title': ('person',), 'progression.teach.summary': ('person', 'inherited', 'teacher'), 'progression.teach.row': ('index', 'node', 'parents'), 'progression.teach.none': (), 'progression.teach.page': ('page', 'pages')})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.combat.shaft.provenance': ()})
@@ -1022,6 +1094,12 @@ class ProgressionPresentation:
 
 
 @dataclass(frozen=True)
+class EquipmentPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1055,6 +1133,7 @@ class ContentPack:
     production_presentations: tuple[ProductionPresentation, ...]
     magic_presentations: tuple[MagicPresentation, ...]
     progression_presentations: tuple[ProgressionPresentation, ...]
+    equipment_presentations: tuple[EquipmentPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1162,6 +1241,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown progression presentation id: {semantic_id}")
 
+    def equipment_presentation(self, semantic_id: str) -> EquipmentPresentation:
+        for presentation in self.equipment_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown equipment presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1245,8 +1330,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, and progression")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, and equipment")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2172,6 +2257,26 @@ def _progression_presentations(root: Path, pack_id: str) -> tuple[ProgressionPre
         raise ContentPackError(f"invalid progression presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
     return tuple(ProgressionPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="progression")) for key, placeholders in _PROGRESSION_TEMPLATE_CONTRACT.items())
 
+def _equipment_presentations(root: Path, pack_id: str) -> tuple[EquipmentPresentation, ...]:
+    source = root / EQUIPMENT_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid equipment presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _EQUIPMENT_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("equipment") != expected:
+        raise RuntimeError(f"invalid engine equipment content contract at {contract_source}: equipment does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid equipment presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_EQUIPMENT_TEMPLATE_CONTRACT):
+        missing, unknown = set(_EQUIPMENT_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_EQUIPMENT_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required equipment keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown equipment keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid equipment presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(EquipmentPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="equipment")) for key, placeholders in _EQUIPMENT_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2345,10 +2450,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     production = _production_presentations(root, pack_id)
     magic = _magic_presentations(root, pack_id)
     progression = _progression_presentations(root, pack_id)
+    equipment = _equipment_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, household_template,
     )
 
 

@@ -135,3 +135,26 @@ class PhysicalEnemyEquipmentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class EquipmentIntentCompatibilityTests(unittest.TestCase):
+    def test_known_legacy_equipment_intent_maps_to_stable_identity(self):
+        state = expedition("legacy equipment intent")
+        data = state.to_dict()
+        raw = next(actor for actors in data["region_threats"].values() for actor in actors if actor["profile"] != "animal")
+        raw.pop("intent_id", None)
+        raw["intent"] = "bound by spilled resin; loses a turn pulling free"
+        loaded = game_state_from_dict(data)
+        actor = next(actor for actors in loaded.region_threats.values() for actor in actors if actor.id == raw["id"])
+        self.assertEqual(actor.intent_id, "intent.entangled.resin")
+        self.assertEqual(actor.intent, "bound by spilled resin; loses a turn pulling free")
+
+    def test_unknown_legacy_equipment_intent_is_not_guessed(self):
+        state = expedition("unknown equipment intent")
+        data = state.to_dict()
+        raw = next(actor for actors in data["region_threats"].values() for actor in actors if actor["profile"] != "animal")
+        raw.pop("intent_id", None)
+        raw["intent"] = "unrelated rewritten equipment wording"
+        loaded = game_state_from_dict(data)
+        actor = next(actor for actors in loaded.region_threats.values() for actor in actors if actor.id == raw["id"])
+        self.assertEqual(actor.intent_id, "intent.legacy.unknown")
+        self.assertEqual(actor.intent, "unrelated rewritten equipment wording")

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
+from .equipment_presentation import equipment_format, fitting_drawback, fitting_effect, fitting_name
 from .state import GameState, Item, Position, stage_rng
 
 
@@ -21,7 +22,7 @@ class Fitting:
 
 
 FITTINGS = {
-    name: Fitting(**{**row, "shape": tuple(row["shape"]), "targets": tuple(row["targets"])})
+    name: Fitting(**{**row, "name": fitting_name(name), "effect": fitting_effect(name), "drawback": fitting_drawback(name), "shape": tuple(row["shape"]), "targets": tuple(row["targets"])})
     for name, row in load_catalog("equipment.json", EQUIPMENT_SECTIONS)["fittings"].items()
 }
 WORKBENCH = Position(39, 5, -1)
@@ -102,17 +103,17 @@ def fit_cost(state: GameState, name: str) -> int:
 
 def can_fit(state: GameState, target: Item | None, name: str) -> tuple[bool, str]:
     if target is None or not compatible(target, name):
-        return False, "Choose a compatible worn or readied item."
+        return False, equipment_format("equipment.workshop.compatible")
     if target.condition <= 0:
-        return False, "Repair the parent item first."
+        return False, equipment_format("equipment.workshop.parent_damaged")
     definition = FITTINGS[name]
     if any(FITTINGS[part.kind.split(":", 1)[1]].slot == definition.slot for part in attached(state, target)):
-        return False, f"Remove the existing {definition.slot} fitting first."
+        return False, equipment_format("equipment.workshop.socket_occupied", slot=definition.slot)
     if fitting_source(state, name) is None and not state.vessel_changes.get(f"fitting_stock:{name}", 0):
-        return False, "No physical kit or counted workshop stock remains."
+        return False, equipment_format("equipment.workshop.stock_empty")
     if state.trade_credit < fit_cost(state, name):
-        return False, f"Need {fit_cost(state, name)} credit for the kit and bench work."
-    return True, "Two actions; fitted mass still counts."
+        return False, equipment_format("equipment.workshop.credit", cost=fit_cost(state, name))
+    return True, equipment_format("equipment.workshop.ready")
 
 
 def _finish(state: GameState, message: str) -> tuple[bool, str]:
@@ -131,7 +132,7 @@ def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
     from .inventory import create_item, item_spec
 
     if not _bench(state) or name not in FITTINGS:
-        return False, "Approach the lower workshop with a known fitting."
+        return False, equipment_format("equipment.workshop.install.location")
     target = _owned_target(state, target_id)
     valid, reason = can_fit(state, target, name)
     if not valid:
@@ -139,7 +140,7 @@ def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
     cost = fit_cost(state, name)
     part = fitting_source(state, name)
     if part is None:
-        part = create_item(state, f"fitting:{name}", f"counted workshop kit fitted to {target.id}", location="fitted")
+        part = create_item(state, f"fitting:{name}", equipment_format("equipment.provenance.fitting_installed", target=target.id), location="fitted")
         state.vessel_changes[f"fitting_stock:{name}"] -= 1
     part.location, part.owner_id, part.container_id = "fitted", None, None
     part.fitted_to, part.ground_position, part.region_id = target.id, None, None
@@ -149,7 +150,7 @@ def install(state: GameState, target_id: str, name: str) -> tuple[bool, str]:
     from .skill_tree import record_milestone
 
     record_milestone(state, "craft:smithing")
-    return _finish(state, f"The workshop fits {name} to {item_spec(target.kind).name}; {cost} credit and two actions. {FITTINGS[name].effect}")
+    return _finish(state, equipment_format("equipment.workshop.install.result", fitting=FITTINGS[name].name, item=item_spec(target.kind).name, cost=cost, effect=FITTINGS[name].effect))
 
 
 def remove(state: GameState, target_id: str, socket: str) -> tuple[bool, str]:
@@ -157,35 +158,35 @@ def remove(state: GameState, target_id: str, socket: str) -> tuple[bool, str]:
 
     target = _owned_target(state, target_id)
     if not _bench(state) or target is None:
-        return False, "Approach the workshop with the equipped parent item."
+        return False, equipment_format("equipment.workshop.remove.location")
     part = next((part for part in attached(state, target) if FITTINGS[part.kind.split(":", 1)[1]].slot == socket), None)
     if part is None or state.trade_credit < 1:
-        return False, "Removal needs a fitted part and one credit."
+        return False, equipment_format("equipment.workshop.remove.requirements")
     old = dict(part.__dict__)
     if not auto_place(state, part.id, "pack", owner_id=state.active_courier_id):
         part.__dict__.update(old)
-        return False, "The removed part does not fit. Repack first; nothing changed."
+        return False, equipment_format("equipment.workshop.remove.pack")
     part.fitted_to = None
     state.trade_credit -= 1
-    return _finish(state, f"Removed {part.kind.split(':', 1)[1]} intact into the pack; one credit and two actions.")
+    return _finish(state, equipment_format("equipment.workshop.remove.result", fitting=FITTINGS[part.kind.split(":", 1)[1]].name))
 
 
 def buy_kit(state: GameState, name: str) -> tuple[bool, str]:
     from .inventory import auto_place, create_item
 
     if not _bench(state) or name not in FITTINGS:
-        return False, "Buy counted kits at the lower workshop."
+        return False, equipment_format("equipment.workshop.buy.location")
     cost = FITTINGS[name].price
     if state.trade_credit < cost or state.vessel_changes.get(f"fitting_stock:{name}", 0) <= 0:
-        return False, "Insufficient credit or counted stock."
-    item = create_item(state, f"fitting:{name}", "counted Jomon workshop kit")
+        return False, equipment_format("equipment.workshop.buy.stock")
+    item = create_item(state, f"fitting:{name}", equipment_format("equipment.provenance.fitting_kit"))
     if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         state.items.remove(item)
         state.next_item_id -= 1
-        return False, "The kit stays at the bench: no pack space. No stock or credit spent."
+        return False, equipment_format("equipment.workshop.buy.pack")
     state.vessel_changes[f"fitting_stock:{name}"] -= 1
     state.trade_credit -= cost
-    return _finish(state, f"Bought a physical {name} kit for {cost} credit; two actions of counted work.")
+    return _finish(state, equipment_format("equipment.workshop.buy.result", fitting=FITTINGS[name].name, cost=cost))
 
 
 def repair(state: GameState, target_id: str) -> tuple[bool, str]:
@@ -194,9 +195,9 @@ def repair(state: GameState, target_id: str) -> tuple[bool, str]:
 
     target = _owned_target(state, target_id)
     if not _bench(state) or target is None or target.condition >= 100:
-        return False, "Choose damaged worn or readied equipment at the workshop."
+        return False, equipment_format("equipment.workshop.repair.invalid")
     if state.trade_credit < 2:
-        return False, "Repair needs two credit for material and two actions."
+        return False, equipment_format("equipment.workshop.repair.credit")
     craft = effective_competency(state.courier, "craft") if state.courier else 0
     target.condition = min(100, target.condition + 35 + min(10, (craft // 5) * 5)
                            + (5 if state.courier and "tool-care" in state.courier.skill_nodes else 0))
@@ -206,14 +207,14 @@ def repair(state: GameState, target_id: str) -> tuple[bool, str]:
     state.trade_credit -= 2
     if state.courier:
         state.courier.craft = min(20, state.courier.craft + 1)
-    return _finish(state, f"Repair work brings {item_spec(target.kind).name} to {target.condition} condition; two credit, two actions. Fitting wear remains separate.")
+    return _finish(state, equipment_format("equipment.workshop.repair.result", item=item_spec(target.kind).name, condition=target.condition))
 
 
 def describe(state: GameState, target: Item) -> list[str]:
     spec = effective_spec(state, target)
-    lines = [f"{spec.name}: condition {target.condition}; cut/pierce/blunt {spec.cut}/{spec.pierce}/{spec.blunt}; coverage {spec.coverage}."]
-    lines.extend(f"{part.kind.split(':', 1)[1]}: condition {part.condition}; {FITTINGS[part.kind.split(':', 1)[1]].slot}." for part in attached(state, target))
-    lines.append("Fittings follow the parent through drops, theft and death; removal needs pack room.")
+    lines = [equipment_format("equipment.workshop.describe.item", item=spec.name, condition=target.condition, cut=spec.cut, pierce=spec.pierce, blunt=spec.blunt, coverage=spec.coverage)]
+    lines.extend(equipment_format("equipment.workshop.describe.part", fitting=FITTINGS[part.kind.split(":", 1)[1]].name, condition=part.condition, slot=FITTINGS[part.kind.split(":", 1)[1]].slot) for part in attached(state, target))
+    lines.append(equipment_format("equipment.workshop.describe.guidance"))
     return lines
 
 
@@ -226,29 +227,29 @@ def attack_effects(state: GameState, target: Position, sound: int, ammunition: s
     if binding:
         sound = max(0, sound - 2)
         binding.condition = max(0, binding.condition - 1)
-        messages.append("quiet binding muffles the committed attack")
+        messages.append(equipment_format("equipment.fitting.quiet_binding"))
     seal = active_part(state, "resin seal")
     if seal and state.weather in {"hard rain", "coast squall", "forest rain"}:
         seal.condition = max(0, seal.condition - 5)
-        messages.append("resin seal keeps the wet string prepared")
+        messages.append(equipment_format("equipment.fitting.resin_seal"))
     wrap = active_part(state, "ash wrap")
     if wrap and (position_key(state.position) in state.smoke or "smoke-inhalation" in state.terrain_statuses):
         wrap.condition = max(0, wrap.condition - 5)
-        messages.append("ash wrap steadies the smoky preparation")
+        messages.append(equipment_format("equipment.fitting.ash_wrap"))
     cord = active_part(state, "retrieval cord")
     if cord and ammunition:
         cord.condition = max(0, cord.condition - 10)
         if state.weapon == "hooked javelin":
             recovered = next((item for item in reversed(state.items) if item.location == "ground" and item.kind == AMMUNITION_ITEMS[ammunition] and item.ground_position == target), None)
         else:
-            recovered = create_item(state, AMMUNITION_ITEMS[ammunition], "spent throw tethered by a retrieval cord", location="ground")
+            recovered = create_item(state, AMMUNITION_ITEMS[ammunition], equipment_format("equipment.provenance.tethered_throw"), location="ground")
             recovered.region_id, recovered.ground_position = state.spatial_id, target
         if recovered:
             if distance(state.position, target) <= 4 and line_of_sight(state, state.position, target) and auto_place(state, recovered.id, "pack", owner_id=state.active_courier_id):
                 sync_legacy_load(state)
-                messages.append("retrieval cord reels the physical throw back into the pack")
+                messages.append(equipment_format("equipment.fitting.retrieval.recovered"))
             else:
-                messages.append("the tethered throw remains on the ground for physical recovery")
+                messages.append(equipment_format("equipment.fitting.retrieval.ground"))
     return sound, "; ".join(messages)
 
 

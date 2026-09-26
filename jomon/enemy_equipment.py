@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
+from .equipment_presentation import equipment_format
 from .state import GameState, Position, Threat, stage_rng
 
 
@@ -29,6 +30,11 @@ class EnemyHarm:
 REGIONAL_ARMOUR = {
     region: tuple(names) for region, names in load_catalog("equipment.json", EQUIPMENT_SECTIONS)["enemy_regional_armour"].items()
 }
+
+
+def _set_equipment_intent(threat, semantic_id: str, **values: object) -> None:
+    threat.intent_id = semantic_id
+    threat.intent = equipment_format(semantic_id, **values)
 
 
 def _weapon_kind(actor: Threat) -> str:
@@ -80,7 +86,7 @@ def issue_enemy_equipment(state: GameState, actor: Threat, region_id: str) -> No
 
     weapon = create_item(
         state, _weapon_kind(actor),
-        f"{actor.group or actor.allegiance or region_id} working issue carried by {actor.name}",
+        equipment_format("equipment.provenance.enemy_weapon", issue=actor.group or actor.allegiance or region_id, actor=actor.name),
         location="readied", owner_id=actor.id,
         condition=85 if actor.elite else 70,
     )
@@ -88,11 +94,11 @@ def issue_enemy_equipment(state: GameState, actor: Threat, region_id: str) -> No
         raise ValueError(f"enemy weapon {weapon.kind!r} is not physical weapon content")
     head, torso = REGIONAL_ARMOUR.get(region_id, REGIONAL_ARMOUR["hearthford"])
     create_item(
-        state, head, f"weathered {region_id} protection worn by {actor.name}",
+        state, head, equipment_format("equipment.provenance.enemy_armour", region=region_id, actor=actor.name),
         location="head", owner_id=actor.id, condition=75 if actor.elite else 55,
     )
     create_item(
-        state, torso, f"working protection worn by {actor.name}",
+        state, torso, equipment_format("equipment.provenance.enemy_torso", actor=actor.name),
         location="torso", owner_id=actor.id, condition=80 if actor.elite else 60,
     )
     actor.uses_physical_equipment = True
@@ -134,7 +140,7 @@ def drop_enemy_equipment(state: GameState, actor: Threat) -> str:
         dropped.append(item_spec(item.kind).name)
     if not dropped:
         return ""
-    return " Physical kit falls: " + ", ".join(dropped) + "."
+    return equipment_format("equipment.enemy.drop", items=", ".join(dropped))
 
 
 def hit_location(state: GameState, actor: Threat, damage_kind: str, source: str) -> str:
@@ -180,7 +186,7 @@ def harm_enemy(
         armour.condition = max(0, armour.condition - 6 - absorbed * 4)
         if armour.condition == 0:
             armour.location, armour.owner_id = "destroyed", None
-            protection_name += " (broken)"
+            protection_name += equipment_format("equipment.enemy.protection.broken")
     actor.health = max(0, actor.health - dealt)
     injury = ""
     if actor.uses_physical_equipment and actor.health and (
@@ -199,7 +205,7 @@ def harm_enemy(
     dropped = ""
     if actor.health == 0:
         actor.status = "defeated"
-        actor.intent = f"fell after {source} struck {location}"
+        _set_equipment_intent(actor, "intent.defeated.equipment", source=source, location=location)
         from .inventory import release_enemy_possession
 
         dropped = release_enemy_possession(state, actor) + drop_enemy_equipment(state, actor)
@@ -230,7 +236,7 @@ def wear_readied_weapon(state: GameState, actor: Threat, amount: int = 1) -> Non
         weapon.condition = max(0, weapon.condition - amount)
         if weapon.condition == 0:
             weapon.location, weapon.owner_id = "destroyed", None
-            actor.intent = "its physical weapon has broken; seeks another or withdraws"
+            _set_equipment_intent(actor, "intent.recovery.weapon_broken")
 
 
 def tick_enemy_conditions(state: GameState) -> None:
@@ -257,5 +263,5 @@ def recover_ground_weapon(state: GameState, actor: Threat, point: Position) -> s
         return ""
     item.location, item.owner_id, item.ground_position = "readied", actor.id, None
     actor.morale = max(1, actor.morale)
-    actor.intent = f"readies the fallen {item_spec(item.kind).name}"
-    return f"The {actor.name} {actor.intent}; that exact weapon is no longer on the ground."
+    _set_equipment_intent(actor, "intent.recovery.weapon_recovered", weapon=item_spec(item.kind).name)
+    return equipment_format("equipment.enemy.recover.result", threat=actor.name, intent=actor.intent)

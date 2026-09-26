@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
+from .equipment_presentation import equipment_format, work_weapon_description, work_weapon_name
 
 @dataclass(frozen=True)
 class WorkingWeapon:
@@ -28,10 +29,15 @@ class WorkingStrike:
 
 _EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
 WORK_WEAPONS = {
-    name: WorkingWeapon(**{**row, "shape": tuple(row["shape"]), "regions": tuple(row["regions"])})
+    name: WorkingWeapon(**{**row, "name": work_weapon_name(name), "description": work_weapon_description(name), "shape": tuple(row["shape"]), "regions": tuple(row["regions"])})
     for name, row in _EQUIPMENT["work_weapons"].items()
 }
 POT_AMMUNITION = dict(_EQUIPMENT["pot_ammunition"])
+
+
+def _set_equipment_intent(threat, semantic_id: str, **values: object) -> None:
+    threat.intent_id = semantic_id
+    threat.intent = equipment_format(semantic_id, **values)
 
 
 def available_pots(state):
@@ -47,31 +53,31 @@ def cast_pot(state, point, ammunition=None):
 
     reach = effective_weapon_range(state)
     if point is None or not 3 <= distance(state.position, point) <= reach or not courier_sees(state, point):
-        return _plain(state, f"The pot sling needs a visible landing three to {reach} paces away.")
+        return _plain(state, equipment_format("equipment.pot.invalid_range", reach=reach))
     choices = available_pots(state)
     ammunition = ammunition or (choices[0] if choices else None)
     if ammunition not in choices:
-        return _plain(state, "That physical pot is not in the pack; nothing was thrown.")
+        return _plain(state, equipment_format("equipment.pot.missing"))
     cell = ensure_cell(state, point)
     if cell is None:
-        return _plain(state, "The landing has no usable material space; the pot stays packed.")
+        return _plain(state, equipment_format("equipment.pot.no_cell"))
     consume_ammunition(state, ammunition)
     if ammunition == "pitch pots":
         cell.material, cell.coating, cell.fuel = "oil", "oil", 5
         cell.fire = 0 if cell.water else 1
-        message = "The pitch pot wets the landing with fuel" + ("; existing water denies ignition." if cell.water else "; fire can spread downwind into dry material.")
+        message = equipment_format("equipment.pot.pitch.wet" if cell.water else "equipment.pot.pitch.dry")
     elif ammunition == "lime pots":
         cell.material, cell.coating, cell.smoke = "lime", "lime", 3
-        message = "The lime pot raises an abrasive cloud; water sustains its caustic slurry."
+        message = equipment_format("equipment.pot.lime")
     else:
         cell.fluid, cell.water, cell.coating, cell.ice, cell.fire = "salt", 3, "salt", False, 0
-        message = "The brine pot quenches the landing; salt water follows openings and burdens exposed bodies."
+        message = equipment_format("equipment.pot.brine")
     from .workshop import attack_effects
     sound, fitting = attack_effects(state, point, 1, None)
     emit_sound(state, sound)
     emit_sound(state, 3, point)
     if fitting:
-        message += " " + fitting + "; the pot still breaks loudly at its landing."
+        message += " " + equipment_format("equipment.pot.fitting", fitting=fitting)
     from .skill_tree import record_milestone
 
     record_milestone(state, "combat:devices")
@@ -84,15 +90,15 @@ def approach(state, target):
     from .world import base_tile, is_walkable, projectile_path
 
     if load_state(state) in {"encumbered", "overloaded"} or {"legs", "feet"} & set(state.courier.injuries) or {"bogged", "poor-footing", "net-drag"} & set(state.terrain_statuses):
-        return None, "A shielded approach needs a manageable load and sound legs and feet."
+        return None, equipment_format("equipment.approach.load")
     if state.position.z != target.position.z:
-        return None, "The shield cannot charge through a different floor."
+        return None, equipment_format("equipment.approach.level")
     points = projectile_path(state.position, target.position, state)[1:-1]
     if any(not is_walkable(state, p) or base_tile(state, p) in {"m", ",", "~", "d", "O"} for p in [state.position, *points]):
-        return None, "Water, broken footing or another body blocks the shielded approach."
+        return None, equipment_format("equipment.approach.blocked")
     from .materials import fields, key
     if any((cell := fields(state).get(key(p))) and (cell.water or cell.ice) for p in [state.position, *points]):
-        return None, "Wet or frozen material denies a shielded charge."
+        return None, equipment_format("equipment.approach.wet")
     return points, ""
 
 
@@ -102,14 +108,14 @@ def strike_effects(state, target, candidates):
     from .world import distance, line_of_sight
 
     if state.weapon == "forked pike":
-        target.intent = "pinned between the fork tines"
+        _set_equipment_intent(target, "intent.pinned.fork")
         neighbours = [a for a in candidates if a.id != target.id and a.position.z == target.position.z
                       and distance(a.position, target.position) <= 1 and distance(a.position, state.position) >= 2]
         dx, dy = target.position.x - state.position.x, target.position.y - state.position.y
         across = next((a for a in neighbours if (a.position.x == target.position.x if abs(dx) >= abs(dy) else a.position.y == target.position.y)), None)
         if across:
-            across.intent = "pinned across the forked guard line"
-        return WorkingStrike("the fork pins " + (f"both {target.name} and {across.name}" if across else target.name))
+            _set_equipment_intent(across, "intent.pinned.fork_line")
+        return WorkingStrike(equipment_format("equipment.strike.forked_pike.pair", target=target.name, across=across.name) if across else equipment_format("equipment.strike.forked_pike", target=target.name))
     if state.weapon == "war flail":
         count = 0
         for actor in candidates:
@@ -117,25 +123,25 @@ def strike_effects(state, target, candidates):
                 continue
             harm_enemy(state, actor, 2, "war flail sweep", damage_kind="blunt")
             count += 1
-        return WorkingStrike(f"the exposed wind-up sweeps {count} other nearby bodies")
+        return WorkingStrike(equipment_format("equipment.strike.war_flail", count=count))
     if state.weapon == "spade":
         cell = fields(state).get(key(state.position))
         if material_at(state, state.position) in {"soil", "ash"} and not (cell and cell.water):
             dust = ensure_cell(state, target.position)
             if dust:
                 dust.coating, dust.smoke = "ash", max(2, dust.smoke)
-                return WorkingStrike("dry bank dust obscures the struck place and changes the next pursuit")
-        return WorkingStrike("wet or stone footing gives no dust to throw")
+                return WorkingStrike(equipment_format("equipment.strike.spade.dust"))
+        return WorkingStrike(equipment_format("equipment.strike.spade.none"))
     if state.weapon == "throwing axe":
         if material_at(state, target.position) == "timber":
             cell = ensure_cell(state, target.position)
             if cell:
                 cell.support = max(0, cell.support - 1)
-                return WorkingStrike("the lodged axe weakens timber before falling where it struck")
-        return WorkingStrike("the actual axe falls where it struck; the weapon hand is left empty")
+                return WorkingStrike(equipment_format("equipment.strike.throwing_axe.timber"))
+        return WorkingStrike(equipment_format("equipment.strike.throwing_axe.ground"))
     if state.weapon == "shield and hanger":
         state.guarded_step = True
-        return WorkingStrike("the shielded approach trades damage for closing the lane", guarded=True)
+        return WorkingStrike(equipment_format("equipment.strike.shield_hanger"), guarded=True)
     if state.weapon == "glaive":
         adjacent = next(
             (
@@ -147,10 +153,7 @@ def strike_effects(state, target, candidates):
         )
         if adjacent:
             harm_enemy(state, adjacent, 1, "glaive follow-through", damage_kind="cut")
-        return WorkingStrike(
-            f"the long edge clips {adjacent.name} beside the target" if adjacent
-            else "the long edge finds no second body"
-        )
+        return WorkingStrike(equipment_format("equipment.strike.glaive.clip", target=adjacent.name) if adjacent else equipment_format("equipment.strike.glaive.none"))
     if state.weapon == "pollaxe":
         cell = ensure_cell(state, target.position)
         support = bool(cell and material_at(state, target.position) == "timber")
@@ -158,20 +161,20 @@ def strike_effects(state, target, candidates):
             cell.support = max(0, cell.support - 1)
         armoured = target.elite or target.role == "protector" or target.profile == "machinery"
         return WorkingStrike(
-            "the beak defeats rigid protection" + (" and chips timber support" if support else ""),
+            equipment_format("equipment.strike.pollaxe.armoured" if armoured else "equipment.strike.pollaxe.unarmoured") + (equipment_format("equipment.strike.pollaxe.support") if support else ""),
             bonus_damage=1 if armoured else 0,
         )
     if state.weapon == "arming sword":
         target.morale -= 1
         state.guarded_step = True
-        return WorkingStrike("the measured cut closes in a guarded counter-posture", guarded=True)
+        return WorkingStrike(equipment_format("equipment.strike.arming_sword"), guarded=True)
     if state.weapon == "long knife":
         interrupted = target.aimed_at is not None
         target.aimed_at = None
         if interrupted:
             target.reload_turns = max(1, target.reload_turns)
-            target.intent = "its marked aim was spoiled by a silent close cut"
-        return WorkingStrike("the silent cut spoils the marked aim" if interrupted else "the small blade lands without a report")
+            _set_equipment_intent(target, "intent.disrupted.long_knife")
+        return WorkingStrike(equipment_format("equipment.strike.long_knife.interrupt" if interrupted else "equipment.strike.long_knife.normal"))
     if state.weapon == "boat hook":
         cell = fields(state).get(key(target.position))
         pulls = 2 if cell and cell.water else 1
@@ -183,16 +186,16 @@ def strike_effects(state, target, candidates):
             if target.position == previous:
                 break
             moved += 1
-        target.intent = "hauled out of its chosen footing"
-        return WorkingStrike(f"the hook hauls the target {moved} pace{'s' if moved != 1 else ''}")
+        _set_equipment_intent(target, "intent.disrupted.boat_hook")
+        return WorkingStrike(equipment_format("equipment.strike.boat_hook", moved=moved, suffix="s" if moved != 1 else ""))
     if state.weapon == "flanged mace":
         target.morale -= 3
-        target.intent = "shaken by the compact impact"
-        return WorkingStrike("the flanges break three morale")
+        _set_equipment_intent(target, "intent.dazed.flanged_mace")
+        return WorkingStrike(equipment_format("equipment.strike.flanged_mace"))
     if state.weapon == "estoc":
         armoured = target.elite or target.role == "protector" or target.profile == "machinery"
         return WorkingStrike(
-            "the narrow point enters a rigid gap" if armoured else "the narrow point finds no rigid gap",
+            equipment_format("equipment.strike.estoc.armoured" if armoured else "equipment.strike.estoc.unarmoured"),
             bonus_damage=2 if armoured else 0,
         )
     if state.weapon == "felling axe":
@@ -200,13 +203,13 @@ def strike_effects(state, target, candidates):
         cut = bool(cell and material_at(state, target.position) == "timber")
         if cut:
             cell.support = max(0, cell.support - 2)
-        return WorkingStrike("the broad edge removes two timber support" if cut else "the broad edge finds no timber support")
+        return WorkingStrike(equipment_format("equipment.strike.felling_axe.cut" if cut else "equipment.strike.felling_axe.none"))
     if state.weapon == "quarterstaff":
         from .enemy_ai import retreat_step
         target.position = retreat_step(state, target)
-        target.intent = "driven out of close measure"
+        _set_equipment_intent(target, "intent.disrupted.quarterstaff")
         state.guarded_step = True
-        return WorkingStrike("the ferrule drives the target back under guard", guarded=True)
+        return WorkingStrike(equipment_format("equipment.strike.quarterstaff"), guarded=True)
     if state.weapon == "reed sickle":
         cell = ensure_cell(state, target.position)
         cut = bool(cell and material_at(state, target.position) == "reeds")
@@ -214,7 +217,7 @@ def strike_effects(state, target, candidates):
             cell.material, cell.fuel = "soil", max(2, cell.fuel)
         if target.profile == "animal":
             target.morale -= 1
-        return WorkingStrike("cut reeds fall as loose dry fuel" if cut else "the sickle finds no reeds to turn into fuel")
+        return WorkingStrike(equipment_format("equipment.strike.reed_sickle.cut" if cut else "equipment.strike.reed_sickle.none"))
     if state.weapon == "anchor fluke":
         from .enemy_ai import next_path_step
         target.position = next_path_step(state, target, state.position, stop_distance=1)
@@ -222,13 +225,13 @@ def strike_effects(state, target, candidates):
         anchored = bool(courier_cell and courier_cell.water)
         if anchored:
             state.guarded_step = True
-        target.intent = "dragged toward the anchored fluke"
+        _set_equipment_intent(target, "intent.disrupted.anchor_fluke")
         return WorkingStrike(
-            "flooded footing anchors the pull and leaves guard" if anchored else "the heavy fluke drags the target inward",
+            equipment_format("equipment.strike.anchor_fluke.anchored" if anchored else "equipment.strike.anchor_fluke.normal"),
             guarded=anchored,
         )
     if state.weapon == "chain hook":
-        target.intent = "entangled in the cut chain; loses a turn cutting free"
+        _set_equipment_intent(target, "intent.entangled.chain")
         target.morale -= 1
-        return WorkingStrike("the chain entangles without direct harm")
+        return WorkingStrike(equipment_format("equipment.strike.chain_hook"))
     return WorkingStrike("")

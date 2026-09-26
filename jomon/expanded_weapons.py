@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import EQUIPMENT_SECTIONS, load_catalog
+from .equipment_presentation import arsenal_weapon_name, equipment_effect_name, equipment_family_name, equipment_format
 
 @dataclass(frozen=True)
 class ArsenalWeapon:
@@ -23,8 +24,15 @@ class ArsenalWeapon:
     @property
     def description(self) -> str:
         ammunition = ammunition_for(self.name)
-        cost = f" Consumes one physical {ammunition}." if ammunition else ""
-        return f"{self.family.title()} arm; {self.minimum}-{self.reach} pace reach, {self.damage} base harm. {', '.join(self.effects)}.{cost}"
+        return equipment_format(
+            "equipment.weapon.arsenal.description", family=equipment_family_name(self.family), minimum=self.minimum,
+            reach=self.reach, damage=self.damage, effects=", ".join(equipment_effect_name(effect) for effect in self.effects),
+            ammunition=f" Consumes one physical {ammunition}." if ammunition else "",
+        )
+
+    @property
+    def display_name(self) -> str:
+        return arsenal_weapon_name(self.name)
 
 
 _EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
@@ -36,6 +44,11 @@ ARSENAL: dict[str, ArsenalWeapon] = {
     for row in _EQUIPMENT["arsenal"]
 }
 BOMB_AMMUNITION = dict(_EQUIPMENT["bomb_ammunition"])
+
+
+def _set_equipment_intent(threat, semantic_id: str, **values: object) -> None:
+    threat.intent_id = semantic_id
+    threat.intent = equipment_format(semantic_id, **values)
 
 
 def ammunition_for(name: str) -> str | None:
@@ -66,18 +79,18 @@ def strike(state, target_id=None, *, target_position=None):
     if weapon.family == "device":
         point = target_position or (target.position if target else None)
         if point is None or not weapon.minimum <= distance(state.position, point) <= effective_weapon_range(state) or not courier_sees(state, point):
-            return _plain(state, "Choose a visible landing within this device's throwing reach.")
+            return _plain(state, equipment_format("equipment.arsenal.device.range"))
         cell = ensure_cell(state, point)
         if cell is None:
-            return _plain(state, "That landing cannot hold a material reaction.")
+            return _plain(state, equipment_format("equipment.arsenal.device.cell"))
         delayed = weapon.effects[0] == "thunder" and has_node(state.courier, "delayed-fuse")
         if delayed and (len(set(cell.reagents) | {"brine", "spark salt"}) > 4
                         or sum(cell.reagents.values()) > 6
                         or cell.reagents.get("brine", 0) >= 4 or cell.reagents.get("spark salt", 0) >= 4):
-            return _plain(state, "The warned mineral flash needs room for two more measures of reagent.")
+            return _plain(state, equipment_format("equipment.arsenal.device.material_budget"))
         ammunition = ammunition_for(state.weapon)
         if physical_ammunition(state, ammunition) <= 0 or not consume_ammunition(state, ammunition):
-            return _plain(state, f"No physical {ammunition} remain in the pack.")
+            return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition))
         effect = weapon.effects[0]
         if effect == "smoke":
             cell.smoke = max(cell.smoke, 4)
@@ -106,9 +119,9 @@ def strike(state, target_id=None, *, target_position=None):
             elif effect == "thunder" and has_node(state.courier, "controlled-chain"):
                 actor.morale -= 1
             elif effect == "resin":
-                actor.intent = "bound by spilled resin; loses a turn pulling free"
+                _set_equipment_intent(actor, "intent.entangled.resin")
             elif effect == "lime":
-                actor.intent = "eyes stung by the lime cloud"
+                _set_equipment_intent(actor, "intent.dazed.lime")
         if has_node(state.courier, "scatter-bank") and effect == "smoke":
             from .state import Position
 
@@ -117,30 +130,30 @@ def strike(state, target_id=None, *, target_position=None):
                 second.smoke = max(second.smoke, 2)
         sound = emit_sound(state, weapon.noise, point)
         record_milestone(state, "combat:devices")
-        warning = " A mineral flash is warned for the next action." if delayed else ""
-        return _time_result(state, f"{state.courier.name} throws one {ammunition} onto {point.x},{point.y}; {effect} changes the shared ground.{warning} " + " ".join(sound), priority=3)
+        warning = equipment_format("equipment.arsenal.device.warning") if delayed else ""
+        return _time_result(state, equipment_format("equipment.arsenal.device.result", courier=state.courier.name, ammunition=ammunition, x=point.x, y=point.y, effect=effect, warning=warning, sound=" ".join(sound)), priority=3)
 
     if target is None:
-        return _plain(state, "No legal visible hostile is within this weapon's reach.")
+        return _plain(state, equipment_format("equipment.arsenal.no_target"))
     ammunition = ammunition_for(state.weapon)
     if ammunition and physical_ammunition(state, ammunition) <= 0:
-        return _plain(state, f"No physical {ammunition} remain in the pack.")
+        return _plain(state, equipment_format("equipment.arsenal.ammunition.none", ammunition=ammunition))
     if weapon.family == "gun":
         required = 1 if "quick" in weapon.effects or has_node(state.courier, "vent-care") else 2
         if state.weapon_ready < required:
-            return _plain(state, f"{state.weapon} needs {required - state.weapon_ready} guarded loading action(s); press G.")
+            return _plain(state, equipment_format("equipment.arsenal.gun.loading", weapon=weapon.display_name, remaining=required - state.weapon_ready))
     quick_bow = weapon.family == "bow" and has_node(state.courier, "quick-nock")
     if weapon.family in {"gun", "bow"} and "quick" not in weapon.effects and not quick_bow and state.aimed_target != target.id:
         state.aimed_target = target.id
-        return _time_result(state, f"{state.courier.name} prepares {state.weapon} on {target.name}; firing commits the next action.", priority=3)
+        return _time_result(state, equipment_format("equipment.arsenal.aim.prepare", courier=state.courier.name, weapon=weapon.display_name, target=target.name), priority=3)
     if weapon.family == "gun" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "dry-load"):
         state.aimed_target = None
-        return _time_result(state, "Wet weather spoils the exposed gun aim before the charge is released.", priority=3)
+        return _time_result(state, equipment_format("equipment.arsenal.aim.gun_weather"), priority=3)
     if weapon.family == "bow" and state.weather in {"hard rain", "coast squall", "forest rain"} and not has_node(state.courier, "wind-hold"):
         state.aimed_target = None
-        return _time_result(state, "Wet weather spoils the drawn bow string before the arrow is released.", priority=3)
+        return _time_result(state, equipment_format("equipment.arsenal.aim.bow_weather"), priority=3)
     if ammunition and not consume_ammunition(state, ammunition):
-        return _plain(state, f"No physical {ammunition} remain.")
+        return _plain(state, equipment_format("equipment.arsenal.ammunition.none_short", ammunition=ammunition))
     if weapon.family == "gun":
         state.weapon_ready = 0
     state.aimed_target = None
@@ -155,9 +168,9 @@ def strike(state, target_id=None, *, target_position=None):
         target.morale -= 2
     if "interrupt" in weapon.effects:
         target.aimed_at = None
-        target.intent = "prepared action interrupted by a close strike"
+        _set_equipment_intent(target, "intent.disrupted.equipment_interrupt")
     if "bind" in weapon.effects:
-        target.intent = "bound by a committed strike; loses a turn breaking free"
+        _set_equipment_intent(target, "intent.entangled.equipment_bind")
     if "push" in weapon.effects:
         target.position = _step_away(state, target)
     if "pull" in weapon.effects:
@@ -189,12 +202,12 @@ def strike(state, target_id=None, *, target_position=None):
     harm = harm_enemy(state, target, damage, f"{state.courier.name}'s {state.weapon}", damage_kind=kind)
     if harm.defeated or (target.morale <= 0 and target.profile != "machinery"):
         target.status = "defeated" if harm.defeated else "retreated"
-        target.intent = "removed from the route"
+        _set_equipment_intent(target, "intent.defeated.removed")
         recovered = harm.dropped if harm.defeated else release_enemy_possession(state, target)
-        state.remember(f"{state.courier.name} {target.status} {target.name} with {state.weapon}.")
-        message = f"{state.weapon.title()} removes {target.name} from the route.{recovered}"
+        state.remember(equipment_format("equipment.arsenal.memory", courier=state.courier.name, outcome=target.status, target=target.name, weapon=state.weapon))
+        message = equipment_format("equipment.arsenal.result.defeat", weapon=weapon.display_name, target=target.name, recovered=recovered)
     else:
-        message = f"{state.weapon.title()} deals {harm.amount} {kind} harm to {target.name}; {target.health}/{target.max_health} remains."
+        message = equipment_format("equipment.arsenal.result.hit", weapon=weapon.display_name, damage=harm.amount, kind=kind, target=target.name, health=target.health, maximum=target.max_health)
     branch = {"blade": "blades", "reach": "reach", "impact": "reach", "bow": "bows", "gun": "gunworks"}[weapon.family]
     record_milestone(state, f"combat:{branch}")
     if skill_text:

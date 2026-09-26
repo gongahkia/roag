@@ -11948,5 +11948,1246 @@
       "id": "progression.manoeuvre.unavailable",
       "placeholders": []
     }
+  ],
+  "equipment": [
+    {
+      "id": "equipment.weapon.work.pot_sling.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.throwing_axe.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.forked_pike.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.war_flail.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.spade.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.shield_and_hanger.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.glaive.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.pollaxe.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.arming_sword.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.long_knife.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.boat_hook.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.flanged_mace.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.estoc.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.felling_axe.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.quarterstaff.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.reed_sickle.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.anchor_fluke.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.chain_hook.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.pot_sling.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.throwing_axe.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.forked_pike.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.war_flail.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.spade.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.shield_and_hanger.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.glaive.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.pollaxe.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.arming_sword.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.long_knife.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.boat_hook.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.flanged_mace.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.estoc.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.felling_axe.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.quarterstaff.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.reed_sickle.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.anchor_fluke.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.work.chain_hook.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.river_sabre.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.reed_cleaver.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.court_rapier.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.crescent_knife.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.watch_backsword.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.hooked_falchion.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.river_partisan.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.three-prong_trident.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.coppice_halberd.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.recurved_naginata.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.ferry_lance.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.iron-shod_pole.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.quarry_morningstar.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.two-hand_maul.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.watch_sap.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.ore_pick.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.smith's_hammer.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.knotted_club.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.reed_shortbow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.laminated_recurve.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.horn_composite_bow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.broadhead_hunting_bow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.war_yew_bow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.line-caster_bow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.matchlock_arquebus.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.deck_swivel_gun.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.fowling_piece.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.braced_long_gun.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.watch_carbine.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.signal_pistol.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.smoke_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.pitch_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.lime_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.brine_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.thunder_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.resin_bomb_kit.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.weapon.arsenal.description",
+      "placeholders": [
+        "family",
+        "minimum",
+        "reach",
+        "damage",
+        "effects",
+        "ammunition"
+      ]
+    },
+    {
+      "id": "equipment.effect.aim.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.armour.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.bind.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.blunt.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.brine.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.charge.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.cut.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.guard.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.interrupt.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.lime.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.morale.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.pierce.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.pitch.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.pull.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.push.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.quick.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.reeds.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.resin.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.smoke.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.sweep.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.thunder.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.effect.timber.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.blade.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.reach.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.impact.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.bow.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.gun.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.family.device.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_heel.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.quiet_binding.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.retrieval_cord.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.resin_seal.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.ash_wrap.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.wool_lining.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.reed_lining.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_scales.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_heel.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.quiet_binding.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.retrieval_cord.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.resin_seal.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.ash_wrap.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.wool_lining.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.reed_lining.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_scales.effect",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_heel.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.quiet_binding.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.retrieval_cord.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.resin_seal.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.ash_wrap.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.wool_lining.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.reed_lining.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.iron_scales.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.invalid_range",
+      "placeholders": [
+        "reach"
+      ]
+    },
+    {
+      "id": "equipment.pot.missing",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.no_cell",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.pitch.wet",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.pitch.dry",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.lime",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.brine",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.pot.fitting",
+      "placeholders": [
+        "fitting"
+      ]
+    },
+    {
+      "id": "equipment.approach.load",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.approach.level",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.approach.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.approach.wet",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.forked_pike",
+      "placeholders": [
+        "target"
+      ]
+    },
+    {
+      "id": "equipment.strike.forked_pike.pair",
+      "placeholders": [
+        "target",
+        "across"
+      ]
+    },
+    {
+      "id": "equipment.strike.war_flail",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "equipment.strike.spade.dust",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.spade.none",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.throwing_axe.timber",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.throwing_axe.ground",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.shield_hanger",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.glaive.clip",
+      "placeholders": [
+        "target"
+      ]
+    },
+    {
+      "id": "equipment.strike.glaive.none",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.pollaxe.armoured",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.pollaxe.unarmoured",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.pollaxe.support",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.arming_sword",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.long_knife.interrupt",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.long_knife.normal",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.boat_hook",
+      "placeholders": [
+        "moved",
+        "suffix"
+      ]
+    },
+    {
+      "id": "equipment.strike.flanged_mace",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.estoc.armoured",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.estoc.unarmoured",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.felling_axe.cut",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.felling_axe.none",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.quarterstaff",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.reed_sickle.cut",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.reed_sickle.none",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.anchor_fluke.anchored",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.anchor_fluke.normal",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.strike.chain_hook",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.pitch_pots.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.lime_pots.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.brine_pots.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.smoke_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.pitch_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.lime_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.brine_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.thunder_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.resin_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.bomb.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.device.range",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.device.cell",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.device.material_budget",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.ammunition.none",
+      "placeholders": [
+        "ammunition"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.ammunition.none_short",
+      "placeholders": [
+        "ammunition"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.device.result",
+      "placeholders": [
+        "courier",
+        "ammunition",
+        "x",
+        "y",
+        "effect",
+        "warning",
+        "sound"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.device.warning",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.no_target",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.gun.loading",
+      "placeholders": [
+        "weapon",
+        "remaining"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.aim.prepare",
+      "placeholders": [
+        "courier",
+        "weapon",
+        "target"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.aim.gun_weather",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.aim.bow_weather",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.arsenal.result.defeat",
+      "placeholders": [
+        "weapon",
+        "target",
+        "recovered"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.result.hit",
+      "placeholders": [
+        "weapon",
+        "damage",
+        "kind",
+        "target",
+        "health",
+        "maximum"
+      ]
+    },
+    {
+      "id": "equipment.arsenal.memory",
+      "placeholders": [
+        "courier",
+        "outcome",
+        "target",
+        "weapon"
+      ]
+    },
+    {
+      "id": "equipment.provenance.fitting_installed",
+      "placeholders": [
+        "target"
+      ]
+    },
+    {
+      "id": "equipment.provenance.fitting_kit",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.provenance.tethered_throw",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.provenance.enemy_weapon",
+      "placeholders": [
+        "issue",
+        "actor"
+      ]
+    },
+    {
+      "id": "equipment.provenance.enemy_armour",
+      "placeholders": [
+        "region",
+        "actor"
+      ]
+    },
+    {
+      "id": "equipment.provenance.enemy_torso",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "equipment.workshop.compatible",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.parent_damaged",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.socket_occupied",
+      "placeholders": [
+        "slot"
+      ]
+    },
+    {
+      "id": "equipment.workshop.stock_empty",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.credit",
+      "placeholders": [
+        "cost"
+      ]
+    },
+    {
+      "id": "equipment.workshop.ready",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.install.location",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.install.result",
+      "placeholders": [
+        "fitting",
+        "item",
+        "cost",
+        "effect"
+      ]
+    },
+    {
+      "id": "equipment.workshop.remove.location",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.remove.requirements",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.remove.pack",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.remove.result",
+      "placeholders": [
+        "fitting"
+      ]
+    },
+    {
+      "id": "equipment.workshop.buy.location",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.buy.stock",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.buy.pack",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.buy.result",
+      "placeholders": [
+        "fitting",
+        "cost"
+      ]
+    },
+    {
+      "id": "equipment.workshop.repair.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.repair.credit",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.workshop.repair.result",
+      "placeholders": [
+        "item",
+        "condition"
+      ]
+    },
+    {
+      "id": "equipment.workshop.describe.item",
+      "placeholders": [
+        "item",
+        "condition",
+        "cut",
+        "pierce",
+        "blunt",
+        "coverage"
+      ]
+    },
+    {
+      "id": "equipment.workshop.describe.part",
+      "placeholders": [
+        "fitting",
+        "condition",
+        "slot"
+      ]
+    },
+    {
+      "id": "equipment.workshop.describe.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.quiet_binding",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.resin_seal",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.ash_wrap",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.retrieval.recovered",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.fitting.retrieval.ground",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.enemy.protection.broken",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.enemy.drop",
+      "placeholders": [
+        "items"
+      ]
+    },
+    {
+      "id": "equipment.enemy.recover.intent",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "equipment.enemy.recover.result",
+      "placeholders": [
+        "threat",
+        "intent"
+      ]
+    },
+    {
+      "id": "intent.pinned.fork",
+      "placeholders": []
+    },
+    {
+      "id": "intent.pinned.fork_line",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.long_knife",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.boat_hook",
+      "placeholders": []
+    },
+    {
+      "id": "intent.dazed.flanged_mace",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.quarterstaff",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.anchor_fluke",
+      "placeholders": []
+    },
+    {
+      "id": "intent.entangled.chain",
+      "placeholders": []
+    },
+    {
+      "id": "intent.entangled.resin",
+      "placeholders": []
+    },
+    {
+      "id": "intent.dazed.lime",
+      "placeholders": []
+    },
+    {
+      "id": "intent.disrupted.equipment_interrupt",
+      "placeholders": []
+    },
+    {
+      "id": "intent.entangled.equipment_bind",
+      "placeholders": []
+    },
+    {
+      "id": "intent.defeated.removed",
+      "placeholders": []
+    },
+    {
+      "id": "intent.defeated.equipment",
+      "placeholders": [
+        "source",
+        "location"
+      ]
+    },
+    {
+      "id": "intent.recovery.weapon_broken",
+      "placeholders": []
+    },
+    {
+      "id": "intent.recovery.weapon_recovered",
+      "placeholders": [
+        "weapon"
+      ]
+    },
+    {
+      "id": "equipment.target.pot",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.target.device",
+      "placeholders": [
+        "bomb"
+      ]
+    },
+    {
+      "id": "equipment.target.gun_loading",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.target.aim.ready",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.target.aim.prepare",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.slot",
+      "placeholders": [
+        "slot",
+        "item"
+      ]
+    },
+    {
+      "id": "equipment.overlay.slot.empty",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.slot.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.buy.choice",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.store.row",
+      "placeholders": [
+        "fitting",
+        "price",
+        "stock"
+      ]
+    },
+    {
+      "id": "equipment.overlay.preview",
+      "placeholders": [
+        "fitting",
+        "cost"
+      ]
+    },
+    {
+      "id": "equipment.overlay.remove.choice",
+      "placeholders": [
+        "slot"
+      ]
+    },
+    {
+      "id": "equipment.overlay.repair.choice",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.repair.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.confirm.choice",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.back.choice",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.station.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.station.summary",
+      "placeholders": [
+        "credit"
+      ]
+    },
+    {
+      "id": "equipment.overlay.station.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.store.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.store.summary",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.store.stock",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.work.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.empty",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.item.missing",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.buy.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.buy.detail",
+      "placeholders": [
+        "fitting",
+        "effect",
+        "drawback",
+        "width",
+        "height",
+        "weight",
+        "price"
+      ]
+    },
+    {
+      "id": "equipment.overlay.fit.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.fit.detail",
+      "placeholders": [
+        "fitting",
+        "item",
+        "effect",
+        "drawback",
+        "weight",
+        "cost"
+      ]
+    },
+    {
+      "id": "equipment.overlay.confirm.title",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.confirm.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.overlay.confirm.costs",
+      "placeholders": []
+    }
   ]
 }

@@ -56,6 +56,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "production_text.json", root / "production_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "magic_text.json", root / "magic_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "progression_text.json", root / "progression_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "equipment_text.json", root / "equipment_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -305,6 +306,16 @@ def alternate_pack(root: Path) -> Path:
         "progression.person.practice_effect": "FIXTURE practice {practice}: {description}",
     })
     source.write_text(json.dumps(progression_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "equipment_text.json"
+    equipment_text = json.loads(source.read_text(encoding="utf-8"))
+    equipment_text["text"].update({
+        "equipment.weapon.work.forked_pike.name": "Fixture fork pike",
+        "equipment.fitting.quiet_binding.name": "Fixture quiet binding",
+        "equipment.strike.forked_pike": "fixture fork fixes {target}",
+        "equipment.workshop.install.result": "FIXTURE workshop seats {fitting} on {item}; {cost} credit, two actions. {effect}",
+        "equipment.overlay.station.title": "FIXTURE EQUIPMENT BAY",
+    })
+    source.write_text(json.dumps(equipment_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -1859,6 +1870,76 @@ class ContentPackTests(unittest.TestCase):
             with self.subTest("missing file"):
                 source.unlink()
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*progression_text\.json"):
+                    load_content_pack(root)
+
+
+# Advanced-equipment presentation stays separate from raw inventory and fitting IDs.
+def equipment_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.actions import attack; from jomon.inventory import create_item, item_spec, sync_legacy_load; from jomon.state import Position, Threat, create_world; from jomon.work_weapons import WORK_WEAPONS; from jomon.expanded_weapons import ARSENAL; from jomon.workshop import FITTINGS, WORKBENCH, install; "
+            "state=create_world('equipment-pack-proof'); state.location='region'; state.position=Position(40,25); state.world_time=8; state.weather='clear'; state.threats=[]; state.region_threats['hearthford']=state.threats; [state.region.tile_changes.__setitem__(f'{x},{y},{z}', '.') for z in (-1,0,1) for y in range(20,31) for x in range(34,51)]; [setattr(item,'location','lost') for item in state.items if item.owner_id==state.active_courier_id and item.location in {'pack','readied','secondary'}]; item=create_item(state,'forked pike','fixture weapon',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); target=Threat('equipment-proof','proof target','reach',Position(42,25),20,20,status='engaged',morale=10,home_position=Position(42,25)); state.threats.append(target); result=attack(state,target.id); mechanics={'weapon_kind':state.weapon,'target_id':target.id,'intent_id':target.intent_id,'health':target.health,'morale':target.morale,'time':state.world_time,'position':[target.position.x,target.position.y,target.position.z]}; state.location='jomon'; state.jomon_space='vessel'; state.position=WORKBENCH; state.trade_credit=10; parent=create_item(state,'longbow','fixture parent',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); before=state.trade_credit; changed,message=install(state,parent.id,'quiet binding'); mechanics.update({'fitting_kind':next(part.kind for part in state.items if part.location=='fitted' and part.fitted_to==parent.id),'installed':changed,'credit_spent':before-state.trade_credit,'parent':parent.kind,'fitting_stock':state.vessel_changes['fitting_stock:quiet binding']}); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[WORK_WEAPONS['forked pike'].name, WORK_WEAPONS['forked pike'].description, ARSENAL['river sabre'].display_name, FITTINGS['quiet binding'].name, FITTINGS['quiet binding'].effect, result.message, message], 'mechanics':mechanics}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class EquipmentPresentationTests(unittest.TestCase):
+    def test_default_equipment_presentation_preserves_existing_text(self):
+        from jomon.equipment_presentation import equipment_text, fitting_name, work_weapon_description, work_weapon_name
+        self.assertEqual(work_weapon_name("forked pike"), "Forked ward pike")
+        self.assertEqual(work_weapon_description("forked pike"), "Pins the target and one neighbour across its forward line, buying one turn against a pair. Adjacent foes are inside the forks.")
+        self.assertEqual(fitting_name("quiet binding"), "Quiet binding")
+        self.assertEqual(equipment_text("equipment.workshop.install.location"), "Approach the lower workshop with a known fitting.")
+
+    def test_alternate_pack_changes_equipment_presentation_not_mechanics(self):
+        default = equipment_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = equipment_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertEqual(alternate["messages"][0], "Fixture fork pike")
+        self.assertEqual(alternate["messages"][3], "Fixture quiet binding")
+        self.assertIn("fixture fork fixes", alternate["messages"][5])
+        self.assertIn("FIXTURE workshop", alternate["messages"][6])
+
+    def test_equipment_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "equipment_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing weapon": lambda value: value["text"].pop("equipment.weapon.work.forked_pike.name"),
+                "missing fitting": lambda value: value["text"].pop("equipment.fitting.quiet_binding.name"),
+                "unknown key": lambda value: value["text"].update({"equipment.weapon.extra.name": "extra"}),
+                "empty text": lambda value: value["text"].update({"equipment.workshop.install.location": ""}),
+                "non-string": lambda value: value["text"].update({"equipment.workshop.install.location": 3}),
+                "unknown placeholder": lambda value: value["text"].update({"equipment.workshop.install.result": "fits {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"equipment.workshop.install.result": "fits {fitting}"}),
+                "malformed template": lambda value: value["text"].update({"equipment.strike.forked_pike": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*equipment_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("unsupported field"):
+                document = json.loads(original)
+                document["extra"] = "not allowed"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*equipment_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"equipment.strike.forked_pike"', '"equipment.workshop.install.location"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*equipment_text\.json"):
                     load_content_pack(root)
 
 
