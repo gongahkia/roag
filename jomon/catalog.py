@@ -61,7 +61,7 @@ VISUAL_SECTIONS = (
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
-REGION_CONTRACT_FORMAT = 4
+REGION_CONTRACT_FORMAT = 5
 # The existing contract format applies to the complete selected-pack
 # presentation surface, not only the historical regional file name.
 PRESENTATION_CONTRACT_FORMAT = REGION_CONTRACT_FORMAT
