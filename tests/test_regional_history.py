@@ -287,7 +287,7 @@ class WorkingHistoryTests(unittest.TestCase):
                 game_state_from_dict(data)
 
     def test_local_structure_lessons_enable_tool_free_bracing_and_quiet_control(self):
-        for technique in ("mill hearing", "bell interval"):
+        for technique in ("technique.mill_hearing", "technique.bell_interval"):
             state = copy.deepcopy(self.base)
             state.location = "region"
             state.position = Position(40, 24)
@@ -310,12 +310,12 @@ class WorkingHistoryTests(unittest.TestCase):
         state.position = Position(40, 24)
         state.threats.clear()
         state.smoke["40,24,0"] = 4
-        state.courier.learned_techniques.append("smoke spoor")
+        state.courier.learned_techniques.append("technique.smoke_spoor")
         self.assertGreaterEqual(sight_radius(state), 5)
         state.smoke.clear()
         state.weather = "coast squall"
         before = sight_radius(state)
-        state.courier.learned_techniques.append("shoreline measure")
+        state.courier.learned_techniques.append("technique.shoreline_measure")
         self.assertEqual(sight_radius(state), before + 2)
         state.water["41,24,0"] = 4
         state.region.tile_changes["41,24,0"] = "."

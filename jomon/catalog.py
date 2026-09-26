@@ -85,6 +85,7 @@ EQUIPMENT_PRESENTATION_FILE = "equipment_text.json"
 PREPARATION_PRESENTATION_FILE = "preparation_text.json"
 MATERIAL_PRESENTATION_FILE = "material_text.json"
 SANCTUM_PRESENTATION_FILE = "sanctum_text.json"
+SITUATION_PRESENTATION_FILE = "situation_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -1168,6 +1169,16 @@ class ProductionPresentation:
     text: str
 
 
+_SITUATION_IDS = ('hearthford:steady:reed-tally', 'hearthford:strained:wheel-lane', 'hearthford:critical:flood-watch', 'greywash:steady:pan-birds', 'greywash:strained:wreck-title', 'greywash:critical:chain-ebb', 'greenwold:steady:coppice-deer', 'greenwold:strained:resin-smoke', 'greenwold:critical:burn-refuge', 'whitecairn:steady:wool-step', 'whitecairn:strained:kiln-scree', 'whitecairn:critical:bell-span', 'dunmire:steady:peat-sledge', 'dunmire:strained:bank-fire', 'dunmire:critical:causeway-claim', 'rillscar:steady:ore-goats', 'rillscar:strained:charcoal-span', 'rillscar:critical:tailrace-convoy', 'marlbank:steady:seed-birds', 'marlbank:strained:kiln-water', 'marlbank:critical:terrace-collapse', 'frostmere:steady:net-seals', 'frostmere:strained:wool-thaw', 'frostmere:critical:false-sounding')
+_SITUATION_TEMPLATE_CONTRACT = {
+    **{f"situation.{situation_id}.{field}": () for situation_id in _SITUATION_IDS for field in ("title", "group.0", "group.1", "duty", "material", "choice.tool", "choice.material", "choice.account", "consequence")},
+    "situation.notice.activation": ("title", "duty", "material"), "situation.intent.work": ("title", "material"), "situation.reason.stake": ("group",),
+    "situation.inspect.resolved.fact": ("title", "x", "y", "z"), "situation.inspect.resolved.answer": ("outcome",), "situation.inspect.resolved.effect": ("consequence",), "situation.inspect.resolved.return": ("condition",), "situation.inspect.afterwork": ("afterwork",), "situation.inspect.followup": (), "situation.inspect.sample": ("sample",), "situation.inspect.report": ("report",), "situation.inspect.time": (),
+    "situation.inspect.visible": ("title", "x", "y", "z"), "situation.inspect.groups": ("first", "second"), "situation.inspect.duty": ("duty",), "situation.inspect.material": ("material",), "situation.inspect.condition": ("condition",), "situation.inspect.choice.tool": ("choice",), "situation.inspect.choice.material": ("choice",), "situation.inspect.choice.account": ("choice",), "situation.inspect.guidance": (),
+    "situation.choice.maintain": (), "situation.choice.maintain.requirement": (), "situation.choice.sample": ("sample",), "situation.choice.sample.requirement": (), "situation.choice.tool.requirement": (), "situation.choice.material.requirement": (), "situation.choice.account.requirement": (),
+    "situation.resolve.missing": (), "situation.resolve.settled": (), "situation.resolve.requirement": ("requirement",), "situation.resolve.pack": (), "situation.afterwork.provenance": ("title",), "situation.afterwork.sample": ("sample",), "situation.afterwork.maintenance": (), "situation.outcome.material": ("choice", "spent"), "situation.intent.completed": (), "situation.intent.negotiated": (), "situation.record.afterwork": ("title", "courier", "result", "outcome"), "situation.record.resolved": ("title", "outcome", "consequence"), "situation.report.unfiled": (), "situation.condition": ("season", "event", "aftermath"),
+}
+
 @dataclass(frozen=True)
 class MagicPresentation:
     id: str
@@ -1200,6 +1211,12 @@ class MaterialPresentation:
 
 @dataclass(frozen=True)
 class SanctumPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
+class SituationPresentation:
     id: str
     text: str
 
@@ -1242,6 +1259,7 @@ class ContentPack:
     preparation_presentations: tuple[PreparationPresentation, ...]
     material_presentations: tuple[MaterialPresentation, ...]
     sanctum_presentations: tuple[SanctumPresentation, ...]
+    situation_presentations: tuple[SituationPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1372,6 +1390,12 @@ class ContentPack:
             if presentation.id == semantic_id:
                 return presentation
         raise KeyError(f"unknown sanctum presentation id: {semantic_id}")
+
+    def situation_presentation(self, semantic_id: str) -> SituationPresentation:
+        for presentation in self.situation_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown situation presentation id: {semantic_id}")
 
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
@@ -2496,6 +2520,27 @@ def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentat
     )
 
 
+
+def _situation_presentations(root: Path, pack_id: str) -> tuple[SituationPresentation, ...]:
+    source = root / SITUATION_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid situation presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _SITUATION_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("situations") != expected:
+        raise RuntimeError(f"invalid engine situation content contract at {contract_source}: situations does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid situation presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_SITUATION_TEMPLATE_CONTRACT):
+        missing, unknown = set(_SITUATION_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_SITUATION_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required situation keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown situation keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid situation presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(SituationPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="situation")) for key, placeholders in _SITUATION_TEMPLATE_CONTRACT.items())
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -2639,10 +2684,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     preparations = _preparation_presentations(root, pack_id)
     materials = _material_presentations(root, pack_id)
     sanctums = _sanctum_presentations(root, pack_id)
+    situations = _situation_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, household_template,
     )
 
 
