@@ -60,6 +60,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "preparation_text.json", root / "preparation_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "material_text.json", root / "material_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "sanctum_text.json", root / "sanctum_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "situation_text.json", root / "situation_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -362,6 +363,19 @@ def alternate_pack(root: Path) -> Path:
         "sanctum.record.cleared": "FIXTURE {sanctum} cleared: four credits; {strategy}.",
     })
     source.write_text(json.dumps(sanctum_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "situation_text.json"
+    situation_text = json.loads(source.read_text(encoding="utf-8"))
+    situation_text["text"].update({
+        "situation.hearthford:steady:reed-tally.title": "Fixture Reed Account",
+        "situation.hearthford:steady:reed-tally.group.0": "fixture reed workers",
+        "situation.hearthford:steady:reed-tally.duty": "fixture duty keeps the same physical work",
+        "situation.hearthford:steady:reed-tally.choice.tool": "fixture brace the same tally bank",
+        "situation.hearthford:steady:reed-tally.consequence": "fixture margin keeps the same consequence",
+        "situation.notice.activation": "FIXTURE SITUATION — {title}: {duty}; {material}.",
+        "situation.record.resolved": "FIXTURE {title} resolves by {outcome}; {consequence}.",
+        "situation.report.unfiled": "FIXTURE report remains unfiled.",
+    })
+    source.write_text(json.dumps(situation_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -2250,3 +2264,56 @@ class LandformDiscoveryPresentationTests(unittest.TestCase):
                     document=json.loads(original); mutate(document); source.write_text(json.dumps(document),encoding="utf-8")
                     with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\.json"):
                         load_content_pack(root)
+
+
+def situation_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run([
+        sys.executable, "-c",
+        "import json; from jomon.actions import depart; from jomon.quests import use_secondary_service; from jomon.situations import BY_REGION_BAND, choices, inspect_lines, resolve; from jomon.state import create_world; "
+        "state=create_world('situation-pack-proof'); state.weapon='billhook';state.gear='repair tools';depart(state);row=BY_REGION_BAND['hearthford','steady'];before=[state.rope_uses,state.market[state.region.objective_commodity].demand];labels=choices(state,row.id);changed,message,steps=resolve(state,row.id,'t');inspection=inspect_lines(state,row.id);reported,report=use_secondary_service(state,'p'); mechanics={'id':row.id,'region':row.region_id,'band':row.band,'anchor':row.anchor,'effects':row.material_effects,'choices':[key for key,*_ in labels],'outcome_id':state.region.changes['micro-site:outcome_id:'+row.id],'resolved':state.region.changes['micro-site:resolved:'+row.id],'report_id':state.region.changes['micro-site:report:'+row.id],'reported':reported,'rope':state.rope_uses,'demand':state.market[state.region.objective_commodity].demand,'before':before,'point':state.region.changes['micro-site:point:'+row.id],'time':state.world_time}; print(json.dumps({'presentation':[row.name,row.groups,row.duty,labels,message,inspection,report,state.contact.memories[-1]],'mechanics':mechanics}))"
+    ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
+    if result.returncode: raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class SituationPresentationTests(unittest.TestCase):
+    def test_default_situation_presentation_preserves_existing_text(self):
+        from jomon.situations import BY_REGION_BAND
+        row=BY_REGION_BAND['hearthford','steady']
+        self.assertEqual(row.name, 'The reed-bank tally')
+        self.assertEqual(row.answers[0], 'lay a tool-marked dry path')
+
+    def test_alternate_situation_presentation_changes_text_not_mechanics(self):
+        default=situation_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root=alternate_pack(Path(directory)/'fixture'); environment=dict(os.environ);environment['JOMON_CONTENT_PACK']=str(root)
+            alternate=situation_presentation_snapshot(environment)
+        self.assertEqual(default['mechanics'],alternate['mechanics'])
+        rendered=str(alternate['presentation'])
+        self.assertIn('Fixture Reed Account',rendered)
+        self.assertIn('fixture reed workers',rendered)
+        self.assertIn('fixture brace the same tally bank',rendered)
+        self.assertIn('FIXTURE',rendered)
+        self.assertIn('FIXTURE report remains unfiled.', rendered)
+
+    def test_situation_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=alternate_pack(Path(directory)/'fixture');source=root/'situation_text.json';original=source.read_text(encoding='utf-8')
+            cases={
+                'missing situation':lambda v:v['text'].pop('situation.hearthford:steady:reed-tally.title'),
+                'unknown situation':lambda v:v['text'].update({'situation.extra.title':'extra'}),
+                'missing text field':lambda v:v.pop('text'),
+                'empty':lambda v:v['text'].update({'situation.hearthford:steady:reed-tally.duty':''}),
+                'non-string':lambda v:v['text'].update({'situation.hearthford:steady:reed-tally.duty':3}),
+                'malformed':lambda v:v['text'].update({'situation.notice.activation':'{'}),
+                'missing placeholder':lambda v:v['text'].update({'situation.record.resolved':'{title}'}),
+                'unknown placeholder':lambda v:v['text'].update({'situation.record.resolved':'{title} {other} {consequence}'}),
+            }
+            for name,mutate in cases.items():
+                with self.subTest(name):
+                    document=json.loads(original);mutate(document);source.write_text(json.dumps(document),encoding='utf-8')
+                    with self.assertRaisesRegex(ContentPackError,r'fixture-alternate.*situation_text\.json'):
+                        load_content_pack(root)
+            source.write_text(original.replace('"situation.notice.activation"','"situation.record.resolved"',1),encoding='utf-8')
+            with self.assertRaisesRegex(ContentPackError,r'fixture-alternate.*situation_text\.json'):
+                load_content_pack(root)

@@ -878,8 +878,9 @@ def use_secondary_service(
         account = state.institutions.get(f"work:{state.active_region_id}")
         if report is None or account is None:
             return False, secondary_service_text(choice, "missing_account")
+        outcome_id = state.region.changes.get(f"micro-site:outcome_id:{report.id}")
         outcome = state.region.changes.get(f"micro-site:outcome:{report.id}")
-        if not isinstance(outcome, str) or not outcome:
+        if not isinstance(outcome_id, str) and (not isinstance(outcome, str) or not outcome):
             return False, secondary_service_text(choice, "missing_outcome")
         public = choice == "p"
         state.region.changes[f"micro-site:report:{report.id}"] = "public" if public else "private"

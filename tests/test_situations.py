@@ -168,8 +168,20 @@ class MixedSituationTests(unittest.TestCase):
             path = Path(directory) / "situation.json"
             save_game(state, path)
             loaded = load_game(path)
+        self.assertEqual(loaded.region.changes[f"micro-site:outcome_id:{row.id}"], "tool")
         self.assertEqual(loaded.region.changes[f"micro-site:outcome:{row.id}"], row.answers[0])
         self.assertEqual(site_point(loaded, row), site_point(state, row))
+
+    def test_legacy_rendered_outcome_stays_frozen_without_gaining_identity(self):
+        state = self.ready()
+        row = BY_REGION_BAND["hearthford", "steady"]
+        raw = state.to_dict()
+        changes = raw["regions"]["hearthford"]["changes"]
+        changes[f"micro-site:resolved:{row.id}"] = True
+        changes[f"micro-site:outcome:{row.id}"] = "unknown old wording"
+        loaded = game_state_from_dict(raw)
+        self.assertEqual(loaded.region.changes[f"micro-site:outcome:{row.id}"], "unknown old wording")
+        self.assertNotIn(f"micro-site:outcome_id:{row.id}", loaded.region.changes)
 
     def test_corrupt_site_and_mastery_references_are_rejected(self):
         state = self.ready()

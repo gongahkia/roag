@@ -15644,5 +15644,1157 @@
       "id": "sanctum.area.undercroft",
       "placeholders": []
     }
+  ],
+  "situations": [
+    {
+      "id": "situation.hearthford:steady:reed-tally.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:steady:reed-tally.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:strained:wheel-lane.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.hearthford:critical:flood-watch.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:steady:pan-birds.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:strained:wreck-title.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greywash:critical:chain-ebb.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:steady:coppice-deer.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:strained:resin-smoke.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.greenwold:critical:burn-refuge.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:steady:wool-step.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:strained:kiln-scree.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.whitecairn:critical:bell-span.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:steady:peat-sledge.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:strained:bank-fire.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.dunmire:critical:causeway-claim.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:steady:ore-goats.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:strained:charcoal-span.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.rillscar:critical:tailrace-convoy.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:steady:seed-birds.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:strained:kiln-water.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.marlbank:critical:terrace-collapse.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:steady:net-seals.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:strained:wool-thaw.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.title",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.group.0",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.group.1",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.duty",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.choice.tool",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.choice.material",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.choice.account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.frostmere:critical:false-sounding.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "situation.notice.activation",
+      "placeholders": [
+        "title",
+        "duty",
+        "material"
+      ]
+    },
+    {
+      "id": "situation.intent.work",
+      "placeholders": [
+        "title",
+        "material"
+      ]
+    },
+    {
+      "id": "situation.reason.stake",
+      "placeholders": [
+        "group"
+      ]
+    },
+    {
+      "id": "situation.inspect.resolved.fact",
+      "placeholders": [
+        "title",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "situation.inspect.resolved.answer",
+      "placeholders": [
+        "outcome"
+      ]
+    },
+    {
+      "id": "situation.inspect.resolved.effect",
+      "placeholders": [
+        "consequence"
+      ]
+    },
+    {
+      "id": "situation.inspect.resolved.return",
+      "placeholders": [
+        "condition"
+      ]
+    },
+    {
+      "id": "situation.inspect.afterwork",
+      "placeholders": [
+        "afterwork"
+      ]
+    },
+    {
+      "id": "situation.inspect.followup",
+      "placeholders": []
+    },
+    {
+      "id": "situation.inspect.sample",
+      "placeholders": [
+        "sample"
+      ]
+    },
+    {
+      "id": "situation.inspect.report",
+      "placeholders": [
+        "report"
+      ]
+    },
+    {
+      "id": "situation.inspect.time",
+      "placeholders": []
+    },
+    {
+      "id": "situation.inspect.visible",
+      "placeholders": [
+        "title",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "situation.inspect.groups",
+      "placeholders": [
+        "first",
+        "second"
+      ]
+    },
+    {
+      "id": "situation.inspect.duty",
+      "placeholders": [
+        "duty"
+      ]
+    },
+    {
+      "id": "situation.inspect.material",
+      "placeholders": [
+        "material"
+      ]
+    },
+    {
+      "id": "situation.inspect.condition",
+      "placeholders": [
+        "condition"
+      ]
+    },
+    {
+      "id": "situation.inspect.choice.tool",
+      "placeholders": [
+        "choice"
+      ]
+    },
+    {
+      "id": "situation.inspect.choice.material",
+      "placeholders": [
+        "choice"
+      ]
+    },
+    {
+      "id": "situation.inspect.choice.account",
+      "placeholders": [
+        "choice"
+      ]
+    },
+    {
+      "id": "situation.inspect.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.maintain",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.maintain.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.sample",
+      "placeholders": [
+        "sample"
+      ]
+    },
+    {
+      "id": "situation.choice.sample.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.tool.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.material.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "situation.choice.account.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "situation.resolve.missing",
+      "placeholders": []
+    },
+    {
+      "id": "situation.resolve.settled",
+      "placeholders": []
+    },
+    {
+      "id": "situation.resolve.requirement",
+      "placeholders": [
+        "requirement"
+      ]
+    },
+    {
+      "id": "situation.resolve.pack",
+      "placeholders": []
+    },
+    {
+      "id": "situation.afterwork.provenance",
+      "placeholders": [
+        "title"
+      ]
+    },
+    {
+      "id": "situation.afterwork.sample",
+      "placeholders": [
+        "sample"
+      ]
+    },
+    {
+      "id": "situation.afterwork.maintenance",
+      "placeholders": []
+    },
+    {
+      "id": "situation.outcome.material",
+      "placeholders": [
+        "choice",
+        "spent"
+      ]
+    },
+    {
+      "id": "situation.intent.completed",
+      "placeholders": []
+    },
+    {
+      "id": "situation.intent.negotiated",
+      "placeholders": []
+    },
+    {
+      "id": "situation.record.afterwork",
+      "placeholders": [
+        "title",
+        "courier",
+        "result",
+        "outcome"
+      ]
+    },
+    {
+      "id": "situation.record.resolved",
+      "placeholders": [
+        "title",
+        "outcome",
+        "consequence"
+      ]
+    },
+    {
+      "id": "situation.report.unfiled",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition",
+      "placeholders": [
+        "season",
+        "event",
+        "aftermath"
+      ]
+    },
+    {
+      "id": "situation.condition.event.water_and_stone",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.flood",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.fire",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.support_loss",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.shared_repair",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.private_advance",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.contested_occupation",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.unsettled_account",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.event.none",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.aftermath.shared",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.aftermath.claimed",
+      "placeholders": []
+    },
+    {
+      "id": "situation.condition.aftermath.none",
+      "placeholders": []
+    }
   ]
 }

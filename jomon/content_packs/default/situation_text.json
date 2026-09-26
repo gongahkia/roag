@@ -257,6 +257,18 @@
     "situation.record.afterwork": "{title}: {courier} {result} after the original work ({outcome}).",
     "situation.record.resolved": "{title} settled by {outcome}; {consequence}.",
     "situation.report.unfiled": "unfiled; return to the local worker to publish it or sell a private lead",
-    "situation.condition": "{season}; {event}; {aftermath}"
+    "situation.condition": "{season}; {event}; {aftermath}",
+    "situation.condition.event.water_and_stone": "water and stone",
+    "situation.condition.event.flood": "flood",
+    "situation.condition.event.fire": "fire",
+    "situation.condition.event.support_loss": "support loss",
+    "situation.condition.event.shared_repair": "shared repair",
+    "situation.condition.event.private_advance": "private advance",
+    "situation.condition.event.contested_occupation": "contested occupation",
+    "situation.condition.event.unsettled_account": "unsettled account",
+    "situation.condition.event.none": "working memory",
+    "situation.condition.aftermath.shared": "shared",
+    "situation.condition.aftermath.claimed": "claimed",
+    "situation.condition.aftermath.none": "unsettled first state"
   }
 }
