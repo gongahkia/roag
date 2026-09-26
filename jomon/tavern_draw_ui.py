@@ -7,28 +7,27 @@ import curses
 from .character_presentation import role_display_name
 from .state import GameState
 from .tavern_draw import (
-    MAX_EXPOSURE, RANK_NAMES, available_opponents,
+    MAX_EXPOSURE, available_opponents,
     bet_action, close_hand, draw_cards, drive_npcs, evaluate, start_hand,
 )
 from .tavern_games import npc_credit
 from .tavern_games_ui import accent, border, put as _put
 from .ui_presentation import ui_text
-from .visuals import TAVERN_CARDS
-
-RANKS = TAVERN_CARDS["ranks"]
-SUITS = TAVERN_CARDS["suits"]
+from .tavern_presentation import draw_phase_name, draw_rank_name, tavern_cards, tavern_format, tavern_text
 
 
 def card_name(card: int) -> str:
-    return RANKS[card % 13] + SUITS[card // 13]
+    cards = tavern_cards()
+    return cards["ranks"][card % 13] + cards["suits"][card // 13]
 
 
 def card_frame(card: int, *, selected: bool = False) -> tuple[str, ...]:
     """Adapt the framed card motif without depending on Dullest Dungeon code."""
     label = card_name(card)
-    edge = TAVERN_CARDS["selected_edge"] if selected else TAVERN_CARDS["edge"]
+    cards = tavern_cards()
+    edge = cards["selected_edge"] if selected else cards["edge"]
     return tuple(row.format(edge=edge, label_left=label, suit=label[1], label_right=label)
-                 for row in TAVERN_CARDS["frame"])
+                 for row in cards["frame"])
 
 
 def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cursor: int,
@@ -37,12 +36,11 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
     border(screen, ui_text("ui.tavern.draw.title"))
     people = available_opponents(state)
     _put(screen, 1, 2, ui_text("ui.tavern.draw.rules"), accent("ui_heading", curses.A_BOLD))
-    _put(screen, 2, 2, "Five-card draw: deal, bet, exchange, bet, showdown.")
-    _put(screen, 3, 2, "Free practice pays nothing. Wagered: 1-credit ante, 1-credit bet,")
-    _put(screen, 4, 2, f"one raise per round; maximum loss {MAX_EXPOSURE} credit per seat.")
-    _put(screen, 6, 2, f"Your credit: {state.trade_credit}   Stakes: {'WAGERED' if wagering else 'FREE PRACTICE'}",
+    _put(screen, 2, 2, tavern_text("draw.ui.rules"))
+    _put(screen, 3, 2, tavern_format("draw.ui.practice", maximum=MAX_EXPOSURE))
+    _put(screen, 6, 2, tavern_format("draw.ui.credit", credit=state.trade_credit, stakes=tavern_text("draw.ui.wagered") if wagering else tavern_text("draw.ui.free_practice")),
          accent("warning" if wagering else "success", curses.A_BOLD))
-    _put(screen, 7, 2, f"Invite three adults actually in the tavern ({len(selected)}/3):")
+    _put(screen, 7, 2, tavern_format("draw.ui.invite", selected=len(selected)))
     first = max(0, cursor - 10)
     for index in range(first, min(first + 11, len(people))):
         person = people[index]
@@ -52,7 +50,7 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
              accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
         _put(screen, 19, 2, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)} tavern adults.")
-    _put(screen, 20, 2, message[:75] if message else "Only adults at this table play. Their cards stay hidden until showdown.",
+    _put(screen, 20, 2, message[:75] if message else tavern_text("draw.ui.empty"),
          accent("warning") if message else 0)
     _put(screen, 22, 2, ui_text("ui.tavern.draw.controls"), accent("ui_accent", curses.A_BOLD))
     screen.refresh()
@@ -64,27 +62,27 @@ def _draw_hand(screen: curses.window, state: GameState, marked: set[int], messag
     hand = state.tavern_draw["active_hand"]
     assert hand is not None
     screen.erase()
-    border(screen, "TAVERN DRAW / SHOWDOWN" if hand["phase"] == "complete" else "TAVERN DRAW / ON THE FELT",
+    border(screen, tavern_text("draw.ui.title.complete") if hand["phase"] == "complete" else tavern_text("draw.ui.title.active"),
            "success" if hand["phase"] == "complete" and 0 in hand["winners"] else "ui_frame")
-    phase = {"bet1": "FIRST BET", "draw": "EXCHANGE", "bet2": "FINAL BET", "complete": "SHOWDOWN"}[hand["phase"]]
-    _put(screen, 1, 2, f"HAND {hand['number']}  /  {phase}", accent("ui_heading", curses.A_BOLD))
-    _put(screen, 2, 2, f"Pot {hand['pot'] if hand['phase'] != 'complete' else hand['final_pot']} credit  |  Your credit {state.trade_credit}  |  {'WAGERED' if hand['wagering'] else 'FREE'}",
+    phase = draw_phase_name(hand["phase"])
+    _put(screen, 1, 2, tavern_format("draw.ui.hand", number=hand["number"], phase=phase), accent("ui_heading", curses.A_BOLD))
+    _put(screen, 2, 2, tavern_format("draw.ui.pot", pot=hand["pot"] if hand["phase"] != "complete" else hand["final_pot"], credit=state.trade_credit, stakes=tavern_text("draw.ui.wagered") if hand["wagering"] else tavern_text("draw.ui.free_practice")),
          accent("warning" if hand["wagering"] else "ui_accent"))
-    _put(screen, 3, 2, f"Dealer: {hand['names'][hand['dealer']]}   Acting: {hand['names'][hand['turn']] if hand['turn'] is not None else 'none'}")
+    _put(screen, 3, 2, tavern_format("draw.ui.dealer", dealer=hand["names"][hand["dealer"]], acting=hand["names"][hand["turn"]] if hand["turn"] is not None else tavern_text("draw.ui.none")))
     for seat in range(1, 4):
         column = 2 + (seat - 1) * 26
         name = hand["names"][seat][:23]
         balance = npc_credit(state, hand["players"][seat])
         _put(screen, 4, column, f"{name} ({balance})", accent("neutral", curses.A_BOLD))
         if not hand["active"][seat]:
-            cards = "FOLDED"
+            cards = tavern_text("draw.ui.folded")
         elif hand["phase"] == "complete" and seat <= reveal_count:
             cards = " ".join(card_name(card) for card in hand["hands"][seat])
         else:
             cards = "[##] " * 5
         _put(screen, 5, column, cards[:24])
-        _put(screen, 6, column, f"Paid {hand['committed'][seat]}  {'IN' if hand['active'][seat] else 'OUT'}")
-    _put(screen, 8, 2, f"{hand['names'][0]}  /  {RANK_NAMES[evaluate(hand['hands'][0])[0]]}", accent("player", curses.A_BOLD))
+        _put(screen, 6, column, tavern_format("draw.ui.paid", paid=hand["committed"][seat], status=tavern_text("draw.ui.in") if hand["active"][seat] else tavern_text("draw.ui.out")))
+    _put(screen, 8, 2, f"{hand['names'][0]}  /  {draw_rank_name(evaluate(hand['hands'][0])[0])}", accent("player", curses.A_BOLD))
     for index, card in enumerate(hand["hands"][0]):
         column = 13 + index * 11
         for offset, line in enumerate(card_frame(card, selected=index in marked)):
@@ -96,19 +94,19 @@ def _draw_hand(screen: curses.window, state: GameState, marked: set[int], messag
     if hand["phase"] == "complete":
         winners = ", ".join(hand["names"][seat] for seat in hand["winners"])
         net = hand["payouts"][0] - hand["committed"][0]
-        outcome = "WIN" if 0 in hand["winners"] else "OUT"
-        _put(screen, 18, 2, f"{outcome}  {winners[:38]}  /  YOUR NET {net:+d} CREDIT",
+        outcome = tavern_text("draw.ui.win") if 0 in hand["winners"] else tavern_text("draw.ui.out")
+        _put(screen, 18, 2, tavern_format("draw.ui.outcome", outcome=outcome, winners=winners[:38], net=f"{net:+d}"),
              accent("success" if 0 in hand["winners"] else "warning", curses.A_REVERSE | curses.A_BOLD))
-        _put(screen, 21, 2, "Enter clear settled hand  Q return to tavern", accent("ui_accent"))
+        _put(screen, 21, 2, tavern_text("draw.ui.clear"), accent("ui_accent"))
     elif hand["phase"] == "draw":
-        _put(screen, 18, 2, f"Selected to exchange: {len(marked)} / 5")
-        _put(screen, 21, 2, "1-5 mark cards  Enter exchange (or stand pat)  Q pause hand", accent("ui_accent"))
+        _put(screen, 18, 2, tavern_format("draw.ui.selected", count=len(marked)))
+        _put(screen, 21, 2, tavern_text("draw.ui.draw_controls"), accent("ui_accent"))
     else:
         due = hand["current_bet"] - hand["round_paid"][0]
-        _put(screen, 18, 2, f"To call: {due} credit; raised {hand['raises']}/1 this round.")
-        _put(screen, 21, 2, "C/Enter check or call  R raise  F fold  Q pause hand", accent("ui_accent"))
+        _put(screen, 18, 2, tavern_format("draw.ui.call", due=due, raises=hand["raises"]))
+        _put(screen, 21, 2, tavern_text("draw.ui.bet_controls"), accent("ui_accent"))
     _put(screen, 19, 2, (message or hand["log"][-1])[:75], accent("warning") if message else 0)
-    _put(screen, 22, 2, f"Capped stake: {MAX_EXPOSURE} credit per seat; no automatic replay or real money.", accent("terrain"))
+    _put(screen, 22, 2, tavern_format("draw.ui.disclaimer", maximum=MAX_EXPOSURE), accent("terrain"))
     screen.refresh()
 
 
@@ -155,7 +153,7 @@ def run_tavern_draw(screen: curses.window, state: GameState) -> None:
                 elif len(selected) < 3:
                     selected.append(identity)
                 else:
-                    message = "Three seats are filled; deselect someone before inviting another."
+                    message = tavern_text("draw.ui.seats_filled")
             elif normalized == ord("w"):
                 wagering = not wagering
             elif normalized in (10, 13, curses.KEY_ENTER):

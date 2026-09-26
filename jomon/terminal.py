@@ -1554,10 +1554,10 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
 
         if kind == "station:workshop":
             from .equipment_presentation import equipment_format
-            return [ChoiceOption(str(index + 1), equipment_format("equipment.overlay.slot", slot=slot, item=item_spec(item.kind).name if (item := equipped_item(state, slot)) else equipment_format("equipment.overlay.slot.empty")), available=equipped_item(state, slot) is not None, requirement=equipment_format("equipment.overlay.slot.requirement")) for index, slot in enumerate(SLOTS)] + [ChoiceOption("P", equipment_format("equipment.overlay.buy.choice"))]
+            return [ChoiceOption(str(index + 1), equipment_format("equipment.overlay.slot", slot=slot, item=item_display_name_or_legacy(item) if (item := equipped_item(state, slot)) else equipment_format("equipment.overlay.slot.empty")), available=equipped_item(state, slot) is not None, requirement=equipment_format("equipment.overlay.slot.requirement")) for index, slot in enumerate(SLOTS)] + [ChoiceOption("P", equipment_format("equipment.overlay.buy.choice"))]
         if kind == "workshop:store":
-            from .equipment_presentation import equipment_format
-            return [ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.store.row", fitting=value.name, price=value.price, stock=state.vessel_changes.get('fitting_stock:' + name, 0))) for index, (name, value) in enumerate(FITTINGS.items())]
+            from .equipment_presentation import equipment_format, fitting_name
+            return [ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.store.row", fitting=fitting_name(name), price=value.price, stock=state.vessel_changes.get('fitting_stock:' + name, 0))) for index, (name, value) in enumerate(FITTINGS.items())]
         if kind.startswith("workshop:slot:"):
             target = equipped_item(state, kind.split(":", 2)[2])
             if target is None:
@@ -1566,8 +1566,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for index, name in enumerate(FITTINGS):
                 if compatible(target, name):
                     valid, why = can_fit(state, target, name)
-                    from .equipment_presentation import equipment_format
-                    options.append(ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.preview", fitting=FITTINGS[name].name, cost=fit_cost(state, name)), "commitment", valid, why))
+                    from .equipment_presentation import equipment_format, fitting_name
+                    options.append(ChoiceOption(chr(65 + index), equipment_format("equipment.overlay.preview", fitting=fitting_name(name), cost=fit_cost(state, name)), "commitment", valid, why))
             for key, socket in zip("UVW", ("structure", "treatment", "lining")):
                 if any(FITTINGS[part.kind.split(':', 1)[1]].slot == socket for part in attached(state, target)):
                     from .equipment_presentation import equipment_format
@@ -2414,17 +2414,17 @@ def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent |
                 view.transaction.changed = True
                 view.selected_ids.clear()
                 sync_legacy_load(state)
-                view.status = f"Dropped {len(targets)} physical item(s)."
+                view.status = ui_format("ui.terminal.inventory.drop_success", count=len(targets))
             else:
-                view.status = "Drop failed; every target remains accounted for."
+                view.status = ui_format("ui.terminal.inventory.drop_failed")
             view.pending_drop = False
         elif char == "n":
             view.pending_drop = False
-            view.status = "Drop cancelled."
+            view.status = ui_format("ui.terminal.inventory.drop_cancelled")
         return False, False
     if key == ord("D"):
         if state.location == "jomon" and state.jomon_space != "vessel":
-            view.status = "Use the locker or vessel deck; tavern floor storage is not available."
+            view.status = ui_format("ui.terminal.inventory.tavern_storage")
             return False, False
         item = _inventory_item_at(state, view)
         targets = view.selected_ids or ({item.id} if item else set())
@@ -2892,16 +2892,19 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         parts = kind.split(":")
         if parts[1] == "buy":
             fitting = FITTINGS[parts[2]]
-            from .equipment_presentation import equipment_format, equipment_text
-            return equipment_text("equipment.overlay.buy.title"), [fitting.name, fitting.effect, fitting.drawback, equipment_format("equipment.overlay.buy.detail", fitting=fitting.name, effect=fitting.effect, drawback=fitting.drawback, width=fitting.shape[0], height=fitting.shape[1], weight=fitting.weight, price=fitting.price).split("\n")[-1]]
+            from .equipment_presentation import equipment_format, equipment_text, fitting_drawback, fitting_effect, fitting_name
+            fitting_id = parts[2]
+            name, effect, drawback = fitting_name(fitting_id), fitting_effect(fitting_id), fitting_drawback(fitting_id)
+            return equipment_text("equipment.overlay.buy.title"), [name, effect, drawback, equipment_format("equipment.overlay.buy.detail", fitting=name, effect=effect, drawback=drawback, width=fitting.shape[0], height=fitting.shape[1], weight=fitting.weight, price=fitting.price).split("\n")[-1]]
         item = next((item for item in state.items if item.id == parts[2]), None)
         if item is None:
             from .equipment_presentation import equipment_text
             return equipment_text("equipment.overlay.work.title"), [equipment_text("equipment.overlay.item.missing")]
         if parts[1] == "fit":
             fitting = FITTINGS[parts[3]]
-            from .equipment_presentation import equipment_format, equipment_text
-            return equipment_text("equipment.overlay.fit.title"), equipment_format("equipment.overlay.fit.detail", fitting=fitting.name, item=item_spec(item.kind).name, effect=fitting.effect, drawback=fitting.drawback, weight=fitting.weight, cost=fit_cost(state, parts[3])).split("\n")
+            from .equipment_presentation import equipment_format, equipment_text, fitting_drawback, fitting_effect, fitting_name
+            fitting_id = parts[3]
+            return equipment_text("equipment.overlay.fit.title"), equipment_format("equipment.overlay.fit.detail", fitting=fitting_name(fitting_id), item=item_display_name_or_legacy(item), effect=fitting_effect(fitting_id), drawback=fitting_drawback(fitting_id), weight=fitting.weight, cost=fit_cost(state, fitting_id)).split("\n")
         from .equipment_presentation import equipment_text
         return equipment_text("equipment.overlay.confirm.title"), describe(state, item) + [equipment_text("equipment.overlay.confirm.guidance"), equipment_text("equipment.overlay.confirm.costs")]
     if kind.startswith("vessel-refits:"):
@@ -3788,13 +3791,13 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             finally:
                 screen.timeout(-1)
             if interrupted != -1:
-                state.add_message("You stop following the known route; no extra action is spent.")
+                state.add_message(ui_format("ui.terminal.route.interrupted"))
                 local_route = None
                 continue
             progress = advance_route(state, local_route, local_route_index)
             local_route_index = progress.next_index
             if progress.stop_reason or progress.finished:
-                state.add_message(progress.stop_reason or "Destination reached.", priority=2)
+                state.add_message(progress.stop_reason or ui_format("ui.terminal.route.destination"), priority=2)
                 local_route = None
             continue
         event = normalise_input(screen.getch())
@@ -3803,7 +3806,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             continue
         if key == 26:  # Ctrl-Z: action clock remains stopped while suspended.
             if suspend_terminal(screen):
-                state.add_message("Jomon resumes exactly where the action clock stopped.")
+                state.add_message(ui_format("ui.terminal.resume"))
             continue
         if height < MIN_HEIGHT or width < MIN_WIDTH:
             if key in {ord("q"), ord("Q")}:
@@ -3815,9 +3818,9 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 if committed and inventory_view.transaction.changed:
                     if state.combat_active and inventory_view.source is None:
                         _advance_world(state)
-                        state.add_message("You complete one deliberate field repack.", priority=2)
+                        state.add_message(ui_format("ui.terminal.inventory.field_repack"), priority=2)
                     else:
-                        state.add_message("The physical load is arranged and accounted for.")
+                        state.add_message(ui_format("ui.terminal.inventory.repacked"))
                 inventory_view = None
             continue
         if route_view:
@@ -3921,11 +3924,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             guard(state)
         elif normalized == ord("t"):
             if state.active_vehicle_id:
-                state.add_message("Disembark before following a walking route; use the helm to steer.")
+                state.add_message(ui_format("ui.terminal.navigation.disembark"))
             elif state.location != "region":
-                state.add_message("Known-route following is available during regional expeditions.")
+                state.add_message(ui_format("ui.terminal.navigation.known_route"))
             elif not navigation_targets(state):
-                state.add_message("No other seen landmark or marked store is known yet.")
+                state.add_message(ui_format("ui.terminal.navigation.none"))
             else:
                 overlay = OverlayView("navigation")
         elif normalized == ord("x"):
@@ -3971,7 +3974,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             if stations_here(state):
                 overlay = OverlayView("craft-catalog:0")
             else:
-                state.add_message("Crafting needs a physical work area outside the tavern.", priority=2)
+                state.add_message(ui_format("ui.terminal.crafting.tavern"), priority=2)
         elif normalized == ord("o"):
             overlay = OverlayView("observed-life")
         elif key == 9:
@@ -3985,11 +3988,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             overlay = OverlayView("help")
         elif normalized == ord("s"):
             if state.location != "jomon":
-                state.add_message("The chronicle can be sealed aboard Jomon, beyond immediate danger.")
+                state.add_message(ui_format("ui.terminal.chronicle.seal_requirement"))
             else:
                 try:
                     save_game(state)
-                    state.add_message("Jomon's chronicle is sealed.")
+                    state.add_message(ui_format("ui.terminal.chronicle.sealed"))
                 except SaveError as exc:
                     state.add_message(str(exc))
         elif normalized == ord("q"):

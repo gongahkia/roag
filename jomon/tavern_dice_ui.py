@@ -12,6 +12,7 @@ from .tavern_dice import (
 )
 from .tavern_games_ui import accent, border, dice_face, meter, put
 from .ui_presentation import ui_text
+from .tavern_presentation import tavern_format, tavern_text
 
 
 def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cursor: int,
@@ -19,13 +20,13 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
     people = available_dice_opponents(state)
     screen.erase()
     bartender_name = state.bartender.name.split()[0]
-    border(screen, f"QUAY BONES / {bartender_name.upper()}'S CHALLENGE")
-    put(screen, 2, 3, "Four adults, two carved bones, three rounds.", accent("ui_accent"))
-    put(screen, 3, 3, "Roll or bank. One 1 busts; doubles force another roll.")
-    put(screen, 4, 3, "Six rolls maximum per turn. Best score wins; a tie pays nothing.")
-    put(screen, 5, 3, f"Counted purse: {state.tavern_dice['purse']} credit. Unique winner receives up to 2.", accent("success"))
-    put(screen, 6, 3, f"Your credit: {state.trade_credit}. No entry fee; the purse does not refill.")
-    put(screen, 7, 3, f"Invite three adults at the table ({len(selected)}/3):", accent("ui_heading"))
+    border(screen, tavern_format("dice.ui.title.lobby", bartender=bartender_name.upper()))
+    put(screen, 2, 3, tavern_text("dice.ui.rules.1"), accent("ui_accent"))
+    put(screen, 3, 3, tavern_text("dice.ui.rules.2"))
+    put(screen, 4, 3, tavern_text("dice.ui.rules.3"))
+    put(screen, 5, 3, tavern_format("dice.ui.purse", purse=state.tavern_dice["purse"], prize=2), accent("success"))
+    put(screen, 6, 3, tavern_format("dice.ui.credit", credit=state.trade_credit))
+    put(screen, 7, 3, tavern_format("dice.ui.invite", selected=len(selected)), accent("ui_heading"))
     first = max(0, cursor - 10)
     for index in range(first, min(first + 11, len(people))):
         person = people[index]
@@ -35,9 +36,9 @@ def _draw_lobby(screen: curses.window, state: GameState, selected: list[str], cu
             accent("ui_accent", curses.A_REVERSE) if index == cursor else 0)
     if len(people) > 11:
         put(screen, 19, 3, f"Showing {first + 1}-{min(first + 11, len(people))} of {len(people)}.")
-    put(screen, 20, 3, message[:73] if message else f"{bartender_name} keeps the prize purse on the table, not in an endless machine.",
+    put(screen, 20, 3, message[:73] if message else tavern_format("dice.ui.empty", bartender=bartender_name),
         accent("warning") if message else accent("terrain"))
-    put(screen, 22, 3, "J/K choose  Space invite  Enter begin  Q leave", accent("ui_accent", curses.A_BOLD))
+    put(screen, 22, 3, tavern_text("dice.ui.controls"), accent("ui_accent", curses.A_BOLD))
     screen.refresh()
     return people
 
@@ -48,17 +49,17 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
     assert match is not None
     screen.erase()
     complete = match["phase"] == "complete"
-    border(screen, "QUAY BONES / FINAL SCORE" if complete else ui_text("ui.tavern.dice.title"),
+    border(screen, tavern_text("dice.ui.title.complete") if complete else ui_text("ui.tavern.dice.title"),
            "success" if complete and 0 in match["winners"] else "ui_frame")
     put(screen, 2, 3,
-        f"Round {min(match['round'] + 1, ROUNDS)}/{ROUNDS}   Prize purse {state.tavern_dice['purse']} credit   Your credit {state.trade_credit}",
+        tavern_format("dice.ui.round", round=min(match["round"] + 1, ROUNDS), rounds=ROUNDS, purse=state.tavern_dice["purse"], credit=state.trade_credit),
         accent("ui_accent"))
     for seat in range(4):
         row = 4 + seat * 3
         active = match["turn"] == seat and not complete
         label = f"{'>' if active else ' '} {match['names'][seat][:18]:18} {match['scores'][seat]:>3}"
         put(screen, row, 3, label, accent("player" if seat == 0 else "neutral", curses.A_BOLD if active else 0))
-        put(screen, row + 1, 5, meter(match["scores"][seat]) + f"  busts {match['busts'][seat]}",
+        put(screen, row + 1, 5, meter(match["scores"][seat]) + tavern_format("dice.ui.busts", count=match["busts"][seat]),
             accent("success" if complete and seat in match["winners"] else "ui_accent" if active else "terrain"))
     put(screen, 4, 45, ui_text("ui.tavern.dice.bones"), accent("ui_heading", curses.A_BOLD))
     dice = shown_dice or tuple(match["last_dice"])
@@ -68,22 +69,22 @@ def _draw_match(screen: curses.window, state: GameState, message: str = "",
                 put(screen, 6 + offset, 43 + index * 13, line,
                     accent("warning" if value == 1 else "success" if value == 6 else "ui_accent", curses.A_BOLD))
     else:
-        put(screen, 8, 43, "[ hidden under cup ]", accent("ui_accent"))
-    put(screen, 12, 43, f"Turn pot: {match['turn_total']:>3} points", accent("success", curses.A_BOLD))
-    put(screen, 13, 43, f"Rolls: {match['roll_count']}/{MAX_ROLLS}")
+        put(screen, 8, 43, tavern_text("dice.ui.hidden"), accent("ui_accent"))
+    put(screen, 12, 43, tavern_format("dice.ui.turn_pot", total=match["turn_total"]), accent("success", curses.A_BOLD))
+    put(screen, 13, 43, tavern_format("dice.ui.rolls", count=match["roll_count"], maximum=MAX_ROLLS))
     if not complete and match["forced"]:
-        put(screen, 14, 43, "DOUBLE: roll again", accent("warning", curses.A_BOLD))
+        put(screen, 14, 43, tavern_text("dice.ui.double"), accent("warning", curses.A_BOLD))
     if complete:
         winners = ", ".join(match["names"][seat] for seat in match["winners"])
         role = "success" if 0 in match["winners"] and match["prize"] else "warning"
-        put(screen, 17, 3, f"{'WIN' if 0 in match['winners'] else 'RESULT'}: {winners}  /  {match['prize']} credit paid",
+        put(screen, 17, 3, tavern_format("dice.ui.outcome", outcome=tavern_text("dice.ui.win") if 0 in match["winners"] else tavern_text("dice.ui.result"), winners=winners, prize=match["prize"]),
             accent(role, curses.A_REVERSE | curses.A_BOLD))
-        put(screen, 21, 3, "Enter clear result  Q return to tavern", accent("ui_accent"))
+        put(screen, 21, 3, tavern_text("dice.ui.clear"), accent("ui_accent"))
     else:
-        put(screen, 17, 3, f"Acting: {match['names'][match['turn']]}", accent("ui_heading"))
+        put(screen, 17, 3, tavern_format("dice.ui.acting", player=match["names"][match["turn"]]), accent("ui_heading"))
         put(screen, 21, 3, ui_text("ui.tavern.dice.controls"), accent("ui_accent"))
     put(screen, 19, 3, (message or match["log"][-1])[:72], accent("warning") if message else accent("terrain"))
-    put(screen, 22, 3, f"No entry fee. {state.bartender.name.split()[0]} pays prizes from the purse on the table.")
+    put(screen, 22, 3, tavern_format("dice.ui.disclaimer", bartender=state.bartender.name.split()[0]))
     screen.refresh()
 
 
@@ -127,7 +128,7 @@ def run_tavern_dice(screen: curses.window, state: GameState) -> None:
                 elif len(selected) < 3:
                     selected.append(identity)
                 else:
-                    message = "Three seats are filled. Deselect someone first."
+                    message = tavern_text("dice.ui.seats_filled")
             elif normalized in (10, 13, curses.KEY_ENTER):
                 try:
                     start_match(state, selected)

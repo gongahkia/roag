@@ -384,3 +384,22 @@ class CrossRegionArcTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class QuestPresentationIdentityRegressionTests(unittest.TestCase):
+    def test_greenwold_medicine_result_retires_smoke_tender_by_archetype_not_name(self):
+        def resolve(seed: str, renamed: bool) -> tuple[list[tuple[str, str]], str]:
+            state = create_world(seed)
+            complete_material_stage(state, "greenwold")
+            import copy
+            target = copy.deepcopy(state.threats[0])
+            target.id = "greenwold-smoke-tender-test"
+            target.archetype_id = "forest-smoke-tender"
+            target.name = "renamed visible opponent" if renamed else "illicit burn smoke-tender"
+            state.threats.append(target)
+            result = resolve_regional_quest_choice(state, "m")
+            return sorted((threat.archetype_id, threat.status) for threat in state.threats), result.message
+
+        normal, _ = resolve("greenwold identity", False)
+        renamed, _ = resolve("greenwold identity", True)
+        self.assertEqual(normal, renamed)
+        self.assertIn(("forest-smoke-tender", "retreated"), renamed)

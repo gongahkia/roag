@@ -63,6 +63,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "situation_text.json", root / "situation_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "circuit_text.json", root / "circuit_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ecology_text.json", root / "ecology_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "tavern_games.json", root / "tavern_games.json")
     shutil.copytree(DEFAULT_PACK_ROOT / "dullest_dungeon", root / "dullest_dungeon")
     write_manifest(
         root,
@@ -135,6 +136,15 @@ def alternate_pack(root: Path) -> Path:
         "ui.tavern.draw.title": "FIXTURE DRAW",
     })
     source.write_text(json.dumps(ui, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "tavern_games.json"
+    tavern_games = json.loads(source.read_text(encoding="utf-8"))
+    tavern_games["text"]["draw.opening"] = "Fixture cards arrive under the same mechanical draw."
+    tavern_games["text"]["dice.opening"] = "Fixture bones keep the same three rounds."
+    tavern_games["text"]["draw.ui.title.active"] = "FIXTURE DRAW / TABLE"
+    tavern_games["rank_labels"][0] = "Fixture high hand"
+    tavern_games["cards"]["edge"] = "#-------#"
+    tavern_games["dice"]["1"][0] = "#-------#"
+    source.write_text(json.dumps(tavern_games, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "quests.json"
     quests = json.loads(source.read_text(encoding="utf-8"))
     quests["quests"]["quest.regional.hearthford"]["title"] = "Fixture Water Claim"
@@ -2464,6 +2474,18 @@ class EcologyPresentationTests(unittest.TestCase):
             source.write_text(original.replace('"frontier.result.surge"', '"frontier.result.brine"', 1), encoding="utf-8")
             with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ecology_text\.json"):
                 load_content_pack(root)
+
+class TavernGamesPresentationTests(unittest.TestCase):
+    def test_tavern_game_text_and_visuals_are_selected_pack_presentation(self):
+        default = bundled_default_pack()
+        with tempfile.TemporaryDirectory() as directory:
+            alternate = load_content_pack(alternate_pack(Path(directory) / "fixture"))
+        self.assertNotEqual(default.tavern_games.text("draw.opening"), alternate.tavern_games.text("draw.opening"))
+        self.assertEqual(default.tavern_games.rank_labels[0], "High card")
+        self.assertEqual(alternate.tavern_games.rank_labels[0], "Fixture high hand")
+        self.assertNotEqual(default.tavern_games.card_edge, alternate.tavern_games.card_edge)
+        self.assertNotEqual(dict(default.tavern_games.dice_faces)[1], dict(alternate.tavern_games.dice_faces)[1])
+
 
 class DullestDungeonPresentationTests(unittest.TestCase):
     def test_nested_dd_contract_and_presentation_are_selected_pack_owned(self):

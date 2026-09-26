@@ -17,11 +17,6 @@ ANTE = 1
 BET = 1
 MAX_RAISES = 1
 MAX_EXPOSURE = ANTE + 2 * (BET + MAX_RAISES)
-RANK_NAMES = (
-    "High card", "One pair", "Two pair", "Three of a kind", "Straight",
-    "Flush", "Full house", "Four of a kind", "Straight flush",
-)
-
 
 def available_opponents(state: GameState) -> list[Person]:
     from .tavern_games import available_opponents as shared_available_opponents

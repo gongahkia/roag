@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import curses
 
-from .visuals import TAVERN_DICE
+from .tavern_presentation import tavern_dice
 
 
 def put(screen: curses.window, row: int, col: int, value: str, attr: int = 0) -> None:
@@ -42,6 +42,7 @@ def meter(value: int, *, maximum: int = 60, width: int = 14) -> str:
 
 
 def dice_face(value: int) -> tuple[str, ...]:
-    if value not in TAVERN_DICE:
+    dice = tavern_dice()
+    if value not in dice:
         raise ValueError("a six-sided die needs a face from one to six")
-    return TAVERN_DICE[value]
+    return dice[value]

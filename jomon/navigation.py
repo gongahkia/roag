@@ -134,12 +134,19 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             "container",
         ))
         occupied.add(container.position)
-    for link in sorted(state.region.vertical_links, key=lambda item: (item.id or item.name, item.name)):
+    # New links always carry engine-owned ids.  Coordinate fallback is only for
+    # pre-id saves and deliberately never derives mechanics from display text.
+    def link_identity(link: object) -> str:
+        if link.id:
+            return link.id
+        return f"legacy:{link.first.x},{link.first.y},{link.first.z}:{link.second.x},{link.second.y},{link.second.z}"
+
+    for link in sorted(state.region.vertical_links, key=link_identity):
         for point in (link.first, link.second):
             if point == state.position or point not in known or point in occupied:
                 continue
             targets.append(NavigationTarget(
-                f"link:{link.id or link.name}:{point.x},{point.y},{point.z}",
+                f"link:{link_identity(link)}:{point.x},{point.y},{point.z}",
                 f"{_link_name(state, link)} on level {point.z:+d}",
                 point,
                 "vertical link",
