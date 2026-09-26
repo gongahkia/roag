@@ -280,6 +280,26 @@
     "equipment.family.gun.name": "Gun",
     "equipment.family.device.name": "Device",
     "equipment.arsenal.ammunition.none_short": "No physical {ammunition} remain.",
-    "equipment.enemy.protection.broken": " (broken)"
+    "equipment.enemy.protection.broken": " (broken)",
+    "equipment.ammunition.arrows.description": "Counted dry longbow arrows in a waxed wrap; each unit is one shot.",
+    "equipment.ammunition.bolts.description": "Counted crossbow bolts; each unit is one shot.",
+    "equipment.ammunition.heavy_bolts.description": "Counted heavy arbalest quarrels in a rigid case; each unit is one shot.",
+    "equipment.ammunition.shot.description": "Counted sling stones that fit a sling cup; each unit is one shot.",
+    "equipment.ammunition.handgonne_charges.description": "Three wrapped powder charges and lead balls.",
+    "equipment.ammunition.pitch_pots.description": "A sealed pitch pot for a pot sling.",
+    "equipment.ammunition.lime_pots.description": "A sealed lime pot for a pot sling.",
+    "equipment.ammunition.brine_pots.description": "A sealed brine pot for a pot sling.",
+    "equipment.ammunition.smoke_bombs.description": "A counted smoke bomb.",
+    "equipment.ammunition.pitch_bombs.description": "A counted pitch bomb.",
+    "equipment.ammunition.lime_bombs.description": "A counted lime bomb.",
+    "equipment.ammunition.brine_bombs.description": "A counted brine bomb.",
+    "equipment.ammunition.thunder_bombs.description": "A counted thunder bomb.",
+    "equipment.ammunition.resin_bombs.description": "A counted resin bomb.",
+    "equipment.ammunition.sling_stones.name": "sling stones",
+    "equipment.ammunition.sling_stones.description": "Counted selected stones that fit a sling cup; each unit is one shot.",
+    "equipment.ammunition.javelins.name": "javelins",
+    "equipment.ammunition.javelins.description": "Counted throwing javelins; each unit is one throw.",
+    "equipment.ammunition.nets.name": "nets",
+    "equipment.ammunition.nets.description": "One repaired weighted net for another cast."
   }
 }

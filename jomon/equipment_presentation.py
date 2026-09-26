@@ -34,6 +34,10 @@ def ammunition_display_name(raw_id: str) -> str:
     return equipment_text(f"equipment.ammunition.{_key(raw_id)}.name")
 
 
+def ammunition_description(raw_id: str) -> str:
+    return equipment_text(f"equipment.ammunition.{_key(raw_id)}.description")
+
+
 def equipment_effect_name(effect_id: str) -> str:
     return equipment_text(f"equipment.effect.{effect_id}.name")
 

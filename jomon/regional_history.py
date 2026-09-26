@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from .calendar import ACTIONS_PER_DAY, calendar_at
 from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
-from .history_presentation import history_format
+from .history_presentation import (history_contact_text, history_format, history_network_text,
+                                   history_region_text, history_value)
 from .state import (
     ActorSchedule, Contact, GameState, Institution, MaterialCell, Position,
     RegionalEvent, stage_rng,
@@ -76,7 +77,7 @@ def network_institution_for_contact(state: GameState, contact_id: str) -> Instit
 def _ensure_network_contacts(state: GameState) -> None:
     from .regions import region_reachable
 
-    for institution_id, region_id, contact_id, name, role, interest in NETWORK_CONTACTS:
+    for institution_id, region_id, contact_id, _legacy_name, _legacy_role, interest in NETWORK_CONTACTS:
         if region_id not in state.regions:
             continue
         contacts = state.contacts[region_id]
@@ -112,11 +113,16 @@ def _ensure_network_contacts(state: GameState) -> None:
                 ),
             )
             contact = Contact(
-                contact_id, name, role, 0,
+                contact_id, history_contact_text(contact_id, "name"), history_contact_text(contact_id, "role"), 0,
                 [history_format("history.network.contact_memory", institution=state.institutions[institution_id].name, region=region.name)],
                 interest, region_id, point,
             )
             contacts.append(contact)
+        else:
+            # A network contact is current world state, so its stable contact
+            # ID—not an old saved display string—selects active-pack wording.
+            contact.name = history_contact_text(contact_id, "name")
+            contact.role = history_contact_text(contact_id, "role")
         state.actor_schedules.setdefault(
             contact.id,
             ActorSchedule(
@@ -135,14 +141,17 @@ def _ensure_network_institutions(state: GameState) -> None:
         institution = state.institutions.setdefault(
             institution_id,
             Institution(
-                institution_id, definition["name"], definition["home"],
+                institution_id, history_network_text(institution_id, "name"), definition["home"],
                 definition["dependency"], definition["production"],
-                definition["goal"], definition["dispute"],
+                history_network_text(institution_id, "goal"), history_network_text(institution_id, "dispute"),
                 last_day=state.world_time // ACTIONS_PER_DAY,
             ),
         )
-        institution.service = definition["service"]
-        institution.opposition_reason = definition["opposition"]
+        institution.name = history_network_text(institution_id, "name")
+        institution.goal = history_network_text(institution_id, "goal")
+        institution.dispute = history_network_text(institution_id, "dispute")
+        institution.service = history_network_text(institution_id, "service")
+        institution.opposition_reason = history_network_text(institution_id, "opposition")
 
 
 def reconcile_network(state: GameState) -> None:
@@ -156,11 +165,17 @@ def reconcile_network(state: GameState) -> None:
     }
     for account in accounts:
         if account.id.startswith("work:"):
-            account.service, account.opposition_reason = INSTITUTION_SERVICES[account.region_id]
+            account.name = history_region_text(account.region_id, "institution_name")
+            account.goal = history_region_text(account.region_id, "goal")
+            account.dispute = history_region_text(account.region_id, "dispute")
+            account.service = history_region_text(account.region_id, "service")
+            account.opposition_reason = history_region_text(account.region_id, "opposition")
         else:
-            definition = NETWORK_ACCOUNTS[account.id]
-            account.service = definition["service"]
-            account.opposition_reason = definition["opposition"]
+            account.name = history_network_text(account.id, "name")
+            account.goal = history_network_text(account.id, "goal")
+            account.dispute = history_network_text(account.id, "dispute")
+            account.service = history_network_text(account.id, "service")
+            account.opposition_reason = history_network_text(account.id, "opposition")
         aftermath = state.regions[account.region_id].changes.get("aftermath_configuration")
         if aftermath == "shared":
             account.service += history_format("history.aftermath.shared")
@@ -174,10 +189,11 @@ def reconcile_network(state: GameState) -> None:
             if first.production == second.dependency:
                 first.relationships[second.id] = history_format("history.relationship.supplies", production=first.production, institution=second.name)
                 second.relationships[first.id] = history_format("history.relationship.depends", institution=first.name, production=first.production)
-    for first_region, second_region, dispute in INSTITUTION_TIES:
+    for first_region, second_region, _legacy_dispute in INSTITUTION_TIES:
         if first_region not in local_accounts or second_region not in local_accounts:
             continue
         first, second = local_accounts[first_region], local_accounts[second_region]
+        dispute = history_format(f"history.tie.{first_region}.{second_region}")
         first.relationships.setdefault(second.id, dispute)
         second.relationships.setdefault(first.id, dispute)
     for institution_id, definition in NETWORK_ACCOUNTS.items():
@@ -200,7 +216,12 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     region = state.regions[region_id]
     if region.regional_history:
         return
-    geology, climate, name, dependency, production, goal, dispute = WORKING_ACCOUNTS[region_id]
+    _legacy_geology, _legacy_climate, _legacy_name, dependency, production, _legacy_goal, _legacy_dispute = WORKING_ACCOUNTS[region_id]
+    geology = history_region_text(region_id, "geology")
+    climate = history_region_text(region_id, "climate")
+    name = history_region_text(region_id, "institution_name")
+    goal = history_region_text(region_id, "goal")
+    dispute = history_region_text(region_id, "dispute")
     rng = stage_rng(state.seed, f"working-history-v1:{region_id}")
     water, exposure = rng.randrange(1, 4), rng.randrange(3)
     crisis = rng.choice(("flood", "fire", "support loss"))
@@ -211,13 +232,14 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         obligation=1 if recovery == "private advance" else 0,
         last_day=state.world_time // ACTIONS_PER_DAY,
     ))
-    institution.service, institution.opposition_reason = INSTITUTION_SERVICES[region_id]
+    institution.service = history_region_text(region_id, "service")
+    institution.opposition_reason = history_region_text(region_id, "opposition")
     landforms = {key: value for key, value in region.generation_facts.items()
                  if key.startswith("landform:") or key in {"field_upper", "field_lower"}}
     region.generation_facts = {
         "version": 1, "watershed": water, "exposure": exposure,
         "geology": geology, "climate": climate,
-        "ecology": "wet refuge" if water >= 2 else "dry nesting ground",
+        "ecology": "wet" if water >= 2 else "dry",
         "work": production, "dependency": dependency,
         "crisis": crisis, "repair": recovery,
         "evidence_mode": "physical" if new_geography else "inherited testimony",
@@ -235,9 +257,9 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     scar = next((p for p in candidates if p not in protected and 0 <= p.x < region.width and 0 <= p.y < region.height and region.levels[str(p.z)][p.y][p.x] not in {" ", "#", "~"}), point)
     coordinate = f"{scar.x},{scar.y},{scar.z}"
     accounts = [
-        ("water and stone", geology, history_format("history.event.water_and_stone.account", climate=climate.title(), production=production, dependency=dependency), history_format("history.event.water_and_stone.consequence", water=water)),
-        (crisis, "timber" if crisis != "flood" else "soil", history_format("history.event.crisis.account", witness=witness.name, crisis=crisis, landmark=landmark.replace("_", " ")), history_format("history.event.crisis.consequence", coordinate=coordinate, dependency=dependency)),
-        (recovery, dependency, history_format("history.event.recovery.account", institution=name, recovery=recovery, crisis=crisis), history_format("history.event.recovery.private_consequence" if institution.obligation else "history.event.recovery.shared_consequence")),
+        ("water-and-stone", geology, history_format("history.event.water_and_stone.account", climate=climate, production=production, dependency=dependency), history_format("history.event.water_and_stone.consequence", water=water)),
+        (crisis, "timber" if crisis != "flood" else "soil", history_format("history.event.crisis.account", witness=witness.name, crisis=history_value("crisis", crisis.replace(" ", "_")), landmark=landmark.replace("_", " ")), history_format("history.event.crisis.consequence", coordinate=coordinate, dependency=dependency)),
+        (recovery, dependency, history_format("history.event.recovery.account", institution=name, recovery=history_value("recovery", "shared" if recovery == "shared repair" else "private"), crisis=history_value("crisis", crisis.replace(" ", "_"))), history_format("history.event.recovery.private_consequence" if institution.obligation else "history.event.recovery.shared_consequence")),
         ("contested occupation", production, history_format("history.event.contested_occupation.account", dispute=dispute), history_format("history.event.contested_occupation.consequence")),
         ("unsettled account", dependency, history_format("history.event.unsettled_account.account", witness=witness.name, cache=cache.name), history_format("history.event.unsettled_account.consequence", institution=name)),
     ]
@@ -270,7 +292,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     market[production].stock = min(8, market[production].stock + (1 if recovery == "shared repair" else 0))
     institution.confidence = 1 if recovery == "shared repair" else -1
     for contact in contacts:
-        contact.memories.append(history_format("history.contact_memory", institution=name, crisis=crisis, recovery=recovery, dispute=dispute))
+        contact.memories.append(history_format("history.contact_memory", institution=name, crisis=history_value("crisis", crisis.replace(" ", "_")), recovery=history_value("recovery", "shared" if recovery == "shared repair" else "private"), dispute=dispute))
         del contact.memories[:-8]
     guards = [actor for actor in state.region_threats[region_id] if not actor.elite and actor.profile != "animal"]
     # witnesses recruit one compatible local guard detail, not opposed claims.
@@ -278,7 +300,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     detail = [actor for actor in guards if preferred and actor.allegiance == preferred.allegiance]
     for actor in detail[:2]:
         actor.group = institution_id
-        actor.goal_reason = history_format("history.guard_reason", crisis=crisis, institution=name, production=production)
+        actor.goal_reason = history_format("history.guard_reason", crisis=history_value("crisis", crisis.replace(" ", "_")), institution=name, production=production)
         if not actor.duty:
             actor.objective_position = region.landmarks["objective"]
     for actor in state.region_threats[region_id]:
@@ -541,7 +563,7 @@ def forecast(state: GameState) -> str:
     exposure = int(state.region.generation_facts.get("exposure", 0))
     remaining = next((t - state.pressure_elapsed for t in state.region.process_thresholds if t > state.pressure_elapsed), None)
     stage = history_format("history.forecast.next", remaining=remaining, process=state.region.process_name) if remaining is not None else history_format("history.forecast.changed", process=state.region.process_name)
-    return history_format("history.forecast", season=calendar_at(state).season, exposure="exposed" if exposure == 2 else "partly sheltered", stage=stage)
+    return history_format("history.forecast", season=calendar_at(state).season, exposure=history_value("exposure", "exposed" if exposure == 2 else "sheltered"), stage=stage)
 
 
 def validate_accounts(state: GameState) -> None:

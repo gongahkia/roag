@@ -491,6 +491,13 @@
     "topology.navigation.route.condition": "New condition: {condition}.",
     "topology.navigation.route.load": "The carried load changes its movement state.",
     "topology.navigation.route.injury": "Injury interrupts route following.",
-    "topology.navigation.route.sound": "A new sound away from the route interrupts travel."
+    "topology.navigation.route.sound": "A new sound away from the route interrupts travel.",
+    "topology.navigation.status.opened": "opened",
+    "topology.navigation.status.marked": "marked",
+    "topology.navigation.status.seen": "seen",
+    "topology.navigation.unavailable.marked": "That destination is marked, but no remembered route reaches it yet.",
+    "topology.navigation.unavailable.danger": "Visible danger requires direct movement before route following.",
+    "topology.navigation.unavailable.unreachable": "No safe remembered route currently reaches that destination.",
+    "topology.navigation.unavailable.unknown": "That local destination is not presently known."
   }
 }

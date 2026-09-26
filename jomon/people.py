@@ -106,8 +106,59 @@ def create_visitors(seed: str) -> list[Person]:
             build_tendency=presentation["build_tendency"], home_region=template["home_region"],
             recruited=False, available=True, memories=[presentation["memory"]],
             recruitment_terms=presentation["terms"],
+            people_presentation_id=template["id"],
         ))
     return visitors
+
+
+def refresh_current_people_presentation(state: GameState) -> None:
+    """Render known current people slots through the active pack after load.
+
+    Absence of a slot means an older save cannot be identified without parsing
+    prose; its stored wording remains a legacy current-state fallback.
+    """
+    from .people_presentation import contact_name, contact_role, household_family_name, household_first_name, regional_context
+    for person in [*state.household, *state.visitors]:
+        if person.given_name_slot is not None and person.family_name_slot is not None:
+            try:
+                person.name = f"{household_first_name(int(person.given_name_slot.removeprefix('first_')))} {household_family_name(int(person.family_name_slot.removeprefix('family_')))}"
+            except (ValueError, KeyError):
+                # A malformed optional slot is not a license to reinterpret
+                # historical text.  State validation retains the safe fallback.
+                pass
+        if person.people_presentation_id:
+            try:
+                presentation = recruit_presentation(person.people_presentation_id)
+            except KeyError:
+                continue
+            person.name = presentation["name"]
+            person.ancestry = presentation["ancestry"]
+            person.background = presentation["background"]
+            person.build_tendency = presentation["build_tendency"]
+            person.recruitment_terms = presentation["terms"]
+    for contacts in state.contacts.values():
+        for contact in contacts:
+            if contact.name_slot:
+                try:
+                    contact.name = contact_name(int(contact.name_slot.removeprefix("contact_")))
+                except (ValueError, KeyError):
+                    pass
+            if contact.role_slot:
+                try:
+                    contact.role = contact_role(int(contact.role_slot.removeprefix("role_")))
+                except (ValueError, KeyError):
+                    pass
+    for region in state.regions.values():
+        if region.people_context_slot:
+            try:
+                context = regional_context(int(region.people_context_slot.removeprefix("context_")))
+            except (ValueError, KeyError):
+                continue
+            region.condition = context["condition"]
+            region.work = context["work"]
+            region.pressure = context["pressure"]
+            region.objective_text = context["objective"]
+            region.hazard = context["hazard"]
 
 
 def initialise_tavern(state: GameState) -> None:

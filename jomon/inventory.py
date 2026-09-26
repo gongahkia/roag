@@ -13,7 +13,7 @@ from .item_presentation import contracted_item_presentation, item_presentation
 from .chemistry_presentation import chemistry_text, reagent_display_name
 from .state import GameState, Item, Person, TerrainStatus
 from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
-from .equipment_presentation import ammunition_display_name, arsenal_weapon_name, equipment_format
+from .equipment_presentation import ammunition_description, ammunition_display_name, arsenal_weapon_name, equipment_format
 
 PACK_WIDTH = 10
 PACK_HEIGHT = 6
@@ -132,11 +132,12 @@ def item_spec(kind: str) -> ItemSpec:
         name = kind.split(":", 1)[1]
         region = EVIDENCE[name]
         title = workline_evidence_name(region)
-        return ItemSpec(title.title(), "EV", 1, 2, 1, "cargo", workline_format("workline.item.evidence.description", title=title))
+        return ItemSpec(title, "EV", 1, 2, 1, "cargo", workline_format("workline.item.evidence.description", title=title))
     if kind.startswith("contract:"):
+        from .ui_presentation import ui_text
         return ItemSpec(
-            "Witnessed contract copy", "WC", 1, 2, 1, "cargo",
-            "A physical local work account. It must be carried back after supply or field work; one paid witnessed replacement is possible after loss.",
+            ui_text("ui.inventory.contract.name"), "WC", 1, 2, 1, "cargo",
+            ui_text("ui.inventory.contract.description"),
         )
     if kind.startswith("fitting:"):
         from .workshop import FITTINGS
@@ -167,7 +168,13 @@ def item_spec(kind: str) -> ItemSpec:
         if name in PREPARATIONS:
             from .preparation_presentation import preparation_description, preparation_display_name
             return ItemSpec(preparation_display_name(name), "PR", 1, 1, 1, "consumable", preparation_description(name), stack_limit=4)
-        from .content import DISCOVERIES
+        # Stable ammunition IDs select pack-owned labels and descriptions.
+        # Physical-kind names never become a display fallback.
+        ammunition_id = next((identity for identity, physical_kind in AMMUNITION_ITEMS.items()
+                              if physical_kind == kind), None)
+        if ammunition_id is not None:
+            return ItemSpec(ammunition_display_name(ammunition_id), name[:2].upper(), 1, 1, 1,
+                            "consumable", ammunition_description(ammunition_id), stack_limit=4)
 
         presentation = contracted_item_presentation(name)
         if presentation:
@@ -176,20 +183,25 @@ def item_spec(kind: str) -> ItemSpec:
         from .quest_presentation import evidence_presentation_for_engine_id
 
         evidence = evidence_presentation_for_engine_id(name)
+        if evidence is None or evidence.evidence_name is None or evidence.evidence_description is None:
+            raise KeyError(f"uncontracted current consumable identity {name!r}")
         return ItemSpec(
-            evidence.evidence_name if evidence and evidence.evidence_name else name.title(),
+            evidence.evidence_name,
             name[:2].upper(), 1, 1, 1, "consumable",
-            evidence.evidence_description if evidence and evidence.evidence_description else name,
+            evidence.evidence_description,
             stack_limit=4,
         )
     if kind.startswith("relic:"):
         name = kind.split(":", 1)[1]
-        from .content import RELICS
-        from .legendary_presentation import arc_relic_display_name
+        from .legendary_presentation import arc_relic_description, arc_relic_display_name
 
         presentation = contracted_item_presentation(name)
-        return ItemSpec(presentation.display_name if presentation else arc_relic_display_name(name) or name.title(), "RL", 2, 2, 2,
-                        "relic", RELICS[name])
+        if presentation:
+            return ItemSpec(presentation.display_name, "RL", 2, 2, 2, "relic", presentation.description)
+        display_name, description = arc_relic_display_name(name), arc_relic_description(name)
+        if display_name is None or description is None:
+            raise KeyError(f"uncontracted current relic identity {name!r}")
+        return ItemSpec(display_name, "RL", 2, 2, 2, "relic", description)
     raise KeyError(f"unknown item kind {kind!r}")
 
 

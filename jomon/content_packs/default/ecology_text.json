@@ -381,6 +381,11 @@
     "frontier.telegraph.slip": "prepares {mode} at {position}; one action to leave, interrupt or secure the control",
     "frontier.action.slip.spent": "{mode} spent; {supplies} charges remain",
     "frontier.telegraph.boom": "prepares {mode} at {position}; one action to leave, interrupt or secure the control",
-    "frontier.action.boom.spent": "{mode} spent; {supplies} charges remain"
+    "frontier.action.boom.spent": "{mode} spent; {supplies} charges remain",
+    "ecology.special.wheel-train.name": "runaway crown wheel",
+    "ecology.special.wheel-train.goal": "deny lane",
+    "ecology.special.floodgate-claimant.name": "floodgate claimant",
+    "ecology.special.floodgate-claimant.goal": "open disputed sluice",
+    "ecology.special.floodgate-claimant.capability": "telegraphed crossing flood"
   }
 }

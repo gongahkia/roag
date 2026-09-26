@@ -233,6 +233,11 @@ class Person:
     max_mana: int = 8
     known_spells: list[str] = field(default_factory=list)
     known_formulas: list[str] = field(default_factory=list)
+    # Stable selected-pack presentation choices.  Empty values mark an old save
+    # whose rendered identity is deliberately retained as legacy fallback.
+    given_name_slot: str | None = None
+    family_name_slot: str | None = None
+    people_presentation_id: str | None = None
 
 
 @dataclass
@@ -245,6 +250,8 @@ class Contact:
     interest: str
     region_id: str = "hearthford"
     position: Position | None = None
+    name_slot: str | None = None
+    role_slot: str | None = None
 
 
 @dataclass
@@ -364,6 +371,7 @@ class Region:
     material_cursor: int = 0
     generation_facts: dict[str, str | int] = field(default_factory=dict)
     regional_history: list[RegionalEvent] = field(default_factory=list)
+    people_context_slot: str | None = None
 
 
 @dataclass
@@ -932,6 +940,7 @@ def _household(seed: str) -> list[Person]:
             id=f"crew-{index + 1}", name=f"{household_first_name(first[index])} {household_family_name(family[index])}", role=role,
             equipment=list(ROLE_EQUIPMENT[role]), technique=ROLE_TECHNIQUE[role],
             relationships={}, health=health, max_health=health,
+            given_name_slot=f"first_{first[index]}", family_name_slot=f"family_{family[index]}",
         ))
     relation_rng = stage_rng(seed, "relationships")
     for person in people:
@@ -940,6 +949,48 @@ def _household(seed: str) -> list[Person]:
             for other in people if other.id != person.id
         }
     return people
+
+
+def _special_hearthford_threat(threat_id: str, profile: str, position: Position, alternate_elite: bool) -> Threat:
+    """Build a stable Hearthford special threat with pack-owned display text."""
+    from .ecology_presentation import ecology_text
+
+    prefix = f"ecology.special.{threat_id}"
+    return Threat(
+        threat_id,
+        ecology_text(f"{prefix}.name"),
+        profile,
+        position,
+        7,
+        7,
+        archetype_id="hearth-elite-claimant" if alternate_elite else "",
+        status="dormant",
+        morale=4 if alternate_elite else 99,
+        elite=True,
+        role="elite" if alternate_elite else "hazard",
+        goal=ecology_text(f"{prefix}.goal"),
+        goal_id=f"goal.hearthford.{threat_id}",
+        capabilities=[ecology_text(f"{prefix}.capability")] if alternate_elite else [],
+    )
+
+
+def refresh_special_hearthford_threat_presentation(state: GameState) -> None:
+    """Refresh special-threat display only; IDs and mechanics stay fixed."""
+    from .ecology_presentation import ecology_text
+
+    for threat in state.region_threats.get("hearthford", ()):
+        if threat.id not in {"wheel-train", "floodgate-claimant"}:
+            continue
+        prefix = f"ecology.special.{threat.id}"
+        threat.name = ecology_text(f"{prefix}.name")
+        # These IDs identify a presentation-only current-state goal.  Existing
+        # snapshots without the field have the same special identity, so they
+        # are normalized without interpreting their old rendered wording.
+        if threat.goal_id in {"", f"goal.hearthford.{threat.id}"}:
+            threat.goal_id = f"goal.hearthford.{threat.id}"
+            threat.goal = ecology_text(f"{prefix}.goal")
+        if threat.id == "floodgate-claimant":
+            threat.capabilities = [ecology_text(f"{prefix}.capability")]
 
 
 def _threats(seed: str, region: Region) -> list[Threat]:
@@ -989,15 +1040,11 @@ def _threats(seed: str, region: Region) -> list[Threat]:
     )
     threats = [
         road, boar, roof, levy, gantry, expanded,
-        Threat(
+        _special_hearthford_threat(
             "floodgate-claimant" if alternate_elite else "wheel-train",
-            "floodgate claimant" if alternate_elite else "runaway crown wheel",
-            "reach" if alternate_elite else "machinery", layout_point(region, Position(82, 27)), 7, 7,
-            archetype_id="hearth-elite-claimant" if alternate_elite else "",
-            status="dormant", morale=4 if alternate_elite else 99, elite=True,
-            role="elite" if alternate_elite else "hazard",
-            goal="open disputed sluice" if alternate_elite else "deny lane",
-            capabilities=["telegraphed crossing flood"] if alternate_elite else [],
+            "reach" if alternate_elite else "machinery",
+            layout_point(region, Position(82, 27)),
+            alternate_elite,
         ),
         reavers,
     ]
@@ -1038,17 +1085,21 @@ def _region(seed: str) -> tuple[Region, Contact]:
     context_presentation = regional_context(context_index)
     spatial = build_region(seed)
     contact_rng = stage_rng(seed, "contact")
+    contact_name_index = contact_rng.randrange(len(CONTACT_NAMES))
+    contact_role_index = contact_rng.randrange(3)
     contact = Contact(
-        id="hearthford-contact", name=contact_name(contact_rng.randrange(len(CONTACT_NAMES))),
-        role=contact_role(contact_rng.randrange(3)),
+        id="hearthford-contact", name=contact_name(contact_name_index),
+        role=contact_role(contact_role_index),
         disposition=contact_rng.choice((-1, 0, 1)), memories=[], interest=context["commodity"],
         region_id="hearthford", position=spatial["landmarks"]["contact"],
+        name_slot=f"contact_{contact_name_index}", role_slot=f"role_{contact_role_index}",
     )
     region = Region(
         condition=context_presentation["condition"], work=context_presentation["work"], pressure=context_presentation["pressure"],
         objective_text=context_presentation["objective"], objective_commodity=context["commodity"],
         opportunity_commodity=context["opportunity"], hazard=context_presentation["hazard"],
         name=region_display_name("hearthford"),
+        people_context_slot=f"context_{context_index}",
         **spatial,
     )
     from .sanctums import install as install_sanctum
@@ -1856,8 +1907,10 @@ def game_state_from_dict(data: Any) -> GameState:
         migrate_legacy_chemistry_state(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
-    from .people import normalize_personal_return_state
+    from .people import normalize_personal_return_state, refresh_current_people_presentation
     normalize_personal_return_state(state)
+    refresh_current_people_presentation(state)
+    refresh_special_hearthford_threat_presentation(state)
     from .practices import stable_practice_id
     for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
         person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]
@@ -1945,6 +1998,29 @@ def validate_state(state: GameState) -> None:
            or type(person.character_specified) is not bool
            for person in [*all_people, state.bartender]):
         raise StateError("invalid person profile")
+    valid_first_slots = {f"first_{index}" for index in range(len(FIRST_NAMES))}
+    valid_family_slots = {f"family_{index}" for index in range(len(FAMILY_NAMES))}
+    valid_recruit_slots = {"recruit-maelin", "recruit-jessa", "recruit-orra", "recruit-bran", "recruit-teren", "recruit-sava"}
+    if any(
+        (person.given_name_slot is None) != (person.family_name_slot is None)
+        or person.given_name_slot is not None and person.given_name_slot not in valid_first_slots
+        or person.family_name_slot is not None and person.family_name_slot not in valid_family_slots
+        or person.people_presentation_id is not None and person.people_presentation_id not in valid_recruit_slots
+        for person in [*all_people, state.bartender]
+    ):
+        raise StateError("invalid person presentation identity")
+    valid_contact_names = {f"contact_{index}" for index in range(len(CONTACT_NAMES))}
+    valid_contact_roles = {f"role_{index}" for index in range(3)}
+    if any(
+        (contact.name_slot is None) != (contact.role_slot is None)
+        or contact.name_slot is not None and contact.name_slot not in valid_contact_names
+        or contact.role_slot is not None and contact.role_slot not in valid_contact_roles
+        for contacts in state.contacts.values() for contact in contacts
+    ):
+        raise StateError("invalid contact presentation identity")
+    valid_context_slots = {f"context_{index}" for index in range(len(REGIONAL_CONTEXTS))}
+    if any(region.people_context_slot is not None and region.people_context_slot not in valid_context_slots for region in state.regions.values()):
+        raise StateError("invalid regional people presentation identity")
     from .character import ANCESTRIES, ORIGINS, TRAITS
 
     if any(person.ancestry not in ANCESTRIES

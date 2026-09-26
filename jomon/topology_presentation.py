@@ -75,3 +75,10 @@ def navigation_link_label(name: str, level: int) -> str:
 
 def navigation_route_text(key: str, /, **values: object) -> str:
     return topology_text(f"topology.navigation.route.{key}").format(**values)
+
+
+def navigation_status_label(status: str) -> str:
+    return topology_text(f"topology.navigation.status.{status}")
+
+def navigation_unavailable_text(reason: str) -> str:
+    return topology_text(f"topology.navigation.unavailable.{reason}")

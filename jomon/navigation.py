@@ -8,7 +8,7 @@ from itertools import count
 
 from .inventory import load_state
 from .state import GameState, Position
-from .topology_presentation import navigation_container_label, navigation_link_label, navigation_route_text
+from .topology_presentation import navigation_container_label, navigation_link_label, navigation_route_text, navigation_status_label, navigation_unavailable_text
 from .world import (
     base_tile,
     distance,
@@ -114,7 +114,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             or (container.position not in known and container.id not in marks)
         ):
             continue
-        state_word = "opened" if container.opened else "marked" if container.id in marks else "seen"
+        state_word = navigation_status_label("opened" if container.opened else "marked" if container.id in marks else "seen")
         targets.append(NavigationTarget(
             f"container:{container.id}",
             navigation_container_label(_container_name(state, container), state_word),
@@ -221,9 +221,9 @@ def _neighbours(state: GameState, point: Position, known: set[Position]) -> list
 def _path(state: GameState, destination: Position) -> tuple[Position, ...]:
     known = remembered_positions(state)
     if destination not in known:
-        raise RouteUnavailable("That destination is marked, but no remembered route reaches it yet.")
+        raise RouteUnavailable(navigation_unavailable_text("marked"))
     if _visible_danger(state):
-        raise RouteUnavailable("Visible danger requires direct movement before route following.")
+        raise RouteUnavailable(navigation_unavailable_text("danger"))
     serial = count()
     queue: list[tuple[int, int, int, Position]] = [(0, 0, next(serial), state.position)]
     best = {state.position: 0}
@@ -244,7 +244,7 @@ def _path(state: GameState, destination: Position) -> tuple[Position, ...]:
             previous[candidate] = current
             heapq.heappush(queue, (score, steps + 1, next(serial), candidate))
     if not found:
-        raise RouteUnavailable("No safe remembered route currently reaches that destination.")
+        raise RouteUnavailable(navigation_unavailable_text("unreachable"))
     route = [destination]
     while previous[route[-1]] is not None:
         route.append(previous[route[-1]])
@@ -255,7 +255,7 @@ def _path(state: GameState, destination: Position) -> tuple[Position, ...]:
 def plan_route(state: GameState, target_id: str) -> RoutePlan:
     target = next((item for item in navigation_targets(state) if item.id == target_id), None)
     if target is None:
-        raise RouteUnavailable("That local destination is not presently known.")
+        raise RouteUnavailable(navigation_unavailable_text("unknown"))
     path = _path(state, target.position)
     return RoutePlan(
         state.active_region_id,

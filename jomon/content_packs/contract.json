@@ -2274,6 +2274,16 @@
       "id": "ui.character.attribute.presence",
       "placeholders": [],
       "max_length": 80
+    },
+    {
+      "id": "ui.inventory.contract.name",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.inventory.contract.description",
+      "placeholders": [],
+      "max_length": 240
     }
   ],
   "quests": [
@@ -2971,6 +2981,422 @@
       "placeholders": [
         "opening"
       ]
+    },
+    {
+      "id": "history.region.hearthford.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.hearthford.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greywash.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.greenwold.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.whitecairn.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.dunmire.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.rillscar.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.marlbank.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.geology",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.climate",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.institution_name",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.region.frostmere.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.bank-measures.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.bank-measures.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.bank-measures.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.bank-measures.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.bank-measures.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.wreck-and-span.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.wreck-and-span.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.wreck-and-span.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.wreck-and-span.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.wreck-and-span.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.burn-shelter.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.burn-shelter.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.burn-shelter.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.burn-shelter.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.burn-shelter.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.cold-road.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.cold-road.goal",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.cold-road.dispute",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.cold-road.service",
+      "placeholders": []
+    },
+    {
+      "id": "history.network.cold-road.opposition",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-hearthford.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-hearthford.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-marlbank.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-marlbank.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-greywash.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-greywash.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-rillscar.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-rillscar.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-greenwold.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-greenwold.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-dunmire.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-dunmire.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-whitecairn.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-whitecairn.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-frostmere.name",
+      "placeholders": []
+    },
+    {
+      "id": "history.contact.network-contact-frostmere.role",
+      "placeholders": []
+    },
+    {
+      "id": "history.tie.hearthford.dunmire",
+      "placeholders": []
+    },
+    {
+      "id": "history.tie.hearthford.marlbank",
+      "placeholders": []
+    },
+    {
+      "id": "history.tie.whitecairn.frostmere",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.crisis.flood",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.crisis.fire",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.crisis.support_loss",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.recovery.shared",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.recovery.private",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.ecology.wet",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.ecology.dry",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.exposure.exposed",
+      "placeholders": []
+    },
+    {
+      "id": "history.value.exposure.sheltered",
+      "placeholders": []
     }
   ],
   "aftermath": [
@@ -3996,6 +4422,34 @@
     },
     {
       "id": "topology.navigation.route.sound",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.status.opened",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.status.marked",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.status.seen",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.unavailable.marked",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.unavailable.danger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.unavailable.unreachable",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.unavailable.unknown",
       "placeholders": []
     },
     {
@@ -15257,7 +15711,19 @@
       "placeholders": []
     },
     {
+      "id": "equipment.ammunition.sling_stones.name",
+      "placeholders": []
+    },
+    {
       "id": "equipment.ammunition.heavy_bolts.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.javelins.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.nets.name",
       "placeholders": []
     },
     {
@@ -15302,6 +15768,74 @@
     },
     {
       "id": "equipment.ammunition.resin_bombs.name",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.arrows.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.bolts.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.sling_stones.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.heavy_bolts.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.javelins.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.nets.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.shot.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.handgonne_charges.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.pitch_pots.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.lime_pots.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.brine_pots.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.smoke_bombs.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.pitch_bombs.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.lime_bombs.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.brine_bombs.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.thunder_bombs.description",
+      "placeholders": []
+    },
+    {
+      "id": "equipment.ammunition.resin_bombs.description",
       "placeholders": []
     },
     {
@@ -21244,6 +21778,26 @@
         "mode",
         "supplies"
       ]
+    },
+    {
+      "id": "ecology.special.wheel-train.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.special.wheel-train.goal",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.special.floodgate-claimant.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.special.floodgate-claimant.goal",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.special.floodgate-claimant.capability",
+      "placeholders": []
     }
   ],
   "dullest_dungeon": {},
