@@ -11,6 +11,9 @@ from jomon.preparations import (
     TOPOLOGY_PREPARATION,
     apply_preparation,
     carried_preparations,
+    normalize_preparation_state,
+    preparation_item_kind,
+    stable_preparation_id,
     validate_preparations,
 )
 from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
@@ -34,17 +37,18 @@ class FinitePreparationTests(unittest.TestCase):
         for y in range(19, 30):
             for x in range(34, 48):
                 state.region.tile_changes[f"{x},{y},0"] = "."
-        item = create_item(state, f"consumable:{name}", "focused preparation test")
+        preparation_id = stable_preparation_id(name)
+        item = create_item(state, preparation_item_kind(preparation_id), "focused preparation test")
         self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
         sync_legacy_load(state)
-        self.assertIn(name, carried_preparations(state))
+        self.assertIn(preparation_id, carried_preparations(state))
         return state
 
     def use(self, state, name: str):
         changed, message = apply_preparation(state, name)
         self.assertTrue(changed, message)
         self.assertIn("physical preparation is spent", message)
-        self.assertNotIn(name, state.consumables)
+        self.assertNotIn(stable_preparation_id(name), state.consumables)
         return message
 
     def test_sixteen_topologies_have_distinct_inspectable_physical_results(self):
@@ -53,8 +57,8 @@ class FinitePreparationTests(unittest.TestCase):
         self.assertEqual(len(PREPARATIONS), 16)
         self.assertEqual(set(TOPOLOGY_PREPARATION), expected)
         self.assertEqual(len({entry.mode for entry in PREPARATIONS.values()}), 16)
-        for name, entry in PREPARATIONS.items():
-            self.assertEqual(item_spec(f"consumable:{name}").description, entry.description)
+        for preparation_id, entry in PREPARATIONS.items():
+            self.assertEqual(item_spec(preparation_item_kind(preparation_id)).description, entry.description)
 
     def test_water_weapon_light_and_ground_recovery_are_physical(self):
         water = self.state_for("race-gate chalk")
@@ -176,7 +180,7 @@ class FinitePreparationTests(unittest.TestCase):
 
     def test_contextual_overlay_previews_and_commits_exact_selected_supply(self):
         state = self.state_for("storm wick")
-        second = create_item(state, "consumable:echo muffler", "second option")
+        second = create_item(state, preparation_item_kind("preparation.aim-break"), "second option")
         self.assertTrue(auto_place(state, second.id, "pack", owner_id=state.active_courier_id))
         sync_legacy_load(state)
         state.lamp_oil = 5
@@ -188,7 +192,7 @@ class FinitePreparationTests(unittest.TestCase):
         closed, _ = _handle_overlay(state, "field-use", ord("1"))
         self.assertIsNone(closed)
         self.assertEqual(state.world_time, before + 1)
-        self.assertNotIn("storm wick", state.consumables)
+        self.assertNotIn("preparation.storm-light", state.consumables)
 
     def test_successful_use_round_trips_result_and_invalid_use_is_zero_time(self):
         state = self.state_for("tallow gear wrap")
@@ -196,12 +200,55 @@ class FinitePreparationTests(unittest.TestCase):
         result = use_gear(state, "tallow gear wrap")
         self.assertFalse(result.time_advanced)
         self.assertEqual(state.world_time, before["world_time"])
-        self.assertIn("tallow gear wrap", state.consumables)
+        self.assertIn("preparation.weapon-repair", state.consumables)
         weapon = next(item for item in state.items if item.location == "readied" and item.owner_id == state.active_courier_id)
         weapon.condition = 40
         self.assertTrue(use_gear(state, "tallow gear wrap").time_advanced)
         loaded = game_state_from_dict(state.to_dict())
         self.assertEqual(loaded.to_dict(), state.to_dict())
+
+    def test_known_legacy_item_and_marker_normalize_to_stable_identity(self):
+        state = copy.deepcopy(self.base)
+        state.location = "region"
+        item = create_item(state, "consumable:race-gate chalk", "legacy preparation")
+        self.assertTrue(auto_place(state, item.id, "pack", owner_id=state.active_courier_id))
+        state.region.changes["preparation-used:race-gate chalk"] = 2
+        sync_legacy_load(state)
+        self.assertEqual(item.kind, "consumable:preparation.waterline")
+        self.assertEqual(state.region.changes["preparation-used:preparation.waterline"], 2)
+        self.assertNotIn("preparation-used:race-gate chalk", state.region.changes)
+
+    def test_unknown_legacy_preparation_is_inert_and_not_guessed(self):
+        state = copy.deepcopy(self.base)
+        state.location = "region"
+        item = create_item(state, "consumable:unrelated old mixture", "unknown legacy preparation")
+        item.location, item.owner_id = "pack", state.active_courier_id
+        state.region.changes["preparation-used:unrelated old mixture"] = 1
+        self.assertFalse(normalize_preparation_state(state))
+        self.assertEqual(item.kind, "consumable:unrelated old mixture")
+        self.assertNotIn("unrelated old mixture", carried_preparations(state))
+        self.assertEqual(state.region.changes["preparation-used:unrelated old mixture"], 1)
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertTrue(any(item.kind == "consumable:unrelated old mixture" for item in loaded.items))
+        self.assertNotIn("unrelated old mixture", carried_preparations(loaded))
+        self.assertEqual(loaded.region.changes["preparation-used:unrelated old mixture"], 1)
+
+    def test_new_stable_preparation_round_trip_preserves_item_and_marker(self):
+        state = self.state_for("race-gate chalk")
+        state.region.changes["preparation-used:preparation.waterline"] = 1
+        loaded = game_state_from_dict(state.to_dict())
+        self.assertIn("preparation.waterline", carried_preparations(loaded))
+        self.assertEqual(loaded.region.changes["preparation-used:preparation.waterline"], 1)
+
+    def test_known_legacy_serialized_item_and_marker_load_to_stable_identity(self):
+        state = self.state_for("race-gate chalk")
+        data = state.to_dict()
+        next(item for item in data["items"] if item["kind"] == "consumable:preparation.waterline")["kind"] = "consumable:race-gate chalk"
+        data["regions"][state.active_region_id]["changes"]["preparation-used:race-gate chalk"] = 1
+        loaded = game_state_from_dict(data)
+        self.assertIn("preparation.waterline", carried_preparations(loaded))
+        self.assertEqual(loaded.region.changes["preparation-used:preparation.waterline"], 1)
+        self.assertNotIn("preparation-used:race-gate chalk", loaded.region.changes)
 
 
 if __name__ == "__main__":

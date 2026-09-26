@@ -1954,5 +1954,72 @@ class EquipmentPresentationTests(unittest.TestCase):
                     load_content_pack(root)
 
 
+def preparation_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.inventory import auto_place, create_item, sync_legacy_load; from jomon.preparations import apply_preparation, carried_preparations, preparation_status; from jomon.state import MaterialCell, Position, create_world; from jomon.terminal import _overlay_lines; "
+            "state=create_world('preparation-pack-proof'); state.location='region'; state.position=Position(40,24); state.region.materials.clear(); item=create_item(state,'consumable:preparation.waterline','fixture preparation'); auto_place(state,item.id,'pack',owner_id=state.active_courier_id); sync_legacy_load(state); carried=carried_preparations(state); ready=preparation_status(state,'preparation.waterline'); overlay=_overlay_lines(state,'field-use'); state.region.materials['40,24,0']=MaterialCell(water=3); changed,message=apply_preparation(state,'preparation.waterline'); mechanics={'preparation_id':'preparation.waterline','item_kind':item.kind,'carried_before':carried, 'ready_before':ready[0], 'changed':changed, 'water':state.region.materials['40,24,0'].water, 'marker':state.region.changes['preparation-used:preparation.waterline'], 'consumables':dict(state.consumables), 'time':state.world_time}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[overlay[1][0], overlay[1][-1], message], 'mechanics':mechanics}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class PreparationPresentationTests(unittest.TestCase):
+    def test_default_preparation_presentation_preserves_existing_text(self):
+        from jomon.preparation_presentation import preparation_display_name, preparation_text
+
+        self.assertEqual(preparation_display_name("preparation.waterline"), "Race-Gate Chalk")
+        self.assertEqual(preparation_text("preparation.waterline.condition"), "nearby released or material water")
+
+    def test_alternate_pack_changes_preparation_presentation_not_mechanics(self):
+        default = preparation_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = preparation_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        self.assertIn("Fixture Tide Chalk", alternate["messages"][0])
+        self.assertIn("FIXTURE field guidance", alternate["messages"][1])
+        self.assertIn("FIXTURE Fixture Tide Chalk", alternate["messages"][2])
+
+    def test_preparation_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "preparation_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing preparation": lambda value: value["text"].pop("preparation.waterline.name"),
+                "missing text field": lambda value: value.pop("text"),
+                "unknown key": lambda value: value["text"].update({"preparation.extra.name": "extra"}),
+                "empty text": lambda value: value["text"].update({"preparation.waterline.description": ""}),
+                "non-string": lambda value: value["text"].update({"preparation.waterline.condition": 3}),
+                "unknown placeholder": lambda value: value["text"].update({"preparation.apply.success": "uses {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"preparation.apply.success": "uses {preparation}"}),
+                "malformed template": lambda value: value["text"].update({"preparation.result.waterline": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*preparation_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("unsupported field"):
+                document = json.loads(original)
+                document["extra"] = "not allowed"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*preparation_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"preparation.waterline.name"', '"preparation.waterline.description"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*preparation_text\.json"):
+                    load_content_pack(root)
+
+
 if __name__ == "__main__":
     unittest.main()

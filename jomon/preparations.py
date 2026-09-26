@@ -172,7 +172,7 @@ def apply_preparation(state: GameState, value: str) -> tuple[bool, str]:
     preparation_name = preparation_display_name(preparation_id)
     if not available:
         return False, preparation_format("preparation.apply.unavailable", preparation=preparation_name, condition=preparation_status_text(reason_id))
-    from .inventory import auto_place, consume_carried, item_spec, record_acquisition
+    from .inventory import auto_place, consume_carried, record_acquisition
     from .materials import FLAMMABLE, ensure_cell, fields, key, material_at
 
     mode = PREPARATIONS[preparation_id].mode
@@ -193,7 +193,7 @@ def apply_preparation(state: GameState, value: str) -> tuple[bool, str]:
         weapon = next(item for item in state.items if item.owner_id == state.active_courier_id and item.location == "readied" and item.condition < 100)
         before = weapon.condition
         weapon.condition = min(100, weapon.condition + 30)
-        detail = preparation_format("preparation.result.weapon-repair", weapon=item_spec(weapon.kind).name, before=before, condition=weapon.condition)
+        detail = preparation_format("preparation.result.weapon-repair", weapon=weapon.kind, before=before, condition=weapon.condition)
     elif mode == "storm-light":
         before = state.lamp_oil
         state.lamp_oil = min(8, state.lamp_oil + 2)
@@ -213,7 +213,7 @@ def apply_preparation(state: GameState, value: str) -> tuple[bool, str]:
         if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
             return False, preparation_format("preparation.apply.unavailable", preparation=preparation_name, condition=preparation_text("preparation.item-recovery.pack_full"))
         record_acquisition(state, item)
-        detail = preparation_format("preparation.result.item-recovery", item=item_spec(item.kind).name)
+        detail = preparation_format("preparation.result.item-recovery", item=item.kind)
     elif mode == "fire-blanket":
         changed = 0
         for point, cell in _nearby_materials(state, 2):

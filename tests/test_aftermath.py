@@ -160,7 +160,7 @@ class EndingDerivedAftermathTests(unittest.TestCase):
         ]
         self.assertEqual(
             set(rewards),
-            {"consumable:race-gate chalk", "consumable:tallow gear wrap"},
+            {"consumable:preparation.waterline", "consumable:preparation.weapon-repair"},
         )
 
     def test_field_approach_changes_material_and_route_then_round_trips(self):

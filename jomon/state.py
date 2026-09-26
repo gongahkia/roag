@@ -1488,6 +1488,10 @@ def game_state_from_dict(data: Any) -> GameState:
             returning_by_tug=data["returning_by_tug"],
             circuits=circuits,
         )
+        from .preparations import normalize_preparation_state
+        if normalize_preparation_state(state):
+            from .inventory import sync_legacy_load
+            sync_legacy_load(state)
         if migrated_v9:
             from .skill_tree import seed_role_nodes
 
@@ -1601,10 +1605,6 @@ def game_state_from_dict(data: Any) -> GameState:
     from .practices import stable_practice_id
     for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
         person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]
-    from .preparations import normalize_preparation_state
-    if normalize_preparation_state(state):
-        from .inventory import sync_legacy_load
-        sync_legacy_load(state)
     validate_state(state)
     return state
 
