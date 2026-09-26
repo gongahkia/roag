@@ -57,6 +57,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "magic_text.json", root / "magic_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "progression_text.json", root / "progression_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "equipment_text.json", root / "equipment_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "preparation_text.json", root / "preparation_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -316,6 +317,16 @@ def alternate_pack(root: Path) -> Path:
         "equipment.overlay.station.title": "FIXTURE EQUIPMENT BAY",
     })
     source.write_text(json.dumps(equipment_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "preparation_text.json"
+    preparation_text = json.loads(source.read_text(encoding="utf-8"))
+    preparation_text["text"].update({
+        "preparation.waterline.name": "Fixture Tide Chalk",
+        "preparation.waterline.description": "Fixture waterline wording keeps the same layers.",
+        "preparation.waterline.condition": "fixture nearby water",
+        "preparation.apply.success": "FIXTURE {preparation}: {detail}.",
+        "preparation.overlay.guidance": "FIXTURE field guidance keeps the same action clock.",
+    })
+    source.write_text(json.dumps(preparation_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({

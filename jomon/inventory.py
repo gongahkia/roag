@@ -162,6 +162,10 @@ def item_spec(kind: str) -> ItemSpec:
                         "passive", description, stack_limit=3)
     if kind.startswith("consumable:"):
         name = kind.split(":", 1)[1]
+        from .preparations import PREPARATIONS
+        if name in PREPARATIONS:
+            from .preparation_presentation import preparation_description, preparation_display_name
+            return ItemSpec(preparation_display_name(name), "PR", 1, 1, 1, "consumable", preparation_description(name), stack_limit=4)
         from .content import DISCOVERIES
 
         description = DISCOVERIES.get(name, ("consumable", "A counted expedition supply."))[1]
@@ -798,6 +802,8 @@ def sync_ammunition(state: GameState) -> None:
 
 def sync_legacy_load(state: GameState) -> None:
     """Keep the small existing action vocabulary aligned with physical items."""
+    from .preparations import normalize_preparation_state
+    normalize_preparation_state(state)
     owner = state.active_courier_id
     readied = equipped_item(state, "readied", owner)
     secondary = equipped_item(state, "secondary", owner)

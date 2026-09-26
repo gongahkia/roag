@@ -9,6 +9,7 @@ from .item_presentation import item_description, item_display_name, item_short_d
 from .ui_presentation import ui_text
 from .frontier_elites import ELITE_DEFINITIONS
 from .preparations import PREPARATIONS
+from .preparation_presentation import preparation_description
 from .work_weapons import WORK_WEAPONS
 
 _PEOPLE = load_catalog("people.json", ("REGIONAL_CONTEXTS", "FIRST_NAMES", "FAMILY_NAMES", "ROLES", "ROLE_EQUIPMENT", "ROLE_TECHNIQUE", "RECRUIT_TEMPLATES", "CONTACT_NAMES"))
@@ -148,8 +149,8 @@ DISCOVERIES.update({
 })
 
 DISCOVERIES.update({
-    name: ("preparation", preparation.description)
-    for name, preparation in PREPARATIONS.items()
+    preparation.id: ("preparation", preparation_description(preparation.id))
+    for preparation in PREPARATIONS.values()
 })
 
 RELICS = _text_map(_GOODS["RELICS"], "RELICS")

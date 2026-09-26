@@ -313,6 +313,8 @@ LEGACY_THREAT_INTENT_IDS = {
     "bound by a committed strike; loses a turn breaking free": "intent.entangled.equipment_bind",
     "removed from the route": "intent.defeated.removed",
     "its physical weapon has broken; seeks another or withdraws": "intent.recovery.weapon_broken",
+    "tracks the resin flare": "intent.preparation.firebrand",
+    "prepared lane muffled; reacquiring": "intent.preparation.aim-break",
     "displaced by wind magic": "intent.magic.push",
     "hauled by river magic": "intent.magic.pull",
     "bound in enchanted reeds; loses a turn breaking free": "intent.magic.bind",
@@ -1599,6 +1601,10 @@ def game_state_from_dict(data: Any) -> GameState:
     from .practices import stable_practice_id
     for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
         person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]
+    from .preparations import normalize_preparation_state
+    if normalize_preparation_state(state):
+        from .inventory import sync_legacy_load
+        sync_legacy_load(state)
     validate_state(state)
     return state
 

@@ -1494,13 +1494,14 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             for index, target in enumerate(navigation_targets(state)[:len(keys)])
         ]
     if kind == "field-use":
-        from .preparations import carried_preparations, preparation_status
+        from .preparations import carried_preparations, preparation_status, preparation_status_text
+        from .preparation_presentation import preparation_display_name, preparation_format
 
         keys = "123456789abcdefg"
         rows = []
-        for key, name in zip(keys, carried_preparations(state)):
-            available, reason = preparation_status(state, name)
-            rows.append(ChoiceOption(key.upper(), f"Use {name}", "commitment", available, reason))
+        for key, preparation_id in zip(keys, carried_preparations(state)):
+            available, reason = preparation_status(state, preparation_id)
+            rows.append(ChoiceOption(key.upper(), preparation_format("preparation.overlay.choice", preparation=preparation_display_name(preparation_id)), "commitment", available, preparation_status_text(reason)))
         from .manoeuvres import known
 
         if known(state):
@@ -3033,23 +3034,22 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "Naming a carried relic spends no watch; X puts the named relic to use.",
         ]
     if kind == "field-use":
-        from .preparations import PREPARATIONS, carried_preparations, preparation_status
+        from .preparations import carried_preparations, preparation_status, preparation_status_text
+        from .preparation_presentation import preparation_description, preparation_display_name, preparation_format, preparation_text
 
         keys = "123456789abcdefg"
         lines = []
-        for key, name in zip(keys, carried_preparations(state)):
-            available, reason = preparation_status(state, name)
-            lines.append(
-                f"{key}. {name} — {PREPARATIONS[name].description} "
-                f"[{'READY' if available else 'NEEDS ' + reason}]"
-            )
+        for key, preparation_id in zip(keys, carried_preparations(state)):
+            available, reason = preparation_status(state, preparation_id)
+            status = preparation_text("preparation.overlay.ready") if available else preparation_format("preparation.overlay.needs", condition=preparation_status_text(reason))
+            lines.append(preparation_format("preparation.overlay.row", key=key, preparation=preparation_display_name(preparation_id), description=preparation_description(preparation_id), status=status))
         lines.append("X. Use the carried bottle, selected relic, or ordinary readied gear.")
         from .manoeuvres import known
 
         if known(state):
             from .progression_presentation import progression_text
             lines.append(progression_text("progression.choice.manoeuvre.guidance"))
-        lines.append("The field slate records the needed conditions; a refused use spends neither watch nor carried thing.")
+        lines.append(preparation_text("preparation.overlay.guidance"))
         return INTERFACE_LABELS["field_kit"], lines
     if kind == "tavern:passive":
         rows = list(state.owned_passives)
