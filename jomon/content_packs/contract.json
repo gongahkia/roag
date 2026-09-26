@@ -8597,6 +8597,572 @@
     {
       "id": "vessel.bar.detail.bottle",
       "placeholders": []
+    },
+    {
+      "id": "vessel.refit.galley-fire-cover.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.twin-bilge-strainers.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.storm-backstay.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.cargo-rail-netting.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sounding-keel-shoes.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.winter-hatch-felt.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.signal-mast-shutter.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sickbay-sling-cot.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-field-forge.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-glass-still.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-gunworks.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.galley-fire-cover.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.twin-bilge-strainers.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.storm-backstay.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.cargo-rail-netting.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sounding-keel-shoes.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.winter-hatch-felt.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.signal-mast-shutter.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sickbay-sling-cot.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-field-forge.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-glass-still.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-gunworks.effect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.galley-fire-cover.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.twin-bilge-strainers.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.storm-backstay.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.cargo-rail-netting.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sounding-keel-shoes.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.winter-hatch-felt.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.signal-mast-shutter.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.sickbay-sling-cot.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-field-forge.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-glass-still.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.vessel-gunworks.drawback",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.galley.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.bilge.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.repair.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.storage.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.helm.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.berths.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.lookout.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.status.already",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.status.location",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.status.station",
+      "placeholders": [
+        "station"
+      ]
+    },
+    {
+      "id": "vessel.refit.status.cargo",
+      "placeholders": [
+        "cargo"
+      ]
+    },
+    {
+      "id": "vessel.refit.status.credit",
+      "placeholders": [
+        "credit"
+      ]
+    },
+    {
+      "id": "vessel.refit.status.ready",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.install.unavailable",
+      "placeholders": [
+        "refit",
+        "reason"
+      ]
+    },
+    {
+      "id": "vessel.refit.install.result",
+      "placeholders": [
+        "refit",
+        "station",
+        "effect",
+        "cargo",
+        "credit",
+        "actions",
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.refit.choice.fit",
+      "placeholders": [
+        "refit"
+      ]
+    },
+    {
+      "id": "vessel.refit.choice.back",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.choice.inspect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.overlay.title",
+      "placeholders": [
+        "station"
+      ]
+    },
+    {
+      "id": "vessel.refit.overlay.guidance.preview",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.overlay.guidance.cost",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.overlay.status.installed",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.overlay.status.requirement",
+      "placeholders": [
+        "cargo",
+        "credit"
+      ]
+    },
+    {
+      "id": "vessel.refit.overlay.row",
+      "placeholders": [
+        "index",
+        "refit",
+        "status"
+      ]
+    },
+    {
+      "id": "vessel.refit.overlay.effect",
+      "placeholders": [
+        "effect"
+      ]
+    },
+    {
+      "id": "vessel.refit.overlay.drawback",
+      "placeholders": [
+        "drawback"
+      ]
+    },
+    {
+      "id": "vessel.refit.station.inspect",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.refit.station.installed",
+      "placeholders": [
+        "refits"
+      ]
+    },
+    {
+      "id": "vessel.refit.station.none",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.empty-watch.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.repair-share.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.eight-waters.name",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.empty-watch.premise",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.repair-share.premise",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.eight-waters.premise",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.empty-watch.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.repair-share.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.eight-waters.requirement",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.empty-watch.o",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.empty-watch.d",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.empty-watch.w",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.empty-watch.p",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.repair-share.o",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.repair-share.d",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.repair-share.w",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.repair-share.p",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.eight-waters.o",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.eight-waters.d",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.eight-waters.c",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.eight-waters.h",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.choice.eight-waters.r",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.empty-watch.w",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.empty-watch.p",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.repair-share.w",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.repair-share.p",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.eight-waters.c",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.eight-waters.h",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.branch.eight-waters.r",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.status.unopened",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.status.active",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.status.completed",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.station.row",
+      "placeholders": [
+        "index",
+        "story",
+        "status"
+      ]
+    },
+    {
+      "id": "vessel.story.line.fact",
+      "placeholders": [
+        "status"
+      ]
+    },
+    {
+      "id": "vessel.story.line.open",
+      "placeholders": [
+        "requirement"
+      ]
+    },
+    {
+      "id": "vessel.story.line.empty_watch.dead",
+      "placeholders": [
+        "people"
+      ]
+    },
+    {
+      "id": "vessel.story.line.empty_watch.living",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.line.repair_share",
+      "placeholders": [
+        "integrity",
+        "voyages",
+        "timber"
+      ]
+    },
+    {
+      "id": "vessel.story.line.eight_waters",
+      "placeholders": [
+        "regions"
+      ]
+    },
+    {
+      "id": "vessel.story.line.eight_waters.none",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.line.decision",
+      "placeholders": [
+        "branch"
+      ]
+    },
+    {
+      "id": "vessel.story.line.outcome.default",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.line.active",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.line.unopened",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.resolve.defer",
+      "placeholders": [
+        "story"
+      ]
+    },
+    {
+      "id": "vessel.story.resolve.needs",
+      "placeholders": [
+        "story",
+        "reason"
+      ]
+    },
+    {
+      "id": "vessel.story.resolve.open.memory",
+      "placeholders": [
+        "story"
+      ]
+    },
+    {
+      "id": "vessel.story.resolve.open.result",
+      "placeholders": [
+        "story"
+      ]
+    },
+    {
+      "id": "vessel.story.resolve.completed",
+      "placeholders": [
+        "story"
+      ]
+    },
+    {
+      "id": "vessel.story.resolve.no_living",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.resolve.timber",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.resolve.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.outcome.empty_watch.dead",
+      "placeholders": [
+        "people"
+      ]
+    },
+    {
+      "id": "vessel.story.outcome.empty_watch.living",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.outcome.repair_share.physical",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.outcome.repair_share.common",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.outcome.eight_waters.common",
+      "placeholders": [
+        "regions"
+      ]
+    },
+    {
+      "id": "vessel.story.outcome.eight_waters.household",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.outcome.eight_waters.separate",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.story.memory",
+      "placeholders": [
+        "story",
+        "outcome"
+      ]
+    },
+    {
+      "id": "vessel.story.record",
+      "placeholders": [
+        "story",
+        "branch",
+        "outcome"
+      ]
     }
   ],
   "travel": [

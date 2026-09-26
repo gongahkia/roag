@@ -1579,20 +1579,21 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [ChoiceOption("F", equipment_text("equipment.overlay.confirm.choice"), "commitment"), ChoiceOption("B", equipment_text("equipment.overlay.back.choice"))]
     if kind.startswith("vessel-refits:"):
         from .vessel_refits import REFITS, STATION_REFITS, installation_status
+        from .vessel_presentation import refit_display_name, vessel_text
 
         station = kind.split(":", 1)[1]
         rows = []
         for index, refit_id in enumerate(STATION_REFITS.get(station, ())):
-            refit = REFITS[refit_id]
             available, reason = installation_status(state, refit_id)
-            rows.append(ChoiceOption(str(index + 1), f"Fit {refit.name}", "commitment", available, reason))
-        return rows + [ChoiceOption("B", "Back without changes")]
+            rows.append(ChoiceOption(str(index + 1), vessel_format("vessel.refit.choice.fit", refit=refit_display_name(refit_id)), "commitment", available, reason))
+        return rows + [ChoiceOption("B", vessel_text("vessel.refit.choice.back"))]
     if kind.startswith("station:"):
         from .vessel_refits import STATION_REFITS
 
         station = kind.split(":", 1)[1]
         if station in STATION_REFITS:
-            return [ChoiceOption("V", "Inspect optional vessel refits")]
+            from .vessel_presentation import vessel_text
+            return [ChoiceOption("V", vessel_text("vessel.refit.choice.inspect"))]
     if kind == "material":
         from .worklines import WORKLINES
         rows = [ChoiceOption(str(index + 1), name) for index, name in enumerate(("Here", "North", "East", "South", "West"))]
@@ -1666,7 +1667,8 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         allowed = task != "repair" or bool(timber and timber.quantity and state.vessel_integrity < 10)
         rows = [ChoiceOption("F", "Confirm the counted work and time", "commitment", allowed, "needs hull damage and one timber lot" if not allowed else "")]
         if refit_station_at(state) in STATION_REFITS:
-            rows.append(ChoiceOption("V", "Inspect optional vessel refits"))
+            from .vessel_presentation import vessel_text
+            rows.append(ChoiceOption("V", vessel_text("vessel.refit.choice.inspect")))
         return rows + [ChoiceOption("B", "Back without work")]
     if kind == "bartender":
         return [
@@ -2747,10 +2749,11 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             rows.append(progression_format("progression.overlay.branch.row", index=index + 1, node=node.name, status=status, description=node.effect))
         return title.upper(), rows
     if kind.startswith("household-story:"):
-        from .household_stories import BY_ID, story_lines
+        from .household_stories import story_lines
+        from .vessel_presentation import household_story_display_name
 
         story_id = kind.split(":", 1)[1]
-        return BY_ID[story_id].name.upper(), story_lines(state, story_id)
+        return household_story_display_name(story_id).upper(), story_lines(state, story_id)
     if kind == "mastery":
         from .manoeuvres import lines
 
@@ -2911,21 +2914,23 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return equipment_text("equipment.overlay.confirm.title"), describe(state, item) + [equipment_text("equipment.overlay.confirm.guidance"), equipment_text("equipment.overlay.confirm.costs")]
     if kind.startswith("vessel-refits:"):
         from .vessel_refits import REFITS, STATION_REFITS, installed
+        from .item_presentation import item_display_name_or_legacy
+        from .vessel_presentation import refit_display_name, refit_drawback, refit_effect, refit_station_display_name, vessel_text
 
         station = kind.split(":", 1)[1]
         lines = [
-            "Optional work: preview and cancellation cost no time; fitting costs three actions.",
-            "Each refit consumes one physical hold lot plus accountable credit and remains with Jomon.",
+            vessel_text("vessel.refit.overlay.guidance.preview"),
+            vessel_text("vessel.refit.overlay.guidance.cost"),
         ]
         for index, refit_id in enumerate(STATION_REFITS.get(station, ())):
             refit = REFITS[refit_id]
-            status = "INSTALLED" if installed(state, refit_id) else f"one {refit.dependency}; {refit.credit} credit"
+            status = vessel_text("vessel.refit.overlay.status.installed") if installed(state, refit_id) else vessel_format("vessel.refit.overlay.status.requirement", cargo=item_display_name_or_legacy(refit.dependency), credit=refit.credit)
             lines.extend((
-                f"{index + 1}. {refit.name} — {status}",
-                f"   Effect: {refit.effect}",
-                f"   Trade-off: {refit.drawback}",
+                vessel_format("vessel.refit.overlay.row", index=index + 1, refit=refit_display_name(refit_id), status=status),
+                vessel_format("vessel.refit.overlay.effect", effect=refit_effect(refit_id)),
+                vessel_format("vessel.refit.overlay.drawback", drawback=refit_drawback(refit_id)),
             ))
-        return f"{station.upper()} REFITS", lines
+        return vessel_format("vessel.refit.overlay.title", station=refit_station_display_name(station)), lines
     if kind.startswith("station:"):
         from .vessel_refits import REFITS, STATION_REFITS, installed
 
@@ -2943,18 +2948,23 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             "gathering": ("COMMON DECK", "Crew gather, train, and dispute work here when schedules and memories align."),
             "market": ("VISITING BERTH", "A regional merchant trades here during a recorded visit."),
         }.get(station, ("JOMON WORK POSITION", "Household work is done at this station."))
-        fitted = [REFITS[refit_id].name for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
+        from .vessel_presentation import refit_display_name, vessel_text
+        fitted = [refit_display_name(refit_id) for refit_id in STATION_REFITS.get(station, ()) if installed(state, refit_id)]
         lines = [detail]
         if station == "berths":
             lines.append(f"R. Rest six actions to restore personal mana ({state.courier.mana}/{state.courier.max_mana}); moored and out of danger only.")
         if station == "gathering":
             from .household_stories import station_choices
 
-            lines.extend(f"{key}. {label} — {'AVAILABLE' if available else 'NEEDS ' + requirement}" for key, label, _, available, requirement in station_choices(state))
+            lines.extend(
+                vessel_format("vessel.story.station.available", key=key, label=label)
+                if available else vessel_format("vessel.story.station.needs", key=key, label=label, requirement=requirement)
+                for key, label, _, available, requirement in station_choices(state)
+            )
             from .progression_presentation import progression_text
             lines.append(progression_text("progression.station.gathering.journal_guidance"))
         if station in STATION_REFITS:
-            lines.append("V. Inspect optional physical refits." + (f" Installed: {', '.join(fitted)}." if fitted else " None installed here."))
+            lines.append(vessel_text("vessel.refit.station.inspect") + (vessel_format("vessel.refit.station.installed", refits=", ".join(fitted)) if fitted else vessel_text("vessel.refit.station.none")))
         return title, lines + ["Inspection costs no time. Escape closes."]
     if kind == "hold":
         cargo = [f"{item_display_name(name)}: {stack.quantity}, {stack.condition}" for name, stack in state.vessel_cargo.items()]

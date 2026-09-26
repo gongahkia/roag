@@ -56,6 +56,34 @@ def drink_drawback(drink_id: str) -> str:
     return vessel_text(f"vessel.drink.{drink_id}.drawback")
 
 
+def refit_display_name(refit_id: str) -> str:
+    return vessel_text(f"vessel.refit.{refit_id}.name")
+
+
+def refit_effect(refit_id: str) -> str:
+    return vessel_text(f"vessel.refit.{refit_id}.effect")
+
+
+def refit_drawback(refit_id: str) -> str:
+    return vessel_text(f"vessel.refit.{refit_id}.drawback")
+
+
+def refit_station_display_name(station_id: str) -> str:
+    return vessel_text(f"vessel.refit.station.{station_id}.name")
+
+
+def household_story_display_name(story_id: str) -> str:
+    return vessel_text(f"vessel.story.{story_id}.name")
+
+
+def household_story_premise(story_id: str) -> str:
+    return vessel_text(f"vessel.story.{story_id}.premise")
+
+
+def household_story_requirement(story_id: str) -> str:
+    return vessel_text(f"vessel.story.{story_id}.requirement")
+
+
 def schedule_display_name(activity: str, *, absent: str | None = None) -> str:
     if activity in _SCHEDULE_IDS:
         return vessel_text(f"vessel.schedule.{_SCHEDULE_IDS[activity]}")

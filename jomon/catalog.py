@@ -234,6 +234,14 @@ _VESSEL_SCHEDULE_LABELS = {
     "between_duties": "between duties",
     "between_routes": "between recorded routes",
 }
+_VESSEL_REFIT_IDS = (
+    "galley-fire-cover", "twin-bilge-strainers", "storm-backstay",
+    "cargo-rail-netting", "sounding-keel-shoes", "winter-hatch-felt",
+    "signal-mast-shutter", "sickbay-sling-cot", "vessel-field-forge",
+    "vessel-glass-still", "vessel-gunworks",
+)
+_VESSEL_REFIT_STATIONS = ("galley", "bilge", "repair", "storage", "helm", "berths", "lookout")
+_HOUSEHOLD_STORY_IDS = ("empty-watch", "repair-share", "eight-waters")
 _VESSEL_TEMPLATE_CONTRACT = {
     **{f"vessel.drink.{drink_id}.name": () for drink_id in _VESSEL_DRINK_IDS},
     **{f"vessel.drink.{drink_id}.benefit": () for drink_id in _VESSEL_DRINK_IDS},
@@ -269,6 +277,53 @@ _VESSEL_TEMPLATE_CONTRACT = {
     "vessel.bar.detail.benefit": ("benefit",), "vessel.bar.detail.drawback": ("drawback",),
     "vessel.bar.detail.duration": ("duration", "cost"), "vessel.bar.detail.stock": ("stock",),
     "vessel.bar.detail.drink": (), "vessel.bar.detail.bottle": (),
+    **{f"vessel.refit.{refit_id}.name": () for refit_id in _VESSEL_REFIT_IDS},
+    **{f"vessel.refit.{refit_id}.effect": () for refit_id in _VESSEL_REFIT_IDS},
+    **{f"vessel.refit.{refit_id}.drawback": () for refit_id in _VESSEL_REFIT_IDS},
+    **{f"vessel.refit.station.{station}.name": () for station in _VESSEL_REFIT_STATIONS},
+    "vessel.refit.status.already": (), "vessel.refit.status.location": (),
+    "vessel.refit.status.station": ("station",), "vessel.refit.status.cargo": ("cargo",),
+    "vessel.refit.status.credit": ("credit",), "vessel.refit.status.ready": (),
+    "vessel.refit.install.unavailable": ("refit", "reason"),
+    "vessel.refit.install.result": ("refit", "station", "effect", "cargo", "credit", "actions", "drawback"),
+    "vessel.refit.choice.fit": ("refit",), "vessel.refit.choice.back": (),
+    "vessel.refit.choice.inspect": (), "vessel.refit.overlay.title": ("station",),
+    "vessel.refit.overlay.guidance.preview": (), "vessel.refit.overlay.guidance.cost": (),
+    "vessel.refit.overlay.status.installed": (), "vessel.refit.overlay.status.requirement": ("cargo", "credit"),
+    "vessel.refit.overlay.row": ("index", "refit", "status"),
+    "vessel.refit.overlay.effect": ("effect",), "vessel.refit.overlay.drawback": ("drawback",),
+    "vessel.refit.station.inspect": (), "vessel.refit.station.installed": ("refits",),
+    "vessel.refit.station.none": (),
+    **{f"vessel.story.{story_id}.name": () for story_id in _HOUSEHOLD_STORY_IDS},
+    **{f"vessel.story.{story_id}.premise": () for story_id in _HOUSEHOLD_STORY_IDS},
+    **{f"vessel.story.{story_id}.requirement": () for story_id in _HOUSEHOLD_STORY_IDS},
+    **{f"vessel.story.choice.{story_id}.{choice}": () for story_id, choices in {
+        "empty-watch": ("o", "d", "w", "p"),
+        "repair-share": ("o", "d", "w", "p"),
+        "eight-waters": ("o", "d", "c", "h", "r"),
+    }.items() for choice in choices},
+    **{f"vessel.story.branch.{story_id}.{choice}": () for story_id, choices in {
+        "empty-watch": ("w", "p"), "repair-share": ("w", "p"), "eight-waters": ("c", "h", "r"),
+    }.items() for choice in choices},
+    "vessel.story.status.unopened": (), "vessel.story.status.active": (), "vessel.story.status.completed": (),
+    "vessel.story.station.row": ("index", "story", "status"),
+    "vessel.story.station.available": ("key", "label"),
+    "vessel.story.station.needs": ("key", "label", "requirement"),
+    "vessel.story.line.fact": ("status",), "vessel.story.line.open": ("requirement",),
+    "vessel.story.line.empty_watch.dead": ("people",), "vessel.story.line.empty_watch.living": (),
+    "vessel.story.line.repair_share": ("integrity", "voyages", "timber"),
+    "vessel.story.line.eight_waters": ("regions",), "vessel.story.line.eight_waters.none": (),
+    "vessel.story.line.decision": ("branch",), "vessel.story.line.outcome.default": (),
+    "vessel.story.line.active": (), "vessel.story.line.unopened": (),
+    "vessel.story.resolve.defer": ("story",), "vessel.story.resolve.needs": ("story", "reason"),
+    "vessel.story.resolve.open.memory": ("story",), "vessel.story.resolve.open.result": ("story",),
+    "vessel.story.resolve.completed": ("story",), "vessel.story.resolve.no_living": (),
+    "vessel.story.resolve.timber": (), "vessel.story.resolve.invalid": (),
+    "vessel.story.outcome.empty_watch.dead": ("people",), "vessel.story.outcome.empty_watch.living": (),
+    "vessel.story.outcome.repair_share.physical": (), "vessel.story.outcome.repair_share.common": (),
+    "vessel.story.outcome.eight_waters.common": ("regions",),
+    "vessel.story.outcome.eight_waters.household": (), "vessel.story.outcome.eight_waters.separate": (),
+    "vessel.story.memory": ("story", "outcome"), "vessel.story.record": ("story", "branch", "outcome"),
 }
 
 _TRAVEL_TEMPLATE_CONTRACT = {
