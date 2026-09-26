@@ -6,6 +6,15 @@ import copy
 import heapq
 
 from .state import GameState, Item, MaterialCell, Person, Position, Threat
+from .material_presentation import (
+    coating_display_name,
+    fluid_display_name,
+    hazard_display_name,
+    material_display_name,
+    material_format,
+    material_text,
+    material_verb_display_name,
+)
 from .visuals import MATERIAL_OVERLAY_SYMBOLS
 
 MAX_CELLS = 512
@@ -70,13 +79,13 @@ def inspect_material(state: GameState, point: Position) -> list[str]:
     from .chemistry_presentation import reaction_list_display, reagent_contents_display
     cell = fields(state).get(key(point), MaterialCell(material=material_at(state, point)))
     return [
-        f"FACT {point.x},{point.y} z{point.z:+d}: {cell.material}; coating {cell.coating or 'none'}.",
-        f"Water {cell.water}/3 {cell.fluid}; {'ice' if cell.ice else 'liquid'}; fire {cell.fire}/3; smoke {cell.smoke}/4.",
-        f"Support {cell.support}/3; " + (f"COLLAPSE warned after {max(0, cell.collapse_due - state.world_time)} more beats." if cell.collapse_due else "no collapse currently warned."),
-        f"Mixture: {reagent_contents_display(cell.reagents) if cell.reagents else 'none'}; next reaction: {reaction_list_display(predicted_reactions(cell.reagents, cell)) or 'none known'}.",
-        "PREDICTION Water extinguishes; smoke rises/drifts; weakened supports fall after warning.",
-        *(["FACT Loose cover (%) remains passable and turns low shots; height or arcing weapons can answer it."] if base_tile(state, point) == "%" else []),
-        "Handling takes one action. Inspection and cancellation take none. Tools and supplies must be at hand.",
+        material_format("material.inspect.fact", x=point.x, y=point.y, z=f"{point.z:+d}", material=material_display_name(cell.material), coating=coating_display_name(cell.coating)),
+        material_format("material.inspect.water", water=cell.water, fluid=fluid_display_name(cell.fluid), phase=material_text("material.phase.ice" if cell.ice else "material.phase.liquid"), fire=cell.fire, smoke=cell.smoke),
+        material_format("material.inspect.support.warning", support=cell.support, beats=max(0, cell.collapse_due - state.world_time)) if cell.collapse_due else material_format("material.inspect.support.clear", support=cell.support),
+        material_format("material.inspect.mixture", reagents=reagent_contents_display(cell.reagents) if cell.reagents else "none", reactions=reaction_list_display(predicted_reactions(cell.reagents, cell)) or "none known"),
+        material_text("material.inspect.prediction"),
+        *([material_text("material.inspect.cover")] if base_tile(state, point) == "%" else []),
+        material_text("material.inspect.guidance"),
     ]
 
 
@@ -130,8 +139,9 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 part.condition = max(0, part.condition - wear)
             if body.condition == 0 and body.location not in {"lost", "destroyed"}:
                 body.location, body.owner_id = "destroyed", None
-                state.remember(f"{spec.name} ({body.id}) was destroyed by {reaction} at {key(origin)}.")
-                state.add_message(f"{spec.name} is destroyed by {reaction}; its loss is recorded.", priority=3)
+                hazard = hazard_display_name(reaction)
+                state.remember(material_format("material.item.destroyed.memory", item=spec.name, item_id=body.id, reaction=hazard, coordinate=key(origin)))
+                state.add_message(material_format("material.item.destroyed.message", item=spec.name, reaction=hazard), priority=3)
                 from .inventory import sync_legacy_load
                 sync_legacy_load(state)
         return
@@ -147,11 +157,12 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
             )
             body.morale -= 1
             if body.health:
-                body.intent = f"caught by {reaction}; seeking clear ground"
+                body.intent_id = "intent.material.clear_ground"
+                body.intent = material_format(body.intent_id, reaction=hazard_display_name(reaction))
             if reaction == "fire":
                 body.conditions["burning"] = max(3, body.conditions.get("burning", 0))
             if body.health == 0:
-                state.remember(f"{body.name} fell to {reaction} at {key(origin)}; possessions remain physical.")
+                state.remember(material_format("material.threat.fell", threat=body.name, reaction=hazard_display_name(reaction), coordinate=key(origin)))
         else:
             condition = {
                 "water": "wet", "smoke": "smoking", "salt": "salt-coated",
@@ -173,7 +184,8 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                         5, body.conditions.get("chilled", 0)
                     )
             body.aimed_at = None
-            body.intent = f"{reaction} breaks its prepared lane"
+            body.intent_id = "intent.material.break_prepared_lane"
+            body.intent = material_format(body.intent_id, reaction=hazard_display_name(reaction))
         return
     if body.id == state.active_courier_id:
         from .actions import apply_damage
@@ -184,17 +196,17 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 from .inventory import degrade_armour
                 protection = max(1, protection)
                 degrade_armour(state, "torso", 6)
-                state.add_message("The kiln apron takes the heat; its protective face wears. Leave the fire before it fails.", priority=3)
+                state.add_message(material_text("material.armour.heat"), priority=3)
             if severity > protection:
                 result = apply_damage(state, severity - protection, f"material {reaction} at {key(origin)}")
                 state.add_message(result, priority=3)
         elif reaction == "smoke":
             if "smoke-filter" not in worn_tags(state) and "clear-breath" not in state.terrain_statuses:
-                add_status(state, "smoke-inhalation", "dense material smoke", 4, "guard and ranged reach falter; reach clear air")
+                add_status(state, "smoke-inhalation", material_text("material.status.smoke_inhalation.cause"), 4, material_text("material.status.smoke_inhalation.consequence"))
                 state.aimed_target = None
         elif reaction == "water":
             if "weatherproof" not in worn_tags(state):
-                add_status(state, "wet", "standing in flowing water", 4, "absorbent armour burdens the load; leave water to dry")
+                add_status(state, "wet", material_text("material.status.wet.cause"), 4, material_text("material.status.wet.consequence"))
             from .calendar import calendar_at
             from .vessel_refits import installed
 
@@ -205,19 +217,19 @@ def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, s
                 and "current-rescue" not in body.skill_nodes
                 and not (state.location == "jomon" and installed(state, "winter-hatch-felt"))
             ):
-                add_status(state, "chilled", "winter floodwater", 8, "aim, treatment, and recovery are slower")
+                add_status(state, "chilled", material_text("material.status.chilled.cause"), 8, material_text("material.status.chilled.consequence"))
         elif reaction in {"salt", "lime"}:
             protection = "saltproof" if reaction == "salt" else "limeproof"
             sealed = reaction == "lime" and "limewash seal" in state.carried_passives
             if protection not in worn_tags(state) and not sealed:
-                add_status(state, f"{reaction}-grit", f"{reaction} carried in local water", 4, "guard and ranged reach weaken; leave the slurry and allow four actions to clear")
+                add_status(state, f"{reaction}-grit", material_text(f"material.status.{reaction}_grit.cause"), 4, material_text(f"material.status.{reaction}_grit.consequence"))
                 state.aimed_target = None
     elif reaction in {"fire", "debris"}:
         # Routine named-adult simulation cannot silently kill an off-duty person.
         body.health = max(2, body.health - severity)
         body.injury = "scorched hands" if reaction == "fire" else "bruised legs"
         body.injuries["hands" if reaction == "fire" else "legs"] = body.injury
-        memory = f"{reaction.title()} at {key(origin)} interrupted work; sought shelter."
+        memory = material_format("material.person.injury.memory", reaction=hazard_display_name(reaction).title(), coordinate=key(origin))
         if memory not in body.memories:
             body.memories.append(memory)
             del body.memories[:-8]
@@ -303,7 +315,7 @@ def advance_materials(state: GameState) -> int:
             cell.ice = winter and point.z >= 0 and cell.water == 1 and cell.fluid != "salt" and not cell.fire
             if cell.fire:
                 cell.fire, cell.smoke = 0, min(4, cell.smoke + 1)
-                state.add_message(f"Water quenches fire at {coordinate}; steam veils the ground.", priority=3)
+                state.add_message(material_format("material.water.quench", coordinate=coordinate), priority=3)
             if cell.material == "soil" and state.location == "region" and base_tile(state, point) in {".", ";", ",", "m"}:
                 state.region.tile_changes[coordinate] = "m"
             if cell.material == "lime":
@@ -327,7 +339,7 @@ def advance_materials(state: GameState) -> int:
                         other.fluid = cell.fluid
         if cell.ice and not winter:
             cell.ice = False
-            state.add_message(f"Thaw loosens the thin ice at {coordinate}.", priority=2)
+            state.add_message(material_format("material.ice.thaw", coordinate=coordinate), priority=2)
         if cell.fire:
             if rain and point.z >= 0:
                 cell.fire = max(0, cell.fire - 1)
@@ -343,7 +355,7 @@ def advance_materials(state: GameState) -> int:
                     other = ensure_cell(state, neighbour)
                     if other and not other.water and not other.fire and other.coating != "wet":
                         other.fire, other.fuel = 1, 3
-                        state.add_message(f"Fire catches dry {other.material} downwind at {key(neighbour)}.", priority=3)
+                        state.add_message(material_format("material.fire.spread", material=material_display_name(other.material), coordinate=key(neighbour)), priority=3)
                 if cell.material == "timber":
                     cell.support = max(0, cell.support - 1)
                 if not cell.fuel:
@@ -367,12 +379,13 @@ def advance_materials(state: GameState) -> int:
 
             reaction = react_cell(state, point, cell)
             if reaction:
-                state.add_message(f"{reaction.title()} reacts at {coordinate}; shared ground and nearby bodies change.", priority=3)
+                from .chemistry_presentation import reaction_display_name
+                state.add_message(material_format("material.reaction.result", reaction=reaction_display_name(reaction), coordinate=coordinate), priority=3)
                 if initial_place != (state.location, state.active_region_id):
                     return len(selected)
         if cell.support == 0 and not cell.collapse_due:
             cell.collapse_due = state.world_time + 2
-            state.add_message(f"Support cracks at {coordinate}; debris will fall in two actions. Brace it or leave.", priority=3)
+            state.add_message(material_format("material.collapse.warning", coordinate=coordinate), priority=3)
         if cell.collapse_due:
             heapq.heappush(collapse_queue, (cell.collapse_due, coordinate))
     while collapse_queue and collapse_queue[0][0] <= state.world_time:
@@ -393,8 +406,8 @@ def advance_materials(state: GameState) -> int:
                 state.add_message(_fall(state), priority=3)
         else:
             state.vessel_integrity = max(0, state.vessel_integrity - 1)
-        state.remember(f"A damaged support collapsed at {coordinate}; debris changed the crossing.")
-        state.add_message(f"The warned support falls at {coordinate}; debris strikes the opening.", priority=3)
+        state.remember(material_format("material.collapse.memory", coordinate=coordinate))
+        state.add_message(material_format("material.collapse.result", coordinate=coordinate), priority=3)
     return len(selected)
 
 
@@ -413,7 +426,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     from .world import base_tile, distance, is_walkable, line_of_sight
 
     if verb not in VERBS or distance(state.position, point) > 1 or not line_of_sight(state, state.position, point):
-        return False, "Choose a visible material within one pace."
+        return False, material_text("material.handle.invalid_target")
     existing = fields(state).get(key(point))
     material = material_at(state, point)
     pitch_key = f"pitch_cup:{state.expedition_count}"
@@ -427,7 +440,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         or (state.lamp_oil <= 0 and not measured_pitch)
         or (existing and existing.water)
     ):
-        return False, "Ignition needs dry fuel and one measure of lamp oil."
+        return False, material_text("material.handle.ignite_requirement")
     from .practices import learned_practice_ids
     learned_brace = verb == "brace" and bool({"technique.mill_hearing", "technique.bell_interval"} & learned_practice_ids(state.courier))
     from .practices import has_effect as has_practice_effect
@@ -450,25 +463,25 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     )
     from .legendary import permits_material
     if verb in {"brace", "lever", "break", "cut", "dig"} and not (heel or learned_brace or practice_work or spade_work or special_break or permits_material(state, verb) or state.gear == "repair tools" or state.weapon in {"hand axe", "billhook", "war hammer"} or state.courier.technique == "lever craft"):
-        return False, "This work needs a cutting/levering weapon, repair tools, or Lever Craft."
+        return False, material_text("material.handle.tool_requirement")
     if verb in {"push", "pull"}:
         container = next((c for c in state.region.containers if c.position == point), None) if state.location == "region" else None
         if container is None or point == state.position:
-            return False, "Stand beside a loose coffer to move it. Contents remain inside."
+            return False, material_text("material.handle.coffer_requirement")
         dx, dy = point.x - state.position.x, point.y - state.position.y
         destination = state.position if verb == "pull" else Position(point.x + dx, point.y + dy, point.z)
         if not is_walkable(state, destination) or any(c.position == destination for c in state.region.containers) or destination in state.region.landmarks.values():
-            return False, "That destination cannot safely hold the coffer."
+            return False, material_text("material.handle.coffer_destination")
     if verb in {"extinguish", "pour", "redirect"}:
         sources = [Position(state.position.x + dx, state.position.y + dy, state.position.z) for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))]
         source = next((p for p in sources if base_tile(state, p) in {"~", ","} or fields(state).get(key(p), MaterialCell()).water), None)
         if source is None:
-            return False, "Reach a water source first; no water is created from nothing."
+            return False, material_text("material.handle.water_requirement")
     else:
         source = None
     cell = ensure_cell(state, point)
     if cell is None:
-        return False, "This space has no accessible material or the local reaction budget is full."
+        return False, material_text("material.handle.no_cell")
     if verb == "ignite":
         if measured_pitch:
             state.vessel_changes[pitch_key] = True
@@ -479,7 +492,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     elif verb in {"extinguish", "pour", "redirect"}:
         donor = ensure_cell(state, source)
         if donor is None or donor.water <= 0:
-            return False, "The accessible measure has already been drawn."
+            return False, material_text("material.handle.water_spent")
         if source != point:
             donor.water -= 1
             cell.water = min(3, cell.water + 1)
@@ -497,7 +510,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         emit_sound(state, 2, point)
     elif verb in {"cut", "break", "lever"}:
         if cell.material not in {"timber", "stone", "reeds"}:
-            return False, "There is no firm structure to work here."
+            return False, material_text("material.handle.structure_requirement")
         cell.support = max(0, cell.support - (2 if verb == "break" else 1))
         emit_sound(state, 4 if verb == "break" else 2, point)
     elif verb == "dig":
@@ -508,11 +521,11 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
     elif verb in {"push", "pull"}:
         container.position = destination
         emit_sound(state, 2, point)
-    message = f"You {verb} {cell.material} at {key(point)}; the work takes one action."
+    message = material_format("material.handle.result", verb=material_verb_display_name(verb), material=material_display_name(cell.material), coordinate=key(point))
     if heel:
         heel.condition = max(0, heel.condition - 5)
         emit_sound(state, 2, point)
-        message += " The iron heel bears the work, wears, and rings against the structure."
+        message += " " + material_text("material.handle.heel")
     _advance_world(state)
     state.add_message(message, priority=3)
     return True, message

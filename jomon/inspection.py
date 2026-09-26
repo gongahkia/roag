@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
+from .material_presentation import fluid_display_name, material_format, material_text
 from .state import GameState, Position
 from .world import (
     base_tile,
@@ -39,39 +40,39 @@ def blocked_step_reason(state: GameState, destination: Position) -> tuple[str, s
     """Name the physical obstruction and a useful next verb."""
     tile = base_tile(state, destination)
     if tile == "#":
-        return "A stone wall blocks that step.", "Use another lane; marked weak structure can be inspected with F."
+        return material_text("material.inspection.blocked.stone"), material_text("material.inspection.remedy.stone")
     if tile == "T":
-        return "Standing timber blocks that step.", "Follow a gap or inspect whether cutting is legal with F."
+        return material_text("material.inspection.blocked.timber"), material_text("material.inspection.remedy.timber")
     if tile == "~":
-        return "Deep water blocks ordinary footing.", "Find shallows, a crossing, or a disclosed water-control action."
+        return material_text("material.inspection.blocked.water"), material_text("material.inspection.remedy.water")
     if tile == " ":
-        return "There is no traversable floor there.", "Use a mapped entrance or aligned vertical connection."
+        return material_text("material.inspection.blocked.empty"), material_text("material.inspection.remedy.empty")
     if state.location == "jomon" and tile in {"=", "t", "F", "f"}:
-        return "Fixed vessel structure blocks that step.", "Use the doorway or interact with a nearby working station."
-    return f"{TERRAIN_NAMES.get(tile, 'A physical obstruction')} blocks that step.", "Inspect with ; or take another lane."
+        return material_text("material.inspection.blocked.vessel"), material_text("material.inspection.remedy.vessel")
+    return material_format("material.inspection.blocked.generic", terrain=TERRAIN_NAMES.get(tile, "A physical obstruction")), material_text("material.inspection.remedy.generic")
 
 
 def movement_preview(state: GameState, destination: Position) -> MovementPreview:
     """Explain an adjacent step without mutating or pretending exact path cost."""
     dx, dy = destination.x - state.position.x, destination.y - state.position.y
     if destination.z != state.position.z or max(abs(dx), abs(dy)) != 1:
-        return MovementPreview(destination, False, "no time", "not an adjacent step")
+        return MovementPreview(destination, False, material_text("material.inspection.time.none"), material_text("material.inspection.preview.nonadjacent"))
     occupant = next((
         actor for actor in state.combatants
         if actor.position == destination and actor.status in {"watching", "engaged"}
     ), None)
     if occupant:
         if occupant.status == "watching":
-            return MovementPreview(destination, False, "one action", f"wakes {occupant.name}; they stand in your way", "attack, negotiate, or take another lane")
-        return MovementPreview(destination, False, "no time", f"{occupant.name} holds that place", "attack, control, or take another lane")
+            return MovementPreview(destination, False, material_text("material.inspection.time.one"), material_format("material.inspection.preview.watching", actor=occupant.name), material_text("material.inspection.preview.watching_remedy"))
+        return MovementPreview(destination, False, material_text("material.inspection.time.none"), material_format("material.inspection.preview.engaged", actor=occupant.name), material_text("material.inspection.preview.engaged_remedy"))
     if not is_walkable(state, destination):
         reason, remedy = blocked_step_reason(state, destination)
-        return MovementPreview(destination, False, "no time", reason.rstrip("."), remedy.rstrip("."))
+        return MovementPreview(destination, False, material_text("material.inspection.time.none"), reason.rstrip("."), remedy.rstrip("."))
     if dx and dy:
         side_a = Position(state.position.x + dx, state.position.y, state.position.z)
         side_b = Position(state.position.x, state.position.y + dy, state.position.z)
         if not is_walkable(state, side_a, ignore_threat=True) and not is_walkable(state, side_b, ignore_threat=True):
-            return MovementPreview(destination, False, "no time", "the diagonal is pinched closed", "take an orthogonal step")
+            return MovementPreview(destination, False, material_text("material.inspection.time.none"), material_text("material.inspection.preview.diagonal"), material_text("material.inspection.preview.diagonal_remedy"))
 
     from .inventory import load_state, terrain_status_for
     from .materials import fields, key
@@ -83,27 +84,27 @@ def movement_preview(state: GameState, destination: Position) -> MovementPreview
     status = terrain_status_for(state, tile)
     if status:
         name, cause, _, effect = status
-        consequences.append(f"{name.replace('-', ' ')} from {cause}: {effect}")
+        consequences.append(material_format("material.inspection.preview.status", status=name.replace("-", " "), cause=cause, effect=effect))
         slow = slow or name in {"bogged", "current"}
     if cell:
         if cell.fire:
-            consequences.append(f"fire {cell.fire}/3 burns bodies and possessions")
+            consequences.append(material_format("material.inspection.preview.fire", fire=cell.fire))
         if cell.smoke >= 2:
-            consequences.append(f"smoke {cell.smoke}/4 obscures sight and strains breath")
+            consequences.append(material_format("material.inspection.preview.smoke", smoke=cell.smoke))
         if cell.collapse_due:
-            consequences.append(f"support is warned to collapse after {max(0, cell.collapse_due - state.world_time)} more beats")
+            consequences.append(material_format("material.inspection.preview.collapse", beats=max(0, cell.collapse_due - state.world_time)))
         if cell.water and not status:
-            consequences.append(f"{cell.fluid} water depth {cell.water}/3 wets load")
+            consequences.append(material_format("material.inspection.preview.water", fluid=fluid_display_name(cell.fluid), water=cell.water))
     if base_tile(state, destination) == "+":
-        consequences.append("the door opens and changes sightlines")
+        consequences.append(material_text("material.inspection.preview.door"))
     if base_tile(state, destination) == "O":
-        consequences.append("the step becomes a fall to the aligned level below")
+        consequences.append(material_text("material.inspection.preview.fall"))
     if not consequences:
-        consequences.append(f"enter {TERRAIN_NAMES.get(tile, 'passable ground')}")
+        consequences.append(material_format("material.inspection.preview.enter", terrain=TERRAIN_NAMES.get(tile, "passable ground")))
     return MovementPreview(
-        destination, True, "possibly two actions" if slow else "one action",
+        destination, True, material_text("material.inspection.time.possibly_two" if slow else "material.inspection.time.one"),
         "; ".join(consequences),
-        "use equipment or another lane to avoid the disclosed pressure" if slow or status else "",
+        material_text("material.inspection.preview.avoid") if slow or status else "",
     )
 
 
@@ -119,20 +120,20 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     knowledge = _knowledge(state, point)
     if knowledge == "unknown":
         return [
-            f"UNKNOWN: {point.x},{point.y} z{point.z:+d} has not been observed.",
-            "No actor, material reaction, or current hazard is inferred there.",
-            "Inspection costs no time.",
+            material_format("material.inspection.unknown", x=point.x, y=point.y, z=f"{point.z:+d}"),
+            material_text("material.inspection.unknown.detail"),
+            material_text("material.inspection.no_time"),
         ]
     tile = displayed_tile(state, point) if knowledge == "visible" else base_tile(state, point)
-    prefix = "FACT" if knowledge == "visible" else "REMEMBERED"
+    prefix = material_text("material.inspection.prefix.visible" if knowledge == "visible" else "material.inspection.prefix.remembered")
     lines = [
-        f"{prefix}: {point.x},{point.y} z{point.z:+d}; {TERRAIN_NAMES.get(tile, 'worked terrain')} ({tile})."
+        material_format("material.inspection.line", prefix=prefix, x=point.x, y=point.y, z=f"{point.z:+d}", terrain=TERRAIN_NAMES.get(tile, "worked terrain"), tile=tile)
     ]
     if knowledge == "remembered":
         lines.extend((
-            "MEMORY: terrain only; actors and active material states are not carried by memory.",
-            "Return to sight before relying on fire, smoke, water, cargo, or structural state.",
-            "Inspection costs no time.",
+            material_text("material.inspection.remembered.detail"),
+            material_text("material.inspection.remembered.return"),
+            material_text("material.inspection.no_time"),
         ))
         return lines
 
@@ -142,7 +143,7 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     ), None)
     if actor:
         from .combat_forecast import forecast_lines, observed_forecasts
-        lines.append(f"OBSERVED: {actor.name}; {actor.health}/{actor.max_health} health; morale {actor.morale}; intent {actor.intent}.")
+        lines.append(material_format("material.inspection.actor", actor=actor.name, health=actor.health, maximum=actor.max_health, morale=actor.morale, intent=actor.intent))
         forecast = next((row for row in observed_forecasts(state) if row.actor_id == actor.id), None)
         if forecast:
             lines.extend(forecast_lines(forecast))
@@ -150,9 +151,9 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
         container = next((row for row in state.region.containers if row.position == point), None)
         if container and container.hidden and not container.discovered:
             if max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 3:
-                lines.append(f"TRACE: {container.clue}; approach to resolve the buried cache.")
+                lines.append(material_format("material.inspection.trace", clue=container.clue))
         elif container:
-            lines.append(f"FACT: {container.name}; {'opened' if container.opened else 'closed'} physical store. E from beside it inspects or transfers contents.")
+            lines.append(material_format("material.inspection.container", container=container.name, state=material_text("material.inspection.container.opened" if container.opened else "material.inspection.container.closed")))
     ground = [
         item for item in state.items
         if item.location == "ground" and item.ground_position == point
@@ -160,28 +161,26 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     ]
     if ground:
         from .inventory import item_spec
-        lines.append("PHYSICAL OBJECTS: " + ", ".join(f"{item_spec(item.kind).name} {item.condition}%" for item in ground) + ".")
+        lines.append(material_format("material.inspection.ground", items=", ".join(f"{item_spec(item.kind).name} {item.condition}%" for item in ground)))
     from .circuits import PARTS, active as circuit_active, cell_at
 
     circuit = cell_at(state, point)
     if circuit:
-        detail = f"; {circuit.charge} pulses left" if circuit.kind == "rack" else "; active" if circuit_active(state, circuit) else ""
-        lines.append(f"ELECTRICAL FITTING: {PARTS[circuit.kind]['name']}; {circuit.phase}{detail}. \\ opens the circuit view.")
+        detail = material_format("material.inspection.circuit.rack", charge=circuit.charge) if circuit.kind == "rack" else material_text("material.inspection.circuit.active" if circuit_active(state, circuit) else "material.inspection.circuit.inactive")
+        lines.append(material_format("material.inspection.circuit", fitting=PARTS[circuit.kind]["name"], phase=circuit.phase, detail=detail))
     from .materials import fields, inspect_material, key
     if key(point) in fields(state) or tile in {",", "~", "_", "m", "r", "q", "t", "s", "%", "f"}:
         lines.extend(inspect_material(state, point))
     transition = vertical_destination(state, point)
     if transition:
-        direction = "descend" if transition.z < point.z else "climb"
-        lines.append(f"ACTION: stand here and press E to {direction} to z{transition.z:+d}; one action.")
+        direction = material_text("material.inspection.direction.descend" if transition.z < point.z else "material.inspection.direction.climb")
+        lines.append(material_format("material.inspection.transition", direction=direction, z=f"{transition.z:+d}"))
     if point.z == state.position.z and distance(state.position, point) == 1:
         preview = movement_preview(state, point)
-        lines.append(
-            f"PREDICTION: moving here is {'LEGAL' if preview.legal else 'BLOCKED'}; {preview.time_cost}; {preview.consequence}."
-        )
+        lines.append(material_format("material.inspection.prediction", legal=material_text("material.inspection.legal" if preview.legal else "material.inspection.blocked"), time=preview.time_cost, consequence=preview.consequence))
         if preview.remedy:
-            lines.append(f"COUNTER: {preview.remedy}.")
-    lines.append("Inspection costs no time; committing movement, E, F, A, G or M follows its displayed cost.")
+            lines.append(material_format("material.inspection.counter", remedy=preview.remedy))
+    lines.append(material_text("material.inspection.footer"))
     return lines
 
 
@@ -195,25 +194,25 @@ def contextual_hints(
     forecasts = observed_forecasts(state) if forecasts is None else forecasts
     danger = next((row for row in forecasts if state.position in row.affected), None)
     if danger:
-        hints.append(f"[!] {danger.actor_name}: move/cover/G before next hostile step")
+        hints.append(material_format("material.inspection.hint.danger", actor=danger.actor_name))
     if state.combat_active:
         from .manoeuvres import known, status
         for row in known(state):
             ready, _ = status(state, row.id)
             if ready:
-                hints.append(f"[M] {row.name}: {row.effect}; one action")
+                hints.append(material_format("material.inspection.hint.manoeuvre", manoeuvre=row.name, effect=row.effect))
                 break
     if vertical_destination(state, state.position):
         transition = vertical_destination(state, state.position)
-        verb = "descend" if transition.z < state.position.z else "climb"
-        hints.append(f"[E] {verb} to z{transition.z:+d}; one action")
+        verb = material_text("material.inspection.direction.descend" if transition.z < state.position.z else "material.inspection.direction.climb")
+        hints.append(material_format("material.inspection.hint.transition", direction=verb, z=f"{transition.z:+d}"))
     if state.location == "region" and not state.combat_active:
         # Full target enumeration parses every remembered cell and belongs in
         # the T overlay, not the per-frame status path.
         if len(state.region.seen) > 1:
-            hints.append("[T] follow remembered ground; any key interrupts")
+            hints.append(material_text("material.inspection.hint.map"))
     if not hints:
-        hints.append("[;] inspect a place; no time")
+        hints.append(material_text("material.inspection.hint.default"))
     return tuple(hints[:limit])
 
 
@@ -223,10 +222,10 @@ def contextual_advice(state: GameState, speaker: str) -> str:
 
     forecast = next((row for row in observed_forecasts(state) if state.position in row.affected), None)
     if forecast:
-        return f"ADVICE — {speaker}: {forecast.actor_name}'s mark resolves after your next action; {forecast.counter}."
+        return material_format("material.inspection.advice.forecast", speaker=speaker, actor=forecast.actor_name, counter=forecast.counter)
     if state.terrain_statuses:
         name, status = next(iter(state.terrain_statuses.items()))
-        return f"ADVICE — {speaker}: {name.replace('-', ' ')} came from {status.cause}; {status.consequence}."
+        return material_format("material.inspection.advice.status", speaker=speaker, status=name.replace("-", " "), cause=status.cause, consequence=status.consequence)
     from .materials import fields
     nearby = [
         cell for coordinate, cell in fields(state).items()
@@ -234,24 +233,24 @@ def contextual_advice(state: GameState, speaker: str) -> str:
         and point.z == state.position.z and distance(point, state.position) <= 2
     ]
     if any(cell.fire for cell in nearby):
-        return f"ADVICE — {speaker}: water removes fire immediately; cutting dry fuel first can stop the next spread."
+        return material_format("material.inspection.advice.fire", speaker=speaker)
     if any(cell.smoke >= 2 for cell in nearby):
-        return f"ADVICE — {speaker}: dense smoke breaks prepared lanes and sight; wind and clear ground determine its useful edge."
+        return material_format("material.inspection.advice.smoke", speaker=speaker)
     if any(cell.collapse_due for cell in nearby):
-        return f"ADVICE — {speaker}: a warned support falls only after its shown action; leave, brace, or interrupt before then."
+        return material_format("material.inspection.advice.collapse", speaker=speaker)
     from .calendar import calendar_at
     season = calendar_at(state).season
     if state.weather == "hard rain":
-        return f"ADVICE — {speaker}: rain checks open flame but slows exposed travel unless clothing, route, or shelter answers it."
+        return material_format("material.inspection.advice.rain", speaker=speaker)
     if "wind" in state.weather or "gust" in state.weather:
-        return f"ADVICE — {speaker}: the named wind shifts smoke and firing value consistently; read it before committing a lane."
+        return material_format("material.inspection.advice.wind", speaker=speaker)
     if season == "winter":
-        return f"ADVICE — {speaker}: fresh shallows can freeze; salt water thaws them, while cleats turn the firm sheet into a route."
+        return material_format("material.inspection.advice.winter", speaker=speaker)
     from .world import build_combinations
     combo = next(iter(build_combinations(state)), None)
     if combo:
-        return f"ADVICE — {speaker}: your {combo} is active now; its equipment and footing are already satisfying the combination."
-    return f"ADVICE — {speaker}: inspect with ; before committing; remembered ground never reveals a present actor or reaction."
+        return material_format("material.inspection.advice.combo", speaker=speaker, combo=combo)
+    return material_format("material.inspection.advice.default", speaker=speaker)
 
 
 def _point(coordinate: str) -> Position | None:

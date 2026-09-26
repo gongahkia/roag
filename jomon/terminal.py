@@ -1605,9 +1605,10 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         return [ChoiceOption(key.upper(), label, semantic, available, requirement) for key, label, semantic, available, requirement in options(state)]
     if kind.startswith("material:"):
         from .materials import VERBS
+        from .material_presentation import material_verb_display_name
         from .chemistry import carried_flasks
 
-        return [ChoiceOption(chr(ord("a") + index), verb.title(), "danger" if verb in {"ignite", "break", "cut"} else "commitment") for index, verb in enumerate(VERBS)] + [
+        return [ChoiceOption(chr(ord("a") + index), material_verb_display_name(verb), "danger" if verb in {"ignite", "break", "cut"} else "commitment") for index, verb in enumerate(VERBS)] + [
             ChoiceOption("L", "Pour a carried flask here", "danger", bool(carried_flasks(state)), "a filled carried field flask"),
             ChoiceOption("M", "Drink a carried flask", "commitment", bool(carried_flasks(state)), "a filled carried field flask"),
         ]

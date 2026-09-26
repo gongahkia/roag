@@ -83,6 +83,7 @@ MAGIC_PRESENTATION_FILE = "magic_text.json"
 PROGRESSION_PRESENTATION_FILE = "progression_text.json"
 EQUIPMENT_PRESENTATION_FILE = "equipment_text.json"
 PREPARATION_PRESENTATION_FILE = "preparation_text.json"
+MATERIAL_PRESENTATION_FILE = "material_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -631,6 +632,28 @@ _PREPARATION_TEMPLATE_CONTRACT = {
     "preparation.overlay.ready": (), "preparation.overlay.needs": ("condition",), "preparation.overlay.guidance": (),
     "intent.preparation.firebrand": (), "intent.preparation.aim-break": (),
 }
+
+_MATERIAL_IDS = ("reeds", "timber", "cloth", "resin", "oil", "charcoal", "soil", "stone", "lime", "ash", "salt")
+_COATING_IDS = ("none", "salt", "lime", "ash", "resin", "oil", "wet", "glow")
+_MATERIAL_HAZARD_IDS = ("fire", "debris", "smoke", "water", "salt", "lime", "ash")
+_MATERIAL_VERB_IDS = ("ignite", "extinguish", "pour", "cut", "brace", "lever", "dig", "break", "push", "pull", "redirect")
+_MATERIAL_TEMPLATE_CONTRACT = {
+    **{f"material.name.{name}": () for name in _MATERIAL_IDS},
+    **{f"material.coating.{name}": () for name in _COATING_IDS},
+    **{f"material.hazard.{name}": () for name in _MATERIAL_HAZARD_IDS},
+    **{f"material.verb.{name}": () for name in _MATERIAL_VERB_IDS},
+    "material.fluid.fresh": (), "material.fluid.salt": (), "material.phase.ice": (), "material.phase.liquid": (),
+    "material.status.smoke_inhalation.cause": (), "material.status.smoke_inhalation.consequence": (), "material.status.wet.cause": (), "material.status.wet.consequence": (), "material.status.chilled.cause": (), "material.status.chilled.consequence": (), "material.status.salt_grit.cause": (), "material.status.salt_grit.consequence": (), "material.status.lime_grit.cause": (), "material.status.lime_grit.consequence": (),
+    "material.inspect.fact": ("x", "y", "z", "material", "coating"), "material.inspect.water": ("water", "fluid", "phase", "fire", "smoke"), "material.inspect.support.warning": ("support", "beats"), "material.inspect.support.clear": ("support",), "material.inspect.mixture": ("reagents", "reactions"), "material.inspect.prediction": (), "material.inspect.cover": (), "material.inspect.guidance": (),
+    "material.item.destroyed.memory": ("item", "item_id", "reaction", "coordinate"), "material.item.destroyed.message": ("item", "reaction"), "intent.material.clear_ground": ("reaction",), "intent.material.break_prepared_lane": ("reaction",), "material.threat.fell": ("threat", "reaction", "coordinate"), "material.armour.heat": (), "material.person.injury.memory": ("reaction", "coordinate"),
+    "material.water.quench": ("coordinate",), "material.ice.thaw": ("coordinate",), "material.fire.spread": ("material", "coordinate"), "material.reaction.result": ("reaction", "coordinate"), "material.collapse.warning": ("coordinate",), "material.collapse.memory": ("coordinate",), "material.collapse.result": ("coordinate",),
+    "material.handle.invalid_target": (), "material.handle.ignite_requirement": (), "material.handle.tool_requirement": (), "material.handle.coffer_requirement": (), "material.handle.coffer_destination": (), "material.handle.water_requirement": (), "material.handle.no_cell": (), "material.handle.water_spent": (), "material.handle.structure_requirement": (), "material.handle.result": ("verb", "material", "coordinate"), "material.handle.heel": (),
+    "material.inspection.blocked.stone": (), "material.inspection.remedy.stone": (), "material.inspection.blocked.timber": (), "material.inspection.remedy.timber": (), "material.inspection.blocked.water": (), "material.inspection.remedy.water": (), "material.inspection.blocked.empty": (), "material.inspection.remedy.empty": (), "material.inspection.blocked.vessel": (), "material.inspection.remedy.vessel": (), "material.inspection.blocked.generic": ("terrain",), "material.inspection.remedy.generic": (),
+    "material.inspection.preview.nonadjacent": (), "material.inspection.preview.watching": ("actor",), "material.inspection.preview.watching_remedy": (), "material.inspection.preview.engaged": ("actor",), "material.inspection.preview.engaged_remedy": (), "material.inspection.preview.diagonal": (), "material.inspection.preview.diagonal_remedy": (), "material.inspection.preview.status": ("status", "cause", "effect"), "material.inspection.preview.fire": ("fire",), "material.inspection.preview.smoke": ("smoke",), "material.inspection.preview.collapse": ("beats",), "material.inspection.preview.water": ("fluid", "water"), "material.inspection.preview.door": (), "material.inspection.preview.fall": (), "material.inspection.preview.enter": ("terrain",), "material.inspection.preview.avoid": (),
+    "material.inspection.unknown": ("x", "y", "z"), "material.inspection.unknown.detail": (), "material.inspection.no_time": (), "material.inspection.line": ("prefix", "x", "y", "z", "terrain", "tile"), "material.inspection.remembered.detail": (), "material.inspection.remembered.return": (), "material.inspection.actor": ("actor", "health", "maximum", "morale", "intent"), "material.inspection.trace": ("clue",), "material.inspection.container": ("container", "state"), "material.inspection.ground": ("items",), "material.inspection.transition": ("direction", "z"), "material.inspection.prediction": ("legal", "time", "consequence"), "material.inspection.counter": ("remedy",), "material.inspection.footer": (), "material.inspection.prefix.visible": (), "material.inspection.prefix.remembered": (), "material.inspection.time.none": (), "material.inspection.time.one": (), "material.inspection.time.possibly_two": (), "material.inspection.container.opened": (), "material.inspection.container.closed": (), "material.inspection.direction.descend": (), "material.inspection.direction.climb": (), "material.inspection.legal": (), "material.inspection.blocked": (), "material.inspection.circuit": ("fitting", "phase", "detail"), "material.inspection.circuit.rack": ("charge",), "material.inspection.circuit.active": (), "material.inspection.circuit.inactive": (),
+    "material.inspection.hint.danger": ("actor",), "material.inspection.hint.manoeuvre": ("manoeuvre", "effect"), "material.inspection.hint.transition": ("direction", "z"), "material.inspection.hint.map": (), "material.inspection.hint.default": (),
+    "material.inspection.advice.forecast": ("speaker", "actor", "counter"), "material.inspection.advice.status": ("speaker", "status", "cause", "consequence"), "material.inspection.advice.fire": ("speaker",), "material.inspection.advice.smoke": ("speaker",), "material.inspection.advice.collapse": ("speaker",), "material.inspection.advice.rain": ("speaker",), "material.inspection.advice.wind": ("speaker",), "material.inspection.advice.winter": ("speaker",), "material.inspection.advice.combo": ("speaker", "combo"), "material.inspection.advice.default": ("speaker",),
+}
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.choice.journal.write.label': (), 'progression.choice.journal.write.requirement': (), 'progression.choice.journal.study.label': (), 'progression.choice.journal.study.requirement': (), 'progression.choice.manoeuvre.label': (), 'progression.choice.manoeuvre.requirement': (), 'progression.choice.teach.label': (), 'progression.station.gathering.journal_guidance': (), 'progression.person.learned': ('practices',), 'progression.person.none': (), 'progression.person.practice_effect': ('practice', 'description'), 'progression.person.personal_effect': (), 'progression.person.teach': (), 'progression.household.none': (), 'progression.household.personal_effect': (), 'progression.personal.memory': ('region',), 'progression.personal.development': ('courier', 'practice'), 'progression.character.learned_nodes': ('nodes',), 'progression.character.none': (), 'progression.combat.note.guard_feint': (), 'progression.combat.note.slip_cut': (), 'progression.combat.note.weapon_bind': (), 'progression.combat.note.riposte_pressure': (), 'progression.combat.note.duelist_finish': (), 'progression.combat.note.edge_measure_guard': (), 'progression.combat.note.countercharge': (), 'progression.combat.note.timber_chipped': (), 'progression.combat.note.hook_haul': (), 'progression.combat.note.line_intercepted': (), 'progression.combat.note.ferryman_guard': (), 'progression.combat.note.called_shot': (), 'progression.combat.note.shaft_falls': (), 'progression.combat.note.measured_charge': (), 'progression.combat.note.matched_payload': (), 'progression.combat.note.target_veiled': (), 'progression.combat.note.masterwork_edge': ()})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.journal.write.title': (), 'progression.journal.write.summary': ('courier', 'written'), 'progression.journal.write.row': ('index', 'node', 'description'), 'progression.journal.write.page': ('page', 'pages'), 'progression.journal.write.provenance': ('courier',), 'progression.journal.study.title': (), 'progression.journal.study.summary': ('courier', 'inherited'), 'progression.journal.study.row': ('index', 'journal', 'node', 'provenance'), 'progression.journal.study.page': ('page', 'pages'), 'progression.teach.title': ('person',), 'progression.teach.summary': ('person', 'inherited', 'teacher'), 'progression.teach.row': ('index', 'node', 'parents'), 'progression.teach.none': (), 'progression.teach.page': ('page', 'pages')})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.combat.shaft.provenance': ()})
@@ -1143,6 +1166,12 @@ class PreparationPresentation:
 
 
 @dataclass(frozen=True)
+class MaterialPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1178,6 +1207,7 @@ class ContentPack:
     progression_presentations: tuple[ProgressionPresentation, ...]
     equipment_presentations: tuple[EquipmentPresentation, ...]
     preparation_presentations: tuple[PreparationPresentation, ...]
+    material_presentations: tuple[MaterialPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1297,6 +1327,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown preparation presentation id: {semantic_id}")
 
+    def material_presentation(self, semantic_id: str) -> MaterialPresentation:
+        for presentation in self.material_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown material presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1380,8 +1416,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, and preparations")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, and materials")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2347,6 +2383,26 @@ def _preparation_presentations(root: Path, pack_id: str) -> tuple[PreparationPre
     return tuple(PreparationPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="preparation")) for key, placeholders in _PREPARATION_TEMPLATE_CONTRACT.items())
 
 
+def _material_presentations(root: Path, pack_id: str) -> tuple[MaterialPresentation, ...]:
+    source = root / MATERIAL_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid material presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _MATERIAL_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("materials") != expected:
+        raise RuntimeError(f"invalid engine material content contract at {contract_source}: materials does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid material presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_MATERIAL_TEMPLATE_CONTRACT):
+        missing, unknown = set(_MATERIAL_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_MATERIAL_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required material keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown material keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid material presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(MaterialPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="material")) for key, placeholders in _MATERIAL_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2522,10 +2578,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     progression = _progression_presentations(root, pack_id)
     equipment = _equipment_presentations(root, pack_id)
     preparations = _preparation_presentations(root, pack_id)
+    materials = _material_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, household_template,
     )
 
 

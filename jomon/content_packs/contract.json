@@ -13634,5 +13634,784 @@
       "id": "intent.preparation.aim-break",
       "placeholders": []
     }
+  ],
+  "materials": [
+    {
+      "id": "material.name.reeds",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.timber",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.cloth",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.resin",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.oil",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.charcoal",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.soil",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.stone",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.lime",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.ash",
+      "placeholders": []
+    },
+    {
+      "id": "material.name.salt",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.none",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.salt",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.lime",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.ash",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.resin",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.oil",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.wet",
+      "placeholders": []
+    },
+    {
+      "id": "material.coating.glow",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.fire",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.debris",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.smoke",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.water",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.salt",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.lime",
+      "placeholders": []
+    },
+    {
+      "id": "material.hazard.ash",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.ignite",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.extinguish",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.pour",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.cut",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.brace",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.lever",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.dig",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.break",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.push",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.pull",
+      "placeholders": []
+    },
+    {
+      "id": "material.verb.redirect",
+      "placeholders": []
+    },
+    {
+      "id": "material.fluid.fresh",
+      "placeholders": []
+    },
+    {
+      "id": "material.fluid.salt",
+      "placeholders": []
+    },
+    {
+      "id": "material.phase.ice",
+      "placeholders": []
+    },
+    {
+      "id": "material.phase.liquid",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.smoke_inhalation.cause",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.smoke_inhalation.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.wet.cause",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.wet.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.chilled.cause",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.chilled.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.salt_grit.cause",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.salt_grit.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.lime_grit.cause",
+      "placeholders": []
+    },
+    {
+      "id": "material.status.lime_grit.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspect.fact",
+      "placeholders": [
+        "x",
+        "y",
+        "z",
+        "material",
+        "coating"
+      ]
+    },
+    {
+      "id": "material.inspect.water",
+      "placeholders": [
+        "water",
+        "fluid",
+        "phase",
+        "fire",
+        "smoke"
+      ]
+    },
+    {
+      "id": "material.inspect.support.warning",
+      "placeholders": [
+        "support",
+        "beats"
+      ]
+    },
+    {
+      "id": "material.inspect.support.clear",
+      "placeholders": [
+        "support"
+      ]
+    },
+    {
+      "id": "material.inspect.mixture",
+      "placeholders": [
+        "reagents",
+        "reactions"
+      ]
+    },
+    {
+      "id": "material.inspect.prediction",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspect.cover",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspect.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "material.item.destroyed.memory",
+      "placeholders": [
+        "item",
+        "item_id",
+        "reaction",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.item.destroyed.message",
+      "placeholders": [
+        "item",
+        "reaction"
+      ]
+    },
+    {
+      "id": "intent.material.clear_ground",
+      "placeholders": [
+        "reaction"
+      ]
+    },
+    {
+      "id": "intent.material.break_prepared_lane",
+      "placeholders": [
+        "reaction"
+      ]
+    },
+    {
+      "id": "material.threat.fell",
+      "placeholders": [
+        "threat",
+        "reaction",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.armour.heat",
+      "placeholders": []
+    },
+    {
+      "id": "material.person.injury.memory",
+      "placeholders": [
+        "reaction",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.water.quench",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.ice.thaw",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.fire.spread",
+      "placeholders": [
+        "material",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.reaction.result",
+      "placeholders": [
+        "reaction",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.collapse.warning",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.collapse.memory",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.collapse.result",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.handle.invalid_target",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.ignite_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.tool_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.coffer_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.coffer_destination",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.water_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.no_cell",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.water_spent",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.structure_requirement",
+      "placeholders": []
+    },
+    {
+      "id": "material.handle.result",
+      "placeholders": [
+        "verb",
+        "material",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.handle.heel",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.stone",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remedy.stone",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.timber",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remedy.timber",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.water",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remedy.water",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.empty",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remedy.empty",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.vessel",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remedy.vessel",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked.generic",
+      "placeholders": [
+        "terrain"
+      ]
+    },
+    {
+      "id": "material.inspection.remedy.generic",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.nonadjacent",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.watching",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.watching_remedy",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.engaged",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.engaged_remedy",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.diagonal",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.diagonal_remedy",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.status",
+      "placeholders": [
+        "status",
+        "cause",
+        "effect"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.fire",
+      "placeholders": [
+        "fire"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.smoke",
+      "placeholders": [
+        "smoke"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.collapse",
+      "placeholders": [
+        "beats"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.water",
+      "placeholders": [
+        "fluid",
+        "water"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.door",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.fall",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.preview.enter",
+      "placeholders": [
+        "terrain"
+      ]
+    },
+    {
+      "id": "material.inspection.preview.avoid",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.unknown",
+      "placeholders": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "material.inspection.unknown.detail",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.no_time",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.line",
+      "placeholders": [
+        "prefix",
+        "x",
+        "y",
+        "z",
+        "terrain",
+        "tile"
+      ]
+    },
+    {
+      "id": "material.inspection.remembered.detail",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.remembered.return",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.actor",
+      "placeholders": [
+        "actor",
+        "health",
+        "maximum",
+        "morale",
+        "intent"
+      ]
+    },
+    {
+      "id": "material.inspection.trace",
+      "placeholders": [
+        "clue"
+      ]
+    },
+    {
+      "id": "material.inspection.container",
+      "placeholders": [
+        "container",
+        "state"
+      ]
+    },
+    {
+      "id": "material.inspection.ground",
+      "placeholders": [
+        "items"
+      ]
+    },
+    {
+      "id": "material.inspection.transition",
+      "placeholders": [
+        "direction",
+        "z"
+      ]
+    },
+    {
+      "id": "material.inspection.prediction",
+      "placeholders": [
+        "legal",
+        "time",
+        "consequence"
+      ]
+    },
+    {
+      "id": "material.inspection.counter",
+      "placeholders": [
+        "remedy"
+      ]
+    },
+    {
+      "id": "material.inspection.footer",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.prefix.visible",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.prefix.remembered",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.time.none",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.time.one",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.time.possibly_two",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.container.opened",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.container.closed",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.direction.descend",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.direction.climb",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.legal",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.circuit",
+      "placeholders": [
+        "fitting",
+        "phase",
+        "detail"
+      ]
+    },
+    {
+      "id": "material.inspection.circuit.rack",
+      "placeholders": [
+        "charge"
+      ]
+    },
+    {
+      "id": "material.inspection.circuit.active",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.circuit.inactive",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.hint.danger",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "material.inspection.hint.manoeuvre",
+      "placeholders": [
+        "manoeuvre",
+        "effect"
+      ]
+    },
+    {
+      "id": "material.inspection.hint.transition",
+      "placeholders": [
+        "direction",
+        "z"
+      ]
+    },
+    {
+      "id": "material.inspection.hint.map",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.hint.default",
+      "placeholders": []
+    },
+    {
+      "id": "material.inspection.advice.forecast",
+      "placeholders": [
+        "speaker",
+        "actor",
+        "counter"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.status",
+      "placeholders": [
+        "speaker",
+        "status",
+        "cause",
+        "consequence"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.fire",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.smoke",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.collapse",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.rain",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.wind",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.winter",
+      "placeholders": [
+        "speaker"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.combo",
+      "placeholders": [
+        "speaker",
+        "combo"
+      ]
+    },
+    {
+      "id": "material.inspection.advice.default",
+      "placeholders": [
+        "speaker"
+      ]
+    }
   ]
 }

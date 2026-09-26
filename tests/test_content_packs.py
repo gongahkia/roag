@@ -58,6 +58,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "progression_text.json", root / "progression_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "equipment_text.json", root / "equipment_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "preparation_text.json", root / "preparation_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "material_text.json", root / "material_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -258,6 +259,8 @@ def alternate_pack(root: Path) -> Path:
     source = root / "chemistry_text.json"
     chemistry_text = json.loads(source.read_text(encoding="utf-8"))
     chemistry_text["text"].update({
+        "chemistry.reagent.tree_resin.name": "fixture resin",
+        "chemistry.reaction.resin_mortar.name": "fixture mortar",
         "chemistry.reagent.healing_herb.name": "fixture herb",
         "chemistry.reaction.healing_draft.name": "fixture restorative",
         "chemistry.fill.result": "FIXTURE fill {measures} {reagent} into {flask}: {contents}.",
@@ -327,6 +330,16 @@ def alternate_pack(root: Path) -> Path:
         "preparation.overlay.guidance": "FIXTURE field guidance keeps the same action clock.",
     })
     source.write_text(json.dumps(preparation_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "material_text.json"
+    material_text = json.loads(source.read_text(encoding="utf-8"))
+    material_text["text"].update({
+        "material.name.timber": "fixture timber",
+        "material.inspect.fact": "FIXTURE MATERIAL {x},{y} z{z}: {material}; coating {coating}.",
+        "material.handle.result": "FIXTURE {verb} {material} at {coordinate}; unchanged one action.",
+        "material.collapse.warning": "FIXTURE SUPPORT at {coordinate} warns on the unchanged clock.",
+        "material.inspection.advice.fire": "FIXTURE ADVICE — {speaker}: unchanged fire simulation needs an unchanged response.",
+    })
+    source.write_text(json.dumps(material_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -2018,6 +2031,76 @@ class PreparationPresentationTests(unittest.TestCase):
             with self.subTest("duplicate key"):
                 source.write_text(original.replace('"preparation.waterline.name"', '"preparation.waterline.description"', 1), encoding="utf-8")
                 with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*preparation_text\.json"):
+                    load_content_pack(root)
+
+
+def material_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.materials import advance_materials, handle_material, inspect_material, key; from jomon.state import MaterialCell, Position, create_world; "
+            "state=create_world('material-pack-proof'); state.location='region'; state.position=Position(40,25); state.weather='clear'; state.world_time=0; state.region.materials.clear(); point=Position(41,25); state.weapon='billhook'; cell=MaterialCell(material='timber', support=1, reagents={'tree resin':1, 'lime dust':1}); collapse=MaterialCell(material='timber', support=0); state.region.materials[key(point)]=cell; state.region.materials['42,25,0']=collapse; inspection=inspect_material(state,point); processed=advance_materials(state); changed,message=handle_material(state,'brace',point); mechanics={'material_id':cell.material,'reagents':dict(cell.reagents),'support':cell.support,'collapse_due':collapse.collapse_due,'processed':processed,'changed':changed,'time':state.world_time,'cell':vars(cell).copy(),'collapse':vars(collapse).copy()}; print(json.dumps({'messages':[inspection[0],inspection[3],*state.messages,message], 'mechanics':mechanics}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class MaterialPresentationTests(unittest.TestCase):
+    def test_default_material_presentation_preserves_existing_text(self):
+        from jomon.material_presentation import material_display_name, material_text
+
+        self.assertEqual(material_display_name("timber"), "timber")
+        self.assertEqual(material_text("material.handle.ignite_requirement"), "Ignition needs dry fuel and one measure of lamp oil.")
+
+    def test_alternate_pack_changes_material_and_chemistry_display_not_mechanics(self):
+        default = material_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ)
+            environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = material_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        rendered = "\n".join(alternate["messages"])
+        self.assertIn("FIXTURE MATERIAL", rendered)
+        self.assertIn("fixture timber", rendered)
+        self.assertIn("fixture resin", rendered)
+        self.assertIn("FIXTURE SUPPORT", rendered)
+        self.assertIn("FIXTURE brace", rendered)
+
+    def test_material_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "material_text.json"
+            original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing material": lambda value: value["text"].pop("material.name.timber"),
+                "missing text field": lambda value: value.pop("text"),
+                "unknown key": lambda value: value["text"].update({"material.name.extra": "extra"}),
+                "empty text": lambda value: value["text"].update({"material.inspect.prediction": ""}),
+                "non-string": lambda value: value["text"].update({"material.inspect.prediction": 3}),
+                "unknown placeholder": lambda value: value["text"].update({"material.handle.result": "uses {other}"}),
+                "missing placeholder": lambda value: value["text"].update({"material.handle.result": "uses {verb}"}),
+                "malformed template": lambda value: value["text"].update({"material.handle.result": "{"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original)
+                    mutate(document)
+                    source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*material_text\.json"):
+                        load_content_pack(root)
+            with self.subTest("unsupported field"):
+                document = json.loads(original)
+                document["extra"] = "not allowed"
+                source.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*material_text\.json"):
+                    load_content_pack(root)
+            with self.subTest("duplicate key"):
+                source.write_text(original.replace('"material.name.timber"', '"material.handle.ignite_requirement"', 1), encoding="utf-8")
+                with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*material_text\.json"):
                     load_content_pack(root)
 
 
