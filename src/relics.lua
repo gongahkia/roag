@@ -411,6 +411,13 @@ function R.validate(c)
  for _,t in ipairs(state.transfers) do exact(t,{id=true,relicId=true,factionId=true,siteId=true,arrivalTick=true},'Relic courier');U.integer(t.id,'Relic courier ID',1,state.nextTransferId-1);U.integer(t.relicId,'Relic courier relic ID',1,R.maxRelics);U.integer(t.factionId,'Relic courier faction ID',1,4);U.integer(t.siteId,'Relic courier site',1,11);U.integer(t.arrivalTick,'Relic courier arrival',0,10000000) end
  exact(state.drive,{version=true,installed=true,progress=true,siteId=true,craftId=true,cooldownUntil=true,sockets=true,workerId=true},'Relic drive')
  assert(state.drive.version==1 and type(state.drive.installed)=='boolean','Malformed Relic Drive');U.integer(state.drive.progress,'Relic drive progress',0,300);U.integer(state.drive.siteId,'Relic drive site',0,11);U.integer(state.drive.craftId,'Relic drive craft',0,100000000);U.integer(state.drive.cooldownUntil,'Relic drive cooldown',0,10000000);dense(state.drive.sockets,'Relic drive sockets',3)
+ if state.drive.installed or state.drive.craftId>0 then
+  assert(state.drive.craftId>0 and craft(c,state.drive.craftId),'Relic drive shuttle reference is missing')
+  assert(state.drive.siteId>0 and site(c,state.drive.siteId),'Relic drive installation site is missing')
+ end
+ if not state.drive.installed then
+  for _,id in ipairs(state.drive.sockets) do assert(id==0,'Unfitted Relic Drive has an occupied socket') end
+ end
  local claimed={};for _,id in ipairs(state.drive.sockets) do U.integer(id,'Drive relic ID',0,R.maxRelics);if id>0 then assert(not claimed[id],'Duplicate drive relic socket');claimed[id]=true;local x=item(c,id);assert(x and x.state=='drive' and x.craftId==state.drive.craftId,'Drive socket custody mismatch') end end
  -- Cross-check every active local structured custody.  This is intentionally
  -- derived from the single relic ledger, so malformed saves cannot represent
