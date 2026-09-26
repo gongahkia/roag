@@ -84,6 +84,7 @@ PROGRESSION_PRESENTATION_FILE = "progression_text.json"
 EQUIPMENT_PRESENTATION_FILE = "equipment_text.json"
 PREPARATION_PRESENTATION_FILE = "preparation_text.json"
 MATERIAL_PRESENTATION_FILE = "material_text.json"
+SANCTUM_PRESENTATION_FILE = "sanctum_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -654,6 +655,22 @@ _MATERIAL_TEMPLATE_CONTRACT = {
     "material.inspection.hint.danger": ("actor",), "material.inspection.hint.manoeuvre": ("manoeuvre", "effect"), "material.inspection.hint.transition": ("direction", "z"), "material.inspection.hint.map": (), "material.inspection.hint.default": (),
     "material.inspection.advice.forecast": ("speaker", "actor", "counter"), "material.inspection.advice.status": ("speaker", "status", "cause", "consequence"), "material.inspection.advice.fire": ("speaker",), "material.inspection.advice.smoke": ("speaker",), "material.inspection.advice.collapse": ("speaker",), "material.inspection.advice.rain": ("speaker",), "material.inspection.advice.wind": ("speaker",), "material.inspection.advice.winter": ("speaker",), "material.inspection.advice.combo": ("speaker", "combo"), "material.inspection.advice.default": ("speaker",),
 }
+_SANCTUM_REGIONS = ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
+_SANCTUM_TEMPLATE_CONTRACT = {
+    **{f"sanctum.{region}.{field}": () for region in _SANCTUM_REGIONS for field in ("name", "theme", "witness.name", "boss.name", "boss.capability", "boss.counterplay", "boss.goal")},
+    "sanctum.link.entry": (), "sanctum.link.reliquary": (), "sanctum.link.gallery": (),
+    "sanctum.cache.ward": ("sanctum",), "sanctum.cache.hoard": ("sanctum",),
+    "sanctum.witness.existing": ("witness",), "sanctum.witness.unavailable": (), "sanctum.witness.memory": ("control", "sanctum"), "sanctum.witness.role": (), "sanctum.witness.schedule": (), "sanctum.witness.arrival": ("witness", "x", "y"),
+    "sanctum.encounter.limit": (), "sanctum.encounter.occupied": (), "sanctum.encounter.none": (), "sanctum.encounter.arrival": ("actor", "x", "y", "goal"), "sanctum.enter.tier": ("sanctum",),
+    "sanctum.undercroft.already": (), "sanctum.undercroft.no_space": (), "sanctum.undercroft.spawned": (), "sanctum.undercroft.contested": (), "sanctum.undercroft.opened": (),
+    "sanctum.secret.none": (), "sanctum.secret.open": (), "sanctum.secret.opened": (),
+    "sanctum.inspect.standing": ("account", "trust", "obligation"), "sanctum.inspect.no_witness": (), "sanctum.inspect.site": ("sanctum", "theme"), "sanctum.inspect.seal": ("seal", "keeper"), "sanctum.inspect.keeper": ("capability", "counterplay"), "sanctum.inspect.offer": (), "sanctum.inspect.breach": (), "sanctum.inspect.study": (), "sanctum.inspect.secret": ("x", "y"), "sanctum.inspect.aftermath": ("control",), "sanctum.inspect.shelter": (),
+    "sanctum.choice.study": ("theme", "event"), "sanctum.choice.account_unavailable": (), "sanctum.choice.shelter_unavailable": (), "sanctum.choice.shelter_witness": (), "sanctum.choice.offered": (), "sanctum.choice.requirement": ("commodity",), "sanctum.choice.offering_memory": ("courier", "commodity", "sanctum"), "sanctum.choice.offering": ("commodity", "account"), "sanctum.choice.breach_unavailable": (), "sanctum.choice.breach_memory": ("courier", "sanctum"), "sanctum.choice.breach": ("account",), "sanctum.choice.invalid": (),
+    "sanctum.event.quiet_witnesses": ("sanctum",), "sanctum.event.parcel_unavailable": (), "sanctum.event.parcel_provenance": ("sanctum",), "sanctum.event.parcel": ("commodity", "x", "y"), "sanctum.event.stone": (), "sanctum.event.stone_safe": (),
+    "sanctum.record.defeat": ("courier", "boss", "sanctum"), "sanctum.record.cleared": ("sanctum", "strategy"), "sanctum.record.strategy_gained": (), "sanctum.record.strategy_bound": (), "sanctum.record.strategy_none": (), "sanctum.record.claimants_left": ("sanctum", "control"),
+    "sanctum.area.tier.one": (), "sanctum.area.tier.two": (), "sanctum.area.undercroft": (),
+}
+
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.choice.journal.write.label': (), 'progression.choice.journal.write.requirement': (), 'progression.choice.journal.study.label': (), 'progression.choice.journal.study.requirement': (), 'progression.choice.manoeuvre.label': (), 'progression.choice.manoeuvre.requirement': (), 'progression.choice.teach.label': (), 'progression.station.gathering.journal_guidance': (), 'progression.person.learned': ('practices',), 'progression.person.none': (), 'progression.person.practice_effect': ('practice', 'description'), 'progression.person.personal_effect': (), 'progression.person.teach': (), 'progression.household.none': (), 'progression.household.personal_effect': (), 'progression.personal.memory': ('region',), 'progression.personal.development': ('courier', 'practice'), 'progression.character.learned_nodes': ('nodes',), 'progression.character.none': (), 'progression.combat.note.guard_feint': (), 'progression.combat.note.slip_cut': (), 'progression.combat.note.weapon_bind': (), 'progression.combat.note.riposte_pressure': (), 'progression.combat.note.duelist_finish': (), 'progression.combat.note.edge_measure_guard': (), 'progression.combat.note.countercharge': (), 'progression.combat.note.timber_chipped': (), 'progression.combat.note.hook_haul': (), 'progression.combat.note.line_intercepted': (), 'progression.combat.note.ferryman_guard': (), 'progression.combat.note.called_shot': (), 'progression.combat.note.shaft_falls': (), 'progression.combat.note.measured_charge': (), 'progression.combat.note.matched_payload': (), 'progression.combat.note.target_veiled': (), 'progression.combat.note.masterwork_edge': ()})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.journal.write.title': (), 'progression.journal.write.summary': ('courier', 'written'), 'progression.journal.write.row': ('index', 'node', 'description'), 'progression.journal.write.page': ('page', 'pages'), 'progression.journal.write.provenance': ('courier',), 'progression.journal.study.title': (), 'progression.journal.study.summary': ('courier', 'inherited'), 'progression.journal.study.row': ('index', 'journal', 'node', 'provenance'), 'progression.journal.study.page': ('page', 'pages'), 'progression.teach.title': ('person',), 'progression.teach.summary': ('person', 'inherited', 'teacher'), 'progression.teach.row': ('index', 'node', 'parents'), 'progression.teach.none': (), 'progression.teach.page': ('page', 'pages')})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.combat.shaft.provenance': ()})
@@ -1172,6 +1189,12 @@ class MaterialPresentation:
 
 
 @dataclass(frozen=True)
+class SanctumPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1208,6 +1231,7 @@ class ContentPack:
     equipment_presentations: tuple[EquipmentPresentation, ...]
     preparation_presentations: tuple[PreparationPresentation, ...]
     material_presentations: tuple[MaterialPresentation, ...]
+    sanctum_presentations: tuple[SanctumPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1333,6 +1357,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown material presentation id: {semantic_id}")
 
+    def sanctum_presentation(self, semantic_id: str) -> SanctumPresentation:
+        for presentation in self.sanctum_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown sanctum presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1416,8 +1446,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, and materials")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, and sanctums")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2403,6 +2433,25 @@ def _material_presentations(root: Path, pack_id: str) -> tuple[MaterialPresentat
     return tuple(MaterialPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="material")) for key, placeholders in _MATERIAL_TEMPLATE_CONTRACT.items())
 
 
+def _sanctum_presentations(root: Path, pack_id: str) -> tuple[SanctumPresentation, ...]:
+    source = root / SANCTUM_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid sanctum presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _SANCTUM_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("sanctums") != expected:
+        raise RuntimeError(f"invalid engine sanctum content contract at {contract_source}: sanctums does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid sanctum presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_SANCTUM_TEMPLATE_CONTRACT):
+        missing, unknown = set(_SANCTUM_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_SANCTUM_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required sanctum keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown sanctum keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid sanctum presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(SanctumPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="sanctum")) for key, placeholders in _SANCTUM_TEMPLATE_CONTRACT.items())
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2579,10 +2628,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     equipment = _equipment_presentations(root, pack_id)
     preparations = _preparation_presentations(root, pack_id)
     materials = _material_presentations(root, pack_id)
+    sanctums = _sanctum_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, household_template,
     )
 
 

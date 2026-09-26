@@ -14429,5 +14429,552 @@
         "speaker"
       ]
     }
+  ],
+  "sanctums": [
+    {
+      "id": "sanctum.hearthford.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.hearthford.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greywash.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.greenwold.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.whitecairn.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.dunmire.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.rillscar.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.marlbank.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.theme",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.witness.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.boss.name",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.boss.capability",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.boss.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.frostmere.boss.goal",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.link.entry",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.link.reliquary",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.link.gallery",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.cache.ward",
+      "placeholders": [
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.cache.hoard",
+      "placeholders": [
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.witness.existing",
+      "placeholders": [
+        "witness"
+      ]
+    },
+    {
+      "id": "sanctum.witness.unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.witness.memory",
+      "placeholders": [
+        "control",
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.witness.role",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.witness.schedule",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.witness.arrival",
+      "placeholders": [
+        "witness",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "sanctum.encounter.limit",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.encounter.occupied",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.encounter.none",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.encounter.arrival",
+      "placeholders": [
+        "actor",
+        "x",
+        "y",
+        "goal"
+      ]
+    },
+    {
+      "id": "sanctum.enter.tier",
+      "placeholders": [
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.undercroft.already",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.undercroft.no_space",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.undercroft.spawned",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.undercroft.contested",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.undercroft.opened",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.secret.none",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.secret.open",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.secret.opened",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.inspect.standing",
+      "placeholders": [
+        "account",
+        "trust",
+        "obligation"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.no_witness",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.inspect.site",
+      "placeholders": [
+        "sanctum",
+        "theme"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.seal",
+      "placeholders": [
+        "seal",
+        "keeper"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.keeper",
+      "placeholders": [
+        "capability",
+        "counterplay"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.offer",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.inspect.breach",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.inspect.study",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.inspect.secret",
+      "placeholders": [
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.aftermath",
+      "placeholders": [
+        "control"
+      ]
+    },
+    {
+      "id": "sanctum.inspect.shelter",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.study",
+      "placeholders": [
+        "theme",
+        "event"
+      ]
+    },
+    {
+      "id": "sanctum.choice.account_unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.shelter_unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.shelter_witness",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.offered",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.requirement",
+      "placeholders": [
+        "commodity"
+      ]
+    },
+    {
+      "id": "sanctum.choice.offering_memory",
+      "placeholders": [
+        "courier",
+        "commodity",
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.choice.offering",
+      "placeholders": [
+        "commodity",
+        "account"
+      ]
+    },
+    {
+      "id": "sanctum.choice.breach_unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.choice.breach_memory",
+      "placeholders": [
+        "courier",
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.choice.breach",
+      "placeholders": [
+        "account"
+      ]
+    },
+    {
+      "id": "sanctum.choice.invalid",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.event.quiet_witnesses",
+      "placeholders": [
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.event.parcel_unavailable",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.event.parcel_provenance",
+      "placeholders": [
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.event.parcel",
+      "placeholders": [
+        "commodity",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "sanctum.event.stone",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.event.stone_safe",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.record.defeat",
+      "placeholders": [
+        "courier",
+        "boss",
+        "sanctum"
+      ]
+    },
+    {
+      "id": "sanctum.record.cleared",
+      "placeholders": [
+        "sanctum",
+        "strategy"
+      ]
+    },
+    {
+      "id": "sanctum.record.strategy_gained",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.record.strategy_bound",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.record.strategy_none",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.record.claimants_left",
+      "placeholders": [
+        "sanctum",
+        "control"
+      ]
+    },
+    {
+      "id": "sanctum.area.tier.one",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.area.tier.two",
+      "placeholders": []
+    },
+    {
+      "id": "sanctum.area.undercroft",
+      "placeholders": []
+    }
   ]
 }
