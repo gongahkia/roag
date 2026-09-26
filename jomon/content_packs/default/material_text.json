@@ -155,6 +155,10 @@
     "material.inspection.circuit": "ELECTRICAL FITTING: {fitting}; {phase}{detail}. \\ opens the circuit view.",
     "material.inspection.circuit.rack": "; {charge} pulses left",
     "material.inspection.circuit.active": "; active",
-    "material.inspection.circuit.inactive": ""
+    "material.inspection.fallback.obstruction": "A physical obstruction",
+    "material.inspection.fallback.worked_terrain": "worked terrain",
+    "material.inspection.fallback.passable_ground": "passable ground",
+    "material.overlay.choice.guidance": "Choose a nearby physical target. No time passes until handling is confirmed.",
+    "material.overlay.title": "MATERIAL \u2014 ONE ACTION PER HANDLING"
   }
 }

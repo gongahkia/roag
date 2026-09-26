@@ -2789,11 +2789,13 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "observed-life":
         return INTERFACE_LABELS["watch_records"], observed_life_lines(state)
     if kind == "material":
-        return INTERFACE_LABELS["field_materials"], ["Choose a nearby physical target. No time passes until handling is confirmed."]
+        from .material_presentation import material_text
+        return INTERFACE_LABELS["field_materials"], [material_text("material.overlay.choice.guidance")]
     if kind.startswith("material:"):
         from .materials import inspect_material, point_at
 
-        return "MATERIAL — ONE ACTION PER HANDLING", inspect_material(state, point_at(kind.split(":", 1)[1]))
+        from .material_presentation import material_text
+        return material_text("material.overlay.title"), inspect_material(state, point_at(kind.split(":", 1)[1]))
     if kind.startswith("flask-pour:") or kind.startswith("flask-drink:"):
         from .chemistry import carried_flasks, predicted_reactions
         from .chemistry_presentation import chemistry_format, chemistry_text, reagent_contents_display, reaction_list_display

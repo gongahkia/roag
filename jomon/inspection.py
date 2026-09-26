@@ -49,7 +49,7 @@ def blocked_step_reason(state: GameState, destination: Position) -> tuple[str, s
         return material_text("material.inspection.blocked.empty"), material_text("material.inspection.remedy.empty")
     if state.location == "jomon" and tile in {"=", "t", "F", "f"}:
         return material_text("material.inspection.blocked.vessel"), material_text("material.inspection.remedy.vessel")
-    return material_format("material.inspection.blocked.generic", terrain=TERRAIN_NAMES.get(tile, "A physical obstruction")), material_text("material.inspection.remedy.generic")
+    return material_format("material.inspection.blocked.generic", terrain=TERRAIN_NAMES.get(tile, material_text("material.inspection.fallback.obstruction"))), material_text("material.inspection.remedy.generic")
 
 
 def movement_preview(state: GameState, destination: Position) -> MovementPreview:
@@ -100,7 +100,7 @@ def movement_preview(state: GameState, destination: Position) -> MovementPreview
     if base_tile(state, destination) == "O":
         consequences.append(material_text("material.inspection.preview.fall"))
     if not consequences:
-        consequences.append(material_format("material.inspection.preview.enter", terrain=TERRAIN_NAMES.get(tile, "passable ground")))
+        consequences.append(material_format("material.inspection.preview.enter", terrain=TERRAIN_NAMES.get(tile, material_text("material.inspection.fallback.passable_ground"))))
     return MovementPreview(
         destination, True, material_text("material.inspection.time.possibly_two" if slow else "material.inspection.time.one"),
         "; ".join(consequences),
@@ -127,7 +127,7 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     tile = displayed_tile(state, point) if knowledge == "visible" else base_tile(state, point)
     prefix = material_text("material.inspection.prefix.visible" if knowledge == "visible" else "material.inspection.prefix.remembered")
     lines = [
-        material_format("material.inspection.line", prefix=prefix, x=point.x, y=point.y, z=f"{point.z:+d}", terrain=TERRAIN_NAMES.get(tile, "worked terrain"), tile=tile)
+        material_format("material.inspection.line", prefix=prefix, x=point.x, y=point.y, z=f"{point.z:+d}", terrain=TERRAIN_NAMES.get(tile, material_text("material.inspection.fallback.worked_terrain")), tile=tile)
     ]
     if knowledge == "remembered":
         lines.extend((
@@ -166,7 +166,7 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
 
     circuit = cell_at(state, point)
     if circuit:
-        detail = material_format("material.inspection.circuit.rack", charge=circuit.charge) if circuit.kind == "rack" else material_text("material.inspection.circuit.active" if circuit_active(state, circuit) else "material.inspection.circuit.inactive")
+        detail = material_format("material.inspection.circuit.rack", charge=circuit.charge) if circuit.kind == "rack" else material_text("material.inspection.circuit.active") if circuit_active(state, circuit) else ""
         lines.append(material_format("material.inspection.circuit", fitting=PARTS[circuit.kind]["name"], phase=circuit.phase, detail=detail))
     from .materials import fields, inspect_material, key
     if key(point) in fields(state) or tile in {",", "~", "_", "m", "r", "q", "t", "s", "%", "f"}:

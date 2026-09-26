@@ -380,7 +380,7 @@ def advance_materials(state: GameState) -> int:
             reaction = react_cell(state, point, cell)
             if reaction:
                 from .chemistry_presentation import reaction_display_name
-                state.add_message(material_format("material.reaction.result", reaction=reaction_display_name(reaction), coordinate=coordinate), priority=3)
+                state.add_message(material_format("material.reaction.result", reaction=reaction_display_name(reaction).title(), coordinate=coordinate), priority=3)
                 if initial_place != (state.location, state.active_region_id):
                     return len(selected)
         if cell.support == 0 and not cell.collapse_due:

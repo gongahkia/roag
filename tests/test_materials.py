@@ -140,6 +140,16 @@ class MaterialTests(unittest.TestCase):
         affect_body(state, item, "fire", 1, state.position)
         self.assertLess(item.condition, condition)
 
+    def test_material_threat_intents_use_stable_identity(self):
+        fire_target = Threat("material-fire", "material fire target", "pursuer", self.state.position, 10, 10)
+        affect_body(self.state, fire_target, "fire", 1, self.state.position)
+        self.assertEqual(fire_target.intent_id, "intent.material.clear_ground")
+        self.assertEqual(fire_target.intent, "caught by fire; seeking clear ground")
+        water_target = Threat("material-water", "material water target", "pursuer", self.state.position, 10, 10)
+        affect_body(self.state, water_target, "water", 1, self.state.position)
+        self.assertEqual(water_target.intent_id, "intent.material.break_prepared_lane")
+        self.assertEqual(water_target.intent, "water breaks its prepared lane")
+
     def test_dirty_cell_work_is_bounded_and_replay_deterministic(self):
         state = self.state
         for y in range(20, 28):
