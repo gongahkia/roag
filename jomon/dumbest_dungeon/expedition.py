@@ -219,7 +219,7 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
     base0, base1 = generated.room_positions[0], generated.room_positions[11]
     available = [doctrine for doctrine in catalog.doctrines if doctrine_compatible(patron_roles, doctrine)]
     patron_doctrine = available[shifted_doctrine(seed, patron_id) % len(available)]
-    match = {"version": 4, "courier_id": courier_id, "patron_id": patron_id,
+    match = {"version": 5, "courier_id": courier_id, "patron_id": patron_id,
              "world_seed": world_seed, "world_id": generated.world_id,
              "room_positions": generated.room_positions, "room_biomes": [room.biome_id for room in generated.rooms],
              "biome_ids": generated.biome_ids, "board": generated.world_tiles,
@@ -788,7 +788,8 @@ def choose_reward(match: dict, choice: int) -> None:
         return
     elif pending["kind"] == "facility":
         facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
-        option = load_catalog().facilities[facility["definition_id"]]["options"][choice]
+        option_id = pending["choices"][choice]
+        option = next(item for item in load_catalog().facilities[facility["definition_id"]]["options"] if item["id"] == option_id)
         cost = option["cost"]
         if cost["resource"] in {"supplies", "light"} and _team(match, side)[cost["resource"]] < cost["amount"]:
             raise ValueError(f"not enough {cost['resource']} for that facility option")
@@ -812,7 +813,8 @@ def choose_reward(match: dict, choice: int) -> None:
     elif pending["kind"] == "camp":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
         team = _team(match, side)
-        if choice == 0:
+        camp_choice = pending["choices"][choice]
+        if camp_choice == "recover":
             for actor in _living(match, side):
                 actor["hp"] = min(actor["max_hp"], actor["hp"] + 7)
                 actor["stress"] = max(0, actor["stress"] - 10)
@@ -822,8 +824,7 @@ def choose_reward(match: dict, choice: int) -> None:
         else:
             if team["supplies"] < 2 or not team["curses"]:
                 raise ValueError("treatment needs a liability and two supplies")
-            choices = [f"{OFFICE_ROLES[_actor(match, entry['owner'])['role']]} — liability {index + 1}"
-                       for index, entry in enumerate(team["curses"])]
+            choices = [f"{entry['owner']}:{entry['id']}" for entry in team["curses"]]
             match["pending"] = {"side": side, "kind": "treatment", "station": station["id"], "choices": choices}
             return
     elif pending["kind"] == "treatment":
@@ -832,13 +833,16 @@ def choose_reward(match: dict, choice: int) -> None:
         if team["supplies"] < 2:
             raise ValueError("treatment needs two supplies")
         team["supplies"] -= 2
-        team["curses"].pop(choice)
+        curse_key = pending["choices"][choice]
+        curse_index = next(index for index, entry in enumerate(team["curses"])
+                           if f"{entry['owner']}:{entry['id']}" == curse_key)
+        team["curses"].pop(curse_index)
         station["used"] = True
         station["outcome"] = "treat"
         _log(match, "The party treats one liability.")
     elif pending["kind"] == "upgrade":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
-        copy_id = pending["copy_ids"][choice]
+        copy_id = int(pending["choices"][choice].split(":", 1)[1])
         card = next(item for item in _team(match, side)["deck"] if item["copy_id"] == copy_id)
         card["upgraded"] = True
         for zone in ("draw", "hand", "discard"):
@@ -850,7 +854,8 @@ def choose_reward(match: dict, choice: int) -> None:
         _log(match, f"{office_catalog()[1][card['id']].name}+ is authorized by the workshop.")
     elif pending["kind"] == "event":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
-        option = load_catalog().events[station["content_id"]]["choices"][choice]
+        option_id = pending["choices"][choice]
+        option = next(item for item in load_catalog().events[station["content_id"]]["choices"] if item["id"] == option_id)
         cost = int(option.get("cost_supplies", 0))
         team = _team(match, side)
         if team["supplies"] < cost:
@@ -863,7 +868,7 @@ def choose_reward(match: dict, choice: int) -> None:
             else:
                 _facility_effect(match, side, station, effect)
         station["used"] = True
-        station["outcome"] = str(choice)
+        station["outcome"] = option_id
         _log(match, "The department incident is resolved.")
         if reward:
             _draft(match, side)
@@ -999,8 +1004,7 @@ def _arrival(match: dict, side: int) -> None:
             if not facility["used"] and position == (facility["x"], facility["y"]):
                 definition = load_catalog().facilities[facility["definition_id"]]
                 match["pending"] = {"side": side, "kind": "facility", "facility": facility["id"],
-                                    "choices": [office_facility_option({effect['op'] for effect in option['effects']}, option['cost'])
-                                                for option in definition["options"]]}
+                                    "choices": [option["id"] for option in definition["options"]]}
                 _log(match, f"{OFFICE_BIOMES[facility['biome_id']]} service desk offers two procedures.")
                 break
     if match["pending"] is None:
@@ -1016,22 +1020,17 @@ def _arrival(match: dict, side: int) -> None:
                 _log(match, "Emergency office stores yield two supplies and twenty light.")
             elif station["kind"] == "camp":
                 match["pending"] = {"side": side, "kind": "camp", "station": station["id"],
-                                    "choices": ["Recover all (+7 HP, -10 stress)", "Treat one liability (2 supplies)"]}
+                                    "choices": ["recover", "treat"]}
             elif station["kind"] == "upgrade":
                 candidates = [card for card in team["deck"] if not card["upgraded"]]
                 if candidates:
                     match["pending"] = {"side": side, "kind": "upgrade", "station": station["id"],
                                         "copy_ids": [card["copy_id"] for card in candidates],
-                                        "choices": [f"{office_catalog()[1][card['id']].name} — copy {card['copy_id']}"
-                                                    for card in candidates]}
+                                        "choices": [f"copy:{card['copy_id']}" for card in candidates]}
             else:
                 definition = load_catalog().events[station["content_id"]]
-                labels = []
-                for option in definition["choices"]:
-                    cost = {"resource": "supplies" if option.get("cost_supplies") else "none",
-                            "amount": int(option.get("cost_supplies", 0))}
-                    labels.append(office_facility_option({effect["op"] for effect in option["effects"]}, cost))
-                match["pending"] = {"side": side, "kind": "event", "station": station["id"], "choices": labels}
+                match["pending"] = {"side": side, "kind": "event", "station": station["id"],
+                                    "choices": [option["id"] for option in definition["choices"]]}
             break
     if match["pending"] is None:
         engage_neutral_if_touching(match)
@@ -1547,15 +1546,80 @@ def finish_match(state: Any) -> str:
     state.tabletop["records"].append({"courier": match["courier_id"], "patron": match["patron_id"],
                                       "season": match["season"], "result": result,
                                       "score": match["scores"][:],
+                                      "department_id": f"department:{match['world_id']}",
                                       "department": DEPARTMENTS[list(load_catalog().worlds).index(match["world_id"]) % len(DEPARTMENTS)]})
     state.tabletop["active_match"] = None
     return result
 
 
-def validate_expedition(state: Any) -> None:
-    from .tabletop import validate_tabletop
 
+def normalize_active_match(match: dict) -> None:
+    """Upgrade display-bearing pending offers from match versions 3/4.
+
+    Their choices are fully derivable from the persisted mechanical match state,
+    so this migration intentionally does not inspect old visible labels.
+    """
+    if match.get("version") not in {3, 4}:
+        return
+    pending = match.get("pending")
+    if isinstance(pending, dict):
+        kind = pending.get("kind")
+        if kind == "facility":
+            facility = next((item for item in match.get("facilities", []) if item.get("id") == pending.get("facility")), None)
+            if facility is None:
+                raise ValueError("legacy facility choice cannot be reconstructed")
+            pending["choices"] = [option["id"] for option in load_catalog().facilities[facility["definition_id"]]["options"]]
+        elif kind == "camp":
+            pending["choices"] = ["recover", "treat"]
+        elif kind == "treatment":
+            team = _team(match, pending.get("side"))
+            pending["choices"] = [f"{entry['owner']}:{entry['id']}" for entry in team["curses"]]
+        elif kind == "upgrade":
+            team = _team(match, pending.get("side"))
+            pending["copy_ids"] = [card["copy_id"] for card in team["deck"] if not card["upgraded"]]
+            pending["choices"] = [f"copy:{copy_id}" for copy_id in pending["copy_ids"]]
+        elif kind == "event":
+            station = next((item for item in match.get("stations", []) if item.get("id") == pending.get("station")), None)
+            if station is None:
+                raise ValueError("legacy event choice cannot be reconstructed")
+            pending["choices"] = [option["id"] for option in load_catalog().events[station["content_id"]]["choices"]]
+    match["version"] = 5
+
+
+def pending_choice_labels(match: dict, pending: dict) -> list[str]:
+    """Render stable pending choice values through the current DD wording."""
+    kind = pending["kind"]
+    if kind == "facility":
+        facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
+        options = {option["id"]: option for option in load_catalog().facilities[facility["definition_id"]]["options"]}
+        return [office_facility_option({effect["op"] for effect in options[item]["effects"]}, options[item]["cost"])
+                for item in pending["choices"]]
+    if kind == "camp":
+        return ["Recover all (+7 HP, -10 stress)" if item == "recover" else "Treat one liability (2 supplies)"
+                for item in pending["choices"]]
+    if kind == "treatment":
+        return [f"{OFFICE_ROLES[_actor(match, item.split(":", 1)[0])["role"]]} — liability {index + 1}"
+                for index, item in enumerate(pending["choices"])]
+    if kind == "upgrade":
+        cards = {card["copy_id"]: card for card in _team(match, pending["side"])["deck"]}
+        return [f"{office_catalog()[1][cards[int(item.split(":", 1)[1])]['id']].name} — copy {item.split(":", 1)[1]}"
+                for item in pending["choices"]]
+    if kind == "event":
+        station = next(item for item in match["stations"] if item["id"] == pending["station"])
+        options = {option["id"]: option for option in load_catalog().events[station["content_id"]]["choices"]}
+        return [office_facility_option({effect["op"] for effect in options[item]["effects"]},
+                                       {"resource": "supplies" if options[item].get("cost_supplies") else "none",
+                                        "amount": int(options[item].get("cost_supplies", 0))})
+                for item in pending["choices"]]
+    return list(pending["choices"])
+
+def validate_expedition(state: Any) -> None:
+    from .tabletop import normalize_tabletop_records, validate_tabletop
+
+    normalize_tabletop_records(state.tabletop)
     match = state.tabletop.get("active_match") if isinstance(state.tabletop, dict) else None
+    if isinstance(match, dict):
+        normalize_active_match(match)
     original = state.tabletop
     state.tabletop = {**original, "active_match": None} if isinstance(original, dict) else original
     try:
@@ -1564,7 +1628,7 @@ def validate_expedition(state: Any) -> None:
         state.tabletop = original
     if match is None:
         return
-    if not isinstance(match, dict) or match.get("version") not in {3, 4}:
+    if not isinstance(match, dict) or match.get("version") not in {3, 4, 5}:
         raise ValueError("invalid competitive expedition version")
     if match.get("courier_id") not in {person.id for person in state.household} or not isinstance(match.get("patron_id"), str):
         raise ValueError("competitive expedition participants are invalid")
@@ -1687,7 +1751,7 @@ def validate_expedition(state: Any) -> None:
             (_distance(_position(match, 0), _position(match, 1)) > 1
              or not _living(match, 0) or not _living(match, 1))):
         raise ValueError("competitive expedition combat has no rival contact")
-    if match["version"] == 4:
+    if match["version"] >= 4:
         source_patrols = {patrol.id: patrol for patrol in generated.patrols}
         patrols = match.get("patrols")
         if not isinstance(patrols, list) or len(patrols) != len(source_patrols):
@@ -1776,8 +1840,9 @@ def validate_expedition(state: Any) -> None:
             raise ValueError("competitive expedition neutral room is invalid")
         if any(station.get(key) != value for key, value in expected_stations[station["id"]].items()):
             raise ValueError("competitive expedition neutral room differs from the generated map")
-        allowed = {"event": {"0", "1"}, "camp": {"recover", "treat"},
-                   "upgrade": {"upgrade"}, "cache": {"salvage"}}[station["kind"]]
+        allowed = ({choice["id"] for choice in load_catalog().events[station["content_id"]]["choices"]}
+                   if station["kind"] == "event"
+                   else {"camp": {"recover", "treat"}, "upgrade": {"upgrade"}, "cache": {"salvage"}}[station["kind"]])
         if (type(station.get("used")) is not bool or station.get("outcome") not in (allowed if station["used"] else {None})):
             raise ValueError("competitive expedition neutral room outcome is invalid")
     pending = match.get("pending")
@@ -1798,32 +1863,28 @@ def validate_expedition(state: Any) -> None:
             if facility is None:
                 raise ValueError("competitive expedition facility offer is invalid")
             options = load_catalog().facilities[facility["definition_id"]]["options"]
-            expected = [office_facility_option({effect["op"] for effect in option["effects"]}, option["cost"])
-                        for option in options]
+            expected = [option["id"] for option in options]
             if choices != expected:
                 raise ValueError("competitive expedition facility choices are invalid")
         if pending["kind"] in {"camp", "treatment", "upgrade", "event"}:
             station = next((item for item in stations if item["id"] == pending.get("station") and not item["used"]), None)
             if station is None or station["kind"] != ("camp" if pending["kind"] == "treatment" else pending["kind"]):
                 raise ValueError("competitive expedition neutral room offer is invalid")
-            if pending["kind"] == "camp" and choices != ["Recover all (+7 HP, -10 stress)", "Treat one liability (2 supplies)"]:
+            if pending["kind"] == "camp" and choices != ["recover", "treat"]:
                 raise ValueError("competitive expedition rest offer is invalid")
             if pending["kind"] == "treatment":
-                expected = [f"{OFFICE_ROLES[_actor(match, entry['owner'])['role']]} — liability {index + 1}"
-                            for index, entry in enumerate(_team(match, match["turn"])["curses"])]
+                expected = [f"{entry['owner']}:{entry['id']}"
+                            for entry in _team(match, match["turn"])["curses"]]
                 if choices != expected:
                     raise ValueError("competitive expedition treatment offer is invalid")
             if pending["kind"] == "upgrade":
                 candidates = [card for card in _team(match, match["turn"])["deck"] if not card["upgraded"]]
                 if (pending.get("copy_ids") != [card["copy_id"] for card in candidates]
-                        or choices != [f"{office_catalog()[1][card['id']].name} — copy {card['copy_id']}" for card in candidates]):
+                        or choices != [f"copy:{card['copy_id']}" for card in candidates]):
                     raise ValueError("competitive expedition workshop offer is invalid")
             if pending["kind"] == "event":
                 definition = load_catalog().events[station["content_id"]]
-                expected = [office_facility_option({effect["op"] for effect in option["effects"]},
-                                                   {"resource": "supplies" if option.get("cost_supplies") else "none",
-                                                    "amount": int(option.get("cost_supplies", 0))})
-                            for option in definition["choices"]]
+                expected = [option["id"] for option in definition["choices"]]
                 if choices != expected:
                     raise ValueError("competitive expedition incident offer is invalid")
     if not isinstance(match.get("log"), list) or len(match["log"]) > 12 or any(not isinstance(entry, str) for entry in match["log"]):

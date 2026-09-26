@@ -73,6 +73,6 @@ def office_action_name(name: str) -> str:
 @lru_cache(maxsize=256)
 def rival_costumes(world_seed: int) -> tuple[str, str, str, str]:
     catalog = load_catalog()
-    ids = tuple(catalog.art["enemies"])
+    ids = tuple(sorted(catalog.art["enemies"]))
     offset = int.from_bytes(hashlib.sha256(f"office-costumes:{world_seed}".encode()).digest()[:8], "big") % len(ids)
     return tuple(ids[(offset + 31 * rank) % len(ids)] for rank in range(4))

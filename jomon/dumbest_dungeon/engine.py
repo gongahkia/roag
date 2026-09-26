@@ -94,7 +94,7 @@ class Actor:
     statuses: dict[str, int] = field(default_factory=dict)
     guarded_by: str | None = None
     guard_turns: int = 0
-    last_action: str | None = None
+    last_action_id: str | None = None
     action_repeats: int = 0
 
     @property
@@ -1697,10 +1697,11 @@ class GameEngine:
             if saved_rules is None:
                 catalog = load_legacy_catalog()
             else:
-                if hashlib.sha256(canonical_bytes(saved_rules)).hexdigest() != manifest["fingerprint"]:
-                    raise RuleError("saved rules do not match their content manifest fingerprint")
+                saved_catalog = load_rules(saved_rules)
+                if manifest != saved_catalog.manifest.snapshot():
+                    raise RuleError("saved rules do not match their mechanics-only content manifest")
                 if manifest != catalog.manifest.snapshot():
-                    catalog = load_rules(saved_rules)
+                    catalog = saved_catalog
             if manifest != catalog.manifest.snapshot():
                 raise RuleError("save content manifest does not match installed, embedded or archived rules and enabled packs")
         except (KeyError, TypeError, ValueError) as exc:
@@ -1938,7 +1939,7 @@ class GameEngine:
                 (
                     action
                     for action in catalog.enemies[enemy.definition_id]["actions"]
-                    if action["name"] == intent.get("action")
+                    if action["id"] == intent.get("action_id")
                 ),
                 None,
             )
@@ -2967,24 +2968,25 @@ class GameEngine:
         control.max_hp = control.hp = 20
         front = self.living_heroes()[0]
 
-        def intent(enemy: Actor, action_name: str) -> dict[str, Any]:
+        def intent(enemy: Actor, action_id: str) -> dict[str, Any]:
             action = next(
                 action
                 for action in self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
-                if action["name"] == action_name
+                if action["id"] == action_id
             )
             return {
                 "enemy_rank": enemy.rank,
                 "enemy_id": enemy.id,
-                "action": action_name,
+                "action_id": action_id,
+                "action": action["name"],
                 "target_rule": action["target"],
                 "target_ids": [front.id],
                 "target_labels": [self._intent_target_label(front)],
             }
 
         self.state.intents = [
-            intent(rad, "Gamma Brand"),
-            intent(control, "Containment Blow"),
+            intent(rad, "rad_acolyte:action:1"),
+            intent(control, "control_rod:action:1"),
         ]
         self.state.tutorial_stage = 2
         self.add_log("Training contact: restore the formation and read the coordinated intents.")
@@ -5753,7 +5755,7 @@ class GameEngine:
         }
         if positive_statuses:
             weight *= 0.65 if positive_statuses <= support_target.statuses.keys() else 1.25
-        if enemy.last_action == action["name"]:
+        if enemy.last_action_id == action["id"]:
             weight *= max(0.35, 0.72 ** enemy.action_repeats)
         return max(0.05, weight)
 
@@ -5798,16 +5800,17 @@ class GameEngine:
                 {
                     "enemy_rank": enemy.rank,
                     "enemy_id": enemy.id,
+                    "action_id": action["id"],
                     "action": action["name"],
                     "target_rule": action["target"],
                     "target_ids": [target.id for target in targets],
                     "target_labels": target_labels,
                 }
             )
-            if enemy.last_action == action["name"]:
+            if enemy.last_action_id == action["id"]:
                 enemy.action_repeats += 1
             else:
-                enemy.last_action = action["name"]
+                enemy.last_action_id = action["id"]
                 enemy.action_repeats = 1
             planned_statuses |= self._action_setup_statuses(action)
         return intents
@@ -5910,7 +5913,7 @@ class GameEngine:
                     )
                 continue
             actions = self.catalog.enemies[enemy.definition_id or enemy.id]["actions"]
-            action = next(item for item in actions if item["name"] == intent["action"])
+            action = next(item for item in actions if item["id"] == intent["action_id"])
             if "target_ids" in intent:
                 living = {actor.id: actor for actor in self.living_heroes() + self.living_enemies()}
                 targets = [living[target_id] for target_id in intent["target_ids"] if target_id in living]
@@ -5920,7 +5923,7 @@ class GameEngine:
             self.add_log(f"{enemy.name} uses {action['name']}.")
             for effect in action["effects"]:
                 self._apply_effect(enemy, self._effect_targets(effect.get("target"), targets, enemy), effect,
-                                   source_id=f"{enemy.definition_id}/{action['name']}")
+                                   source_id=f"{enemy.definition_id}/{action['id']}")
                 if self.state.phase != "combat":
                     break
                 if not self.living_enemies():

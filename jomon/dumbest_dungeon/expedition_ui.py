@@ -12,7 +12,7 @@ from .expedition import (
     _card_cost, _card_id, _card_upgraded, _file_position, _position, _team, choose_reward,
     _opponent_side, doctrine_compatible, end_turn, engage_if_touching, engage_neutral_if_touching,
     finish_match, infusion_compatible,
-    move_to, patron_turn, path_to, play_card, retreat, retreat_destinations,
+    move_to, patron_turn, path_to, pending_choice_labels, play_card, retreat, retreat_destinations,
     start_match, valid_targets,
 )
 from .office_content import (
@@ -261,12 +261,12 @@ class ExpeditionUI(TavernUIBase):
             title = "CHOOSE A RECIPIENT"
             body = "This company perk belongs to one specialist for the match."
         elif pending["kind"] == "facility":
-            choices = [*pending["choices"], "Leave without using"]
+            choices = [*pending_choice_labels(match, pending), "Leave without using"]
             facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
             title = f"{OFFICE_BIOMES[facility['biome_id']]} SERVICE DESK".upper()
             body = "A neutral company facility can alter the route or restore the party. Choose one procedure."
         else:
-            choices = pending["choices"][:]
+            choices = pending_choice_labels(match, pending)
             if pending["kind"] in {"camp", "upgrade", "event"}:
                 choices.append("Leave without using")
             title = {"camp": "REST OFFICE", "upgrade": "COPY WORKSHOP", "event": "DEPARTMENT INCIDENT",

@@ -41,8 +41,31 @@ def patrons(state: Any) -> list[Any]:
             and person.id in state.actor_schedules and state.actor_schedules[person.id].area == "tavern"]
 
 
+
+def department_id_for_world(world_id: str) -> str:
+    if world_id not in load_catalog().worlds:
+        raise ValueError("unknown department world")
+    return f"department:{world_id}"
+
+
+def normalize_tabletop_records(data: dict) -> None:
+    """Migrate exact historic department display terms to stable record IDs."""
+    records = data.get("records") if isinstance(data, dict) else None
+    if not isinstance(records, list):
+        return
+    worlds = list(load_catalog().worlds)
+    legacy = {name: department_id_for_world(worlds[index]) for index, name in enumerate(DEPARTMENTS[:len(worlds)])}
+    for record in records:
+        if not isinstance(record, dict) or "department_id" in record:
+            continue
+        department = record.get("department")
+        if department not in legacy:
+            raise ValueError("legacy office department cannot be mapped exactly")
+        record["department_id"] = legacy[department]
+
 def validate_tabletop(state: Any) -> None:
     data = state.tabletop
+    normalize_tabletop_records(data)
     if not isinstance(data, dict) or set(data) != {"collections", "records", "active_match"}:
         raise ValueError("invalid Dullest Dungeon ledger")
     if not isinstance(data["collections"], dict) or not isinstance(data["records"], list):
@@ -66,10 +89,12 @@ def validate_tabletop(state: Any) -> None:
         if any(type(collection[key]) is not int or collection[key] < 0 for key in ("wins", "losses", "draws")):
             raise ValueError("invalid office record totals")
     for record in data["records"]:
-        if (not isinstance(record, dict) or set(record) != {"courier", "patron", "season", "result", "score", "department"}
+        if (not isinstance(record, dict) or set(record) != {"courier", "patron", "season", "result", "score", "department", "department_id"}
                 or record["courier"] not in household_ids or not isinstance(record["patron"], str)
                 or not record["patron"] or not isinstance(record["season"], str)
-                or record["result"] not in {"win", "loss", "draw"} or record["department"] not in DEPARTMENTS
+                or record["result"] not in {"win", "loss", "draw"}
+                or record["department_id"] not in {department_id_for_world(world_id) for world_id in source.worlds}
+                or not isinstance(record["department"], str) or not record["department"]
                 or not isinstance(record["score"], list) or len(record["score"]) != 2
                 or any(type(score) is not int or not 0 <= score <= 2 for score in record["score"])):
             raise ValueError("invalid office match record")

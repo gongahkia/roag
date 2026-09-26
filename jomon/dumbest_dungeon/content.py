@@ -494,7 +494,17 @@ def load_legacy_catalog() -> Catalog:
 
     root = Path(str(files("jomon.dumbest_dungeon.data").joinpath("legacy20")))
     catalog = _load_catalog(root / "game.json", assets=root)
-    if catalog.raw["schema_version"] != 20 or catalog.manifest.fingerprint != LEGACY_20_FINGERPRINT:
+    # Historical schema-20 snapshots used the pre-13B full-content hash,
+    # before stable action and event-choice IDs were introduced.
+    historical_rules = loads(canonical_bytes(content_rules(catalog)).decode("ascii"))
+    for enemy in historical_rules["enemies"].values():
+        for action in enemy["actions"]:
+            action.pop("id", None)
+    for event in historical_rules["events"].values():
+        for choice in event["choices"]:
+            choice.pop("id", None)
+    if (catalog.raw["schema_version"] != 20
+            or __import__("hashlib").sha256(canonical_bytes(historical_rules)).hexdigest() != LEGACY_20_FINGERPRINT):
         raise ContentError("historical content-20 bundle does not match its recorded fingerprint")
     return catalog
 
@@ -563,6 +573,17 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         raise ContentError(f"content schema_version must be supported 20..{CONTENT_SCHEMA}")
     if art.get("schema_version") != 1:
         raise ContentError("ASCII art schema_version must be 1")
+    # Schema 47 gives every mechanics-bearing enemy action and event choice a
+    # stable ID.  Older embedded rules are normalized deterministically from
+    # their source record and position, never from editable visible wording.
+    if raw["schema_version"] < 47:
+        for enemy in raw.get("enemies", []):
+            for index, action in enumerate(enemy.get("actions", []), 1):
+                action.setdefault("id", f"{enemy.get('id')}:action:{index}")
+        for event in raw.get("events", []):
+            for index, choice in enumerate(event.get("choices", []), 1):
+                choice.setdefault("id", f"{event.get('id')}:choice:{index}")
+
     heroes = _indexed(raw.get("heroes"), "heroes")
     squads = _indexed(raw.get("squads"), "squads")
     cards = _indexed(raw.get("cards"), "cards")
@@ -992,15 +1013,17 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
         actions = enemy.get("actions")
         if not isinstance(actions, list) or not actions:
             raise ContentError(f"enemy {enemy['id']} needs actions")
-        action_names = set()
+        action_ids = set()
         for action in actions:
-            _fields(action, "name target effects weight", f"enemy {enemy['id']} action")
-            if (not isinstance(action.get("name"), str) or not action["name"]
-                or action["name"] in action_names or action.get("target") not in ENEMY_TARGETS):
+            _fields(action, "id name target effects weight", f"enemy {enemy['id']} action")
+            if (not isinstance(action.get("id"), str) or not action["id"]
+                or action["id"] in action_ids
+                or not isinstance(action.get("name"), str) or not action["name"]
+                or action.get("target") not in ENEMY_TARGETS):
                 raise ContentError(f"enemy {enemy['id']} has an invalid action")
             if type(action.get("weight", 1)) is not int or not 1 <= action.get("weight", 1) <= 1000:
                 raise ContentError(f"enemy {enemy['id']} has an invalid action weight")
-            action_names.add(action["name"])
+            action_ids.add(action["id"])
             _effects(action.get("effects"), CARD_EFFECTS, f"enemy {enemy['id']} action")
         enemy_biomes = enemy.get("biomes", ["derelict"])
         if not isinstance(enemy_biomes, list) or not enemy_biomes or any(
@@ -1288,14 +1311,19 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
             or len(choices) < 2
         ):
             raise ContentError(f"event {event['id']} needs at least two choices")
+        choice_ids: set[str] = set()
         for choice in choices:
             if (
-                not isinstance(choice.get("label"), str)
+                not isinstance(choice.get("id"), str)
+                or not choice["id"]
+                or choice["id"] in choice_ids
+                or not isinstance(choice.get("label"), str)
                 or not isinstance(choice.get("summary"), str)
                 or not choice["summary"]
                 or choice.get("risk") not in {"low", "guarded", "severe", "unknown"}
             ):
                 raise ContentError(f"event {event['id']} choice needs a label")
+            choice_ids.add(choice["id"])
             if not isinstance(choice.get("cost_supplies", 0), int) or choice.get("cost_supplies", 0) < 0:
                 raise ContentError(f"event {event['id']} choice has an invalid supply cost")
             _effects(choice.get("effects"), EVENT_EFFECTS, f"event {event['id']} choice")

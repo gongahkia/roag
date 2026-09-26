@@ -478,3 +478,74 @@ def migrate_run(snapshot: dict[str, Any]) -> dict[str, Any]:
         if current.get("save_version") != version + 1:
             raise MigrationError("migration did not advance exactly one version")
     return current
+
+
+def run_46_to_47(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Stabilize action identity and replace the presentation-bearing manifest."""
+    if type(snapshot.get("save_version")) is not int or snapshot["save_version"] != 46:
+        raise MigrationError("migration 46->47 requires save version 46")
+    rules = snapshot.get("content_rules")
+    state = snapshot.get("state")
+    if rules is not None and not isinstance(rules, dict) or not isinstance(state, dict):
+        raise MigrationError("version-46 save requires embedded rules or the registered legacy bundle and state")
+    result = deepcopy(snapshot)
+    if result["content_rules"] is None:
+        from .content import load_legacy_catalog
+        catalog = load_legacy_catalog()
+        enemies = catalog.enemies
+        events = catalog.events
+    else:
+        rules = result["content_rules"]
+        enemies = rules.get("enemies")
+        events = rules.get("events")
+        if not isinstance(enemies, dict) or not isinstance(events, dict):
+            raise MigrationError("version-46 rules omit enemies or events")
+        for enemy_id, enemy in enemies.items():
+            if not isinstance(enemy, dict) or not isinstance(enemy.get("actions"), list):
+                raise MigrationError("version-46 enemy actions are malformed")
+            for index, action in enumerate(enemy["actions"], 1):
+                if not isinstance(action, dict) or not isinstance(action.get("name"), str):
+                    raise MigrationError("version-46 enemy action has no historical name")
+                action["id"] = f"{enemy_id}:action:{index}"
+        for event_id, event in events.items():
+            if not isinstance(event, dict) or not isinstance(event.get("choices"), list):
+                raise MigrationError("version-46 event choices are malformed")
+            for index, choice in enumerate(event["choices"], 1):
+                if not isinstance(choice, dict):
+                    raise MigrationError("version-46 event choice is malformed")
+                choice["id"] = f"{event_id}:choice:{index}"
+        from .content import load_rules
+        catalog = load_rules(rules)
+        enemies = catalog.enemies
+
+    action_ids: dict[tuple[str, str], str] = {}
+    for enemy_id, enemy in enemies.items():
+        for action in enemy["actions"]:
+            action_ids[(enemy_id, action["name"])] = action["id"]
+    actors = [*result["state"].get("heroes", []), *result["state"].get("enemies", [])]
+    actor_definitions = {actor.get("id"): actor.get("definition_id") for actor in actors if isinstance(actor, dict)}
+    for actor in actors:
+        if not isinstance(actor, dict):
+            raise MigrationError("version-46 actor is malformed")
+        action_name = actor.pop("last_action", None)
+        if action_name is None:
+            actor["last_action_id"] = None
+            continue
+        definition_id = actor.get("definition_id") or actor.get("id")
+        action_id = action_ids.get((definition_id, action_name))
+        if action_id is None:
+            raise MigrationError("version-46 actor action cannot be mapped exactly")
+        actor["last_action_id"] = action_id
+    for intent in result["state"].get("intents", []):
+        if not isinstance(intent, dict):
+            raise MigrationError("version-46 intent is malformed")
+        definition_id = actor_definitions.get(intent.get("enemy_id"))
+        action_id = action_ids.get((definition_id, intent.get("action")))
+        if action_id is None:
+            raise MigrationError("version-46 intent action cannot be mapped exactly")
+        intent["action_id"] = action_id
+    result["content_manifest"] = catalog.manifest.snapshot()
+    result["save_version"] = 47
+    return result
+
+RUN_MIGRATIONS[46] = run_46_to_47
