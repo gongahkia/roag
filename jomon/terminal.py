@@ -3884,7 +3884,8 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             if space_id(state):
                 circuit_view = CircuitView.begin(state)
             else:
-                state.add_message("Circuit work is available on Jomon's working decks or in a region.")
+                from .circuit_presentation import circuit_text
+                state.add_message(circuit_text("circuit.target.no_space"))
         elif normalized in {10, 13, ord("e")}:
             result = interact(state)
             if result.overlay and result.overlay.startswith("inventory:container:"):
