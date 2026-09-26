@@ -1,7 +1,0 @@
-DEEPWARD 0.2.0
-Lua 5.4
-Clock supplied by caller. Lua heap only, not process RSS or GPU memory.
-Timing excludes rendering, history snapshots, yields and post-run evaluation.
-Automatic GC stays on; one warm-up per case. p95 uses nearest rank.
-Tick samples describe a changing world, not independent identical trials.
-Clock: os.clock (CPU seconds)

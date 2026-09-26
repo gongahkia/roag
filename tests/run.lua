@@ -1,1 +1,0 @@
-require('tests.all').run()

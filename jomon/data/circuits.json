@@ -1,0 +1,138 @@
+{
+  "parts": {
+    "trace": {
+      "name": "Lacquered conductor",
+      "glyph": ":",
+      "build_key": "1",
+      "behavior": "conductor",
+      "layers": ["surface", "buried"],
+      "description": "An insulated iron trace for a surface or buried circuit run."
+    },
+    "via": {
+      "name": "Insulated via",
+      "glyph": "o",
+      "build_key": "2",
+      "behavior": "conductor",
+      "layers": ["surface", "buried"],
+      "description": "A sleeved vertical joint between a floor trace and its buried layer."
+    },
+    "rack": {
+      "name": "Galvanic rack",
+      "glyph": "b",
+      "build_key": "3",
+      "behavior": "source",
+      "layers": ["surface"],
+      "description": "Holds one galvanic cell and sends a timed electrical pulse."
+    },
+    "cell": {
+      "name": "Galvanic cell",
+      "glyph": "c",
+      "build_key": null,
+      "behavior": "fuel",
+      "layers": [],
+      "description": "An iron-carbon and brine pulse cell for the rack."
+    },
+    "switch": {
+      "name": "Knife switch",
+      "glyph": "s",
+      "build_key": "4",
+      "behavior": "gated",
+      "layers": ["surface"],
+      "description": "A hand-operated contact that passes pulses only when closed."
+    },
+    "lamp": {
+      "name": "Shielded arc lamp",
+      "glyph": "l",
+      "build_key": "5",
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "A pulse-lit lamp that widens nearby sight while charged."
+    },
+    "gate": {
+      "name": "Latch gate",
+      "glyph": "#",
+      "build_key": "6",
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "Blocks movement until a pulse releases its latch briefly."
+    },
+    "drain": {
+      "name": "Sump pump",
+      "glyph": "p",
+      "build_key": "7",
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "A pulsed pump that drains nearby standing water and temporary floods."
+    },
+    "sensor": {
+      "name": "Field sensor",
+      "glyph": "?",
+      "build_key": "8",
+      "behavior": "gated",
+      "layers": ["surface", "buried"],
+      "description": "Passes pulses only while its chosen condition detects mass, water, or a nearby threat."
+    },
+    "relay": {
+      "name": "One-way relay",
+      "glyph": ">",
+      "build_key": "9",
+      "behavior": "directional",
+      "layers": ["surface", "buried"],
+      "description": "Receives a pulse from behind and sends it only toward its facing."
+    },
+    "counter": {
+      "name": "Counted relay",
+      "glyph": "c",
+      "build_key": "0",
+      "behavior": "counter",
+      "layers": ["surface", "buried"],
+      "description": "Passes one pulse after a chosen number of received pulses."
+    },
+    "piston": {
+      "name": "Crank piston",
+      "glyph": ">",
+      "build_key": "p",
+      "behavior": "conductor",
+      "layers": ["surface"],
+      "description": "A directional actuator that pushes up to three movable crates; a sticky setting pulls one back."
+    },
+    "crate": {
+      "name": "Movable freight crate",
+      "glyph": "B",
+      "build_key": "b",
+      "behavior": "block",
+      "layers": ["surface"],
+      "description": "A physical blocking crate that a powered piston can shift and a buried sensor can weigh."
+    }
+  },
+  "fixtures": [
+    {
+      "id": "hearthford-mill-relief",
+      "region": "hearthford",
+      "anchor": "mill",
+      "cells": [
+        {"kind": "rack", "offset": [-4, 0], "layer": "surface", "charge": 48},
+        {"kind": "trace", "offset": [-3, 0], "layer": "surface"},
+        {"kind": "sensor", "offset": [-2, 0], "layer": "surface", "mode": "mass"},
+        {"kind": "drain", "offset": [-1, 0], "layer": "surface"},
+        {"kind": "lamp", "offset": [0, 0], "layer": "surface"}
+      ]
+    },
+    {
+      "id": "jomon-bilge-watch",
+      "region": "vessel",
+      "anchor": "flooded-hold",
+      "cells": [
+        {"kind": "rack", "offset": [-3, 0], "layer": "surface", "charge": 24},
+        {"kind": "switch", "offset": [-2, 0], "layer": "surface"},
+        {"kind": "via", "offset": [-1, 0], "layer": "surface"},
+        {"kind": "via", "offset": [-1, 0], "layer": "buried"},
+        {"kind": "trace", "offset": [0, 0], "layer": "buried"},
+        {"kind": "sensor", "offset": [1, 0], "layer": "buried", "mode": "water", "threshold": 1},
+        {"kind": "via", "offset": [2, 0], "layer": "buried"},
+        {"kind": "drain", "offset": [2, 0], "layer": "surface"},
+        {"kind": "lamp", "offset": [3, 0], "layer": "surface"}
+      ]
+    }
+  ]
+}

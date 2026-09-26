@@ -1,0 +1,646 @@
+{
+  "items": {
+    "item.equipment_001": {
+      "display_name": "Billhook",
+      "description": "Hooks actors, ropes, and machinery.",
+      "short_description": "close strike; hooks machinery or a braced foe"
+    },
+    "item.equipment_002": {
+      "display_name": "Ash spear",
+      "description": "Braces and attacks at reach.",
+      "short_description": "reach-two attack and positional control"
+    },
+    "item.equipment_003": {
+      "display_name": "Leadwood cudgel",
+      "description": "Dazes and breaks a guarded stance.",
+      "short_description": "quiet impact that quickly breaks morale"
+    },
+    "item.equipment_004": {
+      "display_name": "River staff",
+      "description": "Sweeps space and supports mobile guard.",
+      "short_description": "modest attack and safer guarded movement"
+    },
+    "item.equipment_005": {
+      "display_name": "Hand axe",
+      "description": "Cleaves guards and selected timber.",
+      "short_description": "heavy close strike; breaks shutters and braces"
+    },
+    "item.equipment_006": {
+      "display_name": "Windlass crossbow",
+      "description": "A prepared ranged shot with reload commitment.",
+      "short_description": "range-five shot followed by a reload"
+    },
+    "item.equipment_007": {
+      "display_name": "Yew longbow",
+      "description": "Long prepared fire; weather and movement matter.",
+      "short_description": "long sightline aim; movement and wet strings break preparation"
+    },
+    "item.equipment_008": {
+      "display_name": "Shepherd's sling",
+      "description": "Quick high-arcing cast with loose shot.",
+      "short_description": "quick ranged cast that exploits height and loose stone"
+    },
+    "item.equipment_009": {
+      "display_name": "Trestle arbalest",
+      "description": "A severe long lane with setup and slow reload.",
+      "short_description": "long severe lane; setup and two committed reload actions"
+    },
+    "item.equipment_010": {
+      "display_name": "Boarding pike",
+      "description": "Brace and control at exceptional reach.",
+      "short_description": "reach-four brace; ineffective when an enemy closes adjacent"
+    },
+    "item.equipment_011": {
+      "display_name": "Paired short knives",
+      "description": "Mobile paired cuts at intimate range.",
+      "short_description": "adjacent double cut followed by a mobile guarded step"
+    },
+    "item.equipment_012": {
+      "display_name": "Bundle of javelins",
+      "description": "Counted throws with a remaining close thrust.",
+      "short_description": "a bundle of throws or a close braced thrust"
+    },
+    "item.equipment_013": {
+      "display_name": "Quarry war hammer",
+      "description": "Break protection and drive a target backward.",
+      "short_description": "loud armour break and forceful knockback"
+    },
+    "item.equipment_014": {
+      "display_name": "Weighted net and knife",
+      "description": "Restrain at range before closing with a knife.",
+      "short_description": "range-four restraint followed by close control"
+    },
+    "item.equipment_015": {
+      "display_name": "Oak staff sling",
+      "description": "Arcs selected stones over low cover but needs casting room.",
+      "short_description": "arcs beyond low cover but needs room to cast"
+    },
+    "item.equipment_016": {
+      "display_name": "Hooked river javelin",
+      "description": "Pulls a target and leaves a physical recoverable shaft.",
+      "short_description": "pulls position and leaves a recoverable shaft"
+    },
+    "item.equipment_017": {
+      "display_name": "Crossbar boar spear",
+      "description": "Pins a charge at reach; unwieldy when crowded.",
+      "short_description": "reach brace pins charging animals outside knife range"
+    },
+    "item.equipment_018": {
+      "display_name": "Powder handgonne",
+      "description": "A loud prepared shot that creates powder smoke.",
+      "short_description": "loud prepared shot creates smoke and commits a slow reload"
+    },
+    "item.equipment_019": {
+      "display_name": "Buckler",
+      "description": "Turns one readable close attack.",
+      "short_description": "turns a clearly read close strike while guarding"
+    },
+    "item.equipment_020": {
+      "display_name": "Tarred rope",
+      "description": "Climbing, recovery, restraint, and route control.",
+      "short_description": "secures water, winches, and unstable crossings"
+    },
+    "item.equipment_021": {
+      "display_name": "Reed-soled shoes",
+      "description": "A quiet secondary pair for deliberate crossings.",
+      "short_description": "reduce travel noise on surveyed routes"
+    },
+    "item.equipment_022": {
+      "display_name": "Repair tools",
+      "description": "Alter machinery, structures, and objectives.",
+      "short_description": "quietly alter machinery and damaged works"
+    },
+    "item.equipment_023": {
+      "display_name": "Smoke pot",
+      "description": "A carried smoke charge for sight denial and distraction.",
+      "short_description": "a single cloud that breaks aim and pursuit"
+    },
+    "item.equipment_024": {
+      "display_name": "Cargo harness",
+      "description": "Carries weight securely but occupies pack room.",
+      "short_description": "more capacity and protects one lost stack"
+    },
+    "item.equipment_025": {
+      "display_name": "Witnessed trade seals",
+      "description": "Material proof for negotiation.",
+      "short_description": "material leverage in human encounters"
+    },
+    "item.equipment_026": {
+      "display_name": "Hooded lantern",
+      "description": "A measured flame for light and animal deterrence.",
+      "short_description": "controls territorial beasts and reveals glass"
+    },
+    "item.equipment_027": {
+      "display_name": "Felt hood",
+      "description": "Warm, quiet, and poor against points."
+    },
+    "item.equipment_028": {
+      "display_name": "Boiled-leather cap",
+      "description": "Weatherproof working head protection."
+    },
+    "item.equipment_029": {
+      "display_name": "Kettle helm",
+      "description": "Broad coverage, loud and sight-restricting."
+    },
+    "item.equipment_030": {
+      "display_name": "Quilted jack",
+      "description": "Flexible blunt protection that absorbs rain."
+    },
+    "item.equipment_031": {
+      "display_name": "Lacquered reedscale vest",
+      "description": "Light cut protection that sheds water."
+    },
+    "item.equipment_032": {
+      "display_name": "Riveted coat",
+      "description": "Strong protection; heavy when soaked."
+    },
+    "item.equipment_033": {
+      "display_name": "Bound linen sleeves",
+      "description": "Quiet cover against thorns."
+    },
+    "item.equipment_034": {
+      "display_name": "Leather vambraces",
+      "description": "Tool-friendly arm protection."
+    },
+    "item.equipment_035": {
+      "display_name": "Splinted armguards",
+      "description": "Strong guard support with reduced reach."
+    },
+    "item.equipment_036": {
+      "display_name": "Work gloves",
+      "description": "Grip rope and rough mechanisms."
+    },
+    "item.equipment_037": {
+      "display_name": "Mail mitts",
+      "description": "Excellent cut cover; slow to reload."
+    },
+    "item.equipment_038": {
+      "display_name": "Tarred hide gauntlets",
+      "description": "Weatherproof grip around salt and wet rope."
+    },
+    "item.equipment_039": {
+      "display_name": "Wool chausses",
+      "description": "Warm, quiet, and liable to hold water."
+    },
+    "item.equipment_040": {
+      "display_name": "Leather leggings",
+      "description": "Thorn and weather protection."
+    },
+    "item.equipment_041": {
+      "display_name": "Brigandine cuisses",
+      "description": "Heavy leg cover that worsens steep footing."
+    },
+    "item.equipment_042": {
+      "display_name": "Reed shoes",
+      "description": "Quiet on dry paths, poor on sharp stone."
+    },
+    "item.equipment_043": {
+      "display_name": "Hobnailed boots",
+      "description": "Grip scree and resist sharp ground; noisy on boards."
+    },
+    "item.equipment_044": {
+      "display_name": "Oiled marsh waders",
+      "description": "Stay dry in mud and shallows but slip on rock."
+    },
+    "item.equipment_045": {
+      "display_name": "Woven reed brim",
+      "description": "Sheds salt spray; neither warm nor proof against points."
+    },
+    "item.equipment_046": {
+      "display_name": "Kiln face wrap",
+      "description": "Filters smoke; heat-resistant cloth lasts longer in sparks, but offers little impact cover."
+    },
+    "item.equipment_047": {
+      "display_name": "Slotted ridge visor",
+      "description": "Turns points and grit; narrow slots cost two paces of sight and ranged reach."
+    },
+    "item.equipment_048": {
+      "display_name": "Cork-backed working coat",
+      "description": "Floats a light or laden bearer through current; bulky and weak against blades."
+    },
+    "item.equipment_049": {
+      "display_name": "Limewashed kiln apron",
+      "description": "Absorbs one fire harm while wearing; lime dust is shed, points are not."
+    },
+    "item.equipment_050": {
+      "display_name": "Winter felt coat",
+      "description": "Warm blunt padding; saturated layers add four weight."
+    },
+    "item.equipment_051": {
+      "display_name": "Bound reed splints",
+      "description": "Light bracing strengthens a dry guard; vulnerable bindings absorb rain."
+    },
+    "item.equipment_052": {
+      "display_name": "Limeworker's sleeves",
+      "description": "Broad lime-dust and thorn cover; heavier than plain linen."
+    },
+    "item.equipment_053": {
+      "display_name": "Watch vambraces",
+      "description": "Point-facing slats and dry tool grip; poor blunt padding."
+    },
+    "item.equipment_054": {
+      "display_name": "Padded potter mitts",
+      "description": "Heat- and lime-resistant palms; add stiffness without providing wet grip."
+    },
+    "item.equipment_055": {
+      "display_name": "Waxed archer tabs",
+      "description": "Maintain hand grip when wet; almost no protection against a strike."
+    },
+    "item.equipment_056": {
+      "display_name": "Split-hide palms",
+      "description": "Salt-resistant wet grip without metal noise; points pass through."
+    },
+    "item.equipment_057": {
+      "display_name": "Reed gaiters",
+      "description": "Shed spray and thorns; narrow cover only works fully behind guard."
+    },
+    "item.equipment_058": {
+      "display_name": "Quarry chaps",
+      "description": "Lime-resistant broad work cover; stiff on slopes."
+    },
+    "item.equipment_059": {
+      "display_name": "Frost-felt leggings",
+      "description": "Warm broad padding for long watches; takes water weight."
+    },
+    "item.equipment_060": {
+      "display_name": "Peat-board pattens",
+      "description": "Spread load over mud without bogging; leave sharp stone unprotected."
+    },
+    "item.equipment_061": {
+      "display_name": "Felt overboots",
+      "description": "Warm quiet soles; wet felt gains weight and lacks scree grip."
+    },
+    "item.equipment_062": {
+      "display_name": "Linked ice cleats",
+      "description": "Grip scree and frozen shallows; links ring on dry deck boards."
+    },
+    "item.equipment_063": {
+      "display_name": "Field flask",
+      "description": "A reusable four-measure physical vessel for freeform reagents."
+    },
+    "item.equipment_064": {
+      "display_name": "Skill journal",
+      "description": "A physical written lesson that another courier may study at the common deck."
+    },
+    "item.equipment_065": {
+      "display_name": "Iron billet",
+      "description": "Smelted stock kept for accountable fabrication."
+    },
+    "item.goods_001": {
+      "display_name": "Charcoal",
+      "description": "Physical charcoal cargo from wood burners, used for forge fuel. Handling: keep covered and separate from sparks. Failure: rain spoils heat; fire consumes the lot. Material behavior: burns hot and produces smoke. Contract use: restores fuel work after a route shortage. Equipment use: feeds controlled fires and powder preparation. Buyers: smiths, kiln crews."
+    },
+    "item.goods_002": {
+      "display_name": "Grain",
+      "description": "Physical grain cargo from field farms, used for daily bread. Handling: keep dry and raised above bilge water. Failure: water swells sacks; fire destroys food. Material behavior: wet sacks gain condition loss and obstruct cargo space. Contract use: settles food shortages and seed claims. Equipment use: provisions expedition rest and cooking. Buyers: mill fellowships, travelling households."
+    },
+    "item.goods_003": {
+      "display_name": "Ironwork",
+      "description": "Physical ironwork cargo from riverside smiths, used for mill and vessel repair. Handling: lash rigid cases against shifting cargo. Failure: salt and lime abrade fittings; impact bends them. Material behavior: adds structural mass and corrodes in slurry. Contract use: repairs gates, bridges and Jomon. Equipment use: supplies reinforcement and workshop fittings. Buyers: millwrights, bridge companies."
+    },
+    "item.goods_004": {
+      "display_name": "Lime",
+      "description": "Physical lime cargo from lime burners, used for mortar and fields. Handling: keep sealed, dry and away from skin. Failure: water makes a caustic slurry; spill contaminates cloth. Material behavior: wet lime raises abrasive smoke and coating. Contract use: repairs masonry and disputed field soil. Equipment use: prepares counted lime pots and protective wash. Buyers: mortar crews, field courts."
+    },
+    "item.goods_005": {
+      "display_name": "Paper",
+      "description": "Physical paper cargo from rag mills, used for contracts and accounts. Handling: carry flat in a waxed case. Failure: water erases accounts; fire removes evidence. Material behavior: burns quickly and absorbs water. Contract use: provides witnessed terms and replacement records. Equipment use: supports negotiation when seals are absent. Buyers: factors, river authorities."
+    },
+    "item.goods_006": {
+      "display_name": "Salt Fish",
+      "description": "Physical salt fish cargo from coast smokehouses, used for stored food. Handling: keep sealed and shaded from bilge heat. Failure: broken seals spoil provisions; water weakens wrapping. Material behavior: salt residue contaminates wet cargo. Contract use: feeds isolated workers during route closure. Equipment use: extends voyage provisions without cooking. Buyers: inland households, coppice camps."
+    },
+    "item.goods_007": {
+      "display_name": "Timber",
+      "description": "Physical timber cargo from managed woods, used for building and braces. Handling: brace long pieces and keep bindings sound. Failure: fire spreads; saturation adds load; impact splits support. Material behavior: floats, burns and serves as load-bearing support. Contract use: repairs crossings, sheds and flood banks. Equipment use: provides braces, hafts and hull repair. Buyers: shipwrights, raised-bank companies."
+    },
+    "item.goods_008": {
+      "display_name": "Wool",
+      "description": "Physical wool cargo from upland folds, used for cloth and insulation. Handling: bundle dry and ventilate after spray. Failure: water adds weight; sparks smoulder in packed cloth. Material behavior: insulates when dry and absorbs floodwater. Contract use: supplies cold shelters and seasonal obligations. Equipment use: lines armour and protects winter rigging. Buyers: winter pilots, armour workers."
+    },
+    "item.goods_009": {
+      "display_name": "Pilot's route survey",
+      "description": "reveals exits and makes detours quieter"
+    },
+    "item.goods_010": {
+      "display_name": "Healer's field care",
+      "description": "changes the first serious injury"
+    },
+    "item.goods_011": {
+      "display_name": "Porter's watch",
+      "description": "adds bulk capacity and guards cargo loss"
+    },
+    "item.goods_012": {
+      "display_name": "Carpenter's rig",
+      "description": "makes controls quiet and stabilises structures"
+    },
+    "item.goods_013": {
+      "display_name": "Factor's surety",
+      "description": "strengthens terms and merchant exchange"
+    },
+    "item.goods_014": {
+      "display_name": "Willow Dressing",
+      "description": "A bitter wrap that treats one expedition injury."
+    },
+    "item.goods_015": {
+      "display_name": "Dry Smoke Charge",
+      "description": "Refills a spent smoke pot once."
+    },
+    "item.goods_016": {
+      "display_name": "Sealed Tally",
+      "description": "A recoverable account worth paper or merchant credit."
+    },
+    "item.goods_017": {
+      "display_name": "Pine Resin Dressing",
+      "description": "A single treatment that protects a wounded limb."
+    },
+    "item.goods_018": {
+      "display_name": "Brine Wash",
+      "description": "Cleans one salt or cut status but chills exposed skin."
+    },
+    "item.goods_019": {
+      "display_name": "Splint Roll",
+      "description": "Stabilises one arm or leg injury for an expedition."
+    },
+    "item.goods_020": {
+      "display_name": "Tide Pin",
+      "description": "Marks one tide change so a closing route remains readable."
+    },
+    "item.goods_021": {
+      "display_name": "Charcoal Key",
+      "description": "A soot-rubbed key from the forest storehouses."
+    },
+    "item.goods_022": {
+      "display_name": "Limestone Wedge",
+      "description": "Secures or deliberately releases one marked rock face."
+    },
+    "item.goods_023": {
+      "display_name": "Dry Lamp Wick",
+      "description": "Restores two measures of sheltered light."
+    },
+    "item.goods_024": {
+      "display_name": "Fletched Arrows",
+      "description": "Counted dry longbow arrows in a waxed wrap; each unit is one shot."
+    },
+    "item.goods_025": {
+      "display_name": "Sling Shot Pouch",
+      "description": "Counted selected stones that fit a sling cup; each unit is one shot."
+    },
+    "item.goods_026": {
+      "display_name": "Quarrel Case",
+      "description": "Counted heavy arbalest quarrels in a rigid case; each unit is one shot."
+    },
+    "item.goods_027": {
+      "display_name": "Casting Net Bundle",
+      "description": "One repaired weighted net for another cast."
+    },
+    "item.goods_028": {
+      "display_name": "Salt-House Chit",
+      "description": "A witnessed claim on salt fish or merchant credit."
+    },
+    "item.goods_029": {
+      "display_name": "Handgonne Charges",
+      "description": "Three wrapped powder charges and lead balls."
+    },
+    "item.goods_030": {
+      "display_name": "River-Glass Ward",
+      "description": "A cold shard that breaks instead of its bearer."
+    },
+    "item.goods_031": {
+      "display_name": "Tide-Knot Charm",
+      "description": "A specifically knotted river-glass cord that stills one pursuit."
+    },
+    "item.goods_032": {
+      "display_name": "Ebbglass Spindle",
+      "description": "A glass spindle that holds one receding waterline, then clouds forever."
+    },
+    "item.goods_033": {
+      "display_name": "Coalheart Seed",
+      "description": "A warm mineral seed that consumes smoke once and leaves the bearer painfully chilled."
+    },
+    "item.goods_034": {
+      "display_name": "Hollow-Bell Shard",
+      "description": "A cracked bronze sliver that moves one sound between levels and may call unintended listeners."
+    },
+    "item.goods_035": {
+      "display_name": "Stillwater Filament",
+      "description": "A pale strand that arrests one local current, but calls listeners to its last motion."
+    },
+    "item.goods_036": {
+      "display_name": "Flood-Mark Clasp",
+      "description": "A repaired river clasp lowers nearby water and steadies soaked timber once; the resisting load leaves its bearer fatigued."
+    },
+    "item.goods_037": {
+      "display_name": "Ashglass Lens",
+      "description": "A fire-clouded lens clears local smoke and exposes one hidden store, while the flare gives nearby groups the courier's position."
+    },
+    "item.goods_038": {
+      "display_name": "Quarry Echo Pin",
+      "description": "A stoneworker's resonant pin seats nearby warned supports once; its report alerts every listener in range."
+    },
+    "item.goods_039": {
+      "display_name": "Winter Sounding Bead",
+      "description": "A cold sounding bead freezes nearby fresh shallows in winter, then leaves the bearer chilled."
+    },
+    "item.goods_040": {
+      "display_name": "Red-Clay Seal",
+      "description": "A fired account seal compels one witnessed local compact; the institution records two obligations for the concession."
+    },
+    "item.goods_041": {
+      "display_name": "Wreck-Light Prism",
+      "description": "A salvaged signal prism spends lamp oil to mark one unopened store and turn animals, but human lookouts see the flash."
+    },
+    "item.goods_042": {
+      "display_name": "Reed Sole Wraps",
+      "description": "guarded movement through mud stores a quiet step"
+    },
+    "item.goods_043": {
+      "display_name": "Counterweight Ring",
+      "description": "billhook pulls carry the courier with the target"
+    },
+    "item.goods_044": {
+      "display_name": "Waxed Bowstring",
+      "description": "crossbows keep committed aim through hard rain"
+    },
+    "item.goods_045": {
+      "display_name": "Mill-Tooth Wedge",
+      "description": "axes and cudgels break marked floors safely"
+    },
+    "item.goods_046": {
+      "display_name": "Cliff Cord",
+      "description": "authored falls become controlled descents"
+    },
+    "item.goods_047": {
+      "display_name": "Smoke Lens",
+      "description": "smoke conceals without blinding adjacent space"
+    },
+    "item.goods_048": {
+      "display_name": "River Hooks",
+      "description": "rope can recover cargo or cross floodwater"
+    },
+    "item.goods_049": {
+      "display_name": "Witness Token",
+      "description": "valuables strengthen material negotiation"
+    },
+    "item.goods_050": {
+      "display_name": "Rain Cape",
+      "description": "storm movement avoids its extra time cost"
+    },
+    "item.goods_051": {
+      "display_name": "Echo Bead",
+      "description": "loud actions reveal alerts on adjacent levels"
+    },
+    "item.goods_052": {
+      "display_name": "Salted Dressing",
+      "description": "deepens prepared field-care protection"
+    },
+    "item.goods_053": {
+      "display_name": "High Tread",
+      "description": "attacks from above push a target one pace"
+    },
+    "item.goods_054": {
+      "display_name": "Tide Ledger",
+      "description": "observable tide warnings also improve salt-house terms"
+    },
+    "item.goods_055": {
+      "display_name": "Cork Float",
+      "description": "one valuable stack remains buoyant during a current loss"
+    },
+    "item.goods_056": {
+      "display_name": "Salt Veil",
+      "description": "head cover also filters grit and light smoke"
+    },
+    "item.goods_057": {
+      "display_name": "Wreck Key",
+      "description": "opens named coast lockers without breaking their condition"
+    },
+    "item.goods_058": {
+      "display_name": "Gull Cord",
+      "description": "a controlled coastal descent can carry one secured cargo stack"
+    },
+    "item.goods_059": {
+      "display_name": "Storm Vane",
+      "description": "a prepared ranged lane shows the next wind change"
+    },
+    "item.goods_060": {
+      "display_name": "Charcoal Mask",
+      "description": "smoke conceals while inhalation accumulates more slowly"
+    },
+    "item.goods_061": {
+      "display_name": "Resin Grip",
+      "description": "wet hands retain tool and bow preparation"
+    },
+    "item.goods_062": {
+      "display_name": "Bird Whistle",
+      "description": "a deliberate sound can pull trackers toward a chosen trail"
+    },
+    "item.goods_063": {
+      "display_name": "Coppice Map",
+      "description": "dense-growth shortcuts cost less time after discovery"
+    },
+    "item.goods_064": {
+      "display_name": "Thorn Weave",
+      "description": "guarding in thorns protects exposed arms and stores momentum"
+    },
+    "item.goods_065": {
+      "display_name": "Ember Cloth",
+      "description": "smoke and heat can be crossed once without losing guard"
+    },
+    "item.goods_066": {
+      "display_name": "Limestone Cleat",
+      "description": "light footwear gains scree grip without boot weight"
+    },
+    "item.goods_067": {
+      "display_name": "Echo Slate",
+      "description": "loud stone impacts expose alerts on two connected levels"
+    },
+    "item.goods_068": {
+      "display_name": "Quarry Brace",
+      "description": "a guarded heavy load stabilises one weak authored floor"
+    },
+    "item.goods_069": {
+      "display_name": "Sling Cup",
+      "description": "sling casts from height ignore partial cover and daze"
+    },
+    "item.goods_070": {
+      "display_name": "Chalk Cipher",
+      "description": "quarry marks reveal a nearby cache when examined"
+    },
+    "item.goods_071": {
+      "display_name": "Fall Sail",
+      "description": "a deliberate fall becomes lateral movement at the landing"
+    },
+    "item.goods_072": {
+      "display_name": "Sighting Knot",
+      "description": "a staff sling reads one more pace and names its arcing lane"
+    },
+    "item.goods_073": {
+      "display_name": "Gullbone Reel",
+      "description": "a hooked javelin can be recovered directly when rope is readied"
+    },
+    "item.goods_074": {
+      "display_name": "Sluice Token",
+      "description": "witnessed control work is quiet even without a carpenter"
+    },
+    "item.goods_075": {
+      "display_name": "Cache Bell",
+      "description": "one sounding per region marks an unopened cache but alerts listeners"
+    },
+    "item.goods_076": {
+      "display_name": "Scar Salve Recipe",
+      "description": "field dressings restore more health after an injury"
+    },
+    "item.goods_077": {
+      "display_name": "Load Ledger",
+      "description": "accounted cargo gains modest bulk and weight capacity but remains valuable"
+    },
+    "item.goods_078": {
+      "display_name": "Roof Nail",
+      "description": "a ranged line survives one careful move on an upper structure"
+    },
+    "item.goods_079": {
+      "display_name": "Fen Sledge",
+      "description": "a broad runner keeps mud from bogging a carried load or broadcasting the first step"
+    },
+    "item.goods_080": {
+      "display_name": "Ice Awl",
+      "description": "tests frozen shallows for firm footing and can break thin ice with a contextual material action"
+    },
+    "item.goods_081": {
+      "display_name": "Fire Rake Tooth",
+      "description": "breaks a burning patch of reed or timber into smoking ash without a heavy tool"
+    },
+    "item.goods_082": {
+      "display_name": "Limewash Seal",
+      "description": "keeps wet lime from abrading the courier and their physically carried equipment"
+    },
+    "item.goods_083": {
+      "display_name": "Smoke Braid",
+      "description": "a close strike made from smoke gains one harm and one morale pressure"
+    },
+    "item.goods_084": {
+      "display_name": "Salvage Tally",
+      "description": "the first difficult cache opened in a region establishes one witnessed trade credit"
+    },
+    "item.goods_085": {
+      "display_name": "Counterbrace Pin",
+      "description": "guarding on a damaged support restores one support and cancels its warned collapse"
+    },
+    "item.goods_086": {
+      "display_name": "Pitch Cup",
+      "description": "the first ignition each expedition carries measured pitch instead of consuming lamp oil and burns longer"
+    },
+    "item.goods_087": {
+      "display_name": "Shingle Skids",
+      "description": "a carried load crosses released water without the extra exposed action"
+    },
+    "item.goods_088": {
+      "display_name": "Signal Mirror",
+      "description": "from elevation, a flash interrupts one marked ranged lane but reveals the courier to its group"
+    },
+    "item.goods_089": {
+      "display_name": "Market Weights",
+      "description": "a delivered dependency lot adds one verified stock and extra confidence to its named work account"
+    }
+  }
+}

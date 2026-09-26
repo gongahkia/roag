@@ -1,0 +1,134 @@
+{
+  "branches": {
+    "blades": [
+      "edge-measure",
+      "guard-feint",
+      "slip-cut",
+      "weapon-bind",
+      "riposte",
+      "river-duelist"
+    ],
+    "reach": [
+      "measured-stance",
+      "countercharge",
+      "haft-breaker",
+      "hook-haul",
+      "line-intercept",
+      "ferryman-wall"
+    ],
+    "bows": [
+      "sighted-draw",
+      "quick-nock",
+      "shaft-recovery",
+      "called-shot",
+      "wind-hold",
+      "moving-volley"
+    ],
+    "gunworks": [
+      "charge-handling",
+      "dry-load",
+      "braced-tube",
+      "vent-care",
+      "smoke-shaping",
+      "payload-master"
+    ],
+    "devices": [
+      "safe-throw",
+      "scatter-bank",
+      "delayed-fuse",
+      "adhesive-coat",
+      "line-trap",
+      "controlled-chain"
+    ],
+    "spellcraft": [
+      "attunement",
+      "elemental-shape",
+      "ward-script",
+      "veiling",
+      "echo-binding",
+      "spell-weave"
+    ],
+    "smithing": [
+      "tool-care",
+      "fuel-husbandry",
+      "bloom-sorting",
+      "armour-fitting",
+      "gun-assembly",
+      "masterwork"
+    ],
+    "alchemy": [
+      "substance-sense",
+      "safe-decant",
+      "field-triage",
+      "controlled-distil",
+      "antitoxin",
+      "catalyst-brewing"
+    ],
+    "navigation": [
+      "route-reading",
+      "weather-eye",
+      "load-balance",
+      "current-rescue",
+      "station-repair",
+      "deep-pilotage"
+    ],
+    "diplomacy": [
+      "careful-terms",
+      "price-sense",
+      "mediation",
+      "teaching",
+      "work-order",
+      "guild-broker"
+    ]
+  },
+  "role_roots": {
+    "bargemaster": [
+      "route-reading",
+      "careful-terms"
+    ],
+    "pilot": [
+      "route-reading",
+      "sighted-draw"
+    ],
+    "factor": [
+      "careful-terms",
+      "route-reading"
+    ],
+    "carpenter": [
+      "tool-care",
+      "safe-throw"
+    ],
+    "guard": [
+      "edge-measure",
+      "measured-stance"
+    ],
+    "healer": [
+      "substance-sense",
+      "attunement"
+    ],
+    "tide runner": [
+      "route-reading",
+      "safe-throw"
+    ],
+    "netwright": [
+      "measured-stance",
+      "tool-care"
+    ],
+    "charcoal scout": [
+      "sighted-draw",
+      "safe-throw"
+    ],
+    "resin healer": [
+      "substance-sense",
+      "attunement"
+    ],
+    "quarry climber": [
+      "measured-stance",
+      "tool-care"
+    ],
+    "ridge ward": [
+      "sighted-draw",
+      "route-reading"
+    ]
+  }
+}

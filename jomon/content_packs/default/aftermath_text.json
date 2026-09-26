@@ -1,0 +1,194 @@
+{
+  "contracts": {
+    "aftermath.contract.hearthford.supply": {
+      "title": "Rehang the public flood marks",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.hearthford.scar": {
+      "title": "Account for the private wheel timber",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.greywash.supply": {
+      "title": "Relight the storm-scoured dune line",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.greywash.scar": {
+      "title": "Recover a shifted wreck title",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.greenwold.supply": {
+      "title": "Replant the medicine boundary",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.greenwold.scar": {
+      "title": "Count charcoal taken beyond the cut",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.whitecairn.supply": {
+      "title": "Seat the opened warning stair",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.whitecairn.scar": {
+      "title": "Recover the toll brace account",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.dunmire.supply": {
+      "title": "Raise the inhabited peat walk",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.dunmire.scar": {
+      "title": "Mark fuel cut below the waterline",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.rillscar.supply": {
+      "title": "Brace the shared switchback",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.rillscar.scar": {
+      "title": "Find the convoy's dropped counterweight",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.marlbank.supply": {
+      "title": "Open the seed-bed rill",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.marlbank.scar": {
+      "title": "Cool the claimant's abandoned kiln",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    },
+    "aftermath.contract.frostmere.supply": {
+      "title": "Restake the sheltered channel",
+      "cause": "{dependency} stock is {stock} after {aftermath_title}; the next scheduled shift consumes a real lot at {site}"
+    },
+    "aftermath.contract.frostmere.scar": {
+      "title": "Recover a net line from broken ice",
+      "cause": "the recorded {crisis} and {branch} ending left a physical work scar at {site}"
+    }
+  },
+  "openings": {
+    "hearthford": {
+      "title": "The Silt after the Compact",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "greywash": {
+      "title": "What the Ebb Returned",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "greenwold": {
+      "title": "Shoots through the Burn",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "whitecairn": {
+      "title": "Echo beneath the Honest Bell",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "dunmire": {
+      "title": "Islands after the Drain",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "rillscar": {
+      "title": "The Span that Remained",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "marlbank": {
+      "title": "Water after Firing",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    },
+    "frostmere": {
+      "title": "Soundings after Thaw",
+      "notice": "On returning, you find {title}: old work has left new scars, and witnesses have new terms to offer.",
+      "memory": "After the {branch} settlement at {region}, the work scars, the crews, and their witnessed terms have changed."
+    }
+  },
+  "actions": {
+    "aftermath.action.back": {
+      "label": "Back to the regional account",
+      "requirements": {}
+    },
+    "aftermath.action.accept": {
+      "label": "Accept one physical witnessed copy",
+      "requirements": {
+        "near_witness": "speak beside the named witness",
+        "unavailable": "This contract must be accepted once beside its named witness."
+      }
+    },
+    "aftermath.action.deliver": {
+      "label": "Deliver one physical {commodity} lot",
+      "requirements": {
+        "near_witness_supply": "return beside the witness carrying one {commodity} lot",
+        "missing_supply": "Carry one physical {commodity} lot.",
+        "unavailable": "Supply must be handed to the named witness after acceptance."
+      }
+    },
+    "aftermath.action.work": {
+      "label": "Perform field work at the recorded scar",
+      "requirements": {
+        "field_site": "reach {site} with a working or levering tool",
+        "missing_tool": "A working or levering tool is required.",
+        "crowded_site": "The worksite is too crowded with altered material for this task.",
+        "unavailable": "The disclosed work must be performed beside its recorded scar."
+      }
+    },
+    "aftermath.action.abandon": {
+      "label": "Abandon the account and record the failure",
+      "requirements": {
+        "near_witness": "return to the named witness",
+        "unavailable": "Return to the witness before abandoning the accepted account."
+      }
+    },
+    "aftermath.action.settle": {
+      "label": "Settle the worked account{replacement}",
+      "requirements": {
+        "near_witness_copy": "return beside the witness with the contract copy, or one credit only if that copy was destroyed or lost",
+        "missing_copy": "Recover the physical copy; only a destroyed or lost copy can be replaced for one credit.",
+        "unavailable": "The worked account must be settled beside its named witness."
+      }
+    }
+  },
+  "results": {
+    "accepted_copy": "{title}: witnessed physical copy",
+    "accepted": "{title} is accepted from a named witness. The physical copy is {copy_state} Supply {commodity} here, or work the marked scar at {site}.",
+    "delivered": "One {commodity} lot enters the actual local stock. The physical contract copy must still be settled.",
+    "work_drainage": "opened drainage lowers water and local material demand",
+    "work_fire": "fire work removes flame, smoke and loose fuel",
+    "work_support": "structural work restores support and cancels warned collapse",
+    "work_recovery_marked": "physical recovery clears contamination and exposes a named store clue",
+    "work_recovery_exhausted": "physical recovery clears contamination at the exhausted store line",
+    "work_record": "{topology}: {effect}; fire {fire_before}\u2192{fire_after}; water {water_before}\u2192{water_after}; support {support_before}\u2192{support_after}; coating {coating_before}\u2192{coating_after}",
+    "worked": "The {topology} changes physically: {effect}. Fire {fire_before}\u2192{fire_after}, water {water_before}\u2192{water_after}, support {support_before}\u2192{support_after}. Return the witnessed copy.",
+    "settled_supply": "A delivered lot restores two stock and lowers one demand; the witness records household trust.",
+    "settled_field": "{physical}. The field account raises institutional confidence and eases connected cargo risk.",
+    "settled_witness": "{courier} settled {title} by {approach}.",
+    "paid": " One credit is paid.",
+    "replacement_paid": " One credit first funded the replacement copy.",
+    "abandoned": "The witness records an unmet promise and will not offer the work again.",
+    "abandoned_witness": "{courier} abandoned {title} after accepting it.",
+    "remember": "{title}: {outcome}",
+    "missing_contract": "That aftermath account no longer exists.",
+    "invalid_action": "That is not a contract action.",
+    "ledger_cause": "FACT \u2014 cause: {cause}.",
+    "ledger_witness": "Named witness: {name}, {role}.",
+    "ledger_site": "Physical site: {site}; material: {commodity}.",
+    "ledger_worksite": "Worksite: {topology}.",
+    "ledger_account": "Account: {status}; approach {approach}.",
+    "ledger_answers": "DISCLOSED ANSWERS \u2014 deliver one real lot at the witness, or use a working tool at the scar.",
+    "ledger_copy": "The accepted paper copy occupies the pack, can be lost or stolen, and is consumed at settlement.",
+    "ledger_outcome": "FACT \u2014 {outcome}",
+    "copy_packed": "packed.",
+    "copy_ground": "left at your feet; use I to pack it.",
+    "replacement_suffix": " (one-credit replacement copy)",
+    "service_shared": "; aftermath crews now maintain one firm marked approach",
+    "service_claimed": "; claimed aftermath work is available only against a recorded obligation",
+    "actor_shared_goal": "maintain the witnessed aftermath work",
+    "actor_shared_reason": "the public ending replaced its former material claim",
+    "actor_claimed_goal": "hold the altered aftermath worksite",
+    "actor_claimed_reason": "the private ending left a material claim unsettled"
+  }
+}

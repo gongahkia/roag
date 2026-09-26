@@ -1,0 +1,105 @@
+{
+  "harbour": {
+    "width": 78,
+    "height": 28,
+    "jomon_dock": [4, 14],
+    "shore_dock": [73, 14]
+  },
+  "vehicles": {
+    "tug": {
+      "name": "Jomon's steam tug",
+      "region": "harbour",
+      "domain": "water",
+      "resource": "coal charge",
+      "glyph": "U",
+      "pace": 3,
+      "capacity": 180,
+      "condition": 12,
+      "deck": [
+        "#####################",
+        "#.....#.....#.....R.#",
+        "#.H...+..C..+.......#",
+        "#.....#.....#.......#",
+        "#.E...+.....+...F...#",
+        "#.....#.....#.......#",
+        "#####################"
+      ]
+    },
+    "horse_cart": {
+      "name": "Hearthford horse cart",
+      "region": "hearthford",
+      "domain": "road",
+      "resource": "horse stamina",
+      "glyph": "H",
+      "pace": 2,
+      "capacity": 32,
+      "condition": 9,
+      "deck": [
+        "###############",
+        "#..H......R...#",
+        "#.............#",
+        "#..C.....F....#",
+        "#.............#",
+        "#..E..........#",
+        "###############"
+      ]
+    },
+    "steam_crawler": {
+      "name": "Rillscar steam crawler",
+      "region": "rillscar",
+      "domain": "road",
+      "resource": "coal charge",
+      "glyph": "S",
+      "pace": 2,
+      "capacity": 48,
+      "condition": 14,
+      "deck": [
+        "###################",
+        "#..H....#.....R...#",
+        "#.......+.........#",
+        "#..C....#.........#",
+        "#.......+.....F...#",
+        "#..E....#.........#",
+        "###################"
+      ]
+    },
+    "rootwalker": {
+      "name": "Greenwold rootwalker",
+      "region": "greenwold",
+      "domain": "rough",
+      "resource": "root vigor",
+      "glyph": "W",
+      "pace": 2,
+      "capacity": 28,
+      "condition": 10,
+      "deck": [
+        "#################",
+        "#...H......R....#",
+        "#...............#",
+        "#..C.........F..#",
+        "#...............#",
+        "#..E............#",
+        "#################"
+      ]
+    },
+    "aether_glider": {
+      "name": "Greywash aether glider",
+      "region": "greywash",
+      "domain": "air",
+      "resource": "aether charge",
+      "glyph": "A",
+      "pace": 3,
+      "capacity": 36,
+      "condition": 8,
+      "deck": [
+        "###################",
+        "#..H..........R...#",
+        "#.................#",
+        "#....C.........F..#",
+        "#.................#",
+        "#..E..............#",
+        "###################"
+      ]
+    }
+  }
+}

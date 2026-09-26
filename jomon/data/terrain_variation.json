@@ -1,0 +1,60 @@
+{
+  "regions": {
+    "hearthford": {
+      "pockets": [["silt braid", "m"], ["thorn fence", "t"], ["gravel levee", "r"], ["willow wash", "w"]],
+      "upper": "old survey scaffold",
+      "lower": "drainage vault",
+      "traveller": "Pella Reed, flood surveyor",
+      "encounters": {"pockets": [["traveller", "beast", "raider", "stonefall"], ["traveller", "beast", "raider", "stonefall"], ["traveller", "beast", "raider", "stonefall", "elite"], ["traveller", "raider", "stonefall", "elite"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "greywash": {
+      "pockets": [["salt crust", ":"], ["tidal runnel", "w"], ["shingle ridge", "r"], ["oyster shelf", "q"]],
+      "upper": "wreck lookout",
+      "lower": "brine culvert",
+      "traveller": "Ilen Salt, shore scavenger",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "beast", "stonefall"], ["traveller", "raider", "elite"], ["traveller", "beast", "raider", "stonefall"]], "upper": ["raider", "traveller", "elite"], "lower": ["beast", "traveller", "stonefall"]}
+    },
+    "greenwold": {
+      "pockets": [["briar maze", "t"], ["cinder bed", "s"], ["root scree", "r"], ["moss hollow", "m"]],
+      "upper": "canopy watch",
+      "lower": "root hollow",
+      "traveller": "Ruvo Ash, burn scout",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "stonefall", "raider"], ["traveller", "beast", "elite"], ["traveller", "beast", "raider", "stonefall"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "whitecairn": {
+      "pockets": [["glaze ice", "_"], ["splintered scree", "q"], ["bellstone ridge", "r"], ["wind-carved drift", "_"]],
+      "upper": "signal gantry",
+      "lower": "snowmelt crypt",
+      "traveller": "Eda Cairn, bell keeper",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "stonefall", "raider"], ["traveller", "beast", "elite"], ["traveller", "beast", "raider", "elite"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "dunmire": {
+      "pockets": [["peat sink", "m"], ["blackwater braid", "w"], ["reed thicket", "t"], ["bog myrtle stand", "t"]],
+      "upper": "reed platform",
+      "lower": "peat chamber",
+      "traveller": "Moss Fen, peat finder",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "beast", "stonefall"], ["traveller", "raider", "elite"], ["traveller", "beast", "raider", "stonefall"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "rillscar": {
+      "pockets": [["knife shale", "q"], ["fallen scree", "r"], ["clay seep", "m"], ["echo ledge", "r"]],
+      "upper": "quarry hoist",
+      "lower": "fault pocket",
+      "traveller": "Berrin Span, fault sounder",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "stonefall", "raider"], ["traveller", "beast", "elite"], ["traveller", "raider", "stonefall", "elite"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "marlbank": {
+      "pockets": [["clay rut", "m"], ["kiln spoil", "r"], ["hedgerow", "t"], ["orchard swale", "m"]],
+      "upper": "kiln watch",
+      "lower": "fired cistern",
+      "traveller": "Tali Kiln, terrace carrier",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "stonefall", "raider"], ["traveller", "beast", "elite"], ["traveller", "beast", "raider", "stonefall"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    },
+    "frostmere": {
+      "pockets": [["black ice", "_"], ["frost shards", "q"], ["thaw channel", "w"], ["wind-scoured bar", "r"]],
+      "upper": "ice beacon",
+      "lower": "sounding chamber",
+      "traveller": "Suri Sound, winter pather",
+      "encounters": {"pockets": [["traveller", "beast", "raider"], ["traveller", "beast", "stonefall"], ["traveller", "raider", "elite"], ["traveller", "beast", "raider", "stonefall"]], "upper": ["raider", "elite", "traveller"], "lower": ["beast", "stonefall", "traveller"]}
+    }
+  }
+}

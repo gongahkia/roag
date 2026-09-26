@@ -1,7 +1,0 @@
-PASS soak 1/6 hybrid crew 3 survivors 3 / accounting + replay + save
-PASS soak 2/6 roots crew 6 survivors 6 / accounting + replay + save
-PASS soak 3/6 labyrinth crew 9 survivors 9 / accounting + replay + save
-PASS soak 4/6 chasms crew 3 survivors 3 / accounting + replay + save
-PASS soak 5/6 crystal crew 6 survivors 6 / accounting + replay + save
-PASS soak 6/6 karst crew 9 survivors 9 / accounting + replay + save
-Native Lua 5.4 CPU time; 192x112; history checkpoint work included in tick durations. No renderer or GPU. Independent cases, not a quality ranking.

@@ -1,2 +1,0 @@
-PASS GUI adapter: 420 gameplay frames, mouse construction, layers, resize, timeline, save/load, exports and modal input.
-NOTE: this is a mock-contract test, NOT real LÖVE, SDL, LuaJIT, or GPU validation.

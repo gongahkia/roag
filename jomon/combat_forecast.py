@@ -1,0 +1,130 @@
+"""Pure, bounded projections of hostile actions the courier can observe."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from functools import lru_cache
+
+from .state import GameState, Position, Threat
+from .world import courier_sees, distance, projectile_path
+
+
+@dataclass(frozen=True)
+class CombatForecast:
+    actor_id: str
+    actor_name: str
+    origin: Position
+    target: Position | None
+    affected: tuple[Position, ...]
+    path: tuple[Position, ...]
+    timing: str
+    action: str
+    counter: str
+
+    @property
+    def threatens_courier(self) -> bool:
+        return self.target is not None and self.target in self.affected
+
+
+@lru_cache(maxsize=128)
+def _definition_for(archetype_id: str) -> dict | None:
+    from .encounters import threat_definition
+
+    class Identity:
+        def __init__(self, identity: str) -> None:
+            self.archetype_id = identity
+            self.id = ""
+
+    return threat_definition(Identity(archetype_id))
+
+
+def _affected_cells(actor: Threat, point: Position) -> tuple[Position, ...]:
+    data = _definition_for(actor.archetype_id or "")
+    mode = data.get("mode", "") if data else ""
+    offsets = (-1, 0, 1) if mode in {"surge", "firing", "shutters", "slip"} else (0,)
+    return tuple(Position(point.x + dx, point.y, point.z) for dx in offsets)
+
+
+def observed_forecasts(
+    state: GameState, visible: set[Position] | None = None
+) -> tuple[CombatForecast, ...]:
+    """Describe current intent without leaking actors the courier cannot see."""
+    from .world import field_of_view
+
+    visible = visible if visible is not None else field_of_view(state, remember=False)
+    forecasts: list[CombatForecast] = []
+    for actor in state.combatants:
+        actor_visible = actor.position in visible or (
+            actor.position.z != state.position.z and courier_sees(state, actor.position)
+        )
+        if actor.status != "engaged" or not actor_visible:
+            continue
+        target = actor.marked_position or actor.aimed_at
+        action = actor.intent.rstrip(".")
+        if target is None and actor.intent_id in {
+            "combat.intent.lowers_its_head_and_charges_next_turn",
+            "intent.animal.charge_warning",
+        }:
+            target = state.position
+        data = _definition_for(actor.archetype_id or "")
+        counter = str(data.get("counterplay", "move, use cover, guard, or interrupt")) if data else "move, use cover, guard, or interrupt"
+        if target is not None:
+            affected = _affected_cells(actor, target)
+            path = tuple(projectile_path(actor.position, target, state))
+            timing = "after your next action"
+        else:
+            affected, path = (), ()
+            timing = (
+                f"recovering for {actor.reload_turns} hostile step"
+                + ("s" if actor.reload_turns != 1 else "")
+                if actor.reload_turns
+                else "intent visible; no committed target"
+            )
+        forecasts.append(CombatForecast(
+            actor.id, actor.name, actor.position, target, affected, path,
+            timing, action, counter,
+        ))
+    return tuple(sorted(
+        forecasts,
+        key=lambda row: (
+            row.target is None,
+            row.target != state.position if row.target is not None else True,
+            distance(state.position, row.origin),
+            row.actor_id,
+        ),
+    ))
+
+
+def danger_cells(state: GameState, visible: set[Position]) -> set[Position]:
+    """Return only forecast cells that are themselves presently observable."""
+    return {
+        point
+        for forecast in observed_forecasts(state, visible)
+        if (
+            forecast.origin in visible
+            or (
+                forecast.origin.z != state.position.z
+                and courier_sees(state, forecast.origin)
+            )
+        )
+        for point in forecast.affected
+        if point in visible
+    }
+
+
+def forecast_lines(forecast: CombatForecast) -> list[str]:
+    target = (
+        f"{forecast.target.x},{forecast.target.y} z{forecast.target.z:+d}"
+        if forecast.target else "none committed"
+    )
+    path = " -> ".join(
+        f"{point.x},{point.y}" for point in forecast.path[:6]
+    ) or "no committed path"
+    if len(forecast.path) > 6:
+        path += " -> ..."
+    return [
+        f"DANGER: {forecast.actor_name} — {forecast.action}.",
+        f"FORECAST: origin {forecast.origin.x},{forecast.origin.y} z{forecast.origin.z:+d}; target {target}; {forecast.timing}.",
+        f"PREDICTED PATH: {path}.",
+        f"COUNTERS: {forecast.counter}.",
+    ]

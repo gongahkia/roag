@@ -1,0 +1,1256 @@
+"""Bounded spatial inventory, armour, load, and terrain-status rules."""
+
+from __future__ import annotations
+
+import copy
+from dataclasses import dataclass, replace
+from typing import Iterable
+
+from .catalog import EQUIPMENT_SECTIONS, load_catalog
+from .chemistry import REAGENTS
+from .expanded_weapons import ARSENAL, BOMB_AMMUNITION, ammunition_for
+from .item_presentation import contracted_item_presentation, item_presentation
+from .chemistry_presentation import chemistry_text, reagent_display_name
+from .state import GameState, Item, Person, TerrainStatus
+from .work_weapons import POT_AMMUNITION, WORK_WEAPONS
+from .equipment_presentation import ammunition_display_name, arsenal_weapon_name, equipment_format
+
+PACK_WIDTH = 10
+PACK_HEIGHT = 6
+LOCKER_WIDTH = 18
+LOCKER_HEIGHT = 10
+BODY_SLOTS = ("head", "torso", "arms", "hands", "legs", "feet")
+EQUIPPED_LOCATIONS = ("readied", "secondary", *BODY_SLOTS)
+_EQUIPMENT = load_catalog("equipment.json", EQUIPMENT_SECTIONS)
+AMMUNITION_ITEMS = dict(_EQUIPMENT["ammunition_items"])
+WEAPON_AMMUNITION = dict(_EQUIPMENT["weapon_ammunition"])
+
+AMMUNITION_ITEMS.update(POT_AMMUNITION)
+AMMUNITION_ITEMS.update(BOMB_AMMUNITION)
+WEAPON_AMMUNITION.update({name: ammunition_for(name) for name in ARSENAL if ammunition_for(name)})
+
+
+def release_enemy_possession(state: GameState, threat) -> str:
+    """The same physical recovery follows combat, fire, and a rival's attack."""
+    if not threat.carrying_item_id:
+        return ""
+    item = next((item for item in state.items if item.id == threat.carrying_item_id), None)
+    threat.carrying_item_id = None
+    if item is None or item.location in {"destroyed", "lost"}:
+        return ""
+    item.location, item.owner_id, item.container_id = "ground", None, None
+    item.region_id, item.ground_position = state.spatial_id, threat.position
+    return f" The stolen {item_spec(item.kind).name} falls at {threat.position.x},{threat.position.y}."
+
+# A working issue, not a class or permanent build. These items use the same
+# slots, weight, condition, loss, and replacement rules as discovered gear.
+BASIC_COURIER_LOADOUTS: dict[str, tuple[str, str]] = {
+    role: tuple(items) for role, items in _EQUIPMENT["basic_courier_loadouts"].items()
+}
+BASIC_COURIER_ARMOUR: dict[str, dict[str, str]] = {
+    role: dict(slots) for role, slots in _EQUIPMENT["basic_courier_armour"].items()
+}
+
+
+@dataclass(frozen=True)
+class ItemSpec:
+    name: str
+    abbreviation: str
+    width: int
+    height: int
+    weight: int
+    category: str
+    description: str
+    slot: str | None = None
+    stack_limit: int = 1
+    cut: int = 0
+    pierce: int = 0
+    blunt: int = 0
+    coverage: int = 0
+    noise: int = 0
+    mobility: int = 0
+    tags: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PlacementPreview:
+    cells: frozenset[tuple[int, int]]
+    valid: bool
+    reason: str
+    blockers: tuple[str, ...]
+    resulting_weight: int
+    resulting_load: str
+
+
+# Capabilities remain implemented directly in actions.py. This table is physical
+# data: shape, mass, body location, protection, and terrain traits.
+ITEM_SPECS: dict[str, ItemSpec] = {
+    kind: ItemSpec(**{**row, "tags": tuple(row["tags"])})
+    for kind, row in _EQUIPMENT["item_specs"].items()
+}
+for _kind, _spec in tuple(ITEM_SPECS.items()):
+    _presentation = item_presentation(_kind)
+    ITEM_SPECS[_kind] = replace(
+        _spec, name=_presentation.display_name, description=_presentation.description,
+    )
+for _part_id, _part in load_catalog("circuits.json", ("parts", "fixtures"))["parts"].items():
+    ITEM_SPECS[f"circuit:{_part_id}"] = ItemSpec(
+        _part["name"], _part_id[:2].upper(), 1, 1, 1, "tool",
+        _part["description"], stack_limit=8,
+    )
+
+# Existing saved containers keep their contents; fresh frontier stores draw from
+# the work clothing of that place. Merchants can also bring a counted spare.
+REGIONAL_ARMOUR = {region: tuple(names) for region, names in _EQUIPMENT["regional_armour"].items()}
+
+
+ITEM_SPECS.update({name: ItemSpec(spec.name, "".join(word[0] for word in name.split()).upper()[:2], *spec.shape,
+                                spec.weight, "weapon", spec.description)
+                   for name, spec in WORK_WEAPONS.items()})
+ITEM_SPECS.update({name: ItemSpec(arsenal_weapon_name(name), "".join(word[0] for word in name.split()).upper()[:2],
+                                *spec.shape, spec.weight, "weapon", spec.description)
+                   for name, spec in ARSENAL.items()})
+ITEM_SPECS.update({kind: ItemSpec(ammunition_display_name(name), "".join(word[0] for word in name.split()).upper()[:2],
+                                  2, 2, 2, "consumable", equipment_format("equipment.arsenal.bomb.description"), stack_limit=3)
+                   for name, kind in BOMB_AMMUNITION.items()})
+
+ITEM_SPECS.update({f"ingredient:{name}": ItemSpec(reagent_display_name(name), "".join(word[0] for word in name.split()).upper()[:2],
+                                               1, 1, 1, "consumable", chemistry_text("chemistry.ingredient.description"), stack_limit=4)
+                   for name in REAGENTS})
+for pot in POT_AMMUNITION.values():
+    ITEM_SPECS[pot] = ItemSpec(ammunition_display_name(next(name for name, kind in POT_AMMUNITION.items() if kind == pot)), "P" + pot.split()[1][0].upper(), 2, 2, 3,
+                              "consumable", equipment_format("equipment.target.pot"), stack_limit=2)
+
+
+def item_spec(kind: str) -> ItemSpec:
+    if kind in ITEM_SPECS:
+        return ITEM_SPECS[kind]
+    if kind.startswith("evidence:"):
+        from .workline_presentation import workline_evidence_name, workline_format
+        from .worklines import EVIDENCE
+        name = kind.split(":", 1)[1]
+        region = EVIDENCE[name]
+        title = workline_evidence_name(region)
+        return ItemSpec(title.title(), "EV", 1, 2, 1, "cargo", workline_format("workline.item.evidence.description", title=title))
+    if kind.startswith("contract:"):
+        return ItemSpec(
+            "Witnessed contract copy", "WC", 1, 2, 1, "cargo",
+            "A physical local work account. It must be carried back after supply or field work; one paid witnessed replacement is possible after loss.",
+        )
+    if kind.startswith("fitting:"):
+        from .workshop import FITTINGS
+
+        fitting = FITTINGS[kind.split(":", 1)[1]]
+        abbreviation = "".join(word[0] for word in fitting.name.split()).upper()
+        return ItemSpec(fitting.name, abbreviation, *fitting.shape, fitting.weight, "fitting", f"{fitting.effect} {fitting.drawback}")
+    if kind.startswith("commodity:"):
+        name = kind.split(":", 1)[1]
+        from .content import COMMODITIES
+
+        cargo = COMMODITIES[name]
+        bulk = cargo["bulk"]
+        presentation = item_presentation(name)
+        return ItemSpec(presentation.display_name, name[:2].upper(), min(4, bulk), 1, bulk * 2,
+                        "cargo", presentation.description, stack_limit=4)
+    if kind.startswith("passive:"):
+        name = kind.split(":", 1)[1]
+        from .content import PASSIVES
+
+        bulk, description = PASSIVES[name]
+        presentation = item_presentation(name)
+        return ItemSpec(presentation.display_name, name[:2].upper(), max(1, bulk), 1, bulk,
+                        "passive", description, stack_limit=3)
+    if kind.startswith("consumable:"):
+        name = kind.split(":", 1)[1]
+        from .preparations import PREPARATIONS
+        if name in PREPARATIONS:
+            from .preparation_presentation import preparation_description, preparation_display_name
+            return ItemSpec(preparation_display_name(name), "PR", 1, 1, 1, "consumable", preparation_description(name), stack_limit=4)
+        from .content import DISCOVERIES
+
+        description = DISCOVERIES.get(name, ("consumable", "A counted expedition supply."))[1]
+        presentation = contracted_item_presentation(name)
+        if presentation:
+            return ItemSpec(presentation.display_name, name[:2].upper(), 1, 1, 1,
+                            "consumable", description, stack_limit=4)
+        from .quest_presentation import evidence_presentation_for_engine_id
+
+        evidence = evidence_presentation_for_engine_id(name)
+        return ItemSpec(
+            evidence.evidence_name if evidence and evidence.evidence_name else name.title(),
+            name[:2].upper(), 1, 1, 1, "consumable",
+            evidence.evidence_description if evidence and evidence.evidence_description else description,
+            stack_limit=4,
+        )
+    if kind.startswith("relic:"):
+        name = kind.split(":", 1)[1]
+        from .content import RELICS
+        from .legendary_presentation import arc_relic_display_name
+
+        presentation = contracted_item_presentation(name)
+        return ItemSpec(presentation.display_name if presentation else arc_relic_display_name(name) or name.title(), "RL", 2, 2, 2,
+                        "relic", RELICS[name])
+    raise KeyError(f"unknown item kind {kind!r}")
+
+
+def oriented_size(item: Item) -> tuple[int, int]:
+    spec = item_spec(item.kind)
+    return (spec.height, spec.width) if item.rotated else (spec.width, spec.height)
+
+
+def occupied_cells(item: Item) -> set[tuple[int, int]]:
+    width, height = oriented_size(item)
+    return {(item.x + dx, item.y + dy) for dy in range(height) for dx in range(width)}
+
+
+def grid_size(state: GameState, location: str) -> tuple[int, int]:
+    if location == "pack":
+        return state.pack_width, state.pack_height
+    if location == "locker":
+        return state.locker_width, state.locker_height
+    raise ValueError(f"{location} is not a grid")
+
+
+def grid_items(
+    state: GameState,
+    location: str,
+    *,
+    owner_id: str | None = None,
+    exclude: str | None = None,
+) -> list[Item]:
+    return [
+        item for item in state.items
+        if item.location == location
+        and (location != "pack" or item.owner_id == owner_id)
+        and item.id != exclude
+    ]
+
+
+def can_place(
+    state: GameState,
+    item: Item,
+    location: str,
+    x: int,
+    y: int,
+    *,
+    rotated: bool | None = None,
+    owner_id: str | None = None,
+) -> bool:
+    candidate = replace(
+        item,
+        location=location,
+        x=x,
+        y=y,
+        rotated=item.rotated if rotated is None else rotated,
+        owner_id=owner_id if location == "pack" else None,
+    )
+    width, height = grid_size(state, location)
+    cells = occupied_cells(candidate)
+    if not cells or any(cx < 0 or cy < 0 or cx >= width or cy >= height for cx, cy in cells):
+        return False
+    occupied: set[tuple[int, int]] = set()
+    for other in grid_items(state, location, owner_id=owner_id, exclude=item.id):
+        occupied.update(occupied_cells(other))
+    return cells.isdisjoint(occupied)
+
+
+def first_fit(
+    state: GameState,
+    item: Item,
+    location: str,
+    *,
+    owner_id: str | None = None,
+) -> tuple[int, int, bool] | None:
+    width, height = grid_size(state, location)
+    orientations = (item.rotated,) if item_spec(item.kind).width == item_spec(item.kind).height else (item.rotated, not item.rotated)
+    for rotated in orientations:
+        for y in range(height):
+            for x in range(width):
+                if can_place(state, item, location, x, y, rotated=rotated, owner_id=owner_id):
+                    return x, y, rotated
+    return None
+
+
+def placement_preview(
+    state: GameState,
+    item: Item,
+    location: str,
+    x: int,
+    y: int,
+    *,
+    rotated: bool | None = None,
+    owner_id: str | None = None,
+) -> PlacementPreview:
+    candidate = replace(
+        item, location=location, x=x, y=y,
+        rotated=item.rotated if rotated is None else rotated,
+        owner_id=owner_id if location == "pack" else None,
+    )
+    width, height = grid_size(state, location)
+    cells = occupied_cells(candidate)
+    outside = any(cx < 0 or cy < 0 or cx >= width or cy >= height for cx, cy in cells)
+    blockers = tuple(sorted(
+        other.id for other in grid_items(state, location, owner_id=owner_id, exclude=item.id)
+        if cells & occupied_cells(other)
+    ))
+    valid = bool(cells) and not outside and not blockers
+    reason = "valid placement" if valid else "out of bounds" if outside else "blocked by " + ", ".join(blockers)
+    current_owner_weight = pack_weight(state, owner_id) if owner_id else 0
+    already_carried = item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
+    from .workshop import attached
+
+    item_weight = item_spec(item.kind).weight * item.quantity + sum(item_spec(part.kind).weight for part in attached(state, item))
+    resulting = current_owner_weight + (0 if already_carried else item_weight)
+    capacity = weight_capacity(state) if owner_id == state.active_courier_id else 28
+    resulting_load = load_band(resulting, capacity)
+    return PlacementPreview(frozenset(cells), valid, reason, blockers, resulting, resulting_load)
+
+
+def _largest_free_area(width: int, height: int, occupied: set[tuple[int, int]]) -> int:
+    mask = sum(1 << (y * width + x) for x, y in occupied if 0 <= x < width and 0 <= y < height)
+    return _free_component_size(width, height, mask)
+
+
+def _free_component_size(width: int, height: int, occupied: int) -> int:
+    """Flood a bounded grid with integer bitsets, retaining exact four-way scoring."""
+    remaining = ((1 << (width * height)) - 1) & ~occupied
+    left_edge = sum(1 << (y * width) for y in range(height))
+    right_edge = left_edge << (width - 1)
+    largest = 0
+    while remaining:
+        component = remaining & -remaining
+        while True:
+            expanded = component | (remaining & (
+                ((component & ~right_edge) << 1) | ((component & ~left_edge) >> 1)
+                | (component << width) | (component >> width)
+            ))
+            if expanded == component:
+                break
+            component = expanded
+        largest = max(largest, component.bit_count())
+        remaining &= ~component
+    return largest
+
+
+def best_fit(
+    state: GameState,
+    item: Item,
+    location: str,
+    *,
+    owner_id: str | None = None,
+) -> tuple[int, int, bool] | None:
+    """Preserve useful contiguous space with deterministic category grouping."""
+    width, height = grid_size(state, location)
+    peers = grid_items(state, location, owner_id=owner_id, exclude=item.id)
+    base_occupied = set().union(*(occupied_cells(other) for other in peers)) if peers else set()
+    occupied_mask = sum(1 << (y * width + x) for x, y in base_occupied)
+    spec = item_spec(item.kind)
+    adjacent_scores: dict[tuple[int, int], int] = {}
+    for other in peers:
+        if item_spec(other.kind).category != spec.category:
+            continue
+        adjacent_cells = {
+            (x + dx, y + dy) for x, y in occupied_cells(other)
+            for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1))
+        }
+        for point in adjacent_cells:
+            adjacent_scores[point] = adjacent_scores.get(point, 0) + 1
+    orientations = (item.rotated,) if spec.width == spec.height else (item.rotated, not item.rotated)
+    candidates: list[tuple[tuple[int, ...], tuple[int, int, bool]]] = []
+    for rotated in orientations:
+        item_width, item_height = (spec.height, spec.width) if rotated else (spec.width, spec.height)
+        shape = sum(((1 << item_width) - 1) << (row * width) for row in range(item_height))
+        for y in range(height - item_height + 1):
+            for x in range(width - item_width + 1):
+                footprint = shape << (y * width + x)
+                if footprint & occupied_mask:
+                    continue
+                adjacent = sum(adjacent_scores.get((cx, cy), 0)
+                               for cy in range(y, y + item_height)
+                               for cx in range(x, x + item_width))
+                unmoved = int(not (item.location == location and item.x == x and item.y == y and item.rotated == rotated))
+                score = (-_free_component_size(width, height, occupied_mask | footprint), -adjacent, unmoved, y, x, int(rotated))
+                candidates.append((score, (x, y, rotated)))
+    return min(candidates)[1] if candidates else None
+
+
+def place_item(
+    state: GameState,
+    item_id: str,
+    location: str,
+    x: int,
+    y: int,
+    *,
+    rotated: bool | None = None,
+    owner_id: str | None = None,
+) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    if not can_place(state, item, location, x, y, rotated=rotated, owner_id=owner_id):
+        return False
+    item.location, item.x, item.y = location, x, y
+    item.rotated = item.rotated if rotated is None else rotated
+    item.owner_id = owner_id if location == "pack" else None
+    item.container_id = None
+    item.region_id = None
+    item.ground_position = None
+    return True
+
+
+def auto_place(
+    state: GameState,
+    item_id: str,
+    location: str,
+    *,
+    owner_id: str | None = None,
+) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    fit = best_fit(state, item, location, owner_id=owner_id)
+    return bool(fit and place_item(state, item_id, location, fit[0], fit[1], rotated=fit[2], owner_id=owner_id))
+
+
+def combine_stacks(
+    state: GameState,
+    location: str,
+    *,
+    owner_id: str | None = None,
+    movable_ids: set[str] | None = None,
+) -> None:
+    items = sorted(grid_items(state, location, owner_id=owner_id), key=lambda item: item.id)
+    for destination in items:
+        if destination.pinned or destination.location != location:
+            continue
+        limit = item_spec(destination.kind).stack_limit
+        if limit <= 1 or destination.quantity >= limit:
+            continue
+        for source in items:
+            if source.id == destination.id or source.location != location or source.kind != destination.kind or source.pinned:
+                continue
+            if movable_ids is not None and (source.id not in movable_ids or destination.id not in movable_ids):
+                continue
+            moved = min(limit - destination.quantity, source.quantity)
+            if moved <= 0:
+                continue
+            destination.quantity += moved
+            source.quantity -= moved
+            if source.quantity == 0:
+                source.location = "destroyed"
+                source.owner_id = None
+                source.merged_into = destination.id
+            if destination.quantity == limit:
+                break
+
+
+def auto_pack(
+    state: GameState,
+    location: str,
+    *,
+    owner_id: str | None = None,
+    selected_ids: set[str] | None = None,
+) -> bool:
+    """Commit a complete deterministic layout or restore the exact original."""
+    snapshot = copy.deepcopy(state.items)
+    try:
+        selected = set(selected_ids) if selected_ids is not None else None
+        combine_stacks(state, location, owner_id=owner_id, movable_ids=selected)
+        movable = [
+            item for item in grid_items(state, location, owner_id=owner_id)
+            if not item.pinned and (selected is None or item.id in selected)
+        ]
+        movable.sort(key=lambda item: (
+            -item_spec(item.kind).width * item_spec(item.kind).height,
+            -max(item_spec(item.kind).width, item_spec(item.kind).height),
+            item_spec(item.kind).category,
+            item.id,
+        ))
+        for item in movable:
+            item.location = "lost"
+        for item in movable:
+            fit = best_fit(state, item, location, owner_id=owner_id)
+            if not fit or not place_item(state, item.id, location, fit[0], fit[1], rotated=fit[2], owner_id=owner_id):
+                raise ValueError("no complete arrangement")
+        return True
+    except (KeyError, ValueError):
+        state.items = snapshot
+        return False
+
+
+def pin_item(state: GameState, item_id: str, pinned: bool | None = None) -> bool:
+    item = next((item for item in state.items if item.id == item_id), None)
+    if item is None or item.location not in {"pack", "locker"}:
+        return False
+    item.pinned = not item.pinned if pinned is None else pinned
+    return True
+
+
+def item_preview(kind: str) -> tuple[str, str, str]:
+    """Compact item art supplied by physical category and authored weapon form."""
+    weapon_art = {
+        "billhook": ("   _/", "--/  ", " /   "),
+        "spear": ("  /\\ ", " /  ", "/   "),
+        "cudgel": (" [#] ", "  |  ", "  |  "),
+        "staff": ("  /  ", " /   ", "/    "),
+        "hand axe": (" /== ", "  |  ", "  |  "),
+        "crossbow": ("\\=|=/", "  |  ", " / \\ "),
+        "longbow": (")--- ", ")    ", ")--- "),
+        "sling": (" o   ", "  \\  ", "   \\ "),
+        "heavy crossbow": ("\\===|===/", "    |    ", "   / \\   "),
+        "pike": ("----->", "      ", "      "),
+        "paired knives": (" /\\  ", " ||  ", " \\/  "),
+        "javelins": ("///> ", "///> ", "///> "),
+        "war hammer": ("[===]", "  |  ", "  |  "),
+        "weighted net": ("#-#-#", "-#-#-", " # \\ "),
+        "pot sling": ("  (_)  ", " /   / ", "/___/  "),
+        "throwing axe": ("  /==  ", " /     ", "/      "),
+        "forked pike": ("-----E ", "       ", "       "),
+        "war flail": ("o-o-[#]", "|      ", "|      "),
+        "spade": ("  T    ", "  |    ", " [V]   "),
+        "shield and hanger": (" /---/ ", "| + | /", " /_/ / "),
+    }
+    if kind in weapon_art:
+        return weapon_art[kind]
+    spec = item_spec(kind)
+    if kind in ARSENAL:
+        family = ARSENAL[kind].family
+        mark = spec.abbreviation
+        return {
+            "blade": ("   /==", f"  /{mark} ", " /    "),
+            "reach": ("----->", f"  {mark}  ", "   |  "),
+            "impact": (" [###]", f"  {mark}  ", "   |  "),
+            "bow": (" )--- ", f" ){mark}  ", " )--- "),
+            "gun": ("==[==]", f"  {mark}  ", "   || "),
+            "device": (" .---.", f"({mark:^5})", " `---'"),
+        }[family]
+    if kind.startswith("evidence:"):
+        return ("+----+", "| /# |", "+----+")
+    if spec.category == "armour":
+        return {
+            "head": (" /---\\ ", "|  o  |", " \\___/ "),
+            "torso": (" /| |\\ ", "| === |", " \\___/ "),
+            "arms": ("==| |==", "  | |  ", "       "),
+            "hands": ("[ ] [ ]", " |   | ", "       "),
+            "legs": (" |   | ", " |   | ", "/     \\"),
+            "feet": ("       ", "       ", "[_] [_]"),
+        }[spec.slot or "torso"]
+    if spec.category == "relic":
+        return (" .-*-.", "(  ?  )", " `---'")
+    if spec.category == "gear":
+        return ("+-----+", f"| {spec.abbreviation:^3} |", "+-----+")
+    if spec.category == "cargo":
+        return ("+====+", f"| {spec.abbreviation:^2} |", "+====+")
+    if spec.category == "passive":
+        return (" .---.", f"( {spec.abbreviation:^2} )", " '---'")
+    return ("  __  ", f" /{spec.abbreviation:^2}\\ ", " \\__/ ")
+
+
+def rotate_item(state: GameState, item_id: str) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    if item.location not in {"pack", "locker"}:
+        return False
+    owner = item.owner_id if item.location == "pack" else None
+    if not can_place(state, item, item.location, item.x, item.y, rotated=not item.rotated, owner_id=owner):
+        return False
+    item.rotated = not item.rotated
+    return True
+
+
+def create_item(
+    state: GameState,
+    kind: str,
+    provenance: str,
+    *,
+    location: str = "lost",
+    owner_id: str | None = None,
+    quantity: int = 1,
+    condition: int = 100,
+    masterwork: bool = False,
+) -> Item:
+    item_spec(kind)
+    item = Item(
+        id=f"item-{state.next_item_id:05d}", kind=kind, location=location,
+        provenance=provenance, owner_id=owner_id, quantity=quantity,
+        condition=condition, masterwork=masterwork,
+    )
+    state.next_item_id += 1
+    state.items.append(item)
+    return item
+
+
+def basic_courier_kit(person: Person) -> dict[str, str]:
+    """Return the small authored working issue for one adult's actual role."""
+    weapon, secondary = BASIC_COURIER_LOADOUTS.get(person.role, ("staff", "rope"))
+    kit = {
+        "readied": weapon,
+        "secondary": secondary,
+        "head": "felt hood",
+        "torso": "quilted jack",
+        "feet": "reed shoes",
+    }
+    kit.update(BASIC_COURIER_ARMOUR.get(person.role, {}))
+    return kit
+
+
+def ensure_courier_basics(state: GameState, person: Person) -> list[str]:
+    """Issue missing basics once; later loss or deliberate removal still matters."""
+    marker = f"basic_kit:{person.id}"
+    if state.vessel_changes.get(marker):
+        return []
+    issued: list[str] = []
+    for location, kind in basic_courier_kit(person).items():
+        if equipped_item(state, location, person.id) is not None:
+            continue
+        create_item(
+            state, kind, f"Jomon working issue for {person.role}",
+            location=location, owner_id=person.id,
+        )
+        issued.append(kind)
+        spec = item_spec(kind)
+        if spec.category == "weapon" and kind not in state.owned_weapons:
+            state.owned_weapons.append(kind)
+        elif spec.category == "gear" and kind not in state.owned_gear:
+            state.owned_gear.append(kind)
+    weapon = basic_courier_kit(person)["readied"]
+    ammunition = WEAPON_AMMUNITION.get(weapon)
+    if ammunition:
+        physical_kind = AMMUNITION_ITEMS[ammunition]
+        if not any(
+            item.kind == physical_kind and item.owner_id == person.id
+            and item.location == "pack" for item in state.items
+        ):
+            supply = create_item(
+                state, physical_kind, "Jomon working issue", owner_id=person.id,
+                quantity={"heavy bolts": 2, "nets": 1}.get(ammunition, 4),
+            )
+            if not auto_place(state, supply.id, "pack", owner_id=person.id):
+                supply.owner_id = None
+                if not auto_place(state, supply.id, "locker"):
+                    raise RuntimeError("basic ammunition cannot fit Jomon storage")
+            issued.append(physical_kind)
+    state.vessel_changes[marker] = True
+    if person.id == state.active_courier_id:
+        sync_legacy_load(state)
+    return issued
+
+
+def ensure_household_basics(state: GameState) -> None:
+    for person in state.household:
+        if person.alive:
+            ensure_courier_basics(state, person)
+
+
+def transfer_to_grid(
+    state: GameState,
+    item_id: str,
+    location: str,
+    *,
+    owner_id: str | None = None,
+) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    previous = replace(item)
+    fit = first_fit(state, item, location, owner_id=owner_id)
+    if not fit:
+        return False
+    if place_item(state, item.id, location, fit[0], fit[1], rotated=fit[2], owner_id=owner_id):
+        return True
+    item.__dict__.update(previous.__dict__)
+    return False
+
+
+def equipped_item(state: GameState, location: str, owner_id: str | None = None) -> Item | None:
+    owner_id = owner_id if owner_id is not None else state.active_courier_id
+    return next((item for item in state.items if item.owner_id == owner_id and item.location == location), None)
+
+
+def equip_item(state: GameState, item_id: str) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    if item.location != "pack" or item.owner_id != state.active_courier_id:
+        return False
+    spec = item_spec(item.kind)
+    destination = "readied" if spec.category == "weapon" else spec.slot if spec.category == "armour" else "secondary" if spec.category == "gear" else None
+    if destination is None:
+        return False
+    previous = equipped_item(state, destination)
+    item.location = "held"
+    if previous and not transfer_to_grid(state, previous.id, "pack", owner_id=state.active_courier_id):
+        item.location = "pack"
+        return False
+    item.location, item.owner_id, item.x, item.y = destination, state.active_courier_id, 0, 0
+    if destination == "readied":
+        state.weapon = item.kind
+        state.crossbow_loaded = True
+        state.aimed_target = None
+    elif destination == "secondary":
+        state.gear = item.kind
+    return True
+
+
+def prepare_kind(state: GameState, kind: str) -> bool:
+    """Compatibility preparation path backed by the physical locker and pack."""
+    owner = state.active_courier_id
+    if owner is None:
+        return False
+    spec = item_spec(kind)
+    destination = "readied" if spec.category == "weapon" else "secondary"
+    current = equipped_item(state, destination, owner)
+    if current and current.kind == kind:
+        return True
+    candidate = next(
+        (
+            item for item in state.items
+            if item.kind == kind
+            and (
+                (item.location == "pack" and item.owner_id == owner)
+                or item.location == "locker"
+            )
+        ),
+        None,
+    )
+    if candidate is None:
+        return False
+    if candidate.location == "locker" and not transfer_to_grid(state, candidate.id, "pack", owner_id=owner):
+        return False
+    return equip_item(state, candidate.id)
+
+
+def unequip_item(state: GameState, location: str) -> bool:
+    item = equipped_item(state, location)
+    if item is None or not transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id):
+        return False
+    if location == "readied":
+        state.weapon = None
+    elif location == "secondary":
+        state.gear = None
+    return True
+
+
+def drop_item(state: GameState, item_id: str) -> bool:
+    item = next(item for item in state.items if item.id == item_id)
+    if item.owner_id != state.active_courier_id:
+        return False
+    item.location = "ground"
+    item.owner_id = None
+    item.region_id = state.spatial_id
+    item.ground_position = state.position
+    item.container_id = None
+    if item.kind == state.weapon:
+        state.weapon = None
+    if item.kind == state.gear:
+        state.gear = None
+    return True
+
+
+def lose_matching_carried(state: GameState, kinds: Iterable[str] | None = None) -> list[str]:
+    owner = state.active_courier_id
+    allowed = set(kinds) if kinds is not None else None
+    lost: list[str] = []
+    for item in state.items:
+        if item.owner_id != owner or item.location != "pack":
+            continue
+        if allowed is not None and item.kind not in allowed:
+            continue
+        item.location, item.owner_id = "lost", None
+        lost.append(item_spec(item.kind).name)
+    return lost
+
+
+def consume_carried(state: GameState, kind: str, quantity: int = 1) -> bool:
+    owner = state.active_courier_id
+    remaining = quantity
+    candidates = [
+        item for item in state.items
+        if item.owner_id == owner and item.location in {"pack", "readied", "secondary"} and item.kind == kind
+    ]
+    if sum(item.quantity for item in candidates) < quantity:
+        return False
+    for item in candidates:
+        taken = min(remaining, item.quantity)
+        item.quantity -= taken
+        remaining -= taken
+        if item.quantity == 0:
+            item.location, item.owner_id = "destroyed", None
+        if remaining == 0:
+            break
+    sync_legacy_load(state)
+    return True
+
+
+def physical_ammunition(state: GameState, ammunition: str) -> int:
+    physical_kind = AMMUNITION_ITEMS.get(ammunition)
+    if physical_kind is None:
+        return 0
+    return sum(
+        item.quantity for item in state.items
+        if item.kind == physical_kind and item.owner_id == state.active_courier_id
+        and item.location == "pack"
+    )
+
+
+def consume_ammunition(state: GameState, ammunition: str) -> bool:
+    physical_kind = AMMUNITION_ITEMS.get(ammunition)
+    if physical_kind is None or not consume_carried(state, physical_kind, 1):
+        return False
+    sync_ammunition(state)
+    return True
+
+
+def sync_ammunition(state: GameState) -> None:
+    state.ammunition_by_type = {
+        ammunition: physical_ammunition(state, ammunition)
+        for ammunition in AMMUNITION_ITEMS
+    }
+    state.ammunition = state.ammunition_by_type["bolts"]
+
+
+def sync_legacy_load(state: GameState) -> None:
+    """Keep the small existing action vocabulary aligned with physical items."""
+    from .preparations import normalize_preparation_state
+    normalize_preparation_state(state)
+    owner = state.active_courier_id
+    readied = equipped_item(state, "readied", owner)
+    secondary = equipped_item(state, "secondary", owner)
+    state.weapon = readied.kind if readied else None
+    state.gear = secondary.kind if secondary else None
+    passives: dict[str, int] = {}
+    consumables: dict[str, int] = {}
+    goods: dict[str, object] = {}
+    commodity_condition: dict[str, int] = {}
+    carried_relics: list[str] = []
+    from .state import CommodityStack
+    from .content import COMMODITIES
+
+    for item in state.items:
+        if item.owner_id != owner or item.location != "pack":
+            continue
+        if item.kind.startswith("passive:"):
+            name = item.kind.split(":", 1)[1]
+            passives[name] = passives.get(name, 0) + item.quantity
+        elif item.kind.startswith("consumable:"):
+            name = item.kind.split(":", 1)[1]
+            consumables[name] = consumables.get(name, 0) + item.quantity
+        elif item.kind.startswith("commodity:"):
+            name = item.kind.split(":", 1)[1]
+            current = goods.get(name)
+            quantity = getattr(current, "quantity", 0) + item.quantity
+            commodity_condition[name] = min(commodity_condition.get(name, 100), item.condition)
+            base = COMMODITIES[name]["condition"]
+            condition = base if commodity_condition[name] >= 80 else f"weathered {base}" if commodity_condition[name] >= 45 else "spoiled"
+            goods[name] = CommodityStack(quantity, condition)
+        elif item.kind.startswith("relic:"):
+            carried_relics.append(item.kind.split(":", 1)[1])
+    state.carried_passives = passives
+    state.consumables = consumables
+    state.carried_goods = goods  # type: ignore[assignment]
+    if state.carried_relic not in carried_relics:
+        state.carried_relic = carried_relics[0] if carried_relics else None
+    sync_ammunition(state)
+
+
+def record_acquisition(state: GameState, item: Item) -> None:
+    marker = f"acquired:{item.id}"
+    if state.vessel_changes.get(marker):
+        sync_legacy_load(state)
+        return
+    if item.kind.startswith("passive:"):
+        name = item.kind.split(":", 1)[1]
+        state.owned_passives[name] = state.owned_passives.get(name, 0) + item.quantity
+    elif item.kind.startswith("relic:"):
+        name = item.kind.split(":", 1)[1]
+        state.relics[name] = state.relics.get(name, 0) + item.quantity
+    elif item_spec(item.kind).category == "weapon" and item.kind not in state.owned_weapons:
+        state.owned_weapons.append(item.kind)
+    elif item_spec(item.kind).category == "gear" and item.kind not in state.owned_gear:
+        state.owned_gear.append(item.kind)
+    state.vessel_changes[marker] = True
+    sync_legacy_load(state)
+
+
+def reconcile_format_five_resources(state: GameState) -> None:
+    """Physicalise finite format-5 mirrors without replacing known losses."""
+    existing_relics: dict[str, int] = {}
+    for item in state.items:
+        if item.kind.startswith("relic:") and item.location not in {"lost", "destroyed"}:
+            name = item.kind.split(":", 1)[1]
+            existing_relics[name] = existing_relics.get(name, 0) + item.quantity
+    for name, count in state.relics.items():
+        for _ in range(max(0, count - existing_relics.get(name, 0))):
+            item = create_item(state, f"relic:{name}", "preserved format-5 household relic")
+            if not auto_place(state, item.id, "locker"):
+                owner = state.active_courier_id
+                if not owner or not auto_place(state, item.id, "pack", owner_id=owner):
+                    raise RuntimeError("format-5 relic exceeds bounded physical storage")
+    for ammunition, old_count in dict(state.ammunition_by_type).items():
+        physical_kind = AMMUNITION_ITEMS.get(ammunition)
+        if physical_kind is None or old_count <= 0 or not state.active_courier_id:
+            continue
+        existing = physical_ammunition(state, ammunition)
+        if existing == 0:
+            item = create_item(
+                state, physical_kind, "preserved format-5 counted ammunition",
+                owner_id=state.active_courier_id, quantity=old_count,
+            )
+            if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
+                item.owner_id = None
+                if not auto_place(state, item.id, "locker"):
+                    raise RuntimeError("format-5 ammunition exceeds bounded physical storage")
+    sync_legacy_load(state)
+
+
+@dataclass
+class InventoryTransaction:
+    """One reversible inventory operation, independent of cursor movement."""
+
+    snapshot: dict[str, object]
+    changed: bool = False
+
+    @classmethod
+    def begin(cls, state: GameState) -> "InventoryTransaction":
+        return cls(copy.deepcopy(state.__dict__))
+
+    def cancel(self, state: GameState) -> None:
+        state.__dict__.clear()
+        state.__dict__.update(copy.deepcopy(self.snapshot))
+
+
+def pack_weight(state: GameState, owner_id: str | None = None) -> int:
+    from .workshop import effective_spec
+
+    owner_id = owner_id if owner_id is not None else state.active_courier_id
+    carried = {item.id for item in state.items if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}}
+    weight = sum(
+        effective_spec(state, item).weight * item.quantity
+        for item in state.items
+        if item.owner_id == owner_id and item.location in {"pack", *EQUIPPED_LOCATIONS}
+    )
+    weight += sum(item_spec(item.kind).weight for item in state.items if item.location == "fitted" and item.fitted_to in carried)
+    if "wet" in state.terrain_statuses:
+        weight += sum(
+            4 if "water-heavy" in effective_spec(state, item).tags else 2 for item in state.items
+            if item.owner_id == owner_id
+            and item.location in EQUIPPED_LOCATIONS
+            and {"water-heavy", "absorbent"} & set(effective_spec(state, item).tags)
+        )
+    return weight
+
+
+def weight_capacity(state: GameState) -> int:
+    from .character import attribute_modifier
+    from .people import personal_practice
+    from .practices import learned_practice_ids
+
+    courier = state.courier
+    capacity = 34 if courier and courier.role in {"guard", "carpenter", "bargemaster"} else 28
+    if courier and courier.character_specified:
+        capacity += 2 * attribute_modifier(courier, "strength")
+    if courier and courier.ancestry == "Stonefolk":
+        capacity += 4
+    if courier and personal_practice(courier) in learned_practice_ids(courier):
+        capacity += 4
+    if courier and "load-balance" in courier.skill_nodes:
+        capacity += 4
+    if state.support == "porter watch":
+        capacity += 8
+    if state.gear == "cargo harness":
+        capacity += 10
+    if "load ledger" in state.carried_passives:
+        capacity += 4
+    return capacity
+
+
+def load_state(state: GameState) -> str:
+    return load_band(pack_weight(state), max(1, weight_capacity(state)))
+
+
+def load_band(weight: int, limit: int) -> str:
+    if weight * 2 <= limit:
+        return "light"
+    if weight * 4 <= limit * 3:
+        return "laden"
+    if weight <= limit:
+        return "encumbered"
+    return "overloaded"
+
+
+LOAD_EFFECTS = {
+    "light": "quiet movement; normal climb and retreat",
+    "laden": "some surfaces add noise",
+    "encumbered": "movement may take two actions; weak floors and retreat are risky",
+    "overloaded": "cannot climb; deep water and retreat are dangerous",
+}
+
+
+def armour_at(state: GameState, location: str) -> Item | None:
+    return equipped_item(state, location)
+
+
+def protection_at(state: GameState, location: str, damage_kind: str) -> tuple[int, str]:
+    from .workshop import effective_spec
+
+    item = armour_at(state, location)
+    if not item or item.condition <= 0:
+        return 0, "uncovered"
+    spec = effective_spec(state, item)
+    protection = {"cut": spec.cut, "pierce": spec.pierce, "blunt": spec.blunt}.get(damage_kind, 0)
+    if spec.coverage == 1 and not state.guarded_step:
+        protection = max(0, protection - 1)
+    if item.condition <= 25:
+        protection = max(0, protection - 1)
+    return protection, spec.name
+
+
+def armour_noise(state: GameState) -> int:
+    from .workshop import effective_spec
+
+    return sum(
+        effective_spec(state, item).noise for item in state.items
+        if item.owner_id == state.active_courier_id
+        and item.location in BODY_SLOTS
+    )
+
+
+def armour_mobility(state: GameState) -> int:
+    from .workshop import effective_spec
+
+    return sum(
+        effective_spec(state, item).mobility for item in state.items
+        if item.owner_id == state.active_courier_id
+        and item.location in BODY_SLOTS
+    )
+
+
+def degrade_armour(state: GameState, location: str, amount: int = 8) -> None:
+    item = armour_at(state, location)
+    if item:
+        item.condition = max(0, item.condition - amount)
+        from .workshop import attached
+
+        for part in attached(state, item):
+            part.condition = max(0, part.condition - max(1, amount // 2))
+
+
+def add_status(state: GameState, name: str, cause: str, turns: int, consequence: str) -> bool:
+    existing = state.terrain_statuses.get(name)
+    changed = existing is None or existing.remaining < turns
+    state.terrain_statuses[name] = TerrainStatus(cause, max(turns, existing.remaining if existing else 0), consequence)
+    return changed
+
+
+def tick_statuses(state: GameState) -> list[str]:
+    ended: list[str] = []
+    for name in list(state.terrain_statuses):
+        status = state.terrain_statuses[name]
+        status.remaining -= 1
+        if status.remaining <= 0:
+            del state.terrain_statuses[name]
+            ended.append(f"{name.replace('-', ' ').title()} clears.")
+    return ended
+
+
+def worn_tags(state: GameState, slots: Iterable[str] = BODY_SLOTS, owner_id: str | None = None) -> set[str]:
+    from .workshop import effective_spec
+
+    tags: set[str] = set()
+    owner_id = owner_id or state.active_courier_id
+    for location in slots:
+        item = next((item for item in state.items if item.owner_id == owner_id and item.location == location), None)
+        if item and item.condition > 0:
+            tags.update(effective_spec(state, item).tags)
+    return tags
+
+
+def terrain_status_for(state: GameState, tile: str) -> tuple[str, str, int, str] | None:
+    from .legendary import active_tags
+    tags = worn_tags(state) | active_tags(state)
+    burden = load_state(state)
+    technique = state.courier.technique if state.courier else ""
+    from .practices import has_effect as has_practice_effect
+
+    if tile == "m" and has_practice_effect(state, "clay-step"):
+        return None
+    if tile == "m" and "mudproof" not in tags and "fen sledge" not in state.carried_passives:
+        turns = 1 if "reed-tonic" in state.drink_effects else 3
+        return "bogged", "deep mud", turns, "movement is slower; evasion and retreat worsen"
+    if tile in {",", "~"} and "weatherproof" not in tags:
+        return "wet", "floodwater", 6, "heavy armour weighs more and cold exposure grows"
+    if tile == "r" and "scree-grip" not in tags and "limestone cleat" not in state.carried_passives and technique != "scree step":
+        return "poor-footing", "unstable scree", 3, "guard, climbing, and falling are less safe"
+    if tile == "q" and "sharp-proof" not in tags and "limestone cleat" not in state.carried_passives and technique != "scree step":
+        return "cut-feet", "sharp limestone", 4, "foot injury risk and movement noise increase"
+    if tile == "t" and not {"thornproof"} <= tags:
+        return "thorn-scratched", "dense thorn growth", 4, "exposed limbs hinder guard and quiet passage"
+    if tile == "s" and "smoke-filter" not in tags and "face-cover" not in tags and "salt veil" not in state.carried_passives and "smokeleaf-infusion" not in state.drink_effects:
+        turns = 2 if (
+            "charcoal mask" in state.carried_passives
+            or has_practice_effect(state, "smoke-sight")
+        ) else 4
+        return "smoke-inhalation", "rising smoke", turns, "sight and endurance are reduced"
+    if tile == ":" and "saltproof" not in tags and "salt veil" not in state.carried_passives:
+        return "salt-grit", "windblown salt", 4, "aim and exposed hands are impaired"
+    if tile == "w" and "deep-water" not in tags:
+        if "buoyant" in worn_tags(state, ("torso",)) and burden in {"light", "laden"}:
+            return None
+        consequence = "overloaded couriers risk being swept away" if burden == "overloaded" else "movement and guard are slowed"
+        return "current", "deep current", 2, consequence
+    if tile == "_" and has_practice_effect(state, "ice-step"):
+        return None
+    if tile == "_" and "ice-grip" not in (worn_tags(state, ("feet",)) | active_tags(state)) and "ice awl" not in state.carried_passives:
+        return "poor-footing", "frozen shallows", 3, "guard is weak on ice; leave it or wear cleats"
+    return None
+
+
+def apply_terrain_status(state: GameState, tile: str) -> str:
+    ember_marker = f"ember_cloth:{state.expedition_count}"
+    if (
+        tile == "s" and "ember cloth" in state.carried_passives
+        and not state.vessel_changes.get(ember_marker)
+    ):
+        state.vessel_changes[ember_marker] = True
+        return "Ember cloth takes one smoke crossing without losing guard or breath."
+    result = terrain_status_for(state, tile)
+    if not result:
+        return ""
+    name, cause, turns, consequence = result
+    messages = []
+    if add_status(state, name, cause, turns, consequence):
+        messages.append(f"{name.replace('-', ' ').title()} from {cause}: {consequence}.")
+    if tile in {",", "~", "w"}:
+        from .calendar import calendar_at
+        from .vessel_refits import installed
+
+        if (
+            calendar_at(state).season == "winter"
+            and "warm" not in worn_tags(state)
+            and "winter-juniper" not in state.drink_effects
+            and not (state.location == "jomon" and installed(state, "winter-hatch-felt"))
+            and add_status(state, "chilled", "winter water", 8, "aim, treatment, and recovery are slower")
+        ):
+            messages.append("Winter water chills exposed clothing; aim and recovery slow.")
+    return " ".join(messages)
+
+
+def validate_inventory(state: GameState) -> None:
+    ids = [item.id for item in state.items]
+    if len(ids) != len(set(ids)):
+        raise ValueError("item identities must be unique")
+    people = {person.id for person in state.household}
+    physical_actors = {
+        actor.id for actors in state.region_threats.values() for actor in actors
+    } | {actor.id for actor in state.vessel_threats}
+    valid_locations = {
+        "pack", "locker", "readied", "secondary", *BODY_SLOTS, "container",
+        "ground", "enemy", "vessel_cargo", "lost", "destroyed", "fitted",
+    }
+    for item in state.items:
+        item_spec(item.kind)
+        if type(item.masterwork) is not bool:
+            raise ValueError("invalid masterwork identity")
+        if item.location not in valid_locations:
+            raise ValueError(f"invalid item location {item.location}")
+        if item.location in {"pack", "secondary"} and item.owner_id not in people:
+            raise ValueError("carried item has no valid owner")
+        archived_hostile_issue = item.owner_id is not None and (
+            " working issue carried by " in item.provenance
+            or " protection worn by " in item.provenance
+        )
+        if (
+            item.location in {"readied", *BODY_SLOTS}
+            and item.owner_id not in people | physical_actors
+            and not archived_hostile_issue
+        ):
+            raise ValueError("equipped item has no valid actor")
+        if item.location == "container" and not item.container_id:
+            raise ValueError("container item has no container")
+        if item.location == "ground" and (not item.region_id or item.ground_position is None):
+            raise ValueError("ground item has no regional position")
+    for location, owner in (("locker", None), *(('pack', person.id) for person in state.household)):
+        seen: set[tuple[int, int]] = set()
+        width, height = grid_size(state, location)
+        for item in grid_items(state, location, owner_id=owner):
+            cells = occupied_cells(item)
+            if any(x < 0 or y < 0 or x >= width or y >= height for x, y in cells) or not cells.isdisjoint(seen):
+                raise ValueError(f"invalid {location} placement")
+            seen.update(cells)
+    from .workshop import validate_fittings
+
+    validate_fittings(state)
+
+
+def initialise_inventory(state: GameState) -> None:
+    """Create a deterministic, physically placed household starting store."""
+    starting = [
+        *state.owned_weapons, *state.owned_gear,
+        "felt hood", "quilted jack", "leather vambraces", "work gloves",
+        "wool chausses", "hobnailed boots",
+    ]
+    for kind in dict.fromkeys(starting):
+        item = create_item(state, kind, "Jomon household stores")
+        if not auto_place(state, item.id, "locker"):
+            raise RuntimeError("initial Jomon locker is too small")
+    flask = create_item(state, "field flask", chemistry_text("chemistry.provenance.initial_flask"))
+    if not auto_place(state, flask.id, "locker"):
+        raise RuntimeError("initial Jomon locker cannot hold a field flask")
+    for name, quantity in (
+        ("crossbow bolts", 6), ("fletched arrows", 8),
+        ("sling shot pouch", 10), ("quarrel case", 4),
+        ("casting net bundle", 2),
+        ("throwing javelins", 4),
+        ("handgonne charges", 3),
+    ):
+        item = create_item(
+            state, f"consumable:{name}", "Jomon counted ammunition",
+            quantity=quantity,
+        )
+        if not auto_place(state, item.id, "locker"):
+            raise RuntimeError("initial Jomon locker cannot hold physical ammunition")
+    for name, quantity in state.relics.items():
+        for _ in range(quantity):
+            item = create_item(state, f"relic:{name}", "Jomon household relic store")
+            if not auto_place(state, item.id, "locker"):
+                raise RuntimeError("initial Jomon locker cannot hold a household relic")
+
+
+def legacy_kind(name: str, category: str) -> str:
+    if category == "passive":
+        return f"passive:{name}"
+    if category == "consumable":
+        return f"consumable:{name}"
+    if category == "relic":
+        return f"relic:{name}"
+    return name
+
+
+def reconcile_legacy_carried(state: GameState) -> None:
+    """Create physical instances for old mirrors only when one does not exist."""
+    owner = state.active_courier_id
+    if not owner:
+        return
+    desired: list[tuple[str, int, str]] = []
+    if state.weapon:
+        desired.append((state.weapon, 1, "readied"))
+    if state.gear:
+        desired.append((state.gear, 1, "secondary"))
+    desired.extend((f"passive:{name}", count, "pack") for name, count in state.carried_passives.items())
+    desired.extend((f"consumable:{name}", count, "pack") for name, count in state.consumables.items())
+    desired.extend((f"commodity:{name}", stack.quantity, "pack") for name, stack in state.carried_goods.items())
+    if state.carried_relic:
+        desired.append((f"relic:{state.carried_relic}", 1, "pack"))
+    for kind, quantity, location in desired:
+        existing = [item for item in state.items if item.owner_id == owner and item.kind == kind and item.location in {"pack", "readied", "secondary"}]
+        missing = quantity - sum(item.quantity for item in existing)
+        if missing <= 0:
+            continue
+        stored = next(
+            (item for item in state.items if item.kind == kind and item.location == "locker"),
+            None,
+        )
+        if stored and quantity == 1:
+            if location in {"readied", "secondary"}:
+                stored.location, stored.owner_id = location, owner
+                continue
+            if transfer_to_grid(state, stored.id, "pack", owner_id=owner):
+                continue
+        item = create_item(state, kind, "migrated format-3 possession", owner_id=owner, quantity=missing)
+        if location in {"readied", "secondary"} and not equipped_item(state, location, owner):
+            item.location = location
+        elif not auto_place(state, item.id, "pack", owner_id=owner):
+            item.owner_id = None
+            if not auto_place(state, item.id, "locker"):
+                raise RuntimeError("migrated possessions exceed bounded Jomon storage")

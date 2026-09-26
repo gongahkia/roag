@@ -1,0 +1,10 @@
+{
+  "requirements": {
+    "recruit-maelin": {"region": "greywash", "markers": ["tide_held", "safe_salt_delay"], "witnessed": "a tide window was held or deliberately delayed"},
+    "recruit-jessa": {"region": "greywash", "markers": ["quest_cache_opened"], "witnessed": "the named wreck locker was recovered accountably"},
+    "recruit-orra": {"region": "greenwold", "markers": ["medicine_coppice_saved"], "witnessed": "the medicine coppice survived the managed burn"},
+    "recruit-bran": {"region": "greenwold", "markers": ["care_obligation_settled"], "witnessed": "a persistent injury was treated through a witnessed obligation"},
+    "recruit-teren": {"region": "whitecairn", "markers": ["quarry_braced"], "witnessed": "the quarry was materially braced before another crossing"},
+    "recruit-sava": {"region": "whitecairn", "markers": ["honest_bell"], "witnessed": "the false private alarm was replaced by an honest warning"}
+  }
+}
