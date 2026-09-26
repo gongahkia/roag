@@ -147,6 +147,31 @@ def _validate_narrative_records(value: Any) -> list[dict[str, Any]]:
     return records
 
 
+def append_narrative_record(
+    state: "GameState", *, event_id: str, refs: dict[str, str],
+    params: dict[str, str | int | float | bool | None], rendered: str,
+) -> None:
+    """Append frozen high-value provenance after an event has committed.
+
+    Records are supplemental history only.  Appending over the bound removes
+    the oldest records first, preserving deterministic chronological order.
+    """
+    from .catalog import content_pack_presentation_fingerprint, selected_content_pack
+
+    pack = selected_content_pack()
+    record = {
+        "event_id": event_id, "refs": refs, "params": params,
+        "rendered": rendered,
+        "origin": {
+            "pack_id": pack.id,
+            "presentation_fingerprint": content_pack_presentation_fingerprint(pack),
+        },
+    }
+    _validate_narrative_records([record])
+    state.narrative_records.append(record)
+    del state.narrative_records[:-NARRATIVE_RECORD_LIMIT]
+
+
 @dataclass(frozen=True)
 class Position:
     x: int

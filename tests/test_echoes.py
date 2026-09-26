@@ -19,7 +19,12 @@ class VoyageEchoTests(unittest.TestCase):
         self.assertEqual(apply_later_echoes(state), [])
         state.travel_count = 2
         self.assertEqual(apply_later_echoes(state), [echo])
+        record = state.narrative_records[-1]
+        self.assertEqual(record["event_id"], "travel.echo.applied")
+        self.assertEqual(record["refs"]["variant_id"], echo.variant_id)
+        self.assertEqual(record["refs"]["echo_kind"], echo.kind)
         self.assertEqual(apply_later_echoes(state), [])
+        self.assertEqual(state.narrative_records[-1], record)
         self.assertIn(echo.title, " ".join(lines(state)))
 
     def test_all_echoes_change_region_and_named_memory(self):

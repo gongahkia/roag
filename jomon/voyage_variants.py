@@ -96,6 +96,8 @@ def record_variant_outcome(state: GameState, consequence: str) -> None:
         state.vessel_changes.pop(f"voyage_variant:{voyage}", None)
         state.vessel_changes.pop(f"voyage_variant_outcome:{voyage}", None)
     state.vessel_changes.pop("active_voyage_variant", None)
+    from .state import append_narrative_record
+    append_narrative_record(state,event_id="travel.variant.resolved",refs={"variant_id":variant.id,"voyage_family_id":variant.family,"region_id":state.active_region_id},params={"voyage":state.travel_count,"world_time":state.world_time},rendered=consequence)
 
 
 def validate_variants() -> None:

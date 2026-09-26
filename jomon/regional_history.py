@@ -246,9 +246,14 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
         event_id = f"{region_id}:history:{index}"
         region.regional_history.append(RegionalEvent(event_id, previous, kind, material, landmark, witness.id, institution_id, cache.id if index == 4 else coordinate, account, consequence))
         previous = event_id
+    def record_crisis_history() -> None:
+        event = region.regional_history[1]
+        from .state import append_narrative_record
+        append_narrative_record(state,event_id="regional_history.recorded",refs={"regional_event_id":event.id,"region_id":region_id,"material_id":event.material},params={"world_time":state.world_time,"watershed":water,"exposure":exposure},rendered=event.consequence)
     # Testimony remains conflicting; neither this record nor the UI pretends to
     # have simulated the years preceding the current action clock.
     if not new_geography:
+        record_crisis_history()
         return
     if scar not in protected:
         if crisis == "flood":
@@ -292,6 +297,7 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     if node:
         node.description += history_format("history.route_dependency", crisis=crisis, dependency=dependency)
         node.market_interest = dependency
+    record_crisis_history()
 
 
 def account_for(state: GameState, region_id: str | None = None) -> Institution | None:

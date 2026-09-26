@@ -203,6 +203,9 @@ def _finish(state: GameState, message: str) -> str:
     state.voyage_kind = None
     state.chronicle.append(ship_crisis_format("crisis.finish.chronicle", voyage=state.travel_count, kind=kind, message=message))
     del state.chronicle[:-40]
+    from .state import append_narrative_record
+    refs = {"voyage_kind": kind} if isinstance(kind, str) else {}
+    append_narrative_record(state,event_id="ship_crisis.completed",refs=refs,params={"voyage":state.travel_count,"world_time":state.world_time,"integrity":state.vessel_integrity},rendered=state.chronicle[-1])
     return message
 
 

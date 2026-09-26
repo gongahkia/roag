@@ -33,6 +33,10 @@ class WorkingHistoryTests(unittest.TestCase):
         validate_accounts(state)
         self.assertEqual(len(state.institutions), 12)
         self.assertEqual(sum(len(r.regional_history) for r in state.regions.values()), 40)
+        records = [record for record in state.narrative_records
+                   if record["event_id"] == "regional_history.recorded"]
+        self.assertEqual(len(records), len(FRONTIERS))
+        self.assertEqual({record["refs"]["region_id"] for record in records}, set(FRONTIERS))
         for region in state.regions.values():
             self.assertEqual(region.regional_history[-1].evidence, next(box.id for box in reversed(region.containers) if not box.hidden and "-sanctum-" not in box.id))
             self.assertTrue(region.materials)

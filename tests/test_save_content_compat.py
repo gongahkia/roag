@@ -9,7 +9,7 @@ import unittest
 from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
 from jomon.save import save_game
 from jomon.state import (
-    NARRATIVE_RECORD_LIMIT, SAVE_FORMAT, StateError, create_world,
+    NARRATIVE_RECORD_LIMIT, SAVE_FORMAT, StateError, append_narrative_record, create_world,
     game_state_from_dict,
 )
 
@@ -102,6 +102,23 @@ class SaveContentCompatibilityTests(unittest.TestCase):
         bad["narrative_records"] = [record] * (NARRATIVE_RECORD_LIMIT + 1)
         with self.assertRaisesRegex(StateError, "narrative record ledger"):
             game_state_from_dict(bad)
+
+    def test_narrative_append_uses_active_pack_origin_and_discards_oldest_at_bound(self):
+        self.state.narrative_records.clear()
+        for index in range(NARRATIVE_RECORD_LIMIT + 1):
+            append_narrative_record(
+                self.state,
+                event_id="test.provenance",
+                refs={"region_id": "hearthford"},
+                params={"index": index},
+                rendered=f"Frozen record {index}.",
+            )
+        self.assertEqual(len(self.state.narrative_records), NARRATIVE_RECORD_LIMIT)
+        self.assertEqual(self.state.narrative_records[0]["params"]["index"], 1)
+        self.assertEqual(self.state.narrative_records[-1]["params"]["index"], NARRATIVE_RECORD_LIMIT)
+        origin = self.state.narrative_records[-1]["origin"]
+        self.assertEqual(origin["pack_id"], "default")
+        self.assertEqual(len(origin["presentation_fingerprint"]), 64)
 
 
 if __name__ == "__main__":

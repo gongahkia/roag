@@ -55,6 +55,9 @@ class DeckCrisisTests(unittest.TestCase):
                     self.assertTrue(resolve_voyage(state, response)[0])
                 self.assertEqual(state.route_current_node, "reed-anchor")
                 self.assertFalse(state.combat_active)
+                record = state.narrative_records[-1]
+                self.assertEqual(record["event_id"], "ship_crisis.completed")
+                self.assertEqual(record["refs"], {"voyage_kind": kind})
 
     def test_entering_and_inspecting_never_fires_an_opening_shot(self):
         self.begin("boarders")

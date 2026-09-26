@@ -70,8 +70,14 @@ class SanctumTests(unittest.TestCase):
         self.assertTrue(harm_enemy(state, boss, 100, "test blow").defeated)
         self.assertEqual(state.trade_credit, before_credit + 4)
         self.assertEqual(state.courier.strategy, min(20, before_strategy + 1))
+        records = [record for record in state.narrative_records
+                   if record["event_id"] == "sanctum.resolved"]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["refs"]["boss_id"], boss.id)
         harm_enemy(state, boss, 1, "repeated test blow")
         self.assertEqual(state.trade_credit, before_credit + 4)
+        self.assertEqual(len([record for record in state.narrative_records
+                              if record["event_id"] == "sanctum.resolved"]), 1)
         loaded = game_state_from_dict(state.to_dict())
         self.assertTrue(loaded.region.changes["sanctum:cleared"])
         self.assertEqual(sum(actor.id == boss.id for actor in loaded.threats), 1)

@@ -71,6 +71,10 @@ class StatefulVoyageVariantTests(unittest.TestCase):
         self.assertTrue(resolve_voyage(raiders, "yield")[0])
         self.assertEqual(sum(stack.quantity for stack in raiders.vessel_cargo.values()), before - 2)
         self.assertEqual(raiders.vessel_changes["voyage_variant:1"], "shortage-skiffs")
+        record = raiders.narrative_records[-1]
+        self.assertEqual(record["event_id"], "travel.variant.resolved")
+        self.assertEqual(record["refs"]["variant_id"], "shortage-skiffs")
+        self.assertEqual(record["refs"]["voyage_family_id"], "raiders")
 
         creature = self.variant_state("creature")
         before = creature.vessel_cargo["salt fish"].quantity

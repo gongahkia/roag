@@ -72,6 +72,13 @@ class MixedSituationTests(unittest.TestCase):
             changed, message, steps = resolve(state, row.id, method)
             self.assertTrue(changed, message)
             self.assertEqual(steps, expected_steps)
+            records = [record for record in state.narrative_records
+                       if record["event_id"] == "situation.resolved"]
+            self.assertEqual(len(records), 1)
+            self.assertEqual(records[0]["refs"], {
+                "situation_id": row.id, "region_id": row.region_id,
+                "outcome_id": {"t": "tool", "m": "material", "a": "account"}[method],
+            })
             self.assertEqual(site_glyph(state, site_point(state, row)), "*")
             self.assertIn("Continuing effect", " ".join(inspect_lines(state, row.id)))
             if method == "m":
@@ -94,6 +101,7 @@ class MixedSituationTests(unittest.TestCase):
         row = BY_REGION_BAND["hearthford", "steady"]
         state = self.ready()
         self.assertTrue(resolve(state, row.id, "t")[0])
+        initial_records = len(state.narrative_records)
         self.assertEqual({key for key, *_ in choices(state, row.id)}, {"T", "M"})
         self.assertEqual({option.key for option in dialogue_choices(state, f"situation:{row.id}")}, {"T", "M"})
         self.assertIn("MAINTAIN", " ".join(_overlay_lines(state, f"situation:{row.id}")[1]))
@@ -108,6 +116,7 @@ class MixedSituationTests(unittest.TestCase):
         self.assertEqual((cell.support, cell.fire, cell.smoke), (3, 0, 0))
         self.assertEqual(account.confidence, min(3, confidence + 1))
         self.assertEqual(state.region.changes[f"micro-site:afterwork:{row.id}"], "maintenance")
+        self.assertEqual(len(state.narrative_records), initial_records)
         self.assertEqual(choices(state, row.id), [])
         self.assertFalse(resolve(state, row.id, "m")[0])
 

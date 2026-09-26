@@ -83,6 +83,8 @@ def apply_later_echoes(state: GameState) -> list[VoyageEcho]:
         del state.chronicle[:-24]
         state.remember(text)
         state.add_message(text, priority=3)
+        from .state import append_narrative_record
+        append_narrative_record(state,event_id="travel.echo.applied",refs={"variant_id":echo.variant_id,"echo_kind":echo.kind,"region_id":state.active_region_id},params={"source_voyage":voyage,"world_time":state.world_time},rendered=text)
         applied.append(echo)
         # One substantial callback per arrival leaves room for the current
         # voyage consequence, regional situation, and player-authored plans.

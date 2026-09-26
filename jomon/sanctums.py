@@ -502,9 +502,11 @@ def record_boss_defeat(state: GameState, actor: Threat) -> None:
     state.region.changes["sanctum:control"]="disputed" if _active_claimants(state) else "network" if opening=="offering" else "disputed" if opening=="breach" else "open"; state.trade_credit += 4
     strategy_gained=False
     if state.courier: strategy_gained=state.courier.strategy<20; state.courier.strategy=min(20,state.courier.strategy+1)
-    state.remember(sanctum_format("sanctum.record.defeat",courier=state.courier.name if state.courier else sanctum_text("sanctum.record.courier.unknown"),boss=actor.name,sanctum=sanctum_display_name(state.active_region_id)))
+    record=sanctum_format("sanctum.record.defeat",courier=state.courier.name if state.courier else sanctum_text("sanctum.record.courier.unknown"),boss=actor.name,sanctum=sanctum_display_name(state.active_region_id));state.remember(record)
     strategy_note=sanctum_text("sanctum.record.strategy_gained") if strategy_gained else sanctum_text("sanctum.record.strategy_bound") if state.courier else sanctum_text("sanctum.record.strategy_none")
     state.add_message(sanctum_format("sanctum.record.cleared",sanctum=sanctum_display_name(state.active_region_id),strategy=strategy_note),priority=3)
+    from .state import append_narrative_record
+    append_narrative_record(state,event_id="sanctum.resolved",refs={"region_id":state.active_region_id,"boss_id":actor.id,"control_id":str(state.region.changes["sanctum:control"])},params={"world_time":state.world_time,"credit":4},rendered=record)
 
 
 def record_site_defeat(state: GameState, actor: Threat) -> None:

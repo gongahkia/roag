@@ -190,7 +190,10 @@ def resolve(state:GameState,situation_id:str,method:str)->tuple[bool,str,int]:
         outcome_id,steps="account",1
     outcome=_outcome_text(row,outcome_id);state.region.changes[_key(row,"resolved")]=True;state.region.changes[_key(row,"outcome_id")]=outcome_id;state.region.changes[_key(row,"outcome")]=outcome;state.region.changes[_key(row,"revisit")]=row.consequence;state.region.changes.pop("situation:active",None)
     from .world import position_key
-    state.region.tile_changes[position_key(point)]="*";record=situation_format("situation.record.resolved",title=row.name,outcome=outcome,consequence=row.consequence);state.remember(record);state.contact.memories.append(record);del state.contact.memories[:-8];return True,record,steps
+    state.region.tile_changes[position_key(point)]="*";record=situation_format("situation.record.resolved",title=row.name,outcome=outcome,consequence=row.consequence);state.remember(record);state.contact.memories.append(record);del state.contact.memories[:-8]
+    from .state import append_narrative_record
+    append_narrative_record(state,event_id="situation.resolved",refs={"situation_id":row.id,"region_id":row.region_id,"outcome_id":outcome_id},params={"world_time":state.world_time,"steps":steps},rendered=record)
+    return True,record,steps
 def interaction(state:GameState)->str|None:
     row=site_at(state,state.position,adjacent=True);return f"situation:{row.id}" if row else None
 def validate_situations()->None:
