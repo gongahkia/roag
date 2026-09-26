@@ -5,18 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import GameState, Position
-from .world import base_tile, field_of_view, position_key
+from .world import base_tile, field_of_view, position_key, semantic_cell
 
 
 @dataclass(frozen=True)
 class CellView:
     """One observed map cell.
 
-    ``topology_token`` is an engine topology token, not a curses glyph contract.
-    It remains only until the dedicated ASCII/topology split.
+    ``terrain_id`` and ``feature_ids`` are renderer-neutral semantic identities.
+    Legacy curses glyphs are deliberately absent from this projection.
     """
     position: Position
-    topology_token: str
+    terrain_id: str
     visible: bool
     remembered: bool
     feature_ids: tuple[str, ...]
@@ -88,13 +88,15 @@ def world_view(state: GameState) -> WorldView:
     for y, row in enumerate(rows):
         for x in range(len(row)):
             point = Position(x, y, state.position.z)
-            features: list[str] = []
+            semantic = semantic_cell(state, point)
+            terrain_id = semantic.terrain_id if semantic is not None else f"terrain.region.token.{ord(base_tile(state, point)):02x}"
+            features: list[str] = ([semantic.feature_id] if semantic is not None and semantic.feature_id else [])
             if position_key(point) in state.smoke:
                 features.append("field.smoke")
             if position_key(point) in state.water:
                 features.append("field.water")
             cells.append(CellView(
-                point, base_tile(state, point), point in visible,
+                point, terrain_id, point in visible,
                 position_key(point) in remembered, tuple(features),
                 tuple(sorted(actors.get(point, ()))),
             ))

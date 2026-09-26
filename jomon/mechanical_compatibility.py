@@ -15,7 +15,7 @@ from typing import Any, Callable
 from .catalog import (
     ACTOR_SECTIONS, AFTERMATH_SECTIONS, ARC_RELIC_SECTIONS, CHARACTER_SECTIONS,
     EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, HISTORY_SECTIONS, PRACTICE_SECTIONS,
-    RECRUITMENT_SECTIONS, REQUIRED_CATALOGS, VESSEL_SECTIONS, VISUAL_SECTIONS,
+    RECRUITMENT_SECTIONS, REQUIRED_CATALOGS, VESSEL_SECTIONS, VISUAL_SECTIONS, TOPOLOGY_SECTIONS,
     WORLD_TEXT_SECTIONS, load_catalog,
 )
 
@@ -291,10 +291,15 @@ def _vessel(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visuals(data: dict[str, Any]) -> dict[str, Any]:
-    # Map geometry and semantic glyph tables affect legality and deterministic
-    # placement; decorative card/dice art remains outside the main-world model.
-    top=_mapping(data,path="visuals.json",mechanical={"entity_glyphs","semantic_roles","regional_ground_roles","regional_tile_roles","physical_role_overrides","route_node_symbols","material_overlay_symbols","site_symbols","vessel_levels","tavern_map"},presentation={"tavern_cards","tavern_dice"})
-    return {key:top[key] for key in sorted(top)}
+    # Glyph tables remain legacy terminal presentation. Semantic topology now
+    # carries collision and layout in topology.json.
+    _mapping(data,path="visuals.json",mechanical=set(),presentation={"entity_glyphs","semantic_roles","regional_ground_roles","regional_tile_roles","physical_role_overrides","route_node_symbols","material_overlay_symbols","site_symbols","tavern_cards","tavern_dice"})
+    return {}
+
+
+def _topology(data: dict[str, Any]) -> dict[str, Any]:
+    top = _mapping(data, path="topology.json", mechanical={"definitions", "vessel_levels", "tavern_map"})
+    return {key: top[key] for key in sorted(top)}
 
 
 def _world_text(data: dict[str, Any]) -> dict[str, Any]:
@@ -311,7 +316,7 @@ _CATALOG_PROJECTORS: dict[str, tuple[tuple[str, ...], Callable[[dict[str, Any]],
     "actors.json": (ACTOR_SECTIONS, _actors), "aftermath.json": (AFTERMATH_SECTIONS, _aftermath), "arc_relics.json": (ARC_RELIC_SECTIONS, _arc_relics),
     "character_profiles.json": (CHARACTER_SECTIONS, _characters), "chemistry.json": (("reactions", "environment_reactions", "reagent_ids"), _chemistry), "circuits.json": (("parts", "fixtures"), _circuits),
     "equipment.json": (EQUIPMENT_SECTIONS, _equipment), "field_reports.json": (("responses",), _field_reports), "geography.json": (GEOGRAPHY_SECTIONS, _geography), "goods.json": (("COMMODITIES", "COMMODITY_LOGISTICS", "WEAPONS", "GEAR", "SUPPORTS", "DISCOVERIES", "RELICS", "PASSIVES", "MERCHANT_ITEMS"), _goods),
-    "history.json": (HISTORY_SECTIONS, _history), "people.json": (("REGIONAL_CONTEXTS", "FIRST_NAMES", "FAMILY_NAMES", "ROLES", "ROLE_EQUIPMENT", "ROLE_TECHNIQUE", "RECRUIT_TEMPLATES", "CONTACT_NAMES"), _people), "practices.json": (PRACTICE_SECTIONS, _practices), "production.json": (("sources", "site_keys", "shore_stations", "recipes"), _production), "quests.json": (("quests", "rewards", "arc_regions", "arc_title", "additional_arcs"), _quests), "recruitment.json": (RECRUITMENT_SECTIONS, _recruitment), "sanctums.json": (("encounters", "sanctums"), _sanctums), "situations.json": (("situations", "afterwork_samples"), _situations), "skills.json": (("branches", "role_roots"), _skills), "spells.json": (("spells",), _spells), "terrain_variation.json": (("regions",), _terrain), "vehicles.json": (("harbour", "vehicles"), _vehicles), "vessel.json": (VESSEL_SECTIONS, _vessel), "visuals.json": (VISUAL_SECTIONS, _visuals), "world_text.json": (WORLD_TEXT_SECTIONS, _world_text),
+    "history.json": (HISTORY_SECTIONS, _history), "people.json": (("REGIONAL_CONTEXTS", "FIRST_NAMES", "FAMILY_NAMES", "ROLES", "ROLE_EQUIPMENT", "ROLE_TECHNIQUE", "RECRUIT_TEMPLATES", "CONTACT_NAMES"), _people), "practices.json": (PRACTICE_SECTIONS, _practices), "production.json": (("sources", "site_keys", "shore_stations", "recipes"), _production), "quests.json": (("quests", "rewards", "arc_regions", "arc_title", "additional_arcs"), _quests), "recruitment.json": (RECRUITMENT_SECTIONS, _recruitment), "sanctums.json": (("encounters", "sanctums"), _sanctums), "situations.json": (("situations", "afterwork_samples"), _situations), "skills.json": (("branches", "role_roots"), _skills), "spells.json": (("spells",), _spells), "terrain_variation.json": (("regions",), _terrain), "vehicles.json": (("harbour", "vehicles"), _vehicles), "vessel.json": (VESSEL_SECTIONS, _vessel), "visuals.json": (VISUAL_SECTIONS, _visuals), "topology.json": (TOPOLOGY_SECTIONS, _topology), "world_text.json": (WORLD_TEXT_SECTIONS, _world_text),
 }
 if set(_CATALOG_PROJECTORS) != set(REQUIRED_CATALOGS):
     raise RuntimeError("mechanical compatibility catalog registry does not match required main-world catalogs")

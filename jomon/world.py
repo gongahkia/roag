@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from .content import COMMODITIES, PASSIVES
 from .state import GameState, Position
 from .visuals import ENTITY_GLYPHS
+from .semantic_topology import TopologyCell, tavern_cell, vessel_cell, cell_from_legacy
 from .vessel import (
     JOMON_GANGPLANK,
     TABLE_SURFACE,
@@ -60,6 +61,18 @@ def map_rows(state: GameState, z: int | None = None) -> list[str] | tuple[str, .
     if state.location == "jomon":
         return vessel_rows(state, z)
     return state.region.levels[str(state.position.z if z is None else z)]
+
+
+def semantic_cell(state: GameState, position: Position) -> TopologyCell | None:
+    """Return engine semantic topology for Jomon cells, never a renderer glyph."""
+    if state.location != "jomon":
+        return None
+    if state.jomon_space == "tavern":
+        return tavern_cell(position.x, position.y)
+    if state.jomon_space != "vessel":
+        return None
+    override = state.vessel_tiles.get(position_key(position))
+    return cell_from_legacy("vessel", override) if override is not None else vessel_cell(position.z, position.x, position.y)
 
 
 def base_tile(state: GameState, position: Position) -> str:
@@ -139,6 +152,16 @@ def displayed_tile(state: GameState, position: Position) -> str:
     return ("=" if piston_head_at(state, position) else glyph(state, position)) or tile
 
 
+def curses_tile(state: GameState, position: Position) -> str:
+    """Legacy terminal glyph adapter; never a mechanical topology query."""
+    tile = displayed_tile(state, position)
+    semantic = semantic_cell(state, position)
+    if semantic is not None and tile == semantic.legacy_token:
+        from .assets import curses_glyph
+        return curses_glyph(semantic.id, tile)
+    return tile
+
+
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
     from .materials import fields, key
     from .circuits import active, cell_at, piston_head_at
@@ -149,8 +172,11 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
         return False
 
     material = fields(state).get(key(position))
+    semantic = semantic_cell(state, position)
     terrain = base_tile(state, position)
     blocked = {" ", "#", "~", "T"}
+    if semantic is not None and not semantic.walkable:
+        return False
     if material and terrain in blocked:
         if not (material.ice and terrain == "~"):
             return False
@@ -226,7 +252,7 @@ def _line(start: Position, end: Position) -> list[Position]:
 
 
 def blocks_sight(state: GameState, position: Position) -> bool:
-    return base_tile(state, position) in {"#", "T", "+"} or position_key(position) in state.smoke
+    return (semantic_cell(state, position).blocks_sight if semantic_cell(state, position) is not None else base_tile(state, position) in {"#", "T", "+"}) or position_key(position) in state.smoke
 
 
 def line_of_sight(state: GameState, start: Position, end: Position) -> bool:

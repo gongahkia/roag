@@ -10,7 +10,7 @@ from .catalog import CatalogError, VESSEL_SECTIONS, load_catalog
 from .state import ActorSchedule, GameState, Person, Position, SocialIncident, TerrainStatus, stage_rng
 from .action_presentation import action_format
 from .vessel_presentation import drink_benefit, drink_display_name, drink_drawback, vessel_format
-from .visuals import TAVERN_MAP, VESSEL_LEVELS
+from .semantic_topology import TAVERN_MAP, VESSEL_LEVELS, tavern_cell, vessel_cell, cell_from_legacy
 
 VESSEL_WIDTH = 64
 VESSEL_HEIGHT = 22
@@ -355,12 +355,10 @@ def _walkable(area: str, point: Position) -> bool:
         rows = VESSEL_LEVELS[int(area.split(":", 1)[1])]
     else:
         return True
-    return (
-        0 <= point.y < len(rows)
-        and 0 <= point.x < len(rows[point.y])
-        and rows[point.y][point.x] not in {"#", "=", "t", "F", "f"}
-        and (area != "tavern" or point not in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE)
-    )
+    if not (0 <= point.y < len(rows) and 0 <= point.x < len(rows[point.y])):
+        return False
+    cell = tavern_cell(point.x, point.y) if area == "tavern" else vessel_cell(point.z, point.x, point.y)
+    return cell.walkable and (area != "tavern" or point not in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE)
 
 
 def seat_patron_at_table(state: GameState, patron_id: str) -> Position:

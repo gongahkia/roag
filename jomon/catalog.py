@@ -56,8 +56,9 @@ VISUAL_SECTIONS = (
     "entity_glyphs", "semantic_roles", "regional_ground_roles",
     "regional_tile_roles", "physical_role_overrides", "route_node_symbols",
     "material_overlay_symbols", "site_symbols", "tavern_cards",
-    "tavern_dice", "vessel_levels", "tavern_map",
+    "tavern_dice",
 )
+TOPOLOGY_SECTIONS = ("definitions", "vessel_levels", "tavern_map")
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
@@ -96,6 +97,8 @@ DULLEST_DUNGEON_TEXT_FILE = "text.json"
 DULLEST_DUNGEON_VISUALS_FILE = "visuals.json"
 ECOLOGY_PRESENTATION_FILE = "ecology_text.json"
 TAVERN_GAMES_PRESENTATION_FILE = "tavern_games.json"
+ASSET_MANIFEST_FILE = "assets.json"
+ASSET_MANIFEST_FORMAT = 1
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -1037,7 +1040,7 @@ REQUIRED_CATALOGS = (
     "geography.json", "goods.json", "history.json", "people.json", "practices.json",
     "production.json", "quests.json", "recruitment.json", "sanctums.json",
     "situations.json", "skills.json", "spells.json", "terrain_variation.json",
-    "vehicles.json", "vessel.json", "visuals.json", "world_text.json",
+    "vehicles.json", "vessel.json", "visuals.json", "topology.json", "world_text.json",
 )
 
 
@@ -1424,6 +1427,34 @@ class DullestDungeonPresentation:
 
 
 @dataclass(frozen=True)
+class AssetResource:
+    id: str
+    kind: str
+    path: str | None
+
+
+@dataclass(frozen=True)
+class AssetManifest:
+    """Validated, presentation-only media bindings for a selected content pack."""
+
+    format_version: int
+    glyphs: tuple[tuple[str, str], ...]
+    bindings: tuple[tuple[str, tuple[tuple[str, tuple[tuple[str, str], ...]], ...]], ...]
+    resources: tuple[AssetResource, ...]
+    animations: tuple[tuple[str, tuple[str, ...], bool], ...]
+
+    def glyph(self, semantic_id: str) -> str:
+        return dict(self.glyphs)[semantic_id]
+
+    def binding(self, category: str, semantic_id: str) -> dict[str, str]:
+        categories = dict(self.bindings)
+        return dict(dict(categories.get(category, ())).get(semantic_id, ()))
+
+    def resource(self, asset_id: str) -> AssetResource | None:
+        return next((row for row in self.resources if row.id == asset_id), None)
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1467,6 +1498,7 @@ class ContentPack:
     ecology_presentations: tuple[EcologyPresentation, ...]
     tavern_games: TavernGamesPresentation
     dullest_dungeon: DullestDungeonPresentation
+    assets: "AssetManifest"
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -3142,6 +3174,67 @@ def _dullest_dungeon_presentation(root: Path, pack_id: str) -> DullestDungeonPre
         raise ContentPackError(f"invalid Dullest Dungeon presentation for content pack {pack_id!r} at {directory}: {exc}") from exc
 
 
+def _asset_manifest(root: Path, pack_id: str, catalog_root: Path) -> AssetManifest:
+    """Load an optional-media manifest without letting it affect mechanics."""
+    source = root / ASSET_MANIFEST_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid asset manifest for content pack {pack_id!r} at {source}: {exc}") from exc
+    try:
+        if not isinstance(document, dict) or set(document) != {"asset_manifest_format", "glyphs", "resources", "animations", "bindings"}:
+            raise ValueError("asset manifest has missing or unknown top-level fields")
+        if document["asset_manifest_format"] != ASSET_MANIFEST_FORMAT:
+            raise ValueError(f"unsupported asset manifest format {document['asset_manifest_format']!r}")
+        glyphs = document["glyphs"]
+        if not isinstance(glyphs, dict) or not glyphs or any(not isinstance(key, str) or not key or not isinstance(value, str) or len(value) != 1 or not value.isascii() or not value.isprintable() for key, value in glyphs.items()):
+            raise ValueError("glyphs must map semantic IDs to one printable ASCII character")
+        topology_source = catalog_root / "topology.json"
+        # The manifest's legacy glyph map is complete and keyed by engine-owned
+        # semantic cells; it cannot add a visual-only topology cell.
+        topology_document = json.loads(topology_source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+        expected_glyphs = set(topology_document.get("definitions", {}))
+        if set(glyphs) != expected_glyphs:
+            raise ValueError("glyphs has missing or unknown semantic topology slots")
+        resources = document["resources"]
+        if not isinstance(resources, dict): raise ValueError("resources must be an object")
+        parsed_resources=[]
+        for asset_id, value in resources.items():
+            if not isinstance(asset_id, str) or not asset_id or not isinstance(value, dict) or set(value) - {"kind", "path"} or "kind" not in value or value["kind"] not in {"image", "audio"}:
+                raise ValueError("invalid resource definition")
+            path=value.get("path")
+            if path is not None:
+                pure=Path(path)
+                if not isinstance(path,str) or not path or pure.is_absolute() or ".." in pure.parts or str(pure) != path:
+                    raise ValueError("resource paths must be safe pack-relative paths")
+            parsed_resources.append(AssetResource(asset_id,value["kind"],path))
+        animations=document["animations"]
+        if not isinstance(animations,dict): raise ValueError("animations must be an object")
+        parsed_animations=[]
+        resource_ids=set(resources)
+        for animation_id, value in animations.items():
+            if not isinstance(animation_id,str) or not animation_id or not isinstance(value,dict) or set(value)!={"frames","loop"} or not isinstance(value["frames"],list) or not value["frames"] or any(frame not in resource_ids or resources[frame]["kind"] != "image" for frame in value["frames"]) or type(value["loop"]) is not bool:
+                raise ValueError("invalid animation definition")
+            parsed_animations.append((animation_id,tuple(value["frames"]),value["loop"]))
+        bindings=document["bindings"]
+        allowed={"actors","terrain","features","items","actions","events","ambience","dullest_dungeon","tavern"}
+        if not isinstance(bindings,dict) or set(bindings)-allowed: raise ValueError("unknown asset binding category")
+        parsed_bindings=[]
+        for category, rows in bindings.items():
+            if not isinstance(rows,dict): raise ValueError("asset binding category must be an object")
+            parsed=[]
+            for semantic_id, value in rows.items():
+                if not isinstance(semantic_id,str) or not semantic_id or not isinstance(value,dict) or not value or set(value)-{"image","audio","animation","effect"}:
+                    raise ValueError("invalid semantic asset binding")
+                for field, asset_id in value.items():
+                    valid = asset_id in resource_ids if field in {"image","audio","effect"} else asset_id in animations
+                    if not isinstance(asset_id,str) or not valid: raise ValueError("asset binding references an undeclared resource")
+                parsed.append((semantic_id,tuple(sorted(value.items()))))
+            parsed_bindings.append((category,tuple(sorted(parsed))))
+        return AssetManifest(ASSET_MANIFEST_FORMAT,tuple(sorted(glyphs.items())),tuple(sorted(parsed_bindings)),tuple(sorted(parsed_resources,key=lambda row:row.id)),tuple(sorted(parsed_animations)))
+    except ValueError as exc:
+        raise ContentPackError(f"invalid asset manifest for content pack {pack_id!r} at {source}: {exc}") from exc
+
 def load_content_pack(path: str | Path) -> ContentPack:
     """Load one complete external or bundled pack without selecting it."""
     root = Path(path).expanduser()
@@ -3206,10 +3299,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     ecology = _ecology_presentations(root, pack_id)
     tavern_games = _tavern_games_presentation(root, pack_id)
     dullest_dungeon = _dullest_dungeon_presentation(root, pack_id)
+    assets = _asset_manifest(root, pack_id, catalog_root)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, people, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, dullest_dungeon, household_template,
+        _region_presentations(root, pack_id), characters, roles, people, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, dullest_dungeon, assets, household_template,
     )
 
 

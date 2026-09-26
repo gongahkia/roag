@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .catalog import CatalogError, VISUAL_SECTIONS, load_catalog
+from .semantic_topology import TAVERN_MAP, VESSEL_LEVELS
 
 
 VISUALS = load_catalog("visuals.json", VISUAL_SECTIONS)
@@ -77,8 +78,5 @@ _dice = _object(VISUALS["tavern_dice"], "tavern_dice")
 if set(_dice) != {str(face) for face in range(1, 7)}:
     raise CatalogError("tavern_dice needs faces one through six")
 TAVERN_DICE = {int(face): _rows(rows, 5, 9, f"tavern_dice.{face}") for face, rows in _dice.items()}
-_levels = _object(VISUALS["vessel_levels"], "vessel_levels")
-if set(_levels) != {"-1", "0", "1"}:
-    raise CatalogError("vessel_levels needs lower, main, and upper decks")
-VESSEL_LEVELS = {int(level): _rows(rows, 22, 64, f"vessel_levels.{level}") for level, rows in _levels.items()}
-TAVERN_MAP = _rows(VISUALS["tavern_map"], 24, 64, "tavern_map")
+# Vessel and tavern glyph layouts are now engine semantic topology.
+# The legacy ASCII rows are re-exported for curses/test compatibility only.

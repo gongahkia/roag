@@ -115,7 +115,7 @@ from .world import (
     carried_bulk,
     cover_at,
     courier_sees,
-    displayed_tile,
+    displayed_tile, curses_tile,
     distance,
     field_of_view,
     map_rows,
@@ -822,7 +822,7 @@ def _draw_map(
             elif position in danger_marks:
                 char = ENTITY_GLYPHS["danger"]
             else:
-                char = displayed_tile(state, position)
+                char = curses_tile(state, position)
             cell = material_cells.get(key(position)) if position != state.position and position not in threats else None
             role = terrain_colour_role(
                 char, state.active_region_id,
@@ -932,7 +932,7 @@ def _draw_look(screen: curses.window, state: GameState, view: LookView) -> None:
         state, view.cursor, height, width
     )
     if 1 <= screen_x < map_width - 1 and 1 <= screen_y < main_height - 1:
-        glyph = displayed_tile(state, view.cursor)
+        glyph = curses_tile(state, view.cursor)
         if view.cursor.z != state.position.z:
             glyph = "^" if view.cursor.z > state.position.z else "v"
         _put(screen, screen_y, screen_x, glyph, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
@@ -1017,7 +1017,7 @@ def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) ->
             _put(screen, y, x, glyph(state, cell.position, view.layer) or "?", _COLOUR_ATTRIBUTES[role] | curses.A_BOLD)
     x, y, main_height, map_width = _cursor_screen_position(state, view.cursor, height, width)
     if 1 <= x < map_width - 1 and 1 <= y < main_height - 1:
-        mark = glyph(state, view.cursor, view.layer) or displayed_tile(state, view.cursor)
+        mark = glyph(state, view.cursor, view.layer) or curses_tile(state, view.cursor)
         _put(screen, y, x, mark, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
     cell = cell_at(state, view.cursor, view.layer)
     description = circuit_part_name(cell.kind) if cell else circuit_text("circuit.terminal.empty")

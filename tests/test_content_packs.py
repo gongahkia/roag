@@ -64,6 +64,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "circuit_text.json", root / "circuit_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ecology_text.json", root / "ecology_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "tavern_games.json", root / "tavern_games.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "assets.json", root / "assets.json")
     shutil.copytree(DEFAULT_PACK_ROOT / "dullest_dungeon", root / "dullest_dungeon")
     write_manifest(
         root,

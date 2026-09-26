@@ -7,7 +7,7 @@ import unittest
 from jomon.dumbest_dungeon.content import load_catalog as load_dungeon_catalog
 from jomon.dumbest_dungeon.json_data import loads
 from jomon.dumbest_dungeon.office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph
-from jomon.catalog import VISUAL_SECTIONS, load_catalog
+from jomon.catalog import TOPOLOGY_SECTIONS, VISUAL_SECTIONS, load_catalog
 from jomon.tavern_draw_ui import card_frame
 from jomon.tavern_games_ui import dice_face
 from jomon.terminal import semantic_role
@@ -18,8 +18,16 @@ from jomon.visuals import SEMANTIC_GLYPH_ROLES
 class VisualCatalogTests(unittest.TestCase):
     def test_jomon_maps_roles_cards_and_dice_are_packaged_visuals(self):
         visual = load_catalog("visuals.json", VISUAL_SECTIONS)
-        self.assertEqual(visual["vessel_levels"], {str(level): list(rows) for level, rows in VESSEL_LEVELS.items()})
-        self.assertEqual(visual["tavern_map"], list(TAVERN_MAP))
+        topology = load_catalog("topology.json", TOPOLOGY_SECTIONS)
+        self.assertEqual(
+            {str(level): ["".join(topology["definitions"][cell]["legacy_token"] for cell in row) for row in rows]
+             for level, rows in topology["vessel_levels"].items()},
+            {str(level): list(rows) for level, rows in VESSEL_LEVELS.items()},
+        )
+        self.assertEqual(
+            ["".join(topology["definitions"][cell]["legacy_token"] for cell in row) for row in topology["tavern_map"]],
+            list(TAVERN_MAP),
+        )
         for aboard, scope in ((False, "region"), (True, "aboard")):
             self.assertEqual(visual["semantic_roles"][scope], SEMANTIC_GLYPH_ROLES[scope])
             for glyph in string.printable[:95]:
