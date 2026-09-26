@@ -5,6 +5,10 @@ from __future__ import annotations
 from collections import deque
 
 from .catalog import CatalogError, load_catalog
+from .circuit_presentation import (
+    circuit_facing_name, circuit_format, circuit_layer_name, circuit_mode_name, circuit_mode_title,
+    circuit_part_name, circuit_text,
+)
 from .state import CircuitCell, GameState, Position
 
 
@@ -17,9 +21,7 @@ if not isinstance(PARTS, dict) or not {
 } <= set(PARTS):
     raise CatalogError("circuits.json has invalid circuit parts")
 BEHAVIORS = {"conductor", "source", "fuel", "gated", "directional", "counter", "block"}
-if any(not isinstance(part, dict) or set(part) != {"name", "glyph", "build_key", "behavior", "layers", "description"}
-       or not isinstance(part["name"], str) or not part["name"]
-       or not isinstance(part["description"], str) or not part["description"]
+if any(not isinstance(part, dict) or set(part) != {"glyph", "build_key", "behavior", "layers"}
        or not isinstance(part["glyph"], str) or len(part["glyph"]) != 1
        or not isinstance(part["behavior"], str) or part["behavior"] not in BEHAVIORS
        or (part["build_key"] is not None and (not isinstance(part["build_key"], str) or len(part["build_key"]) != 1))
@@ -206,20 +208,18 @@ def _target_reason(state: GameState, position: Position, layer: str) -> str | No
     from .world import base_tile, distance
 
     if not space_id(state):
-        return "Circuit work is available on Jomon's working decks or in a region."
+        return circuit_text("circuit.target.no_space")
     if state.active_vehicle_id:
-        return "Disembark before laying a fixed trace."
+        return circuit_text("circuit.target.vehicle")
     if state.courier is None or not state.courier.alive:
-        return "An active courier must do the fitting."
+        return circuit_text("circuit.target.courier")
     if layer not in {"surface", "buried"}:
-        return "Choose the surface or buried layer."
+        return circuit_text("circuit.target.layer")
     if position.z != state.position.z or distance(state.position, position) > 2:
-        return "Work on this level within two squares of the courier."
-    tile = base_tile(state, position)
-    if tile in {" ", "~", "T"}:
-        return "There is no sound floor or wall footing at that square."
+        return circuit_text("circuit.target.distance")
+    if base_tile(state, position) in {" ", "~", "T"}:
+        return circuit_text("circuit.target.footing")
     return None
-
 
 def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[bool, str]:
     from .actions import _advance_world
@@ -229,30 +229,30 @@ def place(state: GameState, position: Position, layer: str, kind: str) -> tuple[
     if reason:
         return False, reason
     if kind not in PLACED_PARTS:
-        return False, "Choose a buildable circuit part."
+        return False, circuit_text("circuit.place.invalid_part")
     if len(state.circuits) >= MAX_CELLS:
-        return False, "The world circuit register is full."
+        return False, circuit_text("circuit.place.register_full")
+    part = circuit_part_name(kind).lower()
     if layer not in PARTS[kind]["layers"]:
-        return False, f"A {PARTS[kind]['name'].lower()} cannot be fitted on the {layer} layer."
+        return False, circuit_format("circuit.place.unsupported_layer", part=part, layer=circuit_layer_name(layer))
     if layer == "surface" and base_tile(state, position) not in {".", ",", "_", "m", "r", "q", "%", "="}:
-        return False, "Keep surface fittings on plain ground; bury a trace beneath a fixture."
+        return False, circuit_text("circuit.place.surface_ground")
     space = space_id(state)
     key = cell_key(space, position, layer)
     if key in state.circuits:
-        return False, "That circuit layer is already occupied; reclaim it first."
+        return False, circuit_text("circuit.place.occupied")
     if layer == "surface" and not is_walkable(state, position, ignore_threat=True):
-        return False, "A surface fitting needs passable ground; bury a trace beneath a wall."
+        return False, circuit_text("circuit.place.surface_walkable")
     if kind in {"gate", "crate", "piston"} and position == state.position:
-        return False, "Stand clear of the square before fitting a blocking device."
+        return False, circuit_text("circuit.place.blocking_device")
     if _available_item(state, kind) is None:
-        return False, f"Carry a crafted {PARTS[kind]['name'].lower()} in your pack."
+        return False, circuit_format("circuit.place.missing_part", part=part)
     _spend_item(state, kind)
     state.circuits[key] = CircuitCell(space, position, layer, kind)
     _advance_world(state)
-    message = f"You fit {PARTS[kind]['name'].lower()} at {position.x},{position.y},{position.z} ({layer})."
+    message = circuit_format("circuit.place.success", part=part, x=position.x, y=position.y, z=position.z, layer=circuit_layer_name(layer))
     state.add_message(message, priority=3)
     return True, message
-
 
 def reclaim(state: GameState, position: Position, layer: str) -> tuple[bool, str]:
     from .actions import _advance_world
@@ -265,19 +265,18 @@ def reclaim(state: GameState, position: Position, layer: str) -> tuple[bool, str
     key = cell_key(space, position, layer)
     cell = state.circuits.get(key)
     if cell is None:
-        return False, "No fitted part occupies that layer."
+        return False, circuit_text("circuit.reclaim.empty")
     transaction = InventoryTransaction.begin(state)
-    item = create_item(state, f"circuit:{cell.kind}", "reclaimed circuit fitting")
+    item = create_item(state, f"circuit:{cell.kind}", circuit_text("circuit.reclaim.provenance"))
     if not auto_place(state, item.id, "pack", owner_id=state.active_courier_id):
         transaction.cancel(state)
-        return False, "Clear space in the pack before reclaiming the fitting."
+        return False, circuit_text("circuit.reclaim.pack_full")
     del state.circuits[key]
     sync_legacy_load(state)
     _advance_world(state)
-    message = f"You reclaim the {PARTS[cell.kind]['name'].lower()} from the {layer} layer."
+    message = circuit_format("circuit.reclaim.success", part=circuit_part_name(cell.kind).lower(), layer=circuit_layer_name(layer))
     state.add_message(message, priority=3)
     return True, message
-
 
 def operate(state: GameState, position: Position, layer: str, action: str = "primary") -> tuple[bool, str]:
     from .actions import _advance_world
@@ -287,52 +286,51 @@ def operate(state: GameState, position: Position, layer: str, action: str = "pri
         return False, reason
     cell = cell_at(state, position, layer)
     if cell is None:
-        return False, "No circuit part occupies that layer."
+        return False, circuit_text("circuit.operate.empty")
     if action == "secondary" and cell.kind == "piston":
         cell.sticky = not cell.sticky
-        message = f"The piston is now {'sticky' if cell.sticky else 'push-only'}."
+        message = circuit_format("circuit.operate.piston_grip", grip=circuit_text("circuit.grip.sticky" if cell.sticky else "circuit.grip.push_only"))
     elif action == "secondary" and cell.kind == "counter":
         cell.count = 0
-        message = "You reset the counted relay."
+        message = circuit_text("circuit.operate.counter_reset")
     elif action == "secondary" and cell.kind == "sensor":
         cell.threshold = 1 if cell.threshold == 3 else cell.threshold + 1
-        message = f"The field sensor threshold is now {cell.threshold}."
+        message = circuit_format("circuit.operate.sensor_threshold", threshold=cell.threshold)
     elif action != "primary":
-        return False, "This fitting has no secondary setting."
+        return False, circuit_text("circuit.operate.no_secondary")
     elif cell.kind == "switch":
         cell.enabled = not cell.enabled
         if not cell.enabled:
             cell.phase = "wire"
             cell.signal_steps = 0
-        message = f"You {'close' if cell.enabled else 'open'} the knife switch."
+        message = circuit_format("circuit.operate.switch", state=circuit_text("circuit.verb.close" if cell.enabled else "circuit.verb.open"))
     elif cell.kind == "rack":
         if cell.charge > CELL_CHARGE:
-            return False, "The rack already holds more than one cell's remaining charge."
+            return False, circuit_text("circuit.operate.rack_full")
         if _available_item(state, "cell") is None:
-            return False, "A crafted galvanic cell is needed to charge the rack."
+            return False, circuit_text("circuit.operate.rack_need_cell")
         _spend_item(state, "cell")
         cell.charge += CELL_CHARGE
-        message = f"You fit a galvanic cell; the rack holds {cell.charge} pulses."
+        message = circuit_format("circuit.operate.rack_load", charge=cell.charge)
     elif cell.kind in {"piston", "relay"}:
         if cell.kind == "piston" and active(state, cell):
-            return False, "Wait for the piston to retract before rotating its crank."
+            return False, circuit_text("circuit.operate.piston_active")
         compass = tuple(DIRECTIONS)
         cell.facing = compass[(compass.index(cell.facing) + 1) % len(compass)]
-        message = f"You turn the {PARTS[cell.kind]['name'].lower()} {cell.facing}."
+        message = circuit_format("circuit.operate.turn", part=circuit_part_name(cell.kind).lower(), facing=circuit_facing_name(cell.facing))
     elif cell.kind == "sensor":
         cell.mode = SENSOR_MODES[(SENSOR_MODES.index(cell.mode) + 1) % len(SENSOR_MODES)]
-        message = f"The field sensor now reads {cell.mode}."
+        message = circuit_format("circuit.operate.sensor_mode", mode=circuit_mode_name(cell.mode))
     elif cell.kind == "counter":
         cell.threshold = 2 if cell.threshold == 4 else cell.threshold + 1
         cell.count = 0
-        message = f"The counted relay now passes every {cell.threshold}th pulse."
+        message = circuit_format("circuit.operate.counter_threshold", threshold=cell.threshold)
     else:
-        return False, "This fitting has no manual control."
+        return False, circuit_text("circuit.operate.no_control")
     cell.last_event = message
     _advance_world(state)
     state.add_message(message, priority=3)
     return True, message
-
 
 def _neighbors(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
     space, point, layer = cell.space, cell.position, cell.layer
@@ -422,14 +420,13 @@ def _blocked_link(state: GameState, path: list[CircuitCell]) -> str:
             part = sender if sender.kind == "relay" else receiver
         where = f"{part.position.x},{part.position.y},z{part.position.z:+d}"
         if part.kind == "switch":
-            return f"Knife switch at {where} is open."
+            return circuit_format("circuit.diagnostic.blocked.switch", where=where)
         if part.kind == "sensor":
-            return f"{part.mode.title()} sensor at {where} is clear (needs {part.threshold})."
+            return circuit_format("circuit.diagnostic.blocked.sensor", mode=circuit_mode_title(part.mode), where=where, threshold=part.threshold)
         if part.kind == "relay":
-            return f"Relay at {where} faces {part.facing}; check input and output."
-        return f"Rack at {where} cannot pass another source's pulse."
-    return "No open source route."
-
+            return circuit_format("circuit.diagnostic.blocked.relay", where=where, facing=circuit_facing_name(part.facing))
+        return circuit_format("circuit.diagnostic.blocked.rack", where=where)
+    return circuit_text("circuit.diagnostic.no_open_route")
 
 def _head_inputs(state: GameState, cell: CircuitCell) -> list[CircuitCell]:
     return [other for other in _neighbors(state, cell)
@@ -474,84 +471,64 @@ def next_phase(state: GameState, cell: CircuitCell, *, at_time: int | None = Non
 def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
     if cell.kind == "crate":
         cargo = _crate_cargo(state, cell)
-        return [f"Freight crate: {len(cargo)} ground item(s), {_crate_weight(state, cell)}/{CRATE_LOAD_LIMIT} kg.",
-                "Pistons move up to three in a line; contents ride with their crate.",
-                "It can cover a buried mass sensor or circuit trace."]
+        return [
+            circuit_format("circuit.diagnostic.crate.summary", cargo=len(cargo), weight=_crate_weight(state, cell), limit=CRATE_LOAD_LIMIT),
+            circuit_text("circuit.diagnostic.crate.push"),
+            circuit_text("circuit.diagnostic.crate.cover"),
+        ]
     seen = {cell_key(cell.space, cell.position, cell.layer)}
-    queue = deque([cell])
-    racks = []
-    network = []
+    queue = deque([cell]); racks = []; network = []
     while queue:
-        current = queue.popleft()
-        network.append(current)
-        if current.kind == "rack":
-            racks.append(current)
+        current = queue.popleft(); network.append(current)
+        if current.kind == "rack": racks.append(current)
         for neighbor in _neighbors(state, current):
             key = cell_key(neighbor.space, neighbor.position, neighbor.layer)
             if key not in seen:
-                seen.add(key)
-                queue.append(neighbor)
+                seen.add(key); queue.append(neighbor)
     next_state, next_count = next_phase(state, cell, at_time=state.world_time + 1)
     inputs = _heads_into(state, cell)
-    remaining = f"; pulse can travel {cell.signal_steps} more link(s)" if cell.phase == "head" else ""
-    pulse_names = {"wire": "idle", "head": "arriving", "tail": "fading"}
-    status = f"Pulse {pulse_names[cell.phase]} -> {pulse_names[next_state]}; {inputs} live input(s); {len(_neighbors(state, cell))} links{remaining}."
-    sources = f"Network: {len(seen)} fittings; {len(racks)} rack(s), {sum(r.charge > 0 for r in racks)} charged."
+    remaining = circuit_format("circuit.diagnostic.remaining", steps=cell.signal_steps) if cell.phase == "head" else ""
+    status = circuit_format("circuit.diagnostic.pulse", phase=circuit_text(f"circuit.phase.{cell.phase}"), next_phase=circuit_text(f"circuit.phase.{next_state}"), inputs=inputs, links=len(_neighbors(state, cell)), remaining=remaining)
+    sources = circuit_format("circuit.diagnostic.sources", fittings=len(seen), racks=len(racks), charged=sum(r.charge > 0 for r in racks))
     if cell.kind == "rack":
-        setting = f"Cell charge {cell.charge}/{2 * CELL_CHARGE}; one pulse every {PULSE_INTERVAL} actions."
+        setting = circuit_format("circuit.diagnostic.setting.rack", charge=cell.charge, maximum=2 * CELL_CHARGE, interval=PULSE_INTERVAL)
     elif cell.kind == "switch":
-        setting = f"Knife switch {'CLOSED' if cell.enabled else 'OPEN'}; E changes it."
+        setting = circuit_format("circuit.diagnostic.setting.switch", state=circuit_text("circuit.state.closed" if cell.enabled else "circuit.state.open"))
     elif cell.kind == "sensor":
-        setting = f"Sensor {cell.mode} threshold {cell.threshold}: {'DETECTED' if sensor_active(state, cell) else 'clear'}; E mode, T threshold."
+        setting = circuit_format("circuit.diagnostic.setting.sensor", mode=circuit_mode_name(cell.mode), threshold=cell.threshold, state=circuit_text("circuit.state.detected" if sensor_active(state, cell) else "circuit.state.clear"))
     elif cell.kind == "relay":
-        setting = f"One-way relay faces {cell.facing}; input behind, output ahead; E rotates."
+        setting = circuit_format("circuit.diagnostic.setting.relay", facing=circuit_facing_name(cell.facing))
     elif cell.kind == "counter":
-        setting = f"Counted relay {cell.count}/{cell.threshold}; next count {next_count}; E sets 2-4, T resets."
+        setting = circuit_format("circuit.diagnostic.setting.counter", count=cell.count, threshold=cell.threshold, next_count=next_count)
     elif cell.kind == "piston":
-        setting = f"Piston faces {cell.facing}; {'sticky' if cell.sticky else 'push-only'}; E rotates, T changes grip."
+        setting = circuit_format("circuit.diagnostic.setting.piston", facing=circuit_facing_name(cell.facing), grip=circuit_text("circuit.grip.sticky" if cell.sticky else "circuit.grip.push_only"))
     else:
-        setting = f"{'ACTIVE' if active(state, cell) else 'idle'} until action {cell.active_until}." if cell.kind in {"lamp", "gate", "drain"} else "Passive conductor."
+        setting = circuit_format("circuit.diagnostic.setting.device", state=circuit_text("circuit.state.active" if active(state, cell) else "circuit.state.idle"), until=cell.active_until) if cell.kind in {"lamp", "gate", "drain"} else circuit_text("circuit.diagnostic.setting.passive")
     charged = [rack for rack in racks if rack.charge > 0]
     if cell.kind == "rack":
-        if not cell.charge:
-            route = "Source empty: fit a galvanic cell with E."
+        if not cell.charge: route = circuit_text("circuit.diagnostic.route.source_empty")
         elif not _has_receiver(state, cell):
-            receivers = _receivers(state, cell.space)
-            open_path = _route(state, cell, receivers) if receivers else None
-            physical = _route(state, cell, receivers, open_only=False) if receivers else None
-            if open_path is not None:
-                route = f"Source waiting: device is {len(open_path) - 1} links away; limit {SIGNAL_SPAN}."
-            elif physical is None:
-                route = "Source waiting: no attached device; charge is conserved."
-            else:
-                route = f"Source waiting: {_blocked_link(state, physical)}"
-        else:
-            route = f"Source ready: next pulse in {(-state.world_time) % PULSE_INTERVAL or PULSE_INTERVAL} action(s)."
-    elif cell.kind == "switch" and not cell.enabled:
-        route = "Path blocked here: open knife switch; E closes it."
-    elif cell.kind == "sensor" and not sensor_active(state, cell):
-        route = f"Path blocked here: {cell.mode} below threshold {cell.threshold}."
+            receivers = _receivers(state, cell.space); open_path = _route(state, cell, receivers) if receivers else None; physical = _route(state, cell, receivers, open_only=False) if receivers else None
+            if open_path is not None: route = circuit_format("circuit.diagnostic.route.source_waiting_device", distance=len(open_path) - 1, limit=SIGNAL_SPAN)
+            elif physical is None: route = circuit_text("circuit.diagnostic.route.source_waiting_none")
+            else: route = circuit_format("circuit.diagnostic.route.source_waiting_blocked", reason=_blocked_link(state, physical))
+        else: route = circuit_format("circuit.diagnostic.route.source_ready", actions=(-state.world_time) % PULSE_INTERVAL or PULSE_INTERVAL)
+    elif cell.kind == "switch" and not cell.enabled: route = circuit_text("circuit.diagnostic.route.switch_blocked")
+    elif cell.kind == "sensor" and not sensor_active(state, cell): route = circuit_format("circuit.diagnostic.route.sensor_blocked", mode=circuit_mode_name(cell.mode), threshold=cell.threshold)
     elif not charged:
         in_flight = any(part.phase == "head" and part.signal_steps > 0 for part in network)
-        if active(state, cell):
-            route = "Device remains active briefly; no charged rack for its next pulse."
-        else:
-            route = "Source depleted: a final pulse is still travelling." if in_flight else "No charged rack in this network."
+        if active(state, cell): route = circuit_text("circuit.diagnostic.route.device_active")
+        else: route = circuit_text("circuit.diagnostic.route.source_depleted" if in_flight else "circuit.diagnostic.route.no_charged_rack")
     else:
-        target = {cell_key(cell.space, cell.position, cell.layer)}
-        open_paths = [path for rack in charged if (path := _route(state, rack, target))]
+        target = {cell_key(cell.space, cell.position, cell.layer)}; open_paths = [path for rack in charged if (path := _route(state, rack, target))]
         if open_paths:
             distance = min(len(path) - 1 for path in open_paths)
-            if distance > SIGNAL_SPAN:
-                route = f"Open route is {distance} links; one pulse reaches {SIGNAL_SPAN}. Add a rack."
-            else:
-                route = "Source route open; waiting for a pulse." if not active(state, cell) else "Powered device is active."
+            if distance > SIGNAL_SPAN: route = circuit_format("circuit.diagnostic.route.open_far", distance=distance, limit=SIGNAL_SPAN)
+            else: route = circuit_text("circuit.diagnostic.route.powered" if active(state, cell) else "circuit.diagnostic.route.open_waiting")
         else:
             physical = [path for rack in charged if (path := _route(state, rack, target, open_only=False))]
-            route = _blocked_link(state, min(physical, key=len)) if physical else "No physical route to a charged rack."
-    last = f"Last pulse: {cell.last_pulse or 'never'}. Last event: {cell.last_event or 'none'}."
-    return [status, sources, setting, route, last]
-
+            route = _blocked_link(state, min(physical, key=len)) if physical else circuit_text("circuit.diagnostic.route.no_physical")
+    return [status, sources, setting, route, circuit_format("circuit.diagnostic.last", pulse=cell.last_pulse or circuit_text("circuit.value.never"), event=cell.last_event or circuit_text("circuit.value.none"))]
 
 def _terrain_at(state: GameState, space: str, point: Position) -> str:
     if space == "vessel":
@@ -599,16 +576,11 @@ def _crate_weight(state: GameState, crate: CircuitCell) -> int:
 def _clear_for_piston(state: GameState, space: str, point: Position) -> tuple[bool, str]:
     tile = _terrain_at(state, space, point)
     blocked = {" ", "#", "~", "T", "+"} | ({"=", "t", "F", "f", "a", "v", "B"} if space == "vessel" else set())
-    if tile in blocked:
-        return False, "solid terrain"
-    if state.circuits.get(cell_key(space, point, "surface")) is not None:
-        return False, "another fitting"
-    if _actor_blocks(state, space, point):
-        return False, "a person or creature"
-    if space == space_id(state) and piston_head_at(state, point):
-        return False, "another extended piston"
+    if tile in blocked: return False, "terrain"
+    if state.circuits.get(cell_key(space, point, "surface")) is not None: return False, "fitting"
+    if _actor_blocks(state, space, point): return False, "actor"
+    if space == space_id(state) and piston_head_at(state, point): return False, "piston"
     return True, "clear"
-
 
 def _move_crate(state: GameState, crate: CircuitCell, target: Position) -> None:
     cargo = _crate_cargo(state, crate)
@@ -620,40 +592,27 @@ def _move_crate(state: GameState, crate: CircuitCell, target: Position) -> None:
 
 
 def _extend_piston(state: GameState, piston: CircuitCell) -> str:
-    front = offset(piston.position, piston.facing)
-    crates: list[CircuitCell] = []
-    target = front
+    front = offset(piston.position, piston.facing); crates: list[CircuitCell] = []; target = front
     while (crate := _crate_at(state, piston.space, target)) is not None:
         crates.append(crate)
-        if len(crates) > 3:
-            return "jammed: more than three freight crates"
-        if _crate_weight(state, crate) > CRATE_LOAD_LIMIT:
-            return f"jammed: crate exceeds {CRATE_LOAD_LIMIT} kg"
+        if len(crates) > 3: return circuit_text("circuit.piston.too_many")
+        if _crate_weight(state, crate) > CRATE_LOAD_LIMIT: return circuit_format("circuit.piston.overweight", limit=CRATE_LOAD_LIMIT)
         target = offset(target, piston.facing)
     clear, reason = _clear_for_piston(state, piston.space, target)
-    if not clear:
-        return f"jammed: {reason} ahead"
-    for crate in reversed(crates):
-        _move_crate(state, crate, offset(crate.position, piston.facing))
+    if not clear: return circuit_format("circuit.piston.blocked", reason=circuit_text(f"circuit.piston.block.{reason}"))
+    for crate in reversed(crates): _move_crate(state, crate, offset(crate.position, piston.facing))
     piston.active_until = state.world_time + DEVICE_HOLD
-    return f"extended {piston.facing}; pushed {len(crates)} crate{'s' if len(crates) != 1 else ''}"
-
+    return circuit_format("circuit.piston.extended", facing=circuit_facing_name(piston.facing), count=len(crates), crate_word=circuit_text("circuit.crate.one" if len(crates) == 1 else "circuit.crate.many"))
 
 def _retract_piston(state: GameState, piston: CircuitCell) -> str:
-    if not piston.sticky:
-        return "retracted"
-    front = offset(piston.position, piston.facing)
-    crate = _crate_at(state, piston.space, offset(front, piston.facing))
-    if crate is None:
-        return "retracted; nothing to pull"
-    if _crate_weight(state, crate) > CRATE_LOAD_LIMIT:
-        return f"retracted; crate exceeds {CRATE_LOAD_LIMIT} kg"
+    if not piston.sticky: return circuit_text("circuit.piston.retracted")
+    front = offset(piston.position, piston.facing); crate = _crate_at(state, piston.space, offset(front, piston.facing))
+    if crate is None: return circuit_text("circuit.piston.nothing")
+    if _crate_weight(state, crate) > CRATE_LOAD_LIMIT: return circuit_format("circuit.piston.retract_overweight", limit=CRATE_LOAD_LIMIT)
     clear, reason = _clear_for_piston(state, piston.space, front)
-    if not clear:
-        return f"retracted; pull blocked by {reason}"
+    if not clear: return circuit_format("circuit.piston.retract_blocked", reason=circuit_text(f"circuit.piston.block.{reason}"))
     _move_crate(state, crate, front)
-    return "retracted; pulled one crate"
-
+    return circuit_text("circuit.piston.pulled")
 
 def _drain_water(state: GameState, cell: CircuitCell) -> int:
     removed = 0
@@ -688,7 +647,7 @@ def advance_circuits(state: GameState) -> None:
         if cell.kind == "rack" and phase == "head":
             cell.charge -= 1
             if cell.charge == 0:
-                cell.last_event = "cell depleted; load another galvanic cell"
+                cell.last_event = circuit_text("circuit.event.depleted")
         if phase == "head" and old_phase != "head":
             cell.last_pulse = state.world_time
             if cell.kind == "piston":
@@ -698,12 +657,12 @@ def advance_circuits(state: GameState) -> None:
                     cell.last_event = _extend_piston(state, cell)
             elif cell.kind == "drain":
                 cell.active_until = state.world_time + DEVICE_HOLD
-                cell.last_event = f"drained {_drain_water(state, cell)} water measures"
+                cell.last_event = circuit_format("circuit.event.drained", amount=_drain_water(state, cell))
             elif cell.kind in {"lamp", "gate"}:
                 cell.active_until = state.world_time + DEVICE_HOLD
-                cell.last_event = "powered"
+                cell.last_event = circuit_text("circuit.event.powered")
             elif cell.kind == "counter":
-                cell.last_event = f"passed its {cell.threshold}th input pulse"
+                cell.last_event = circuit_format("circuit.event.counter", threshold=cell.threshold)
         elif retract_due:
             cell.last_event = _retract_piston(state, cell)
 

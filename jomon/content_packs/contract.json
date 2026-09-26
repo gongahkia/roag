@@ -16796,5 +16796,717 @@
       "id": "situation.condition.aftermath.none",
       "placeholders": []
     }
+  ],
+  "circuits": [
+    {
+      "id": "circuit.part.trace.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.trace.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.via.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.via.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.rack.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.rack.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.cell.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.cell.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.switch.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.switch.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.lamp.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.lamp.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.gate.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.gate.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.drain.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.drain.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.sensor.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.sensor.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.relay.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.relay.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.counter.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.counter.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.piston.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.piston.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.crate.name",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.part.crate.description",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.no_space",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.vehicle",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.courier",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.layer",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.distance",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.target.footing",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.invalid_part",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.register_full",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.unsupported_layer",
+      "placeholders": [
+        "part",
+        "layer"
+      ]
+    },
+    {
+      "id": "circuit.place.surface_ground",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.occupied",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.surface_walkable",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.blocking_device",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.place.missing_part",
+      "placeholders": [
+        "part"
+      ]
+    },
+    {
+      "id": "circuit.place.success",
+      "placeholders": [
+        "part",
+        "x",
+        "y",
+        "z",
+        "layer"
+      ]
+    },
+    {
+      "id": "circuit.reclaim.empty",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.reclaim.provenance",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.reclaim.pack_full",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.reclaim.success",
+      "placeholders": [
+        "part",
+        "layer"
+      ]
+    },
+    {
+      "id": "circuit.operate.empty",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.piston_grip",
+      "placeholders": [
+        "grip"
+      ]
+    },
+    {
+      "id": "circuit.operate.counter_reset",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.sensor_threshold",
+      "placeholders": [
+        "threshold"
+      ]
+    },
+    {
+      "id": "circuit.operate.no_secondary",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.switch",
+      "placeholders": [
+        "state"
+      ]
+    },
+    {
+      "id": "circuit.operate.rack_full",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.rack_need_cell",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.rack_load",
+      "placeholders": [
+        "charge"
+      ]
+    },
+    {
+      "id": "circuit.operate.piston_active",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.operate.turn",
+      "placeholders": [
+        "part",
+        "facing"
+      ]
+    },
+    {
+      "id": "circuit.operate.sensor_mode",
+      "placeholders": [
+        "mode"
+      ]
+    },
+    {
+      "id": "circuit.operate.counter_threshold",
+      "placeholders": [
+        "threshold"
+      ]
+    },
+    {
+      "id": "circuit.operate.no_control",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.blocked.switch",
+      "placeholders": [
+        "where"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.blocked.sensor",
+      "placeholders": [
+        "mode",
+        "where",
+        "threshold"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.blocked.relay",
+      "placeholders": [
+        "where",
+        "facing"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.blocked.rack",
+      "placeholders": [
+        "where"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.no_open_route",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.crate.summary",
+      "placeholders": [
+        "cargo",
+        "weight",
+        "limit"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.crate.push",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.crate.cover",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.pulse",
+      "placeholders": [
+        "phase",
+        "next_phase",
+        "inputs",
+        "links",
+        "remaining"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.remaining",
+      "placeholders": [
+        "steps"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sources",
+      "placeholders": [
+        "fittings",
+        "racks",
+        "charged"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.rack",
+      "placeholders": [
+        "charge",
+        "maximum",
+        "interval"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.switch",
+      "placeholders": [
+        "state"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.sensor",
+      "placeholders": [
+        "mode",
+        "threshold",
+        "state"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.relay",
+      "placeholders": [
+        "facing"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.counter",
+      "placeholders": [
+        "count",
+        "threshold",
+        "next_count"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.piston",
+      "placeholders": [
+        "facing",
+        "grip"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.device",
+      "placeholders": [
+        "state",
+        "until"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.setting.passive",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.source_empty",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.source_waiting_device",
+      "placeholders": [
+        "distance",
+        "limit"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.route.source_waiting_none",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.source_waiting_blocked",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.route.source_ready",
+      "placeholders": [
+        "actions"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.route.switch_blocked",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.sensor_blocked",
+      "placeholders": [
+        "mode",
+        "threshold"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.route.device_active",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.source_depleted",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.no_charged_rack",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.open_far",
+      "placeholders": [
+        "distance",
+        "limit"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.route.open_waiting",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.powered",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.route.no_physical",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.last",
+      "placeholders": [
+        "pulse",
+        "event"
+      ]
+    },
+    {
+      "id": "circuit.piston.block.terrain",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.block.fitting",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.block.actor",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.block.piston",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.too_many",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.overweight",
+      "placeholders": [
+        "limit"
+      ]
+    },
+    {
+      "id": "circuit.piston.blocked",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "circuit.piston.extended",
+      "placeholders": [
+        "facing",
+        "count",
+        "crate_word"
+      ]
+    },
+    {
+      "id": "circuit.piston.retracted",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.nothing",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.piston.retract_overweight",
+      "placeholders": [
+        "limit"
+      ]
+    },
+    {
+      "id": "circuit.piston.retract_blocked",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "circuit.piston.pulled",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.event.depleted",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.event.drained",
+      "placeholders": [
+        "amount"
+      ]
+    },
+    {
+      "id": "circuit.event.powered",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.event.counter",
+      "placeholders": [
+        "threshold"
+      ]
+    },
+    {
+      "id": "circuit.phase.wire",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.phase.head",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.phase.tail",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.closed",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.open",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.detected",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.clear",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.active",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.state.idle",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.grip.sticky",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.grip.push_only",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.terminal.heading",
+      "placeholders": [
+        "layer",
+        "x",
+        "y",
+        "z",
+        "description"
+      ]
+    },
+    {
+      "id": "circuit.terminal.empty",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.terminal.inspect_empty",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.terminal.build_option",
+      "placeholders": [
+        "key",
+        "part",
+        "count"
+      ]
+    },
+    {
+      "id": "circuit.terminal.cells",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "circuit.terminal.controls",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.terminal.fallback",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.terminal.step",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.value.never",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.value.none",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.verb.close",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.verb.open",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.crate.one",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.crate.many",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode.mass",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode.water",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode.threat",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.facing.north",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.facing.east",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.facing.south",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.facing.west",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.layer.surface",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.layer.buried",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode_title.mass",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode_title.water",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode_title.threat",
+      "placeholders": []
+    }
   ]
 }

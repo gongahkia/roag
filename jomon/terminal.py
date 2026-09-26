@@ -988,7 +988,8 @@ def _handle_look(
 
 
 def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) -> None:
-    from .circuits import BUILD_KEYS, PARTS, active, cell_at, diagnostic_lines, glyph, item_count, space_id
+    from .circuits import BUILD_KEYS, active, cell_at, diagnostic_lines, glyph, item_count, space_id
+    from .circuit_presentation import circuit_format, circuit_layer_name, circuit_part_name, circuit_text
 
     height, width = screen.getmaxyx()
     visible = field_of_view(state, remember=False)
@@ -1006,17 +1007,17 @@ def _draw_circuit(screen: curses.window, state: GameState, view: CircuitView) ->
         mark = glyph(state, view.cursor, view.layer) or displayed_tile(state, view.cursor)
         _put(screen, y, x, mark, _COLOUR_ATTRIBUTES["target_cell"] | curses.A_REVERSE | curses.A_BOLD)
     cell = cell_at(state, view.cursor, view.layer)
-    description = PARTS[cell.kind]["name"] if cell else "No fitting on this layer"
+    description = circuit_part_name(cell.kind) if cell else circuit_text("circuit.terminal.empty")
     build_options = list(BUILD_KEYS.items())
-    build_rows = [" ".join(f"{key.upper()} {kind}({item_count(state, kind)})" for key, kind in build_options[index:index + 7])
+    build_rows = [" ".join(circuit_format("circuit.terminal.build_option", key=key.upper(), part=circuit_part_name(kind), count=item_count(state, kind)) for key, kind in build_options[index:index + 7])
                   for index in range(0, len(build_options), 7)]
     lines = (
-        f"CIRCUITS {view.layer.upper()}  {view.cursor.x},{view.cursor.y},{view.cursor.z}  {description}",
-        *(diagnostic_lines(state, cell) if cell else ["No conductor here. Lay a part or move the cursor to inspect a circuit."]),
+        circuit_format("circuit.terminal.heading", layer=circuit_layer_name(view.layer).upper(), x=view.cursor.x, y=view.cursor.y, z=view.cursor.z, description=description),
+        *(diagnostic_lines(state, cell) if cell else [circuit_text("circuit.terminal.inspect_empty")]),
         *build_rows,
-        f"Galvanic cells in pack: {item_count(state, 'cell')}.",
-        "E configure/load  T alternate  . step time  R reclaim  Tab depth  Esc/\\ close",
-        (state.messages[-1] if state.messages else "Buried traces stay hidden on the world map; vias link layers."),
+        circuit_format("circuit.terminal.cells", count=item_count(state, "cell")),
+        circuit_text("circuit.terminal.controls"),
+        (state.messages[-1] if state.messages else circuit_text("circuit.terminal.fallback")),
     )
     for index, line in enumerate(lines, height - len(lines)):
         _put(screen, index, 0, line[:width].ljust(width), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_REVERSE)
@@ -1056,7 +1057,8 @@ def _handle_circuit(
         from .actions import _advance_world
 
         _advance_world(state)
-        state.add_message("You let one world action pass while observing the circuit.")
+        from .circuit_presentation import circuit_text
+        state.add_message(circuit_text("circuit.terminal.step"))
         return False
     if normalized == ord("r"):
         changed, message = reclaim(state, view.cursor, view.layer)

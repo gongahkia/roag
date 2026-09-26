@@ -93,10 +93,11 @@ for _kind, _spec in tuple(ITEM_SPECS.items()):
     ITEM_SPECS[_kind] = replace(
         _spec, name=_presentation.display_name, description=_presentation.description,
     )
-for _part_id, _part in load_catalog("circuits.json", ("parts", "fixtures"))["parts"].items():
+from .circuit_presentation import circuit_part_description, circuit_part_name
+for _part_id in load_catalog("circuits.json", ("parts", "fixtures"))["parts"]:
     ITEM_SPECS[f"circuit:{_part_id}"] = ItemSpec(
-        _part["name"], _part_id[:2].upper(), 1, 1, 1, "tool",
-        _part["description"], stack_limit=8,
+        circuit_part_name(_part_id), _part_id[:2].upper(), 1, 1, 1, "tool",
+        circuit_part_description(_part_id), stack_limit=8,
     )
 
 # Existing saved containers keep their contents; fresh frontier stores draw from

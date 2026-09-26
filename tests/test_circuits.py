@@ -475,6 +475,15 @@ class CircuitTests(unittest.TestCase):
         with self.assertRaises(StateError):
             game_state_from_dict(invalid)
 
+    def test_last_event_is_frozen_presentation_and_raw_kind_round_trips(self):
+        trace = self.fit("trace", 21)
+        trace.last_event = "unknown old diagnostic wording"
+        loaded = game_state_from_dict(self.state.to_dict())
+        restored = loaded.circuits[cell_key(trace.space, trace.position, trace.layer)]
+        self.assertEqual(restored.kind, "trace")
+        self.assertEqual(restored.last_event, "unknown old diagnostic wording")
+        validate_circuits(loaded)
+
     def test_circuit_view_builds_configures_and_steps_a_piston(self):
         state = self.state
         part = create_item(state, "circuit:piston", "test stock")

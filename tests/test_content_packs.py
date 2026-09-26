@@ -61,6 +61,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "material_text.json", root / "material_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "sanctum_text.json", root / "sanctum_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "situation_text.json", root / "situation_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "circuit_text.json", root / "circuit_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -376,6 +377,17 @@ def alternate_pack(root: Path) -> Path:
         "situation.report.unfiled": "FIXTURE report remains unfiled.",
     })
     source.write_text(json.dumps(situation_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "circuit_text.json"
+    circuit_text = json.loads(source.read_text(encoding="utf-8"))
+    circuit_text["text"].update({
+        "circuit.part.trace.name": "Fixture filament",
+        "circuit.part.trace.description": "Fixture insulation preserves the same signal rules.",
+        "circuit.place.success": "FIXTURE fitted {part} at {x},{y},{z} ({layer}).",
+        "circuit.diagnostic.pulse": "FIXTURE pulse {phase} -> {next_phase}; {inputs} live input(s); {links} links{remaining}.",
+        "circuit.event.drained": "FIXTURE drained {amount} unchanged water measures",
+        "circuit.terminal.heading": "FIXTURE CIRCUITS {layer} {x},{y},{z} {description}",
+    })
+    source.write_text(json.dumps(circuit_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -698,7 +710,7 @@ def production_presentation_snapshot(environment: dict[str, str]) -> dict[str, o
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "import json; from jomon.inventory import auto_place, create_item, item_spec; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
             "state=create_world('production-pack-proof'); state.courier.skill_nodes.append('masterwork'); state.location='region'; state.position=site_position(state); first=gather(state, 0); "
             "[auto_place(state, create_item(state, kind, 'fixture input', quantity=quantity).id, 'pack', owner_id=state.active_courier_id) for kind, quantity in (('ingredient:healing herb', 1), ('ingredient:clay', 2), ('commodity:wool', 3))]; "
             "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=_overlay_lines(state, 'craft-catalog:0'); "
@@ -716,7 +728,7 @@ def chemistry_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
             sys.executable,
             "-c",
             "import json; from jomon.chemistry import drink_flask, fill_flask, predicted_reactions; "
-            "from jomon.inventory import auto_place, create_item; from jomon.state import create_world; "
+            "from jomon.inventory import auto_place, create_item, item_spec; from jomon.state import create_world; "
             "state=create_world('chemistry-pack-proof'); flask=create_item(state, 'field flask', 'fixture flask'); "
             "herb=create_item(state, 'ingredient:healing herb', 'fixture herb'); water=create_item(state, 'ingredient:spring water', 'fixture water'); "
             "[auto_place(state, item.id, 'pack', owner_id=state.active_courier_id) for item in (flask, herb, water)]; "
@@ -2088,7 +2100,7 @@ def sanctum_presentation_snapshot(environment: dict[str, str]) -> dict[str, obje
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import interact; from jomon.inventory import auto_place, create_item; from jomon.sanctums import inspect_lines, shrine_choice; from jomon.state import create_world; "
+            "import json; from jomon.actions import interact; from jomon.inventory import auto_place, create_item, item_spec; from jomon.sanctums import inspect_lines, shrine_choice; from jomon.state import create_world; "
             "state=create_world('sanctum-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['sanctum_shrine']; account=state.institutions[__import__('jomon.sanctums',fromlist=['SITES']).SITES[state.active_region_id]['network']]; lot=create_item(state, f'commodity:{account.dependency}', 'sanctum fixture offering'); auto_place(state,lot.id,'pack',owner_id=state.active_courier_id); before=[account.trust,account.obligation]; lines=inspect_lines(state); offered=shrine_choice(state,'o'); state.position=region.landmarks['sanctum_entry']; entered=interact(state); boss=next(actor for actor in state.threats if actor.id=='sanctum:hearthford:boss'); mechanics={'site':region.id,'network':account.id,'entry':[region.landmarks['sanctum_entry'].x,region.landmarks['sanctum_entry'].y], 'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('sanctum:')), 'caches':sorted((box.id,box.reward,box.requirement,tuple(box.extra_rewards)) for box in region.containers if '-sanctum-' in box.id), 'offered':[offered[0],offered[2],before,account.trust,account.obligation,region.changes['sanctum:opened_by']], 'boss':[boss.id,boss.profile,boss.role,boss.goal,boss.duty,boss.health,boss.glyph,boss.archetype_id,tuple(boss.capabilities)], 'inhabited':region.changes['sanctum:inhabited'], 'time':state.world_time}; print(json.dumps({'presentation':[lines,offered[1],entered.message,boss.name,[(link.id,link.name) for link in region.vertical_links if link.id.startswith('sanctum:')],[(box.id,box.name) for box in region.containers if '-sanctum-' in box.id]],'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
@@ -2316,4 +2328,60 @@ class SituationPresentationTests(unittest.TestCase):
                         load_content_pack(root)
             source.write_text(original.replace('"situation.notice.activation"','"situation.record.resolved"',1),encoding='utf-8')
             with self.assertRaisesRegex(ContentPackError,r'fixture-alternate.*situation_text\.json'):
+                load_content_pack(root)
+
+
+def circuit_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run([
+        sys.executable, "-c",
+        "import json; from jomon.circuits import advance_circuits, cell_key, diagnostic_lines, place; from jomon.circuit_presentation import circuit_format; from jomon.inventory import auto_place, create_item, item_spec; from jomon.state import CircuitCell, Position, create_world; "
+        "state=create_world('circuit-pack-proof');state.location='region';state.position=Position(20,20,0);state.circuits={};[state.region.tile_changes.__setitem__(f'{x},{y},0','.') for y in range(18,23) for x in range(18,27)];item=create_item(state,'circuit:trace','proof stock');auto_place(state,item.id,'pack',owner_id=state.active_courier_id);placed,message=place(state,Position(21,20,0),'buried','trace');rack=CircuitCell('region:hearthford',Position(20,20,0),'surface','rack',charge=1);trace=CircuitCell('region:hearthford',Position(21,20,0),'surface','trace');drain=CircuitCell('region:hearthford',Position(22,20,0),'surface','drain');state.circuits[cell_key(rack.space,rack.position,rack.layer)]=rack;state.circuits[cell_key(trace.space,trace.position,trace.layer)]=trace;state.circuits[cell_key(drain.space,drain.position,drain.layer)]=drain;state.water['22,20,0']=2;state.world_time=5;advance_circuits(state);state.world_time+=1;advance_circuits(state);state.world_time+=1;advance_circuits(state);state.world_time+=1;advance_circuits(state);mechanics={'placed':placed,'kind':state.circuits[cell_key('region:hearthford',Position(21,20,0),'buried')].kind,'position':state.circuits[cell_key('region:hearthford',Position(21,20,0),'buried')].position.__dict__,'layer':'buried','items':sum(item.quantity for item in state.items if item.kind=='circuit:trace'),'rack_charge':rack.charge,'drain_active_until':drain.active_until,'water':state.water.get('22,20,0',0),'time':state.world_time,'keys':sorted(state.circuits)};presentation={'place':message,'diagnostics':diagnostic_lines(state,drain),'event':drain.last_event,'item_name':item_spec('circuit:trace').name,'heading':circuit_format('circuit.terminal.heading',layer='BURIED',x=21,y=20,z=0,description='trace')};print(json.dumps({'mechanics':mechanics,'presentation':presentation}))"
+    ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class CircuitPresentationTests(unittest.TestCase):
+    def test_default_circuit_presentation_preserves_part_text(self):
+        from jomon.circuit_presentation import circuit_part_description, circuit_part_name
+        self.assertEqual(circuit_part_name("trace"), "Lacquered conductor")
+        self.assertEqual(circuit_part_description("trace"), "An insulated iron trace for a surface or buried circuit run.")
+
+    def test_alternate_circuit_presentation_changes_text_not_mechanics(self):
+        default = circuit_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = circuit_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        rendered = str(alternate["presentation"])
+        self.assertIn("fixture filament", rendered)
+        self.assertIn("Fixture filament", rendered)
+        self.assertIn("FIXTURE fitted", rendered)
+        self.assertIn("FIXTURE pulse", rendered)
+        self.assertIn("FIXTURE drained", rendered)
+        self.assertIn("FIXTURE CIRCUITS", rendered)
+
+    def test_circuit_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "circuit_text.json"; original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing part": lambda value: value["text"].pop("circuit.part.trace.name"),
+                "unknown slot": lambda value: value["text"].update({"circuit.part.extra.name": "extra"}),
+                "missing field": lambda value: value.pop("text"),
+                "empty": lambda value: value["text"].update({"circuit.terminal.heading": ""}),
+                "non-string": lambda value: value["text"].update({"circuit.terminal.heading": 3}),
+                "malformed": lambda value: value["text"].update({"circuit.place.success": "{"}),
+                "missing placeholder": lambda value: value["text"].update({"circuit.place.success": "{part}"}),
+                "unknown placeholder": lambda value: value["text"].update({"circuit.place.success": "{part} {other} {x} {y} {z} {layer}"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original); mutate(document); source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*circuit_text\.json"):
+                        load_content_pack(root)
+            source.write_text(original.replace('"circuit.part.trace.name"', '"circuit.part.trace.description"', 1), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*circuit_text\.json"):
                 load_content_pack(root)

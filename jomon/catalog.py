@@ -86,6 +86,7 @@ PREPARATION_PRESENTATION_FILE = "preparation_text.json"
 MATERIAL_PRESENTATION_FILE = "material_text.json"
 SANCTUM_PRESENTATION_FILE = "sanctum_text.json"
 SITUATION_PRESENTATION_FILE = "situation_text.json"
+CIRCUIT_PRESENTATION_FILE = "circuit_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -1180,6 +1181,9 @@ _SITUATION_TEMPLATE_CONTRACT = {
     "situation.condition.event.water_and_stone": (), "situation.condition.event.flood": (), "situation.condition.event.fire": (), "situation.condition.event.support_loss": (), "situation.condition.event.shared_repair": (), "situation.condition.event.private_advance": (), "situation.condition.event.contested_occupation": (), "situation.condition.event.unsettled_account": (), "situation.condition.event.none": (), "situation.condition.aftermath.shared": (), "situation.condition.aftermath.claimed": (), "situation.condition.aftermath.none": (),
 }
 
+
+_CIRCUIT_TEMPLATE_CONTRACT = {'circuit.part.trace.name': (), 'circuit.part.trace.description': (), 'circuit.part.via.name': (), 'circuit.part.via.description': (), 'circuit.part.rack.name': (), 'circuit.part.rack.description': (), 'circuit.part.cell.name': (), 'circuit.part.cell.description': (), 'circuit.part.switch.name': (), 'circuit.part.switch.description': (), 'circuit.part.lamp.name': (), 'circuit.part.lamp.description': (), 'circuit.part.gate.name': (), 'circuit.part.gate.description': (), 'circuit.part.drain.name': (), 'circuit.part.drain.description': (), 'circuit.part.sensor.name': (), 'circuit.part.sensor.description': (), 'circuit.part.relay.name': (), 'circuit.part.relay.description': (), 'circuit.part.counter.name': (), 'circuit.part.counter.description': (), 'circuit.part.piston.name': (), 'circuit.part.piston.description': (), 'circuit.part.crate.name': (), 'circuit.part.crate.description': (), 'circuit.target.no_space': (), 'circuit.target.vehicle': (), 'circuit.target.courier': (), 'circuit.target.layer': (), 'circuit.target.distance': (), 'circuit.target.footing': (), 'circuit.place.invalid_part': (), 'circuit.place.register_full': (), 'circuit.place.unsupported_layer': ('part', 'layer'), 'circuit.place.surface_ground': (), 'circuit.place.occupied': (), 'circuit.place.surface_walkable': (), 'circuit.place.blocking_device': (), 'circuit.place.missing_part': ('part',), 'circuit.place.success': ('part', 'x', 'y', 'z', 'layer'), 'circuit.reclaim.empty': (), 'circuit.reclaim.provenance': (), 'circuit.reclaim.pack_full': (), 'circuit.reclaim.success': ('part', 'layer'), 'circuit.operate.empty': (), 'circuit.operate.piston_grip': ('grip',), 'circuit.operate.counter_reset': (), 'circuit.operate.sensor_threshold': ('threshold',), 'circuit.operate.no_secondary': (), 'circuit.operate.switch': ('state',), 'circuit.operate.rack_full': (), 'circuit.operate.rack_need_cell': (), 'circuit.operate.rack_load': ('charge',), 'circuit.operate.piston_active': (), 'circuit.operate.turn': ('part', 'facing'), 'circuit.operate.sensor_mode': ('mode',), 'circuit.operate.counter_threshold': ('threshold',), 'circuit.operate.no_control': (), 'circuit.diagnostic.blocked.switch': ('where',), 'circuit.diagnostic.blocked.sensor': ('mode', 'where', 'threshold'), 'circuit.diagnostic.blocked.relay': ('where', 'facing'), 'circuit.diagnostic.blocked.rack': ('where',), 'circuit.diagnostic.no_open_route': (), 'circuit.diagnostic.crate.summary': ('cargo', 'weight', 'limit'), 'circuit.diagnostic.crate.push': (), 'circuit.diagnostic.crate.cover': (), 'circuit.diagnostic.pulse': ('phase', 'next_phase', 'inputs', 'links', 'remaining'), 'circuit.diagnostic.remaining': ('steps',), 'circuit.diagnostic.sources': ('fittings', 'racks', 'charged'), 'circuit.diagnostic.setting.rack': ('charge', 'maximum', 'interval'), 'circuit.diagnostic.setting.switch': ('state',), 'circuit.diagnostic.setting.sensor': ('mode', 'threshold', 'state'), 'circuit.diagnostic.setting.relay': ('facing',), 'circuit.diagnostic.setting.counter': ('count', 'threshold', 'next_count'), 'circuit.diagnostic.setting.piston': ('facing', 'grip'), 'circuit.diagnostic.setting.device': ('state', 'until'), 'circuit.diagnostic.setting.passive': (), 'circuit.diagnostic.route.source_empty': (), 'circuit.diagnostic.route.source_waiting_device': ('distance', 'limit'), 'circuit.diagnostic.route.source_waiting_none': (), 'circuit.diagnostic.route.source_waiting_blocked': ('reason',), 'circuit.diagnostic.route.source_ready': ('actions',), 'circuit.diagnostic.route.switch_blocked': (), 'circuit.diagnostic.route.sensor_blocked': ('mode', 'threshold'), 'circuit.diagnostic.route.device_active': (), 'circuit.diagnostic.route.source_depleted': (), 'circuit.diagnostic.route.no_charged_rack': (), 'circuit.diagnostic.route.open_far': ('distance', 'limit'), 'circuit.diagnostic.route.open_waiting': (), 'circuit.diagnostic.route.powered': (), 'circuit.diagnostic.route.no_physical': (), 'circuit.diagnostic.last': ('pulse', 'event'), 'circuit.piston.block.terrain': (), 'circuit.piston.block.fitting': (), 'circuit.piston.block.actor': (), 'circuit.piston.block.piston': (), 'circuit.piston.too_many': (), 'circuit.piston.overweight': ('limit',), 'circuit.piston.blocked': ('reason',), 'circuit.piston.extended': ('facing', 'count', 'crate_word'), 'circuit.piston.retracted': (), 'circuit.piston.nothing': (), 'circuit.piston.retract_overweight': ('limit',), 'circuit.piston.retract_blocked': ('reason',), 'circuit.piston.pulled': (), 'circuit.event.depleted': (), 'circuit.event.drained': ('amount',), 'circuit.event.powered': (), 'circuit.event.counter': ('threshold',), 'circuit.phase.wire': (), 'circuit.phase.head': (), 'circuit.phase.tail': (), 'circuit.state.closed': (), 'circuit.state.open': (), 'circuit.state.detected': (), 'circuit.state.clear': (), 'circuit.state.active': (), 'circuit.state.idle': (), 'circuit.grip.sticky': (), 'circuit.grip.push_only': (), 'circuit.terminal.heading': ('layer', 'x', 'y', 'z', 'description'), 'circuit.terminal.empty': (), 'circuit.terminal.inspect_empty': (), 'circuit.terminal.build_option': ('key', 'part', 'count'), 'circuit.terminal.cells': ('count',), 'circuit.terminal.controls': (), 'circuit.terminal.fallback': (), 'circuit.terminal.step': (), 'circuit.value.never': (), 'circuit.value.none': (), 'circuit.verb.close': (), 'circuit.verb.open': (), 'circuit.crate.one': (), 'circuit.crate.many': (), 'circuit.mode.mass': (), 'circuit.mode.water': (), 'circuit.mode.threat': (), 'circuit.facing.north': (), 'circuit.facing.east': (), 'circuit.facing.south': (), 'circuit.facing.west': (), 'circuit.layer.surface': (), 'circuit.layer.buried': (), 'circuit.mode_title.mass': (), 'circuit.mode_title.water': (), 'circuit.mode_title.threat': ()}
+
 @dataclass(frozen=True)
 class MagicPresentation:
     id: str
@@ -1223,6 +1227,12 @@ class SituationPresentation:
 
 
 @dataclass(frozen=True)
+class CircuitPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1261,6 +1271,7 @@ class ContentPack:
     material_presentations: tuple[MaterialPresentation, ...]
     sanctum_presentations: tuple[SanctumPresentation, ...]
     situation_presentations: tuple[SituationPresentation, ...]
+    circuit_presentations: tuple[CircuitPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1398,6 +1409,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown situation presentation id: {semantic_id}")
 
+    def circuit_presentation(self, semantic_id: str) -> CircuitPresentation:
+        for presentation in self.circuit_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown circuit presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1481,8 +1498,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, and situations")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, and circuits")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2542,6 +2559,26 @@ def _situation_presentations(root: Path, pack_id: str) -> tuple[SituationPresent
     return tuple(SituationPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="situation")) for key, placeholders in _SITUATION_TEMPLATE_CONTRACT.items())
 
 
+def _circuit_presentations(root: Path, pack_id: str) -> tuple[CircuitPresentation, ...]:
+    source = root / CIRCUIT_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid circuit presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _CIRCUIT_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("circuits") != expected:
+        raise RuntimeError(f"invalid engine circuit content contract at {contract_source}: circuits does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid circuit presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_CIRCUIT_TEMPLATE_CONTRACT):
+        missing, unknown = set(_CIRCUIT_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_CIRCUIT_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required circuit keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown circuit keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid circuit presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(CircuitPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="circuit")) for key, placeholders in _CIRCUIT_TEMPLATE_CONTRACT.items())
+
+
 def _aftermath_presentations(root: Path, pack_id: str) -> tuple[tuple[AftermathPresentation, ...], tuple[tuple[str, str, str, str], ...], tuple[AftermathActionPresentation, ...], tuple[AftermathResultPresentation, ...]]:
     source = root / AFTERMATH_PRESENTATION_FILE
     contract_source, engine_contract = _content_contract_document()
@@ -2686,10 +2723,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     materials = _material_presentations(root, pack_id)
     sanctums = _sanctum_presentations(root, pack_id)
     situations = _situation_presentations(root, pack_id)
+    circuits = _circuit_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, household_template,
     )
 
 

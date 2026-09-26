@@ -10,3 +10,7 @@ Legacy landform links without an ID are recovered from their stable region, endp
 ### Situations
 
 `situation_text.json` owns the titles, groups, duties, material descriptions, answer labels, consequences, records, reports, and overlay wording for regional micro-sites. `situations.json` retains only stable situation identity, region/band/anchor placement, and material-effect IDs. Situation choices use the stable `tool`, `material_rope`, `material_oil`, and `account` outcome identities; rendered outcomes and memories remain frozen history.
+
+### Circuits
+
+`circuit_text.json` owns circuit part labels/descriptions, construction, operation, diagnostic, device, and circuit-overlay wording. `circuits.json` owns stable raw part kinds, glyphs, layers, behavior, build keys, and fixture connectivity. Persisted circuit `last_event` values are frozen display records and are never interpreted as circuit state.

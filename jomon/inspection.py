@@ -164,12 +164,13 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
     if ground:
         from .inventory import item_spec
         lines.append(material_format("material.inspection.ground", items=", ".join(f"{item_spec(item.kind).name} {item.condition}%" for item in ground)))
-    from .circuits import PARTS, active as circuit_active, cell_at
+    from .circuits import active as circuit_active, cell_at
+    from .circuit_presentation import circuit_part_name
 
     circuit = cell_at(state, point)
     if circuit:
         detail = material_format("material.inspection.circuit.rack", charge=circuit.charge) if circuit.kind == "rack" else material_text("material.inspection.circuit.active") if circuit_active(state, circuit) else ""
-        lines.append(material_format("material.inspection.circuit", fitting=PARTS[circuit.kind]["name"], phase=circuit.phase, detail=detail))
+        lines.append(material_format("material.inspection.circuit", fitting=circuit_part_name(circuit.kind), phase=circuit.phase, detail=detail))
     from .materials import fields, inspect_material, key
     if key(point) in fields(state) or tile in {",", "~", "_", "m", "r", "q", "t", "s", "%", "f"}:
         lines.extend(inspect_material(state, point))
