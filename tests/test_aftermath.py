@@ -152,7 +152,7 @@ class EndingDerivedAftermathTests(unittest.TestCase):
             self.assertTrue(supply_contract(state, contract.id)[0])
             changed, message = settle_contract(state, contract.id)
             self.assertTrue(changed)
-        self.assertIn("siltgate hand", state.courier.learned_techniques)
+        self.assertIn("practice.siltgate_hand", state.courier.learned_techniques)
         self.assertIn("learns siltgate hand", message)
         rewards = [
             item.kind for item in state.items
