@@ -40,13 +40,13 @@ class ExpeditionUI(TavernUIBase):
         assert match is not None
         symbols = map_symbols()
         team = _team(match, 0)
-        title = f"{dd_text('ui.game_title')}  /  {OFFICE_WORLDS[match['world_id']].upper()}"
+        title = dd_text("ui.map_title", game=dd_text("ui.game_title"), world=OFFICE_WORLDS[match["world_id"]].upper())
         self._begin(title)
-        round_label = f"OT {match['round'] - MAX_ROUNDS}/4" if match["round"] > MAX_ROUNDS else f"ROUND {match['round']}/{MAX_ROUNDS}"
-        lead = "PATRON ROUTE" if rival_moving else round_label
-        self._put(1, 2, f"{lead}  APPROVAL {match['scores'][0]}:{match['scores'][1]}  VS {match.get('patron_name', 'PATRON')[:20]}  ROUTES {ORDERS_PER_TURN - team['orders']}/{ORDERS_PER_TURN}", curses.A_BOLD)
+        round_label = (dd_text("ui.map_overtime", round=match["round"] - MAX_ROUNDS) if match["round"] > MAX_ROUNDS else dd_text("ui.map_round", round=match["round"], maximum=MAX_ROUNDS))
+        lead = dd_text("ui.map_patron_route") if rival_moving else round_label
+        self._put(1, 2, dd_text("ui.map_status", lead=lead, score_a=match["scores"][0], score_b=match["scores"][1], patron=match.get("patron_name", "PATRON")[:20], orders=ORDERS_PER_TURN-team["orders"], maximum=ORDERS_PER_TURN), curses.A_BOLD)
         biome = _biome_at(match, *team["position"])
-        self._put(2, 2, f"{OFFICE_BIOMES[biome].upper()}  LIGHT {team['light']}  SUPPLIES {team['supplies']}  BOONS {len(team['boons'])}  ITEMS {sum(team['items'].values())}")
+        self._put(2, 2, dd_text("ui.map_resources", biome=OFFICE_BIOMES[biome].upper(), light=team["light"], supplies=team["supplies"], boons=len(team["boons"]), items=sum(team["items"].values())))
         rows, columns = self.screen.getmaxyx()
         viewport_width = min(columns - 4, len(match["board"][0]))
         viewport_height = min(rows - 9, len(match["board"]))
@@ -103,11 +103,11 @@ class ExpeditionUI(TavernUIBase):
         route_cost = sum(costs[match["board"][y][x]] for x, y in route)
         legend_row = 4 + viewport_height
         self._put(legend_row, 2, self._ellipsize(
-            f"{symbols['parties']['courier']} party {symbols['parties']['patron']} rival "
-            f"{symbols['patrol']['fight']}/{symbols['patrol']['elite']} patrol {symbols['patrol']['boss']} boss "
-            f"{symbols['files']['courier']}/{symbols['files']['patron']} files {symbols['hazard']} hazard "
-            f"{symbols['facility']} desk {symbols['station']['camp']} rest {symbols['station']['upgrade']} work "
-            f"{symbols['station']['event']}/{symbols['station']['cache']} loot R{route_cost}T", columns - 3))
+            dd_text("ui.map_legend", courier=symbols["parties"]["courier"], patron=symbols["parties"]["patron"],
+                    fight=symbols["patrol"]["fight"], elite=symbols["patrol"]["elite"], boss=symbols["patrol"]["boss"],
+                    file_a=symbols["files"]["courier"], file_b=symbols["files"]["patron"], hazard=symbols["hazard"],
+                    facility=symbols["facility"], camp=symbols["station"]["camp"], upgrade=symbols["station"]["upgrade"],
+                    event=symbols["station"]["event"], cache=symbols["station"]["cache"], cost=route_cost), columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
         self._put(legend_row + 2, 2, dd_text("ui.map_objective"))
         self._footer(dd_text("ui.map_footer"))
@@ -120,12 +120,12 @@ class ExpeditionUI(TavernUIBase):
         neutral = opponent == 2
         biome = _biome_at(match, *team["position"])
         label = OFFICE_BIOMES[biome]
-        self._begin(f"{label.upper()} / RANKED {'PATROL' if neutral else 'PARTY'} COMBAT — ROUND {match['round']} — ENERGY {team['energy']} — APPROVAL {match['scores'][0]}:{match['scores'][1]}")
-        opponent_name = "NEUTRAL OFFICE PATROL" if neutral else match.get("patron_name", "PATRON").upper()
-        self._put(1, 2, f"COURIER VS {opponent_name}  |  {match['combat_turns']} COMBAT TURNS  |  TWO-TURN RETURNS", self._attr(2) | curses.A_BOLD)
-        self._put(2, self._combat_column(2), "YOUR PARTY < BACK  FORMATION  FRONT >", curses.A_BOLD)
-        self._put(2, self._combat_column(43), ("PATROL" if neutral else "RIVAL PARTY") + " < FRONT FORMATION BACK >", curses.A_BOLD)
-        self._put(3, self._combat_column(39), "||", curses.A_BOLD)
+        self._begin(dd_text("ui.combat_title_full", biome=label.upper(), kind="PATROL" if neutral else "PARTY", round=match["round"], energy=team["energy"], score_a=match["scores"][0], score_b=match["scores"][1]))
+        opponent_name = dd_text("ui.combat_enemy_status", label="NEUTRAL OFFICE PATROL") if neutral else match.get("patron_name", "PATRON").upper()
+        self._put(1, 2, dd_text("ui.combat_status", opponent=opponent_name, turns=match["combat_turns"]), self._attr(2) | curses.A_BOLD)
+        self._put(2, self._combat_column(2), dd_text("ui.combat_party"), curses.A_BOLD)
+        self._put(2, self._combat_column(43), dd_text("ui.combat_rival", label="PATROL" if neutral else "RIVAL PARTY"), curses.A_BOLD)
+        self._put(3, self._combat_column(39), dd_text("ui.combat_divider"), curses.A_BOLD)
         hand = team["hand"]
         self.selected_card = max(0, min(self.selected_card, len(hand) - 1))
         legal_targets = valid_targets(match, self.selected_card) if hand else []
@@ -146,13 +146,13 @@ class ExpeditionUI(TavernUIBase):
                 if actor["id"] == target:
                     self._target_brackets(5, column, attr)
                 label = OFFICE_ROLES[actor["role"]] if actor["role"] in OFFICE_ROLES else office_costume_name(actor["role"])
-                self._put(8, column, f"R{rank} {label[:4].upper():4}", attr)
-                self._put(9, column, f"H{actor['hp']:02}/{actor['max_hp']:02}", attr)
-                self._put(10, column, f"S{actor['stress']:02} B{actor['block']:02}", attr)
+                self._put(8, column, dd_text("ui.combat_actor", rank=rank, label=label[:4].upper()), attr)
+                self._put(9, column, dd_text("ui.combat_hp", hp=f"{actor['hp']:02}", maximum=f"{actor['max_hp']:02}"), attr)
+                self._put(10, column, dd_text("ui.combat_stress", stress=f"{actor['stress']:02}", block=f"{actor['block']:02}"), attr)
                 if actor["respawn"]:
-                    self._put(11, column, f"RETURN {actor['respawn']}", self._attr(3))
+                    self._put(11, column, dd_text("ui.combat_return", turns=actor["respawn"]), self._attr(3))
                 elif side != 0:
-                    self._put(11, column, "PATROL" if neutral else "COSTUME", curses.A_DIM)
+                    self._put(11, column, dd_text("ui.combat_enemy_status", label="PATROL" if neutral else "COSTUME"), curses.A_DIM)
         self._put(12, 2, self._ellipsize(self.message or match["log"][-1], self.screen.getmaxyx()[1] - 4), self._attr(2))
         first = max(0, min(self.selected_card, len(hand) - 5))
         for slot, card in enumerate(hand[first:first + 5]):
@@ -215,28 +215,28 @@ class ExpeditionUI(TavernUIBase):
         assert match is not None
         hand = _team(match, 0)["hand"]
         if not hand:
-            self._notice("EMPTY HAND", "There are no cards to inspect this turn.")
+            self._notice(dd_text("ui.card_empty_title"), dd_text("ui.card_empty_body"))
             return
         instance = hand[self.selected_card]
         card_id = _card_id(instance)
         definition = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
         role = OFFICE_ROLES[definition["hero"]]
-        self._begin(f"{office.name.upper()} / {role.upper()}")
+        self._begin(dd_text("ui.card_detail_title", card=office.name.upper(), role=role.upper()))
         lines = self._full_office_card_lines(instance)
         for row, line in enumerate(lines, 3):
             self._put(row, 4, line, curses.A_BOLD if row in (3, 5, 19) else 0)
-        detail = [f"RANKS: {definition['from_ranks']}  TARGET RANKS: {definition.get('target_ranks', 'any')}",
-                  f"COST: {_card_cost(match, 0, instance)}  ROLE: {role}",
+        detail = [dd_text("ui.card_detail_ranks", ranks=definition["from_ranks"], targets=definition.get("target_ranks", "any")),
+                  dd_text("ui.card_detail_cost", cost=_card_cost(match, 0, instance), role=role),
                   "", office_card_description(card_id, upgraded=_card_upgraded(instance)),
-                  "", "The worker and origin rank must match this card."]
+                  "", dd_text("ui.card_detail_rule")]
         col = 30
         row = 3
         for paragraph in detail:
             for line in textwrap.wrap(paragraph, max(20, self.screen.getmaxyx()[1] - col - 3)) or [""]:
                 self._put(row, col, line)
                 row += 1
-        self._footer("Any key returns to ranked combat")
+        self._footer(dd_text("ui.card_return"))
         self.screen.getch()
 
     def _choose_pending(self) -> None:
@@ -246,38 +246,37 @@ class ExpeditionUI(TavernUIBase):
         if not pending:
             return
         if pending["kind"] == "draft":
-            choices = [f"{office_catalog()[1][card].name} — {OFFICE_ROLES[self.catalog.cards[card]['hero']]}"
+            choices = [dd_text("ui.pending_draft_choice", card=office_catalog()[1][card].name, role=OFFICE_ROLES[self.catalog.cards[card]["hero"]])
                        for card in pending["choices"]]
             title = dd_text("ui.choose_card")
-            body = "A neutral cache offers a lasting addition to your shared deck."
+            body = dd_text("ui.pending_draft")
         elif pending["kind"] == "boon":
-            choices = [f"Company perk {index + 1}: " + ", ".join(effect["key"].replace("_", " ") for effect in self.catalog.boons[boon]["effects"])
+            choices = [dd_text("ui.pending_boon_choice", index=index + 1, effects=", ".join(effect["key"].replace("_", " ") for effect in self.catalog.boons[boon]["effects"]))
                        for index, boon in enumerate(pending["choices"])]
             title = dd_text("ui.choose_boon")
-            body = "A neutral cache offers one lasting perk. Choose its recipient next."
+            body = dd_text("ui.pending_boon")
         elif pending["kind"] == "recipient":
             choices = [OFFICE_ROLES[next(actor["role"] for actor in _team(match, 0)["actors"] if actor["id"] == identity)]
                        for identity in pending["choices"]]
             title = dd_text("ui.choose_recipient")
-            body = "This company perk belongs to one specialist for the match."
+            body = dd_text("ui.pending_recipient")
         elif pending["kind"] == "facility":
-            choices = [*pending_choice_labels(match, pending), "Leave without using"]
+            choices = [*pending_choice_labels(match, pending), dd_text("ui.leave")]
             facility = next(item for item in match["facilities"] if item["id"] == pending["facility"])
-            title = f"{OFFICE_BIOMES[facility['biome_id']]} SERVICE DESK".upper()
-            body = "A neutral company facility can alter the route or restore the party. Choose one procedure."
+            title = dd_text("ui.pending_facility_title", biome=OFFICE_BIOMES[facility["biome_id"]]).upper()
+            body = dd_text("ui.pending_facility")
         else:
             choices = pending_choice_labels(match, pending)
             if pending["kind"] in {"camp", "upgrade", "event"}:
                 choices.append(dd_text("ui.leave"))
-            title = {"camp": "REST OFFICE", "upgrade": "COPY WORKSHOP", "event": "DEPARTMENT INCIDENT",
-                     "treatment": "TREAT A LIABILITY"}[pending["kind"]]
+            title = dd_text(f"ui.pending_kind_{pending['kind']}")
             body = dd_text("ui.pending_room")
         selected = self._menu(title, choices, body, allow_cancel=False)
         assert selected is not None
         try:
             choose_reward(match, selected)
         except ValueError as exc:
-            self._notice("PROCEDURE UNAVAILABLE", str(exc))
+            self._notice(dd_text("ui.procedure_unavailable"), str(exc))
 
     def _select_target(self, choices: list[str]) -> str | None:
         if len(choices) == 1:
@@ -305,13 +304,13 @@ class ExpeditionUI(TavernUIBase):
 
         try:
             save_game(self.jomon_state)
-            self.message = "Jomon's chronicle is sealed."
+            self.message = dd_text("ui.save_complete")
         except SaveError as exc:
             self.message = str(exc)
 
     def _set_worker(self, collection: dict, slot: int, role: str) -> None:
         if role in collection["roles"] and collection["roles"][slot] != role:
-            raise ValueError("that job is already in the four-worker party")
+            raise ValueError(dd_text("ui.worker_error"))
         collection["roles"][slot] = role
         collection["deck"] = [card for worker in collection["roles"]
                               for card in office_catalog()[0][worker]["starter_deck"]]
@@ -324,28 +323,22 @@ class ExpeditionUI(TavernUIBase):
 
     def _choose_worker(self, collection: dict, slot: int) -> None:
         roles = list(OFFICE_ROLES)
-        choices = [f"{OFFICE_ROLES[role]:26} R{','.join(map(str, self.catalog.heroes[role]['preferred_ranks']))}  {self.catalog.heroes[role]['combat_role']}"
-                   for role in roles]
-        selected = self._menu("TWENTY-FIVE COMPANY SPECIALISTS", choices,
-                              "Every job has a distinct portrait, five starter techniques, and an alternate five-card kit. Choose a job for the highlighted party slot.")
+        choices = [dd_text("ui.worker_choices", role=OFFICE_ROLES[role], ranks=",".join(map(str, self.catalog.heroes[role]["preferred_ranks"])), combat_role=self.catalog.heroes[role]["combat_role"]) for role in roles]
+        selected = self._menu(dd_text("ui.worker_title"), choices, dd_text("ui.worker_body"))
         if selected is not None:
             self._set_worker(collection, slot, roles[selected])
 
     def _choose_formation(self, collection: dict) -> None:
         squads = list(self.catalog.squads.values())
-        choices = [f"{OFFICE_SQUADS[squad['id']]:26} {', '.join(OFFICE_ROLES[role].split()[0] for role in squad['formation'])}"
-                   for squad in squads]
-        selected = self._menu("THIRTEEN COMPANY FORMATIONS", choices,
-                              "Four-worker company formations. Each comes with a compatible policy; jobs and cards can be changed afterward.")
+        choices = [dd_text("ui.formation_choice", squad=OFFICE_SQUADS[squad["id"]], roles=", ".join(OFFICE_ROLES[role].split()[0] for role in squad["formation"])) for squad in squads]
+        selected = self._menu(dd_text("ui.formation_title"), choices, dd_text("ui.formation_body"))
         if selected is None:
             return
         squad = squads[selected]
         plan = str(squad["playstyle"]).replace("enemies", "rivals").replace("enemy", "rival")
-        body = (f"{', '.join(OFFICE_ROLES[role] for role in squad['formation'])}.\n\n"
-                f"PLAN: {plan}\n\nSTRENGTH: {squad['strength']}\n\n"
-                f"LIABILITY: {squad['weakness']}")
+        body = dd_text("ui.formation_detail", roles=", ".join(OFFICE_ROLES[role] for role in squad["formation"]), plan=plan, strength=squad["strength"], liability=squad["weakness"])
         confirmed = self._menu(OFFICE_SQUADS[squad["id"]].upper(),
-                               ["Use this formation", "Keep current party"], body)
+                               [dd_text("ui.formation_use"), dd_text("ui.formation_keep")], body)
         if confirmed != 0:
             return
         collection["roles"] = list(squad["formation"])
@@ -360,7 +353,7 @@ class ExpeditionUI(TavernUIBase):
         role = collection["roles"][slot]
         current = [card for card in collection["deck"] if self.catalog.cards[card]["hero"] == role]
         if len(current) != 5:
-            raise ValueError("this worker has a custom card package; edit it in the deck cabinet")
+            raise ValueError(dd_text("ui.loadout_error"))
         starter = list(self.catalog.heroes[role]["starter_deck"])
         loadout = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
         alternate = list(loadout["cards"])
@@ -368,20 +361,16 @@ class ExpeditionUI(TavernUIBase):
         collection["deck"] = [card for card in collection["deck"]
                               if self.catalog.cards[card]["hero"] != role] + replacement
         name = "starter" if replacement == starter else "alternate"
-        return f"{OFFICE_ROLES[role]} now carries the {name} five-card kit."
+        return dd_text("ui.loadout_changed", role=OFFICE_ROLES[role], kind=name)
 
     def _browse_archive(self) -> None:
         while True:
-            category = self._menu("COMPANY ARCHIVE", [
-                "Twenty-five workers and their kits", "Two hundred ninety office techniques",
-                "One hundred twenty-nine rival costumes", "Six floorplans and eleven departments",
-                "Eleven company policies", "Courier match ledger",
-            ], "The company's file-capture contests draw from these ledgers. Rival costumes mark departments; the workers' training stays the same.")
+            category = self._menu(dd_text("ui.archive_title"), dd_text("ui.archive_categories").split("|"), dd_text("ui.archive_body"))
             if category is None:
                 return
             if category == 0:
                 roles = list(OFFICE_ROLES)
-                selected = self._menu("WORKER ARCHIVE", [OFFICE_ROLES[role] for role in roles])
+                selected = self._menu(dd_text("ui.archive_worker"), [OFFICE_ROLES[role] for role in roles])
                 if selected is None:
                     continue
                 role = roles[selected]
@@ -390,17 +379,17 @@ class ExpeditionUI(TavernUIBase):
                 self._begin(OFFICE_ROLES[role].upper())
                 self._draw_sprite(4, 7, office_sprites()[role], curses.A_BOLD)
                 self._put(4, 22, f"{hero['combat_role'].upper()}  HP {hero['max_hp']}  RANKS {','.join(map(str, hero['preferred_ranks']))}")
-                self._put(6, 22, "STARTER KIT")
+                self._put(6, 22, dd_text("ui.archive_starter"))
                 for row, card in enumerate(hero["starter_deck"], 7):
                     self._put(row, 22, office_catalog()[1][card].name)
-                self._put(13, 22, "ALTERNATE KIT")
+                self._put(13, 22, dd_text("ui.archive_alternate"))
                 for row, card in enumerate(alternate["cards"], 14):
                     self._put(row, 22, office_catalog()[1][card].name)
-                self._footer("Any key returns to the company archive")
+                self._footer(dd_text("ui.archive_return"))
                 self.screen.getch()
             elif category == 1:
                 card_ids = list(office_catalog()[1])
-                selected = self._menu("OFFICE TECHNIQUES", [
+                selected = self._menu(dd_text("ui.office_technique"), [
                     f"{office_catalog()[1][card].name} / {OFFICE_ROLES[office_catalog()[1][card].role]}"
                     for card in card_ids])
                 if selected is None:
@@ -412,66 +401,66 @@ class ExpeditionUI(TavernUIBase):
                 for row, line in enumerate(textwrap.wrap(office_card_description(card_id),
                                                          max(20, self.screen.getmaxyx()[1] - 33)), 4):
                     self._put(row, 30, line)
-                self._footer("Any key returns to the company archive")
+                self._footer(dd_text("ui.archive_return"))
                 self.screen.getch()
             elif category == 2:
                 enemy_ids = list(self.catalog.enemies)
-                selected = self._menu("RIVAL COSTUME ARCHIVE", [office_costume_name(enemy_id) for enemy_id in enemy_ids],
-                                      "Patron specialists wear these department costumes. Their training and cards are the same as yours.")
+                selected = self._menu(dd_text("ui.sprite_archive"), [office_costume_name(enemy_id) for enemy_id in enemy_ids],
+                                      dd_text("ui.archive_body"))
                 if selected is None:
                     continue
                 enemy_id = enemy_ids[selected]
                 self._begin(office_costume_name(enemy_id).upper())
                 self._draw_sprite(5, 9, office_sprites()["warden"], curses.A_BOLD)
-                self._put(6, 23, "RIVAL-DEPARTMENT COSTUME")
-                self._put(8, 23, "A costume changes no worker's training.")
-                self._footer("Any key returns to the company archive")
+                self._put(6, 23, dd_text("ui.archive_costume"))
+                self._put(8, 23, dd_text("ui.archive_costume_body"))
+                self._footer(dd_text("ui.archive_return"))
                 self.screen.getch()
             elif category == 3:
                 worlds = list(OFFICE_WORLDS)
                 biomes = list(OFFICE_BIOMES)
-                choices = [f"FLOORPLAN / {OFFICE_WORLDS[world]}" for world in worlds]
-                choices += [f"DEPARTMENT / {OFFICE_BIOMES[biome]}" for biome in biomes]
-                selected = self._menu("FLOORS AND DEPARTMENTS", choices)
+                choices = [dd_text("ui.archive_floorplan", world=OFFICE_WORLDS[world]) for world in worlds]
+                choices += [dd_text("ui.archive_department", biome=OFFICE_BIOMES[biome]) for biome in biomes]
+                selected = self._menu(dd_text("ui.formation"), choices)
                 if selected is None:
                     continue
                 if selected < len(worlds):
                     world = worlds[selected]
-                    detail = f"{OFFICE_WORLDS[world]} joins four of the company's eleven departments for each contest. Its corridors follow a {self.catalog.worlds[world]['layout']} plan."
+                    detail = dd_text("ui.archive_world_detail", world=OFFICE_WORLDS[world], layout=self.catalog.worlds[world]["layout"])
                 else:
                     biome = biomes[selected - len(worlds)]
-                    detail = f"{OFFICE_BIOMES[biome]} has its own corridors, hazards, service desks, and sightlines."
-                self._notice("COMPANY FLOORPLAN", detail)
+                    detail = dd_text("ui.archive_biome_detail", biome=OFFICE_BIOMES[biome])
+                self._notice(dd_text("ui.archive_floorplan_title"), detail)
             elif category == 4:
                 doctrines = list(self.catalog.doctrines.values())
-                selected = self._menu("COMPANY POLICIES", [DOCTRINE_NAMES[index] for index in range(len(doctrines))])
+                selected = self._menu(dd_text("ui.archive_policy_title"), [DOCTRINE_NAMES[index] for index in range(len(doctrines))])
                 if selected is not None:
                     doctrine = doctrines[selected]
                     strength = doctrine["strength"].replace("crew death", "worker knockout").replace("enemy", "rival")
                     liability = doctrine["liability"].replace("crew death", "worker knockout").replace("enemy", "rival")
                     self._notice(DOCTRINE_NAMES[selected].upper(),
-                                 f"BENEFIT: {strength}\n\nLIABILITY: {liability}")
+                                 dd_text("ui.archive_policy", strength=strength, liability=liability))
             else:
                 records = self.jomon_state.tabletop["records"]
                 if not records:
-                    self._notice("COURIER MATCH LEDGER", "No completed company matches yet.")
+                    self._notice(dd_text("ui.record_ledger"), dd_text("ui.archive_empty"))
                 else:
                     body = "\n".join(
-                        f"{record['season']}  {record['result'].upper()}  {record['score'][0]}:{record['score'][1]}  {record['department']}  vs {record['patron']}"
+                        dd_text("ui.archive_record", season=record["season"], result=record["result"].upper(), score_a=record["score"][0], score_b=record["score"][1], department=record["department"], patron=record["patron"])
                         for record in reversed(records))
-                    self._notice("COURIER MATCH LEDGER", body)
+                    self._notice(dd_text("ui.record_ledger"), body)
 
     def _auto_walk_to(self, destination: tuple[int, int]) -> None:
         match = self.match
         assert match is not None
         if destination == _position(match, 0):
-            raise ValueError("the party is already at that destination")
+            raise ValueError(dd_text("ui.route_already"))
         while (match["phase"] == "map" and match["winner"] is None and not match["pending"]
                and _team(match, 0)["orders"] < ORDERS_PER_TURN
                and destination != _position(match, 0)):
             leg = _ai_destination(match, destination)
             if leg is None:
-                raise ValueError("no route reaches the selected destination")
+                raise ValueError(dd_text("ui.route_missing"))
             walked = move_to(match, leg)
             for point in walked[:-1]:
                 self._render_map(point)
@@ -480,7 +469,7 @@ class ExpeditionUI(TavernUIBase):
                     and _team(match, 0)["orders"] < ORDERS_PER_TURN
                     and destination != _position(match, 0)
                     and hasattr(self.screen, "nodelay") and self._route_cancel_requested()):
-                self.message = "Route cancelled before the next leg."
+                self.message = dd_text("ui.route_cancelled")
                 break
 
     def _show_patron_step(self, point: tuple[int, int]) -> None:
@@ -494,8 +483,8 @@ class ExpeditionUI(TavernUIBase):
         while True:
             if match["winner"] is not None:
                 result = finish_match(self.jomon_state)
-                self._notice("THE COMPANY HAS REACHED A DECISION",
-                             f"{result.upper()} — approval {match['scores'][0]}:{match['scores'][1]}. The files are returned to the cabinet.")
+                self._notice(dd_text("ui.match_end_title"),
+                             dd_text("ui.match_end_body", result=result.upper(), score_a=match["scores"][0], score_b=match["scores"][1]))
                 return
             if match["turn"] == 1:
                 patron_turn(match, on_move=self._show_patron_step)
@@ -553,7 +542,7 @@ class ExpeditionUI(TavernUIBase):
                     try:
                         self._auto_walk_to(self.cursor)
                     except ValueError as exc:
-                        self._notice("ROUTE NOT AVAILABLE", str(exc))
+                        self._notice(dd_text("ui.route_unavailable"), str(exc))
             else:
                 hand = _team(match, 0)["hand"]
                 if normalized in (curses.KEY_LEFT, curses.KEY_UP, ord("h"), ord("k")) and hand:
@@ -565,11 +554,11 @@ class ExpeditionUI(TavernUIBase):
                 elif normalized == ord("r"):
                     options = retreat_destinations(match)
                     if not options:
-                        self._notice("NO ROUTE TO RETREAT", "No neighboring floor tile leads away from this encounter.")
+                        self._notice(dd_text("ui.retreat_none_title"), dd_text("ui.retreat_none_body"))
                         continue
-                    chosen = self._menu("RETREAT FROM RANKED COMBAT",
-                                        [f"Withdraw to {x:03},{y:02}" for x, y in options],
-                                        "Retreat one tile away, give up the rest of this turn's route orders, and return to the map.")
+                    chosen = self._menu(dd_text("ui.retreat_title"),
+                                        [dd_text("ui.retreat_option", x=f"{x:03}", y=f"{y:02}") for x, y in options],
+                                        dd_text("ui.retreat_body"))
                     if chosen is not None:
                         retreat(match, options[chosen])
                         if not match["pending"]:
@@ -580,11 +569,11 @@ class ExpeditionUI(TavernUIBase):
                         + (f" / {office_costume_name(rival_costumes(match['world_seed'])[index])} costume" if side == 1 else "")
                         + f" — {actor['hp']}/{actor['max_hp']} HP, {actor['stress']} stress, return {actor['respawn']}"
                         for side in (0, _opponent_side(match, 0)) for index, actor in enumerate(_team(match, side)["actors"]))
-                    self._notice("PARTY ROSTERS", body)
+                    self._notice(dd_text("ui.roster_title"), body)
                 elif normalized in (10, 13, curses.KEY_ENTER) and hand:
                     targets = valid_targets(match, self.selected_card)
                     if not targets:
-                        self._notice("CARD NOT LEGAL", "The specialist is unavailable or outside this card's origin rank.")
+                        self._notice(dd_text("ui.card_illegal_title"), dd_text("ui.card_illegal_body"))
                         continue
                     target = self._select_target(targets)
                     if target is None:
@@ -594,12 +583,12 @@ class ExpeditionUI(TavernUIBase):
                         self._render_combat_match(target if ":" in target else None)
                         curses.napms(self.DAMAGE_FLASH_MS)
                     except ValueError as exc:
-                        self._notice("CARD NOT LEGAL", str(exc))
+                        self._notice(dd_text("ui.card_illegal_title"), str(exc))
 
 
 def run_expedition(screen: curses.window, state) -> None:
     if state.courier is None or not state.courier.alive:
-        state.add_message("Choose a living courier before opening Dullest Dungeon.")
+        state.add_message(dd_text("ui.courier_required"))
         return
     active = state.tabletop["active_match"]
     if active and active["courier_id"] != state.courier.id:
@@ -607,10 +596,10 @@ def run_expedition(screen: curses.window, state) -> None:
         if owner and not owner.alive:
             active["winner"] = 1
             finish_match(state)
-            state.add_message(f"{owner.name}'s unfinished expedition is archived as a loss.")
+            state.add_message(dd_text("ui.match_archived", owner=owner.name))
             active = None
         else:
-            state.add_message(f"{owner.name if owner else 'Another courier'} must finish the open expedition.")
+            state.add_message(dd_text("ui.match_owner_required", owner=owner.name if owner else "Another courier"))
             return
     ui = ExpeditionUI(screen, state)
     if active:
@@ -623,7 +612,7 @@ def run_expedition(screen: curses.window, state) -> None:
         height, width = screen.getmaxyx()
         if height < 24 or width < 80:
             screen.erase()
-            ui._put(1, 1, "The tavern board needs an 80x24 slate. Resize or press Q to leave the table.")
+            ui._put(1, 1, dd_text("ui.terminal_size"))
             screen.refresh()
             if screen.getch() in (ord("q"), ord("Q"), 27):
                 return
@@ -691,20 +680,20 @@ def run_expedition(screen: curses.window, state) -> None:
             elif normalized == ord("a") and available:
                 card_id = available[deck_index % len(available)]
                 if len(collection["deck"]) >= 30 or collection["deck"].count(card_id) >= collection["cards"][card_id]:
-                    message = "No room or no unused copy."
+                    message = dd_text("ui.editor_full")
                 else:
                     collection["deck"].append(card_id)
             elif normalized == ord("x") and available:
                 card_id = available[deck_index % len(available)]
                 if len(collection["deck"]) <= 20 or card_id not in collection["deck"]:
-                    message = "Keep at least twenty cards and select one in the deck."
+                    message = dd_text("ui.editor_minimum")
                 else:
                     collection["deck"].remove(card_id)
             elif normalized == ord("m") and available:
                 card_id = available[deck_index % len(available)]
                 mastery = next((item for item in load_catalog().masteries.values() if item["card_id"] == card_id), None)
                 if not mastery:
-                    message = "This card has no mastery branches."
+                    message = dd_text("ui.editor_no_mastery")
                 else:
                     current = collection["masteries"].get(card_id)
                     if current == "coverage":
@@ -715,7 +704,7 @@ def run_expedition(screen: curses.window, state) -> None:
                 card_id = available[deck_index % len(available)]
                 infusions = [infusion for infusion in load_catalog().infusions if infusion_compatible(card_id, infusion)]
                 if not infusions:
-                    message = "No treatment suits this technique."
+                    message = dd_text("ui.editor_no_treatment")
                     continue
                 current = collection["infusions"].get(card_id)
                 if current == infusions[-1]:

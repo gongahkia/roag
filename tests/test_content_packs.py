@@ -119,6 +119,10 @@ def alternate_pack(root: Path) -> Path:
     dungeon_text["narration"]["opening"] = "Fixture Bureau opens the unchanged expedition."
     dungeon_text["narration"]["action"] = "{actor} files a fixture action: {action}."
     dungeon_text["ui"]["pending_camp_recover"] = "Fixture recovery keeps the same HP and stress values"
+    dungeon_text["engine"]["card_play"] = "{actor} files fixture paperwork with {card}."
+    dungeon_text["engine"]["reward_received"] = "Fixture award: {actor} receives {item} x{count}."
+    dungeon_text["ui"]["map_title"] = "FIXTURE MAP / {game} / {world}"
+    dungeon_text["ui"]["archive_title"] = "FIXTURE FILE CABINET"
     source.write_text(json.dumps(dungeon_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "dullest_dungeon" / "visuals.json"
     dungeon_visuals = json.loads(source.read_text(encoding="utf-8"))
@@ -2546,6 +2550,26 @@ class DullestDungeonPresentationTests(unittest.TestCase):
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["mechanics"], second["mechanics"])
         self.assertNotEqual(first["log"], second["log"])
+
+    def test_dd_runtime_templates_and_catalog_overlay_change_without_rules(self):
+        script = (
+            "import json; from jomon.dumbest_dungeon.content import load_catalog; "
+            "from jomon.dumbest_dungeon.presentation import dd_text; c=load_catalog(); "
+            "print(json.dumps({'rules':c.manifest.fingerprint,'name':c.cards['bone_saw']['name'],"
+            "'engine':dd_text('engine.card_play', actor='A', card='B'),"
+            "'ui':dd_text('ui.map_title', game='G', world='W')}))"
+        )
+        default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
+        first, second = json.loads(default.stdout), json.loads(alternate.stdout)
+        self.assertEqual(first["rules"], second["rules"])
+        self.assertEqual(first["name"], "Bone Saw")
+        self.assertEqual(second["name"], "Fixture Paper Saw")
+        self.assertNotEqual(first["engine"], second["engine"])
+        self.assertNotEqual(first["ui"], second["ui"])
 
     def test_dd_fiction_changes_keep_independent_rules_fingerprint(self):
         script = (

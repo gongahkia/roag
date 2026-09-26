@@ -91,7 +91,7 @@ class DullestDungeonIdentityTests(unittest.TestCase):
         with temporary:
             resumed = GameEngine.from_snapshot(rewritten, snapshot)
             self.assertEqual(resumed.catalog.manifest.fingerprint, base.manifest.fingerprint)
-            self.assertEqual(resumed.catalog.enemies["scrap_drone"]["name"], "A renamed costume")
+            self.assertEqual(resumed.catalog.enemies["scrap_drone"]["name"], "Paper Drone")
 
     def test_repetition_weight_uses_action_id_not_display_name(self):
         catalog = load_catalog()

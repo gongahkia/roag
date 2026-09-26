@@ -6,7 +6,6 @@ import curses
 
 from ..character_presentation import role_display_name
 from .content import load_catalog
-from .office_art import OFFICE_SPRITES
 from .presentation import dd_text, office_sprites
 from .office_content import DOCTRINE_NAMES, INFUSION_NAMES, OFFICE_ROLES, office_catalog
 from .tabletop import collection_for, patrons
@@ -29,35 +28,35 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     _put(screen, 0, 1, dd_text("ui.lobby_title"), curses.A_BOLD)
     _put(screen, 2, 2, dd_text("ui.lobby_setup"))
     _put(screen, 3, 2, dd_text("ui.lobby_command"))
-    _put(screen, 5, 2, f"Courier: {courier.name}  Strategy: {courier.strategy}/20 (+1 supply per 5, max +2)")
-    _put(screen, 6, 2, f"Record: {collection['wins']}W {collection['losses']}L {collection['draws']}D   Cards: {len(collection['cards'])}/290")
+    _put(screen, 5, 2, dd_text("ui.lobby_courier", courier=courier.name, strategy=courier.strategy))
+    _put(screen, 6, 2, dd_text("ui.lobby_record", wins=collection["wins"], losses=collection["losses"], draws=collection["draws"], cards=len(collection["cards"])))
     doctrine_ids = list(load_catalog().doctrines)
-    _put(screen, 7, 2, f"Company policy: {DOCTRINE_NAMES[doctrine_ids.index(collection['doctrine'])]}")
+    _put(screen, 7, 2, dd_text("ui.lobby_doctrine", doctrine=DOCTRINE_NAMES[doctrine_ids.index(collection["doctrine"])]))
     _put(screen, 8, 2, dd_text("ui.lobby_workers"), curses.A_BOLD)
     for index, role in enumerate(collection["roles"]):
         marker = ">" if slot == index else " "
-        _put(screen, 9 + index, 2, f"{marker} {index + 1}. {OFFICE_ROLES[role]}"[:40])
+        _put(screen, 9 + index, 2, dd_text("ui.lobby_worker", marker=marker, index=index + 1, role=OFFICE_ROLES[role])[:40])
     selected_role = collection["roles"][slot]
     definition = load_catalog().heroes[selected_role]
-    _put(screen, 8, 45, f"JOB {list(OFFICE_ROLES).index(selected_role) + 1}/25", curses.A_BOLD)
+    _put(screen, 8, 45, dd_text("ui.lobby_job", index=list(OFFICE_ROLES).index(selected_role) + 1), curses.A_BOLD)
     for offset, line in enumerate(office_sprites()[selected_role]):
         _put(screen, 9 + offset, 53, line, curses.A_BOLD)
     _put(screen, 14, 45, OFFICE_ROLES[selected_role].upper()[:32])
-    _put(screen, 15, 45, f"{definition['combat_role'].upper()}  HP {definition['max_hp']}")
-    _put(screen, 16, 45, "PREFERRED RANKS " + ",".join(map(str, definition["preferred_ranks"])))
-    _put(screen, 18, 45, "V: browse all twenty-five jobs")
-    _put(screen, 19, 45, "F: thirteen formation plans")
-    _put(screen, 20, 45, "L: alternate five-card kit")
+    _put(screen, 15, 45, dd_text("ui.lobby_hero_stats", role=definition["combat_role"].upper(), hp=definition["max_hp"]))
+    _put(screen, 16, 45, dd_text("ui.lobby_ranks", ranks=",".join(map(str, definition["preferred_ranks"]))))
+    _put(screen, 18, 45, dd_text("ui.lobby_browse_roles"))
+    _put(screen, 19, 45, dd_text("ui.lobby_browse_squads"))
+    _put(screen, 20, 45, dd_text("ui.lobby_loadout"))
     _put(screen, 14, 2, dd_text("ui.lobby_patrons"), curses.A_BOLD)
     start = max(0, min(selected - 3, len(people) - 7))
     for index, person in enumerate(people[start:start + 7]):
         _put(screen, 15 + index, 2,
-             f"{'>' if selected == start + index else ' '} {person.name[:26]:26} {role_display_name(person.role)[:22]}")
+             dd_text("ui.lobby_patron", marker=">" if selected == start + index else " ", person=person.name[:26], role=role_display_name(person.role)[:22]))
     if not people:
-        _put(screen, 15, 2, "Nobody is available to play just now.")
-    _put(screen, 22, 2, message or "Each match win: +1 Strategy. First win against each patron each season: +1 credit.")
+        _put(screen, 15, 2, dd_text("ui.lobby_empty"))
+    _put(screen, 22, 2, message or dd_text("ui.lobby_tip"))
     _put(screen, 21, 45, dd_text("ui.lobby_archive"))
-    _put(screen, 23, 2, "J/K patron 1-4 slot [/] job V roster F squad L kit B archive P/D Enter Q")
+    _put(screen, 23, 2, dd_text("ui.lobby_controls"))
     screen.refresh()
     return people
 
@@ -68,7 +67,7 @@ def _draw_editor(screen: curses.window, collection: dict, index: int, message: s
     available = [card_id for card_id, card in cards.items() if card.role in collection["roles"] and collection["cards"].get(card_id, 0)]
     available.sort(key=lambda card_id: (cards[card_id].role, cards[card_id].name))
     _put(screen, 0, 1, dd_text("ui.deck_editor_title"), curses.A_BOLD)
-    _put(screen, 2, 2, f"Deck: {len(collection['deck'])}/20-30. Owned cards only; each copy may be filed once.")
+    _put(screen, 2, 2, dd_text("ui.editor_deck", count=len(collection["deck"])))
     if available:
         index %= len(available)
         start = max(0, min(index - 7, len(available) - 15))
@@ -76,7 +75,7 @@ def _draw_editor(screen: curses.window, collection: dict, index: int, message: s
             card = cards[card_id]
             owned = collection["cards"][card_id]
             used = collection["deck"].count(card_id)
-            _put(screen, row, 2, f"{'>' if start + row - 4 == index else ' '} {card.name[:27]:27} {card.cost}E  {used}/{owned}  {OFFICE_ROLES[card.role][:18]}")
+            _put(screen, row, 2, dd_text("ui.editor_card", marker=">" if start + row - 4 == index else " ", card=card.name[:27], cost=card.cost, used=used, owned=owned, role=OFFICE_ROLES[card.role][:18]))
         selected = cards[available[index]]
         _put(screen, 20, 2, selected.description[:76])
         source = load_catalog()
@@ -84,8 +83,8 @@ def _draw_editor(screen: curses.window, collection: dict, index: int, message: s
         infusion = collection["infusions"].get(selected.id)
         infusion_ids = list(source.infusions)
         infusion_name = INFUSION_NAMES[infusion_ids.index(infusion)] if infusion else "none"
-        _put(screen, 21, 2, f"Mastery: {mastery}  /  Card treatment: {infusion_name}"[:76])
+        _put(screen, 21, 2, dd_text("ui.editor_mastery", mastery=mastery, infusion=infusion_name)[:76])
     _put(screen, 22, 2, message)
-    _put(screen, 23, 2, "J/K browse  A add  X remove  M mastery  I treatment  Esc return")
+    _put(screen, 23, 2, dd_text("ui.editor_controls"))
     screen.refresh()
     return available

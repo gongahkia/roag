@@ -413,14 +413,14 @@ def _damage(match: dict, actor: dict, target: dict, amount: int) -> None:
     if phase:
         for effect in phase["effects"]:
             _apply_effect(match, target, [target], effect)
-        _log(match, f"{_actor_label(target)} enters a stricter review phase; {target['overflow']} damage carries.")
+        _log(match, dd_text("narration.phase", actor=_actor_label(target), amount=target["overflow"]))
     if target["hp"] == 0:
         second_wind = _passive(match, side, target["id"], "boons", "second_wind")
         used = _team(match, side)["combat_used"]
         if second_wind and not used.get(f"second_wind:{target['id']}"):
             used[f"second_wind:{target['id']}"] = True
             target["hp"] = min(target["max_hp"], second_wind)
-            _log(match, f"{_actor_label(target)} invokes a second-wind allowance.")
+            _log(match, dd_text("narration.second_wind", actor=_actor_label(target)))
         else:
             _knockout(match, target)
     elif target["statuses"].get("riposte") and side != int(actor["id"].split(":", 1)[0]):
@@ -683,7 +683,7 @@ def play_card(match: dict, card_index: int, target_id: str | None = None) -> str
         team["triggers"]["death_door_tax"] = True
     team["plays"] += 1
     name = office_catalog()[1][card_id].name
-    _log(match, f"{OFFICE_ROLES[actor['role']]} files {name}.")
+    _log(match, dd_text("narration.file", actor=OFFICE_ROLES[actor["role"]], card=name))
     return name
 
 
@@ -763,7 +763,7 @@ def choose_reward(match: dict, choice: int) -> None:
         raise ValueError("there is no reward choice")
     if pending["kind"] in {"facility", "camp", "upgrade", "event"} and choice == len(pending["choices"]):
         match["pending"] = None
-        _log(match, "The party leaves the neutral room untouched.")
+        _log(match, dd_text("narration.leave_room"))
         return
     if not 0 <= choice < len(pending["choices"]):
         raise ValueError("choose one of the offered rewards")
@@ -775,7 +775,7 @@ def choose_reward(match: dict, choice: int) -> None:
         team["next_copy_id"] += 1
         team["deck"].append(instance)
         team["discard"].append(instance)
-        _log(match, f"{office_catalog()[1][card].name} joins the {('courier', 'patron')[side]} deck.")
+        _log(match, dd_text("narration.card_join", card=office_catalog()[1][card].name, side=("courier", "patron")[side]))
     elif pending["kind"] == "boon":
         boon = pending["choices"][choice]
         match["pending"] = {"side": side, "kind": "recipient", "boon": boon,
@@ -784,7 +784,7 @@ def choose_reward(match: dict, choice: int) -> None:
     elif pending["kind"] == "recipient":
         owner = pending["choices"][choice]
         _team(match, side)["boons"].append({"id": pending["boon"], "owner": owner})
-        _log(match, f"{OFFICE_ROLES[_actor(match, owner)['role']]} receives a company perk.")
+        _log(match, dd_text("narration.perk", actor=OFFICE_ROLES[_actor(match, owner)["role"]]))
         _draft(match, side)
         return
     elif pending["kind"] == "facility":
@@ -810,7 +810,7 @@ def choose_reward(match: dict, choice: int) -> None:
             _facility_effect(match, side, facility, effect)
         facility["used"] = True
         facility["outcome"] = option["id"]
-        _log(match, f"{office_facility_option({effect['op'] for effect in option['effects']}, option['cost'])} is complete.")
+        _log(match, dd_text("narration.facility_done", facility=office_facility_option({effect["op"] for effect in option["effects"]}, option["cost"])))
     elif pending["kind"] == "camp":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
         team = _team(match, side)
@@ -821,7 +821,7 @@ def choose_reward(match: dict, choice: int) -> None:
                 actor["stress"] = max(0, actor["stress"] - 10)
             station["used"] = True
             station["outcome"] = "recover"
-            _log(match, "The party rests: +7 HP and -10 stress each.")
+            _log(match, dd_text("narration.rest"))
         else:
             if team["supplies"] < 2 or not team["curses"]:
                 raise ValueError("treatment needs a liability and two supplies")
@@ -840,7 +840,7 @@ def choose_reward(match: dict, choice: int) -> None:
         team["curses"].pop(curse_index)
         station["used"] = True
         station["outcome"] = "treat"
-        _log(match, "The party treats one liability.")
+        _log(match, dd_text("narration.treat"))
     elif pending["kind"] == "upgrade":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
         copy_id = int(pending["choices"][choice].split(":", 1)[1])
@@ -870,7 +870,7 @@ def choose_reward(match: dict, choice: int) -> None:
                 _facility_effect(match, side, station, effect)
         station["used"] = True
         station["outcome"] = option_id
-        _log(match, "The department incident is resolved.")
+        _log(match, dd_text("narration.event_resolved"))
         if reward:
             _draft(match, side)
             return
@@ -916,7 +916,7 @@ def _facility_effect(match: dict, side: int, facility: dict, effect: dict) -> No
         card = team["deck"].pop(_roll(match) % len(team["deck"]))
         for zone in ("draw", "hand", "discard"):
             team[zone] = [instance for instance in team[zone] if instance["copy_id"] != card["copy_id"]]
-        _log(match, f"{office_catalog()[1][card['id']].name} is redacted from the shared deck.")
+        _log(match, dd_text("narration.card_removed", card=office_catalog()[1][card["id"]].name))
     elif op == "reveal_biome":
         known = set(team["known"])
         for group in ("hazards", "facilities", "pickups", "stations"):
@@ -950,7 +950,7 @@ def _arrival(match: dict, side: int) -> None:
             continue
         if owner == side and file["dropped"] is not None:
             file["dropped"] = None
-            _log(match, "A misplaced file returns to its home tray.")
+            _log(match, dd_text("narration.file_return"))
         elif owner != side and _living(match, side):
             carrier = _living(match, side)[0]
             file["carrier"] = carrier["id"]
@@ -975,12 +975,12 @@ def _arrival(match: dict, side: int) -> None:
         if kind == "item":
             item = pickup["payload"]["item_id"]
             team["items"][item] = team["items"].get(item, 0) + 1
-            _log(match, "The party salvages company-issued equipment.")
+            _log(match, dd_text("narration.salvage"))
         elif kind == "trap":
             if _living(match, side):
                 victim = _living(match, side)[_roll(match) % len(_living(match, side))]
                 _damage(match, victim, victim, 5)
-            _log(match, "A concealed administrative trap springs.")
+            _log(match, dd_text("narration.trap"))
         else:
             if kind == "boon" and _living(match, side):
                 choices = sorted(load_catalog().boons)
@@ -990,7 +990,7 @@ def _arrival(match: dict, side: int) -> None:
                     if boon not in offered:
                         offered.append(boon)
                 match["pending"] = {"side": side, "kind": "boon", "choices": offered}
-                _log(match, "The party finds three company perks; choose one and a recipient.")
+                _log(match, dd_text("narration.boon_found"))
                 break
             if kind == "bargain":
                 traits = sorted(curse_id for curse_id, definition in load_catalog().curses.items() if definition["kind"] == "trait")
@@ -998,7 +998,7 @@ def _arrival(match: dict, side: int) -> None:
                 owner = _living(match, side)[0]["id"] if _living(match, side) else team["actors"][0]["id"]
                 team["curses"].append({"id": curse, "owner": owner})
             _draft(match, side)
-            _log(match, "The party finds three office techniques; choose one.")
+            _log(match, dd_text("narration.draft_found"))
         break
     if match["pending"] is None:
         for facility in match["facilities"]:
@@ -1006,7 +1006,7 @@ def _arrival(match: dict, side: int) -> None:
                 definition = load_catalog().facilities[facility["definition_id"]]
                 match["pending"] = {"side": side, "kind": "facility", "facility": facility["id"],
                                     "choices": [option["id"] for option in definition["options"]]}
-                _log(match, f"{OFFICE_BIOMES[facility['biome_id']]} service desk offers two procedures.")
+                _log(match, dd_text("narration.facility_offer", biome=OFFICE_BIOMES[facility["biome_id"]]))
                 break
     if match["pending"] is None:
         for station in match["stations"]:
@@ -1018,7 +1018,7 @@ def _arrival(match: dict, side: int) -> None:
                 team["light"] = min(100, team["light"] + 20)
                 station["used"] = True
                 station["outcome"] = "salvage"
-                _log(match, "Emergency office stores yield two supplies and twenty light.")
+                _log(match, dd_text("narration.stores"))
             elif station["kind"] == "camp":
                 match["pending"] = {"side": side, "kind": "camp", "station": station["id"],
                                     "choices": ["recover", "treat"]}
@@ -1078,7 +1078,7 @@ def engage_if_touching(match: dict) -> bool:
         return False
     match["phase"] = "combat"
     _begin_combat(match)
-    _log(match, "The rival departments meet; both hands come onto the table.")
+    _log(match, dd_text("narration.combat_start"))
     return True
 
 
@@ -1169,7 +1169,7 @@ def engage_neutral_if_touching(match: dict) -> bool:
     match["pve_id"] = patrol["id"]
     match["phase"] = "pve"
     _begin_combat(match)
-    _log(match, f"The {patrol['kind']} office patrol challenges the {('courier', 'patron')[side]} party.")
+    _log(match, dd_text("narration.patrol_challenge", kind=patrol["kind"], side=("courier", "patron")[side]))
     return True
 
 
@@ -1204,7 +1204,7 @@ def _neutral_enemy_phase(match: dict) -> None:
             break
         if actor["statuses"].get("stun"):
             actor["statuses"].pop("stun")
-            _log(match, f"{_actor_label(actor)} loses its action to a hold order.")
+            _log(match, dd_text("narration.hold", actor=_actor_label(actor)))
             continue
         actions = load_catalog().enemies[actor["role"]]["actions"]
         weight = _roll(match) % sum(int(action["weight"]) for action in actions)
@@ -1243,12 +1243,12 @@ def _score_check(match: dict, side: int) -> None:
             match["scores"][side] += 1
             rival["carrier"] = None
             rival["dropped"] = None
-            _log(match, f"{('Courier', 'Patron')[side]} earns a signed approval point.")
+            _log(match, dd_text("narration.score", side=("Courier", "Patron")[side]))
             if match["scores"][side] >= 2:
                 match["winner"] = side
     elif eligible:
         match["pending_score"] = side
-        _log(match, "The stolen file awaits approval through the rival's next turn.")
+        _log(match, dd_text("narration.awaiting_score"))
 
 
 def _start_turn(match: dict, side: int, *, preserve_clock: bool = False) -> None:
@@ -1273,7 +1273,7 @@ def _start_turn(match: dict, side: int, *, preserve_clock: bool = False) -> None
                     actor["statuses"] = {}
                     actor["block"] = 0
                     actor["rank"] = len(_living(match, side))
-                    _log(match, f"{OFFICE_ROLES[actor['role']]} returns from mandatory leave.")
+                    _log(match, dd_text("narration.return", actor=OFFICE_ROLES[actor["role"]]))
         elif actor["hp"] > 0:
             actor["block"] = 0
             if actor["statuses"].get("wound"):

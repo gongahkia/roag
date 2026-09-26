@@ -146,7 +146,7 @@ def mechanical_rules_projection(catalog) -> dict[str, Any]:
     is decided here.
     """
     collections = {
-        name: _project_collection(name, getattr(catalog, name))
+        name: _project_collection(name, {row["id"]: row for row in catalog.raw[name]})
         for name in catalog.__dataclass_fields__
         if name not in {"raw", "balance", "art"} and name in catalog.raw
     }
@@ -162,11 +162,11 @@ def mechanical_rules_projection(catalog) -> dict[str, Any]:
 def content_rules(catalog) -> dict:
     """Full embedded rules remain an archival fallback for old snapshots."""
     rules = {
-        name: {identity: definition for identity, definition in getattr(catalog, name).items()}
+        name: {row["id"]: row for row in catalog.raw[name]}
         for name in catalog.__dataclass_fields__
         if name not in {"raw", "balance", "art"} and name in catalog.raw
     }
-    rules.update(balance=catalog.balance, art=catalog.art, content_schema=catalog.raw["schema_version"])
+    rules.update(balance=catalog.raw["balance"], art=catalog.art, content_schema=catalog.raw["schema_version"])
     return rules
 
 

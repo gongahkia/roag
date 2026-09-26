@@ -1419,6 +1419,21 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     if not isinstance(curse_mark, str) or len(curse_mark) != 1 or not curse_mark.isascii():
         raise ContentError("art.curse_card_mark must be one ASCII character")
 
+    # Runtime views may receive current-pack display fields.  Keep ``raw`` and
+    # embedded snapshot rules byte-for-byte catalog data, including their
+    # legacy display fields, so presentation never corrupts compatibility.
+    heroes, squads, cards, masteries, infusions, loadouts, doctrines = (
+        {identity: dict(row) for identity, row in collection.items()}
+        for collection in (heroes, squads, cards, masteries, infusions, loadouts, doctrines)
+    )
+    enemies, encounters, events, landmarks, missions, facilities, terrains = (
+        {identity: dict(row) for identity, row in collection.items()}
+        for collection in (enemies, encounters, events, landmarks, missions, facilities, terrains)
+    )
+    terrain_patterns, biomes, worlds, boons, curses, items, mutations, afflictions = (
+        {identity: dict(row) for identity, row in collection.items()}
+        for collection in (terrain_patterns, biomes, worlds, boons, curses, items, mutations, afflictions)
+    )
     _selected_pack_presentation({
         "heroes": heroes, "squads": squads, "cards": cards, "infusions": infusions,
         "loadouts": loadouts, "doctrines": doctrines, "enemies": enemies, "events": events,
