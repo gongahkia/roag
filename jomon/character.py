@@ -175,11 +175,12 @@ def apply_character_spec(state: GameState, *, crew_index: int, name: str, ancest
 
 
 def character_sheet(person: Person) -> list[str]:
+    from .ui_presentation import ui_format, ui_text
     rows = [
-        f"{person.name} — {role_display_name(person.role)}",
-        f"People: {person.ancestry}; origin: {person.origin.title()}; trait: {person.trait}",
-        f"Health: {person.health}/{person.max_health}; injury: {person.injury}",
-        "ATTRIBUTES / 4-12 (6 is an ordinary baseline)",
+        ui_format("ui.character.sheet.header", name=person.name, role=role_display_name(person.role)),
+        ui_format("ui.character.sheet.people", ancestry=person.ancestry, origin=person.origin.title(), trait=person.trait),
+        ui_format("ui.character.sheet.health", health=person.health, maximum=person.max_health, injury=person.injury),
+        ui_text("ui.character.sheet.attributes"),
     ]
     explanations = {
         "strength": "2 carrying weight per modifier",
@@ -191,18 +192,18 @@ def character_sheet(person: Person) -> list[str]:
     }
     for name in ATTRIBUTES:
         modifier = attribute_modifier(person, name)
-        rows.append(f"{name.title():12} {person.attributes[name]:2} ({modifier:+d}) — {explanations[name]}")
-    rows.append("COMPETENCIES / 0-20 (earned; effective includes profile)")
+        rows.append(ui_format("ui.character.sheet.attribute", name=f"{name.title():12}", value=f"{person.attributes[name]:2}", modifier=f"{modifier:+d}", explanation=explanations[name]))
+    rows.append(ui_text("ui.character.sheet.competencies"))
     for name in COMPETENCIES:
-        rows.append(f"{name.title():12} {getattr(person, name):2} base / {effective_competency(person, name):2} effective")
+        rows.append(ui_format("ui.character.sheet.competency", name=f"{name.title():12}", base=f"{getattr(person, name):2}", effective=f"{effective_competency(person, name):2}"))
     if person.character_specified:
-        rows.append(f"Origin practice: +1 {ORIGIN_PRACTICE.get(person.origin, 'none')}; trait: {TRAITS[person.trait][1]}.")
+        rows.append(ui_format("ui.character.sheet.specified", practice=ORIGIN_PRACTICE.get(person.origin, "none"), trait=TRAITS[person.trait][1]))
     else:
-        rows.append("No first-watch changes to this adult are recorded.")
-    rows.append(f"People's practice: {PEOPLE_EFFECTS.get(person.ancestry, 'No listed effect')}.")
-    rows.append(f"Mana: {person.mana}/{person.max_mana}; skill points: {person.skill_points}; milestones: {len(person.skill_milestones)}.")
+        rows.append(ui_text("ui.character.sheet.unspecified"))
+    rows.append(ui_format("ui.character.sheet.people_effect", effect=PEOPLE_EFFECTS.get(person.ancestry, "No listed effect")))
+    rows.append(ui_format("ui.character.sheet.resources", mana=person.mana, maximum=person.max_mana, points=person.skill_points, milestones=len(person.skill_milestones)))
     from .skill_tree import NODES
     from .progression_presentation import progression_format, progression_text
     rows.append(progression_format("progression.character.learned_nodes", nodes=", ".join(NODES[node].name for node in person.skill_nodes) or progression_text("progression.character.none")))
-    rows.extend((f"Technique: {person.technique}", f"Background: {person.background}"))
+    rows.extend((ui_format("ui.character.sheet.technique", technique=person.technique), ui_format("ui.character.sheet.background", background=person.background)))
     return rows

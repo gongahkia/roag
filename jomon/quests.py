@@ -6,6 +6,7 @@ from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
 from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title, regional_result_text, secondary_service_effect, secondary_service_response, secondary_service_text
 from .state import GameState, QuestProgress
+from .ui_presentation import ui_format, ui_text
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
 
@@ -92,8 +93,8 @@ def mark_treasure(state: GameState, region_id: str, container_id: str, clue: str
     if container_id in marks:
         return False
     marks.append(container_id)
-    state.remember(f"Treasure lead in {state.regions[region_id].name}: {clue}")
-    state.add_message(f"Treasure lead marked: {clue}", priority=3)
+    state.remember(ui_format("ui.quest.treasure.memory", region=state.regions[region_id].name, clue=clue))
+    state.add_message(ui_format("ui.quest.treasure.notice", clue=clue), priority=3)
     return True
 
 
@@ -134,16 +135,10 @@ def _assign_regional_duty(state: GameState) -> None:
         "marlbank": "guard the kiln water release",
         "frostmere": "keep the winter soundings",
     }[state.active_region_id]
-    actor.goal_reason = (
-        f"the opening decision in {regional_quest_title(state.active_region_id)} "
-        "gave this existing patrol a material duty"
-    )
+    actor.goal_reason = ui_format("ui.quest.guard.goal_reason", title=regional_quest_title(state.active_region_id))
     state.region.changes["quest_guard_id"] = actor.id
     state.region.changes["quest_guard_reason"] = actor.goal_reason
-    state.add_message(
-        f"You learn that the {actor.name} now guards the worksite; its duty can be observed or avoided.",
-        priority=3,
-    )
+    state.add_message(ui_format("ui.quest.guard.notice", actor=actor.name), priority=3)
 
 
 def record_objective_decision(state: GameState, decision: str) -> None:
@@ -191,7 +186,7 @@ def record_container_opened(state: GameState, container_id: str) -> None:
         if "optional-cache" not in quest.decisions:
             quest.decisions.append("optional-cache")
         state.add_message(
-            f"Optional lead completed for {regional_quest_title(state.active_region_id)}.",
+            ui_format("ui.quest.optional_complete", title=regional_quest_title(state.active_region_id)),
             priority=3,
         )
 
@@ -232,7 +227,7 @@ def mark_elevated_lead(state: GameState) -> bool:
         return False
     return mark_treasure(
         state, state.active_region_id, candidate.id,
-        f"From height, the form of {candidate.name} is visible near {candidate.position.x},{candidate.position.y}, level {candidate.position.z:+d}.",
+        ui_format("ui.quest.elevated_lead", container=candidate.name, x=candidate.position.x, y=candidate.position.y, z=f"{candidate.position.z:+d}"),
     )
 
 
@@ -258,7 +253,7 @@ def regional_resolution_options(state: GameState) -> tuple[tuple[str, str, str, 
 def _grant_passive_reward(state: GameState, passive: str) -> None:
     item = create_item(
         state, f"passive:{passive}",
-        f"{regional_quest_title(state.active_region_id)} consequence",
+        ui_format("ui.quest.reward_provenance", title=regional_quest_title(state.active_region_id)),
     )
     if not auto_place(
         state, item.id, "pack", owner_id=state.active_courier_id
@@ -284,9 +279,9 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         None,
     )
     if quest.stage != 2 or quest.status != "resolution":
-        return False, "This regional decision is not ready."
+        return False, ui_text("ui.quest.decision_not_ready")
     if option is None:
-        return False, "That is not a regional resolution."
+        return False, ui_text("ui.quest.not_resolution")
     if not option[3]:
         return False, option[4]
     region = state.region
@@ -321,7 +316,7 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         region.changes["medicine_coppice_saved"] = True
         state.smoke.clear()
         for threat in state.threats:
-            if "smoke" in threat.name:
+            if threat.archetype_id == "forest-smoke-tender":
                 threat.status = "retreated"
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)
@@ -362,7 +357,7 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
         account.trust = min(3, account.trust + 1)
         account.confidence = min(3, account.confidence + 1)
     _grant_passive_reward(state, QUEST_REWARDS[region_id])
-    memory = f"{state.courier.name} completed {regional_quest_title(region_id)}: {consequence}"
+    memory = ui_format("ui.quest.complete.memory", courier=state.courier.name, title=regional_quest_title(region_id), consequence=consequence)
     state.remember(memory)
     for contact in state.contacts[region_id]:
         contact.memories.append(memory)
@@ -376,11 +371,9 @@ def maybe_unlock_arc(state: GameState) -> bool:
     changed = False
     if completed >= 2 and state.cross_region_arc.status == "locked":
         state.cross_region_arc.status = "available"
-        state.remember(
-            "Two regional working settlements now trust Jomon enough to compare their route accounts."
-        )
+        state.remember(ui_text("ui.quest.arc.unlock.memory"))
         state.add_message(
-            f"The {presented_arc_title('marks')} account can now be opened. Speak with a trusted witness.",
+            ui_format("ui.quest.arc.unlock.notice", title=presented_arc_title("marks")),
             priority=3,
         )
         changed = True
@@ -395,9 +388,9 @@ def maybe_unlock_arc(state: GameState) -> bool:
             for region_id in definition["requires"]
         ):
             arc.status = "available"
-            state.remember(f"Witnesses can now compare the material claims behind {presented_arc_title(arc_id)}.")
+            state.remember(ui_format("ui.quest.arc.available.memory", title=presented_arc_title(arc_id)))
             state.add_message(
-                f"The {presented_arc_title(arc_id)} account can now be opened in {state.regions[definition['start']].name}.",
+                ui_format("ui.quest.arc.available.notice", title=presented_arc_title(arc_id), region=state.regions[definition["start"]].name),
                 priority=3,
             )
             changed = True
@@ -428,7 +421,7 @@ def current_arc(state: GameState) -> QuestProgress | None:
 
 def arc_title(state: GameState) -> str:
     key = current_arc_key(state)
-    return presented_arc_title("marks") if key == "marks" else presented_arc_title(key) if key else "Compared Accounts"
+    return presented_arc_title("marks") if key == "marks" else presented_arc_title(key) if key else ui_text("ui.quest.arc.default_title")
 
 
 def arc_next_region(state: GameState) -> str | None:

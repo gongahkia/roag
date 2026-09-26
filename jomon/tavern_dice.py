@@ -6,6 +6,7 @@ import hashlib
 from typing import Callable
 
 from .state import GameState, Person
+from .tavern_presentation import tavern_format, tavern_text
 from .tavern_games import (
     another_game_active, available_opponents, change_npc_credit,
     invited_opponents, npc_credit, seat_opponents,
@@ -55,7 +56,7 @@ def start_match(state: GameState, opponents: list[str]) -> dict:
              "turn": 0, "scores": [0] * 4, "turn_total": 0, "roll_count": 0,
              "forced": False, "last_dice": [], "busts": [0] * 4,
              "winners": [], "prize": 0,
-             "log": ["Three rounds. Roll two bones; hold, or risk the turn's points."]}
+             "log": [tavern_text("dice.opening")]}
     for identity in opponents:
         npc_credit(state, identity, open_account=True)
     state.tavern_dice["match_number"] = number
@@ -81,7 +82,7 @@ def _settle(state: GameState, match: dict) -> None:
             identity = match["players"][winners[0]]
             change_npc_credit(state, identity, prize)
     names = ", ".join(match["names"][seat] for seat in winners)
-    _log(match, f"{names} finish on {best}. {'Prize: ' + str(match['prize']) + ' credit.' if len(winners) == 1 else 'Tie: no purse leaves the table.'}")
+    _log(match, tavern_format("dice.settle.win", winners=names, score=best, prize=match["prize"]) if len(winners) == 1 else tavern_format("dice.settle.tie", winners=names, score=best))
     records = state.tavern_dice["records"]
     records.append({"number": match["number"], "players": match["players"][:],
                     "scores": match["scores"][:], "winners": [match["players"][seat] for seat in winners],
@@ -93,10 +94,10 @@ def _end_turn(state: GameState, match: dict, *, bust: bool = False) -> None:
     seat = match["turn"]
     if bust:
         match["busts"][seat] += 1
-        _log(match, f"{match['names'][seat]} busts and banks nothing this turn.")
+        _log(match, tavern_format("dice.bust", player=match["names"][seat]))
     else:
         match["scores"][seat] += match["turn_total"]
-        _log(match, f"{match['names'][seat]} banks {match['turn_total']} points.")
+        _log(match, tavern_format("dice.bank", player=match["names"][seat], points=match["turn_total"]))
     match["turn_total"] = 0
     match["roll_count"] = 0
     match["forced"] = False
@@ -120,7 +121,7 @@ def roll(state: GameState) -> tuple[int, int]:
         return first, second
     match["turn_total"] += first + second
     match["forced"] = first == second
-    _log(match, f"{match['names'][match['turn']]} rolls {first} + {second}; turn pot {match['turn_total']}.")
+    _log(match, tavern_format("dice.roll", player=match["names"][match["turn"]], first=first, second=second, total=match["turn_total"]))
     if match["roll_count"] >= MAX_ROLLS:
         _end_turn(state, match)
     return first, second

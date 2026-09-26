@@ -7,6 +7,7 @@ import hashlib
 from typing import Callable
 
 from .state import GameState, Person
+from .tavern_presentation import draw_rank_name, tavern_format, tavern_text
 from .tavern_games import (
     STARTING_NPC_CREDIT as STARTING_NPC_CREDIT, another_game_active, change_npc_credit,
     invited_opponents, npc_credit, seat_opponents, validate_npc_accounts,
@@ -121,7 +122,7 @@ def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dic
             "turn": 0, "wagering": wagering, "pot": 0, "final_pot": 0,
             "committed": [0] * 4, "round_paid": [0] * 4, "current_bet": 0,
             "raises": 0, "acted": [False] * 4, "winners": [], "payouts": [0] * 4,
-            "log": ["Five cards each. One draw, then the final decision."]}
+            "log": [tavern_text("draw.opening")]}
     for index in range(51, 0, -1):
         other = _roll(hand) % (index + 1)
         hand["deck"][index], hand["deck"][other] = hand["deck"][other], hand["deck"][index]
@@ -133,7 +134,7 @@ def start_hand(state: GameState, opponents: list[str], *, wagering: bool) -> dic
     if wagering:
         for seat in range(4):
             _pay(state, hand, seat, ANTE)
-        _log(hand, f"Each seat antes {ANTE} credit. No seat can lose more than {MAX_EXPOSURE} this hand.")
+        _log(hand, tavern_format("draw.ante", ante=ANTE, maximum=MAX_EXPOSURE))
     hand["turn"] = _first_after_dealer(hand)
     state.tavern_draw["hand_number"] = number
     state.tavern_draw["active_hand"] = hand
@@ -162,8 +163,8 @@ def _settle(state: GameState, hand: dict) -> None:
     for seat, amount in enumerate(hand["payouts"]):
         _change_balance(state, hand, seat, amount)
     hand["pot"] = 0
-    label = RANK_NAMES[best[0]] if len(survivors) > 1 else "uncontested pot"
-    _log(hand, f"{', '.join(hand['names'][seat] for seat in winners)} win {hand['final_pot']} credit with {label}.")
+    label = draw_rank_name(best[0]) if len(survivors) > 1 else tavern_text("draw.uncontested")
+    _log(hand, tavern_format("draw.settle", winners=", ".join(hand["names"][seat] for seat in winners), pot=hand["final_pot"], rank=label))
     records = state.tavern_draw["records"]
     records.append({"number": hand["number"], "players": hand["players"][:],
                     "winners": [hand["players"][seat] for seat in winners],
@@ -180,14 +181,14 @@ def bet_action(state: GameState, action: str) -> None:
     if action == "fold":
         hand["active"][seat] = False
         hand["acted"][seat] = True
-        _log(hand, f"{hand['names'][seat]} folds.")
+        _log(hand, tavern_format("draw.fold", player=hand["names"][seat]))
     elif action in {"call", "check"}:
         if action == "check" and due:
             raise ValueError("a live bet must be called or folded")
         _pay(state, hand, seat, due)
         hand["round_paid"][seat] += due
         hand["acted"][seat] = True
-        _log(hand, f"{hand['names'][seat]} {'calls' if due else 'checks'}{f' {due}' if due else ''}.")
+        _log(hand, tavern_format("draw.call", player=hand["names"][seat], action="calls" if due else "checks", amount=f" {due}" if due else ""))
     elif action == "raise":
         opening = hand["current_bet"] == 0
         if not opening and hand["raises"] >= MAX_RAISES:
@@ -197,7 +198,7 @@ def bet_action(state: GameState, action: str) -> None:
         hand["round_paid"][seat] = hand["current_bet"]
         hand["raises"] += 0 if opening else 1
         hand["acted"] = [not active or index == seat for index, active in enumerate(hand["active"])]
-        _log(hand, f"{hand['names'][seat]} {'bets' if opening else 'raises to'} {hand['current_bet']}.")
+        _log(hand, tavern_format("draw.raise", player=hand["names"][seat], action="bets" if opening else "raises to", amount=hand["current_bet"]))
     else:
         raise ValueError("choose fold, check, call, or raise")
     if sum(hand["active"]) == 1:
@@ -208,7 +209,7 @@ def bet_action(state: GameState, action: str) -> None:
         if hand["phase"] == "bet1":
             hand["phase"] = "draw"
             hand["turn"] = _first_after_dealer(hand)
-            _log(hand, "The first betting round closes. Choose cards to exchange.")
+            _log(hand, tavern_text("draw.first_bet_closed"))
         else:
             _settle(state, hand)
         return
@@ -230,7 +231,7 @@ def draw_cards(state: GameState, discard_indices: list[int]) -> None:
     hand["discards"].extend(removed)
     hand["hands"][seat].extend(hand["deck"].pop() for _ in removed)
     hand["drawn"][seat] = True
-    _log(hand, f"{hand['names'][seat]} exchanges {len(removed)} card(s).")
+    _log(hand, tavern_format("draw.exchange", player=hand["names"][seat], count=len(removed)))
     if all(not active or hand["drawn"][index] for index, active in enumerate(hand["active"])):
         if hand["wagering"]:
             hand["phase"] = "bet2"
@@ -238,7 +239,7 @@ def draw_cards(state: GameState, discard_indices: list[int]) -> None:
             hand["current_bet"] = hand["raises"] = 0
             hand["acted"] = [not active for active in hand["active"]]
             hand["turn"] = _first_after_dealer(hand)
-            _log(hand, "The draw closes. Final betting begins.")
+            _log(hand, tavern_text("draw.final_bet"))
         else:
             _settle(state, hand)
         return

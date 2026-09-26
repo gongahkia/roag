@@ -1,5 +1,5 @@
 {
-  "format_version": 2,
+  "format_version": 3,
   "regions": [
     {
       "id": "region.family_1",
@@ -1928,6 +1928,321 @@
         "width",
         "height"
       ],
+      "max_length": null
+    },
+    {
+      "id": "ui.world_start.arrival",
+      "placeholders": [
+        "region",
+        "condition"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.world_start.courier",
+      "placeholders": [
+        "courier"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.world_start.relic",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.treasure.memory",
+      "placeholders": [
+        "region",
+        "clue"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.treasure.notice",
+      "placeholders": [
+        "clue"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.guard.goal_reason",
+      "placeholders": [
+        "title"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.guard.notice",
+      "placeholders": [
+        "actor"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.optional_complete",
+      "placeholders": [
+        "title"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.elevated_lead",
+      "placeholders": [
+        "container",
+        "x",
+        "y",
+        "z"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.decision_not_ready",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.not_resolution",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.reward_provenance",
+      "placeholders": [
+        "title"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.complete.memory",
+      "placeholders": [
+        "courier",
+        "title",
+        "consequence"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.arc.unlock.memory",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.arc.unlock.notice",
+      "placeholders": [
+        "title"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.arc.available.memory",
+      "placeholders": [
+        "title"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.arc.available.notice",
+      "placeholders": [
+        "title",
+        "region"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.quest.arc.default_title",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.header",
+      "placeholders": [
+        "name",
+        "role"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.people",
+      "placeholders": [
+        "ancestry",
+        "origin",
+        "trait"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.health",
+      "placeholders": [
+        "health",
+        "maximum",
+        "injury"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.attributes",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.competencies",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.attribute",
+      "placeholders": [
+        "name",
+        "value",
+        "modifier",
+        "explanation"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.competency",
+      "placeholders": [
+        "name",
+        "base",
+        "effective"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.specified",
+      "placeholders": [
+        "practice",
+        "trait"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.unspecified",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.people_effect",
+      "placeholders": [
+        "effect"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.resources",
+      "placeholders": [
+        "mana",
+        "maximum",
+        "points",
+        "milestones"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.technique",
+      "placeholders": [
+        "technique"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.character.sheet.background",
+      "placeholders": [
+        "background"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.target.empty_actor",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.target.empty_hostile",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.place_held",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.drop_success",
+      "placeholders": [
+        "count"
+      ],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.drop_failed",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.drop_cancelled",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.tavern_storage",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.route.interrupted",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.route.destination",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.resume",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.field_repack",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.inventory.repacked",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.crafting.tavern",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.navigation.disembark",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.navigation.known_route",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.navigation.none",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.chronicle.seal_requirement",
+      "placeholders": [],
+      "max_length": null
+    },
+    {
+      "id": "ui.terminal.chronicle.sealed",
+      "placeholders": [],
       "max_length": null
     }
   ],
@@ -5338,6 +5653,10 @@
       "placeholders": [
         "duty"
       ]
+    },
+    {
+      "id": "combat.intent.machinery.braked",
+      "placeholders": []
     },
     {
       "id": "combat.damage.hit",
@@ -20702,5 +21021,390 @@
       ]
     }
   ],
-  "dullest_dungeon": {}
+  "dullest_dungeon": {},
+  "tavern_games": [
+    {
+      "id": "draw.opening",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ante",
+      "placeholders": [
+        "ante",
+        "maximum"
+      ]
+    },
+    {
+      "id": "draw.settle",
+      "placeholders": [
+        "winners",
+        "pot",
+        "rank"
+      ]
+    },
+    {
+      "id": "draw.fold",
+      "placeholders": [
+        "player"
+      ]
+    },
+    {
+      "id": "draw.call",
+      "placeholders": [
+        "player",
+        "action",
+        "amount"
+      ]
+    },
+    {
+      "id": "draw.raise",
+      "placeholders": [
+        "player",
+        "action",
+        "amount"
+      ]
+    },
+    {
+      "id": "draw.first_bet_closed",
+      "placeholders": []
+    },
+    {
+      "id": "draw.exchange",
+      "placeholders": [
+        "player",
+        "count"
+      ]
+    },
+    {
+      "id": "draw.final_bet",
+      "placeholders": []
+    },
+    {
+      "id": "draw.uncontested",
+      "placeholders": []
+    },
+    {
+      "id": "draw.phase.bet1",
+      "placeholders": []
+    },
+    {
+      "id": "draw.phase.draw",
+      "placeholders": []
+    },
+    {
+      "id": "draw.phase.bet2",
+      "placeholders": []
+    },
+    {
+      "id": "draw.phase.complete",
+      "placeholders": []
+    },
+    {
+      "id": "dice.opening",
+      "placeholders": []
+    },
+    {
+      "id": "dice.settle.win",
+      "placeholders": [
+        "winners",
+        "score",
+        "prize"
+      ]
+    },
+    {
+      "id": "dice.settle.tie",
+      "placeholders": [
+        "winners",
+        "score"
+      ]
+    },
+    {
+      "id": "dice.bust",
+      "placeholders": [
+        "player"
+      ]
+    },
+    {
+      "id": "dice.bank",
+      "placeholders": [
+        "player",
+        "points"
+      ]
+    },
+    {
+      "id": "dice.roll",
+      "placeholders": [
+        "player",
+        "first",
+        "second",
+        "total"
+      ]
+    },
+    {
+      "id": "draw.ui.rules",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.practice",
+      "placeholders": [
+        "maximum"
+      ]
+    },
+    {
+      "id": "draw.ui.credit",
+      "placeholders": [
+        "credit",
+        "stakes"
+      ]
+    },
+    {
+      "id": "draw.ui.wagered",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.free_practice",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.invite",
+      "placeholders": [
+        "selected"
+      ]
+    },
+    {
+      "id": "draw.ui.seats_filled",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.empty",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.showing",
+      "placeholders": [
+        "first",
+        "last",
+        "total"
+      ]
+    },
+    {
+      "id": "draw.ui.title.complete",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.title.active",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.hand",
+      "placeholders": [
+        "number",
+        "phase"
+      ]
+    },
+    {
+      "id": "draw.ui.pot",
+      "placeholders": [
+        "pot",
+        "credit",
+        "stakes"
+      ]
+    },
+    {
+      "id": "draw.ui.dealer",
+      "placeholders": [
+        "dealer",
+        "acting"
+      ]
+    },
+    {
+      "id": "draw.ui.none",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.folded",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.paid",
+      "placeholders": [
+        "paid",
+        "status"
+      ]
+    },
+    {
+      "id": "draw.ui.in",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.out",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.outcome",
+      "placeholders": [
+        "outcome",
+        "winners",
+        "net"
+      ]
+    },
+    {
+      "id": "draw.ui.win",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.clear",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.selected",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "draw.ui.draw_controls",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.call",
+      "placeholders": [
+        "due",
+        "raises"
+      ]
+    },
+    {
+      "id": "draw.ui.bet_controls",
+      "placeholders": []
+    },
+    {
+      "id": "draw.ui.disclaimer",
+      "placeholders": [
+        "maximum"
+      ]
+    },
+    {
+      "id": "dice.ui.title.lobby",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "dice.ui.rules.1",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.rules.2",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.rules.3",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.purse",
+      "placeholders": [
+        "purse",
+        "prize"
+      ]
+    },
+    {
+      "id": "dice.ui.credit",
+      "placeholders": [
+        "credit"
+      ]
+    },
+    {
+      "id": "dice.ui.invite",
+      "placeholders": [
+        "selected"
+      ]
+    },
+    {
+      "id": "dice.ui.empty",
+      "placeholders": [
+        "bartender"
+      ]
+    },
+    {
+      "id": "dice.ui.seats_filled",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.controls",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.title.complete",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.round",
+      "placeholders": [
+        "round",
+        "rounds",
+        "purse",
+        "credit"
+      ]
+    },
+    {
+      "id": "dice.ui.busts",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "dice.ui.hidden",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.turn_pot",
+      "placeholders": [
+        "total"
+      ]
+    },
+    {
+      "id": "dice.ui.rolls",
+      "placeholders": [
+        "count",
+        "maximum"
+      ]
+    },
+    {
+      "id": "dice.ui.double",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.outcome",
+      "placeholders": [
+        "outcome",
+        "winners",
+        "prize"
+      ]
+    },
+    {
+      "id": "dice.ui.win",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.result",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.clear",
+      "placeholders": []
+    },
+    {
+      "id": "dice.ui.acting",
+      "placeholders": [
+        "player"
+      ]
+    },
+    {
+      "id": "dice.ui.disclaimer",
+      "placeholders": [
+        "bartender"
+      ]
+    }
+  ]
 }

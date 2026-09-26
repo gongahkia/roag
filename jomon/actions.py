@@ -2018,7 +2018,8 @@ def _furnace_interaction(state: GameState) -> ActionResult:
             priority=3,
         )
     if state.gear in {"repair tools", "rope"} or state.support == "carpenter rig":
-        machinery.status, machinery.intent = "disabled", "braked at the furnace drive"
+        machinery.status, machinery.intent_id = "disabled", "combat.intent.machinery.braked"
+        machinery.intent = action_format(machinery.intent_id)
         state.region.changes["machinery_disabled"] = True
         state.smoke.clear()
         return _time_result(

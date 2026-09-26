@@ -580,6 +580,7 @@
     "action.interact.station.T": "Inspect Jomon's gathering position.",
     "action.interact.station.s": "Inspect Jomon's market position.",
     "combat.intent.skill.weapon_bind": "marked aim spoiled by a blade bind",
-    "combat.intent.skill.line_intercept": "entangled by a trained intercept; loses a turn"
+    "combat.intent.skill.line_intercept": "entangled by a trained intercept; loses a turn",
+    "combat.intent.machinery.braked": "braked at the furnace drive"
   }
 }

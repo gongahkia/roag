@@ -61,7 +61,7 @@ VISUAL_SECTIONS = (
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
-REGION_CONTRACT_FORMAT = 2
+REGION_CONTRACT_FORMAT = 3
 # The existing contract format applies to the complete selected-pack
 # presentation surface, not only the historical regional file name.
 PRESENTATION_CONTRACT_FORMAT = REGION_CONTRACT_FORMAT
@@ -95,6 +95,7 @@ DULLEST_DUNGEON_DIRECTORY = "dullest_dungeon"
 DULLEST_DUNGEON_TEXT_FILE = "text.json"
 DULLEST_DUNGEON_VISUALS_FILE = "visuals.json"
 ECOLOGY_PRESENTATION_FILE = "ecology_text.json"
+TAVERN_GAMES_PRESENTATION_FILE = "tavern_games.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -189,7 +190,7 @@ _INTERFERENCE_TEMPLATE_CONTRACT = {
 _ACTION_TEMPLATE_CONTRACT = {
     "combat.threat.notice": ("threat", "intent"),
     "combat.intent.activate.pursuer": (), "combat.intent.activate.reach": (), "combat.intent.activate.ranged": (), "combat.intent.activate.animal": (), "combat.intent.activate.machinery": (), "combat.intent.activate.default": (),
-    "combat.intent.activate.elite": ("mode", "charges"), "combat.intent.activate.prey": (), "combat.intent.activate.predator": (), "combat.intent.activate.duty": ("duty",),
+    "combat.intent.activate.elite": ("mode", "charges"), "combat.intent.activate.prey": (), "combat.intent.activate.predator": (), "combat.intent.activate.duty": ("duty",), "combat.intent.machinery.braked": (),
     "combat.damage.hit": ("source", "location", "damage", "protection"), "combat.damage.absorbed": ("armour", "absorbed"), "combat.damage.exposed": ("location",), "combat.damage.defeated": ("source", "courier"),
     "combat.brace.reaction": ("weapon", "outcome", "threat", "protection", "dropped"), "combat.brace.protected": ("protection", "location"), "combat.brace.uncovered": ("location",),
     "combat.threat.intent": ("threat", "intent"), "combat.threat.loses_turn": ("threat", "intent"),
@@ -1332,6 +1333,25 @@ class CircuitPresentation:
 
 
 @dataclass(frozen=True)
+class TavernGamesPresentation:
+    """Immutable selected-pack wording and visuals for draw and dice."""
+    text_slots: tuple[tuple[str, str], ...]
+    rank_labels: tuple[str, ...]
+    card_ranks: tuple[str, ...]
+    card_suits: tuple[str, ...]
+    card_edge: str
+    card_selected_edge: str
+    card_frame: tuple[str, ...]
+    dice_faces: tuple[tuple[int, tuple[str, ...]], ...]
+
+    def text(self, slot: str) -> str:
+        for identity, value in self.text_slots:
+            if identity == slot:
+                return value
+        raise KeyError(f"unknown tavern-game presentation slot: {slot}")
+
+
+@dataclass(frozen=True)
 class DullestDungeonPresentation:
     """Immutable selected-pack fiction for the in-world tavern game."""
     text_slots: tuple[tuple[str, str], ...]
@@ -1387,6 +1407,7 @@ class ContentPack:
     situation_presentations: tuple[SituationPresentation, ...]
     circuit_presentations: tuple[CircuitPresentation, ...]
     ecology_presentations: tuple[EcologyPresentation, ...]
+    tavern_games: TavernGamesPresentation
     dullest_dungeon: DullestDungeonPresentation
     household_background_template: str
 
@@ -1634,8 +1655,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology", "dullest_dungeon"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, and dullest_dungeon")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology", "tavern_games", "dullest_dungeon"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, and dullest_dungeon")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2852,6 +2873,108 @@ def _dd_document(path: Path, pack_id: str) -> dict[str, Any]:
         raise ContentPackError(f"invalid Dullest Dungeon presentation for content pack {pack_id!r} at {path}: {exc}") from exc
 
 
+_TAVERN_GAMES_TEMPLATE_CONTRACT = {
+    'draw.opening': (),
+    'draw.ante': ('ante', 'maximum'),
+    'draw.settle': ('winners', 'pot', 'rank'),
+    'draw.fold': ('player',),
+    'draw.call': ('player', 'action', 'amount'),
+    'draw.raise': ('player', 'action', 'amount'),
+    'draw.first_bet_closed': (),
+    'draw.exchange': ('player', 'count'),
+    'draw.final_bet': (),
+    'draw.uncontested': (),
+    'draw.phase.bet1': (),
+    'draw.phase.draw': (),
+    'draw.phase.bet2': (),
+    'draw.phase.complete': (),
+    'dice.opening': (),
+    'dice.settle.win': ('winners', 'score', 'prize'),
+    'dice.settle.tie': ('winners', 'score'),
+    'dice.bust': ('player',),
+    'dice.bank': ('player', 'points'),
+    'dice.roll': ('player', 'first', 'second', 'total'),
+    'draw.ui.rules': (),
+    'draw.ui.practice': ('maximum',),
+    'draw.ui.credit': ('credit', 'stakes'),
+    'draw.ui.wagered': (),
+    'draw.ui.free_practice': (),
+    'draw.ui.invite': ('selected',),
+    'draw.ui.seats_filled': (),
+    'draw.ui.empty': (),
+    'draw.ui.showing': ('first', 'last', 'total'),
+    'draw.ui.title.complete': (),
+    'draw.ui.title.active': (),
+    'draw.ui.hand': ('number', 'phase'),
+    'draw.ui.pot': ('pot', 'credit', 'stakes'),
+    'draw.ui.dealer': ('dealer', 'acting'),
+    'draw.ui.none': (),
+    'draw.ui.folded': (),
+    'draw.ui.paid': ('paid', 'status'),
+    'draw.ui.in': (),
+    'draw.ui.out': (),
+    'draw.ui.outcome': ('outcome', 'winners', 'net'),
+    'draw.ui.win': (),
+    'draw.ui.clear': (),
+    'draw.ui.selected': ('count',),
+    'draw.ui.draw_controls': (),
+    'draw.ui.call': ('due', 'raises'),
+    'draw.ui.bet_controls': (),
+    'draw.ui.disclaimer': ('maximum',),
+    'dice.ui.title.lobby': ('bartender',),
+    'dice.ui.rules.1': (),
+    'dice.ui.rules.2': (),
+    'dice.ui.rules.3': (),
+    'dice.ui.purse': ('purse', 'prize'),
+    'dice.ui.credit': ('credit',),
+    'dice.ui.invite': ('selected',),
+    'dice.ui.empty': ('bartender',),
+    'dice.ui.seats_filled': (),
+    'dice.ui.controls': (),
+    'dice.ui.title.complete': (),
+    'dice.ui.round': ('round', 'rounds', 'purse', 'credit'),
+    'dice.ui.busts': ('count',),
+    'dice.ui.hidden': (),
+    'dice.ui.turn_pot': ('total',),
+    'dice.ui.rolls': ('count', 'maximum'),
+    'dice.ui.double': (),
+    'dice.ui.outcome': ('outcome', 'winners', 'prize'),
+    'dice.ui.win': (),
+    'dice.ui.result': (),
+    'dice.ui.clear': (),
+    'dice.ui.acting': ('player',),
+    'dice.ui.disclaimer': ('bartender',),
+}
+
+def _tavern_games_presentation(root: Path, pack_id: str) -> TavernGamesPresentation:
+    source = root / TAVERN_GAMES_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid tavern-game presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(values)} for key, values in _TAVERN_GAMES_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("tavern_games") != expected:
+        raise RuntimeError(f"invalid engine tavern-game content contract at {contract_source}")
+    if not isinstance(document, dict) or set(document) != {"text", "rank_labels", "cards", "dice"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid tavern-game presentation for content pack {pack_id!r} at {source}: expected text, rank_labels, cards, and dice")
+    rows = document["text"]
+    if set(rows) != set(_TAVERN_GAMES_TEMPLATE_CONTRACT):
+        raise ContentPackError(f"invalid tavern-game presentation for content pack {pack_id!r} at {source}: missing or unknown text slots")
+    text_slots = tuple((key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], fields, presentation_name="tavern-game")) for key, fields in _TAVERN_GAMES_TEMPLATE_CONTRACT.items())
+    ranks = document["rank_labels"]
+    cards, dice = document["cards"], document["dice"]
+    if (not isinstance(ranks, list) or len(ranks) != 9 or any(not isinstance(row, str) or not row.strip() for row in ranks)
+            or not isinstance(cards, dict) or set(cards) != {"ranks", "suits", "edge", "selected_edge", "frame"}
+            or not isinstance(cards["ranks"], list) or len(cards["ranks"]) != 13 or not isinstance(cards["suits"], list) or len(cards["suits"]) != 4
+            or any(not isinstance(row, str) or not row for row in [*cards["ranks"], *cards["suits"], cards["edge"], cards["selected_edge"]])
+            or not isinstance(cards["frame"], list) or len(cards["frame"]) != 7 or any(not isinstance(row, str) or not row for row in cards["frame"])
+            or not isinstance(dice, dict) or set(dice) != {str(value) for value in range(1, 7)}
+            or any(not isinstance(rows, list) or len(rows) != 5 or any(not isinstance(row, str) or not row for row in rows) for rows in dice.values())):
+        raise ContentPackError(f"invalid tavern-game visuals for content pack {pack_id!r} at {source}")
+    return TavernGamesPresentation(text_slots, tuple(ranks), tuple(cards["ranks"]), tuple(cards["suits"]), cards["edge"], cards["selected_edge"], tuple(cards["frame"]), tuple((int(key), tuple(dice[key])) for key in sorted(dice, key=int)))
+
+
 def _dullest_dungeon_presentation(root: Path, pack_id: str) -> DullestDungeonPresentation:
     directory = root / DULLEST_DUNGEON_DIRECTORY
     text_path = directory / DULLEST_DUNGEON_TEXT_FILE
@@ -2961,11 +3084,12 @@ def load_content_pack(path: str | Path) -> ContentPack:
     situations = _situation_presentations(root, pack_id)
     circuits = _circuit_presentations(root, pack_id)
     ecology = _ecology_presentations(root, pack_id)
+    tavern_games = _tavern_games_presentation(root, pack_id)
     dullest_dungeon = _dullest_dungeon_presentation(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, dullest_dungeon, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, dullest_dungeon, household_template,
     )
 
 

@@ -1164,14 +1164,11 @@ def create_world(seed: str) -> GameState:
     from .circuits import initialise_circuits
 
     initialise_circuits(state)
-    state.add_message(f"Jomon reaches Hearthford. {region.condition}")
-    state.add_message(
-        f"{state.courier.name} has the courier watch with a basic working kit. "
-        "Press E at the gangplank to walk ashore; Tab offers the steam tug.",
-        priority=3,
-    )
+    from .ui_presentation import ui_format, ui_text
+    state.add_message(ui_format("ui.world_start.arrival", region=region.name, condition=region.condition))
+    state.add_message(ui_format("ui.world_start.courier", courier=state.courier.name), priority=3)
     if relics:
-        state.add_message("A finite river-glass ward rests in the household stores.")
+        state.add_message(ui_text("ui.world_start.relic"))
     return state
 
 
