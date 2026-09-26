@@ -74,6 +74,18 @@ def remembered_positions(state: GameState) -> set[Position]:
     return known
 
 
+
+def _container_name(state: GameState, container: object) -> str:
+    from .discoveries import discovery_name
+
+    return discovery_name(state.active_region_id, container)
+
+
+def _link_name(state: GameState, link: object) -> str:
+    from .landscape_variation import link_name
+
+    return link_name(state.active_region_id, link)
+
 def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
     """List named, known destinations; this is deliberately not autoexplore."""
     if state.location != "region":
@@ -94,11 +106,10 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
         if point == state.position or point not in known or point in occupied:
             continue
         if name.startswith("landform_") or name in {"field_upper", "field_lower"}:
-            from .landscape_variation import VARIANTS
+            from .landscape_variation import pocket_name, structure_name
 
-            row = VARIANTS[state.active_region_id]
-            label = (row["pockets"][int(name.rsplit("_", 1)[1])][0]
-                     if name.startswith("landform_") else row["upper" if name == "field_upper" else "lower"])
+            label = (pocket_name(state.active_region_id, int(name.rsplit("_", 1)[1]))
+                     if name.startswith("landform_") else structure_name(state.active_region_id, name))
         else:
             from .topology_presentation import regional_landmark_label
 
@@ -118,7 +129,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
         state_word = "opened" if container.opened else "marked" if container.id in marks else "seen"
         targets.append(NavigationTarget(
             f"container:{container.id}",
-            f"{container.name} ({state_word})",
+            f"{_container_name(state, container)} ({state_word})",
             container.position,
             "container",
         ))
@@ -129,7 +140,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
                 continue
             targets.append(NavigationTarget(
                 f"link:{link.id or link.name}:{point.x},{point.y},{point.z}",
-                f"{link.name} on level {point.z:+d}",
+                f"{_link_name(state, link)} on level {point.z:+d}",
                 point,
                 "vertical link",
             ))

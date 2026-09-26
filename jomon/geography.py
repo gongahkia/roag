@@ -25,8 +25,10 @@ for region_id in SIDE_ROUTES:
     if not isinstance(patches, list) or len(patches) != 2 or any(not isinstance(glyph, str) or len(glyph) != 1 for glyph in patches):
         raise CatalogError(f"{region_id} has invalid terrain patches")
     if (not isinstance(secrets, list) or len(secrets) < 2
-            or any(not isinstance(row, list) or len(row) != 6 or any(not isinstance(value, str) or not value for value in row)
-                   or row[4] not in {"light", "key", "rope"} for row in secrets)):
+            or any(not isinstance(row, dict) or set(row) != {"anchor", "id", "reward", "requirement"}
+                   or any(not isinstance(row[key], str) or not row[key]
+                          for key in ("anchor", "id", "reward", "requirement"))
+                   or row["requirement"] not in {"light", "key", "rope"} for row in secrets)):
         raise CatalogError(f"{region_id} has invalid field secrets")
 
 _FRONTIER_KEYS = {"name", "width", "height", "geology", "commodity", "shortage", "process", "contacts", "discoveries", "relics"}

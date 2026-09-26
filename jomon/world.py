@@ -479,14 +479,14 @@ def area_name(state: GameState) -> str:
         from .sanctum_presentation import sanctum_display_name, sanctum_text
 
         return f"{sanctum_display_name(state.active_region_id)} — {sanctum_text('sanctum.area.undercroft')}"
-    from .landscape_variation import VARIANTS
+    from .landscape_variation import structure_name
 
     for key, level in (("field_upper", 1), ("field_lower", -1)):
         anchor = state.region.landmarks.get(key)
         if (anchor and state.position.z == level
                 and abs(state.position.x - anchor.x) <= 3
                 and abs(state.position.y - anchor.y) <= 2):
-            return f"{state.region.name} — {VARIANTS[state.active_region_id]['upper' if level == 1 else 'lower']}"
+            return f"{state.region.name} — {structure_name(state.active_region_id, key)}"
     if state.position.z < 0:
         return f"{state.region.name} — below"
     if state.position.z == 2:

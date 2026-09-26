@@ -151,9 +151,11 @@ def inspect_lines(state: GameState, point: Position) -> list[str]:
         container = next((row for row in state.region.containers if row.position == point), None)
         if container and container.hidden and not container.discovered:
             if max(abs(point.x - state.position.x), abs(point.y - state.position.y)) <= 3:
-                lines.append(material_format("material.inspection.trace", clue=container.clue))
+                from .discoveries import discovery_clue
+                lines.append(material_format("material.inspection.trace", clue=discovery_clue(state.active_region_id, container)))
         elif container:
-            lines.append(material_format("material.inspection.container", container=container.name, state=material_text("material.inspection.container.opened" if container.opened else "material.inspection.container.closed")))
+            from .discoveries import discovery_name
+            lines.append(material_format("material.inspection.container", container=discovery_name(state.active_region_id, container), state=material_text("material.inspection.container.opened" if container.opened else "material.inspection.container.closed")))
     ground = [
         item for item in state.items
         if item.location == "ground" and item.ground_position == point

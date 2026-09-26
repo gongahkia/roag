@@ -1824,6 +1824,8 @@ def _complete_objective(state: GameState, altered: bool) -> str:
 
 
 def _open_container(state: GameState) -> ActionResult:
+    from .discoveries import discovery_name
+
     container = next(
         (item for item in state.region.containers if item.position == state.position),
         None,
@@ -1832,7 +1834,7 @@ def _open_container(state: GameState) -> ActionResult:
         return _plain(state, action_format("action.container.none"))
     if container.opened and container.item_ids:
         return ActionResult(
-            False, False, action_format("action.container.open", container=container.name),
+            False, False, action_format("action.container.open", container=discovery_name(state.active_region_id, container)),
             f"inventory:container:{container.id}",
         )
     if container.opened:
@@ -1872,7 +1874,7 @@ def _open_container(state: GameState) -> ActionResult:
         physical = create_item(
             state,
             physical_kind,
-            action_format("action.item.origin.container", container=container.name, region=state.active_region_id),
+            action_format("action.item.origin.container", container=discovery_name(state.active_region_id, container), region=state.active_region_id),
             location="container",
         )
         physical.container_id = container.id
@@ -1934,9 +1936,9 @@ def _open_container(state: GameState) -> ActionResult:
             institution.confidence = min(3, institution.confidence + 1)
         tally_text += action_format("action.container.practice_tally")
     state.remember(
-        action_format("action.container.memory", courier=state.courier.name, container=container.name, rewards=", ".join(display_rewards))
+        action_format("action.container.memory", courier=state.courier.name, container=discovery_name(state.active_region_id, container), rewards=", ".join(display_rewards))
     )
-    message = action_format("action.container.opened", container=container.name, rewards=", ".join(display_rewards), tally=tally_text)
+    message = action_format("action.container.opened", container=discovery_name(state.active_region_id, container), rewards=", ".join(display_rewards), tally=tally_text)
     if packed:
         message += action_format("action.container.packed", items=", ".join(packed))
     if left:
@@ -2244,7 +2246,7 @@ def interact(state: GameState) -> ActionResult:
         from .sanctums import enter_tier
 
         sanctum_note = enter_tier(state, destination)
-        from .landscape_variation import enter_structure
+        from .landscape_variation import enter_structure, link_name
 
         structure_note = enter_structure(state)
         from .quests import mark_elevated_lead
@@ -2252,7 +2254,7 @@ def interact(state: GameState) -> ActionResult:
         marked_lead = mark_elevated_lead(state)
         return _time_result(
             state,
-            action_format("action.interact.vertical_used", link=link.name,
+            action_format("action.interact.vertical_used", link=link_name(state.active_region_id, link),
                           sanctum=(f" {sanctum_note}" if sanctum_note else ""),
                           structure=(f" {structure_note}" if structure_note else ""),
                           slow=action_format("action.interact.vertical.slow") if injured_climb or armour_climb else "",

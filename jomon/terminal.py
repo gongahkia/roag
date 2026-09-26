@@ -1517,12 +1517,14 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
         rows.append(ChoiceOption("X", "Use the carried bottle, selected relic, or readied gear", "commitment", state.combat_active, "requires active danger"))
         return rows
     if kind == "field-traveller":
+        from .topology_presentation import topology_text
+
         return [
-            ChoiceOption("A", "Ask for the upper watch location", "ordinary",
-                         not state.region.changes.get("landform:traveller:clue"), "route already marked"),
-            ChoiceOption("B", f"Buy one physical {state.region.objective_commodity} lot for one credit", "commitment",
+            ChoiceOption("A", topology_text("topology.landform.overlay.clue.label"), "ordinary",
+                         not state.region.changes.get("landform:traveller:clue"), topology_text("topology.landform.overlay.clue.requirement")),
+            ChoiceOption("B", topology_text("topology.landform.overlay.lot.label").format(commodity=state.region.objective_commodity), "commitment",
                          state.trade_credit >= 1 and not state.region.changes.get("landform:traveller:lot"),
-                         "one credit and an unsold lot"),
+                         topology_text("topology.landform.overlay.lot.requirement")),
         ]
     if kind == "aftermath":
         from .aftermath import contracts_for
@@ -2762,12 +2764,17 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
         return sanctum_display_name(state.active_region_id).upper(), inspect_lines(state)
     if kind == "field-traveller":
-        from .landscape_variation import VARIANTS
+        from .landscape_variation import structure_name, traveller_name
+        from .topology_presentation import topology_text
 
-        return VARIANTS[state.active_region_id]["traveller"].upper(), [
-            f"The traveller has sounded {VARIANTS[state.active_region_id]['upper']} and carries one {state.region.objective_commodity} lot.",
-            "A. Mark the upper watch's location (once). B. Buy the physical lot for one trade credit (once).",
-            "Either choice takes time; Escape leaves the conversation.",
+        return topology_text("topology.landform.overlay.title").format(
+            traveller=traveller_name(state.active_region_id),
+        ).upper(), [
+            topology_text("topology.landform.overlay.summary").format(
+                structure=structure_name(state.active_region_id, "field_upper"),
+                commodity=state.region.objective_commodity,
+            ),
+            topology_text("topology.landform.overlay.guidance"),
         ]
     if kind == "navigation":
         return "FOLLOW A KNOWN LOCAL ROUTE", [

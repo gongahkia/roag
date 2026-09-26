@@ -501,7 +501,9 @@ def ledger_lines(state: GameState) -> list[str]:
         (key for key in facts if key.startswith("landform:")),
         key=lambda key: int(key.partition(":")[2]),
     )
-    lines.extend(history_format("history.ledger.landform", text=facts[key]) for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
+    from .landscape_variation import fact_text
+
+    lines.extend(history_format("history.ledger.landform", text=fact_text(region.id, key, facts[key])) for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
     if region.changes.get("sanctum:cleared"):
         lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
                      f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")

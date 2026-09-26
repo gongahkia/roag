@@ -2,7 +2,10 @@ import unittest
 
 from jomon.actions import interact
 from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.landscape_variation import VARIANTS, _spawn_traveller, approach, enter_structure, traveller_choice
+from jomon.landscape_variation import (
+    VARIANTS, _spawn_traveller, approach, enter_structure, link_id, pocket_name,
+    structure_name, traveller_choice,
+)
 from jomon.navigation import navigation_targets
 from jomon.regions import region_reachable, validate_region
 from jomon.state import Position, create_world, game_state_from_dict
@@ -24,8 +27,10 @@ class LandscapeVariationTests(unittest.TestCase):
                     self.assertEqual((upper.z, lower.z), (1, -1))
                     self.assertTrue({upper, lower} <= reachable)
                     self.assertTrue(any({link.first, link.second} == {upper, Position(upper.x, upper.y)}
+                                        and link.id == link_id(region.id, "field_upper")
                                         for link in region.vertical_links))
                     self.assertTrue(any({link.first, link.second} == {lower, Position(lower.x, lower.y)}
+                                        and link.id == link_id(region.id, "field_lower")
                                         for link in region.vertical_links))
                     pocket_count = len(VARIANTS[region.id]["pockets"])
                     self.assertEqual(pocket_count, 4)
@@ -56,10 +61,10 @@ class LandscapeVariationTests(unittest.TestCase):
         state = create_world("named side rooms")
         state.location = "region"
         state.position = state.region.landmarks["field_upper"]
-        self.assertIn(VARIANTS["hearthford"]["upper"], area_name(state))
+        self.assertIn(structure_name("hearthford", "field_upper"), area_name(state))
         target = state.region.landmarks["landform_1"]
         state.region.seen.append(position_key(target))
-        self.assertIn(VARIANTS["hearthford"]["pockets"][1][0],
+        self.assertIn(pocket_name("hearthford", 1),
                       [item.label for item in navigation_targets(state)])
 
     def test_field_events_are_bounded_and_structure_visits_do_not_repeat(self):

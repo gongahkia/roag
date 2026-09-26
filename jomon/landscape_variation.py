@@ -6,12 +6,70 @@ from collections import deque
 import hashlib
 
 from .catalog import CatalogError, load_catalog
+from .topology_presentation import topology_text
 from .state import GameState, Position, Region, VerticalLink, stage_rng
 
 
 VARIANTS = load_catalog("terrain_variation.json", ("regions",))["regions"]
 _TERRAIN = frozenset("mtrq_:ws")
 _ENCOUNTER_KINDS = frozenset({"traveller", "beast", "raider", "stonefall", "elite"})
+
+
+def _text(region_id: str, suffix: str) -> str:
+    return topology_text(f"topology.{region_id}.landform.{suffix}")
+
+
+def _format(semantic_id: str, **values: object) -> str:
+    return topology_text(semantic_id).format(**values)
+
+
+def pocket_name(region_id: str, index: int) -> str:
+    return _text(region_id, f"{index}.name")
+
+
+def structure_name(region_id: str, key: str) -> str:
+    return _text(region_id, "upper" if key == "field_upper" else "lower")
+
+
+def traveller_name(region_id: str) -> str:
+    return _text(region_id, "traveller.name")
+
+
+def link_id(region_id: str, key: str) -> str:
+    return f"landform:{region_id}:link:{key}"
+
+
+def link_name(region_id: str, link: VerticalLink) -> str:
+    prefix = f"landform:{region_id}:link:"
+    if not link.id.startswith(prefix):
+        return link.name
+    key = link.id[len(prefix):]
+    return _format(
+        "topology.landform.link.upper" if key == "field_upper" else "topology.landform.link.lower",
+        structure=structure_name(region_id, key),
+    )
+
+
+def _normalize_legacy(region: Region) -> None:
+    for key in ("field_upper", "field_lower"):
+        landmark = region.landmarks.get(key)
+        if landmark is None:
+            continue
+        ground = Position(landmark.x, landmark.y, 0)
+        for link in region.vertical_links:
+            if {link.first, link.second} == {ground, landmark} and not link.id:
+                link.id = link_id(region.id, key)
+
+
+def fact_text(region_id: str, key: str, value: object) -> str:
+    try:
+        x, y, z = (int(part) for part in str(value).split(","))
+    except ValueError:
+        return _format("topology.landform.fact.legacy", text=value)
+    if key.startswith("landform:"):
+        index = int(key.partition(":")[2])
+        return _format("topology.landform.fact.pocket", landform=pocket_name(region_id, index), x=x, y=y, glyph=VARIANTS[region_id]["pockets"][index]["glyph"])
+    return _format("topology.landform.fact.structure", structure=structure_name(region_id, key), x=x, y=y, z=f"{z:+d}")
 
 
 def _valid_encounters(events: object, pockets: object) -> bool:
@@ -29,12 +87,11 @@ if not isinstance(VARIANTS, dict) or len(VARIANTS) != 8:
     raise CatalogError("terrain_variation.json needs eight regional patterns")
 for region_id, row in VARIANTS.items():
     if (not isinstance(region_id, str) or not isinstance(row, dict)
-            or set(row) != {"pockets", "upper", "lower", "traveller", "encounters"}
-            or not all(isinstance(row[key], str) and row[key] for key in ("upper", "lower", "traveller"))
+            or set(row) != {"pockets", "encounters"}
             or not isinstance(row["pockets"], list) or len(row["pockets"]) < 3
-            or any(not isinstance(pocket, list) or len(pocket) != 2
-                   or not isinstance(pocket[0], str) or not pocket[0]
-                   or pocket[1] not in _TERRAIN for pocket in row["pockets"])
+            or any(not isinstance(pocket, dict) or set(pocket) != {"id", "glyph"}
+                   or pocket["id"] != f"landform_{index}" or pocket["glyph"] not in _TERRAIN
+                   for index, pocket in enumerate(row["pockets"]))
             or not _valid_encounters(row["encounters"], row["pockets"])):
         raise CatalogError(f"invalid terrain variation for {region_id}")
 
@@ -110,15 +167,20 @@ def _structure(region: Region, seed: str, level: int, ground: list[list[str]],
     ground[y][x] = ">" if level == 1 else "<"
     rows[y][x] = "<" if level == 1 else ">"
     region.levels[str(level)] = ["".join(row) for row in rows]
-    region.vertical_links.append(VerticalLink(lower, upper, VARIANTS[region.id]["upper" if level == 1 else "lower"]))
+    link = VerticalLink(lower, upper, "", link_id(region.id, key))
+    link.name = link_name(region.id, link)
+    region.vertical_links.append(link)
     region.landmarks[key] = Position(x, y, level)
-    region.generation_facts[key] = f"{VARIANTS[region.id]['upper' if level == 1 else 'lower']} at {x},{y},z{level:+d}"
+    region.generation_facts[key] = f"{x},{y},{level}"
     protected.add((x, y))
 
 
 def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -> None:
     """Keep the authored roads and landmarks; add passable terrain and side routes."""
-    if region.id not in VARIANTS or "field_upper" in region.landmarks:
+    if region.id not in VARIANTS:
+        return
+    _normalize_legacy(region)
+    if "field_upper" in region.landmarks:
         return
     reachable = _connected_ground(region)
     protected = _protected(region)
@@ -126,14 +188,15 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
                      for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
     ground = [list(row) for row in region.levels["0"]]
     anchors: list[tuple[int, int]] = []
-    for index, (name, glyph) in enumerate(VARIANTS[region.id]["pockets"]):
+    for index, pocket in enumerate(VARIANTS[region.id]["pockets"]):
+        glyph = pocket["glyph"]
         rng = stage_rng(seed, f"landform:{region.id}:pocket:{index}")
         choices = [(x, y) for x, y in reachable
                    if 5 <= x < region.width - 5 and 5 <= y < region.height - 5
                    and ground[y][x] == "." and (x, y) not in protected
                    and all(abs(x - px) + abs(y - py) >= 9 for px, py in anchors)]
         if not choices:
-            raise RuntimeError(f"{region.name} has no safe {name} pocket")
+            raise RuntimeError(f"{region.name} has no safe landform pocket")
         choices.sort()
         x, y = rng.choice(choices)
         anchors.append((x, y))
@@ -145,7 +208,7 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
                         or (rx - x) ** 2 + (ry - y) ** 2 > rng.randint(6, 17)):
                     continue
                 ground[ry][rx] = glyph
-        region.generation_facts[f"landform:{index}"] = f"{name} near {x},{y}; {glyph} footing"
+        region.generation_facts[f"landform:{index}"] = f"{x},{y},0"
     # Underground voids are scarcer in fen and cave-heavy maps; reserve one
     # before choosing the more flexible upper watch footprint.
     for level in (-1, 1):
@@ -180,10 +243,10 @@ def _spawn_threat(state: GameState, anchor: Position, kind: str) -> str:
     counter = f"landform:{kind}s"
     count = int(state.region.changes.get(counter, 0))
     if count >= limit:
-        return "The old tracks cross this ground, but no new creature arrives."
+        return topology_text("topology.landform.event.limit")
     place = _event_position(state, anchor)
     if place is None:
-        return "Something passes beyond the visible ground, without a safe approach."
+        return topology_text("topology.landform.event.occupied")
     def candidate(data: dict[str, object]) -> bool:
         if data["region"] != state.active_region_id:
             return False
@@ -201,7 +264,7 @@ def _spawn_threat(state: GameState, anchor: Position, kind: str) -> str:
                 if data["region"] == state.active_region_id
                 and data["profile"] != "animal" and not data.get("elite")]
     if not pool:
-        return "A disturbed track fades before any creature takes it."
+        return topology_text("topology.landform.event.none")
     archetype = stage_rng(state.seed, f"landform:{state.active_region_id}:{kind}:{count}").choice(sorted(pool))
     actor = threat_from_archetype(
         archetype, place, encounter_id=f"landform:{state.active_region_id}:{kind}:{count}",
@@ -212,7 +275,7 @@ def _spawn_threat(state: GameState, anchor: Position, kind: str) -> str:
     issue_enemy_equipment(state, actor, state.active_region_id)
     state.region.changes[f"enemy_kit:{actor.id}"] = 1
     state.region.changes[counter] = count + 1
-    return f"A {actor.name} appears near {place.x},{place.y}; its {actor.goal} can be observed or avoided."
+    return _format("topology.landform.event.threat", actor=actor.name, x=place.x, y=place.y, goal=actor.goal)
 
 
 def _spawn_traveller(state: GameState, anchor: Position) -> str:
@@ -222,21 +285,21 @@ def _spawn_traveller(state: GameState, anchor: Position) -> str:
     existing = next((person for person in state.contacts[state.active_region_id]
                      if person.id == contact_id), None)
     if existing:
-        return f"{existing.name}'s previous route marks remain in this country."
+        return _format("topology.landform.traveller.existing", traveller=existing.name)
     place = _event_position(state, anchor)
     if place is None:
-        return "A traveller's call carries from beyond this crowded approach."
-    name = VARIANTS[state.active_region_id]["traveller"]
-    person = Contact(contact_id, name, "field traveller", 0,
-                     [f"Knows the {state.region.generation_facts.get('landform:0', 'regional side route')}."],
+        return topology_text("topology.landform.traveller.unavailable")
+    name = traveller_name(state.active_region_id)
+    person = Contact(contact_id, name, topology_text("topology.landform.traveller.role"), 0,
+                     [_format("topology.landform.traveller.memory", landform=fact_text(state.active_region_id, "landform:0", state.region.generation_facts.get("landform:0", "regional side route")))],
                      state.region.objective_commodity, state.active_region_id, place)
     state.contacts[state.active_region_id].append(person)
     state.actor_schedules[contact_id] = ActorSchedule(
-        contact_id, f"region:{state.active_region_id}", place, "surveying varied ground",
+        contact_id, f"region:{state.active_region_id}", place, topology_text("topology.landform.traveller.schedule"),
         state.world_time + 16, f"region:{state.active_region_id}", place,
         last_update=state.world_time,
     )
-    return f"{name} takes a visible stand at {place.x},{place.y}; speak beside them with E for a route clue or one physical lot."
+    return _format("topology.landform.traveller.arrival", traveller=name, x=place.x, y=place.y)
 
 
 def approach(state: GameState) -> str:
@@ -265,8 +328,8 @@ def approach(state: GameState) -> str:
         if cell is not None:
             cell.material, cell.support = "stone", 0
             cell.collapse_due = state.world_time + 3
-            return f"The {state.region.generation_facts.get(f'landform:{index}', 'landform')} shifts at {place.x},{place.y}; stone falls in three actions."
-        return "The ground sounds unstable, but no exposed footing takes a new fracture."
+            return _format("topology.landform.event.stonefall", landform=fact_text(state.active_region_id, f"landform:{index}", state.region.generation_facts.get(f"landform:{index}", "landform")), x=place.x, y=place.y)
+        return topology_text("topology.landform.event.stonefall.none")
     return ""
 
 
@@ -294,8 +357,8 @@ def enter_structure(state: GameState) -> str:
         cell = ensure_cell(state, place) if place else None
         if cell:
             cell.material, cell.support, cell.collapse_due = "stone", 0, state.world_time + 3
-            return f"Loose stone warns of a fall inside the {VARIANTS[state.active_region_id]['lower']} at {place.x},{place.y},z-1."
-        return "The lower stone grinds without opening another fracture."
+            return _format("topology.landform.event.structure_fall", structure=structure_name(state.active_region_id, "field_lower"), x=place.x, y=place.y)
+        return topology_text("topology.landform.event.structure_fall.none")
     return ""
 
 
@@ -308,27 +371,30 @@ def traveller_choice(state: GameState, choice: str):
     contact = next((person for person in state.contacts[state.active_region_id]
                     if person.id == contact_id), None)
     if contact is None:
-        return _plain(state, "No field traveller is present here.")
+        return _plain(state, topology_text("topology.landform.traveller.none"))
     if choice == "a":
         if state.region.changes.get("landform:traveller:clue"):
-            return _plain(state, "The traveller has already marked this route for your courier.")
+            return _plain(state, topology_text("topology.landform.traveller.clue.used"))
         target = state.region.landmarks["field_upper"]
         if position_key(target) not in state.region.seen:
             state.region.seen.append(position_key(target))
         state.region.changes["landform:traveller:clue"] = True
-        contact.memories.append(f"Marked {target.x},{target.y},z+1 for {state.courier.name}.")
-        return _time_result(state, f"{contact.name} marks the {VARIANTS[state.active_region_id]['upper']} at {target.x},{target.y},z+1 as a known destination; the intervening ground still needs exploration.")
+        contact.memories.append(_format("topology.landform.traveller.clue.memory", x=target.x, y=target.y, courier=state.courier.name))
+        return _time_result(state, _format("topology.landform.traveller.clue.result", traveller=contact.name, structure=structure_name(state.active_region_id, "field_upper"), x=target.x, y=target.y))
     if choice == "b":
         if state.region.changes.get("landform:traveller:lot"):
-            return _plain(state, "This traveller has no second counted lot to sell.")
+            return _plain(state, topology_text("topology.landform.traveller.lot.used"))
         if state.trade_credit < 1:
-            return _plain(state, "One trade credit is needed for the physical lot.")
-        item = create_item(state, f"commodity:{contact.interest}", f"purchased from {contact.name}")
+            return _plain(state, topology_text("topology.landform.traveller.lot.credit"))
+        item = create_item(state, f"commodity:{contact.interest}", _format("topology.landform.traveller.lot.provenance", traveller=contact.name))
         packed = auto_place(state, item.id, "pack", owner_id=state.active_courier_id)
         if not packed:
             item.location, item.region_id, item.ground_position = "ground", state.active_region_id, state.position
         state.trade_credit -= 1
         state.region.changes["landform:traveller:lot"] = True
-        return _time_result(state, f"One credit buys a physical {contact.interest} lot; "
-                            + ("it is packed." if packed else "the full pack leaves it on the ground beside you."))
-    return _plain(state, "Ask for a route mark or buy one counted lot.")
+        return _time_result(state, _format(
+            "topology.landform.traveller.lot.result",
+            commodity=contact.interest,
+            placement=topology_text("topology.landform.traveller.lot.packed") if packed else topology_text("topology.landform.traveller.lot.ground"),
+        ))
+    return _plain(state, topology_text("topology.landform.traveller.invalid"))

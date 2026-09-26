@@ -1,70 +1,391 @@
 {
   "SIDE_ROUTES": {
-    "hearthford": [["watchtower", "mill"], ["settlement", "cave_entrance"]],
-    "greywash": [["saltworks", "wreck"], ["dunes", "chain_house"]],
-    "greenwold": [["clearing", "root_cellar"], ["watch_tree", "resin_yard"]],
-    "whitecairn": [["quarry", "lime_kiln"], ["settlement", "sinkhole"]],
-    "dunmire": [["ruin", "store"], ["settlement", "far_bank"]],
-    "rillscar": [["ruin", "far_bank"], ["settlement", "store"]],
-    "marlbank": [["ruin", "store"], ["settlement", "far_bank"]],
-    "frostmere": [["ruin", "far_bank"], ["settlement", "store"]]
+    "hearthford": [
+      [
+        "watchtower",
+        "mill"
+      ],
+      [
+        "settlement",
+        "cave_entrance"
+      ]
+    ],
+    "greywash": [
+      [
+        "saltworks",
+        "wreck"
+      ],
+      [
+        "dunes",
+        "chain_house"
+      ]
+    ],
+    "greenwold": [
+      [
+        "clearing",
+        "root_cellar"
+      ],
+      [
+        "watch_tree",
+        "resin_yard"
+      ]
+    ],
+    "whitecairn": [
+      [
+        "quarry",
+        "lime_kiln"
+      ],
+      [
+        "settlement",
+        "sinkhole"
+      ]
+    ],
+    "dunmire": [
+      [
+        "ruin",
+        "store"
+      ],
+      [
+        "settlement",
+        "far_bank"
+      ]
+    ],
+    "rillscar": [
+      [
+        "ruin",
+        "far_bank"
+      ],
+      [
+        "settlement",
+        "store"
+      ]
+    ],
+    "marlbank": [
+      [
+        "ruin",
+        "store"
+      ],
+      [
+        "settlement",
+        "far_bank"
+      ]
+    ],
+    "frostmere": [
+      [
+        "ruin",
+        "far_bank"
+      ],
+      [
+        "settlement",
+        "store"
+      ]
+    ]
   },
   "GROUND_PATCHES": {
-    "hearthford": ["m", "t"],
-    "greywash": ["m", ","],
-    "greenwold": ["t", "m"],
-    "whitecairn": ["r", "q"],
-    "dunmire": ["m", ","],
-    "rillscar": ["r", "q"],
-    "marlbank": ["m", ","],
-    "frostmere": ["r", ","]
+    "hearthford": [
+      "m",
+      "t"
+    ],
+    "greywash": [
+      "m",
+      ","
+    ],
+    "greenwold": [
+      "t",
+      "m"
+    ],
+    "whitecairn": [
+      "r",
+      "q"
+    ],
+    "dunmire": [
+      "m",
+      ","
+    ],
+    "rillscar": [
+      "r",
+      "q"
+    ],
+    "marlbank": [
+      "m",
+      ","
+    ],
+    "frostmere": [
+      "r",
+      ","
+    ]
   },
   "FIELD_SECRETS": {
     "hearthford": [
-      ["cave_entrance", "reed-silt", "Reed-silt survey roll", "willow dressing", "light", "fresh reed cuts beside an older silt mark"],
-      ["watchtower", "watch-foundation", "Watch foundation pocket", "boar spear", "key", "a loose foundation stone below the old watch"],
-      ["mill", "tailrace-wrap", "Tailrace repair wrap", "sealed pitch pot", "rope", "willow bark snagged beneath a dry tailrace stone"]
+      {
+        "anchor": "cave_entrance",
+        "id": "reed-silt",
+        "reward": "willow dressing",
+        "requirement": "light"
+      },
+      {
+        "anchor": "watchtower",
+        "id": "watch-foundation",
+        "reward": "boar spear",
+        "requirement": "key"
+      },
+      {
+        "anchor": "mill",
+        "id": "tailrace-wrap",
+        "reward": "sealed pitch pot",
+        "requirement": "rope"
+      }
     ],
     "greywash": [
-      ["wreck", "ebb-line", "Ebb-line salvage pouch", "brine wash", "light", "a line of dry salt ending at buried tackle"],
-      ["dunes", "dune-pin", "Dune survey pin box", "fletched arrows", "rope", "a marked pin half hidden in wind-cut sand"],
-      ["saltworks", "pan-shutter", "Salt-pan shutter case", "market weights", "key", "a shutter peg set in a salt pan's lee"]
+      {
+        "anchor": "wreck",
+        "id": "ebb-line",
+        "reward": "brine wash",
+        "requirement": "light"
+      },
+      {
+        "anchor": "dunes",
+        "id": "dune-pin",
+        "reward": "fletched arrows",
+        "requirement": "rope"
+      },
+      {
+        "anchor": "saltworks",
+        "id": "pan-shutter",
+        "reward": "market weights",
+        "requirement": "key"
+      }
     ],
     "greenwold": [
-      ["root_cellar", "root-hollow", "Root-hollow medicine wrap", "pine resin dressing", "light", "a cut root with fresh charcoal below its bark"],
-      ["watch_tree", "canopy-fall", "Canopy-fall hunting bundle", "throwing javelins", "rope", "a snapped cord leading away from the watch tree"],
-      ["resin_yard", "pitch-scrape", "Resin-yard pitch roll", "sealed pitch pot", "light", "a fresh pitch scrape under the cooling racks"]
+      {
+        "anchor": "root_cellar",
+        "id": "root-hollow",
+        "reward": "pine resin dressing",
+        "requirement": "light"
+      },
+      {
+        "anchor": "watch_tree",
+        "id": "canopy-fall",
+        "reward": "throwing javelins",
+        "requirement": "rope"
+      },
+      {
+        "anchor": "resin_yard",
+        "id": "pitch-scrape",
+        "reward": "sealed pitch pot",
+        "requirement": "light"
+      }
     ],
     "whitecairn": [
-      ["sinkhole", "scree-seam", "Scree-seam brace packet", "limestone wedge", "light", "a seam of pale chips at the sink edge"],
-      ["bell_tower", "bell-shadow", "Bell-shadow tool roll", "splint roll", "key", "a false bell mark scratched into exposed stone"],
-      ["quarry", "handline-notch", "Quarry handline satchel", "throwing javelins", "rope", "a handline notch cut into the lee of a worked face"]
+      {
+        "anchor": "sinkhole",
+        "id": "scree-seam",
+        "reward": "limestone wedge",
+        "requirement": "light"
+      },
+      {
+        "anchor": "bell_tower",
+        "id": "bell-shadow",
+        "reward": "splint roll",
+        "requirement": "key"
+      },
+      {
+        "anchor": "quarry",
+        "id": "handline-notch",
+        "reward": "throwing javelins",
+        "requirement": "rope"
+      }
     ],
     "dunmire": [
-      ["cave_entrance", "peat-print", "Peat-print dry packet", "sealed pitch pot", "light", "a dry boot print crossing wet peat"],
-      ["ruin", "bank-notch", "Bank-notch wicker wrap", "willow dressing", "rope", "an old water notch above the present fen line"],
-      ["far_bank", "reed-roost", "Far-bank reed wrap", "brine wash", "light", "a reed roost tied high above blackwater"]
+      {
+        "anchor": "cave_entrance",
+        "id": "peat-print",
+        "reward": "sealed pitch pot",
+        "requirement": "light"
+      },
+      {
+        "anchor": "ruin",
+        "id": "bank-notch",
+        "reward": "willow dressing",
+        "requirement": "rope"
+      },
+      {
+        "anchor": "far_bank",
+        "id": "reed-roost",
+        "reward": "brine wash",
+        "requirement": "light"
+      }
     ],
     "rillscar": [
-      ["far_bank", "span-pin", "Span-pin survey case", "fletched arrows", "rope", "a second bridge pin driven into the rock"],
-      ["cave_entrance", "iron-vein", "Iron-vein bracing bundle", "splint roll", "light", "dark iron dust beneath a fresh stone chip"],
-      ["store", "switchback-tally", "Switchback tally tube", "market weights", "key", "a tally notch hidden beneath the lower switchback"]
+      {
+        "anchor": "far_bank",
+        "id": "span-pin",
+        "reward": "fletched arrows",
+        "requirement": "rope"
+      },
+      {
+        "anchor": "cave_entrance",
+        "id": "iron-vein",
+        "reward": "splint roll",
+        "requirement": "light"
+      },
+      {
+        "anchor": "store",
+        "id": "switchback-tally",
+        "reward": "market weights",
+        "requirement": "key"
+      }
     ],
     "marlbank": [
-      ["ruin", "seed-line", "Seed-line lime packet", "sealed lime pot", "light", "seed rows bending around a buried clay lid"],
-      ["store", "kiln-mark", "Kiln-mark tally pouch", "market weights", "key", "a potter's mark on the cool side of the terrace"],
-      ["far_bank", "culvert-roll", "Bank culvert kit", "boar spear", "rope", "a clay plug wedged into a dry culvert mouth"]
+      {
+        "anchor": "ruin",
+        "id": "seed-line",
+        "reward": "sealed lime pot",
+        "requirement": "light"
+      },
+      {
+        "anchor": "store",
+        "id": "kiln-mark",
+        "reward": "market weights",
+        "requirement": "key"
+      },
+      {
+        "anchor": "far_bank",
+        "id": "culvert-roll",
+        "reward": "boar spear",
+        "requirement": "rope"
+      }
     ],
     "frostmere": [
-      ["far_bank", "ice-sounding", "Ice-sounding pilot wrap", "brine wash", "rope", "two winter soundings cut into one gravel bar"],
-      ["cave_entrance", "net-drift", "Net-drift salvage packet", "fletched arrows", "light", "a net weight caught well above the tide"],
-      ["store", "cold-linen", "Cold-store linen roll", "pine resin dressing", "light", "a dry linen twist behind the cold-store sill"]
+      {
+        "anchor": "far_bank",
+        "id": "ice-sounding",
+        "reward": "brine wash",
+        "requirement": "rope"
+      },
+      {
+        "anchor": "cave_entrance",
+        "id": "net-drift",
+        "reward": "fletched arrows",
+        "requirement": "light"
+      },
+      {
+        "anchor": "store",
+        "id": "cold-linen",
+        "reward": "pine resin dressing",
+        "requirement": "light"
+      }
     ]
   },
   "FRONTIERS": {
-    "dunmire": {"name": "Dunmire Peat Isles", "width": 96, "height": 56, "geology": "peat", "commodity": "charcoal", "shortage": "timber", "process": "fen overtopping", "contacts": [["Yara Silt", "peat steward"], ["Deren Wick", "causeway keeper"]], "discoveries": ["fen sledge", "fire rake tooth", "pitch cup"], "relics": ["flood-mark clasp", "ashglass lens"]},
-    "rillscar": {"name": "Rillscar Iron Gorge", "width": 112, "height": 52, "geology": "ironstone", "commodity": "ironwork", "shortage": "charcoal", "process": "tailrace fracture", "contacts": [["Halen Crag", "cutworks factor"], ["Vessa Ore", "bridge witness"]], "discoveries": ["ice awl", "counterbrace pin", "signal mirror"], "relics": ["quarry echo pin"]},
-    "marlbank": {"name": "Marlbank Clay Terraces", "width": 104, "height": 60, "geology": "clay", "commodity": "grain", "shortage": "timber", "process": "irrigation release", "contacts": [["Mera Loam", "terrace keeper"], ["Odrin Kiln", "potters' speaker"]], "discoveries": ["limewash seal", "smoke braid", "market weights"], "relics": ["red-clay seal"]},
-    "frostmere": {"name": "Frostmere Braided Estuary", "width": 108, "height": 58, "geology": "gravel", "commodity": "salt fish", "shortage": "wool", "process": "ice-channel breakup", "contacts": [["Sarin Rill", "net-house keeper"], ["Brenna Floe", "winter pilot"]], "discoveries": ["shingle skids", "salvage tally"], "relics": ["winter sounding bead", "wreck-light prism"]}
+    "dunmire": {
+      "name": "Dunmire Peat Isles",
+      "width": 96,
+      "height": 56,
+      "geology": "peat",
+      "commodity": "charcoal",
+      "shortage": "timber",
+      "process": "fen overtopping",
+      "contacts": [
+        [
+          "Yara Silt",
+          "peat steward"
+        ],
+        [
+          "Deren Wick",
+          "causeway keeper"
+        ]
+      ],
+      "discoveries": [
+        "fen sledge",
+        "fire rake tooth",
+        "pitch cup"
+      ],
+      "relics": [
+        "flood-mark clasp",
+        "ashglass lens"
+      ]
+    },
+    "rillscar": {
+      "name": "Rillscar Iron Gorge",
+      "width": 112,
+      "height": 52,
+      "geology": "ironstone",
+      "commodity": "ironwork",
+      "shortage": "charcoal",
+      "process": "tailrace fracture",
+      "contacts": [
+        [
+          "Halen Crag",
+          "cutworks factor"
+        ],
+        [
+          "Vessa Ore",
+          "bridge witness"
+        ]
+      ],
+      "discoveries": [
+        "ice awl",
+        "counterbrace pin",
+        "signal mirror"
+      ],
+      "relics": [
+        "quarry echo pin"
+      ]
+    },
+    "marlbank": {
+      "name": "Marlbank Clay Terraces",
+      "width": 104,
+      "height": 60,
+      "geology": "clay",
+      "commodity": "grain",
+      "shortage": "timber",
+      "process": "irrigation release",
+      "contacts": [
+        [
+          "Mera Loam",
+          "terrace keeper"
+        ],
+        [
+          "Odrin Kiln",
+          "potters' speaker"
+        ]
+      ],
+      "discoveries": [
+        "limewash seal",
+        "smoke braid",
+        "market weights"
+      ],
+      "relics": [
+        "red-clay seal"
+      ]
+    },
+    "frostmere": {
+      "name": "Frostmere Braided Estuary",
+      "width": 108,
+      "height": 58,
+      "geology": "gravel",
+      "commodity": "salt fish",
+      "shortage": "wool",
+      "process": "ice-channel breakup",
+      "contacts": [
+        [
+          "Sarin Rill",
+          "net-house keeper"
+        ],
+        [
+          "Brenna Floe",
+          "winter pilot"
+        ]
+      ],
+      "discoveries": [
+        "shingle skids",
+        "salvage tally"
+      ],
+      "relics": [
+        "winter sounding bead",
+        "wreck-light prism"
+      ]
+    }
   }
 }
