@@ -8,6 +8,7 @@ import hashlib
 from functools import lru_cache
 from importlib.resources import files
 import json
+import math
 import random
 import re
 from typing import Any
@@ -23,14 +24,127 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 14
+SAVE_FORMAT = 15
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
+NARRATIVE_RECORD_LIMIT = 64
 ATTRIBUTES = ("strength", "agility", "endurance", "perception", "intellect", "presence")
 
 
 class StateError(ValueError):
     """Raised when persisted or constructed state violates the save contract."""
+
+
+def _active_content_compat(source: str = "native") -> dict[str, Any]:
+    """Describe the currently selected environment for a save write.
+
+    This is provenance and compatibility metadata only; it is never consulted
+    by gameplay or deterministic generation.
+    """
+    from .catalog import (
+        PRESENTATION_CONTRACT_FORMAT,
+        content_pack_presentation_fingerprint,
+        selected_content_pack,
+    )
+    from .mechanical_compatibility import (
+        main_world_mechanical_fingerprint,
+        mechanical_compatibility_version,
+    )
+
+    pack = selected_content_pack()
+    return {
+        "source": source,
+        "last_active_pack": {
+            "id": pack.id,
+            "format_version": pack.format_version,
+            "presentation_contract_format": PRESENTATION_CONTRACT_FORMAT,
+            "presentation_fingerprint": content_pack_presentation_fingerprint(pack),
+        },
+        "mechanical": {
+            "compatibility_version": mechanical_compatibility_version(),
+            "catalog_fingerprint": main_world_mechanical_fingerprint(),
+        },
+    }
+
+
+def _is_fingerprint(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _validate_content_compat(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {"source", "last_active_pack", "mechanical"}:
+        raise StateError("invalid content compatibility metadata")
+    source = value["source"]
+    if source not in {"native", "legacy-unverified"}:
+        raise StateError("invalid content compatibility source")
+    pack = value["last_active_pack"]
+    if pack is not None:
+        required = {"id", "format_version", "presentation_contract_format", "presentation_fingerprint"}
+        if (not isinstance(pack, dict) or set(pack) != required
+                or not isinstance(pack["id"], str) or not pack["id"]
+                or type(pack["format_version"]) is not int or pack["format_version"] < 1
+                or type(pack["presentation_contract_format"]) is not int or pack["presentation_contract_format"] < 1
+                or not _is_fingerprint(pack["presentation_fingerprint"])):
+            raise StateError("invalid content compatibility pack descriptor")
+    mechanical = value["mechanical"]
+    if source == "native" and (pack is None or mechanical is None):
+        raise StateError("native saves require complete content compatibility metadata")
+    if mechanical is None:
+        if source != "legacy-unverified" or pack is not None:
+            raise StateError("only unadopted legacy saves may omit mechanical compatibility")
+    else:
+        if (not isinstance(mechanical, dict)
+                or set(mechanical) != {"compatibility_version", "catalog_fingerprint"}
+                or type(mechanical["compatibility_version"]) is not int
+                or mechanical["compatibility_version"] < 1
+                or not _is_fingerprint(mechanical["catalog_fingerprint"])):
+            raise StateError("invalid content compatibility mechanical descriptor")
+        if pack is None:
+            raise StateError("known mechanical compatibility requires a pack descriptor")
+    return copy.deepcopy(value)
+
+
+def _enforce_content_compat(value: dict[str, Any]) -> None:
+    """Reject only a known format-15 mechanical environment mismatch."""
+    mechanical = value["mechanical"]
+    if mechanical is None:
+        return
+    from .mechanical_compatibility import (
+        main_world_mechanical_fingerprint,
+        mechanical_compatibility_version,
+    )
+    if mechanical["compatibility_version"] != mechanical_compatibility_version():
+        raise StateError("save requires a different main-world mechanical compatibility version")
+    if mechanical["catalog_fingerprint"] != main_world_mechanical_fingerprint():
+        raise StateError(
+            "save requires different main-world mechanical catalogs; presentation-only pack changes are allowed"
+        )
+
+
+def _validate_narrative_records(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or len(value) > NARRATIVE_RECORD_LIMIT:
+        raise StateError("invalid narrative record ledger")
+    records: list[dict[str, Any]] = []
+    for record in value:
+        if not isinstance(record, dict) or set(record) - {"event_id", "refs", "params", "rendered", "origin"} != set() or not {"event_id", "refs", "params", "rendered"} <= set(record):
+            raise StateError("invalid narrative record")
+        if not isinstance(record["event_id"], str) or not record["event_id"] or not isinstance(record["rendered"], str):
+            raise StateError("invalid narrative record identity or rendering")
+        refs, params = record["refs"], record["params"]
+        if (not isinstance(refs, dict)
+                or any(not isinstance(key, str) or not key or not isinstance(item, str) or not item for key, item in refs.items())):
+            raise StateError("invalid narrative record references")
+        if (not isinstance(params, dict)
+                or any(not isinstance(key, str) or not key or type(item) not in {str, int, float, bool, type(None)} or (type(item) is float and not math.isfinite(item)) for key, item in params.items())):
+            raise StateError("invalid narrative record parameters")
+        if "origin" in record and record["origin"] is not None:
+            origin = record["origin"]
+            if (not isinstance(origin, dict) or set(origin) != {"pack_id", "presentation_fingerprint"}
+                    or not isinstance(origin["pack_id"], str) or not origin["pack_id"]
+                    or not _is_fingerprint(origin["presentation_fingerprint"])):
+                raise StateError("invalid narrative record origin")
+        records.append(copy.deepcopy(record))
+    return records
 
 
 @dataclass(frozen=True)
@@ -406,6 +520,7 @@ class Item:
     contents: dict[str, int] = field(default_factory=dict)
     lesson_node: str | None = None
     masterwork: bool = False
+    archived_hostile_issue: bool = False
 
 
 @dataclass
@@ -674,6 +789,8 @@ class GameState:
     expedition_by_tug: bool = False
     returning_by_tug: bool = False
     circuits: dict[str, CircuitCell] = field(default_factory=dict)
+    content_compat: dict[str, Any] = field(default_factory=_active_content_compat)
+    narrative_records: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def combat_active(self) -> bool:
@@ -720,6 +837,16 @@ class GameState:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def save_payload(self) -> dict[str, Any]:
+        """Return a write-time snapshot with the active environment recorded.
+
+        A legacy-unverified save deliberately retains that historical source even
+        when its next write adopts the current known mechanical environment.
+        """
+        payload = self.to_dict()
+        payload["content_compat"] = _active_content_compat(self.content_compat["source"])
+        return payload
 
 
 def normalize_seed(seed: str) -> str:
@@ -1214,6 +1341,55 @@ def _migrate_v13(data: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _legacy_archived_hostile_issue(item: dict[str, Any], actors: dict[str, tuple[str, str, str]]) -> bool:
+    """Recognize only exact bundled-default enemy-kit provenance during v14 load.
+
+    The actor identity and its known default issue wording must agree.  This is
+    intentionally migration-only compatibility, never active-pack parsing.
+    """
+    owner_id = item.get("owner_id")
+    provenance = item.get("provenance")
+    actor = actors.get(owner_id) if isinstance(owner_id, str) else None
+    if actor is None or not isinstance(provenance, str):
+        return False
+    name, _group, region_id = actor
+    regions = "(?:hearthford|greywash|greenwold|whitecairn|dunmire|rillscar|marlbank|frostmere)"
+    issue = rf"(?:road-watch|mill-levy|reavers|{regions}-(?:group-[0-9]+|elite))"
+    # These are the three exact bundled-default templates used by the historical
+    # enemy equipment producer, with only its engine-owned issue/region/actor
+    # substitutions admitted.  Arbitrary prose cannot satisfy this matcher.
+    return bool(
+        re.fullmatch(rf"{issue} working issue carried by {re.escape(name)}", provenance)
+        or re.fullmatch(rf"weathered {re.escape(region_id)} protection worn by {re.escape(name)}", provenance)
+        or provenance == f"working protection worn by {name}"
+    )
+
+
+def _migrate_v14(data: dict[str, Any]) -> dict[str, Any]:
+    migrated = copy.deepcopy(data)
+    actors: dict[str, tuple[str, str, str]] = {}
+    for region_id, rows in migrated.get("region_threats", {}).items():
+        if not isinstance(rows, list):
+            continue
+        for actor in rows:
+            if isinstance(actor, dict) and all(isinstance(actor.get(key), str) for key in ("id", "name")):
+                actors[actor["id"]] = (actor["name"], str(actor.get("group", "")), str(actor.get("region_id") or region_id))
+    for actor in migrated.get("vessel_threats", []):
+        if isinstance(actor, dict) and all(isinstance(actor.get(key), str) for key in ("id", "name")):
+            actors[actor["id"]] = (actor["name"], str(actor.get("group", "")), str(actor.get("region_id") or "hearthford"))
+    for item in migrated.get("items", []):
+        if isinstance(item, dict):
+            item["archived_hostile_issue"] = _legacy_archived_hostile_issue(item, actors)
+    migrated["save_format"] = 15
+    migrated["content_compat"] = {
+        "source": "legacy-unverified",
+        "last_active_pack": None,
+        "mechanical": None,
+    }
+    migrated["narrative_records"] = []
+    return migrated
+
+
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
@@ -1244,8 +1420,14 @@ def game_state_from_dict(data: Any) -> GameState:
         data = _migrate_v12(data)
     if data.get("save_format") == 13:
         data = _migrate_v13(data)
+    migrated_v14 = data.get("save_format") == 14
+    if migrated_v14:
+        data = _migrate_v14(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
+    content_compat = _validate_content_compat(data.get("content_compat"))
+    _enforce_content_compat(content_compat)
+    narrative_records = _validate_narrative_records(data.get("narrative_records"))
     raw_region_threats = data.get(
         "region_threats", {"hearthford": data.get("threats", [])}
     )
@@ -1348,6 +1530,8 @@ def game_state_from_dict(data: Any) -> GameState:
             # Historical masterworks used the default rendered provenance prefix.
             # Never consult selected-pack prose when restoring this mechanical flag.
             item_data.setdefault("masterwork", item_data.get("provenance", "").startswith("masterwork:"))
+            if type(item_data.get("archived_hostile_issue")) is not bool:
+                raise ValueError("missing or invalid archived hostile issue identity")
             items.append(Item(**item_data))
         terrain_statuses = {
             name: TerrainStatus(**value) for name, value in data["terrain_statuses"].items()
@@ -1495,6 +1679,8 @@ def game_state_from_dict(data: Any) -> GameState:
             expedition_by_tug=data["expedition_by_tug"],
             returning_by_tug=data["returning_by_tug"],
             circuits=circuits,
+            content_compat=content_compat,
+            narrative_records=narrative_records,
         )
         from .preparations import normalize_preparation_state
         if normalize_preparation_state(state):
@@ -1618,6 +1804,8 @@ def game_state_from_dict(data: Any) -> GameState:
 
 
 def validate_state(state: GameState) -> None:
+    _validate_content_compat(state.content_compat)
+    _validate_narrative_records(state.narrative_records)
     from .materials import validate_materials
     from .regional_history import validate_accounts
     from .ecology import validate_ecology

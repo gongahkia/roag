@@ -88,7 +88,7 @@ def issue_enemy_equipment(state: GameState, actor: Threat, region_id: str) -> No
         state, _weapon_kind(actor),
         equipment_format("equipment.provenance.enemy_weapon", issue=actor.group or actor.allegiance or region_id, actor=actor.name),
         location="readied", owner_id=actor.id,
-        condition=85 if actor.elite else 70,
+        condition=85 if actor.elite else 70, archived_hostile_issue=True,
     )
     if item_spec(weapon.kind).category != "weapon":
         raise ValueError(f"enemy weapon {weapon.kind!r} is not physical weapon content")
@@ -96,10 +96,12 @@ def issue_enemy_equipment(state: GameState, actor: Threat, region_id: str) -> No
     create_item(
         state, head, equipment_format("equipment.provenance.enemy_armour", region=region_id, actor=actor.name),
         location="head", owner_id=actor.id, condition=75 if actor.elite else 55,
+        archived_hostile_issue=True,
     )
     create_item(
         state, torso, equipment_format("equipment.provenance.enemy_torso", actor=actor.name),
         location="torso", owner_id=actor.id, condition=80 if actor.elite else 60,
+        archived_hostile_issue=True,
     )
     actor.uses_physical_equipment = True
 

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import json
+from hashlib import sha256
 from importlib.resources import files
 import os
 from pathlib import Path
@@ -61,6 +62,9 @@ VISUAL_SECTIONS = (
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
 REGION_CONTRACT_FORMAT = 1
+# The existing contract format applies to the complete selected-pack
+# presentation surface, not only the historical regional file name.
+PRESENTATION_CONTRACT_FORMAT = REGION_CONTRACT_FORMAT
 REGION_PRESENTATION_FILE = "regions.json"
 CHARACTER_PRESENTATION_FILE = "characters.json"
 ITEM_PRESENTATION_FILE = "items.json"
@@ -1571,6 +1575,20 @@ class ContentPack:
 
 _selected_pack: ContentPack | None = None
 _catalogs_loaded = False
+
+
+def content_pack_presentation_fingerprint(pack: ContentPack | None = None) -> str:
+    """Return diagnostic provenance for validated presentation, never mechanics."""
+    pack = pack or selected_content_pack()
+    data = asdict(pack)
+    data.pop("root")
+    data.pop("catalog_root")
+    data["presentation_contract_format"] = PRESENTATION_CONTRACT_FORMAT
+    encoded = json.dumps(
+        data, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return sha256(encoded).hexdigest()
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

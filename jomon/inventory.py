@@ -564,12 +564,14 @@ def create_item(
     quantity: int = 1,
     condition: int = 100,
     masterwork: bool = False,
+    archived_hostile_issue: bool = False,
 ) -> Item:
     item_spec(kind)
     item = Item(
         id=f"item-{state.next_item_id:05d}", kind=kind, location=location,
         provenance=provenance, owner_id=owner_id, quantity=quantity,
         condition=condition, masterwork=masterwork,
+        archived_hostile_issue=archived_hostile_issue,
     )
     state.next_item_id += 1
     state.items.append(item)
@@ -1147,14 +1149,12 @@ def validate_inventory(state: GameState) -> None:
             raise ValueError(f"invalid item location {item.location}")
         if item.location in {"pack", "secondary"} and item.owner_id not in people:
             raise ValueError("carried item has no valid owner")
-        archived_hostile_issue = item.owner_id is not None and (
-            " working issue carried by " in item.provenance
-            or " protection worn by " in item.provenance
-        )
+        if type(item.archived_hostile_issue) is not bool:
+            raise ValueError("invalid archived hostile issue identity")
         if (
             item.location in {"readied", *BODY_SLOTS}
             and item.owner_id not in people | physical_actors
-            and not archived_hostile_issue
+            and not item.archived_hostile_issue
         ):
             raise ValueError("equipped item has no valid actor")
         if item.location == "container" and not item.container_id:

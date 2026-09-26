@@ -35,7 +35,7 @@ def save_game(state: GameState, path: Path | None = None) -> Path:
     temporary = target.with_name(f".{target.name}.tmp")
     try:
         with temporary.open("w", encoding="utf-8") as handle:
-            json.dump(state.to_dict(), handle, ensure_ascii=True, indent=2, sort_keys=True)
+            json.dump(state.save_payload(), handle, ensure_ascii=True, indent=2, sort_keys=True)
             handle.write("\n")
             handle.flush()
             os.fsync(handle.fileno())
