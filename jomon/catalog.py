@@ -82,6 +82,7 @@ PRODUCTION_PRESENTATION_FILE = "production_text.json"
 MAGIC_PRESENTATION_FILE = "magic_text.json"
 PROGRESSION_PRESENTATION_FILE = "progression_text.json"
 EQUIPMENT_PRESENTATION_FILE = "equipment_text.json"
+PREPARATION_PRESENTATION_FILE = "preparation_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
     f"aftermath.contract.{region}.{kind}"
@@ -595,6 +596,40 @@ _EQUIPMENT_TEMPLATE_CONTRACT = {
     "equipment.overlay.fit.title": (), "equipment.overlay.fit.detail": ("fitting", "item", "effect", "drawback", "weight", "cost"), "equipment.overlay.confirm.title": (),
     "equipment.overlay.confirm.guidance": (), "equipment.overlay.confirm.costs": (),
 }
+
+_PREPARATION_IDS = (
+    "preparation.waterline", "preparation.weapon-repair", "preparation.storm-light",
+    "preparation.item-recovery", "preparation.fire-blanket", "preparation.firebrand",
+    "preparation.high-sounding", "preparation.footing", "preparation.bank-plug",
+    "preparation.ration", "preparation.bridge-dogs", "preparation.aim-break",
+    "preparation.drain-tile", "preparation.kiln-sand", "preparation.ice-peg",
+    "preparation.thaw",
+)
+_PREPARATION_RESULT_PLACEHOLDERS = {
+    "waterline": ("changed",), "weapon-repair": ("weapon", "before", "condition"),
+    "storm-light": ("before", "oil", "cleared"), "item-recovery": ("item",),
+    "fire-blanket": ("changed",), "firebrand": ("material", "coordinate"),
+    "high-sounding": ("cache",), "footing": ("statuses",),
+    "bank-plug": ("material", "coordinate", "before", "after"),
+    "ration": ("status", "before", "health"), "bridge-dogs": ("supports",),
+    "aim-break": ("targets", "before", "noise"), "drain-tile": ("coordinate",),
+    "kiln-sand": ("coordinate", "before", "fuel"), "ice-peg": ("coordinate",),
+    "thaw": ("cells", "heat"),
+}
+_PREPARATION_TEMPLATE_CONTRACT = {
+    **{f"{preparation}.name": () for preparation in _PREPARATION_IDS},
+    **{f"{preparation}.description": () for preparation in _PREPARATION_IDS},
+    **{f"{preparation}.condition": () for preparation in _PREPARATION_IDS},
+    "preparation.status.not_carried": (), "preparation.apply.unavailable": ("preparation", "condition"),
+    **{f"preparation.result.{mode}": placeholders for mode, placeholders in _PREPARATION_RESULT_PLACEHOLDERS.items()},
+    "preparation.result.thaw.lamp": (), "preparation.result.thaw.fire": (),
+    "preparation.apply.success": ("preparation", "detail"), "preparation.apply.memory": ("courier", "preparation", "detail"),
+    "preparation.grant.provenance": ("topology",), "preparation.grant.packed": (), "preparation.grant.ground": (),
+    "preparation.grant.memory": ("courier", "preparation", "topology", "where"), "preparation.grant.result": ("preparation", "where"),
+    "preparation.overlay.choice": ("preparation",), "preparation.overlay.row": ("key", "preparation", "description", "status"),
+    "preparation.overlay.ready": (), "preparation.overlay.needs": ("condition",), "preparation.overlay.guidance": (),
+    "intent.preparation.firebrand": (), "intent.preparation.aim-break": (),
+}
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.choice.journal.write.label': (), 'progression.choice.journal.write.requirement': (), 'progression.choice.journal.study.label': (), 'progression.choice.journal.study.requirement': (), 'progression.choice.manoeuvre.label': (), 'progression.choice.manoeuvre.requirement': (), 'progression.choice.teach.label': (), 'progression.station.gathering.journal_guidance': (), 'progression.person.learned': ('practices',), 'progression.person.none': (), 'progression.person.practice_effect': ('practice', 'description'), 'progression.person.personal_effect': (), 'progression.person.teach': (), 'progression.household.none': (), 'progression.household.personal_effect': (), 'progression.personal.memory': ('region',), 'progression.personal.development': ('courier', 'practice'), 'progression.character.learned_nodes': ('nodes',), 'progression.character.none': (), 'progression.combat.note.guard_feint': (), 'progression.combat.note.slip_cut': (), 'progression.combat.note.weapon_bind': (), 'progression.combat.note.riposte_pressure': (), 'progression.combat.note.duelist_finish': (), 'progression.combat.note.edge_measure_guard': (), 'progression.combat.note.countercharge': (), 'progression.combat.note.timber_chipped': (), 'progression.combat.note.hook_haul': (), 'progression.combat.note.line_intercepted': (), 'progression.combat.note.ferryman_guard': (), 'progression.combat.note.called_shot': (), 'progression.combat.note.shaft_falls': (), 'progression.combat.note.measured_charge': (), 'progression.combat.note.matched_payload': (), 'progression.combat.note.target_veiled': (), 'progression.combat.note.masterwork_edge': ()})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.journal.write.title': (), 'progression.journal.write.summary': ('courier', 'written'), 'progression.journal.write.row': ('index', 'node', 'description'), 'progression.journal.write.page': ('page', 'pages'), 'progression.journal.write.provenance': ('courier',), 'progression.journal.study.title': (), 'progression.journal.study.summary': ('courier', 'inherited'), 'progression.journal.study.row': ('index', 'journal', 'node', 'provenance'), 'progression.journal.study.page': ('page', 'pages'), 'progression.teach.title': ('person',), 'progression.teach.summary': ('person', 'inherited', 'teacher'), 'progression.teach.row': ('index', 'node', 'parents'), 'progression.teach.none': (), 'progression.teach.page': ('page', 'pages')})
 _PROGRESSION_TEMPLATE_CONTRACT.update({'progression.combat.shaft.provenance': ()})
@@ -1101,6 +1136,12 @@ class EquipmentPresentation:
 
 
 @dataclass(frozen=True)
+class PreparationPresentation:
+    id: str
+    text: str
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1135,6 +1176,7 @@ class ContentPack:
     magic_presentations: tuple[MagicPresentation, ...]
     progression_presentations: tuple[ProgressionPresentation, ...]
     equipment_presentations: tuple[EquipmentPresentation, ...]
+    preparation_presentations: tuple[PreparationPresentation, ...]
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1248,6 +1290,12 @@ class ContentPack:
                 return presentation
         raise KeyError(f"unknown equipment presentation id: {semantic_id}")
 
+    def preparation_presentation(self, semantic_id: str) -> PreparationPresentation:
+        for presentation in self.preparation_presentations:
+            if presentation.id == semantic_id:
+                return presentation
+        raise KeyError(f"unknown preparation presentation id: {semantic_id}")
+
     def aftermath_presentation(self, semantic_id: str) -> AftermathPresentation:
         for presentation in self.aftermath_presentations:
             if presentation.id == semantic_id:
@@ -1331,8 +1379,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, and equipment")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, and preparations")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2278,6 +2326,26 @@ def _equipment_presentations(root: Path, pack_id: str) -> tuple[EquipmentPresent
     return tuple(EquipmentPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="equipment")) for key, placeholders in _EQUIPMENT_TEMPLATE_CONTRACT.items())
 
 
+def _preparation_presentations(root: Path, pack_id: str) -> tuple[PreparationPresentation, ...]:
+    source = root / PREPARATION_PRESENTATION_FILE
+    try:
+        document = json.loads(source.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid preparation presentation for content pack {pack_id!r} at {source}: {exc}") from exc
+    contract_source, engine_contract = _content_contract_document()
+    expected = [{"id": key, "placeholders": list(placeholders)} for key, placeholders in _PREPARATION_TEMPLATE_CONTRACT.items()]
+    if engine_contract.get("preparations") != expected:
+        raise RuntimeError(f"invalid engine preparation content contract at {contract_source}: preparations does not match engine template contract")
+    if not isinstance(document, dict) or set(document) != {"text"} or not isinstance(document["text"], dict):
+        raise ContentPackError(f"invalid preparation presentation for content pack {pack_id!r} at {source}: expected text object")
+    rows = document["text"]
+    if set(rows) != set(_PREPARATION_TEMPLATE_CONTRACT):
+        missing, unknown = set(_PREPARATION_TEMPLATE_CONTRACT) - set(rows), set(rows) - set(_PREPARATION_TEMPLATE_CONTRACT)
+        details = ([] if not missing else ["missing required preparation keys " + ", ".join(sorted(missing))]) + ([] if not unknown else ["unknown preparation keys " + ", ".join(sorted(unknown))])
+        raise ContentPackError(f"invalid preparation presentation for content pack {pack_id!r} at {source}: " + "; ".join(details))
+    return tuple(PreparationPresentation(key, _validate_quest_service_template(source, pack_id, f"text.{key}", rows[key], placeholders, presentation_name="preparation")) for key, placeholders in _PREPARATION_TEMPLATE_CONTRACT.items())
+
+
 def _topology_presentations(root: Path, pack_id: str) -> tuple[TopologyPresentation, ...]:
     source = root / TOPOLOGY_PRESENTATION_FILE
     try:
@@ -2452,10 +2520,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     magic = _magic_presentations(root, pack_id)
     progression = _progression_presentations(root, pack_id)
     equipment = _equipment_presentations(root, pack_id)
+    preparations = _preparation_presentations(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, household_template,
     )
 
 

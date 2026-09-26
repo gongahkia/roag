@@ -13215,5 +13215,411 @@
       "id": "equipment.overlay.confirm.costs",
       "placeholders": []
     }
+  ],
+  "preparations": [
+    {
+      "id": "preparation.waterline.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.waterline.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.waterline.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.weapon-repair.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.weapon-repair.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.weapon-repair.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.storm-light.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.storm-light.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.storm-light.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.item-recovery.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.item-recovery.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.item-recovery.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.fire-blanket.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.fire-blanket.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.fire-blanket.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.firebrand.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.firebrand.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.firebrand.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.high-sounding.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.high-sounding.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.high-sounding.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.footing.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.footing.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.footing.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bank-plug.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bank-plug.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bank-plug.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ration.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ration.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ration.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bridge-dogs.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bridge-dogs.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.bridge-dogs.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.aim-break.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.aim-break.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.aim-break.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.drain-tile.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.drain-tile.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.drain-tile.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.kiln-sand.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.kiln-sand.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.kiln-sand.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ice-peg.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ice-peg.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.ice-peg.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.thaw.name",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.thaw.description",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.thaw.condition",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.status.not_carried",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.apply.unavailable",
+      "placeholders": [
+        "preparation",
+        "condition"
+      ]
+    },
+    {
+      "id": "preparation.result.waterline",
+      "placeholders": [
+        "changed"
+      ]
+    },
+    {
+      "id": "preparation.result.weapon-repair",
+      "placeholders": [
+        "weapon",
+        "before",
+        "condition"
+      ]
+    },
+    {
+      "id": "preparation.result.storm-light",
+      "placeholders": [
+        "before",
+        "oil",
+        "cleared"
+      ]
+    },
+    {
+      "id": "preparation.result.item-recovery",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "preparation.result.fire-blanket",
+      "placeholders": [
+        "changed"
+      ]
+    },
+    {
+      "id": "preparation.result.firebrand",
+      "placeholders": [
+        "material",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "preparation.result.high-sounding",
+      "placeholders": [
+        "cache"
+      ]
+    },
+    {
+      "id": "preparation.result.footing",
+      "placeholders": [
+        "statuses"
+      ]
+    },
+    {
+      "id": "preparation.result.bank-plug",
+      "placeholders": [
+        "material",
+        "coordinate",
+        "before",
+        "after"
+      ]
+    },
+    {
+      "id": "preparation.result.ration",
+      "placeholders": [
+        "status",
+        "before",
+        "health"
+      ]
+    },
+    {
+      "id": "preparation.result.bridge-dogs",
+      "placeholders": [
+        "supports"
+      ]
+    },
+    {
+      "id": "preparation.result.aim-break",
+      "placeholders": [
+        "targets",
+        "before",
+        "noise"
+      ]
+    },
+    {
+      "id": "preparation.result.drain-tile",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "preparation.result.kiln-sand",
+      "placeholders": [
+        "coordinate",
+        "before",
+        "fuel"
+      ]
+    },
+    {
+      "id": "preparation.result.ice-peg",
+      "placeholders": [
+        "coordinate"
+      ]
+    },
+    {
+      "id": "preparation.result.thaw",
+      "placeholders": [
+        "cells",
+        "heat"
+      ]
+    },
+    {
+      "id": "preparation.result.thaw.lamp",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.result.thaw.fire",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.apply.success",
+      "placeholders": [
+        "preparation",
+        "detail"
+      ]
+    },
+    {
+      "id": "preparation.apply.memory",
+      "placeholders": [
+        "courier",
+        "preparation",
+        "detail"
+      ]
+    },
+    {
+      "id": "preparation.grant.provenance",
+      "placeholders": [
+        "topology"
+      ]
+    },
+    {
+      "id": "preparation.grant.packed",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.grant.ground",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.grant.memory",
+      "placeholders": [
+        "courier",
+        "preparation",
+        "topology",
+        "where"
+      ]
+    },
+    {
+      "id": "preparation.grant.result",
+      "placeholders": [
+        "preparation",
+        "where"
+      ]
+    },
+    {
+      "id": "preparation.overlay.choice",
+      "placeholders": [
+        "preparation"
+      ]
+    },
+    {
+      "id": "preparation.overlay.row",
+      "placeholders": [
+        "key",
+        "preparation",
+        "description",
+        "status"
+      ]
+    },
+    {
+      "id": "preparation.overlay.ready",
+      "placeholders": []
+    },
+    {
+      "id": "preparation.overlay.needs",
+      "placeholders": [
+        "condition"
+      ]
+    },
+    {
+      "id": "preparation.overlay.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "intent.preparation.firebrand",
+      "placeholders": []
+    },
+    {
+      "id": "intent.preparation.aim-break",
+      "placeholders": []
+    }
   ]
 }

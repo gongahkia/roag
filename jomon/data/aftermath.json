@@ -133,6 +133,7 @@
   ],
   "preparations": [
     {
+      "id": "preparation.waterline",
       "name": "race-gate chalk",
       "topology": "flood-mark circuit",
       "mode": "waterline",
@@ -140,6 +141,7 @@
       "condition": "nearby released or material water"
     },
     {
+      "id": "preparation.weapon-repair",
       "name": "tallow gear wrap",
       "topology": "wheel-timber account",
       "mode": "weapon-repair",
@@ -147,6 +149,7 @@
       "condition": "a damaged readied weapon"
     },
     {
+      "id": "preparation.storm-light",
       "name": "storm wick",
       "topology": "storm-beacon line",
       "mode": "storm-light",
@@ -154,6 +157,7 @@
       "condition": "spent lamp oil or nearby smoke"
     },
     {
+      "id": "preparation.item-recovery",
       "name": "wreck cork sling",
       "topology": "shifted-wreck recovery",
       "mode": "item-recovery",
@@ -161,6 +165,7 @@
       "condition": "a ground item within four paces and pack room"
     },
     {
+      "id": "preparation.fire-blanket",
       "name": "damp ember blanket",
       "topology": "medicine boundary",
       "mode": "fire-blanket",
@@ -168,6 +173,7 @@
       "condition": "nearby fire or a burning hostile"
     },
     {
+      "id": "preparation.firebrand",
       "name": "resin firebrand",
       "topology": "charcoal cut audit",
       "mode": "firebrand",
@@ -175,6 +181,7 @@
       "condition": "dry adjacent reeds, timber, cloth, resin, oil, or charcoal"
     },
     {
+      "id": "preparation.high-sounding",
       "name": "stair sounding cord",
       "topology": "warning stair",
       "mode": "high-sounding",
@@ -182,6 +189,7 @@
       "condition": "an elevated regional position and unread cache"
     },
     {
+      "id": "preparation.footing",
       "name": "scree binding",
       "topology": "toll-brace recovery",
       "mode": "footing",
@@ -189,6 +197,7 @@
       "condition": "poor footing or cut-feet status"
     },
     {
+      "id": "preparation.bank-plug",
       "name": "peat bank plug",
       "topology": "raised peat walk",
       "mode": "bank-plug",
@@ -196,6 +205,7 @@
       "condition": "nearby wet soil or timber"
     },
     {
+      "id": "preparation.ration",
       "name": "fen ration cake",
       "topology": "submerged fuel mark",
       "mode": "ration",
@@ -203,6 +213,7 @@
       "condition": "fatigue, chill, smoke inhalation, or lost health"
     },
     {
+      "id": "preparation.bridge-dogs",
       "name": "bridge dog pair",
       "topology": "switchback brace",
       "mode": "bridge-dogs",
@@ -210,6 +221,7 @@
       "condition": "nearby damaged timber or stone support"
     },
     {
+      "id": "preparation.aim-break",
       "name": "echo muffler",
       "topology": "convoy counterweight",
       "mode": "aim-break",
@@ -217,6 +229,7 @@
       "condition": "a nearby prepared hostile lane or accumulated noise"
     },
     {
+      "id": "preparation.drain-tile",
       "name": "fired drainage tile",
       "topology": "seed-bed drainage",
       "mode": "drain-tile",
@@ -224,6 +237,7 @@
       "condition": "adjacent mud"
     },
     {
+      "id": "preparation.kiln-sand",
       "name": "kiln sand pouch",
       "topology": "abandoned kiln quench",
       "mode": "kiln-sand",
@@ -231,6 +245,7 @@
       "condition": "an adjacent material fire"
     },
     {
+      "id": "preparation.ice-peg",
       "name": "marked ice peg",
       "topology": "sheltered channel stakes",
       "mode": "ice-peg",
@@ -238,6 +253,7 @@
       "condition": "winter and adjacent unfired fresh water"
     },
     {
+      "id": "preparation.thaw",
       "name": "thaw kettle sachet",
       "topology": "broken-ice net recovery",
       "mode": "thaw",
