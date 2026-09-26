@@ -13,7 +13,7 @@ from typing import Iterable
 from .actions import (
     BRACE_REACTION_WEAPONS,
     RANGED_WEAPONS,
-    _advance_world,
+    advance_world,
     attack,
     attack_target_legality,
     brace_target_legality,
@@ -41,6 +41,12 @@ from .actions import (
     use_gear,
     use_route_stop,
 )
+from .commands import (
+    AttackCommand, GuardCommand, InteractCommand, MoveCommand,
+    RetreatCommand, SelectCarriedRelicCommand, SetAutoPlaceCommand, UseGearCommand,
+)
+from .session import GameSession
+from .views import WorldView
 from .character_presentation import role_display_name
 from .item_presentation import item_display_name, item_display_name_or_legacy
 from .ui_presentation import notice_kind, notice_label, render_notice, ui_format
@@ -115,6 +121,7 @@ from .world import (
     map_rows,
     passive_bulk,
     passive_capacity,
+    position_key,
     projectile_path,
 )
 
@@ -760,7 +767,10 @@ def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Positi
     return danger_cells(state, visible)
 
 
-def _draw_map(screen: curses.window, state: GameState, top: int, left: int, height: int, width: int) -> None:
+def _draw_map(
+    screen: curses.window, state: GameState, top: int, left: int, height: int, width: int,
+    semantic_view: WorldView | None = None,
+) -> None:
     from .materials import fields, key
     from .circuits import active as circuit_active, space_id
 
@@ -771,7 +781,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     origin_x, origin_y = camera_origin(
         state.position, map_width, map_height, view_width, view_height
     )
-    visible = field_of_view(state, remember=False)
+    visible = ({cell.position for cell in semantic_view.cells if cell.visible}
+               if semantic_view is not None else field_of_view(state, remember=False))
     threats = visible_threats(state, visible)
     from .vehicles import SPECS
 
@@ -780,7 +791,8 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
     circuit_marks = {cell.position: cell for cell in state.circuits.values()
                      if cell.space == space_id(state) and cell.layer == "surface" and cell.position.z == state.position.z}
     danger_marks = visible_danger_marks(state, visible)
-    known = set(state.region.seen)
+    known = ({position_key(cell.position) for cell in semantic_view.cells if cell.remembered}
+             if semantic_view is not None else set(state.region.seen))
     marks = set(state.treasure_marks.get(state.active_region_id, []))
     marked_positions = {container.position for container in state.region.containers if container.id in marks}
     for sy in range(view_height):
@@ -795,7 +807,7 @@ def _draw_map(screen: curses.window, state: GameState, top: int, left: int, heig
             if (
                 state.location == "region"
                 and position not in visible
-                and f"{position.x},{position.y},{position.z}" not in known
+                and position_key(position) not in known
                 and position not in marked_positions
             ):
                 _put(screen, top + 1 + sy, left + 1 + sx, " ")
@@ -871,7 +883,7 @@ def _draw_minimum_size_notice(screen: curses.window) -> None:
         _put(screen, top + offset, max(0, (width - len(line)) // 2), line, curses.A_BOLD if heading else 0)
 
 
-def _draw_base(screen: curses.window, state: GameState) -> None:
+def _draw_base(screen: curses.window, state: GameState, semantic_view: WorldView | None = None) -> None:
     screen.erase()
     height, width = screen.getmaxyx()
     if height < MIN_HEIGHT or width < MIN_WIDTH:
@@ -882,7 +894,7 @@ def _draw_base(screen: curses.window, state: GameState) -> None:
     main_height, map_width = height - event_height - command_height, width - status_width
     _frame(screen, 0, 0, main_height, map_width, area_name(state).upper())
     _frame(screen, 0, map_width, main_height, status_width, INTERFACE_LABELS["watch_log"])
-    _draw_map(screen, state, 0, 0, main_height, map_width)
+    _draw_map(screen, state, 0, 0, main_height, map_width, semantic_view)
     for index, line in enumerate(_status_lines(state, main_height - 2)):
         role = status_colour_role(line)
         if line.startswith("COURIER") or index == 1:
@@ -1055,9 +1067,9 @@ def _handle_circuit(
             state.add_message(message, priority=2)
         return False
     if key == ord("."):
-        from .actions import _advance_world
+        from .actions import advance_world
 
-        _advance_world(state)
+        advance_world(state)
         from .circuit_presentation import circuit_text
         state.add_message(circuit_text("circuit.terminal.step"))
         return False
@@ -1281,6 +1293,7 @@ def _handle_targeting(
     event: InputEvent | int,
     *,
     screen_size: tuple[int, int] = (24, 80),
+    session: GameSession | None = None,
 ) -> tuple[bool, bool]:
     if isinstance(event, int):
         event = InputEvent("key", key=event)
@@ -1339,8 +1352,8 @@ def _handle_targeting(
         if target is None:
             state.add_message("No visible engaged actor occupies the selected lane.")
             return False, False
-        result = guard(state, target.id)
-        return result.time_advanced, result.time_advanced
+        outcome = (session or GameSession(state)).submit(GuardCommand(target.id))
+        return outcome.time_advanced, outcome.time_advanced
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
         curses.KEY_UP: (0, -1), curses.KEY_DOWN: (0, 1),
@@ -1369,7 +1382,7 @@ def _handle_targeting(
                 state.add_message(message, priority=2)
             return changed, changed
         if view.mastery_id:
-            from .actions import _advance_world
+            from .actions import advance_world
             from .manoeuvres import perform
 
             target = _target_at_cursor(state, view)
@@ -1377,7 +1390,7 @@ def _handle_targeting(
                 state, view.mastery_id, target.id if target else None
             )
             if changed:
-                _advance_world(state, steps=steps)
+                advance_world(state, steps=steps)
             state.add_message(message, priority=3)
             return changed, changed
         if state.weapon == "pot sling":
@@ -1392,8 +1405,8 @@ def _handle_targeting(
         if target is None:
             state.add_message("No visible hostile stands at the marked place.", priority=2)
             return False, False
-        result = attack(state, target.id)
-        return result.time_advanced, result.time_advanced
+        outcome = (session or GameSession(state)).submit(AttackCommand(target.id))
+        return outcome.time_advanced, outcome.time_advanced
     return False, False
 
 
@@ -1781,7 +1794,10 @@ def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: Overla
     screen.refresh()
 
 
-def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent) -> tuple[bool, bool]:
+def _handle_overlay_view(
+    state: GameState, view: OverlayView, event: InputEvent,
+    session: GameSession | None = None,
+) -> tuple[bool, bool]:
     if view.kind == "vehicle-interior":
         from .vehicles import active_vehicle, interior_entry, interior_fixture, interior_step, service
 
@@ -1882,7 +1898,7 @@ def _handle_overlay_view(state: GameState, view: OverlayView, event: InputEvent)
                 index = options.index(direct)
                 view.result = navigation_targets(state)[index].id
                 return True, False
-    next_kind, should_quit = _handle_overlay(state, view.kind, key)
+    next_kind, should_quit = _handle_overlay(state, view.kind, key, session=session)
     if next_kind is None:
         return True, should_quit
     if next_kind != view.kind:
@@ -2366,7 +2382,10 @@ def _inventory_mouse_key(state: GameState, view: InventoryView, event: InputEven
     return None
 
 
-def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent | int) -> tuple[bool, bool]:
+def _handle_inventory(
+    state: GameState, view: InventoryView, event: InputEvent | int,
+    session: GameSession | None = None,
+) -> tuple[bool, bool]:
     """Return (closed, committed); Escape restores the complete opening state."""
     if isinstance(event, int):
         event = InputEvent("key", key=event)
@@ -2506,9 +2525,11 @@ def _handle_inventory(state: GameState, view: InventoryView, event: InputEvent |
             view.status = "Auto-pack found no complete layout; the original is unchanged."
         return False, False
     if char == "z":
-        state.auto_place_enabled = not state.auto_place_enabled
-        view.transaction.changed = True
-        view.status = f"Auto-place new items {'enabled' if state.auto_place_enabled else 'disabled'}."
+        session = session or GameSession(state)
+        outcome = session.submit(SetAutoPlaceCommand(not session.auto_place_enabled))
+        if outcome.changed:
+            view.transaction.changed = True
+            view.status = f"Auto-place new items {'enabled' if session.auto_place_enabled else 'disabled'}."
         return False, False
     if char in {"[", "]"}:
         view.paper_slot = (view.paper_slot + (-1 if char == "[" else 1)) % len(PAPER_SLOTS)
@@ -3225,7 +3246,9 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     return INTERFACE_LABELS["recorded_notice"], [kind, "Escape closes without advancing time."]
 
 
-def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, bool]:
+def _handle_overlay(
+    state: GameState, kind: str, key: int, session: GameSession | None = None,
+) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
     if kind == "field-traveller" and char in {"a", "b"}:
         from .landscape_variation import traveller_choice
@@ -3374,16 +3397,16 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         eligible, _ = eligibility(state, story.id)
         return (f"household-story:{story.id}" if eligible or status in {"active", "completed"} else kind), False
     if kind.startswith("household-story:") and char in {"o", "d", "w", "p", "c", "h", "r"}:
-        from .actions import _advance_world
+        from .actions import advance_world
         from .household_stories import resolve
 
         changed, message, steps = resolve(state, kind.split(":", 1)[1], char)
         if changed:
-            _advance_world(state, steps=steps)
+            advance_world(state, steps=steps)
         state.add_message(message, priority=3)
         return (None if changed else kind), False
     if kind == "mastery" and char in "123456789abc":
-        from .actions import _advance_world
+        from .actions import advance_world
         from .manoeuvres import known, perform
 
         rows = known(state)
@@ -3391,7 +3414,7 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         if 0 <= index < len(rows):
             changed, message, steps = perform(state, rows[index].id)
             if changed:
-                _advance_world(state, steps=steps)
+                advance_world(state, steps=steps)
             state.add_message(message, priority=3)
             return (None if changed else kind), False
         return kind, False
@@ -3410,21 +3433,21 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
             return ("craft-mix" if changed else kind), False
         return kind, False
     if kind.startswith("situation:") and char in {"t", "m", "a"}:
-        from .actions import _advance_world
+        from .actions import advance_world
         from .situations import resolve
 
         changed, message, steps = resolve(state, kind.split(":", 1)[1], char)
         if changed:
-            _advance_world(state, steps=steps)
+            advance_world(state, steps=steps)
         state.add_message(message, priority=3)
         return (None if changed else kind), False
     if kind == "sanctum" and char in {"o", "b", "s", "h"}:
-        from .actions import _advance_world
+        from .actions import advance_world
         from .sanctums import shrine_choice
 
         changed, message, steps = shrine_choice(state, char)
         if changed:
-            _advance_world(state, steps=steps)
+            advance_world(state, steps=steps)
         state.add_message(message, priority=3)
         return (None if changed else kind), False
     if kind == "aftermath" and char in "12":
@@ -3618,8 +3641,9 @@ def _handle_overlay(state: GameState, kind: str, key: int) -> tuple[str | None, 
         ))
         index = int(char) - 1
         if 0 <= index < len(rows):
-            state.carried_relic = rows[index]
-            state.add_message(f"{rows[index]} is ready for its next use.")
+            outcome = (session or GameSession(state)).submit(SelectCarriedRelicCommand(rows[index]))
+            if not outcome.accepted:
+                return kind, False
             return None, False
     if kind == "field-use":
         from .preparations import carried_preparations
@@ -3749,6 +3773,7 @@ def play(screen: curses.window, state: GameState) -> GameState:
 def _play_loop(screen: curses.window, state: GameState) -> GameState:
     from .vessel import JOMON_GANGPLANK
 
+    session = GameSession(state)
     overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
@@ -3758,7 +3783,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
     local_route: RoutePlan | None = None
     local_route_index = 0
     while True:
-        _draw_base(screen, state)
+        _draw_base(screen, state, session.world_view())
         height, width = screen.getmaxyx()
         if inventory_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_inventory(screen, state, inventory_view)
@@ -3813,11 +3838,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 return state
             continue
         if inventory_view:
-            closed, committed = _handle_inventory(state, inventory_view, event)
+            closed, committed = _handle_inventory(state, inventory_view, event, session=session)
             if closed:
                 if committed and inventory_view.transaction.changed:
                     if state.combat_active and inventory_view.source is None:
-                        _advance_world(state)
+                        advance_world(state)
                         state.add_message(ui_format("ui.terminal.inventory.field_repack"), priority=2)
                     else:
                         state.add_message(ui_format("ui.terminal.inventory.repacked"))
@@ -3833,7 +3858,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             continue
         if target_view:
             closed, _ = _handle_targeting(
-                state, target_view, event, screen_size=(height, width)
+                state, target_view, event, screen_size=(height, width), session=session,
             )
             if closed:
                 target_view = None
@@ -3847,7 +3872,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 circuit_view = None
             continue
         if overlay:
-            closed, should_quit = _handle_overlay_view(state, overlay, event)
+            closed, should_quit = _handle_overlay_view(state, overlay, event, session=session)
             if should_quit:
                 return state
             if closed:
@@ -3883,7 +3908,7 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                     state.position.z,
                 ))
         elif normalized in MOVES:
-            move(state, *MOVES[normalized])
+            session.submit(MoveCommand(*MOVES[normalized]))
         elif normalized == ord(";"):
             look_view = LookView.begin(state)
         elif key == ord("\\"):
@@ -3895,33 +3920,34 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 from .circuit_presentation import circuit_text
                 state.add_message(circuit_text("circuit.target.no_space"))
         elif normalized in {10, 13, ord("e")}:
-            result = interact(state)
-            if result.overlay and result.overlay.startswith("inventory:container:"):
-                source = result.overlay.split("inventory:", 1)[1]
+            interaction = session.interaction_view().options[0]
+            outcome = session.submit(InteractCommand(interaction.target_id, interaction.interaction_id))
+            if outcome.overlay_id and outcome.overlay_id.startswith("inventory:container:"):
+                source = outcome.overlay_id.split("inventory:", 1)[1]
                 inventory_view = InventoryView.begin(state, source)
-            elif result.overlay == "route-chart":
+            elif outcome.overlay_id == "route-chart":
                 route_view = RouteChartView.begin(state)
-            elif result.overlay == "tabletop":
+            elif outcome.overlay_id == "tabletop":
                 from .dumbest_dungeon.expedition_ui import run_expedition
 
                 run_expedition(screen, state)
-            elif result.overlay == "tavern-draw":
+            elif outcome.overlay_id == "tavern-draw":
                 from .tavern_draw_ui import run_tavern_draw
 
                 run_tavern_draw(screen, state)
-            elif result.overlay == "tavern-dice":
+            elif outcome.overlay_id == "tavern-dice":
                 from .tavern_dice_ui import run_tavern_dice
 
                 run_tavern_dice(screen, state)
             else:
-                overlay = OverlayView(result.overlay) if result.overlay else None
+                overlay = OverlayView(outcome.overlay_id) if outcome.overlay_id else None
         elif normalized == ord("a"):
             if state.combat_active and state.weapon:
                 target_view = TargetView.begin(state)
             else:
-                attack(state)
+                session.submit(AttackCommand())
         elif normalized == ord("g"):
-            guard(state)
+            session.submit(GuardCommand())
         elif normalized == ord("t"):
             if state.active_vehicle_id:
                 state.add_message(ui_format("ui.terminal.navigation.disembark"))
@@ -3945,11 +3971,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
             elif len(carried_relics) > 1:
                 overlay = OverlayView("relic:select")
             else:
-                use_gear(state)
+                session.submit(UseGearCommand())
         elif normalized == ord("v"):
             negotiate(state)
         elif normalized == ord("r"):
-            retreat(state)
+            session.submit(RetreatCommand())
         elif normalized == ord("i"):
             inventory_view = InventoryView.begin(state)
         elif normalized == ord("f"):

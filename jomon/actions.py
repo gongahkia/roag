@@ -271,6 +271,16 @@ def choose_relic(state: GameState, relic: str | None) -> ActionResult:
     return _plain(state, action_format("action.setup.relic.carried", relic=item_display_name_or_legacy(relic) if relic else "none"), changed=True)
 
 
+def set_auto_place_enabled(state: GameState, enabled: bool) -> ActionResult:
+    """Set the compatibility-backed automatic packing preference explicitly."""
+    if type(enabled) is not bool:
+        return _plain(state, action_format("action.movement.unavailable"))
+    if state.auto_place_enabled == enabled:
+        return ActionResult(False, False, "")
+    state.auto_place_enabled = enabled
+    return ActionResult(True, False, "")
+
+
 def choose_passive(state: GameState, passive: str) -> ActionResult:
     if state.location != "jomon" or passive not in state.owned_passives:
         return _plain(state, action_format("action.setup.passive.unavailable"))
@@ -1389,6 +1399,16 @@ def _advance_world(
                 action_format("action.pressure.increased", band=new_band),
                 priority=3,
             )
+
+
+def advance_world(
+    state: GameState, *, guarded: bool = False, steps: int = 1,
+) -> ActionResult:
+    """Public deterministic clock advancement for application/frontends."""
+    if type(steps) is not int or steps < 1:
+        return _plain(state, action_format("action.movement.unavailable"))
+    _advance_world(state, guarded=guarded, steps=steps)
+    return ActionResult(True, True, "")
 
 
 def _time_result(
