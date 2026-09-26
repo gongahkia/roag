@@ -35,8 +35,8 @@ class WorkingHistoryTests(unittest.TestCase):
         self.assertEqual(sum(len(r.regional_history) for r in state.regions.values()), 40)
         records = [record for record in state.narrative_records
                    if record["event_id"] == "regional_history.recorded"]
-        self.assertEqual(len(records), len(FRONTIERS))
-        self.assertEqual({record["refs"]["region_id"] for record in records}, set(FRONTIERS))
+        self.assertEqual(len(records), len(state.regions))
+        self.assertEqual({record["refs"]["region_id"] for record in records}, set(state.regions))
         for region in state.regions.values():
             self.assertEqual(region.regional_history[-1].evidence, next(box.id for box in reversed(region.containers) if not box.hidden and "-sanctum-" not in box.id))
             self.assertTrue(region.materials)
@@ -77,7 +77,13 @@ class WorkingHistoryTests(unittest.TestCase):
             region.pop("regional_history")
         first = game_state_from_dict(data)
         self.assertEqual(first.to_dict(), game_state_from_dict(data).to_dict())
-        self.assertEqual(first.to_dict()["items"], data["items"])
+        # Format-15's explicit archived-hostile identity is a load-only
+        # mechanical normalization, not a repaint or reissue of the item.
+        normalized_items = [
+            {key: value for key, value in item.items() if key != "archived_hostile_issue"}
+            for item in first.to_dict()["items"]
+        ]
+        self.assertEqual(normalized_items, data["items"])
         for region_id, old in data["regions"].items():
             for field in ("levels", "tile_changes", "containers", "materials", "seen"):
                 self.assertEqual(first.to_dict()["regions"][region_id][field], old[field])

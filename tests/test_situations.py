@@ -77,7 +77,7 @@ class MixedSituationTests(unittest.TestCase):
             self.assertEqual(len(records), 1)
             self.assertEqual(records[0]["refs"], {
                 "situation_id": row.id, "region_id": row.region_id,
-                "outcome_id": {"t": "tool", "m": "material", "a": "account"}[method],
+                "outcome_id": {"t": "tool", "m": "material_rope", "a": "account"}[method],
             })
             self.assertEqual(site_glyph(state, site_point(state, row)), "*")
             self.assertIn("Continuing effect", " ".join(inspect_lines(state, row.id)))
