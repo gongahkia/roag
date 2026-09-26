@@ -83,7 +83,11 @@ class WorkingHistoryTests(unittest.TestCase):
             {key: value for key, value in item.items() if key != "archived_hostile_issue"}
             for item in first.to_dict()["items"]
         ]
-        self.assertEqual(normalized_items, data["items"])
+        expected_items = [
+            {key: value for key, value in item.items() if key != "archived_hostile_issue"}
+            for item in data["items"]
+        ]
+        self.assertEqual(normalized_items, expected_items)
         for region_id, old in data["regions"].items():
             for field in ("levels", "tile_changes", "containers", "materials", "seen"):
                 self.assertEqual(first.to_dict()["regions"][region_id][field], old[field])
