@@ -214,6 +214,14 @@ def alternate_pack(root: Path) -> Path:
         "topology.marlbank.contact.1.role": "fixture terrace steward",
         "topology.frostmere.zone.far_shore": "Fixture ice channel",
         "topology.frostmere.condition": "Fixture gravel and water preserve the same estuary geometry.",
+        "topology.hearthford.landform.0.name": "Fixture reed shelf",
+        "topology.hearthford.landform.upper": "Fixture upper watch",
+        "topology.hearthford.landform.traveller.name": "Fixture surveyor",
+        "topology.hearthford.discovery.reed-silt.name": "Fixture survey cache",
+        "topology.hearthford.discovery.reed-silt.clue": "fixture clue beside the same silt mark",
+        "topology.landform.link.upper": "Fixture link: {structure}",
+        "topology.landform.traveller.arrival": "FIXTURE field arrival: {traveller} at {x},{y}.",
+        "topology.discovery.reveal": "FIXTURE discovery {cache}: {clue}.",
     })
     source.write_text(json.dumps(topology, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "vessel_text.json"
@@ -2181,3 +2189,64 @@ class MaterialPresentationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def landform_discovery_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json; from jomon.discoveries import discovery_clue, discovery_name; from jomon.landscape_variation import _spawn_traveller, link_name, pocket_name, structure_name, traveller_name; from jomon.navigation import navigation_targets; from jomon.state import create_world; "
+            "state=create_world('landform-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['landing']; region.seen=[f'{point.x},{point.y},{point.z}' for point in region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in region.containers] + [f'{point.x},{point.y},{point.z}' for link in region.vertical_links for point in (link.first,link.second)]; traveller=_spawn_traveller(state,region.landmarks['landform_0']); caches=[box for box in region.containers if box.id.startswith(region.id+'-') and box.hidden]; mechanics={'region':region.id,'signature':region.geography_signature,'landmarks':sorted((key,point.x,point.y,point.z) for key,point in region.landmarks.items() if key.startswith('landform_') or key in ('field_upper','field_lower')),'facts':sorted((key,value) for key,value in region.generation_facts.items() if key.startswith('landform:') or key in ('field_upper','field_lower')),'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('landform:')),'caches':sorted((box.id,box.position.x,box.position.y,box.position.z,box.reward,box.requirement) for box in caches),'contacts':sorted((person.id,person.position.x,person.position.y,person.position.z,person.interest) for person in state.contacts[region.id] if person.id.startswith('landform:'))}; presentation={'pockets':[pocket_name(region.id,index) for index in range(4)],'structures':[structure_name(region.id,'field_upper'),structure_name(region.id,'field_lower')],'traveller':traveller_name(region.id),'links':[(link.id,link_name(region.id,link)) for link in region.vertical_links if link.id.startswith('landform:')],'caches':[(box.id,discovery_name(region.id,box),discovery_clue(region.id,box)) for box in caches],'targets':[(target.id,target.label) for target in navigation_targets(state) if target.id.startswith(('landmark:landform_','link:landform:','container:hearthford-'))],'arrival':traveller}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'mechanics':mechanics,'presentation':presentation}))",
+        ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
+    )
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class LandformDiscoveryPresentationTests(unittest.TestCase):
+    def test_default_landform_discovery_presentation_preserves_existing_text(self):
+        from jomon.discoveries import discovery_clue, discovery_name
+        from jomon.landscape_variation import pocket_name, structure_name, traveller_name
+        from jomon.state import create_world
+
+        state = create_world("landform-default-text")
+        cache = next(box for box in state.region.containers if box.id == "hearthford-reed-silt")
+        self.assertEqual(pocket_name("hearthford", 0), "reed-silt shelves")
+        self.assertEqual(structure_name("hearthford", "field_upper"), "flood watch")
+        self.assertEqual(traveller_name("hearthford"), "Nera Reed, field surveyor")
+        self.assertEqual(discovery_name("hearthford", cache), "Reed-silt survey roll")
+        self.assertEqual(discovery_clue("hearthford", cache), "fresh reed cuts beside an older silt mark")
+
+    def test_alternate_pack_changes_landform_discovery_presentation_not_mechanics(self):
+        default = landform_discovery_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = landform_discovery_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        rendered = str(alternate["presentation"])
+        self.assertIn("Fixture reed shelf", rendered)
+        self.assertIn("Fixture upper watch", rendered)
+        self.assertIn("Fixture surveyor", rendered)
+        self.assertIn("Fixture survey cache", rendered)
+        self.assertIn("FIXTURE field arrival", rendered)
+
+    def test_landform_discovery_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "topology_text.json"; original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing landform": lambda value: value["text"].pop("topology.hearthford.landform.0.name"),
+                "unknown landform": lambda value: value["text"].update({"topology.hearthford.landform.extra": "extra"}),
+                "empty discovery": lambda value: value["text"].update({"topology.hearthford.discovery.reed-silt.clue": ""}),
+                "malformed template": lambda value: value["text"].update({"topology.landform.event.threat": "{"}),
+                "missing placeholder": lambda value: value["text"].update({"topology.landform.event.threat": "A {actor} appears."}),
+                "unknown placeholder": lambda value: value["text"].update({"topology.discovery.reveal": "{other}"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document=json.loads(original); mutate(document); source.write_text(json.dumps(document),encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\\.json"):
+                        load_content_pack(root)
