@@ -63,6 +63,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "situation_text.json", root / "situation_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "circuit_text.json", root / "circuit_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "ecology_text.json", root / "ecology_text.json")
+    shutil.copytree(DEFAULT_PACK_ROOT / "dullest_dungeon", root / "dullest_dungeon")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -107,6 +108,22 @@ def alternate_pack(root: Path) -> Path:
     items["items"]["item.goods_014"]["display_name"] = "Fixture Dressing"
     items["items"]["item.goods_050"]["display_name"] = "Fixture Rain Cape"
     source.write_text(json.dumps(items, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "dullest_dungeon" / "text.json"
+    dungeon_text = json.loads(source.read_text(encoding="utf-8"))
+    dungeon_text["cards"]["bone_saw"]["name"] = "Fixture Paper Saw"
+    dungeon_text["cards"]["bone_saw"]["description"] = "Fixture paperwork cuts through the same ranks."
+    dungeon_text["heroes"]["warden"]["name"] = "Fixture Supervisor"
+    dungeon_text["enemies"]["rad_acolyte"]["name"] = "Fixture Rival"
+    dungeon_text["ui"]["game_title"] = "FIXTURE TABLE"
+    dungeon_text["narration"]["opening"] = "Fixture Bureau opens the unchanged expedition."
+    dungeon_text["narration"]["action"] = "{actor} files a fixture action: {action}."
+    dungeon_text["ui"]["pending_camp_recover"] = "Fixture recovery keeps the same HP and stress values"
+    source.write_text(json.dumps(dungeon_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "dullest_dungeon" / "visuals.json"
+    dungeon_visuals = json.loads(source.read_text(encoding="utf-8"))
+    dungeon_visuals["office_sprites"]["warden"][0] = "[FIXED]"
+    source.write_text(json.dumps(dungeon_visuals, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+
     source = root / "ui_text.json"
     ui = json.loads(source.read_text(encoding="utf-8"))
     ui["text"].update({
@@ -2447,3 +2464,72 @@ class EcologyPresentationTests(unittest.TestCase):
             source.write_text(original.replace('"frontier.result.surge"', '"frontier.result.brine"', 1), encoding="utf-8")
             with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ecology_text\.json"):
                 load_content_pack(root)
+
+class DullestDungeonPresentationTests(unittest.TestCase):
+    def test_nested_dd_contract_and_presentation_are_selected_pack_owned(self):
+        default = bundled_default_pack()
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            alternate = load_content_pack(root)
+            self.assertEqual(default.dullest_dungeon.text("cards.bone_saw.name"), "Bone Saw")
+            self.assertEqual(alternate.dullest_dungeon.text("cards.bone_saw.name"), "Fixture Paper Saw")
+            self.assertNotEqual(dict(default.dullest_dungeon.sprites)["warden"], dict(alternate.dullest_dungeon.sprites)["warden"])
+            source = root / "dullest_dungeon" / "text.json"
+            original = source.read_text(encoding="utf-8")
+            bad = json.loads(original); bad["cards"].pop("bone_saw")
+            source.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, "Dullest Dungeon presentation"):
+                load_content_pack(root)
+            bad = json.loads(original); bad["ui"]["unexpected"] = "extra"
+            source.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, "Dullest Dungeon presentation"):
+                load_content_pack(root)
+            bad = json.loads(original); bad["narration"]["action"] = "{actor} acts."
+            source.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, "missing or unknown placeholders"):
+                load_content_pack(root)
+            bad = json.loads(original); bad["narration"]["action"] = "{actor.name} does {action}."
+            source.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, "unsupported placeholder"):
+                load_content_pack(root)
+            source.write_text(original, encoding="utf-8")
+            visual = root / "dullest_dungeon" / "visuals.json"
+            bad_visual = json.loads(visual.read_text(encoding="utf-8")); bad_visual["office_sprites"]["warden"] = ["bad"]
+            visual.write_text(json.dumps(bad_visual), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, "Dullest Dungeon presentation"):
+                load_content_pack(root)
+
+    def test_dd_alternate_fiction_keeps_active_match_mechanics(self):
+        script = (
+            "import json; from jomon.dumbest_dungeon.expedition import new_match, pending_choice_labels; "
+            "from jomon.dumbest_dungeon.content import load_catalog; c=load_catalog(); roles=list(c.heroes); "
+            "m=new_match('dd-pack-proof','crew-a','crew-b',roles[:4],roles[4:8]); "
+            "print(json.dumps({'mechanics':{'world':m['world_id'],'rng':m['rng'],'board':m['board'],'teams':m['teams'],'files':m['files'],'patrols':m['patrols']},'log':m['log']}))"
+        )
+        default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
+        first, second = json.loads(default.stdout), json.loads(alternate.stdout)
+        self.assertEqual(first["mechanics"], second["mechanics"])
+        self.assertNotEqual(first["log"], second["log"])
+
+    def test_dd_fiction_changes_keep_independent_rules_fingerprint(self):
+        script = (
+            "import json; from jomon.dumbest_dungeon.content import load_catalog; "
+            "from jomon.dumbest_dungeon.presentation import card_name, role_name, office_sprites; "
+            "from jomon.catalog import content_pack_presentation_fingerprint; "
+            "c=load_catalog(); print(json.dumps({'rules':c.manifest.fingerprint,'card':card_name('bone_saw'),'role':role_name('warden'),'sprite':office_sprites()['warden'][0],'pack':content_pack_presentation_fingerprint()}))"
+        )
+        default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
+        first, second = json.loads(default.stdout), json.loads(alternate.stdout)
+        self.assertEqual(first["rules"], second["rules"])
+        self.assertNotEqual(first["pack"], second["pack"])
+        self.assertNotEqual(first["card"], second["card"])
+        self.assertNotEqual(first["role"], second["role"])
+        self.assertNotEqual(first["sprite"], second["sprite"])

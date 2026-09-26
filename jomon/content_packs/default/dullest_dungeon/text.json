@@ -2918,7 +2918,16 @@
     "sprite_archive": "RIVAL COSTUME ARCHIVE",
     "record_ledger": "COURIER MATCH LEDGER",
     "pending_room": "This department room offers a choice.",
-    "leave": "Leave without using"
+    "leave": "Leave without using",
+    "pending_camp_recover": "Recover all (+7 HP, -10 stress)",
+    "pending_camp_treat": "Treat one liability (2 supplies)",
+    "pending_treatment": "{actor} — liability {amount}",
+    "pending_upgrade": "{card} — copy {amount}",
+    "combat_title": "{biome} / RANKED {kind} COMBAT — ROUND {amount}",
+    "lobby_workers": "YOUR FOUR OFFICE WORKERS",
+    "lobby_patrons": "TAVERN PATRONS — JOIN WHEN CHOSEN",
+    "lobby_archive": "B: company archive",
+    "deck_editor_title": "THE STATIONERY CABINET / DECK EDITOR"
   },
   "narration": {
     "card_join": "{card} joins the {side} deck.",
@@ -2936,7 +2945,7 @@
     "file_drop": "{actor} drops the stolen file.",
     "file_steal": "{actor} steals the rival file.",
     "hazard": "A {biome} policy hazard catches the {side} party.",
-    "facility": "{biome} service desk offers two procedures.",
+    "facility": "{operation} ({amount} {resource})",
     "opening": "The Company of Necessary Copies opens a disputed expedition.",
     "patrol_leave": "The party leaves the neutral encounter; the patrol remains on the floor.",
     "patrol_removed": "{actor} is removed from the patrol.",

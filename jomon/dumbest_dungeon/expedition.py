@@ -319,9 +319,9 @@ def _close_neutral(match: dict, *, defeated: bool) -> None:
         patrol["defeated"] = True
         team["supplies"] += 2 if patrol["kind"] == "boss" else 1
         _draft(match, side)
-        _log(match, f"The {patrol['kind']} office patrol is cleared; choose a recovered technique.")
+        _log(match, dd_text("narration.patrol_clear", kind=patrol["kind"]))
     else:
-        _log(match, "The party leaves the neutral encounter; the patrol remains on the floor.")
+        _log(match, dd_text("narration.patrol_leave"))
 
 
 def _knockout(match: dict, actor: dict) -> None:
@@ -336,7 +336,7 @@ def _knockout(match: dict, actor: dict) -> None:
     for rank, survivor in enumerate(_living(match, side), 1):
         survivor["rank"] = rank
     if side == 2:
-        _log(match, f"{_actor_label(actor)} is removed from the patrol.")
+        _log(match, dd_text("narration.patrol_removed", actor=_actor_label(actor)))
         if not _living(match, 2):
             _close_neutral(match, defeated=True)
         return
@@ -346,14 +346,14 @@ def _knockout(match: dict, actor: dict) -> None:
             file["dropped"] = _team(match, side)["position"][:]
             match["pending_score"] = None
             _log(match, dd_text("narration.file_drop", actor=OFFICE_ROLES[actor["role"]]))
-    _log(match, f"{_actor_label(actor)} is sent on two-turn mandatory leave.")
+    _log(match, dd_text("narration.mandatory_leave", actor=_actor_label(actor)))
     if not _living(match, side):
         if match["phase"] == "combat":
-            _close_combat(match, "The depleted party is routed from ranked combat.")
+            _close_combat(match, dd_text("narration.routed"))
         elif match["phase"] == "pve":
             _close_neutral(match, defeated=False)
         _team(match, side)["position"] = match["files"][side]["home"][:]
-        _log(match, "The depleted party regroups at its records office.")
+        _log(match, dd_text("narration.regroup"))
 
 
 def _passive(match: dict, side: int, owner: str | None, group: str, key: str) -> int:
@@ -718,7 +718,7 @@ def _hazard(match: dict, side: int, hazard: dict) -> None:
                 actor["statuses"]["wound"] = max(actor["statuses"].get("wound", 0), amount)
     elif op == "opening_hand":
         team["pending_hand"] += amount
-    _log(match, f"A {OFFICE_BIOMES[hazard['biome_id']]} policy hazard catches the {('courier', 'patron')[side]} party.")
+    _log(match, dd_text("narration.hazard", biome=OFFICE_BIOMES[hazard["biome_id"]], side=("courier", "patron")[side]))
 
 
 def _travel_step(match: dict, side: int, cost: int) -> None:
@@ -1198,8 +1198,6 @@ def _neutral_targets(match: dict, owner: int, actor: dict, rule: str) -> list[di
 
 
 def _neutral_enemy_phase(match: dict) -> None:
-    from .office_art import office_action_name
-
     owner = match["turn"]
     for actor in list(_living(match, 2)):
         if match["phase"] != "pve" or not _living(match, owner):
@@ -1596,15 +1594,15 @@ def pending_choice_labels(match: dict, pending: dict) -> list[str]:
         return [office_facility_option({effect["op"] for effect in options[item]["effects"]}, options[item]["cost"])
                 for item in pending["choices"]]
     if kind == "camp":
-        return ["Recover all (+7 HP, -10 stress)" if item == "recover" else "Treat one liability (2 supplies)"
+        return [dd_text("ui.pending_camp_recover") if item == "recover" else dd_text("ui.pending_camp_treat")
                 for item in pending["choices"]]
     if kind == "treatment":
-        return [f"{OFFICE_ROLES[_actor(match, item.split(":", 1)[0])["role"]]} — liability {index + 1}"
+        return [dd_text("ui.pending_treatment", actor=OFFICE_ROLES[_actor(match, item.split(":", 1)[0])["role"]], amount=index + 1)
                 for index, item in enumerate(pending["choices"])]
     if kind == "upgrade":
         cards = {card["copy_id"]: card for card in _team(match, pending["side"])["deck"]}
-        return [f"{office_catalog()[1][cards[int(item.split(":", 1)[1])]['id']].name} — copy {item.split(":", 1)[1]}"
-                for item in pending["choices"]]
+        return [dd_text("ui.pending_upgrade", card=office_catalog()[1][cards[int(item.split(":", 1)[1])]['id']].name,
+                        amount=item.split(":", 1)[1]) for item in pending["choices"]]
     if kind == "event":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
         options = {option["id"]: option for option in load_catalog().events[station["content_id"]]["choices"]}

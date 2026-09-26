@@ -3465,8 +3465,8 @@ class GameEngine:
         room.content_id = encounter_id
         room.enemy_ids = list(encounter["enemies"])
         room.encounter_plan = self._formation_plan(self.catalog, room.enemy_ids)
-        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in room.enemy_ids)
-        room.name = f"{self.catalog.biomes[room.biome_id]['name']}: {names} Chamber"
+        names = " / ".join(enemy_name(enemy_id) for enemy_id in room.enemy_ids)
+        room.name = f"{catalog_text('biomes', room.biome_id)}: {names} Chamber"
         patrol = self.core_patrol()
         patrol.encounter_id = encounter_id
         objective.facts["finale_id"] = encounter_id
@@ -3734,7 +3734,7 @@ class GameEngine:
         guardian_id = f"base:guardian_{objective.biome_id}"
         if first_guardian and guardian_id in self.catalog.encounters and self.state.phase != "defeat":
             self._start_guardian_combat(objective)
-            guardian_name = self.catalog.enemies[objective.facts["guardian_id"]]["name"]
+            guardian_name = enemy_name(objective.facts["guardian_id"])
             message = (
                 f"{self.mission_definition(objective.biome_id)['name']} secured, but "
                 f"{guardian_name} bars the exit."
@@ -6422,7 +6422,7 @@ class GameEngine:
         else:
             target.stress = 50
             target.affliction = self.rng.choice(list(self.catalog.afflictions))
-            name = self.catalog.afflictions[target.affliction]["name"]
+            name = catalog_text("afflictions", target.affliction)
             self.add_log(f"{target.name} becomes {name}.")
 
     def _affliction_modifiers(self, actor: Actor) -> dict[str, Any]:
@@ -6525,10 +6525,7 @@ class GameEngine:
         self._clear_encounter_director()
         if kind == "boss":
             self.room().resolved = True
-            names = " / ".join(
-                self.catalog.enemies[enemy_id]["name"]
-                for enemy_id in self.room().enemy_ids
-            )
+            names = " / ".join(enemy_name(enemy_id) for enemy_id in self.room().enemy_ids)
             if self.catalog.raw["schema_version"] < 46:
                 self.state.phase = "victory"
                 self.add_log("The Overseer falls silent. Evacuation is possible.")
@@ -7094,7 +7091,7 @@ class GameEngine:
                 if card.bound_hero_id is None:
                     raise RuleError("curse card is missing its bound hero")
                 self._decrement_curse(card.bound_hero_id, card.card_id)
-            self.add_log(f"Removed {self.card_definition(card)['name']}.")
+            self.add_log(f"Removed {catalog_text('cards', card.card_id)}.")
         elif action == "transform" and self.state.service_type == "upgrade":
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to transform")
@@ -7106,13 +7103,13 @@ class GameEngine:
                         offered=options, index=card_index, lost_upgrade=source.upgraded,
                         lost_mastery=source.mastery, lost_infusion=source.infusion_id,
                         copy_id=source.copy_id)
-            old_name = self.catalog.cards[source.card_id]["name"]
+            old_name = catalog_text("cards", source.card_id)
             source.card_id = replacement_id
             source.upgraded = False
             source.mastery = None
             source.infusion_id = None
             self.add_log(
-                f"Transformed {old_name} into {self.catalog.cards[replacement_id]['name']}."
+                f"Transformed {old_name} into {catalog_text('cards', replacement_id)}."
             )
         else:
             raise RuleError("that service is not available here")

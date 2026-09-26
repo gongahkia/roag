@@ -2820,6 +2820,17 @@ def _manifest_document(root: Path) -> dict[str, Any]:
 
 
 
+def _dd_template_fields(value: str, path: str) -> frozenset[str]:
+    try:
+        fields = {field for _, field, _, _ in string.Formatter().parse(value) if field}
+    except ValueError as exc:
+        raise ValueError(f"{path} has malformed template: {exc}") from exc
+    allowed = {"actor", "action", "card", "side", "kind", "biome", "amount", "resource", "target", "department", "operation"}
+    if fields - allowed or any("." in field or "[" in field for field in fields):
+        raise ValueError(f"{path} has unsupported placeholder")
+    return frozenset(fields)
+
+
 def _dd_flatten(value: Any, path: str = "") -> list[tuple[str, str]]:
     if isinstance(value, dict):
         result: list[tuple[str, str]] = []
@@ -2830,13 +2841,7 @@ def _dd_flatten(value: Any, path: str = "") -> list[tuple[str, str]]:
         return result
     if not isinstance(value, str) or not value:
         raise ValueError(f"{path} must be a non-empty string")
-    try:
-        fields = {field for _, field, _, _ in string.Formatter().parse(value) if field}
-    except ValueError as exc:
-        raise ValueError(f"{path} has malformed template: {exc}") from exc
-    allowed = {"actor", "action", "card", "side", "kind", "biome", "amount", "resource", "target", "department"}
-    if fields - allowed or any("." in field or "[" in field for field in fields):
-        raise ValueError(f"{path} has unsupported placeholder")
+    _dd_template_fields(value, path)
     return [(path, value)]
 
 
@@ -2855,10 +2860,15 @@ def _dullest_dungeon_presentation(root: Path, pack_id: str) -> DullestDungeonPre
     default = _dd_document(_package_path("content_packs", "default", DULLEST_DUNGEON_DIRECTORY, DULLEST_DUNGEON_TEXT_FILE), "default")
     try:
         slots = _dd_flatten(text)
-        expected = {key for key, _ in _dd_flatten(default)}
+        expected_slots = _dd_flatten(default)
+        expected = {key for key, _ in expected_slots}
         actual = {key for key, _ in slots}
         if actual != expected:
             raise ValueError("text has missing or unknown slots")
+        expected_fields = {key: _dd_template_fields(value, key) for key, value in expected_slots}
+        for key, value in slots:
+            if _dd_template_fields(value, key) != expected_fields[key]:
+                raise ValueError(f"text.{key} has missing or unknown placeholders")
         visuals = _dd_document(visuals_path, pack_id)
         expected_visuals = _dd_document(_package_path("content_packs", "default", DULLEST_DUNGEON_DIRECTORY, DULLEST_DUNGEON_VISUALS_FILE), "default")
         if set(visuals) != set(expected_visuals) or set(visuals) != {"office_sprites", "expedition_map_symbols", "title_art"}:
