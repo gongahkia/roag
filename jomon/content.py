@@ -219,6 +219,17 @@ for identity, region, name, profile, role, duty, ecology, vision, hearing, reach
 
 ENEMY_ARCHETYPES.update(ELITE_DEFINITIONS)
 
+# Actor catalog rows retain mechanical profiles, duties, and budgets.  Their
+# authored names/capabilities/counterplay are resolved only after identity is
+# chosen, through the selected ecology presentation.
+from .ecology_presentation import (
+    ecology_actor_capability, ecology_actor_counterplay, ecology_actor_name, ecology_mechanical_capability,
+)
+for _identity, _data in ENEMY_ARCHETYPES.items():
+    _data["name"] = ecology_actor_name(_identity, str(_data.get("name", _identity)))
+    _data["capability"] = ecology_mechanical_capability(_identity, str(_data.get("capability", "")))
+    _data["counterplay"] = ecology_actor_counterplay(_identity, str(_data.get("counterplay", "")))
+
 STANDARD_REACTIONS = _text_map(_ACTORS["STANDARD_REACTIONS"], "STANDARD_REACTIONS")
 for data in ENEMY_ARCHETYPES.values():
     if not data.get("elite"):

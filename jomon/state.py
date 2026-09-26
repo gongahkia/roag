@@ -244,6 +244,7 @@ class Threat:
     patrol_index: int = 0
     role: str = "interceptor"
     goal: str = "patrol"
+    goal_id: str = ""
     goal_reason: str = "following its assigned route"
     vision: int = 8
     hearing: int = 7

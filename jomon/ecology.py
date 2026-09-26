@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from .state import GameState, Position, Threat
+from .ecology_presentation import ecology_format, ecology_text
+
+
+def _set_intent(subject: Threat, intent_id: str, **values: object) -> str:
+    subject.intent_id = intent_id
+    subject.intent = ecology_format(intent_id, **values)
+    return subject.intent
 from .world import base_tile, distance, line_of_sight, position_key
 
 ACTIVE_RADIUS = 24
@@ -69,11 +76,11 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
 
     options = []
     def offer(goal, action, score, reason, target=None):
-        options.append(EnemyDecision(goal, action, reason, target, score))
+        options.append(EnemyDecision(goal, action, reason, target, score, action))
 
     own = fields(state).get(position_key(actor.position))
     if own and (own.fire or own.collapse_due):
-        offer("leave material danger", "avoid hazard", 125, "flame or a creaking support threatens its present footing", actor.position)
+        offer(ecology_text("ecology.goal.leave_danger"), "avoid hazard", 125, ecology_text("ecology.reason.hazard"), actor.position)
     neighbours = [other for other in state.combatants if other.status in {"watching", "engaged"} and perceives_point(state, actor, other.position)]
     if actor.ecology == "prey":
         dangers = [other.position for other in neighbours if other.ecology in {"predator", "raider"}]
@@ -81,9 +88,9 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
             dangers.append(state.position)
         if dangers:
             nearest = min(dangers, key=lambda point: distance(actor.position, point))
-            offer("avoid hunters", "avoid hunter", 115, "a visible hunter or approaching courier disturbed its feeding", nearest)
+            offer(ecology_text("ecology.goal.avoid_hunters"), "avoid hunter", 115, ecology_text("ecology.reason.hunter"), nearest)
         else:
-            offer("graze within shelter", "graze", 85, "no hunter is currently perceived", actor.home_position)
+            offer(ecology_text("ecology.goal.graze"), "graze", 85, ecology_text("ecology.reason.graze"), actor.home_position)
         return options
 
     if actor.duty in {"quench", "brace", "drain"} and actor.supplies > 0:
@@ -95,34 +102,34 @@ def world_options(state: GameState, actor: Threat, courier_visible: bool):
                 targets.append(point)
         if targets:
             target = min(targets, key=lambda point: (distance(actor.position, point), point.z, point.y, point.x))
-            offer("preserve working ground", actor.duty, 107, f"visible material damage calls for its remaining {actor.duty} supplies", target)
+            offer(ecology_text("ecology.goal.preserve_ground"), actor.duty, 107, ecology_format("ecology.reason.preserve", duty=actor.duty), target)
     if actor.duty in {"kindle", "cut support"} and actor.supplies > 0 and actor.objective_position:
         target = actor.objective_position
         if perceives_point(state, actor, target) and (courier_visible or actor.alarmed or actor.reaction):
-            offer("alter the working route", actor.duty, 102, "its assigned material target is in sight and the dispute is active", target)
+            offer(ecology_text("ecology.goal.alter_route"), actor.duty, 102, ecology_text("ecology.reason.alter"), target)
     if actor.duty == "heal" and actor.supplies > 0:
         wounded = [other for other in neighbours if other.id != actor.id and actor.group and other.group == actor.group and 0 < other.health <= other.max_health // 2]
         if wounded:
             target = min(wounded, key=lambda other: (other.health, distance(actor.position, other.position), other.id))
-            offer("rescue wounded ally", "treat ally", 109, "an observed ally needs its last field dressing", target.position)
+            offer(ecology_text("ecology.goal.rescue_ally"), "treat ally", 109, ecology_text("ecology.reason.treat"), target.position)
     if actor.duty == "rally" and actor.supplies > 0:
         wavering = [other for other in neighbours if other.id != actor.id and actor.group and other.group == actor.group and other.morale <= 1]
         if wavering:
             target = min(wavering, key=lambda other: other.id)
-            offer("cover an ally's retreat", "rally ally", 106, "an ally's visible distress takes priority over pursuit", target.position)
+            offer(ecology_text("ecology.goal.rally_ally"), "rally ally", 106, ecology_text("ecology.reason.rally"), target.position)
     if actor.duty == "scavenge" and not actor.carrying_item_id:
         items = [item for item in state.items if item.location == "ground" and item.region_id == state.spatial_id and item.ground_position and perceives_point(state, actor, item.ground_position)]
         if items:
             item = min(items, key=lambda item: (distance(actor.position, item.ground_position), item.id))
-            offer("retrieve abandoned property", "take ground item", 104, "a physical abandoned item is visible, not an unopened reward", item.ground_position)
+            offer(ecology_text("ecology.goal.retrieve_item"), "take ground item", 104, ecology_text("ecology.reason.retrieve"), item.ground_position)
     rivals = [other for other in neighbours if opposed(actor, other)]
     if rivals:
         target = min(rivals, key=lambda other: (distance(actor.position, other.position), other.id))
-        offer("hunt prey" if actor.ecology == "predator" else "oppose rival claim", "engage rival", 100, f"{target.name} is visibly intruding on its {actor.ecology} interest", target.position)
+        offer(ecology_text("ecology.goal.hunt_prey") if actor.ecology == "predator" else ecology_text("ecology.goal.oppose_rival"), "engage rival", 100, ecology_format("ecology.reason.rival", target=target.name, ecology=actor.ecology), target.position)
     if actor.duty == "escort":
         carrier = next((other for other in neighbours if other.id != actor.id and other.group == actor.group and (other.carrying_item_id or other.health <= other.max_health // 2 or other.id == "frontier-elite:gorge-convoy")), None)
         if carrier:
-            offer("escort vulnerable ally", "escort ally", 103, "a visible carrier or wounded ally needs a physical escort", carrier.position)
+            offer(ecology_text("ecology.goal.escort"), "escort ally", 103, ecology_text("ecology.reason.escort"), carrier.position)
     return options
 
 
@@ -138,7 +145,7 @@ def _move(state: GameState, actor: Threat, target: Position, stop=1) -> bool:
             return False
         changes = state.vessel_tiles if state.location == "jomon" else state.region.tile_changes
         changes[position_key(step)] = "/"
-        actor.intent = "opens a working door before passing"
+        _set_intent(actor, "ecology.intent.open_door")
         return True
     actor.position = step
     return True
@@ -156,19 +163,19 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         actor.position = safe_step(state, actor, point)
         actor.aimed_at = actor.marked_position = None
         actor.reaction = ""
-        actor.intent = decision.reason
-        return f"The {actor.name} leaves {('dangerous material' if action == 'avoid hazard' else 'the visible hunter')}." if actor.position != old else ""
+        _set_intent(actor, "ecology.intent.avoid", reason=decision.reason)
+        return ecology_format("ecology.result.leave_hazard" if action == "avoid hazard" else "ecology.result.leave_hunter", actor=actor.name) if actor.position != old else ""
     if action == "graze":
         if point and distance(actor.position, point) > 3:
             _move(state, actor, point, stop=3)
-        actor.intent = "feeds within its shelter; not hunting the courier"
+        _set_intent(actor, "ecology.intent.graze")
         return ""
     if point is None:
         return ""
     if distance(actor.position, point) > (2 if action == "engage rival" and actor.profile == "reach" else 1):
         moved = _move(state, actor, point, stop=1)
-        actor.intent = f"moves to {decision.goal}; {decision.reason}"
-        return f"The {actor.name} moves to {decision.goal}." if moved else ""
+        _set_intent(actor, "ecology.intent.move", goal=decision.goal, reason=decision.reason)
+        return ecology_format("ecology.result.move", actor=actor.name, goal=decision.goal) if moved else ""
     if action == "engage rival":
         rival = next((other for other in state.combatants if other.position == point and other.status in {"watching", "engaged"} and opposed(actor, other)), None)
         if not rival:
@@ -176,11 +183,11 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
             return ""
         if actor.reaction != "rival strike" or actor.target_actor_id != rival.id:
             actor.reaction, actor.marked_position, actor.target_actor_id = "rival strike", point, rival.id
-            actor.intent = f"turns a warned strike on {rival.name}; a retreat breaks the attack"
-            return f"The {actor.name} {actor.intent}."
+            _set_intent(actor, "ecology.intent.rival_prepare", rival=rival.name)
+            return ecology_format("ecology.result.rival_prepare", actor=actor.name, intent=actor.intent)
         actor.reaction = ""
         if actor.marked_position != rival.position:
-            return f"The {actor.name}'s rival strike meets empty ground."
+            return ecology_format("ecology.result.rival_empty", actor=actor.name)
         actor.marked_position = None
         from .enemy_equipment import harm_enemy
 
@@ -189,49 +196,49 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
             damage_kind="blunt",
         )
         rival.morale -= 1
-        rival.intent = f"disrupted by {actor.name}'s attack"
+        _set_intent(rival, "ecology.intent.rival_disrupted", actor=actor.name)
         if harm.defeated:
-            state.region.changes[f"population:{rival.id}"] = "killed by a local rival"
-            state.remember(f"{actor.name} killed {rival.name} at {position_key(point)} over {actor.ecology} interests.")
-            return f"The {actor.name} defeats the {rival.name}.{harm.dropped}"
-        return f"The {actor.name} strikes its rival {rival.name}; {rival.health} health remains."
+            state.region.changes[f"population:{rival.id}"] = "ecology.result.rival_killed"
+            state.remember(ecology_format("ecology.record.rival_killed", actor=actor.name, rival=rival.name, position=position_key(point), ecology=actor.ecology))
+            return ecology_format("ecology.result.rival_defeat", actor=actor.name, rival=rival.name, dropped=harm.dropped)
+        return ecology_format("ecology.result.rival_strike", actor=actor.name, rival=rival.name, health=rival.health)
     if action in {"treat ally", "rally ally", "escort ally"}:
         ally = next((other for other in state.combatants if other.id != actor.id and other.group == actor.group and other.position == point and other.status in {"watching", "engaged"}), None)
         if ally is None:
             return ""
         if action == "escort ally":
             ally.morale = min(3, ally.morale + 1)
-            actor.intent = f"holds beside {ally.name}; guarding the retreat"
+            _set_intent(actor, "ecology.intent.escort", ally=ally.name)
             return ""
         actor.supplies -= 1
         ally.health = min(ally.max_health, ally.health + (2 if action == "treat ally" else 0))
         if action == "treat ally" and ally.injuries:
             ally.injuries.pop(sorted(ally.injuries)[0], None)
         ally.morale = min(3, ally.morale + 1)
-        ally.intent = "disrupted while an ally tends the withdrawal"
-        actor.intent = f"spends one {'dressing' if action == 'treat ally' else 'signal'} on {ally.name}"
-        return f"The {actor.name} {actor.intent}."
+        _set_intent(ally, "ecology.intent.ally_disrupted")
+        _set_intent(actor, "ecology.intent.aid", supply="dressing" if action == "treat ally" else "signal", ally=ally.name)
+        return ecology_format("ecology.result.aid", actor=actor.name, intent=actor.intent)
     if action == "take ground item":
         item = next((item for item in state.items if item.location == "ground" and item.region_id == state.spatial_id and item.ground_position == point), None)
         if item is None:
             return ""
         actor.carrying_item_id = item.id
         item.location, item.owner_id, item.ground_position = "enemy", None, None
-        actor.intent = f"carries the observed {item_spec(item.kind).name} toward shelter"
-        return f"The {actor.name} {actor.intent}; the item can be recovered before escape."
+        _set_intent(actor, "ecology.intent.carry", item=item_spec(item.kind).name)
+        return ecology_format("ecology.result.carry", actor=actor.name, intent=actor.intent)
     cell = ensure_cell(state, point)
     if cell is None or actor.supplies <= 0:
         return ""
     if action in {"kindle", "cut support"}:
         if actor.reaction != action or actor.marked_position != point:
             actor.reaction, actor.marked_position = action, point
-            actor.intent = f"prepares to {action} at {position_key(point)}; water, bracing or interruption can answer"
-            return f"The {actor.name} {actor.intent}."
+            _set_intent(actor, "ecology.intent.prepare", action=action, position=position_key(point))
+            return ecology_format("ecology.result.prepare", actor=actor.name, intent=actor.intent)
         actor.reaction, actor.marked_position = "", None
         if action == "kindle":
             if cell.water or cell.ice:
                 actor.supplies -= 1
-                return f"Water defeats the {actor.name}'s prepared fire."
+                return ecology_format("ecology.result.water_defeat", actor=actor.name)
             cell.material, cell.fuel, cell.fire = "resin", max(cell.fuel, 3), max(cell.fire, 1)
         else:
             cell.support = max(0, cell.support - 2)
@@ -245,9 +252,9 @@ def resolve_world_action(state: GameState, actor: Threat, decision) -> str | Non
         cell.water = max(0, cell.water - 2)
         state.water.pop(position_key(point), None)
     actor.supplies -= 1
-    actor.intent = f"uses {action} supplies at {position_key(point)}"
-    state.region.changes[f"work:{actor.id}"] = f"{action} at {position_key(point)}"
-    return f"The {actor.name} {actor.intent}; the physical change remains."
+    _set_intent(actor, "ecology.intent.work", action=action, position=position_key(point))
+    state.region.changes[f"work:{actor.id}"] = f"ecology.action.{action.replace(' ', '_')}:{position_key(point)}"
+    return ecology_format("ecology.result.work", actor=actor.name, intent=actor.intent)
 
 
 def validate_ecology(state: GameState) -> None:

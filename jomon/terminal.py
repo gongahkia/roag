@@ -1,6 +1,7 @@
 """Fullscreen curses presentation; gameplay remains in direct action functions."""
 
 from __future__ import annotations
+from .ecology_presentation import ecology_actor_capability, ecology_actor_counterplay
 
 import curses
 import os
@@ -728,7 +729,7 @@ def observed_life_lines(state: GameState) -> list[str]:
                 + "."
             )
         if data:
-            lines.extend((f"KNOWN PRACTICE: {data['capability']}.", f"COUNTERS: {data['counterplay']}."))
+            lines.extend((f"KNOWN PRACTICE: {ecology_actor_capability(actor.archetype_id or '', str(data['capability']))}.", f"COUNTERS: {ecology_actor_counterplay(actor.archetype_id or '', str(data['counterplay']))}."))
         forecast = forecasts.get(actor.id)
         if forecast:
             lines.extend(forecast_lines(forecast)[1:])
@@ -1192,7 +1193,7 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
         )
         data = threat_definition(selected)
         if data:
-            lines.append(f"COUNTERS — {data['counterplay']}.")
+            lines.append(f"COUNTERS — {ecology_actor_counterplay(selected.archetype_id or '', str(data['counterplay']))}.")
         from .combat_forecast import forecast_lines, observed_forecasts
         forecast = next((row for row in observed_forecasts(state) if row.actor_id == selected.id), None)
         if forecast:

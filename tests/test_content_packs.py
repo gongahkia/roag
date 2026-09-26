@@ -62,6 +62,7 @@ def alternate_pack(root: Path) -> Path:
     shutil.copy(DEFAULT_PACK_ROOT / "sanctum_text.json", root / "sanctum_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "situation_text.json", root / "situation_text.json")
     shutil.copy(DEFAULT_PACK_ROOT / "circuit_text.json", root / "circuit_text.json")
+    shutil.copy(DEFAULT_PACK_ROOT / "ecology_text.json", root / "ecology_text.json")
     write_manifest(
         root,
         '{"id": "fixture-alternate", "display_name": "Fixture Alternate", "format_version": 1}',
@@ -388,6 +389,20 @@ def alternate_pack(root: Path) -> Path:
         "circuit.terminal.heading": "FIXTURE CIRCUITS {layer} {x},{y},{z} {description}",
     })
     source.write_text(json.dumps(circuit_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    source = root / "ecology_text.json"
+    ecology_text = json.loads(source.read_text(encoding="utf-8"))
+    ecology_text["text"].update({
+        "ecology.actor.fen-lynx.name": "Fixture reed hunter",
+        "ecology.reason.rival": "fixture {target} preserves the same {ecology} dispute",
+        "ecology.result.rival_strike": "FIXTURE {actor} strikes {rival}; {health} remains.",
+        "frontier.elite.fen-marshal.name": "Fixture flood marshal",
+        "frontier.elite.fen-marshal.counterplay": "fixture height and the same spill control",
+        "frontier.telegraph.surge": "FIXTURE prepares {mode} at {position}; the same control remains available",
+        "frontier.result.surge": "FIXTURE water still crosses the same three paces.",
+        "forecast.line.danger": "FIXTURE DANGER: {actor} — {action}.",
+        "forecast.line.counter": "FIXTURE COUNTERS: {counter}.",
+    })
+    source.write_text(json.dumps(ecology_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "action_text.json"
     action_text = json.loads(source.read_text(encoding="utf-8"))
     action_text["text"].update({
@@ -2384,4 +2399,50 @@ class CircuitPresentationTests(unittest.TestCase):
                         load_content_pack(root)
             source.write_text(original.replace('"circuit.part.trace.name"', '"circuit.part.trace.description"', 1), encoding="utf-8")
             with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*circuit_text\.json"):
+                load_content_pack(root)
+
+
+def ecology_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
+    result = subprocess.run([
+        sys.executable, "-c",
+        "import json; from jomon.combat_forecast import forecast_lines, observed_forecasts; from jomon.ecology import resolve_world_action; from jomon.encounters import threat_from_archetype; from jomon.frontier_elites import elite_action; from jomon.state import MaterialCell, Position, Threat, create_world; from jomon.enemy_ai import EnemyDecision; state=create_world('ecology-pack-proof');state.location='region';state.position=Position(30,24);state.threats=[];[state.region.tile_changes.__setitem__(f'{x},{y},0','.') for y in range(20,29) for x in range(26,38)];elite=threat_from_archetype('fen-marshal',Position(35,24),encounter_id='frontier-elite',group='proof');elite.status='engaged';elite.morale=10;elite.home_position=elite.position;state.threats=[elite];state.region.materials['35,24,0']=MaterialCell(material='timber',support=2);first=elite_action(state,elite,False);forecast=observed_forecasts(state);second=elite_action(state,elite,False);hunter=threat_from_archetype('fen-lynx',Position(31,24),encounter_id='ecology',group='proof');prey=Threat('prey','proof hare','animal',Position(32,24),4,4,status='engaged',ecology='prey');hunter.status='engaged';state.threats=[hunter,prey];decision=EnemyDecision('hunt','engage rival','proof',prey.position,100);ecology=resolve_world_action(state,hunter,decision);mechanics={'elite_archetype':elite.archetype_id,'elite_intent_id':elite.intent_id,'water':[state.region.materials[f'{x},24,0'].water for x in (29,30,31)],'supplies':elite.supplies,'forecast_target':forecast[0].target.__dict__ if forecast else None,'forecast_intent_id':forecast[0].intent_id if forecast else '', 'hunter_archetype':hunter.archetype_id,'hunter_intent_id':hunter.intent_id,'prey_health':prey.health};presentation={'first':first,'forecast':forecast_lines(forecast[0]) if forecast else [],'second':second,'hunter':hunter.name,'ecology':ecology};print(json.dumps({'mechanics':mechanics,'presentation':presentation}))"
+    ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
+    if result.returncode:
+        raise AssertionError(result.stderr)
+    return json.loads(result.stdout)
+
+
+class EcologyPresentationTests(unittest.TestCase):
+    def test_alternate_ecology_and_elite_presentation_changes_text_not_mechanics(self):
+        default = ecology_presentation_snapshot(dict(os.environ))
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            alternate = ecology_presentation_snapshot(environment)
+        self.assertEqual(default["mechanics"], alternate["mechanics"])
+        rendered = str(alternate["presentation"])
+        for phrase in ("Fixture flood marshal", "FIXTURE prepares", "FIXTURE water", "FIXTURE DANGER", "Fixture reed hunter"):
+            self.assertIn(phrase, rendered)
+
+    def test_ecology_presentation_contract_rejects_invalid_authoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            source = root / "ecology_text.json"; original = source.read_text(encoding="utf-8")
+            cases = {
+                "missing ecology slot": lambda value: value["text"].pop("ecology.actor.fen-lynx.name"),
+                "unknown slot": lambda value: value["text"].update({"ecology.extra": "extra"}),
+                "missing field": lambda value: value.pop("text"),
+                "empty": lambda value: value["text"].update({"frontier.result.surge": ""}),
+                "non-string": lambda value: value["text"].update({"frontier.result.surge": 3}),
+                "malformed": lambda value: value["text"].update({"frontier.intent.prepare": "{"}),
+                "missing placeholder": lambda value: value["text"].update({"frontier.intent.prepare": "prepares {mode}"}),
+                "unknown placeholder": lambda value: value["text"].update({"frontier.intent.prepare": "{mode} {position} {other}"}),
+            }
+            for name, mutate in cases.items():
+                with self.subTest(name):
+                    document = json.loads(original); mutate(document); source.write_text(json.dumps(document), encoding="utf-8")
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ecology_text\.json"):
+                        load_content_pack(root)
+            source.write_text(original.replace('"frontier.result.surge"', '"frontier.result.brine"', 1), encoding="utf-8")
+            with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*ecology_text\.json"):
                 load_content_pack(root)

@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from .catalog import ACTOR_SECTIONS, CatalogError, load_catalog
 from .action_presentation import action_format
+from .ecology_presentation import ecology_format, ecology_text
+
+
+def _set_intent(actor, intent_id: str, **values: object) -> str:
+    actor.intent_id = intent_id
+    actor.intent = ecology_format(intent_id, **values)
+    return actor.intent
 from .visuals import ENTITY_GLYPHS
 
 _CATALOG = load_catalog("actors.json", ACTOR_SECTIONS)["FRONTIER_ELITES"]
@@ -143,10 +150,7 @@ def install_aftermath_elite(state):
     state.region.changes[marker] = identity
     issue_enemy_equipment(state, actor, region_id)
     state.region.changes[f"enemy_kit:{actor.id}"] = 1
-    state.remember(
-        f"{actor.name} now contests the later work at "
-        f"{point.x},{point.y}, z{point.z:+d}; watch its apparatus and learn its terms."
-    )
+    state.remember(ecology_format("frontier.record.install", actor=actor.name, x=point.x, y=point.y, z=f"{point.z:+d}"))
     return actor
 
 
@@ -178,7 +182,7 @@ def guard_interception(state, target, damage):
         state, helper, intercepted, "convoy guard interception",
         damage_kind="blunt",
     )
-    return damage - intercepted, f"{helper.name} physically takes {harm.amount} harm for the convoy"
+    return damage - intercepted, ecology_format("frontier.result.guard_intercept", helper=helper.name, amount=harm.amount)
 
 
 def elite_action(state, actor, guarded):
@@ -196,11 +200,13 @@ def elite_action(state, actor, guarded):
     linkage = fields(state).get(key(actor.home_position))
     controlled = state.region.changes.get("environment_control_used")
     if controlled or (actor.profile == "machinery" and linkage and (linkage.support >= 3 or linkage.support == 0 or linkage.water)):
-        actor.status, actor.intent = "disabled" if actor.profile == "machinery" else "negotiated", "the worked regional control has removed the disputed leverage"
-        return f"{actor.name} stands down: the control or physical linkage has been secured."
+        actor.status = "disabled" if actor.profile == "machinery" else "negotiated"
+        _set_intent(actor, "frontier.intent.control_removed")
+        return ecology_format("frontier.result.stand_down", actor=actor.name)
     if actor.morale <= 0 or actor.health <= 2:
-        actor.status, actor.intent = "retreated", "withdraws injured with the unresolved working claim"
-        return f"{actor.name} withdraws; a surviving claimant may seek one later hearing."
+        actor.status = "retreated"
+        _set_intent(actor, "frontier.intent.withdraw")
+        return ecology_format("frontier.result.withdraw", actor=actor.name)
     if actor.reload_turns:
         actor.reload_turns -= 1
         if mode == "sever":
@@ -209,22 +215,22 @@ def elite_action(state, actor, guarded):
                 step = next_path_step(state, actor, higher, stop_distance=0, limit=350)
                 if step != state.position:
                     actor.position = step
-        actor.intent = "resets its working charge; the recovery leaves an opening"
-        return f"{actor.name} {actor.intent}."
+        _set_intent(actor, "frontier.intent.recover")
+        return ecology_format("frontier.result.recover", actor=actor.name, intent=actor.intent)
     if actor.supplies <= 0:
         actor.status = "disabled" if actor.profile == "machinery" else "retreated"
-        actor.intent = "has spent its last working charge"
-        return f"{actor.name} has no charge left; the working threat ends."
+        _set_intent(actor, "frontier.intent.depleted")
+        return ecology_format("frontier.result.depleted", actor=actor.name)
     if actor.marked_position is None:
         if not visible:
             if perceived and actor.profile != "machinery":
                 step = next_path_step(state, actor, perceived, stop_distance=3, limit=350)
                 if step != state.position:
                     actor.position = step
-            actor.intent = f"holds the material duty; {reason}"
+            _set_intent(actor, "frontier.intent.hold", reason=reason)
             return ""
         if distance(actor.position, state.position) > 8:
-            actor.intent = "waits for entry into its eight-pace working lane"
+            _set_intent(actor, "frontier.intent.wait")
             return ""
         if mode == "salvage":
             exposed = sorted(
@@ -246,42 +252,42 @@ def elite_action(state, actor, guarded):
         else:
             actor.marked_position = actor.home_position if mode == "smoulder" else state.position
         actor.reaction = mode
-        actor.intent = f"prepares {mode} at {key(actor.marked_position)}; one action to leave, interrupt or secure the control"
-        return f"{actor.name} {actor.intent}."
+        _set_intent(actor, f"frontier.telegraph.{mode}", mode=mode, position=key(actor.marked_position))
+        return ecology_format("frontier.result.prepare", actor=actor.name, intent=actor.intent)
     point, actor.marked_position, actor.reaction = actor.marked_position, None, ""
     if not line_of_sight(state, actor.position, point):
-        actor.intent = "abandons the prepared action behind blocked geometry"
-        return f"{actor.name}'s marked operation is blocked by the changed sightline."
+        _set_intent(actor, "frontier.intent.blocked")
+        return ecology_format("frontier.result.blocked", actor=actor.name)
     actor.supplies -= 1
     actor.reload_turns = 2 if mode == "sever" else 1
     cell = ensure_cell(state, point)
     if cell is None:
-        return f"{actor.name}'s operation finds no sound material footing."
+        return ecology_format("frontier.result.no_footing", actor=actor.name)
     if mode == "surge":
         for target in _line(state, point):
             patch = ensure_cell(state, target)
             if patch:
                 patch.water, patch.fluid = 3, "fresh"
-        message = "Water surges across three paces; openings carry it below and wet loads now matter."
+        message = ecology_text("frontier.result.surge")
     elif mode == "smoulder":
         if cell.water:
             actor.status = "disabled"
-            message = "The quenched peat crown cannot carry flame into its rack."
+            message = ecology_text("frontier.result.smoulder_quenched")
         else:
             cell.material, cell.fire, cell.fuel, cell.smoke = "charcoal", 1, 8, 4
             cell.support = max(0, cell.support - 1)
             if cell.support == 0:
                 cell.collapse_due = state.world_time + 2
-            message = "The dry peat crown smoulders; rising smoke precedes a two-action support warning."
+            message = ecology_text("frontier.result.smoulder")
     elif mode == "sever":
         if not _protected(state, point) and cell.support < 3:
             cell.support, cell.collapse_due = 0, state.world_time + 2
-            message = "The cut support will fall in two actions; brace it or move through a different level."
+            message = ecology_text("frontier.result.sever_fall")
         elif not _protected(state, point):
             cell.support = 1
-            message = "The first cut exposes a weakened brace; the next cut can drop it unless repaired."
+            message = ecology_text("frontier.result.sever_weaken")
         else:
-            message = "The marked public stair or store has independent support; the cord cut cannot drop it."
+            message = ecology_text("frontier.result.sever_protected")
     elif mode == "convoy":
         helpers = [a for a in state.combatants if a.id != actor.id and a.group == actor.group
                    and a.status in {"watching", "engaged"} and distance(a.position, actor.position) <= 8
@@ -292,7 +298,7 @@ def elite_action(state, actor, guarded):
             helper.objective_position = actor.position
             helper.last_known_position = point
         actor.position = next_path_step(state, actor, point, stop_distance=2, limit=350)
-        message = "The hoist signal gathers the visible escort; separate its bodies to expose the foreman."
+        message = ecology_text("frontier.result.convoy")
     elif mode == "firing":
         count = 0
         for target in _line(state, point):
@@ -301,20 +307,20 @@ def elite_action(state, actor, guarded):
                 patch.material, patch.coating = "charcoal", "resin"
                 patch.fire, patch.fuel = 1, 5
                 count += 1
-        message = f"The charcoal charge lights {count} dry marked cells; water defeats the other patches."
+        message = ecology_format("frontier.result.firing", count=count)
     elif mode == "shutters":
         for target in _line(state, point):
             if not _protected(state, target):
                 coordinate = key(target)
                 state.region.tile_changes[coordinate] = "." if state.region.tile_changes.get(coordinate) == "%" else "%"
-        message = "Counterweights shift loose cover across the marked lane; routes stay passable."
+        message = ecology_text("frontier.result.shutters")
         if state.position == point and not guarded:
             from .actions import apply_damage
-            message += " " + apply_damage(state, 2, "The warned kiln shutter sweep")
+            message += " " + apply_damage(state, 2, ecology_text("frontier.damage.shutters"))
     elif mode == "brine":
         frozen = cell.ice
         cell.ice, cell.water, cell.fluid, cell.coating = False, 3 if frozen else 1, "salt", "salt"
-        message = "Brine breaks the marked ice into deep current." if frozen else "Brine salts the marked footing; exposed gear and aiming face abrasive slurry."
+        message = ecology_text("frontier.result.brine_frozen" if frozen else "frontier.result.brine")
     elif mode == "backwash":
         for target in _line(state, point):
             patch = ensure_cell(state, target)
@@ -327,7 +333,7 @@ def elite_action(state, actor, guarded):
             )
             if step != actor.position and is_walkable(state, step):
                 state.position = step
-        message = "The counted backwash fills three cells; guard holds footing while openings accept the fresh water."
+        message = ecology_text("frontier.result.backwash")
     elif mode == "salvage":
         item = next(
             (
@@ -339,12 +345,12 @@ def elite_action(state, actor, guarded):
             None,
         )
         if item is None or actor.carrying_item_id:
-            message = "The marked property has moved or is already secured; the salvage claim takes nothing."
+            message = ecology_text("frontier.result.salvage_empty")
         else:
             item.location, item.owner_id, item.container_id = "enemy", actor.id, None
             item.ground_position = None
             actor.carrying_item_id = item.id
-            message = "The wreckward takes the exact marked object; interception, defeat or witnessed terms can recover it."
+            message = ecology_text("frontier.result.salvage")
     elif mode == "firebreak":
         broken = 0
         for target in _line(state, point):
@@ -353,7 +359,7 @@ def elite_action(state, actor, guarded):
                 broken += int(bool(patch.fire or patch.fuel))
                 patch.fire, patch.fuel = 0, 0
                 patch.coating, patch.smoke = "ash", max(2, patch.smoke)
-        message = f"The warned firebreak clears {broken} patches of fuel and leaves ash across three paces."
+        message = ecology_format("frontier.result.firebreak", broken=broken)
     elif mode == "counterfall":
         if not _protected(state, point):
             state.region.tile_changes[key(point)] = "%"
@@ -362,11 +368,11 @@ def elite_action(state, actor, guarded):
             from .actions import apply_damage
 
             message = apply_damage(
-                state, 3, "The warned loose-stone counterfall",
+                state, 3, ecology_text("frontier.damage.counterfall"),
                 damage_kind="blunt",
             )
         else:
-            message = "Loose stone drops only onto the warned unprotected floor; it becomes passable cover, not a sealed route."
+            message = ecology_text("frontier.result.counterfall")
     elif mode == "siphon":
         moved = 0
         for target in _line(state, point):
@@ -380,12 +386,12 @@ def elite_action(state, actor, guarded):
         bed = ensure_cell(state, actor.home_position)
         if bed:
             bed.water, bed.fluid = min(3, bed.water + moved), "fresh"
-        message = f"The pump shifts {moved} water depth into its physical bed; the drained line remains muddy."
+        message = ecology_format("frontier.result.siphon", moved=moved)
     elif mode == "lever":
         if not _protected(state, point):
             state.region.tile_changes[key(point)] = "%"
             cell.material, cell.support = "timber", 1
-        message = "The cantilever shifts loose passable cover onto the warning mark; the alternate span remains open."
+        message = ecology_text("frontier.result.lever")
     elif mode == "slip":
         for target in _line(state, point):
             patch = ensure_cell(state, target)
@@ -395,10 +401,10 @@ def elite_action(state, actor, guarded):
             from .inventory import add_status
 
             add_status(
-                state, "mud-burden", "the warned clay-slip line caught an unguarded step",
-                2, "guard or leave the slurry to recover ordinary footing",
+                state, "mud-burden", ecology_text("frontier.status.slip.cause"),
+                2, ecology_text("frontier.status.slip.consequence"),
             )
-        message = "Clay slip coats three warned cells; an unguarded bearer on the mark is briefly burdened."
+        message = ecology_text("frontier.result.slip")
     elif mode == "boom":
         frozen = cover = 0
         for target in _line(state, point):
@@ -410,21 +416,21 @@ def elite_action(state, actor, guarded):
                 state.region.tile_changes[key(target)] = "%"
                 patch.material, patch.support = "timber", 1
                 cover += 1
-        message = f"The ice boom freezes {frozen} fresh shallows and shifts {cover} loose, passable timber screens."
+        message = ecology_format("frontier.result.boom", frozen=frozen, cover=cover)
     else:
         if state.position == point and not guarded:
             from .inventory import add_status, load_state
             step = Position(point.x + (actor.position.x > point.x) - (actor.position.x < point.x), point.y, point.z)
             if step != actor.position and is_walkable(state, step):
                 state.position = step
-            add_status(state, "net-drag", "a loaded net drum caught the marked place", 5 if load_state(state) in {"encumbered", "overloaded"} else 2, "guard and movement suffer; move free or wait out the haul")
+            add_status(state, "net-drag", ecology_text("frontier.status.haul.cause"), 5 if load_state(state) in {"encumbered", "overloaded"} else 2, ecology_text("frontier.status.haul.consequence"))
             wet = ensure_cell(state, state.position)
             if wet:
                 wet.water = 2
-            message = "The warned haul catches the bearer; load lengthens restraint beside the wet opening."
+            message = ecology_text("frontier.result.haul_caught")
         else:
-            message = "The haul crosses its old mark; reposition or guard denies the net."
-    actor.intent = f"{mode} spent; {actor.supplies} charges remain"
+            message = ecology_text("frontier.result.haul_miss")
+    _set_intent(actor, f"frontier.action.{mode}.spent", mode=mode, supplies=actor.supplies)
     return message
 
 
@@ -445,12 +451,12 @@ def record_outcomes(state):
             if recovered:
                 state.add_message(recovered.strip(), priority=3)
         state.region.changes[f"elite-left:{actor.id}"] = state.returned_expeditions
-        state.remember(f"{actor.name}: {actor.status} at {actor.position}; the {state.region.name} working claim remembers {state.courier.name}.")
+        state.remember(ecology_format("frontier.record.outcome", actor=actor.name, status=actor.status, position=actor.position, region=state.region.name, courier=state.courier.name))
         if actor.status in {"defeated", "disabled", "negotiated"} and not state.region.changes.get(f"elite-reward:{actor.id}"):
-            item = create_item(state, data["reward"], f"{actor.name}'s resolved working claim", location="ground")
+            item = create_item(state, data["reward"], ecology_format("frontier.provenance.reward", actor=actor.name), location="ground")
             item.region_id, item.ground_position = state.active_region_id, actor.position
             state.region.changes[f"elite-reward:{actor.id}"] = item.id
-            state.add_message(f"A physical claim reward remains at {actor.position.x},{actor.position.y}, z{actor.position.z:+d}; I opens the ground source.", priority=3)
+            state.add_message(ecology_format("frontier.record.reward", x=actor.position.x, y=actor.position.y, z=f"{actor.position.z:+d}"), priority=3)
 
 
 def revisit_claimants(state):
@@ -483,8 +489,8 @@ def revisit_claimants(state):
         actor.health, actor.morale, actor.supplies = min(actor.max_health, actor.health + 2), 3, 2
         actor.reload_turns, actor.marked_position, actor.reaction = 0, None, ""
         changed[marker] = True
-        actor.intent = "returns once, provisioned by the local claim; remembers the earlier retreat"
-        state.remember(f"{actor.name} used one {commodity} lot to return to the unresolved claim after retreat; old injuries and losses remain.")
+        _set_intent(actor, "frontier.intent.return")
+        state.remember(ecology_format("frontier.record.return", actor=actor.name, commodity=commodity))
 
 
 def claimant_terms(state):

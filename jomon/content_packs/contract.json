@@ -17508,5 +17508,1769 @@
       "id": "circuit.mode_title.threat",
       "placeholders": []
     }
+  ],
+  "ecology": [
+    {
+      "id": "ecology.actor.fen-pail.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-pail.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-pail.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-cinder.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-cinder.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-cinder.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-lynx.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-lynx.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-lynx.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-hare.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-hare.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-hare.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-bracer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-bracer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-bracer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-recoverer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-recoverer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-recoverer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cutter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cutter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cutter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-escort.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-escort.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-escort.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-surgeon.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-surgeon.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-surgeon.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-marmot.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-marmot.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-marmot.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cat.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cat.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-cat.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-caller.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-caller.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-caller.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-drainer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-drainer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-drainer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-hare.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-hare.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-hare.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-thief.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-thief.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-thief.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-netter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-netter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-netter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-fox.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-fox.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-fox.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-drainer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-drainer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-drainer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-caller.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-caller.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-caller.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hunter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hunter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hunter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hare.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hare.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-hare.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-escort.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-escort.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-escort.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-mender.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-mender.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-mender.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-runner.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-runner.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-runner.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-rope-cutter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-rope-cutter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-rope-cutter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-meadow-kite.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-meadow-kite.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-meadow-kite.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-wreck-gull.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-wreck-gull.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-wreck-gull.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-chain-mender.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-chain-mender.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-chain-mender.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-brine-pourer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-brine-pourer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-brine-pourer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-cinder-crow.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-cinder-crow.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-cinder-crow.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-well-runner.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-well-runner.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-well-runner.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-coppice-escort.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-coppice-escort.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-coppice-escort.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-lantern-taker.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-lantern-taker.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-lantern-taker.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-face-bracer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-face-bracer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-face-bracer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-crag-goat.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-crag-goat.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-crag-goat.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-peat-raker.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-peat-raker.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-peat-raker.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-board-mender.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-board-mender.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-board-mender.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-marsh-harrier.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-marsh-harrier.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-marsh-harrier.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-hoist-thief.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-hoist-thief.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-hoist-thief.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-lime-bracer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-lime-bracer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-lime-bracer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-raven.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-raven.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-raven.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rill-dogger.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rill-dogger.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rill-dogger.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-ash-thief.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-ash-thief.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-ash-thief.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rook.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rook.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-rook.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-bracer.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-bracer.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-bracer.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-wreck-taker.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-wreck-taker.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-wreck-taker.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-otter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-otter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-ice-otter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-duellist.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-duellist.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-sluice-duellist.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-shingle-crab.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-shingle-crab.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-shingle-crab.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-ash-trapper.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-ash-trapper.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-ash-trapper.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.cairn-bell-shrike.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.cairn-bell-shrike.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.cairn-bell-shrike.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.mire-peat-tusker.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.mire-peat-tusker.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.mire-peat-tusker.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-span-harrier.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-span-harrier.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-span-harrier.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln-slinger.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln-slinger.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-kiln-slinger.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-glaze-wolf.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-glaze-wolf.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-glaze-wolf.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-levee-warden.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-levee-warden.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.hearth-levee-warden.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-salt-marten.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-salt-marten.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.coast-salt-marten.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-briar-slinger.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-briar-slinger.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.forest-briar-slinger.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-scree-porter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-scree-porter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.upland-scree-porter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-rush-keeper.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-rush-keeper.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.fen-rush-keeper.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-fault-hound.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-fault-hound.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.gorge-fault-hound.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-clay-watch.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-clay-watch.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.terrace-clay-watch.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-brine-cutter.name",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-brine-cutter.capability",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.actor.estuary-brine-cutter.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-marshal.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-marshal.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-marshal.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-stack.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-stack.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-stack.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-cordmaster.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-cordmaster.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-cordmaster.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-convoy.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-convoy.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-convoy.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-reeve.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-reeve.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-reeve.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-shutters.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-shutters.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-shutters.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-pilot.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-pilot.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-pilot.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-drum.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-drum.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-drum.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.hearth-lockhand.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.hearth-lockhand.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.hearth-lockhand.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.coast-wreckward.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.coast-wreckward.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.coast-wreckward.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.forest-ashstep.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.forest-ashstep.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.forest-ashstep.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.upland-bellrope.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.upland-bellrope.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.upland-bellrope.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-pump-train.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-pump-train.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.fen-pump-train.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-wedge-crane.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-wedge-crane.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.gorge-wedge-crane.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-slip-wheel.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-slip-wheel.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.terrace-slip-wheel.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-ice-boom.name",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-ice-boom.capability",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.elite.estuary-ice-boom.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.leave_danger",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.avoid_hunters",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.graze",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.preserve_ground",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.alter_route",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.rescue_ally",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.rally_ally",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.retrieve_item",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.hunt_prey",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.oppose_rival",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.goal.escort",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.hunter",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.graze",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.preserve",
+      "placeholders": [
+        "duty"
+      ]
+    },
+    {
+      "id": "ecology.reason.alter",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.treat",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.rally",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.retrieve",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.reason.rival",
+      "placeholders": [
+        "target",
+        "ecology"
+      ]
+    },
+    {
+      "id": "ecology.reason.escort",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.intent.open_door",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.intent.graze",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.intent.move",
+      "placeholders": [
+        "goal",
+        "reason"
+      ]
+    },
+    {
+      "id": "ecology.intent.avoid",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "ecology.intent.rival_prepare",
+      "placeholders": [
+        "rival"
+      ]
+    },
+    {
+      "id": "ecology.intent.rival_disrupted",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "ecology.intent.escort",
+      "placeholders": [
+        "ally"
+      ]
+    },
+    {
+      "id": "ecology.intent.ally_disrupted",
+      "placeholders": []
+    },
+    {
+      "id": "ecology.intent.aid",
+      "placeholders": [
+        "supply",
+        "ally"
+      ]
+    },
+    {
+      "id": "ecology.intent.carry",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "ecology.intent.prepare",
+      "placeholders": [
+        "action",
+        "position"
+      ]
+    },
+    {
+      "id": "ecology.intent.work",
+      "placeholders": [
+        "action",
+        "position"
+      ]
+    },
+    {
+      "id": "ecology.result.leave_hazard",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "ecology.result.leave_hunter",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "ecology.result.move",
+      "placeholders": [
+        "actor",
+        "goal"
+      ]
+    },
+    {
+      "id": "ecology.result.rival_prepare",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "ecology.result.rival_empty",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "ecology.result.rival_defeat",
+      "placeholders": [
+        "actor",
+        "rival",
+        "dropped"
+      ]
+    },
+    {
+      "id": "ecology.result.rival_strike",
+      "placeholders": [
+        "actor",
+        "rival",
+        "health"
+      ]
+    },
+    {
+      "id": "ecology.result.aid",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "ecology.result.carry",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "ecology.result.prepare",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "ecology.result.water_defeat",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "ecology.result.work",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "ecology.record.rival_killed",
+      "placeholders": [
+        "actor",
+        "rival",
+        "position",
+        "ecology"
+      ]
+    },
+    {
+      "id": "frontier.intent.control_removed",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.withdraw",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.recover",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.depleted",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.hold",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "frontier.intent.wait",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.prepare",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.intent.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.intent.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.intent.return",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.stand_down",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.result.withdraw",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.result.recover",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "frontier.result.depleted",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.result.prepare",
+      "placeholders": [
+        "actor",
+        "intent"
+      ]
+    },
+    {
+      "id": "frontier.result.blocked",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.result.no_footing",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.result.guard_intercept",
+      "placeholders": [
+        "helper",
+        "amount"
+      ]
+    },
+    {
+      "id": "frontier.result.surge",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.smoulder_quenched",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.smoulder",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.sever_fall",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.sever_weaken",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.sever_protected",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.convoy",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.firing",
+      "placeholders": [
+        "count"
+      ]
+    },
+    {
+      "id": "frontier.result.shutters",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.brine_frozen",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.brine",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.backwash",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.salvage_empty",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.salvage",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.firebreak",
+      "placeholders": [
+        "broken"
+      ]
+    },
+    {
+      "id": "frontier.result.counterfall",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.siphon",
+      "placeholders": [
+        "moved"
+      ]
+    },
+    {
+      "id": "frontier.result.lever",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.slip",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.boom",
+      "placeholders": [
+        "frozen",
+        "cover"
+      ]
+    },
+    {
+      "id": "frontier.result.haul_caught",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.result.haul_miss",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.record.install",
+      "placeholders": [
+        "actor",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "frontier.record.outcome",
+      "placeholders": [
+        "actor",
+        "status",
+        "position",
+        "region",
+        "courier"
+      ]
+    },
+    {
+      "id": "frontier.record.reward",
+      "placeholders": [
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "frontier.record.return",
+      "placeholders": [
+        "actor",
+        "commodity"
+      ]
+    },
+    {
+      "id": "forecast.counter.default",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.timing.after_action",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.timing.recovering",
+      "placeholders": [
+        "steps",
+        "unit"
+      ]
+    },
+    {
+      "id": "forecast.timing.visible",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.unit.step",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.unit.steps",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.target.none",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.path.none",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.path.more",
+      "placeholders": []
+    },
+    {
+      "id": "forecast.line.danger",
+      "placeholders": [
+        "actor",
+        "action"
+      ]
+    },
+    {
+      "id": "forecast.line.forecast",
+      "placeholders": [
+        "x",
+        "y",
+        "z",
+        "target",
+        "timing"
+      ]
+    },
+    {
+      "id": "forecast.line.path",
+      "placeholders": [
+        "path"
+      ]
+    },
+    {
+      "id": "forecast.line.counter",
+      "placeholders": [
+        "counter"
+      ]
+    },
+    {
+      "id": "frontier.damage.shutters",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.damage.counterfall",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.status.slip.cause",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.status.slip.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.status.haul.cause",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.status.haul.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "frontier.provenance.reward",
+      "placeholders": [
+        "actor"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.surge",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.surge.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.smoulder",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.smoulder.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.sever",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.sever.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.convoy",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.convoy.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.firing",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.firing.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.shutters",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.shutters.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.brine",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.brine.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.haul",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.haul.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.backwash",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.backwash.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.salvage",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.salvage.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.firebreak",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.firebreak.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.counterfall",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.counterfall.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.siphon",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.siphon.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.lever",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.lever.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.slip",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.slip.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    },
+    {
+      "id": "frontier.telegraph.boom",
+      "placeholders": [
+        "mode",
+        "position"
+      ]
+    },
+    {
+      "id": "frontier.action.boom.spent",
+      "placeholders": [
+        "mode",
+        "supplies"
+      ]
+    }
   ]
 }

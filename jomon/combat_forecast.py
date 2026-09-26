@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from .state import GameState, Position, Threat
+from .ecology_presentation import ecology_actor_counterplay, ecology_format, ecology_text
 from .world import courier_sees, distance, projectile_path
 
 
@@ -20,6 +21,7 @@ class CombatForecast:
     timing: str
     action: str
     counter: str
+    intent_id: str
 
     @property
     def threatens_courier(self) -> bool:
@@ -67,22 +69,21 @@ def observed_forecasts(
         }:
             target = state.position
         data = _definition_for(actor.archetype_id or "")
-        counter = str(data.get("counterplay", "move, use cover, guard, or interrupt")) if data else "move, use cover, guard, or interrupt"
+        counter = ecology_actor_counterplay(actor.archetype_id or "", str(data.get("counterplay", "")) if data else ecology_text("forecast.counter.default")) or ecology_text("forecast.counter.default")
         if target is not None:
             affected = _affected_cells(actor, target)
             path = tuple(projectile_path(actor.position, target, state))
-            timing = "after your next action"
+            timing = ecology_text("forecast.timing.after_action")
         else:
             affected, path = (), ()
             timing = (
-                f"recovering for {actor.reload_turns} hostile step"
-                + ("s" if actor.reload_turns != 1 else "")
+                ecology_format("forecast.timing.recovering", steps=actor.reload_turns, unit=ecology_text("forecast.unit.step" if actor.reload_turns == 1 else "forecast.unit.steps"))
                 if actor.reload_turns
-                else "intent visible; no committed target"
+                else ecology_text("forecast.timing.visible")
             )
         forecasts.append(CombatForecast(
             actor.id, actor.name, actor.position, target, affected, path,
-            timing, action, counter,
+            timing, action, counter, actor.intent_id,
         ))
     return tuple(sorted(
         forecasts,
@@ -115,16 +116,16 @@ def danger_cells(state: GameState, visible: set[Position]) -> set[Position]:
 def forecast_lines(forecast: CombatForecast) -> list[str]:
     target = (
         f"{forecast.target.x},{forecast.target.y} z{forecast.target.z:+d}"
-        if forecast.target else "none committed"
+        if forecast.target else ecology_text("forecast.target.none")
     )
     path = " -> ".join(
         f"{point.x},{point.y}" for point in forecast.path[:6]
-    ) or "no committed path"
+    ) or ecology_text("forecast.path.none")
     if len(forecast.path) > 6:
-        path += " -> ..."
+        path += ecology_text("forecast.path.more")
     return [
-        f"DANGER: {forecast.actor_name} — {forecast.action}.",
-        f"FORECAST: origin {forecast.origin.x},{forecast.origin.y} z{forecast.origin.z:+d}; target {target}; {forecast.timing}.",
-        f"PREDICTED PATH: {path}.",
-        f"COUNTERS: {forecast.counter}.",
+        ecology_format("forecast.line.danger", actor=forecast.actor_name, action=forecast.action),
+        ecology_format("forecast.line.forecast", x=forecast.origin.x, y=forecast.origin.y, z=f"{forecast.origin.z:+d}", target=target, timing=forecast.timing),
+        ecology_format("forecast.line.path", path=path),
+        ecology_format("forecast.line.counter", counter=forecast.counter),
     ]
