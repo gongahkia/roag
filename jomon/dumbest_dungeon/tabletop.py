@@ -6,7 +6,7 @@ import hashlib
 from typing import Any
 
 from .content import load_catalog
-from .office_content import DEPARTMENTS, office_catalog
+from .office_content import office_catalog
 
 
 def shifted_doctrine(seed: str, patron_id: str) -> int:
@@ -54,7 +54,13 @@ def normalize_tabletop_records(data: dict) -> None:
     if not isinstance(records, list):
         return
     worlds = list(load_catalog().worlds)
-    legacy = {name: department_id_for_world(worlds[index]) for index, name in enumerate(DEPARTMENTS[:len(worlds)])}
+    # Exact bundled-default frozen labels are migration-only compatibility.
+    legacy_departments = (
+        "Records Retention", "Human Resources", "Facilities", "Accounts Payable",
+        "The Mailroom", "The Breakroom",
+    )
+    legacy = {name: department_id_for_world(worlds[index])
+              for index, name in enumerate(legacy_departments[:len(worlds)])}
     for record in records:
         if not isinstance(record, dict) or "department_id" in record:
             continue

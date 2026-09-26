@@ -7,6 +7,7 @@ import curses
 from ..character_presentation import role_display_name
 from .content import load_catalog
 from .office_art import OFFICE_SPRITES
+from .presentation import dd_text, office_sprites
 from .office_content import DOCTRINE_NAMES, INFUSION_NAMES, OFFICE_ROLES, office_catalog
 from .tabletop import collection_for, patrons
 
@@ -25,9 +26,9 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     people = patrons(state)
     courier = state.courier
     collection = collection_for(state, courier.id)
-    _put(screen, 0, 1, "DULLEST DUNGEON  /  THE COMPANY OF NECESSARY COPIES", curses.A_BOLD)
-    _put(screen, 2, 2, "Two departments enter the maze to contest confidential files.")
-    _put(screen, 3, 2, "You command four specialists; a tavern patron commands the other four.")
+    _put(screen, 0, 1, dd_text("ui.lobby_title"), curses.A_BOLD)
+    _put(screen, 2, 2, dd_text("ui.lobby_setup"))
+    _put(screen, 3, 2, dd_text("ui.lobby_command"))
     _put(screen, 5, 2, f"Courier: {courier.name}  Strategy: {courier.strategy}/20 (+1 supply per 5, max +2)")
     _put(screen, 6, 2, f"Record: {collection['wins']}W {collection['losses']}L {collection['draws']}D   Cards: {len(collection['cards'])}/290")
     doctrine_ids = list(load_catalog().doctrines)
@@ -39,7 +40,7 @@ def _draw_lobby(screen: curses.window, state, selected: int, slot: int, message:
     selected_role = collection["roles"][slot]
     definition = load_catalog().heroes[selected_role]
     _put(screen, 8, 45, f"JOB {list(OFFICE_ROLES).index(selected_role) + 1}/25", curses.A_BOLD)
-    for offset, line in enumerate(OFFICE_SPRITES[selected_role]):
+    for offset, line in enumerate(office_sprites()[selected_role]):
         _put(screen, 9 + offset, 53, line, curses.A_BOLD)
     _put(screen, 14, 45, OFFICE_ROLES[selected_role].upper()[:32])
     _put(screen, 15, 45, f"{definition['combat_role'].upper()}  HP {definition['max_hp']}")

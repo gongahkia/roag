@@ -25,6 +25,7 @@ from .ladder import modifier as ladder_modifier
 from .challenges import ExpeditionConfig, MODIFIER_IDS, validate_config
 from .migrations import MigrationError, migrate_run
 from .versions import RUN_SAVE_SCHEMA
+from .presentation import action_name, catalog_text, enemy_name, role_name, world_name
 from .telemetry import RunLedger
 from .resolution import Event, EventQueue, Listener, Payload
 from .combat_triggers import (
@@ -981,7 +982,7 @@ class GameEngine:
             self.state.heroes.append(
                 Actor(
                     id=hero_id,
-                    name=hero["name"],
+                    name=role_name(hero_id),
                     hero_class=hero["role"],
                     max_hp=hero["max_hp"],
                     hp=hero["max_hp"],
@@ -1007,8 +1008,8 @@ class GameEngine:
             patrol.route = self._patrol_route(patrol)
             self.state.patrols.append(patrol)
         self.state.phase = "exploration"
-        world_name = self.catalog.worlds[self.state.world_id]["name"]
-        self.state.log = [f"The threshold seals. {world_name} is no longer empty."]
+        display_world = world_name(self.state.world_id)
+        self.state.log = [f"The threshold seals. {display_world} is no longer empty."]
         self.record("departure", "expedition", seed=self.state.seed, world=self.state.world_id,
                     layout=self.catalog.worlds[self.state.world_id]["layout"], biomes=self.state.biome_ids,
                     formation=[hero.id for hero in self.living_heroes()],
@@ -1306,7 +1307,7 @@ class GameEngine:
                 unused = [event_id for event_id in candidates if event_id not in used_events]
                 content_id = rng.choice(unused or candidates)
                 used_events.add(content_id)
-            biome_name = catalog.biomes[biome_id]["name"]
+            biome_name = catalog_text("biomes", biome_id)
             enemy_ids = (
                 cls._compose_enemy_formation(
                     catalog,
@@ -2978,7 +2979,7 @@ class GameEngine:
                 "enemy_rank": enemy.rank,
                 "enemy_id": enemy.id,
                 "action_id": action_id,
-                "action": action["name"],
+                "action": action_name(action["id"]),
                 "target_rule": action["target"],
                 "target_ids": [front.id],
                 "target_labels": [self._intent_target_label(front)],
@@ -3401,9 +3402,9 @@ class GameEngine:
                 ),
             }
         enemy_ids = self.catalog.encounters[encounter_id]["enemies"]
-        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in enemy_ids)
+        names = " / ".join(enemy_name(enemy_id) for enemy_id in enemy_ids)
         actions = [
-            action["name"]
+            action_name(action["id"])
             for enemy_id in enemy_ids
             for action in self.catalog.enemies[enemy_id]["actions"]
         ]
@@ -3932,7 +3933,7 @@ class GameEngine:
         self.record("boon_choice", pickup.id, owner=hero_id, chosen=boon_id,
                     offered=pickup.payload["options"])
         hero = self._actor(hero_id)
-        name = self.catalog.boons[boon_id]["name"]
+        name = catalog_text("boons", boon_id)
         message = f"{hero.name} receives {name} x{count}."
         self._finish_pickup(message)
         return message
@@ -3971,7 +3972,7 @@ class GameEngine:
             self.state.recycler_credits -= 1
         self.record("item_choice", pickup.id, offered=options, chosen=item_id,
                     recycler_credit=used_credit)
-        name = self.catalog.items[item_id]["name"]
+        name = catalog_text("items", item_id)
         message = f"Recovered {name} x{gained}. Total {self.state.items[item_id]}."
         self._finish_pickup(message)
         return message
@@ -4030,11 +4031,11 @@ class GameEngine:
         self.acquire_curse(hero_id, curse_id)
         if option["reward_kind"] == "boon":
             self.acquire_boon(hero_id, reward_id)
-            reward_name = self.catalog.boons[reward_id]["name"]
+            reward_name = catalog_text("boons", reward_id)
         else:
             gained = self.acquire_item(reward_id, int(option["copies"]))
-            reward_name = f"{self.catalog.items[reward_id]['name']} x{gained}"
-        curse_name = self.catalog.curses[curse_id]["name"]
+            reward_name = f"{catalog_text('items', reward_id)} x{gained}"
+        curse_name = catalog_text("curses", curse_id)
         message = f"Accepted {reward_name}; {curse_name} takes hold."
         self._finish_pickup(message)
         return message
@@ -4046,7 +4047,7 @@ class GameEngine:
         hero = self.rng.choice(self.living_heroes())
         curse_id = self.rng.choice(list(self.catalog.curses))
         count = self.acquire_curse(hero.id, curse_id)
-        name = self.catalog.curses[curse_id]["name"]
+        name = catalog_text("curses", curse_id)
         message = f"Hidden anomaly: {hero.name} gains {name} x{count}."
         self._finish_pickup(message)
         return message
@@ -4336,7 +4337,7 @@ class GameEngine:
             self.state.enemies.append(
                 Actor(
                     f"{enemy_id}:{rank}",
-                    definition["name"],
+                    enemy_name(enemy_id),
                     max_hp,
                     max_hp,
                     rank,
@@ -4363,7 +4364,7 @@ class GameEngine:
         self.state.round = 1
         self.state.effect_counters = {}
         self.state.intents = []
-        names = " / ".join(self.catalog.enemies[enemy_id]["name"] for enemy_id in formation)
+        names = " / ".join(enemy_name(enemy_id) for enemy_id in formation)
         self.record("encounter_start", encounter_id, enemies=formation, kind=self.state.combat_kind,
                     plan=self._formation_plan(self.catalog, formation), biome=self.current_biome(),
                     surprised=surprised, crew=[asdict(hero) for hero in self.living_heroes()],
@@ -5801,7 +5802,7 @@ class GameEngine:
                     "enemy_rank": enemy.rank,
                     "enemy_id": enemy.id,
                     "action_id": action["id"],
-                    "action": action["name"],
+                    "action": action_name(action["id"]),
                     "target_rule": action["target"],
                     "target_ids": [target.id for target in targets],
                     "target_labels": target_labels,
@@ -5934,7 +5935,7 @@ class GameEngine:
                         "actor_id": enemy.id,
                         "actor_name": enemy.name,
                         "actor_rank": intent["enemy_rank"],
-                        "action": action["name"],
+                        "action": action_name(action["id"]),
                         "target_labels": list(intent.get("target_labels", [])),
                         "setup": sorted(self._action_setup_statuses(action)),
                         "payoff": sorted(self._action_exploit_statuses(action)),

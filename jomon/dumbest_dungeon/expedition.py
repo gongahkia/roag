@@ -10,7 +10,8 @@ from typing import Any, Callable
 from .content import load_catalog
 from .engine import GameEngine, WALKABLE_TILES
 from .passives import persistent_effect
-from .office_content import DEPARTMENTS, OFFICE_BIOMES, OFFICE_ROLES, office_catalog, office_facility_option
+from .office_content import OFFICE_BIOMES, OFFICE_ROLES, office_catalog, office_facility_option
+from .presentation import action_name, dd_text, department_name
 from .tabletop import collection_for, patrons, shifted_doctrine
 
 MAX_ROUNDS = 18
@@ -245,7 +246,7 @@ def new_match(seed: str, courier_id: str, patron_id: str, roles: list[str],
                            "used": False, "outcome": None}
                           for room in generated.rooms if room.kind in {"event", "camp", "upgrade", "cache"}],
              "pending": None,
-             "log": ["The Company of Necessary Copies opens a disputed expedition."]}
+             "log": [dd_text("narration.opening")]}
     patrols = []
     for source in generated.patrols:
         room = generated.rooms[source.room_id]
@@ -344,7 +345,7 @@ def _knockout(match: dict, actor: dict) -> None:
             file["carrier"] = None
             file["dropped"] = _team(match, side)["position"][:]
             match["pending_score"] = None
-            _log(match, f"{OFFICE_ROLES[actor['role']]} drops the stolen file.")
+            _log(match, dd_text("narration.file_drop", actor=OFFICE_ROLES[actor["role"]]))
     _log(match, f"{_actor_label(actor)} is sent on two-turn mandatory leave.")
     if not _living(match, side):
         if match["phase"] == "combat":
@@ -851,7 +852,7 @@ def choose_reward(match: dict, choice: int) -> None:
                     instance["upgraded"] = True
         station["used"] = True
         station["outcome"] = "upgrade"
-        _log(match, f"{office_catalog()[1][card['id']].name}+ is authorized by the workshop.")
+        _log(match, dd_text("narration.upgrade", card=office_catalog()[1][card["id"]].name))
     elif pending["kind"] == "event":
         station = next(item for item in match["stations"] if item["id"] == pending["station"])
         option_id = pending["choices"][choice]
@@ -954,7 +955,7 @@ def _arrival(match: dict, side: int) -> None:
             carrier = _living(match, side)[0]
             file["carrier"] = carrier["id"]
             file["dropped"] = None
-            _log(match, f"{OFFICE_ROLES[carrier['role']]} steals the rival file.")
+            _log(match, dd_text("narration.file_steal", actor=OFFICE_ROLES[carrier["role"]]))
     for hazard in match["hazards"]:
         if not hazard["active"] or list(position) not in hazard["cells"] or list(position) in hazard["triggered_cells"]:
             continue
@@ -1216,7 +1217,7 @@ def _neutral_enemy_phase(match: dict) -> None:
                 action = candidate
                 break
         targets = _neutral_targets(match, owner, actor, action["target"])
-        _log(match, f"{_actor_label(actor)} uses {office_action_name(action['name'])}.")
+        _log(match, dd_text("narration.action", actor=_actor_label(actor), action=action_name(action["id"])))
         for effect in action["effects"]:
             override = effect.get("target")
             recipients = ([actor] if override == "self" else _living(match, 2) if override == "all_allies"
@@ -1547,7 +1548,7 @@ def finish_match(state: Any) -> str:
                                       "season": match["season"], "result": result,
                                       "score": match["scores"][:],
                                       "department_id": f"department:{match['world_id']}",
-                                      "department": DEPARTMENTS[list(load_catalog().worlds).index(match["world_id"]) % len(DEPARTMENTS)]})
+                                      "department": department_name(f"department:{match['world_id']}")})
     state.tabletop["active_match"] = None
     return result
 

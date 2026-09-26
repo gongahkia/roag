@@ -61,7 +61,7 @@ VISUAL_SECTIONS = (
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
-REGION_CONTRACT_FORMAT = 1
+REGION_CONTRACT_FORMAT = 2
 # The existing contract format applies to the complete selected-pack
 # presentation surface, not only the historical regional file name.
 PRESENTATION_CONTRACT_FORMAT = REGION_CONTRACT_FORMAT
@@ -91,6 +91,9 @@ MATERIAL_PRESENTATION_FILE = "material_text.json"
 SANCTUM_PRESENTATION_FILE = "sanctum_text.json"
 SITUATION_PRESENTATION_FILE = "situation_text.json"
 CIRCUIT_PRESENTATION_FILE = "circuit_text.json"
+DULLEST_DUNGEON_DIRECTORY = "dullest_dungeon"
+DULLEST_DUNGEON_TEXT_FILE = "text.json"
+DULLEST_DUNGEON_VISUALS_FILE = "visuals.json"
 ECOLOGY_PRESENTATION_FILE = "ecology_text.json"
 
 _AFTERMATH_CONTRACT = tuple(
@@ -1329,6 +1332,21 @@ class CircuitPresentation:
 
 
 @dataclass(frozen=True)
+class DullestDungeonPresentation:
+    """Immutable selected-pack fiction for the in-world tavern game."""
+    text_slots: tuple[tuple[str, str], ...]
+    sprites: tuple[tuple[str, tuple[str, ...]], ...]
+    map_symbols: tuple[tuple[str, str], ...]
+    title_art: tuple[str, ...]
+
+    def text(self, slot: str) -> str:
+        for identity, value in self.text_slots:
+            if identity == slot:
+                return value
+        raise KeyError(f"unknown Dullest Dungeon presentation slot: {slot}")
+
+
+@dataclass(frozen=True)
 class ContentPack:
     """Immutable location and identity for one validated main-world pack."""
 
@@ -1369,6 +1387,7 @@ class ContentPack:
     situation_presentations: tuple[SituationPresentation, ...]
     circuit_presentations: tuple[CircuitPresentation, ...]
     ecology_presentations: tuple[EcologyPresentation, ...]
+    dullest_dungeon: DullestDungeonPresentation
     household_background_template: str
 
     def catalog_path(self, name: str) -> Path:
@@ -1615,8 +1634,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, and ecology")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology", "dullest_dungeon"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, and dullest_dungeon")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -2800,6 +2819,76 @@ def _manifest_document(root: Path) -> dict[str, Any]:
     return document
 
 
+
+def _dd_flatten(value: Any, path: str = "") -> list[tuple[str, str]]:
+    if isinstance(value, dict):
+        result: list[tuple[str, str]] = []
+        for key, child in value.items():
+            if not isinstance(key, str) or not key:
+                raise ValueError("presentation keys must be non-empty strings")
+            result.extend(_dd_flatten(child, f"{path}.{key}" if path else key))
+        return result
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{path} must be a non-empty string")
+    try:
+        fields = {field for _, field, _, _ in string.Formatter().parse(value) if field}
+    except ValueError as exc:
+        raise ValueError(f"{path} has malformed template: {exc}") from exc
+    allowed = {"actor", "action", "card", "side", "kind", "biome", "amount", "resource", "target", "department"}
+    if fields - allowed or any("." in field or "[" in field for field in fields):
+        raise ValueError(f"{path} has unsupported placeholder")
+    return [(path, value)]
+
+
+def _dd_document(path: Path, pack_id: str) -> dict[str, Any]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    except (OSError, ValueError, RecursionError) as exc:
+        raise ContentPackError(f"invalid Dullest Dungeon presentation for content pack {pack_id!r} at {path}: {exc}") from exc
+
+
+def _dullest_dungeon_presentation(root: Path, pack_id: str) -> DullestDungeonPresentation:
+    directory = root / DULLEST_DUNGEON_DIRECTORY
+    text_path = directory / DULLEST_DUNGEON_TEXT_FILE
+    visuals_path = directory / DULLEST_DUNGEON_VISUALS_FILE
+    text = _dd_document(text_path, pack_id)
+    default = _dd_document(_package_path("content_packs", "default", DULLEST_DUNGEON_DIRECTORY, DULLEST_DUNGEON_TEXT_FILE), "default")
+    try:
+        slots = _dd_flatten(text)
+        expected = {key for key, _ in _dd_flatten(default)}
+        actual = {key for key, _ in slots}
+        if actual != expected:
+            raise ValueError("text has missing or unknown slots")
+        visuals = _dd_document(visuals_path, pack_id)
+        expected_visuals = _dd_document(_package_path("content_packs", "default", DULLEST_DUNGEON_DIRECTORY, DULLEST_DUNGEON_VISUALS_FILE), "default")
+        if set(visuals) != set(expected_visuals) or set(visuals) != {"office_sprites", "expedition_map_symbols", "title_art"}:
+            raise ValueError("visuals has missing or unknown sections")
+        sprites = visuals["office_sprites"]
+        expected_sprites = expected_visuals["office_sprites"]
+        if not isinstance(sprites, dict) or set(sprites) != set(expected_sprites):
+            raise ValueError("visuals.office_sprites has missing or unknown roles")
+        frozen_sprites = []
+        for role, lines in sprites.items():
+            if not isinstance(lines, list) or len(lines) != 5 or any(not isinstance(line, str) or not line.isascii() or not line.isprintable() or len(line) > 9 for line in lines):
+                raise ValueError(f"visuals.office_sprites.{role} must contain five printable ASCII rows")
+            frozen_sprites.append((role, tuple(lines)))
+        def symbols(value: Any, path: str = "") -> list[tuple[str, str]]:
+            if isinstance(value, dict):
+                return [pair for key, child in value.items() for pair in symbols(child, f"{path}.{key}" if path else key)]
+            if not isinstance(value, str) or len(value) != 1 or not value.isascii() or not value.isprintable():
+                raise ValueError(f"visuals.expedition_map_symbols.{path} must be one printable ASCII symbol")
+            return [(path, value)]
+        visual_symbols = symbols(visuals["expedition_map_symbols"])
+        if {key for key, _ in visual_symbols} != {key for key, _ in symbols(expected_visuals["expedition_map_symbols"])}:
+            raise ValueError("visuals.expedition_map_symbols has missing or unknown slots")
+        title = visuals["title_art"]
+        if not isinstance(title, list) or len(title) != 6 or any(not isinstance(line, str) or not line.isascii() or not line.isprintable() or len(line) > 72 for line in title):
+            raise ValueError("visuals.title_art must contain six printable ASCII rows up to 72 columns")
+        return DullestDungeonPresentation(tuple(sorted(slots)), tuple(sorted(frozen_sprites)), tuple(sorted(visual_symbols)), tuple(title))
+    except ValueError as exc:
+        raise ContentPackError(f"invalid Dullest Dungeon presentation for content pack {pack_id!r} at {directory}: {exc}") from exc
+
+
 def load_content_pack(path: str | Path) -> ContentPack:
     """Load one complete external or bundled pack without selecting it."""
     root = Path(path).expanduser()
@@ -2862,10 +2951,11 @@ def load_content_pack(path: str | Path) -> ContentPack:
     situations = _situation_presentations(root, pack_id)
     circuits = _circuit_presentations(root, pack_id)
     ecology = _ecology_presentations(root, pack_id)
+    dullest_dungeon = _dullest_dungeon_presentation(root, pack_id)
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, household_template,
+        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, dullest_dungeon, household_template,
     )
 
 

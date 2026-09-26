@@ -1379,7 +1379,7 @@ def _legacy_archived_hostile_issue(item: dict[str, Any], actors: dict[str, tuple
         return False
     name, _group, region_id = actor
     regions = "(?:hearthford|greywash|greenwold|whitecairn|dunmire|rillscar|marlbank|frostmere)"
-    issue = rf"(?:road-watch|mill-levy|reavers|{regions}-(?:group-[0-9]+|elite))"
+    issue = rf"(?:road-watch|mill-levy|reavers|aftermath-road|{regions}-(?:group-[0-9]+|elite))"
     # These are the three exact bundled-default templates used by the historical
     # enemy equipment producer, with only its engine-owned issue/region/actor
     # substitutions admitted.  Arbitrary prose cannot satisfy this matcher.

@@ -47,7 +47,7 @@ class ExpeditionRulesTests(unittest.TestCase):
         engine = GameEngine.new(self.catalog, 71)
         forbidden = re.compile(r"\b(?:developer|feature|gameplay|implementation|mechanics?|player|tutorial|ui|ux)\b", re.IGNORECASE)
         annotations = [text for card_id in self.catalog.cards if self.catalog.cards[card_id]["hero"]
-                       in {hero.role for hero in engine.living_heroes()}
+                       in {hero.hero_class for hero in engine.living_heroes()}
                        for text in engine.reward_context(card_id)]
         self.assertFalse([text for text in annotations if forbidden.search(text)])
 

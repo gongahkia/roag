@@ -6,7 +6,8 @@ import curses
 import textwrap
 
 from .content import load_catalog
-from .office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph, office_costume_name, rival_costumes
+from .office_art import office_card_glyph, office_costume_name, rival_costumes
+from .presentation import dd_text, map_symbols, office_sprites
 from .expedition import (
     MAX_ROUNDS, ORDER_TICKS, ORDERS_PER_TURN, _ai_destination, _biome_at,
     _card_cost, _card_id, _card_upgraded, _file_position, _position, _team, choose_reward,
@@ -37,9 +38,9 @@ class ExpeditionUI(TavernUIBase):
                     rival_moving: tuple[int, int] | None = None) -> None:
         match = self.match
         assert match is not None
-        symbols = EXPEDITION_MAP_SYMBOLS
+        symbols = map_symbols()
         team = _team(match, 0)
-        title = f"DULLEST DUNGEON  /  COMPANY OF NECESSARY COPIES  /  {OFFICE_WORLDS[match['world_id']].upper()}"
+        title = f"{dd_text('ui.game_title')}  /  {OFFICE_WORLDS[match['world_id']].upper()}"
         self._begin(title)
         round_label = f"OT {match['round'] - MAX_ROUNDS}/4" if match["round"] > MAX_ROUNDS else f"ROUND {match['round']}/{MAX_ROUNDS}"
         lead = "PATRON ROUTE" if rival_moving else round_label
@@ -109,8 +110,8 @@ class ExpeditionUI(TavernUIBase):
             f"{symbols['facility']} desk {symbols['station']['camp']} rest {symbols['station']['upgrade']} work "
             f"{symbols['station']['event']}/{symbols['station']['cache']} loot R{route_cost}T", columns - 3))
         self._put(legend_row + 1, 2, self._ellipsize(self.message or match["log"][-1], columns - 3), self._attr(2))
-        self._put(legend_row + 2, 2, "Steal rival file, return near home, hold through their turn. First to two.")
-        self._footer("Arrows aim Enter auto-walk Tab 1 home 2 rival 3 patron 4 own E end S save Q")
+        self._put(legend_row + 2, 2, dd_text("ui.map_objective"))
+        self._footer(dd_text("ui.map_footer"))
 
     def _render_combat_match(self, target: str | None = None) -> None:
         match = self.match
@@ -140,7 +141,7 @@ class ExpeditionUI(TavernUIBase):
                     attr |= curses.A_BOLD
                 if actor["id"] == target:
                     attr |= curses.A_REVERSE
-                portrait = (OFFICE_SPRITES[actor["role"]] if side == 0 else
+                portrait = (office_sprites()[actor["role"]] if side == 0 else
                             self.catalog.art["enemies"][actor["role"] if neutral else rival_costumes(match["world_seed"])[index]])
                 self._draw_sprite(3, column, portrait, attr)
                 if actor["id"] == target:
@@ -160,8 +161,8 @@ class ExpeditionUI(TavernUIBase):
             legal = bool(valid_targets(match, index)) and _card_cost(match, 0, card) <= team["energy"]
             self._draw_mini_office_card(13, self._combat_column(2 + slot * 15), card, index == self.selected_card, legal)
         if not hand:
-            self._put(17, 28, "HAND EMPTY — PRESS E", curses.A_DIM)
-        self._footer("Arrows card Enter play C details R retreat V roster E end S save Q leave")
+            self._put(17, 28, dd_text("ui.empty_hand"), curses.A_DIM)
+        self._footer(dd_text("ui.combat_footer"))
 
     def _mini_office_card_lines(self, instance: str | dict) -> list[str]:
         card_id = _card_id(instance)
@@ -203,7 +204,7 @@ class ExpeditionUI(TavernUIBase):
         return [border, framed(f"{cost} ENERGY".ljust(19) + mark),
                 framed((office.name + ("+" if _card_upgraded(instance) else "")).upper().center(20)),
                 framed(OFFICE_ROLES[role_id].upper().center(20)),
-                framed("COMPANY TECHNIQUE"),
+                framed(dd_text("ui.technique")),
                 *(framed(line.center(20)) for line in glyph),
                 framed(), framed("FROM " + ranks),
                 framed("TARGET " + OFFICE_TARGETS[definition["target"]].upper()),
@@ -248,17 +249,17 @@ class ExpeditionUI(TavernUIBase):
         if pending["kind"] == "draft":
             choices = [f"{office_catalog()[1][card].name} — {OFFICE_ROLES[self.catalog.cards[card]['hero']]}"
                        for card in pending["choices"]]
-            title = "CHOOSE AN OFFICE TECHNIQUE"
+            title = dd_text("ui.choose_card")
             body = "A neutral cache offers a lasting addition to your shared deck."
         elif pending["kind"] == "boon":
             choices = [f"Company perk {index + 1}: " + ", ".join(effect["key"].replace("_", " ") for effect in self.catalog.boons[boon]["effects"])
                        for index, boon in enumerate(pending["choices"])]
-            title = "CHOOSE A COMPANY PERK"
+            title = dd_text("ui.choose_boon")
             body = "A neutral cache offers one lasting perk. Choose its recipient next."
         elif pending["kind"] == "recipient":
             choices = [OFFICE_ROLES[next(actor["role"] for actor in _team(match, 0)["actors"] if actor["id"] == identity)]
                        for identity in pending["choices"]]
-            title = "CHOOSE A RECIPIENT"
+            title = dd_text("ui.choose_recipient")
             body = "This company perk belongs to one specialist for the match."
         elif pending["kind"] == "facility":
             choices = [*pending_choice_labels(match, pending), "Leave without using"]
@@ -268,10 +269,10 @@ class ExpeditionUI(TavernUIBase):
         else:
             choices = pending_choice_labels(match, pending)
             if pending["kind"] in {"camp", "upgrade", "event"}:
-                choices.append("Leave without using")
+                choices.append(dd_text("ui.leave"))
             title = {"camp": "REST OFFICE", "upgrade": "COPY WORKSHOP", "event": "DEPARTMENT INCIDENT",
                      "treatment": "TREAT A LIABILITY"}[pending["kind"]]
-            body = "This department room offers a choice."
+            body = dd_text("ui.pending_room")
         selected = self._menu(title, choices, body, allow_cancel=False)
         assert selected is not None
         try:
@@ -388,7 +389,7 @@ class ExpeditionUI(TavernUIBase):
                 hero = self.catalog.heroes[role]
                 alternate = next(item for item in self.catalog.loadouts.values() if item["hero"] == role)
                 self._begin(OFFICE_ROLES[role].upper())
-                self._draw_sprite(4, 7, OFFICE_SPRITES[role], curses.A_BOLD)
+                self._draw_sprite(4, 7, office_sprites()[role], curses.A_BOLD)
                 self._put(4, 22, f"{hero['combat_role'].upper()}  HP {hero['max_hp']}  RANKS {','.join(map(str, hero['preferred_ranks']))}")
                 self._put(6, 22, "STARTER KIT")
                 for row, card in enumerate(hero["starter_deck"], 7):
