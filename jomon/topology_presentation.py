@@ -61,3 +61,17 @@ def regional_landmark_label(region_id: str, landmark_id: str) -> str | None:
         return topology_text(f"topology.{region_id}.landmark.{landmark_id}")
     except KeyError:
         return None
+
+
+def navigation_landmark_label(region_id: str, landmark_id: str) -> str:
+    return regional_landmark_label(region_id, landmark_id) or topology_text(f"topology.navigation.landmark.{landmark_id}")
+
+def navigation_container_label(name: str, status: str) -> str:
+    return topology_text("topology.navigation.container").format(name=name, status=status)
+
+def navigation_link_label(name: str, level: int) -> str:
+    return topology_text("topology.navigation.link").format(name=name, level=f"{level:+d}")
+
+
+def navigation_route_text(key: str, /, **values: object) -> str:
+    return topology_text(f"topology.navigation.route.{key}").format(**values)

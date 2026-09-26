@@ -6,9 +6,9 @@ from dataclasses import dataclass
 import heapq
 from itertools import count
 
-from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .inventory import load_state
 from .state import GameState, Position
+from .topology_presentation import navigation_container_label, navigation_link_label, navigation_route_text
 from .world import (
     base_tile,
     distance,
@@ -47,15 +47,6 @@ class RouteAdvance:
     finished: bool
     stop_reason: str
     time_advanced: bool = False
-
-
-_LANDMARK_LABELS = load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["landmark_labels"]
-if (not isinstance(_LANDMARK_LABELS, dict)
-        or any(not isinstance(key, str) or not key
-               or not isinstance(label, str) or not label
-               for key, label in _LANDMARK_LABELS.items())):
-    raise CatalogError("world_text.json has invalid landmark labels")
-LANDMARK_LABELS = _LANDMARK_LABELS
 
 
 def _parse_key(value: str) -> Position | None:
@@ -111,11 +102,8 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
             label = (pocket_name(state.active_region_id, int(name.rsplit("_", 1)[1]))
                      if name.startswith("landform_") else structure_name(state.active_region_id, name))
         else:
-            from .topology_presentation import regional_landmark_label
-
-            label = regional_landmark_label(state.active_region_id, name) or LANDMARK_LABELS.get(
-                name, name.replace("_", " ")
-            )
+            from .topology_presentation import navigation_landmark_label
+            label = navigation_landmark_label(state.active_region_id, name)
         targets.append(NavigationTarget(f"landmark:{name}", label, point, "landmark"))
         occupied.add(point)
     for container in sorted(state.region.containers, key=lambda item: item.id):
@@ -129,7 +117,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
         state_word = "opened" if container.opened else "marked" if container.id in marks else "seen"
         targets.append(NavigationTarget(
             f"container:{container.id}",
-            f"{_container_name(state, container)} ({state_word})",
+            navigation_container_label(_container_name(state, container), state_word),
             container.position,
             "container",
         ))
@@ -147,7 +135,7 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
                 continue
             targets.append(NavigationTarget(
                 f"link:{link_identity(link)}:{point.x},{point.y},{point.z}",
-                f"{_link_name(state, link)} on level {point.z:+d}",
+                navigation_link_label(_link_name(state, link), point.z),
                 point,
                 "vertical link",
             ))
@@ -282,19 +270,19 @@ def plan_route(state: GameState, target_id: str) -> RoutePlan:
 def advance_route(state: GameState, plan: RoutePlan, index: int) -> RouteAdvance:
     """Perform at most one ordinary action and report any new interruption."""
     if state.location != "region" or state.active_region_id != plan.region_id:
-        return RouteAdvance(index, False, "The regional route changed.")
+        return RouteAdvance(index, False, navigation_route_text("changed"))
     expected = plan.start if index == 0 else plan.path[index - 1]
     if state.position != expected or not 0 <= index < len(plan.path):
         finished = state.position == plan.destination
-        return RouteAdvance(index, finished, "Destination reached." if finished else "Your position no longer matches the planned route.")
+        return RouteAdvance(index, finished, navigation_route_text("reached") if finished else navigation_route_text("position_changed"))
     next_position = plan.path[index]
     if next_position not in remembered_positions(state):
-        return RouteAdvance(index, False, "The next place is not part of the remembered route.")
+        return RouteAdvance(index, False, navigation_route_text("next_missing"))
     pre_visible = _visible_danger(state)
     if pre_visible:
-        return RouteAdvance(index, False, "Visible danger interrupts route following.")
+        return RouteAdvance(index, False, navigation_route_text("danger"))
     if _cell_cost(state, next_position) is None:
-        return RouteAdvance(index, False, "The next remembered place has become unsafe or blocked.")
+        return RouteAdvance(index, False, navigation_route_text("unsafe"))
     pre_engaged = {actor.id for actor in state.combatants if actor.status == "engaged"}
     pre_material = _visible_material_danger(state)
     pre_weather = state.weather
@@ -315,31 +303,31 @@ def advance_route(state: GameState, plan: RoutePlan, index: int) -> RouteAdvance
             next_position.y - state.position.y,
         )
     if not result.time_advanced or state.position != next_position:
-        return RouteAdvance(index, False, result.message or "The planned step did not complete.")
+        return RouteAdvance(index, False, result.message or navigation_route_text("step_failed"))
     next_index = index + 1
     if state.position == plan.destination:
-        return RouteAdvance(next_index, True, "Destination reached.", True)
+        return RouteAdvance(next_index, True, navigation_route_text("reached"), True)
     post_visible = _visible_danger(state)
     if post_visible - pre_visible:
-        return RouteAdvance(next_index, False, "New visible danger interrupts route following.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("new_danger"), True)
     post_engaged = {actor.id for actor in state.combatants if actor.status == "engaged"}
     if post_engaged - pre_engaged:
-        return RouteAdvance(next_index, False, "A newly alerted actor interrupts route following.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("new_alert"), True)
     post_material = _visible_material_danger(state)
     if post_material - pre_material:
-        return RouteAdvance(next_index, False, "A new visible material hazard interrupts route following.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("new_hazard"), True)
     if state.weather != pre_weather:
-        return RouteAdvance(next_index, False, f"Weather changes to {state.weather}.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("weather", weather=state.weather), True)
     added_status = set(state.terrain_statuses) - pre_status
     if added_status:
-        return RouteAdvance(next_index, False, f"New condition: {sorted(added_status)[0]}.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("condition", condition=sorted(added_status)[0]), True)
     if load_state(state) != pre_load:
-        return RouteAdvance(next_index, False, "The carried load changes its movement state.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("load"), True)
     if state.courier and (state.courier.health != pre_health or state.courier.injury != pre_injury):
-        return RouteAdvance(next_index, False, "Injury interrupts route following.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("injury"), True)
     new_sounds = {
         (event.position, event.strength) for event in state.sound_events
     } - pre_sounds
     if any(origin not in {expected, next_position} for origin, _ in new_sounds):
-        return RouteAdvance(next_index, False, "A new sound away from the route interrupts travel.", True)
+        return RouteAdvance(next_index, False, navigation_route_text("sound"), True)
     return RouteAdvance(next_index, False, "", True)

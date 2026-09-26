@@ -511,23 +511,23 @@ def ledger_lines(state: GameState) -> list[str]:
 
     lines.extend(history_format("history.ledger.landform", text=fact_text(region.id, key, facts[key])) for key in (*landform_keys, "field_upper", "field_lower") if key in facts)
     if region.changes.get("sanctum:cleared"):
-        lines.append(f"SANCTUM — cleared; holding {region.changes.get('sanctum:control', 'unsettled')}; "
-                     f"gallery seam {'open' if region.changes.get('sanctum:secret_open') else 'unopened'}.")
-    lines += ["FORECAST — " + forecast(state), history_format("history.ledger.reading")]
+        lines.append(history_format("history.ledger.sanctum", control=region.changes.get("sanctum:control", "unsettled"), seam="open" if region.changes.get("sanctum:secret_open") else "unopened"))
+    lines += [history_format("history.ledger.forecast_line", forecast=forecast(state)), history_format("history.ledger.reading")]
     from .workline_presentation import workline_text
     from .worklines import WORKLINES, lines as work_lines
     if state.active_region_id in WORKLINES:
         lines += ["", workline_text("workline.ui.ledger_heading"), *work_lines(state)]
-    from .aftermath import AFTERMATH_LINES, contracts_for
+    from .aftermath import contracts_for
+    from .aftermath_presentation import aftermath_opening
 
     contracts = contracts_for(state)
     if contracts:
         quest = state.aftermath_quests[state.active_region_id]
         lines += [
-            "", "AFTERMATH — " + AFTERMATH_LINES[state.active_region_id][0],
-            f"Settlement {quest.branch}; {sum(contract.status == 'completed' for contract in contracts)}/2 contracts settled.",
+            "", history_format("history.ledger.aftermath_heading", opening=aftermath_opening(state.active_region_id)),
+            history_format("history.ledger.settlement", branch=quest.branch, completed=sum(contract.status == "completed" for contract in contracts)),
             *[
-                f"{contract.title}: {contract.status}; {contract.cause}."
+                history_format("history.ledger.contract", title=contract.title, status=contract.status, cause=contract.cause)
                 for contract in contracts
             ],
         ]

@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import copy
 import hashlib
+import json
 from functools import lru_cache
 from importlib.resources import files
 import json
 import math
 import random
 import re
+from pathlib import Path
 from typing import Any
 
 from .content import (
@@ -518,6 +520,38 @@ _LEGACY_COMBAT_DAMAGE_SEEDS = {
 }
 
 
+def _bundled_combat_name_tokens() -> dict[str, str]:
+    """Return fixed pre-pack combat tokens for stable archetypes.
+
+    These values preserve historical damage rolls but are deliberately read from
+    the bundled engine catalog, never a selected fiction pack.
+    """
+    data = json.loads((Path(__file__).with_name("data") / "actors.json").read_text(encoding="utf-8"))
+    tokens = {identity: str(row["name"]) for identity, row in data["ENEMY_ARCHETYPES"].items()}
+    for section in ("FRONTIER_ACTORS", "EXPANDED_STANDARD_ACTORS"):
+        tokens.update({str(row[0]): str(row[2]) for row in data[section]})
+    tokens.update({str(row[0]): str(row[2]) for row in data["FRONTIER_ELITES"]["rows"]})
+    return tokens
+
+
+_BUNDLED_COMBAT_NAME_TOKENS = _bundled_combat_name_tokens()
+_BUNDLED_COMBAT_NAME_TOKENS.update({
+    "wheel-train": "runaway crown wheel",
+    "floodgate-claimant": "floodgate claimant",
+    "hearth-elite-claimant": "floodgate claimant",
+})
+
+
+def combat_seed_identity(threat: Threat) -> str:
+    """Return an engine-owned historical combat token for a threat.
+
+    Display names can change with presentation.  The token intentionally keeps
+    the bundled default wording only to preserve established deterministic
+    combat rolls; unknown stable actors fall back to their engine ID.
+    """
+    return _BUNDLED_COMBAT_NAME_TOKENS.get(threat.archetype_id or "", _BUNDLED_COMBAT_NAME_TOKENS.get(threat.id, threat.id))
+
+
 def legacy_combat_damage_seed(source_id: str, **values: str) -> str:
     """Return the historical seed for a stable combat source identity."""
     return _LEGACY_COMBAT_DAMAGE_SEEDS[source_id].format(**values)
@@ -887,14 +921,15 @@ def stage_rng(seed: str, stage: str) -> random.Random:
 
 def _household(seed: str) -> list[Person]:
     rng = stage_rng(seed, "household")
-    first, family = list(FIRST_NAMES), list(FAMILY_NAMES)
+    first, family = list(range(len(FIRST_NAMES))), list(range(len(FAMILY_NAMES)))
     rng.shuffle(first)
     rng.shuffle(family)
+    from .people_presentation import household_family_name, household_first_name
     people: list[Person] = []
     for index, role in enumerate(ROLES):
         health = 12 if role == "guard" else 10
         people.append(Person(
-            id=f"crew-{index + 1}", name=f"{first[index]} {family[index]}", role=role,
+            id=f"crew-{index + 1}", name=f"{household_first_name(first[index])} {household_family_name(family[index])}", role=role,
             equipment=list(ROLE_EQUIPMENT[role]), technique=ROLE_TECHNIQUE[role],
             relationships={}, health=health, max_health=health,
         ))
@@ -997,19 +1032,22 @@ def _region(seed: str) -> tuple[Region, Contact]:
     from .region_presentation import region_display_name
     from .topology import build_region
 
-    context = dict(stage_rng(seed, "regional-context").choice(REGIONAL_CONTEXTS))
+    context_index = stage_rng(seed, "regional-context").randrange(len(REGIONAL_CONTEXTS))
+    context = dict(REGIONAL_CONTEXTS[context_index])
+    from .people_presentation import contact_name, contact_role, regional_context
+    context_presentation = regional_context(context_index)
     spatial = build_region(seed)
     contact_rng = stage_rng(seed, "contact")
     contact = Contact(
-        id="hearthford-contact", name=contact_rng.choice(CONTACT_NAMES),
-        role=contact_rng.choice(("weir keeper", "mill factor", "quay reeve")),
+        id="hearthford-contact", name=contact_name(contact_rng.randrange(len(CONTACT_NAMES))),
+        role=contact_role(contact_rng.randrange(3)),
         disposition=contact_rng.choice((-1, 0, 1)), memories=[], interest=context["commodity"],
         region_id="hearthford", position=spatial["landmarks"]["contact"],
     )
     region = Region(
-        condition=context["condition"], work=context["work"], pressure=context["pressure"],
-        objective_text=context["objective"], objective_commodity=context["commodity"],
-        opportunity_commodity=context["opportunity"], hazard=context["hazard"],
+        condition=context_presentation["condition"], work=context_presentation["work"], pressure=context_presentation["pressure"],
+        objective_text=context_presentation["objective"], objective_commodity=context["commodity"],
+        opportunity_commodity=context["opportunity"], hazard=context_presentation["hazard"],
         name=region_display_name("hearthford"),
         **spatial,
     )
@@ -1818,6 +1856,8 @@ def game_state_from_dict(data: Any) -> GameState:
         migrate_legacy_chemistry_state(state)
     except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise StateError(f"malformed save: {exc}") from exc
+    from .people import normalize_personal_return_state
+    normalize_personal_return_state(state)
     from .practices import stable_practice_id
     for person in [*state.household, *state.visitors, state.bartender, state.merchant]:
         person.learned_techniques = [stable_practice_id(value) for value in person.learned_techniques]

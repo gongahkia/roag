@@ -61,7 +61,7 @@ VISUAL_SECTIONS = (
 
 CONTENT_PACK_FORMAT = 1
 CONTENT_PACK_ENVIRONMENT = "JOMON_CONTENT_PACK"
-REGION_CONTRACT_FORMAT = 3
+REGION_CONTRACT_FORMAT = 4
 # The existing contract format applies to the complete selected-pack
 # presentation surface, not only the historical regional file name.
 PRESENTATION_CONTRACT_FORMAT = REGION_CONTRACT_FORMAT
@@ -776,7 +776,7 @@ _ACTION_TEMPLATE_CONTRACT.update({'combat.attack.effect.partial_cover': (), 'com
 _ACTION_TEMPLATE_CONTRACT.update({'combat.intent.favors_an_injured_lower_limb_and_loses_ground': (), 'combat.intent.cuts_free_of_the_net_before_acting_again': (), 'combat.intent.cannot_claim_a_publicly_witnessed_and_dogged_sluice': (), 'combat.intent.cannot_claim_witnessed_wreck_property': (), 'combat.intent.cannot_close_the_dogged_tide_chain': (), 'combat.intent.hauls_the_tide_chain_the_three_marked_flats_flood_next_turn': (), 'combat.intent.will_not_burn_the_witnessed_medicine_stand': (), 'combat.intent.loses_control_of_the_crosswind_burn': (), 'combat.intent.drives_smoke_across_three_paces_of_your_current_route': (), 'combat.intent.cannot_break_a_crossing_under_the_honest_warning': (), 'combat.intent.cannot_release_the_braced_rock_face': (), 'combat.intent.signals_allies_toward_your_last_known_position': (), 'combat.intent.hauls_the_marked_net_line': (), 'combat.intent.recovers_the_empty_net_line': (), 'combat.intent.feeds_smoke_into_a_short_lane_from_its_station': (), 'combat.intent.covers_a_wounded_ally_s_marked_withdrawal': (), 'combat.intent.withdraws_toward_cover': (), 'combat.intent.retreated': (), 'combat.intent.escapes_with_visible_stolen_cargo': (), 'combat.intent.watching': (), 'combat.intent.investigates_a_last_known_position': (), 'combat.intent.holds_without_a_perceived_courier_position': (), 'combat.intent.moves_for_a_clear_line': (), 'combat.intent.evaded': (), 'combat.intent.circles_before_another_charge': (), 'combat.intent.lowers_its_head_and_charges_next_turn': (), 'combat.intent.recovers_before_another_attack': (), 'combat.intent.holds_where_the_route_is_blocked': ()})
 
 _ACTION_TEMPLATE_CONTRACT.update({'combat.intent.recovers_position_before_acting_again': (), 'combat.intent.breaks_contact': ('reason',), 'combat.intent.escaped_with_stolen_cargo': (), 'combat.intent.finds_no_courier': (), 'combat.intent.bogged_in_mud': (), 'combat.intent.attack_warning_reach': (), 'combat.intent.attack_warning_melee': ()})
-_ACTION_TEMPLATE_CONTRACT.update({'social.courier.unavailable': (), 'social.courier.ready': ('courier',), 'social.courier.selected': ('courier', 'role'), 'social.recruit.face_to_face': (), 'social.recruit.kit': (), 'social.recruit.unavailable': (), 'social.recruit.berths_full': ('capacity',), 'social.recruit.joined_memory': ('visitor', 'witnessed'), 'social.recruit.accepted': ('visitor',), 'social.recruit.defer.unavailable': (), 'social.recruit.defer.success': (), 'social.objective.unavailable': (), 'social.objective.alter_unavailable': (), 'social.objective.invalid_decision': (), 'social.objective.accepted': ('courier',), 'social.objective.refused': ('courier', 'region'), 'social.objective.altered': ('courier',), 'social.objective.completed_memory': ('courier', 'region', 'method'), 'social.objective.completed': ('region', 'method'), 'social.objective.reduced_account': ('courier', 'condition', 'commodity'), 'social.objective.reduced_result': ('condition', 'loss'), 'social.negotiate.unavailable': (), 'social.negotiate.no_human': (), 'social.negotiate.no_terms': (), 'social.negotiate.elite_evidence': (), 'social.negotiate.violence_evidence': (), 'intent.social.negotiated': (), 'social.negotiate.drawback': (), 'social.negotiate.memory': ('courier', 'count'), 'social.negotiate.success': ('count', 'drawback'), 'social.contact.objective': ('contact',), 'social.contact.inspect': ('contact',), 'social.contact.speak': ('contact',), 'social.contact.regional_ready': ('contact',), 'social.contact.arc_ready': ('contact',), 'social.contact.sanctum': ('contact',), 'social.contact.traveller': ('contact',), 'social.incident.pending': ('first', 'second', 'cause'), 'social.incident.record': ('first', 'second', 'kind', 'cause'), 'social.incident.none': (), 'social.incident.mediate': ('first', 'second'), 'social.incident.side_first': ('first', 'second'), 'social.incident.fight': (), 'social.incident.invalid_response': (), 'social.incident.resolved_record': ('kind', 'text', 'cause'), 'social.incident.unavailable': (), 'social.merchant.unavailable': (), 'social.merchant.insufficient_credit': ('cost', 'credit'), 'social.merchant.memory': ('cost', 'item', 'merchant'), 'social.merchant.sold_memory': ('item', 'courier', 'region'), 'social.merchant.purchased': ('item',), 'social.claimant.none': (), 'social.claimant.requirements': (), 'intent.social.claimant_settled': (), 'social.claimant.contact_memory': ('actor',), 'social.claimant.settled': ('contact', 'actor'), 'social.move.person_occupies': ('person',), 'social.interact.person': ('person',), 'social.interact.bartender': ('bartender',)})
+_ACTION_TEMPLATE_CONTRACT.update({'social.courier.unavailable': (), 'social.courier.ready': ('courier',), 'social.courier.selected': ('courier', 'role'), 'social.recruit.face_to_face': (), 'social.recruit.kit': (), 'social.recruit.unavailable': (), 'social.recruit.berths_full': ('capacity',), 'social.recruit.joined_memory': ('visitor', 'witnessed'), 'social.recruit.accepted': ('visitor',), 'social.recruit.visiting': ('visitor', 'role'), 'social.recruit.defer.unavailable': (), 'social.recruit.defer.success': (), 'social.objective.unavailable': (), 'social.objective.alter_unavailable': (), 'social.objective.invalid_decision': (), 'social.objective.accepted': ('courier',), 'social.objective.refused': ('courier', 'region'), 'social.objective.altered': ('courier',), 'social.objective.completed_memory': ('courier', 'region', 'method'), 'social.objective.completed': ('region', 'method'), 'social.objective.reduced_account': ('courier', 'condition', 'commodity'), 'social.objective.reduced_result': ('condition', 'loss'), 'social.negotiate.unavailable': (), 'social.negotiate.no_human': (), 'social.negotiate.no_terms': (), 'social.negotiate.elite_evidence': (), 'social.negotiate.violence_evidence': (), 'intent.social.negotiated': (), 'social.negotiate.drawback': (), 'social.negotiate.memory': ('courier', 'count'), 'social.negotiate.success': ('count', 'drawback'), 'social.contact.objective': ('contact',), 'social.contact.inspect': ('contact',), 'social.contact.speak': ('contact',), 'social.contact.regional_ready': ('contact',), 'social.contact.arc_ready': ('contact',), 'social.contact.sanctum': ('contact',), 'social.contact.traveller': ('contact',), 'social.incident.pending': ('first', 'second', 'cause'), 'social.incident.record': ('first', 'second', 'kind', 'cause'), 'social.incident.none': (), 'social.incident.mediate': ('first', 'second'), 'social.incident.side_first': ('first', 'second'), 'social.incident.fight': (), 'social.incident.invalid_response': (), 'social.incident.resolved_record': ('kind', 'text', 'cause'), 'social.incident.unavailable': (), 'social.merchant.unavailable': (), 'social.merchant.insufficient_credit': ('cost', 'credit'), 'social.merchant.memory': ('cost', 'item', 'merchant'), 'social.merchant.sold_memory': ('item', 'courier', 'region'), 'social.merchant.purchased': ('item',), 'social.claimant.none': (), 'social.claimant.requirements': (), 'intent.social.claimant_settled': (), 'social.claimant.contact_memory': ('actor',), 'social.claimant.settled': ('contact', 'actor'), 'social.move.person_occupies': ('person',), 'social.interact.person': ('person',), 'social.interact.bartender': ('bartender',)})
 
 _ACTION_TEMPLATE_CONTRACT.update({
     "social.incident.cause.assistance_known": ("helper", "injured", "injury"),
@@ -890,6 +890,14 @@ _LANDSCAPE_TOPOLOGY_TEMPLATE_CONTRACT = {
     "topology.landform.link.upper": ("structure",), "topology.landform.link.lower": ("structure",), "topology.landform.fact.pocket": ("landform", "x", "y", "glyph"), "topology.landform.fact.structure": ("structure", "x", "y", "z"), "topology.landform.fact.legacy": ("text",),
     "topology.landform.event.limit": (), "topology.landform.event.occupied": (), "topology.landform.event.none": (), "topology.landform.event.threat": ("actor", "x", "y", "goal"), "topology.landform.traveller.existing": ("traveller",), "topology.landform.traveller.unavailable": (), "topology.landform.traveller.role": (), "topology.landform.traveller.memory": ("landform",), "topology.landform.traveller.schedule": (), "topology.landform.traveller.arrival": ("traveller", "x", "y"), "topology.landform.event.stonefall": ("landform", "x", "y"), "topology.landform.event.stonefall.none": (), "topology.landform.event.structure_fall": ("structure", "x", "y"), "topology.landform.event.structure_fall.none": (), "topology.landform.traveller.none": (), "topology.landform.traveller.clue.used": (), "topology.landform.traveller.clue.memory": ("x", "y", "courier"), "topology.landform.traveller.clue.result": ("traveller", "structure", "x", "y"), "topology.landform.traveller.lot.used": (), "topology.landform.traveller.lot.credit": (), "topology.landform.traveller.lot.result": ("commodity", "placement"), "topology.landform.traveller.lot.packed": (), "topology.landform.traveller.lot.ground": (), "topology.landform.traveller.lot.provenance": ("traveller",), "topology.landform.traveller.invalid": (), "topology.landform.overlay.title": ("traveller",), "topology.landform.overlay.summary": ("structure", "commodity"), "topology.landform.overlay.guidance": (), "topology.landform.overlay.clue.label": (), "topology.landform.overlay.clue.requirement": (), "topology.landform.overlay.lot.label": ("commodity",), "topology.landform.overlay.lot.requirement": (), "topology.discovery.reveal": ("cache", "clue"), "topology.discovery.wayfinding": ("courier", "region"),
 }
+_TOPOLOGY_TEMPLATE_CONTRACT.update({
+    **{f"topology.navigation.landmark.{key}": () for key in ("landing", "contact", "second_contact", "settlement", "objective", "cave_entrance", "elevated", "high_view", "works", "store", "ruin", "far_bank", "sanctum_entry", "sanctum_shrine", "sanctum_undercroft", "sanctum_ward", "sanctum_boss", "sanctum_side_stair", "sanctum_secret")},
+    "topology.navigation.container": ("name", "status"),
+    "topology.navigation.link": ("name", "level"),
+    **{f"topology.navigation.route.{key}": placeholders for key, placeholders in {
+        "changed": (), "reached": (), "position_changed": (), "next_missing": (), "danger": (), "unsafe": (), "step_failed": (), "new_danger": (), "new_alert": (), "new_hazard": (), "weather": ("weather",), "condition": ("condition",), "load": (), "injury": (), "sound": (),
+    }.items()},
+})
 _TOPOLOGY_TEMPLATE_CONTRACT.update(_LANDSCAPE_TOPOLOGY_TEMPLATE_CONTRACT)
 
 _TOPOLOGY_TEMPLATE_CONTRACT.update({
@@ -993,6 +1001,11 @@ _HISTORY_TEMPLATE_CONTRACT = {
     'history.forecast.next': ('remaining', 'process'),
     'history.forecast.changed': ('process',),
     'history.forecast': ('season', 'exposure', 'stage'),
+    'history.ledger.sanctum': ('control', 'seam'),
+    'history.ledger.forecast_line': ('forecast',),
+    'history.ledger.settlement': ('branch', 'completed'),
+    'history.ledger.contract': ('title', 'status', 'cause'),
+    'history.ledger.aftermath_heading': ('opening',),
 }
 
 # Stable engine service keys and their permitted presentation templates.  These
@@ -1078,6 +1091,24 @@ class CharacterPresentation:
     initial_memory: str | None = None
     build_tendency: str | None = None
     role_label: str | None = None
+
+
+@dataclass(frozen=True)
+class PeoplePresentation:
+    """Immutable selected-pack presentation for generated people."""
+
+    names: tuple[tuple[str, str], ...]
+    contexts: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+    recruits: tuple[tuple[str, tuple[tuple[str, str], ...]], ...]
+
+    def name(self, slot: str) -> str:
+        return dict(self.names)[slot]
+
+    def context(self, slot: str) -> dict[str, str]:
+        return dict(dict(self.contexts)[slot])
+
+    def recruit(self, recruit_id: str) -> dict[str, str]:
+        return dict(dict(self.recruits)[recruit_id])
 
 
 @dataclass(frozen=True)
@@ -1378,6 +1409,7 @@ class ContentPack:
     region_presentations: tuple[RegionPresentation, ...]
     character_presentations: tuple[CharacterPresentation, ...]
     role_presentations: tuple[RolePresentation, ...]
+    people_presentation: PeoplePresentation
     item_presentations: tuple[ItemPresentation, ...]
     ui_presentations: tuple[UiPresentation, ...]
     quest_presentations: tuple[QuestPresentation, ...]
@@ -1431,6 +1463,15 @@ class ContentPack:
             if presentation.engine_id == engine_id:
                 return presentation
         raise KeyError(f"unknown engine role id: {engine_id}")
+
+    def people_name(self, slot: str) -> str:
+        return self.people_presentation.name(slot)
+
+    def people_context(self, slot: str) -> dict[str, str]:
+        return self.people_presentation.context(slot)
+
+    def people_recruit(self, recruit_id: str) -> dict[str, str]:
+        return self.people_presentation.recruit(recruit_id)
 
     def item_presentation(self, engine_id: str) -> ItemPresentation:
         for presentation in self.item_presentations:
@@ -1655,8 +1696,8 @@ def _content_contract_document() -> tuple[Path, dict[str, Any]]:
         document = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_reject_constant)
     except (OSError, ValueError, RecursionError) as exc:
         raise RuntimeError(f"invalid engine content contract at {source}: {exc}") from exc
-    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology", "tavern_games", "dullest_dungeon"}:
-        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, and dullest_dungeon")
+    if not isinstance(document, dict) or set(document) != {"format_version", "regions", "characters", "roles", "people", "items", "ui", "quests", "services", "history", "aftermath", "worklines", "interference", "legendary", "topology", "actions", "vessel", "travel", "ship_crisis", "vehicle", "chemistry", "production", "magic", "progression", "equipment", "preparations", "materials", "sanctums", "situations", "circuits", "ecology", "tavern_games", "dullest_dungeon"}:
+        raise RuntimeError(f"invalid engine content contract at {source}: expected format_version, regions, characters, roles, people, items, ui, quests, services, history, aftermath, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, and dullest_dungeon")
     if type(document["format_version"]) is not int or document["format_version"] != REGION_CONTRACT_FORMAT:
         raise RuntimeError(f"invalid engine content contract at {source}: unsupported format_version")
     return source, document
@@ -1915,7 +1956,7 @@ def _region_presentations(root: Path, pack_id: str) -> tuple[RegionPresentation,
 
 def _character_presentations(
     root: Path, pack_id: str,
-) -> tuple[tuple[CharacterPresentation, ...], tuple[RolePresentation, ...], str]:
+) -> tuple[tuple[CharacterPresentation, ...], tuple[RolePresentation, ...], PeoplePresentation, str]:
     source = root / CHARACTER_PRESENTATION_FILE
     try:
         text = source.read_text(encoding="utf-8")
@@ -1924,16 +1965,16 @@ def _character_presentations(
         raise ContentPackError(
             f"invalid character presentation for content pack {pack_id!r} at {source}: {exc}"
         ) from exc
-    if not isinstance(document, dict) or set(document) != {"characters", "roles", "household"}:
+    if not isinstance(document, dict) or set(document) != {"characters", "roles", "people", "household"}:
         raise ContentPackError(
             f"invalid character presentation for content pack {pack_id!r} at {source}: "
-            "expected characters, roles, and household"
+            "expected characters, roles, people, and household"
         )
-    characters, roles, household = document["characters"], document["roles"], document["household"]
-    if not isinstance(characters, dict) or not isinstance(roles, dict) or not isinstance(household, dict):
+    characters, roles, people, household = document["characters"], document["roles"], document["people"], document["household"]
+    if not isinstance(characters, dict) or not isinstance(roles, dict) or not isinstance(people, dict) or not isinstance(household, dict):
         raise ContentPackError(
             f"invalid character presentation for content pack {pack_id!r} at {source}: "
-            "characters, roles, and household must be objects"
+            "characters, roles, people, and household must be objects"
         )
     character_slots, role_slots = character_contract(), role_contract()
     expected_characters, expected_roles = {slot.id for slot in character_slots}, {slot.id for slot in role_slots}
@@ -1992,6 +2033,59 @@ def _character_presentations(
                 f"{path}.display_label must be a non-empty string"
             )
         role_presentations.append(RolePresentation(slot.id, slot.engine_id, display_label))
+    # Engine-owned slot counts keep pack text cardinality and ordering out of mechanics.
+    contract_source, engine_contract = _content_contract_document()
+    people_contract = engine_contract.get("people")
+    expected_people_contract = {
+        "first_name_slots": [f"first_{index}" for index in range(20)],
+        "family_name_slots": [f"family_{index}" for index in range(20)],
+        "contact_name_slots": [f"contact_{index}" for index in range(4)],
+        "contact_role_slots": [f"role_{index}" for index in range(3)],
+        "context_slots": [f"context_{index}" for index in range(3)],
+        "recruit_ids": ["recruit-maelin", "recruit-jessa", "recruit-orra", "recruit-bran", "recruit-teren", "recruit-sava"],
+        "context_fields": ["condition", "work", "pressure", "objective", "hazard"],
+        "recruit_fields": ["ancestry", "name", "role", "technique", "background", "build_tendency", "terms", "memory"],
+    }
+    if people_contract != expected_people_contract:
+        raise RuntimeError(f"invalid engine people content contract at {contract_source}: people does not match stable slot contract")
+    first_name_count, family_name_count, contact_name_count, context_count = 20, 20, 4, 3
+    recruit_ids = tuple(expected_people_contract["recruit_ids"])
+    expected_people = {"first_names", "family_names", "contact_names", "contact_roles", "contexts", "recruits"}
+    if not isinstance(people, dict) or set(people) != expected_people:
+        raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people has missing or unknown sections")
+    expected_names = {
+        "first_names": {f"first_{index}" for index in range(first_name_count)},
+        "family_names": {f"family_{index}" for index in range(family_name_count)},
+        "contact_names": {f"contact_{index}" for index in range(contact_name_count)},
+        "contact_roles": {f"role_{index}" for index in range(3)},
+    }
+    names: list[tuple[str, str]] = []
+    for section, expected in expected_names.items():
+        rows = people[section]
+        if not isinstance(rows, dict) or set(rows) != expected or any(not isinstance(value, str) or not value.strip() for value in rows.values()):
+            raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people.{section} has missing, unknown, or empty text")
+        names.extend((key, value) for key, value in rows.items())
+    context_fields = {"condition", "work", "pressure", "objective", "hazard"}
+    contexts = people["contexts"]
+    expected_contexts = {f"context_{index}" for index in range(context_count)}
+    if not isinstance(contexts, dict) or set(contexts) != expected_contexts:
+        raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people.contexts has missing or unknown slots")
+    frozen_contexts = []
+    for key, row in contexts.items():
+        if not isinstance(row, dict) or set(row) != context_fields or any(not isinstance(value, str) or not value.strip() for value in row.values()):
+            raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people.contexts.{key} is invalid")
+        frozen_contexts.append((key, tuple(sorted(row.items()))))
+    recruit_fields = {"ancestry", "name", "role", "technique", "background", "build_tendency", "terms", "memory"}
+    recruits = people["recruits"]
+    expected_recruits = set(recruit_ids)
+    if not isinstance(recruits, dict) or set(recruits) != expected_recruits:
+        raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people.recruits has missing or unknown slots")
+    frozen_recruits = []
+    for key, row in recruits.items():
+        if not isinstance(row, dict) or set(row) != recruit_fields or any(not isinstance(value, str) or not value.strip() for value in row.values()):
+            raise ContentPackError(f"invalid character presentation for content pack {pack_id!r} at {source}: people.recruits.{key} is invalid")
+        frozen_recruits.append((key, tuple(sorted(row.items()))))
+    people_presentation = PeoplePresentation(tuple(sorted(names)), tuple(sorted(frozen_contexts)), tuple(sorted(frozen_recruits)))
     if set(household) != {"character_creation_background"}:
         raise ContentPackError(
             f"invalid character presentation for content pack {pack_id!r} at {source}: "
@@ -2005,7 +2099,7 @@ def _character_presentations(
             f"invalid character presentation for content pack {pack_id!r} at {source}: "
             "household.character_creation_background must contain ancestry, origin, and role_label placeholders"
         )
-    return tuple(presentations), tuple(role_presentations), template
+    return tuple(presentations), tuple(role_presentations), people_presentation, template
 
 
 def _item_presentations(root: Path, pack_id: str) -> tuple[ItemPresentation, ...]:
@@ -3059,7 +3153,7 @@ def load_content_pack(path: str | Path) -> ContentPack:
             f"content pack {pack_id!r} at {root}: missing required catalog "
             + ", ".join(missing_catalogs)
         )
-    characters, roles, household_template = _character_presentations(root, pack_id)
+    characters, roles, people, household_template = _character_presentations(root, pack_id)
     items = _item_presentations(root, pack_id)
     ui = _ui_presentations(root, pack_id)
     quests, services = _quest_presentations(root, pack_id)
@@ -3089,7 +3183,7 @@ def load_content_pack(path: str | Path) -> ContentPack:
     aftermath, aftermath_openings, aftermath_actions, aftermath_results = _aftermath_presentations(root, pack_id)
     return ContentPack(
         pack_id, display_name, format_version, root, catalog_root,
-        _region_presentations(root, pack_id), characters, roles, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, dullest_dungeon, household_template,
+        _region_presentations(root, pack_id), characters, roles, people, items, ui, quests, services, history, aftermath, aftermath_openings, aftermath_actions, aftermath_results, worklines, interference, legendary, topology, actions, vessel, travel, ship_crisis, vehicle, chemistry, production, magic, progression, equipment, preparations, materials, sanctums, situations, circuits, ecology, tavern_games, dullest_dungeon, household_template,
     )
 
 

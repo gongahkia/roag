@@ -37,7 +37,7 @@ from .inventory import (
 )
 from .state import (
     CommodityStack, GameState, Person, Position, SoundEvent, Threat,
-    legacy_combat_damage_seed, legacy_threat_intent_id, stage_rng,
+    legacy_combat_damage_seed, combat_seed_identity, legacy_threat_intent_id, stage_rng,
 )
 from .tavern_games import another_game_active
 from .work_weapons import WORK_WEAPONS
@@ -1095,7 +1095,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                     movement = action_format("combat.threat.skirmish") if threat.position != old else ""
                 kind = "blunt" if threat.ranged_kind == "sling" else "pierce"
                 source_seed = legacy_combat_damage_seed(
-                    "threat.ranged", threat=threat.name, weapon=threat.ranged_kind,
+                    "threat.ranged", threat=combat_seed_identity(threat), weapon=threat.ranged_kind,
                 )
                 return apply_damage(
                     state, harm,
@@ -1121,7 +1121,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             _set_combat_intent(threat, "combat.intent.circles_before_another_charge")
             if guarded:
                 return action_format("combat.threat.animal_guard", threat=threat.name)
-            source_seed = legacy_combat_damage_seed("threat.animal_charge", threat=threat.name)
+            source_seed = legacy_combat_damage_seed("threat.animal_charge", threat=combat_seed_identity(threat))
             return apply_damage(
                 state, 3,
                 action_format("combat.threat.animal_charge_source", threat=threat.name),
@@ -1138,7 +1138,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             _set_combat_intent(threat, "combat.intent.recovers_before_another_attack")
             wear_readied_weapon(state, threat)
             harm = max(1, 3 - enemy_attack_penalty(state, threat))
-            source_seed = legacy_combat_damage_seed("threat.melee", threat=threat.name)
+            source_seed = legacy_combat_damage_seed("threat.melee", threat=combat_seed_identity(threat))
             return apply_damage(
                 state, harm,
                 action_format("combat.threat.melee_source", threat=threat.name),

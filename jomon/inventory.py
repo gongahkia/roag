@@ -157,10 +157,10 @@ def item_spec(kind: str) -> ItemSpec:
         name = kind.split(":", 1)[1]
         from .content import PASSIVES
 
-        bulk, description = PASSIVES[name]
+        bulk, _legacy_description = PASSIVES[name]
         presentation = item_presentation(name)
         return ItemSpec(presentation.display_name, name[:2].upper(), max(1, bulk), 1, bulk,
-                        "passive", description, stack_limit=3)
+                        "passive", presentation.description, stack_limit=3)
     if kind.startswith("consumable:"):
         name = kind.split(":", 1)[1]
         from .preparations import PREPARATIONS
@@ -169,18 +169,17 @@ def item_spec(kind: str) -> ItemSpec:
             return ItemSpec(preparation_display_name(name), "PR", 1, 1, 1, "consumable", preparation_description(name), stack_limit=4)
         from .content import DISCOVERIES
 
-        description = DISCOVERIES.get(name, ("consumable", "A counted expedition supply."))[1]
         presentation = contracted_item_presentation(name)
         if presentation:
             return ItemSpec(presentation.display_name, name[:2].upper(), 1, 1, 1,
-                            "consumable", description, stack_limit=4)
+                            "consumable", presentation.description, stack_limit=4)
         from .quest_presentation import evidence_presentation_for_engine_id
 
         evidence = evidence_presentation_for_engine_id(name)
         return ItemSpec(
             evidence.evidence_name if evidence and evidence.evidence_name else name.title(),
             name[:2].upper(), 1, 1, 1, "consumable",
-            evidence.evidence_description if evidence and evidence.evidence_description else description,
+            evidence.evidence_description if evidence and evidence.evidence_description else name,
             stack_limit=4,
         )
     if kind.startswith("relic:"):

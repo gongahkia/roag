@@ -111,15 +111,20 @@ def validate_commodity_content() -> None:
         if not isinstance(definition["buyers"], tuple) or len(definition["buyers"]) < 2:
             raise ValueError(f"commodity {name!r} needs at least two material buyers")
 
-REGIONAL_CONTEXTS = _dict_rows(_PEOPLE["REGIONAL_CONTEXTS"], "REGIONAL_CONTEXTS")
-
-FIRST_NAMES = _text_rows(_PEOPLE["FIRST_NAMES"], "FIRST_NAMES")
-FAMILY_NAMES = _text_rows(_PEOPLE["FAMILY_NAMES"], "FAMILY_NAMES")
+# The people catalog retains bundled prose only for explicit legacy tooling.
+# Runtime generation uses fixed slot counts and selected-pack people presentation.
+REGIONAL_CONTEXTS = tuple({key: row[key] for key in ("commodity", "opportunity")} for row in _dict_rows(_PEOPLE["REGIONAL_CONTEXTS"], "REGIONAL_CONTEXTS"))
+FIRST_NAMES = tuple(range(len(_text_rows(_PEOPLE["FIRST_NAMES"], "FIRST_NAMES"))))
+FAMILY_NAMES = tuple(range(len(_text_rows(_PEOPLE["FAMILY_NAMES"], "FAMILY_NAMES"))))
 ROLES = _text_rows(_PEOPLE["ROLES"], "ROLES")
 ROLE_EQUIPMENT = _tuple_map(_PEOPLE["ROLE_EQUIPMENT"], "ROLE_EQUIPMENT", 2)
 ROLE_TECHNIQUE = _text_map(_PEOPLE["ROLE_TECHNIQUE"], "ROLE_TECHNIQUE")
 
-RECRUIT_TEMPLATES = _dict_rows(_PEOPLE["RECRUIT_TEMPLATES"], "RECRUIT_TEMPLATES")
+RECRUIT_TEMPLATES = tuple(
+    {key: row[key] for key in ("id", "role", "technique", "home_region", "equipment")}
+    for row in _dict_rows(_PEOPLE["RECRUIT_TEMPLATES"], "RECRUIT_TEMPLATES")
+)
+VISITOR_ROLE_IDS = {str(row["role"]): str(row["id"]) for row in RECRUIT_TEMPLATES}
 
 # Behavior stays direct in actions.py rather than becoming an ability schema.
 WEAPONS = _tuple_map(_GOODS["WEAPONS"], "WEAPONS", 2)
@@ -235,7 +240,7 @@ for data in ENEMY_ARCHETYPES.values():
     if not data.get("elite"):
         data.setdefault("reaction", STANDARD_REACTIONS[str(data["role"])])
 
-CONTACT_NAMES = _text_rows(_PEOPLE["CONTACT_NAMES"], "CONTACT_NAMES")
+CONTACT_NAMES = tuple(range(len(_text_rows(_PEOPLE["CONTACT_NAMES"], "CONTACT_NAMES"))))
 
 JOMON_MAP = _text_rows(_WORLD_TEXT["JOMON_MAP"], "JOMON_MAP")
 

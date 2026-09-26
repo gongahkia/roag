@@ -7,14 +7,12 @@ from .action_presentation import action_format
 from .progression_presentation import progression_format
 from .content import RECRUIT_TEMPLATES
 from .state import GameState, Person, Position, stage_rng
+from .people_presentation import recruit_presentation
 from .vessel import HOUSEHOLD_SEATS, VISITOR_SEATS, current_area
 
 BERTH_CAPACITY = 9
 PERSONAL_RETURN_MILESTONE = 2
-_TEMPLATE_FIELDS = {
-    "id", "ancestry", "name", "role", "technique", "home_region", "background",
-    "build_tendency", "equipment", "terms", "memory",
-}
+_TEMPLATE_FIELDS = {"id", "role", "technique", "home_region", "equipment"}
 if (len(RECRUIT_TEMPLATES) != 6
         or any(set(template) != _TEMPLATE_FIELDS
                or any(not isinstance(template[key], str) or not template[key]
@@ -23,7 +21,7 @@ if (len(RECRUIT_TEMPLATES) != 6
                or any(not isinstance(item, str) or not item for item in template["equipment"])
                for template in RECRUIT_TEMPLATES)
         or len({template["id"] for template in RECRUIT_TEMPLATES}) != len(RECRUIT_TEMPLATES)):
-    raise CatalogError("people.json has invalid recruit templates")
+    raise CatalogError("people.json has invalid mechanical recruit templates")
 
 
 def personal_practice(person: Person) -> str:
@@ -31,13 +29,30 @@ def personal_practice(person: Person) -> str:
     return f"practice.personal:{person.role}"
 
 
+_LEGACY_PERSONAL_RETURN_MEMORIES = frozenset(
+    f"Courier return: survived working passage through {region}."
+    for region in (
+        "Hearthford", "Greywash Tidal Reach", "Greenwold Charcoal March",
+        "Whitecairn Limestone Rise", "Dunmire Peat Isles", "Rillscar Iron Gorge",
+        "Marlbank Clay Terraces", "Frostmere Braided Estuary",
+    )
+)
+
+
+def normalize_personal_return_state(state: GameState) -> None:
+    """Perform one exact bundled-default recovery for saves lacking a counter."""
+    for person in [*state.household, *state.visitors]:
+        key = f"personal-return:{person.id}"
+        if key not in state.vessel_changes:
+            recovered = sum(memory in _LEGACY_PERSONAL_RETURN_MEMORIES for memory in person.memories)
+            if recovered:
+                state.vessel_changes[key] = recovered
+
+
 def record_personal_return(state: GameState, person: Person, region_id: str) -> str:
     """Advance one actor's bounded, embodied expedition development."""
-    prefix = "Courier return:"
-    # The counter is engine state.  Old saves lacking it can recover only the
-    # bundled-default historical marker; active-pack wording is never parsed.
     counter_key = f"personal-return:{person.id}"
-    previous = int(state.vessel_changes.get(counter_key, sum(memory.startswith(prefix) for memory in person.memories)))
+    previous = int(state.vessel_changes.get(counter_key, 0))
     state.vessel_changes[counter_key] = previous + 1
     region = state.regions[region_id]
     person.memories.append(progression_format("progression.personal.memory", region=region.name))
@@ -77,19 +92,20 @@ RECRUIT_REQUIREMENTS = {
 def create_visitors(seed: str) -> list[Person]:
     visitors: list[Person] = []
     for index, template in enumerate(RECRUIT_TEMPLATES):
+        presentation = recruit_presentation(template["id"])
         relationships = {
             f"crew-{crew}": stage_rng(seed, f"visitor-relation:{index}:{crew}").choice((-1, 0, 0, 1))
             for crew in range(1, 7)
         }
         visitors.append(Person(
-            id=template["id"], name=template["name"], role=template["role"],
-            ancestry=template["ancestry"],
-            equipment=list(template["equipment"]), technique=template["technique"],
+            id=template["id"], name=presentation["name"], role=template["role"],
+            ancestry=presentation["ancestry"],
+            equipment=list(template["equipment"]), technique=presentation["technique"],
             relationships=relationships, learned_techniques=[], health=10,
-            max_health=10, background=template["background"],
-            build_tendency=template["build_tendency"], home_region=template["home_region"],
-            recruited=False, available=True, memories=[template["memory"]],
-            recruitment_terms=template["terms"],
+            max_health=10, background=presentation["background"],
+            build_tendency=presentation["build_tendency"], home_region=template["home_region"],
+            recruited=False, available=True, memories=[presentation["memory"]],
+            recruitment_terms=presentation["terms"],
         ))
     return visitors
 
@@ -195,5 +211,6 @@ def unlock_region_visitors(state: GameState, region_id: str) -> list[str]:
             schedule.position = schedule.destination = state.tavern_positions[visitor.id]
             schedule.activity = "waiting"
         used.add(state.tavern_positions[visitor.id])
-        messages.append(f"{visitor.name}, {visitor.role}, is now visiting Jomon's tavern.")
+        from .character_presentation import role_display_name
+        messages.append(action_format("social.recruit.visiting", visitor=visitor.name, role=role_display_name(visitor.role)))
     return messages

@@ -20,7 +20,14 @@ def role_presentation(engine_id: str) -> RolePresentation | None:
 
 def role_display_name(engine_id: str) -> str:
     presentation = role_presentation(engine_id)
-    return presentation.display_label if presentation else engine_id
+    if presentation:
+        return presentation.display_label
+    # Visitor roles are stable mechanics held in the bundled people catalog;
+    # their visible titles are selected-pack presentation.
+    from .content import VISITOR_ROLE_IDS
+    from .people_presentation import recruit_presentation
+    recruit_id = VISITOR_ROLE_IDS.get(engine_id)
+    return recruit_presentation(recruit_id)["role"] if recruit_id else engine_id
 
 
 def household_background(ancestry: str, origin: str, role_id: str) -> str:

@@ -18,16 +18,174 @@
     }
   },
   "roles": {
-    "role.household_bargemaster": {"display_label": "bargemaster"},
-    "role.household_pilot": {"display_label": "pilot"},
-    "role.household_factor": {"display_label": "factor"},
-    "role.household_carpenter": {"display_label": "carpenter"},
-    "role.household_guard": {"display_label": "guard"},
-    "role.household_healer": {"display_label": "healer"},
-    "role.ship_bartender": {"display_label": "bartender"},
-    "role.ship_merchant": {"display_label": "itinerant deck factor"}
+    "role.household_bargemaster": {
+      "display_label": "bargemaster"
+    },
+    "role.household_pilot": {
+      "display_label": "pilot"
+    },
+    "role.household_factor": {
+      "display_label": "factor"
+    },
+    "role.household_carpenter": {
+      "display_label": "carpenter"
+    },
+    "role.household_guard": {
+      "display_label": "guard"
+    },
+    "role.household_healer": {
+      "display_label": "healer"
+    },
+    "role.ship_bartender": {
+      "display_label": "bartender"
+    },
+    "role.ship_merchant": {
+      "display_label": "itinerant deck factor"
+    }
   },
   "household": {
     "character_creation_background": "A {ancestry} adult raised in {origin}; now Jomon's {role_label}."
+  },
+  "people": {
+    "first_names": {
+      "first_0": "Arel",
+      "first_1": "Bera",
+      "first_2": "Corin",
+      "first_3": "Dena",
+      "first_4": "Eris",
+      "first_5": "Fara",
+      "first_6": "Galen",
+      "first_7": "Hessa",
+      "first_8": "Iven",
+      "first_9": "Jora",
+      "first_10": "Kelan",
+      "first_11": "Mira",
+      "first_12": "Neris",
+      "first_13": "Oren",
+      "first_14": "Pava",
+      "first_15": "Risa",
+      "first_16": "Soren",
+      "first_17": "Tavi",
+      "first_18": "Vela",
+      "first_19": "Warin"
+    },
+    "family_names": {
+      "family_0": "Ash",
+      "family_1": "Barrow",
+      "family_2": "Cairn",
+      "family_3": "Dike",
+      "family_4": "Elm",
+      "family_5": "Ford",
+      "family_6": "Gull",
+      "family_7": "Hearth",
+      "family_8": "Ivy",
+      "family_9": "Keel",
+      "family_10": "Lark",
+      "family_11": "Moss",
+      "family_12": "Nettle",
+      "family_13": "Pike",
+      "family_14": "Quill",
+      "family_15": "Reed",
+      "family_16": "Silt",
+      "family_17": "Thorn",
+      "family_18": "Vale",
+      "family_19": "Wren"
+    },
+    "contact_names": {
+      "contact_0": "Mara Venn",
+      "contact_1": "Tomas Reed",
+      "contact_2": "Iria Pike",
+      "contact_3": "Sela Moss"
+    },
+    "contact_roles": {
+      "role_0": "weir keeper",
+      "role_1": "mill factor",
+      "role_2": "quay reeve"
+    },
+    "contexts": {
+      "context_0": {
+        "condition": "Long rain has swollen the river and drowned the mill path.",
+        "work": "Hearthford keeps a grain mill beside a flood-damaged race.",
+        "pressure": "The mill needs ironwork before its gate tears loose.",
+        "objective": "Recover two cases of iron fittings from the stranded wheelhouse cart.",
+        "hazard": "floodwater"
+      },
+      "context_1": {
+        "condition": "A salt surge has warped sheds along the lower river edge.",
+        "work": "Hearthford cures fish and repairs coast-bound cargo boats.",
+        "pressure": "The smokehouse needs timber braces before the next tide.",
+        "objective": "Recover two timber braces from the stranded wheelhouse cart.",
+        "hazard": "rising tide"
+      },
+      "context_2": {
+        "condition": "Cold fog has delayed fuel barges and left the forges idle.",
+        "work": "Hearthford's smiths maintain mill gear and river tools.",
+        "pressure": "The smithy needs charcoal while the safe towpath is closed.",
+        "objective": "Recover two dry charcoal sacks from the stranded wheelhouse cart.",
+        "hazard": "slick sluice water"
+      }
+    },
+    "recruits": {
+      "recruit-maelin": {
+        "ancestry": "Tidekin",
+        "name": "Maelin Rook",
+        "role": "tide runner",
+        "technique": "ebb reader",
+        "background": "A salt-runner who reads firm ground from draining ripples.",
+        "build_tendency": "light armour, tide routes, and thrown weapons",
+        "terms": "Help the coast saltworks or offer two accountable credits.",
+        "memory": "Jomon once carried medicine through a closing tidal channel."
+      },
+      "recruit-jessa": {
+        "ancestry": "Human",
+        "name": "Jessa Flint",
+        "role": "netwright",
+        "technique": "cast bind",
+        "background": "A wreck-diver who knots weighted nets for surf and deck work.",
+        "build_tendency": "nets, cargo recovery, and close control",
+        "terms": "Recover a named wreck locker without abandoning its owner.",
+        "memory": "She will not call recovered property salvage while its keeper lives."
+      },
+      "recruit-orra": {
+        "ancestry": "Reedfolk",
+        "name": "Orra Fen",
+        "role": "charcoal scout",
+        "technique": "wind listener",
+        "background": "A burner-watch who follows smoke, disturbed birds, and crosswind sound.",
+        "build_tendency": "stealth, smoke, bows, and open woodland routes",
+        "terms": "Keep the forest burn from spreading into the medicine stands.",
+        "memory": "Orra remembers which crews listened before entering the burnwood."
+      },
+      "recruit-bran": {
+        "ancestry": "Human",
+        "name": "Bran Wold",
+        "role": "resin healer",
+        "technique": "green poultice",
+        "background": "A travelling adult healer who trades resin dressings for safe passage.",
+        "build_tendency": "injury control, thorns, and patient expeditions",
+        "terms": "Bring the wounded charcoal reeve home or settle their care.",
+        "memory": "Bran judges households by how they return with wounded companions."
+      },
+      "recruit-teren": {
+        "ancestry": "Stonefolk",
+        "name": "Teren Chalk",
+        "role": "quarry climber",
+        "technique": "scree step",
+        "background": "A face-worker who knows limestone fractures and suspended loads.",
+        "build_tendency": "heavy tools, climbing, and breakable terrain",
+        "terms": "Stabilise the quarry bridge or prove a safer route around it.",
+        "memory": "Teren left a crew that treated preventable rockfall as fate."
+      },
+      "recruit-sava": {
+        "ancestry": "Human",
+        "name": "Sava Bell",
+        "role": "ridge ward",
+        "technique": "high arc",
+        "background": "A shepherd-ward who uses sling arcs beyond cliff-edge cover.",
+        "build_tendency": "sling fire, height, light loads, and lookout control",
+        "terms": "Break the false toll alarm without harming the upland carriers.",
+        "memory": "Sava remembers every warning bell rung for private profit."
+      }
+    }
   }
 }

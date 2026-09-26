@@ -182,17 +182,9 @@ def character_sheet(person: Person) -> list[str]:
         ui_format("ui.character.sheet.health", health=person.health, maximum=person.max_health, injury=person.injury),
         ui_text("ui.character.sheet.attributes"),
     ]
-    explanations = {
-        "strength": "2 carrying weight per modifier",
-        "agility": "fieldcraft and quiet passage",
-        "endurance": "2 starting health per modifier",
-        "perception": "sight and wayfinding",
-        "intellect": "strategy and craft",
-        "presence": "speech and mediation",
-    }
     for name in ATTRIBUTES:
         modifier = attribute_modifier(person, name)
-        rows.append(ui_format("ui.character.sheet.attribute", name=f"{name.title():12}", value=f"{person.attributes[name]:2}", modifier=f"{modifier:+d}", explanation=explanations[name]))
+        rows.append(ui_format("ui.character.sheet.attribute", name=f"{name.title():12}", value=f"{person.attributes[name]:2}", modifier=f"{modifier:+d}", explanation=ui_text(f"ui.character.attribute.{name}")))
     rows.append(ui_text("ui.character.sheet.competencies"))
     for name in COMPETENCIES:
         rows.append(ui_format("ui.character.sheet.competency", name=f"{name.title():12}", base=f"{getattr(person, name):2}", effective=f"{effective_competency(person, name):2}"))

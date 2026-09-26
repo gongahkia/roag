@@ -70,6 +70,11 @@
     "history.ledger.reading": "Reading uses no stores; fieldwork calls for supplies and a shift of daylight.",
     "history.forecast.next": "{remaining} more working actions to the next {process} sign",
     "history.forecast.changed": "the {process} has changed; inspect its material aftermath",
-    "history.forecast": "{season}; {exposure} water; {stage}."
+    "history.forecast": "{season}; {exposure} water; {stage}.",
+    "history.ledger.sanctum": "SANCTUM \u2014 cleared; holding {control}; gallery seam {seam}.",
+    "history.ledger.forecast_line": "FORECAST \u2014 {forecast}",
+    "history.ledger.settlement": "Settlement {branch}; {completed}/2 contracts settled.",
+    "history.ledger.contract": "{title}: {status}; {cause}.",
+    "history.ledger.aftermath_heading": "AFTERMATH \u2014 {opening}"
   }
 }

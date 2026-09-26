@@ -1,5 +1,5 @@
 {
-  "format_version": 3,
+  "format_version": 4,
   "regions": [
     {
       "id": "region.family_1",
@@ -2244,6 +2244,36 @@
       "id": "ui.terminal.chronicle.sealed",
       "placeholders": [],
       "max_length": null
+    },
+    {
+      "id": "ui.character.attribute.strength",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.character.attribute.agility",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.character.attribute.endurance",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.character.attribute.perception",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.character.attribute.intellect",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.character.attribute.presence",
+      "placeholders": [],
+      "max_length": 80
     }
   ],
   "quests": [
@@ -2906,6 +2936,40 @@
         "season",
         "exposure",
         "stage"
+      ]
+    },
+    {
+      "id": "history.ledger.sanctum",
+      "placeholders": [
+        "control",
+        "seam"
+      ]
+    },
+    {
+      "id": "history.ledger.forecast_line",
+      "placeholders": [
+        "forecast"
+      ]
+    },
+    {
+      "id": "history.ledger.settlement",
+      "placeholders": [
+        "branch",
+        "completed"
+      ]
+    },
+    {
+      "id": "history.ledger.contract",
+      "placeholders": [
+        "title",
+        "status",
+        "cause"
+      ]
+    },
+    {
+      "id": "history.ledger.aftermath_heading",
+      "placeholders": [
+        "opening"
       ]
     }
   ],
@@ -3778,6 +3842,160 @@
     },
     {
       "id": "topology.hearthford.container.compact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.landing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.second_contact",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.settlement",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.objective",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.cave_entrance",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.elevated",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.high_view",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.works",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.store",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.ruin",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.far_bank",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_entry",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_shrine",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_undercroft",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_ward",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_boss",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_side_stair",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.landmark.sanctum_secret",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.container",
+      "placeholders": [
+        "name",
+        "status"
+      ]
+    },
+    {
+      "id": "topology.navigation.link",
+      "placeholders": [
+        "name",
+        "level"
+      ]
+    },
+    {
+      "id": "topology.navigation.route.changed",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.reached",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.position_changed",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.next_missing",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.danger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.unsafe",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.step_failed",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.new_danger",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.new_alert",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.new_hazard",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.weather",
+      "placeholders": [
+        "weather"
+      ]
+    },
+    {
+      "id": "topology.navigation.route.condition",
+      "placeholders": [
+        "condition"
+      ]
+    },
+    {
+      "id": "topology.navigation.route.load",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.injury",
+      "placeholders": []
+    },
+    {
+      "id": "topology.navigation.route.sound",
       "placeholders": []
     },
     {
@@ -6388,6 +6606,13 @@
       "id": "social.recruit.accepted",
       "placeholders": [
         "visitor"
+      ]
+    },
+    {
+      "id": "social.recruit.visiting",
+      "placeholders": [
+        "visitor",
+        "role"
       ]
     },
     {
@@ -21406,5 +21631,92 @@
         "bartender"
       ]
     }
-  ]
+  ],
+  "people": {
+    "first_name_slots": [
+      "first_0",
+      "first_1",
+      "first_2",
+      "first_3",
+      "first_4",
+      "first_5",
+      "first_6",
+      "first_7",
+      "first_8",
+      "first_9",
+      "first_10",
+      "first_11",
+      "first_12",
+      "first_13",
+      "first_14",
+      "first_15",
+      "first_16",
+      "first_17",
+      "first_18",
+      "first_19"
+    ],
+    "family_name_slots": [
+      "family_0",
+      "family_1",
+      "family_2",
+      "family_3",
+      "family_4",
+      "family_5",
+      "family_6",
+      "family_7",
+      "family_8",
+      "family_9",
+      "family_10",
+      "family_11",
+      "family_12",
+      "family_13",
+      "family_14",
+      "family_15",
+      "family_16",
+      "family_17",
+      "family_18",
+      "family_19"
+    ],
+    "contact_name_slots": [
+      "contact_0",
+      "contact_1",
+      "contact_2",
+      "contact_3"
+    ],
+    "contact_role_slots": [
+      "role_0",
+      "role_1",
+      "role_2"
+    ],
+    "context_slots": [
+      "context_0",
+      "context_1",
+      "context_2"
+    ],
+    "recruit_ids": [
+      "recruit-maelin",
+      "recruit-jessa",
+      "recruit-orra",
+      "recruit-bran",
+      "recruit-teren",
+      "recruit-sava"
+    ],
+    "context_fields": [
+      "condition",
+      "work",
+      "pressure",
+      "objective",
+      "hazard"
+    ],
+    "recruit_fields": [
+      "ancestry",
+      "name",
+      "role",
+      "technique",
+      "background",
+      "build_tendency",
+      "terms",
+      "memory"
+    ]
+  }
 }

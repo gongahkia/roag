@@ -127,6 +127,12 @@
     "ui.terminal.navigation.known_route": "Known-route following is available during regional expeditions.",
     "ui.terminal.navigation.none": "No other seen landmark or marked store is known yet.",
     "ui.terminal.chronicle.seal_requirement": "The chronicle can be sealed aboard Jomon, beyond immediate danger.",
-    "ui.terminal.chronicle.sealed": "Jomon's chronicle is sealed."
+    "ui.terminal.chronicle.sealed": "Jomon's chronicle is sealed.",
+    "ui.character.attribute.strength": "2 carrying weight per modifier",
+    "ui.character.attribute.agility": "fieldcraft and quiet passage",
+    "ui.character.attribute.endurance": "2 starting health per modifier",
+    "ui.character.attribute.perception": "sight and wayfinding",
+    "ui.character.attribute.intellect": "strategy and craft",
+    "ui.character.attribute.presence": "speech and mediation"
   }
 }
