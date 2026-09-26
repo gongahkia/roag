@@ -39,6 +39,13 @@ local suit=assert(Equipment.find(c,produced.equipmentId),'Fabricated suit identi
 Equipment.drop(c,suit,1,worker.x,worker.y);Equipment.equip(c,suit,worker,'environment')
 assert(Equipment.equipped(c,personId,'environment')==suit,'Frontier Suit did not retain physical equip custody')
 
+-- The controlled integration fixture supplies the manifest's food at a pose
+-- that can physically return it to the docked shuttle.  The existing starter
+-- food pile is deliberately behind the generated landing ledge for this seed;
+-- using that inaccessible pile would test a blocked haul rather than the
+-- intended normal loading path below.
+World.stack(home,'food',3,worker.x,worker.y)
+
 -- The recorded route is deliberately to frontier-1, which has the fixed
 -- airless-crag archetype.  This records preparation/loading/assembly/launch
 -- so replay proves that first map creation is not a second generation path.
