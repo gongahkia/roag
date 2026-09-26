@@ -3929,6 +3929,8 @@ def intervene_socially(state: GameState, response: str) -> ActionResult:
 
 
 def use_route_stop(state: GameState, response: str) -> ActionResult:
+    from .travel_presentation import route_node_name, travel_text
+
     node = state.route_nodes.get(state.route_current_node)
     if state.location != "jomon" or node is None or node.region_id:
         return _plain(state, action_format("action.route.unavailable"))
@@ -3943,12 +3945,12 @@ def use_route_stop(state: GameState, response: str) -> ActionResult:
         state.vessel_changes[available_key] = available - 1
         stack = state.vessel_cargo.setdefault("grain", CommodityStack(0, "dry"))
         stack.quantity += 1
-        return _time_result(state, action_format("action.route.resupply.used", node=node.name), steps=2, priority=3)
+        return _time_result(state, action_format("action.route.resupply.used", node=route_node_name(node)), steps=2, priority=3)
     if response == "trade":
         commodity = node.market_interest
         stack = state.vessel_cargo.get(commodity)
         if not commodity or stack is None or stack.quantity <= 0:
-            return _plain(state, action_format("action.route.trade.unavailable", node=node.name, commodity=commodity or "no current cargo"))
+            return _plain(state, action_format("action.route.trade.unavailable", node=route_node_name(node), commodity=item_display_name_or_legacy(commodity) if commodity else travel_text("travel.route.stop.no_cargo")))
         stack.quantity -= 1
         if stack.quantity == 0:
             del state.vessel_cargo[commodity]
@@ -3957,7 +3959,7 @@ def use_route_stop(state: GameState, response: str) -> ActionResult:
         from .skill_tree import record_milestone
 
         record_milestone(state, "social:market")
-        return _time_result(state, action_format("action.route.trade.used", node=node.name, commodity=commodity), steps=2, priority=3)
+        return _time_result(state, action_format("action.route.trade.used", node=route_node_name(node), commodity=item_display_name_or_legacy(commodity)), steps=2, priority=3)
     if response == "sound":
         from .route_chart import neighbours
 
@@ -3966,5 +3968,5 @@ def use_route_stop(state: GameState, response: str) -> ActionResult:
             return _plain(state, action_format("action.route.sound.complete"))
         state.route_known.extend(revealed)
         state.route_known = sorted(set(state.route_known))
-        return _time_result(state, action_format("action.route.sound.used", nodes=", ".join(state.route_nodes[item].name for item in revealed)), priority=3)
+        return _time_result(state, action_format("action.route.sound.used", nodes=", ".join(route_node_name(state.route_nodes[item]) for item in revealed)), priority=3)
     return _plain(state, action_format("action.route.invalid"))

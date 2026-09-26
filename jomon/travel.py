@@ -8,7 +8,7 @@ from .item_presentation import item_display_name
 from .regions import activate_region, store_active_region
 from .state import GameState, stage_rng
 from .route_chart import edge_between, leg_travel_time, route_availability
-from .travel_presentation import travel_format
+from .travel_presentation import route_edge_hazard, route_node_name, travel_format, variant_cause, variant_display_name, variant_effect
 from .ship_crisis_presentation import crisis_description
 
 
@@ -43,7 +43,7 @@ def travel_animation_frames(
         paused = interrupted and step == max(1, count // 2)
         frames.append(TravelFrame(
             step, count, x, y, "~" * min(3, step),
-            travel_format("travel.frame.depart", origin=first.name) if step == 0 else travel_format("travel.frame.arrive", destination=second.name) if step == count else travel_format("travel.frame.underway", hazard=edge_between(state, origin, destination).hazard if edge_between(state, origin, destination) else "route"),
+            travel_format("travel.frame.depart", origin=route_node_name(first)) if step == 0 else travel_format("travel.frame.arrive", destination=route_node_name(second)) if step == count else travel_format("travel.frame.underway", hazard=route_edge_hazard(edge_between(state, origin, destination)) if edge_between(state, origin, destination) else travel_format("travel.route.hazard.unknown")),
             paused,
         ))
         if paused:
@@ -103,7 +103,7 @@ def choose_destination(
     if state.voyage_status == "active":
         return False, travel_format("travel.destination.active")
     if destination == state.route_current_node:
-        return False, travel_format("travel.destination.current", destination=state.route_nodes[destination].name)
+        return False, travel_format("travel.destination.current", destination=route_node_name(state.route_nodes[destination]))
     available, reason = route_availability(state, destination)
     if not available:
         return False, reason
@@ -134,12 +134,12 @@ def choose_destination(
             state.vessel_changes.pop("active_voyage_variant", None)
         state.voyage_detail = crisis_description(event)
         if variant:
-            state.voyage_detail += travel_format("travel.variant.detail", name=variant.name, cause=variant.cause, effect=variant.effect)
+            state.voyage_detail += travel_format("travel.variant.detail", name=variant_display_name(variant.id), cause=variant_cause(variant.id), effect=variant_effect(variant.id))
         state.add_message(state.voyage_detail, priority=3)
         return True, state.voyage_detail
     state.vessel_changes.pop("active_voyage_variant", None)
     _finish_travel(state, travel_format("travel.destination.uneventful"))
-    return True, travel_format("travel.destination.arrival", destination=state.route_nodes[destination].name, duration=travel_time)
+    return True, travel_format("travel.destination.arrival", destination=route_node_name(state.route_nodes[destination]), duration=travel_time)
 
 
 def _finish_travel(state: GameState, consequence: str) -> None:
@@ -172,11 +172,11 @@ def _finish_travel(state: GameState, consequence: str) -> None:
     state.pending_destination = None
     state.voyage_status = "resolved" if state.voyage_kind else "none"
     state.voyage_detail = consequence
-    state.remember(travel_format("travel.finish.memory", destination=node.name, consequence=consequence))
+    state.remember(travel_format("travel.finish.memory", destination=route_node_name(node), consequence=consequence))
     from .echoes import apply_later_echoes
 
     apply_later_echoes(state)
-    state.add_message(travel_format("travel.finish.message", consequence=consequence, destination=node.name), priority=3)
+    state.add_message(travel_format("travel.finish.message", consequence=consequence, destination=route_node_name(node)), priority=3)
 
 
 def _lose_vessel_cargo(state: GameState) -> str:

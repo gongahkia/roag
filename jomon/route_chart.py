@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections import deque
 
-from .calendar import calendar_at, seasonal_route_note
+from .calendar import calendar_at, season_display_name, seasonal_route_note
+from .item_presentation import item_display_name_or_legacy
 from .catalog import VESSEL_SECTIONS, load_catalog
 from .region_presentation import region_presentation
 from .state import GameState, RouteEdge, RouteNode, stage_rng
-from .travel_presentation import travel_format
+from .travel_presentation import route_edge_hazard, route_node_description, route_node_name, travel_format, travel_text
 
 
 _ROUTES = load_catalog("vessel.json", VESSEL_SECTIONS)
@@ -84,7 +85,7 @@ def route_availability(state: GameState, destination: str) -> tuple[bool, str]:
         return False, travel_format("travel.route.no_leg")
     season = calendar_at(state).season
     if season in edge.closed_seasons:
-        return False, travel_format("travel.route.closed", hazard=edge.hazard.title(), season=season)
+        return False, travel_format("travel.route.closed", hazard=route_edge_hazard(edge), season=season_display_name(season))
     if state.vessel_integrity < edge.integrity_required:
         return False, travel_format("travel.route.integrity", required=edge.integrity_required, current=state.vessel_integrity)
     return True, travel_format("travel.route.reachable")
@@ -92,30 +93,24 @@ def route_availability(state: GameState, destination: str) -> tuple[bool, str]:
 
 def route_preview(state: GameState, destination: str) -> list[str]:
     node = state.route_nodes[destination]
+    name, description = route_node_name(node), route_node_description(node)
+    market = travel_format("travel.route.preview.market", market=item_display_name_or_legacy(node.market_interest)) if node.market_interest else travel_text("travel.route.preview.market.none")
+    season = season_display_name(calendar_at(state).season)
+    season_line = travel_format("travel.route.preview.season", season=season, note=seasonal_route_note(state))
     if destination == state.route_current_node:
-        market = f"Market interest: {node.market_interest}." if node.market_interest else "No known cargo buyer."
-        return [
-            f"{node.name}: {node.description}",
-            "Jomon is moored here; choose a connected node to preview a leg.",
-            f"Season: {calendar_at(state).season}; {seasonal_route_note(state)}.",
-            market,
-        ]
+        return [travel_format("travel.route.preview.current", name=name, description=description), travel_text("travel.route.preview.moored"), season_line, market]
     edge = edge_between(state, state.route_current_node, destination)
     if edge is None:
-        return ["No direct charted leg."]
+        return [travel_text("travel.route.preview.no_leg")]
     available, reason = route_availability(state, destination)
-    market = f"Market interest: {node.market_interest}." if node.market_interest else "No known cargo buyer."
-    contact = "Established regional contacts." if node.region_id else "No settled contact at this mooring."
-    known = node.description if destination in state.route_known or node.known else "Soundings incomplete; details unknown."
+    contact = travel_text("travel.route.preview.contact.region") if node.region_id else travel_text("travel.route.preview.contact.none")
+    known = description if destination in state.route_known or node.known else travel_text("travel.route.preview.unknown")
     return [
-        f"{node.name}: {known}",
-        f"Leg: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}.",
-        f"Cargo exposure {edge.cargo_risk}/3; weather exposure {edge.weather_exposure}/4.",
-        f"Season: {calendar_at(state).season}; {seasonal_route_note(state)}.",
-        f"{market} {contact}",
-        "REACHABLE" if available else f"BLOCKED — {reason}",
+        travel_format("travel.route.preview.current", name=name, description=known),
+        travel_format("travel.route.preview.leg", hazard=route_edge_hazard(edge), time=leg_travel_time(state, edge), supply=edge.supply_cost),
+        travel_format("travel.route.preview.risk", cargo=edge.cargo_risk, weather=edge.weather_exposure), season_line,
+        f"{market} {contact}", travel_text("travel.route.preview.reachable") if available else travel_format("travel.route.preview.blocked", reason=reason),
     ]
-
 
 def chart_move(state: GameState, current: str, dx: int, dy: int) -> str:
     """Choose the connected node most closely aligned with an input direction."""

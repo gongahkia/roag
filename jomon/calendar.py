@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import GameState, stage_rng
+from .travel_presentation import travel_format, travel_text
 
 ACTIONS_PER_DAY = 36
 DAYS_PER_SEASON = 24
@@ -17,12 +18,16 @@ class CalendarDate:
     season: str
     day: int
     time_of_day: str
-    observance: str | None
+    observance_id: str | None
+
+    @property
+    def observance(self) -> str | None:
+        return travel_text(f"travel.calendar.observance.{self.observance_id}") if self.observance_id else None
 
     @property
     def label(self) -> str:
-        text = f"Year {self.year}, {self.season} day {self.day}, {self.time_of_day}"
-        return f"{text} — {self.observance}" if self.observance else text
+        date = travel_format("travel.calendar.date", year=self.year, season=season_display_name(self.season), day=self.day, time=time_display_name(self.time_of_day))
+        return travel_format("travel.calendar.date.observance", date=date, observance=self.observance) if self.observance else date
 
 
 def initial_origin_day(seed: str) -> int:
@@ -48,12 +53,8 @@ def calendar_at(state: GameState, world_time: int | None = None) -> CalendarDate
     else:
         time_of_day = "night"
     season, day = SEASONS[season_index], day_index + 1
-    observance = None
-    if day == 1 and season in {"spring", "autumn"}:
-        observance = f"{season} equinox"
-    elif day == DAYS_PER_SEASON // 2 and season in {"summer", "winter"}:
-        observance = f"{season} solstice"
-    return CalendarDate(year, season, day, time_of_day, observance)
+    observance_id = f"{season}-equinox" if day == 1 and season in {"spring", "autumn"} else f"{season}-solstice" if day == DAYS_PER_SEASON // 2 and season in {"summer", "winter"} else None
+    return CalendarDate(year, season, day, time_of_day, observance_id)
 
 
 def record_calendar_crossings(state: GameState, previous_time: int) -> list[str]:
@@ -66,9 +67,9 @@ def record_calendar_crossings(state: GameState, previous_time: int) -> list[str]
     for day_boundary in range(first_day + 1, last_day + 1):
         date = calendar_at(state, day_boundary * ACTIONS_PER_DAY)
         if date.day == 1:
-            events.append(f"{date.season.title()} begins in year {date.year}.")
+            events.append(travel_format("travel.calendar.event.season", season=season_display_name(date.season), year=date.year))
         if date.observance:
-            events.append(f"Jomon records the {date.observance}.")
+            events.append(travel_format("travel.calendar.event.observance", observance=date.observance))
     for event in events:
         if not state.calendar_events or state.calendar_events[-1] != event:
             state.calendar_events.append(event)
@@ -90,14 +91,14 @@ def daylight_modifier(state: GameState) -> int:
     return 0
 
 
+def season_display_name(season_id: str) -> str:
+    return travel_text(f"travel.calendar.season.{season_id}")
+
+def time_display_name(time_id: str) -> str:
+    return travel_text(f"travel.calendar.time.{time_id}")
+
 def seasonal_route_note(state: GameState) -> str:
-    season = calendar_at(state).season
-    return {
-        "spring": "high rivers and soft banks",
-        "summer": "long light and exposed shoals",
-        "autumn": "crosswinds and crowded markets",
-        "winter": "short light, ice, and cold rigging",
-    }[season]
+    return travel_text(f"travel.calendar.route_note.{calendar_at(state).season}")
 
 
 def seasonal_stock_modifier(state: GameState, drink_id: str) -> int:

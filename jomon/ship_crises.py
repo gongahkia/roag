@@ -5,6 +5,7 @@ from __future__ import annotations
 from .catalog import VESSEL_SECTIONS, load_catalog
 from .item_presentation import item_display_name_or_legacy
 from .ship_crisis_presentation import crisis_description, crisis_title, ship_crisis_format, ship_crisis_text
+from .travel_presentation import variant_cause, variant_counterplay, variant_effect
 from .state import GameState, Position, Threat
 
 _VESSEL = load_catalog("vessel.json", VESSEL_SECTIONS)
@@ -43,9 +44,9 @@ def crisis_lines(state: GameState) -> list[str]:
     variant = active_variant(state, state.voyage_kind)
     if variant:
         lines += [
-            ship_crisis_format("crisis.line.variant.cause", cause=variant.cause),
-            ship_crisis_format("crisis.line.variant.effect", effect=variant.effect),
-            ship_crisis_format("crisis.line.variant.counterplay", counterplay=variant.counterplay),
+            ship_crisis_format("crisis.line.variant.cause", cause=variant_cause(variant.id)),
+            ship_crisis_format("crisis.line.variant.effect", effect=variant_effect(variant.id)),
+            ship_crisis_format("crisis.line.variant.counterplay", counterplay=variant_counterplay(variant.id)),
         ]
     if state.vessel_changes.get("deck_crisis"):
         kind = state.voyage_kind
@@ -302,7 +303,7 @@ def work_lines(state: GameState, task: str) -> list[str]:
     from .voyage_variants import active_variant
     variant = active_variant(state, state.voyage_kind)
     if variant and task in {"emergency", "bait"}:
-        lines.append(ship_crisis_format("crisis.work.line.variant", effect=variant.effect, counterplay=variant.counterplay))
+        lines.append(ship_crisis_format("crisis.work.line.variant", effect=variant_effect(variant.id), counterplay=variant_counterplay(variant.id)))
     return lines + [ship_crisis_text("crisis.work.line.confirm")]
 
 

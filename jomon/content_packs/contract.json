@@ -9439,6 +9439,854 @@
     {
       "id": "travel.route.reachable",
       "placeholders": []
+    },
+    {
+      "id": "travel.variant.shortage-skiffs.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.shortage-skiffs.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.shortage-skiffs.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.shortage-skiffs.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.displaced-pair.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.displaced-pair.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.displaced-pair.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.displaced-pair.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-resonance.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-resonance.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-resonance.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-resonance.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.obligation-claim.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.obligation-claim.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.obligation-claim.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.obligation-claim.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.marked-shortage-lot.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.marked-shortage-lot.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.marked-shortage-lot.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.marked-shortage-lot.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.crosswind-stay.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.crosswind-stay.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.crosswind-stay.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.crosswind-stay.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-silt-tongue.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-silt-tongue.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-silt-tongue.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.returning-silt-tongue.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.fire-marked-raft.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.fire-marked-raft.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.fire-marked-raft.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.fire-marked-raft.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.grease-soaked-store.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.grease-soaked-store.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.grease-soaked-store.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.grease-soaked-store.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.worked-seam.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.worked-seam.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.worked-seam.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.worked-seam.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.thaw-surge.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.thaw-surge.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.thaw-surge.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.thaw-surge.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.counterclaim-inspection.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.counterclaim-inspection.cause",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.counterclaim-inspection.effect",
+      "placeholders": []
+    },
+    {
+      "id": "travel.variant.counterclaim-inspection.counterplay",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.shortage-skiffs.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.shortage-skiffs.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.displaced-pair.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.displaced-pair.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.returning-resonance.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.returning-resonance.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.obligation-claim.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.obligation-claim.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.marked-shortage-lot.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.marked-shortage-lot.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.crosswind-stay.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.crosswind-stay.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.returning-silt-tongue.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.returning-silt-tongue.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.fire-marked-raft.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.fire-marked-raft.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.grease-soaked-store.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.grease-soaked-store.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.worked-seam.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.worked-seam.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.thaw-surge.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.thaw-surge.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.counterclaim-inspection.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.counterclaim-inspection.consequence",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.reed-anchor.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.reed-anchor.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.charter-market.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.charter-market.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.ebb-crossing.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.ebb-crossing.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.coast-refuge.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.coast-refuge.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.willow-ferry.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.willow-ferry.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.old-lock.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.old-lock.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.chalk-steps.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.chalk-steps.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.storm-post.name",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.node.storm-post.description",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.h-r.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.r-m.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.m-g.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.g-e.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.e-c.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.h-w.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.w-f.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.f-l.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.l-k.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.k-u.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.m-l.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.l-s.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.s-u.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.h-d.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.d-w.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.h-a.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.a-r.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.u-i.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.k-i.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.c-f.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.g-f.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.s-c.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.r-w.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.g-s.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.edge.f-k.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.season.spring",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.season.summer",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.season.autumn",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.season.winter",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.time.dawn",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.time.morning",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.time.afternoon",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.time.evening",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.time.night",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.observance.spring-equinox",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.observance.autumn-equinox",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.observance.summer-solstice",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.observance.winter-solstice",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.route_note.spring",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.route_note.summer",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.route_note.autumn",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.route_note.winter",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.region",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.anchorage",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.market",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.hazard",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.resupply",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.unknown",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.kind.warning",
+      "placeholders": []
+    },
+    {
+      "id": "travel.calendar.date",
+      "placeholders": [
+        "year",
+        "season",
+        "day",
+        "time"
+      ]
+    },
+    {
+      "id": "travel.calendar.date.observance",
+      "placeholders": [
+        "date",
+        "observance"
+      ]
+    },
+    {
+      "id": "travel.calendar.event.season",
+      "placeholders": [
+        "season",
+        "year"
+      ]
+    },
+    {
+      "id": "travel.calendar.event.observance",
+      "placeholders": [
+        "observance"
+      ]
+    },
+    {
+      "id": "travel.echo.activation",
+      "placeholders": [
+        "title",
+        "consequence"
+      ]
+    },
+    {
+      "id": "travel.echo.remembered",
+      "placeholders": [
+        "title",
+        "consequence"
+      ]
+    },
+    {
+      "id": "travel.echo.memory",
+      "placeholders": [
+        "title"
+      ]
+    },
+    {
+      "id": "travel.echo.actor_memory",
+      "placeholders": [
+        "title",
+        "consequence"
+      ]
+    },
+    {
+      "id": "travel.echo.rival_goal",
+      "placeholders": []
+    },
+    {
+      "id": "travel.echo.population",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.current",
+      "placeholders": [
+        "name",
+        "description"
+      ]
+    },
+    {
+      "id": "travel.route.preview.moored",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.season",
+      "placeholders": [
+        "season",
+        "note"
+      ]
+    },
+    {
+      "id": "travel.route.preview.market",
+      "placeholders": [
+        "market"
+      ]
+    },
+    {
+      "id": "travel.route.preview.market.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.no_leg",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.unknown",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.leg",
+      "placeholders": [
+        "hazard",
+        "time",
+        "supply"
+      ]
+    },
+    {
+      "id": "travel.route.preview.risk",
+      "placeholders": [
+        "cargo",
+        "weather"
+      ]
+    },
+    {
+      "id": "travel.route.preview.contact.region",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.contact.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.reachable",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.preview.blocked",
+      "placeholders": [
+        "reason"
+      ]
+    },
+    {
+      "id": "travel.route.detail.place",
+      "placeholders": [
+        "description"
+      ]
+    },
+    {
+      "id": "travel.route.detail.market",
+      "placeholders": [
+        "market"
+      ]
+    },
+    {
+      "id": "travel.route.detail.market.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.contact.region",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.contact.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.type",
+      "placeholders": [
+        "kind"
+      ]
+    },
+    {
+      "id": "travel.route.detail.moored",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.no_leg",
+      "placeholders": [
+        "origin"
+      ]
+    },
+    {
+      "id": "travel.route.detail.route",
+      "placeholders": [
+        "hazard",
+        "time",
+        "supply"
+      ]
+    },
+    {
+      "id": "travel.route.detail.risks",
+      "placeholders": [
+        "cargo",
+        "weather"
+      ]
+    },
+    {
+      "id": "travel.route.detail.season",
+      "placeholders": [
+        "season",
+        "note"
+      ]
+    },
+    {
+      "id": "travel.route.detail.calendar",
+      "placeholders": [
+        "date"
+      ]
+    },
+    {
+      "id": "travel.route.detail.integrity",
+      "placeholders": [
+        "integrity"
+      ]
+    },
+    {
+      "id": "travel.route.detail.confirm.ready",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.confirm.blocked",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.detail.cancel",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.summary",
+      "placeholders": [
+        "supply",
+        "market"
+      ]
+    },
+    {
+      "id": "travel.route.stop.market.none",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.resupply",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.trade",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.soundings",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.choice.resupply",
+      "placeholders": [
+        "item",
+        "quantity",
+        "credit"
+      ]
+    },
+    {
+      "id": "travel.route.stop.choice.resupply.requirement",
+      "placeholders": [
+        "credit"
+      ]
+    },
+    {
+      "id": "travel.route.stop.choice.trade",
+      "placeholders": [
+        "item",
+        "quantity",
+        "credit"
+      ]
+    },
+    {
+      "id": "travel.route.stop.choice.trade.requirement",
+      "placeholders": [
+        "item"
+      ]
+    },
+    {
+      "id": "travel.route.chart.title",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.chart.current",
+      "placeholders": [
+        "region"
+      ]
+    },
+    {
+      "id": "travel.route.chart.guidance",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.chart.cancel",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.stop.no_cargo",
+      "placeholders": []
+    },
+    {
+      "id": "travel.route.hazard.unknown",
+      "placeholders": []
     }
   ],
   "ship_crisis": [

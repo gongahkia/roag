@@ -1696,12 +1696,16 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             ChoiceOption("F", "Let the fistfight run its course", "danger"),
         ]
     if kind == "route-stop":
+        from .travel_presentation import travel_format, travel_text
+
         node = state.route_nodes[state.route_current_node]
         available = int(state.vessel_changes.get(f"supply_available:{node.id}", 0))
+        grain = item_display_name_or_legacy("grain")
+        market = item_display_name_or_legacy(node.market_interest) if node.market_interest else travel_text("travel.route.stop.market.none")
         return [
-            ChoiceOption("R", "Load one grain lot for one credit", "commitment", available > 0 and state.trade_credit >= 1, "available provision and one credit"),
-            ChoiceOption("T", f"Trade one {node.market_interest or 'wanted'} lot for two credit", "commitment", bool(node.market_interest and state.vessel_cargo.get(node.market_interest)), f"one {node.market_interest or 'wanted'} cargo lot"),
-            ChoiceOption("S", "Take fresh soundings of connected unknown water", "ordinary"),
+            ChoiceOption("R", travel_format("travel.route.stop.choice.resupply", item=grain, quantity=1, credit=1), "commitment", available > 0 and state.trade_credit >= 1, travel_format("travel.route.stop.choice.resupply.requirement", credit=1)),
+            ChoiceOption("T", travel_format("travel.route.stop.choice.trade", item=market, quantity=1, credit=2), "commitment", bool(node.market_interest and state.vessel_cargo.get(node.market_interest)), travel_format("travel.route.stop.choice.trade.requirement", item=market)),
+            ChoiceOption("S", travel_text("travel.route.stop.soundings"), "ordinary"),
         ]
     if kind.startswith("person:"):
         from .people import person_by_id
@@ -1923,52 +1927,38 @@ def route_detail_lines(
     max_width: int,
 ) -> list[str]:
     """Fit route consequences without hiding them behind ellipses."""
+    from .calendar import calendar_at, season_display_name, seasonal_route_note
+    from .route_chart import leg_travel_time
+    from .travel_presentation import route_edge_hazard, route_node_description, route_node_name, travel_format, travel_text
+
     node = state.route_nodes[view.cursor]
     date = calendar_at(state)
-    description = f"Place: {node.description}"
-    market = f"Market: {node.market_interest or 'none'}"
-    contact = "Contacts: established" if node.region_id else "Contacts: no settled witness"
+    name, description = route_node_name(node), route_node_description(node)
+    place = travel_format("travel.route.detail.place", description=description)
+    market = travel_format("travel.route.detail.market", market=item_display_name_or_legacy(node.market_interest)) if node.market_interest else travel_text("travel.route.detail.market.none")
+    contact = travel_text("travel.route.detail.contact.region") if node.region_id else travel_text("travel.route.detail.contact.none")
+    title = [name.upper(), travel_format("travel.route.detail.type", kind=travel_text(f"travel.route.kind.{node.kind}"))]
+    calendar = travel_format("travel.route.detail.calendar", date=date.label)
+    integrity = travel_format("travel.route.detail.integrity", integrity=state.vessel_integrity)
     if view.cursor == state.route_current_node:
-        raw = [
-            node.name.upper(), f"Type: {node.kind}", description,
-            "Jomon is moored here.", f"Season: {date.season}",
-            market, contact, f"Calendar: {date.label}",
-            f"Integrity: {state.vessel_integrity}/10",
-        ]
+        raw = [*title, place, travel_text("travel.route.detail.moored"), travel_format("travel.route.detail.season", season=season_display_name(date.season), note=seasonal_route_note(state)), market, contact, calendar, integrity]
     else:
         edge = edge_between(state, state.route_current_node, view.cursor)
         if edge is None:
-            raw = [
-                node.name.upper(), f"Type: {node.kind}", description,
-                f"No direct charted leg from {state.route_nodes[state.route_current_node].name}.",
-                f"Season: {date.season}", market, contact,
-                "Follow a connected line from Jomon's mooring to set sail.",
-            ]
+            raw = [*title, place, travel_format("travel.route.detail.no_leg", origin=route_node_name(state.route_nodes[state.route_current_node])), travel_format("travel.route.detail.season", season=season_display_name(date.season), note=seasonal_route_note(state)), market, contact, travel_text("travel.route.preview.moored")]
         else:
             available, reason = route_availability(state, view.cursor)
-            from .route_chart import leg_travel_time
-
-            route = f"Route: {edge.hazard}; {leg_travel_time(state, edge)} actions; supplies {edge.supply_cost}"
-            risks = f"Risks: cargo {edge.cargo_risk}/3; weather {edge.weather_exposure}/4"
-            season = f"{date.season.title()}: {seasonal_route_note(state)}"
-            route_layer = [description, route, risks, "REACHABLE" if available else f"BLOCKED: {reason}"]
-            market_layer = [description, f"Supplies used: {edge.supply_cost}", market, contact]
-            season_layer = [season, f"Calendar: {date.label}", f"Integrity: {state.vessel_integrity}/10"]
-            chosen_layer = (route_layer, market_layer, season_layer)[view.overlay_mode]
-            raw = [node.name.upper(), f"Type: {node.kind}", *chosen_layer]
+            route = travel_format("travel.route.detail.route", hazard=route_edge_hazard(edge), time=leg_travel_time(state, edge), supply=edge.supply_cost)
+            risks = travel_format("travel.route.detail.risks", cargo=edge.cargo_risk, weather=edge.weather_exposure)
+            season = travel_format("travel.route.detail.season", season=season_display_name(date.season), note=seasonal_route_note(state))
+            state_text = travel_text("travel.route.preview.reachable") if available else travel_format("travel.route.preview.blocked", reason=reason)
+            layers = ([place, route, risks, state_text], [place, travel_format("travel.route.preview.leg", hazard=route_edge_hazard(edge), time=leg_travel_time(state, edge), supply=edge.supply_cost), market, contact], [season, calendar, integrity])
+            raw = [*title, *layers[view.overlay_mode]]
             if view.confirming:
-                raw = [
-                    node.name.upper(), f"Type: {node.kind}", description, route, risks,
-                    season, market, contact,
-                    "REACHABLE" if available else f"BLOCKED: {reason}", "",
-                    f"> ENTER — {'CONFIRM LEG' if available else 'BLOCKED'}",
-                    "  ESC — cancel",
-                ]
-    lines: list[str] = []
-    for line in raw:
-        lines.extend(_wrapped(line, max_width) or [""])
+                raw = [*title, place, route, risks, season, market, contact, state_text, "", travel_text("travel.route.detail.confirm.ready" if available else "travel.route.detail.confirm.blocked"), travel_text("travel.route.detail.cancel")]
+    lines=[]
+    for line in raw: lines.extend(_wrapped(line,max_width) or [""])
     return lines
-
 
 def _draw_route_chart(
     screen: curses.window,
@@ -1981,7 +1971,8 @@ def _draw_route_chart(
     screen.erase()
     detail_width = max(27, min(36, width // 3))
     map_width = width - detail_width
-    _frame(screen, 0, 0, height - 2, map_width, "JOMON ROUTE CHART")
+    from .travel_presentation import travel_text
+    _frame(screen, 0, 0, height - 2, map_width, travel_text("travel.route.chart.title"))
     _frame(screen, 0, map_width, height - 2, detail_width, INTERFACE_LABELS["charted_passage"])
     for y in range(3, max(3, height - 4), 4):
         for x in range(4 + (y % 3), max(4, map_width - 3), 9):
@@ -2013,7 +2004,8 @@ def _draw_route_chart(
             attr |= curses.A_REVERSE
         _put(screen, y, x, glyph, attr)
         if node.region_id:
-            left, label = chart_label_position(x, node.name, map_width)
+            from .travel_presentation import route_node_name
+            left, label = chart_label_position(x, route_node_name(node), map_width)
             label_role = REGIONAL_GROUND_ROLES.get(node.region_id, "ui_heading")
             _put(screen, y, left, label, _COLOUR_ATTRIBUTES[label_role] | (curses.A_BOLD if known else curses.A_DIM))
     if moving:
@@ -3129,11 +3121,12 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind == "route-stop":
         node = state.route_nodes[state.route_current_node]
-        return node.name.upper(), [
-            node.description,
-            f"Provision lots: {state.vessel_changes.get(f'supply_available:{node.id}', 0)}; market interest: {node.market_interest or 'none'}.",
-            "R. Resupply", "T. Trade", "S. Take soundings",
-            "Each accepted service advances only the action clock.",
+        from .travel_presentation import route_node_description, route_node_name, travel_format, travel_text
+        return route_node_name(node).upper(), [
+            route_node_description(node),
+            travel_format("travel.route.stop.summary", supply=state.vessel_changes.get(f"supply_available:{node.id}", 0), market=item_display_name_or_legacy(node.market_interest) if node.market_interest else travel_text("travel.route.stop.market.none")),
+            travel_text("travel.route.stop.resupply"), travel_text("travel.route.stop.trade"), travel_text("travel.route.stop.soundings"),
+            travel_text("travel.route.stop.guidance"),
         ]
     if kind == "objective":
         alter = "available" if state.gear == "repair tools" or state.support in {"route survey", "carpenter rig"} or (state.courier and state.courier.technique == "lever craft") or state.contact.disposition >= 2 else "needs tools, support, lever craft, or trust"
@@ -3152,15 +3145,16 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             lines.append(f"{index + 1}. {item_display_name_or_legacy(item)} — {cost} credit")
         return state.merchant.name.upper(), lines + ["Number buys; Escape closes. Stock leaves on departure."]
     if kind == "destination":
+        from .travel_presentation import travel_format, travel_text
+
         lines = [
-            f"{index + 1}. {state.regions[region_id].name}"
-            + (" — current mooring" if region_id == state.active_region_id else "")
+            f"{index + 1}. "
+            + (travel_format("travel.route.chart.current", region=state.regions[region_id].name) if region_id == state.active_region_id else state.regions[region_id].name)
             + f"; {state.regions[region_id].process_name}, measure {state.regions[region_id].process_stage}"
             for index, region_id in enumerate(DESTINATIONS)
         ]
-        return "JOMON ROUTE CHART", lines + [
-            "Travel takes the charted time; weather, travellers, or cargo claims may interrupt the passage.",
-            "Number sets course; Escape keeps the current mooring without time.",
+        return travel_text("travel.route.chart.title"), lines + [
+            travel_text("travel.route.chart.guidance"), travel_text("travel.route.chart.cancel"),
         ]
     if kind == "voyage":
         from .ship_crises import crisis_lines

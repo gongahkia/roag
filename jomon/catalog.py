@@ -344,6 +344,34 @@ _TRAVEL_TEMPLATE_CONTRACT = {
     "travel.resolve.memory": ("family", "response", "success"),
     "travel.route.no_leg": (), "travel.route.closed": ("hazard", "season"), "travel.route.integrity": ("required", "current"), "travel.route.reachable": (),
 }
+_TRAVEL_VARIANT_IDS = ("shortage-skiffs", "displaced-pair", "returning-resonance", "obligation-claim", "marked-shortage-lot", "crosswind-stay", "returning-silt-tongue", "fire-marked-raft", "grease-soaked-store", "worked-seam", "thaw-surge", "counterclaim-inspection")
+_TRAVEL_ROUTE_NODES = ("reed-anchor", "charter-market", "ebb-crossing", "coast-refuge", "willow-ferry", "old-lock", "chalk-steps", "storm-post")
+_TRAVEL_ROUTE_EDGES = ("h-r", "r-m", "m-g", "g-e", "e-c", "h-w", "w-f", "f-l", "l-k", "k-u", "m-l", "l-s", "s-u", "h-d", "d-w", "h-a", "a-r", "u-i", "k-i", "c-f", "g-f", "s-c", "r-w", "g-s", "f-k")
+_TRAVEL_TEMPLATE_CONTRACT.update({
+    **{f"travel.variant.{entry}.{field}": () for entry in _TRAVEL_VARIANT_IDS for field in ("name", "cause", "effect", "counterplay")},
+    **{f"travel.echo.{entry}.{field}": () for entry in _TRAVEL_VARIANT_IDS for field in ("title", "consequence")},
+    **{f"travel.route.node.{entry}.{field}": () for entry in _TRAVEL_ROUTE_NODES for field in ("name", "description")},
+    **{f"travel.route.edge.{entry}.hazard": () for entry in _TRAVEL_ROUTE_EDGES},
+    **{f"travel.calendar.season.{entry}": () for entry in ("spring", "summer", "autumn", "winter")},
+    **{f"travel.calendar.time.{entry}": () for entry in ("dawn", "morning", "afternoon", "evening", "night")},
+    **{f"travel.calendar.observance.{entry}": () for entry in ("spring-equinox", "autumn-equinox", "summer-solstice", "winter-solstice")},
+    **{f"travel.calendar.route_note.{entry}": () for entry in ("spring", "summer", "autumn", "winter")},
+    **{f"travel.route.kind.{entry}": () for entry in ("region", "anchorage", "market", "hazard", "resupply", "unknown", "warning")},
+    "travel.calendar.date": ("year", "season", "day", "time"), "travel.calendar.date.observance": ("date", "observance"),
+    "travel.calendar.event.season": ("season", "year"), "travel.calendar.event.observance": ("observance",),
+    "travel.echo.activation": ("title", "consequence"), "travel.echo.remembered": ("title", "consequence"), "travel.echo.memory": ("title",),
+    "travel.echo.actor_memory": ("title", "consequence"), "travel.echo.rival_goal": (), "travel.echo.population": (),
+    "travel.route.preview.current": ("name", "description"), "travel.route.preview.moored": (), "travel.route.preview.season": ("season", "note"),
+    "travel.route.preview.market": ("market",), "travel.route.preview.market.none": (), "travel.route.preview.no_leg": (),
+    "travel.route.preview.unknown": (), "travel.route.preview.leg": ("hazard", "time", "supply"), "travel.route.preview.risk": ("cargo", "weather"),
+    "travel.route.preview.contact.region": (), "travel.route.preview.contact.none": (), "travel.route.preview.reachable": (), "travel.route.preview.blocked": ("reason",),
+    "travel.route.detail.place": ("description",), "travel.route.detail.market": ("market",), "travel.route.detail.market.none": (), "travel.route.detail.contact.region": (), "travel.route.detail.contact.none": (),
+    "travel.route.detail.type": ("kind",), "travel.route.detail.moored": (), "travel.route.detail.no_leg": ("origin",), "travel.route.detail.route": ("hazard", "time", "supply"), "travel.route.detail.risks": ("cargo", "weather"),
+    "travel.route.detail.season": ("season", "note"), "travel.route.detail.calendar": ("date",), "travel.route.detail.integrity": ("integrity",), "travel.route.detail.confirm.ready": (), "travel.route.detail.confirm.blocked": (), "travel.route.detail.cancel": (),
+    "travel.route.stop.summary": ("supply", "market"), "travel.route.stop.market.none": (), "travel.route.stop.resupply": (), "travel.route.stop.trade": (), "travel.route.stop.soundings": (), "travel.route.stop.guidance": (),
+    "travel.route.stop.choice.resupply": ("item", "quantity", "credit"), "travel.route.stop.choice.resupply.requirement": ("credit",), "travel.route.stop.choice.trade": ("item", "quantity", "credit"), "travel.route.stop.choice.trade.requirement": ("item",),
+    "travel.route.chart.title": (), "travel.route.chart.current": ("region",), "travel.route.chart.guidance": (), "travel.route.chart.cancel": (), "travel.route.stop.no_cargo": (), "travel.route.hazard.unknown": (),
+})
 
 # Crisis mechanics stay in vessel.json; this contract owns only the rendered
 # deck-event language selected after those mechanics choose an outcome.

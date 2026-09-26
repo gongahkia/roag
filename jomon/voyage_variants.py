@@ -12,13 +12,14 @@ from .state import GameState
 class VoyageVariant:
     id: str
     family: str
-    name: str
-    cause: str
-    effect: str
-    counterplay: str
+
+    @property
+    def name(self) -> str:
+        from .travel_presentation import variant_display_name
+        return variant_display_name(self.id)
 
 
-VARIANTS = {row["family"]: VoyageVariant(**row) for row in load_catalog("vessel.json", VESSEL_SECTIONS)["variants"]}
+VARIANTS = {row["family"]: VoyageVariant(row["id"], row["family"]) for row in load_catalog("vessel.json", VESSEL_SECTIONS)["variants"]}
 
 VOYAGE_VARIANT_HISTORY_LIMIT = 12
 
@@ -103,7 +104,5 @@ def validate_variants() -> None:
     if set(VARIANTS) != set(VOYAGES):
         raise ValueError("every retained voyage family needs exactly one stateful variant")
     rows = tuple(VARIANTS.values())
-    if len({row.id for row in rows}) != 12 or len({row.name for row in rows}) != 12:
+    if len({row.id for row in rows}) != 12:
         raise ValueError("voyage variant identities must be distinct")
-    if any(not row.cause or not row.effect or not row.counterplay for row in rows):
-        raise ValueError("each voyage variant needs cause, effect and counterplay")
