@@ -88,6 +88,19 @@ class LandscapeVariationTests(unittest.TestCase):
         self.assertLessEqual(state.region.changes.get("landform:elites", 0), 1)
         self.assertEqual(game_state_from_dict(state.to_dict()).to_dict(), state.to_dict())
 
+    def test_legacy_label_only_links_gain_stable_ids_from_endpoints(self):
+        state = create_world("legacy landform links")
+        raw = state.to_dict()
+        for region in raw["regions"].values():
+            for link in region["vertical_links"]:
+                if link.get("id", "").startswith("landform:"):
+                    link.pop("id")
+        loaded = game_state_from_dict(raw)
+        links = [link for link in loaded.region.vertical_links if link.id.startswith("landform:")]
+        self.assertEqual({link.id for link in links}, {
+            link_id("hearthford", "field_upper"), link_id("hearthford", "field_lower"),
+        })
+
     def test_dense_dunmire_caves_take_a_smaller_but_connected_side_structure(self):
         region = build_frontier("systemic-audit-0043", "dunmire")
         validate_region(region)

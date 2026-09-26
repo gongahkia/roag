@@ -2213,9 +2213,9 @@ class LandformDiscoveryPresentationTests(unittest.TestCase):
 
         state = create_world("landform-default-text")
         cache = next(box for box in state.region.containers if box.id == "hearthford-reed-silt")
-        self.assertEqual(pocket_name("hearthford", 0), "reed-silt shelves")
-        self.assertEqual(structure_name("hearthford", "field_upper"), "flood watch")
-        self.assertEqual(traveller_name("hearthford"), "Nera Reed, field surveyor")
+        self.assertEqual(pocket_name("hearthford", 0), "silt braid")
+        self.assertEqual(structure_name("hearthford", "field_upper"), "old survey scaffold")
+        self.assertEqual(traveller_name("hearthford"), "Pella Reed, flood surveyor")
         self.assertEqual(discovery_name("hearthford", cache), "Reed-silt survey roll")
         self.assertEqual(discovery_clue("hearthford", cache), "fresh reed cuts beside an older silt mark")
 
@@ -2248,5 +2248,5 @@ class LandformDiscoveryPresentationTests(unittest.TestCase):
             for name, mutate in cases.items():
                 with self.subTest(name):
                     document=json.loads(original); mutate(document); source.write_text(json.dumps(document),encoding="utf-8")
-                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\\.json"):
+                    with self.assertRaisesRegex(ContentPackError, r"fixture-alternate.*topology_text\.json"):
                         load_content_pack(root)
