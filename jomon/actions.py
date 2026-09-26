@@ -35,6 +35,9 @@ from .inventory import (
     transfer_to_grid,
     worn_tags,
 )
+from .runtime_events import (
+    ActorDefeated, AttackResolved, DamageApplied, RuntimeEvent, StatusChanged,
+)
 from .state import (
     CommodityStack, GameState, Person, Position, SoundEvent, Threat,
     legacy_combat_damage_seed, combat_seed_identity, legacy_threat_intent_id, stage_rng,
@@ -85,6 +88,7 @@ class ActionResult:
     time_advanced: bool
     message: str
     overlay: str | None = None
+    events: tuple[RuntimeEvent, ...] = ()
 
 
 def _remember_contact(state: GameState, text: str) -> None:
@@ -1418,12 +1422,13 @@ def _time_result(
     guarded: bool = False,
     steps: int = 1,
     priority: int = 2,
+    events: tuple[RuntimeEvent, ...] = (),
 ) -> ActionResult:
     _advance_world(state, guarded=guarded, steps=steps)
     # Keep the player's material consequence visible after same-turn intents.
     if message:
         state.add_message(message, priority=priority)
-    return ActionResult(True, True, message)
+    return ActionResult(True, True, message, events=events)
 
 
 def depart(state: GameState) -> ActionResult:
@@ -2627,6 +2632,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     thrown_item = equipped_item(state, "readied") if state.weapon == "throwing axe" else None
     if state.weapon == "throwing axe" and (not thrown_item or thrown_item.kind != state.weapon):
         return _plain(state, action_format("combat.attack.throwing_axe"))
+    previous_status = target.status
     target.status = "engaged"
     if state.weapon == "war flail" and state.aimed_target != target.id:
         state.aimed_target = target.id
@@ -2936,11 +2942,31 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         "reach"
     )
     record_milestone(state, f"combat:{family}")
+    attack_result_id = (
+        "attack.defeated" if harm.defeated else
+        "attack.drove_off" if target.status == "retreated" else
+        "attack.hit"
+    )
+    events: tuple[RuntimeEvent, ...] = (
+        AttackResolved(
+            state.active_courier_id or "courier", target.id,
+            f"attack.{used_weapon.replace(' ', '_')}", attack_result_id,
+        ),
+        DamageApplied(
+            state.active_courier_id or "courier", target.id, harm.amount,
+            damage_kind, harm.location,
+        ),
+    )
+    if target.status != previous_status:
+        events += (StatusChanged(target.id, previous_status, target.status),)
+    if harm.defeated:
+        events += (ActorDefeated(target.id, state.active_courier_id or "courier"),)
     return _time_result(
         state,
         " ".join([text, *sounds]),
         guarded=bool(working_effect and working_effect.guarded) or skill_guard,
         priority=3,
+        events=events,
     )
 
 

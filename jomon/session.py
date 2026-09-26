@@ -14,6 +14,10 @@ from .commands import (
     InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
     SetAutoPlaceCommand, UseGearCommand,
 )
+from .runtime_events import (
+    ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
+    ItemUsed, RetreatResolved, RuntimeEvent,
+)
 from .save import load_game, save_game
 from .state import GameState, create_world
 from .views import ActorView, InteractionView, WorldView, actor_views, interaction_view, world_view
@@ -28,6 +32,7 @@ class CommandOutcome:
     revision: int
     overlay_id: str | None = None
     target_id: str | None = None
+    events: tuple[RuntimeEvent, ...] = ()
 
 
 class GameSession:
@@ -74,13 +79,20 @@ class GameSession:
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
 
-    def _outcome(self, result: ActionResult, result_id: str, target_id: str | None = None) -> CommandOutcome:
+    def _outcome(
+        self,
+        result: ActionResult,
+        result_id: str,
+        target_id: str | None = None,
+        events: tuple[RuntimeEvent, ...] = (),
+    ) -> CommandOutcome:
         changed = result.changed or result.time_advanced
         if changed:
             self._revision += 1
         return CommandOutcome(
             bool(changed or result.overlay), result.changed, result.time_advanced,
             result_id, self._revision, result.overlay, target_id,
+            (*result.events, *events),
         )
 
     def submit(self, command: GameCommand | object) -> CommandOutcome:
@@ -91,16 +103,24 @@ class GameSession:
                     or (command.dx == 0 and command.dy == 0)
                     or max(abs(command.dx), abs(command.dy)) > 1):
                 return self._reject("move.invalid")
+            actor_id, before = self._state.active_courier_id or "courier", self._state.position
             result = move(self._state, command.dx, command.dy)
-            return self._outcome(result, "move.ok" if result.changed else "move.rejected")
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed and self._state.position != before:
+                events = (ActorMoved(actor_id, before, self._state.position, "movement.step"),)
+            return self._outcome(result, "move.ok" if result.changed else "move.rejected", events=events)
         if isinstance(command, InteractCommand):
             choices = self.interaction_view().options
             choice = next((option for option in choices if option.interaction_id == command.interaction_id), None)
             if choice is None or (command.target_id is not None and command.target_id != choice.target_id):
                 return self._reject("interaction.invalid", command.target_id)
+            actor_id = self._state.active_courier_id or "courier"
             result = interact(self._state)
             result_id = "interaction.opened" if result.overlay else "interaction.resolved" if result.changed else "interaction.rejected"
-            return self._outcome(result, result_id, choice.target_id)
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed and result.overlay is None:
+                events = (InteractionResolved(actor_id, choice.target_id, choice.interaction_id, result_id),)
+            return self._outcome(result, result_id, choice.target_id, events)
         if isinstance(command, AttackCommand):
             if command.target_actor_id is not None and not isinstance(command.target_actor_id, str):
                 return self._reject("attack.invalid")
@@ -109,21 +129,38 @@ class GameSession:
         if isinstance(command, GuardCommand):
             if command.target_actor_id is not None and not isinstance(command.target_actor_id, str):
                 return self._reject("guard.invalid")
+            actor_id = self._state.active_courier_id or "courier"
             result = guard(self._state, command.target_actor_id)
-            return self._outcome(result, "guard.resolved" if result.changed else "guard.rejected", command.target_actor_id)
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed:
+                events = (GuardResolved(actor_id, command.target_actor_id),)
+            return self._outcome(result, "guard.resolved" if result.changed else "guard.rejected", command.target_actor_id, events)
         if isinstance(command, RetreatCommand):
+            actor_id, before = self._state.active_courier_id or "courier", self._state.position
             result = retreat(self._state)
-            return self._outcome(result, "retreat.resolved" if result.changed else "retreat.rejected")
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed:
+                events = (RetreatResolved(actor_id, before, self._state.position),)
+            return self._outcome(result, "retreat.resolved" if result.changed else "retreat.rejected", events=events)
         if isinstance(command, UseGearCommand):
             if command.preparation_id is not None and not isinstance(command.preparation_id, str):
                 return self._reject("gear.invalid")
+            actor_id = self._state.active_courier_id or "courier"
+            item_id = command.preparation_id or self._state.gear
             result = use_gear(self._state, command.preparation_id)
-            return self._outcome(result, "gear.resolved" if result.changed else "gear.rejected", command.preparation_id)
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed and item_id:
+                events = (ItemUsed(actor_id, item_id, "gear.use"),)
+            return self._outcome(result, "gear.resolved" if result.changed else "gear.rejected", command.preparation_id, events)
         if isinstance(command, SelectCarriedRelicCommand):
             if command.relic_id is not None and (not isinstance(command.relic_id, str) or not command.relic_id):
                 return self._reject("relic.invalid")
+            actor_id = self._state.active_courier_id or "courier"
             result = choose_relic(self._state, command.relic_id)
-            return self._outcome(result, "relic.selected" if result.changed else "relic.rejected", command.relic_id)
+            events: tuple[RuntimeEvent, ...] = ()
+            if result.changed:
+                events = (CarriedRelicSelectionChanged(actor_id, command.relic_id),)
+            return self._outcome(result, "relic.selected" if result.changed else "relic.rejected", command.relic_id, events)
         if isinstance(command, SetAutoPlaceCommand):
             if type(command.enabled) is not bool:
                 return self._reject("auto_place.invalid")
