@@ -2521,6 +2521,16 @@ class DullestDungeonPresentationTests(unittest.TestCase):
             with self.assertRaisesRegex(ContentPackError, "Dullest Dungeon presentation"):
                 load_content_pack(root)
 
+    def test_dd_runtime_catalog_view_uses_selected_presentation(self):
+        script = "from jomon.dumbest_dungeon.content import load_catalog; print(load_catalog().cards['bone_saw']['name'])"
+        default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
+        with tempfile.TemporaryDirectory() as directory:
+            root = alternate_pack(Path(directory) / "fixture")
+            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
+        self.assertEqual(default.stdout.strip(), "Bone Saw")
+        self.assertEqual(alternate.stdout.strip(), "Fixture Paper Saw")
+
     def test_dd_alternate_fiction_keeps_active_match_mechanics(self):
         script = (
             "import json; from jomon.dumbest_dungeon.expedition import new_match, pending_choice_labels; "

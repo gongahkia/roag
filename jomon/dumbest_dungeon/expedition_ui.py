@@ -66,11 +66,10 @@ class ExpeditionUI(TavernUIBase):
                 break
             overlays.append((x, y, symbols["route_preview"], curses.A_DIM))
         for landmark in match["landmarks"]:
-            art = self.catalog.landmarks[landmark["template_id"]]["art"]
-            for index, cell in enumerate(landmark["cells"]):
-                symbol = art[index // 3][index % 3]
-                if symbol != " ":
-                    overlays.append((cell[0], cell[1], symbol, self._attr(6) | curses.A_BOLD))
+            # Landmark geometry is mechanical; its visible stamp is pack-owned.
+            symbol = symbols["station"]["event"]
+            for cell in landmark["cells"]:
+                overlays.append((cell[0], cell[1], symbol, self._attr(6) | curses.A_BOLD))
         for hazard in match["hazards"]:
             if hazard["active"] and f"hazards:{hazard['id']}" in team["known"]:
                 overlays.extend((x, y, symbols["hazard"], self._attr(3) | curses.A_BOLD)
@@ -142,7 +141,7 @@ class ExpeditionUI(TavernUIBase):
                 if actor["id"] == target:
                     attr |= curses.A_REVERSE
                 portrait = (office_sprites()[actor["role"]] if side == 0 else
-                            self.catalog.art["enemies"][actor["role"] if neutral else rival_costumes(match["world_seed"])[index]])
+                            office_sprites()[actor["role"] if actor["role"] in OFFICE_ROLES else self.catalog.heroes["warden"]["id"]])
                 self._draw_sprite(3, column, portrait, attr)
                 if actor["id"] == target:
                     self._target_brackets(5, column, attr)
@@ -169,7 +168,7 @@ class ExpeditionUI(TavernUIBase):
         card = self.catalog.cards[card_id]
         office = office_catalog()[1][card_id]
         cost = _card_cost(self.match, 0, instance) if self.match else card["cost"]
-        mark = self.catalog.art["card_marks"][card["hero"]]
+        mark = map_symbols()["cursor"]
         glyph = office_card_glyph(card["hero"])
         description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 12)[:2]
         description += [""] * (2 - len(description))
@@ -193,7 +192,7 @@ class ExpeditionUI(TavernUIBase):
         office = office_catalog()[1][card_id]
         role_id = definition["hero"]
         cost = _card_cost(self.match, 0, instance) if self.match else definition["cost"]
-        mark = self.catalog.art["card_marks"][role_id]
+        mark = map_symbols()["cursor"]
         glyph = office_card_glyph(role_id)
         description = textwrap.wrap(office_card_description(card_id, upgraded=_card_upgraded(instance)), 18)[:4]
         description += [""] * (4 - len(description))
@@ -416,14 +415,14 @@ class ExpeditionUI(TavernUIBase):
                 self._footer("Any key returns to the company archive")
                 self.screen.getch()
             elif category == 2:
-                enemy_ids = list(self.catalog.art["enemies"])
+                enemy_ids = list(self.catalog.enemies)
                 selected = self._menu("RIVAL COSTUME ARCHIVE", [office_costume_name(enemy_id) for enemy_id in enemy_ids],
                                       "Patron specialists wear these department costumes. Their training and cards are the same as yours.")
                 if selected is None:
                     continue
                 enemy_id = enemy_ids[selected]
                 self._begin(office_costume_name(enemy_id).upper())
-                self._draw_sprite(5, 9, self.catalog.art["enemies"][enemy_id], curses.A_BOLD)
+                self._draw_sprite(5, 9, office_sprites()["warden"], curses.A_BOLD)
                 self._put(6, 23, "RIVAL-DEPARTMENT COSTUME")
                 self._put(8, 23, "A costume changes no worker's training.")
                 self._footer("Any key returns to the company archive")

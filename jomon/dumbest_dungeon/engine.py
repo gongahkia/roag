@@ -626,7 +626,7 @@ class GameEngine:
             + ladder_modifier(rank, "starting_supplies"),
         )
         self.state.ladder_rank = rank
-        self.add_log(f"Ascending rank {rank} selected.")
+        self.add_log(dd_text("engine.rank_selected", rank=rank))
 
     @staticmethod
     def _clone_card(card: CardInstance) -> CardInstance:
@@ -2501,7 +2501,7 @@ class GameEngine:
             detail=detail,
         )
         if current_band != previous_band:
-            self.add_log(f"PRESSURE {current_band.name}: {current_band.forecast}")
+            self.add_log(dd_text("engine.pressure", band=current_band.name, forecast=current_band.forecast))
         return amount
 
     @contextmanager
@@ -2899,7 +2899,7 @@ class GameEngine:
             )
             if leak:
                 self.state.light = max(0, self.state.light - leak)
-                self.add_log(f"Leaking Lamp drains {leak} light.")
+                self.add_log(dd_text("engine.leaking_lamp", amount=leak))
         self.record("travel", self.biome_at(x, y), position=[x, y], ticks=self.state.travel_ticks - previous_ticks,
                     light_spent=previous_light - self.state.light, light=self.state.light, supplies=self.state.supplies)
         self._update_perception()
@@ -3053,8 +3053,7 @@ class GameEngine:
         room.visited = True
         if room.kind == "boss" and not self.boss_unlocked():
             self.add_log(
-                f"Apex seal rejects the crew: {self.completed_objectives()}/"
-                f"{self.state.required_objectives} access signals."
+                dd_text("engine.apex_seal", completed=self.completed_objectives(), required=self.state.required_objectives)
             )
             return
         if room.resolved or room.kind in {"start", "fight", "elite", "boss"}:
@@ -3109,7 +3108,7 @@ class GameEngine:
         else:
             self.state.current_hazard_id = hazard.id
             self.state.phase = "hazard"
-        self.add_log(f"{definition['name']}: {definition['description']}")
+        self.add_log(dd_text("engine.hazard", name=definition["name"], description=definition["description"]))
 
     def suppress_hazard(self, hazard_id: str, source: str) -> None:
         hazard = next((item for item in self.state.hazards if item.id == hazard_id), None)
@@ -3118,7 +3117,7 @@ class GameEngine:
         hazard.active = False
         hazard.triggered = True
         hazard.suppressed_by = source
-        self.add_log(f"{self.biome_mechanics(hazard.biome_id)['hazard']['name']} suppressed.")
+        self.add_log(dd_text("engine.hazard_suppressed", name=self.biome_mechanics(hazard.biome_id)["hazard"]["name"]))
 
     def current_hazard(self) -> BiomeHazard:
         hazard = next(
@@ -3258,7 +3257,7 @@ class GameEngine:
             self._reveal_biome_features(biome_id)
         elif operation == "stabilize_terrain":
             changed = self._stabilize_terrain(biome_id, amount)
-            self.add_log(f"{changed} nearby terrain cells become stable service rail.")
+            self.add_log(dd_text("engine.terrain_stable", count=changed))
         elif operation == "agitate_patrols":
             self._alert_biome_patrols(biome_id, amount)
         elif operation == "calm_patrols":
@@ -3297,10 +3296,7 @@ class GameEngine:
         )
         self.state.current_facility_id = None
         self.state.phase = "exploration"
-        message = (
-            f"Recycled {self.catalog.items[item_id]['name']} x{count}. "
-            "The next salvage cache offers three deterministic choices."
-        )
+        message = dd_text("engine.recycled", item=self.catalog.items[item_id]["name"], count=count)
         self.add_log(message)
         return message
 
@@ -3330,7 +3326,7 @@ class GameEngine:
         self.state.current_facility_id = None
         if self.state.phase != "defeat":
             self.state.phase = "exploration"
-        message = f"{definition['name']}: {option['label'].lower()} complete."
+        message = dd_text("engine.facility_choice", facility=definition["name"], option=option["label"].lower())
         self.add_log(message)
         return message
 
@@ -4187,15 +4183,15 @@ class GameEngine:
         if purpose == "heal":
             target = min(survivors, key=lambda actor: actor.hp / actor.max_hp)
             self._heal(target, 9 + round(self._item_effect_value("supply_heal_bonus")))
-            message = f"A supply restores {target.name}."
+            message = dd_text("engine.supply_heal", actor=target.name)
         elif purpose == "calm":
             target = max(survivors, key=lambda actor: actor.stress)
             self._change_stress(target, -14)
-            message = f"A supply steadies {target.name}."
+            message = dd_text("engine.supply_calm", actor=target.name)
         elif purpose == "light":
             amount = 25 + round(self._item_effect_value("supply_light_bonus"))
             self.state.light = min(100, self.state.light + amount)
-            message = f"A flare restores {amount} light."
+            message = dd_text("engine.supply_light", amount=amount)
         else:
             raise RuleError("unknown supply use")
         self.state.supplies -= 1
@@ -4206,7 +4202,7 @@ class GameEngine:
             mutation = self.catalog.mutations[mutation_id]
             effect = mutation["effect"]
             if effect not in OPENING_MUTATION_EFFECTS:
-                self.add_log(f"{mutation['marker']} — {mutation['description']}")
+                self.add_log(dd_text("engine.mutation", marker=mutation["marker"], description=mutation["description"]))
                 continue
             amount = int(mutation["amount"])
             enemies = self.living_enemies()
@@ -4242,7 +4238,7 @@ class GameEngine:
                                 rank=heroes[0].rank)
                 else:
                     raise RuleError(f"unregistered opening mutation effect {effect}")
-            self.add_log(f"{mutation['marker']} — {mutation['description']}")
+            self.add_log(dd_text("engine.mutation", marker=mutation["marker"], description=mutation["description"]))
 
     def _apply_enemy_phase_mutations(self) -> None:
         modules = sorted(
@@ -4264,7 +4260,7 @@ class GameEngine:
             if effect == "heal_weakest_round":
                 target = min(enemies, key=lambda enemy: (enemy.hp * 10_000 // enemy.max_hp, enemy.rank, enemy.id))
                 self._apply_effect(source, [target], {"op": "heal", "amount": amount}, source_id=mutation["id"])
-                self.add_log(f"{mutation['marker']} — {target.name} repairs {amount} integrity.")
+                self.add_log(dd_text("engine.mutation_heal", marker=mutation["marker"], actor=target.name, amount=amount))
             elif effect == "cleanse_round":
                 target = min(enemies, key=lambda enemy: (enemy.hp * 10_000 // enemy.max_hp, enemy.rank, enemy.id))
                 removed = next(
@@ -4277,7 +4273,7 @@ class GameEngine:
                 previous = target.statuses.pop(removed)
                 self.record("cleanse", mutation["id"], target=target.id, status=removed,
                             previous=previous, amount=amount)
-                self.add_log(f"{mutation['marker']} — {target.name} purges {removed}.")
+                self.add_log(dd_text("engine.mutation_cleanse", marker=mutation["marker"], actor=target.name, status=removed))
             elif effect == "pull_crew_round":
                 target = heroes[0]
                 before = target.rank
@@ -4285,7 +4281,7 @@ class GameEngine:
                 if target.rank != before:
                     self.record("movement", mutation["id"], target=target.id,
                                 amount=amount, previous=before, rank=target.rank)
-                    self.add_log(f"{mutation['marker']} — {target.name} is pulled to rank {target.rank}.")
+                    self.add_log(dd_text("engine.mutation_pull", marker=mutation["marker"], actor=target.name, rank=target.rank))
             else:
                 targets = [hero for hero in heroes if hero.block == 0]
                 if not targets:
@@ -4293,7 +4289,7 @@ class GameEngine:
                 self._apply_effect(source, targets,
                                    {"op": "status", "status": "wound", "amount": amount},
                                    source_id=mutation["id"])
-                self.add_log(f"{mutation['marker']} — unblocked crew suffer wound.")
+                self.add_log(dd_text("engine.mutation_wound", marker=mutation["marker"]))
 
     def start_combat(
         self,
@@ -4501,7 +4497,7 @@ class GameEngine:
                 count = len(heroes)
                 for hero in heroes:
                     hero.rank = count + 1 - hero.rank
-        self.add_log(f"Environment — {environment['name']}: {environment['description']}")
+        self.add_log(dd_text("engine.environment", name=environment["name"], description=environment["description"]))
 
     def living_heroes(self) -> list[Actor]:
         return sorted((actor for actor in self.state.heroes if actor.alive), key=lambda actor: actor.rank)
@@ -4839,7 +4835,7 @@ class GameEngine:
             amount=follow_effect["amount"],
             limit="once_per_turn",
         )
-        self.add_log(f"DOCTRINE — {doctrine['name']} triggers.")
+        self.add_log(dd_text("engine.doctrine", name=doctrine["name"]))
 
     def card_cost(self, card: CardInstance) -> int:
         definition = self.card_definition(card)
@@ -4963,7 +4959,7 @@ class GameEngine:
         for key in (f"round_cards:{actor.id}", f"combat_cards:{actor.id}"):
             self.state.effect_counters[key] = self.state.effect_counters.get(key, 0) + 1
         main_targets = self._card_targets(definition["target"], target_id, actor)
-        self.add_log(f"{actor.name} uses {definition['name']}.")
+        self.add_log(dd_text("engine.card_play", actor=actor.name, card=definition["name"]))
         self.resolution.submit(EventType.CARD_STEP, card.card_id, tuple(target.id for target in main_targets),
                                Payload(actor_id=actor.id, card_id=card.card_id,
                                        card_upgraded=card.upgraded, card_mastery=card.mastery,
@@ -5158,7 +5154,7 @@ class GameEngine:
             self.state.effect_counters[key] = 1
             self.record("infusion_trigger", infusion["id"], card=payload.card_id,
                         copy_id=payload.card_copy_id, mode=mode, amount=infusion["amount"])
-            self.add_log(f"{infusion['marker']} — {infusion['name']} triggers.")
+            self.add_log(dd_text("engine.infusion", marker=infusion["marker"], name=infusion["name"]))
 
     def _card_trigger(self, listener: Listener, event: Event, queue: EventQueue) -> bool:
         actor = next(actor for actor in self.state.heroes if actor.id == listener.entity_id)
@@ -6143,12 +6139,12 @@ class GameEngine:
             allies = self.living_heroes() if target.side == "hero" else self.living_enemies()
             guard = next((item for item in allies if item.id == target.guarded_by), None)
             if guard and guard.id != target.id:
-                self.add_log(f"{guard.name} intercepts the hit.")
+                self.add_log(dd_text("engine.guard", actor=guard.name))
                 target = guard
         was_deaths_door = target.deaths_door
         if attacker and attacker.side != target.side and target.statuses.get("dodge"):
             target.statuses.pop("dodge", None)
-            self.add_log(f"{target.name} evades the hit.")
+            self.add_log(dd_text("engine.dodge", actor=target.name))
             self.record("damage", source, target=target.id, intended_target=intended_target,
                         requested=requested, absorbed=0, amount=0, hp_loss=0, overkill=0, dodged=True,
                         attacker=attacker.id, was_deaths_door=was_deaths_door, modified=0, deflected=0)
@@ -6223,7 +6219,7 @@ class GameEngine:
                 self._hero_died(target)
             else:
                 self._change_stress(target, 10)
-                self.add_log(f"{target.name} survives Death's Door.")
+                self.add_log(dd_text("engine.deaths_door_survive", actor=target.name))
             return
         target.hp = max(0, target.hp - amount)
         if phase is not None:
@@ -6236,7 +6232,7 @@ class GameEngine:
                 threshold_bp=phase["threshold_bp"],
                 overflow_carried=overflow,
             )
-            self.add_log(f"PHASE — {phase['message']} Overflow {overflow} carried.")
+            self.add_log(dd_text("engine.phase", message=phase["message"], overflow=overflow))
             if self.resolution.state.active is None:
                 raise RuleError("boss phase transition requires an active event root")
             self.resolution.emit(
@@ -6255,13 +6251,13 @@ class GameEngine:
                 self.state.effect_counters[second_wind_key] = 1
                 self.record("healing", "boon:second_wind", target=target.id, requested=second_wind,
                             amount=target.hp, overheal=max(0, second_wind - target.hp), replacement=True)
-                self.add_log(f"Second Wind restores {target.name} for {target.hp}.")
+                self.add_log(dd_text("engine.second_wind", actor=target.name, amount=target.hp))
             else:
                 target.deaths_door = True
                 self._change_stress(target, 12)
-                self.add_log(f"{target.name} is at Death's Door.")
+                self.add_log(dd_text("engine.deaths_door", actor=target.name))
         elif target.side == "enemy" and target.hp == 0:
-            self.add_log(f"{target.name} is destroyed.")
+            self.add_log(dd_text("engine.destroyed", actor=target.name))
             if self.resolution.state.active is not None:
                 self.resolution.emit(
                     EventType.DEATH,
@@ -6423,7 +6419,7 @@ class GameEngine:
             target.stress = 50
             target.affliction = self.rng.choice(list(self.catalog.afflictions))
             name = catalog_text("afflictions", target.affliction)
-            self.add_log(f"{target.name} becomes {name}.")
+            self.add_log(dd_text("engine.affliction", actor=target.name, affliction=name))
 
     def _affliction_modifiers(self, actor: Actor) -> dict[str, Any]:
         if not actor.affliction:
@@ -6973,7 +6969,7 @@ class GameEngine:
                 break
         self.room().resolved = True
         self.state.current_event = None
-        self.add_log(f"Event resolved: {choice['label']}.")
+        self.add_log(dd_text("engine.event_resolved", choice=choice["label"]))
         if self.state.phase == "defeat":
             return
         if grant_reward:
@@ -7036,7 +7032,7 @@ class GameEngine:
                 self.record("card_removed", removed.card_id, card=asdict(removed), source="curse_treatment")
             self.state.supplies -= 2
             hero = self._actor(hero_id)
-            self.add_log(f"Treated {self.catalog.curses[curse_id]['name']} on {hero.name}.")
+            self.add_log(dd_text("engine.treated", curse=self.catalog.curses[curse_id]["name"], actor=hero.name))
         elif action == "upgrade":
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to upgrade")
@@ -7046,7 +7042,7 @@ class GameEngine:
                 raise RuleError("that card is already upgraded")
             self.state.deck[card_index].upgraded = True
             self.record("card_upgraded", self.state.deck[card_index].card_id, index=card_index, source="workshop")
-            self.add_log(f"Upgraded {self.catalog.cards[self.state.deck[card_index].card_id]['name']}.")
+            self.add_log(dd_text("engine.upgraded", card=self.catalog.cards[self.state.deck[card_index].card_id]["name"]))
         elif action == "mastery" and self.state.service_type == "upgrade":
             if card_index is None or not 0 <= card_index < len(self.state.deck):
                 raise RuleError("choose a card to master")

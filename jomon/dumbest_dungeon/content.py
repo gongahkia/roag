@@ -509,6 +509,30 @@ def load_legacy_catalog() -> Catalog:
     return catalog
 
 
+def _selected_pack_presentation(collections: dict[str, dict[str, dict[str, Any]]]) -> None:
+    """Overlay only declared selected-pack display fields onto runtime views.
+
+    ``raw`` remains the validated mechanical/legacy catalog used for archival
+    compatibility and rules projection.  Runtime catalog views receive pack
+    text so an accidental ``definition["name"]`` cannot make legacy prose
+    authoritative during play.
+    """
+    from jomon.catalog import selected_content_pack
+
+    slots = dict(selected_content_pack().dullest_dungeon.text_slots)
+    for collection, rows in collections.items():
+        for identity, row in rows.items():
+            prefix = f"catalog.{collection}.{identity}."
+            for field, value in tuple(row.items()):
+                # Entity families are keyed directly in the DD presentation;
+                # catalog.* holds secondary legacy catalog descriptions.
+                replacement = slots.get(f"{collection}.{identity}.{field}")
+                if replacement is None:
+                    replacement = slots.get(prefix + field)
+                if replacement is not None and isinstance(value, str):
+                    row[field] = replacement
+
+
 def _load_catalog(path: Path | None, *, assets: Path | None = None) -> Catalog:
     data_root = files("jomon.dumbest_dungeon.data")
     source = path or Path(str(data_root.joinpath("game.json")))
@@ -1395,6 +1419,13 @@ def _catalog_from_documents(raw: dict, art: dict, card_metadata: dict) -> Catalo
     if not isinstance(curse_mark, str) or len(curse_mark) != 1 or not curse_mark.isascii():
         raise ContentError("art.curse_card_mark must be one ASCII character")
 
+    _selected_pack_presentation({
+        "heroes": heroes, "squads": squads, "cards": cards, "infusions": infusions,
+        "loadouts": loadouts, "doctrines": doctrines, "enemies": enemies, "events": events,
+        "landmarks": landmarks, "missions": missions, "facilities": facilities, "terrains": terrains,
+        "terrain_patterns": terrain_patterns, "biomes": biomes, "worlds": worlds, "boons": boons,
+        "curses": curses, "items": items, "mutations": mutations, "afflictions": afflictions,
+    })
     return Catalog(
         raw,
         heroes,
