@@ -15,7 +15,7 @@ from .commands import (
     SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
     TravelCommand, StartTavernGameCommand, DrawBetCommand, DrawExchangeCommand,
     DiceActionCommand, CloseTavernGameCommand,
-    ActivityCommand,
+    ActivityCommand, CharacterSetupCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
@@ -32,7 +32,7 @@ from .views import (
     WorldView, actor_views, equipment_view, interaction_view, inventory_view,
     quest_views, travel_view, world_view,
     tavern_dice_view, tavern_draw_view,
-    ActivityView,
+    ActivityView, CharacterSetupView, character_setup_view,
 )
 
 
@@ -111,6 +111,10 @@ class GameSession:
         """Expose one current ordinary-game semantic activity surface."""
         from .activities import activity_view
         return activity_view(self._state, context_id)
+
+    def character_setup_view(self) -> CharacterSetupView:
+        """Expose the initial courier choices before ordinary play starts."""
+        return character_setup_view(self._state)
 
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
@@ -336,6 +340,29 @@ class GameSession:
             else:
                 return self._reject("tavern.close.rejected", command.game_id)
             return self._outcome(ActionResult(True, False, ""), "tavern.closed", command.game_id)
+        if isinstance(command, CharacterSetupCommand):
+            setup = self.character_setup_view()
+            if not setup.available or not isinstance(command.crew_id, str) or not isinstance(command.name, str):
+                return self._reject("character.setup.rejected", command.crew_id)
+            crew_index = next((index for index, row in enumerate(self._state.household)
+                               if row.id == command.crew_id), None)
+            if crew_index is None:
+                return self._reject("character.setup.rejected", command.crew_id)
+            try:
+                attributes = dict(command.attributes)
+                competencies = dict(command.competencies)
+                if (len(attributes) != len(command.attributes)
+                        or len(competencies) != len(command.competencies)):
+                    raise ValueError("duplicate character allocation identity")
+                from .character import apply_character_spec
+                apply_character_spec(
+                    self._state, crew_index=crew_index, name=command.name,
+                    ancestry=command.ancestry_id, origin=command.origin_id, trait=command.trait_id,
+                    attributes=attributes, competencies=competencies,
+                )
+            except (TypeError, ValueError):
+                return self._reject("character.setup.rejected", command.crew_id)
+            return self._outcome(ActionResult(True, False, ""), "character.setup.completed", command.crew_id)
         if isinstance(command, ActivityCommand):
             if (not isinstance(command.context_id, str) or not command.context_id
                     or not isinstance(command.action_id, str) or not command.action_id):
