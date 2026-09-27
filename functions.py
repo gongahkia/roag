@@ -189,9 +189,16 @@ YELLOW = '\033[93m'
 RED = '\033[91m'
 MAGENTA = '\033[95m'
 GREY = '\033[90m'
+GREEN = '\033[92m'
 WHITE = '\033[97m'
 
 configureicontheme()
+
+
+def configureterrain (terrain):
+    COLOURS['#'] = GREEN if terrain == 'forest' else GREY
+    COLOURS['.'] = GREEN if terrain == 'forest' else GREY
+    COLOURS['C'] = MAGENTA
 
 
 #CLASS OBJECTS
@@ -513,7 +520,7 @@ def randomlocation (occupied = None, space = None):
 def carveroom (space, xcoord, ycoord, width, height):
     for x in range(xcoord,xcoord + width):
         for y in range(ycoord,ycoord + height):
-            if x > 0 and x < BOARDWIDTH - 1 and y > 0 and y < BOARDHEIGHT - 1:
+            if x > 0 and x < WORLDWIDTH - 1 and y > 0 and y < WORLDHEIGHT - 1:
                 space.add((x,y))
 
 
@@ -537,15 +544,29 @@ def carvecorridor (space, start, finish):
     space.add((finishx,finishy))
 
 
-def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9), roomheight = (3,6), startroomsize = (11,7), arena = None):
+def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9), roomheight = (3,6), startroomsize = (11,7), arena = None, terrain = 'cave'):
     if arena is not None:
         space = set()
         carveroom(space,*arena)
         return space
+    if terrain == 'dungeon':
+        space = set()
+        rooms = []
+        for number in range(14):
+            width,height = random.randint(5,11),random.randint(4,8)
+            xcoord,ycoord = random.randint(1,WORLDWIDTH - width - 2),random.randint(1,WORLDHEIGHT - height - 2)
+            carveroom(space,xcoord,ycoord,width,height)
+            centre = (xcoord + width // 2,ycoord + height // 2)
+            if rooms:
+                carvecorridor(space,rooms[-1],centre)
+            rooms.append(centre)
+        carveroom(space,start[0] - 3,start[1] - 3,7,7)
+        carvecorridor(space,tuple(start),rooms[0])
+        return space
     for attempt in range(12):
         walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT)
-                 if x in [0,WORLDWIDTH - 1] or y in [0,WORLDHEIGHT - 1] or random.random() < 0.43}
-        for step in range(5):
+                 if x in [0,WORLDWIDTH - 1] or y in [0,WORLDHEIGHT - 1] or random.random() < (0.25 if terrain == 'forest' else 0.43)}
+        for step in range(2 if terrain == 'forest' else 5):
             walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT) if x in [0,WORLDWIDTH - 1] or y in [0,WORLDHEIGHT - 1] or sum((x + dx,y + dy) in walls for dx in [-1,0,1] for dy in [-1,0,1] if (dx,dy) != (0,0)) >= 5}
         space = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT) if (x,y) not in walls}
         carveroom(space,start[0] - 3,start[1] - 3,7,7)

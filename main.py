@@ -1,15 +1,15 @@
 import random
 
 from titlescreen import titlescreen
-from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
+from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
 #GAME SETTINGS
 
 STAGES = [
-    {'level': 0, 'targets': 1, 'necromancers': 0, 'score': 3, 'ammo': 1, 'vision': 6, 'torches': 2},
-    {'level': 1, 'targets': 3, 'necromancers': 0, 'score': 4, 'ammo': 1, 'vision': 5, 'torches': 3},
-    {'level': 2, 'targets': 1, 'necromancers': 2, 'score': 5, 'ammo': 2, 'vision': 4, 'torches': 3}
+    {'level': 0, 'terrain': 'forest', 'targets': 1, 'necromancers': 0, 'score': 3, 'ammo': 1, 'vision': 6, 'torches': 2},
+    {'level': 1, 'terrain': 'cave', 'targets': 3, 'necromancers': 0, 'score': 4, 'ammo': 1, 'vision': 5, 'torches': 3},
+    {'level': 2, 'terrain': 'dungeon', 'targets': 1, 'necromancers': 2, 'score': 5, 'ammo': 2, 'vision': 4, 'torches': 3, 'cultists': True}
 ]
 
 PLAYER_CLASSES = [
@@ -164,7 +164,7 @@ def createstageentities (settings, play, space):
         targets.append(target(location))
     for number in range(settings['necromancers']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        necromancers.append(necromancer(location))
+        necromancers.append(necromancer(location,'C' if settings.get('cultists') else None))
     location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
     ammopickup = ammo(location)
     return targets,necromancers,bullets,bombs,flares,ammopickup,torches
@@ -176,7 +176,7 @@ def refillstageentities (settings, play, targets, necromancers, bullets, bombs, 
         targets.append(target(location))
     while len(necromancers) < settings['necromancers']:
         location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,space = space,torches = torches,flares = flares)
-        necromancers.append(necromancer(location))
+        necromancers.append(necromancer(location,'C' if settings.get('cultists') else None))
     if ammopickup is None:
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
         ammopickup = ammo(location)
@@ -416,7 +416,8 @@ def runstage (settings, curse = None, classid = 'vanguard', boonid = 'iron_heart
     play.bombfuse = settings['bombfuse']
     play.bulletrange = settings['bulletrange']
     play.reloadpenalty = settings['reloadpenalty']
-    space = generatespace(play.location)
+    configureterrain(settings['terrain'])
+    space = generatespace(play.location,terrain = settings['terrain'])
     explored = set()
     destroyedwalls = set()
     targets,necromancers,bullets,bombs,flares,ammopickup,torches = createstageentities(settings,play,space)
