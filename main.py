@@ -2,7 +2,7 @@ import random
 import time
 
 from titlescreen import titlescreen
-from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
+from functions import BOARDHEIGHT, BOARDWIDTH, WORLDWIDTH, WORLDHEIGHT, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
 #GAME SETTINGS
@@ -357,12 +357,12 @@ def enemyforecasts (necromancers, enemyboss = None):
 
 def minimaplines (play, space, width = 15, height = 5):
     lines = []
-    playerx = min(width - 1,max(0,int(play.location[0] * width / 192)))
-    playery = min(height - 1,max(0,int(play.location[1] * height / 96)))
+    playerx = min(width - 1,max(0,int(play.location[0] * width / WORLDWIDTH)))
+    playery = min(height - 1,max(0,int(play.location[1] * height / WORLDHEIGHT)))
     for row in reversed(range(height)):
         line = ''
         for column in range(width):
-            world = (min(191,int((column + 0.5) * 192 / width)),min(95,int((row + 0.5) * 96 / height)))
+            world = (min(WORLDWIDTH - 1,int((column + 0.5) * WORLDWIDTH / width)),min(WORLDHEIGHT - 1,int((row + 0.5) * WORLDHEIGHT / height)))
             line += '@' if (column,row) == (playerx,playery) else '.' if world in space else '#'
         lines.append(line)
     return lines
