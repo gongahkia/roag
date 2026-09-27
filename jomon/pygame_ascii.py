@@ -1,12 +1,13 @@
 """Pygame faux-terminal renderer over the shared graphical controller."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .assets import ascii_glyph
 from .pygame_frontend import PygameFrontend
-from .views import CellView, WorldView
+from .views import ActorView, CellView, WorldView
 
 
 _TERRAIN_FALLBACKS = {
@@ -19,6 +20,49 @@ _FEATURE_FALLBACKS = {
 }
 
 
+@dataclass(frozen=True)
+class AsciiTheme:
+    """Presentation-only semantic colour roles for the faux-terminal mode."""
+    background: tuple[int, int, int] = (5, 10, 19)
+    foreground: tuple[int, int, int] = (218, 230, 241)
+    dim: tuple[int, int, int] = (98, 115, 132)
+    title: tuple[int, int, int] = (125, 191, 246)
+    terrain: tuple[int, int, int] = (130, 157, 179)
+    wall: tuple[int, int, int] = (154, 132, 111)
+    path: tuple[int, int, int] = (169, 178, 139)
+    water: tuple[int, int, int] = (78, 156, 205)
+    interactable: tuple[int, int, int] = (232, 185, 91)
+    item: tuple[int, int, int] = (84, 191, 161)
+    vessel: tuple[int, int, int] = (220, 145, 89)
+    travel: tuple[int, int, int] = (103, 167, 233)
+    player: tuple[int, int, int] = (238, 249, 255)
+    friendly: tuple[int, int, int] = (103, 225, 229)
+    neutral: tuple[int, int, int] = (196, 206, 215)
+    hostile: tuple[int, int, int] = (242, 111, 105)
+    disabled: tuple[int, int, int] = (104, 96, 105)
+    objective: tuple[int, int, int] = (240, 204, 103)
+    health: tuple[int, int, int] = (111, 226, 154)
+    armour: tuple[int, int, int] = (139, 185, 225)
+    magic: tuple[int, int, int] = (187, 138, 233)
+    chemistry: tuple[int, int, int] = (114, 201, 128)
+    production: tuple[int, int, int] = (225, 164, 88)
+    circuit: tuple[int, int, int] = (234, 149, 83)
+    success: tuple[int, int, int] = (111, 226, 154)
+    warning: tuple[int, int, int] = (240, 188, 92)
+    failure: tuple[int, int, int] = (242, 111, 105)
+    selected_fg: tuple[int, int, int] = (255, 242, 166)
+    selected_bg: tuple[int, int, int] = (52, 77, 104)
+    target: tuple[int, int, int] = (255, 137, 126)
+
+
+ASCII_THEME = AsciiTheme()
+
+
+def _remembered(colour: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Dim a semantic colour without changing what the view reveals."""
+    return tuple(max(18, value * 42 // 100) for value in colour)
+
+
 class AsciiPygameFrontend(PygameFrontend):
     """Terminal-styled Pygame renderer; inherited input remains semantic."""
     renderer_id = "ascii"
@@ -26,6 +70,7 @@ class AsciiPygameFrontend(PygameFrontend):
     def __init__(self, *args: Any, font_path: str | Path | None = None,
                  icon_font_path: str | Path | None = None, **kwargs: Any):
         super().__init__(*args, font_path=font_path, icon_font_path=icon_font_path, **kwargs)
+        self.theme = ASCII_THEME
 
     def _cell_metrics(self) -> tuple[int, int]:
         width, height = self.font.size("M")
@@ -59,23 +104,77 @@ class AsciiPygameFrontend(PygameFrontend):
             return ascii_glyph(cell.topology_id, _TERRAIN_FALLBACKS.get(cell.terrain_id, "."))
         return self._region_token(cell)
 
-    def _draw_text(self, value: str, point: tuple[int, int], colour=(225, 232, 241), *, icon: bool = False) -> None:
+    def _cell_colour(self, cell: CellView) -> tuple[int, int, int]:
+        """Choose a renderer-only role from semantic terrain and features."""
+        identities = (cell.terrain_id, cell.topology_id or "", *cell.feature_ids)
+        joined = " ".join(identities).lower()
+        if "water" in joined or "flood" in joined:
+            colour = self.theme.water
+        elif "wall" in joined or "structure" in joined:
+            colour = self.theme.wall
+        elif "path" in joined or "passage" in joined or "floor" in joined:
+            colour = self.theme.path
+        elif any(token in joined for token in ("exit", "gangplank", "route", "travel", "door")):
+            colour = self.theme.travel
+        elif any(token in joined for token in ("vessel", "engine", "station")):
+            colour = self.theme.vessel
+        elif any(token in joined for token in ("item", "loot", "container")):
+            colour = self.theme.item
+        elif cell.feature_ids:
+            colour = self.theme.interactable
+        else:
+            colour = self.theme.terrain
+        return colour if cell.visible else _remembered(colour)
+
+    def _actor_colour(self, actor: ActorView) -> tuple[int, int, int]:
+        if not actor.alive:
+            return self.theme.disabled
+        if actor.actor_kind == "person":
+            return self.theme.friendly
+        if actor.actor_kind in {"neutral", "wildlife"}:
+            return self.theme.neutral
+        return self.theme.hostile
+
+    def _result_colour(self, result_id: str) -> tuple[int, int, int]:
+        if result_id.endswith((".ok", ".resolved", ".completed")):
+            return self.theme.success
+        if result_id.endswith((".rejected", ".invalid", ".failed")):
+            return self.theme.failure
+        return self.theme.foreground
+
+    def _draw_text(self, value: str, point: tuple[int, int], colour: tuple[int, int, int] | None = None, *, icon: bool = False) -> None:
+        colour = colour or self.theme.foreground
         self.screen.blit(self.font_stack.render(value, colour, icon=icon), point)
+
+    def _draw_runs(self, runs: tuple[tuple[str, tuple[int, int, int], bool], ...], point: tuple[int, int]) -> None:
+        x, y = point
+        for value, colour, icon in runs:
+            surface = self.font_stack.render(value, colour, icon=icon)
+            self.screen.blit(surface, (x, y))
+            x += surface.get_width()
 
     def _draw_ascii_panel(self, lines: list[str]) -> None:
         if not lines:
             return
         width, height = self.screen.get_size()
         char_width, char_height = self._cell_metrics()
-        max_columns = max(24, min((width - 40) // char_width, max(len(line) for line in lines) + 4))
-        max_rows = min(len(lines), max(4, (height - 100) // char_height - 2))
-        box = self.pygame.Rect(14, 50, max_columns * char_width, (max_rows + 2) * char_height)
+        full_page = self.panel in {"title", "setup"}
+        if full_page:
+            max_columns = max(32, min((width - 80) // char_width, max(42, max(len(line) for line in lines) + 10)))
+            max_rows = max(14, min((height - 80) // char_height - 2, max(len(lines) + 6, 18)))
+            box = self.pygame.Rect((width - max_columns * char_width) // 2, (height - (max_rows + 2) * char_height) // 2,
+                                   max_columns * char_width, (max_rows + 2) * char_height)
+        else:
+            max_columns = max(24, min((width - 40) // char_width, max(len(line) for line in lines) + 4))
+            max_rows = min(len(lines), max(4, (height - 100) // char_height - 2))
+            box = self.pygame.Rect(14, 50, max_columns * char_width, (max_rows + 2) * char_height)
         self.pygame.draw.rect(self.screen, (10, 18, 34), box)
-        self.pygame.draw.rect(self.screen, (90, 165, 235), box, 1)
-        self._draw_text("╔" + "═" * (max_columns - 2) + "╗", (box.x, box.y), (90, 165, 235))
+        self.pygame.draw.rect(self.screen, self.theme.title, box, 1)
+        self._draw_text("╔" + "═" * (max_columns - 2) + "╗", (box.x, box.y), self.theme.title)
         for index, line in enumerate(lines[:max_rows]):
-            self._draw_text((line[:max_columns - 2]).ljust(max_columns - 2), (box.x + char_width, box.y + (index + 1) * char_height))
-        self._draw_text("╚" + "═" * (max_columns - 2) + "╝", (box.x, box.y + (max_rows + 1) * char_height), (90, 165, 235))
+            colour = self.theme.title if index == 0 else self.theme.selected_fg if line.startswith(">") else self.theme.dim if ("Enter" in line or "Esc" in line or "locked" in line) else self.theme.foreground
+            self._draw_text((line[:max_columns - 2]).ljust(max_columns - 2), (box.x + char_width, box.y + (index + 1) * char_height), colour)
+        self._draw_text("╚" + "═" * (max_columns - 2) + "╝", (box.x, box.y + (max_rows + 1) * char_height), self.theme.title)
 
     def _panel_lines(self) -> list[str]:
         if self.panel is None:
@@ -135,21 +234,26 @@ class AsciiPygameFrontend(PygameFrontend):
         return lines
 
     def draw(self) -> None:
-        self.screen.fill((5, 10, 19))
-        if self.panel == "title":
+        self.screen.fill(self.theme.background)
+        # Landing and initial setup deliberately have no session/world behind
+        # them.  They are application pages rendered from shell/draft state.
+        if self.panel in {"title", "setup"}:
             self._draw_ascii_panel(self._panel_lines())
             self.pygame.display.flip()
             return
-        view = self.session.world_view()
+        session = self._require_session()
+        view = session.world_view()
         camera = self._camera(view)
         visible = {cell.position for cell in view.cells if cell.visible}
         for cell in view.cells:
             if not (cell.visible or cell.remembered):
                 continue
             rect = self._rect(cell.position, camera)
-            colour = (105, 140, 168) if cell.visible else (45, 61, 77)
+            if self.selected == cell.position:
+                self.pygame.draw.rect(self.screen, self.theme.selected_bg, rect)
+            colour = self._cell_colour(cell)
             self._draw_text(self._cell_glyph(cell), (rect.x, rect.y), colour)
-        actors = {actor.id: actor for actor in self.session.actor_views()}
+        actors = {actor.id: actor for actor in session.actor_views()}
         for cell in view.cells:
             if cell.position not in visible or not cell.actor_ids:
                 continue
@@ -157,25 +261,29 @@ class AsciiPygameFrontend(PygameFrontend):
             if actor is None:
                 continue
             icon = "npc" if actor.actor_kind == "person" else "threat"
-            colour = (105, 226, 234) if actor.actor_kind == "person" else (245, 105, 105)
+            colour = self._actor_colour(actor)
             rect = self._rect(cell.position, camera)
             self._draw_text(self.font_stack.icon(icon), (rect.x, rect.y), colour, icon=True)
         courier = self._rect(view.courier_position, camera)
-        self._draw_text(self.font_stack.icon("courier"), (courier.x, courier.y), (245, 245, 255), icon=True)
+        self._draw_text(self.font_stack.icon("courier"), (courier.x, courier.y), self.theme.player, icon=True)
         if self.selected:
-            self.pygame.draw.rect(self.screen, (255, 214, 82), self._rect(self.selected, camera), 1)
-        header = (f"{self.font_stack.icon('health')} JOMON  result:{self.last_result}  "
-                  f"{self.font_stack.icon('inspect')} click inspect  "
-                  f"{self.font_stack.icon('interact')} E interact  "
-                  f"{self.font_stack.icon('inventory')} I inventory  Ctrl+S save")
-        self._draw_text(header, (10, 8), (214, 231, 249), icon=True)
+            self.pygame.draw.rect(self.screen, self.theme.selected_fg, self._rect(self.selected, camera), 1)
+        self._draw_runs((
+            (self.font_stack.icon("health") + " ", self.theme.health, True),
+            ("JOMON  ", self.theme.title, False),
+            (f"result:{self.last_result}  ", self._result_colour(self.last_result), False),
+            (self.font_stack.icon("inspect") + " click inspect  ", self.theme.interactable, True),
+            (self.font_stack.icon("interact") + " E interact  ", self.theme.objective, True),
+            (self.font_stack.icon("inventory") + " I inventory  Ctrl+S save", self.theme.item, True),
+        ), (10, 8))
         for index, line in enumerate(self._inspection_lines()):
-            self._draw_text(line, (10, 30 + index * self._cell_metrics()[1]), (190, 210, 226))
+            colour = self.theme.objective if line.startswith("Interaction:") else self.theme.health if line.startswith("HP:") else self.theme.dim
+            self._draw_text(line, (10, 30 + index * self._cell_metrics()[1]), colour)
         if self.notification:
-            self._draw_text(self.notification.text, (10, self.screen.get_height() - 26), (120, 240, 164))
+            self._draw_text(self.notification.text, (10, self.screen.get_height() - 26), self._result_colour(self.notification.text.lower().replace(" ", ".")))
         for note in self.feedback:
             if note.position:
                 rect = self._rect(note.position, camera)
-                self._draw_text(note.text, (rect.x, rect.y - self._cell_metrics()[1]), (255, 210, 104))
+                self._draw_text(note.text, (rect.x, rect.y - self._cell_metrics()[1]), self.theme.warning)
         self._draw_ascii_panel(self._panel_lines())
         self.pygame.display.flip()

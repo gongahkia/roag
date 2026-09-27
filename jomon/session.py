@@ -32,7 +32,7 @@ from .views import (
     WorldView, actor_views, equipment_view, interaction_view, inventory_view,
     quest_views, travel_view, world_view,
     tavern_dice_view, tavern_draw_view,
-    ActivityView, CharacterSetupView, character_setup_view,
+    ActivityView, CharacterSetupView, character_setup_view, pending_character_setup_view,
 )
 
 
@@ -61,6 +61,25 @@ class GameSession:
     @classmethod
     def create(cls, seed: str) -> "GameSession":
         return cls(create_world(seed))
+
+    @classmethod
+    def pending_character_setup_view(cls, seed: str, crew_id: str | None = None) -> CharacterSetupView:
+        """Read the seed-derived setup choices before a world is created."""
+        return pending_character_setup_view(seed, crew_id)
+
+    @classmethod
+    def create_configured(cls, seed: str, command: CharacterSetupCommand) -> tuple["GameSession", CommandOutcome]:
+        """Create one world and immediately commit its initial courier setup.
+
+        The temporary unconfigured state is never exposed to a frontend: the
+        caller receives a session only after the authoritative setup reducer
+        accepts the stable choices.
+        """
+        session = cls.create(seed)
+        outcome = session.submit(command)
+        if not outcome.accepted:
+            raise ValueError("invalid initial character setup")
+        return session, outcome
 
     @classmethod
     def load(cls, path: Path | None = None) -> "GameSession":

@@ -1116,8 +1116,12 @@ def apply_terrain_status(state: GameState, tile: str) -> str:
         tile == "s" and "ember cloth" in state.carried_passives
         and not state.vessel_changes.get(ember_marker)
     ):
+        # The passive's engine key is legacy-compatible mechanics.  Its
+        # visible name remains selected-pack presentation.
+        from .item_presentation import item_display_name_or_legacy
+
         state.vessel_changes[ember_marker] = True
-        return "Ember cloth takes one smoke crossing without losing guard or breath."
+        return f"{item_display_name_or_legacy('ember cloth')} takes one smoke crossing without losing guard or breath."
     result = terrain_status_for(state, tile)
     if not result:
         return ""

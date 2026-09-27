@@ -491,8 +491,19 @@ def tavern_dice_view(state: GameState) -> TavernDiceView:
     )
 
 
-def character_setup_view(state: GameState, crew_id: str | None = None) -> CharacterSetupView:
-    """Expose initial courier choices without making creation a frontend concern."""
+def _character_setup_view_for_household(
+    household: tuple[object, ...] | list[object],
+    crew_id: str | None,
+    *,
+    available: bool,
+) -> CharacterSetupView:
+    """Build the immutable setup projection from a seed-derived household.
+
+    The helper deliberately only needs the initial household.  This lets the
+    application show a character draft before a :class:`GameState` and its
+    world topology exist, while keeping the exact same IDs and default
+    allocations that the eventual world will use.
+    """
     from .character import (
         ANCESTRIES, ATTRIBUTE_POINTS, COMPETENCIES, COMPETENCY_POINTS, ORIGINS,
         TRAITS, default_allocation,
@@ -501,18 +512,39 @@ def character_setup_view(state: GameState, crew_id: str | None = None) -> Charac
 
     crew = tuple(
         CharacterSetupCrewView(person.id, person.name, person.role, role_display_name(person.role))
-        for person in state.household if person.alive and person.available
+        for person in household if person.alive and person.available
     )
-    selected = next((person for person in state.household if person.id == crew_id), None)
+    selected = next((person for person in household if person.id == crew_id), None)
     if selected is None or not selected.alive or not selected.available:
-        selected = next((person for person in state.household if person.alive and person.available), state.household[0])
+        selected = next((person for person in household if person.alive and person.available), household[0])
     attributes, competencies = default_allocation(selected.role)
     return CharacterSetupView(
-        state.world_time == 0 and state.expedition_count == 0 and not state.courier.character_specified,
+        available,
         crew, tuple(ANCESTRIES), tuple(ORIGINS), tuple(TRAITS), tuple(ATTRIBUTES),
         tuple(COMPETENCIES), ATTRIBUTE_POINTS, COMPETENCY_POINTS,
         tuple((name, attributes[name]) for name in ATTRIBUTES),
         tuple((name, competencies[name]) for name in COMPETENCIES),
+    )
+
+
+def pending_character_setup_view(seed: str, crew_id: str | None = None) -> CharacterSetupView:
+    """Preview initial setup from a seed without constructing a game world.
+
+    ``_household`` is deterministic and uses an isolated named RNG stage; it
+    is the same routine used by ``create_world``.  Reading this projection is
+    therefore observational application setup, not simulation creation.
+    """
+    from .state import _household
+
+    return _character_setup_view_for_household(_household(seed), crew_id, available=True)
+
+
+def character_setup_view(state: GameState, crew_id: str | None = None) -> CharacterSetupView:
+    """Expose initial courier choices for a newly created, unconfigured state."""
+    return _character_setup_view_for_household(
+        state.household,
+        crew_id,
+        available=state.world_time == 0 and state.expedition_count == 0 and not state.courier.character_specified,
     )
 
 

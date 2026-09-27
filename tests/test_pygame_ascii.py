@@ -54,6 +54,23 @@ class AsciiPygameFrontendTests(unittest.TestCase):
             self.assertGreater(surface.get_width(), 0)
             self.assertGreater(surface.get_height(), 0)
 
+    def test_semantic_theme_distinguishes_world_visibility_and_ui_roles(self):
+        from jomon.state import Position
+        from jomon.views import CellView
+
+        frontend = self.frontend()
+        wall = CellView(Position(1, 1, 0), "terrain.vessel.wall", "topology.vessel.wall", True, False, (), ())
+        water = CellView(Position(2, 1, 0), "terrain.region.water", None, True, False, (), ())
+        route = CellView(Position(3, 1, 0), "terrain.region.floor", None, True, False, ("feature.travel.exit",), ())
+        remembered_wall = CellView(Position(1, 2, 0), "terrain.vessel.wall", "topology.vessel.wall", False, True, (), ())
+        self.assertNotEqual(frontend._cell_colour(wall), frontend._cell_colour(water))
+        self.assertNotEqual(frontend._cell_colour(route), frontend._cell_colour(water))
+        self.assertNotEqual(frontend._cell_colour(wall), frontend._cell_colour(remembered_wall))
+        self.assertNotEqual(frontend.theme.player, frontend.theme.hostile)
+        self.assertNotEqual(frontend.theme.friendly, frontend.theme.hostile)
+        self.assertNotEqual(frontend.theme.selected_bg, frontend.theme.background)
+        self.assertNotEqual(frontend._result_colour("move.ok"), frontend._result_colour("move.rejected"))
+
     def test_ascii_uses_the_shared_commands_panels_and_save_format(self):
         from jomon.commands import MoveCommand
         from jomon.session import GameSession

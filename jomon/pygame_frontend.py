@@ -125,7 +125,7 @@ class ResourceCache:
 class PygameFrontend:
     """Frontend-local camera, selection, resources, and transient feedback."""
     renderer_id = "debug"
-    def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None,
+    def __init__(self, session: GameSession | None, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None,
                  require_character_setup: bool = False, font_path: Path | None = None,
                  icon_font_path: Path | None = None, shell_mode: str = "game",
                  settings: AppSettings | None = None, settings_file: Path | None = None,
@@ -137,7 +137,10 @@ class PygameFrontend:
         self.font_stack = FontStack(self.pygame, 20, font_path=font_path, icon_font_path=icon_font_path)
         self.font = self.font_stack.text
         self.tile_size = 26; self.selected: Position | None = None; self.selected_actor_id: str | None = None
-        self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
+        self.motions: list[Motion] = []; self.feedback: list[Feedback] = []
+        # World media and audio are deliberately deferred until a session
+        # exists.  Title and setup are application pages, not a hidden game.
+        self.resources: ResourceCache | None = ResourceCache(self.pygame) if session is not None else None
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
         self.panel: str | None = None; self.panel_cursor = 0; self.activity_context: str | None = None
         self.settings = settings or load_app_settings(settings_file); self.settings_file = settings_file
@@ -151,6 +154,22 @@ class PygameFrontend:
         elif shell_mode == "title":
             self._open_panel("title")
 
+    def _require_session(self) -> GameSession:
+        if self.session is None:
+            raise RuntimeError("this frontend page has no active game session")
+        return self.session
+
+    def _attach_session(self, session: GameSession) -> None:
+        self.session = session
+        self.resources = ResourceCache(self.pygame)
+
+    def _return_to_title(self) -> None:
+        self.session = None
+        self.resources = None
+        self.selected = self.selected_actor_id = None
+        self.motions.clear(); self.feedback.clear(); self.setup_draft = None
+        self._open_panel("title")
+
     def _colour(self, semantic: str) -> tuple[int, int, int]:
         raw=sha256(semantic.encode()).digest(); return 45+raw[0]//3, 45+raw[1]//3, 45+raw[2]//3
 
@@ -161,15 +180,16 @@ class PygameFrontend:
         return self.pygame.Rect(camera[0]+point.x*self.tile_size, camera[1]+point.y*self.tile_size, self.tile_size, self.tile_size)
 
     def submit(self, command: object) -> CommandOutcome:
-        outcome=self.session.submit(command); self.last_result=outcome.result_id; self.consume_events(outcome.events); return outcome
+        outcome=self._require_session().submit(command); self.last_result=outcome.result_id; self.consume_events(outcome.events); return outcome
 
     def consume_events(self, events: tuple[RuntimeEvent, ...]) -> None:
+        session = self._require_session()
         for event in events:
             if isinstance(event, ActorMoved): self.motions.append(Motion(event.actor_id,event.from_position,event.to_position))
             elif isinstance(event, DamageApplied):
-                actor=self.session.actor_view(event.target_actor_id); self.feedback.append(Feedback(actor.position if actor else None, str(event.amount)))
+                actor=session.actor_view(event.target_actor_id); self.feedback.append(Feedback(actor.position if actor else None, str(event.amount)))
             elif isinstance(event, (AttackResolved, ActorDefeated)):
-                actor_id=event.target_id if isinstance(event, AttackResolved) else event.actor_id; actor=self.session.actor_view(actor_id)
+                actor_id=event.target_id if isinstance(event, AttackResolved) else event.actor_id; actor=session.actor_view(actor_id)
                 self.feedback.append(Feedback(actor.position if actor else None, "hit" if isinstance(event, AttackResolved) else "defeated"))
             elif isinstance(event, TavernCardsExchanged):
                 self.feedback.append(Feedback(None, f"Exchanged {len(event.card_ids)} card(s)"))
@@ -178,20 +198,20 @@ class PygameFrontend:
             elif isinstance(event, TavernGameSettled):
                 self.feedback.append(Feedback(None, "Tavern game settled"))
             binding=event_assets(event.event_id)
-            if "audio" in binding: self.resources.play(binding["audio"])
+            if "audio" in binding and self.resources is not None: self.resources.play(binding["audio"])
 
     def _draw_cell(self, cell: CellView, camera: tuple[int,int]) -> None:
         if not (cell.visible or cell.remembered): return
         rect=self._rect(cell.position,camera); colour=self._colour(cell.terrain_id)
         if not cell.visible: colour=tuple(value//3 for value in colour)
         self.pygame.draw.rect(self.screen,colour,rect)
-        asset=terrain_assets(cell.terrain_id).get("image"); image=self.resources.image(asset,self.tile_size) if asset else None
+        asset=terrain_assets(cell.terrain_id).get("image"); image=self.resources.image(asset,self.tile_size) if asset and self.resources else None
         if image: self.screen.blit(image,rect)
         if cell.feature_ids: self.pygame.draw.rect(self.screen,(235,190,80),rect,1)
 
     def _draw_actor(self, actor: ActorView, camera: tuple[int,int]) -> None:
         if actor.position is None or not actor.alive: return
-        rect=self._rect(actor.position,camera); binding=actor_assets(actor.presentation_id); image=self.resources.image(binding.get("image",""),self.tile_size)
+        rect=self._rect(actor.position,camera); binding=actor_assets(actor.presentation_id); image=self.resources.image(binding.get("image",""),self.tile_size) if self.resources else None
         if image: self.screen.blit(image,rect)
         else:
             colour=(80,210,250) if actor.actor_kind=="person" else (225,75,75)
@@ -207,16 +227,17 @@ class PygameFrontend:
         """Project a selected known cell without querying mutable engine internals."""
         if self.selected is None:
             return None
-        world = self.session.world_view()
+        session = self._require_session()
+        world = session.world_view()
         cell = next((row for row in world.cells if row.position == self.selected), None)
         if cell is None or not (cell.visible or cell.remembered):
             return None
         # Actors and dynamic features are current information and must not leak
         # from a remembered cell merely because the underlying state changed.
-        actor = self.session.actor_view(self.selected_actor_id) if cell.visible and self.selected_actor_id in cell.actor_ids else None
+        actor = session.actor_view(self.selected_actor_id) if cell.visible and self.selected_actor_id in cell.actor_ids else None
         interaction = None
         if cell.visible:
-            current = self.session.interaction_view()
+            current = session.interaction_view()
             if current.position == cell.position:
                 interaction = next((option for option in current.options if option.available), None)
         return InspectionData(
@@ -289,7 +310,7 @@ class PygameFrontend:
     def _save_to(self, path: Path) -> bool:
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            saved = self.session.save(path)
+            saved = self._require_session().save(path)
         except (OSError, ValueError):
             self._notify("Save failed"); return False
         self.save_path = saved; self._notify(f"Saved {saved.name}"); return True
@@ -303,16 +324,16 @@ class PygameFrontend:
 
     def _activate_shell(self, action_id: str) -> None:
         if action_id == "join":
-            self.session = GameSession.create(self.new_game_seed); self._begin_character_setup(); return
+            self._begin_character_setup(); return
         if action_id == "continue":
-            try: self.session = GameSession.load(self.save_path)
+            try: self._attach_session(GameSession.load(self.save_path))
             except (OSError, ValueError): self._notify("Continue save could not be loaded")
             else: self.panel = None
             return
         if action_id == "load": self._open_panel("load"); return
         if action_id == "save": self._open_panel("save"); return
         if action_id == "resume": self.panel = None; return
-        if action_id == "title": self.session = GameSession.create(self.new_game_seed); self._open_panel("title"); return
+        if action_id == "title": self._return_to_title(); return
         if action_id == "quit": self.running = False; return
         if action_id == "settings": self._open_panel("settings"); return
         if action_id == "back": self._open_panel(self.settings_return_panel or "title"); return
@@ -329,13 +350,15 @@ class PygameFrontend:
         if action_id.startswith("save.path:"):
             self._save_to(self.save_root / action_id.split(":", 1)[1]); return
         if action_id.startswith("load.path:"):
-            try: self.session = GameSession.load(self.save_root / action_id.split(":", 1)[1])
+            try: self._attach_session(GameSession.load(self.save_root / action_id.split(":", 1)[1]))
             except (OSError, ValueError): self._notify("Save could not be loaded")
             else: self.panel = None
 
     def _begin_character_setup(self, crew_id: str | None = None) -> None:
-        """Open the new-game panel using only the session's immutable setup view."""
-        view = self.session.character_setup_view(crew_id)
+        """Open a seed-derived setup draft before creating any world state."""
+        if self.session is not None:
+            raise RuntimeError("character setup cannot replace an active game")
+        view = GameSession.pending_character_setup_view(self.new_game_seed, crew_id)
         if not view.available or not view.crew:
             self._notify("Character setup is not available for this game")
             return
@@ -349,7 +372,7 @@ class PygameFrontend:
     def _setup_fields(self) -> tuple[str, ...]:
         if self.setup_draft is None:
             return ()
-        view = self.session.character_setup_view(self.setup_draft.crew_id)
+        view = GameSession.pending_character_setup_view(self.new_game_seed, self.setup_draft.crew_id)
         return ("crew", "ancestry", "origin", "trait", *view.attribute_ids, *view.competency_ids, "begin")
 
     def _cycle_setup_choice(self, values: tuple[str, ...], current: str, step: int) -> str:
@@ -360,7 +383,7 @@ class PygameFrontend:
         draft = self.setup_draft
         if draft is None:
             return False
-        p = self.pygame; view = self.session.character_setup_view(draft.crew_id); fields = self._setup_fields()
+        p = self.pygame; view = GameSession.pending_character_setup_view(self.new_game_seed, draft.crew_id); fields = self._setup_fields()
         if event.key in {p.K_UP, p.K_w}:
             draft.cursor = (draft.cursor - 1) % len(fields); return True
         if event.key in {p.K_DOWN, p.K_s}:
@@ -392,15 +415,24 @@ class PygameFrontend:
                 else:
                     self._notify("Competency point limit reached")
             return True
+        if event.key == p.K_ESCAPE:
+            # Discard the pre-game draft.  It has no GameState, save, or RNG
+            # side effect, so returning to title is mechanically inert.
+            self.setup_draft = None; self._open_panel("title"); return True
         if event.key in {p.K_RETURN, p.K_KP_ENTER} and field == "begin":
-            outcome = self.submit(CharacterSetupCommand(
+            command = CharacterSetupCommand(
                 draft.crew_id, draft.name, draft.ancestry_id, draft.origin_id, draft.trait_id,
                 tuple(draft.attributes.items()), tuple(draft.competencies.items()),
-            ))
-            if outcome.accepted:
-                self.panel = None; self.setup_draft = None; self._notify("Courier ready")
-            else:
+            )
+            try:
+                session, outcome = GameSession.create_configured(self.new_game_seed, command)
+            except ValueError:
                 self._notify("Spend every character point before beginning")
+                return True
+            self._attach_session(session)
+            self.last_result = outcome.result_id
+            self.consume_events(outcome.events)
+            self.panel = None; self.setup_draft = None; self._notify("Courier ready")
             return True
         return True
 
@@ -417,11 +449,11 @@ class PygameFrontend:
 
     def _open_current_inventory(self) -> None:
         """Prefer recoverable ground items; normal pack access remains one close/reopen away."""
-        self._open_inventory("ground" if self.session.inventory_view("ground").items else None)
+        self._open_inventory("ground" if self._require_session().inventory_view("ground").items else None)
 
     def _open_activity(self, context_id: str) -> None:
         """Open a reducer-backed semantic choice surface."""
-        view = self.session.activity_view(context_id)
+        view = self._require_session().activity_view(context_id)
         if not view.options:
             self._notify(f"No available {view.title.lower()} choices")
             return
@@ -429,20 +461,37 @@ class PygameFrontend:
 
     def _draw_panel(self) -> None:
         if self.panel is None: return
-        width, height = self.screen.get_size(); box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
+        width, height = self.screen.get_size()
+        full_page = self.panel in {"title", "setup"}
+        if full_page:
+            box = self.pygame.Rect(max(26, width // 9), max(26, height // 10),
+                                   min(width - max(52, width // 5), 900),
+                                   min(height - max(52, height // 5), 650))
+        else:
+            box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
         self.pygame.draw.rect(self.screen, (18, 23, 34), box); self.pygame.draw.rect(self.screen, (150, 180, 220), box, 2)
         if self.panel in {"title", "pause", "settings", "save", "load"}:
             title = {"title": "J O M O N", "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
-            lines = [title, ""]
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
+            if self.panel == "title":
+                subtitle = self.font.render("A deterministic river-world expedition", True, (150, 180, 220))
+                heading = self.font_stack.render(title, (238, 238, 248))
+                self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 42))
+                self.screen.blit(subtitle, (box.centerx - subtitle.get_width() // 2, box.y + 78))
+                start_y, x = box.y + 142, box.x + max(28, box.width // 5)
+            else:
+                heading = self.font.render(title, True, (238, 238, 248))
+                self.screen.blit(heading, (box.x + 12, box.y + 12))
+                start_y, x = box.y + 52, box.x + 12
             for index, row in enumerate(rows):
                 marker = ">" if index == self.panel_cursor else " "
                 status = "" if row.enabled else " [unavailable]"
-                lines.append(f"{marker} {row.label}{status}")
-                if row.detail and index == self.panel_cursor: lines.append(f"   {row.detail}")
-            lines.append("Enter: select · Esc: back")
-            for index, line in enumerate(lines[:15]):
-                self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
+                colour = (245, 218, 118) if index == self.panel_cursor and row.enabled else (105, 118, 137) if not row.enabled else (238, 238, 238)
+                self.screen.blit(self.font.render(f"{marker} {row.label}{status}", True, colour), (x, start_y + index * 30))
+                if row.detail and index == self.panel_cursor:
+                    self.screen.blit(self.font.render(row.detail, True, (150, 180, 220)), (x + 22, start_y + len(rows) * 30 + 10))
+            hint = self.font.render("Enter: select · Esc: back", True, (150, 180, 220))
+            self.screen.blit(hint, (box.centerx - hint.get_width() // 2 if self.panel == "title" else box.x + 12, box.bottom - 34))
             return
         if self.panel == "setup":
             self._draw_character_setup(box)
@@ -489,7 +538,7 @@ class PygameFrontend:
         draft = self.setup_draft
         if draft is None:
             return
-        view = self.session.character_setup_view(draft.crew_id); fields = self._setup_fields()
+        view = GameSession.pending_character_setup_view(self.new_game_seed, draft.crew_id); fields = self._setup_fields()
         crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
         attribute_spent = sum(draft.attributes.values()) - 6 * len(draft.attributes)
         competency_spent = sum(draft.competencies.values())
@@ -502,13 +551,18 @@ class PygameFrontend:
             **{key: str(value) for key, value in draft.competencies.items()},
             "begin": "Start ordinary play",
         }
-        lines = ["Courier setup — arrows/WASD adjust; Enter begins",
+        heading = self.font_stack.render("CHARACTER CUSTOMIZATION", (238, 238, 248))
+        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 30))
+        lines = ["Choose an existing courier identity.  Stable choices become world setup only when you join.",
                  f"Attributes {attribute_spent}/{view.attribute_points}; competencies {competency_spent}/{view.competency_points}"]
         for index, field in enumerate(fields):
             marker = ">" if index == draft.cursor else " "
             lines.append(f"{marker} {self._semantic_label(field)}: {values[field]}")
         for index, line in enumerate(lines):
-            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 18))
+            colour = (245, 218, 118) if index >= 2 and index - 2 == draft.cursor else (238, 238, 238)
+            self.screen.blit(self.font.render(line, True, colour), (box.x + 28, box.y + 84 + index * 22))
+        hint = self.font.render("Arrows/WASD adjust · Enter: join game · Esc: back", True, (150, 180, 220))
+        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 34))
 
     def _draw_tavern_draw(self, box: Any) -> None:
         view = self.session.tavern_draw_view()
@@ -525,7 +579,7 @@ class PygameFrontend:
         for index, line in enumerate(lines):
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 22))
         card_binding = tavern_assets("tavern.draw.card")
-        image = self.resources.image(card_binding.get("image", ""), 54) if card_binding else None
+        image = self.resources.image(card_binding.get("image", ""), 54) if card_binding and self.resources else None
         for index, card in enumerate(view.hand):
             rect = self.pygame.Rect(box.x + 14 + index * 65, box.y + 92, 56, 82)
             self.pygame.draw.rect(self.screen, (238, 238, 224), rect)
@@ -563,7 +617,7 @@ class PygameFrontend:
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 24))
         if view.active and view.dice:
             binding = tavern_assets("tavern.dice.die")
-            image = self.resources.image(binding.get("image", ""), 48) if binding else None
+            image = self.resources.image(binding.get("image", ""), 48) if binding and self.resources else None
             for index, value in enumerate(view.dice):
                 rect = self.pygame.Rect(box.x + 14 + index * 62, box.y + 164, 50, 50)
                 self.pygame.draw.rect(self.screen, (238, 238, 224), rect)
@@ -618,13 +672,16 @@ class PygameFrontend:
 
     def draw(self) -> None:
         self.screen.fill((8,10,16))
-        if self.panel == "title":
+        # These are application pages.  A world is neither queried nor drawn
+        # until setup confirmation or an explicit save load attaches a session.
+        if self.panel in {"title", "setup"}:
             self._draw_panel(); self.pygame.display.flip(); return
-        view=self.session.world_view(); camera=self._camera(view)
+        session = self._require_session()
+        view=session.world_view(); camera=self._camera(view)
         for cell in view.cells: self._draw_cell(cell,camera)
         courier=self._rect(view.courier_position,camera); self.pygame.draw.circle(self.screen,(245,245,255),courier.center,max(5,self.tile_size//3))
         visible = {cell.position for cell in view.cells if cell.visible}
-        for actor in self.session.actor_views():
+        for actor in session.actor_views():
             if actor.position in visible:
                 self._draw_actor(actor,camera)
         if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
@@ -641,7 +698,8 @@ class PygameFrontend:
         self.pygame.display.flip()
 
     def _select_at(self, mouse: tuple[int,int]) -> None:
-        view=self.session.world_view(); camera=self._camera(view); x=(mouse[0]-camera[0])//self.tile_size; y=(mouse[1]-camera[1])//self.tile_size
+        session = self._require_session()
+        view=session.world_view(); camera=self._camera(view); x=(mouse[0]-camera[0])//self.tile_size; y=(mouse[1]-camera[1])//self.tile_size
         cell=next((row for row in view.cells if row.position.x==x and row.position.y==y),None)
         if cell and (cell.visible or cell.remembered):
             self.selected=cell.position
@@ -652,12 +710,22 @@ class PygameFrontend:
         if event.type==p.QUIT: self.running=False
         elif event.type==p.MOUSEBUTTONDOWN and event.button==1:
             if self.panel in {"title", "pause", "settings", "save", "load"}:
-                rows = self._panel_rows(); index = (event.pos[1] - 94) // 21
+                rows = self._panel_rows()
+                if self.panel == "title":
+                    box = self.pygame.Rect(max(26, self.screen.get_width() // 9), max(26, self.screen.get_height() // 10),
+                                           min(self.screen.get_width() - max(52, self.screen.get_width() // 5), 900),
+                                           min(self.screen.get_height() - max(52, self.screen.get_height() // 5), 650))
+                    index = (event.pos[1] - (box.y + 142)) // 30
+                else:
+                    index = (event.pos[1] - 94) // 21
                 if 0 <= index < len(rows) and rows[index].enabled: self._activate_shell(rows[index].action_id)
+            elif self.panel == "setup":
+                return
             else: self._select_at(event.pos)
         elif event.type==p.KEYDOWN:
             if event.key==p.K_s and event.mod & p.KMOD_CTRL:
-                self._save_to(save_path or self.save_path)
+                if self.session is not None:
+                    self._save_to(save_path or self.save_path)
                 return
             if self.panel == "setup":
                 self._handle_setup_key(event)
@@ -822,7 +890,7 @@ class PygameFrontend:
         active.pygame.quit()
 
 
-def create_frontend(session: GameSession, *, renderer: str = "debug", pygame: Any | None = None,
+def create_frontend(session: GameSession | None, *, renderer: str = "debug", pygame: Any | None = None,
                     font_path: Path | None = None, icon_font_path: Path | None = None,
                     require_character_setup: bool = False, shell_mode: str = "game",
                     settings: AppSettings | None = None, settings_file: Path | None = None,
@@ -856,11 +924,13 @@ def main(argv: list[str] | None = None) -> None:
     settings = load_app_settings()
     renderer = resolve_renderer(args.renderer, settings)
     save_path = args.save or default_save_path()
-    session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
+    # A new game begins with application-owned setup only.  World generation
+    # happens exactly once after the user confirms the stable setup choices.
+    session = GameSession.load(args.load) if args.load else None
     pygame.init()
     create_frontend(session, renderer=renderer, pygame=pygame, font_path=args.font,
                     icon_font_path=args.icon_font, require_character_setup=args.new,
-                    shell_mode="game" if args.new or args.load else "title", settings=settings,
+                    shell_mode="game" if args.load else "title", settings=settings,
                     save_path=save_path, seed=args.seed).run(save_path)
 
 if __name__ == '__main__': main()

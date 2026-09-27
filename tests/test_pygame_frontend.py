@@ -27,11 +27,10 @@ class PygameFrontendTests(unittest.TestCase):
         return self.Frontend(GameSession.create("pygame-slice"), pygame=self.pygame, size=(640,480))
 
     def test_new_game_setup_uses_immutable_view_and_semantic_command(self):
-        frontend = self.Frontend(
-            __import__("jomon.session", fromlist=["GameSession"]).GameSession.create("pygame-setup"),
-            pygame=self.pygame, size=(640, 480), require_character_setup=True,
-        )
+        frontend = self.Frontend(None, pygame=self.pygame, size=(640, 480), require_character_setup=True,
+                                 seed="pygame-setup")
         self.assertEqual(frontend.panel, "setup")
+        self.assertIsNone(frontend.session)
         self.assertIsNotNone(frontend.setup_draft)
         assert frontend.setup_draft is not None
         frontend.setup_draft.cursor = frontend._setup_fields().index("begin")
@@ -40,6 +39,43 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertIsNone(frontend.panel)
         self.assertIsNone(frontend.setup_draft)
 
+    def test_setup_is_pre_game_and_confirmed_once_with_stable_ids(self):
+        """Draft navigation and renderer replacement never instantiate a world."""
+        from jomon.commands import CharacterSetupCommand
+        from jomon.session import GameSession
+
+        frontend = self.Frontend(None, pygame=self.pygame, require_character_setup=True,
+                                 seed="pre-game", size=(640, 480))
+        self.assertIsNone(frontend.session)
+        draft = frontend.setup_draft
+        assert draft is not None
+        before = (draft.crew_id, draft.ancestry_id, draft.origin_id, draft.trait_id,
+                  tuple(draft.attributes.items()), tuple(draft.competencies.items()))
+        frontend._handle_setup_key(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RIGHT, mod=0))
+        self.assertIsNone(frontend.session)
+        ascii_frontend = frontend._replacement_renderer("ascii")
+        self.assertIsNone(ascii_frontend.session)
+        self.assertEqual(ascii_frontend.panel, "setup")
+        ascii_frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_ESCAPE, mod=0))
+        self.assertEqual(ascii_frontend.panel, "title")
+        self.assertIsNone(ascii_frontend.session)
+
+        # The initial world generated at confirmation is identical to the
+        # historic create-then-setup reducer sequence for the same IDs.
+        frontend._activate_shell("join")
+        draft = frontend.setup_draft
+        assert draft is not None
+        command = CharacterSetupCommand(draft.crew_id, draft.name, draft.ancestry_id, draft.origin_id,
+                                        draft.trait_id, tuple(draft.attributes.items()), tuple(draft.competencies.items()))
+        reference = GameSession.create("pre-game")
+        expected = reference.submit(command)
+        self.assertTrue(expected.accepted)
+        draft.cursor = frontend._setup_fields().index("begin")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertIsNotNone(frontend.session)
+        self.assertEqual(frontend.session.world_view(), reference.world_view())
+        self.assertEqual(frontend.session._state.to_dict(), reference._state.to_dict())
+
     def test_title_pause_save_settings_and_renderer_switch_are_frontend_local(self):
         from jomon.app_settings import AppSettings, load_app_settings
         from jomon.pygame_frontend import create_frontend
@@ -47,11 +83,12 @@ class PygameFrontendTests(unittest.TestCase):
             root = Path(directory)
             settings_file, save_root = root / "settings.json", root / "saves"
             frontend = create_frontend(
-                __import__("jomon.session", fromlist=["GameSession"]).GameSession.create("shell"),
+                None,
                 renderer="debug", pygame=self.pygame, shell_mode="title", settings=AppSettings(),
                 settings_file=settings_file, save_root=save_root, save_path=save_root / "continue.json",
             )
             self.assertEqual(frontend.panel, "title")
+            self.assertIsNone(frontend.session)
             self.assertFalse(next(row for row in frontend._panel_rows() if row.action_id == "continue").enabled)
             frontend._activate_shell("join")
             self.assertEqual(frontend.panel, "setup")
@@ -415,10 +452,8 @@ class PygameFrontendTests(unittest.TestCase):
         from jomon.session import GameSession
         from jomon.vessel import DRAW_PLAYER_SEAT
 
-        frontend = self.Frontend(
-            GameSession.create("pygame-active-flow"), pygame=self.pygame,
-            size=(640, 480), require_character_setup=True,
-        )
+        frontend = self.Frontend(None, pygame=self.pygame, size=(640, 480),
+                                 require_character_setup=True, seed="pygame-active-flow")
         assert frontend.setup_draft is not None
         frontend.setup_draft.cursor = frontend._setup_fields().index("begin")
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))

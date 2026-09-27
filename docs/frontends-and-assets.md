@@ -47,11 +47,17 @@ The bundled font is the normal ASCII path after `uv sync`; a system installation
 
 Normal saves are also outside the repository: `${XDG_DATA_HOME:-~/.local/share}/jomon/saves` on Linux, `%LOCALAPPDATA%/Jomon/saves` on Windows, and `~/Library/Application Support/Jomon/saves` on macOS. `--load PATH` and `--save PATH` remain explicit overrides. A corrupt settings file safely falls back to Debug; it never affects a loaded game.
 
-The title screen provides Join Game, Continue when the default save exists, Load Game, Settings, and Quit. Join Game opens the existing stable-ID character setup before ordinary play. Escape opens a frontend-only pause menu with resume, save, settings, return-to-title, and quit. Save/load selectors only operate on the user save directory or an explicit CLI path; their selections, title state, and menu cursors are never persisted in a game save.
+The title screen provides Join Game, Continue when the default save exists, Load Game, Settings, and Quit. Join Game opens a full application-page character setup before ordinary play. It holds only a frontend-local draft of stable setup IDs and point allocations: no `GameSession`, `GameState`, world map, camera, world media cache, or simulation RNG exists while that page is open. Confirming setup calls `GameSession.create_configured(seed, CharacterSetupCommand(...))`, which creates one deterministic world and commits those IDs. Escape discards the draft and returns to Title. Continue and Load attach an existing format-15 session directly and never show setup. Escape during ordinary play opens a frontend-only pause menu with resume, save, settings, return-to-title, and quit. Save/load selectors only operate on the user save directory or an explicit CLI path; their selections, title state, and menu cursors are never persisted in a game save.
 
 Changing Debug/ASCII in Settings updates `AppSettings` and replaces only the active renderer strategy. The same `GameSession`, state, RNG, current activity, selected save path, and frontend command route continue unchanged. A CLI renderer choice is per-launch and does not rewrite the stored preference.
 
 `ASCII_ICONS` centralizes renderer-chrome concepts including courier, NPC, threat, health, armour, inventory, equipment, weapon, ranged, ammunition, magic, chemistry, production, preparation, circuit, vehicle, vessel, travel, quest, warning, success, locked, inspect, interact, save, load, tavern, Draw, and Dice. Each has a plain-text/Unicode fallback such as `HP`, `INV`, or `QUEST`. Icons are never identities and a missing glyph cannot make a game state unreadable or alter a rule.
+
+## ASCII semantic theme
+
+`jomon.pygame_ascii.ASCII_THEME` is a renderer-only palette. It assigns stable visual roles to semantic terrain/features (terrain, wall, path, water, interactable, item, vessel, and travel), actors (courier, friendly, neutral, hostile, disabled), and UI state (health, armour, objective, magic, chemistry, production, circuit, success, warning, failure, and selection). The renderer derives a role from `CellView`/`ActorView`; it never sends colours back to the engine.
+
+Visible cells use their normal semantic role. Remembered cells use a dimmed version of that same role and expose only remembered terrain; unseen cells are not drawn. Selection adds a renderer-local background and border, so it does not conceal the glyph or reveal an actor. Altering this theme, a font, or an icon cannot change state, RNG, runtime events, fingerprints, or save contents.
 
 ## Renderer chrome versus content
 
