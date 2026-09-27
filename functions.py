@@ -1061,37 +1061,27 @@ def interface2 (player, enemyboss, armedbombs = 0):
 
 
 def threatconlvl (threatcon_lvl):
-    flames = ['.', '*', 'o', '*']
-    depths = [
-        ('        \\          |          /', '          \\________|________/', '             \\_____|_____/'),
-        ('       \\           |           /', '         \\_________|_________/', '            \\______|______/'),
-        ('      \\            |            /', '        \\__________|__________/', '           \\_______|_______/'),
-        ('     \\             |             /', '       \\___________|___________/', '          \\________|________/')
-    ]
-    for flame, depth in zip(flames,depths):
-        farwall, landing, step = depth
-        lines = [
-            '',
-            '',
-            f'                   {flame}',
-            '                  /|\\',
-            '                   |',
-            '                   |',
-            farwall,
-            '         \\         |         /',
-            landing,
-            '           \\       |       /',
-            step,
-            '             \\     |     /',
-            '              \\____|____/',
-            '               \\   |   /',
-            '                \\__|__/',
-            '                 \\ | /',
-            '                  \\|/',
-            '                 /___\\',
-            ''
-        ]
-        printscreen(lines)
+    floors = set()
+    for x in range(3,38):
+        for y in range(12,17):
+            floors.add((x,y))
+    for x in range(18,23):
+        for y in range(2,12):
+            floors.add((x,y))
+    for x in range(14,27):
+        for y in range(2,5):
+            floors.add((x,y))
+
+    for playerlocation in [(20,15),(20,13),(20,11),(20,9),(20,7)]:
+        entitydict = {}
+        for x in range(BOARDWIDTH):
+            for y in range(BOARDHEIGHT):
+                entitydict[(x,y)] = '.' if (x,y) in floors else '#'
+        for y in range(3,12):
+            entitydict[(20,y)] = '>'
+        entitydict[playerlocation] = icon('player_down')
+        entitydict[(playerlocation[0] + 1,playerlocation[1])] = icon('torch')
+        printdict(entitydict)
         time.sleep(0.18)
 
 
