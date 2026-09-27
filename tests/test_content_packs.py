@@ -1657,7 +1657,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(alternate["region"], ["hearthford", "Fixture Hearth"])
         self.assertEqual(alternate["route"][:2], ["hearthford", "Fixture Ford"])
         self.assertIn("fixture river presentation", alternate["route"][2])
-        self.assertIn("Fixture Hearth", " ".join(alternate["status"]))
+        self.assertIn("Fixture Hearth", " ".join(map(str, alternate["status"])))
         for field in ("signature", "levels", "landmarks", "edges"):
             self.assertEqual(default[field], alternate[field], field)
         self.assertEqual(default["region"][1], "Hearthford")
