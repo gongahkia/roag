@@ -1,5 +1,6 @@
 import random
 
+from titlescreen import titlescreen
 from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
@@ -552,6 +553,7 @@ def rungame (debuglevel = None):
         classid = chooseclass()
         rundebuglevel(debuglevel,classid,chooseboon())
         return
+    titlescreen()
     totscore = 0
     play = None
     classid = chooseclass()
