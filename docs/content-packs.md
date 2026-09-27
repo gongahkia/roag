@@ -1,3 +1,9 @@
+# Content-pack domain notes
+
+For the canonical pack workflow, ownership boundary, asset manifest, and
+alternate-pack regression pattern, start with
+[content-authoring.md](content-authoring.md).  This file keeps the detailed
+domain notes that supplement that guide.
 
 ### Landforms and discoveries
 
