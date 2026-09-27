@@ -64,7 +64,7 @@ class PygameFrontendTests(unittest.TestCase):
         frontend=self.frontend(); view=frontend.session.world_view()
         cell=next(cell for cell in view.cells if cell.visible)
         before=(frontend.session.revision, frontend.session.world_view())
-        frontend.selected=cell.position
+        frontend._select_at(frontend._rect(cell.position, frontend._camera(view)).center)
         data=frontend.inspection_data()
         self.assertIsNotNone(data)
         assert data is not None
@@ -114,6 +114,8 @@ class PygameFrontendTests(unittest.TestCase):
             self.assertEqual(tuple(frontend.session._state.messages), before_messages)
             loaded=GameSession.load(path)
             self.assertEqual(loaded.world_view(), before_view)
+            frontend.update(2.1)
+            self.assertIsNone(frontend.notification)
 
     def test_real_attack_events_drive_feedback_from_stable_target_id(self):
         from jomon.commands import AttackCommand
