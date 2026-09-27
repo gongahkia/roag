@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .state import GameState, Position
+from .state import ATTRIBUTES, GameState, Position
 from .world import base_tile, field_of_view, position_key, semantic_cell
 
 
@@ -193,6 +193,8 @@ class CharacterSetupView:
     competency_ids: tuple[str, ...]
     attribute_points: int
     competency_points: int
+    default_attributes: tuple[tuple[str, int], ...]
+    default_competencies: tuple[tuple[str, int], ...]
 
 
 @dataclass(frozen=True)
@@ -444,11 +446,11 @@ def tavern_dice_view(state: GameState) -> TavernDiceView:
     )
 
 
-def character_setup_view(state: GameState) -> CharacterSetupView:
+def character_setup_view(state: GameState, crew_id: str | None = None) -> CharacterSetupView:
     """Expose initial courier choices without making creation a frontend concern."""
     from .character import (
         ANCESTRIES, ATTRIBUTE_POINTS, COMPETENCIES, COMPETENCY_POINTS, ORIGINS,
-        TRAITS,
+        TRAITS, default_allocation,
     )
     from .character_presentation import role_display_name
 
@@ -456,10 +458,16 @@ def character_setup_view(state: GameState) -> CharacterSetupView:
         CharacterSetupCrewView(person.id, person.name, person.role, role_display_name(person.role))
         for person in state.household if person.alive and person.available
     )
+    selected = next((person for person in state.household if person.id == crew_id), None)
+    if selected is None or not selected.alive or not selected.available:
+        selected = next((person for person in state.household if person.alive and person.available), state.household[0])
+    attributes, competencies = default_allocation(selected.role)
     return CharacterSetupView(
         state.world_time == 0 and state.expedition_count == 0 and not state.courier.character_specified,
         crew, tuple(ANCESTRIES), tuple(ORIGINS), tuple(TRAITS), tuple(ATTRIBUTES),
         tuple(COMPETENCIES), ATTRIBUTE_POINTS, COMPETENCY_POINTS,
+        tuple((name, attributes[name]) for name in ATTRIBUTES),
+        tuple((name, competencies[name]) for name in COMPETENCIES),
     )
 
 

@@ -26,6 +26,20 @@ class PygameFrontendTests(unittest.TestCase):
         from jomon.session import GameSession
         return self.Frontend(GameSession.create("pygame-slice"), pygame=self.pygame, size=(640,480))
 
+    def test_new_game_setup_uses_immutable_view_and_semantic_command(self):
+        frontend = self.Frontend(
+            __import__("jomon.session", fromlist=["GameSession"]).GameSession.create("pygame-setup"),
+            pygame=self.pygame, size=(640, 480), require_character_setup=True,
+        )
+        self.assertEqual(frontend.panel, "setup")
+        self.assertIsNotNone(frontend.setup_draft)
+        assert frontend.setup_draft is not None
+        frontend.setup_draft.cursor = frontend._setup_fields().index("begin")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "character.setup.completed")
+        self.assertIsNone(frontend.panel)
+        self.assertIsNone(frontend.setup_draft)
+
     def test_draws_semantic_view_and_loads_real_image_resource(self):
         frontend=self.frontend(); frontend.draw()
         self.assertIsNotNone(frontend.resources.image("image.terrain.floor", frontend.tile_size))

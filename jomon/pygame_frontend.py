@@ -13,7 +13,7 @@ from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
-    ActivityCommand, GuardCommand, RetreatCommand,
+    ActivityCommand, CharacterSetupCommand, GuardCommand, RetreatCommand,
 )
 from .runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
@@ -48,6 +48,19 @@ class Feedback:
     text: str
     elapsed: float = 0.0
     duration: float = 0.35
+
+
+@dataclass
+class CharacterSetupDraft:
+    """Frontend-local draft; only its stable values cross the session boundary."""
+    crew_id: str
+    name: str
+    ancestry_id: str
+    origin_id: str
+    trait_id: str
+    attributes: dict[str, int]
+    competencies: dict[str, int]
+    cursor: int = 0
 
 
 @dataclass(frozen=True)
@@ -101,7 +114,8 @@ class ResourceCache:
 
 class PygameFrontend:
     """Frontend-local camera, selection, resources, and transient feedback."""
-    def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None):
+    def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None,
+                 require_character_setup: bool = False):
         self.pygame = pygame or _pygame(); self.session = session
         self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
         self.pygame.display.set_caption("Jomon — graphical slice")
@@ -110,7 +124,9 @@ class PygameFrontend:
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
         self.panel: str | None = None; self.panel_cursor = 0; self.activity_context: str | None = None
-        self.marked_draw_cards: set[str] = set()
+        self.marked_draw_cards: set[str] = set(); self.setup_draft: CharacterSetupDraft | None = None
+        if require_character_setup:
+            self._begin_character_setup()
 
     def _colour(self, semantic: str) -> tuple[int, int, int]:
         raw=sha256(semantic.encode()).digest(); return 45+raw[0]//3, 45+raw[1]//3, 45+raw[2]//3
@@ -221,6 +237,77 @@ class PygameFrontend:
             return self.session.activity_view(self.activity_context).options
         return ()
 
+    def _begin_character_setup(self, crew_id: str | None = None) -> None:
+        """Open the new-game panel using only the session's immutable setup view."""
+        view = self.session.character_setup_view(crew_id)
+        if not view.available or not view.crew:
+            self._notify("Character setup is not available for this game")
+            return
+        crew = next((row for row in view.crew if row.crew_id == crew_id), view.crew[0])
+        self.setup_draft = CharacterSetupDraft(
+            crew.crew_id, crew.display_name, view.ancestry_ids[0], view.origin_ids[0], view.trait_ids[0],
+            dict(view.default_attributes), dict(view.default_competencies),
+        )
+        self.panel, self.activity_context = "setup", None
+
+    def _setup_fields(self) -> tuple[str, ...]:
+        if self.setup_draft is None:
+            return ()
+        view = self.session.character_setup_view(self.setup_draft.crew_id)
+        return ("crew", "ancestry", "origin", "trait", *view.attribute_ids, *view.competency_ids, "begin")
+
+    def _cycle_setup_choice(self, values: tuple[str, ...], current: str, step: int) -> str:
+        return values[(values.index(current) + step) % len(values)]
+
+    def _handle_setup_key(self, event: Any) -> bool:
+        """Keep character point-buy presentation local and submit one stable command."""
+        draft = self.setup_draft
+        if draft is None:
+            return False
+        p = self.pygame; view = self.session.character_setup_view(draft.crew_id); fields = self._setup_fields()
+        if event.key in {p.K_UP, p.K_w}:
+            draft.cursor = (draft.cursor - 1) % len(fields); return True
+        if event.key in {p.K_DOWN, p.K_s}:
+            draft.cursor = (draft.cursor + 1) % len(fields); return True
+        field = fields[draft.cursor]
+        if event.key in {p.K_LEFT, p.K_a, p.K_RIGHT, p.K_d}:
+            step = -1 if event.key in {p.K_LEFT, p.K_a} else 1
+            if field == "crew":
+                next_id = self._cycle_setup_choice(tuple(row.crew_id for row in view.crew), draft.crew_id, step)
+                self._begin_character_setup(next_id)
+            elif field == "ancestry":
+                draft.ancestry_id = self._cycle_setup_choice(view.ancestry_ids, draft.ancestry_id, step)
+            elif field == "origin":
+                draft.origin_id = self._cycle_setup_choice(view.origin_ids, draft.origin_id, step)
+            elif field == "trait":
+                draft.trait_id = self._cycle_setup_choice(view.trait_ids, draft.trait_id, step)
+            elif field in draft.attributes:
+                proposed = draft.attributes[field] + step
+                spent = sum(draft.attributes.values()) - 6 * len(draft.attributes) + step
+                if 4 <= proposed <= 10 and 0 <= spent <= view.attribute_points:
+                    draft.attributes[field] = proposed
+                else:
+                    self._notify("Attribute point limit reached")
+            elif field in draft.competencies:
+                proposed = draft.competencies[field] + step
+                spent = sum(draft.competencies.values()) + step
+                if 0 <= proposed <= 5 and 0 <= spent <= view.competency_points:
+                    draft.competencies[field] = proposed
+                else:
+                    self._notify("Competency point limit reached")
+            return True
+        if event.key in {p.K_RETURN, p.K_KP_ENTER} and field == "begin":
+            outcome = self.submit(CharacterSetupCommand(
+                draft.crew_id, draft.name, draft.ancestry_id, draft.origin_id, draft.trait_id,
+                tuple(draft.attributes.items()), tuple(draft.competencies.items()),
+            ))
+            if outcome.accepted:
+                self.panel = None; self.setup_draft = None; self._notify("Courier ready")
+            else:
+                self._notify("Spend every character point before beginning")
+            return True
+        return True
+
     def _open_panel(self, name: str) -> None:
         self.panel, self.panel_cursor = name, 0
         if name != "activity": self.activity_context = None
@@ -237,6 +324,9 @@ class PygameFrontend:
         if self.panel is None: return
         width, height = self.screen.get_size(); box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
         self.pygame.draw.rect(self.screen, (18, 23, 34), box); self.pygame.draw.rect(self.screen, (150, 180, 220), box, 2)
+        if self.panel == "setup":
+            self._draw_character_setup(box)
+            return
         if self.panel == "tavern-draw":
             self._draw_tavern_draw(box)
             return
@@ -272,6 +362,31 @@ class PygameFrontend:
                 selected = rows[self.panel_cursor]; lines += ["", selected.description, "Operations: " + (", ".join(selected.legal_operations) or "inspect only")]
             if rows and self.panel == "travel":
                 selected = rows[self.panel_cursor]; lines += ["", selected.description, f"Hazard: {selected.hazard}; supply: {selected.supply_cost}"]
+        for index, line in enumerate(lines[:15]):
+            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
+
+    def _draw_character_setup(self, box: Any) -> None:
+        draft = self.setup_draft
+        if draft is None:
+            return
+        view = self.session.character_setup_view(draft.crew_id); fields = self._setup_fields()
+        crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
+        attribute_spent = sum(draft.attributes.values()) - 6 * len(draft.attributes)
+        competency_spent = sum(draft.competencies.values())
+        values: dict[str, str] = {
+            "crew": f"{crew.display_name} / {crew.role_label}",
+            "ancestry": self._semantic_label(draft.ancestry_id),
+            "origin": self._semantic_label(draft.origin_id),
+            "trait": self._semantic_label(draft.trait_id),
+            **{key: str(value) for key, value in draft.attributes.items()},
+            **{key: str(value) for key, value in draft.competencies.items()},
+            "begin": "Start ordinary play",
+        }
+        lines = ["Courier setup — arrows/WASD adjust; Enter begins",
+                 f"Attributes {attribute_spent}/{view.attribute_points}; competencies {competency_spent}/{view.competency_points}"]
+        for index, field in enumerate(fields):
+            marker = ">" if index == draft.cursor else " "
+            lines.append(f"{marker} {self._semantic_label(field)}: {values[field]}")
         for index, line in enumerate(lines[:15]):
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
 
@@ -425,6 +540,9 @@ class PygameFrontend:
                     else:
                         self._notify(f"Saved {saved.name}")
                 return
+            if self.panel == "setup":
+                self._handle_setup_key(event)
+                return
             if self._handle_tavern_key(event):
                 return
             if self.panel:
@@ -528,6 +646,6 @@ def main(argv: list[str] | None = None) -> None:
     try: pygame=_pygame()
     except RuntimeError as exc: parser.error(str(exc))
     session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
-    pygame.init(); PygameFrontend(session,pygame=pygame).run(args.save)
+    pygame.init(); PygameFrontend(session, pygame=pygame, require_character_setup=args.load is None).run(args.save)
 
 if __name__ == '__main__': main()

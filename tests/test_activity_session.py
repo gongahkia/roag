@@ -69,3 +69,61 @@ class ActivitySessionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class CharacterSetupSessionTests(unittest.TestCase):
+    def test_character_setup_view_and_command_keep_point_buy_in_headless_boundary(self):
+        from jomon.commands import CharacterSetupCommand
+
+        state = create_world("setup session")
+        session = GameSession(state)
+        view = session.character_setup_view()
+        self.assertTrue(view.available)
+        self.assertTrue(view.crew)
+        attributes = dict(view.default_attributes)
+        before = payload(state)
+        command = CharacterSetupCommand(
+            view.crew[0].crew_id, view.crew[0].display_name,
+            view.ancestry_ids[0], view.origin_ids[0], view.trait_ids[0],
+            tuple(attributes.items()), view.default_competencies,
+        )
+        outcome = session.submit(command)
+        self.assertEqual(outcome.result_id, "character.setup.completed")
+        self.assertTrue(outcome.changed)
+        self.assertTrue(state.courier.character_specified)
+        self.assertFalse(session.character_setup_view().available)
+        self.assertNotEqual(payload(state), before)
+
+    def test_character_setup_rejection_is_atomic(self):
+        from jomon.commands import CharacterSetupCommand
+
+        state = create_world("setup atomic")
+        session = GameSession(state)
+        view = session.character_setup_view()
+        before, revision = payload(state), session.revision
+        outcome = session.submit(CharacterSetupCommand(
+            view.crew[0].crew_id, view.crew[0].display_name,
+            view.ancestry_ids[0], view.origin_ids[0], view.trait_ids[0],
+            tuple((*view.default_attributes, (view.attribute_ids[0], dict(view.default_attributes)[view.attribute_ids[0]] + 1))),
+            view.default_competencies,
+        ))
+        self.assertEqual(outcome.result_id, "character.setup.rejected")
+        self.assertEqual(payload(state), before)
+        self.assertEqual(session.revision, revision)
+
+    def test_vessel_activity_view_does_not_probe_mutating_rest_reducer(self):
+        from jomon.vessel_refits import refit_station_at
+        from jomon.world import map_rows
+        from jomon.state import Position
+
+        state = create_world("berth view")
+        rows = map_rows(state)
+        berth = next(
+            Position(x, y, 0) for y, row in enumerate(rows) for x, token in enumerate(row)
+            if token == "b"
+        )
+        state.position = berth
+        self.assertEqual(refit_station_at(state), "berths")
+        before = payload(state)
+        view = GameSession(state).activity_view("vessel")
+        self.assertIn("vessel.rest", {row.action_id for row in view.options})
+        self.assertEqual(payload(state), before)

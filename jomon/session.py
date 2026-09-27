@@ -112,9 +112,9 @@ class GameSession:
         from .activities import activity_view
         return activity_view(self._state, context_id)
 
-    def character_setup_view(self) -> CharacterSetupView:
+    def character_setup_view(self, crew_id: str | None = None) -> CharacterSetupView:
         """Expose the initial courier choices before ordinary play starts."""
-        return character_setup_view(self._state)
+        return character_setup_view(self._state, crew_id)
 
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
