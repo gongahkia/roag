@@ -1236,3 +1236,10 @@ def runcurseshop (bag = None):
             s.move(user)
         elif user == 'e':
             return s.selected()
+
+
+# Compatibility exports. New UI and shop code lives in dedicated modules.
+from game_ui import (boardlines, centersidebar, clearscreen, colourboardline, colourtext,
+                     gameoverlines, hudlines, interface, interface2, printdict,
+                     printgameframe, printscreen, promptinput, readkey, statbar)
+from game_shops import curseshop, runcurseshop, runshop, shop

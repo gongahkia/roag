@@ -1,6 +1,5 @@
 import random
 
-from titlescreen import titlescreen
 from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
@@ -73,18 +72,6 @@ BOONS = [
     }
 ]
 BOON_BY_ID = {item['id']: item for item in BOONS}
-
-
-#GENERAL FUNCTIONS
-
-def startgame ():
-    while True:
-        titlescreen()
-        user = promptinput('[Y/N]: ')
-        if user == 'y':
-            return True
-        if user == 'n':
-            return False
 
 
 def chooseclass ():
@@ -565,10 +552,6 @@ def rungame (debuglevel = None):
         classid = chooseclass()
         rundebuglevel(debuglevel,classid,chooseboon())
         return
-    if not startgame():
-        print ('Okay. Hope to see you again!')
-        return
-
     totscore = 0
     play = None
     classid = chooseclass()
