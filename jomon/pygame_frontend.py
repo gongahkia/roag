@@ -31,7 +31,7 @@ def _pygame() -> Any:
     try:
         import pygame
     except ModuleNotFoundError as exc:
-        raise RuntimeError("The graphical frontend requires optional dependency pygame-ce; install requirements-pygame.txt.") from exc
+        raise RuntimeError("The Pygame frontend requires pygame-ce; run `uv sync`.") from exc
     return pygame
 
 
@@ -319,7 +319,9 @@ class PygameFrontend:
         if action_id.startswith("renderer."):
             renderer = action_id.split(".", 1)[1]
             if renderer in {"debug", "ascii"}:
-                self.settings = AppSettings(renderer); save_app_settings(self.settings, self.settings_file)
+                self.settings = AppSettings(renderer)
+                try: save_app_settings(self.settings, self.settings_file)
+                except OSError: self._notify("Renderer selected; settings could not be saved")
                 self.requested_renderer = renderer; self._notify(f"Renderer set to {renderer.title()}")
             return
         if action_id == "save.continue": self._save_to(self.save_path); return

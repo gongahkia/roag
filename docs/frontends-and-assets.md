@@ -47,6 +47,10 @@ The bundled font is the normal ASCII path after `uv sync`; a system installation
 
 Normal saves are also outside the repository: `${XDG_DATA_HOME:-~/.local/share}/jomon/saves` on Linux, `%LOCALAPPDATA%/Jomon/saves` on Windows, and `~/Library/Application Support/Jomon/saves` on macOS. `--load PATH` and `--save PATH` remain explicit overrides. A corrupt settings file safely falls back to Debug; it never affects a loaded game.
 
+The title screen provides Join Game, Continue when the default save exists, Load Game, Settings, and Quit. Join Game opens the existing stable-ID character setup before ordinary play. Escape opens a frontend-only pause menu with resume, save, settings, return-to-title, and quit. Save/load selectors only operate on the user save directory or an explicit CLI path; their selections, title state, and menu cursors are never persisted in a game save.
+
+Changing Debug/ASCII in Settings updates `AppSettings` and replaces only the active renderer strategy. The same `GameSession`, state, RNG, current activity, selected save path, and frontend command route continue unchanged. A CLI renderer choice is per-launch and does not rewrite the stored preference.
+
 `ASCII_ICONS` centralizes renderer-chrome concepts including courier, NPC, threat, health, armour, inventory, equipment, weapon, ranged, ammunition, magic, chemistry, production, preparation, circuit, vehicle, vessel, travel, quest, warning, success, locked, inspect, interact, save, load, tavern, Draw, and Dice. Each has a plain-text/Unicode fallback such as `HP`, `INV`, or `QUEST`. Icons are never identities and a missing glyph cannot make a game state unreadable or alter a rule.
 
 ## Renderer chrome versus content
