@@ -190,6 +190,7 @@ RED = '\033[91m'
 MAGENTA = '\033[95m'
 GREY = '\033[90m'
 GREEN = '\033[92m'
+LANDMARKS = {}
 WHITE = '\033[97m'
 
 configureicontheme()
@@ -199,6 +200,10 @@ def configureterrain (terrain):
     COLOURS['#'] = GREEN if terrain == 'forest' else GREY
     COLOURS['.'] = GREEN if terrain == 'forest' else GREY
     COLOURS['C'] = MAGENTA
+    COLOURS['Y'] = GREEN
+    COLOURS['^'] = GREY
+    COLOURS['O'] = YELLOW
+    COLOURS['w'] = RED
 
 
 #CLASS OBJECTS
@@ -545,6 +550,7 @@ def carvecorridor (space, start, finish):
 
 
 def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9), roomheight = (3,6), startroomsize = (11,7), arena = None, terrain = 'cave'):
+    global LANDMARKS
     if arena is not None:
         space = set()
         carveroom(space,*arena)
@@ -572,6 +578,12 @@ def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9),
         carveroom(space,start[0] - 3,start[1] - 3,7,7)
         reachable = set(pathfind(tuple(start),tuple(next(iter(space))),space))
         if len(space) > 1000:
+            LANDMARKS = {}
+            if terrain == 'forest':
+                blocked = [(x,y) for x in range(1,WORLDWIDTH - 1) for y in range(1,WORLDHEIGHT - 1) if (x,y) not in space]
+                for glyph,count in [('Y',110),('^',35),('O',12)]:
+                    for coordinate in random.sample(blocked,min(count,len(blocked))):
+                        LANDMARKS[coordinate] = glyph
             return space
     return space
 
@@ -729,7 +741,12 @@ def attackplayer (player, enemies, space = None):
                     if other is not enemy and isinstance(other, necromancer):
                         blocked.add(tuple(other.location))
                 path = pathfind(tuple(enemy.location),tuple(player.location),space,blocked)
-                if len(path) > 0 and len(path) - 1 <= 4:
+                if enemy.normalmodel == 'w' and len(path) == 2:
+                    player.attacked()
+                    player.notice = '~A forest wolf tore into you.~'
+                elif enemy.normalmodel == 'w' and len(path) > 2:
+                    enemy.movement(path[min(2,len(path) - 1)])
+                elif len(path) > 0 and len(path) - 1 <= 4:
                     enemy.prepareattack(player.location)
                 elif len(path) > 1:
                     enemy.movement(path[1])
@@ -905,6 +922,8 @@ def fogdict (entitydict, space, visible, explored, destroyedwalls = None):
                     foggeddict[coordinate] = entitydict[coordinate]
                 elif coordinate in destroyedwalls:
                     foggeddict[coordinate] = icon('destroyed_wall')
+                elif coordinate in LANDMARKS:
+                    foggeddict[coordinate] = LANDMARKS[coordinate]
                 elif coordinate not in space:
                     foggeddict[coordinate] = '#'
             elif coordinate in explored:
@@ -929,6 +948,8 @@ def mapdict (entitydict, space, destroyedwalls = None):
                 mapentities[coordinate] = entitydict[coordinate]
             elif coordinate in destroyedwalls:
                 mapentities[coordinate] = icon('destroyed_wall')
+            elif coordinate in LANDMARKS:
+                mapentities[coordinate] = LANDMARKS[coordinate]
             elif coordinate not in space:
                 mapentities[coordinate] = '#'
     return mapentities

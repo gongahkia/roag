@@ -7,7 +7,7 @@ from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torc
 #GAME SETTINGS
 
 STAGES = [
-    {'level': 0, 'terrain': 'forest', 'targets': 1, 'necromancers': 0, 'score': 3, 'ammo': 1, 'vision': 6, 'torches': 2},
+    {'level': 0, 'terrain': 'forest', 'targets': 4, 'necromancers': 6, 'score': 5, 'ammo': 2, 'vision': 6, 'torches': 3, 'wilds': True},
     {'level': 1, 'terrain': 'cave', 'targets': 3, 'necromancers': 0, 'score': 4, 'ammo': 1, 'vision': 5, 'torches': 3},
     {'level': 2, 'terrain': 'dungeon', 'targets': 1, 'necromancers': 2, 'score': 5, 'ammo': 2, 'vision': 4, 'torches': 3, 'cultists': True}
 ]
@@ -164,7 +164,8 @@ def createstageentities (settings, play, space):
         targets.append(target(location))
     for number in range(settings['necromancers']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        necromancers.append(necromancer(location,'C' if settings.get('cultists') else None))
+        model = 'w' if settings.get('wilds') and number % 2 == 0 else ('C' if settings.get('cultists') else None)
+        necromancers.append(necromancer(location,model))
     location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
     ammopickup = ammo(location)
     return targets,necromancers,bullets,bombs,flares,ammopickup,torches
@@ -176,7 +177,8 @@ def refillstageentities (settings, play, targets, necromancers, bullets, bombs, 
         targets.append(target(location))
     while len(necromancers) < settings['necromancers']:
         location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,space = space,torches = torches,flares = flares)
-        necromancers.append(necromancer(location,'C' if settings.get('cultists') else None))
+        model = 'w' if settings.get('wilds') and len(necromancers) % 2 == 0 else ('C' if settings.get('cultists') else None)
+        necromancers.append(necromancer(location,model))
     if ammopickup is None:
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
         ammopickup = ammo(location)
