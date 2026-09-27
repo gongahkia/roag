@@ -134,3 +134,32 @@ class CharacterSetupSessionTests(unittest.TestCase):
         view = GameSession(state).activity_view("vessel")
         self.assertIn("vessel.rest", {row.action_id for row in view.options})
         self.assertEqual(payload(state), before)
+
+class ActiveGameplayCommandTests(unittest.TestCase):
+    def test_loadout_and_support_reuse_existing_actions(self):
+        from jomon.actions import choose_support, choose_weapon
+
+        source = create_world("loadout equivalence")
+        legacy, through_session = copy.deepcopy(source), copy.deepcopy(source)
+        self.assertTrue(choose_support(legacy, legacy.support).changed)
+        self.assertTrue(choose_weapon(legacy, legacy.owned_weapons[0]).changed)
+        session = GameSession(through_session)
+        support = next(row for row in session.activity_view("support").options
+                       if row.action_id == f"support.select:{through_session.support}")
+        self.assertEqual(session.submit(ActivityCommand("support", support.action_id)).result_id, "activity.resolved")
+        weapon = next(row for row in session.activity_view("loadout").options
+                      if row.action_id == f"loadout.weapon:{through_session.owned_weapons[0]}")
+        self.assertEqual(session.submit(ActivityCommand("loadout", weapon.action_id)).result_id, "activity.resolved")
+        self.assertEqual(payload(through_session), payload(legacy))
+
+    def test_active_activity_contexts_are_observational(self):
+        state = create_world("activity coverage")
+        session = GameSession(state)
+        before = payload(state)
+        for context in (
+            "production", "preparation", "progression", "magic", "materials", "vessel",
+            "circuits", "vehicle", "support", "passives", "station:gathering", "workline",
+            "objective", "quest:regional", "quest:arc", "merchant", "bartender", "loadout",
+        ):
+            session.activity_view(context)
+        self.assertEqual(payload(state), before)

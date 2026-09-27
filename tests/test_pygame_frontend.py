@@ -164,6 +164,17 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
         self.assertIn(frontend.last_result, {"retreat.resolved", "retreat.rejected"})
 
+    def test_active_game_hotkeys_use_session_commands_or_activity_views(self):
+        frontend = self.frontend()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_l, mod=0))
+        self.assertEqual(frontend.panel, "activity")
+        self.assertEqual(frontend.activity_context, "loadout")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_ESCAPE, mod=0))
+        # Away from a vessel station the semantic view truthfully has no
+        # operation rather than manufacturing a frontend-only action.
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_v, mod=0))
+        self.assertIsNotNone(frontend.notification)
+
     def test_inventory_quest_and_travel_panels_use_session_views(self):
         frontend=self.frontend()
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_i,mod=0))

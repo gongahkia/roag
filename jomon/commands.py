@@ -41,6 +41,11 @@ class RetreatCommand:
 
 
 @dataclass(frozen=True)
+class NegotiateCommand:
+    """Attempt the ordinary stable combat-negotiation action."""
+
+
+@dataclass(frozen=True)
 class UseGearCommand:
     """Use a carried preparation by stable identity."""
     preparation_id: str | None = None
@@ -143,7 +148,7 @@ class AdvanceWorldCommand:
 
 
 GameCommand = (
-    MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
+    MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand | NegotiateCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
     | StartTavernGameCommand | DrawBetCommand | DrawExchangeCommand

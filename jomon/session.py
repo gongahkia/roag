@@ -11,7 +11,7 @@ from .actions import (
 )
 from .commands import (
     AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
-    InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
+    InteractCommand, MoveCommand, RetreatCommand, NegotiateCommand, SelectCarriedRelicCommand,
     SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
     TravelCommand, StartTavernGameCommand, DrawBetCommand, DrawExchangeCommand,
     DiceActionCommand, CloseTavernGameCommand,
@@ -194,6 +194,10 @@ class GameSession:
             if result.changed:
                 events = (RetreatResolved(actor_id, before, self._state.position),)
             return self._outcome(result, "retreat.resolved" if result.changed else "retreat.rejected", events=events)
+        if isinstance(command, NegotiateCommand):
+            from .actions import negotiate
+            result = negotiate(self._state)
+            return self._outcome(result, "negotiate.resolved" if result.changed else "negotiate.rejected")
         if isinstance(command, UseGearCommand):
             if command.preparation_id is not None and not isinstance(command.preparation_id, str):
                 return self._reject("gear.invalid")

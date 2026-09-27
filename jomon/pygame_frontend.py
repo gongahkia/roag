@@ -13,7 +13,7 @@ from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
-    ActivityCommand, CharacterSetupCommand, GuardCommand, RetreatCommand,
+    ActivityCommand, CharacterSetupCommand, GuardCommand, NegotiateCommand, RetreatCommand,
 )
 from .runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
@@ -507,7 +507,7 @@ class PygameFrontend:
         if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
         for note in self.feedback:
             if note.position: self.screen.blit(self.font.render(note.text,True,(255,220,120)),self._rect(note.position,camera).move(0,-10))
-        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · G guard · R retreat · C craft · P progress · M magic · H manoeuvres · Ctrl+S save",True,(240,240,240))
+        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · G guard · R retreat · V negotiate/vessel · C craft · P progress · M magic · H manoeuvres · L loadout · Ctrl+S save",True,(240,240,240))
         self.screen.blit(panel,(10,10))
         for index, line in enumerate(self._inspection_lines()):
             self.screen.blit(self.font.render(line, True, (235,235,235)), (10, 38 + index * 19))
@@ -596,6 +596,8 @@ class PygameFrontend:
                         self._open_activity("support"); return
                     if selected.action_id == "passives.open":
                         self._open_activity("passives"); return
+                    if selected.action_id == "loadout.open":
+                        self._open_activity("loadout"); return
                     if selected.action_id.startswith("teach.open:"):
                         self._open_activity("teaching:" + selected.action_id.split(":", 1)[1]); return
                     outcome = self.submit(ActivityCommand(self.activity_context, selected.action_id, target_position, target_actor_id))
@@ -626,9 +628,14 @@ class PygameFrontend:
             elif event.key==p.K_m: self._open_activity("magic")
             elif event.key==p.K_h: self._open_activity("mastery")
             elif event.key==p.K_x: self._open_activity("preparation")
-            elif event.key==p.K_v: self._open_activity("vessel")
+            elif event.key==p.K_v:
+                if any(row.actor_kind == "threat" and row.status_id == "engaged" for row in self.session.actor_views()):
+                    self.submit(NegotiateCommand())
+                else:
+                    self._open_activity("vessel")
             elif event.key==p.K_b: self._open_activity("vehicle")
             elif event.key==p.K_z: self._open_activity("materials")
+            elif event.key==p.K_l: self._open_activity("loadout")
             elif event.key==p.K_BACKSLASH: self._open_activity("circuits")
 
     def update(self, elapsed: float) -> None:

@@ -142,6 +142,8 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             _option("vehicle.depart", "Depart for the active region"),
             _option("vehicle.board-tug", "Board the harbour tug"),
             _option("vehicle.disembark", "Disembark active vehicle"),
+            _option("vehicle.service:refuel", "Service active vehicle"),
+            _option("vehicle.service:repair", "Repair active vehicle"),
         ))
         title = "Vehicle"
     elif context_id == "field-traveller":
@@ -262,6 +264,7 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             options.append(_option(f"bar.bottle:{drink_id}", f"Bottle {drink_display_name(drink_id)}"))
         options.append(_option("support.open", "Choose household support"))
         options.append(_option("passives.open", "Choose carried discoveries"))
+        options.append(_option("loadout.open", "Prepare weapons and gear"))
         title = "Bar"
     elif context_id == "incident":
         options.extend((_option("incident.resolve:mediate", "Mediate"),
@@ -302,6 +305,13 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
         for journal in journals_at_hand(state):
             options.append(_option(f"journal.study:{journal.id}", f"Study {journal.id}"))
         title = "Gathering"
+    elif context_id == "loadout":
+        from .item_presentation import item_display_name_or_legacy
+        for weapon_id in state.owned_weapons:
+            options.append(_option(f"loadout.weapon:{weapon_id}", f"Ready {item_display_name_or_legacy(weapon_id)}"))
+        for gear_id in state.owned_gear:
+            options.append(_option(f"loadout.gear:{gear_id}", f"Pack {item_display_name_or_legacy(gear_id)}"))
+        title = "Loadout"
     elif context_id == "support":
         from .actions import SUPPORTS
         for support_id, values in SUPPORTS.items():
@@ -433,6 +443,10 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id == "vehicle.disembark":
         from .vehicles import disembark
         result = disembark(state); changed, message = result.changed, result.message
+    elif action_id.startswith("vehicle.service:"):
+        from .vehicles import service
+        result = service(state, repair=action_id.rsplit(":", 1)[1] == "repair")
+        changed, message = result.changed, result.message
     elif action_id.startswith("traveller.choice:"):
         from .landscape_variation import traveller_choice
         result = traveller_choice(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
@@ -513,6 +527,12 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
         from .skill_tree import teach_node
         _, recipient_id, node_id = action_id.split(":", 2)
         changed, message = teach_node(state, recipient_id, node_id)
+    elif action_id.startswith("loadout.weapon:"):
+        from .actions import choose_weapon
+        result = choose_weapon(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("loadout.gear:"):
+        from .actions import choose_gear
+        result = choose_gear(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
     elif action_id.startswith("support.select:"):
         from .actions import choose_support
         result = choose_support(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
