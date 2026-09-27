@@ -72,6 +72,30 @@ class ItemUsed:
 
 
 @dataclass(frozen=True)
+class ItemEquipped:
+    actor_id: str
+    item_id: str
+    slot_id: str
+    event_id: str = field(init=False, default="item.equipped")
+
+
+@dataclass(frozen=True)
+class ItemUnequipped:
+    actor_id: str
+    item_id: str
+    slot_id: str
+    event_id: str = field(init=False, default="item.unequipped")
+
+
+@dataclass(frozen=True)
+class TravelResolved:
+    origin_id: str
+    destination_id: str
+    travel_status_id: str
+    event_id: str = field(init=False, default="travel.resolved")
+
+
+@dataclass(frozen=True)
 class CarriedRelicSelectionChanged:
     actor_id: str
     relic_id: str | None
@@ -96,5 +120,5 @@ class RetreatResolved:
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
-    | GuardResolved | RetreatResolved
+    | GuardResolved | RetreatResolved | ItemEquipped | ItemUnequipped | TravelResolved
 )

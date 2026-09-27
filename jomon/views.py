@@ -51,11 +51,65 @@ class ActorView:
 
 
 @dataclass(frozen=True)
+class ItemView:
+    id: str
+    kind_id: str
+    display_name: str
+    description: str
+    quantity: int
+    condition: int
+    location_id: str
+    equipped: bool
+    legal_operations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class InventoryView:
+    items: tuple[ItemView, ...]
+
+
+@dataclass(frozen=True)
+class EquipmentView:
+    slots: tuple[ItemView, ...]
+
+
+@dataclass(frozen=True)
+class QuestView:
+    quest_id: str
+    status_id: str
+    stage: int
+    title: str
+    objective: str
+    optional_complete: bool
+
+
+@dataclass(frozen=True)
+class TravelDestinationView:
+    destination_id: str
+    display_name: str
+    description: str
+    available: bool
+    reason_id: str | None
+    travel_time: int
+    supply_cost: int
+    hazard: str
+
+
+@dataclass(frozen=True)
+class TravelView:
+    current_node_id: str
+    voyage_status_id: str
+    pending_destination_id: str | None
+    destinations: tuple[TravelDestinationView, ...]
+
+
+@dataclass(frozen=True)
 class InteractionOptionView:
     interaction_id: str
     target_id: str
     available: bool
     reason_id: str | None = None
+    label: str | None = None
 
 
 @dataclass(frozen=True)
@@ -169,13 +223,80 @@ def actor_views(state: GameState) -> tuple[ActorView, ...]:
     return tuple(sorted(views, key=lambda view: view.id))
 
 
+def _item_view(state: GameState, item) -> ItemView:
+    """A selected-pack current item projection with only semantic operations."""
+    from .inventory import item_spec
+    from .item_presentation import item_display_name_or_legacy
+
+    spec = item_spec(item.kind)
+    equipped = item.owner_id == state.active_courier_id and item.location not in {"pack", "locker", "ground", "lost", "destroyed"}
+    operations: list[str] = []
+    if item.owner_id == state.active_courier_id and item.location == "pack" and spec.category in {"weapon", "armour", "gear"}:
+        operations.append("equip")
+    if equipped:
+        operations.append("unequip")
+    if item.owner_id == state.active_courier_id and item.location == "secondary" and item.kind == state.gear:
+        operations.append("use")
+    return ItemView(item.id, item.kind, item_display_name_or_legacy(item.kind), spec.description,
+                    item.quantity, item.condition, item.location, equipped, tuple(operations))
+
+
+def inventory_view(state: GameState) -> InventoryView:
+    """Expose carried physical items without leaking mutable inventory records."""
+    owner = state.active_courier_id
+    rows = [_item_view(state, item) for item in state.items
+            if item.owner_id == owner and item.location not in {"lost", "destroyed"}]
+    return InventoryView(tuple(sorted(rows, key=lambda row: (row.location_id, row.display_name, row.id))))
+
+
+def equipment_view(state: GameState) -> EquipmentView:
+    return EquipmentView(tuple(row for row in inventory_view(state).items if row.equipped))
+
+
+def quest_views(state: GameState) -> tuple[QuestView, ...]:
+    """Stable quest progress plus selected-pack title and objective text."""
+    from .quest_presentation import regional_quest_lead, regional_quest_title
+
+    rows = []
+    for region_id, progress in sorted(state.questlines.items()):
+        rows.append(QuestView(f"quest.regional.{region_id}", progress.status, progress.stage,
+                              regional_quest_title(region_id), regional_quest_lead(region_id),
+                              progress.optional_done))
+    return tuple(rows)
+
+
+def travel_view(state: GameState) -> TravelView:
+    """Route facts and selected-pack wording, never terminal chart coordinates."""
+    from .route_chart import edge_between, leg_travel_time, neighbours, route_availability
+    from .travel_presentation import route_edge_hazard, route_node_description, route_node_name
+
+    rows = []
+    for destination in neighbours(state, state.route_current_node):
+        edge = edge_between(state, state.route_current_node, destination)
+        assert edge is not None
+        available, _ = route_availability(state, destination)
+        node = state.route_nodes[destination]
+        rows.append(TravelDestinationView(
+            destination, route_node_name(node), route_node_description(node), available,
+            None if available else "travel.route.unavailable", leg_travel_time(state, edge),
+            edge.supply_cost, route_edge_hazard(edge),
+        ))
+    return TravelView(state.route_current_node, state.voyage_status, state.pending_destination,
+                      tuple(sorted(rows, key=lambda row: row.destination_id)))
+
+
 def interaction_view(state: GameState) -> InteractionView:
     """Expose the ordinary current-position interaction without menu metadata."""
     available = not state.world_ended
-    return InteractionView(
-        state.position,
-        (InteractionOptionView(
-            "interact.current", position_key(state.position), available,
-            None if available else "interaction.world_ended",
-        ),),
-    )
+    options = [InteractionOptionView(
+        "interact.current", position_key(state.position), available,
+        None if available else "interaction.world_ended", "Interact",
+    )]
+    if state.location == "jomon" and state.voyage_status == "active" and state.voyage_kind:
+        from .ship_crises import choices
+        for response, label, _semantic in choices(state):
+            options.append(InteractionOptionView(
+                f"voyage.response.{response.lower()}", f"voyage:{state.voyage_kind}", True,
+                None, label,
+            ))
+    return InteractionView(state.position, tuple(options))

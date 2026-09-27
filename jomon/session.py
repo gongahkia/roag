@@ -12,15 +12,21 @@ from .actions import (
 from .commands import (
     AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
     InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
-    SetAutoPlaceCommand, UseGearCommand,
+    SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
+    TravelCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
-    ItemUsed, RetreatResolved, RuntimeEvent,
+    ItemUsed, RetreatResolved, RuntimeEvent, ItemEquipped, ItemUnequipped,
+    TravelResolved,
 )
 from .save import load_game, save_game
 from .state import GameState, create_world
-from .views import ActorView, InteractionView, WorldView, actor_views, interaction_view, world_view
+from .views import (
+    ActorView, EquipmentView, InteractionView, InventoryView, QuestView, TravelView,
+    WorldView, actor_views, equipment_view, interaction_view, inventory_view,
+    quest_views, travel_view, world_view,
+)
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,18 @@ class GameSession:
     def interaction_view(self) -> InteractionView:
         return interaction_view(self._state)
 
+    def inventory_view(self) -> InventoryView:
+        return inventory_view(self._state)
+
+    def equipment_view(self) -> EquipmentView:
+        return equipment_view(self._state)
+
+    def quest_views(self) -> tuple[QuestView, ...]:
+        return quest_views(self._state)
+
+    def travel_view(self) -> TravelView:
+        return travel_view(self._state)
+
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
 
@@ -115,6 +133,14 @@ class GameSession:
             if choice is None or (command.target_id is not None and command.target_id != choice.target_id):
                 return self._reject("interaction.invalid", command.target_id)
             actor_id = self._state.active_courier_id or "courier"
+            if command.interaction_id.startswith("voyage.response."):
+                from .travel import resolve_voyage
+                before_time = self._state.world_time
+                changed, message = resolve_voyage(self._state, command.interaction_id.rsplit(".", 1)[1])
+                result = ActionResult(changed, self._state.world_time != before_time, message)
+                result_id = "voyage.resolved" if changed else "voyage.rejected"
+                events = (TravelResolved(self._state.route_current_node, choice.target_id.removeprefix("voyage:"), self._state.voyage_status),) if changed else ()
+                return self._outcome(result, result_id, choice.target_id, events)
             result = interact(self._state)
             result_id = "interaction.opened" if result.overlay else "interaction.resolved" if result.changed else "interaction.rejected"
             events: tuple[RuntimeEvent, ...] = ()
@@ -152,6 +178,40 @@ class GameSession:
             if result.changed and item_id:
                 events = (ItemUsed(actor_id, item_id, "gear.use"),)
             return self._outcome(result, "gear.resolved" if result.changed else "gear.rejected", command.preparation_id, events)
+        if isinstance(command, EquipItemCommand):
+            if not isinstance(command.item_id, str) or not command.item_id:
+                return self._reject("item.equip.invalid")
+            from .inventory import equip_item, equipped_item
+            item = next((row for row in self.inventory_view().items if row.id == command.item_id), None)
+            if item is None or "equip" not in item.legal_operations:
+                return self._reject("item.equip.rejected", command.item_id)
+            changed = equip_item(self._state, command.item_id)
+            current = next((row for row in self.equipment_view().slots if row.id == command.item_id), None)
+            events = (ItemEquipped(self._state.active_courier_id or "courier", command.item_id, current.location_id),) if changed and current else ()
+            return self._outcome(ActionResult(changed, False, ""), "item.equipped" if changed else "item.equip.rejected", command.item_id, events)
+        if isinstance(command, UnequipItemCommand):
+            if not isinstance(command.slot_id, str) or not command.slot_id:
+                return self._reject("item.unequip.invalid")
+            current = next((row for row in self.equipment_view().slots if row.location_id == command.slot_id), None)
+            if current is None:
+                return self._reject("item.unequip.rejected", command.slot_id)
+            from .inventory import unequip_item
+            changed = unequip_item(self._state, command.slot_id)
+            events = (ItemUnequipped(self._state.active_courier_id or "courier", current.id, command.slot_id),) if changed else ()
+            return self._outcome(ActionResult(changed, False, ""), "item.unequipped" if changed else "item.unequip.rejected", current.id, events)
+        if isinstance(command, TravelCommand):
+            if not isinstance(command.destination_id, str) or not command.destination_id:
+                return self._reject("travel.invalid")
+            destination = next((row for row in self.travel_view().destinations if row.destination_id == command.destination_id), None)
+            if destination is None or not destination.available:
+                return self._reject("travel.rejected", command.destination_id)
+            from .travel import choose_destination
+            origin = self._state.route_current_node
+            before_time = self._state.world_time
+            changed, message = choose_destination(self._state, command.destination_id)
+            result = ActionResult(changed, self._state.world_time != before_time, message)
+            events = (TravelResolved(origin, command.destination_id, self._state.voyage_status),) if changed else ()
+            return self._outcome(result, "travel.resolved" if changed else "travel.rejected", command.destination_id, events)
         if isinstance(command, SelectCarriedRelicCommand):
             if command.relic_id is not None and (not isinstance(command.relic_id, str) or not command.relic_id):
                 return self._reject("relic.invalid")

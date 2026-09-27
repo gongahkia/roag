@@ -43,6 +43,24 @@ class UseGearCommand:
 
 
 @dataclass(frozen=True)
+class EquipItemCommand:
+    """Equip one physical carried item by its stable item ID."""
+    item_id: str
+
+
+@dataclass(frozen=True)
+class UnequipItemCommand:
+    """Return the item in one stable equipment-slot ID to the courier pack."""
+    slot_id: str
+
+
+@dataclass(frozen=True)
+class TravelCommand:
+    """Confirm one stable adjacent route destination."""
+    destination_id: str
+
+
+@dataclass(frozen=True)
 class SelectCarriedRelicCommand:
     """Select a stable relic identity for later use, or clear selection."""
     relic_id: str | None
@@ -64,5 +82,5 @@ class AdvanceWorldCommand:
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
-    | AdvanceWorldCommand
+    | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
 )
