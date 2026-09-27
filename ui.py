@@ -105,8 +105,21 @@ def boardlines (entitydict, camera = None):
 
 def gameoverlines ():
     lines = ['' for row in range(BOARDHEIGHT)]
-    lines[BOARDHEIGHT // 2 - 1] = '~GAME OVER~'.center(BOARDWIDTH)
-    lines[BOARDHEIGHT // 2 + 1] = 'THANKS FOR PLAYING'.center(BOARDWIDTH)
+    skull = [
+        '       .-"""""-.',
+        '      /  .-. .-  \\',
+        '     |  /   V   \\  |',
+        '     |  \\  _  /  |',
+        '      \\  `---`  /',
+        '       `-._____.-`',
+        '        /  | |  \\',
+        '       /___| |___\\'
+    ]
+    start = max(1,BOARDHEIGHT // 2 - 7)
+    for index,line in enumerate(skull):
+        lines[start + index] = line.center(BOARDWIDTH)
+    lines[start + len(skull) + 2] = '~ GAME OVER ~'.center(BOARDWIDTH)
+    lines[start + len(skull) + 4] = 'THE DEPTHS CLAIM ANOTHER'.center(BOARDWIDTH)
     return lines
 
 
@@ -134,7 +147,7 @@ def printgameframe (entitydict, sidebar, gameover = False, camera = None, effect
     for index,line in enumerate(lines):
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
         side = sidebar[index] if index < len(sidebar) else ''
-        boardline = colourtext(line,WHITE) if gameover else colourboardline(line)
+        boardline = colourtext(line,RED if gameover else WHITE) if gameover else colourboardline(line)
         print(f'{border}{boardline}{border}  {colourtext(side.center(SIDEBARWIDTH),WHITE)}')
     print(topborder)
 
