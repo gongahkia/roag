@@ -106,20 +106,22 @@ def boardlines (entitydict, camera = None):
 def gameoverlines ():
     lines = ['' for row in range(BOARDHEIGHT)]
     skull = [
-        '       .-"""""-.',
-        '      /  .-. .-  \\',
-        '     |  /   V   \\  |',
-        '     |  \\  _  /  |',
-        '      \\  `---`  /',
-        '       `-._____.-`',
-        '        /  | |  \\',
-        '       /___| |___\\'
+        '⠀⠀⠀⠀⣠⣤⣶⣶⣶⣤⣄⡀⠀',
+        '⠀⠀⣴⣾⣿⣿⣿⣿⣿⣧⡀⠈⠢',
+        '⠀⣼⣿⣿⣿⣿⣿⣿⣿⡿⠁⠀⠀',
+        '⢰⡿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀',
+        '⠘⣽⡿⠿⠿⣿⣿⣿⣿⣿⣦⣤⡀',
+        '⠀⣟⠀⠀⠀⣸⣿⡏⠀⠀⠀⢹⠗',
+        '⠀⣿⣷⣶⣾⡿⠁⠙⣄⣀⣀⣠⡀',
+        '⠀⠙⠙⢿⡿⣷⣶⣤⣿⣿⡿⠿⠃',
+        '⠀⠀⠀⠺⡏⡏⡏⡏⡏⠉⠁⠀⠀',
+        '⠀⠀⠀⠀⠀⠀⠁⠁⠀⠀⠀⠀⠀'
     ]
     start = max(1,BOARDHEIGHT // 2 - 7)
     for index,line in enumerate(skull):
         lines[start + index] = line.center(BOARDWIDTH)
-    lines[start + len(skull) + 2] = '~ GAME OVER ~'.center(BOARDWIDTH)
-    lines[start + len(skull) + 4] = 'THE DEPTHS CLAIM ANOTHER'.center(BOARDWIDTH)
+    lines[start + len(skull) + 1] = '~ GAME OVER ~'.center(BOARDWIDTH)
+    lines[start + len(skull) + 3] = 'THE DEPTHS CLAIM ANOTHER'.center(BOARDWIDTH)
     return lines
 
 
