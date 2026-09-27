@@ -13,6 +13,8 @@ except ImportError:
 
 BOARDWIDTH = 41
 BOARDHEIGHT = 19
+WORLDWIDTH = 96
+WORLDHEIGHT = 64
 SIDEBARWIDTH = 30
 BOSS_ATTACK_WINDUP = 4
 DASH_COOLDOWN = 3
@@ -198,7 +200,7 @@ class player:
 
     def __init__ (self, health = 2, location = None):
         self.health = health
-        self.location = [20,9] if location is None else list(location)
+        self.location = [WORLDWIDTH // 2,WORLDHEIGHT // 2] if location is None else list(location)
         self.direction = 'w'
         self.model = icon('player_up')
         self.ammo = 1
@@ -536,29 +538,20 @@ def carvecorridor (space, start, finish):
 
 
 def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9), roomheight = (3,6), startroomsize = (11,7), arena = None):
-    space = set()
-    rooms = []
-    startroom = [start[0] - startroomsize[0] // 2,start[1] - startroomsize[1] // 2,startroomsize[0],startroomsize[1]]
-    carveroom(space,startroom[0],startroom[1],startroom[2],startroom[3])
-    rooms.append((start[0],start[1]))
-
-    for number in range(random.randint(roomcount[0],roomcount[1])):
-        width = random.randint(roomwidth[0],roomwidth[1])
-        height = random.randint(roomheight[0],roomheight[1])
-        xcoord = random.randint(1,BOARDWIDTH - width - 1)
-        ycoord = random.randint(1,BOARDHEIGHT - height - 1)
-        carveroom(space,xcoord,ycoord,width,height)
-        centre = (xcoord + width // 2,ycoord + height // 2)
-        carvecorridor(space,rooms[-1],centre)
-        rooms.append(centre)
-
     if arena is not None:
-        carveroom(space,arena[0],arena[1],arena[2],arena[3])
-
-    if required is not None and len(required) > 0:
-        for coordinate in required:
-            space.add(coordinate)
-        carvecorridor(space,(start[0],start[1]),next(iter(required)))
+        space = set()
+        carveroom(space,*arena)
+        return space
+    for attempt in range(12):
+        walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT)
+                 if x in [0,WORLDWIDTH - 1] or y in [0,WORLDHEIGHT - 1] or random.random() < 0.43}
+        for step in range(5):
+            walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT) if x in [0,WORLDWIDTH - 1] or y in [0,WORLDHEIGHT - 1] or sum((x + dx,y + dy) in walls for dx in [-1,0,1] for dy in [-1,0,1] if (dx,dy) != (0,0)) >= 5}
+        space = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT) if (x,y) not in walls}
+        carveroom(space,start[0] - 3,start[1] - 3,7,7)
+        reachable = set(pathfind(tuple(start),tuple(next(iter(space))),space))
+        if len(space) > 1000:
+            return space
     return space
 
 
