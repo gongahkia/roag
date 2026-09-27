@@ -1,4 +1,5 @@
 import random
+import time
 
 from titlescreen import titlescreen
 from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
@@ -331,6 +332,11 @@ def printgame (play, level = None, targets = None, necromancers = None, bullets 
             explored.update(visible)
             entitydict = fogdict(entitydict,space,visible,explored,destroyedwalls)
     sidebar = hudlines(play,level,enemyboss,0 if bombs is None else len(bombs),scoregoal,curse,0 if flares is None else len(flares))
+    effect = 'impact' if play.impactframes > 0 else 'explosion' if explosions else None
+    if effect is not None:
+        printgameframe(entitydict,sidebar,play.status == 'dead',play.location,effect)
+        time.sleep(0.07)
+        play.impactframes = max(0,play.impactframes - 1)
     printgameframe(entitydict,sidebar,play.status == 'dead',play.location)
 
 

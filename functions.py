@@ -226,6 +226,7 @@ class player:
         self.classname = 'ADVENTURER'
         self.boonname = ''
         self.notice = ''
+        self.impactframes = 0
         self.dashcooldown = 0
         self.dashcooldownbase = DASH_COOLDOWN
         self.bombfuse = 3
@@ -269,6 +270,7 @@ class player:
 
     def attacked (self):
         self.health -= 1
+        self.impactframes = 2
         if self.health <= 0:
             self.health = 0
             self.model = icon('player_dead')

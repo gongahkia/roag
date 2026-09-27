@@ -1,6 +1,8 @@
 """Terminal rendering, input, and HUD helpers for Roag."""
 
+import shutil
 import sys
+import time
 
 try:
     import termios
@@ -9,7 +11,21 @@ except ImportError:
 
 import functions as core
 
-from functions import BOARDHEIGHT, BOARDWIDTH, SIDEBARWIDTH, CYAN, RESET, WHITE, icon, iconlabel
+from functions import BOARDHEIGHT, BOARDWIDTH, SIDEBARWIDTH, CYAN, RED, YELLOW, RESET, WHITE, icon, iconlabel
+
+
+def requireterminal (columns, rows):
+    """Wait for a usable live terminal size instead of letting frames wrap."""
+    if not sys.stdout.isatty():
+        return
+    while True:
+        size = shutil.get_terminal_size(fallback = (0,0))
+        if size.columns >= columns and size.lines >= rows:
+            return
+        print('\033[2J\033[H',end = '')
+        print(f'Resize terminal to at least {columns} columns × {rows} rows.')
+        print(f'Current size: {size.columns} columns × {size.lines} rows.')
+        time.sleep(0.15)
 
 
 def clearscreen ():
@@ -55,6 +71,7 @@ def promptinput (prompt):
 
 
 def printscreen (lines, gameboard = False):
+    requireterminal(BOARDWIDTH + 2,BOARDHEIGHT + 3)
     lines = list(lines)
     if len(lines) < BOARDHEIGHT:
         padding = BOARDHEIGHT - len(lines)
@@ -105,12 +122,14 @@ def centersidebar (lines):
     return [''] * padding + sidebar
 
 
-def printgameframe (entitydict, sidebar, gameover = False, camera = None):
+def printgameframe (entitydict, sidebar, gameover = False, camera = None, effect = None):
+    requireterminal(BOARDWIDTH + SIDEBARWIDTH + 4,BOARDHEIGHT + 2)
     sidebar = centersidebar(sidebar)
     lines = gameoverlines() if gameover else boardlines(entitydict,camera)
     clearscreen()
-    border = colourtext('X',CYAN)
-    topborder = colourtext('X' * (BOARDWIDTH + 2),CYAN)
+    effectcolour = RED if effect == 'impact' else YELLOW if effect == 'explosion' else CYAN
+    border = colourtext('X',effectcolour)
+    topborder = colourtext('X' * (BOARDWIDTH + 2),effectcolour)
     print(topborder)
     for index,line in enumerate(lines):
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
