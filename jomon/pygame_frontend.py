@@ -279,7 +279,9 @@ class PygameFrontend:
                 if not rows: return
                 selected = rows[self.panel_cursor]
                 if self.panel == "inventory":
-                    if event.key == p.K_u and "use" in selected.legal_operations: self.submit(UseGearCommand())
+                    if event.key == p.K_u and "use" in selected.legal_operations:
+                        preparation = selected.kind_id.split(":", 1)[1] if selected.kind_id.startswith("consumable:preparation.") else None
+                        self.submit(UseGearCommand(preparation))
                     elif event.key == p.K_e and "equip" in selected.legal_operations: self.submit(EquipItemCommand(selected.id))
                     elif event.key == p.K_r and "unequip" in selected.legal_operations: self.submit(UnequipItemCommand(selected.location_id))
                     return

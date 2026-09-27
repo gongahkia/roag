@@ -173,7 +173,9 @@ class GameSession:
             if command.preparation_id is not None and not isinstance(command.preparation_id, str):
                 return self._reject("gear.invalid")
             actor_id = self._state.active_courier_id or "courier"
-            item_id = command.preparation_id or self._state.gear
+            bottle = next((item for item in self._state.items if item.owner_id == self._state.active_courier_id
+                           and item.location == "pack" and item.kind.startswith("consumable:bottle:")), None)
+            item_id = command.preparation_id or (bottle.id if bottle else self._state.gear)
             result = use_gear(self._state, command.preparation_id)
             events: tuple[RuntimeEvent, ...] = ()
             if result.changed and item_id:

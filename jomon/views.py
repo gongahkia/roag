@@ -235,7 +235,9 @@ def _item_view(state: GameState, item) -> ItemView:
         operations.append("equip")
     if equipped:
         operations.append("unequip")
-    if item.owner_id == state.active_courier_id and item.location == "secondary" and item.kind == state.gear:
+    if (item.owner_id == state.active_courier_id
+            and ((item.location == "secondary" and item.kind == state.gear)
+                 or (item.location == "pack" and item.kind.startswith("consumable:preparation.")))):
         operations.append("use")
     return ItemView(item.id, item.kind, item_display_name_or_legacy(item.kind), spec.description,
                     item.quantity, item.condition, item.location, equipped, tuple(operations))

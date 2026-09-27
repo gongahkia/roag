@@ -13,7 +13,7 @@ from jomon.actions import advance_world, attack, choose_relic, interact, move
 from jomon.commands import (
     AdvanceWorldCommand, AttackCommand, InteractCommand, MoveCommand,
     SelectCarriedRelicCommand, SetAutoPlaceCommand, EquipItemCommand,
-    TravelCommand, UnequipItemCommand,
+    TravelCommand, UnequipItemCommand, UseGearCommand,
 )
 from jomon.inventory import equip_item, unequip_item
 from jomon.travel import choose_destination
@@ -176,6 +176,16 @@ class GameSessionTests(unittest.TestCase):
         outcome = GameSession(through_session).submit(EquipItemCommand(candidate.id))
         self.assertEqual(outcome.result_id, "item.equipped")
         self.assertEqual(mechanical_payload(through_session), mechanical_payload(legacy))
+
+        use_state = create_world("session item use")
+        use_state.location, use_state.position = "region", Position(40, 24)
+        use_state.water["40,24,0"] = 1
+        bottle = create_item(use_state, "consumable:preparation.waterline", "fixture", owner_id=use_state.active_courier_id)
+        from jomon.inventory import auto_place
+        self.assertTrue(auto_place(use_state, bottle.id, "pack", owner_id=use_state.active_courier_id))
+        use_session = GameSession(use_state)
+        self.assertIn("use", next(row for row in use_session.inventory_view().items if row.id == bottle.id).legal_operations)
+        self.assertEqual(use_session.submit(UseGearCommand("preparation.waterline")).result_id, "gear.resolved")
 
         legacy, through_session = copy.deepcopy(source), copy.deepcopy(source)
         destination = next(row.destination_id for row in GameSession(through_session).travel_view().destinations if row.available)
