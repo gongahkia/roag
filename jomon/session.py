@@ -34,6 +34,7 @@ class GameSession:
  def quest_views(self):return quest_views(self._state)
  def travel_view(self):return travel_view(self._state)
  def recipe_view(self):return recipe_view(self._state)
+ def activity_views(self,category_id):return activity_views(self._state,category_id)
  def _out(self,changed:bool,result:str,events=()):
   if changed:self._revision+=1
   return CommandOutcome(changed,changed,False,result,self._revision,tuple(events))
@@ -69,4 +70,7 @@ class GameSession:
    if recipe is None or not any(row.kind==recipe.input_id for row in state.items):return self._out(False,"craft.rejected")
    state.items.append(Item(f"crafted-{state.turn}",recipe.output_id));state.turn+=1
    return self._out(True,"craft.resolved",(CraftResolved("craft.resolved",recipe.id,recipe.output_id),))
+  if isinstance(command,ActivityCommand):
+   if not any(row.id==command.activity_id for row in self.activity_views(command.category_id)):return self._out(False,"activity.rejected")
+   state.turn+=1;return self._out(True,"activity.resolved",(ActivityResolved("activity.resolved",command.category_id,command.activity_id),))
   return self._out(False,"command.unsupported")

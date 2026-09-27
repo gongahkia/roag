@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, os, tempfile, unittest
 from pathlib import Path
 from jomon.catalog import ContentError, load_content_pack, mechanical_fingerprint, select_content_pack
-from jomon.commands import AttackCommand, CharacterSetupCommand, CraftCommand, EquipItemCommand, MoveCommand, TravelCommand
+from jomon.commands import ActivityCommand, AttackCommand, CharacterSetupCommand, CraftCommand, EquipItemCommand, MoveCommand, TravelCommand
 from jomon.session import GameSession
 from jomon.state import ContentUnavailable, StateError
 ROOT=Path(__file__).parent
@@ -20,6 +20,7 @@ class BaselineTests(unittest.TestCase):
   self.assertEqual(session.submit(EquipItemCommand('test-item-tool')).result_id,'item.equipped')
   self.assertEqual(session.submit(TravelCommand('test-route')).result_id,'travel.resolved')
   self.assertEqual(session.submit(CraftCommand('test-recipe')).result_id,'craft.resolved')
+  self.assertEqual(session.submit(ActivityCommand('production','test-production')).result_id,'activity.resolved')
   self.assertTrue(session.quest_views())
   with tempfile.TemporaryDirectory() as d:
    path=Path(d)/'save.json';session.save(path);self.assertEqual(GameSession.load(path).world_view(),session.world_view())

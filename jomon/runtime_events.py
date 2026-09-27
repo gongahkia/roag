@@ -14,3 +14,5 @@ class ItemEquipped(RuntimeEvent): item_id:str
 class TravelResolved(RuntimeEvent): route_id:str
 @dataclass(frozen=True)
 class CraftResolved(RuntimeEvent): recipe_id:str; item_id:str
+@dataclass(frozen=True)
+class ActivityResolved(RuntimeEvent): category_id:str; activity_id:str

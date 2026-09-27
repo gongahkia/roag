@@ -16,6 +16,8 @@ class RouteView: id:str; display_name:str; turns:int; available:bool=True
 @dataclass(frozen=True)
 class RecipeView: id:str; display_name:str; input_id:str; output_id:str; available:bool=True
 @dataclass(frozen=True)
+class ActivityView: category_id:str; id:str; display_name:str; available:bool=True
+@dataclass(frozen=True)
 class SetupOptionView: id:str; display_name:str
 @dataclass(frozen=True)
 class CharacterSetupView: crew:tuple[SetupOptionView,...]; ancestries:tuple[SetupOptionView,...]; origins:tuple[SetupOptionView,...]; traits:tuple[SetupOptionView,...]
@@ -44,6 +46,9 @@ def travel_view(state:GameState)->tuple[RouteView,...]:
     return tuple(RouteView(row["id"],str(row.get("name",row["id"])),int(row.get("turns",1))) for row in selected_content_pack().systems["routes"])
 def recipe_view(state:GameState)->tuple[RecipeView,...]:
     return tuple(RecipeView(row["id"],str(row.get("name",row["id"])),str(row["input"]),str(row["output"])) for row in selected_content_pack().systems["recipes"])
+def activity_views(state:GameState, category_id:str)->tuple[ActivityView,...]:
+    rows=selected_content_pack().systems["activities"].get(category_id,())
+    return tuple(ActivityView(category_id,row["id"],str(row.get("name",row["id"]))) for row in rows)
 def character_setup_view()->CharacterSetupView:
     setup=selected_content_pack().systems["setup"]
     convert=lambda section:tuple(SetupOptionView(row["id"],row["name"]) for row in setup[section])

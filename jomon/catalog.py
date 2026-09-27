@@ -62,7 +62,8 @@ class ContentPack:
     id: str; root: Path; format_version: int; playable: bool; systems: dict[str, Any]
     lore: dict[str, LoreEntry]; connections: tuple[ContentConnection, ...]; assets: AssetManifest
 
-_REQUIRED_SYSTEMS = {"world", "setup", "items", "actors", "quests", "routes", "recipes"}
+_ACTIVITY_SYSTEMS = {"production", "progression", "preparation", "chemistry", "magic", "circuits", "vehicles", "vessel", "crises", "situations", "worklines", "draw", "dice"}
+_REQUIRED_SYSTEMS = {"world", "setup", "items", "actors", "quests", "routes", "recipes", "activities"}
 
 def _presentation_free(value: Any) -> Any:
     """Remove authored display fields from the mechanical pack fingerprint."""
@@ -109,6 +110,9 @@ def load_content_pack(root: Path) -> ContentPack:
     pack_id = _id(manifest["id"], "manifest id")
     if type(manifest["format_version"]) is not int or manifest["format_version"] != 1 or type(manifest["playable"]) is not bool: raise ContentError("manifest: invalid values")
     if not isinstance(systems, dict) or set(systems) != _REQUIRED_SYSTEMS: raise ContentError("systems.json: invalid system sections")
+    activities = systems["activities"]
+    if not isinstance(activities, dict) or set(activities) != _ACTIVITY_SYSTEMS:
+        raise ContentError("systems.json: invalid activity sections")
     setup = systems["setup"]
     if not isinstance(setup, dict) or set(setup) != {"crew", "ancestries", "origins", "traits"}: raise ContentError("systems.json: invalid setup")
     entity_ids: set[str] = set()
@@ -120,6 +124,12 @@ def load_content_pack(root: Path) -> ContentPack:
         for row in _rows(systems[section], section):
             if "id" not in row: raise ContentError(f"{section}: row missing id")
             identity = _id(row["id"], section)
+            if identity in entity_ids: raise ContentError(f"duplicate content id {identity}")
+            entity_ids.add(identity)
+    for category, rows in activities.items():
+        for row in _rows(rows, f"activities.{category}"):
+            if "id" not in row: raise ContentError(f"activities.{category}: row missing id")
+            identity = _id(row["id"], category)
             if identity in entity_ids: raise ContentError(f"duplicate content id {identity}")
             entity_ids.add(identity)
     if systems["world"] is not None:

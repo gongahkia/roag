@@ -1,1 +1,29 @@
-{"world":null,"setup":{"crew":[],"ancestries":[],"origins":[],"traits":[]},"items":[],"actors":[],"quests":[],"routes":[],"recipes":[]}
+{
+  "world": null,
+  "setup": {
+    "crew": [],
+    "ancestries": [],
+    "origins": [],
+    "traits": []
+  },
+  "items": [],
+  "actors": [],
+  "quests": [],
+  "routes": [],
+  "recipes": [],
+  "activities": {
+    "production": [],
+    "progression": [],
+    "preparation": [],
+    "chemistry": [],
+    "magic": [],
+    "circuits": [],
+    "vehicles": [],
+    "vessel": [],
+    "crises": [],
+    "situations": [],
+    "worklines": [],
+    "draw": [],
+    "dice": []
+  }
+}

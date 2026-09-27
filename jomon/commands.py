@@ -18,3 +18,5 @@ class CharacterSetupCommand:
     crew_id:str; ancestry_id:str; origin_id:str; trait_id:str
 @dataclass(frozen=True)
 class InteractCommand: interaction_id:str
+@dataclass(frozen=True)
+class ActivityCommand: category_id:str; activity_id:str
