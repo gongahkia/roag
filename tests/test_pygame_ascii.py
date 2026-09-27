@@ -69,5 +69,66 @@ class AsciiPygameFrontendTests(unittest.TestCase):
         self.assertEqual(ascii_frontend.renderer_id, "ascii")
 
 
+    def test_ascii_shared_controller_reaches_activity_travel_draw_and_dice(self):
+        """The terminal-styled renderer consumes the same panels and commands."""
+        from jomon.production import site_position
+        from jomon.vessel import DICE_PLAYER_SEAT, DRAW_PLAYER_SEAT
+
+        frontend = self.frontend()
+        state = frontend.session._state  # Test fixture setup; frontend code has no such access.
+        state.location, state.position = "region", site_position(state)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_c, mod=0))
+        self.assertEqual(frontend.panel, "activity")
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows())
+                                     if row.action_id == "production.gather:0")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "activity.resolved")
+        frontend.draw()
+
+        state.location, frontend.panel = "jomon", None
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_t, mod=0))
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows()) if row.available)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "travel.resolved")
+
+        draw = self.frontend()
+        draw.session._state.jomon_space, draw.session._state.position = "tavern", DRAW_PLAYER_SEAT
+        draw.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertEqual(draw.panel, "tavern-draw")
+        draw.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(draw.last_result, "tavern.game.started")
+        draw.draw()
+
+        dice = self.frontend()
+        dice.session._state.jomon_space, dice.session._state.position = "tavern", DICE_PLAYER_SEAT
+        dice.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertEqual(dice.panel, "tavern-dice")
+        dice.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        dice.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
+        self.assertEqual(dice.last_result, "tavern.dice.resolved")
+        dice.draw()
+
+
+    def test_cross_renderer_format_15_save_round_trip(self):
+        from jomon.commands import MoveCommand
+        from jomon.pygame_frontend import create_frontend
+        from jomon.session import GameSession
+
+        graphical = create_frontend(GameSession.create("cross-renderer"), pygame=self.pygame)
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            if graphical.submit(MoveCommand(dx, dy)).changed:
+                break
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "graphical.json"
+            second = Path(directory) / "ascii.json"
+            graphical.session.save(first)
+            ascii_frontend = create_frontend(GameSession.load(first), renderer="ascii", pygame=self.pygame)
+            ascii_frontend.draw()
+            ascii_frontend.session.save(second)
+            restored = GameSession.load(second)
+        self.assertEqual(restored.world_view(), graphical.session.world_view())
+        self.assertEqual(restored.revision, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
