@@ -1060,31 +1060,6 @@ def interface2 (player, enemyboss, armedbombs = 0):
     interface(player,None,enemyboss,armedbombs)
 
 
-def threatconlvl (threatcon_lvl):
-    floors = set()
-    for x in range(3,38):
-        for y in range(12,17):
-            floors.add((x,y))
-    for x in range(18,23):
-        for y in range(2,12):
-            floors.add((x,y))
-    for x in range(14,27):
-        for y in range(2,5):
-            floors.add((x,y))
-
-    for playerlocation in [(20,15),(20,13),(20,11),(20,9),(20,7)]:
-        entitydict = {}
-        for x in range(BOARDWIDTH):
-            for y in range(BOARDHEIGHT):
-                entitydict[(x,y)] = '.' if (x,y) in floors else '#'
-        for y in range(3,12):
-            entitydict[(20,y)] = '>'
-        entitydict[playerlocation] = icon('player_down')
-        entitydict[(playerlocation[0] + 1,playerlocation[1])] = icon('torch')
-        printdict(entitydict)
-        time.sleep(0.18)
-
-
 #SHOP
 
 class shop:
@@ -1239,7 +1214,7 @@ def runcurseshop (bag = None):
 
 
 # Compatibility exports. New UI and shop code lives in dedicated modules.
-from game_ui import (boardlines, centersidebar, clearscreen, colourboardline, colourtext,
-                     gameoverlines, hudlines, interface, interface2, printdict,
-                     printgameframe, printscreen, promptinput, readkey, statbar)
-from game_shops import curseshop, runcurseshop, runshop, shop
+from ui import (boardlines, centersidebar, clearscreen, colourboardline, colourtext,
+                gameoverlines, hudlines, interface, interface2, printdict,
+                printgameframe, printscreen, promptinput, readkey, statbar)
+from shops import curseshop, runcurseshop, runshop, shop

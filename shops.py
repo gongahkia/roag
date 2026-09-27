@@ -3,7 +3,7 @@
 import time
 
 from functions import BOARDHEIGHT, BOARDWIDTH, cursebag, icon, iconlabel
-from game_ui import printscreen, promptinput
+from ui import printscreen, promptinput
 
 
 class shop:

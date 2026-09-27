@@ -1,7 +1,7 @@
 import random
 
 from titlescreen import titlescreen
-from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
+from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
 #GAME SETTINGS
@@ -119,14 +119,7 @@ def chooseboon ():
 
 
 def continuestage (level, bag = None):
-    while True:
-        threatconlvl(level)
-        acknowledgement = promptinput('[Y to continue/N to leave]: ')
-        if acknowledgement == 'y':
-            return runcurseshop(bag)
-        if acknowledgement == 'n':
-            print ('Thanks for playing!')
-            return None
+    return runcurseshop(bag)
 
 
 def occupiedcoordinates (play, targets, necromancers, bullets, bombs, ammopickup = None, blocked = None, torches = None, flares = None):
