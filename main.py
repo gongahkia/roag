@@ -385,6 +385,8 @@ def minimaplines (play, space, targets = None, necromancers = None, ammopickup =
     playerx = min(width - 1,max(0,int(play.location[0] * width / WORLDWIDTH)))
     playery = min(height - 1,max(0,int(play.location[1] * height / WORLDHEIGHT)))
     markers = {}
+    for enemy in necromancers:
+        markers[(min(width - 1,int(enemy.location[0] * width / WORLDWIDTH)),min(height - 1,int(enemy.location[1] * height / WORLDHEIGHT)))] = enemy.model
     if exitdoor is not None or len(necromancers) == 0:
         for item in targets:
             markers[(min(width - 1,int(item.location[0] * width / WORLDWIDTH)),min(height - 1,int(item.location[1] * height / WORLDHEIGHT)))] = item.model

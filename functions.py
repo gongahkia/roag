@@ -596,12 +596,12 @@ def wfcbiomelayer (space, terrain):
     }[terrain]
     compatibility = {tile: set(tiles) for tile in tiles}
     compatibility[tiles[-1]] = set(tiles[:-1]) | {tiles[-1]}
-    motifs = wavefunctioncollapse(WORLDWIDTH // 8,WORLDHEIGHT // 8,tiles,compatibility)
+    motifs = wavefunctioncollapse(WORLDWIDTH // 12,WORLDHEIGHT // 10,tiles,compatibility)
     for (cellx,celly), motif in motifs.items():
-        x0,y0 = cellx * 8,celly * 8
-        coordinates = [(x,y) for x in range(x0 + 1,min(x0 + 7,WORLDWIDTH - 1)) for y in range(y0 + 1,min(y0 + 7,WORLDHEIGHT - 1))]
+        x0,y0 = cellx * 12,celly * 10
+        coordinates = [(x,y) for x in range(x0 + 1,min(x0 + 11,WORLDWIDTH - 1)) for y in range(y0 + 1,min(y0 + 9,WORLDHEIGHT - 1))]
         if motif in ['pond','sinkhole','cell']:
-            for coordinate in random.sample(coordinates,random.randint(5,12)):
+            for coordinate in random.sample(coordinates,random.randint(12,28)):
                 space.discard(coordinate)
         elif motif in ['clearing','chamber','room']:
             for coordinate in coordinates:
@@ -805,6 +805,8 @@ def attackcoordinates (enemy):
 
 
 def attackplayer (player, enemies, space = None):
+    wolves = [enemy for enemy in enemies if isinstance(enemy,necromancer) and enemy.normalmodel == 'w']
+    packleader = min(wolves,key = lambda enemy: abs(enemy.location[0] - player.location[0]) + abs(enemy.location[1] - player.location[1])) if wolves else None
     for enemy in enemies:
         if isinstance(enemy, necromancer):
             if enemy.updatestun():
@@ -814,7 +816,10 @@ def attackplayer (player, enemies, space = None):
                 for other in enemies:
                     if other is not enemy and isinstance(other, necromancer):
                         blocked.add(tuple(other.location))
-                path = pathfind(tuple(enemy.location),tuple(player.location),space,blocked)
+                huntlocation = player.location
+                if enemy.normalmodel == 'w' and enemy is not packleader and abs(enemy.location[0] - packleader.location[0]) + abs(enemy.location[1] - packleader.location[1]) <= 10:
+                    huntlocation = packleader.location
+                path = pathfind(tuple(enemy.location),tuple(huntlocation),space,blocked)
                 if enemy.normalmodel == 'b' and len(path) <= 2:
                     player.attacked()
                     enemy.destroyed()
@@ -822,7 +827,7 @@ def attackplayer (player, enemies, space = None):
                     player.notice = '~A bomber detonated beside you.~'
                     player.eventlog.append('A bomber exploded nearby!')
                     player.eventlog = player.eventlog[-5:]
-                elif enemy.normalmodel == 'w' and len(path) == 2:
+                elif enemy.normalmodel == 'w' and abs(enemy.location[0] - player.location[0]) + abs(enemy.location[1] - player.location[1]) == 1:
                     player.attacked()
                     player.notice = '~A forest wolf tore into you.~'
                 elif enemy.normalmodel == 'w' and len(path) > 2:
