@@ -100,7 +100,6 @@ class AsciiPygameFrontend(PygameFrontend):
         """Map clicks into the centered ASCII landing-page menu."""
         width, height = self.screen.get_size()
         char_width, char_height = self._cell_metrics()
-        line_height = char_height + max(2, char_height // 5)
         max_columns = max(32, (width - 80) // char_width)
         max_rows = max(14, (height - 80) // char_height - 2)
         box = self.pygame.Rect(
@@ -209,6 +208,7 @@ class AsciiPygameFrontend(PygameFrontend):
             return
         width, height = self.screen.get_size()
         char_width, char_height = self._cell_metrics()
+        line_height = char_height + max(2, char_height // 5)
         columns = max(32, (width - 80) // char_width)
         rows = max(14, (height - 80) // char_height - 2)
         box = self.pygame.Rect(
@@ -259,7 +259,7 @@ class AsciiPygameFrontend(PygameFrontend):
                 if active:
                     self.pygame.draw.rect(self.screen, self.theme.selected_bg, (x - 3, line_y - 1, row_width, line_height - 2))
                 self._draw_text(line, (x, line_y), colour)
-            return len(lines)
+            return len(lines) * line_height
 
         self._draw_text("IDENTITY", (left_x, y), self.theme.title)
         identity_fields = ("crew", "ancestry", "origin", "trait")
