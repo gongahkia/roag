@@ -71,6 +71,52 @@ class AsciiPygameFrontendTests(unittest.TestCase):
         self.assertNotEqual(frontend.theme.selected_bg, frontend.theme.background)
         self.assertNotEqual(frontend._result_colour("move.ok"), frontend._result_colour("move.rejected"))
 
+    def test_regional_tokens_keep_semantic_hues_when_visible_or_remembered(self):
+        """Land exploration is coloured from stable token IDs, never glyph rules."""
+        from jomon.state import Position
+        from jomon.views import CellView
+
+        frontend = self.frontend()
+        def cell(token: str, *, visible: bool = True, remembered: bool = False) -> CellView:
+            return CellView(Position(1, 1, 0), f"terrain.region.token.{ord(token):02x}", None,
+                            visible, remembered, (), ())
+
+        floor, vegetation, water, route, wall = (cell(token) for token in (".", "T", ",", "=", "#"))
+        colours = {frontend._cell_colour(row) for row in (floor, vegetation, water, route, wall)}
+        self.assertEqual(len(colours), 5)
+        self.assertEqual(frontend._cell_colour(vegetation), frontend.theme.vegetation)
+        self.assertEqual(frontend._cell_colour(water), frontend.theme.water)
+        remembered_water = cell(",", visible=False, remembered=True)
+        self.assertNotEqual(frontend._cell_colour(remembered_water), frontend.theme.water)
+        self.assertGreater(frontend._cell_colour(remembered_water)[2], frontend.theme.background[2])
+
+    def test_ascii_clicks_select_the_exact_shared_logical_tile(self):
+        """The ASCII skin shares Debug's tile/camera transform with input."""
+        frontend = self.frontend()
+        view = frontend.session.world_view()
+        cell = next(row for row in view.cells if row.position == view.courier_position)
+        rect = frontend._rect(cell.position, frontend._camera(view))
+        self.assertEqual(rect.size, (frontend.tile_size, frontend.tile_size))
+        frontend.handle_event(self.pygame.event.Event(
+            self.pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center,
+        ))
+        self.assertEqual(frontend.selected, cell.position)
+
+    def test_ascii_setup_wraps_pack_text_into_a_structured_pre_game_page(self):
+        from jomon.pygame_ascii import AsciiPygameFrontend
+
+        frontend = AsciiPygameFrontend(None, pygame=self.pygame, size=(960, 640),
+                                       require_character_setup=True, seed="wrapped-setup")
+        self.assertIsNone(frontend.session)
+        lines = frontend._wrap_text(
+            "A deliberately long selected-pack description must never run through the page border.",
+            frontend._cell_metrics()[0] * 26,
+        )
+        self.assertGreater(len(lines), 1)
+        frontend.draw()
+        self.assertEqual(frontend.panel, "setup")
+        self.assertIsNone(frontend.session)
+
     def test_full_page_title_uses_ascii_menu_geometry_without_a_session(self):
         from jomon.pygame_ascii import AsciiPygameFrontend
 

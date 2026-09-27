@@ -73,8 +73,11 @@ ASCII_THEME = AsciiTheme()
 
 
 def _remembered(colour: tuple[int, int, int]) -> tuple[int, int, int]:
-    """Dim a semantic colour without changing what the view reveals."""
-    return tuple(max(18, value * 42 // 100) for value in colour)
+    """Dim a semantic colour without collapsing remembered terrain to grey."""
+    # Regional exploration has a deliberately narrow field of view.  Retain
+    # enough of each role's hue that remembered water, plants, routes and
+    # structures remain readable, while still making live visibility clear.
+    return tuple(max(22, value * 60 // 100) for value in colour)
 
 
 class AsciiPygameFrontend(PygameFrontend):
@@ -87,8 +90,11 @@ class AsciiPygameFrontend(PygameFrontend):
         self.theme = ASCII_THEME
 
     def _cell_metrics(self) -> tuple[int, int]:
-        width, height = self.font.size("M")
-        return max(8, width), max(14, height)
+        # Every ASCII layout measurement must use the selected text font, not
+        # Pygame's unrelated fallback font.  BigBlueTerm has its own line
+        # metrics; using the fallback here made setup rows overlap visually.
+        sample = self.font_stack.render("M", self.theme.foreground)
+        return max(8, sample.get_width()), max(14, sample.get_height())
 
     def _title_row_at(self, mouse: tuple[int, int]) -> int:
         """Map clicks into the centered ASCII landing-page menu."""
