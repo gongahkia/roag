@@ -23,7 +23,7 @@ class PygameFrontend:
  renderer_id="debug"
  def __init__(self,session:GameSession|None,*,pygame:Any|None=None,size=(1100,760),shell_mode="game",settings:AppSettings|None=None,seed="jomon",**_:Any):
   self.pygame=pygame or _pygame();self.screen=self.pygame.display.set_mode(size,self.pygame.RESIZABLE);self.pygame.display.set_caption("JOMON")
-  self.clock=self.pygame.time.Clock();self.font_stack=FontStack(self.pygame,20);self.font=self.font_stack.text;self.session=session;self.seed=seed;self.settings=settings or load_app_settings();self.panel="title" if session is None or shell_mode=="title" else None;self.running=True;self.selected:Position|None=None;self.last_result="ready";self.tile_size=26
+  self.clock=self.pygame.time.Clock();self.font_stack=FontStack(self.pygame,20);self.font=self.font_stack.text;self.session=session;self.seed=seed;self.settings=settings or load_app_settings();self.panel="title" if session is None or shell_mode=="title" else None;self.running=True;self.selected:Position|None=None;self.last_result="ready";self.tile_size=26;self.requested_renderer: str|None=None;self.panel_cursor=0
  def _camera(self,view):
   w,h=self.screen.get_size();return w//2-view.courier_position.x*self.tile_size,h//2-view.courier_position.y*self.tile_size
  def _rect(self,p,c):return self.pygame.Rect(c[0]+p.x*self.tile_size,c[1]+p.y*self.tile_size,self.tile_size,self.tile_size)
@@ -89,9 +89,14 @@ class PygameFrontend:
   rect=self._rect(v.courier_position,c);self.pygame.draw.circle(self.screen,(230,245,255),rect.center,7)
   if self.selected:self.pygame.draw.rect(self.screen,(255,220,100),self._rect(self.selected,c),2)
   s=self.font_stack.render(f"JOMON  result:{self.last_result}  arrows move · click select · F attack",(220,230,240));self.screen.blit(s,(10,8));self.pygame.display.flip()
+ def replacement_renderer(self):
+  """Replace only presentation; the live deterministic session is shared."""
+  return create_frontend(self.session,renderer=self.requested_renderer or self.renderer_id,pygame=self.pygame,size=self.screen.get_size(),shell_mode="game",settings=self.settings,seed=self.seed)
  def run(self):
   while self.running:
    for event in self.pygame.event.get():self.handle_event(event)
+   if self.requested_renderer and self.requested_renderer != self.renderer_id:
+    replacement=self.replacement_renderer();replacement.panel=self.panel;return replacement.run()
    self.draw();self.clock.tick(60)
   self.pygame.quit()
 def create_frontend(session,*,renderer="debug",**kwargs):
