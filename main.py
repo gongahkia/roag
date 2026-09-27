@@ -190,20 +190,27 @@ def collectammo (play, ammopickup):
     if play.location == ammopickup.location:
         play.reload(cursed = False)
         play.notice = '~Ammo collected.~'
+        logevent(play,'Collected ammo.')
         return None
     return ammopickup
 
 
 def playeraction (play, user, bullets, bombs, space, flares = None):
     flares = [] if flares is None else flares
+    previous = list(play.location)
     moveplayer(play,user,space)
     if play.model == icon('player_hit') or play.health <= 0:
         return
     if user == 'q':
         dashplayer(play,space)
+        logevent(play,'Dashed forward.' if play.location != previous else 'Dash blocked.')
+    if user in ['w','a','s','d']:
+        names = {'w':'north','a':'west','s':'south','d':'east'}
+        logevent(play,f'Moved {names[user]}.' if play.location != previous else f'Faced {names[user]}.')
     if user == 'e':
         if play.shoot():
             bullets.append(bullet(play.model,play.location,play.bulletrange))
+            logevent(play,'Fired a shot.')
         else:
             play.notice = '~No more ammo, find more to shoot.~'
     if user == 'b':
@@ -211,6 +218,7 @@ def playeraction (play, user, bullets, bombs, space, flares = None):
             play.notice = '~No bombs left. Buy bombs in the shop.~'
         else:
             bombs.append(bomb(play.location,play.bombfuse,play.bombradius))
+            logevent(play,'Armed a bomb.')
             play.bombs -= 1
             play.notice = '~Bomb armed. Move away before it explodes.~'
     if user == 'f':
@@ -218,6 +226,7 @@ def playeraction (play, user, bullets, bombs, space, flares = None):
             play.notice = '~No flares left. Buy flares in the shop.~'
         else:
             flares.append(flare(play.location))
+            logevent(play,'Lit a flare.')
             play.flares -= 1
             play.notice = '~Flare lit. Necromancers will be stunned.~'
 
@@ -227,6 +236,7 @@ def targetdestroyed (play, item, targets):
     targets.remove(item)
     play.score += 1
     play.reload()
+    logevent(play,'Destroyed a target.')
 
 
 def necromancerdestroyed (play, item, necromancers):
@@ -234,6 +244,12 @@ def necromancerdestroyed (play, item, necromancers):
     necromancers.remove(item)
     play.score += 1
     play.reload(2)
+    logevent(play,'Defeated an enemy.')
+
+
+def logevent (play, message):
+    play.eventlog.append(message)
+    play.eventlog = play.eventlog[-5:]
 
 
 def updatebullets (play, bullets, targets, necromancers, space, enemyboss = None):
@@ -342,10 +358,6 @@ def enemyforecasts (necromancers, enemyboss = None):
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
     necromancers = [] if necromancers is None else necromancers
     play.forecasts = enemyforecasts(necromancers,enemyboss)
-    if play.notice != '' and play.notice != play.lastnotice:
-        play.eventlog.append(play.notice.strip('~'))
-        play.eventlog = play.eventlog[-3:]
-        play.lastnotice = play.notice
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:

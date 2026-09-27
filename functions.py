@@ -274,6 +274,8 @@ class player:
     def attacked (self):
         self.health -= 1
         self.impactframes = 2
+        self.eventlog.append('You were hit.')
+        self.eventlog = self.eventlog[-5:]
         if self.health <= 0:
             self.health = 0
             self.model = icon('player_dead')
@@ -1132,8 +1134,6 @@ def statbar (value, maximum):
 
 def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal = 5, curse = None, armedflares = 0):
     lines = []
-    if level is not None:
-        lines.append(iconlabel('threatcon',f'THREATCON: {statbar(level + 1,3)}'))
     if curse is not None:
         lines.append(iconlabel('curse',f'CURSE: {curse.replace("_"," ").upper()}'))
     lines.append(f'CLASS: {player.classname}')
@@ -1150,11 +1150,9 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     lines.append(iconlabel('score',f'SCORE: {statbar(player.score,scoregoal)}'))
     dashstatus = 'READY' if player.dashcooldown == 0 else 'RECHARGING'
     lines.append(iconlabel('dash',f'Q DASH: {dashstatus}'))
-    lines.append(f'PLAYER: {player.status}')
-    if player.forecasts:
-        lines.extend(['', 'ENEMY INTENT:'] + player.forecasts[:3])
+    lines.append('------------------------------')
     if player.eventlog:
-        lines.extend(['', 'EVENT LOG:'] + player.eventlog[-3:])
+        lines.extend(['EVENT LOG:'] + player.eventlog[-4:])
     return lines
 
 
