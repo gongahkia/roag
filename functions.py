@@ -227,6 +227,9 @@ class player:
         self.boonname = ''
         self.notice = ''
         self.impactframes = 0
+        self.eventlog = []
+        self.lastnotice = ''
+        self.forecasts = []
         self.dashcooldown = 0
         self.dashcooldownbase = DASH_COOLDOWN
         self.bombfuse = 3
@@ -1148,6 +1151,10 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     dashstatus = 'READY' if player.dashcooldown == 0 else 'RECHARGING'
     lines.append(iconlabel('dash',f'Q DASH: {dashstatus}'))
     lines.append(f'PLAYER: {player.status}')
+    if player.forecasts:
+        lines.extend(['', 'ENEMY INTENT:'] + player.forecasts[:3])
+    if player.eventlog:
+        lines.extend(['', 'EVENT LOG:'] + player.eventlog[-3:])
     return lines
 
 

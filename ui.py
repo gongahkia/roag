@@ -165,6 +165,10 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     dashstatus = 'READY' if player.dashcooldown == 0 else 'RECHARGING'
     lines.append(iconlabel('dash',f'Q DASH: {dashstatus}'))
     lines.append(f'PLAYER: {player.status}')
+    if player.forecasts:
+        lines.extend(['', 'ENEMY INTENT:'] + player.forecasts[:3])
+    if player.eventlog:
+        lines.extend(['', 'EVENT LOG:'] + player.eventlog[-3:])
     return lines
 
 

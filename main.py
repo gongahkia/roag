@@ -322,7 +322,30 @@ def updateflares (flares, necromancers, space):
     return remaining,explosions
 
 
+def enemyforecasts (necromancers, enemyboss = None):
+    forecasts = []
+    for enemy in necromancers:
+        name = 'WOLF' if enemy.normalmodel == 'w' else 'CULTIST' if enemy.normalmodel == 'C' else 'NECROMANCER'
+        intent = 'POUNCE' if enemy.normalmodel == 'w' else 'ADVANCE'
+        if enemy.attackcounter == 1:
+            intent = 'CHARGING SPELL'
+        elif enemy.attackcounter in [2,3]:
+            intent = 'AIMING STRIKE'
+        elif enemy.attackcounter == 4:
+            intent = 'RECOVERING'
+        forecasts.append(f'{name}: {intent}')
+    if enemyboss is not None:
+        forecasts.insert(0,f'BOSS: {enemyboss.attackname} IN {max(0,4 - enemyboss.attackcounter)}')
+    return forecasts
+
+
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
+    necromancers = [] if necromancers is None else necromancers
+    play.forecasts = enemyforecasts(necromancers,enemyboss)
+    if play.notice != '' and play.notice != play.lastnotice:
+        play.eventlog.append(play.notice.strip('~'))
+        play.eventlog = play.eventlog[-3:]
+        play.lastnotice = play.notice
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:
