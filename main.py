@@ -378,10 +378,23 @@ def compasslines (play, targets, necromancers, ammopickup, exitdoor):
     return [f'{name} • {distance}',arrows[direction]]
 
 
+def minimaplines (play, space, width = 15, height = 5):
+    lines = []
+    playerx = min(width - 1,max(0,int(play.location[0] * width / WORLDWIDTH)))
+    playery = min(height - 1,max(0,int(play.location[1] * height / WORLDHEIGHT)))
+    for row in reversed(range(height)):
+        line = ''
+        for column in range(width):
+            world = (min(WORLDWIDTH - 1,int((column + 0.5) * WORLDWIDTH / width)),min(WORLDHEIGHT - 1,int((row + 0.5) * WORLDHEIGHT / height)))
+            line += '@' if (column,row) == (playerx,playery) else '.' if world in space else '#'
+        lines.append(line)
+    return lines
+
+
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
     necromancers = [] if necromancers is None else necromancers
     play.forecasts = enemyforecasts(necromancers,enemyboss)
-    play.compass = compasslines(play,targets or [],necromancers,ammopickup,exitdoor)
+    play.minimap = [] if space is None else minimaplines(play,space)
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:

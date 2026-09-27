@@ -150,7 +150,8 @@ def printgameframe (entitydict, sidebar, gameover = False, camera = None, effect
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
         side = sidebar[index] if index < len(sidebar) else ''
         boardline = colourtext(line,RED if gameover else WHITE) if gameover else colourboardline(line)
-        print(f'{border}{boardline}{border}  {colourtext(side.center(SIDEBARWIDTH),WHITE)}')
+        renderedside = colourboardline(side[4:].center(SIDEBARWIDTH)) if side.startswith('MAP:') else colourtext(side.center(SIDEBARWIDTH),WHITE)
+        print(f'{border}{boardline}{border}  {renderedside}')
     print(topborder)
 
 
@@ -179,8 +180,8 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     lines.append(iconlabel('dash',f'Q DASH: {dashstatus}'))
     lines.append('------------------------------')
     lines.extend(['EVENT LOG:'] + player.eventlog[-4:] + [''] * max(0,4 - len(player.eventlog)))
-    if player.compass:
-        lines.extend(['------------------------------', 'COMPASS:'] + player.compass[:4])
+    if player.minimap:
+        lines.extend(['------------------------------', 'MINIMAP:'] + [f'MAP:{line}' for line in player.minimap])
     return lines
 
 
