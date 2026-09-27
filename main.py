@@ -355,9 +355,23 @@ def enemyforecasts (necromancers, enemyboss = None):
     return forecasts
 
 
+def minimaplines (play, space, width = 15, height = 5):
+    lines = []
+    playerx = min(width - 1,max(0,int(play.location[0] * width / 192)))
+    playery = min(height - 1,max(0,int(play.location[1] * height / 96)))
+    for row in reversed(range(height)):
+        line = ''
+        for column in range(width):
+            world = (min(191,int((column + 0.5) * 192 / width)),min(95,int((row + 0.5) * 96 / height)))
+            line += '@' if (column,row) == (playerx,playery) else '.' if world in space else '#'
+        lines.append(line)
+    return lines
+
+
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
     necromancers = [] if necromancers is None else necromancers
     play.forecasts = enemyforecasts(necromancers,enemyboss)
+    play.minimap = [] if space is None else minimaplines(play,space)
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:

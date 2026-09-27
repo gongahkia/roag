@@ -178,6 +178,8 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     lines.append('------------------------------')
     if player.eventlog:
         lines.extend(['EVENT LOG:'] + player.eventlog[-4:])
+    if player.minimap:
+        lines.extend(['------------------------------', 'MINIMAP:'] + player.minimap)
     return lines
 
 

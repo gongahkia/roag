@@ -230,6 +230,7 @@ class player:
         self.eventlog = []
         self.lastnotice = ''
         self.forecasts = []
+        self.minimap = []
         self.dashcooldown = 0
         self.dashcooldownbase = DASH_COOLDOWN
         self.bombfuse = 3
@@ -1153,6 +1154,8 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     lines.append('------------------------------')
     if player.eventlog:
         lines.extend(['EVENT LOG:'] + player.eventlog[-4:])
+    if player.minimap:
+        lines.extend(['------------------------------', 'MINIMAP:'] + player.minimap)
     return lines
 
 
