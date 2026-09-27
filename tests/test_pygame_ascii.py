@@ -44,10 +44,13 @@ class AsciiPygameFrontendTests(unittest.TestCase):
             self.assertEqual(icon, "QUEST")
 
     def test_bundled_font_renders_representative_semantic_icons(self):
+        from jomon.font_stack import ASCII_ICONS
         frontend = self.frontend()
         self.assertEqual(frontend.font_stack.resolution.text_source, "bundled BigBlueTerm Nerd Font Mono")
         for identity in ("health", "inventory", "quest", "travel", "vessel", "settings", "draw", "dice"):
-            surface = frontend.font_stack.render(frontend.font_stack.icon(identity), (255, 255, 255), icon=True)
+            icon = frontend.font_stack.icon(identity)
+            self.assertEqual(icon, ASCII_ICONS[identity][0])
+            surface = frontend.font_stack.render(icon, (255, 255, 255), icon=True)
             self.assertGreater(surface.get_width(), 0)
             self.assertGreater(surface.get_height(), 0)
 

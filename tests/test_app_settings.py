@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.app_settings import AppSettings, available_saves, load_app_settings, save_app_settings
+from jomon.app_settings import AppSettings, load_app_settings, resolve_renderer, safe_save_name, save_app_settings
 from jomon.font_stack import ASCII_ICONS, bundled_bigblue_font_path
 
 
@@ -19,6 +19,11 @@ class AppSettingsTests(unittest.TestCase):
             save_app_settings(AppSettings("ascii"), path)
             self.assertEqual(load_app_settings(path), AppSettings("ascii"))
             self.assertEqual(path.read_text(encoding="utf-8"), '{\n  "format": 1,\n  "renderer": "ascii"\n}\n')
+        self.assertEqual(resolve_renderer(None, AppSettings("ascii")), "ascii")
+        self.assertEqual(resolve_renderer("debug", AppSettings("ascii")), "debug")
+        self.assertEqual(resolve_renderer("graphical", AppSettings("ascii")), "debug")
+        self.assertIsNone(safe_save_name("../../escape"))
+        self.assertEqual(safe_save_name("My Save 01"), "My Save 01")
 
     def test_bundled_bigblue_font_and_notices_are_pinned(self):
         font = Path(bundled_bigblue_font_path() or "")

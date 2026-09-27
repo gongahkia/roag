@@ -5,11 +5,11 @@ Jomon has one Pygame application with two renderer modes. Both consume the same 
 ```bash
 uv sync
 uv run python -m jomon
-uv run python -m jomon --renderer graphical
+uv run python -m jomon --renderer debug
 uv run python -m jomon --renderer ascii
 ```
 
-`--new`, `--seed`, `--load PATH`, and `--save PATH` are shared startup options. `--font PATH` and `--icon-font PATH` are local presentation overrides; neither is persisted. Run `uv run python -m jomon --help` for the current full CLI.
+The Debug renderer is the fresh-install default. `--renderer graphical` remains a compatibility alias for Debug. `--new`, `--seed`, `--load PATH`, and `--save PATH` are shared startup options. `--font PATH` and `--icon-font PATH` are local presentation overrides; neither is persisted. Run `uv run python -m jomon --help` for the current full CLI.
 
 ## Shared application vs renderer
 
@@ -37,9 +37,15 @@ Assets and fonts are absent from state, runtime events, fingerprints, and saves.
 
 ## BigBlueTerm and Nerd Font icons
 
-`jomon.font_stack.FontStack` is Pygame-only. It never downloads a font. Its text lookup order is a valid explicit `--font` path, installed BigBlueTerm or BigBlueTerminal family aliases (including Nerd Font variants), then a local monospace family. Icon lookup similarly accepts `--icon-font`, then installed Nerd Font aliases, then text fallback.
+`jomon.font_stack.FontStack` is Pygame-only. It never downloads a font. Jomon vendors the pinned `BigBlueTermPlusNerdFontMono-Regular.ttf` from Nerd Fonts v3.5.1 under CC BY-SA 4.0; see [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md). Its text lookup order is a valid explicit `--font` path, the bundled BigBlueTerm Nerd Font Mono, installed BigBlueTerm or BigBlueTerminal family aliases, installed Nerd Font aliases, then a local monospace family. Icon lookup similarly accepts `--icon-font`, then the bundled font, installed Nerd Font aliases, then text fallback.
 
-When BigBlueTerm is locally available, it is the preferred primary text font. When it is unavailable, Jomon remains playable with a deterministic local monospace fallback. The repository does not bundle BigBlueTerm or a Nerd Font; users may provide locally licensed files through the CLI paths.
+The bundled font is the normal ASCII path after `uv sync`; a system installation and network access are not required. Explicit local font paths still override it. If the bundled resource is unavailable in a damaged installation, Jomon remains playable with a deterministic local monospace fallback.
+
+## Frontend settings and saves
+
+`AppSettings` is separate from `GameState` and format-15 saves. It persists the renderer preference as small JSON: Linux uses `${XDG_CONFIG_HOME:-~/.config}/jomon/settings.json`, Windows uses `%APPDATA%/Jomon/settings.json`, and macOS uses `~/Library/Application Support/Jomon/settings.json`. The priority is an explicit CLI renderer, then stored settings, then Debug.
+
+Normal saves are also outside the repository: `${XDG_DATA_HOME:-~/.local/share}/jomon/saves` on Linux, `%LOCALAPPDATA%/Jomon/saves` on Windows, and `~/Library/Application Support/Jomon/saves` on macOS. `--load PATH` and `--save PATH` remain explicit overrides. A corrupt settings file safely falls back to Debug; it never affects a loaded game.
 
 `ASCII_ICONS` centralizes renderer-chrome concepts including courier, NPC, threat, health, armour, inventory, equipment, weapon, ranged, ammunition, magic, chemistry, production, preparation, circuit, vehicle, vessel, travel, quest, warning, success, locked, inspect, interact, save, load, tavern, Draw, and Dice. Each has a plain-text/Unicode fallback such as `HP`, `INV`, or `QUEST`. Icons are never identities and a missing glyph cannot make a game state unreadable or alter a rule.
 

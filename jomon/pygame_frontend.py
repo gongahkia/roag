@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .assets import actor_assets, asset_resource, event_assets, tavern_assets, terrain_assets
-from .app_settings import AppSettings, available_saves, default_save_path, load_app_settings, save_app_settings, save_directory
+from .app_settings import AppSettings, available_saves, default_save_path, load_app_settings, resolve_renderer, save_app_settings, save_directory
 from .catalog import selected_content_pack
 from .font_stack import FontStack
 from .commands import (
@@ -852,7 +852,7 @@ def main(argv: list[str] | None = None) -> None:
     try: pygame=_pygame()
     except RuntimeError as exc: parser.error(str(exc))
     settings = load_app_settings()
-    renderer = "debug" if args.renderer == "graphical" else args.renderer or settings.renderer
+    renderer = resolve_renderer(args.renderer, settings)
     save_path = args.save or default_save_path()
     session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
     pygame.init()

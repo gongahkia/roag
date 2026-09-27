@@ -60,6 +60,13 @@ def load_app_settings(path: Path | None = None) -> AppSettings:
         return AppSettings()
 
 
+def resolve_renderer(cli_renderer: str | None, settings: AppSettings) -> str:
+    """Apply the documented per-launch CLI > stored > Debug precedence."""
+    if cli_renderer == "graphical":
+        return "debug"
+    return cli_renderer if cli_renderer in RENDERERS else settings.renderer
+
+
 def save_app_settings(settings: AppSettings, path: Path | None = None) -> Path:
     if settings.renderer not in RENDERERS:
         raise ValueError("unsupported renderer setting")
