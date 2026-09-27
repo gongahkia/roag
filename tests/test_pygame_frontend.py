@@ -76,6 +76,29 @@ class PygameFrontendTests(unittest.TestCase):
             self.assertIs(replacement.session, frontend.session)
             self.assertEqual(replacement.session.world_view(), before[1])
 
+    def test_renderer_switching_is_mechanically_inert(self):
+        from jomon.commands import MoveCommand
+        from jomon.pygame_frontend import create_frontend
+        from jomon.session import GameSession
+
+        session, reference = GameSession.create("renderer-inert"), GameSession.create("renderer-inert")
+        frontend = create_frontend(session, renderer="debug", pygame=self.pygame)
+        commands = (MoveCommand(1, 0), MoveCommand(-1, 0), MoveCommand(0, 1), MoveCommand(0, -1))
+        for command in commands:
+            outcome, expected = frontend.submit(command), reference.submit(command)
+            self.assertEqual(outcome.events, expected.events)
+            if outcome.changed:
+                break
+        ascii_frontend = frontend._replacement_renderer("ascii")
+        debug_frontend = ascii_frontend._replacement_renderer("debug")
+        self.assertIs(debug_frontend.session, session)
+        for command in commands:
+            outcome, expected = debug_frontend.submit(command), reference.submit(command)
+            self.assertEqual(outcome.events, expected.events)
+            if outcome.changed:
+                break
+        self.assertEqual(session._state.to_dict(), reference._state.to_dict())
+
     def test_draws_semantic_view_and_loads_real_image_resource(self):
         frontend=self.frontend(); frontend.draw()
         self.assertIsNotNone(frontend.resources.image("image.terrain.floor", frontend.tile_size))
