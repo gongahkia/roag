@@ -165,7 +165,7 @@ def createstageentities (settings, play, space):
         targets.append(target(location))
     for number in range(settings['necromancers']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        model = 'w' if settings.get('wilds') and number % 2 == 0 else ('C' if settings.get('cultists') else None)
+        model = 'b' if settings.get('wilds') and number % 3 == 0 else ('w' if settings.get('wilds') else ('C' if settings.get('cultists') else None))
         necromancers.append(necromancer(location,model))
     location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
     ammopickup = ammo(location)
@@ -178,7 +178,7 @@ def refillstageentities (settings, play, targets, necromancers, bullets, bombs, 
         targets.append(target(location))
     while len(necromancers) < settings['necromancers']:
         location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,space = space,torches = torches,flares = flares)
-        model = 'w' if settings.get('wilds') and len(necromancers) % 2 == 0 else ('C' if settings.get('cultists') else None)
+        model = 'b' if settings.get('wilds') and len(necromancers) % 3 == 0 else ('w' if settings.get('wilds') else ('C' if settings.get('cultists') else None))
         necromancers.append(necromancer(location,model))
     if ammopickup is None:
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
@@ -341,8 +341,8 @@ def updateflares (flares, necromancers, space):
 def enemyforecasts (necromancers, enemyboss = None):
     forecasts = []
     for enemy in necromancers:
-        name = 'WOLF' if enemy.normalmodel == 'w' else 'CULTIST' if enemy.normalmodel == 'C' else 'NECROMANCER'
-        intent = 'POUNCE' if enemy.normalmodel == 'w' else 'ADVANCE'
+        name = 'BOMBER' if enemy.normalmodel == 'b' else 'WOLF' if enemy.normalmodel == 'w' else 'CULTIST' if enemy.normalmodel == 'C' else 'NECROMANCER'
+        intent = 'DETONATE' if enemy.normalmodel == 'b' else 'POUNCE' if enemy.normalmodel == 'w' else 'ADVANCE'
         if enemy.attackcounter == 1:
             intent = 'CHARGING SPELL'
         elif enemy.attackcounter in [2,3]:
@@ -358,19 +358,24 @@ def enemyforecasts (necromancers, enemyboss = None):
 def compasslines (play, targets, necromancers, ammopickup, exitdoor):
     contacts = []
     if exitdoor is not None:
-        contacts.append(('EXIT',exitdoor.location))
+        contacts.append(('EXIT',exitdoor.location,2))
     else:
-        contacts.extend([('ENEMY',item.location) for item in necromancers])
-        contacts.extend([('TARGET',item.location) for item in targets])
+        contacts.extend([('ENEMY',item.location,0) for item in necromancers])
+        contacts.extend([('TARGET',item.location,1) for item in targets])
         if ammopickup is not None:
-            contacts.append(('AMMO',ammopickup.location))
-    result = []
-    for name, location in sorted(contacts,key = lambda item: abs(item[1][0] - play.location[0]) + abs(item[1][1] - play.location[1]))[:4]:
-        dx,dy = location[0] - play.location[0],location[1] - play.location[1]
-        vertical = 'N' if dy > 0 else 'S' if dy < 0 else ''
-        horizontal = 'E' if dx > 0 else 'W' if dx < 0 else ''
-        result.append(f'{name}: {vertical + horizontal or "HERE"}')
-    return result
+            contacts.append(('AMMO',ammopickup.location,1))
+    if not contacts:
+        return []
+    name,location,priority = min(contacts,key = lambda item: (abs(item[1][0] - play.location[0]) + abs(item[1][1] - play.location[1]),item[2]))
+    dx,dy = location[0] - play.location[0],location[1] - play.location[1]
+    direction = ('N' if dy > 0 else 'S' if dy < 0 else '') + ('E' if dx > 0 else 'W' if dx < 0 else '')
+    arrows = {
+        'N':'   ^   ', 'NE':'   /^  ', 'E':'@----> ', 'SE':'   \\v  ',
+        'S':'   v   ', 'SW':'  v/   ', 'W':' <----@', 'NW':'  ^\\   ',
+        '':'   @   '
+    }
+    distance = abs(dx) + abs(dy)
+    return [f'{name} • {distance}',arrows[direction]]
 
 
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):

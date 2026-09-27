@@ -204,6 +204,7 @@ def configureterrain (terrain):
     COLOURS['^'] = GREY
     COLOURS['O'] = YELLOW
     COLOURS['w'] = RED
+    COLOURS['b'] = MAGENTA
     COLOURS['*'] = CYAN
     COLOURS['+'] = GREY
     COLOURS['='] = YELLOW
@@ -813,11 +814,18 @@ def attackplayer (player, enemies, space = None):
                     if other is not enemy and isinstance(other, necromancer):
                         blocked.add(tuple(other.location))
                 path = pathfind(tuple(enemy.location),tuple(player.location),space,blocked)
-                if enemy.normalmodel == 'w' and len(path) == 2:
+                if enemy.normalmodel == 'b' and len(path) <= 2:
+                    player.attacked()
+                    enemy.destroyed()
+                    enemies.remove(enemy)
+                    player.notice = '~A bomber detonated beside you.~'
+                    player.eventlog.append('A bomber exploded nearby!')
+                    player.eventlog = player.eventlog[-5:]
+                elif enemy.normalmodel == 'w' and len(path) == 2:
                     player.attacked()
                     player.notice = '~A forest wolf tore into you.~'
                 elif enemy.normalmodel == 'w' and len(path) > 2:
-                    enemy.movement(path[min(2,len(path) - 1)])
+                    enemy.movement(path[1])
                 elif len(path) > 0 and len(path) - 1 <= 4:
                     enemy.prepareattack(player.location)
                 elif len(path) > 1:
