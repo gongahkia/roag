@@ -56,14 +56,14 @@ def promptinput (prompt):
 
 def printscreen (lines, gameboard = False):
     clearscreen()
-    print (colourtext('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',CYAN))
+    print (colourtext('X' * (BOARDWIDTH + 2),CYAN))
     for line in lines:
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
         if gameboard:
             line = colourboardline(line)
         border = colourtext('X',CYAN)
         print (f'{border}{line}{border}')
-    print (colourtext('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',CYAN))
+    print (colourtext('X' * (BOARDWIDTH + 2),CYAN))
 
 
 def boardlines (entitydict, camera = None):
@@ -104,7 +104,7 @@ def printgameframe (entitydict, sidebar, gameover = False, camera = None):
     lines = gameoverlines() if gameover else boardlines(entitydict,camera)
     clearscreen()
     border = colourtext('X',CYAN)
-    topborder = colourtext('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',CYAN)
+    topborder = colourtext('X' * (BOARDWIDTH + 2),CYAN)
     print(topborder)
     for index,line in enumerate(lines):
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
