@@ -7,6 +7,7 @@ runtime and remains usable with a standard monospace fallback.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +32,22 @@ ASCII_ICONS: dict[str, tuple[str, str]] = {
     "ammunition": ("\uf135", "AMMO"), "magic": ("\uf0d0", "MAG"), "chemistry": ("\uf0c3", "CHEM"),
     "production": ("\uf085", "MAKE"), "preparation": ("\uf0f4", "PREP"), "circuit": ("\uf0e7", "CIR"),
     "vehicle": ("\uf1b9", "VEH"), "vessel": ("\uf21a", "SHIP"), "travel": ("\uf5a0", "GO"),
-    "quest": ("\uf46d", "QUEST"), "warning": ("\uf071", "!"), "success": ("\uf00c", "OK"),
+    "quest": ("\uf46d", "QUEST"), "warning": ("\uf071", "!"), "success": ("\uf00c", "OK"), "failure": ("\uf00d", "FAIL"),
     "locked": ("\uf023", "LOCK"), "inspect": ("\uf002", "LOOK"), "interact": ("\uf0a9", "USE"),
-    "save": ("\uf0c7", "SAVE"), "load": ("\uf2f1", "LOAD"), "tavern": ("\uf805", "TAVERN"),
+    "save": ("\uf0c7", "SAVE"), "load": ("\uf2f1", "LOAD"), "settings": ("\uf013", "SET"), "pause": ("\uf04c", "PAUSE"),
+    "status": ("\uf005", "STAT"), "tavern": ("\uf805", "TAVERN"),
     "draw": ("\uf2bb", "DRAW"), "dice": ("\uf522", "DICE"),
 }
+
+
+def bundled_bigblue_font_path() -> str | None:
+    """Return Jomon's pinned BigBlueTerm Nerd Font Mono when installed."""
+    resource = files("jomon").joinpath("assets", "fonts", "BigBlueTermPlusNerdFontMono-Regular.ttf")
+    try:
+        path = Path(resource)
+    except TypeError:
+        return None
+    return str(path) if path.is_file() else None
 
 
 def _existing_path(value: str | Path | None) -> str | None:
@@ -67,21 +79,23 @@ class FontStack:
                  icon_font_path: str | Path | None = None):
         self.pygame = pygame
         explicit_text = _existing_path(font_path)
+        bundled_text = bundled_bigblue_font_path()
         discovered_text = _match(pygame, BIG_BLUE_FAMILIES)
-        text_path = explicit_text or discovered_text or _match(pygame, MONOSPACE_FAMILIES)
+        nerd_text = _match(pygame, NERD_FAMILIES)
+        text_path = explicit_text or bundled_text or discovered_text or nerd_text or _match(pygame, MONOSPACE_FAMILIES)
         explicit_icon = _existing_path(icon_font_path)
         discovered_icon = _match(pygame, NERD_FAMILIES)
-        icon_path = explicit_icon or discovered_icon or text_path
+        icon_path = explicit_icon or bundled_text or discovered_icon or text_path
         self.resolution = FontResolution(
             text_path, icon_path,
-            "explicit" if explicit_text else "BigBlueTerm" if discovered_text else "monospace fallback",
-            "explicit" if explicit_icon else "Nerd Font" if discovered_icon else "text fallback",
+            "explicit" if explicit_text else "bundled BigBlueTerm Nerd Font Mono" if bundled_text else "BigBlueTerm" if discovered_text else "Nerd Font" if nerd_text else "monospace fallback",
+            "explicit" if explicit_icon else "bundled BigBlueTerm Nerd Font Mono" if bundled_text else "Nerd Font" if discovered_icon else "text fallback",
         )
         self.text = pygame.font.Font(text_path, size)
         self.icons = pygame.font.Font(icon_path, size) if icon_path else self.text
         # Pygame metrics can report a generic missing-glyph box as measurable.
         # With no deliberate icon-capable font, choose the readable text label.
-        self._trusted_icon_font = bool(explicit_icon or discovered_icon)
+        self._trusted_icon_font = bool(explicit_icon or bundled_text or discovered_icon)
 
     def supports(self, glyph: str) -> bool:
         metrics = self.icons.metrics(glyph)
