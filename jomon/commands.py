@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .state import Position
+
 
 @dataclass(frozen=True)
 class MoveCommand:
@@ -93,6 +95,21 @@ class CloseTavernGameCommand:
 
 
 @dataclass(frozen=True)
+class ActivityCommand:
+    """Resolve one stable ordinary-game activity choice.
+
+    ``context_id`` identifies the current semantic activity surface and
+    ``action_id`` identifies an option published by its immutable view.  A
+    cell or actor target is supplied only for actions whose existing reducer
+    already requires one.
+    """
+    context_id: str
+    action_id: str
+    target_position: Position | None = None
+    target_actor_id: str | None = None
+
+
+@dataclass(frozen=True)
 class SelectCarriedRelicCommand:
     """Select a stable relic identity for later use, or clear selection."""
     relic_id: str | None
@@ -116,5 +133,5 @@ GameCommand = (
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
     | StartTavernGameCommand | DrawBetCommand | DrawExchangeCommand
-    | DiceActionCommand | CloseTavernGameCommand
+    | DiceActionCommand | CloseTavernGameCommand | ActivityCommand
 )

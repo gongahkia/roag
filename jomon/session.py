@@ -15,12 +15,14 @@ from .commands import (
     SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
     TravelCommand, StartTavernGameCommand, DrawBetCommand, DrawExchangeCommand,
     DiceActionCommand, CloseTavernGameCommand,
+    ActivityCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
     ItemUsed, RetreatResolved, RuntimeEvent, ItemEquipped, ItemUnequipped,
     TravelResolved, TavernCardsExchanged, TavernDiceRolled, TavernGameSettled,
     TavernGameStarted,
+    GameplayActivityResolved,
 )
 from .save import load_game, save_game
 from .state import GameState, create_world
@@ -30,6 +32,7 @@ from .views import (
     WorldView, actor_views, equipment_view, interaction_view, inventory_view,
     quest_views, travel_view, world_view,
     tavern_dice_view, tavern_draw_view,
+    ActivityView,
 )
 
 
@@ -103,6 +106,11 @@ class GameSession:
 
     def tavern_dice_view(self) -> TavernDiceView:
         return tavern_dice_view(self._state)
+
+    def activity_view(self, context_id: str) -> ActivityView:
+        """Expose one current ordinary-game semantic activity surface."""
+        from .activities import activity_view
+        return activity_view(self._state, context_id)
 
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
@@ -325,6 +333,25 @@ class GameSession:
             else:
                 return self._reject("tavern.close.rejected", command.game_id)
             return self._outcome(ActionResult(True, False, ""), "tavern.closed", command.game_id)
+        if isinstance(command, ActivityCommand):
+            if (not isinstance(command.context_id, str) or not command.context_id
+                    or not isinstance(command.action_id, str) or not command.action_id):
+                return self._reject("activity.invalid")
+            if command.target_position is not None and not hasattr(command.target_position, "x"):
+                return self._reject("activity.target.invalid", command.action_id)
+            from .activities import resolve_activity
+            resolution = resolve_activity(
+                self._state, command.context_id, command.action_id,
+                command.target_position, command.target_actor_id,
+            )
+            if not resolution.changed:
+                return self._reject("activity.rejected", command.action_id)
+            target_id = command.target_actor_id
+            event = GameplayActivityResolved(command.context_id, command.action_id, target_id)
+            return self._outcome(
+                ActionResult(True, resolution.time_advanced, resolution.message),
+                "activity.resolved", command.action_id, (event,),
+            )
         if isinstance(command, SelectCarriedRelicCommand):
             if command.relic_id is not None and (not isinstance(command.relic_id, str) or not command.relic_id):
                 return self._reject("relic.invalid")

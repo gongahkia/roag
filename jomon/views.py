@@ -172,6 +172,25 @@ class InteractionView:
     options: tuple[InteractionOptionView, ...]
 
 
+@dataclass(frozen=True)
+class ActivityOptionView:
+    """One legal-or-explained semantic operation in an ordinary-game panel."""
+    action_id: str
+    label: str
+    description: str
+    available: bool
+    reason_id: str | None = None
+    target_kind_id: str | None = None
+
+
+@dataclass(frozen=True)
+class ActivityView:
+    """Immutable, renderer-neutral choices for a current gameplay activity."""
+    context_id: str
+    title: str
+    options: tuple[ActivityOptionView, ...]
+
+
 def _area_actor_positions(state: GameState) -> dict[Position, list[str]]:
     actors: dict[Position, list[str]] = {}
     area = f"region:{state.active_region_id}" if state.location == "region" else state.jomon_space

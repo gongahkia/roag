@@ -147,9 +147,19 @@ class RetreatResolved:
     event_id: str = field(init=False, default="combat.retreat.resolved")
 
 
+@dataclass(frozen=True)
+class GameplayActivityResolved:
+    """A renderer-visible ordinary-game operation, without presentation text."""
+    context_id: str
+    action_id: str
+    target_id: str | None = None
+    event_id: str = field(init=False, default="gameplay.activity.resolved")
+
+
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | ItemEquipped | ItemUnequipped | TravelResolved
     | TavernGameStarted | TavernCardsExchanged | TavernDiceRolled | TavernGameSettled
+    | GameplayActivityResolved
 )
