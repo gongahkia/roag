@@ -1014,7 +1014,8 @@ def printgameframe (entitydict, sidebar, gameover = False):
     for index,line in enumerate(lines):
         line = line[:BOARDWIDTH].ljust(BOARDWIDTH)
         side = sidebar[index] if index < len(sidebar) else ''
-        print(f'{border}{colourboardline(line)}{border}  {colourtext(side.center(SIDEBARWIDTH),WHITE)}')
+        boardline = colourtext(line,WHITE) if gameover else colourboardline(line)
+        print(f'{border}{boardline}{border}  {colourtext(side.center(SIDEBARWIDTH),WHITE)}')
     print(topborder)
 
 
@@ -1060,15 +1061,38 @@ def interface2 (player, enemyboss, armedbombs = 0):
 
 
 def threatconlvl (threatcon_lvl):
-    lines = []
-    for row in range(8):
-        lines.append('')
-    descent = iconlabel('door','~DESCENT~')
-    lines.append(descent.center(BOARDWIDTH) if ICONTHEME == 'nerd' else '               ~DESCENT~')
-    lines.append('      YOU DESCEND INTO THE DEPTHS')
-    for row in range(8):
-        lines.append('')
-    printscreen(lines)
+    flames = ['.', '*', 'o', '*']
+    depths = [
+        ('        \\          |          /', '          \\________|________/', '             \\_____|_____/'),
+        ('       \\           |           /', '         \\_________|_________/', '            \\______|______/'),
+        ('      \\            |            /', '        \\__________|__________/', '           \\_______|_______/'),
+        ('     \\             |             /', '       \\___________|___________/', '          \\________|________/')
+    ]
+    for flame, depth in zip(flames,depths):
+        farwall, landing, step = depth
+        lines = [
+            '',
+            '',
+            f'                   {flame}',
+            '                  /|\\',
+            '                   |',
+            '                   |',
+            farwall,
+            '         \\         |         /',
+            landing,
+            '           \\       |       /',
+            step,
+            '             \\     |     /',
+            '              \\____|____/',
+            '               \\   |   /',
+            '                \\__|__/',
+            '                 \\ | /',
+            '                  \\|/',
+            '                 /___\\',
+            ''
+        ]
+        printscreen(lines)
+        time.sleep(0.18)
 
 
 #SHOP
