@@ -473,7 +473,7 @@ def world_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
             "'region': [state.region.id, state.region.name], "
             "'route': [node.id, node.name, node.description], "
             "'route_detail': [(row.destination_id, row.display_name, row.available) for row in travel_view(state).destinations], "
-            "'status': [state.location, state.position.x, state.position.y, state.position.z], 'signature': state.region.geography_signature, "
+            "'status': [state.region.name, state.location, state.position.x, state.position.y, state.position.z], 'signature': state.region.geography_signature, "
             "'levels': state.region.levels, "
             "'landmarks': sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), "
             "'edges': [(edge.id, edge.first, edge.second, edge.travel_time, edge.supply_cost, edge.cargo_risk, edge.weather_exposure) for edge in state.route_edges]}))",
