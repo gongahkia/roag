@@ -378,15 +378,25 @@ def compasslines (play, targets, necromancers, ammopickup, exitdoor):
     return [f'{name} • {distance}',arrows[direction]]
 
 
-def minimaplines (play, space, width = 15, height = 5):
+def minimaplines (play, space, targets = None, necromancers = None, ammopickup = None, exitdoor = None, width = 15, height = 5):
+    targets = [] if targets is None else targets
+    necromancers = [] if necromancers is None else necromancers
     lines = []
     playerx = min(width - 1,max(0,int(play.location[0] * width / WORLDWIDTH)))
     playery = min(height - 1,max(0,int(play.location[1] * height / WORLDHEIGHT)))
+    markers = {}
+    if exitdoor is not None or len(necromancers) == 0:
+        for item in targets:
+            markers[(min(width - 1,int(item.location[0] * width / WORLDWIDTH)),min(height - 1,int(item.location[1] * height / WORLDHEIGHT)))] = item.model
+        if ammopickup is not None:
+            markers[(min(width - 1,int(ammopickup.location[0] * width / WORLDWIDTH)),min(height - 1,int(ammopickup.location[1] * height / WORLDHEIGHT)))] = ammopickup.model
+        if exitdoor is not None:
+            markers[(min(width - 1,int(exitdoor.location[0] * width / WORLDWIDTH)),min(height - 1,int(exitdoor.location[1] * height / WORLDHEIGHT)))] = exitdoor.model
     for row in reversed(range(height)):
         line = ''
         for column in range(width):
             world = (min(WORLDWIDTH - 1,int((column + 0.5) * WORLDWIDTH / width)),min(WORLDHEIGHT - 1,int((row + 0.5) * WORLDHEIGHT / height)))
-            line += '@' if (column,row) == (playerx,playery) else '.' if world in space else '#'
+            line += '@' if (column,row) == (playerx,playery) else markers.get((column,row),'.' if world in space else '#')
         lines.append(line)
     return lines
 
@@ -394,7 +404,7 @@ def minimaplines (play, space, width = 15, height = 5):
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
     necromancers = [] if necromancers is None else necromancers
     play.forecasts = enemyforecasts(necromancers,enemyboss)
-    play.minimap = [] if space is None else minimaplines(play,space)
+    play.minimap = [] if space is None else minimaplines(play,space,targets,necromancers,ammopickup,exitdoor)
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:
