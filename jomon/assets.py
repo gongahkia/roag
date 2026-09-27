@@ -39,3 +39,8 @@ def action_assets(action_id: str) -> dict[str, str]:
 
 def event_assets(event_id: str) -> dict[str, str]:
     return asset_binding("events", event_id)
+
+
+def tavern_assets(semantic_id: str) -> dict[str, str]:
+    """Logical tavern presentation resources, never gameplay resources."""
+    return asset_binding("tavern", semantic_id)

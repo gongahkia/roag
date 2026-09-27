@@ -642,9 +642,9 @@ class TavernIntegrationTests(unittest.TestCase):
         self.state.jomon_space = "tavern"
         self.state.position = Position(31, 14)
 
-    def test_table_is_physical_and_match_freezes_jomon_time(self):
+    def test_retired_table_is_physical_and_direct_compatibility_match_freezes_jomon_time(self):
         self.assertTrue(is_walkable(self.state, self.state.position))
-        self.assertEqual(interact(self.state).overlay, "tabletop")
+        self.assertIsNone(interact(self.state).overlay)
         before = self.state.world_time
         match = expedition.start_match(self.state, patrons(self.state)[0].id)
         self.assertEqual(self.state.world_time, before + 1)

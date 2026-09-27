@@ -22,6 +22,20 @@ def available_dice_opponents(state: GameState) -> list[Person]:
     return available_opponents(state)
 
 
+def legal_player_actions(state: GameState) -> tuple[str, ...]:
+    """Public semantic actions for the courier's current Bones decision."""
+    match = state.tavern_dice["active_match"]
+    if match is None:
+        return ("dice.start",)
+    if match["phase"] == "complete":
+        return ("dice.close",)
+    if match["turn"] != 0:
+        return ()
+    if match["roll_count"] == 0 or match["forced"]:
+        return ("dice.roll",)
+    return ("dice.roll", "dice.hold")
+
+
 def _random(match: dict) -> int:
     value = match["rng"]
     value ^= (value << 13) & ((1 << 64) - 1)

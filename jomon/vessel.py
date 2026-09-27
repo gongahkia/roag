@@ -202,13 +202,12 @@ def _activity_for(state: GameState, person: Person, boundary: int) -> str:
         return "sleeping"
     if person in state.visitors and state.visitor_status.get(person.id) in {"visiting", "deferred"}:
         roll = sum(map(ord, person.id)) % 5
-        return "playing Quay Bones" if roll == 0 else "playing Tavern Draw" if roll == 1 else "playing Dullest Dungeon"
+        return "playing Quay Bones" if roll == 0 else "playing Tavern Draw" if roll == 1 else "socialising"
     if date.time_of_day == "morning":
         return "eating"
     if date.time_of_day == "evening":
         return ("playing Quay Bones" if sum(map(ord, person.id)) % 5 == 0 else
-                "playing Tavern Draw" if sum(map(ord, person.id)) % 3 == 0 else
-                "playing Dullest Dungeon" if sum(map(ord, person.id)) % 2 else "socialising")
+                "playing Tavern Draw" if sum(map(ord, person.id)) % 3 == 0 else "socialising")
     by_role = {
         "pilot": "steering", "bargemaster": "consulting chart",
         "carpenter": "repairing", "guard": "standing watch",
@@ -262,7 +261,7 @@ def initialise_living_vessel(state: GameState, *, migrated: bool = False) -> Non
             point = region.landmarks["contact"] if region else Position(1, 1)
             activity = "working at a regional site"
         else:
-            activity = "playing Quay Bones" if index == 3 else "playing Tavern Draw" if index in {2, 4} else "playing Dullest Dungeon"
+            activity = "playing Quay Bones" if index == 3 else "playing Tavern Draw" if index in {2, 4} else "socialising"
             area, point = _schedule_position(state, person.id, activity)
             point = _nearest_free(area, point, {used for place, used in occupied if place == area})
         occupied.add((area, point))

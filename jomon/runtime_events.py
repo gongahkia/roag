@@ -96,6 +96,36 @@ class TravelResolved:
 
 
 @dataclass(frozen=True)
+class TavernGameStarted:
+    game_id: str
+    match_id: str
+    player_ids: tuple[str, ...]
+    event_id: str = field(init=False, default="tavern.game.started")
+
+
+@dataclass(frozen=True)
+class TavernCardsExchanged:
+    actor_id: str
+    card_ids: tuple[str, ...]
+    event_id: str = field(init=False, default="tavern.draw.cards.exchanged")
+
+
+@dataclass(frozen=True)
+class TavernDiceRolled:
+    actor_id: str
+    dice: tuple[int, int]
+    turn_total: int
+    event_id: str = field(init=False, default="tavern.dice.rolled")
+
+
+@dataclass(frozen=True)
+class TavernGameSettled:
+    game_id: str
+    winner_ids: tuple[str, ...]
+    event_id: str = field(init=False, default="tavern.game.settled")
+
+
+@dataclass(frozen=True)
 class CarriedRelicSelectionChanged:
     actor_id: str
     relic_id: str | None
@@ -121,4 +151,5 @@ RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | ItemEquipped | ItemUnequipped | TravelResolved
+    | TavernGameStarted | TavernCardsExchanged | TavernDiceRolled | TavernGameSettled
 )

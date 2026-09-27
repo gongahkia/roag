@@ -13,19 +13,23 @@ from .commands import (
     AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
     InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
     SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
-    TravelCommand,
+    TravelCommand, StartTavernGameCommand, DrawBetCommand, DrawExchangeCommand,
+    DiceActionCommand, CloseTavernGameCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
     ItemUsed, RetreatResolved, RuntimeEvent, ItemEquipped, ItemUnequipped,
-    TravelResolved,
+    TravelResolved, TavernCardsExchanged, TavernDiceRolled, TavernGameSettled,
+    TavernGameStarted,
 )
 from .save import load_game, save_game
 from .state import GameState, create_world
 from .views import (
     ActorView, EquipmentView, InteractionView, InventoryView, QuestView, TravelView,
+    TavernDiceView, TavernDrawView,
     WorldView, actor_views, equipment_view, interaction_view, inventory_view,
     quest_views, travel_view, world_view,
+    tavern_dice_view, tavern_draw_view,
 )
 
 
@@ -93,6 +97,12 @@ class GameSession:
 
     def travel_view(self) -> TravelView:
         return travel_view(self._state)
+
+    def tavern_draw_view(self) -> TavernDrawView:
+        return tavern_draw_view(self._state)
+
+    def tavern_dice_view(self) -> TavernDiceView:
+        return tavern_dice_view(self._state)
 
     def _reject(self, result_id: str, target_id: str | None = None) -> CommandOutcome:
         return CommandOutcome(False, False, False, result_id, self._revision, target_id=target_id)
@@ -215,6 +225,106 @@ class GameSession:
             result = ActionResult(changed, self._state.world_time != before_time, message)
             events = (TravelResolved(origin, command.destination_id, self._state.voyage_status),) if changed else ()
             return self._outcome(result, "travel.resolved" if changed else "travel.rejected", command.destination_id, events)
+        if isinstance(command, StartTavernGameCommand):
+            from .tavern_games import tavern_game_available
+
+            if command.game_id == "dullest":
+                return self._reject("tavern.game.retired", command.game_id)
+            if (not tavern_game_available(command.game_id)
+                    or not isinstance(command.opponent_ids, tuple)
+                    or len(command.opponent_ids) != 3
+                    or len(set(command.opponent_ids)) != 3
+                    or any(not isinstance(identity, str) or not identity for identity in command.opponent_ids)
+                    or type(command.wagering) is not bool):
+                return self._reject("tavern.game.invalid", command.game_id)
+            before_time = self._state.world_time
+            try:
+                if command.game_id == "draw":
+                    from .tavern_draw import drive_npcs, start_hand
+                    match = start_hand(self._state, list(command.opponent_ids), wagering=command.wagering)
+                    drive_npcs(self._state)
+                    match_id, players = f"draw.hand.{match['number']}", tuple(match["players"])
+                else:
+                    from .tavern_dice import drive_npcs, start_match
+                    match = start_match(self._state, list(command.opponent_ids))
+                    drive_npcs(self._state)
+                    match_id, players = f"dice.match.{match['number']}", tuple(match["players"])
+            except ValueError:
+                return self._reject("tavern.game.rejected", command.game_id)
+            result = ActionResult(True, self._state.world_time != before_time, "")
+            return self._outcome(result, "tavern.game.started", command.game_id,
+                                 (TavernGameStarted(command.game_id, match_id, players),))
+        if isinstance(command, DrawBetCommand):
+            view = self.tavern_draw_view()
+            if command.action_id not in view.legal_actions:
+                return self._reject("tavern.draw.rejected", command.action_id)
+            if not command.action_id.startswith("draw.bet."):
+                return self._reject("tavern.draw.invalid", command.action_id)
+            from .tavern_draw import bet_action, drive_npcs
+            action = command.action_id.rsplit(".", 1)[1]
+            try:
+                bet_action(self._state, action)
+                drive_npcs(self._state)
+            except ValueError:
+                return self._reject("tavern.draw.rejected", command.action_id)
+            updated = self.tavern_draw_view()
+            events: tuple[RuntimeEvent, ...] = ()
+            if updated.phase_id == "draw.phase.complete":
+                events = (TavernGameSettled("draw", updated.winner_ids),)
+            return self._outcome(ActionResult(True, False, ""), "tavern.draw.resolved", command.action_id, events)
+        if isinstance(command, DrawExchangeCommand):
+            view = self.tavern_draw_view()
+            if ("draw.exchange" not in view.legal_actions or not isinstance(command.card_ids, tuple)
+                    or len(command.card_ids) != len(set(command.card_ids))
+                    or any(not isinstance(card_id, str) for card_id in command.card_ids)):
+                return self._reject("tavern.draw.rejected")
+            card_index = {card.card_id: index for index, card in enumerate(view.hand)}
+            if any(card_id not in card_index for card_id in command.card_ids):
+                return self._reject("tavern.draw.invalid")
+            from .tavern_draw import draw_cards, drive_npcs
+            try:
+                draw_cards(self._state, [card_index[card_id] for card_id in command.card_ids])
+                drive_npcs(self._state)
+            except ValueError:
+                return self._reject("tavern.draw.rejected")
+            updated = self.tavern_draw_view()
+            events: tuple[RuntimeEvent, ...] = (TavernCardsExchanged(
+                self._state.active_courier_id or "courier", command.card_ids),)
+            if updated.phase_id == "draw.phase.complete":
+                events += (TavernGameSettled("draw", updated.winner_ids),)
+            return self._outcome(ActionResult(True, False, ""), "tavern.draw.exchanged", events=events)
+        if isinstance(command, DiceActionCommand):
+            view = self.tavern_dice_view()
+            if command.action_id not in view.legal_actions:
+                return self._reject("tavern.dice.rejected", command.action_id)
+            from .tavern_dice import drive_npcs, hold, roll
+            events: tuple[RuntimeEvent, ...] = ()
+            try:
+                if command.action_id == "dice.roll":
+                    dice = roll(self._state)
+                    total = self._state.tavern_dice["active_match"]["turn_total"]
+                    events = (TavernDiceRolled(self._state.active_courier_id or "courier", dice, total),)
+                elif command.action_id == "dice.hold":
+                    hold(self._state)
+                else:
+                    return self._reject("tavern.dice.invalid", command.action_id)
+                drive_npcs(self._state)
+            except ValueError:
+                return self._reject("tavern.dice.rejected", command.action_id)
+            updated = self.tavern_dice_view()
+            if updated.phase_id == "dice.phase.complete":
+                events += (TavernGameSettled("dice", updated.winner_ids),)
+            return self._outcome(ActionResult(True, False, ""), "tavern.dice.resolved", command.action_id, events)
+        if isinstance(command, CloseTavernGameCommand):
+            if command.game_id == "draw" and "draw.close" in self.tavern_draw_view().legal_actions:
+                from .tavern_draw import close_hand
+                close_hand(self._state)
+            elif command.game_id == "dice" and "dice.close" in self.tavern_dice_view().legal_actions:
+                from .tavern_dice import close_match
+                close_match(self._state)
+            else:
+                return self._reject("tavern.close.rejected", command.game_id)
+            return self._outcome(ActionResult(True, False, ""), "tavern.closed", command.game_id)
         if isinstance(command, SelectCarriedRelicCommand):
             if command.relic_id is not None and (not isinstance(command.relic_id, str) or not command.relic_id):
                 return self._reject("relic.invalid")

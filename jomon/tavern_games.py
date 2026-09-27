@@ -11,18 +11,38 @@ GAME_SLOTS = {
     "dice": ("tavern_dice", "active_match"),
 }
 
+# This is an engine/application product capability, deliberately separate from
+# selected-pack presentation.  Dullest Dungeon data remains loadable and
+# validated for save compatibility, but is not an active Jomon tavern game.
+ACTIVE_GAME_IDS = frozenset({"draw", "dice"})
+RETIRED_GAME_IDS = frozenset(GAME_SLOTS) - ACTIVE_GAME_IDS
+
+
+def tavern_game_available(game_id: str) -> bool:
+    """Whether an ordinary current session may start this tavern game."""
+    return game_id in ACTIVE_GAME_IDS
+
 
 def active_games(state: GameState) -> tuple[str, ...]:
     return tuple(game for game, (ledger, field) in GAME_SLOTS.items()
                  if getattr(state, ledger)[field] is not None)
 
 
+def active_playable_games(state: GameState) -> tuple[str, ...]:
+    """Active games that participate in current tavern availability.
+
+    A retained DD match is dormant compatibility data.  It must not prevent a
+    loaded old save from resuming normal Jomon or starting Draw/Dice.
+    """
+    return tuple(game for game in active_games(state) if game in ACTIVE_GAME_IDS)
+
+
 def another_game_active(state: GameState, requested: str) -> bool:
-    return any(game != requested for game in active_games(state))
+    return any(game != requested for game in active_playable_games(state))
 
 
 def validate_game_occupancy(state: GameState) -> None:
-    if len(active_games(state)) > 1:
+    if len(active_playable_games(state)) > 1:
         raise ValueError("more than one tavern game is active")
 
 

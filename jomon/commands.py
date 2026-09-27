@@ -61,6 +61,38 @@ class TravelCommand:
 
 
 @dataclass(frozen=True)
+class StartTavernGameCommand:
+    """Start an active tavern game with three stable opponent IDs."""
+    game_id: str
+    opponent_ids: tuple[str, ...]
+    wagering: bool = False
+
+
+@dataclass(frozen=True)
+class DrawBetCommand:
+    """Make one stable Draw betting decision."""
+    action_id: str
+
+
+@dataclass(frozen=True)
+class DrawExchangeCommand:
+    """Exchange courier cards selected by stable current card IDs."""
+    card_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DiceActionCommand:
+    """Roll or hold Quay Bones using a stable action ID."""
+    action_id: str
+
+
+@dataclass(frozen=True)
+class CloseTavernGameCommand:
+    """Clear a settled active tavern game by stable game ID."""
+    game_id: str
+
+
+@dataclass(frozen=True)
 class SelectCarriedRelicCommand:
     """Select a stable relic identity for later use, or clear selection."""
     relic_id: str | None
@@ -83,4 +115,6 @@ GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
+    | StartTavernGameCommand | DrawBetCommand | DrawExchangeCommand
+    | DiceActionCommand | CloseTavernGameCommand
 )

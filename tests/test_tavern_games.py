@@ -59,7 +59,7 @@ class TavernGameBoundaryTests(unittest.TestCase):
         self.assertEqual(npc_credit(loaded, self.opponents[0]), 13)
         validate_state(loaded)
 
-    def test_dullest_session_also_excludes_a_saved_draw_hand(self):
+    def test_dormant_dullest_session_can_coexist_with_saved_draw_hand(self):
         self.state.position = DRAW_PLAYER_SEAT
         start_hand(self.state, self.opponents, wagering=False)
         separate = create_world("shared tavern tables")
@@ -67,8 +67,10 @@ class TavernGameBoundaryTests(unittest.TestCase):
         separate.position = TABLE_PLAYER_SEAT
         start_dullest_match(separate, patrons(separate)[0].id)
         self.state.tabletop = copy.deepcopy(separate.tabletop)
-        with self.assertRaisesRegex(StateError, "more than one tavern game"):
-            validate_state(self.state)
+        # Retired DD payloads are deliberately inert compatibility data: old
+        # saves remain valid and ordinary active games remain playable.
+        validate_state(self.state)
+        self.assertIn("dullest", active_games(self.state))
 
     def test_unavailable_chairs_do_not_mutate_invited_adults(self):
         self.state.position = DICE_PLAYER_SEAT

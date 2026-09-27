@@ -52,7 +52,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
         self.assertEqual(len(set(TABLE_PATRON_SEATS)), 13)
         self.assertTrue(all(_walkable("tavern", seat) for seat in TABLE_PATRON_SEATS))
         self.assertTrue(all(not is_walkable(state, point) for point in TABLE_SURFACE))
-        self.assertEqual(interact(state).overlay, "tabletop")
+        self.assertIsNone(interact(state).overlay)
 
     def test_off_duty_patron_walks_to_the_gaming_table_chair(self):
         state = create_world("game table walk")

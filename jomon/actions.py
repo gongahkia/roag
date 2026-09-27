@@ -2135,9 +2135,9 @@ def interact(state: GameState) -> ActionResult:
             state.position = Position(TAVERN_ENTRANCE.x - 1, TAVERN_ENTRANCE.y, 0)
             return _plain(state, action_format("action.interact.tavern_exit"), changed=True)
         if state.jomon_space == "tavern" and tile == "D":
-            if another_game_active(state, "dullest"):
-                return ActionResult(False, False, "Finish the other active tavern game before opening Dullest Dungeon.")
-            return ActionResult(False, False, "The Dullest Dungeon box opens on the table.", "tabletop")
+            # DD state remains validated and round-tripped for old saves, but
+            # the product no longer exposes an active play path.
+            return ActionResult(False, False, "Dullest Dungeon is retired from active tavern play.")
         if state.jomon_space == "tavern" and tile == "P":
             if another_game_active(state, "draw"):
                 return ActionResult(False, False, action_format("action.interact.tavern_draw.busy"))

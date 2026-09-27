@@ -104,6 +104,60 @@ class TravelView:
 
 
 @dataclass(frozen=True)
+class TavernParticipantView:
+    actor_id: str
+    display_name: str
+    seat_id: str
+    active: bool
+
+
+@dataclass(frozen=True)
+class TavernCardView:
+    card_id: str
+    rank_id: str
+    suit_id: str
+    rank_label: str
+    suit_label: str
+
+
+@dataclass(frozen=True)
+class TavernDrawView:
+    game_id: str
+    active: bool
+    match_id: str | None
+    phase_id: str
+    current_player_id: str | None
+    credit: int
+    pot: int
+    wagering: bool
+    participants: tuple[TavernParticipantView, ...]
+    hand: tuple[TavernCardView, ...]
+    legal_actions: tuple[str, ...]
+    winner_ids: tuple[str, ...]
+    available_opponents: tuple[TavernParticipantView, ...]
+
+
+@dataclass(frozen=True)
+class TavernDiceView:
+    game_id: str
+    active: bool
+    match_id: str | None
+    phase_id: str
+    current_player_id: str | None
+    credit: int
+    purse: int
+    round_number: int
+    scores: tuple[int, ...]
+    turn_total: int
+    dice: tuple[int, ...]
+    forced: bool
+    participants: tuple[TavernParticipantView, ...]
+    legal_actions: tuple[str, ...]
+    winner_ids: tuple[str, ...]
+    available_opponents: tuple[TavernParticipantView, ...]
+
+
+@dataclass(frozen=True)
 class InteractionOptionView:
     interaction_id: str
     target_id: str
@@ -285,6 +339,67 @@ def travel_view(state: GameState) -> TravelView:
         ))
     return TravelView(state.route_current_node, state.voyage_status, state.pending_destination,
                       tuple(sorted(rows, key=lambda row: row.destination_id)))
+
+
+def _tavern_people(state: GameState, ids: tuple[str, ...], active: tuple[bool, ...]) -> tuple[TavernParticipantView, ...]:
+    names = {row.id: row.display_name for row in actor_views(state)}
+    return tuple(TavernParticipantView(actor_id, names.get(actor_id, actor_id), f"seat.{index}", active[index])
+                 for index, actor_id in enumerate(ids))
+
+
+def _tavern_available_opponents(state: GameState) -> tuple[TavernParticipantView, ...]:
+    from .tavern_games import available_opponents
+    names = {row.id: row.display_name for row in actor_views(state)}
+    return tuple(TavernParticipantView(person.id, names.get(person.id, person.id), "opponent", True)
+                 for person in available_opponents(state))
+
+
+def tavern_draw_view(state: GameState) -> TavernDrawView:
+    """Public Draw state, with only the courier's unrevealed cards exposed."""
+    from .tavern_draw import legal_player_actions
+    from .tavern_presentation import tavern_cards
+
+    hand = state.tavern_draw["active_hand"]
+    available = _tavern_available_opponents(state)
+    if hand is None:
+        return TavernDrawView("draw", False, None, "draw.lobby", None, state.trade_credit, 0, False,
+                              (), (), legal_player_actions(state), (), available)
+    cards = tavern_cards()
+    revealed = hand["phase"] == "complete"
+    visible = hand["hands"][0] if not revealed else hand["hands"][0]
+    card_views = tuple(TavernCardView(
+        f"draw.card.{card}", f"draw.rank.{card % 13}", f"draw.suit.{card // 13}",
+        str(cards["ranks"][card % 13]), str(cards["suits"][card // 13]),
+    ) for card in visible)
+    turn = hand["turn"]
+    return TavernDrawView(
+        "draw", True, f"draw.hand.{hand['number']}", f"draw.phase.{hand['phase']}",
+        hand["players"][turn] if turn is not None else None, state.trade_credit,
+        hand["final_pot"] if hand["phase"] == "complete" else hand["pot"], hand["wagering"],
+        _tavern_people(state, tuple(hand["players"]), tuple(hand["active"])), card_views,
+        legal_player_actions(state), tuple(hand["players"][seat] for seat in hand["winners"]), available,
+    )
+
+
+def tavern_dice_view(state: GameState) -> TavernDiceView:
+    """Public Quay Bones state; rolls are visible only after the reducer reveals them."""
+    from .tavern_dice import legal_player_actions
+
+    match = state.tavern_dice["active_match"]
+    available = _tavern_available_opponents(state)
+    if match is None:
+        return TavernDiceView("dice", False, None, "dice.lobby", None, state.trade_credit,
+                              state.tavern_dice["purse"], 0, (), 0, (), False, (),
+                              legal_player_actions(state), (), available)
+    turn = match["turn"]
+    return TavernDiceView(
+        "dice", True, f"dice.match.{match['number']}", f"dice.phase.{match['phase']}",
+        match["players"][turn] if turn is not None else None, state.trade_credit,
+        state.tavern_dice["purse"], match["round"] + 1, tuple(match["scores"]),
+        match["turn_total"], tuple(match["last_dice"]), match["forced"],
+        _tavern_people(state, tuple(match["players"]), tuple(True for _ in match["players"])),
+        legal_player_actions(state), tuple(match["players"][seat] for seat in match["winners"]), available,
+    )
 
 
 def interaction_view(state: GameState) -> InteractionView:

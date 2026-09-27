@@ -24,6 +24,24 @@ def available_opponents(state: GameState) -> list[Person]:
     return shared_available_opponents(state)
 
 
+def legal_player_actions(state: GameState) -> tuple[str, ...]:
+    """Public semantic actions for the courier's current Draw decision."""
+    hand = state.tavern_draw["active_hand"]
+    if hand is None:
+        return ("draw.start.practice", "draw.start.wager")
+    if hand["phase"] == "complete":
+        return ("draw.close",)
+    if hand["turn"] != 0 or not hand["active"][0]:
+        return ()
+    if hand["phase"] == "draw":
+        return ("draw.exchange",)
+    due = hand["current_bet"] - hand["round_paid"][0]
+    actions = ["draw.bet.fold", "draw.bet.call" if due else "draw.bet.check"]
+    if hand["current_bet"] == 0 or hand["raises"] < MAX_RAISES:
+        actions.append("draw.bet.raise")
+    return tuple(actions)
+
+
 def _roll(hand: dict) -> int:
     value = hand["rng"]
     value ^= (value << 13) & ((1 << 64) - 1)

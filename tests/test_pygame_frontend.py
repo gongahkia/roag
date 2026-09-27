@@ -178,6 +178,37 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_RETURN,mod=0))
         self.assertEqual(frontend.last_result,"voyage.resolved")
 
+    def test_tavern_draw_and_dice_panels_use_only_session_views_and_commands(self):
+        from jomon.vessel import DICE_PLAYER_SEAT, DRAW_PLAYER_SEAT
+
+        frontend = self.frontend(); state = frontend.session._state
+        state.jomon_space, state.position = "tavern", DRAW_PLAYER_SEAT
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertEqual(frontend.panel, "tavern-draw")
+        frontend.draw()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "tavern.game.started")
+        view = frontend.session.tavern_draw_view()
+        self.assertTrue(view.active)
+        self.assertEqual(len(view.hand), 5)
+        self.assertFalse(hasattr(view, "deck"))
+        if "draw.exchange" in view.legal_actions:
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_1, mod=0))
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+            self.assertEqual(frontend.last_result, "tavern.draw.exchanged")
+        self.assertTrue(frontend.feedback)
+
+        frontend = self.frontend(); state = frontend.session._state
+        state.jomon_space, state.position = "tavern", DICE_PLAYER_SEAT
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertEqual(frontend.panel, "tavern-dice")
+        frontend.draw()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "tavern.game.started")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
+        self.assertEqual(frontend.last_result, "tavern.dice.resolved")
+        self.assertTrue(any(note.text.startswith("Rolled") for note in frontend.feedback))
+
 
 class PygameDependencyBoundaryTests(unittest.TestCase):
     def test_core_modules_do_not_import_pygame(self):

@@ -7,10 +7,17 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from .assets import actor_assets, asset_resource, event_assets, terrain_assets
+from .assets import actor_assets, asset_resource, event_assets, tavern_assets, terrain_assets
 from .catalog import selected_content_pack
-from .commands import AttackCommand, EquipItemCommand, InteractCommand, MoveCommand, TravelCommand, UnequipItemCommand, UseGearCommand
-from .runtime_events import ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent
+from .commands import (
+    AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
+    DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
+    StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
+)
+from .runtime_events import (
+    ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
+    TavernCardsExchanged, TavernDiceRolled, TavernGameSettled,
+)
 from .session import CommandOutcome, GameSession
 from .state import Position
 from .views import ActorView, CellView, InteractionOptionView, WorldView
@@ -101,6 +108,7 @@ class PygameFrontend:
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
         self.panel: str | None = None; self.panel_cursor = 0
+        self.marked_draw_cards: set[str] = set()
 
     def _colour(self, semantic: str) -> tuple[int, int, int]:
         raw=sha256(semantic.encode()).digest(); return 45+raw[0]//3, 45+raw[1]//3, 45+raw[2]//3
@@ -122,6 +130,12 @@ class PygameFrontend:
             elif isinstance(event, (AttackResolved, ActorDefeated)):
                 actor_id=event.target_id if isinstance(event, AttackResolved) else event.actor_id; actor=self.session.actor_view(actor_id)
                 self.feedback.append(Feedback(actor.position if actor else None, "hit" if isinstance(event, AttackResolved) else "defeated"))
+            elif isinstance(event, TavernCardsExchanged):
+                self.feedback.append(Feedback(None, f"Exchanged {len(event.card_ids)} card(s)"))
+            elif isinstance(event, TavernDiceRolled):
+                self.feedback.append(Feedback(None, f"Rolled {event.dice[0]} + {event.dice[1]}"))
+            elif isinstance(event, TavernGameSettled):
+                self.feedback.append(Feedback(None, "Tavern game settled"))
             binding=event_assets(event.event_id)
             if "audio" in binding: self.resources.play(binding["audio"])
 
@@ -199,6 +213,8 @@ class PygameFrontend:
         if self.panel == "inventory": return self.session.inventory_view().items
         if self.panel == "travel": return self.session.travel_view().destinations
         if self.panel == "interaction": return self.session.interaction_view().options
+        if self.panel == "tavern-draw": return self.session.tavern_draw_view().available_opponents
+        if self.panel == "tavern-dice": return self.session.tavern_dice_view().available_opponents
         return ()
 
     def _open_panel(self, name: str) -> None:
@@ -208,6 +224,12 @@ class PygameFrontend:
         if self.panel is None: return
         width, height = self.screen.get_size(); box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
         self.pygame.draw.rect(self.screen, (18, 23, 34), box); self.pygame.draw.rect(self.screen, (150, 180, 220), box, 2)
+        if self.panel == "tavern-draw":
+            self._draw_tavern_draw(box)
+            return
+        if self.panel == "tavern-dice":
+            self._draw_tavern_dice(box)
+            return
         if self.panel == "quests":
             lines = ["Quests"] + [f"{quest.title} — {quest.status_id} ({quest.objective})" for quest in self.session.quest_views()]
         else:
@@ -225,6 +247,102 @@ class PygameFrontend:
                 selected = rows[self.panel_cursor]; lines += ["", selected.description, f"Hazard: {selected.hazard}; supply: {selected.supply_cost}"]
         for index, line in enumerate(lines[:15]):
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
+
+    def _draw_tavern_draw(self, box: Any) -> None:
+        view = self.session.tavern_draw_view()
+        if not view.active:
+            names = ", ".join(row.display_name for row in view.available_opponents[:3]) or "no eligible opponents"
+            lines = ["Tavern Draw", "Enter: free practice    W: wagered hand", f"First three available: {names}", "Escape: return to tavern"]
+            for index, line in enumerate(lines):
+                self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 22))
+            return
+        lines = [f"Tavern Draw — {view.phase_id.removeprefix('draw.phase.')}",
+                 f"Credit {view.credit}; pot {view.pot}; acting {view.current_player_id or 'settled'}",
+                 " / ".join(f"{row.display_name}{'' if row.active else ' (folded)'}" for row in view.participants)]
+        for index, line in enumerate(lines):
+            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 22))
+        card_binding = tavern_assets("tavern.draw.card")
+        image = self.resources.image(card_binding.get("image", ""), 54) if card_binding else None
+        for index, card in enumerate(view.hand):
+            rect = self.pygame.Rect(box.x + 14 + index * 65, box.y + 92, 56, 82)
+            self.pygame.draw.rect(self.screen, (238, 238, 224), rect)
+            if image: self.screen.blit(image, rect)
+            self.pygame.draw.rect(self.screen, (255, 215, 80) if card.card_id in self.marked_draw_cards else (40, 40, 48), rect, 2)
+            label = self.font.render(f"{index + 1}: {card.rank_label}{card.suit_label}", True, (18, 18, 24))
+            self.screen.blit(label, (rect.x + 3, rect.y + 30))
+        actions = ", ".join(view.legal_actions) or "waiting for the other seats"
+        lines = [f"Actions: {actions}"]
+        if "draw.exchange" in view.legal_actions:
+            lines.append("1–5 mark cards; Enter exchanges marked cards")
+        elif "draw.close" in view.legal_actions:
+            winners = ", ".join(view.winner_ids) or "none"
+            lines.append(f"Winners: {winners}; Enter clears result")
+        else:
+            lines.append("C check/call · R raise · F fold · Escape pauses")
+        for index, line in enumerate(lines):
+            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 194 + index * 22))
+
+    def _draw_tavern_dice(self, box: Any) -> None:
+        view = self.session.tavern_dice_view()
+        if not view.active:
+            names = ", ".join(row.display_name for row in view.available_opponents[:3]) or "no eligible opponents"
+            lines = ["Quay Bones", "Enter: begin", f"First three available: {names}", "Escape: return to tavern"]
+        else:
+            actors = " / ".join(f"{row.display_name}: {view.scores[index]}" for index, row in enumerate(view.participants))
+            dice = "  ".join(str(value) for value in view.dice) or "hidden"
+            lines = [f"Quay Bones — round {view.round_number}", f"Credit {view.credit}; purse {view.purse}", actors,
+                     f"Dice: {dice}; turn pot {view.turn_total}", f"Actions: {', '.join(view.legal_actions) or 'waiting for other seats'}"]
+            if "dice.close" in view.legal_actions:
+                lines.append("Enter clears result")
+            else:
+                lines.append("R roll · H hold · Escape pauses")
+        for index, line in enumerate(lines):
+            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 24))
+
+    def _handle_tavern_key(self, event: Any) -> bool:
+        """Handle graphical tavern UI with only stable view records and commands."""
+        p = self.pygame
+        if self.panel == "tavern-draw":
+            view = self.session.tavern_draw_view()
+            if event.key == p.K_ESCAPE:
+                self.panel = None; self.marked_draw_cards.clear(); return True
+            if not view.active:
+                if event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_w}:
+                    opponents = tuple(row.actor_id for row in view.available_opponents[:3])
+                    self.submit(StartTavernGameCommand("draw", opponents, event.key == p.K_w))
+                return True
+            if "draw.exchange" in view.legal_actions:
+                if p.K_1 <= event.key <= p.K_5:
+                    index = event.key - p.K_1
+                    if index < len(view.hand):
+                        card_id = view.hand[index].card_id
+                        if card_id in self.marked_draw_cards: self.marked_draw_cards.remove(card_id)
+                        else: self.marked_draw_cards.add(card_id)
+                elif event.key in {p.K_RETURN, p.K_KP_ENTER}:
+                    ordered = tuple(card.card_id for card in view.hand if card.card_id in self.marked_draw_cards)
+                    self.submit(DrawExchangeCommand(ordered)); self.marked_draw_cards.clear()
+                return True
+            if "draw.close" in view.legal_actions and event.key in {p.K_RETURN, p.K_KP_ENTER}:
+                self.submit(CloseTavernGameCommand("draw")); self.panel = None; return True
+            actions = {p.K_c: "draw.bet.call" if "draw.bet.call" in view.legal_actions else "draw.bet.check",
+                       p.K_r: "draw.bet.raise", p.K_f: "draw.bet.fold"}
+            if event.key in actions:
+                self.submit(DrawBetCommand(actions[event.key]))
+            return True
+        if self.panel == "tavern-dice":
+            view = self.session.tavern_dice_view()
+            if event.key == p.K_ESCAPE:
+                self.panel = None; return True
+            if not view.active:
+                if event.key in {p.K_RETURN, p.K_KP_ENTER}:
+                    self.submit(StartTavernGameCommand("dice", tuple(row.actor_id for row in view.available_opponents[:3])))
+                return True
+            if "dice.close" in view.legal_actions and event.key in {p.K_RETURN, p.K_KP_ENTER}:
+                self.submit(CloseTavernGameCommand("dice")); self.panel = None; return True
+            if event.key == p.K_r: self.submit(DiceActionCommand("dice.roll"))
+            elif event.key == p.K_h: self.submit(DiceActionCommand("dice.hold"))
+            return True
+        return False
 
     def draw(self) -> None:
         self.screen.fill((8,10,16)); view=self.session.world_view(); camera=self._camera(view)
@@ -270,6 +388,8 @@ class PygameFrontend:
                     else:
                         self._notify(f"Saved {saved.name}")
                 return
+            if self._handle_tavern_key(event):
+                return
             if self.panel:
                 rows = self._panel_rows()
                 if event.key in {p.K_ESCAPE, p.K_i, p.K_q, p.K_t}:
@@ -294,7 +414,10 @@ class PygameFrontend:
             if event.key in directions: self.submit(MoveCommand(*directions[event.key]))
             elif event.key==p.K_e:
                 choices=tuple(row for row in self.session.interaction_view().options if row.available)
-                if len(choices) == 1: self.submit(InteractCommand(choices[0].target_id,choices[0].interaction_id))
+                if len(choices) == 1:
+                    outcome = self.submit(InteractCommand(choices[0].target_id,choices[0].interaction_id))
+                    if outcome.overlay_id == "tavern-draw": self._open_panel("tavern-draw")
+                    elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
                 elif choices: self._open_panel("interaction")
             elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id))
             elif event.key==p.K_i: self._open_panel("inventory")

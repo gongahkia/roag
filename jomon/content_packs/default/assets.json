@@ -25,6 +25,12 @@
     "events": {
       "combat.damage.applied": {
         "audio": "audio.event.damage"
+      },
+      "tavern.dice.rolled": {
+        "audio": "audio.event.damage"
+      },
+      "tavern.draw.cards.exchanged": {
+        "audio": "audio.event.damage"
       }
     },
     "features": {
@@ -40,7 +46,14 @@
         "image": "image.item.default"
       }
     },
-    "tavern": {},
+    "tavern": {
+      "tavern.dice.die": {
+        "image": "image.actor.default"
+      },
+      "tavern.draw.card": {
+        "image": "image.item.default"
+      }
+    },
     "terrain": {
       "terrain.tavern.floor": {
         "image": "image.terrain.floor"
