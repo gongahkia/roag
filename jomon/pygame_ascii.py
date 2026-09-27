@@ -7,6 +7,7 @@ from typing import Any
 
 from .assets import ascii_glyph
 from .pygame_frontend import PygameFrontend
+from .session import GameSession
 from .views import ActorView, CellView, WorldView
 
 
@@ -192,7 +193,7 @@ class AsciiPygameFrontend(PygameFrontend):
             draft = self.setup_draft
             if draft is None:
                 return []
-            view = self.pending_character_setup_view(self.new_game_seed, draft.crew_id)
+            view = GameSession.pending_character_setup_view(self.new_game_seed, draft.crew_id)
             fields = self._setup_fields()
             crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
             values = {
