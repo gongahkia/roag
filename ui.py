@@ -178,10 +178,9 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     dashstatus = 'READY' if player.dashcooldown == 0 else 'RECHARGING'
     lines.append(iconlabel('dash',f'Q DASH: {dashstatus}'))
     lines.append('------------------------------')
-    if player.eventlog:
-        lines.extend(['EVENT LOG:'] + player.eventlog[-4:])
-    if player.minimap:
-        lines.extend(['------------------------------', 'MINIMAP:'] + player.minimap)
+    lines.extend(['EVENT LOG:'] + player.eventlog[-4:] + [''] * max(0,4 - len(player.eventlog)))
+    if player.compass:
+        lines.extend(['------------------------------', 'COMPASS:'] + player.compass[:4])
     return lines
 
 

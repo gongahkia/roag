@@ -355,23 +355,28 @@ def enemyforecasts (necromancers, enemyboss = None):
     return forecasts
 
 
-def minimaplines (play, space, width = 15, height = 5):
-    lines = []
-    playerx = min(width - 1,max(0,int(play.location[0] * width / WORLDWIDTH)))
-    playery = min(height - 1,max(0,int(play.location[1] * height / WORLDHEIGHT)))
-    for row in reversed(range(height)):
-        line = ''
-        for column in range(width):
-            world = (min(WORLDWIDTH - 1,int((column + 0.5) * WORLDWIDTH / width)),min(WORLDHEIGHT - 1,int((row + 0.5) * WORLDHEIGHT / height)))
-            line += '@' if (column,row) == (playerx,playery) else '.' if world in space else '#'
-        lines.append(line)
-    return lines
+def compasslines (play, targets, necromancers, ammopickup, exitdoor):
+    contacts = []
+    if exitdoor is not None:
+        contacts.append(('EXIT',exitdoor.location))
+    else:
+        contacts.extend([('ENEMY',item.location) for item in necromancers])
+        contacts.extend([('TARGET',item.location) for item in targets])
+        if ammopickup is not None:
+            contacts.append(('AMMO',ammopickup.location))
+    result = []
+    for name, location in sorted(contacts,key = lambda item: abs(item[1][0] - play.location[0]) + abs(item[1][1] - play.location[1]))[:4]:
+        dx,dy = location[0] - play.location[0],location[1] - play.location[1]
+        vertical = 'N' if dy > 0 else 'S' if dy < 0 else ''
+        horizontal = 'E' if dx > 0 else 'W' if dx < 0 else ''
+        result.append(f'{name}: {vertical + horizontal or "HERE"}')
+    return result
 
 
 def printgame (play, level = None, targets = None, necromancers = None, bullets = None, bombs = None, ammopickup = None, enemyboss = None, explosions = None, space = None, explored = None, vision = 5, destroyedwalls = None, scoregoal = 5, torches = None, exitdoor = None, revealed = False, curse = None, flares = None):
     necromancers = [] if necromancers is None else necromancers
     play.forecasts = enemyforecasts(necromancers,enemyboss)
-    play.minimap = [] if space is None else minimaplines(play,space)
+    play.compass = compasslines(play,targets or [],necromancers,ammopickup,exitdoor)
     entitydict = updatedict(play,targets,necromancers,bullets,bombs,ammopickup,enemyboss,explosions,torches,exitdoor,flares)
     if space is not None:
         if revealed or explored is None:
