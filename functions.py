@@ -552,6 +552,57 @@ def carvecorridor (space, start, finish):
     space.add((finishx,finishy))
 
 
+def wavefunctioncollapse (width, height, tiles, compatibility):
+    """Collapse a small motif grid, preferring cells with fewest possibilities."""
+    domains = {(x,y): set(tiles) for x in range(width) for y in range(height)}
+    while True:
+        unresolved = [coordinate for coordinate, options in domains.items() if len(options) > 1]
+        if not unresolved:
+            return {coordinate: next(iter(options)) for coordinate, options in domains.items()}
+        coordinate = min(unresolved,key = lambda item: len(domains[item]))
+        domains[coordinate] = {random.choice(tuple(domains[coordinate]))}
+        changed = True
+        while changed:
+            changed = False
+            for (x,y), options in domains.items():
+                allowed = set(tiles)
+                for adjacent in [(x + 1,y),(x - 1,y),(x,y + 1),(x,y - 1)]:
+                    if adjacent in domains:
+                        neighbour = domains[adjacent]
+                        allowed &= {tile for tile in tiles if any(other in compatibility[tile] for other in neighbour)}
+                reduced = options.intersection(allowed)
+                if not reduced:
+                    domains[(x,y)] = set(tiles)
+                elif reduced != options:
+                    domains[(x,y)] = reduced
+                    changed = True
+
+
+def wfcbiomelayer (space, terrain):
+    tiles = {
+        'forest': ['grove','ridge','clearing','pond'],
+        'cave': ['chamber','narrow','crystal','sinkhole'],
+        'dungeon': ['room','hall','pillar','cell']
+    }[terrain]
+    compatibility = {tile: set(tiles) for tile in tiles}
+    compatibility[tiles[-1]] = set(tiles[:-1]) | {tiles[-1]}
+    motifs = wavefunctioncollapse(WORLDWIDTH // 8,WORLDHEIGHT // 8,tiles,compatibility)
+    for (cellx,celly), motif in motifs.items():
+        x0,y0 = cellx * 8,celly * 8
+        coordinates = [(x,y) for x in range(x0 + 1,min(x0 + 7,WORLDWIDTH - 1)) for y in range(y0 + 1,min(y0 + 7,WORLDHEIGHT - 1))]
+        if motif in ['pond','sinkhole','cell']:
+            for coordinate in random.sample(coordinates,random.randint(5,12)):
+                space.discard(coordinate)
+        elif motif in ['clearing','chamber','room']:
+            for coordinate in coordinates:
+                if random.random() < 0.18:
+                    space.add(coordinate)
+        glyph = {'grove':'Y','ridge':'^','clearing':'Y','pond':'O','chamber':'^','narrow':'^','crystal':'*','sinkhole':'O','room':'+','hall':'+','pillar':'=','cell':'O'}[motif]
+        for coordinate in random.sample(coordinates,random.randint(1,3)):
+            if coordinate not in space:
+                LANDMARKS[coordinate] = glyph
+
+
 def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9), roomheight = (3,6), startroomsize = (11,7), arena = None, terrain = 'cave'):
     global LANDMARKS
     if arena is not None:
@@ -576,6 +627,9 @@ def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9),
         for glyph,count in [('+',80),('=',20),('O',8)]:
             for coordinate in random.sample(walls,min(count,len(walls))):
                 LANDMARKS[coordinate] = glyph
+        wfcbiomelayer(space,terrain)
+        carveroom(space,start[0] - 3,start[1] - 3,7,7)
+        carvecorridor(space,tuple(start),rooms[0])
         return space
     for attempt in range(12):
         walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT)
@@ -592,6 +646,8 @@ def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9),
             for glyph,count in landmarks:
                 for coordinate in random.sample(blocked,min(count,len(blocked))):
                     LANDMARKS[coordinate] = glyph
+            wfcbiomelayer(space,terrain)
+            carveroom(space,start[0] - 3,start[1] - 3,7,7)
             return space
     return space
 
