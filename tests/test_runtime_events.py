@@ -11,13 +11,15 @@ from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 from jomon.actions import attack
+from jomon.travel import choose_destination
 from jomon.commands import (
     AttackCommand, InteractCommand, MoveCommand, RetreatCommand,
-    SelectCarriedRelicCommand,
+    SelectCarriedRelicCommand, EquipItemCommand, TravelCommand, UnequipItemCommand,
 )
 from jomon.runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, CarriedRelicSelectionChanged,
-    DamageApplied, InteractionResolved, RetreatResolved, StatusChanged,
+    DamageApplied, InteractionResolved, RetreatResolved, StatusChanged, ItemEquipped,
+    ItemUnequipped, TravelResolved,
 )
 from jomon.session import GameSession
 from jomon.state import Position, SoundEvent, Threat, create_world
@@ -133,6 +135,31 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(len(outcome.events), 1)
         self.assertIsInstance(outcome.events[0], CarriedRelicSelectionChanged)
         self.assertEqual(outcome.events[0].relic_id, "river-glass ward")
+
+    def test_inventory_and_travel_events_are_typed_and_transient(self):
+        session = GameSession.create("runtime inventory travel")
+        equipped = session.equipment_view().slots[0]
+        removed = session.submit(UnequipItemCommand(equipped.location_id))
+        self.assertIsInstance(removed.events[0], ItemUnequipped)
+        candidate = next(row for row in session.inventory_view().items if "equip" in row.legal_operations)
+        equipped_outcome = session.submit(EquipItemCommand(candidate.id))
+        self.assertIsInstance(equipped_outcome.events[0], ItemEquipped)
+        destination = next(row.destination_id for row in session.travel_view().destinations if row.available)
+        travelled = session.submit(TravelCommand(destination))
+        self.assertIsInstance(travelled.events[0], TravelResolved)
+        self.assertEqual(travelled.events[0].destination_id, destination)
+
+    def test_multiple_voyage_interactions_use_stable_ids(self):
+        state = create_world("runtime voyage choices")
+        destination = next(row.destination_id for row in GameSession(state).travel_view().destinations if row.available)
+        self.assertTrue(choose_destination(state, destination, forced_voyage="raiders")[0])
+        session = GameSession(state)
+        choices = [row for row in session.interaction_view().options if row.interaction_id.startswith("voyage.response.")]
+        self.assertGreater(len(choices), 1)
+        choice = next(row for row in choices if row.interaction_id == "voyage.response.y")
+        outcome = session.submit(InteractCommand(choice.target_id, choice.interaction_id))
+        self.assertEqual(outcome.result_id, "voyage.resolved")
+        self.assertIsInstance(outcome.events[0], TravelResolved)
 
     def test_events_are_not_persisted_and_views_do_not_accumulate_them(self):
         state, target_id = armed_state("runtime save")

@@ -12,8 +12,11 @@ from pathlib import Path
 from jomon.actions import advance_world, attack, choose_relic, interact, move
 from jomon.commands import (
     AdvanceWorldCommand, AttackCommand, InteractCommand, MoveCommand,
-    SelectCarriedRelicCommand, SetAutoPlaceCommand,
+    SelectCarriedRelicCommand, SetAutoPlaceCommand, EquipItemCommand,
+    TravelCommand, UnequipItemCommand,
 )
+from jomon.inventory import equip_item, unequip_item
+from jomon.travel import choose_destination
 from jomon.session import GameSession
 from jomon.state import Position, Threat, create_world
 from jomon.inventory import create_item
@@ -141,14 +144,45 @@ class GameSessionTests(unittest.TestCase):
         world = session.world_view()
         actors = session.actor_views()
         interactions = session.interaction_view()
+        inventory = session.inventory_view()
+        equipment = session.equipment_view()
+        quests = session.quest_views()
+        travel = session.travel_view()
         self.assertEqual(mechanical_payload(state), before)
         self.assertEqual(world.courier_position, state.position)
         self.assertEqual(interactions.options[0].interaction_id, "interact.current")
         self.assertTrue(any(actor.id == state.active_courier_id for actor in actors))
+        self.assertTrue(inventory.items)
+        self.assertTrue(equipment.slots)
+        self.assertTrue(quests)
+        self.assertTrue(travel.destinations)
         with self.assertRaises(FrozenInstanceError):
             world.width = 1
         with self.assertRaises(AttributeError):
             world.cells.append(None)
+
+    def test_inventory_and_travel_commands_reuse_existing_reducers(self):
+        source = create_world("session inventory travel")
+        equipped = GameSession(source).equipment_view().slots[0]
+        legacy, through_session = copy.deepcopy(source), copy.deepcopy(source)
+        self.assertTrue(unequip_item(legacy, equipped.location_id))
+        session = GameSession(through_session)
+        outcome = session.submit(UnequipItemCommand(equipped.location_id))
+        self.assertEqual(outcome.result_id, "item.unequipped")
+        self.assertEqual(mechanical_payload(through_session), mechanical_payload(legacy))
+        candidate = next(item for item in session.inventory_view().items if "equip" in item.legal_operations)
+        legacy, through_session = copy.deepcopy(through_session), copy.deepcopy(through_session)
+        self.assertTrue(equip_item(legacy, candidate.id))
+        outcome = GameSession(through_session).submit(EquipItemCommand(candidate.id))
+        self.assertEqual(outcome.result_id, "item.equipped")
+        self.assertEqual(mechanical_payload(through_session), mechanical_payload(legacy))
+
+        legacy, through_session = copy.deepcopy(source), copy.deepcopy(source)
+        destination = next(row.destination_id for row in GameSession(through_session).travel_view().destinations if row.available)
+        self.assertTrue(choose_destination(legacy, destination)[0])
+        outcome = GameSession(through_session).submit(TravelCommand(destination))
+        self.assertEqual(outcome.result_id, "travel.resolved")
+        self.assertEqual(mechanical_payload(through_session), mechanical_payload(legacy))
 
     def test_session_save_load_keeps_format_fifteen_without_session_state(self):
         session = GameSession.create("session save")
@@ -164,6 +198,19 @@ class GameSessionTests(unittest.TestCase):
         self.assertEqual(restored.world_view().courier_position, session.world_view().courier_position)
         self.assertEqual(restored.submit(AdvanceWorldCommand()).result_id, "world.advanced")
         self.assertEqual(restored.revision, 1)
+
+    def test_inventory_and_travel_state_round_trip_without_frontend_state(self):
+        session = GameSession.create("session graphical persistence")
+        session.submit(UnequipItemCommand(session.equipment_view().slots[0].location_id))
+        destination = next(row.destination_id for row in session.travel_view().destinations if row.available)
+        session.submit(TravelCommand(destination))
+        with tempfile.TemporaryDirectory() as directory:
+            path = session.save(Path(directory) / "session.json")
+            restored = GameSession.load(path)
+        self.assertEqual(restored.inventory_view(), session.inventory_view())
+        self.assertEqual(restored.equipment_view(), session.equipment_view())
+        self.assertEqual(restored.quest_views(), session.quest_views())
+        self.assertEqual(restored.travel_view(), session.travel_view())
 
     def test_terminal_no_longer_reaches_known_private_or_raw_mutation_paths(self):
         source = Path("jomon/terminal.py").read_text(encoding="utf-8")

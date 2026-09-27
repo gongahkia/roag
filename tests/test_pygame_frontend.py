@@ -133,6 +133,26 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertTrue(any(event.event_id=="combat.damage.applied" for event in outcome.events))
         self.assertTrue(frontend.feedback)
 
+    def test_inventory_quest_and_travel_panels_use_session_views(self):
+        frontend=self.frontend()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_i,mod=0))
+        self.assertEqual(frontend.panel,"inventory")
+        frontend.draw()
+        equipped=frontend.session.equipment_view().slots[0]
+        frontend.panel_cursor=next(index for index,row in enumerate(frontend._panel_rows()) if row.id==equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_r,mod=0))
+        self.assertEqual(frontend.last_result,"item.unequipped")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_ESCAPE,mod=0))
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_q,mod=0))
+        self.assertEqual(frontend.panel,"quests"); frontend.draw()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_ESCAPE,mod=0))
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_t,mod=0))
+        self.assertEqual(frontend.panel,"travel"); frontend.draw()
+        destination=next(index for index,row in enumerate(frontend._panel_rows()) if row.available)
+        frontend.panel_cursor=destination
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_RETURN,mod=0))
+        self.assertEqual(frontend.last_result,"travel.resolved")
+
 
 class PygameDependencyBoundaryTests(unittest.TestCase):
     def test_core_modules_do_not_import_pygame(self):

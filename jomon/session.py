@@ -135,11 +135,12 @@ class GameSession:
             actor_id = self._state.active_courier_id or "courier"
             if command.interaction_id.startswith("voyage.response."):
                 from .travel import resolve_voyage
+                origin = self._state.route_current_node
                 before_time = self._state.world_time
                 changed, message = resolve_voyage(self._state, command.interaction_id.rsplit(".", 1)[1])
                 result = ActionResult(changed, self._state.world_time != before_time, message)
                 result_id = "voyage.resolved" if changed else "voyage.rejected"
-                events = (TravelResolved(self._state.route_current_node, choice.target_id.removeprefix("voyage:"), self._state.voyage_status),) if changed else ()
+                events = (TravelResolved(origin, self._state.route_current_node, self._state.voyage_status),) if changed else ()
                 return self._outcome(result, result_id, choice.target_id, events)
             result = interact(self._state)
             result_id = "interaction.opened" if result.overlay else "interaction.resolved" if result.changed else "interaction.rejected"
