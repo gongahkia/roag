@@ -790,13 +790,13 @@ def updateboss (enemy):
 def addentity (entitydict, location, model):
     if len(model) == 1:
         coordinate = tuple(location)
-        if coordinate[0] >= 0 and coordinate[0] < BOARDWIDTH and coordinate[1] >= 0 and coordinate[1] < BOARDHEIGHT:
+        if coordinate[0] >= 0 and coordinate[0] < WORLDWIDTH and coordinate[1] >= 0 and coordinate[1] < WORLDHEIGHT:
             entitydict[coordinate] = model
         return
 
     for index,char in enumerate(model):
         coordinate = (location[0] + index,location[1])
-        if coordinate[0] >= 0 and coordinate[0] < BOARDWIDTH:
+        if coordinate[0] >= 0 and coordinate[0] < WORLDWIDTH and coordinate[1] >= 0 and coordinate[1] < WORLDHEIGHT:
             entitydict[coordinate] = char
 
 
