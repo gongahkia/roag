@@ -387,8 +387,8 @@ class PygameFrontend:
         for index, field in enumerate(fields):
             marker = ">" if index == draft.cursor else " "
             lines.append(f"{marker} {self._semantic_label(field)}: {values[field]}")
-        for index, line in enumerate(lines[:15]):
-            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
+        for index, line in enumerate(lines):
+            self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 18))
 
     def _draw_tavern_draw(self, box: Any) -> None:
         view = self.session.tavern_draw_view()
@@ -507,7 +507,7 @@ class PygameFrontend:
         if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
         for note in self.feedback:
             if note.position: self.screen.blit(self.font.render(note.text,True,(255,220,120)),self._rect(note.position,camera).move(0,-10))
-        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · G guard · R retreat · C craft · P progress · M magic · Ctrl+S save",True,(240,240,240))
+        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · G guard · R retreat · C craft · P progress · M magic · H manoeuvres · Ctrl+S save",True,(240,240,240))
         self.screen.blit(panel,(10,10))
         for index, line in enumerate(self._inspection_lines()):
             self.screen.blit(self.font.render(line, True, (235,235,235)), (10, 38 + index * 19))
@@ -586,8 +586,18 @@ class PygameFrontend:
                         self._notify("Select a visible target first"); return
                     if selected.action_id.startswith("story.open:"):
                         self._open_activity("household-story:" + selected.action_id.split(":", 1)[1]); return
+                    if selected.action_id == "aftermath.open":
+                        self._open_activity("aftermath"); return
                     if selected.action_id.startswith("aftermath.open:"):
                         self._open_activity("aftermath-contract:" + selected.action_id.split(":", 1)[1]); return
+                    if selected.action_id == "workline.open":
+                        self._open_activity("workline"); return
+                    if selected.action_id == "support.open":
+                        self._open_activity("support"); return
+                    if selected.action_id == "passives.open":
+                        self._open_activity("passives"); return
+                    if selected.action_id.startswith("teach.open:"):
+                        self._open_activity("teaching:" + selected.action_id.split(":", 1)[1]); return
                     outcome = self.submit(ActivityCommand(self.activity_context, selected.action_id, target_position, target_actor_id))
                     if not outcome.accepted: self._notify("That operation could not be resolved")
                     return
@@ -614,6 +624,7 @@ class PygameFrontend:
             elif event.key==p.K_c: self._open_activity("production")
             elif event.key==p.K_p: self._open_activity("progression")
             elif event.key==p.K_m: self._open_activity("magic")
+            elif event.key==p.K_h: self._open_activity("mastery")
             elif event.key==p.K_x: self._open_activity("preparation")
             elif event.key==p.K_v: self._open_activity("vessel")
             elif event.key==p.K_b: self._open_activity("vehicle")

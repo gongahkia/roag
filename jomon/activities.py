@@ -69,6 +69,9 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
                                        f"Distil {_label(reagent)} from {flask.id}"))
         for relic_id in sorted(state.relics):
             options.append(_option(f"relic.select:{relic_id}", f"Select {_label(relic_id)}"))
+        for flask in carried_flasks(state):
+            options.append(_option(f"chemistry.pour:{flask.id}", f"Pour {flask.id}", target_kind_id="cell"))
+            options.append(_option(f"chemistry.drink:{flask.id}", f"Drink from {flask.id}"))
         options.append(_option("preparation.use-readied", "Use selected relic, bottle, or readied gear"))
         title = "Preparation"
     elif context_id == "progression":
@@ -90,6 +93,7 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
                 target = "actor" if spell.target == "enemy" else "cell" if spell.target == "cell" else "self"
                 options.append(_option(f"magic.cast:{spell_id}", spell_display_name(spell_id), spell_description(spell),
                                        target_kind_id=target))
+        options.append(_option("magic.restore", "Restore at shrine"))
         title = "Spellcraft"
     elif context_id == "materials":
         from .materials import VERBS
@@ -99,6 +103,12 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             for verb in VERBS:
                 options.append(_option(f"material.{verb}:{point.x},{point.y},{point.z}", material_verb_display_name(verb),
                                        f"{point.x}, {point.y}, {point.z:+d}"))
+        from .worklines import WORKLINES
+        if state.location == "region" and state.active_region_id in WORKLINES:
+            options.append(_option("workline.open", "Open local workline"))
+        from .aftermath import contracts_for, near_contract_site
+        if any(contract.stage == 1 and near_contract_site(state, contract) for contract in contracts_for(state)):
+            options.append(_option("aftermath.open", "Inspect accepted aftermath work"))
         title = "Field materials"
     elif context_id == "vessel":
         from .vessel_refits import STATION_REFITS, installation_status, refit_station_at
@@ -142,6 +152,8 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
         from .workshop import FITTINGS, SLOTS, attached, can_fit
         from .equipment_presentation import fitting_name
         from .inventory import equipped_item
+        for fitting_id in FITTINGS:
+            options.append(_option(f"workshop.buy:{fitting_id}", f"Buy {fitting_name(fitting_id)} fitting"))
         for slot in SLOTS:
             item = equipped_item(state, slot)
             if item is None:
@@ -248,6 +260,8 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
         for drink_id in DRINKS:
             options.append(_option(f"bar.drink:{drink_id}", f"Drink {drink_display_name(drink_id)}"))
             options.append(_option(f"bar.bottle:{drink_id}", f"Bottle {drink_display_name(drink_id)}"))
+        options.append(_option("support.open", "Choose household support"))
+        options.append(_option("passives.open", "Choose carried discoveries"))
         title = "Bar"
     elif context_id == "incident":
         options.extend((_option("incident.resolve:mediate", "Mediate"),
@@ -264,6 +278,8 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
         options.extend((_option(f"person.courier:{person_id}", "Select courier"),
                         _option(f"person.recruit:{person_id}", "Offer berth"),
                         _option(f"person.defer:{person_id}", "Defer invitation")))
+        if state.courier and "teaching" in state.courier.skill_nodes:
+            options.append(_option(f"teach.open:{person_id}", "Teach a known skill"))
         title = "Person"
     elif context_id.startswith("household-story:"):
         from .household_stories import story_choices
@@ -275,10 +291,34 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
     elif context_id == "station:gathering":
         from .household_stories import station_choices
         from .household_stories import STORIES
+        from .skill_tree import NODES, journals_at_hand
         for story, (_key, label, _semantic, available, _reason) in zip(STORIES, station_choices(state)):
             options.append(_option(f"story.open:{story.id}", label, available=available,
                                    reason_id=None if available else "story.unavailable"))
+        if state.courier:
+            for node_id in state.courier.skill_nodes:
+                if node_id not in state.courier.journal_nodes:
+                    options.append(_option(f"journal.write:{node_id}", f"Write {NODES[node_id].name}"))
+        for journal in journals_at_hand(state):
+            options.append(_option(f"journal.study:{journal.id}", f"Study {journal.id}"))
         title = "Gathering"
+    elif context_id == "support":
+        from .actions import SUPPORTS
+        for support_id, values in SUPPORTS.items():
+            options.append(_option(f"support.select:{support_id}", _label(support_id), str(values[1])))
+        title = "Household support"
+    elif context_id == "passives":
+        from .item_presentation import item_display_name_or_legacy
+        for passive_id in sorted(state.owned_passives):
+            options.append(_option(f"passive.toggle:{passive_id}", item_display_name_or_legacy(passive_id)))
+        title = "Carried discoveries"
+    elif context_id.startswith("teaching:"):
+        from .skill_tree import NODES
+        recipient_id = context_id.split(":", 1)[1]
+        if state.courier:
+            for node_id in state.courier.skill_nodes:
+                options.append(_option(f"teach.node:{recipient_id}:{node_id}", f"Teach {NODES[node_id].name}"))
+        title = "Teaching"
     elif context_id.startswith("station:") or context_id.startswith("vessel-refits:"):
         # Station interaction is a contextual entry into the same vessel
         # mechanics; the options retain stable refit IDs.
@@ -324,6 +364,17 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id.startswith("skill.buy:"):
         from .skill_tree import buy_node
         changed, message = buy_node(state, action_id.split(":", 1)[1])
+    elif action_id.startswith("chemistry.pour:"):
+        from .chemistry import pour_flask
+        if target_position is None:
+            return ActivityResolution(False, False, "")
+        changed, message = pour_flask(state, action_id.split(":", 1)[1], target_position)
+    elif action_id.startswith("chemistry.drink:"):
+        from .chemistry import drink_flask
+        changed, message = drink_flask(state, action_id.split(":", 1)[1])
+    elif action_id.startswith("magic.restore"):
+        from .magic import restore_at_shrine
+        changed, message = restore_at_shrine(state)
     elif action_id.startswith("magic.cast:"):
         from .magic import SPELLS, cast
         spell_id = action_id.split(":", 1)[1]
@@ -344,6 +395,9 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id == "vessel.rest":
         from .magic import rest_at_berths
         changed, message = rest_at_berths(state)
+    elif action_id.startswith("workshop.buy:"):
+        from .workshop import buy_kit
+        changed, message = buy_kit(state, action_id.split(":", 1)[1])
     elif action_id.startswith("workshop.repair:"):
         from .workshop import repair
         changed, message = repair(state, action_id.split(":", 1)[1])
@@ -449,6 +503,22 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id.startswith("person.defer:"):
         from .actions import defer_recruit
         result = defer_recruit(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("journal.write:"):
+        from .skill_tree import write_journal
+        changed, message = write_journal(state, action_id.split(":", 1)[1])
+    elif action_id.startswith("journal.study:"):
+        from .skill_tree import study_journal
+        changed, message = study_journal(state, action_id.split(":", 1)[1])
+    elif action_id.startswith("teach.node:"):
+        from .skill_tree import teach_node
+        _, recipient_id, node_id = action_id.split(":", 2)
+        changed, message = teach_node(state, recipient_id, node_id)
+    elif action_id.startswith("support.select:"):
+        from .actions import choose_support
+        result = choose_support(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("passive.toggle:"):
+        from .actions import choose_passive
+        result = choose_passive(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
     elif action_id.startswith("story.resolve:"):
         from .household_stories import resolve
         _, story_id, choice = action_id.split(":", 2)
