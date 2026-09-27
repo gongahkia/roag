@@ -267,27 +267,32 @@ def actor_views(state: GameState) -> tuple[ActorView, ...]:
         """Resolve current names from stable presentation slots, never catalogs."""
         person_id = str(getattr(person, "id"))
         role_id = str(getattr(person, "role", ""))
-        try:
-            name = character_presentation(person_id).display_name
-        except KeyError:
-            given = getattr(person, "given_name_slot", None)
-            family = getattr(person, "family_name_slot", None)
-            presentation_id = getattr(person, "people_presentation_id", None)
-            name_slot = getattr(person, "name_slot", None)
+        if bool(getattr(person, "character_specified", False)):
+            # The initial-courier name is player-committed state, never a
+            # generated selected-pack name slot.
+            name = str(getattr(person, "name", person_id))
+        else:
             try:
-                if given is not None and family is not None:
-                    name = f"{household_first_name(int(given.removeprefix('first_')))} {household_family_name(int(family.removeprefix('family_')))}"
-                elif presentation_id:
-                    name = recruit_presentation(presentation_id)["name"]
-                elif name_slot:
-                    name = contact_name(int(name_slot.removeprefix("contact_")))
-                else:
+                name = character_presentation(person_id).display_name
+            except KeyError:
+                given = getattr(person, "given_name_slot", None)
+                family = getattr(person, "family_name_slot", None)
+                presentation_id = getattr(person, "people_presentation_id", None)
+                name_slot = getattr(person, "name_slot", None)
+                try:
+                    if given is not None and family is not None:
+                        name = f"{household_first_name(int(given.removeprefix('first_')))} {household_family_name(int(family.removeprefix('family_')))}"
+                    elif presentation_id:
+                        name = recruit_presentation(presentation_id)["name"]
+                    elif name_slot:
+                        name = contact_name(int(name_slot.removeprefix("contact_")))
+                    else:
+                        name = person_id
+                except (KeyError, ValueError):
+                    # Old snapshots without stable presentation slots retain only a
+                    # stable identity here; their frozen historical text is not a
+                    # new current-presentation authority.
                     name = person_id
-            except (KeyError, ValueError):
-                # Old snapshots without stable presentation slots retain only a
-                # stable identity here; their frozen historical text is not a
-                # new current-presentation authority.
-                name = person_id
         return name, role_display_name(role_id) if role_id else None
 
     def threat_presentation(archetype_id: str, threat_id: str) -> str:

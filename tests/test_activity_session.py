@@ -92,6 +92,13 @@ class CharacterSetupSessionTests(unittest.TestCase):
         self.assertTrue(state.courier.character_specified)
         self.assertFalse(session.character_setup_view().available)
         self.assertNotEqual(payload(state), before)
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "character.json"
+            session.save(path)
+            loaded = GameSession.load(path)
+        self.assertEqual(loaded.actor_view(view.crew[0].crew_id).display_name, view.crew[0].display_name)
 
     def test_character_setup_rejection_is_atomic(self):
         from jomon.commands import CharacterSetupCommand

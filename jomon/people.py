@@ -119,7 +119,11 @@ def refresh_current_people_presentation(state: GameState) -> None:
     """
     from .people_presentation import contact_name, contact_role, household_family_name, household_first_name, regional_context
     for person in [*state.household, *state.visitors]:
-        if person.given_name_slot is not None and person.family_name_slot is not None:
+        # A configured courier has a player-committed current name.  It is
+        # neither a generated slot nor pack prose, so pack refresh must not
+        # overwrite it on ordinary format-15 load.
+        if (not person.character_specified
+                and person.given_name_slot is not None and person.family_name_slot is not None):
             try:
                 person.name = f"{household_first_name(int(person.given_name_slot.removeprefix('first_')))} {household_family_name(int(person.family_name_slot.removeprefix('family_')))}"
             except (ValueError, KeyError):
