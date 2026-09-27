@@ -1,5 +1,5 @@
 from titlescreen import titlescreen
-from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
+from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
 
 #GAME SETTINGS
@@ -9,6 +9,28 @@ STAGES = [
     {'level': 1, 'targets': 3, 'necromancers': 0, 'score': 4, 'ammo': 1, 'vision': 5, 'torches': 3},
     {'level': 2, 'targets': 1, 'necromancers': 2, 'score': 5, 'ammo': 2, 'vision': 4, 'torches': 3}
 ]
+
+PLAYER_CLASSES = [
+    {
+        'id': 'vanguard',
+        'name': 'VANGUARD',
+        'description': 'TOUGH AND WELL-ARMED',
+        'modifiers': {'health': 2, 'bombs': 1, 'flares': -1}
+    },
+    {
+        'id': 'gunslinger',
+        'name': 'GUNSLINGER',
+        'description': 'EXTRA AMMO, LESS HEALTH',
+        'modifiers': {'health': -1, 'ammo': 3}
+    },
+    {
+        'id': 'scout',
+        'name': 'SCOUT',
+        'description': 'BETTER SIGHT, FLARES, AND DASH',
+        'modifiers': {'vision': 2, 'flares': 1, 'dashcooldown': -1}
+    }
+]
+PLAYER_CLASS_BY_ID = {item['id']: item for item in PLAYER_CLASSES}
 
 
 #GENERAL FUNCTIONS
@@ -21,6 +43,27 @@ def startgame ():
             return True
         if user == 'n':
             return False
+
+
+def chooseclass ():
+    pointer = 0
+    while True:
+        lines = ['', '', 'CHOOSE YOUR CLASS', '']
+        for index, item in enumerate(PLAYER_CLASSES):
+            marker = '[ ' if index == pointer else '  '
+            ending = ' ]' if index == pointer else '  '
+            lines.append(f'{marker}{item["name"]}{ending}')
+            lines.append(item['description'])
+            lines.append('')
+        lines.extend(['[W/S] SELECT     [E] CONFIRM', ''])
+        printscreen([line.center(BOARDWIDTH) for line in lines])
+        user = promptinput('[W/S/E]: ')
+        if user == 'w':
+            pointer = max(0,pointer - 1)
+        elif user == 's':
+            pointer = min(len(PLAYER_CLASSES) - 1,pointer + 1)
+        elif user == 'e':
+            return PLAYER_CLASSES[pointer]['id']
 
 
 def continuestage (level, bag = None):
@@ -291,9 +334,23 @@ def cursedsettings (settings, curse):
     return stage
 
 
-def runstage (settings, curse = None):
+def classsettings (settings, classid):
+    stage = dict(settings)
+    modifiers = PLAYER_CLASS_BY_ID[classid]['modifiers']
+    stage['health'] = min(5,max(1,stage['health'] + modifiers.get('health',0)))
+    stage['ammo'] = max(0,stage['ammo'] + modifiers.get('ammo',0))
+    stage['bombs'] = max(0,stage['bombs'] + modifiers.get('bombs',0))
+    stage['flares'] = max(0,stage['flares'] + modifiers.get('flares',0))
+    stage['vision'] = max(1,stage['vision'] + modifiers.get('vision',0))
+    stage['dashcooldown'] = max(1,stage['dashcooldown'] + modifiers.get('dashcooldown',0))
+    return stage
+
+
+def runstage (settings, curse = None, classid = 'vanguard'):
     settings = cursedsettings(settings,curse)
+    settings = classsettings(settings,classid)
     play = player(settings['health'])
+    play.classname = PLAYER_CLASS_BY_ID[classid]['name']
     play.ammo = settings['ammo']
     play.bombs = settings['bombs']
     play.flares = settings['flares']
@@ -413,18 +470,19 @@ def runboss (play):
     return False
 
 
-def rundebuglevel (level):
+def rundebuglevel (level, classid = 'vanguard'):
     if level < len(STAGES):
-        runstage(STAGES[level])
+        runstage(STAGES[level],classid = classid)
         return
     play = player()
+    play.classname = PLAYER_CLASS_BY_ID[classid]['name']
     play.bombs = 1
     runboss(play)
 
 
 def rungame (debuglevel = None):
     if debuglevel is not None:
-        rundebuglevel(debuglevel)
+        rundebuglevel(debuglevel,chooseclass())
         return
     if not startgame():
         print ('Okay. Hope to see you again!')
@@ -432,6 +490,7 @@ def rungame (debuglevel = None):
 
     totscore = 0
     play = None
+    classid = chooseclass()
     bag = cursebag()
     for settings in STAGES:
         curse = None
@@ -439,7 +498,7 @@ def rungame (debuglevel = None):
             curse = continuestage(settings['level'],bag)
             if curse is None:
                 return
-        play = runstage(settings,curse)
+        play = runstage(settings,curse,classid)
         if play.health <= 0:
             return
         totscore += play.score
