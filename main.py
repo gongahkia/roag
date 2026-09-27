@@ -1,3 +1,5 @@
+import random
+
 from titlescreen import titlescreen
 from functions import BOARDHEIGHT, BOARDWIDTH, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, threatconlvl, cursemodifiers, cursebag, runcurseshop, runshop, icon
 
@@ -32,6 +34,46 @@ PLAYER_CLASSES = [
 ]
 PLAYER_CLASS_BY_ID = {item['id']: item for item in PLAYER_CLASSES}
 
+BOONS = [
+    {
+        'id': 'iron_heart',
+        'name': 'IRON HEART',
+        'description': 'BEGIN EACH DESCENT WITH MORE HEALTH',
+        'modifiers': {'health': 1}
+    },
+    {
+        'id': 'full_quiver',
+        'name': 'FULL QUIVER',
+        'description': 'BEGIN EACH DESCENT WITH EXTRA AMMO',
+        'modifiers': {'ammo': 2}
+    },
+    {
+        'id': 'demolition_kit',
+        'name': 'DEMOLITION KIT',
+        'description': 'BEGIN EACH DESCENT WITH AN EXTRA BOMB',
+        'modifiers': {'bombs': 1}
+    },
+    {
+        'id': 'flare_satchel',
+        'name': 'FLARE SATCHEL',
+        'description': 'BEGIN EACH DESCENT WITH TWO EXTRA FLARES',
+        'modifiers': {'flares': 2}
+    },
+    {
+        'id': 'eagle_eye',
+        'name': 'EAGLE EYE',
+        'description': 'SEE FURTHER THROUGH THE DARKNESS',
+        'modifiers': {'vision': 2}
+    },
+    {
+        'id': 'windwalker',
+        'name': 'WINDWALKER',
+        'description': 'YOUR DASH RECHARGES MORE QUICKLY',
+        'modifiers': {'dashcooldown': -1}
+    }
+]
+BOON_BY_ID = {item['id']: item for item in BOONS}
+
 
 #GENERAL FUNCTIONS
 
@@ -64,6 +106,28 @@ def chooseclass ():
             pointer = min(len(PLAYER_CLASSES) - 1,pointer + 1)
         elif user == 'e':
             return PLAYER_CLASSES[pointer]['id']
+
+
+def chooseboon ():
+    options = random.sample(BOONS,3)
+    pointer = 0
+    while True:
+        lines = ['', '', 'CHOOSE A BOON', '']
+        for index, item in enumerate(options):
+            marker = '[ ' if index == pointer else '  '
+            ending = ' ]' if index == pointer else '  '
+            lines.append(f'{marker}{item["name"]}{ending}')
+            lines.append(item['description'])
+            lines.append('')
+        lines.extend(['[W/S] SELECT     [E] ACCEPT BOON', ''])
+        printscreen([line.center(BOARDWIDTH) for line in lines])
+        user = promptinput('[W/S/E]: ')
+        if user == 'w':
+            pointer = max(0,pointer - 1)
+        elif user == 's':
+            pointer = min(len(options) - 1,pointer + 1)
+        elif user == 'e':
+            return options[pointer]['id']
 
 
 def continuestage (level, bag = None):
@@ -337,6 +401,16 @@ def cursedsettings (settings, curse):
 def classsettings (settings, classid):
     stage = dict(settings)
     modifiers = PLAYER_CLASS_BY_ID[classid]['modifiers']
+    return applymodifiers(stage,modifiers)
+
+
+def boonsettings (settings, boonid):
+    stage = dict(settings)
+    modifiers = BOON_BY_ID[boonid]['modifiers']
+    return applymodifiers(stage,modifiers)
+
+
+def applymodifiers (stage, modifiers):
     stage['health'] = min(5,max(1,stage['health'] + modifiers.get('health',0)))
     stage['ammo'] = max(0,stage['ammo'] + modifiers.get('ammo',0))
     stage['bombs'] = max(0,stage['bombs'] + modifiers.get('bombs',0))
@@ -346,11 +420,13 @@ def classsettings (settings, classid):
     return stage
 
 
-def runstage (settings, curse = None, classid = 'vanguard'):
+def runstage (settings, curse = None, classid = 'vanguard', boonid = 'iron_heart'):
     settings = cursedsettings(settings,curse)
     settings = classsettings(settings,classid)
+    settings = boonsettings(settings,boonid)
     play = player(settings['health'])
     play.classname = PLAYER_CLASS_BY_ID[classid]['name']
+    play.boonname = BOON_BY_ID[boonid]['name']
     play.ammo = settings['ammo']
     play.bombs = settings['bombs']
     play.flares = settings['flares']
@@ -386,7 +462,7 @@ def runstage (settings, curse = None, classid = 'vanguard'):
 
 #BOSS FIGHT
 
-def resetplayer (play):
+def resetplayer (play, classid = 'vanguard', boonid = 'iron_heart'):
     play.location = [20,9]
     play.direction = 'w'
     play.model = icon('player_up')
@@ -398,7 +474,7 @@ def resetplayer (play):
     play.status = 'alive'
     play.notice = ''
     play.dashcooldown = 0
-    play.dashcooldownbase = 3
+    play.dashcooldownbase = max(1,3 + PLAYER_CLASS_BY_ID[classid]['modifiers'].get('dashcooldown',0) + BOON_BY_ID[boonid]['modifiers'].get('dashcooldown',0))
     play.bombradius = 2
     play.bombfuse = 3
     play.bulletrange = None
@@ -427,8 +503,8 @@ def summonbossminion (play, enemyboss, targets, necromancers, bullets, bombs, am
     play.notice = '~The boss summoned a necromancer.~'
 
 
-def runboss (play):
-    resetplayer(play)
+def runboss (play, classid = 'vanguard', boonid = 'iron_heart'):
+    resetplayer(play,classid,boonid)
     enemyboss = boss()
     targets = []
     necromancers = []
@@ -470,19 +546,24 @@ def runboss (play):
     return False
 
 
-def rundebuglevel (level, classid = 'vanguard'):
+def rundebuglevel (level, classid = 'vanguard', boonid = 'iron_heart'):
     if level < len(STAGES):
-        runstage(STAGES[level],classid = classid)
+        runstage(STAGES[level],classid = classid,boonid = boonid)
         return
-    play = player()
+    settings = boonsettings(classsettings(cursedsettings(STAGES[0],None),classid),boonid)
+    play = player(settings['health'])
     play.classname = PLAYER_CLASS_BY_ID[classid]['name']
-    play.bombs = 1
-    runboss(play)
+    play.boonname = BOON_BY_ID[boonid]['name']
+    play.ammo = settings['ammo']
+    play.bombs = settings['bombs']
+    play.flares = settings['flares']
+    runboss(play,classid,boonid)
 
 
 def rungame (debuglevel = None):
     if debuglevel is not None:
-        rundebuglevel(debuglevel,chooseclass())
+        classid = chooseclass()
+        rundebuglevel(debuglevel,classid,chooseboon())
         return
     if not startgame():
         print ('Okay. Hope to see you again!')
@@ -491,6 +572,7 @@ def rungame (debuglevel = None):
     totscore = 0
     play = None
     classid = chooseclass()
+    boonid = chooseboon()
     bag = cursebag()
     for settings in STAGES:
         curse = None
@@ -498,10 +580,10 @@ def rungame (debuglevel = None):
             curse = continuestage(settings['level'],bag)
             if curse is None:
                 return
-        play = runstage(settings,curse,classid)
+        play = runstage(settings,curse,classid,boonid)
         if play.health <= 0:
             return
         totscore += play.score
 
     play = runshop(totscore,play)
-    runboss(play)
+    runboss(play,classid,boonid)

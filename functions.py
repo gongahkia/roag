@@ -207,6 +207,7 @@ class player:
         self.flares = 1
         self.status = 'alive'
         self.classname = 'ADVENTURER'
+        self.boonname = ''
         self.notice = ''
         self.dashcooldown = 0
         self.dashcooldownbase = DASH_COOLDOWN
@@ -1031,6 +1032,8 @@ def hudlines (player, level = None, enemyboss = None, armedbombs = 0, scoregoal 
     if curse is not None:
         lines.append(iconlabel('curse',f'CURSE: {curse.replace("_"," ").upper()}'))
     lines.append(f'CLASS: {player.classname}')
+    if player.boonname != '':
+        lines.append(f'BOON: {player.boonname}')
     if enemyboss is not None:
         lines.append(iconlabel('boss',f'BOSS HEALTH: {statbar(enemyboss.health,10)}'))
         if enemyboss.attackcounter > 0:
