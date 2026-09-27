@@ -338,6 +338,10 @@ def _item_view(state: GameState, item) -> ItemView:
         operations.append("equip")
     if equipped:
         operations.append("unequip")
+    if item.owner_id == state.active_courier_id and item.location in {"pack", "locker"}:
+        operations.append("move")
+    if item.owner_id == state.active_courier_id and item.location == "pack":
+        operations.append("drop")
     if (item.owner_id == state.active_courier_id
             and ((item.location == "secondary" and item.kind == state.gear)
                  or (item.location == "pack" and item.kind.startswith("consumable:preparation.")))):

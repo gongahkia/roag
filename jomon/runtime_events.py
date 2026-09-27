@@ -72,6 +72,23 @@ class ItemUsed:
 
 
 @dataclass(frozen=True)
+class ItemMoved:
+    actor_id: str
+    item_id: str
+    from_location_id: str
+    to_location_id: str
+    event_id: str = field(init=False, default="item.moved")
+
+
+@dataclass(frozen=True)
+class ItemDropped:
+    actor_id: str
+    item_id: str
+    position: Position
+    event_id: str = field(init=False, default="item.dropped")
+
+
+@dataclass(frozen=True)
 class ItemEquipped:
     actor_id: str
     item_id: str
@@ -159,7 +176,7 @@ class GameplayActivityResolved:
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
-    | GuardResolved | RetreatResolved | ItemEquipped | ItemUnequipped | TravelResolved
+    | GuardResolved | RetreatResolved | ItemMoved | ItemDropped | ItemEquipped | ItemUnequipped | TravelResolved
     | TavernGameStarted | TavernCardsExchanged | TavernDiceRolled | TavernGameSettled
     | GameplayActivityResolved
 )

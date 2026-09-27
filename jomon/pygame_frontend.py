@@ -11,7 +11,7 @@ from .assets import actor_assets, asset_resource, event_assets, tavern_assets, t
 from .catalog import selected_content_pack
 from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
-    DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
+    DrawExchangeCommand, DropItemCommand, EquipItemCommand, InteractCommand, MoveItemCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
     ActivityCommand, CharacterSetupCommand, GuardCommand, NegotiateCommand, RetreatCommand,
 )
@@ -351,7 +351,7 @@ class PygameFrontend:
             lines.append("Enter: resolve · Esc: close")
         else:
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
-            title = {"inventory": "Inventory  [U use / E equip / R unequip]", "travel": "Travel  [Enter confirms]", "interaction": "Interaction  [Enter confirms]"}[self.panel]
+            title = {"inventory": "Inventory  [U use / E equip / R unequip / T transfer / D drop]", "travel": "Travel  [Enter confirms]", "interaction": "Interaction  [Enter confirms]"}[self.panel]
             lines = [title]
             for index, row in enumerate(rows):
                 marker = ">" if index == self.panel_cursor else " "
@@ -559,6 +559,9 @@ class PygameFrontend:
                         self.submit(UseGearCommand(preparation))
                     elif event.key == p.K_e and "equip" in selected.legal_operations: self.submit(EquipItemCommand(selected.id))
                     elif event.key == p.K_r and "unequip" in selected.legal_operations: self.submit(UnequipItemCommand(selected.location_id))
+                    elif event.key == p.K_t and "move" in selected.legal_operations:
+                        self.submit(MoveItemCommand(selected.id, "locker" if selected.location_id == "pack" else "pack"))
+                    elif event.key == p.K_d and "drop" in selected.legal_operations: self.submit(DropItemCommand(selected.id))
                     return
                 if self.panel == "travel" and event.key in {p.K_RETURN, p.K_KP_ENTER}:
                     self.submit(TravelCommand(selected.destination_id)); self.panel = None; return

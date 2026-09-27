@@ -52,6 +52,19 @@ class UseGearCommand:
 
 
 @dataclass(frozen=True)
+class MoveItemCommand:
+    """Move one stable physical item between semantic inventory locations."""
+    item_id: str
+    destination_id: str
+
+
+@dataclass(frozen=True)
+class DropItemCommand:
+    """Drop one stable carried physical item at the courier's world position."""
+    item_id: str
+
+
+@dataclass(frozen=True)
 class EquipItemCommand:
     """Equip one physical carried item by its stable item ID."""
     item_id: str
@@ -150,7 +163,7 @@ class AdvanceWorldCommand:
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand | NegotiateCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
-    | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
+    | AdvanceWorldCommand | MoveItemCommand | DropItemCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
     | StartTavernGameCommand | DrawBetCommand | DrawExchangeCommand
     | DiceActionCommand | CloseTavernGameCommand | ActivityCommand | CharacterSetupCommand
 )

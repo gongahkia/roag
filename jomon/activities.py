@@ -125,17 +125,19 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             options.append(_option("vessel.rest", "Rest at berths"))
         title = "Vessel"
     elif context_id == "circuits":
-        from .circuits import PARTS, cell_at, item_count, space_id
+        from .circuits import PARTS, item_count, space_id
         if space_id(state):
             for kind, row in sorted(PARTS.items()):
                 if row["behavior"] != "fuel" and item_count(state, kind):
-                    options.append(_option(f"circuit.place:{kind}", f"Place {_label(kind)}",
-                                           target_kind_id="cell"))
-            options.extend((
-                _option("circuit.operate:primary", "Operate selected circuit", target_kind_id="cell"),
-                _option("circuit.operate:secondary", "Adjust selected circuit", target_kind_id="cell"),
-                _option("circuit.reclaim:surface", "Reclaim selected circuit", target_kind_id="cell"),
-            ))
+                    for layer in row["layers"]:
+                        options.append(_option(f"circuit.place:{layer}:{kind}",
+                                               f"Place {_label(kind)} ({layer})", target_kind_id="cell"))
+            for layer in ("surface", "buried"):
+                options.extend((
+                    _option(f"circuit.operate:{layer}:primary", f"Operate {layer} circuit", target_kind_id="cell"),
+                    _option(f"circuit.operate:{layer}:secondary", f"Adjust {layer} circuit", target_kind_id="cell"),
+                    _option(f"circuit.reclaim:{layer}", f"Reclaim {layer} circuit", target_kind_id="cell"),
+                ))
         title = "Circuits"
     elif context_id in {"vehicle", "gangplank"}:
         options.extend((
@@ -423,17 +425,20 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
         from .circuits import place
         if target_position is None:
             return ActivityResolution(False, False, "")
-        changed, message = place(state, target_position, "surface", action_id.split(":", 1)[1])
+        _, layer, kind = action_id.split(":", 2)
+        changed, message = place(state, target_position, layer, kind)
     elif action_id.startswith("circuit.operate:"):
         from .circuits import operate
         if target_position is None:
             return ActivityResolution(False, False, "")
-        changed, message = operate(state, target_position, "surface", action_id.split(":", 1)[1])
+        _, layer, mode = action_id.split(":", 2)
+        changed, message = operate(state, target_position, layer, mode)
     elif action_id.startswith("circuit.reclaim:"):
         from .circuits import reclaim
         if target_position is None:
             return ActivityResolution(False, False, "")
-        changed, message = reclaim(state, target_position, action_id.split(":", 1)[1])
+        _, layer = action_id.split(":", 1)
+        changed, message = reclaim(state, target_position, layer)
     elif action_id == "vehicle.depart":
         from .actions import depart
         result = depart(state); changed, message = result.changed, result.message

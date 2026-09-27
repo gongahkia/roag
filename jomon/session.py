@@ -12,14 +12,14 @@ from .actions import (
 from .commands import (
     AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
     InteractCommand, MoveCommand, RetreatCommand, NegotiateCommand, SelectCarriedRelicCommand,
-    SetAutoPlaceCommand, UseGearCommand, EquipItemCommand, UnequipItemCommand,
+    SetAutoPlaceCommand, UseGearCommand, MoveItemCommand, DropItemCommand, EquipItemCommand, UnequipItemCommand,
     TravelCommand, StartTavernGameCommand, DrawBetCommand, DrawExchangeCommand,
     DiceActionCommand, CloseTavernGameCommand,
     ActivityCommand, CharacterSetupCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
-    ItemUsed, RetreatResolved, RuntimeEvent, ItemEquipped, ItemUnequipped,
+    ItemUsed, RetreatResolved, RuntimeEvent, ItemMoved, ItemDropped, ItemEquipped, ItemUnequipped,
     TravelResolved, TavernCardsExchanged, TavernDiceRolled, TavernGameSettled,
     TavernGameStarted,
     GameplayActivityResolved,
@@ -210,6 +210,35 @@ class GameSession:
             if result.changed and item_id:
                 events = (ItemUsed(actor_id, item_id, "gear.use"),)
             return self._outcome(result, "gear.resolved" if result.changed else "gear.rejected", command.preparation_id, events)
+        if isinstance(command, MoveItemCommand):
+            if command.destination_id not in {"pack", "locker"} or not isinstance(command.item_id, str):
+                return self._reject("item.move.invalid", command.item_id)
+            item = next((row for row in self.inventory_view().items if row.id == command.item_id), None)
+            if item is None or "move" not in item.legal_operations or item.location_id == command.destination_id:
+                return self._reject("item.move.rejected", command.item_id)
+            from .inventory import sync_legacy_load, transfer_to_grid
+            moved = transfer_to_grid(self._state, command.item_id, command.destination_id,
+                                     owner_id=self._state.active_courier_id if command.destination_id == "pack" else None)
+            if not moved:
+                return self._reject("item.move.rejected", command.item_id)
+            sync_legacy_load(self._state)
+            return self._outcome(ActionResult(True, False, ""), "item.moved", command.item_id,
+                                 (ItemMoved(self._state.active_courier_id or "courier", command.item_id,
+                                            item.location_id, command.destination_id),))
+        if isinstance(command, DropItemCommand):
+            if not isinstance(command.item_id, str):
+                return self._reject("item.drop.invalid", command.item_id)
+            item = next((row for row in self.inventory_view().items if row.id == command.item_id), None)
+            if (item is None or "drop" not in item.legal_operations
+                    or self._state.location == "jomon" and self._state.jomon_space != "vessel"):
+                return self._reject("item.drop.rejected", command.item_id)
+            from .inventory import drop_item, sync_legacy_load
+            if not drop_item(self._state, command.item_id):
+                return self._reject("item.drop.rejected", command.item_id)
+            sync_legacy_load(self._state)
+            return self._outcome(ActionResult(True, False, ""), "item.dropped", command.item_id,
+                                 (ItemDropped(self._state.active_courier_id or "courier", command.item_id,
+                                              self._state.position),))
         if isinstance(command, EquipItemCommand):
             if not isinstance(command.item_id, str) or not command.item_id:
                 return self._reject("item.equip.invalid")
