@@ -100,6 +100,7 @@ class AsciiPygameFrontend(PygameFrontend):
         """Map clicks into the centered ASCII landing-page menu."""
         width, height = self.screen.get_size()
         char_width, char_height = self._cell_metrics()
+        line_height = char_height + max(2, char_height // 5)
         max_columns = max(32, (width - 80) // char_width)
         max_rows = max(14, (height - 80) // char_height - 2)
         box = self.pygame.Rect(
@@ -238,14 +239,14 @@ class AsciiPygameFrontend(PygameFrontend):
         right_x = left_x + left_width + 2 * char_width
         right_width = box.right - char_width - right_x
         heading = self.font_stack.render("CHARACTER CUSTOMIZATION", self.theme.title)
-        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 2 * char_height))
-        y = box.y + 5 * char_height
+        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 2 * line_height))
+        y = box.y + 5 * line_height
         intro = "Choose a courier identity. Stable choices create the world only when you join."
         for line in self._wrap_text(intro, box.width - 4 * char_width):
             surface = self.font_stack.render(line, self.theme.dim)
             self.screen.blit(surface, (box.centerx - surface.get_width() // 2, y))
-            y += char_height
-        y += char_height // 2
+            y += line_height
+        y += line_height // 2
 
         def row(field: str, label: str, value: str, x: int, top: int, row_width: int) -> int:
             """Draw a setup row without letting pack-authored text escape its column."""
@@ -254,37 +255,37 @@ class AsciiPygameFrontend(PygameFrontend):
             colour = self.theme.selected_fg if active else self.theme.foreground
             lines = self._wrap_text(f"{marker} {label}: {value}", max(char_width * 8, row_width - 4))
             for index, line in enumerate(lines):
-                line_y = top + index * char_height
+                line_y = top + index * line_height
                 if active:
-                    self.pygame.draw.rect(self.screen, self.theme.selected_bg, (x - 3, line_y - 1, row_width, char_height))
+                    self.pygame.draw.rect(self.screen, self.theme.selected_bg, (x - 3, line_y - 1, row_width, line_height - 2))
                 self._draw_text(line, (x, line_y), colour)
             return len(lines)
 
         self._draw_text("IDENTITY", (left_x, y), self.theme.title)
         identity_fields = ("crew", "ancestry", "origin", "trait")
-        identity_y = y + char_height
+        identity_y = y + line_height
         for index, field in enumerate(identity_fields):
             label = "Courier" if field == "crew" else field.title()
             identity_y += row(field, label, values[field], left_x, identity_y, left_width)
 
         attribute_spent = sum(draft.attributes.values()) - 6 * len(draft.attributes)
         self._draw_text(f"ATTRIBUTES  {attribute_spent}/{view.attribute_points}", (right_x, y), self.theme.title)
-        attribute_y = y + char_height
+        attribute_y = y + line_height
         for index, field in enumerate(view.attribute_ids):
             option = view.option(field)
             attribute_y += row(field, option.display_name if option else field.title(), values[field], right_x,
                                attribute_y, right_width)
 
-        competency_y = attribute_y + char_height
+        competency_y = attribute_y + line_height
         competency_spent = sum(draft.competencies.values())
         self._draw_text(f"COMPETENCIES  {competency_spent}/{view.competency_points}", (right_x, competency_y), self.theme.title)
-        competency_rows_y = competency_y + char_height
+        competency_rows_y = competency_y + line_height
         for index, field in enumerate(view.competency_ids):
             option = view.option(field)
             competency_rows_y += row(field, option.display_name if option else field.title(), values[field], right_x,
                                      competency_rows_y, right_width)
 
-        detail_y = max(identity_y, competency_rows_y) + char_height
+        detail_y = max(identity_y, competency_rows_y) + line_height
         selected_id = {"ancestry": draft.ancestry_id, "origin": draft.origin_id, "trait": draft.trait_id}.get(selected)
         option = view.option(selected_id) if selected_id else None
         if option and option.description:
@@ -293,20 +294,20 @@ class AsciiPygameFrontend(PygameFrontend):
             # window size.  The complete description remains available after
             # selecting the option; a compact page should never overlap Join.
             description_lines = self._wrap_text(option.description, box.width - 4 * char_width)
-            available_lines = max(0, (box.bottom - 5 * char_height - detail_y) // char_height)
+            available_lines = max(0, (box.bottom - 5 * line_height - detail_y) // line_height)
             for index, line in enumerate(description_lines[:available_lines]):
-                self._draw_text(line, (left_x, detail_y + (index + 1) * char_height), self.theme.foreground)
+                self._draw_text(line, (left_x, detail_y + (index + 1) * line_height), self.theme.foreground)
 
-        join_y = box.bottom - 4 * char_height
+        join_y = box.bottom - 4 * line_height
         active = selected == "begin"
         join = "> JOIN GAME <" if active else "  JOIN GAME"
         join_surface = self.font_stack.render(join, self.theme.selected_fg if active else self.theme.foreground)
         if active:
             self.pygame.draw.rect(self.screen, self.theme.selected_bg,
-                                  (box.centerx - join_surface.get_width() // 2 - 4, join_y - 1, join_surface.get_width() + 8, char_height))
+                                  (box.centerx - join_surface.get_width() // 2 - 4, join_y - 1, join_surface.get_width() + 8, line_height - 2))
         self.screen.blit(join_surface, (box.centerx - join_surface.get_width() // 2, join_y))
         hint = self.font_stack.render("Arrows/WASD adjust · Enter joins · Esc returns to title", self.theme.dim)
-        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 2 * char_height))
+        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 2 * line_height))
 
     def _draw_ascii_panel(self, lines: list[str]) -> None:
         if not lines:
