@@ -174,6 +174,47 @@ class ActiveGameplayCommandTests(unittest.TestCase):
         self.assertEqual(dropped.result_id, "item.dropped")
         self.assertEqual(dropped.events[0].event_id, "item.dropped")
 
+    def test_open_container_inventory_uses_a_stable_source_view_and_command(self):
+        from jomon.commands import MoveItemCommand
+        from jomon.inventory import create_item
+
+        state = create_world("container application boundary")
+        state.location = "region"
+        container = state.region.containers[0]
+        state.position, container.opened = container.position, True
+        item = create_item(state, "passive:rain cape", "activity fixture", location="container")
+        item.container_id = container.id
+        container.item_ids.append(item.id)
+        session = GameSession(state)
+
+        source_id = f"container:{container.id}"
+        source = session.inventory_view(source_id)
+        self.assertEqual(source.source_id, source_id)
+        self.assertEqual(source.items[0].id, item.id)
+        self.assertIn("move", source.items[0].legal_operations)
+        outcome = session.submit(MoveItemCommand(item.id, "pack"))
+        self.assertEqual(outcome.result_id, "item.moved")
+        self.assertEqual(outcome.events[0].from_location_id, source_id)
+        self.assertNotIn(item.id, container.item_ids)
+        self.assertEqual(next(row for row in session.inventory_view().items if row.id == item.id).location_id, "pack")
+        state.position = state.region.landmarks["landing"]
+        self.assertEqual(session.inventory_view(source_id).items, ())
+
+    def test_ground_inventory_uses_the_same_stable_source_boundary(self):
+        from jomon.commands import DropItemCommand, MoveItemCommand, UnequipItemCommand
+
+        session = GameSession(create_world("ground application boundary"))
+        equipped = session.equipment_view().slots[0]
+        self.assertTrue(session.submit(UnequipItemCommand(equipped.location_id)).changed)
+        self.assertTrue(session.submit(DropItemCommand(equipped.id)).changed)
+        source = session.inventory_view("ground")
+        self.assertEqual(source.source_id, "ground")
+        self.assertEqual(source.items[0].id, equipped.id)
+        self.assertIn("move", source.items[0].legal_operations)
+        outcome = session.submit(MoveItemCommand(equipped.id, "pack"))
+        self.assertEqual(outcome.result_id, "item.moved")
+        self.assertEqual(outcome.events[0].from_location_id, "ground")
+
     def test_active_activity_contexts_are_observational(self):
         state = create_world("activity coverage")
         session = GameSession(state)

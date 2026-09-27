@@ -229,6 +229,48 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_d, mod=0))
         self.assertEqual(frontend.last_result, "item.dropped")
 
+    def test_container_interaction_opens_a_stable_source_inventory_and_transfers(self):
+        from jomon.inventory import create_item
+
+        frontend = self.frontend(); state = frontend.session._state
+        state.location = "region"
+        container = state.region.containers[0]
+        state.position, container.opened = container.position, True
+        item = create_item(state, "passive:rain cape", "pygame fixture", location="container")
+        item.container_id = container.id
+        container.item_ids.append(item.id)
+
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertEqual(frontend.panel, "inventory")
+        self.assertEqual(frontend.inventory_source, f"container:{container.id}")
+        self.assertEqual(frontend._panel_rows()[0].id, item.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_t, mod=0))
+        self.assertEqual(frontend.last_result, "item.moved")
+        self.assertNotIn(item.id, container.item_ids)
+        self.assertEqual(next(row for row in frontend.session.inventory_view().items if row.id == item.id).location_id, "pack")
+
+    def test_inventory_auto_place_preference_uses_the_session_command(self):
+        frontend = self.frontend()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_i, mod=0))
+        before = frontend.session.auto_place_enabled
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_o, mod=0))
+        self.assertNotEqual(frontend.session.auto_place_enabled, before)
+        self.assertIn("Auto-place", frontend.notification.text)
+
+    def test_open_inventory_prefers_recoverable_ground_items(self):
+        from jomon.commands import DropItemCommand, UnequipItemCommand
+
+        frontend = self.frontend()
+        equipped = frontend.session.equipment_view().slots[0]
+        self.assertTrue(frontend.submit(UnequipItemCommand(equipped.location_id)).changed)
+        self.assertTrue(frontend.submit(DropItemCommand(equipped.id)).changed)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_i, mod=0))
+        self.assertEqual(frontend.panel, "inventory")
+        self.assertEqual(frontend.inventory_source, "ground")
+        self.assertEqual(frontend._panel_rows()[0].id, equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_t, mod=0))
+        self.assertEqual(frontend.last_result, "item.moved")
+
     def test_inventory_use_and_multiple_interactions_use_stable_view_records(self):
         from jomon.inventory import auto_place, create_item
         from jomon.state import Position

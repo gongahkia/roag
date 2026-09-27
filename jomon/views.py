@@ -66,6 +66,10 @@ class ItemView:
 @dataclass(frozen=True)
 class InventoryView:
     items: tuple[ItemView, ...]
+    # A physical source is an immutable view selection, not frontend state in
+    # the simulation.  ``container:<stable-id>`` and ``ground`` expose only a
+    # currently reachable physical source.
+    source_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -326,7 +330,7 @@ def actor_views(state: GameState) -> tuple[ActorView, ...]:
     return tuple(sorted(views, key=lambda view: view.id))
 
 
-def _item_view(state: GameState, item) -> ItemView:
+def _item_view(state: GameState, item, source_id: str | None = None) -> ItemView:
     """A selected-pack current item projection with only semantic operations."""
     from .inventory import item_spec
     from .item_presentation import item_display_name_or_legacy
@@ -341,6 +345,13 @@ def _item_view(state: GameState, item) -> ItemView:
     if ((item.owner_id == state.active_courier_id and item.location == "pack")
             or (state.location == "jomon" and item.location == "locker")):
         operations.append("move")
+    if source_id == f"container:{item.container_id}" and item.location == "container":
+        container = next((row for row in state.region.containers if row.id == item.container_id), None)
+        if container and container.opened and container.position == state.position:
+            operations.append("move")
+    if (source_id == "ground" and item.location == "ground"
+            and item.region_id == state.spatial_id and item.ground_position == state.position):
+        operations.append("move")
     if item.owner_id == state.active_courier_id and item.location == "pack":
         operations.append("drop")
     if (item.owner_id == state.active_courier_id
@@ -351,13 +362,35 @@ def _item_view(state: GameState, item) -> ItemView:
                     item.quantity, item.condition, item.location, equipped, tuple(operations))
 
 
-def inventory_view(state: GameState) -> InventoryView:
-    """Expose carried physical items without leaking mutable inventory records."""
+def inventory_view(state: GameState, source_id: str | None = None) -> InventoryView:
+    """Expose carried items or one current, already-open physical source."""
     owner = state.active_courier_id
-    rows = [_item_view(state, item) for item in state.items
-            if (item.owner_id == owner or state.location == "jomon" and item.location == "locker")
-            and item.location not in {"lost", "destroyed"}]
-    return InventoryView(tuple(sorted(rows, key=lambda row: (row.location_id, row.display_name, row.id))))
+    if source_id and source_id.startswith("container:"):
+        container_id = source_id.split(":", 1)[1]
+        container = next((row for row in state.region.containers if row.id == container_id), None)
+        rows = [
+            _item_view(state, item, source_id)
+            for item in state.items
+            if container and container.opened and container.position == state.position
+            and item.location == "container" and item.container_id == container_id
+            and item.location not in {"lost", "destroyed"}
+        ]
+    elif source_id == "ground":
+        rows = [
+            _item_view(state, item, source_id)
+            for item in state.items
+            if item.location == "ground" and item.region_id == state.spatial_id
+            and item.ground_position == state.position
+            and item.location not in {"lost", "destroyed"}
+        ]
+    else:
+        rows = [_item_view(state, item) for item in state.items
+                if (item.owner_id == owner or state.location == "jomon" and item.location == "locker")
+                and item.location not in {"lost", "destroyed"}]
+        source_id = None
+    return InventoryView(
+        tuple(sorted(rows, key=lambda row: (row.location_id, row.display_name, row.id))), source_id,
+    )
 
 
 def equipment_view(state: GameState) -> EquipmentView:

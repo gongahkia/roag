@@ -89,8 +89,8 @@ class GameSession:
     def interaction_view(self) -> InteractionView:
         return interaction_view(self._state)
 
-    def inventory_view(self) -> InventoryView:
-        return inventory_view(self._state)
+    def inventory_view(self, source_id: str | None = None) -> InventoryView:
+        return inventory_view(self._state, source_id)
 
     def equipment_view(self) -> EquipmentView:
         return equipment_view(self._state)
@@ -213,18 +213,41 @@ class GameSession:
         if isinstance(command, MoveItemCommand):
             if command.destination_id not in {"pack", "locker"} or not isinstance(command.item_id, str):
                 return self._reject("item.move.invalid", command.item_id)
-            item = next((row for row in self.inventory_view().items if row.id == command.item_id), None)
+            physical = next((row for row in self._state.items if row.id == command.item_id), None)
+            source_id = (
+                f"container:{physical.container_id}" if physical and physical.location == "container"
+                else "ground" if physical and physical.location == "ground"
+                else None
+            )
+            item = next((row for row in self.inventory_view(source_id).items if row.id == command.item_id), None)
             if item is None or "move" not in item.legal_operations or item.location_id == command.destination_id:
                 return self._reject("item.move.rejected", command.item_id)
-            from .inventory import sync_legacy_load, transfer_to_grid
-            moved = transfer_to_grid(self._state, command.item_id, command.destination_id,
-                                     owner_id=self._state.active_courier_id if command.destination_id == "pack" else None)
+            from .inventory import auto_place, record_acquisition, sync_legacy_load, transfer_to_grid
+            if item.location_id in {"container", "ground"}:
+                # This is the established terminal transfer behaviour: a
+                # source item is taken only when automatic placement can fit
+                # it, then its stable container membership is retired.
+                moved = self._state.auto_place_enabled and auto_place(
+                    self._state, command.item_id, "pack", owner_id=self._state.active_courier_id,
+                )
+                if moved and physical is not None:
+                    container = (
+                        next((row for row in self._state.region.containers
+                              if row.id == source_id.split(":", 1)[1]), None)
+                        if source_id and source_id.startswith("container:") else None
+                    )
+                    if container and command.item_id in container.item_ids:
+                        container.item_ids.remove(command.item_id)
+                    record_acquisition(self._state, physical)
+            else:
+                moved = transfer_to_grid(self._state, command.item_id, command.destination_id,
+                                         owner_id=self._state.active_courier_id if command.destination_id == "pack" else None)
             if not moved:
                 return self._reject("item.move.rejected", command.item_id)
             sync_legacy_load(self._state)
             return self._outcome(ActionResult(True, False, ""), "item.moved", command.item_id,
                                  (ItemMoved(self._state.active_courier_id or "courier", command.item_id,
-                                            item.location_id, command.destination_id),))
+                                            source_id or item.location_id, command.destination_id),))
         if isinstance(command, DropItemCommand):
             if not isinstance(command.item_id, str):
                 return self._reject("item.drop.invalid", command.item_id)

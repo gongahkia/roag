@@ -13,7 +13,7 @@ from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, DropItemCommand, EquipItemCommand, InteractCommand, MoveItemCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
-    ActivityCommand, CharacterSetupCommand, GuardCommand, NegotiateCommand, RetreatCommand,
+    ActivityCommand, CharacterSetupCommand, GuardCommand, NegotiateCommand, RetreatCommand, SetAutoPlaceCommand,
 )
 from .runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
@@ -124,6 +124,7 @@ class PygameFrontend:
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
         self.panel: str | None = None; self.panel_cursor = 0; self.activity_context: str | None = None
+        self.inventory_source: str | None = None
         self.marked_draw_cards: set[str] = set(); self.setup_draft: CharacterSetupDraft | None = None
         if require_character_setup:
             self._begin_character_setup()
@@ -228,7 +229,7 @@ class PygameFrontend:
         self.notification = Feedback(None, text, duration=2.0)
 
     def _panel_rows(self):
-        if self.panel == "inventory": return self.session.inventory_view().items
+        if self.panel == "inventory": return self.session.inventory_view(self.inventory_source).items
         if self.panel == "travel": return self.session.travel_view().destinations
         if self.panel == "interaction": return self.session.interaction_view().options
         if self.panel == "tavern-draw": return self.session.tavern_draw_view().available_opponents
@@ -312,6 +313,15 @@ class PygameFrontend:
         self.panel, self.panel_cursor = name, 0
         if name != "activity": self.activity_context = None
 
+    def _open_inventory(self, source_id: str | None = None) -> None:
+        """Open a current physical source without exposing its mutable records."""
+        self.inventory_source = source_id
+        self._open_panel("inventory")
+
+    def _open_current_inventory(self) -> None:
+        """Prefer recoverable ground items; normal pack access remains one close/reopen away."""
+        self._open_inventory("ground" if self.session.inventory_view("ground").items else None)
+
     def _open_activity(self, context_id: str) -> None:
         """Open a reducer-backed semantic choice surface."""
         view = self.session.activity_view(context_id)
@@ -351,7 +361,7 @@ class PygameFrontend:
             lines.append("Enter: resolve · Esc: close")
         else:
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
-            title = {"inventory": "Inventory  [U use / E equip / R unequip / T transfer / D drop]", "travel": "Travel  [Enter confirms]", "interaction": "Interaction  [Enter confirms]"}[self.panel]
+            title = {"inventory": "Inventory  [U use / E equip / R unequip / T transfer / D drop / O auto-place]", "travel": "Travel  [Enter confirms]", "interaction": "Interaction  [Enter confirms]"}[self.panel]
             lines = [title]
             for index, row in enumerate(rows):
                 marker = ">" if index == self.panel_cursor else " "
@@ -548,7 +558,12 @@ class PygameFrontend:
             if self.panel:
                 rows = self._panel_rows()
                 if event.key in {p.K_ESCAPE, p.K_i, p.K_q}:
-                    self.panel = None; self.activity_context = None; return
+                    self.panel = None; self.activity_context = None; self.inventory_source = None; return
+                if self.panel == "inventory" and event.key == p.K_o:
+                    outcome = self.submit(SetAutoPlaceCommand(not self.session.auto_place_enabled))
+                    self._notify("Auto-place enabled" if outcome.changed and self.session.auto_place_enabled else
+                                 "Auto-place disabled" if outcome.changed else "Auto-place unchanged")
+                    return
                 if event.key in {p.K_UP, p.K_w}: self.panel_cursor = max(0, self.panel_cursor - 1); return
                 if event.key in {p.K_DOWN, p.K_s}: self.panel_cursor = min(max(0, len(rows) - 1), self.panel_cursor + 1); return
                 if not rows: return
@@ -567,8 +582,10 @@ class PygameFrontend:
                     self.submit(TravelCommand(selected.destination_id)); self.panel = None; return
                 if self.panel == "interaction" and event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_e}:
                     outcome = self.submit(InteractCommand(selected.target_id, selected.interaction_id)); self.panel = None
-                    if outcome.overlay_id in {"equipment", "hold"} or (outcome.overlay_id or "").startswith("inventory:container:"):
-                        self._open_panel("inventory")
+                    if outcome.overlay_id in {"equipment", "hold"}:
+                        self._open_inventory()
+                    elif (outcome.overlay_id or "").startswith("inventory:container:"):
+                        self._open_inventory(outcome.overlay_id.removeprefix("inventory:"))
                     elif outcome.overlay_id == "route-chart": self._open_panel("travel")
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                     return
@@ -615,15 +632,17 @@ class PygameFrontend:
                     outcome = self.submit(InteractCommand(choices[0].target_id,choices[0].interaction_id))
                     if outcome.overlay_id == "tavern-draw": self._open_panel("tavern-draw")
                     elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
-                    elif outcome.overlay_id in {"equipment", "hold"} or outcome.overlay_id.startswith("inventory:container:"):
-                        self._open_panel("inventory")
+                    elif outcome.overlay_id in {"equipment", "hold"}:
+                        self._open_inventory()
+                    elif outcome.overlay_id.startswith("inventory:container:"):
+                        self._open_inventory(outcome.overlay_id.removeprefix("inventory:"))
                     elif outcome.overlay_id == "route-chart": self._open_panel("travel")
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                 elif choices: self._open_panel("interaction")
             elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id, self.selected))
             elif event.key==p.K_g: self.submit(GuardCommand(self.selected_actor_id))
             elif event.key==p.K_r: self.submit(RetreatCommand())
-            elif event.key==p.K_i: self._open_panel("inventory")
+            elif event.key==p.K_i: self._open_current_inventory()
             elif event.key==p.K_q: self._open_panel("quests")
             elif event.key==p.K_t: self._open_panel("travel")
             elif event.key==p.K_c: self._open_activity("production")
