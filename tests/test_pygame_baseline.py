@@ -22,6 +22,11 @@ class RendererTests(unittest.TestCase):
   select_content_pack(ROOT.parents[0]/'jomon'/'content_packs'/'template')
   app=create_frontend(None,renderer='debug',pygame=pygame);app._activate('settings');app._activate('ascii')
   self.assertIsNone(app.session);self.assertEqual(app.requested_renderer,'ascii')
+ def test_renderer_replacement_keeps_the_live_session(self):
+  from jomon.pygame_frontend import create_frontend
+  select_content_pack(ROOT/'fixtures'/'synthetic_content_pack');session=GameSession.create('switch')
+  app=create_frontend(session,renderer='debug',pygame=pygame);app.requested_renderer='ascii';replacement=app.replacement_renderer()
+  self.assertEqual(replacement.renderer_id,'ascii');self.assertIs(replacement.session,session)
  def test_synthetic_pack_renders_same_world_in_both_skins(self):
   from jomon.pygame_frontend import create_frontend
   select_content_pack(ROOT/'fixtures'/'synthetic_content_pack');session=GameSession.create('renderer')
