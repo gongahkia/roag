@@ -32,6 +32,15 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertEqual(frontend.panel, "setup")
         self.assertIsNone(frontend.session)
         self.assertIsNotNone(frontend.setup_draft)
+        from jomon.session import GameSession
+        from jomon.ui_presentation import ui_text
+        setup_view = GameSession.pending_character_setup_view("pygame-setup")
+        ancestry = setup_view.option("Human")
+        origin = setup_view.option("hearthford")
+        trait = setup_view.option("steady")
+        self.assertEqual(ancestry.display_name, ui_text("ui.setup.ancestry.human.label"))
+        self.assertEqual(origin.description, ui_text("ui.setup.origin.hearthford.description"))
+        self.assertEqual(trait.display_name, ui_text("ui.setup.trait.steady.label"))
         assert frontend.setup_draft is not None
         frontend.setup_draft.cursor = frontend._setup_fields().index("begin")
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
@@ -48,6 +57,8 @@ class PygameFrontendTests(unittest.TestCase):
                                  seed="pre-game", size=(640, 480))
         self.assertIsNone(frontend.session)
         frontend.draw()  # Setup is renderable without querying a world view.
+        frontend.screen = self.pygame.display.set_mode((960, 640), self.pygame.RESIZABLE)
+        frontend.draw()  # Shell pages recompute their layout from the window.
         draft = frontend.setup_draft
         assert draft is not None
         before = (draft.crew_id, draft.ancestry_id, draft.origin_id, draft.trait_id,
@@ -91,6 +102,9 @@ class PygameFrontendTests(unittest.TestCase):
             )
             self.assertEqual(frontend.panel, "title")
             self.assertIsNone(frontend.session)
+            frontend.draw()
+            frontend.screen = self.pygame.display.set_mode((960, 640), self.pygame.RESIZABLE)
+            frontend.draw()
             self.assertFalse(next(row for row in frontend._panel_rows() if row.action_id == "continue").enabled)
             frontend._activate_shell("join")
             self.assertEqual(frontend.panel, "setup")

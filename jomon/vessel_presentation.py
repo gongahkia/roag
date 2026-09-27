@@ -56,6 +56,17 @@ def drink_drawback(drink_id: str) -> str:
     return vessel_text(f"vessel.drink.{drink_id}.drawback")
 
 
+def vessel_area_name(space_id: str, deck: int) -> str:
+    """Resolve an engine-owned vessel location to selected-pack wording."""
+    if space_id == "tavern":
+        return vessel_text("vessel.area.tavern")
+    if space_id == "harbour":
+        return vessel_text("vessel.area.harbour")
+    return vessel_text({
+        -1: "vessel.area.below", 0: "vessel.area.deck", 1: "vessel.area.helm",
+    }.get(deck, "vessel.area.default"))
+
+
 def refit_display_name(refit_id: str) -> str:
     return vessel_text(f"vessel.refit.{refit_id}.name")
 

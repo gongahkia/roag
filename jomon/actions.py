@@ -116,14 +116,14 @@ def inspect(state: GameState, subject: str = "area") -> ActionResult:
     if subject == "household":
         living = sum(person.alive for person in state.household)
         active = state.courier.name if state.courier else "not chosen"
-        text = f"Household: {living}/6 living; active courier {active}."
+        text = action_format("action.inspect.household", living=living, active=active)
     elif subject == "cargo":
         goods = ", ".join(
             f"{item_display_name(name)} {stack.quantity}" for name, stack in state.vessel_cargo.items()
         )
-        text = f"Jomon hold: {goods}. {state.region.pressure}"
+        text = action_format("action.inspect.cargo", goods=goods, pressure=state.region.pressure)
     else:
-        text = f"{state.region.condition} {state.region.objective_text}"
+        text = action_format("action.inspect.area", condition=state.region.condition, objective=state.region.objective_text)
     return _plain(state, text, overlay=text)
 
 

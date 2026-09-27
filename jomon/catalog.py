@@ -288,6 +288,8 @@ _VESSEL_TEMPLATE_CONTRACT = {
     "vessel.bar.detail.benefit": ("benefit",), "vessel.bar.detail.drawback": ("drawback",),
     "vessel.bar.detail.duration": ("duration", "cost"), "vessel.bar.detail.stock": ("stock",),
     "vessel.bar.detail.drink": (), "vessel.bar.detail.bottle": (),
+    "vessel.area.tavern": (), "vessel.area.harbour": (), "vessel.area.below": (),
+    "vessel.area.deck": (), "vessel.area.helm": (), "vessel.area.default": (),
     **{f"vessel.refit.{refit_id}.name": () for refit_id in _VESSEL_REFIT_IDS},
     **{f"vessel.refit.{refit_id}.effect": () for refit_id in _VESSEL_REFIT_IDS},
     **{f"vessel.refit.{refit_id}.drawback": () for refit_id in _VESSEL_REFIT_IDS},
@@ -808,6 +810,12 @@ _ACTION_TEMPLATE_CONTRACT.update({'action.sound.echo_bead': ('level',), 'action.
 
 _ACTION_TEMPLATE_CONTRACT.update({'action.depart.started.tug': ('region',), 'action.depart.started.gangplank': ('region',), 'action.interact.vertical.combat.down': (), 'action.interact.vertical.combat.up': (), 'action.interact.vertical.down': (), 'action.interact.vertical.up': (), 'action.interact.station.G': (), 'action.interact.station.R': (), 'action.interact.station.b': (), 'action.interact.station.U': (), 'action.interact.station.p': (), 'action.interact.station.W': (), 'action.interact.station.S': (), 'action.interact.station.N': (), 'action.interact.station.O': (), 'action.interact.station.T': (), 'action.interact.station.s': ()})
 
+_ACTION_TEMPLATE_CONTRACT.update({
+    "action.inspect.household": ("living", "active"),
+    "action.inspect.cargo": ("goods", "pressure"),
+    "action.inspect.area": ("condition", "objective"),
+})
+
 _ARC_RELIC_IDS = ("common-work-rivet", "counterclaim-lodestone", "lee-cloth-brooch", "channel-surety-shuttle")
 _LEGENDARY_TEMPLATE_CONTRACT = {
     "legendary.object.noun.0": (), "legendary.object.noun.1": (), "legendary.object.noun.2": (),
@@ -855,6 +863,7 @@ _TOPOLOGY_TEMPLATE_CONTRACT = {
     "topology.hearthford.container.watch": (),
     "topology.hearthford.container.roof": (),
     "topology.hearthford.container.compact": (),
+    "topology.area.below": (), "topology.area.roof": (), "topology.area.upper": (),
 }
 
 _REGIONAL_GENERATOR_SLOTS = {

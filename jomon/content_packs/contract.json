@@ -4456,6 +4456,18 @@
       "placeholders": []
     },
     {
+      "id": "topology.area.below",
+      "placeholders": []
+    },
+    {
+      "id": "topology.area.roof",
+      "placeholders": []
+    },
+    {
+      "id": "topology.area.upper",
+      "placeholders": []
+    },
+    {
       "id": "topology.navigation.landmark.landing",
       "placeholders": []
     },
@@ -8665,6 +8677,27 @@
       "placeholders": []
     },
     {
+      "id": "action.inspect.household",
+      "placeholders": [
+        "living",
+        "active"
+      ]
+    },
+    {
+      "id": "action.inspect.cargo",
+      "placeholders": [
+        "goods",
+        "pressure"
+      ]
+    },
+    {
+      "id": "action.inspect.area",
+      "placeholders": [
+        "condition",
+        "objective"
+      ]
+    },
+    {
       "id": "intent.brace.retreated",
       "placeholders": []
     },
@@ -9779,6 +9812,30 @@
     },
     {
       "id": "vessel.bar.detail.bottle",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.tavern",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.harbour",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.below",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.deck",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.helm",
+      "placeholders": []
+    },
+    {
+      "id": "vessel.area.default",
       "placeholders": []
     },
     {

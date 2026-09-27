@@ -505,15 +505,9 @@ def find_tile(rows: list[str] | tuple[str, ...], tile: str, z: int = 0) -> Posit
 
 def area_name(state: GameState) -> str:
     if state.location == "jomon":
-        if state.jomon_space == "tavern":
-            return "Jomon — common tavern"
-        if state.jomon_space == "harbour":
-            return "Jomon — open-water approach"
-        return {
-            -1: "Jomon — hold and lower berths",
-            0: "Jomon — working deck",
-            1: "Jomon — helm and weather deck",
-        }.get(state.position.z, "Jomon")
+        from .vessel_presentation import vessel_area_name
+
+        return vessel_area_name(state.jomon_space, state.position.z)
     entry = state.region.landmarks.get("sanctum_entry")
     if entry and state.position.z in {1, 2} and (
         entry.x - 2 <= state.position.x <= entry.x + 12
@@ -535,12 +529,14 @@ def area_name(state: GameState) -> str:
                 and abs(state.position.x - anchor.x) <= 3
                 and abs(state.position.y - anchor.y) <= 2):
             return f"{state.region.name} — {structure_name(state.active_region_id, key)}"
+    from .topology_presentation import topology_text
+
     if state.position.z < 0:
-        return f"{state.region.name} — below"
+        return f"{state.region.name} — {topology_text('topology.area.below')}"
     if state.position.z == 2:
-        return f"{state.region.name} — roof and high route"
+        return f"{state.region.name} — {topology_text('topology.area.roof')}"
     if state.position.z == 1:
-        return f"{state.region.name} — upper works"
+        return f"{state.region.name} — {topology_text('topology.area.upper')}"
     for name, (x1, y1, x2, y2) in state.region.zones.items():
         if x1 <= state.position.x <= x2 and y1 <= state.position.y <= y2:
             return name

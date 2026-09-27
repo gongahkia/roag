@@ -161,8 +161,10 @@ class AsciiPygameFrontend(PygameFrontend):
         char_width, char_height = self._cell_metrics()
         full_page = self.panel in {"title", "setup"}
         if full_page:
-            max_columns = max(32, min((width - 80) // char_width, max(42, max(len(line) for line in lines) + 10)))
-            max_rows = max(14, min((height - 80) // char_height - 2, max(len(lines) + 6, 18)))
+            # Application pages intentionally occupy the available Pygame
+            # window; terminal styling is a composition, not an 80×24 box.
+            max_columns = max(32, (width - 80) // char_width)
+            max_rows = max(14, (height - 80) // char_height - 2)
             box = self.pygame.Rect((width - max_columns * char_width) // 2, (height - (max_rows + 2) * char_height) // 2,
                                    max_columns * char_width, (max_rows + 2) * char_height)
         else:
@@ -172,9 +174,34 @@ class AsciiPygameFrontend(PygameFrontend):
         self.pygame.draw.rect(self.screen, (10, 18, 34), box)
         self.pygame.draw.rect(self.screen, self.theme.title, box, 1)
         self._draw_text("╔" + "═" * (max_columns - 2) + "╗", (box.x, box.y), self.theme.title)
-        for index, line in enumerate(lines[:max_rows]):
-            colour = self.theme.title if index == 0 else self.theme.selected_fg if line.startswith(">") else self.theme.dim if ("Enter" in line or "Esc" in line or "locked" in line) else self.theme.foreground
-            self._draw_text((line[:max_columns - 2]).ljust(max_columns - 2), (box.x + char_width, box.y + (index + 1) * char_height), colour)
+        if self.panel == "title":
+            # The landing page is deliberately composed across the full page
+            # instead of treating the terminal motif as a small upper-left widget.
+            heading = "J O M O N"
+            subtitle = "A deterministic river-world expedition"
+            heading_surface = self.font_stack.render(heading, self.theme.title)
+            subtitle_surface = self.font_stack.render(subtitle, self.theme.dim)
+            heading_y = box.y + max_rows * char_height // 5
+            self.screen.blit(heading_surface, (box.centerx - heading_surface.get_width() // 2, heading_y))
+            self.screen.blit(subtitle_surface, (box.centerx - subtitle_surface.get_width() // 2, heading_y + 2 * char_height))
+            rows = self._panel_rows()
+            menu_y = box.y + max_rows * char_height // 2
+            for index, row in enumerate(rows):
+                marker = ">" if index == self.panel_cursor else " "
+                suffix = "" if row.enabled else " [locked]"
+                value = f"{marker} {row.label}{suffix}"
+                colour = self.theme.selected_fg if index == self.panel_cursor and row.enabled else self.theme.dim if not row.enabled else self.theme.foreground
+                surface = self.font_stack.render(value, colour)
+                self.screen.blit(surface, (box.centerx - surface.get_width() // 2, menu_y + index * 2 * char_height))
+                if row.detail and index == self.panel_cursor:
+                    detail = self.font_stack.render(row.detail, self.theme.dim)
+                    self.screen.blit(detail, (box.centerx - detail.get_width() // 2, menu_y + (len(rows) + 1) * 2 * char_height))
+            hint = self.font_stack.render("Enter selects · Esc remains here", self.theme.dim)
+            self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 2 * char_height))
+        else:
+            for index, line in enumerate(lines[:max_rows]):
+                colour = self.theme.title if index == 0 else self.theme.selected_fg if line.startswith(">") else self.theme.dim if ("Enter" in line or "Esc" in line or "locked" in line) else self.theme.foreground
+                self._draw_text((line[:max_columns - 2]).ljust(max_columns - 2), (box.x + char_width, box.y + (index + 1) * char_height), colour)
         self._draw_text("╚" + "═" * (max_columns - 2) + "╝", (box.x, box.y + (max_rows + 1) * char_height), self.theme.title)
 
     def _panel_lines(self) -> list[str]:

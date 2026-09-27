@@ -222,6 +222,12 @@
     "vessel.story.outcome.eight_waters.household": "Household ties and careful hull repairs take precedence over wider claims.",
     "vessel.story.outcome.eight_waters.separate": "Separate accounts lighten obligations; each port still judges Jomon for itself.",
     "vessel.story.memory": "{story}: {outcome}",
-    "vessel.story.record": "{story}: {branch}. {outcome}"
+    "vessel.story.record": "{story}: {branch}. {outcome}",
+    "vessel.area.tavern": "Jomon \u2014 common tavern",
+    "vessel.area.harbour": "Jomon \u2014 open-water approach",
+    "vessel.area.below": "Jomon \u2014 hold and lower berths",
+    "vessel.area.deck": "Jomon \u2014 working deck",
+    "vessel.area.helm": "Jomon \u2014 helm and weather deck",
+    "vessel.area.default": "Jomon"
   }
 }
