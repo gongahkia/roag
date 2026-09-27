@@ -21,6 +21,17 @@ _FEATURE_FALLBACKS = {
     "feature.tavern.door_closed": "+",
 }
 
+# Regional cells currently expose their stable token identity through
+# ``terrain.region.token.<codepoint>``.  This is a presentation mapping over
+# that semantic ID; it never feeds collision, visibility, or traversal.
+_REGION_TOKEN_COLOUR_ROLES = {
+    ".": "terrain", "m": "terrain", ";": "vegetation", "t": "vegetation", "T": "vegetation",
+    ",": "water", "~": "water", "w": "water", "_": "water",
+    "#": "wall", "r": "wall", "q": "wall", "%": "wall",
+    "=": "path", "+": "travel", "/": "travel", "<": "travel", ">": "travel", "O": "travel",
+    "&": "circuit", "d": "interactable",
+}
+
 
 @dataclass(frozen=True)
 class AsciiTheme:
@@ -30,6 +41,7 @@ class AsciiTheme:
     dim: tuple[int, int, int] = (98, 115, 132)
     title: tuple[int, int, int] = (125, 191, 246)
     terrain: tuple[int, int, int] = (130, 157, 179)
+    vegetation: tuple[int, int, int] = (119, 171, 111)
     wall: tuple[int, int, int] = (154, 132, 111)
     path: tuple[int, int, int] = (169, 178, 139)
     water: tuple[int, int, int] = (78, 156, 205)
@@ -94,13 +106,18 @@ class AsciiPygameFrontend(PygameFrontend):
         return (mouse[1] - menu_y) // (2 * char_height)
 
     def _camera(self, view: WorldView) -> tuple[int, int]:
-        cell_width, cell_height = self._cell_metrics()
         width, height = self.screen.get_size()
-        return width // 2 - view.courier_position.x * cell_width, height // 2 - view.courier_position.y * cell_height
+        # Use the same logical tile scale and camera policy as Debug.  ASCII
+        # changes the cell skin, not the world coordinate system or zoom.
+        return width // 2 - view.courier_position.x * self.tile_size, height // 2 - view.courier_position.y * self.tile_size
 
     def _rect(self, point, camera):
-        cell_width, cell_height = self._cell_metrics()
-        return self.pygame.Rect(camera[0] + point.x * cell_width, camera[1] + point.y * cell_height, cell_width, cell_height)
+        return self.pygame.Rect(
+            camera[0] + point.x * self.tile_size,
+            camera[1] + point.y * self.tile_size,
+            self.tile_size,
+            self.tile_size,
+        )
 
     @staticmethod
     def _region_token(cell: CellView) -> str:
@@ -125,23 +142,31 @@ class AsciiPygameFrontend(PygameFrontend):
         """Choose a renderer-only role from semantic terrain and features."""
         identities = (cell.terrain_id, cell.topology_id or "", *cell.feature_ids)
         joined = " ".join(identities).lower()
-        if "water" in joined or "flood" in joined:
+        if "field.water" in joined or "water" in joined or "flood" in joined:
             colour = self.theme.water
+        elif any(token in joined for token in ("exit", "gangplank", "route", "travel", "door")):
+            colour = self.theme.travel
+        elif any(token in joined for token in ("item", "loot", "container")):
+            colour = self.theme.item
+        elif any(token in joined for token in ("vessel", "engine", "station")):
+            colour = self.theme.vessel
         elif "wall" in joined or "structure" in joined:
             colour = self.theme.wall
         elif "path" in joined or "passage" in joined or "floor" in joined:
             colour = self.theme.path
-        elif any(token in joined for token in ("exit", "gangplank", "route", "travel", "door")):
-            colour = self.theme.travel
-        elif any(token in joined for token in ("vessel", "engine", "station")):
-            colour = self.theme.vessel
-        elif any(token in joined for token in ("item", "loot", "container")):
-            colour = self.theme.item
+        elif cell.terrain_id.startswith("terrain.region.token."):
+            role = _REGION_TOKEN_COLOUR_ROLES.get(self._region_token(cell), "terrain")
+            colour = getattr(self.theme, role)
         elif cell.feature_ids:
             colour = self.theme.interactable
         else:
             colour = self.theme.terrain
         return colour if cell.visible else _remembered(colour)
+
+    def _draw_world_glyph(self, glyph: str, rect: Any, colour: tuple[int, int, int], *, icon: bool = False) -> None:
+        """Centre one text/icon skin inside the shared logical tile bounds."""
+        surface = self.font_stack.render(glyph, colour, icon=icon)
+        self.screen.blit(surface, surface.get_rect(center=rect.center))
 
     def _actor_colour(self, actor: ActorView) -> tuple[int, int, int]:
         if not actor.alive:
@@ -170,8 +195,118 @@ class AsciiPygameFrontend(PygameFrontend):
             self.screen.blit(surface, (x, y))
             x += surface.get_width()
 
+    def _draw_ascii_setup(self) -> None:
+        """Draw a structured, wrapped pre-game page without a world session."""
+        draft = self.setup_draft
+        if draft is None:
+            return
+        width, height = self.screen.get_size()
+        char_width, char_height = self._cell_metrics()
+        columns = max(32, (width - 80) // char_width)
+        rows = max(14, (height - 80) // char_height - 2)
+        box = self.pygame.Rect(
+            (width - columns * char_width) // 2,
+            (height - (rows + 2) * char_height) // 2,
+            columns * char_width,
+            (rows + 2) * char_height,
+        )
+        self.pygame.draw.rect(self.screen, (10, 18, 34), box)
+        self.pygame.draw.rect(self.screen, self.theme.title, box, 1)
+        self._draw_text("╔" + "═" * (columns - 2) + "╗", (box.x, box.y), self.theme.title)
+        self._draw_text("╚" + "═" * (columns - 2) + "╝", (box.x, box.bottom - char_height), self.theme.title)
+
+        view = GameSession.pending_character_setup_view(self.new_game_seed, draft.crew_id)
+        fields = self._setup_fields()
+        selected = fields[draft.cursor] if fields else ""
+        crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
+        values = {
+            "crew": f"{crew.display_name} / {crew.role_label}",
+            "ancestry": view.option(draft.ancestry_id).display_name if view.option(draft.ancestry_id) else draft.ancestry_id,
+            "origin": view.option(draft.origin_id).display_name if view.option(draft.origin_id) else draft.origin_id,
+            "trait": view.option(draft.trait_id).display_name if view.option(draft.trait_id) else draft.trait_id,
+            **{key: str(value) for key, value in draft.attributes.items()},
+            **{key: str(value) for key, value in draft.competencies.items()},
+        }
+        left_x = box.x + 2 * char_width
+        left_width = max(22 * char_width, box.width * 46 // 100)
+        right_x = left_x + left_width + 2 * char_width
+        right_width = box.right - char_width - right_x
+        heading = self.font_stack.render("CHARACTER CUSTOMIZATION", self.theme.title)
+        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 2 * char_height))
+        y = box.y + 5 * char_height
+        intro = "Choose a courier identity. Stable choices create the world only when you join."
+        for line in self._wrap_text(intro, box.width - 4 * char_width):
+            surface = self.font_stack.render(line, self.theme.dim)
+            self.screen.blit(surface, (box.centerx - surface.get_width() // 2, y))
+            y += char_height
+        y += char_height // 2
+
+        def row(field: str, label: str, value: str, x: int, top: int, row_width: int) -> int:
+            """Draw a setup row without letting pack-authored text escape its column."""
+            active = field == selected
+            marker = ">" if active else " "
+            colour = self.theme.selected_fg if active else self.theme.foreground
+            lines = self._wrap_text(f"{marker} {label}: {value}", max(char_width * 8, row_width - 4))
+            for index, line in enumerate(lines):
+                line_y = top + index * char_height
+                if active:
+                    self.pygame.draw.rect(self.screen, self.theme.selected_bg, (x - 3, line_y - 1, row_width, char_height))
+                self._draw_text(line, (x, line_y), colour)
+            return len(lines)
+
+        self._draw_text("IDENTITY", (left_x, y), self.theme.title)
+        identity_fields = ("crew", "ancestry", "origin", "trait")
+        identity_y = y + char_height
+        for index, field in enumerate(identity_fields):
+            label = "Courier" if field == "crew" else field.title()
+            identity_y += row(field, label, values[field], left_x, identity_y, left_width)
+
+        attribute_spent = sum(draft.attributes.values()) - 6 * len(draft.attributes)
+        self._draw_text(f"ATTRIBUTES  {attribute_spent}/{view.attribute_points}", (right_x, y), self.theme.title)
+        attribute_y = y + char_height
+        for index, field in enumerate(view.attribute_ids):
+            option = view.option(field)
+            attribute_y += row(field, option.display_name if option else field.title(), values[field], right_x,
+                               attribute_y, right_width)
+
+        competency_y = attribute_y + char_height
+        competency_spent = sum(draft.competencies.values())
+        self._draw_text(f"COMPETENCIES  {competency_spent}/{view.competency_points}", (right_x, competency_y), self.theme.title)
+        competency_rows_y = competency_y + char_height
+        for index, field in enumerate(view.competency_ids):
+            option = view.option(field)
+            competency_rows_y += row(field, option.display_name if option else field.title(), values[field], right_x,
+                                     competency_rows_y, right_width)
+
+        detail_y = max(identity_y, competency_rows_y) + char_height
+        selected_id = {"ancestry": draft.ancestry_id, "origin": draft.origin_id, "trait": draft.trait_id}.get(selected)
+        option = view.option(selected_id) if selected_id else None
+        if option and option.description:
+            self._draw_text("ABOUT", (left_x, detail_y), self.theme.title)
+            # Preserve room for the primary action and footer at every normal
+            # window size.  The complete description remains available after
+            # selecting the option; a compact page should never overlap Join.
+            description_lines = self._wrap_text(option.description, box.width - 4 * char_width)
+            available_lines = max(0, (box.bottom - 5 * char_height - detail_y) // char_height)
+            for index, line in enumerate(description_lines[:available_lines]):
+                self._draw_text(line, (left_x, detail_y + (index + 1) * char_height), self.theme.foreground)
+
+        join_y = box.bottom - 4 * char_height
+        active = selected == "begin"
+        join = "> JOIN GAME <" if active else "  JOIN GAME"
+        join_surface = self.font_stack.render(join, self.theme.selected_fg if active else self.theme.foreground)
+        if active:
+            self.pygame.draw.rect(self.screen, self.theme.selected_bg,
+                                  (box.centerx - join_surface.get_width() // 2 - 4, join_y - 1, join_surface.get_width() + 8, char_height))
+        self.screen.blit(join_surface, (box.centerx - join_surface.get_width() // 2, join_y))
+        hint = self.font_stack.render("Arrows/WASD adjust · Enter joins · Esc returns to title", self.theme.dim)
+        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 2 * char_height))
+
     def _draw_ascii_panel(self, lines: list[str]) -> None:
         if not lines:
+            return
+        if self.panel == "setup":
+            self._draw_ascii_setup()
             return
         width, height = self.screen.get_size()
         char_width, char_height = self._cell_metrics()
@@ -314,7 +449,7 @@ class AsciiPygameFrontend(PygameFrontend):
             if self.selected == cell.position:
                 self.pygame.draw.rect(self.screen, self.theme.selected_bg, rect)
             colour = self._cell_colour(cell)
-            self._draw_text(self._cell_glyph(cell), (rect.x, rect.y), colour)
+            self._draw_world_glyph(self._cell_glyph(cell), rect, colour)
         actors = {actor.id: actor for actor in session.actor_views()}
         for cell in view.cells:
             if cell.position not in visible or not cell.actor_ids:
@@ -325,9 +460,9 @@ class AsciiPygameFrontend(PygameFrontend):
             icon = "npc" if actor.actor_kind == "person" else "threat"
             colour = self._actor_colour(actor)
             rect = self._rect(cell.position, camera)
-            self._draw_text(self.font_stack.icon(icon), (rect.x, rect.y), colour, icon=True)
+            self._draw_world_glyph(self.font_stack.icon(icon), rect, colour, icon=True)
         courier = self._rect(view.courier_position, camera)
-        self._draw_text(self.font_stack.icon("courier"), (courier.x, courier.y), self.theme.player, icon=True)
+        self._draw_world_glyph(self.font_stack.icon("courier"), courier, self.theme.player, icon=True)
         if self.selected:
             self.pygame.draw.rect(self.screen, self.theme.selected_fg, self._rect(self.selected, camera), 1)
         self._draw_runs((

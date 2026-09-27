@@ -224,6 +224,26 @@ class PygameFrontend:
         """Readable frontend formatting of a stable identity, not catalog prose."""
         return identity.replace(".", " ").replace("_", " ")
 
+    def _wrap_text(self, value: str, maximum_width: int) -> tuple[str, ...]:
+        """Wrap frontend text by rendered width, never by a guessed column count."""
+        if maximum_width <= 0:
+            return (value,)
+        words = value.split()
+        if not words:
+            return ("",)
+        lines: list[str] = []
+        line = ""
+        for word in words:
+            candidate = word if not line else f"{line} {word}"
+            if line and self.font.size(candidate)[0] > maximum_width:
+                lines.append(line)
+                line = word
+            else:
+                line = candidate
+        if line:
+            lines.append(line)
+        return tuple(lines)
+
     def inspection_data(self) -> InspectionData | None:
         """Project a selected known cell without querying mutable engine internals."""
         if self.selected is None:
@@ -556,23 +576,67 @@ class PygameFrontend:
             **{key: str(value) for key, value in draft.competencies.items()},
             "begin": "Start ordinary play",
         }
-        heading = self.font_stack.render("CHARACTER CUSTOMIZATION", (238, 238, 248))
-        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 30))
-        lines = ["Choose an existing courier identity.  Stable choices become world setup only when you join.",
-                 f"Attributes {attribute_spent}/{view.attribute_points}; competencies {competency_spent}/{view.competency_points}"]
-        for index, field in enumerate(fields):
-            marker = ">" if index == draft.cursor else " "
-            lines.append(f"{marker} {self._semantic_label(field)}: {values[field]}")
+        title_colour, section_colour = (238, 238, 248), (144, 201, 242)
+        heading = self.font_stack.render("CHARACTER CUSTOMIZATION", title_colour)
+        self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 28))
+
+        content_x, content_width = box.x + 34, box.width - 68
+        y = box.y + 72
+        intro = "Choose a courier identity. These stable choices create the world only when you join."
+        for line in self._wrap_text(intro, content_width):
+            self.screen.blit(self.font.render(line, True, (181, 194, 210)), (content_x, y))
+            y += 21
+        y += 10
+
         selected_field = fields[draft.cursor] if fields else ""
+
+        def draw_section(title: str, rows: tuple[str, ...], columns: int = 1) -> None:
+            nonlocal y
+            self.screen.blit(self.font.render(title, True, section_colour), (content_x, y))
+            y += 24
+            column_width = content_width // columns
+            column_bottoms: list[int] = []
+            for column in range(columns):
+                x = content_x + column * column_width
+                row_y = y
+                for index in range(column, len(rows), columns):
+                    field = rows[index]
+                    active = field == selected_field
+                    option = view.option(field)
+                    label = option.display_name if option else self._semantic_label(field).title()
+                    lines = self._wrap_text(f"{'> ' if active else '  '}{label}: {values[field]}", column_width - 12)
+                    for line in lines:
+                        if active:
+                            self.pygame.draw.rect(self.screen, (48, 62, 82), (x - 5, row_y - 2, column_width - 8, 22))
+                        colour = (255, 224, 119) if active else (232, 235, 241)
+                        self.screen.blit(self.font.render(line, True, colour), (x, row_y))
+                        row_y += 24
+                column_bottoms.append(row_y)
+            y = max(column_bottoms, default=y) + 10
+
+        draw_section("IDENTITY", ("crew", "ancestry", "origin", "trait"))
+        draw_section(f"ATTRIBUTES  {attribute_spent}/{view.attribute_points}", tuple(view.attribute_ids), 2)
+        draw_section(f"COMPETENCIES  {competency_spent}/{view.competency_points}", tuple(view.competency_ids), 2)
+
         selected_id = {"ancestry": draft.ancestry_id, "origin": draft.origin_id, "trait": draft.trait_id}.get(selected_field)
         selected_option = view.option(selected_id) if selected_id else None
         if selected_option and selected_option.description:
-            lines += ["", selected_option.description]
-        for index, line in enumerate(lines):
-            colour = (245, 218, 118) if index >= 2 and index - 2 == draft.cursor else (238, 238, 238)
-            self.screen.blit(self.font.render(line, True, colour), (box.x + 28, box.y + 84 + index * 22))
-        hint = self.font.render("Arrows/WASD adjust · Enter: join game · Esc: back", True, (150, 180, 220))
-        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 34))
+            description_y = min(y, box.bottom - 90)
+            self.screen.blit(self.font.render("ABOUT", True, section_colour), (content_x, description_y))
+            available_lines = max(0, (box.bottom - 94 - description_y) // 20)
+            for index, line in enumerate(self._wrap_text(selected_option.description, content_width)[:available_lines]):
+                self.screen.blit(self.font.render(line, True, (194, 203, 216)), (content_x, description_y + 23 + index * 20))
+
+        begin_active = selected_field == "begin"
+        begin_colour = (255, 224, 119) if begin_active else (232, 235, 241)
+        begin_label = f"{'> ' if begin_active else '  '}JOIN GAME"
+        begin_surface = self.font.render(begin_label, True, begin_colour)
+        begin_y = box.bottom - 62
+        self.pygame.draw.rect(self.screen, (48, 62, 82) if begin_active else (27, 35, 50),
+                              (box.centerx - begin_surface.get_width() // 2 - 12, begin_y - 4, begin_surface.get_width() + 24, 27))
+        self.screen.blit(begin_surface, (box.centerx - begin_surface.get_width() // 2, begin_y))
+        hint = self.font.render("Arrows/WASD adjust · Enter joins · Esc returns to title", True, (150, 180, 220))
+        self.screen.blit(hint, (box.centerx - hint.get_width() // 2, box.bottom - 32))
 
     def _draw_tavern_draw(self, box: Any) -> None:
         view = self.session.tavern_draw_view()
