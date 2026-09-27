@@ -6,7 +6,7 @@ from functions import BOARDHEIGHT, BOARDWIDTH, cursebag, icon, iconlabel
 from ui import printscreen, promptinput
 
 
-class shop:
+class Shop:
     def __init__ (self):
         self.pointer = 0
         self.items = ['HEALTH','AMMO','BOMBS','FLARES']
@@ -83,7 +83,7 @@ class shop:
 
 
 def runshop (num, player):
-    s = shop()
+    s = Shop()
     while True:
         s.printscreen(player,num)
         user = promptinput('[W/S/B/V/E]: ')
@@ -101,7 +101,7 @@ def runshop (num, player):
             time.sleep(1.5)
 
 
-class curseshop:
+class CurseShop:
     def __init__ (self, items):
         self.pointer = 0
         self.items = items
@@ -128,7 +128,7 @@ class curseshop:
 
 def runcurseshop (bag = None):
     bag = cursebag() if bag is None else bag
-    s = curseshop(bag.draw())
+    s = CurseShop(bag.draw())
     while True:
         s.printscreen()
         user = promptinput('[W/S/E]: ')
@@ -136,3 +136,8 @@ def runcurseshop (bag = None):
             s.move(user)
         elif user == 'e':
             return s.selected()
+
+
+# Compatibility aliases for callers of the original API.
+shop = Shop
+curseshop = CurseShop

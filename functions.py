@@ -167,7 +167,7 @@ def cursemodifiers (curse):
     return dict(CURSEBYID[curse]['modifiers'])
 
 
-class cursebag:
+class CurseBag:
     def __init__ (self):
         self.remaining = []
         self.refill()
@@ -213,7 +213,7 @@ def configureterrain (terrain):
 
 #CLASS OBJECTS
 
-class player:
+class Player:
 
     def __init__ (self, health = 2, location = None):
         self.health = health
@@ -289,7 +289,7 @@ class player:
         self.model=''
 
 
-class bullet:
+class Bullet:
 
     def __init__ (self, playermodel, playerlocation, maxrange = None):
         self.model = icon('bullet')
@@ -323,7 +323,7 @@ class bullet:
             self.location[0] += 1
 
 
-class bomb:
+class Bomb:
 
     def __init__ (self, location, fuse = 3, radius = 2):
         self.location = list(location)
@@ -337,7 +337,7 @@ class bomb:
         return self.fuse <= 0
 
 
-class flare:
+class Flare:
 
     def __init__ (self, location, fuse = FLARE_FUSE, radius = FLARE_RADIUS, stunturns = FLARE_STUN_TURNS):
         self.location = list(location)
@@ -352,7 +352,7 @@ class flare:
         return self.fuse <= 0
 
 
-class torch:
+class Torch:
 
     def __init__ (self, location, lightradius = 4):
         self.location = list(location)
@@ -360,14 +360,14 @@ class torch:
         self.lightradius = lightradius
 
 
-class door:
+class Door:
 
     def __init__ (self, location):
         self.location = list(location)
         self.model = icon('door')
 
 
-class ammo:
+class Ammo:
 
     def __init__(self, location = None, model = None):
         self.location = randomlocation() if location is None else list(location)
@@ -377,7 +377,7 @@ class ammo:
         self.model = ' '
 
 
-class target:
+class Target:
 
     def __init__(self, location = None, model = None):
         self.location = randomlocation() if location is None else list(location)
@@ -387,7 +387,7 @@ class target:
         self.model = ' '
 
 
-class necromancer:
+class Necromancer:
 
     def __init__ (self, location = None, model = None, health = 1):
         self.location = randomlocation() if location is None else list(location)
@@ -431,7 +431,7 @@ class necromancer:
         self.model = ' '
 
 
-class boss:
+class Boss:
 
     def __init__ (self, health = 10, model = '~(〃￣ω￣〃)~'):
         self.location = [14,1]
@@ -514,6 +514,44 @@ class boss:
             self.newattack(space)
             return
         self.updateface()
+
+
+class Wolf(Necromancer):
+    """A close-range pack hunter."""
+    enemy_type = 'wolf'
+
+    def __init__(self, location = None):
+        super().__init__(location,'w')
+
+
+class Bomber(Necromancer):
+    """A hostile that sacrifices itself when it reaches the player."""
+    enemy_type = 'bomber'
+
+    def __init__(self, location = None):
+        super().__init__(location,'b')
+
+
+class Cultist(Necromancer):
+    """Dungeon spellcaster variant."""
+    enemy_type = 'cultist'
+
+    def __init__(self, location = None):
+        super().__init__(location,'C')
+
+
+# Legacy aliases preserve external callers while the active code uses CapWords names.
+cursebag = CurseBag
+player = Player
+bullet = Bullet
+bomb = Bomb
+flare = Flare
+torch = Torch
+door = Door
+ammo = Ammo
+target = Target
+necromancer = Necromancer
+boss = Boss
 
 
 #GENERAL FUNCTIONS
@@ -763,7 +801,7 @@ def attackcoordinates (enemy):
     if enemy.attackcounter == 0:
         return attackdict
 
-    if isinstance(enemy, necromancer):
+    if isinstance(enemy, Necromancer):
         model = enemy.attackloadmodel
         if enemy.attackcounter == 2 or enemy.attackcounter == 3:
             model = enemy.attacksquaremodel1
@@ -776,7 +814,7 @@ def attackcoordinates (enemy):
                 if x >= 0 and x < BOARDWIDTH and y >= 0 and y < BOARDHEIGHT:
                     attackdict[(x,y)] = model
 
-    if isinstance(enemy, boss):
+    if isinstance(enemy, Boss):
         model = enemy.attacksqmodel1
         if enemy.attackcounter >= BOSS_ATTACK_WINDUP - 1:
             model = enemy.attacksqmodel2
@@ -805,32 +843,32 @@ def attackcoordinates (enemy):
 
 
 def attackplayer (player, enemies, space = None):
-    wolves = [enemy for enemy in enemies if isinstance(enemy,necromancer) and enemy.normalmodel == 'w']
+    wolves = [enemy for enemy in enemies if isinstance(enemy,Wolf)]
     packleader = min(wolves,key = lambda enemy: abs(enemy.location[0] - player.location[0]) + abs(enemy.location[1] - player.location[1])) if wolves else None
     for enemy in enemies:
-        if isinstance(enemy, necromancer):
+        if isinstance(enemy, Necromancer):
             if enemy.updatestun():
                 continue
             if enemy.attackcounter == 0:
                 blocked = set()
                 for other in enemies:
-                    if other is not enemy and isinstance(other, necromancer):
+                    if other is not enemy and isinstance(other, Necromancer):
                         blocked.add(tuple(other.location))
                 huntlocation = player.location
-                if enemy.normalmodel == 'w' and enemy is not packleader and abs(enemy.location[0] - packleader.location[0]) + abs(enemy.location[1] - packleader.location[1]) <= 10:
+                if isinstance(enemy,Wolf) and enemy is not packleader and abs(enemy.location[0] - packleader.location[0]) + abs(enemy.location[1] - packleader.location[1]) <= 10:
                     huntlocation = packleader.location
                 path = pathfind(tuple(enemy.location),tuple(huntlocation),space,blocked)
-                if enemy.normalmodel == 'b' and len(path) <= 2:
+                if isinstance(enemy,Bomber) and len(path) <= 2:
                     player.attacked()
                     enemy.destroyed()
                     enemies.remove(enemy)
                     player.notice = '~A bomber detonated beside you.~'
                     player.eventlog.append('A bomber exploded nearby!')
                     player.eventlog = player.eventlog[-5:]
-                elif enemy.normalmodel == 'w' and abs(enemy.location[0] - player.location[0]) + abs(enemy.location[1] - player.location[1]) == 1:
+                elif isinstance(enemy,Wolf) and abs(enemy.location[0] - player.location[0]) + abs(enemy.location[1] - player.location[1]) == 1:
                     player.attacked()
                     player.notice = '~A forest wolf tore into you.~'
-                elif enemy.normalmodel == 'w' and len(path) > 2:
+                elif isinstance(enemy,Wolf) and len(path) > 2:
                     enemy.movement(path[1])
                 elif len(path) > 0 and len(path) - 1 <= 4:
                     enemy.prepareattack(player.location)

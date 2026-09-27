@@ -2,7 +2,7 @@ import random
 import time
 
 from titlescreen import titlescreen
-from functions import BOARDHEIGHT, BOARDWIDTH, WORLDWIDTH, WORLDHEIGHT, player, bullet, bomb, flare, torch, door, ammo, target, necromancer, boss, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, cursebag, runcurseshop, runshop, icon
+from functions import BOARDHEIGHT, BOARDWIDTH, WORLDWIDTH, WORLDHEIGHT, Player, Bullet, Bomb, Flare, Torch, Door, Ammo, Target, Necromancer, Boss, Wolf, Bomber, Cultist, randomlocation, generatespace, configureterrain, moveplayer, dashplayer, tickplayerabilities, attackplayer, bombcoordinates, destroyterrain, bosshitbox, updateboss, updatedict, visiblecoordinates, lightcoordinates, fogdict, mapdict, printgameframe, hudlines, promptinput, printscreen, cursemodifiers, CurseBag, runcurseshop, runshop, icon
 
 
 #GAME SETTINGS
@@ -149,6 +149,14 @@ def targetspace (settings, play, space):
     return space
 
 
+def createenemy (settings, number, location):
+    if settings.get('wilds'):
+        return Bomber(location) if number % 3 == 0 else Wolf(location)
+    if settings.get('cultists'):
+        return Cultist(location)
+    return Necromancer(location)
+
+
 def createstageentities (settings, play, space):
     targets = []
     necromancers = []
@@ -159,30 +167,28 @@ def createstageentities (settings, play, space):
 
     for number in range(settings['torches']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        torches.append(torch(location,settings.get('torchradius',4)))
+        torches.append(Torch(location,settings.get('torchradius',4)))
     for number in range(settings['targets']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = targetspace(settings,play,space),torches = torches,flares = flares)
-        targets.append(target(location))
+        targets.append(Target(location))
     for number in range(settings['necromancers']):
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        model = 'b' if settings.get('wilds') and number % 3 == 0 else ('w' if settings.get('wilds') else ('C' if settings.get('cultists') else None))
-        necromancers.append(necromancer(location,model))
+        necromancers.append(createenemy(settings,number,location))
     location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-    ammopickup = ammo(location)
+    ammopickup = Ammo(location)
     return targets,necromancers,bullets,bombs,flares,ammopickup,torches
 
 
 def refillstageentities (settings, play, targets, necromancers, bullets, bombs, ammopickup, space, torches, flares):
     while len(targets) < settings['targets']:
         location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,space = targetspace(settings,play,space),torches = torches,flares = flares)
-        targets.append(target(location))
+        targets.append(Target(location))
     while len(necromancers) < settings['necromancers']:
         location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,space = space,torches = torches,flares = flares)
-        model = 'b' if settings.get('wilds') and len(necromancers) % 3 == 0 else ('w' if settings.get('wilds') else ('C' if settings.get('cultists') else None))
-        necromancers.append(necromancer(location,model))
+        necromancers.append(createenemy(settings,len(necromancers),location))
     if ammopickup is None:
         location = openlocation(play,targets,necromancers,bullets,bombs,space = space,torches = torches,flares = flares)
-        ammopickup = ammo(location)
+        ammopickup = Ammo(location)
     return ammopickup
 
 
@@ -209,7 +215,7 @@ def playeraction (play, user, bullets, bombs, space, flares = None):
         logevent(play,f'Moved {names[user]}.' if play.location != previous else f'Faced {names[user]}.')
     if user == 'e':
         if play.shoot():
-            bullets.append(bullet(play.model,play.location,play.bulletrange))
+            bullets.append(Bullet(play.model,play.location,play.bulletrange))
             logevent(play,'Fired a shot.')
         else:
             play.notice = '~No more ammo, find more to shoot.~'
@@ -217,7 +223,7 @@ def playeraction (play, user, bullets, bombs, space, flares = None):
         if play.bombs <= 0:
             play.notice = '~No bombs left. Buy bombs in the shop.~'
         else:
-            bombs.append(bomb(play.location,play.bombfuse,play.bombradius))
+            bombs.append(Bomb(play.location,play.bombfuse,play.bombradius))
             logevent(play,'Armed a bomb.')
             play.bombs -= 1
             play.notice = '~Bomb armed. Move away before it explodes.~'
@@ -225,7 +231,7 @@ def playeraction (play, user, bullets, bombs, space, flares = None):
         if play.flares <= 0:
             play.notice = '~No flares left. Buy flares in the shop.~'
         else:
-            flares.append(flare(play.location))
+            flares.append(Flare(play.location))
             logevent(play,'Lit a flare.')
             play.flares -= 1
             play.notice = '~Flare lit. Necromancers will be stunned.~'
@@ -341,8 +347,8 @@ def updateflares (flares, necromancers, space):
 def enemyforecasts (necromancers, enemyboss = None):
     forecasts = []
     for enemy in necromancers:
-        name = 'BOMBER' if enemy.normalmodel == 'b' else 'WOLF' if enemy.normalmodel == 'w' else 'CULTIST' if enemy.normalmodel == 'C' else 'NECROMANCER'
-        intent = 'DETONATE' if enemy.normalmodel == 'b' else 'POUNCE' if enemy.normalmodel == 'w' else 'ADVANCE'
+        name = 'BOMBER' if isinstance(enemy,Bomber) else 'WOLF' if isinstance(enemy,Wolf) else 'CULTIST' if isinstance(enemy,Cultist) else 'NECROMANCER'
+        intent = 'DETONATE' if isinstance(enemy,Bomber) else 'POUNCE' if isinstance(enemy,Wolf) else 'ADVANCE'
         if enemy.attackcounter == 1:
             intent = 'CHARGING SPELL'
         elif enemy.attackcounter in [2,3]:
@@ -434,7 +440,7 @@ def opendoor (play, space, torches):
     if len(locations) == 0:
         locations = space
     location = openlocation(play,[],[],[],[],space = locations,torches = torches)
-    return door(location)
+    return Door(location)
 
 
 def exitstage (play, settings, space, torches, curse):
@@ -497,7 +503,7 @@ def runstage (settings, curse = None, classid = 'vanguard', boonid = 'iron_heart
     settings = cursedsettings(settings,curse)
     settings = classsettings(settings,classid)
     settings = boonsettings(settings,boonid)
-    play = player(settings['health'])
+    play = Player(settings['health'])
     play.classname = PLAYER_CLASS_BY_ID[classid]['name']
     play.boonname = BOON_BY_ID[boonid]['name']
     play.ammo = settings['ammo']
@@ -573,13 +579,13 @@ def summonbossminion (play, enemyboss, targets, necromancers, bullets, bombs, am
     if len(spawnspace) == 0:
         return
     location = openlocation(play,targets,necromancers,bullets,bombs,ammopickup,bosshitbox(enemyboss),spawnspace,flares = flares)
-    necromancers.append(necromancer(location))
+    necromancers.append(Necromancer(location))
     play.notice = '~The boss summoned a necromancer.~'
 
 
 def runboss (play, classid = 'vanguard', boonid = 'iron_heart'):
     resetplayer(play,classid,boonid)
-    enemyboss = boss()
+    enemyboss = Boss()
     targets = []
     necromancers = []
     bullets = []
@@ -589,7 +595,7 @@ def runboss (play, classid = 'vanguard', boonid = 'iron_heart'):
     destroyedwalls = set()
     enemyboss.newattack(space)
     location = openlocation(play,targets,necromancers,bullets,bombs,None,bosshitbox(enemyboss),space,flares = flares)
-    ammopickup = ammo(location)
+    ammopickup = Ammo(location)
     printgame(play,None,targets,necromancers,bullets,bombs,ammopickup,enemyboss,space = space,destroyedwalls = destroyedwalls,flares = flares)
 
     while play.health > 0 and enemyboss.health > 0:
@@ -600,7 +606,7 @@ def runboss (play, classid = 'vanguard', boonid = 'iron_heart'):
         ammopickup = collectammo(play,ammopickup)
         if ammopickup is None:
             location = openlocation(play,targets,necromancers,bullets,bombs,None,bosshitbox(enemyboss),space,flares = flares)
-            ammopickup = ammo(location)
+            ammopickup = Ammo(location)
         bullets = updatebullets(play,bullets,targets,necromancers,space,enemyboss)
         bombs,bombexplosions = updatebombs(play,bombs,targets,necromancers,space,enemyboss,destroyedwalls)
         flares,flareexplosions = updateflares(flares,necromancers,space)
@@ -625,7 +631,7 @@ def rundebuglevel (level, classid = 'vanguard', boonid = 'iron_heart'):
         runstage(STAGES[level],classid = classid,boonid = boonid)
         return
     settings = boonsettings(classsettings(cursedsettings(STAGES[0],None),classid),boonid)
-    play = player(settings['health'])
+    play = Player(settings['health'])
     play.classname = PLAYER_CLASS_BY_ID[classid]['name']
     play.boonname = BOON_BY_ID[boonid]['name']
     play.ammo = settings['ammo']
@@ -644,7 +650,7 @@ def rungame (debuglevel = None):
     play = None
     classid = chooseclass()
     boonid = chooseboon()
-    bag = cursebag()
+    bag = CurseBag()
     for settings in STAGES:
         curse = None
         if settings['level'] > 0:
