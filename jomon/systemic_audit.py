@@ -170,7 +170,7 @@ def systemic_audit(samples=1000, start=0, *, progress=False):
     return {
         "samples": samples, "start": start, "regions_per_world": len(QUESTS),
         "checks": ["production generation replay", "aligned access", "container and objective access", "initial actor placement", "opening preparation", "opposed group rejection", "named history references", "seasonal chart return", "physical save round trip", "production budgets", "open-area and cycle metrics"],
-        "not_measured": ["human tactical counterplay", "quest branch completion", "material-stage alternate routes", "native terminal latency", "mechanically distinct content count"],
+        "not_measured": ["human tactical counterplay", "quest branch completion", "material-stage alternate routes", "native frontend latency", "mechanically distinct content count"],
         "failures": failures, "archetype_placement_frequency": dict(sorted(counts.items())),
         "role_combinations": dict(sorted(roles.items())), "budget_distribution": dict(sorted(budgets.items())),
         "unique_production_compositions": len(compositions), "most_repeated_composition": max(compositions.values(), default=0),

@@ -1,14 +1,14 @@
 """Renderer-facing asset resolution for selected content packs.
 
 This module is deliberately outside mechanics: it maps stable semantic IDs to
-logical asset IDs or legacy curses glyphs and never loads media bytes.
+logical asset IDs or ASCII glyphs and never loads media bytes.
 """
 from __future__ import annotations
 from .catalog import AssetResource, selected_content_pack
 
 
-def curses_glyph(semantic_cell_id: str, fallback: str) -> str:
-    """Return a selected-pack ASCII glyph for legacy curses rendering."""
+def ascii_glyph(semantic_cell_id: str, fallback: str) -> str:
+    """Return a selected-pack ASCII glyph for a renderer presentation."""
     try:
         return selected_content_pack().assets.glyph(semantic_cell_id)
     except KeyError:

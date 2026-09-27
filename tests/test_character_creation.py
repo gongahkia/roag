@@ -3,18 +3,15 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from jomon.actions import interact
 from jomon.character import (
     ANCESTRIES, ORIGINS, TRAITS, apply_character_spec, character_sheet,
     clean_name, default_allocation, effective_competency,
 )
-from jomon.character_ui import _draw, _read_name, run_character_creation
 from jomon.inventory import weight_capacity
 from jomon.save import load_game, save_game
 from jomon.state import StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import _overlay_lines, dialogue_choices
 from jomon.vessel import JOMON_GANGPLANK
 from jomon.world import sight_radius
 
@@ -92,10 +89,6 @@ class CharacterCreationTests(unittest.TestCase):
         sheet = character_sheet(self.state.courier)
         self.assertTrue(any("Strength" in row and "carrying" in row for row in sheet))
         self.assertTrue(any("Speech" in row and "effective" in row for row in sheet))
-        title, rows = _overlay_lines(self.state, f"character-sheet:{self.state.courier.id}")
-        self.assertIn("COURIER RECORD", title)
-        self.assertEqual(rows, sheet)
-        self.assertTrue(any(option.key == "C" for option in dialogue_choices(self.state, f"person:{self.state.household[1].id}")))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "jomon.json"
             save_game(self.state, path)
@@ -144,8 +137,6 @@ class CharacterCreationTests(unittest.TestCase):
         self.assertEqual(by_id["recruit-teren"].ancestry, "Stonefolk")
         self.assertEqual(effective_competency(by_id["recruit-orra"], "fieldcraft"),
                          by_id["recruit-orra"].fieldcraft + 1)
-        title, rows = _overlay_lines(self.state, "person:recruit-maelin")
-        self.assertIn("Tidekin", rows[0])
 
     def test_old_people_get_safe_defaults_and_corrupt_profiles_fail(self):
         data = self.state.to_dict()
@@ -159,74 +150,7 @@ class CharacterCreationTests(unittest.TestCase):
         with self.assertRaises(StateError):
             validate_state(loaded)
 
-    def test_keyboard_creation_can_choose_crew_and_name(self):
-        class Screen:
-            def __init__(self):
-                self.keys = iter((ord("l"), ord("j"), 13, ord("j"), ord("l"), ord("s")))
 
-            def getmaxyx(self):
-                return 24, 80
-
-            def erase(self):
-                pass
-
-            def refresh(self):
-                pass
-
-            def addnstr(self, row, col, value, count, attr=0):
-                pass
-
-            def getch(self):
-                return next(self.keys)
-
-            def getstr(self, row, col, count):
-                return b"Mira Vale"
-
-        with patch("curses.echo"), patch("curses.noecho"), patch("curses.curs_set"):
-            self.assertTrue(run_character_creation(Screen(), self.state))
-        self.assertEqual(self.state.courier.name, "Mira Vale")
-        self.assertEqual(self.state.courier.role, "pilot")
-        self.assertEqual(self.state.courier.ancestry, "Reedfolk")
-        validate_state(self.state)
-
-    def test_creation_panel_and_name_prompt_center_without_losing_fields(self):
-        class Screen:
-            def __init__(self, height, width):
-                self.height, self.width, self.writes = height, width, []
-                self.name_input = None
-
-            def getmaxyx(self):
-                return self.height, self.width
-
-            def erase(self):
-                self.writes.clear()
-
-            def refresh(self):
-                pass
-
-            def addnstr(self, row, col, value, count, attr=0):
-                self.writes.append((row, col, value[:count]))
-
-            def getstr(self, row, col, count):
-                self.name_input = row, col, count
-                return b"Mira Vale"
-
-        attributes, competencies = default_allocation(self.state.household[0].role)
-        for height, width, top, left in ((24, 80, 0, 1), (40, 120, 7, 21)):
-            screen = Screen(height, width)
-            _draw(screen, self.state, 0, "Mira Vale", "Human", "hearthford", "steady",
-                  attributes, competencies, 1, "")
-            self.assertTrue(any(row == top and col == left and "COURIER SPECIFICATION" in value
-                                for row, col, value in screen.writes))
-            self.assertTrue(any(row == top + 22 and col == left + 3 and "Q back" in value
-                                for row, col, value in screen.writes))
-            self.assertTrue(any(row == top + 19 and "Starting competencies" in value
-                                for row, _, value in screen.writes))
-            self.assertTrue(any(row == top + 18 and "Craft" in value
-                                for row, _, value in screen.writes))
-            with patch("curses.echo"), patch("curses.noecho"), patch("curses.curs_set"):
-                self.assertEqual(_read_name(screen), "Mira Vale")
-            self.assertEqual(screen.name_input, (top + 21, left + 29, 32))
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 """Renderer-neutral ordinary-game activity choices.
 
-The legacy terminal has many overlays for the same underlying pattern: expose
+The earlier frontend had many overlays for the same underlying pattern: expose
 the currently legal semantic choices, then invoke an existing reducer.  This
-module centralises that pattern without importing curses or teaching a
+module centralises that pattern without importing a frontend or teaching a
 frontend any mechanics.
 """
 from __future__ import annotations

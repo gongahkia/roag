@@ -1,4 +1,4 @@
-"""Resolve safe, selected-pack terminal presentation text."""
+"""Resolve safe, selected-pack UI presentation text."""
 
 from __future__ import annotations
 

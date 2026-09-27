@@ -93,7 +93,7 @@ def material_overlay_id(state: GameState, point: Position) -> str | None:
     """Return the stable material-overlay identity at a cell.
 
     The identity drives mechanics where an overlay has a physical effect.  The
-    one-character glyph remains a legacy terminal presentation decision below.
+    one-character glyph remains a renderer presentation decision below.
     """
     cell = fields(state).get(key(point))
     if cell is None:

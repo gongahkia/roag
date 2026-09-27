@@ -12,7 +12,6 @@ from jomon.tavern_draw import (
     MAX_EXPOSURE, _npc_bet, _npc_discards, _settle, available_opponents, bet_action,
     close_hand, draw_cards, drive_npcs, evaluate, start_hand,
 )
-from jomon.tavern_draw_ui import _draw_hand, card_frame, card_name, run_tavern_draw
 from jomon.vessel import DRAW_NPC_SEATS, DRAW_PLAYER_SEAT, DRAW_SURFACE, TABLE_PLAYER_SEAT, TAVERN_MAP, _walkable, normalise_schedule_work_positions
 from jomon.world import is_walkable
 
@@ -206,63 +205,6 @@ class TavernDrawTests(unittest.TestCase):
         self.assertNotEqual(displaced.position, DRAW_PLAYER_SEAT)
         self.assertNotIn(displaced.position, DRAW_NPC_SEATS)
 
-    def test_draw_ui_shows_only_own_cards_until_showdown(self):
-        class Screen:
-            def __init__(self):
-                self.drawn = []
-
-            def getmaxyx(self):
-                return 24, 80
-
-            def erase(self):
-                self.drawn = []
-
-            def refresh(self):
-                pass
-
-            def addnstr(self, row, col, value, count, attr=0):
-                self.drawn.append(value[:count])
-
-        hand = start_hand(self.state, self.opponents, wagering=False)
-        screen = Screen()
-        _draw_hand(screen, self.state, set(), "")
-        enemy_cards = " ".join(card_name(card) for card in hand["hands"][1])
-        self.assertNotIn(enemy_cards, " ".join(screen.drawn))
-        self.assertTrue(any("[##]" in line for line in screen.drawn))
-        self.assertEqual(len(card_frame(hand["hands"][0][0])), 7)
-        drive_npcs(self.state)
-        draw_cards(self.state, [])
-        drive_npcs(self.state)
-        _draw_hand(screen, self.state, set(), "")
-        revealed = " ".join(card_name(card) for card in hand["hands"][1])
-        self.assertIn(revealed, " ".join(screen.drawn))
-        self.assertTrue(any("YOUR NET" in line for line in screen.drawn))
-        self.assertTrue(any("[ TAVERN DRAW / SHOWDOWN ]" in line for line in screen.drawn))
-
-    def test_keyboard_can_invite_three_and_pause_a_practice_hand(self):
-        class Screen:
-            def __init__(self):
-                self.keys = iter((ord(" "), ord("j"), ord(" "), ord("j"), ord(" "), 13, ord("q")))
-
-            def getmaxyx(self):
-                return 24, 80
-
-            def erase(self):
-                pass
-
-            def refresh(self):
-                pass
-
-            def addnstr(self, row, col, value, count, attr=0):
-                pass
-
-            def getch(self):
-                return next(self.keys)
-
-        run_tavern_draw(Screen(), self.state)
-        self.assertEqual(self.state.tavern_draw["active_hand"]["players"][1:], self.opponents)
-        self.assertEqual(self.state.tavern_draw["active_hand"]["phase"], "draw")
-        validate_state(self.state)
 
 
 if __name__ == "__main__":

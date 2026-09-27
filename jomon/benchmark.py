@@ -23,30 +23,8 @@ from .regions import activate_region
 from .route_chart import chart_move, route_preview
 from .save import load_game, save_game
 from .state import Position, create_world
-from .terminal import RouteChartView, _draw_base, _draw_route_chart
+from .views import travel_view, world_view
 from .world import field_of_view
-
-
-class RenderSink:
-    """Exercise production layout, excluding terminal-driver and human latency."""
-
-    def __init__(self, width: int = 80, height: int = 24):
-        self.width, self.height, self.cells = width, height, 0
-
-    def getmaxyx(self):
-        return self.height, self.width
-
-    def addnstr(self, y, x, value, count, attr=0):
-        self.cells += min(len(value), count)
-
-    def addstr(self, y, x, value, attr=0):
-        self.cells += len(value)
-
-    def erase(self):
-        self.cells = 0
-
-    def refresh(self):
-        pass
 
 
 def distribution(samples: list[float]) -> dict[str, float | int]:
@@ -89,10 +67,10 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
         "seed": seed, "python": platform.python_version(),
         "platform": platform.platform(), "units": "milliseconds",
         "commit": revision or "unavailable",
-        "render_scope": "production layout into a sink; no terminal-driver latency",
+        "render_scope": "renderer-neutral semantic views; no frontend-driver latency",
     }
     results["cold_import"] = measure(lambda _: subprocess.run(
-        [sys.executable, "-c", "import jomon.main"], check=True,
+        [sys.executable, "-c", "import jomon.session"], check=True,
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     ), min(samples, 5))
     results["new_world"] = measure(lambda i: create_world(f"{seed}-{i}"), min(samples, 5), lambda i: i)
@@ -114,9 +92,8 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
     )
     results["movement"] = measure(lambda state: move(state, 1, 0), samples, clone)
     results["fov"] = measure(lambda _: field_of_view(expedition, remember=False), samples)
-    sink = RenderSink()
-    results["render_80x24"] = measure(lambda _: _draw_base(sink, expedition), samples)
-    results["input_to_layout"] = measure(lambda state: (move(state, 1, 0), _draw_base(sink, state)), samples, clone)
+    results["semantic_world_view"] = measure(lambda _: world_view(expedition), samples)
+    results["input_to_view"] = measure(lambda state: (move(state, 1, 0), world_view(state)), samples, clone)
 
     def heavy_setup(_):
         state = copy.deepcopy(expedition)
@@ -158,15 +135,15 @@ def benchmark(samples: int = 12, seed: str = "systemic-benchmark") -> dict:
     begin_deck(boarding)
     results["boarding_turn"] = measure(lambda state: _advance_world(state), samples, lambda _: copy.deepcopy(boarding))
     results["boarding_fov"] = measure(lambda _: field_of_view(boarding, remember=False), samples)
-    results["boarding_input_render"] = measure(
-        lambda state: (move(state, 0, 1), _draw_base(sink, state)),
+    results["boarding_input_view"] = measure(
+        lambda state: (move(state, 0, 1), world_view(state)),
         samples, lambda _: copy.deepcopy(boarding),
     )
     actor = expedition.threats[0]
     results["pathfinding"] = measure(lambda _: next_path_step(expedition, actor, expedition.position), samples)
     results["inventory_open"] = measure(lambda _: InventoryTransaction.begin(aboard), samples)
     results["auto_pack"] = measure(lambda state: auto_pack(state, "pack", owner_id=state.active_courier_id), samples, lambda _: copy.deepcopy(aboard))
-    results["chart_open"] = measure(lambda _: _draw_route_chart(sink, aboard, RouteChartView(aboard.route_current_node)), samples)
+    results["travel_view"] = measure(lambda _: travel_view(aboard), samples)
     results["chart_navigation"] = measure(lambda _: (chart_move(aboard, aboard.route_current_node, 1, 0), route_preview(aboard, "reed-anchor")), samples)
     with tempfile.TemporaryDirectory(prefix="jomon-benchmark-") as directory:
         path = Path(directory) / "benchmark-save.json"

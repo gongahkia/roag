@@ -291,7 +291,7 @@ def _vessel(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def _visuals(data: dict[str, Any]) -> dict[str, Any]:
-    # Glyph tables remain legacy terminal presentation. Semantic topology now
+    # Glyph tables remain renderer presentation. Semantic topology now
     # carries collision and layout in topology.json.
     _mapping(data,path="visuals.json",mechanical=set(),presentation={"entity_glyphs","semantic_roles","regional_ground_roles","regional_tile_roles","physical_role_overrides","route_node_symbols","material_overlay_symbols","site_symbols","tavern_cards","tavern_dice"})
     return {}

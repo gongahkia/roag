@@ -6,7 +6,7 @@ import unittest
 
 FAST_FILES = (
     "test_performance_contracts.py", "test_inventory.py", "test_enemy_ai.py",
-    "test_terminal.py", "test_integrity_v6.py",
+"test_integrity_v6.py",
     "test_situations.py", "test_manoeuvres.py", "test_interference.py",
     "test_echoes.py", "test_household_stories.py",
     "test_inspection_forecast.py", "test_build_balance.py",

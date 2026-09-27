@@ -42,9 +42,7 @@ from jomon.inventory import (
     ITEM_SPECS, REGIONAL_ARMOUR, WEAPON_AMMUNITION, item_spec,
 )
 from jomon.magic import SPELL_ROWS
-from jomon.main import SEED_WORDS
 from jomon.ui_presentation import ui_text
-from jomon.navigation import LANDMARK_LABELS
 from jomon.preparations import PREPARATIONS
 from jomon.practices import AFTERMATH_REGION_PRACTICE, NETWORK_CONTACT_PRACTICE, PRACTICES
 from jomon.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
@@ -61,6 +59,9 @@ from jomon.regional_history import (
 )
 from jomon.vessel_refits import REFITS
 from jomon.vessel import DRINKS
+
+SEED_WORDS = tuple(load_catalog("world_text.json", WORLD_TEXT_SECTIONS)["seed_words"])
+LANDMARK_LABELS = {}
 from jomon.vehicles import SPECS as VEHICLE_SPECS, VEHICLE_REGIONS
 from jomon.voyage_variants import VARIANTS
 from jomon.work_weapons import POT_AMMUNITION, WORK_WEAPONS

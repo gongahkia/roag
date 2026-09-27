@@ -1,4 +1,4 @@
-"""Dullest Dungeon: a standard-library terminal deckbuilder."""
+"""Dullest Dungeon: a dormant deterministic deckbuilder."""
 
 from .versions import ENGINE_VERSION
 

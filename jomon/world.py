@@ -159,7 +159,7 @@ _MECHANICAL_OVERLAY_TOKENS = {
 
 
 def mechanical_surface_token(state: GameState, position: Position) -> str:
-    """Return the canonical terrain/hazard token without terminal glyph maps.
+    """Return the canonical terrain/hazard token without renderer glyph maps.
 
     Legacy map characters remain engine topology compatibility tokens, but
     transient material and weather effects are selected from their stable
@@ -177,16 +177,6 @@ def mechanical_surface_token(state: GameState, position: Position) -> str:
     if coordinate in state.water:
         return ","
     return base_tile(state, position)
-
-
-def curses_tile(state: GameState, position: Position) -> str:
-    """Legacy terminal glyph adapter; never a mechanical topology query."""
-    tile = displayed_tile(state, position)
-    semantic = semantic_cell(state, position)
-    if semantic is not None and tile == semantic.legacy_token:
-        from .assets import curses_glyph
-        return curses_glyph(semantic.id, tile)
-    return tile
 
 
 def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = False) -> bool:
@@ -212,7 +202,7 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     # path query only needs their underlying terrain.  Static vessel furniture
     # is already represented by ``semantic`` above; scheduled people block a
     # vessel cell through their stable schedule identity, never through the
-    # ASCII glyph that the legacy terminal happens to draw for them.
+    # ASCII glyph that a renderer may choose to draw for them.
     tile = terrain
     if state.location == "jomon":
         area = current_area(state)

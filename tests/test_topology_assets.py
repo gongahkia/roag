@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from jomon.assets import action_assets, asset_resource, curses_glyph, terrain_assets
+from jomon.assets import action_assets, ascii_glyph, asset_resource, terrain_assets
 from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
 from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
 from jomon.semantic_topology import TAVERN_TOPOLOGY, VESSEL_TOPOLOGY, CELLS, legacy_rows, tavern_cell, vessel_cell
@@ -90,7 +90,7 @@ class AssetManifestTests(unittest.TestCase):
     def test_asset_resolver_exposes_logical_resources_only(self):
         pack = self._pack()
         self.assertEqual(pack.assets.format_version, 1)
-        self.assertEqual(curses_glyph("cell.vessel.floor", "."), ".")
+        self.assertEqual(ascii_glyph("cell.vessel.floor", "."), ".")
         self.assertEqual(terrain_assets("terrain.vessel.floor")["image"], "image.terrain.floor")
         self.assertEqual(action_assets("attack.unknown")["animation"], "animation.action.attack")
         self.assertEqual(asset_resource("image.terrain.floor").path, "media/developer_tile.png")
@@ -136,11 +136,11 @@ class AssetManifestTests(unittest.TestCase):
     def test_alternate_glyphs_leave_headless_mechanics_and_events_unchanged(self):
         script = (
             "import json; from jomon.commands import MoveCommand; from jomon.session import GameSession; "
-            "from jomon.world import is_walkable, curses_tile; from jomon.state import Position; "
+            "from jomon.assets import ascii_glyph; from jomon.world import is_walkable; from jomon.state import Position; "
             "from jomon.mechanical_compatibility import main_world_mechanical_fingerprint; "
             "s=GameSession.create('asset-topology-proof'); p=s._state.position; "
             "dx,dy=next((dx,dy) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)) if is_walkable(s._state,Position(p.x+dx,p.y+dy,p.z))); "
-            "o=s.submit(MoveCommand(dx,dy)); print(json.dumps({'glyph':curses_tile(s._state,s._state.position),'fp':main_world_mechanical_fingerprint(),'events':[e.event_id for e in o.events],'position':[s._state.position.x,s._state.position.y,s._state.position.z]}))"
+            "o=s.submit(MoveCommand(dx,dy)); print(json.dumps({'glyph':ascii_glyph('cell.vessel.floor','.'),'fp':main_world_mechanical_fingerprint(),'events':[e.event_id for e in o.events],'position':[s._state.position.x,s._state.position.y,s._state.position.z]}))"
         )
         base = subprocess.run([sys.executable, '-c', script], text=True, capture_output=True, check=True).stdout
         with tempfile.TemporaryDirectory() as directory:

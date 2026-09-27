@@ -13,8 +13,6 @@ from jomon.tavern_dice import (
     MAX_ROLLS, ROUNDS, available_dice_opponents, close_match, drive_npcs,
     hold, roll, start_match,
 )
-from jomon.tavern_dice_ui import _draw_match, run_tavern_dice
-from jomon.tavern_games_ui import dice_face
 from jomon.vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, DICE_SURFACE, DRAW_PLAYER_SEAT, TABLE_PLAYER_SEAT, TAVERN_MAP
 from jomon.world import is_walkable
 
@@ -133,38 +131,6 @@ class QuayBonesTests(unittest.TestCase):
         with self.assertRaises(StateError):
             validate_state(broken)
 
-    def test_visible_dice_and_keyboard_lobby(self):
-        self.assertEqual(len(dice_face(6)), 5)
-
-        class Screen:
-            def __init__(self):
-                self.keys = iter((ord(" "), ord("j"), ord(" "), ord("j"), ord(" "), 13, ord("q")))
-                self.drawn = []
-
-            def getmaxyx(self):
-                return 24, 80
-
-            def erase(self):
-                self.drawn = []
-
-            def refresh(self):
-                pass
-
-            def addnstr(self, row, col, value, count, attr=0):
-                self.drawn.append(value[:count])
-
-            def getch(self):
-                return next(self.keys)
-
-        screen = Screen()
-        run_tavern_dice(screen, self.state)
-        self.assertEqual(self.state.tavern_dice["active_match"]["players"][1:], self.opponents)
-        match = self.state.tavern_dice["active_match"]
-        match["last_dice"] = [4, 6]
-        match["scores"][0] = 30
-        _draw_match(screen, self.state)
-        self.assertTrue(any("+-------+" in line for line in screen.drawn))
-        self.assertTrue(any("#" in line for line in screen.drawn))
 
 
 if __name__ == "__main__":

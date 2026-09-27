@@ -24,7 +24,7 @@ from jomon.runtime_events import (
 from jomon.session import GameSession
 from jomon.state import Position, SoundEvent, Threat, create_world
 from jomon.world import is_walkable
-from test_content_packs import alternate_pack
+from tests.test_content_packs import alternate_pack
 
 
 def armed_state(seed: str, health: int = 20):

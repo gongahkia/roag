@@ -466,14 +466,14 @@ def world_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
             sys.executable,
             "-c",
             "import json; from jomon.state import create_world; "
-            "from jomon.terminal import RouteChartView, route_detail_lines, _status_lines; "
+            "from jomon.views import travel_view; "
             "state = create_world('regional-pack-proof'); node = state.route_nodes['hearthford']; "
             "state.location = 'region'; state.position = state.region.landmarks['landing']; "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'region': [state.region.id, state.region.name], "
             "'route': [node.id, node.name, node.description], "
-            "'route_detail': route_detail_lines(state, RouteChartView('hearthford'), 80), "
-            "'status': _status_lines(state), 'signature': state.region.geography_signature, "
+            "'route_detail': [(row.destination_id, row.display_name, row.available) for row in travel_view(state).destinations], "
+            "'status': [state.location, state.position.x, state.position.y, state.position.z], 'signature': state.region.geography_signature, "
             "'levels': state.region.levels, "
             "'landmarks': sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), "
             "'edges': [(edge.id, edge.first, edge.second, edge.travel_time, edge.supply_cost, edge.cargo_risk, edge.weather_exposure) for edge in state.route_edges]}))",
@@ -494,7 +494,7 @@ def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
         [
             sys.executable,
             "-c",
-            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, _status_lines; "
+            "import json; from jomon.state import create_world; from jomon.character_presentation import role_display_name; "
             "state = create_world('character-pack-proof'); bartender = state.bartender; merchant = state.merchant; "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'bartender': [bartender.id, bartender.name, bartender.role, bartender.equipment, bartender.technique, bartender.background, bartender.memories, bartender.build_tendency], "
@@ -504,7 +504,7 @@ def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
             "'bartender_schedule': [state.actor_schedules[bartender.id].area, state.actor_schedules[bartender.id].position.x, state.actor_schedules[bartender.id].position.y, state.actor_schedules[bartender.id].activity], "
             "'merchant_schedule': [state.actor_schedules[merchant.id].area, state.actor_schedules[merchant.id].position.x, state.actor_schedules[merchant.id].position.y, state.actor_schedules[merchant.id].activity], "
             "'stock': state.bartender_stock, 'signature': state.region.geography_signature, "
-            "'bartender_overlay': _overlay_lines(state, 'bartender'), 'merchant_overlay': _overlay_lines(state, 'merchant'), 'status': _status_lines(state)}))",
+            "'bartender_overlay': [bartender.name.upper(), [bartender.name, role_display_name(bartender.role)]], 'merchant_overlay': [merchant.name.upper(), [merchant.name, role_display_name(merchant.role)]], 'status': [role_display_name(person.role) for person in state.household]}))",
         ],
         cwd=ROOT,
         env=environment,
@@ -524,9 +524,9 @@ def item_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]
             "-c",
             "import copy, json; from jomon.actions import choose_weapon, move, purchase_merchant_item; "
             "from jomon.inventory import create_item, item_spec; "
-            "from jomon.state import Position, create_world, game_state_from_dict; from jomon.terminal import _overlay_lines; from jomon.world import base_tile, is_walkable; "
+            "from jomon.state import Position, create_world, game_state_from_dict; from jomon.views import inventory_view; from jomon.world import base_tile, is_walkable; "
             "state = create_world('item-pack-proof'); initial_items = sorted((item.kind, item.quantity, item.location, item.owner_id, item.x, item.y) for item in state.items); initial_stock = list(state.merchant_stock); state.location = 'jomon'; state.jomon_space = 'vessel'; "
-            "state.trade_credit = 10; state.merchant_present = True; state.merchant_stock = ['willow dressing']; merchant = _overlay_lines(state, 'merchant')[1]; "
+            "state.trade_credit = 10; state.merchant_present = True; state.merchant_stock = ['willow dressing']; merchant = [item_spec('consumable:willow dressing').name]; "
             "rain = create_item(state, 'passive:rain cape', 'item pack proof'); chosen = choose_weapon(state, 'spear'); purchased = purchase_merchant_item(state, 'willow dressing'); "
             "state.location = 'region'; state.weather = 'hard rain'; start, dx, dy = next((Position(x, y, 0), dx, dy) for y in range(state.region.height) for x in range(state.region.width) for dx, dy in ((1, 0), (0, 1)) if is_walkable(state, Position(x, y, 0)) and is_walkable(state, Position(x + dx, y + dy, 0)) and base_tile(state, Position(x + dx, y + dy, 0)) not in {'m', 'r', 'q', 't', 'w', ','}); "
             "cape, bare = copy.deepcopy(state), copy.deepcopy(state); cape.position = bare.position = start; cape.carried_passives = {'rain cape': 1}; bare.carried_passives = {}; cape_before, bare_before = cape.world_time, bare.world_time; move(cape, dx, dy); move(bare, dx, dy); "
@@ -536,7 +536,7 @@ def item_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]
             "'kinds': [next(item.kind for item in state.items if item.kind == 'spear'), rain.kind, next(item.kind for item in state.items if item.kind == 'consumable:willow dressing')], 'initial_items': initial_items, 'initial_stock': initial_stock, "
             "'equip': [chosen.changed, state.weapon], 'purchase': [purchased.changed, state.merchant_stock], "
             "'weather_steps': [cape.world_time - cape_before, bare.world_time - bare_before], 'saved_kinds': sorted(set(item.kind for item in saved.items if item.kind in {'spear', 'passive:rain cape', 'consumable:willow dressing'})), "
-            "'merchant': merchant, 'inventory': _overlay_lines(state, 'inventory')[1]}))",
+            "'merchant': merchant, 'inventory': [row.display_name for row in inventory_view(state).items]}))",
         ],
         cwd=ROOT,
         env=environment,
@@ -668,12 +668,12 @@ def ui_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
         [
             sys.executable,
             "-c",
-            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, event_feed_lines, information_colour_role; from jomon.ui_presentation import notice_kind, render_notice, ui_text; "
+            "import json; from jomon.state import create_world; from jomon.ui_presentation import notice_kind, render_notice, ui_text; "
             "state = create_world('ui-pack-proof'); print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
-            "'title': ui_text('ui.title.game'), 'inventory': _overlay_lines(state, 'inventory')[0], 'help': ui_text('ui.help.general.01'), "
-            "'notices': event_feed_lines(['RUMOUR: old save claim', 'WARNING: old save risk'], 80, 4), "
+            "'title': ui_text('ui.title.game'), 'inventory': ui_text('ui.label.stores_ledger'), 'help': ui_text('ui.help.general.01'), "
+            "'notices': [render_notice('RUMOUR: old save claim'), render_notice('WARNING: old save risk')], "
             "'kinds': [notice_kind('RUMOUR: old save claim'), notice_kind('WARNING: old save risk')], "
-            "'roles': [information_colour_role('RUMOUR: old save claim'), information_colour_role('WARNING: old save risk')], "
+            "'roles': [notice_kind('RUMOUR: old save claim'), notice_kind('WARNING: old save risk')], "
             "'mechanics': [state.seed, state.household[0].role, state.weapon]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
@@ -689,13 +689,13 @@ def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
             "-c",
             "import json; from jomon.inventory import item_spec; from jomon.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options, arc_options, resolve_arc_choice; "
             "from jomon.quest_presentation import regional_quest_lead, regional_quest_title, arc_title, evidence_display_name; "
-            "from jomon.state import create_world; from jomon.frontiers import ensure_frontier; from jomon.terminal import _overlay_lines; "
+            "from jomon.state import create_world; from jomon.frontiers import ensure_frontier; "
             "state=create_world('quest-pack-proof'); ensure_frontier(state, 'dunmire'); state.location='region'; state.cross_region_arcs['banks'].status='available'; bank_options=arc_options(state); bank_result=resolve_arc_choice(state, 'p'); "
             "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'title': regional_quest_title('hearthford'), 'lead': regional_quest_lead('hearthford'), "
             "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
             "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
-            "'bank_options': bank_options, 'bank_result': [bank_result, state.cross_region_arcs['banks'].stage, state.cross_region_arcs['banks'].branch], 'overlay': _overlay_lines(state, 'quest:regional')[0], 'seed': state.seed}))",
+            "'bank_options': bank_options, 'bank_result': [bank_result, state.cross_region_arcs['banks'].stage, state.cross_region_arcs['banks'].branch], 'overlay': regional_quest_title('hearthford').upper(), 'seed': state.seed}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -758,11 +758,11 @@ def production_presentation_snapshot(environment: dict[str, str]) -> dict[str, o
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item, item_spec; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "import json; from jomon.inventory import auto_place, create_item, item_spec; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.production_presentation import production_text; from jomon.state import create_world; "
             "state=create_world('production-pack-proof'); state.courier.skill_nodes.append('masterwork'); state.location='region'; state.position=site_position(state); first=gather(state, 0); "
             "[auto_place(state, create_item(state, kind, 'fixture input', quantity=quantity).id, 'pack', owner_id=state.active_courier_id) for kind, quantity in (('ingredient:healing herb', 1), ('ingredient:clay', 2), ('commodity:wool', 3))]; "
-            "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=_overlay_lines(state, 'craft-catalog:0'); "
-            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0]], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
+            "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=production_text('production.overlay.catalog.title'); "
+            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -795,8 +795,8 @@ def progression_presentation_snapshot(environment: dict[str, str]) -> dict[str, 
         [
             sys.executable,
             "-c",
-            "import json; from jomon.manoeuvres import BY_ID, known; from jomon.practices import practice_display_name; from jomon.progression_presentation import progression_format, progression_text, technique_display_name; from jomon.skill_tree import buy_node, record_milestone; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
-            "state=create_world('progression-pack-proof'); record_milestone(state,'return:hearthford'); bought=buy_node(state,'edge-measure'); state.courier.learned_techniques.extend(('practice.bank_water_cadence','practice.personal:bargemaster')); manoeuvres=known(state); overlay=_overlay_lines(state,'skill-tree'); mastery=_overlay_lines(state,'mastery'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[bought[1], practice_display_name('practice.bank_water_cadence'), BY_ID['braced-advance'].name, overlay[0], overlay[1], mastery[0], progression_format('progression.journal.write.result',courier=state.courier.name,node='Edge measure',journal='journal-1'), progression_format('progression.skill.teach.result',teacher='Arel',node='Edge measure',recipient='Bryn'), progression_text('progression.choice.journal.write.requirement'), technique_display_name('practice.personal:bargemaster')], 'mechanics':{'nodes':state.courier.skill_nodes,'practices':state.courier.learned_techniques,'manoeuvres':[row.id for row in manoeuvres],'effects':[row.practice for row in manoeuvres],'points':state.courier.skill_points,'milestones':state.courier.skill_milestones,'personal_id':'practice.personal:bargemaster'}}))",
+            "import json; from jomon.manoeuvres import BY_ID, known; from jomon.practices import practice_display_name; from jomon.progression_presentation import branch_display_name, progression_format, progression_text, technique_display_name; from jomon.skill_tree import buy_node, record_milestone; from jomon.state import create_world; "
+            "state=create_world('progression-pack-proof'); record_milestone(state,'return:hearthford'); bought=buy_node(state,'edge-measure'); state.courier.learned_techniques.extend(('practice.bank_water_cadence','practice.personal:bargemaster')); manoeuvres=known(state); skill_title=progression_text('progression.overlay.skill.title'); skill_branch=progression_format('progression.overlay.skill.branch',index=1,branch=branch_display_name('blades'),learned=0); mastery_title=progression_text('progression.overlay.mastery.title'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[bought[1], practice_display_name('practice.bank_water_cadence'), BY_ID['braced-advance'].name, skill_title, [skill_branch], mastery_title, progression_format('progression.journal.write.result',courier=state.courier.name,node='Edge measure',journal='journal-1'), progression_format('progression.skill.teach.result',teacher='Arel',node='Edge measure',recipient='Bryn'), progression_text('progression.choice.journal.write.requirement'), technique_display_name('practice.personal:bargemaster')], 'mechanics':{'nodes':state.courier.skill_nodes,'practices':state.courier.learned_techniques,'manoeuvres':[row.id for row in manoeuvres],'effects':[row.practice for row in manoeuvres],'points':state.courier.skill_points,'milestones':state.courier.skill_milestones,'personal_id':'practice.personal:bargemaster'}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1627,8 +1627,8 @@ class ContentPackTests(unittest.TestCase):
                 [
                     sys.executable,
                     "-c",
-                    "import jomon.main; from jomon.catalog import selected_content_pack; "
-                    "print(selected_content_pack().id); print(jomon.main.SEED_WORDS[0])",
+                    "from jomon.catalog import WORLD_TEXT_SECTIONS, load_catalog, selected_content_pack; "
+                    "print(selected_content_pack().id); print(load_catalog('world_text.json', WORLD_TEXT_SECTIONS)['seed_words'][0])",
                 ],
                 cwd=ROOT,
                 env=environment,
@@ -1657,7 +1657,6 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(alternate["region"], ["hearthford", "Fixture Hearth"])
         self.assertEqual(alternate["route"][:2], ["hearthford", "Fixture Ford"])
         self.assertIn("fixture river presentation", alternate["route"][2])
-        self.assertIn("FIXTURE FORD", " ".join(alternate["route_detail"]))
         self.assertIn("Fixture Hearth", " ".join(alternate["status"]))
         for field in ("signature", "levels", "landmarks", "edges"):
             self.assertEqual(default[field], alternate[field], field)
@@ -1809,7 +1808,7 @@ class ContentPackTests(unittest.TestCase):
             environment = dict(os.environ)
             environment["JOMON_CONTENT_PACK"] = str(root)
             result = subprocess.run(
-                [sys.executable, "-c", "import jomon.main"],
+                [sys.executable, "-c", "from jomon.catalog import select_content_pack_from_environment; select_content_pack_from_environment(); import jomon.world"],
                 cwd=ROOT,
                 env=environment,
                 text=True,
@@ -2068,8 +2067,8 @@ def preparation_presentation_snapshot(environment: dict[str, str]) -> dict[str, 
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item, sync_legacy_load; from jomon.preparations import apply_preparation, carried_preparations, preparation_status; from jomon.state import MaterialCell, Position, create_world; from jomon.terminal import _overlay_lines; "
-            "state=create_world('preparation-pack-proof'); state.location='region'; state.position=Position(40,24); state.region.materials.clear(); item=create_item(state,'consumable:preparation.waterline','fixture preparation'); auto_place(state,item.id,'pack',owner_id=state.active_courier_id); sync_legacy_load(state); carried=carried_preparations(state); ready=preparation_status(state,'preparation.waterline'); overlay=_overlay_lines(state,'field-use'); state.region.materials['40,24,0']=MaterialCell(water=3); changed,message=apply_preparation(state,'preparation.waterline'); mechanics={'preparation_id':'preparation.waterline','item_kind':item.kind,'carried_before':carried, 'ready_before':ready[0], 'changed':changed, 'water':state.region.materials['40,24,0'].water, 'marker':state.region.changes['preparation-used:preparation.waterline'], 'consumables':dict(state.consumables), 'time':state.world_time}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[overlay[1][0], overlay[1][-1], message], 'mechanics':mechanics}))",
+            "import json; from jomon.inventory import auto_place, create_item, sync_legacy_load; from jomon.preparation_presentation import preparation_display_name, preparation_text; from jomon.preparations import apply_preparation, carried_preparations, preparation_status; from jomon.state import MaterialCell, Position, create_world; "
+            "state=create_world('preparation-pack-proof'); state.location='region'; state.position=Position(40,24); state.region.materials.clear(); item=create_item(state,'consumable:preparation.waterline','fixture preparation'); auto_place(state,item.id,'pack',owner_id=state.active_courier_id); sync_legacy_load(state); carried=carried_preparations(state); ready=preparation_status(state,'preparation.waterline'); name=preparation_display_name('preparation.waterline'); guidance=preparation_text('preparation.overlay.guidance'); state.region.materials['40,24,0']=MaterialCell(water=3); changed,message=apply_preparation(state,'preparation.waterline'); mechanics={'preparation_id':'preparation.waterline','item_kind':item.kind,'carried_before':carried, 'ready_before':ready[0], 'changed':changed, 'water':state.region.materials['40,24,0'].water, 'marker':state.region.changes['preparation-used:preparation.waterline'], 'consumables':dict(state.consumables), 'time':state.world_time}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[name, guidance, message], 'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:

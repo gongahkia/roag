@@ -13,10 +13,11 @@ class CellView:
     """One observed map cell.
 
     ``terrain_id`` and ``feature_ids`` are renderer-neutral semantic identities.
-    Legacy curses glyphs are deliberately absent from this projection.
+    Renderer glyphs are deliberately absent from this projection.
     """
     position: Position
     terrain_id: str
+    topology_id: str | None
     visible: bool
     remembered: bool
     feature_ids: tuple[str, ...]
@@ -254,7 +255,7 @@ def world_view(state: GameState) -> WorldView:
             if position_key(point) in state.water:
                 features.append("field.water")
             cells.append(CellView(
-                point, terrain_id, point in visible,
+                point, terrain_id, semantic.id if semantic is not None else None, point in visible,
                 position_key(point) in remembered, tuple(features),
                 tuple(sorted(actors.get(point, ()))),
             ))
@@ -410,7 +411,7 @@ def quest_views(state: GameState) -> tuple[QuestView, ...]:
 
 
 def travel_view(state: GameState) -> TravelView:
-    """Route facts and selected-pack wording, never terminal chart coordinates."""
+    """Route facts and selected-pack wording, never frontend chart coordinates."""
     from .route_chart import edge_between, leg_travel_time, neighbours, route_availability
     from .travel_presentation import route_edge_hazard, route_node_description, route_node_name
 

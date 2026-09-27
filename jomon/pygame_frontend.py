@@ -9,6 +9,7 @@ from typing import Any
 
 from .assets import actor_assets, asset_resource, event_assets, tavern_assets, terrain_assets
 from .catalog import selected_content_pack
+from .font_stack import FontStack
 from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, DropItemCommand, EquipItemCommand, InteractCommand, MoveItemCommand, MoveCommand,
@@ -114,12 +115,16 @@ class ResourceCache:
 
 class PygameFrontend:
     """Frontend-local camera, selection, resources, and transient feedback."""
+    renderer_id = "graphical"
     def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None,
-                 require_character_setup: bool = False):
+                 require_character_setup: bool = False, font_path: Path | None = None,
+                 icon_font_path: Path | None = None):
         self.pygame = pygame or _pygame(); self.session = session
         self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
         self.pygame.display.set_caption("Jomon — graphical slice")
-        self.clock = self.pygame.time.Clock(); self.font = self.pygame.font.Font(None, 20)
+        self.clock = self.pygame.time.Clock()
+        self.font_stack = FontStack(self.pygame, 20, font_path=font_path, icon_font_path=icon_font_path)
+        self.font = self.font_stack.text
         self.tile_size = 26; self.selected: Position | None = None; self.selected_actor_id: str | None = None
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
@@ -678,14 +683,35 @@ class PygameFrontend:
         self.pygame.quit()
 
 
+def create_frontend(session: GameSession, *, renderer: str = "graphical", pygame: Any | None = None,
+                    font_path: Path | None = None, icon_font_path: Path | None = None,
+                    require_character_setup: bool = False) -> PygameFrontend:
+    """Create one presentation over the shared session/controller boundary."""
+    if renderer == "graphical":
+        return PygameFrontend(session, pygame=pygame, font_path=font_path, icon_font_path=icon_font_path,
+                              require_character_setup=require_character_setup)
+    if renderer == "ascii":
+        from .pygame_ascii import AsciiPygameFrontend
+
+        return AsciiPygameFrontend(session, pygame=pygame, font_path=font_path,
+                                   icon_font_path=icon_font_path,
+                                   require_character_setup=require_character_setup)
+    raise ValueError(f"unsupported renderer {renderer!r}")
+
+
 def main(argv: list[str] | None = None) -> None:
-    parser=argparse.ArgumentParser(description="Jomon's optional Pygame-ce graphical slice")
+    parser=argparse.ArgumentParser(description="Jomon's Pygame frontend")
     group=parser.add_mutually_exclusive_group(); group.add_argument("--new", action="store_true"); group.add_argument("--load", type=Path)
     parser.add_argument("--seed", default="pygame-jomon"); parser.add_argument("--save", type=Path, default=Path("jomon-pygame-save.json"))
+    parser.add_argument("--renderer", choices=("graphical", "ascii"), default="graphical")
+    parser.add_argument("--font", type=Path, help="local preferred text font; never persisted")
+    parser.add_argument("--icon-font", type=Path, help="local preferred icon font; never persisted")
     args=parser.parse_args(argv)
     try: pygame=_pygame()
     except RuntimeError as exc: parser.error(str(exc))
     session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
-    pygame.init(); PygameFrontend(session, pygame=pygame, require_character_setup=args.load is None).run(args.save)
+    pygame.init()
+    create_frontend(session, renderer=args.renderer, pygame=pygame, font_path=args.font,
+                    icon_font_path=args.icon_font, require_character_setup=args.load is None).run(args.save)
 
 if __name__ == '__main__': main()

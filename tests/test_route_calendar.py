@@ -20,14 +20,6 @@ from jomon.route_chart import (
 )
 from jomon.state import SAVE_FORMAT, create_world, game_state_from_dict
 from jomon.travel import choose_destination, travel_animation_frames
-from jomon.terminal import (
-    ROUTE_HELP_LINES,
-    InputEvent,
-    RouteChartView,
-    _handle_route_chart,
-    route_detail_lines,
-)
-
 
 class RouteGraphTests(unittest.TestCase):
     def test_seeded_graph_is_deterministic_connected_and_varied(self):
@@ -41,53 +33,8 @@ class RouteGraphTests(unittest.TestCase):
         self.assertEqual(connected_nodes(state), set(first_nodes))
         self.assertEqual(set(neighbours(state, "hearthford")), {"reed-anchor", "willow-ferry", "dunmire", "marlbank"})
 
-    def test_cursor_follows_edges_and_unconnected_confirmation_fails(self):
-        state = create_world("route cursor")
-        self.assertIn("Jomon is moored here", route_preview(state, "hearthford")[1])
-        moved = chart_move(state, "hearthford", 1, 0)
-        self.assertIn(moved, neighbours(state, "hearthford"))
-        changed, message = choose_destination(state, "whitecairn")
-        self.assertFalse(changed)
-        self.assertIn("No charted leg", message)
 
-    def test_keyboard_and_mouse_choose_the_same_reachable_leg(self):
-        keyboard = create_world("route input parity")
-        mouse = create_world("route input parity")
-        target = neighbours(keyboard, keyboard.route_current_node)[0]
-        for state in (keyboard, mouse):
-            state.route_known.append(target)
-        keyboard_view = RouteChartView(target)
-        self.assertEqual(_handle_route_chart(keyboard, keyboard_view, InputEvent("key", key=10))[:2], (False, None))
-        closed, _, animation = _handle_route_chart(keyboard, keyboard_view, InputEvent("key", key=10))
-        self.assertTrue(closed)
-        self.assertEqual(animation, ("hearthford", target))
-        mouse_view = RouteChartView("hearthford", node_screen={target: (12, 7)})
-        closed, _, mouse_animation = _handle_route_chart(
-            mouse, mouse_view, InputEvent("mouse", x=12, y=7, button="left", double=True)
-        )
-        self.assertTrue(closed)
-        self.assertEqual(mouse_animation, animation)
-        self.assertEqual(mouse.to_dict(), keyboard.to_dict())
 
-    def test_distant_chart_selection_is_inspectable_but_cannot_depart(self):
-        state = create_world("distant chart selection")
-        remote = next(node for node in state.route_nodes
-                      if node != state.route_current_node
-                      and node not in neighbours(state, state.route_current_node))
-        view = RouteChartView(remote)
-
-        lines = route_detail_lines(state, view, 23)
-        self.assertTrue(all(len(line) <= 23 for line in lines))
-        self.assertIn("No direct charted leg", " ".join(lines))
-        self.assertEqual(_handle_route_chart(state, view, InputEvent("key", key=10)), (False, None, None))
-        self.assertEqual(state.route_current_node, "hearthford")
-
-        mouse_view = RouteChartView("hearthford", node_screen={remote: (12, 7)})
-        self.assertEqual(
-            _handle_route_chart(state, mouse_view, InputEvent("mouse", x=12, y=7, button="left", double=True)),
-            (False, None, None),
-        )
-        self.assertIn("No direct charted leg", " ".join(route_detail_lines(state, mouse_view, 23)))
 
     def test_travel_frames_are_presentation_only_and_skip_parity_is_exact(self):
         animated = create_world("skip parity")
@@ -110,23 +57,6 @@ class RouteGraphTests(unittest.TestCase):
         self.assertFalse(available)
         self.assertIn("closed", reason)
 
-    def test_minimum_width_route_confirmation_wraps_every_material_fact(self):
-        state = create_world("minimum route details")
-        target = neighbours(state, state.route_current_node, reachable_only=True)[0]
-        view = RouteChartView(target, confirming=True)
-
-        lines = route_detail_lines(state, view, 23)
-
-        self.assertLessEqual(len(lines), 19)
-        self.assertTrue(all(len(line) <= 23 for line in lines))
-        self.assertTrue(all(len(line) <= 78 for line in ROUTE_HELP_LINES))
-        joined = " ".join(lines)
-        for fact in (
-            "Route:", "actions", "supplies", "Risks: cargo", "weather",
-            "Spring:", "Market:", "Contacts:", "ENTER", "ESC",
-        ):
-            self.assertIn(fact, joined)
-        self.assertNotIn("...", joined)
 
 
 class CalendarAndMigrationTests(unittest.TestCase):

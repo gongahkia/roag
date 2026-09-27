@@ -1,17 +1,14 @@
-"""Run Jomon with ``python -m jomon``."""
+"""Run Jomon's Pygame application with ``python -m jomon``."""
 
 from .catalog import select_content_pack_from_environment
 
 
 def main() -> None:
-    # ``main`` imports modules that cache catalog data. Establish a selected
-    # pack before that import so JOMON_CONTENT_PACK affects the whole run.
+    # Select the pack before frontend imports cache presentation data.
     select_content_pack_from_environment()
-    import curses
+    from .pygame_frontend import main as pygame_main
 
-    from .main import run
-
-    curses.wrapper(run)
+    pygame_main()
 
 
 if __name__ == "__main__":

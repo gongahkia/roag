@@ -1161,7 +1161,7 @@ class UiContractSlot:
 
 @dataclass(frozen=True)
 class UiPresentation:
-    """Immutable selected-pack terminal text."""
+    """Immutable selected-pack UI text."""
 
     id: str
     text: str

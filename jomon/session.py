@@ -224,7 +224,7 @@ class GameSession:
                 return self._reject("item.move.rejected", command.item_id)
             from .inventory import auto_place, record_acquisition, sync_legacy_load, transfer_to_grid
             if item.location_id in {"container", "ground"}:
-                # This is the established terminal transfer behaviour: a
+                # This is the established transfer behaviour: a
                 # source item is taken only when automatic placement can fit
                 # it, then its stable container membership is retired.
                 moved = self._state.auto_place_enabled and auto_place(

@@ -79,4 +79,4 @@ if set(_dice) != {str(face) for face in range(1, 7)}:
     raise CatalogError("tavern_dice needs faces one through six")
 TAVERN_DICE = {int(face): _rows(rows, 5, 9, f"tavern_dice.{face}") for face, rows in _dice.items()}
 # Vessel and tavern glyph layouts are now engine semantic topology.
-# The legacy ASCII rows are re-exported for curses/test compatibility only.
+# Legacy ASCII rows remain a test/debug representation only.
