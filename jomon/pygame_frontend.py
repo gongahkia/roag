@@ -9,7 +9,7 @@ from typing import Any
 
 from .assets import actor_assets, asset_resource, event_assets, terrain_assets
 from .catalog import selected_content_pack
-from .commands import AttackCommand, EquipItemCommand, InteractCommand, MoveCommand, TravelCommand, UnequipItemCommand
+from .commands import AttackCommand, EquipItemCommand, InteractCommand, MoveCommand, TravelCommand, UnequipItemCommand, UseGearCommand
 from .runtime_events import ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent
 from .session import CommandOutcome, GameSession
 from .state import Position

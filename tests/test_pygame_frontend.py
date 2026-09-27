@@ -142,6 +142,9 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.panel_cursor=next(index for index,row in enumerate(frontend._panel_rows()) if row.id==equipped.id)
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_r,mod=0))
         self.assertEqual(frontend.last_result,"item.unequipped")
+        frontend.panel_cursor=next(index for index,row in enumerate(frontend._panel_rows()) if "equip" in row.legal_operations)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_e,mod=0))
+        self.assertEqual(frontend.last_result,"item.equipped")
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_ESCAPE,mod=0))
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_q,mod=0))
         self.assertEqual(frontend.panel,"quests"); frontend.draw()
@@ -181,5 +184,9 @@ class PygameDependencyBoundaryTests(unittest.TestCase):
         import subprocess, sys
         result=subprocess.run([sys.executable,"-c","import sys; import jomon.session,jomon.commands,jomon.views,jomon.runtime_events; print('pygame' in sys.modules)"],text=True,capture_output=True,check=True)
         self.assertEqual(result.stdout.strip(),"False")
+
+    def test_graphical_core_surface_does_not_reach_session_private_state(self):
+        source=Path("jomon/pygame_frontend.py").read_text(encoding="utf-8")
+        self.assertNotIn("session._state",source)
 
 if __name__ == "__main__": unittest.main()
