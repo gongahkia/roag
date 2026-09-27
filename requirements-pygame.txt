@@ -1,0 +1,2 @@
+# Optional graphical frontend only; core Jomon and curses do not import this.
+pygame-ce

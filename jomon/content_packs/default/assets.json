@@ -93,7 +93,8 @@
       "kind": "audio"
     },
     "audio.event.damage": {
-      "kind": "audio"
+      "kind": "audio",
+      "path": "media/developer_hit.wav"
     },
     "image.actor.default": {
       "kind": "image"
@@ -105,7 +106,8 @@
       "kind": "image"
     },
     "image.terrain.floor": {
-      "kind": "image"
+      "kind": "image",
+      "path": "media/developer_tile.png"
     }
   }
 }

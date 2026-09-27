@@ -60,7 +60,7 @@ class AssetManifestTests(unittest.TestCase):
         self.assertEqual(curses_glyph("cell.vessel.floor", "."), ".")
         self.assertEqual(terrain_assets("terrain.vessel.floor")["image"], "image.terrain.floor")
         self.assertEqual(action_assets("attack.unknown")["animation"], "animation.action.attack")
-        self.assertIsNone(asset_resource("image.terrain.floor").path)
+        self.assertEqual(asset_resource("image.terrain.floor").path, "media/developer_tile.png")
 
     def test_manifest_rejects_duplicate_unknown_unsafe_and_missing_assets(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,0 +1,187 @@
+"""Small optional Pygame-ce frontend using Jomon's headless application API."""
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass, field
+from hashlib import sha256
+from pathlib import Path
+from typing import Any
+
+from .assets import actor_assets, asset_resource, event_assets, terrain_assets
+from .catalog import selected_content_pack
+from .commands import AttackCommand, InteractCommand, MoveCommand
+from .runtime_events import ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent
+from .session import CommandOutcome, GameSession
+from .state import Position
+from .views import ActorView, CellView, WorldView
+
+
+def _pygame() -> Any:
+    try:
+        import pygame
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("The graphical frontend requires optional dependency pygame-ce; install requirements-pygame.txt.") from exc
+    return pygame
+
+
+@dataclass
+class Motion:
+    actor_id: str
+    start: Position
+    end: Position
+    elapsed: float = 0.0
+    duration: float = 0.14
+
+
+@dataclass
+class Feedback:
+    position: Position | None
+    text: str
+    elapsed: float = 0.0
+    duration: float = 0.35
+
+
+class ResourceCache:
+    """Pygame-local media cache. Missing media produces no engine side effects."""
+    def __init__(self, pygame: Any):
+        self.pygame, self.images, self.sounds = pygame, {}, {}
+        self.audio_ready = False
+        try:
+            pygame.mixer.init()
+            self.audio_ready = True
+        except pygame.error:
+            pass
+
+    def image(self, asset_id: str, size: int) -> Any | None:
+        key = asset_id, size
+        if key in self.images: return self.images[key]
+        resource = asset_resource(asset_id)
+        if resource is None or resource.kind != "image" or resource.path is None: return None
+        try:
+            surface = self.pygame.image.load(str(selected_content_pack().root / resource.path)).convert_alpha()
+            surface = self.pygame.transform.smoothscale(surface, (size, size))
+        except (self.pygame.error, OSError):
+            return None
+        self.images[key] = surface
+        return surface
+
+    def play(self, asset_id: str) -> None:
+        if not self.audio_ready: return
+        if asset_id in self.sounds:
+            sound = self.sounds[asset_id]
+        else:
+            resource = asset_resource(asset_id)
+            if resource is None or resource.kind != "audio" or resource.path is None: return
+            try: sound = self.pygame.mixer.Sound(str(selected_content_pack().root / resource.path))
+            except (self.pygame.error, OSError): return
+            self.sounds[asset_id] = sound
+        try: sound.play()
+        except self.pygame.error: pass
+
+
+class PygameFrontend:
+    """Frontend-local camera, selection, resources, and transient feedback."""
+    def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None):
+        self.pygame = pygame or _pygame(); self.session = session
+        self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
+        self.pygame.display.set_caption("Jomon — graphical slice")
+        self.clock = self.pygame.time.Clock(); self.font = self.pygame.font.Font(None, 20)
+        self.tile_size = 26; self.selected: Position | None = None; self.selected_actor_id: str | None = None
+        self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
+        self.running = True; self.last_result = "ready"
+
+    def _colour(self, semantic: str) -> tuple[int, int, int]:
+        raw=sha256(semantic.encode()).digest(); return 45+raw[0]//3, 45+raw[1]//3, 45+raw[2]//3
+
+    def _camera(self, view: WorldView) -> tuple[int, int]:
+        width, height = self.screen.get_size(); return width//2-view.courier_position.x*self.tile_size, height//2-view.courier_position.y*self.tile_size
+
+    def _rect(self, point: Position, camera: tuple[int,int]) -> Any:
+        return self.pygame.Rect(camera[0]+point.x*self.tile_size, camera[1]+point.y*self.tile_size, self.tile_size, self.tile_size)
+
+    def submit(self, command: object) -> CommandOutcome:
+        outcome=self.session.submit(command); self.last_result=outcome.result_id; self.consume_events(outcome.events); return outcome
+
+    def consume_events(self, events: tuple[RuntimeEvent, ...]) -> None:
+        for event in events:
+            if isinstance(event, ActorMoved): self.motions.append(Motion(event.actor_id,event.from_position,event.to_position))
+            elif isinstance(event, DamageApplied):
+                actor=self.session.actor_view(event.target_actor_id); self.feedback.append(Feedback(actor.position if actor else None, str(event.amount)))
+            elif isinstance(event, (AttackResolved, ActorDefeated)):
+                actor_id=event.target_id if isinstance(event, AttackResolved) else event.actor_id; actor=self.session.actor_view(actor_id)
+                self.feedback.append(Feedback(actor.position if actor else None, "hit" if isinstance(event, AttackResolved) else "defeated"))
+            binding=event_assets(event.event_id)
+            if "audio" in binding: self.resources.play(binding["audio"])
+
+    def _draw_cell(self, cell: CellView, camera: tuple[int,int]) -> None:
+        if not (cell.visible or cell.remembered): return
+        rect=self._rect(cell.position,camera); colour=self._colour(cell.terrain_id)
+        if not cell.visible: colour=tuple(value//3 for value in colour)
+        self.pygame.draw.rect(self.screen,colour,rect)
+        asset=terrain_assets(cell.terrain_id).get("image"); image=self.resources.image(asset,self.tile_size) if asset else None
+        if image: self.screen.blit(image,rect)
+        if cell.feature_ids: self.pygame.draw.rect(self.screen,(235,190,80),rect,1)
+
+    def _draw_actor(self, actor: ActorView, camera: tuple[int,int]) -> None:
+        if actor.position is None or not actor.alive: return
+        rect=self._rect(actor.position,camera); binding=actor_assets(actor.presentation_id); image=self.resources.image(binding.get("image",""),self.tile_size)
+        if image: self.screen.blit(image,rect)
+        else:
+            colour=(80,210,250) if actor.actor_kind=="person" else (225,75,75)
+            self.pygame.draw.circle(self.screen,colour,rect.center,max(4,self.tile_size//3))
+        if actor.id==self.selected_actor_id: self.pygame.draw.rect(self.screen,(255,255,255),rect,2)
+
+    def draw(self) -> None:
+        self.screen.fill((8,10,16)); view=self.session.world_view(); camera=self._camera(view)
+        for cell in view.cells: self._draw_cell(cell,camera)
+        courier=self._rect(view.courier_position,camera); self.pygame.draw.circle(self.screen,(245,245,255),courier.center,max(5,self.tile_size//3))
+        for actor in self.session.actor_views(): self._draw_actor(actor,camera)
+        if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
+        for note in self.feedback:
+            if note.position: self.screen.blit(self.font.render(note.text,True,(255,220,120)),self._rect(note.position,camera).move(0,-10))
+        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · F5 save",True,(240,240,240))
+        self.screen.blit(panel,(10,10)); self.pygame.display.flip()
+
+    def _select_at(self, mouse: tuple[int,int]) -> None:
+        view=self.session.world_view(); camera=self._camera(view); x=(mouse[0]-camera[0])//self.tile_size; y=(mouse[1]-camera[1])//self.tile_size
+        cell=next((row for row in view.cells if row.position.x==x and row.position.y==y),None)
+        if cell and (cell.visible or cell.remembered): self.selected=cell.position; self.selected_actor_id=cell.actor_ids[0] if cell.actor_ids else None
+
+    def handle_event(self,event: Any, save_path: Path | None = None) -> None:
+        p=self.pygame
+        if event.type==p.QUIT: self.running=False
+        elif event.type==p.MOUSEBUTTONDOWN and event.button==1: self._select_at(event.pos)
+        elif event.type==p.KEYDOWN:
+            directions={p.K_UP:(0,-1),p.K_w:(0,-1),p.K_DOWN:(0,1),p.K_s:(0,1),p.K_LEFT:(-1,0),p.K_a:(-1,0),p.K_RIGHT:(1,0),p.K_d:(1,0)}
+            if event.key in directions: self.submit(MoveCommand(*directions[event.key]))
+            elif event.key==p.K_e:
+                choice=next((row for row in self.session.interaction_view().options if row.available),None)
+                if choice: self.submit(InteractCommand(choice.target_id,choice.interaction_id))
+            elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id))
+            elif event.key==p.K_F5 and save_path: self.session.save(save_path)
+
+    def update(self, elapsed: float) -> None:
+        for motion in self.motions: motion.elapsed += elapsed
+        self.motions[:]=[row for row in self.motions if row.elapsed<row.duration]
+        for note in self.feedback: note.elapsed += elapsed
+        self.feedback[:]=[row for row in self.feedback if row.elapsed<row.duration]
+
+    def run(self, save_path: Path | None = None) -> None:
+        while self.running:
+            elapsed=self.clock.tick(60)/1000
+            for event in self.pygame.event.get(): self.handle_event(event,save_path)
+            self.update(elapsed); self.draw()
+        self.pygame.quit()
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser=argparse.ArgumentParser(description="Jomon's optional Pygame-ce graphical slice")
+    group=parser.add_mutually_exclusive_group(); group.add_argument("--new", action="store_true"); group.add_argument("--load", type=Path)
+    parser.add_argument("--seed", default="pygame-jomon"); parser.add_argument("--save", type=Path, default=Path("jomon-pygame-save.json"))
+    args=parser.parse_args(argv)
+    try: pygame=_pygame()
+    except RuntimeError as exc: parser.error(str(exc))
+    session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
+    pygame.init(); PygameFrontend(session,pygame=pygame).run(args.save)
+
+if __name__ == '__main__': main()
