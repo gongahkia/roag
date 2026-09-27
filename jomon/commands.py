@@ -97,6 +97,18 @@ class CloseTavernGameCommand:
 
 
 @dataclass(frozen=True)
+class CharacterSetupCommand:
+    """Commit a new courier's stable initial character configuration."""
+    crew_id: str
+    name: str
+    ancestry_id: str
+    origin_id: str
+    trait_id: str
+    attributes: tuple[tuple[str, int], ...]
+    competencies: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True)
 class ActivityCommand:
     """Resolve one stable ordinary-game activity choice.
 
@@ -135,5 +147,5 @@ GameCommand = (
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | EquipItemCommand | UnequipItemCommand | TravelCommand
     | StartTavernGameCommand | DrawBetCommand | DrawExchangeCommand
-    | DiceActionCommand | CloseTavernGameCommand | ActivityCommand
+    | DiceActionCommand | CloseTavernGameCommand | ActivityCommand | CharacterSetupCommand
 )

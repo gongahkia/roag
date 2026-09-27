@@ -173,6 +173,29 @@ class InteractionView:
 
 
 @dataclass(frozen=True)
+class CharacterSetupCrewView:
+    """A stable household candidate for the initial courier watch."""
+    crew_id: str
+    display_name: str
+    role_id: str
+    role_label: str
+
+
+@dataclass(frozen=True)
+class CharacterSetupView:
+    """Immutable initial-character choices with no mutable person records."""
+    available: bool
+    crew: tuple[CharacterSetupCrewView, ...]
+    ancestry_ids: tuple[str, ...]
+    origin_ids: tuple[str, ...]
+    trait_ids: tuple[str, ...]
+    attribute_ids: tuple[str, ...]
+    competency_ids: tuple[str, ...]
+    attribute_points: int
+    competency_points: int
+
+
+@dataclass(frozen=True)
 class ActivityOptionView:
     """One legal-or-explained semantic operation in an ordinary-game panel."""
     action_id: str
@@ -418,6 +441,25 @@ def tavern_dice_view(state: GameState) -> TavernDiceView:
         match["turn_total"], tuple(match["last_dice"]), match["forced"],
         _tavern_people(state, tuple(match["players"]), tuple(True for _ in match["players"])),
         legal_player_actions(state), tuple(match["players"][seat] for seat in match["winners"]), available,
+    )
+
+
+def character_setup_view(state: GameState) -> CharacterSetupView:
+    """Expose initial courier choices without making creation a frontend concern."""
+    from .character import (
+        ANCESTRIES, ATTRIBUTE_POINTS, COMPETENCIES, COMPETENCY_POINTS, ORIGINS,
+        TRAITS,
+    )
+    from .character_presentation import role_display_name
+
+    crew = tuple(
+        CharacterSetupCrewView(person.id, person.name, person.role, role_display_name(person.role))
+        for person in state.household if person.alive and person.available
+    )
+    return CharacterSetupView(
+        state.world_time == 0 and state.expedition_count == 0 and not state.courier.character_specified,
+        crew, tuple(ANCESTRIES), tuple(ORIGINS), tuple(TRAITS), tuple(ATTRIBUTES),
+        tuple(COMPETENCIES), ATTRIBUTE_POINTS, COMPETENCY_POINTS,
     )
 
 

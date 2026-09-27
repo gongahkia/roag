@@ -103,16 +103,16 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
     elif context_id == "vessel":
         from .vessel_refits import STATION_REFITS, installation_status, refit_station_at
         from .vessel_presentation import refit_display_name
-        from .magic import rest_at_berths
         station = refit_station_at(state)
         for refit_id in STATION_REFITS.get(station or "", ()):
             available, _ = installation_status(state, refit_id)
             options.append(_option(f"vessel.refit:{refit_id}", refit_display_name(refit_id),
                                    available=available, reason_id=None if available else "vessel.refit.unavailable"))
         if station == "berths":
-            available, _ = rest_at_berths(state)
-            options.append(_option("vessel.rest", "Rest at berths", available=available,
-                                   reason_id=None if available else "vessel.rest.unavailable"))
+            # ``rest_at_berths`` advances the simulation when it succeeds.  A
+            # view must never probe a reducer, so publish the semantic action
+            # and let the authoritative reducer validate it on submission.
+            options.append(_option("vessel.rest", "Rest at berths"))
         title = "Vessel"
     elif context_id == "circuits":
         from .circuits import PARTS, cell_at, item_count, space_id

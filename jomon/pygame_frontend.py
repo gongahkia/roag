@@ -13,7 +13,7 @@ from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
-    ActivityCommand,
+    ActivityCommand, GuardCommand, RetreatCommand,
 )
 from .runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
@@ -392,7 +392,7 @@ class PygameFrontend:
         if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
         for note in self.feedback:
             if note.position: self.screen.blit(self.font.render(note.text,True,(255,220,120)),self._rect(note.position,camera).move(0,-10))
-        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · C craft · P progress · M magic · Ctrl+S save",True,(240,240,240))
+        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · G guard · R retreat · C craft · P progress · M magic · Ctrl+S save",True,(240,240,240))
         self.screen.blit(panel,(10,10))
         for index, line in enumerate(self._inspection_lines()):
             self.screen.blit(self.font.render(line, True, (235,235,235)), (10, 38 + index * 19))
@@ -488,6 +488,8 @@ class PygameFrontend:
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                 elif choices: self._open_panel("interaction")
             elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id, self.selected))
+            elif event.key==p.K_g: self.submit(GuardCommand(self.selected_actor_id))
+            elif event.key==p.K_r: self.submit(RetreatCommand())
             elif event.key==p.K_i: self._open_panel("inventory")
             elif event.key==p.K_q: self._open_panel("quests")
             elif event.key==p.K_t: self._open_panel("travel")

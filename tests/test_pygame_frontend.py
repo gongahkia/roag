@@ -133,6 +133,23 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertTrue(any(event.event_id=="combat.damage.applied" for event in outcome.events))
         self.assertTrue(frontend.feedback)
 
+    def test_guard_and_retreat_are_submitted_through_session_commands(self):
+        from jomon.state import Position, Threat
+
+        frontend = self.frontend(); state = frontend.session._state
+        state.location, state.position, state.world_time = "region", Position(40, 25), 8
+        state.weather, state.weapon = "clear", "billhook"
+        for z in (-1, 0, 1):
+            for y in range(20, 31):
+                for x in range(30, 55): state.region.tile_changes[f"{x},{y},{z}"] = "."
+        state.threats = [Threat("pygame-guard", "ignored", "pursuer", Position(41, 25), 20, 20,
+                               status="engaged", morale=8)]
+        frontend.selected_actor_id = "pygame-guard"
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_g, mod=0))
+        self.assertIn(frontend.last_result, {"guard.resolved", "guard.rejected"})
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
+        self.assertIn(frontend.last_result, {"retreat.resolved", "retreat.rejected"})
+
     def test_inventory_quest_and_travel_panels_use_session_views(self):
         frontend=self.frontend()
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_i,mod=0))
