@@ -204,6 +204,9 @@ def configureterrain (terrain):
     COLOURS['^'] = GREY
     COLOURS['O'] = YELLOW
     COLOURS['w'] = RED
+    COLOURS['*'] = CYAN
+    COLOURS['+'] = GREY
+    COLOURS['='] = YELLOW
 
 
 #CLASS OBJECTS
@@ -568,6 +571,11 @@ def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9),
             rooms.append(centre)
         carveroom(space,start[0] - 3,start[1] - 3,7,7)
         carvecorridor(space,tuple(start),rooms[0])
+        LANDMARKS = {}
+        walls = [(x,y) for x in range(1,WORLDWIDTH - 1) for y in range(1,WORLDHEIGHT - 1) if (x,y) not in space]
+        for glyph,count in [('+',80),('=',20),('O',8)]:
+            for coordinate in random.sample(walls,min(count,len(walls))):
+                LANDMARKS[coordinate] = glyph
         return space
     for attempt in range(12):
         walls = {(x,y) for x in range(WORLDWIDTH) for y in range(WORLDHEIGHT)
@@ -579,11 +587,11 @@ def generatespace (start, required = None, roomcount = (3,5), roomwidth = (5,9),
         reachable = set(pathfind(tuple(start),tuple(next(iter(space))),space))
         if len(space) > 1000:
             LANDMARKS = {}
-            if terrain == 'forest':
-                blocked = [(x,y) for x in range(1,WORLDWIDTH - 1) for y in range(1,WORLDHEIGHT - 1) if (x,y) not in space]
-                for glyph,count in [('Y',110),('^',35),('O',12)]:
-                    for coordinate in random.sample(blocked,min(count,len(blocked))):
-                        LANDMARKS[coordinate] = glyph
+            blocked = [(x,y) for x in range(1,WORLDWIDTH - 1) for y in range(1,WORLDHEIGHT - 1) if (x,y) not in space]
+            landmarks = [('Y',110),('^',35),('O',12)] if terrain == 'forest' else [('^',90),('*',45),('O',16)]
+            for glyph,count in landmarks:
+                for coordinate in random.sample(blocked,min(count,len(blocked))):
+                    LANDMARKS[coordinate] = glyph
             return space
     return space
 
