@@ -547,7 +547,7 @@ class PygameFrontend:
                 return
             if self.panel:
                 rows = self._panel_rows()
-                if event.key in {p.K_ESCAPE, p.K_i, p.K_q, p.K_t}:
+                if event.key in {p.K_ESCAPE, p.K_i, p.K_q}:
                     self.panel = None; self.activity_context = None; return
                 if event.key in {p.K_UP, p.K_w}: self.panel_cursor = max(0, self.panel_cursor - 1); return
                 if event.key in {p.K_DOWN, p.K_s}: self.panel_cursor = min(max(0, len(rows) - 1), self.panel_cursor + 1); return

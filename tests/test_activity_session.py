@@ -152,6 +152,28 @@ class ActiveGameplayCommandTests(unittest.TestCase):
         self.assertEqual(session.submit(ActivityCommand("loadout", weapon.action_id)).result_id, "activity.resolved")
         self.assertEqual(payload(through_session), payload(legacy))
 
+    def test_inventory_transfer_and_drop_are_session_commands_with_transient_events(self):
+        from jomon.commands import DropItemCommand, MoveItemCommand, UnequipItemCommand
+
+        session = GameSession(create_world("inventory activity"))
+        equipped = session.equipment_view().slots[0]
+        self.assertTrue(session.submit(UnequipItemCommand(equipped.location_id)).changed)
+        moved = session.submit(MoveItemCommand(equipped.id, "locker"))
+        self.assertEqual(moved.result_id, "item.moved")
+        self.assertEqual(moved.events[0].event_id, "item.moved")
+        self.assertEqual(next(row for row in session.inventory_view().items if row.id == equipped.id).location_id, "locker")
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "moved-item.json"
+            session.save(path)
+            loaded = GameSession.load(path)
+        self.assertEqual(next(row for row in loaded.inventory_view().items if row.id == equipped.id).location_id, "locker")
+        self.assertTrue(session.submit(MoveItemCommand(equipped.id, "pack")).changed)
+        dropped = session.submit(DropItemCommand(equipped.id))
+        self.assertEqual(dropped.result_id, "item.dropped")
+        self.assertEqual(dropped.events[0].event_id, "item.dropped")
+
     def test_active_activity_contexts_are_observational(self):
         state = create_world("activity coverage")
         session = GameSession(state)

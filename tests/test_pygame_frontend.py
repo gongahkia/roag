@@ -214,6 +214,21 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
         self.assertEqual(frontend.last_result, "activity.resolved")
 
+    def test_inventory_transfer_and_drop_use_stable_item_ids(self):
+        frontend = self.frontend()
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_i, mod=0))
+        equipped = frontend.session.equipment_view().slots[0]
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows()) if row.id == equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows()) if row.id == equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_t, mod=0))
+        self.assertEqual(frontend.last_result, "item.moved")
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows()) if row.id == equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_t, mod=0))
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows()) if row.id == equipped.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_d, mod=0))
+        self.assertEqual(frontend.last_result, "item.dropped")
+
     def test_inventory_use_and_multiple_interactions_use_stable_view_records(self):
         from jomon.inventory import auto_place, create_item
         from jomon.state import Position

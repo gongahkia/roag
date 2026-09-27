@@ -338,7 +338,8 @@ def _item_view(state: GameState, item) -> ItemView:
         operations.append("equip")
     if equipped:
         operations.append("unequip")
-    if item.owner_id == state.active_courier_id and item.location in {"pack", "locker"}:
+    if ((item.owner_id == state.active_courier_id and item.location == "pack")
+            or (state.location == "jomon" and item.location == "locker")):
         operations.append("move")
     if item.owner_id == state.active_courier_id and item.location == "pack":
         operations.append("drop")
@@ -354,7 +355,8 @@ def inventory_view(state: GameState) -> InventoryView:
     """Expose carried physical items without leaking mutable inventory records."""
     owner = state.active_courier_id
     rows = [_item_view(state, item) for item in state.items
-            if item.owner_id == owner and item.location not in {"lost", "destroyed"}]
+            if (item.owner_id == owner or state.location == "jomon" and item.location == "locker")
+            and item.location not in {"lost", "destroyed"}]
     return InventoryView(tuple(sorted(rows, key=lambda row: (row.location_id, row.display_name, row.id))))
 
 
