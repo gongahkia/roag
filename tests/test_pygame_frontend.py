@@ -40,6 +40,37 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertIsNone(frontend.panel)
         self.assertIsNone(frontend.setup_draft)
 
+    def test_title_pause_save_settings_and_renderer_switch_are_frontend_local(self):
+        from jomon.app_settings import AppSettings, load_app_settings
+        from jomon.pygame_frontend import create_frontend
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            settings_file, save_root = root / "settings.json", root / "saves"
+            frontend = create_frontend(
+                __import__("jomon.session", fromlist=["GameSession"]).GameSession.create("shell"),
+                renderer="debug", pygame=self.pygame, shell_mode="title", settings=AppSettings(),
+                settings_file=settings_file, save_root=save_root, save_path=save_root / "continue.json",
+            )
+            self.assertEqual(frontend.panel, "title")
+            frontend._activate_shell("join")
+            self.assertEqual(frontend.panel, "setup")
+            frontend.setup_draft.cursor = frontend._setup_fields().index("begin")
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+            before = (frontend.session.revision, frontend.session.world_view())
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_ESCAPE, mod=0))
+            self.assertEqual(frontend.panel, "pause")
+            self.assertEqual((frontend.session.revision, frontend.session.world_view()), before)
+            frontend._activate_shell("save")
+            frontend._activate_shell("save.new")
+            self.assertTrue(tuple(save_root.glob("*.json")))
+            frontend._open_panel("settings")
+            frontend._activate_shell("renderer.ascii")
+            self.assertEqual(load_app_settings(settings_file), AppSettings("ascii"))
+            replacement = frontend._replacement_renderer("ascii")
+            self.assertEqual(replacement.renderer_id, "ascii")
+            self.assertIs(replacement.session, frontend.session)
+            self.assertEqual(replacement.session.world_view(), before[1])
+
     def test_draws_semantic_view_and_loads_real_image_resource(self):
         frontend=self.frontend(); frontend.draw()
         self.assertIsNotNone(frontend.resources.image("image.terrain.floor", frontend.tile_size))

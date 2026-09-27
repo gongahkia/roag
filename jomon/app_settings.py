@@ -83,8 +83,8 @@ def save_path_for_name(name: str) -> Path | None:
     return save_directory() / f"{safe}.json" if safe else None
 
 
-def available_saves() -> tuple[Path, ...]:
-    root = save_directory()
+def available_saves(root: Path | None = None) -> tuple[Path, ...]:
+    root = root or save_directory()
     if not root.is_dir():
         return ()
     return tuple(sorted((path for path in root.glob("*.json") if path.is_file()), key=lambda path: path.stat().st_mtime, reverse=True))

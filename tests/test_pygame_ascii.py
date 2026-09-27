@@ -37,11 +37,19 @@ class AsciiPygameFrontendTests(unittest.TestCase):
         cell = frontend.session.world_view().cells[0]
         self.assertFalse(hasattr(cell, "glyph"))
         self.assertTrue(frontend._cell_glyph(cell))
-        self.assertIn(frontend.font_stack.resolution.text_source, {"BigBlueTerm", "monospace fallback", "explicit"})
+        self.assertIn(frontend.font_stack.resolution.text_source, {"bundled BigBlueTerm Nerd Font Mono", "BigBlueTerm", "Nerd Font", "monospace fallback", "explicit"})
         icon = frontend.font_stack.icon("quest")
         self.assertTrue(icon)
         if frontend.font_stack.resolution.icon_source == "text fallback":
             self.assertEqual(icon, "QUEST")
+
+    def test_bundled_font_renders_representative_semantic_icons(self):
+        frontend = self.frontend()
+        self.assertEqual(frontend.font_stack.resolution.text_source, "bundled BigBlueTerm Nerd Font Mono")
+        for identity in ("health", "inventory", "quest", "travel", "vessel", "settings", "draw", "dice"):
+            surface = frontend.font_stack.render(frontend.font_stack.icon(identity), (255, 255, 255), icon=True)
+            self.assertGreater(surface.get_width(), 0)
+            self.assertGreater(surface.get_height(), 0)
 
     def test_ascii_uses_the_shared_commands_panels_and_save_format(self):
         from jomon.commands import MoveCommand
@@ -68,7 +76,7 @@ class AsciiPygameFrontendTests(unittest.TestCase):
 
         graphical = create_frontend(GameSession.create("factory"), pygame=self.pygame)
         ascii_frontend = create_frontend(GameSession.create("factory"), renderer="ascii", pygame=self.pygame)
-        self.assertEqual(graphical.renderer_id, "graphical")
+        self.assertEqual(graphical.renderer_id, "debug")
         self.assertEqual(ascii_frontend.renderer_id, "ascii")
 
 

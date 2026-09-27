@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .assets import actor_assets, asset_resource, event_assets, tavern_assets, terrain_assets
+from .app_settings import AppSettings, available_saves, default_save_path, load_app_settings, save_app_settings, save_directory
 from .catalog import selected_content_pack
 from .font_stack import FontStack
 from .commands import (
@@ -75,6 +76,14 @@ class InspectionData:
     remembered: bool
 
 
+@dataclass(frozen=True)
+class ShellMenuItem:
+    action_id: str
+    label: str
+    enabled: bool = True
+    detail: str = ""
+
+
 class ResourceCache:
     """Pygame-local media cache. Missing media produces no engine side effects."""
     def __init__(self, pygame: Any):
@@ -115,10 +124,12 @@ class ResourceCache:
 
 class PygameFrontend:
     """Frontend-local camera, selection, resources, and transient feedback."""
-    renderer_id = "graphical"
+    renderer_id = "debug"
     def __init__(self, session: GameSession, *, size: tuple[int, int] = (1100, 760), pygame: Any | None = None,
                  require_character_setup: bool = False, font_path: Path | None = None,
-                 icon_font_path: Path | None = None):
+                 icon_font_path: Path | None = None, shell_mode: str = "game",
+                 settings: AppSettings | None = None, settings_file: Path | None = None,
+                 save_root: Path | None = None, save_path: Path | None = None, seed: str = "pygame-jomon"):
         self.pygame = pygame or _pygame(); self.session = session
         self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
         self.pygame.display.set_caption("Jomon — graphical slice")
@@ -129,10 +140,16 @@ class PygameFrontend:
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
         self.panel: str | None = None; self.panel_cursor = 0; self.activity_context: str | None = None
+        self.settings = settings or load_app_settings(settings_file); self.settings_file = settings_file
+        self.save_root = save_root or save_directory(); self.save_path = save_path or default_save_path(); self.new_game_seed = seed
+        self.settings_return_panel: str | None = None
+        self.requested_renderer: str | None = None
         self.inventory_source: str | None = None
         self.marked_draw_cards: set[str] = set(); self.setup_draft: CharacterSetupDraft | None = None
         if require_character_setup:
             self._begin_character_setup()
+        elif shell_mode == "title":
+            self._open_panel("title")
 
     def _colour(self, semantic: str) -> tuple[int, int, int]:
         raw=sha256(semantic.encode()).digest(); return 45+raw[0]//3, 45+raw[1]//3, 45+raw[2]//3
@@ -234,6 +251,8 @@ class PygameFrontend:
         self.notification = Feedback(None, text, duration=2.0)
 
     def _panel_rows(self):
+        if self.panel in {"title", "pause", "settings", "save", "load"}:
+            return self._shell_rows()
         if self.panel == "inventory": return self.session.inventory_view(self.inventory_source).items
         if self.panel == "travel": return self.session.travel_view().destinations
         if self.panel == "interaction": return self.session.interaction_view().options
@@ -242,6 +261,75 @@ class PygameFrontend:
         if self.panel == "activity" and self.activity_context:
             return self.session.activity_view(self.activity_context).options
         return ()
+
+    def _shell_rows(self) -> tuple[ShellMenuItem, ...]:
+        if self.panel == "title":
+            return (
+                ShellMenuItem("join", "JOIN GAME"),
+                ShellMenuItem("continue", "CONTINUE", self.save_path.is_file(), "Most recent Jomon save"),
+                ShellMenuItem("load", "LOAD GAME"), ShellMenuItem("settings", "SETTINGS"),
+                ShellMenuItem("quit", "QUIT"),
+            )
+        if self.panel == "pause":
+            return (ShellMenuItem("resume", "RESUME"), ShellMenuItem("save", "SAVE GAME"),
+                    ShellMenuItem("settings", "SETTINGS"), ShellMenuItem("title", "RETURN TO TITLE"),
+                    ShellMenuItem("quit", "QUIT"))
+        if self.panel == "settings":
+            return (ShellMenuItem("renderer.debug", "RENDERER: DEBUG", self.settings.renderer != "debug"),
+                    ShellMenuItem("renderer.ascii", "RENDERER: ASCII", self.settings.renderer != "ascii"),
+                    ShellMenuItem("back", "BACK"))
+        if self.panel == "save":
+            slots = tuple(ShellMenuItem(f"save.path:{path.name}", path.stem) for path in available_saves(self.save_root))
+            return (ShellMenuItem("save.continue", "SAVE CONTINUE"), ShellMenuItem("save.new", "CREATE NEW SAVE"), *slots, ShellMenuItem("back", "BACK"))
+        if self.panel == "load":
+            slots = tuple(ShellMenuItem(f"load.path:{path.name}", path.stem) for path in available_saves(self.save_root))
+            return (*slots, ShellMenuItem("back", "BACK"))
+        return ()
+
+    def _save_to(self, path: Path) -> bool:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            saved = self.session.save(path)
+        except (OSError, ValueError):
+            self._notify("Save failed"); return False
+        self.save_path = saved; self._notify(f"Saved {saved.name}"); return True
+
+    def _new_save_path(self) -> Path:
+        self.save_root.mkdir(parents=True, exist_ok=True)
+        for number in range(1, 1000):
+            path = self.save_root / f"jomon-{number:03d}.json"
+            if not path.exists(): return path
+        return self.save_root / "jomon-new.json"
+
+    def _activate_shell(self, action_id: str) -> None:
+        if action_id == "join":
+            self.session = GameSession.create(self.new_game_seed); self._begin_character_setup(); return
+        if action_id == "continue":
+            try: self.session = GameSession.load(self.save_path)
+            except (OSError, ValueError): self._notify("Continue save could not be loaded")
+            else: self.panel = None
+            return
+        if action_id == "load": self._open_panel("load"); return
+        if action_id == "save": self._open_panel("save"); return
+        if action_id == "resume": self.panel = None; return
+        if action_id == "title": self.session = GameSession.create(self.new_game_seed); self._open_panel("title"); return
+        if action_id == "quit": self.running = False; return
+        if action_id == "settings": self._open_panel("settings"); return
+        if action_id == "back": self._open_panel(self.settings_return_panel or "title"); return
+        if action_id.startswith("renderer."):
+            renderer = action_id.split(".", 1)[1]
+            if renderer in {"debug", "ascii"}:
+                self.settings = AppSettings(renderer); save_app_settings(self.settings, self.settings_file)
+                self.requested_renderer = renderer; self._notify(f"Renderer set to {renderer.title()}")
+            return
+        if action_id == "save.continue": self._save_to(self.save_path); return
+        if action_id == "save.new": self._save_to(self._new_save_path()); return
+        if action_id.startswith("save.path:"):
+            self._save_to(self.save_root / action_id.split(":", 1)[1]); return
+        if action_id.startswith("load.path:"):
+            try: self.session = GameSession.load(self.save_root / action_id.split(":", 1)[1])
+            except (OSError, ValueError): self._notify("Save could not be loaded")
+            else: self.panel = None
 
     def _begin_character_setup(self, crew_id: str | None = None) -> None:
         """Open the new-game panel using only the session's immutable setup view."""
@@ -315,6 +403,8 @@ class PygameFrontend:
         return True
 
     def _open_panel(self, name: str) -> None:
+        if name == "settings":
+            self.settings_return_panel = self.panel
         self.panel, self.panel_cursor = name, 0
         if name != "activity": self.activity_context = None
 
@@ -339,6 +429,19 @@ class PygameFrontend:
         if self.panel is None: return
         width, height = self.screen.get_size(); box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
         self.pygame.draw.rect(self.screen, (18, 23, 34), box); self.pygame.draw.rect(self.screen, (150, 180, 220), box, 2)
+        if self.panel in {"title", "pause", "settings", "save", "load"}:
+            title = {"title": "J O M O N", "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
+            lines = [title, ""]
+            rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
+            for index, row in enumerate(rows):
+                marker = ">" if index == self.panel_cursor else " "
+                status = "" if row.enabled else " [unavailable]"
+                lines.append(f"{marker} {row.label}{status}")
+                if row.detail and index == self.panel_cursor: lines.append(f"   {row.detail}")
+            lines.append("Enter: select · Esc: back")
+            for index, line in enumerate(lines[:15]):
+                self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 21))
+            return
         if self.panel == "setup":
             self._draw_character_setup(box)
             return
@@ -512,7 +615,10 @@ class PygameFrontend:
         return False
 
     def draw(self) -> None:
-        self.screen.fill((8,10,16)); view=self.session.world_view(); camera=self._camera(view)
+        self.screen.fill((8,10,16))
+        if self.panel == "title":
+            self._draw_panel(); self.pygame.display.flip(); return
+        view=self.session.world_view(); camera=self._camera(view)
         for cell in view.cells: self._draw_cell(cell,camera)
         courier=self._rect(view.courier_position,camera); self.pygame.draw.circle(self.screen,(245,245,255),courier.center,max(5,self.tile_size//3))
         visible = {cell.position for cell in view.cells if cell.visible}
@@ -542,22 +648,32 @@ class PygameFrontend:
     def handle_event(self,event: Any, save_path: Path | None = None) -> None:
         p=self.pygame
         if event.type==p.QUIT: self.running=False
-        elif event.type==p.MOUSEBUTTONDOWN and event.button==1: self._select_at(event.pos)
+        elif event.type==p.MOUSEBUTTONDOWN and event.button==1:
+            if self.panel in {"title", "pause", "settings", "save", "load"}:
+                rows = self._panel_rows(); index = (event.pos[1] - 94) // 21
+                if 0 <= index < len(rows) and rows[index].enabled: self._activate_shell(rows[index].action_id)
+            else: self._select_at(event.pos)
         elif event.type==p.KEYDOWN:
             if event.key==p.K_s and event.mod & p.KMOD_CTRL:
-                if save_path is None:
-                    self._notify("Save unavailable")
-                else:
-                    try:
-                        saved = self.session.save(save_path)
-                    except (OSError, ValueError):
-                        self._notify("Save failed")
-                    else:
-                        self._notify(f"Saved {saved.name}")
+                self._save_to(save_path or self.save_path)
                 return
             if self.panel == "setup":
                 self._handle_setup_key(event)
                 return
+            if self.panel in {"title", "pause", "settings", "save", "load"}:
+                rows = self._panel_rows()
+                if event.key in {p.K_UP, p.K_w}: self.panel_cursor = max(0, self.panel_cursor - 1); return
+                if event.key in {p.K_DOWN, p.K_s}: self.panel_cursor = min(max(0, len(rows) - 1), self.panel_cursor + 1); return
+                if event.key in {p.K_RETURN, p.K_KP_ENTER} and rows:
+                    row = rows[self.panel_cursor]
+                    if row.enabled: self._activate_shell(row.action_id)
+                    return
+                if event.key == p.K_ESCAPE:
+                    if self.panel == "title": return
+                    if self.panel == "settings": self._open_panel(self.settings_return_panel or "title")
+                    elif self.panel in {"save", "load"}: self._open_panel("pause" if self.settings_return_panel == "pause" else "title")
+                    else: self.panel = None
+                    return
             if self._handle_tavern_key(event):
                 return
             if self.panel:
@@ -629,6 +745,8 @@ class PygameFrontend:
                     if not outcome.accepted: self._notify("That operation could not be resolved")
                     return
                 return
+            if event.key == p.K_ESCAPE:
+                self._open_panel("pause"); return
             directions={p.K_UP:(0,-1),p.K_w:(0,-1),p.K_DOWN:(0,1),p.K_s:(0,1),p.K_LEFT:(-1,0),p.K_a:(-1,0),p.K_RIGHT:(1,0),p.K_d:(1,0)}
             if event.key in directions: self.submit(MoveCommand(*directions[event.key]))
             elif event.key==p.K_e:
@@ -675,43 +793,72 @@ class PygameFrontend:
             if self.notification.elapsed >= self.notification.duration:
                 self.notification = None
 
+    def _replacement_renderer(self, renderer: str) -> "PygameFrontend":
+        replacement = create_frontend(
+            self.session, renderer=renderer, pygame=self.pygame, font_path=self.font_stack.resolution.text_path,
+            icon_font_path=self.font_stack.resolution.icon_path, settings=self.settings,
+            settings_file=self.settings_file, save_root=self.save_root, save_path=self.save_path,
+            seed=self.new_game_seed,
+        )
+        replacement.panel, replacement.panel_cursor = self.panel, self.panel_cursor
+        replacement.activity_context, replacement.inventory_source = self.activity_context, self.inventory_source
+        replacement.selected, replacement.selected_actor_id = self.selected, self.selected_actor_id
+        replacement.setup_draft, replacement.settings_return_panel = self.setup_draft, self.settings_return_panel
+        replacement.motions, replacement.feedback, replacement.notification = self.motions, self.feedback, self.notification
+        replacement.last_result = self.last_result
+        return replacement
+
     def run(self, save_path: Path | None = None) -> None:
-        while self.running:
-            elapsed=self.clock.tick(60)/1000
-            for event in self.pygame.event.get(): self.handle_event(event,save_path)
-            self.update(elapsed); self.draw()
-        self.pygame.quit()
+        active: PygameFrontend = self
+        while active.running:
+            elapsed=active.clock.tick(60)/1000
+            for event in active.pygame.event.get(): active.handle_event(event, save_path or active.save_path)
+            if active.requested_renderer and active.requested_renderer != active.renderer_id:
+                active = active._replacement_renderer(active.requested_renderer)
+                continue
+            active.update(elapsed); active.draw()
+        active.pygame.quit()
 
 
-def create_frontend(session: GameSession, *, renderer: str = "graphical", pygame: Any | None = None,
+def create_frontend(session: GameSession, *, renderer: str = "debug", pygame: Any | None = None,
                     font_path: Path | None = None, icon_font_path: Path | None = None,
-                    require_character_setup: bool = False) -> PygameFrontend:
+                    require_character_setup: bool = False, shell_mode: str = "game",
+                    settings: AppSettings | None = None, settings_file: Path | None = None,
+                    save_root: Path | None = None, save_path: Path | None = None,
+                    seed: str = "pygame-jomon") -> PygameFrontend:
     """Create one presentation over the shared session/controller boundary."""
-    if renderer == "graphical":
+    if renderer in {"debug", "graphical"}:
         return PygameFrontend(session, pygame=pygame, font_path=font_path, icon_font_path=icon_font_path,
-                              require_character_setup=require_character_setup)
+                              require_character_setup=require_character_setup, shell_mode=shell_mode, settings=settings,
+                              settings_file=settings_file, save_root=save_root, save_path=save_path, seed=seed)
     if renderer == "ascii":
         from .pygame_ascii import AsciiPygameFrontend
 
         return AsciiPygameFrontend(session, pygame=pygame, font_path=font_path,
                                    icon_font_path=icon_font_path,
-                                   require_character_setup=require_character_setup)
+                                   require_character_setup=require_character_setup, shell_mode=shell_mode, settings=settings,
+                                   settings_file=settings_file, save_root=save_root, save_path=save_path, seed=seed)
     raise ValueError(f"unsupported renderer {renderer!r}")
 
 
 def main(argv: list[str] | None = None) -> None:
     parser=argparse.ArgumentParser(description="Jomon's Pygame frontend")
     group=parser.add_mutually_exclusive_group(); group.add_argument("--new", action="store_true"); group.add_argument("--load", type=Path)
-    parser.add_argument("--seed", default="pygame-jomon"); parser.add_argument("--save", type=Path, default=Path("jomon-pygame-save.json"))
-    parser.add_argument("--renderer", choices=("graphical", "ascii"), default="graphical")
+    parser.add_argument("--seed", default="pygame-jomon"); parser.add_argument("--save", type=Path)
+    parser.add_argument("--renderer", choices=("debug", "graphical", "ascii"))
     parser.add_argument("--font", type=Path, help="local preferred text font; never persisted")
     parser.add_argument("--icon-font", type=Path, help="local preferred icon font; never persisted")
     args=parser.parse_args(argv)
     try: pygame=_pygame()
     except RuntimeError as exc: parser.error(str(exc))
+    settings = load_app_settings()
+    renderer = "debug" if args.renderer == "graphical" else args.renderer or settings.renderer
+    save_path = args.save or default_save_path()
     session=GameSession.load(args.load) if args.load else GameSession.create(args.seed)
     pygame.init()
-    create_frontend(session, renderer=args.renderer, pygame=pygame, font_path=args.font,
-                    icon_font_path=args.icon_font, require_character_setup=args.load is None).run(args.save)
+    create_frontend(session, renderer=renderer, pygame=pygame, font_path=args.font,
+                    icon_font_path=args.icon_font, require_character_setup=args.new,
+                    shell_mode="game" if args.new or args.load else "title", settings=settings,
+                    save_path=save_path, seed=args.seed).run(save_path)
 
 if __name__ == '__main__': main()

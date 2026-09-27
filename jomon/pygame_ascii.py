@@ -80,6 +80,15 @@ class AsciiPygameFrontend(PygameFrontend):
     def _panel_lines(self) -> list[str]:
         if self.panel is None:
             return []
+        if self.panel in {"title", "pause", "settings", "save", "load"}:
+            title = {"title": "J O M O N", "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
+            rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
+            lines = [f"[ {title} ]", ""]
+            for index, row in enumerate(rows):
+                marker = ">" if index == self.panel_cursor else " "
+                lines.append(f"{marker} {row.label}{'' if row.enabled else ' [locked]'}")
+                if row.detail and index == self.panel_cursor: lines.append(f"  {row.detail}")
+            return [*lines, "Enter selects · Esc backs"]
         if self.panel == "setup":
             draft = self.setup_draft
             if draft is None:
@@ -127,6 +136,10 @@ class AsciiPygameFrontend(PygameFrontend):
 
     def draw(self) -> None:
         self.screen.fill((5, 10, 19))
+        if self.panel == "title":
+            self._draw_ascii_panel(self._panel_lines())
+            self.pygame.display.flip()
+            return
         view = self.session.world_view()
         camera = self._camera(view)
         visible = {cell.position for cell in view.cells if cell.visible}
