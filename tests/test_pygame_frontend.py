@@ -208,6 +208,8 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_r, mod=0))
         self.assertEqual(frontend.last_result, "tavern.dice.resolved")
         self.assertTrue(any(note.text.startswith("Rolled") for note in frontend.feedback))
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_ESCAPE, mod=0))
+        self.assertIsNone(frontend.panel)
 
 
 class PygameDependencyBoundaryTests(unittest.TestCase):

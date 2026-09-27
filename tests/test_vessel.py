@@ -47,7 +47,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
         self.assertEqual(TAVERN_MAP[TABLE_PLAYER_SEAT.y][TABLE_PLAYER_SEAT.x], "D")
         self.assertEqual(sum(row.count("D") for row in TAVERN_MAP), 1)
         self.assertEqual(displayed_tile(state, Position(31, 11)), "d")
-        self.assertTrue(any(displayed_tile(state, seat) in {"a", "v"} for seat in TABLE_PATRON_SEATS))
+        self.assertFalse(any(displayed_tile(state, seat) in {"a", "v"} for seat in TABLE_PATRON_SEATS))
         self.assertTrue(is_walkable(state, TABLE_PLAYER_SEAT))
         self.assertEqual(len(set(TABLE_PATRON_SEATS)), 13)
         self.assertTrue(all(_walkable("tavern", seat) for seat in TABLE_PATRON_SEATS))

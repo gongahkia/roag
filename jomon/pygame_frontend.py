@@ -20,6 +20,7 @@ from .runtime_events import (
 )
 from .session import CommandOutcome, GameSession
 from .state import Position
+from .tavern_presentation import draw_phase_name, tavern_text
 from .views import ActorView, CellView, InteractionOptionView, WorldView
 
 
@@ -252,12 +253,13 @@ class PygameFrontend:
         view = self.session.tavern_draw_view()
         if not view.active:
             names = ", ".join(row.display_name for row in view.available_opponents[:3]) or "no eligible opponents"
-            lines = ["Tavern Draw", "Enter: free practice    W: wagered hand", f"First three available: {names}", "Escape: return to tavern"]
+            lines = [tavern_text("draw.ui.title.active"), "Enter: free practice    W: wagered hand", f"First three available: {names}", "Escape: return to tavern"]
             for index, line in enumerate(lines):
                 self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 22))
             return
-        lines = [f"Tavern Draw — {view.phase_id.removeprefix('draw.phase.')}",
-                 f"Credit {view.credit}; pot {view.pot}; acting {view.current_player_id or 'settled'}",
+        acting = next((row.display_name for row in view.participants if row.actor_id == view.current_player_id), "settled")
+        lines = [f"{tavern_text('draw.ui.title.active')} — {draw_phase_name(view.phase_id.removeprefix('draw.phase.'))}",
+                 f"Credit {view.credit}; pot {view.pot}; acting {acting}",
                  " / ".join(f"{row.display_name}{'' if row.active else ' (folded)'}" for row in view.participants)]
         for index, line in enumerate(lines):
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 22))
@@ -286,11 +288,11 @@ class PygameFrontend:
         view = self.session.tavern_dice_view()
         if not view.active:
             names = ", ".join(row.display_name for row in view.available_opponents[:3]) or "no eligible opponents"
-            lines = ["Quay Bones", "Enter: begin", f"First three available: {names}", "Escape: return to tavern"]
+            lines = [tavern_text("dice.ui.title.complete"), "Enter: begin", f"First three available: {names}", "Escape: return to tavern"]
         else:
             actors = " / ".join(f"{row.display_name}: {view.scores[index]}" for index, row in enumerate(view.participants))
             dice = "  ".join(str(value) for value in view.dice) or "hidden"
-            lines = [f"Quay Bones — round {view.round_number}", f"Credit {view.credit}; purse {view.purse}", actors,
+            lines = [f"{tavern_text('dice.ui.title.complete')} — round {view.round_number}", f"Credit {view.credit}; purse {view.purse}", actors,
                      f"Dice: {dice}; turn pot {view.turn_total}", f"Actions: {', '.join(view.legal_actions) or 'waiting for other seats'}"]
             if "dice.close" in view.legal_actions:
                 lines.append("Enter clears result")
@@ -298,6 +300,15 @@ class PygameFrontend:
                 lines.append("R roll · H hold · Escape pauses")
         for index, line in enumerate(lines):
             self.screen.blit(self.font.render(line, True, (238, 238, 238)), (box.x + 12, box.y + 12 + index * 24))
+        if view.active and view.dice:
+            binding = tavern_assets("tavern.dice.die")
+            image = self.resources.image(binding.get("image", ""), 48) if binding else None
+            for index, value in enumerate(view.dice):
+                rect = self.pygame.Rect(box.x + 14 + index * 62, box.y + 164, 50, 50)
+                self.pygame.draw.rect(self.screen, (238, 238, 224), rect)
+                if image: self.screen.blit(image, rect)
+                self.pygame.draw.rect(self.screen, (40, 40, 48), rect, 2)
+                self.screen.blit(self.font.render(str(value), True, (18, 18, 24)), (rect.x + 20, rect.y + 15))
 
     def _handle_tavern_key(self, event: Any) -> bool:
         """Handle graphical tavern UI with only stable view records and commands."""

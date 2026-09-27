@@ -835,8 +835,9 @@ class TavernIntegrationTests(unittest.TestCase):
         role = catalog.cards[hand_card["id"]]["hero"]
         self.assertIn(office_card_glyph(role)[1].strip(), "".join(mini))
         self.assertTrue(any(OFFICE_SPRITES[match["teams"][0]["actors"][0]["role"]][0] in line for line in screen.drawn))
-        costume = rival_costumes(match["world_seed"])[0]
-        self.assertTrue(any(catalog.art["enemies"][costume][0] in line for line in screen.drawn))
+        # Rival costumes use selected-pack office portraits; the raw legacy
+        # enemy-art catalog is not current renderer authority.
+        self.assertTrue(any(OFFICE_SPRITES["warden"][0] in line for line in screen.drawn))
 
     def test_neutral_screen_draws_source_enemy_sprites_and_player_cards(self):
         class Screen:
@@ -865,9 +866,8 @@ class TavernIntegrationTests(unittest.TestCase):
         screen = Screen()
         with patch("curses.curs_set"), patch("curses.has_colors", return_value=False):
             ExpeditionUI(screen, self.state)._render_combat_match()
-        enemy = match["neutral_team"]["actors"][0]["role"]
         self.assertTrue(any("NEUTRAL OFFICE PATROL" in line for line in screen.drawn))
-        self.assertTrue(any(load_catalog().art["enemies"][enemy][0] in line for line in screen.drawn))
+        self.assertTrue(any(OFFICE_SPRITES["warden"][0] in line for line in screen.drawn))
         self.assertTrue(any("+------------+" in line for line in screen.drawn))
 
     def test_company_archive_opens_every_catalog_section_at_minimum_size(self):

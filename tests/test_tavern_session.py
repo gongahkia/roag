@@ -92,6 +92,11 @@ class TavernSessionTests(unittest.TestCase):
         self.assertEqual(session._state.tavern_dice, direct.tavern_dice)
         self.assertEqual(session._state.trade_credit, direct.trade_credit)
 
+        repeat = dice_session("dice-session-equivalence")
+        opponents = tuple(row.actor_id for row in repeat.tavern_dice_view().available_opponents[:3])
+        repeat.submit(StartTavernGameCommand("dice", opponents))
+        self.assertEqual(repeat.submit(DiceActionCommand("dice.roll")).events, rolled.events)
+
     def test_dormant_dd_is_not_active_but_round_trips_and_does_not_block_games(self):
         state = create_world("dormant-dd")
         state.jomon_space, state.position = "tavern", TABLE_PLAYER_SEAT
@@ -123,6 +128,22 @@ class TavernSessionTests(unittest.TestCase):
         result = interact(state)
         self.assertIsNone(result.overlay)
         self.assertFalse(result.changed)
+
+    def test_session_tavern_save_round_trips_active_draw_and_dice_without_ui_state(self):
+        draw = draw_session("session-tavern-save")
+        opponents = tuple(row.actor_id for row in draw.tavern_draw_view().available_opponents[:3])
+        self.assertEqual(draw.submit(StartTavernGameCommand("draw", opponents)).result_id, "tavern.game.started")
+        dice = dice_session("session-tavern-save-dice")
+        opponents = tuple(row.actor_id for row in dice.tavern_dice_view().available_opponents[:3])
+        self.assertEqual(dice.submit(StartTavernGameCommand("dice", opponents)).result_id, "tavern.game.started")
+        with tempfile.TemporaryDirectory() as directory:
+            draw_path, dice_path = Path(directory) / "draw.json", Path(directory) / "dice.json"
+            draw.save(draw_path); dice.save(dice_path)
+            resumed_draw, resumed_dice = GameSession.load(draw_path), GameSession.load(dice_path)
+        self.assertEqual(resumed_draw.tavern_draw_view(), draw.tavern_draw_view())
+        self.assertEqual(resumed_dice.tavern_dice_view(), dice.tavern_dice_view())
+        self.assertNotIn("runtime_events", draw._state.to_dict())
+        self.assertNotIn("runtime_events", dice._state.to_dict())
 
 
 if __name__ == "__main__":
