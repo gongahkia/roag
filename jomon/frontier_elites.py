@@ -11,8 +11,6 @@ def _set_intent(actor, intent_id: str, **values: object) -> str:
     actor.intent_id = intent_id
     actor.intent = ecology_format(intent_id, **values)
     return actor.intent
-from .visuals import ENTITY_GLYPHS
-
 _CATALOG = load_catalog("actors.json", ACTOR_SECTIONS)["FRONTIER_ELITES"]
 if not isinstance(_CATALOG, dict) or set(_CATALOG) != {"rows", "aftermath", "named"}:
     raise CatalogError("FRONTIER_ELITES has invalid sections")
@@ -35,7 +33,10 @@ ELITE_DEFINITIONS = {
         "region": region, "name": name, "profile": profile, "role": "elite",
         "goal": goal, "vision": 11, "hearing": 9, "range": 8,
         "capability": capability, "counterplay": counterplay, "terrain": region,
-        "budget": 6, "elite": True, "morale": 5, "glyph": ENTITY_GLYPHS["elite"],
+        # Elite rendering already resolves by stable ``elite`` identity in
+        # each frontend.  New mechanics do not carry an ASCII fallback;
+        # historical saved ``Threat.glyph`` values remain load-compatible.
+        "budget": 6, "elite": True, "morale": 5,
         "supplies": 3, "mode": mode, "reward": reward,
         "ranged_kind": "sling", "named": identity in NAMED_RIVALS,
         "aftermath": identity in AFTERMATH_ELITES,
