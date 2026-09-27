@@ -13,3 +13,4 @@ jomon-save.json
 .jomon-save.json.tmp
 test-results/
 AGENTS.md
+jomon-pygame-save.json

@@ -46,6 +46,8 @@ class ActorView:
     intent_id: str | None
     goal_id: str | None
     role_id: str | None
+    display_name: str
+    role_label: str | None
 
 
 @dataclass(frozen=True)
@@ -105,25 +107,64 @@ def world_view(state: GameState) -> WorldView:
 
 def actor_views(state: GameState) -> tuple[ActorView, ...]:
     """Return actor projections keyed only by stable engine identities."""
+    from .character_presentation import character_presentation, role_display_name
+    from .ecology_presentation import ecology_actor_name, ecology_text
+    from .people_presentation import contact_name, household_family_name, household_first_name, recruit_presentation
+
+    def person_presentation(person: object) -> tuple[str, str | None]:
+        """Resolve current names from stable presentation slots, never catalogs."""
+        person_id = str(getattr(person, "id"))
+        role_id = str(getattr(person, "role", ""))
+        try:
+            name = character_presentation(person_id).display_name
+        except KeyError:
+            given = getattr(person, "given_name_slot", None)
+            family = getattr(person, "family_name_slot", None)
+            presentation_id = getattr(person, "people_presentation_id", None)
+            name_slot = getattr(person, "name_slot", None)
+            try:
+                if given is not None and family is not None:
+                    name = f"{household_first_name(int(given.removeprefix('first_')))} {household_family_name(int(family.removeprefix('family_')))}"
+                elif presentation_id:
+                    name = recruit_presentation(presentation_id)["name"]
+                elif name_slot:
+                    name = contact_name(int(name_slot.removeprefix("contact_")))
+                else:
+                    name = person_id
+            except (KeyError, ValueError):
+                # Old snapshots without stable presentation slots retain only a
+                # stable identity here; their frozen historical text is not a
+                # new current-presentation authority.
+                name = person_id
+        return name, role_display_name(role_id) if role_id else None
+
+    def threat_presentation(archetype_id: str, threat_id: str) -> str:
+        if threat_id in {"wheel-train", "floodgate-claimant"}:
+            return ecology_text(f"ecology.special.{threat_id}.name")
+        return ecology_actor_name(archetype_id, archetype_id or threat_id)
+
     views: list[ActorView] = []
     people = [*state.household, *state.visitors, state.bartender, state.merchant]
     for contacts in state.contacts.values():
         people.extend(contacts)
     for person in people:
         schedule = state.actor_schedules.get(person.id)
+        name, role_label = person_presentation(person)
         views.append(ActorView(
             person.id, "person", getattr(person, "people_presentation_id", None) or person.id,
             schedule.position if schedule else getattr(person, "position", None),
             bool(getattr(person, "available", True)), bool(getattr(person, "alive", True)),
             int(getattr(person, "health", 0)), int(getattr(person, "max_health", 0)),
-            None, None, None, person.role,
+            None, None, None, person.role, name, role_label,
         ))
     for threat in state.combatants:
+        presentation_id = threat.archetype_id or threat.id
         views.append(ActorView(
-            threat.id, "threat", threat.archetype_id or threat.id, threat.position,
+            threat.id, "threat", presentation_id, threat.position,
             threat.status in {"watching", "engaged"}, threat.status != "defeated",
             threat.health, threat.max_health, threat.status, threat.intent_id or None,
             threat.goal_id or None, threat.role or None,
+            threat_presentation(presentation_id, threat.id), None,
         ))
     return tuple(sorted(views, key=lambda view: view.id))
 

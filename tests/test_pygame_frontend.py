@@ -60,6 +60,61 @@ class PygameFrontendTests(unittest.TestCase):
             path=Path(directory)/"game.json"; frontend.session.save(path); loaded=GameSession.load(path)
         self.assertEqual(loaded.world_view().courier_position,before)
 
+    def test_selection_projects_visible_semantic_inspection_without_mutation(self):
+        frontend=self.frontend(); view=frontend.session.world_view()
+        cell=next(cell for cell in view.cells if cell.visible)
+        before=(frontend.session.revision, frontend.session.world_view())
+        frontend.selected=cell.position
+        data=frontend.inspection_data()
+        self.assertIsNotNone(data)
+        assert data is not None
+        self.assertEqual(data.position, cell.position)
+        self.assertEqual(data.terrain_id, cell.terrain_id)
+        self.assertIn("Terrain:", "\n".join(frontend._inspection_lines()))
+        self.assertEqual((frontend.session.revision, frontend.session.world_view()), before)
+
+    def test_actor_inspection_uses_view_presentation_and_hidden_cells_reveal_nothing(self):
+        from jomon.state import Position, Threat
+        frontend=self.frontend(); state=frontend.session._state
+        state.location, state.position = "region", Position(40,25)
+        for y in range(20,31):
+            for x in range(30,55):
+                state.region.tile_changes[f"{x},{y},0"]="."
+        visible=next(cell for cell in frontend.session.world_view().cells if cell.visible and cell.position != state.position)
+        target=Threat("inspect-target","raw catalog name must not render","pursuer",visible.position,7,9,status="watching",archetype_id="fen-pail")
+        state.threats=[target]
+        frontend.selected=visible.position; frontend.selected_actor_id=target.id
+        data=frontend.inspection_data()
+        self.assertIsNotNone(data); assert data is not None and data.actor is not None
+        self.assertNotEqual(data.actor.display_name, target.name)
+        self.assertIn(data.actor.display_name, "\n".join(frontend._inspection_lines()))
+        hidden=next(cell for cell in frontend.session.world_view().cells if not cell.visible and not cell.remembered)
+        frontend.selected=hidden.position; frontend.selected_actor_id=target.id
+        self.assertIsNone(frontend.inspection_data())
+
+    def test_ctrl_s_saves_with_frontend_notification_and_f5_does_not(self):
+        from jomon.commands import MoveCommand
+        from jomon.session import GameSession
+        frontend=self.frontend()
+        for dx, dy in ((1,0),(-1,0),(0,1),(0,-1)):
+            if frontend.submit(MoveCommand(dx,dy)).changed:
+                break
+        else:
+            self.fail("the graphical save/load fixture needs one legal move")
+        before_view = frontend.session.world_view()
+        before_messages = tuple(frontend.session._state.messages)
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"game.json"
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_F5,mod=0), path)
+            self.assertFalse(path.exists())
+            frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_s,mod=self.pygame.KMOD_CTRL), path)
+            self.assertTrue(path.exists())
+            self.assertIsNotNone(frontend.notification)
+            self.assertTrue(frontend.notification.text.startswith("Saved"))
+            self.assertEqual(tuple(frontend.session._state.messages), before_messages)
+            loaded=GameSession.load(path)
+            self.assertEqual(loaded.world_view(), before_view)
+
     def test_real_attack_events_drive_feedback_from_stable_target_id(self):
         from jomon.commands import AttackCommand
         from jomon.state import Position, Threat
