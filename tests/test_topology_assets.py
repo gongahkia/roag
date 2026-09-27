@@ -9,15 +9,17 @@ import sys
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from jomon.assets import action_assets, asset_resource, curses_glyph, terrain_assets
 from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
 from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
 from jomon.semantic_topology import TAVERN_TOPOLOGY, VESSEL_TOPOLOGY, CELLS, legacy_rows, tavern_cell, vessel_cell
-from jomon.state import Position, create_world
+from jomon.state import MaterialCell, Position, create_world
 from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
 from jomon.views import world_view
-from jomon.world import base_tile, blocks_sight, is_walkable, semantic_cell
+from jomon.world import base_tile, blocks_sight, displayed_tile, is_walkable, mechanical_surface_token, position_key, semantic_cell
+from jomon.visuals import ENTITY_GLYPHS, MATERIAL_OVERLAY_SYMBOLS
 from tests.test_content_packs import alternate_pack
 
 
@@ -48,6 +50,37 @@ class SemanticTopologyTests(unittest.TestCase):
         cell = next(row for row in view.cells if row.position == state.position)
         self.assertTrue(cell.terrain_id.startswith("terrain.vessel."))
         self.assertFalse(hasattr(cell, "topology_token"))
+
+    def test_vessel_actor_collision_uses_schedule_identity_not_legacy_glyph(self):
+        state = create_world("semantic-vessel-occupancy")
+        state.jomon_space = "vessel"
+        occupied = next(
+            Position(x, y, 0)
+            for y, row in enumerate(VESSEL_LEVELS[0])
+            for x, token in enumerate(row)
+            if token == "." and Position(x, y, 0) != state.position
+        )
+        schedule = state.actor_schedules[state.household[1].id]
+        schedule.area, schedule.position = "vessel:0", occupied
+        self.assertFalse(is_walkable(state, occupied))
+        # This is a presentation-only rewrite of the old terminal glyph map.
+        # It must not turn an occupied cell into a passable mechanical cell.
+        with patch.dict(ENTITY_GLYPHS, {"household": "."}):
+            self.assertFalse(is_walkable(state, occupied))
+
+    def test_material_hazards_use_stable_overlay_identity_not_ascii_art(self):
+        from jomon.inventory import apply_terrain_status
+
+        state = create_world("semantic-material-overlay")
+        for item in state.items:
+            item.condition = 0  # Remove the default smoke-filtering gear.
+        state.vessel_materials[position_key(state.position)] = MaterialCell(material="timber", smoke=2)
+        self.assertEqual(mechanical_surface_token(state, state.position), "s")
+        with patch.dict(MATERIAL_OVERLAY_SYMBOLS, {"smoke": "."}):
+            self.assertEqual(displayed_tile(state, state.position), ".")
+            self.assertEqual(mechanical_surface_token(state, state.position), "s")
+            apply_terrain_status(state, mechanical_surface_token(state, state.position))
+        self.assertIn("smoke-inhalation", state.terrain_statuses)
 
 
 class AssetManifestTests(unittest.TestCase):

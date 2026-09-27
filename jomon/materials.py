@@ -89,27 +89,38 @@ def inspect_material(state: GameState, point: Position) -> list[str]:
     ]
 
 
-def material_glyph(state: GameState, point: Position) -> str | None:
+def material_overlay_id(state: GameState, point: Position) -> str | None:
+    """Return the stable material-overlay identity at a cell.
+
+    The identity drives mechanics where an overlay has a physical effect.  The
+    one-character glyph remains a legacy terminal presentation decision below.
+    """
     cell = fields(state).get(key(point))
     if cell is None:
         return None
     if cell.fire:
-        return MATERIAL_OVERLAY_SYMBOLS["fire"]
+        return "fire"
     if cell.reagents:
         from .chemistry import predicted_reactions
 
-        return MATERIAL_OVERLAY_SYMBOLS["reactive_reagent"] if predicted_reactions(cell.reagents, cell) else MATERIAL_OVERLAY_SYMBOLS["reagent"]
+        return "reactive_reagent" if predicted_reactions(cell.reagents, cell) else "reagent"
     if cell.collapse_due:
-        return MATERIAL_OVERLAY_SYMBOLS["collapse"]
+        return "collapse"
     if cell.smoke >= 2:
-        return MATERIAL_OVERLAY_SYMBOLS["smoke"]
+        return "smoke"
     if cell.ice:
-        return MATERIAL_OVERLAY_SYMBOLS["ice"]
+        return "ice"
     if cell.water:
-        return MATERIAL_OVERLAY_SYMBOLS["water"]
+        return "water"
     if cell.coating == "glow":
-        return MATERIAL_OVERLAY_SYMBOLS["glow"]
+        return "glow"
     return None
+
+
+def material_glyph(state: GameState, point: Position) -> str | None:
+    """Legacy ASCII presentation for a stable material overlay identity."""
+    overlay = material_overlay_id(state, point)
+    return MATERIAL_OVERLAY_SYMBOLS[overlay] if overlay is not None else None
 
 
 def affect_body(state: GameState, body: Person | Threat | Item, reaction: str, severity: int, origin: Position) -> None:

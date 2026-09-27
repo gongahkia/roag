@@ -284,10 +284,10 @@ def navigate(state: GameState, dx: int, dy: int):
         state.noise += 1 if vehicle.id in {"steam_crawler", "rootwalker"} else 0
         # The ordinary world tick still resolves patrols and hazards at the destination.
         from .inventory import apply_terrain_status
-        from .world import displayed_tile
+        from .world import mechanical_surface_token
 
         if spec["domain"] != "air":
-            terrain_message = apply_terrain_status(state, displayed_tile(state, current))
+            terrain_message = apply_terrain_status(state, mechanical_surface_token(state, current))
     message = vehicle_format("vehicle.navigate.result", vehicle=vehicle_display_name(vehicle.id), travelled=travelled, suffix="s" if travelled != 1 else "", fuel=vehicle.fuel, capacity=spec["capacity"], resource=vehicle_resource_label(vehicle.id))
     if terrain_message:
         message += " " + terrain_message

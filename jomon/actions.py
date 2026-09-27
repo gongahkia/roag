@@ -53,7 +53,7 @@ from .world import (
     carried_bulk,
     cover_at,
     distance,
-    displayed_tile,
+    mechanical_surface_token,
     field_of_view,
     is_walkable,
     line_of_sight,
@@ -1655,7 +1655,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
     if armour_sound and state.pressure_elapsed % max(2, 8 - armour_sound * 2) == 0:
         state.noise += 1
         messages.append(action_format("action.movement.armour_noise"))
-    status_message = apply_terrain_status(state, displayed_tile(state, target))
+    status_message = apply_terrain_status(state, mechanical_surface_token(state, target))
     if status_message:
         messages.append(status_message)
     injury_delay = bool(

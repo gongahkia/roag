@@ -152,6 +152,33 @@ def displayed_tile(state: GameState, position: Position) -> str:
     return ("=" if piston_head_at(state, position) else glyph(state, position)) or tile
 
 
+_MECHANICAL_OVERLAY_TOKENS = {
+    "fire": "f", "reactive_reagent": "!", "reagent": "o", "collapse": "%",
+    "smoke": "s", "ice": "_", "water": ",", "glow": "*",
+}
+
+
+def mechanical_surface_token(state: GameState, position: Position) -> str:
+    """Return the canonical terrain/hazard token without terminal glyph maps.
+
+    Legacy map characters remain engine topology compatibility tokens, but
+    transient material and weather effects are selected from their stable
+    mechanical state rather than ``visuals.json``.  Renderers should use
+    semantic views instead of this reducer-facing compatibility helper.
+    """
+    from .materials import material_overlay_id
+
+    overlay = material_overlay_id(state, position)
+    if overlay is not None:
+        return _MECHANICAL_OVERLAY_TOKENS[overlay]
+    coordinate = position_key(position)
+    if coordinate in state.smoke:
+        return "s"
+    if coordinate in state.water:
+        return ","
+    return base_tile(state, position)
+
+
 def curses_tile(state: GameState, position: Position) -> str:
     """Legacy terminal glyph adapter; never a mechanical topology query."""
     tile = displayed_tile(state, position)
@@ -182,18 +209,23 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
             return False
         terrain = "_"
     # Regional overlays, containers and scheduled witnesses are passable.  A
-    # path query only needs their underlying terrain; resolving their display
-    # glyph for every breadth-first-search cell needlessly rescans those
-    # collections.  Vessel actors and furniture have additional collision
-    # rules, so ship movement still uses the complete displayed tile.
-    tile = terrain if state.location == "region" else displayed_tile(state, position)
+    # path query only needs their underlying terrain.  Static vessel furniture
+    # is already represented by ``semantic`` above; scheduled people block a
+    # vessel cell through their stable schedule identity, never through the
+    # ASCII glyph that the legacy terminal happens to draw for them.
+    tile = terrain
     if state.location == "jomon":
-        blocked |= {"=", "t", "F", "f"}
+        area = current_area(state)
+        if any(
+            schedule.actor_id != state.active_courier_id
+            and schedule.area == area
+            and schedule.position == position
+            for schedule in state.actor_schedules.values()
+        ):
+            return False
         if state.jomon_space == "tavern" and position in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE:
             return False
     if tile in blocked:
-        return False
-    if state.location == "jomon" and tile in {"a", "v", "B"}:
         return False
     if state.combat_active and not ignore_threat:
         if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.combatants):
