@@ -13,6 +13,7 @@ from .commands import (
     AttackCommand, CloseTavernGameCommand, DiceActionCommand, DrawBetCommand,
     DrawExchangeCommand, EquipItemCommand, InteractCommand, MoveCommand,
     StartTavernGameCommand, TravelCommand, UnequipItemCommand, UseGearCommand,
+    ActivityCommand,
 )
 from .runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, DamageApplied, RuntimeEvent,
@@ -108,7 +109,7 @@ class PygameFrontend:
         self.tile_size = 26; self.selected: Position | None = None; self.selected_actor_id: str | None = None
         self.motions: list[Motion] = []; self.feedback: list[Feedback] = []; self.resources = ResourceCache(self.pygame)
         self.running = True; self.last_result = "ready"; self.notification: Feedback | None = None
-        self.panel: str | None = None; self.panel_cursor = 0
+        self.panel: str | None = None; self.panel_cursor = 0; self.activity_context: str | None = None
         self.marked_draw_cards: set[str] = set()
 
     def _colour(self, semantic: str) -> tuple[int, int, int]:
@@ -216,10 +217,21 @@ class PygameFrontend:
         if self.panel == "interaction": return self.session.interaction_view().options
         if self.panel == "tavern-draw": return self.session.tavern_draw_view().available_opponents
         if self.panel == "tavern-dice": return self.session.tavern_dice_view().available_opponents
+        if self.panel == "activity" and self.activity_context:
+            return self.session.activity_view(self.activity_context).options
         return ()
 
     def _open_panel(self, name: str) -> None:
         self.panel, self.panel_cursor = name, 0
+        if name != "activity": self.activity_context = None
+
+    def _open_activity(self, context_id: str) -> None:
+        """Open a reducer-backed semantic choice surface."""
+        view = self.session.activity_view(context_id)
+        if not view.options:
+            self._notify(f"No available {view.title.lower()} choices")
+            return
+        self.panel, self.panel_cursor, self.activity_context = "activity", 0, context_id
 
     def _draw_panel(self) -> None:
         if self.panel is None: return
@@ -233,6 +245,20 @@ class PygameFrontend:
             return
         if self.panel == "quests":
             lines = ["Quests"] + [f"{quest.title} — {quest.status_id} ({quest.objective})" for quest in self.session.quest_views()]
+        elif self.panel == "activity" and self.activity_context:
+            activity = self.session.activity_view(self.activity_context)
+            rows = activity.options; self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
+            lines = [activity.title]
+            for index, row in enumerate(rows):
+                marker = ">" if index == self.panel_cursor else " "
+                state = "ready" if row.available else "unavailable"
+                target = f" · target {row.target_kind_id}" if row.target_kind_id else ""
+                lines.append(f"{marker} {row.label} [{state}]{target}")
+            if rows:
+                selected = rows[self.panel_cursor]
+                lines += ["", selected.description or self._semantic_label(selected.action_id)]
+                if selected.reason_id: lines.append(f"Requires: {self._semantic_label(selected.reason_id)}")
+            lines.append("Enter: resolve · Esc: close")
         else:
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
             title = {"inventory": "Inventory  [U use / E equip / R unequip]", "travel": "Travel  [Enter confirms]", "interaction": "Interaction  [Enter confirms]"}[self.panel]
@@ -366,7 +392,7 @@ class PygameFrontend:
         if self.selected: self.pygame.draw.rect(self.screen,(255,230,90),self._rect(self.selected,camera),2)
         for note in self.feedback:
             if note.position: self.screen.blit(self.font.render(note.text,True,(255,220,120)),self._rect(note.position,camera).move(0,-10))
-        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · Ctrl+S save",True,(240,240,240))
+        panel=self.font.render(f"HP / result: {self.last_result}   arrows/WASD move · click inspect · E interact · F attack · C craft · P progress · M magic · Ctrl+S save",True,(240,240,240))
         self.screen.blit(panel,(10,10))
         for index, line in enumerate(self._inspection_lines()):
             self.screen.blit(self.font.render(line, True, (235,235,235)), (10, 38 + index * 19))
@@ -404,7 +430,7 @@ class PygameFrontend:
             if self.panel:
                 rows = self._panel_rows()
                 if event.key in {p.K_ESCAPE, p.K_i, p.K_q, p.K_t}:
-                    self.panel = None; return
+                    self.panel = None; self.activity_context = None; return
                 if event.key in {p.K_UP, p.K_w}: self.panel_cursor = max(0, self.panel_cursor - 1); return
                 if event.key in {p.K_DOWN, p.K_s}: self.panel_cursor = min(max(0, len(rows) - 1), self.panel_cursor + 1); return
                 if not rows: return
@@ -419,7 +445,27 @@ class PygameFrontend:
                 if self.panel == "travel" and event.key in {p.K_RETURN, p.K_KP_ENTER}:
                     self.submit(TravelCommand(selected.destination_id)); self.panel = None; return
                 if self.panel == "interaction" and event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_e}:
-                    self.submit(InteractCommand(selected.target_id, selected.interaction_id)); self.panel = None; return
+                    outcome = self.submit(InteractCommand(selected.target_id, selected.interaction_id)); self.panel = None
+                    if outcome.overlay_id: self._open_activity(outcome.overlay_id)
+                    return
+                if self.panel == "activity" and event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_e}:
+                    if not selected.available or self.activity_context is None:
+                        self._notify("That operation is unavailable"); return
+                    target_position = None
+                    target_actor_id = None
+                    if selected.target_kind_id == "self":
+                        target_position = self.session.world_view().courier_position
+                    elif selected.target_kind_id == "cell":
+                        target_position = self.selected
+                    elif selected.target_kind_id == "actor":
+                        target_actor_id = self.selected_actor_id
+                        actor = self.session.actor_view(target_actor_id) if target_actor_id else None
+                        target_position = actor.position if actor else None
+                    if selected.target_kind_id and target_position is None and target_actor_id is None:
+                        self._notify("Select a visible target first"); return
+                    outcome = self.submit(ActivityCommand(self.activity_context, selected.action_id, target_position, target_actor_id))
+                    if not outcome.accepted: self._notify("That operation could not be resolved")
+                    return
                 return
             directions={p.K_UP:(0,-1),p.K_w:(0,-1),p.K_DOWN:(0,1),p.K_s:(0,1),p.K_LEFT:(-1,0),p.K_a:(-1,0),p.K_RIGHT:(1,0),p.K_d:(1,0)}
             if event.key in directions: self.submit(MoveCommand(*directions[event.key]))
@@ -429,11 +475,18 @@ class PygameFrontend:
                     outcome = self.submit(InteractCommand(choices[0].target_id,choices[0].interaction_id))
                     if outcome.overlay_id == "tavern-draw": self._open_panel("tavern-draw")
                     elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
+                    elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                 elif choices: self._open_panel("interaction")
             elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id))
             elif event.key==p.K_i: self._open_panel("inventory")
             elif event.key==p.K_q: self._open_panel("quests")
             elif event.key==p.K_t: self._open_panel("travel")
+            elif event.key==p.K_c: self._open_activity("production")
+            elif event.key==p.K_p: self._open_activity("progression")
+            elif event.key==p.K_m: self._open_activity("magic")
+            elif event.key==p.K_x: self._open_activity("preparation")
+            elif event.key==p.K_v: self._open_activity("vessel")
+            elif event.key==p.K_z: self._open_activity("materials")
 
     def update(self, elapsed: float) -> None:
         for motion in self.motions: motion.elapsed += elapsed
