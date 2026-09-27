@@ -583,12 +583,12 @@ def pathfind (start, finish, space, blocked = None):
 def clampplayer (player):
     if player.location[0] < 0:
         player.location[0] = 0
-    if player.location[0] >= BOARDWIDTH:
-        player.location[0] = BOARDWIDTH - 1
+    if player.location[0] >= WORLDWIDTH:
+        player.location[0] = WORLDWIDTH - 1
     if player.location[1] < 0:
         player.location[1] = 0
-    if player.location[1] >= BOARDHEIGHT:
-        player.location[1] = BOARDHEIGHT - 1
+    if player.location[1] >= WORLDHEIGHT:
+        player.location[1] = WORLDHEIGHT - 1
 
 
 def moveplayer (player, user, space = None):
@@ -853,7 +853,7 @@ def visiblecoordinates (origin, space, radius = 5):
             continue
         xcoord,ycoord = coordinate
         for adjacent in [(xcoord,ycoord + 1),(xcoord - 1,ycoord),(xcoord,ycoord - 1),(xcoord + 1,ycoord)]:
-            if adjacent[0] >= 0 and adjacent[0] < BOARDWIDTH and adjacent[1] >= 0 and adjacent[1] < BOARDHEIGHT:
+            if adjacent[0] >= 0 and adjacent[0] < WORLDWIDTH and adjacent[1] >= 0 and adjacent[1] < WORLDHEIGHT:
                 if adjacent not in visible:
                     queue.append((adjacent,distance + 1))
     return visible
@@ -876,8 +876,8 @@ def lightcoordinates (player, space, vision = 5, bullets = None, bombs = None, t
 def fogdict (entitydict, space, visible, explored, destroyedwalls = None):
     foggeddict = {}
     destroyedwalls = set() if destroyedwalls is None else destroyedwalls
-    for x in range(BOARDWIDTH):
-        for y in range(BOARDHEIGHT):
+    for x in range(WORLDWIDTH):
+        for y in range(WORLDHEIGHT):
             coordinate = (x,y)
             if coordinate in visible:
                 if coordinate in entitydict:
@@ -901,8 +901,8 @@ def fogdict (entitydict, space, visible, explored, destroyedwalls = None):
 def mapdict (entitydict, space, destroyedwalls = None):
     mapentities = {}
     destroyedwalls = set() if destroyedwalls is None else destroyedwalls
-    for x in range(BOARDWIDTH):
-        for y in range(BOARDHEIGHT):
+    for x in range(WORLDWIDTH):
+        for y in range(WORLDHEIGHT):
             coordinate = (x,y)
             if coordinate in entitydict:
                 mapentities[coordinate] = entitydict[coordinate]

@@ -66,12 +66,16 @@ def printscreen (lines, gameboard = False):
     print (colourtext('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',CYAN))
 
 
-def boardlines (entitydict):
+def boardlines (entitydict, camera = None):
     lines = []
+    if camera is None:
+        camera = (0,0)
+    left = max(0,min(camera[0] - BOARDWIDTH // 2,core.WORLDWIDTH - BOARDWIDTH))
+    bottom = max(0,min(camera[1] - BOARDHEIGHT // 2,core.WORLDHEIGHT - BOARDHEIGHT))
     for y in reversed(range(BOARDHEIGHT)):
         string = ''
         for x in range(BOARDWIDTH):
-            string += entitydict.get((x,y),' ')
+            string += entitydict.get((left + x,bottom + y),' ')
         lines.append(string)
     return lines
 
@@ -95,9 +99,9 @@ def centersidebar (lines):
     return [''] * padding + sidebar
 
 
-def printgameframe (entitydict, sidebar, gameover = False):
+def printgameframe (entitydict, sidebar, gameover = False, camera = None):
     sidebar = centersidebar(sidebar)
-    lines = gameoverlines() if gameover else boardlines(entitydict)
+    lines = gameoverlines() if gameover else boardlines(entitydict,camera)
     clearscreen()
     border = colourtext('X',CYAN)
     topborder = colourtext('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',CYAN)
