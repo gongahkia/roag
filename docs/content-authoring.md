@@ -24,14 +24,14 @@ The default pack currently contains the following presentation files. Each is st
 
 | Domain | File | Owns |
 | --- | --- | --- |
-| People and setup | `characters.json` | Character, role, and person presentation |
+| People | `characters.json` | Character, role, and person presentation |
 | Items | `items.json` | Item labels and descriptions |
 | World and quests | `regions.json`, `quests.json`, `history_text.json`, `topology_text.json` | Region, quest, history, discovery, and topology wording |
 | Actions and aftermath | `action_text.json`, `aftermath_text.json`, `interference_text.json`, `legendary_text.json` | Player-facing result and aftermath prose |
 | Crafting/progression | `chemistry_text.json`, `production_text.json`, `preparation_text.json`, `progression_text.json`, `equipment_text.json`, `material_text.json` | Labels, templates, and explanations for those domains |
 | World systems | `travel_text.json`, `vessel_text.json`, `ship_crisis_text.json`, `vehicle_text.json`, `sanctum_text.json`, `situation_text.json`, `circuit_text.json`, `ecology_text.json`, `worklines.json` | Domain-specific fictional presentation |
 | Tavern | `tavern_games.json` | Draw and Dice terms, cards, and messages |
-| Frontend-facing semantic text | `ui_text.json` | Contracted semantic labels, not layout or input rules |
+| Frontend-facing semantic text and setup choices | `ui_text.json` | Contracted semantic labels, title/subtitle branding, and ancestry/origin/trait/aptitude setup names and descriptions; never layout or input rules |
 | Dormant compatibility | `dullest_dungeon/text.json`, `dullest_dungeon/visuals.json` | Legacy DD presentation only |
 | Assets | `assets.json` | Logical media bindings and ASCII glyph choices |
 
@@ -103,3 +103,5 @@ An author or coding agent replacing Jomon's setting should work in this order:
 7. Save under one compatible pack and load under the other. Current semantic presentation re-renders from stable IDs; historical rendered logs intentionally remain frozen records.
 
 Keep legacy-looking engine strings only when they are stable IDs, deterministic compatibility tokens, save migration data, diagnostics, or frozen history. For example, an old spell display value may remain as an engine-only damage-seed token while `magic_text.json` supplies every current visible spell name. Do not use such compatibility values as a source for new visible prose.
+
+The ordinary current area and inspection labels are also pack-owned: `vessel_text.json` contains vessel-area names, `topology_text.json` contains regional elevation labels, and `action_text.json` contains inspection templates. This keeps a setting rewrite from needing to retain Jomon’s vessel or place names in active runtime prose.

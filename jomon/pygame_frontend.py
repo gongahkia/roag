@@ -24,6 +24,7 @@ from .runtime_events import (
 from .session import CommandOutcome, GameSession
 from .state import Position
 from .tavern_presentation import draw_phase_name, tavern_text
+from .ui_presentation import ui_text
 from .views import ActorView, CellView, InteractionOptionView, WorldView
 
 
@@ -132,7 +133,7 @@ class PygameFrontend:
                  save_root: Path | None = None, save_path: Path | None = None, seed: str = "pygame-jomon"):
         self.pygame = pygame or _pygame(); self.session = session
         self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
-        self.pygame.display.set_caption("Jomon — graphical slice")
+        self.pygame.display.set_caption(ui_text("ui.title.game"))
         self.clock = self.pygame.time.Clock()
         self.font_stack = FontStack(self.pygame, 20, font_path=font_path, icon_font_path=icon_font_path)
         self.font = self.font_stack.text
@@ -471,10 +472,10 @@ class PygameFrontend:
             box = self.pygame.Rect(18, 52, min(500, width - 36), min(380, height - 80))
         self.pygame.draw.rect(self.screen, (18, 23, 34), box); self.pygame.draw.rect(self.screen, (150, 180, 220), box, 2)
         if self.panel in {"title", "pause", "settings", "save", "load"}:
-            title = {"title": "J O M O N", "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
+            title = {"title": ui_text("ui.title.game"), "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
             if self.panel == "title":
-                subtitle = self.font.render("A deterministic river-world expedition", True, (150, 180, 220))
+                subtitle = self.font.render(ui_text("ui.title.subtitle"), True, (150, 180, 220))
                 heading = self.font_stack.render(title, (238, 238, 248))
                 self.screen.blit(heading, (box.centerx - heading.get_width() // 2, box.y + 42))
                 self.screen.blit(subtitle, (box.centerx - subtitle.get_width() // 2, box.y + 78))
@@ -714,6 +715,20 @@ class PygameFrontend:
             self.selected=cell.position
             self.selected_actor_id=cell.actor_ids[0] if cell.visible and cell.actor_ids else None
 
+    def _title_row_at(self, mouse: tuple[int, int]) -> int:
+        """Map a title-page click to a renderer-owned menu row.
+
+        Subclasses may arrange a full title page differently while retaining
+        the same shell action semantics.
+        """
+        width, height = self.screen.get_size()
+        box = self.pygame.Rect(
+            max(26, width // 9), max(26, height // 10),
+            min(width - max(52, width // 5), 900),
+            min(height - max(52, height // 5), 650),
+        )
+        return (mouse[1] - (box.y + 142)) // 30
+
     def handle_event(self,event: Any, save_path: Path | None = None) -> None:
         p=self.pygame
         if event.type==p.QUIT: self.running=False
@@ -721,10 +736,7 @@ class PygameFrontend:
             if self.panel in {"title", "pause", "settings", "save", "load"}:
                 rows = self._panel_rows()
                 if self.panel == "title":
-                    box = self.pygame.Rect(max(26, self.screen.get_width() // 9), max(26, self.screen.get_height() // 10),
-                                           min(self.screen.get_width() - max(52, self.screen.get_width() // 5), 900),
-                                           min(self.screen.get_height() - max(52, self.screen.get_height() // 5), 650))
-                    index = (event.pos[1] - (box.y + 142)) // 30
+                    index = self._title_row_at(event.pos)
                 else:
                     index = (event.pos[1] - 94) // 21
                 if 0 <= index < len(rows) and rows[index].enabled: self._activate_shell(rows[index].action_id)

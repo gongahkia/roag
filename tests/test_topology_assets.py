@@ -13,12 +13,13 @@ from unittest.mock import patch
 
 from jomon.assets import action_assets, ascii_glyph, asset_resource, terrain_assets
 from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
+from jomon.item_presentation import item_display_name
 from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
 from jomon.semantic_topology import TAVERN_TOPOLOGY, VESSEL_TOPOLOGY, CELLS, legacy_rows, tavern_cell, vessel_cell
 from jomon.state import MaterialCell, Position, create_world
 from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
 from jomon.views import world_view
-from jomon.world import base_tile, blocks_sight, displayed_tile, is_walkable, mechanical_surface_token, position_key, semantic_cell
+from jomon.world import area_name, base_tile, blocks_sight, displayed_tile, is_walkable, mechanical_surface_token, position_key, semantic_cell
 from jomon.visuals import ENTITY_GLYPHS, MATERIAL_OVERLAY_SYMBOLS
 from tests.test_content_packs import alternate_pack
 
@@ -67,6 +68,27 @@ class SemanticTopologyTests(unittest.TestCase):
         # It must not turn an occupied cell into a passable mechanical cell.
         with patch.dict(ENTITY_GLYPHS, {"household": "."}):
             self.assertFalse(is_walkable(state, occupied))
+
+    def test_area_and_inspection_wording_is_selected_pack_presentation(self):
+        from jomon.action_presentation import action_format
+        from jomon.actions import inspect
+        from jomon.topology_presentation import topology_text
+        from jomon.vessel_presentation import vessel_area_name
+
+        state = create_world("pack-owned-area-wording")
+        state.jomon_space, state.position = "tavern", Position(1, 1, 0)
+        self.assertEqual(area_name(state), vessel_area_name("tavern", 0))
+        state.location, state.position = "region", Position(1, 1, 1)
+        self.assertEqual(area_name(state), f"{state.region.name} — {topology_text('topology.area.upper')}")
+        state.location = "jomon"
+        result = inspect(state, "cargo")
+        self.assertEqual(
+            result.message,
+            action_format("action.inspect.cargo", goods=", ".join(
+                f"{item_display_name(name)} {stack.quantity}"
+                for name, stack in state.vessel_cargo.items()
+            ), pressure=state.region.pressure),
+        )
 
     def test_material_hazards_use_stable_overlay_identity_not_ascii_art(self):
         from jomon.inventory import apply_terrain_status

@@ -61,7 +61,7 @@ Visible cells use their normal semantic role. Remembered cells use a dimmed vers
 
 ## Renderer chrome versus content
 
-Renderer-owned chrome includes `Back`, `Close`, key hints, mouse instructions, panel geometry, ASCII borders, generic save errors, BigBlueTerm layout, and Nerd Font UI icons. These change interaction and appearance, not Jomon fiction.
+Renderer-owned chrome includes `Back`, `Close`, key hints, mouse instructions, panel geometry, ASCII borders, generic save errors, BigBlueTerm layout, and Nerd Font UI icons. These change interaction and appearance, not Jomon fiction. The fictional title and subtitle are separate selected-pack UI slots (`ui.title.game` and `ui.title.subtitle`), so both landing-page renderers use pack-owned setting branding while their menu behavior and layout remain renderer-owned.
 
 Pack-owned content includes fictional item/region/NPC names, quest prose, combat narration, setting labels, and semantic asset/glyph bindings. A simple decision rule: if a rewrite changes the fictional world, it usually belongs in a pack; if it changes how a Pygame UI works or is laid out, it belongs in the renderer.
 

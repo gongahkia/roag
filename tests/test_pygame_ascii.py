@@ -71,6 +71,23 @@ class AsciiPygameFrontendTests(unittest.TestCase):
         self.assertNotEqual(frontend.theme.selected_bg, frontend.theme.background)
         self.assertNotEqual(frontend._result_colour("move.ok"), frontend._result_colour("move.rejected"))
 
+    def test_full_page_title_uses_ascii_menu_geometry_without_a_session(self):
+        from jomon.pygame_ascii import AsciiPygameFrontend
+
+        frontend = AsciiPygameFrontend(None, pygame=self.pygame, size=(960, 640), shell_mode="title")
+        self.assertIsNone(frontend.session)
+        frontend.draw()
+        char_width, char_height = frontend._cell_metrics()
+        width, height = frontend.screen.get_size()
+        max_rows = max(14, (height - 80) // char_height - 2)
+        box_y = (height - (max_rows + 2) * char_height) // 2
+        menu_y = box_y + max_rows * char_height // 2
+        frontend.handle_event(self.pygame.event.Event(
+            self.pygame.MOUSEBUTTONDOWN, button=1, pos=(width // 2, menu_y),
+        ))
+        self.assertEqual(frontend.panel, "setup")
+        self.assertIsNone(frontend.session)
+
     def test_ascii_uses_the_shared_commands_panels_and_save_format(self):
         from jomon.commands import MoveCommand
         from jomon.session import GameSession

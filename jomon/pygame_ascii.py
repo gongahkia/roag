@@ -8,6 +8,7 @@ from typing import Any
 from .assets import ascii_glyph
 from .pygame_frontend import PygameFrontend
 from .session import GameSession
+from .ui_presentation import ui_text
 from .views import ActorView, CellView, WorldView
 
 
@@ -76,6 +77,21 @@ class AsciiPygameFrontend(PygameFrontend):
     def _cell_metrics(self) -> tuple[int, int]:
         width, height = self.font.size("M")
         return max(8, width), max(14, height)
+
+    def _title_row_at(self, mouse: tuple[int, int]) -> int:
+        """Map clicks into the centered ASCII landing-page menu."""
+        width, height = self.screen.get_size()
+        char_width, char_height = self._cell_metrics()
+        max_columns = max(32, (width - 80) // char_width)
+        max_rows = max(14, (height - 80) // char_height - 2)
+        box = self.pygame.Rect(
+            (width - max_columns * char_width) // 2,
+            (height - (max_rows + 2) * char_height) // 2,
+            max_columns * char_width,
+            (max_rows + 2) * char_height,
+        )
+        menu_y = box.y + max_rows * char_height // 2
+        return (mouse[1] - menu_y) // (2 * char_height)
 
     def _camera(self, view: WorldView) -> tuple[int, int]:
         cell_width, cell_height = self._cell_metrics()
@@ -177,8 +193,8 @@ class AsciiPygameFrontend(PygameFrontend):
         if self.panel == "title":
             # The landing page is deliberately composed across the full page
             # instead of treating the terminal motif as a small upper-left widget.
-            heading = "J O M O N"
-            subtitle = "A deterministic river-world expedition"
+            heading = ui_text("ui.title.game")
+            subtitle = ui_text("ui.title.subtitle")
             heading_surface = self.font_stack.render(heading, self.theme.title)
             subtitle_surface = self.font_stack.render(subtitle, self.theme.dim)
             heading_y = box.y + max_rows * char_height // 5
@@ -208,7 +224,7 @@ class AsciiPygameFrontend(PygameFrontend):
         if self.panel is None:
             return []
         if self.panel in {"title", "pause", "settings", "save", "load"}:
-            title = {"title": "J O M O N", "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
+            title = {"title": ui_text("ui.title.game"), "pause": "PAUSED", "settings": "SETTINGS", "save": "SAVE GAME", "load": "LOAD GAME"}[self.panel]
             rows = self._panel_rows(); self.panel_cursor = min(self.panel_cursor, max(0, len(rows) - 1))
             lines = [f"[ {title} ]", ""]
             for index, row in enumerate(rows):
@@ -316,7 +332,7 @@ class AsciiPygameFrontend(PygameFrontend):
             self.pygame.draw.rect(self.screen, self.theme.selected_fg, self._rect(self.selected, camera), 1)
         self._draw_runs((
             (self.font_stack.icon("health") + " ", self.theme.health, True),
-            ("JOMON  ", self.theme.title, False),
+            (ui_text("ui.title.game") + "  ", self.theme.title, False),
             (f"result:{self.last_result}  ", self._result_colour(self.last_result), False),
             (self.font_stack.icon("inspect") + " click inspect  ", self.theme.interactable, True),
             (self.font_stack.icon("interact") + " E interact  ", self.theme.objective, True),
