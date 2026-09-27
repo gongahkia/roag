@@ -167,9 +167,12 @@ class GameSession:
                 events = (InteractionResolved(actor_id, choice.target_id, choice.interaction_id, result_id),)
             return self._outcome(result, result_id, choice.target_id, events)
         if isinstance(command, AttackCommand):
-            if command.target_actor_id is not None and not isinstance(command.target_actor_id, str):
+            if (command.target_actor_id is not None and not isinstance(command.target_actor_id, str)
+                    or command.target_position is not None and not hasattr(command.target_position, "x")
+                    or command.ammunition_id is not None and not isinstance(command.ammunition_id, str)):
                 return self._reject("attack.invalid")
-            result = attack(self._state, command.target_actor_id)
+            result = attack(self._state, command.target_actor_id,
+                            target_position=command.target_position, ammunition=command.ammunition_id)
             return self._outcome(result, "attack.resolved" if result.changed else "attack.rejected", command.target_actor_id)
         if isinstance(command, GuardCommand):
             if command.target_actor_id is not None and not isinstance(command.target_actor_id, str):

@@ -25,6 +25,8 @@ class InteractCommand:
 class AttackCommand:
     """Attempt an ordinary attack against a stable threat identity."""
     target_actor_id: str | None = None
+    target_position: Position | None = None
+    ammunition_id: str | None = None
 
 
 @dataclass(frozen=True)

@@ -463,6 +463,8 @@ class PygameFrontend:
                         target_position = actor.position if actor else None
                     if selected.target_kind_id and target_position is None and target_actor_id is None:
                         self._notify("Select a visible target first"); return
+                    if selected.action_id.startswith("story.open:"):
+                        self._open_activity("household-story:" + selected.action_id.split(":", 1)[1]); return
                     outcome = self.submit(ActivityCommand(self.activity_context, selected.action_id, target_position, target_actor_id))
                     if not outcome.accepted: self._notify("That operation could not be resolved")
                     return
@@ -477,7 +479,7 @@ class PygameFrontend:
                     elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                 elif choices: self._open_panel("interaction")
-            elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id))
+            elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id, self.selected))
             elif event.key==p.K_i: self._open_panel("inventory")
             elif event.key==p.K_q: self._open_panel("quests")
             elif event.key==p.K_t: self._open_panel("travel")
@@ -487,6 +489,7 @@ class PygameFrontend:
             elif event.key==p.K_x: self._open_activity("preparation")
             elif event.key==p.K_v: self._open_activity("vessel")
             elif event.key==p.K_z: self._open_activity("materials")
+            elif event.key==p.K_BACKSLASH: self._open_activity("circuits")
 
     def update(self, elapsed: float) -> None:
         for motion in self.motions: motion.elapsed += elapsed

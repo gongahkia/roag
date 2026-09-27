@@ -156,6 +156,22 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_RETURN,mod=0))
         self.assertEqual(frontend.last_result,"travel.resolved")
 
+    def test_activity_panel_uses_session_view_and_semantic_command(self):
+        from jomon.production import site_position
+
+        frontend = self.frontend()
+        state = frontend.session._state
+        state.location, state.position = "region", site_position(state)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_c, mod=0))
+        self.assertEqual(frontend.panel, "activity")
+        self.assertEqual(frontend.activity_context, "production")
+        self.assertTrue(frontend._panel_rows())
+        frontend.draw()
+        frontend.panel_cursor = next(index for index, row in enumerate(frontend._panel_rows())
+                                     if row.action_id == "production.gather:0")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_RETURN, mod=0))
+        self.assertEqual(frontend.last_result, "activity.resolved")
+
     def test_inventory_use_and_multiple_interactions_use_stable_view_records(self):
         from jomon.inventory import auto_place, create_item
         from jomon.state import Position

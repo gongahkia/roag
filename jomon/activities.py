@@ -95,7 +95,7 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             point = Position(state.position.x + dx, state.position.y + dy, state.position.z)
             for verb in VERBS:
                 options.append(_option(f"material.{verb}:{point.x},{point.y},{point.z}", material_verb_display_name(verb),
-                                       f"{point.x}, {point.y}, {point.z:+d}", target_kind_id="cell"))
+                                       f"{point.x}, {point.y}, {point.z:+d}"))
         title = "Field materials"
     elif context_id == "vessel":
         from .vessel_refits import STATION_REFITS, installation_status, refit_station_at
@@ -111,6 +111,40 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             options.append(_option("vessel.rest", "Rest at berths", available=available,
                                    reason_id=None if available else "vessel.rest.unavailable"))
         title = "Vessel"
+    elif context_id == "circuits":
+        from .circuits import PARTS, cell_at, item_count, space_id
+        if space_id(state):
+            for kind, row in sorted(PARTS.items()):
+                if row["behavior"] != "fuel" and item_count(state, kind):
+                    options.append(_option(f"circuit.place:{kind}", f"Place {_label(kind)}",
+                                           target_kind_id="cell"))
+            options.extend((
+                _option("circuit.operate:primary", "Operate selected circuit", target_kind_id="cell"),
+                _option("circuit.operate:secondary", "Adjust selected circuit", target_kind_id="cell"),
+                _option("circuit.reclaim:surface", "Reclaim selected circuit", target_kind_id="cell"),
+            ))
+        title = "Circuits"
+    elif context_id == "station:workshop" or context_id.startswith("workshop"):
+        from .workshop import FITTINGS, SLOTS, attached, can_fit
+        from .equipment_presentation import fitting_name
+        from .inventory import equipped_item
+        for slot in SLOTS:
+            item = equipped_item(state, slot)
+            if item is None:
+                continue
+            if item.condition < 100:
+                options.append(_option(f"workshop.repair:{item.id}", f"Repair {_label(item.kind)}"))
+            for fitting_id in FITTINGS:
+                if not any(part.kind == f"fitting:{fitting_id}" for part in attached(state, item)):
+                    available, _ = can_fit(state, item, fitting_id)
+                    options.append(_option(f"workshop.install:{item.id}:{fitting_id}",
+                                           f"Fit {fitting_name(fitting_id)} to {_label(item.kind)}",
+                                           available=available,
+                                           reason_id=None if available else "workshop.unavailable"))
+            for part in attached(state, item):
+                socket = FITTINGS[part.kind.split(":", 1)[1]].slot
+                options.append(_option(f"workshop.remove:{item.id}:{socket}", f"Remove {socket} fitting"))
+        title = "Workshop"
     elif context_id == "sanctum":
         for choice, name in (("o", "Offering"), ("b", "Breach"), ("s", "Study"), ("h", "Shelter")):
             # The established reducer owns availability.  It is deliberately
@@ -147,6 +181,88 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
                                    available=available, reason_id=None if available else "mastery.unavailable",
                                    target_kind_id="actor"))
         title = "Manoeuvres"
+    elif context_id == "objective":
+        from .actions import can_alter_objective
+        options.extend((
+            _option("objective.decide:accept", "Accept objective"),
+            _option("objective.decide:refuse", "Refuse objective"),
+            _option("objective.decide:alter", "Alter objective", available=can_alter_objective(state),
+                    reason_id=None if can_alter_objective(state) else "objective.alter.unavailable"),
+        ))
+        title = "Objective"
+    elif context_id == "quest:regional":
+        from .quests import regional_resolution_options
+        for key, label, _semantic, available, _reason in regional_resolution_options(state):
+            options.append(_option(f"quest.regional:{key.lower()}", label, available=available,
+                                   reason_id=None if available else "quest.unavailable"))
+        title = "Regional quest"
+    elif context_id == "quest:arc":
+        from .quests import arc_options
+        for key, label, _semantic, available, _reason in arc_options(state):
+            options.append(_option(f"quest.arc:{key.lower()}", label, available=available,
+                                   reason_id=None if available else "quest.unavailable"))
+        title = "Cross-region quest"
+    elif context_id.startswith("contact-service:"):
+        from .quests import secondary_service_options
+        contact_id = context_id.split(":", 1)[1]
+        for key, label, _semantic, available, _reason in secondary_service_options(state, contact_id):
+            options.append(_option(f"contact.service:{contact_id}:{key.lower()}", label, available=available,
+                                   reason_id=None if available else "contact.unavailable"))
+        title = "Contact service"
+    elif context_id.startswith("aftermath-contract:"):
+        from .aftermath import contract_options
+        contract_id = context_id.split(":", 1)[1]
+        for key, label, _semantic, available, _reason in contract_options(state, contract_id):
+            options.append(_option(f"aftermath.contract:{contract_id}:{key.lower()}", label, available=available,
+                                   reason_id=None if available else "aftermath.unavailable"))
+        title = "Aftermath contract"
+    elif context_id == "merchant":
+        from .actions import MERCHANT_ITEMS
+        from .item_presentation import item_display_name_or_legacy
+        for item_id in state.merchant_stock:
+            options.append(_option(f"merchant.buy:{item_id}", item_display_name_or_legacy(item_id)))
+        title = "Merchant"
+    elif context_id == "bartender":
+        from .vessel import DRINKS
+        from .vessel_presentation import drink_display_name
+        for drink_id in DRINKS:
+            options.append(_option(f"bar.drink:{drink_id}", f"Drink {drink_display_name(drink_id)}"))
+            options.append(_option(f"bar.bottle:{drink_id}", f"Bottle {drink_display_name(drink_id)}"))
+        title = "Bar"
+    elif context_id == "incident":
+        options.extend((_option("incident.resolve:mediate", "Mediate"),
+                        _option("incident.resolve:side-first", "Support first speaker"),
+                        _option("incident.resolve:let-fight", "Let the fight continue")))
+        title = "Tavern incident"
+    elif context_id == "route-stop":
+        options.extend((_option("route.stop:resupply", "Resupply"),
+                        _option("route.stop:trade", "Trade"),
+                        _option("route.stop:sound", "Take soundings")))
+        title = "Route stop"
+    elif context_id.startswith("person:"):
+        person_id = context_id.split(":", 1)[1]
+        options.extend((_option(f"person.courier:{person_id}", "Select courier"),
+                        _option(f"person.recruit:{person_id}", "Offer berth"),
+                        _option(f"person.defer:{person_id}", "Defer invitation")))
+        title = "Person"
+    elif context_id.startswith("household-story:"):
+        from .household_stories import story_choices
+        story_id = context_id.split(":", 1)[1]
+        for key, label, _semantic, available, _reason in story_choices(state, story_id):
+            options.append(_option(f"story.resolve:{story_id}:{key.lower()}", label, available=available,
+                                   reason_id=None if available else "story.unavailable"))
+        title = "Household story"
+    elif context_id == "station:gathering":
+        from .household_stories import station_choices
+        from .household_stories import STORIES
+        for story, (_key, label, _semantic, available, _reason) in zip(STORIES, station_choices(state)):
+            options.append(_option(f"story.open:{story.id}", label, available=available,
+                                   reason_id=None if available else "story.unavailable"))
+        title = "Gathering"
+    elif context_id.startswith("station:") or context_id.startswith("vessel-refits:"):
+        # Station interaction is a contextual entry into the same vessel
+        # mechanics; the options retain stable refit IDs.
+        return activity_view(state, "vessel")
     return ActivityView(context_id, title, tuple(options))
 
 
@@ -202,6 +318,32 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id == "vessel.rest":
         from .magic import rest_at_berths
         changed, message = rest_at_berths(state)
+    elif action_id.startswith("workshop.repair:"):
+        from .workshop import repair
+        changed, message = repair(state, action_id.split(":", 1)[1])
+    elif action_id.startswith("workshop.install:"):
+        from .workshop import install
+        _, item_id, fitting_id = action_id.split(":", 2)
+        changed, message = install(state, item_id, fitting_id)
+    elif action_id.startswith("workshop.remove:"):
+        from .workshop import remove
+        _, item_id, socket = action_id.split(":", 2)
+        changed, message = remove(state, item_id, socket)
+    elif action_id.startswith("circuit.place:"):
+        from .circuits import place
+        if target_position is None:
+            return ActivityResolution(False, False, "")
+        changed, message = place(state, target_position, "surface", action_id.split(":", 1)[1])
+    elif action_id.startswith("circuit.operate:"):
+        from .circuits import operate
+        if target_position is None:
+            return ActivityResolution(False, False, "")
+        changed, message = operate(state, target_position, "surface", action_id.split(":", 1)[1])
+    elif action_id.startswith("circuit.reclaim:"):
+        from .circuits import reclaim
+        if target_position is None:
+            return ActivityResolution(False, False, "")
+        changed, message = reclaim(state, target_position, action_id.split(":", 1)[1])
     elif action_id.startswith("sanctum.choice:"):
         from .sanctums import shrine_choice
         changed, message, steps = shrine_choice(state, action_id.rsplit(":", 1)[1])
@@ -227,6 +369,52 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id.startswith("mastery.perform:"):
         from .manoeuvres import perform
         changed, message, steps = perform(state, action_id.split(":", 1)[1], target_actor_id)
+        if changed:
+            from .actions import advance_world
+            advance_world(state, steps=steps)
+    elif action_id.startswith("objective.decide:"):
+        from .actions import decide_objective
+        result = decide_objective(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("quest.regional:"):
+        from .actions import resolve_regional_quest_choice
+        result = resolve_regional_quest_choice(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("quest.arc:"):
+        from .actions import resolve_cross_region_choice
+        result = resolve_cross_region_choice(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("contact.service:"):
+        from .actions import use_contact_service
+        _, contact_id, choice = action_id.split(":", 2)
+        result = use_contact_service(state, choice, contact_id); changed, message = result.changed, result.message
+    elif action_id.startswith("aftermath.contract:"):
+        from .actions import use_aftermath_contract
+        _, contract_id, choice = action_id.split(":", 2)
+        result = use_aftermath_contract(state, contract_id, choice); changed, message = result.changed, result.message
+    elif action_id.startswith("merchant.buy:"):
+        from .actions import purchase_merchant_item
+        result = purchase_merchant_item(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("bar.drink:") or action_id.startswith("bar.bottle:"):
+        from .actions import purchase_bar_drink
+        prefix, drink_id = action_id.split(":", 1)
+        result = purchase_bar_drink(state, drink_id, bottle=prefix == "bar.bottle"); changed, message = result.changed, result.message
+    elif action_id.startswith("incident.resolve:"):
+        from .actions import intervene_socially
+        result = intervene_socially(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("route.stop:"):
+        from .actions import use_route_stop
+        result = use_route_stop(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("person.courier:"):
+        from .actions import choose_courier
+        result = choose_courier(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("person.recruit:"):
+        from .actions import recruit_person
+        result = recruit_person(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("person.defer:"):
+        from .actions import defer_recruit
+        result = defer_recruit(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
+    elif action_id.startswith("story.resolve:"):
+        from .household_stories import resolve
+        _, story_id, choice = action_id.split(":", 2)
+        changed, message, steps = resolve(state, story_id, choice)
         if changed:
             from .actions import advance_world
             advance_world(state, steps=steps)
