@@ -153,6 +153,28 @@ class PygameFrontendTests(unittest.TestCase):
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_RETURN,mod=0))
         self.assertEqual(frontend.last_result,"travel.resolved")
 
+    def test_inventory_use_and_multiple_interactions_use_stable_view_records(self):
+        from jomon.inventory import auto_place, create_item
+        from jomon.state import Position
+        from jomon.travel import choose_destination
+        frontend=self.frontend(); state=frontend.session._state
+        state.location, state.position = "region", Position(40,24); state.water["40,24,0"] = 1
+        item=create_item(state,"consumable:preparation.waterline","fixture",owner_id=state.active_courier_id)
+        self.assertTrue(auto_place(state,item.id,"pack",owner_id=state.active_courier_id))
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_i,mod=0))
+        frontend.panel_cursor=next(index for index,row in enumerate(frontend._panel_rows()) if row.id==item.id)
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_u,mod=0))
+        self.assertEqual(frontend.last_result,"gear.resolved")
+        state.location="jomon"
+        destination=next(row.destination_id for row in frontend.session.travel_view().destinations if row.available)
+        self.assertTrue(choose_destination(state,destination,forced_voyage="raiders")[0])
+        frontend.panel=None
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_e,mod=0))
+        self.assertEqual(frontend.panel,"interaction")
+        frontend.panel_cursor=next(index for index,row in enumerate(frontend._panel_rows()) if row.interaction_id=="voyage.response.y")
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN,key=self.pygame.K_RETURN,mod=0))
+        self.assertEqual(frontend.last_result,"voyage.resolved")
+
 
 class PygameDependencyBoundaryTests(unittest.TestCase):
     def test_core_modules_do_not_import_pygame(self):
