@@ -639,7 +639,7 @@ class PygameFrontend:
                     elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
                     elif outcome.overlay_id in {"equipment", "hold"}:
                         self._open_inventory()
-                    elif outcome.overlay_id.startswith("inventory:container:"):
+                    elif outcome.overlay_id and outcome.overlay_id.startswith("inventory:container:"):
                         self._open_inventory(outcome.overlay_id.removeprefix("inventory:"))
                     elif outcome.overlay_id == "route-chart": self._open_panel("travel")
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)

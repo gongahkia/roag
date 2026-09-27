@@ -249,6 +249,23 @@ class PygameFrontendTests(unittest.TestCase):
         self.assertNotIn(item.id, container.item_ids)
         self.assertEqual(next(row for row in frontend.session.inventory_view().items if row.id == item.id).location_id, "pack")
 
+    def test_resolved_single_interaction_without_overlay_does_not_crash(self):
+        """A successful interaction may resolve in-world instead of opening UI."""
+        from jomon.session import CommandOutcome
+        from jomon.state import Position
+        from jomon.views import InteractionOptionView, InteractionView
+
+        frontend = self.frontend()
+        frontend.session.interaction_view = lambda: InteractionView(
+            Position(0, 0), (InteractionOptionView("interact.resolved", "fixture", True),),
+        )
+        frontend.submit = lambda command: CommandOutcome(
+            True, True, False, "interaction.resolved", 1,
+        )
+
+        frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_e, mod=0))
+        self.assertIsNone(frontend.panel)
+
     def test_inventory_auto_place_preference_uses_the_session_command(self):
         frontend = self.frontend()
         frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_i, mod=0))
