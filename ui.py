@@ -55,6 +55,12 @@ def promptinput (prompt):
 
 
 def printscreen (lines, gameboard = False):
+    lines = list(lines)
+    if len(lines) < BOARDHEIGHT:
+        padding = BOARDHEIGHT - len(lines)
+        lines = [''] * (padding // 2) + lines + [''] * (padding - padding // 2)
+    else:
+        lines = lines[:BOARDHEIGHT]
     clearscreen()
     print (colourtext('X' * (BOARDWIDTH + 2),CYAN))
     for line in lines:
