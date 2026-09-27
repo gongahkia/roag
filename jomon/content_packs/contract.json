@@ -2284,6 +2284,191 @@
       "id": "ui.inventory.contract.description",
       "placeholders": [],
       "max_length": 240
+    },
+    {
+      "id": "ui.setup.ancestry.human.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.ancestry.human.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.ancestry.reedfolk.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.ancestry.reedfolk.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.ancestry.stonefolk.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.ancestry.stonefolk.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.ancestry.tidekin.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.ancestry.tidekin.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.origin.hearthford.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.origin.hearthford.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.origin.greywash.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.origin.greywash.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.origin.greenwold.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.origin.greenwold.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.origin.whitecairn.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.origin.whitecairn.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.trait.steady.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.trait.steady.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.trait.observant.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.trait.observant.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.trait.diplomatic.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.trait.diplomatic.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.trait.methodical.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.trait.methodical.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.trait.wayfarer.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.trait.wayfarer.description",
+      "placeholders": [],
+      "max_length": 240
+    },
+    {
+      "id": "ui.setup.attribute.strength.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.attribute.agility.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.attribute.endurance.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.attribute.perception.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.attribute.intellect.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.attribute.presence.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.competency.strategy.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.competency.speech.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.competency.wayfinding.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.competency.fieldcraft.label",
+      "placeholders": [],
+      "max_length": 80
+    },
+    {
+      "id": "ui.setup.competency.craft.label",
+      "placeholders": [],
+      "max_length": 80
     }
   ],
   "quests": [

@@ -542,11 +542,15 @@ class PygameFrontend:
         crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
         attribute_spent = sum(draft.attributes.values()) - 6 * len(draft.attributes)
         competency_spent = sum(draft.competencies.values())
+        def setup_label(choice_id: str) -> str:
+            option = view.option(choice_id)
+            return option.display_name if option else self._semantic_label(choice_id)
+
         values: dict[str, str] = {
             "crew": f"{crew.display_name} / {crew.role_label}",
-            "ancestry": self._semantic_label(draft.ancestry_id),
-            "origin": self._semantic_label(draft.origin_id),
-            "trait": self._semantic_label(draft.trait_id),
+            "ancestry": setup_label(draft.ancestry_id),
+            "origin": setup_label(draft.origin_id),
+            "trait": setup_label(draft.trait_id),
             **{key: str(value) for key, value in draft.attributes.items()},
             **{key: str(value) for key, value in draft.competencies.items()},
             "begin": "Start ordinary play",
@@ -558,6 +562,11 @@ class PygameFrontend:
         for index, field in enumerate(fields):
             marker = ">" if index == draft.cursor else " "
             lines.append(f"{marker} {self._semantic_label(field)}: {values[field]}")
+        selected_field = fields[draft.cursor] if fields else ""
+        selected_id = {"ancestry": draft.ancestry_id, "origin": draft.origin_id, "trait": draft.trait_id}.get(selected_field)
+        selected_option = view.option(selected_id) if selected_id else None
+        if selected_option and selected_option.description:
+            lines += ["", selected_option.description]
         for index, line in enumerate(lines):
             colour = (245, 218, 118) if index >= 2 and index - 2 == draft.cursor else (238, 238, 238)
             self.screen.blit(self.font.render(line, True, colour), (box.x + 28, box.y + 84 + index * 22))

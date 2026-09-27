@@ -192,11 +192,29 @@ class AsciiPygameFrontend(PygameFrontend):
             draft = self.setup_draft
             if draft is None:
                 return []
+            view = self.pending_character_setup_view(self.new_game_seed, draft.crew_id)
             fields = self._setup_fields()
-            return ["[ SETUP ]  arrows/WASD adjust · Enter begins", *(
-                f"{'>' if index == draft.cursor else ' '} {self._semantic_label(field)}"
+            crew = next(row for row in view.crew if row.crew_id == draft.crew_id)
+            values = {
+                "crew": f"{crew.display_name} / {crew.role_label}",
+                "ancestry": view.option(draft.ancestry_id).display_name if view.option(draft.ancestry_id) else draft.ancestry_id,
+                "origin": view.option(draft.origin_id).display_name if view.option(draft.origin_id) else draft.origin_id,
+                "trait": view.option(draft.trait_id).display_name if view.option(draft.trait_id) else draft.trait_id,
+                **{key: str(value) for key, value in draft.attributes.items()},
+                **{key: str(value) for key, value in draft.competencies.items()},
+                "begin": "Join game",
+            }
+            lines = ["[ CHARACTER SETUP ]", "arrows/WASD adjust · Enter joins · Esc returns"]
+            lines.extend(
+                f"{'>' if index == draft.cursor else ' '} {self._semantic_label(field)}: {values[field]}"
                 for index, field in enumerate(fields)
-            )]
+            )
+            field = fields[draft.cursor] if fields else ""
+            selected_id = {"ancestry": draft.ancestry_id, "origin": draft.origin_id, "trait": draft.trait_id}.get(field)
+            option = view.option(selected_id) if selected_id else None
+            if option and option.description:
+                lines += ["", option.description]
+            return lines
         if self.panel == "quests":
             return ["[ QUESTS ]", *(f"{self.font_stack.icon('quest')} {row.title}: {row.objective}" for row in self.session.quest_views()), "Esc closes"]
         if self.panel == "tavern-draw":

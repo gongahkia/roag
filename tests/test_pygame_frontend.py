@@ -47,6 +47,7 @@ class PygameFrontendTests(unittest.TestCase):
         frontend = self.Frontend(None, pygame=self.pygame, require_character_setup=True,
                                  seed="pre-game", size=(640, 480))
         self.assertIsNone(frontend.session)
+        frontend.draw()  # Setup is renderable without querying a world view.
         draft = frontend.setup_draft
         assert draft is not None
         before = (draft.crew_id, draft.ancestry_id, draft.origin_id, draft.trait_id,
@@ -56,6 +57,7 @@ class PygameFrontendTests(unittest.TestCase):
         ascii_frontend = frontend._replacement_renderer("ascii")
         self.assertIsNone(ascii_frontend.session)
         self.assertEqual(ascii_frontend.panel, "setup")
+        ascii_frontend.draw()
         ascii_frontend.handle_event(self.pygame.event.Event(self.pygame.KEYDOWN, key=self.pygame.K_ESCAPE, mod=0))
         self.assertEqual(ascii_frontend.panel, "title")
         self.assertIsNone(ascii_frontend.session)
@@ -112,6 +114,9 @@ class PygameFrontendTests(unittest.TestCase):
             self.assertEqual(replacement.renderer_id, "ascii")
             self.assertIs(replacement.session, frontend.session)
             self.assertEqual(replacement.session.world_view(), before[1])
+            replacement._activate_shell("title")
+            self.assertEqual(replacement.panel, "title")
+            self.assertIsNone(replacement.session)
 
     def test_renderer_switching_is_mechanically_inert(self):
         from jomon.commands import MoveCommand

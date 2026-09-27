@@ -89,3 +89,17 @@ Graphical and ASCII inspection:
 ```
 
 Stop and involve a mechanics contributor if an edit needs to change an ID, recipe, collision, damage, route cost, availability, state mutation, random selection, or save meaning. A pack is allowed to reskin the same game; it is not a second rules engine.
+
+## Fresh-setting handoff recipe
+
+An author or coding agent replacing Jomon's setting should work in this order:
+
+1. Read [architecture.md](architecture.md), this guide, and [frontends-and-assets.md](frontends-and-assets.md). Keep `jomon/data/` as the compatible mechanical catalog root unless the task explicitly changes rules.
+2. Copy `jomon/content_packs/default/`, give `manifest.json` a new valid pack ID, and preserve its format version and compatible `catalog_root`.
+3. Rewrite the presentation files listed above: people/setup, items, regions/quests/history/topology, action and system narration, tavern terms, and the active system text domains. Preserve JSON keys and declared template placeholders.
+4. Change `assets.json` bindings, pack-relative media, and semantic ASCII glyphs if the setting needs a different visual language. Do not change renderer-chrome icons such as Save, Back, or Settings.
+5. Load the pack in a fresh process with `JOMON_CONTENT_PACK=/absolute/path/to/pack`, then exercise both `uv run python -m jomon --renderer debug` and `uv run python -m jomon --renderer ascii`.
+6. Run the focused alternate-pack and invariance coverage: `uv run python -m unittest tests.test_content_identity_14e tests.test_topology_assets tests.test_mechanical_compatibility tests.test_save_content_compat`.
+7. Save under one compatible pack and load under the other. Current semantic presentation re-renders from stable IDs; historical rendered logs intentionally remain frozen records.
+
+Keep legacy-looking engine strings only when they are stable IDs, deterministic compatibility tokens, save migration data, diagnostics, or frozen history. For example, an old spell display value may remain as an engine-only damage-seed token while `magic_text.json` supplies every current visible spell name. Do not use such compatibility values as a source for new visible prose.

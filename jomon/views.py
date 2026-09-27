@@ -187,6 +187,14 @@ class CharacterSetupCrewView:
 
 
 @dataclass(frozen=True)
+class CharacterSetupOptionView:
+    """One stable pre-game choice with selected-pack presentation."""
+    id: str
+    display_name: str
+    description: str | None = None
+
+
+@dataclass(frozen=True)
 class CharacterSetupView:
     """Immutable initial-character choices with no mutable person records."""
     available: bool
@@ -200,6 +208,18 @@ class CharacterSetupView:
     competency_points: int
     default_attributes: tuple[tuple[str, int], ...]
     default_competencies: tuple[tuple[str, int], ...]
+    ancestry_options: tuple[CharacterSetupOptionView, ...]
+    origin_options: tuple[CharacterSetupOptionView, ...]
+    trait_options: tuple[CharacterSetupOptionView, ...]
+    attribute_options: tuple[CharacterSetupOptionView, ...]
+    competency_options: tuple[CharacterSetupOptionView, ...]
+
+    def option(self, choice_id: str) -> CharacterSetupOptionView | None:
+        """Find setup presentation by its engine-owned stable identity."""
+        return next((option for option in (
+            *self.ancestry_options, *self.origin_options, *self.trait_options,
+            *self.attribute_options, *self.competency_options,
+        ) if option.id == choice_id), None)
 
 
 @dataclass(frozen=True)
@@ -509,6 +529,13 @@ def _character_setup_view_for_household(
         TRAITS, default_allocation,
     )
     from .character_presentation import role_display_name
+    from .ui_presentation import ui_text
+
+    def options(kind: str, values: tuple[str, ...], *, descriptions: bool) -> tuple[CharacterSetupOptionView, ...]:
+        return tuple(CharacterSetupOptionView(
+            value, ui_text(f"ui.setup.{kind}.{value.lower()}.label"),
+            ui_text(f"ui.setup.{kind}.{value.lower()}.description") if descriptions else None,
+        ) for value in values)
 
     crew = tuple(
         CharacterSetupCrewView(person.id, person.name, person.role, role_display_name(person.role))
@@ -524,6 +551,11 @@ def _character_setup_view_for_household(
         tuple(COMPETENCIES), ATTRIBUTE_POINTS, COMPETENCY_POINTS,
         tuple((name, attributes[name]) for name in ATTRIBUTES),
         tuple((name, competencies[name]) for name in COMPETENCIES),
+        options("ancestry", tuple(ANCESTRIES), descriptions=True),
+        options("origin", tuple(ORIGINS), descriptions=True),
+        options("trait", tuple(TRAITS), descriptions=True),
+        options("attribute", tuple(ATTRIBUTES), descriptions=False),
+        options("competency", tuple(COMPETENCIES), descriptions=False),
     )
 
 
