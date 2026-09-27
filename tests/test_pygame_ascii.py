@@ -38,7 +38,10 @@ class AsciiPygameFrontendTests(unittest.TestCase):
         self.assertFalse(hasattr(cell, "glyph"))
         self.assertTrue(frontend._cell_glyph(cell))
         self.assertIn(frontend.font_stack.resolution.text_source, {"BigBlueTerm", "monospace fallback", "explicit"})
-        self.assertTrue(frontend.font_stack.icon("quest"))
+        icon = frontend.font_stack.icon("quest")
+        self.assertTrue(icon)
+        if frontend.font_stack.resolution.icon_source == "text fallback":
+            self.assertEqual(icon, "QUEST")
 
     def test_ascii_uses_the_shared_commands_panels_and_save_format(self):
         from jomon.commands import MoveCommand

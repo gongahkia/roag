@@ -70,14 +70,18 @@ class FontStack:
         discovered_text = _match(pygame, BIG_BLUE_FAMILIES)
         text_path = explicit_text or discovered_text or _match(pygame, MONOSPACE_FAMILIES)
         explicit_icon = _existing_path(icon_font_path)
-        icon_path = explicit_icon or _match(pygame, NERD_FAMILIES) or text_path
+        discovered_icon = _match(pygame, NERD_FAMILIES)
+        icon_path = explicit_icon or discovered_icon or text_path
         self.resolution = FontResolution(
             text_path, icon_path,
             "explicit" if explicit_text else "BigBlueTerm" if discovered_text else "monospace fallback",
-            "explicit" if explicit_icon else "Nerd Font" if icon_path and icon_path != text_path else "text fallback",
+            "explicit" if explicit_icon else "Nerd Font" if discovered_icon else "text fallback",
         )
         self.text = pygame.font.Font(text_path, size)
         self.icons = pygame.font.Font(icon_path, size) if icon_path else self.text
+        # Pygame metrics can report a generic missing-glyph box as measurable.
+        # With no deliberate icon-capable font, choose the readable text label.
+        self._trusted_icon_font = bool(explicit_icon or discovered_icon)
 
     def supports(self, glyph: str) -> bool:
         metrics = self.icons.metrics(glyph)
@@ -85,7 +89,7 @@ class FontStack:
 
     def icon(self, identity: str) -> str:
         glyph, fallback = ASCII_ICONS[identity]
-        return glyph if self.supports(glyph) else fallback
+        return glyph if self._trusted_icon_font and self.supports(glyph) else fallback
 
     def render(self, value: str, colour: tuple[int, int, int], *, icon: bool = False) -> Any:
         return (self.icons if icon else self.text).render(value, True, colour)
