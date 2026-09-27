@@ -446,7 +446,10 @@ class PygameFrontend:
                     self.submit(TravelCommand(selected.destination_id)); self.panel = None; return
                 if self.panel == "interaction" and event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_e}:
                     outcome = self.submit(InteractCommand(selected.target_id, selected.interaction_id)); self.panel = None
-                    if outcome.overlay_id: self._open_activity(outcome.overlay_id)
+                    if outcome.overlay_id in {"equipment", "hold"} or (outcome.overlay_id or "").startswith("inventory:container:"):
+                        self._open_panel("inventory")
+                    elif outcome.overlay_id == "route-chart": self._open_panel("travel")
+                    elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                     return
                 if self.panel == "activity" and event.key in {p.K_RETURN, p.K_KP_ENTER, p.K_e}:
                     if not selected.available or self.activity_context is None:
@@ -465,6 +468,8 @@ class PygameFrontend:
                         self._notify("Select a visible target first"); return
                     if selected.action_id.startswith("story.open:"):
                         self._open_activity("household-story:" + selected.action_id.split(":", 1)[1]); return
+                    if selected.action_id.startswith("aftermath.open:"):
+                        self._open_activity("aftermath-contract:" + selected.action_id.split(":", 1)[1]); return
                     outcome = self.submit(ActivityCommand(self.activity_context, selected.action_id, target_position, target_actor_id))
                     if not outcome.accepted: self._notify("That operation could not be resolved")
                     return
@@ -477,6 +482,9 @@ class PygameFrontend:
                     outcome = self.submit(InteractCommand(choices[0].target_id,choices[0].interaction_id))
                     if outcome.overlay_id == "tavern-draw": self._open_panel("tavern-draw")
                     elif outcome.overlay_id == "tavern-dice": self._open_panel("tavern-dice")
+                    elif outcome.overlay_id in {"equipment", "hold"} or outcome.overlay_id.startswith("inventory:container:"):
+                        self._open_panel("inventory")
+                    elif outcome.overlay_id == "route-chart": self._open_panel("travel")
                     elif outcome.overlay_id: self._open_activity(outcome.overlay_id)
                 elif choices: self._open_panel("interaction")
             elif event.key==p.K_f: self.submit(AttackCommand(self.selected_actor_id, self.selected))
@@ -488,6 +496,7 @@ class PygameFrontend:
             elif event.key==p.K_m: self._open_activity("magic")
             elif event.key==p.K_x: self._open_activity("preparation")
             elif event.key==p.K_v: self._open_activity("vessel")
+            elif event.key==p.K_b: self._open_activity("vehicle")
             elif event.key==p.K_z: self._open_activity("materials")
             elif event.key==p.K_BACKSLASH: self._open_activity("circuits")
 

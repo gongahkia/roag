@@ -67,6 +67,9 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             for reagent in sorted(flask.contents):
                 options.append(_option(f"preparation.distill:{flask.id}:{reagent}",
                                        f"Distil {_label(reagent)} from {flask.id}"))
+        for relic_id in sorted(state.relics):
+            options.append(_option(f"relic.select:{relic_id}", f"Select {_label(relic_id)}"))
+        options.append(_option("preparation.use-readied", "Use selected relic, bottle, or readied gear"))
         title = "Preparation"
     elif context_id == "progression":
         from .skill_tree import NODES
@@ -124,6 +127,17 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
                 _option("circuit.reclaim:surface", "Reclaim selected circuit", target_kind_id="cell"),
             ))
         title = "Circuits"
+    elif context_id in {"vehicle", "gangplank"}:
+        options.extend((
+            _option("vehicle.depart", "Depart for the active region"),
+            _option("vehicle.board-tug", "Board the harbour tug"),
+            _option("vehicle.disembark", "Disembark active vehicle"),
+        ))
+        title = "Vehicle"
+    elif context_id == "field-traveller":
+        options.extend((_option("traveller.choice:a", "Ask for a route clue"),
+                        _option("traveller.choice:b", "Buy the offered lot")))
+        title = "Field traveller"
     elif context_id == "station:workshop" or context_id.startswith("workshop"):
         from .workshop import FITTINGS, SLOTS, attached, can_fit
         from .equipment_presentation import fitting_name
@@ -216,6 +230,12 @@ def activity_view(state: GameState, context_id: str) -> ActivityView:
             options.append(_option(f"aftermath.contract:{contract_id}:{key.lower()}", label, available=available,
                                    reason_id=None if available else "aftermath.unavailable"))
         title = "Aftermath contract"
+    elif context_id == "aftermath":
+        from .aftermath import contracts_for
+        for contract in contracts_for(state):
+            options.append(_option(f"aftermath.open:{contract.id}", contract.title,
+                                   contract.status))
+        title = "Aftermath"
     elif context_id == "merchant":
         from .actions import MERCHANT_ITEMS
         from .item_presentation import item_display_name_or_legacy
@@ -295,6 +315,12 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
     elif action_id.startswith("preparation.distill:"):
         from .chemistry import distill_flask
         _, flask_id, reagent = action_id.split(":", 2); changed, message = distill_flask(state, flask_id, reagent)
+    elif action_id == "preparation.use-readied":
+        from .actions import use_gear
+        result = use_gear(state); changed, message = result.changed, result.message
+    elif action_id.startswith("relic.select:"):
+        from .actions import choose_relic
+        result = choose_relic(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
     elif action_id.startswith("skill.buy:"):
         from .skill_tree import buy_node
         changed, message = buy_node(state, action_id.split(":", 1)[1])
@@ -344,6 +370,18 @@ def resolve_activity(state: GameState, context_id: str, action_id: str,
         if target_position is None:
             return ActivityResolution(False, False, "")
         changed, message = reclaim(state, target_position, action_id.split(":", 1)[1])
+    elif action_id == "vehicle.depart":
+        from .actions import depart
+        result = depart(state); changed, message = result.changed, result.message
+    elif action_id == "vehicle.board-tug":
+        from .vehicles import board_tug
+        result = board_tug(state); changed, message = result.changed, result.message
+    elif action_id == "vehicle.disembark":
+        from .vehicles import disembark
+        result = disembark(state); changed, message = result.changed, result.message
+    elif action_id.startswith("traveller.choice:"):
+        from .landscape_variation import traveller_choice
+        result = traveller_choice(state, action_id.split(":", 1)[1]); changed, message = result.changed, result.message
     elif action_id.startswith("sanctum.choice:"):
         from .sanctums import shrine_choice
         changed, message, steps = shrine_choice(state, action_id.rsplit(":", 1)[1])
