@@ -71,3 +71,12 @@ class ObjectiveAcquired(RuntimeEvent):
 class OperationDelivered(RuntimeEvent):
     operation_id: str
     feature_id: str
+
+@dataclass(frozen=True)
+class SuccessorSelected(RuntimeEvent):
+    member_id: str
+
+@dataclass(frozen=True)
+class RemainsItemRecovered(RuntimeEvent):
+    source_member_id: str
+    item_id: str

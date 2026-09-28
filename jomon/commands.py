@@ -48,6 +48,15 @@ class InteractCommand:
     """Attempt a local interaction with a stable semantic feature ID."""
     feature_id: str
 
+@dataclass(frozen=True)
+class SelectSuccessorCommand:
+    member_id: str
+
+@dataclass(frozen=True)
+class RecoverRemainsItemCommand:
+    member_id: str
+    item_id: str
+
 
 @dataclass(frozen=True)
 class ActivityCommand:

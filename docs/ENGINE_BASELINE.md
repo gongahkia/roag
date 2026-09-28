@@ -18,3 +18,9 @@ validated operation state.
 The first playable pack contains one local physically connected operation. It
 is not a complete simulation: networking, crew continuity, schedules, economy,
 survival, skill progression, and generated history remain future systems.
+
+CYBER-02A adds optional persistent crew custody for playable packs. The active
+operative is a stable roster identity, not a recreated player template. Death
+allows explicit selection of another existing living member; ordinary carried
+items remain on a dead member until physically recovered. Neural-memory
+retention and learned-ability inheritance are intentionally absent.

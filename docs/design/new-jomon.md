@@ -202,3 +202,10 @@ route.  It does not settle district canon, network rules, crew governance, or
 continuity mechanics.  The two routes are durable physical evidence in
 operation state; they are not a permanent decision that every future operation
 uses the same pair of methods.
+
+## CYBER-02A implementation note
+
+The first playable pack now proves same-world continuation after a natural
+operative death. This is **PROVISIONAL** crew content and physical ordinary-item
+custody only. It does not implement the DECIDED future neural-memory retention,
+learned-ability inheritance, personality traces, or remote recovery.

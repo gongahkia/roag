@@ -440,3 +440,33 @@ path.  Loading remains available through `--load PATH` in this bounded slice.
 
 Network space, crew simulation, succession/inheritance, schedules, survival,
 Draw/Dice, and broad world generation remain absent and deferred.
+
+## 10. CYBER-02A continuity record
+
+**ENGINE EXTENSION REQUIRED:** `GameState` now owns an optional roster of
+`CrewMember` records and one `active_member_id`. A crew member is the sole
+owner of their condition, position, equipped state, and personal item instances.
+The legacy courier/item fields remain only for packs without a `crew` domain.
+This is deliberately narrower than a crew AI, voting, or shared-property system.
+
+A crew-bearing pack declares `systems.json.crew` rows with stable identity,
+position, health, personal item kinds, and presentation. The first member is
+the setup-configured opening operative; later members retain their authored
+health and kit. `SelectSuccessorCommand(member_id)` is valid only while the
+active person is dead and selects an existing living roster member without a
+turn or defender response. If no survivor remains, the dead world remains
+saveable and no replacement is made.
+
+A dead member retains their item instances at their final position.
+`RecoverRemainsItemCommand(member_id, item_id)` is a local same-cell/adjacent
+physical transfer into the living active member's inventory. It validates the
+dead body, range, and exact instance before mutation, clears equipped state,
+consumes one turn, and may trigger the existing defender response. It is
+ordinary property recovery only: neural implants, memories, learned abilities,
+body components, banking, sharing rules, and consent are not implemented.
+
+Operation-objective uniqueness is validated across every crew member's custody.
+A resolved objective may remain on a dead carrier; a successor must physically
+recover it before returning to deliver it. First-playable saves now require the
+crew roster and active identity and reject older fingerprints for that changed
+pack. Format-16 synthetic no-crew saves remain compatible.

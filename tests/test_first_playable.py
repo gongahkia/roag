@@ -340,5 +340,5 @@ class FirstPlayableTests(unittest.TestCase):
             self.assertTrue(outcome.accepted)
             self.tool_run_to_return(rewritten)
             rewritten_state = state_dict(rewritten)
-            for key in ("fingerprint", "turn", "position", "courier", "items", "actors", "operations", "opened_access_ids"):
+            for key in ("fingerprint", "turn", "position", "crew", "active_member_id", "actors", "operations", "opened_access_ids"):
                 self.assertEqual(rewritten_state[key], original_state[key])

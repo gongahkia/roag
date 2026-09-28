@@ -40,3 +40,10 @@ belongs in `recipes`; an equipment rule belongs in an item definition.
 must be declared stable IDs (a system entity or lore entry). Both are
 presentation-only: changing them cannot affect RNG, commands, the mechanical
 fingerprint, or saves.
+
+A pack may optionally add a `crew` list. Each strict row is
+`{id, kind, position, health, items, name, description}`. `items` are stable
+item kinds and become distinct personal instances. Crew identity, health,
+position, and kit are mechanical; name and description are presentation. Do
+not use this domain for voting, living-member looting, memory inheritance, or
+story relationships.

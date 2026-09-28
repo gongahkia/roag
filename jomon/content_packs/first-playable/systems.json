@@ -9,12 +9,18 @@
       "#.........#.........#",
       "#####################"
     ],
-    "start": [2, 3],
+    "start": [
+      2,
+      3
+    ],
     "features": [
       {
         "id": "feature.shared-base",
         "kind": "base",
-        "position": [2, 3],
+        "position": [
+          2,
+          3
+        ],
         "name": "Shared base",
         "description": "The crew's shared home and the agreed return point.",
         "access_id": null,
@@ -25,7 +31,10 @@
       {
         "id": "feature.maintenance-latch",
         "kind": "maintenance_latch",
-        "position": [9, 1],
+        "position": [
+          9,
+          1
+        ],
         "name": "Maintenance latch",
         "description": "A local latch controlling the maintenance bypass.",
         "access_id": "access.maintenance-bypass",
@@ -36,7 +45,10 @@
       {
         "id": "feature.maintenance-gate",
         "kind": "access_gate",
-        "position": [10, 1],
+        "position": [
+          10,
+          1
+        ],
         "name": "Maintenance bypass",
         "description": "A latched opening through the service enclosure wall.",
         "access_id": "access.maintenance-bypass",
@@ -47,7 +59,10 @@
       {
         "id": "feature.diagnostic-cache",
         "kind": "objective_cache",
-        "position": [16, 3],
+        "position": [
+          16,
+          3
+        ],
         "name": "Diagnostic cache",
         "description": "The local cache containing the assigned diagnostic module.",
         "access_id": null,
@@ -59,20 +74,52 @@
   },
   "setup": {
     "crew": [
-      {"id": "crew.field-member", "name": "Field crew member", "health_bonus": 0},
-      {"id": "crew.security-member", "name": "Security crew member", "health_bonus": 1}
+      {
+        "id": "crew.field-member",
+        "name": "Field crew member",
+        "health_bonus": 0
+      },
+      {
+        "id": "crew.security-member",
+        "name": "Security crew member",
+        "health_bonus": 1
+      }
     ],
     "ancestries": [
-      {"id": "ancestry.baseline", "name": "Baseline", "health_bonus": 0},
-      {"id": "ancestry.resilient", "name": "Resilient", "health_bonus": 1}
+      {
+        "id": "ancestry.baseline",
+        "name": "Baseline",
+        "health_bonus": 0
+      },
+      {
+        "id": "ancestry.resilient",
+        "name": "Resilient",
+        "health_bonus": 1
+      }
     ],
     "origins": [
-      {"id": "origin.maintenance", "name": "Maintenance background", "health_bonus": 0},
-      {"id": "origin.streetwise", "name": "Streetwise background", "health_bonus": 1}
+      {
+        "id": "origin.maintenance",
+        "name": "Maintenance background",
+        "health_bonus": 0
+      },
+      {
+        "id": "origin.streetwise",
+        "name": "Streetwise background",
+        "health_bonus": 1
+      }
     ],
     "traits": [
-      {"id": "trait.careful", "name": "Careful", "health_bonus": 0},
-      {"id": "trait.durable", "name": "Durable", "health_bonus": 1}
+      {
+        "id": "trait.careful",
+        "name": "Careful",
+        "health_bonus": 0
+      },
+      {
+        "id": "trait.durable",
+        "name": "Durable",
+        "health_bonus": 1
+      }
     ]
   },
   "items": [
@@ -99,6 +146,22 @@
       "slot": null,
       "power": 0,
       "initial": false
+    },
+    {
+      "id": "item.spare-baton",
+      "name": "Spare baton",
+      "description": "A personal close-defense tool.",
+      "slot": "hand",
+      "power": 3,
+      "initial": false
+    },
+    {
+      "id": "item.spare-tool",
+      "name": "Spare maintenance tool",
+      "description": "A personal local-access tool.",
+      "slot": "hand",
+      "power": 1,
+      "initial": false
     }
   ],
   "actors": [
@@ -106,7 +169,10 @@
       "id": "actor.service-defender",
       "name": "Service defender",
       "kind": "defender",
-      "position": [10, 3],
+      "position": [
+        10,
+        3
+      ],
       "health": 4,
       "response_policy": "adjacent-on-valid-action",
       "response_power": 1
@@ -162,6 +228,51 @@
           "consequence_id": "consequence.service-defender-defeated"
         }
       ]
+    }
+  ],
+  "crew": [
+    {
+      "id": "crew.initial-operative",
+      "kind": "crew",
+      "position": [
+        2,
+        3
+      ],
+      "health": 10,
+      "items": [
+        "item.maintenance-tool",
+        "item.defense-baton"
+      ],
+      "name": "Initial operative",
+      "description": "The operative configured during setup."
+    },
+    {
+      "id": "crew.survivor-one",
+      "kind": "crew",
+      "position": [
+        1,
+        2
+      ],
+      "health": 9,
+      "items": [
+        "item.spare-baton"
+      ],
+      "name": "Base crew member",
+      "description": "A stationary equal crew member with a personal baton."
+    },
+    {
+      "id": "crew.survivor-two",
+      "kind": "crew",
+      "position": [
+        1,
+        4
+      ],
+      "health": 11,
+      "items": [
+        "item.spare-tool"
+      ],
+      "name": "Base crew member two",
+      "description": "A stationary equal crew member with a personal access tool."
     }
   ]
 }

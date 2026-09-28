@@ -45,6 +45,11 @@ class Actor:
     response_policy: str | None = None
     response_power: int = 0
 
+@dataclass
+class CrewMember(Actor):
+    """A single authoritative person record; their items are personal custody."""
+    items: list[Item] = field(default_factory=list)
+
 
 @dataclass
 class Quest:
@@ -84,8 +89,8 @@ class GameState:
     fingerprint: str
     rows: tuple[str, ...]
     position: Position
-    courier: Actor
-    items: list[Item]
+    courier_legacy: Actor | None
+    items_legacy: list[Item]
     actors: list[Actor]
     quests: list[Quest]
     routes: tuple[str, ...]
@@ -96,6 +101,23 @@ class GameState:
     features: tuple[Feature, ...] = ()
     opened_access_ids: set[str] = field(default_factory=set)
     operations: list[OperationState] = field(default_factory=list)
+    crew: list[CrewMember] = field(default_factory=list)
+    active_member_id: str | None = None
+
+    @property
+    def courier(self) -> Actor:
+        if self.crew:
+            member = next((row for row in self.crew if row.id == self.active_member_id), None)
+            if member is None:
+                raise StateError("missing active crew member")
+            return member
+        if self.courier_legacy is None:
+            raise StateError("missing courier")
+        return self.courier_legacy
+
+    @property
+    def items(self) -> list[Item]:
+        return self.courier.items if self.crew else self.items_legacy
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -105,8 +127,8 @@ class GameState:
             "fingerprint": self.fingerprint,
             "rows": list(self.rows),
             "position": asdict(self.position),
-            "courier": asdict(self.courier),
-            "items": [asdict(item) for item in self.items],
+            **({"crew": [asdict(member) for member in self.crew], "active_member_id": self.active_member_id}
+               if self.crew else {"courier": asdict(self.courier), "items": [asdict(item) for item in self.items]}),
             "actors": [asdict(actor) for actor in self.actors],
             "quests": [asdict(quest) for quest in self.quests],
             "routes": list(self.routes),
@@ -148,6 +170,14 @@ def _actor(row: object) -> Actor:
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError("invalid actor") from exc
+
+def _crew_member(row: object) -> CrewMember:
+    actor = _actor(row)
+    if not isinstance(row, dict) or not isinstance(row.get("items"), list):
+        raise StateError("invalid crew member")
+    return CrewMember(actor.id, actor.kind, actor.position, actor.health, actor.maximum_health,
+                      actor.alive, actor.response_policy, actor.response_power,
+                      [Item(**item) for item in row["items"]])
 
 
 def _feature(row: object) -> Feature:
@@ -207,6 +237,17 @@ def create_world(seed: str) -> GameState:
         )
         for row in pack.systems["actors"]
     ]
+    crew_definitions = pack.systems.get("crew", [])
+    crew = [
+        CrewMember(row["id"], str(row.get("kind", "crew")), Position(*row["position"]),
+                   int(row["health"]), int(row["health"]), True, None, 0,
+                   [Item(f"{row['id']}:{kind}", kind, 1, False, int(next(item.get('power', 0) for item in pack.systems['items'] if item['id'] == kind))) for kind in row["items"]])
+        for row in crew_definitions
+    ]
+    initial = next((row for row in crew if row.id == crew_definitions[0]["id"]), None) if crew_definitions else None
+    if initial is not None:
+        initial.position = start
+        initial.items = items
     courier = Actor("courier", "courier", start, 10, 10)
     state = GameState(
         seed=seed,
@@ -214,14 +255,16 @@ def create_world(seed: str) -> GameState:
         fingerprint=mechanical_fingerprint(pack),
         rows=tuple(world["rows"]),
         position=start,
-        courier=courier,
-        items=items,
+        courier_legacy=None if crew else courier,
+        items_legacy=[] if crew else items,
         actors=actors,
         quests=[Quest(row["id"], str(row.get("state", "active"))) for row in pack.systems["quests"]],
         routes=tuple(row["id"] for row in pack.systems["routes"]),
         recipes=tuple(row["id"] for row in pack.systems["recipes"]),
         features=tuple(_feature_from_pack(row) for row in world.get("features", [])),
         operations=[OperationState(row["id"]) for row in pack.systems.get("operations", [])],
+        crew=crew,
+        active_member_id=initial.id if initial else None,
     )
     state.remembered.add(start)
     return state
@@ -234,8 +277,11 @@ def game_state_from_dict(value: object) -> GameState:
     if value.get("pack_id") != pack.id or value.get("fingerprint") != mechanical_fingerprint(pack):
         raise StateError("save requires a different playable content pack")
     has_operations = bool(pack.systems.get("operations", []))
+    has_crew = bool(pack.systems.get("crew", []))
     if has_operations and ("features" not in value or "opened_access_ids" not in value or "operations" not in value):
         raise StateError("operation-bearing save is missing required operation state")
+    if has_crew and ("crew" not in value or "active_member_id" not in value):
+        raise StateError("crew-bearing save is missing continuity state")
     try:
         state = GameState(
             seed=str(value["seed"]),
@@ -243,8 +289,8 @@ def game_state_from_dict(value: object) -> GameState:
             fingerprint=str(value["fingerprint"]),
             rows=tuple(value["rows"]),
             position=_position(value["position"], "position"),
-            courier=_actor(value["courier"]),
-            items=[Item(**row) for row in value["items"]],
+            courier_legacy=None if "crew" in value else _actor(value["courier"]),
+            items_legacy=[] if "crew" in value else [Item(**row) for row in value["items"]],
             actors=[_actor(row) for row in value["actors"]],
             quests=[Quest(**row) for row in value["quests"]],
             routes=tuple(value["routes"]),
@@ -255,9 +301,20 @@ def game_state_from_dict(value: object) -> GameState:
             features=tuple(_feature(row) for row in value.get("features", [])),
             opened_access_ids={str(row) for row in value.get("opened_access_ids", [])},
             operations=[_operation(row) for row in value.get("operations", [])],
+            crew=[_crew_member(row) for row in value.get("crew", [])],
+            active_member_id=value.get("active_member_id"),
         )
     except (KeyError, TypeError, ValueError, StateError) as exc:
         raise StateError("invalid reset-baseline save") from exc
+    if has_crew:
+        expected = {row["id"] for row in pack.systems["crew"]}
+        if {row.id for row in state.crew} != expected or state.active_member_id not in expected:
+            raise StateError("crew-bearing save has invalid member identities")
+        if len({item.id for member in state.crew for item in member.items}) != sum(len(member.items) for member in state.crew):
+            raise StateError("crew-bearing save duplicates item custody")
+        for member in state.crew:
+            if member.health < 0 or member.maximum_health < 1 or member.health > member.maximum_health or member.alive != (member.health > 0):
+                raise StateError("crew-bearing save has invalid condition")
     if has_operations:
         expected_features = tuple(_feature_from_pack(row) for row in pack.systems["world"].get("features", []))
         expected_feature_ids = {row.id for row in expected_features}
@@ -282,10 +339,8 @@ def game_state_from_dict(value: object) -> GameState:
                     or not operation.consequence_ids.issubset(consequence_ids)):
                 raise StateError("operation-bearing save has invalid operation evidence")
             objective_instance = f"objective.{operation.id}"
-            objective_items = [
-                item for item in state.items
-                if item.id == objective_instance or item.kind == definition["objective_item_id"]
-            ]
+            custodial_items = [item for member in state.crew for item in member.items] if state.crew else state.items
+            objective_items = [item for item in custodial_items if item.id == objective_instance or item.kind == definition["objective_item_id"]]
             if operation.state == "assigned" and (
                 operation.objective_item_instance_id is not None
                 or operation.delivered_item_id is not None

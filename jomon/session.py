@@ -13,6 +13,8 @@ from .commands import (
     EquipItemCommand,
     InteractCommand,
     MoveCommand,
+    RecoverRemainsItemCommand,
+    SelectSuccessorCommand,
     TravelCommand,
     UnequipItemCommand,
 )
@@ -26,11 +28,13 @@ from .runtime_events import (
     ItemEquipped,
     ObjectiveAcquired,
     OperationDelivered,
+    RemainsItemRecovered,
     RuntimeEvent,
     TravelResolved,
+    SuccessorSelected,
 )
 from .save import load_game, save_game
-from .state import Actor, Feature, GameState, Item, OperationState, Position, create_world
+from .state import Actor, CrewMember, Feature, GameState, Item, OperationState, Position, create_world
 from .views import (
     activity_views,
     actor_views,
@@ -94,6 +98,8 @@ class GameSession:
         return actor_views(self._state)
 
     def actor_view(self, identity: str):
+        if identity == "courier":
+            return next((row for row in self.actor_views() if row.actor_kind == "courier"), None)
         return next((row for row in self.actor_views() if row.id == identity), None)
 
     def inventory_view(self):
@@ -116,6 +122,10 @@ class GameSession:
 
     def operation_views(self):
         return operation_views(self._state)
+
+    def crew_views(self):
+        from .views import crew_views
+        return crew_views(self._state)
 
     def _out(
         self,
@@ -148,6 +158,9 @@ class GameSession:
     def _feature(self, feature_id: str) -> Feature | None:
         return next((row for row in self._state.features if row.id == feature_id), None)
 
+    def _all_items(self):
+        return tuple(item for member in self._state.crew for item in member.items) if self._state.crew else tuple(self._state.items)
+
     def _in_range(self, position: Position) -> bool:
         return abs(position.x - self._state.position.x) + abs(position.y - self._state.position.y) <= 1
 
@@ -163,7 +176,10 @@ class GameSession:
         )
 
     def _occupied_by_living_actor(self, point: Position) -> bool:
-        return any(actor.alive and actor.position == point for actor in self._state.actors)
+        return any(actor.alive and actor.position == point for actor in self._state.actors) or any(
+            member.alive and member.id != self._state.active_member_id and member.position == point
+            for member in self._state.crew
+        )
 
     def _setup_bonus(self, command: CharacterSetupCommand) -> int:
         setup = selected_content_pack().systems["setup"]
@@ -227,6 +243,35 @@ class GameSession:
         self._state.courier.alive = self._state.courier.health > 0
         return (DefenderResponded("defender.responded", defender.id, "courier", damage),)
 
+    def _select_successor(self, command: SelectSuccessorCommand) -> CommandOutcome:
+        if self._state.courier.alive:
+            return self._reject("successor.current-alive")
+        member = next((row for row in self._state.crew if row.id == command.member_id), None)
+        if member is None:
+            return self._reject("successor.unknown-member")
+        if not member.alive or member.id == self._state.active_member_id:
+            return self._reject("successor.ineligible")
+        self._state.active_member_id = member.id
+        self._state.position = member.position
+        self._state.remembered.add(member.position)
+        return self._out(True, "successor.selected", changed=True, events=(SuccessorSelected("successor.selected", member.id),))
+
+    def _recover_remains_item(self, command: RecoverRemainsItemCommand) -> CommandOutcome:
+        if not self._state.courier.alive:
+            return self._reject("courier.dead")
+        source = next((row for row in self._state.crew if row.id == command.member_id), None)
+        if source is None or source.alive:
+            return self._reject("remains.unknown")
+        if not self._in_range(source.position):
+            return self._reject("remains.out-of-range")
+        item = next((row for row in source.items if row.id == command.item_id), None)
+        if item is None:
+            return self._reject("remains.item-unavailable")
+        source.items.remove(item)
+        item.equipped = False
+        self._state.items.append(item)
+        return self._advance("remains.item-recovered", (RemainsItemRecovered("remains.item-recovered", source.id, item.id),))
+
     def _submit_interaction(self, command: InteractCommand) -> CommandOutcome:
         feature = self._feature(command.feature_id)
         if feature is None:
@@ -254,7 +299,7 @@ class GameSession:
             methods = self._satisfied_methods(operation)
             if not methods:
                 return self._reject("interaction.access-required")
-            if any(item.kind == feature.item_id for item in self._state.items):
+            if any(item.kind == feature.item_id for item in self._all_items()):
                 return self._reject("interaction.objective-already-held")
             instance_id = f"objective.{operation.id}"
             self._state.items.append(Item(instance_id, feature.item_id))
@@ -291,6 +336,12 @@ class GameSession:
             state.courier.maximum_health += bonus
             state.courier.health += bonus
             return self._out(True, "setup.completed", changed=True)
+
+        if isinstance(command, SelectSuccessorCommand):
+            return self._select_successor(command)
+
+        if isinstance(command, RecoverRemainsItemCommand):
+            return self._recover_remains_item(command)
 
         if not state.courier.alive:
             return self._reject("courier.dead")

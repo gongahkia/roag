@@ -8,7 +8,7 @@ from typing import Any
 
 from .app_settings import AppSettings, default_save_path, load_app_settings, resolve_renderer, save_app_settings
 from .catalog import selected_content_pack
-from .commands import AttackCommand, CharacterSetupCommand, EquipItemCommand, InteractCommand, MoveCommand, UnequipItemCommand
+from .commands import AttackCommand, CharacterSetupCommand, EquipItemCommand, InteractCommand, MoveCommand, RecoverRemainsItemCommand, SelectSuccessorCommand, UnequipItemCommand
 from .font_stack import FontStack
 from .session import GameSession
 from .state import ContentUnavailable, Position
@@ -96,6 +96,13 @@ class PygameFrontend:
                 MenuItem("ascii", "ASCII", self.renderer_id != "ascii"),
                 MenuItem("back", "BACK"),
             )
+        if self.panel == "continuation" and self.session is not None:
+            return tuple(MenuItem(f"successor:{row.id}", f"CONTINUE AS {row.display_name}", row.alive and not row.active,
+                                  f"HP {row.health}/{row.maximum_health}") for row in self.session.crew_views()) or (MenuItem("none", "NO SUCCESSOR AVAILABLE", False),)
+        if self.panel == "remains" and self.session is not None and self.selected is not None:
+            member = next((row for row in self.session.crew_views() if row.position == self.selected and not row.alive), None)
+            if member:
+                return tuple(MenuItem(f"recover:{member.id}:{item_id}", f"RECOVER {item_id}") for item_id in member.item_ids) or (MenuItem("none", "REMAINS EMPTY", False),)
         return ()
 
     def _setup_view(self):
@@ -147,12 +154,22 @@ class PygameFrontend:
                 self._begin_setup()
             else:
                 self.last_result = "content.unavailable"
+        elif action.startswith("successor:"):
+            outcome = self.submit(SelectSuccessorCommand(action.split(":", 1)[1]))
+            if outcome.accepted:
+                self.panel = None
+        elif action.startswith("recover:"):
+            _, member_id, item_id = action.split(":", 2)
+            if self.submit(RecoverRemainsItemCommand(member_id, item_id)).accepted:
+                self.panel = None
 
     def submit(self, command):
         if self.session is None:
             raise RuntimeError("no active session")
         outcome = self.session.submit(command)
         self.last_result = outcome.result_id
+        if not self.session.world_view().courier_alive:
+            self.panel = "continuation"
         return outcome
 
     def _select_at(self, position: tuple[int, int]) -> None:
@@ -282,6 +299,13 @@ class PygameFrontend:
             if event.key == pygame.K_i:
                 self.panel = "inventory"
                 self.inventory_cursor = 0
+                return
+            if event.key == pygame.K_r:
+                member = next((row for row in self.session.crew_views() if row.position == self.selected and not row.alive), None) if self.selected else None
+                if member is None:
+                    self.last_result = "remains.select-body"
+                else:
+                    self.panel = "remains"; self.panel_cursor = 0
                 return
             if event.key == pygame.K_s and (event.mod & pygame.KMOD_CTRL):
                 self._save()
@@ -439,7 +463,7 @@ class PygameFrontend:
             "Click a visible or remembered cell: select a feature or target.",
             "E: use the selected local feature. F: attack the selected adjacent actor.",
             "I: inventory and equipment. Ctrl+S: save to the default save path.",
-            "H or Escape: close this panel. Load a saved game with --load PATH.",
+            "R: recover a selected nearby dead crew member's item. H/Escape: close. Load with --load PATH.",
         )
         y = panel.y + 84
         for text in lines:
@@ -460,6 +484,10 @@ class PygameFrontend:
             self._draw_menu("JOMON", self._rows(), "A local operation prototype. Select a playable content pack to join.")
         elif self.panel == "settings":
             self._draw_menu("SETTINGS", self._rows(), "Renderer style is frontend-only and never enters a save.")
+        elif self.panel == "continuation":
+            self._draw_menu("OPERATIVE LOST", self._rows(), "Choose an existing living crew member. This does not advance a turn.")
+        elif self.panel == "remains":
+            self._draw_menu("RECOVER REMAINS", self._rows(), "Select one local carried item to recover.")
         self.pygame.display.flip()
 
     def _feature_view_at(self, point: Position):

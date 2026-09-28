@@ -115,6 +115,17 @@ class OperationView:
     consequence_ids: tuple[str, ...]
     method_ids: tuple[str, ...]
 
+@dataclass(frozen=True)
+class CrewView:
+    id: str
+    display_name: str
+    position: Position
+    health: int
+    maximum_health: int
+    alive: bool
+    active: bool
+    item_ids: tuple[str, ...]
+
 
 @dataclass(frozen=True)
 class WorldView:
@@ -173,9 +184,10 @@ def world_view(state: GameState) -> WorldView:
 
 
 def actor_views(state: GameState) -> tuple[ActorView, ...]:
-    rows = [state.courier, *state.actors]
+    rows = [state.courier, *state.actors, *(row for row in state.crew if row.id != state.active_member_id)]
     return tuple(
-        ActorView(row.id, row.id, row.kind, row.position, row.health, row.maximum_health, row.alive, row.response_policy)
+        ActorView(row.id, row.id, "courier" if row.id == state.active_member_id else row.kind,
+                  row.position, row.health, row.maximum_health, row.alive, row.response_policy)
         for row in rows
     )
 
@@ -214,6 +226,12 @@ def quest_views(state: GameState) -> tuple[QuestView, ...]:
         progress = {"assigned": 0, "resolved": 1, "returned": 2}.get(state_id, quest.progress)
         result.append(QuestView(quest.id, str(definition.get("title", quest.id)), str(definition.get("objective", "")), state_id, progress))
     return tuple(result)
+
+def crew_views(state: GameState) -> tuple[CrewView, ...]:
+    definitions = {row["id"]: row for row in selected_content_pack().systems.get("crew", [])}
+    return tuple(CrewView(row.id, str(definitions.get(row.id, {}).get("name", row.id)), row.position,
+                          row.health, row.maximum_health, row.alive, row.id == state.active_member_id,
+                          tuple(item.id for item in row.items)) for row in state.crew)
 
 
 def travel_view(state: GameState) -> tuple[RouteView, ...]:

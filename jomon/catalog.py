@@ -125,7 +125,7 @@ _ACTIVITY_SYSTEMS = {
 _REQUIRED_SYSTEMS = {
     "world", "setup", "items", "actors", "quests", "routes", "recipes", "activities",
 }
-_OPTIONAL_SYSTEMS = {"operations"}
+_OPTIONAL_SYSTEMS = {"operations", "crew"}
 _FEATURE_KINDS = {"base", "maintenance_latch", "access_gate", "objective_cache"}
 _RESPONSE_POLICIES = {"adjacent-on-valid-action"}
 
@@ -306,6 +306,26 @@ def _validate_operations(
             if actor_id is not None and actor_id not in actor_ids:
                 raise ContentError("operations: unknown method actor")
 
+def _validate_crew(value: object, item_ids: set[str], entity_ids: set[str], world: dict[str, Any] | None) -> None:
+    positions: set[tuple[int, int]] = set()
+    for row in _rows(value, "crew"):
+        if set(row) != {"id", "kind", "position", "health", "items", "name", "description"}:
+            raise ContentError("crew: invalid row")
+        identity = _id(row["id"], "crew id")
+        if identity in entity_ids or not isinstance(row["kind"], str):
+            raise ContentError("crew: duplicate or invalid identity")
+        position = _position(row["position"], "crew position")
+        if (world is None or not (0 <= position[0] < len(world["rows"][0]) and 0 <= position[1] < len(world["rows"]))
+                or world["rows"][position[1]][position[0]] != "." or position in positions):
+            raise ContentError("crew: invalid or duplicate position")
+        positions.add(position)
+        if type(row["health"]) is not int or row["health"] < 1 or not isinstance(row["items"], list):
+            raise ContentError("crew: invalid condition or items")
+        if any(_id(item, "crew item") not in item_ids for item in row["items"]):
+            raise ContentError("crew: unknown item")
+        _text(row["name"], "crew name"); _text(row["description"], "crew description")
+        entity_ids.add(identity)
+
 
 def load_content_pack(root: Path) -> ContentPack:
     root = Path(root)
@@ -372,6 +392,7 @@ def load_content_pack(root: Path) -> ContentPack:
     if any(feature["kind"] == "access_gate" and feature["access_id"] not in access_ids for feature in features.values()):
         raise ContentError("systems.world.features: gate without a latch")
     _validate_operations(systems.get("operations", []), feature_rows=features, item_ids=item_ids, actor_ids=actor_ids, quest_ids=quest_ids, entity_ids=entity_ids)
+    _validate_crew(systems.get("crew", []), item_ids, entity_ids, world)
 
     if manifest["playable"] and (world is None or not all(systems["setup"][key] for key in systems["setup"])):
         raise ContentError("playable pack needs world and setup choices")
