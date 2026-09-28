@@ -1,9 +1,20 @@
 # Jomon engine baseline
 
-Jomon now ships an engine and a non-playable `template` content pack. It does not ship a fictional world.
+Jomon ships a deterministic engine, a compact provisional `first-playable`
+content pack, and a non-playable `template` pack.  The default launch selects
+`first-playable`; selecting the template explicitly with `JOMON_CONTENT_PACK`
+keeps **Join Game** disabled.
 
-Mechanics decide rules, costs, collision, persistence, and deterministic outcomes. Stable IDs identify entities and actions. A content pack provides authored presentation and concrete system instances. Debug and ASCII Pygame renderers draw the same immutable views and submit the same semantic commands.
+Mechanics decide rules, costs, collision, persistence, and deterministic
+outcomes. Stable IDs identify entities and actions. A content pack provides
+authored presentation and concrete system instances. Debug and ASCII Pygame
+renderers draw the same immutable views and submit the same semantic commands.
 
-`template` validates but sets `playable: false`; the title screen therefore disables **Join Game**. A real game starts by copying `jomon/content_packs/template` outside the installed package, adding stable IDs and a playable `systems.json`, then selecting it with `JOMON_CONTENT_PACK=/path/to/pack`.
+Format 16 is the reset baseline. Saves from earlier content baselines are
+rejected clearly. A compatible pre-operation format-16 pack can load with
+empty feature/operation state; an operation-bearing save must contain its
+validated operation state.
 
-Format 16 is the reset baseline. Saves from earlier content baselines are rejected with a clear error rather than partially loading against unrelated content.
+The first playable pack contains one local physically connected operation. It
+is not a complete simulation: networking, crew continuity, schedules, economy,
+survival, skill progression, and generated history remain future systems.

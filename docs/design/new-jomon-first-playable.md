@@ -375,3 +375,68 @@ It does not prove interactive UX, actual image/audio resource loading, a
 randomised system, operation flow, or any of the approved future mechanics.
 Future tasks must report fresh command output and distinguish these categories
 instead of citing this audit as proof of a later implementation.
+
+## 9. CYBER-01 implementation record
+
+CYBER-01 is now implemented against format 16.  `jomon/content_packs/first-playable`
+is the default shipped playable pack; the template remains non-playable and can
+still be selected explicitly with `JOMON_CONTENT_PACK`.
+
+### Authoring fields added for this slice
+
+`systems.json.world` may include `features`.  Each feature has a stable `id`,
+`kind`, `position`, display `name`/`description`, and only the typed mechanical
+references valid for its kind:
+
+- `base` is the return feature;
+- `maintenance_latch` names an `access_id` and an equipped item requirement;
+- `access_gate` occupies a wall cell and becomes traversable only when its
+  declared access ID is opened;
+- `objective_cache` names its owning operation and objective item.
+
+`systems.json.operations` is optional for packs that do not use operations.  A
+row owns a stable operation ID, quest projection, objective feature/item,
+return feature, and one or more stable methods.  Each method requires exactly
+one physical fact: a declared opened access ID or a declared defeated actor.
+It records a stable consequence ID.  Validation rejects dangling references,
+wrong geometry, unsupported feature fields, and arbitrary method conditions.
+
+`InteractCommand(feature_id)` is the local command for latch opening, objective
+pickup, and base delivery.  It cannot grant remote access or bypass movement.
+The operation record is the progress owner; `QuestView` projects its lifecycle
+rather than keeping a separately mutable copy.
+
+### Persistence and response policy
+
+Format 16 remains current.  New operation-bearing saves persist feature
+instances, opened access IDs, operation lifecycle/evidence/consequences,
+objective disposition, actor health/alive state, inventory/equipment, position,
+and turn.  Missing operation state in a save for an operation-bearing pack is
+rejected.  A genuine pre-CYBER-01 format-16 save from the synthetic pack loads
+with empty feature/operation defaults; format 15 remains unsupported.
+
+The one provisional defender policy is `adjacent-on-valid-action`.  After a
+successful time-consuming player move, attack, or local interaction, the
+lexically first eligible living adjacent defender deals its configured fixed
+damage once.  It does not act after death, on rejected commands, view queries,
+rendering, save/load, setup, equipment changes, or UI navigation.  It does not
+advance a second turn and it is not patrol, pathfinding, initiative, or RNG.
+
+### Launch and controls
+
+```bash
+uv run python -m jomon --renderer debug
+uv run python -m jomon --renderer ascii
+uv run python -m jomon --load /path/to/save.json
+JOMON_CONTENT_PACK=/path/to/template uv run python -m jomon
+```
+
+At title, choose **Join Game**, select setup options, and confirm with Enter.
+No world exists until confirmation.  During play: arrows/WASD move, click a
+visible or remembered cell to select it, `E` uses a selected local feature,
+`F` attacks a selected adjacent actor, `I` opens inventory/equipment, `H` or
+Escape opens/closes help, and Ctrl+S saves to the app's configured default save
+path.  Loading remains available through `--load PATH` in this bounded slice.
+
+Network space, crew simulation, succession/inheritance, schedules, survival,
+Draw/Dice, and broad world generation remain absent and deferred.

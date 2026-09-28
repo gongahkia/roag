@@ -259,8 +259,54 @@ def game_state_from_dict(value: object) -> GameState:
     except (KeyError, TypeError, ValueError, StateError) as exc:
         raise StateError("invalid reset-baseline save") from exc
     if has_operations:
-        expected_feature_ids = {row["id"] for row in pack.systems["world"].get("features", [])}
+        expected_features = tuple(_feature_from_pack(row) for row in pack.systems["world"].get("features", []))
+        expected_feature_ids = {row.id for row in expected_features}
         expected_operation_ids = {row["id"] for row in pack.systems["operations"]}
-        if {row.id for row in state.features} != expected_feature_ids or {row.id for row in state.operations} != expected_operation_ids:
+        if (state.features != expected_features or {row.id for row in state.features} != expected_feature_ids
+                or {row.id for row in state.operations} != expected_operation_ids):
             raise StateError("operation-bearing save does not match content definitions")
+        access_ids = {
+            feature.access_id for feature in expected_features
+            if feature.kind == "maintenance_latch" and feature.access_id is not None
+        }
+        if not state.opened_access_ids.issubset(access_ids):
+            raise StateError("operation-bearing save has unknown access state")
+        definitions = {row["id"]: row for row in pack.systems["operations"]}
+        for operation in state.operations:
+            definition = definitions[operation.id]
+            methods = {row["id"]: row for row in definition["methods"]}
+            method_ids = set(methods)
+            consequence_ids = {row["consequence_id"] for row in methods.values()}
+            if (not operation.evidence_method_ids.issubset(method_ids)
+                    or not operation.resolution_method_ids.issubset(operation.evidence_method_ids)
+                    or not operation.consequence_ids.issubset(consequence_ids)):
+                raise StateError("operation-bearing save has invalid operation evidence")
+            objective_instance = f"objective.{operation.id}"
+            objective_items = [
+                item for item in state.items
+                if item.id == objective_instance or item.kind == definition["objective_item_id"]
+            ]
+            if operation.state == "assigned" and (
+                operation.objective_item_instance_id is not None
+                or operation.delivered_item_id is not None
+                or operation.resolution_method_ids
+                or objective_items
+            ):
+                raise StateError("assigned operation has impossible objective state")
+            if operation.state == "resolved" and (
+                operation.objective_item_instance_id != objective_instance
+                or operation.delivered_item_id is not None
+                or not operation.resolution_method_ids
+                or len(objective_items) != 1
+                or objective_items[0].id != objective_instance
+                or objective_items[0].kind != definition["objective_item_id"]
+            ):
+                raise StateError("resolved operation has impossible objective state")
+            if operation.state == "returned" and (
+                operation.objective_item_instance_id != objective_instance
+                or operation.delivered_item_id != definition["objective_item_id"]
+                or not operation.resolution_method_ids
+                or objective_items
+            ):
+                raise StateError("returned operation has impossible delivery state")
     return state

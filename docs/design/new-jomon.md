@@ -193,3 +193,12 @@ Before adding a system or content definition, ask:
 If a proposed relationship changes play but can only be expressed in lore or a
 narrative connection, stop and add or design the appropriate typed mechanical
 system instead.
+
+## CYBER-01 implementation note
+
+CYBER-01 now implements the provisional compact local operation.  The shipped
+`first-playable` pack demonstrates a carried-tool bypass and a combat-clearance
+route.  It does not settle district canon, network rules, crew governance, or
+continuity mechanics.  The two routes are durable physical evidence in
+operation state; they are not a permanent decision that every future operation
+uses the same pair of methods.
