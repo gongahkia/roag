@@ -24,3 +24,9 @@ operative is a stable roster identity, not a recreated player template. Death
 allows explicit selection of another existing living member; ordinary carried
 items remain on a dead member until physically recovered. Neural-memory
 retention and learned-ability inheritance are intentionally absent.
+
+The default first-playable Debug skin uses selected 16×16 frames from the
+vendored Kenney 1-Bit Pack atlas through presentation-only `assets.json`
+bindings. ASCII remains a separate BigBlueTerm/glyph skin. Missing or
+unresolvable image bindings fall back to Debug primitives, and asset changes do
+not affect mechanical fingerprints or saves.

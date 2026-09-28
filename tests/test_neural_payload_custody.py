@@ -55,6 +55,7 @@ class NeuralPayloadCustodyTests(unittest.TestCase):
             manifest["id"] = "payload-custody-pack"
             (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
             systems = json.loads((root / "systems.json").read_text(encoding="utf-8"))
+            systems.pop("neural", None)
             systems["items"].append({
                 "id": carrier_id,
                 "name": "Generic payload carrier",

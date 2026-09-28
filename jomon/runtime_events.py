@@ -80,3 +80,11 @@ class SuccessorSelected(RuntimeEvent):
 class RemainsItemRecovered(RuntimeEvent):
     source_member_id: str
     item_id: str
+
+
+@dataclass(frozen=True)
+class NeuralRecordsIntegrated(RuntimeEvent):
+    site_feature_id: str
+    source_item_id: str
+    recipient_item_id: str
+    retained_record_ids: tuple[str, ...]

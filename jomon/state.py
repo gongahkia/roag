@@ -133,6 +133,7 @@ class GameState:
         _validate_active_crew_position(self)
         _validate_neural_payloads(self)
         _validate_installed_neural_items(self)
+        _validate_installed_neural_capacity(self)
         return {
             "format": SAVE_FORMAT,
             "seed": self.seed,
@@ -195,11 +196,17 @@ def _validate_neural_records(records: object) -> tuple[NeuralRecord, ...] | None
 
 def _validate_neural_payloads(state: GameState) -> None:
     member_ids = {member.id for member in state.crew}
+    neural = selected_content_pack().systems.get("neural")
+    definition_ids = None if neural is None else {row["id"] for row in neural["record_definitions"]}
     custodial_items = [item for member in state.crew for item in member.items] if state.crew else state.items_legacy
     for item in custodial_items:
         records = _validate_neural_records(item.neural_records)
         if records is not None and any(record.origin_member_id not in member_ids for record in records):
             raise StateError("neural payload has unknown origin")
+        if records is not None and definition_ids is not None and any(record.definition_id not in definition_ids for record in records):
+            raise StateError("neural payload has unknown definition")
+        if records is not None and item.equipped:
+            raise StateError("neural payload item cannot be equipped")
 
 
 def _validate_installed_neural_items(state: GameState) -> None:
@@ -214,6 +221,23 @@ def _validate_installed_neural_items(state: GameState) -> None:
             raise StateError("invalid installed neural item reference")
         if matches[0].equipped:
             raise StateError("installed neural item cannot be equipped")
+
+
+def _validate_installed_neural_capacity(state: GameState) -> None:
+    """Enforce an opted-in pack's foreign-record limit on installed devices only."""
+    neural = selected_content_pack().systems.get("neural")
+    integration = neural.get("integration") if isinstance(neural, dict) else None
+    if integration is None:
+        return
+    capacity = integration["inherited_capacity"]
+    for member in state.crew:
+        installed_id = member.installed_neural_item_id
+        if installed_id is None:
+            continue
+        item = next(item for item in member.items if item.id == installed_id)
+        assert item.neural_records is not None
+        if sum(record.origin_member_id != member.id for record in item.neural_records) > capacity:
+            raise StateError("installed neural payload exceeds inherited capacity")
 
 
 def _item_to_dict(item: Item) -> dict[str, object]:
@@ -362,6 +386,19 @@ def create_world(seed: str) -> GameState:
     if initial is not None:
         initial.position = start
         initial.items = items
+    neural = pack.systems.get("neural")
+    if neural is not None:
+        members = {member.id: member for member in crew}
+        for initializer in neural["crew_initializers"]:
+            member = members[initializer["member_id"]]
+            carrier_kind = initializer["carrier_item_kind_id"]
+            device_id = f"{member.id}:{carrier_kind}"
+            records = tuple(
+                NeuralRecord(f"{member.id}:{definition_id}", member.id, definition_id)
+                for definition_id in initializer["record_definition_ids"]
+            )
+            member.items.append(Item(device_id, carrier_kind, neural_records=records))
+            member.installed_neural_item_id = device_id
     courier = Actor("courier", "courier", start, 10, 10)
     state = GameState(
         seed=seed,
@@ -432,6 +469,7 @@ def game_state_from_dict(value: object) -> GameState:
                 raise StateError("crew-bearing save has invalid condition")
     _validate_neural_payloads(state)
     _validate_installed_neural_items(state)
+    _validate_installed_neural_capacity(state)
     if has_operations:
         expected_features = tuple(_feature_from_pack(row) for row in pack.systems["world"].get("features", []))
         expected_feature_ids = {row.id for row in expected_features}

@@ -40,7 +40,8 @@
         "access_id": "access.maintenance-bypass",
         "requires_equipped_item_id": "item.maintenance-tool",
         "operation_id": null,
-        "item_id": null
+        "item_id": null,
+        "requires_capability_id": "capability.maintenance-service"
       },
       {
         "id": "feature.maintenance-gate",
@@ -138,6 +139,14 @@
       "slot": "hand",
       "power": 3,
       "initial": true
+    },
+    {
+      "id": "item.neural-carrier",
+      "name": "Neural carrier",
+      "description": "A zero-power carrier for authored neural records.",
+      "slot": null,
+      "power": 0,
+      "initial": false
     },
     {
       "id": "item.diagnostic-module",
@@ -274,5 +283,47 @@
       "name": "Base crew member two",
       "description": "A stationary equal crew member with a personal access tool."
     }
-  ]
+  ],
+  "neural": {
+    "record_definitions": [
+      {
+        "id": "record.maintenance-practice",
+        "capability_ids": [
+          "capability.maintenance-service"
+        ]
+      },
+      {
+        "id": "record.close-quarters-technique",
+        "capability_ids": [
+          "capability.melee-diagonal"
+        ]
+      }
+    ],
+    "crew_initializers": [
+      {
+        "member_id": "crew.initial-operative",
+        "carrier_item_kind_id": "item.neural-carrier",
+        "record_definition_ids": [
+          "record.maintenance-practice",
+          "record.close-quarters-technique"
+        ]
+      },
+      {
+        "member_id": "crew.survivor-one",
+        "carrier_item_kind_id": "item.neural-carrier",
+        "record_definition_ids": []
+      },
+      {
+        "member_id": "crew.survivor-two",
+        "carrier_item_kind_id": "item.neural-carrier",
+        "record_definition_ids": []
+      }
+    ],
+    "integration": {
+      "site_feature_ids": [
+        "feature.shared-base"
+      ],
+      "inherited_capacity": 1
+    }
+  }
 }

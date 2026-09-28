@@ -434,12 +434,17 @@ JOMON_CONTENT_PACK=/path/to/template uv run python -m jomon
 At title, choose **Join Game**, select setup options, and confirm with Enter.
 No world exists until confirmation.  During play: arrows/WASD move, click a
 visible or remembered cell to select it, `E` uses a selected local feature,
-`F` attacks a selected adjacent actor, `I` opens inventory/equipment, `H` or
-Escape opens/closes help, and Ctrl+S saves to the app's configured default save
-path.  Loading remains available through `--load PATH` in this bounded slice.
+`F` attacks a selected adjacent actor, `I` opens inventory/equipment, and `D`
+opens the selected item's read-only detail panel. In that panel Up/Down scrolls
+and `D`, `I`, or Escape returns to inventory. On a carried record-bearing
+neural source, `N` opens transfer selection; Space toggles a record, `R` opens
+the destructive review, and `C` confirms. `H` or Escape opens/closes help, and
+Ctrl+S saves to the app's configured default save path. Loading remains
+available through `--load PATH` in this bounded slice.
 
-Network space, crew simulation, succession/inheritance, schedules, survival,
-Draw/Dice, and broad world generation remain absent and deferred.
+Network space, crew autonomy, schedules, survival, Draw/Dice, broad world
+generation, a general skill tree, personalities, archives, and remote recovery
+remain absent and deferred.
 
 ## 10. CYBER-02A continuity record
 
@@ -461,12 +466,60 @@ A dead member retains their item instances at their final position.
 `RecoverRemainsItemCommand(member_id, item_id)` is a local same-cell/adjacent
 physical transfer into the living active member's inventory. It validates the
 dead body, range, and exact instance before mutation, clears equipped state,
-consumes one turn, and may trigger the existing defender response. It is
-ordinary property recovery only: neural implants, memories, learned abilities,
-body components, banking, sharing rules, and consent are not implemented.
+consumes one turn, and may trigger the existing defender response. That physical
+transfer does not itself integrate, retain, or activate a record; learned
+abilities, body components, banking, sharing rules, and consent are not
+implemented.
 
 Operation-objective uniqueness is validated across every crew member's custody.
 A resolved objective may remain on a dead carrier; a successor must physically
 recover it before returning to deliver it. First-playable saves now require the
 crew roster and active identity and reject older fingerprints for that changed
 pack. Format-16 synthetic no-crew saves remain compatible.
+
+## CYBER-02B1a-d neural-device record
+
+The first-playable pack now has provisional authored neural-carrier items: one
+installed carrier per starting crew member, two stable records on the opening
+operative's device, and explicit empty payloads on the other two. A device is
+one normal physical item instance. Its records retain stable record and origin
+member IDs while custody changes. Physical remains recovery transfers the exact
+source item, clears only the deceased owner's matching installed reference, and
+does not install it on the recipient.
+
+`ItemDetailView` is the renderer-neutral read-only projection for an item in
+the active operative's inventory. It distinguishes no neural payload, an empty
+device, and a record-bearing device; it shows exact instance, current custodian,
+actual installation relationship, definition ID, and record origin. Both
+Pygame renderers expose it through inventory `D`. Opening, scrolling, closing,
+rendering, save/load, and renderer switching are frontend/view operations and
+do not consume a turn or activate a record.
+
+CYBER-02B2a adds a provisional local transfer command for packs
+that explicitly configure neural integration sites and a nonnegative inherited
+capacity. It preserves own-origin records, replaces the complete foreign-origin
+selection, deterministically empties the carried source, and advances one
+normal turn after its atomic state update. The first-playable base is configured
+with capacity one. CYBER-02B2b projects the same reducer evaluation as a
+renderer-neutral preview and exposes it through the shared Debug/ASCII item
+detail flow: `N` opens a local draft, `Space` changes a candidate, `R` shows
+the destructive review, and `C` alone confirms. Draft changes, review, cancel,
+save, and renderer replacement do not mutate the world; a revision change
+invalidates review before confirmation. The warning is scoped to the source and
+destination payloads because another physical copy could exist.
+
+The source-destruction protocol, origin-based own-record protection, and
+capacity one remain provisional. CYBER-02B2c makes two authored retained
+records mechanically effective only while they are present in the bearer’s
+installed carrier: Maintenance Practice grants the configured local maintenance
+capability alongside the equipped tool, while Close-Quarters Technique permits
+one-cell diagonal melee with ordinary damage and turn ordering. These
+capabilities are derived on demand from record-definition IDs; carried sources,
+empty devices, and discarded records grant nothing, and save/load cannot stack
+an additive bonus. Record origin remains provenance rather than the current
+bearer.
+
+There is still no general skill tree, XP, generated autobiographical memory,
+copy/archive, personality trace, or remote recovery. The existing inventory
+detail and integration review show each record’s declared capability; they do
+not add another skill panel or control scheme.

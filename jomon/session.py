@@ -11,6 +11,7 @@ from .commands import (
     CharacterSetupCommand,
     CraftCommand,
     EquipItemCommand,
+    IntegrateNeuralRecordsCommand,
     InteractCommand,
     MoveCommand,
     RecoverRemainsItemCommand,
@@ -26,6 +27,7 @@ from .runtime_events import (
     CraftResolved,
     DefenderResponded,
     ItemEquipped,
+    NeuralRecordsIntegrated,
     ObjectiveAcquired,
     OperationDelivered,
     RemainsItemRecovered,
@@ -34,19 +36,28 @@ from .runtime_events import (
     SuccessorSelected,
 )
 from .save import load_game, save_game
-from .state import Actor, CrewMember, Feature, GameState, Item, OperationState, Position, create_world
+from .state import Actor, CrewMember, Feature, GameState, Item, NeuralRecord, OperationState, Position, create_world
 from .views import (
     activity_views,
     actor_views,
     character_setup_view,
+    effective_neural_capabilities,
     feature_views,
+    item_detail_view,
     inventory_view,
+    NeuralIntegrationPreviewView,
+    NeuralIntegrationSiteView,
+    NeuralRecordView,
+    neural_record_view,
     operation_views,
     quest_views,
     recipe_view,
     travel_view,
     world_view,
 )
+
+
+MELEE_DIAGONAL_CAPABILITY_ID = "capability.melee-diagonal"
 
 
 @dataclass(frozen=True)
@@ -57,6 +68,29 @@ class CommandOutcome:
     result_id: str
     revision: int
     events: tuple[RuntimeEvent, ...] = ()
+
+
+@dataclass(frozen=True)
+class _NeuralIntegrationEvaluation:
+    """The reducer's proposed transfer, kept separate from its mutation step."""
+    result_id: str
+    feature: Feature | None = None
+    recipient: CrewMember | None = None
+    destination: Item | None = None
+    source: Item | None = None
+    protected_records: tuple[NeuralRecord, ...] = ()
+    retained_records: tuple[NeuralRecord, ...] = ()
+    source_records: tuple[NeuralRecord, ...] = ()
+    candidates: tuple[NeuralRecord, ...] = ()
+    selected_record_ids: tuple[str, ...] = ()
+    result_records: tuple[NeuralRecord, ...] = ()
+    removed_destination_records: tuple[NeuralRecord, ...] = ()
+    omitted_source_records: tuple[NeuralRecord, ...] = ()
+    inherited_capacity: int | None = None
+
+    @property
+    def confirmable(self) -> bool:
+        return self.result_id == "neural.integration.completed"
 
 
 class GameSession:
@@ -105,6 +139,9 @@ class GameSession:
     def inventory_view(self):
         return inventory_view(self._state)
 
+    def item_detail_view(self, item_id: str):
+        return item_detail_view(self._state, item_id)
+
     def quest_views(self):
         return quest_views(self._state)
 
@@ -122,6 +159,13 @@ class GameSession:
 
     def operation_views(self):
         return operation_views(self._state)
+
+    def effective_neural_capabilities(self, member_id: str | None = None) -> tuple[str, ...]:
+        """Expose the same installed-device-only capability projection to callers."""
+        if member_id is None:
+            return effective_neural_capabilities(self._state)
+        member = next((row for row in self._state.crew if row.id == member_id), None)
+        return effective_neural_capabilities(self._state, member) if member is not None else ()
 
     def crew_views(self):
         from .views import crew_views
@@ -157,6 +201,15 @@ class GameSession:
 
     def _feature(self, feature_id: str) -> Feature | None:
         return next((row for row in self._state.features if row.id == feature_id), None)
+
+    @staticmethod
+    def _feature_required_capability(feature: Feature) -> str | None:
+        world = selected_content_pack().systems.get("world", {})
+        if not isinstance(world, dict):
+            return None
+        definition = next((row for row in world.get("features", ()) if row.get("id") == feature.id), None)
+        required = definition.get("requires_capability_id") if isinstance(definition, dict) else None
+        return required if isinstance(required, str) else None
 
     def _all_items(self):
         return tuple(item for member in self._state.crew for item in member.items) if self._state.crew else tuple(self._state.items)
@@ -274,6 +327,217 @@ class GameSession:
         self._state.items.append(item)
         return self._advance("remains.item-recovered", (RemainsItemRecovered("remains.item-recovered", source.id, item.id),))
 
+    def _neural_integration_configuration(self) -> tuple[dict | None, dict | None]:
+        neural = selected_content_pack().systems.get("neural")
+        if not isinstance(neural, dict):
+            return None, None
+        integration = neural.get("integration")
+        return neural, integration if isinstance(integration, dict) else None
+
+    def _evaluate_neural_integration(
+        self, command: IntegrateNeuralRecordsCommand,
+    ) -> _NeuralIntegrationEvaluation:
+        """Validate and calculate one transfer without mutating canonical state.
+
+        This is deliberately the single authority for the preview and the reducer.
+        """
+        neural, integration = self._neural_integration_configuration()
+        if neural is None or integration is None:
+            return _NeuralIntegrationEvaluation("neural.integration-unavailable")
+        if not isinstance(command.retained_record_ids, tuple):
+            return _NeuralIntegrationEvaluation("neural.integration.invalid-selection")
+        if any(not isinstance(identity, str) or not identity for identity in command.retained_record_ids):
+            return _NeuralIntegrationEvaluation("neural.integration.invalid-selection")
+        if len(set(command.retained_record_ids)) != len(command.retained_record_ids):
+            return _NeuralIntegrationEvaluation("neural.integration.duplicate-selection")
+        feature = self._feature(command.site_feature_id)
+        if feature is None or command.site_feature_id not in integration["site_feature_ids"]:
+            return _NeuralIntegrationEvaluation("neural.integration.invalid-site")
+        if not self._in_range(feature.position):
+            return _NeuralIntegrationEvaluation("neural.integration.out-of-range", feature=feature)
+        recipient = self._state.courier
+        if not isinstance(recipient, CrewMember) or recipient.installed_neural_item_id is None:
+            return _NeuralIntegrationEvaluation("neural.integration.recipient-unavailable", feature=feature)
+        destination = next((item for item in self._state.items if item.id == recipient.installed_neural_item_id), None)
+        if destination is None or destination.neural_records is None or destination.equipped:
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.recipient-unavailable", feature=feature, recipient=recipient,
+            )
+        if command.source_item_id == destination.id:
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.invalid-source", feature=feature, recipient=recipient, destination=destination,
+            )
+        source = next((item for item in self._state.items if item.id == command.source_item_id), None)
+        if source is None or source.neural_records is None or source.equipped:
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.source-unavailable", feature=feature, recipient=recipient, destination=destination,
+            )
+        if not source.neural_records:
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.source-empty", feature=feature, recipient=recipient,
+                destination=destination, source=source,
+            )
+        if any(member.installed_neural_item_id == source.id for member in self._state.crew):
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.source-installed", feature=feature, recipient=recipient,
+                destination=destination, source=source,
+            )
+
+        definition_ids = {row["id"] for row in neural["record_definitions"]}
+        member_ids = {member.id for member in self._state.crew}
+        records_by_id: dict[str, NeuralRecord] = {}
+        protected: dict[str, NeuralRecord] = {}
+        destination_ids: set[str] = set()
+        for record in destination.neural_records:
+            if (not record.id or not record.origin_member_id or not record.definition_id
+                    or record.origin_member_id not in member_ids or record.definition_id not in definition_ids):
+                return _NeuralIntegrationEvaluation(
+                    "neural.integration.invalid-record", feature, recipient, destination, source,
+                )
+            if record.id in destination_ids:
+                return _NeuralIntegrationEvaluation(
+                    "neural.integration.duplicate-record", feature, recipient, destination, source,
+                )
+            destination_ids.add(record.id)
+            records_by_id[record.id] = record
+            if record.origin_member_id == recipient.id:
+                protected[record.id] = record
+        source_ids: set[str] = set()
+        for record in source.neural_records:
+            if (not record.id or not record.origin_member_id or not record.definition_id
+                    or record.origin_member_id not in member_ids or record.definition_id not in definition_ids):
+                return _NeuralIntegrationEvaluation(
+                    "neural.integration.invalid-record", feature, recipient, destination, source,
+                )
+            if record.id in source_ids:
+                return _NeuralIntegrationEvaluation(
+                    "neural.integration.duplicate-record", feature, recipient, destination, source,
+                )
+            source_ids.add(record.id)
+            prior = records_by_id.get(record.id)
+            if prior is not None and prior != record:
+                return _NeuralIntegrationEvaluation(
+                    "neural.integration.conflicting-record", feature, recipient, destination, source,
+                )
+            records_by_id[record.id] = record
+        candidates = {identity: record for identity, record in records_by_id.items() if identity not in protected}
+        protected_records = tuple(protected[identity] for identity in sorted(protected))
+        retained_records = tuple(
+            record for record in destination.neural_records if record.origin_member_id != recipient.id
+        )
+        source_records = tuple(source.neural_records)
+        candidate_records = tuple(candidates[identity] for identity in sorted(candidates))
+        if any(identity not in candidates for identity in command.retained_record_ids):
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.unknown-record", feature, recipient, destination, source,
+                protected_records, retained_records, source_records, candidate_records,
+                command.retained_record_ids, inherited_capacity=integration["inherited_capacity"],
+            )
+        result_by_id = dict(protected)
+        result_by_id.update({identity: candidates[identity] for identity in command.retained_record_ids})
+        result = tuple(result_by_id[identity] for identity in sorted(result_by_id))
+        result_ids = {record.id for record in result}
+        removed_destination = tuple(
+            record for record in destination.neural_records
+            if record.origin_member_id != recipient.id and record.id not in result_ids
+        )
+        omitted_source = tuple(record for record in source.neural_records if record.id not in result_ids)
+        evaluation = _NeuralIntegrationEvaluation(
+            "neural.integration.completed", feature, recipient, destination, source,
+            protected_records, retained_records, source_records, candidate_records,
+            command.retained_record_ids, result, removed_destination, omitted_source,
+            integration["inherited_capacity"],
+        )
+        if sum(record.origin_member_id != recipient.id for record in result) > integration["inherited_capacity"]:
+            return _NeuralIntegrationEvaluation(
+                "neural.integration.over-capacity", feature, recipient, destination, source,
+                protected_records, retained_records, source_records, candidate_records,
+                command.retained_record_ids, result, removed_destination, omitted_source,
+                integration["inherited_capacity"],
+            )
+        return evaluation
+
+    def neural_integration_preview(
+        self, site_feature_id: str, source_item_id: str, retained_record_ids: tuple[str, ...],
+    ) -> NeuralIntegrationPreviewView:
+        """Expose a presentation-only transfer preview with no result/event side effect."""
+        evaluation = self._evaluate_neural_integration(
+            IntegrateNeuralRecordsCommand(site_feature_id, source_item_id, retained_record_ids),
+        )
+        neural, integration = self._neural_integration_configuration()
+        feature_definitions = {
+            row["id"]: row for row in selected_content_pack().systems.get("world", {}).get("features", [])
+        }
+        site_ids = integration.get("site_feature_ids", ()) if integration is not None else ()
+        sites = tuple(
+            NeuralIntegrationSiteView(
+                identity,
+                str(feature_definitions.get(identity, {}).get("name", identity)),
+                (feature := self._feature(identity)) is not None and self._in_range(feature.position),
+            )
+            for identity in sorted(site_ids)
+            if isinstance(identity, str)
+        )
+        selected_ids = tuple(identity for identity in retained_record_ids if isinstance(identity, str))
+        capacity = evaluation.inherited_capacity
+        foreign_used = sum(
+            record.origin_member_id != evaluation.recipient.id
+            for record in evaluation.result_records
+        ) if evaluation.recipient is not None else 0
+        item_definitions = {row["id"]: row for row in selected_content_pack().systems.get("items", [])}
+        crew_definitions = {row["id"]: row for row in selected_content_pack().systems.get("crew", [])}
+        feature = evaluation.feature
+        return NeuralIntegrationPreviewView(
+            self._revision,
+            site_feature_id,
+            str(feature_definitions.get(site_feature_id, {}).get("name", site_feature_id)) if feature else None,
+            sites,
+            evaluation.recipient.id if evaluation.recipient is not None else None,
+            str(crew_definitions.get(evaluation.recipient.id, {}).get("name", evaluation.recipient.id)) if evaluation.recipient is not None else None,
+            evaluation.destination.id if evaluation.destination is not None else None,
+            source_item_id,
+            str(item_definitions.get(evaluation.source.kind, {}).get("name", evaluation.source.kind)) if evaluation.source is not None else None,
+            evaluation.result_id,
+            evaluation.confirmable,
+            capacity,
+            foreign_used,
+            max(0, capacity - foreign_used) if capacity is not None else 0,
+            tuple(neural_record_view(self._state, record) for record in evaluation.protected_records),
+            tuple(neural_record_view(self._state, record) for record in evaluation.retained_records),
+            tuple(neural_record_view(self._state, record) for record in evaluation.source_records),
+            tuple(neural_record_view(self._state, record) for record in evaluation.candidates),
+            selected_ids,
+            tuple(neural_record_view(self._state, record) for record in evaluation.result_records),
+            tuple(neural_record_view(self._state, record) for record in evaluation.removed_destination_records),
+            tuple(neural_record_view(self._state, record) for record in evaluation.omitted_source_records),
+            evaluation.source is not None and evaluation.result_id in {
+                "neural.integration.completed", "neural.integration.over-capacity",
+            },
+        )
+
+    def _integrate_neural_records(self, command: IntegrateNeuralRecordsCommand) -> CommandOutcome:
+        """Commit the evaluator's already-described payload change, then take one turn."""
+        evaluation = self._evaluate_neural_integration(command)
+        if not evaluation.confirmable:
+            return self._reject(evaluation.result_id)
+        assert evaluation.feature is not None
+        assert evaluation.recipient is not None
+        assert evaluation.destination is not None
+        assert evaluation.source is not None
+        evaluation.destination.neural_records = evaluation.result_records
+        evaluation.source.neural_records = ()
+        retained = tuple(
+            record.id for record in evaluation.result_records
+            if record.origin_member_id != evaluation.recipient.id
+        )
+        return self._advance(
+            "neural.integration.completed",
+            (NeuralRecordsIntegrated(
+                "neural.records-integrated", evaluation.feature.id, evaluation.source.id,
+                evaluation.destination.id, retained,
+            ),),
+        )
+
     def _submit_interaction(self, command: InteractCommand) -> CommandOutcome:
         feature = self._feature(command.feature_id)
         if feature is None:
@@ -289,6 +553,9 @@ class GameSession:
             )
             if not has_tool:
                 return self._reject("interaction.requires-equipped-tool")
+            required_capability = self._feature_required_capability(feature)
+            if required_capability is not None and required_capability not in effective_neural_capabilities(self._state):
+                return self._reject("interaction.requires-capability")
             assert feature.access_id is not None
             self._state.opened_access_ids.add(feature.access_id)
             self._record_access_evidence(feature.access_id)
@@ -348,6 +615,9 @@ class GameSession:
         if not state.courier.alive:
             return self._reject("courier.dead")
 
+        if isinstance(command, IntegrateNeuralRecordsCommand):
+            return self._integrate_neural_records(command)
+
         if isinstance(command, MoveCommand):
             target = Position(state.position.x + command.dx, state.position.y + command.dy)
             if not self._is_passable(target):
@@ -362,7 +632,16 @@ class GameSession:
 
         if isinstance(command, AttackCommand):
             target = next((row for row in state.actors if row.id == command.target_actor_id and row.alive), None)
-            if target is None or abs(target.position.x - state.position.x) + abs(target.position.y - state.position.y) > 1:
+            if target is None:
+                return self._reject("attack.rejected")
+            dx = abs(target.position.x - state.position.x)
+            dy = abs(target.position.y - state.position.y)
+            cardinal = dx + dy == 1
+            diagonal = (
+                dx == 1 and dy == 1
+                and MELEE_DIAGONAL_CAPABILITY_ID in effective_neural_capabilities(state)
+            )
+            if not cardinal and not diagonal:
                 return self._reject("attack.rejected")
             power = max((item.power for item in state.items if item.equipped), default=1)
             target.health = max(0, target.health - power)

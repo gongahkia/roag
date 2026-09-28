@@ -59,6 +59,14 @@ class RecoverRemainsItemCommand:
 
 
 @dataclass(frozen=True)
+class IntegrateNeuralRecordsCommand:
+    """Commit one complete, local retained-record selection from a carried source."""
+    site_feature_id: str
+    source_item_id: str
+    retained_record_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ActivityCommand:
     category_id: str
     activity_id: str

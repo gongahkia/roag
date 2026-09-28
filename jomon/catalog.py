@@ -125,9 +125,15 @@ _ACTIVITY_SYSTEMS = {
 _REQUIRED_SYSTEMS = {
     "world", "setup", "items", "actors", "quests", "routes", "recipes", "activities",
 }
-_OPTIONAL_SYSTEMS = {"operations", "crew"}
+_OPTIONAL_SYSTEMS = {"operations", "crew", "neural"}
 _FEATURE_KINDS = {"base", "maintenance_latch", "access_gate", "objective_cache"}
 _RESPONSE_POLICIES = {"adjacent-on-valid-action"}
+# This intentionally small vocabulary keeps authored neural records declarative
+# without making content strings into an unbounded effect language.
+NEURAL_CAPABILITY_IDS = frozenset({
+    "capability.maintenance-service",
+    "capability.melee-diagonal",
+})
 
 
 def _presentation_free(value: Any, context: str = "") -> Any:
@@ -205,7 +211,7 @@ def _validate_world(world: object) -> tuple[dict[str, Any] | None, dict[str, dic
             "id", "kind", "position", "name", "description", "access_id",
             "requires_equipped_item_id", "operation_id", "item_id",
         }
-        if set(row) != required:
+        if set(row) not in (required, required | {"requires_capability_id"}):
             raise ContentError("systems.world.features: invalid feature fields")
         identity = _id(row["id"], "feature id")
         kind = row["kind"]
@@ -218,16 +224,17 @@ def _validate_world(world: object) -> tuple[dict[str, Any] | None, dict[str, dic
         _text(row["description"], f"feature {identity} description")
         access_id = _nullable_id(row["access_id"], f"feature {identity} access")
         tool_id = _nullable_id(row["requires_equipped_item_id"], f"feature {identity} tool")
+        capability_id = _nullable_id(row.get("requires_capability_id"), f"feature {identity} capability")
         operation_id = _nullable_id(row["operation_id"], f"feature {identity} operation")
         item_id = _nullable_id(row["item_id"], f"feature {identity} item")
         if kind == "base":
-            valid = rows[position[1]][position[0]] == "." and all(value is None for value in (access_id, tool_id, operation_id, item_id))
+            valid = rows[position[1]][position[0]] == "." and all(value is None for value in (access_id, tool_id, capability_id, operation_id, item_id))
         elif kind == "access_gate":
-            valid = rows[position[1]][position[0]] == "#" and access_id is not None and all(value is None for value in (tool_id, operation_id, item_id))
+            valid = rows[position[1]][position[0]] == "#" and access_id is not None and all(value is None for value in (tool_id, capability_id, operation_id, item_id))
         elif kind == "maintenance_latch":
             valid = rows[position[1]][position[0]] == "." and access_id is not None and tool_id is not None and operation_id is None and item_id is None
         else:
-            valid = rows[position[1]][position[0]] == "." and operation_id is not None and item_id is not None and access_id is None and tool_id is None
+            valid = rows[position[1]][position[0]] == "." and operation_id is not None and item_id is not None and access_id is None and tool_id is None and capability_id is None
         if not valid:
             raise ContentError("systems.world.features: invalid kind-specific fields")
         features[identity] = row
@@ -327,6 +334,70 @@ def _validate_crew(value: object, item_ids: set[str], entity_ids: set[str], worl
         entity_ids.add(identity)
 
 
+def _validate_neural(
+    value: object,
+    *,
+    crew_rows: object,
+    item_rows: dict[str, dict[str, Any]],
+    feature_rows: dict[str, dict[str, Any]],
+    entity_ids: set[str],
+) -> None:
+    allowed_keys = ({"record_definitions", "crew_initializers"},
+                    {"record_definitions", "crew_initializers", "integration"})
+    if not isinstance(value, dict) or set(value) not in allowed_keys:
+        raise ContentError("neural: invalid section")
+    definition_ids: set[str] = set()
+    for row in _rows(value["record_definitions"], "neural.record_definitions"):
+        if set(row) not in ({"id"}, {"id", "capability_ids"}):
+            raise ContentError("neural.record_definitions: invalid row")
+        identity = _id(row["id"], "neural record definition")
+        if identity in definition_ids or identity in entity_ids:
+            raise ContentError("neural.record_definitions: duplicate id")
+        capability_ids = row.get("capability_ids", [])
+        if not isinstance(capability_ids, list) or any(not isinstance(capability, str) for capability in capability_ids):
+            raise ContentError("neural.record_definitions: invalid capabilities")
+        if len(set(capability_ids)) != len(capability_ids):
+            raise ContentError("neural.record_definitions: duplicate capability")
+        if any(_id(capability, "neural capability") not in NEURAL_CAPABILITY_IDS for capability in capability_ids):
+            raise ContentError("neural.record_definitions: unsupported capability")
+        definition_ids.add(identity)
+        entity_ids.add(identity)
+
+    crew_by_id = {row["id"]: row for row in _rows(crew_rows, "crew")}
+    initialized_members: set[str] = set()
+    for row in _rows(value["crew_initializers"], "neural.crew_initializers"):
+        if set(row) != {"member_id", "carrier_item_kind_id", "record_definition_ids"}:
+            raise ContentError("neural.crew_initializers: invalid row")
+        member_id = _id(row["member_id"], "neural initializer member")
+        carrier_id = _id(row["carrier_item_kind_id"], "neural initializer carrier")
+        record_ids = row["record_definition_ids"]
+        if member_id not in crew_by_id or member_id in initialized_members:
+            raise ContentError("neural.crew_initializers: unknown or duplicate member")
+        if not isinstance(record_ids, list) or any(not isinstance(identity, str) for identity in record_ids):
+            raise ContentError("neural.crew_initializers: invalid record definitions")
+        if len(set(record_ids)) != len(record_ids) or any(identity not in definition_ids for identity in record_ids):
+            raise ContentError("neural.crew_initializers: unknown or duplicate record definition")
+        carrier = item_rows.get(carrier_id)
+        if (carrier is None or type(carrier.get("power", 0)) is not int or carrier.get("power", 0) != 0
+                or carrier.get("initial", True) is not False or carrier_id in crew_by_id[member_id]["items"]):
+            raise ContentError("neural.crew_initializers: invalid carrier item")
+        initialized_members.add(member_id)
+
+    integration = value.get("integration")
+    if integration is None:
+        return
+    if not isinstance(integration, dict) or set(integration) != {"site_feature_ids", "inherited_capacity"}:
+        raise ContentError("neural.integration: invalid section")
+    site_ids = integration["site_feature_ids"]
+    capacity = integration["inherited_capacity"]
+    if not isinstance(site_ids, list) or not site_ids or any(not isinstance(identity, str) for identity in site_ids):
+        raise ContentError("neural.integration: invalid site features")
+    if len(set(site_ids)) != len(site_ids) or any(identity not in feature_rows for identity in site_ids):
+        raise ContentError("neural.integration: unknown or duplicate site feature")
+    if type(capacity) is not int or capacity < 0:
+        raise ContentError("neural.integration: invalid inherited capacity")
+
+
 def load_content_pack(root: Path) -> ContentPack:
     root = Path(root)
     manifest, systems, lore_value, connections_value = (
@@ -346,6 +417,7 @@ def load_content_pack(root: Path) -> ContentPack:
     entity_ids: set[str] = set()
     _validate_setup(systems["setup"], entity_ids)
     item_ids: set[str] = set()
+    item_rows: dict[str, dict[str, Any]] = {}
     actor_ids: set[str] = set()
     quest_ids: set[str] = set()
     for section in ("items", "actors", "quests", "routes", "recipes"):
@@ -365,6 +437,7 @@ def load_content_pack(root: Path) -> ContentPack:
             entity_ids.add(identity)
             if section == "items":
                 item_ids.add(identity)
+                item_rows[identity] = row
             elif section == "actors":
                 actor_ids.add(identity)
             elif section == "quests":
@@ -388,11 +461,22 @@ def load_content_pack(root: Path) -> ContentPack:
             raise ContentError("systems.world.features: unknown required item")
         if feature["item_id"] is not None and feature["item_id"] not in item_ids:
             raise ContentError("systems.world.features: unknown objective item")
+        capability_id = feature.get("requires_capability_id")
+        if capability_id is not None and capability_id not in NEURAL_CAPABILITY_IDS:
+            raise ContentError("systems.world.features: unsupported required capability")
     access_ids = {feature["access_id"] for feature in features.values() if feature["kind"] == "maintenance_latch"}
     if any(feature["kind"] == "access_gate" and feature["access_id"] not in access_ids for feature in features.values()):
         raise ContentError("systems.world.features: gate without a latch")
     _validate_operations(systems.get("operations", []), feature_rows=features, item_ids=item_ids, actor_ids=actor_ids, quest_ids=quest_ids, entity_ids=entity_ids)
     _validate_crew(systems.get("crew", []), item_ids, entity_ids, world)
+    if "neural" in systems:
+        _validate_neural(
+            systems["neural"],
+            crew_rows=systems.get("crew", []),
+            item_rows=item_rows,
+            feature_rows=features,
+            entity_ids=entity_ids,
+        )
 
     if manifest["playable"] and (world is None or not all(systems["setup"][key] for key in systems["setup"])):
         raise ContentError("playable pack needs world and setup choices")

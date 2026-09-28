@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .catalog import selected_content_pack
-from .state import Actor, Feature, GameState, OperationState, Position
+from .state import Actor, CrewMember, Feature, GameState, OperationState, Position
 
 
 @dataclass(frozen=True)
@@ -38,6 +38,71 @@ class ItemView:
     quantity: int
     equipped: bool
     legal_operations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class NeuralRecordView:
+    """Read-only presentation of a persisted neural record."""
+    id: str
+    definition_id: str
+    display_name: str
+    origin_member_id: str
+    origin_display_name: str
+    capability_ids: tuple[str, ...] = ()
+    capability_display_names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class NeuralIntegrationSiteView:
+    """A configured integration location, projected without gameplay authority."""
+    id: str
+    display_name: str
+    in_range: bool
+
+
+@dataclass(frozen=True)
+class NeuralIntegrationPreviewView:
+    """Read-only evaluation of one proposed neural-record transfer."""
+    revision: int
+    site_id: str
+    site_display_name: str | None
+    sites: tuple[NeuralIntegrationSiteView, ...]
+    recipient_member_id: str | None
+    recipient_display_name: str | None
+    destination_item_id: str | None
+    source_item_id: str
+    source_display_name: str | None
+    reason_id: str
+    confirmable: bool
+    inherited_capacity: int | None
+    foreign_slots_used: int
+    foreign_slots_available: int
+    protected_records: tuple[NeuralRecordView, ...]
+    retained_records: tuple[NeuralRecordView, ...]
+    source_records: tuple[NeuralRecordView, ...]
+    candidate_records: tuple[NeuralRecordView, ...]
+    selected_record_ids: tuple[str, ...]
+    resulting_records: tuple[NeuralRecordView, ...]
+    removed_destination_records: tuple[NeuralRecordView, ...]
+    omitted_source_records: tuple[NeuralRecordView, ...]
+    source_will_be_empty: bool
+
+
+@dataclass(frozen=True)
+class ItemDetailView:
+    """A renderer-safe detail projection for one currently carried item."""
+    id: str
+    kind_id: str
+    display_name: str
+    description: str
+    quantity: int
+    equipped: bool
+    custodian_member_id: str
+    custodian_display_name: str
+    installed_member_id: str | None
+    installed_member_display_name: str | None
+    neural_payload_state_id: str
+    neural_records: tuple[NeuralRecordView, ...]
 
 
 @dataclass(frozen=True)
@@ -208,6 +273,97 @@ def inventory_view(state: GameState) -> tuple[ItemView, ...]:
     )
 
 
+def _readable_semantic_id(identity: str) -> str:
+    """Presentation-only fallback when a pack has no authored record label."""
+    if identity.startswith("record."):
+        identity = identity.removeprefix("record.")
+    if identity.startswith("capability."):
+        identity = identity.removeprefix("capability.")
+    return identity.replace(".", " ").replace("-", " ").replace("_", " ").title()
+
+
+def neural_record_capability_ids(definition_id: str) -> tuple[str, ...]:
+    """Return declared effects for one record definition, never from display data."""
+    neural = selected_content_pack().systems.get("neural")
+    if not isinstance(neural, dict):
+        return ()
+    definition = next(
+        (row for row in neural.get("record_definitions", ()) if row.get("id") == definition_id),
+        None,
+    )
+    if not isinstance(definition, dict):
+        return ()
+    capability_ids = definition.get("capability_ids", ())
+    if not isinstance(capability_ids, list):
+        return ()
+    return tuple(sorted({capability for capability in capability_ids if isinstance(capability, str)}))
+
+
+def effective_neural_capabilities(
+    state: GameState, member: CrewMember | None = None,
+) -> tuple[str, ...]:
+    """Derive live learned capabilities from one installed physical device only."""
+    bearer = member if member is not None else state.courier
+    if not isinstance(bearer, CrewMember) or bearer.installed_neural_item_id is None:
+        return ()
+    device = next((item for item in bearer.items if item.id == bearer.installed_neural_item_id), None)
+    if device is None or device.neural_records is None:
+        return ()
+    return tuple(sorted({
+        capability
+        for record in device.neural_records
+        for capability in neural_record_capability_ids(record.definition_id)
+    }))
+
+
+def neural_record_view(state: GameState, record) -> NeuralRecordView:
+    """Present a record's authored metadata and declared capabilities safely."""
+    member_definitions = {row["id"]: row for row in selected_content_pack().systems.get("crew", [])}
+    capability_ids = neural_record_capability_ids(record.definition_id)
+    return NeuralRecordView(
+        record.id,
+        record.definition_id,
+        _readable_semantic_id(record.definition_id),
+        record.origin_member_id,
+        str(member_definitions.get(record.origin_member_id, {}).get("name", record.origin_member_id)),
+        capability_ids,
+        tuple(_readable_semantic_id(capability) for capability in capability_ids),
+    )
+
+
+def item_detail_view(state: GameState, item_id: str) -> ItemDetailView | None:
+    """Project one active-inventory item without exposing mutable item custody."""
+    if not isinstance(item_id, str):
+        return None
+    item = next((row for row in state.items if row.id == item_id), None)
+    if item is None:
+        return None
+    definitions = {row["id"]: row for row in selected_content_pack().systems["items"]}
+    member_definitions = {row["id"]: row for row in selected_content_pack().systems.get("crew", [])}
+    custodian = state.courier
+    custodian_name = str(member_definitions.get(custodian.id, {}).get("name", custodian.id))
+    installed = next((member for member in state.crew if member.installed_neural_item_id == item.id), None)
+    if item.neural_records is None:
+        payload_state, records = "neural.none", ()
+    else:
+        payload_state = "neural.empty" if not item.neural_records else "neural.records"
+        records = tuple(neural_record_view(state, record) for record in item.neural_records)
+    return ItemDetailView(
+        item.id,
+        item.kind,
+        str(definitions.get(item.kind, {}).get("name", item.kind)),
+        str(definitions.get(item.kind, {}).get("description", "")),
+        item.quantity,
+        item.equipped,
+        custodian.id,
+        custodian_name,
+        installed.id if installed is not None else None,
+        str(member_definitions.get(installed.id, {}).get("name", installed.id)) if installed is not None else None,
+        payload_state,
+        records,
+    )
+
+
 def _operation_state_for_quest(state: GameState, quest_id: str) -> OperationState | None:
     pack = selected_content_pack()
     for definition in pack.systems.get("operations", []):
@@ -266,7 +422,19 @@ def feature_views(state: GameState) -> tuple[FeatureView, ...]:
         open_access = feature.access_id in state.opened_access_ids if feature.access_id else False
         if feature.kind == "maintenance_latch":
             equipped = any(item.kind == feature.requires_equipped_item_id and item.equipped for item in state.items)
-            available, reason = in_range and not open_access and equipped, "interaction.available" if in_range and not open_access and equipped else "interaction.requires-tool" if in_range and not open_access else "interaction.out-of-range" if not in_range else "interaction.completed"
+            capability_id = definition.get("requires_capability_id")
+            has_capability = capability_id is None or capability_id in effective_neural_capabilities(state)
+            available = in_range and not open_access and equipped and has_capability
+            if not in_range:
+                reason = "interaction.out-of-range"
+            elif open_access:
+                reason = "interaction.completed"
+            elif not equipped:
+                reason = "interaction.requires-tool"
+            elif not has_capability:
+                reason = "interaction.requires-capability"
+            else:
+                reason = "interaction.available"
         elif feature.kind == "objective_cache":
             operation = next((row for row in state.operations if row.id == feature.operation_id), None)
             methods = _satisfied_method_ids(state, operation) if operation else ()

@@ -41,6 +41,11 @@ class ContinuityPygameTests(unittest.TestCase):
    while a.session.world_view().courier_alive:self.key(a,pygame.K_LEFT);self.key(a,pygame.K_RIGHT)
    self.key(a,pygame.K_DOWN);self.key(a,pygame.K_RETURN)
    self.moves(a,pygame.K_RIGHT,8);self.moves(a,pygame.K_DOWN,1);self.click(a,9,3);self.key(a,pygame.K_r)
-   self.key(a,pygame.K_DOWN);self.key(a,pygame.K_DOWN);self.key(a,pygame.K_RETURN)
+   # Choose the same semantic recovery action even as authored carried items
+   # are added before the objective; input still travels through the menu.
+   objective_action='recover:crew.initial-operative:objective.operation.recover-diagnostic'
+   for _ in range(next(index for index,row in enumerate(a._rows()) if row.action==objective_action)):
+    self.key(a,pygame.K_DOWN)
+   self.key(a,pygame.K_RETURN)
    self.moves(a,pygame.K_UP,2);self.moves(a,pygame.K_LEFT,7);self.moves(a,pygame.K_DOWN,2);self.click(a,2,3);self.key(a,pygame.K_e)
    self.assertEqual(a.session.operation_views()[0].state_id,'returned');a.draw()
