@@ -4,7 +4,7 @@ from pathlib import Path
 from jomon.catalog import select_content_pack, template_root
 from jomon.commands import AttackCommand, CharacterSetupCommand, EquipItemCommand, InteractCommand, MoveCommand, RecoverRemainsItemCommand, SelectSuccessorCommand
 from jomon.session import GameSession
-from jomon.state import StateError, game_state_from_dict
+from jomon.state import Position, StateError, game_state_from_dict
 
 ROOT=Path(__file__).parent; PACK=ROOT.parents[0]/'jomon'/'content_packs'/'first-playable'
 SETUP=CharacterSetupCommand('crew.field-member','ancestry.baseline','origin.maintenance','trait.careful')
@@ -68,3 +68,24 @@ class ContinuityTests(unittest.TestCase):
   s=make();kill_at_guard(s)
   s._state.crew[1].health=0;s._state.crew[1].alive=False;s._state.crew[2].health=0;s._state.crew[2].alive=False
   before=save_dict(s);self.assertEqual(s.submit(SelectSuccessorCommand('crew.survivor-one')).result_id,'successor.ineligible');self.assertEqual(save_dict(s),before)
+
+ def test_active_position_mismatch_rejects_load_and_save_without_mutation(self):
+  s=make(); valid=save_dict(s); corrupt=json.loads(json.dumps(valid));corrupt['position']={'x':1,'y':2,'z':0}
+  self.assertNotEqual(corrupt['position'],corrupt['crew'][0]['position'])
+  with self.assertRaisesRegex(StateError,'mismatched active position'): game_state_from_dict(corrupt)
+  original=s._state.position; s._state.position=Position(1,2)
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'existing-save.json';path.write_text('previous save bytes',encoding='utf-8')
+   with self.assertRaisesRegex(StateError,'mismatched active position'): s.save(path)
+   self.assertEqual(path.read_text(encoding='utf-8'),'previous save bytes')
+  self.assertEqual(s._state.position,Position(1,2));self.assertEqual(s._state.courier.position,original)
+
+ def test_active_position_mirror_round_trips_before_death_after_death_and_successor(self):
+  s=make(); original_positions={member.id:member.position for member in s._state.crew}
+  def round_trip(session):
+   loaded=game_state_from_dict(save_dict(session));self.assertEqual(loaded.position,loaded.courier.position);return loaded
+  before=round_trip(s);self.assertEqual({member.id:member.position for member in before.crew},original_positions)
+  kill_at_guard(s); dead=round_trip(s);self.assertFalse(dead.courier.alive)
+  dead_positions={member.id:member.position for member in dead.crew};self.assertEqual(dead_positions['crew.survivor-one'],original_positions['crew.survivor-one']);self.assertEqual(dead_positions['crew.survivor-two'],original_positions['crew.survivor-two'])
+  self.assertTrue(s.submit(SelectSuccessorCommand('crew.survivor-one')).accepted); successor=round_trip(s)
+  self.assertEqual(successor.active_member_id,'crew.survivor-one');self.assertEqual(successor.position,original_positions['crew.survivor-one']);self.assertEqual(next(member.position for member in successor.crew if member.id=='crew.initial-operative'),dead_positions['crew.initial-operative'])

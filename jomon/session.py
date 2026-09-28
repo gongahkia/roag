@@ -268,6 +268,8 @@ class GameSession:
         if item is None:
             return self._reject("remains.item-unavailable")
         source.items.remove(item)
+        if source.installed_neural_item_id == item.id:
+            source.installed_neural_item_id = None
         item.equipped = False
         self._state.items.append(item)
         return self._advance("remains.item-recovered", (RemainsItemRecovered("remains.item-recovered", source.id, item.id),))
@@ -371,14 +373,22 @@ class GameSession:
 
         if isinstance(command, EquipItemCommand):
             item = next((row for row in state.items if row.id == command.item_id), None)
-            if item is None or item.equipped:
+            if item is None:
+                return self._reject("item.rejected")
+            if item.neural_records is not None:
+                return self._reject("item.neural-payload-not-equippable")
+            if item.equipped:
                 return self._reject("item.rejected")
             item.equipped = True
             return self._out(True, "item.equipped", changed=True, events=(ItemEquipped("item.equipped", item.id),))
 
         if isinstance(command, UnequipItemCommand):
             item = next((row for row in state.items if row.id == command.item_id), None)
-            if item is None or not item.equipped:
+            if item is None:
+                return self._reject("item.rejected")
+            if item.neural_records is not None:
+                return self._reject("item.neural-payload-not-equippable")
+            if not item.equipped:
                 return self._reject("item.rejected")
             item.equipped = False
             return self._out(True, "item.unequipped", changed=True)

@@ -32,6 +32,15 @@ class Item:
     quantity: int = 1
     equipped: bool = False
     power: int = 0
+    neural_records: tuple[NeuralRecord, ...] | None = None
+
+
+@dataclass(frozen=True)
+class NeuralRecord:
+    """A value-like, carried record; it has no effect until a later system uses it."""
+    id: str
+    origin_member_id: str
+    definition_id: str
 
 
 @dataclass
@@ -49,6 +58,7 @@ class Actor:
 class CrewMember(Actor):
     """A single authoritative person record; their items are personal custody."""
     items: list[Item] = field(default_factory=list)
+    installed_neural_item_id: str | None = None
 
 
 @dataclass
@@ -120,6 +130,9 @@ class GameState:
         return self.courier.items if self.crew else self.items_legacy
 
     def to_dict(self) -> dict[str, Any]:
+        _validate_active_crew_position(self)
+        _validate_neural_payloads(self)
+        _validate_installed_neural_items(self)
         return {
             "format": SAVE_FORMAT,
             "seed": self.seed,
@@ -127,8 +140,8 @@ class GameState:
             "fingerprint": self.fingerprint,
             "rows": list(self.rows),
             "position": asdict(self.position),
-            **({"crew": [asdict(member) for member in self.crew], "active_member_id": self.active_member_id}
-               if self.crew else {"courier": asdict(self.courier), "items": [asdict(item) for item in self.items]}),
+            **({"crew": [_crew_to_dict(member) for member in self.crew], "active_member_id": self.active_member_id}
+               if self.crew else {"courier": asdict(self.courier), "items": [_item_to_dict(item) for item in self.items]}),
             "actors": [asdict(actor) for actor in self.actors],
             "quests": [asdict(quest) for quest in self.quests],
             "routes": list(self.routes),
@@ -153,6 +166,76 @@ class GameState:
         }
 
 
+def _validate_active_crew_position(state: GameState) -> None:
+    """Keep the persisted active-position mirror explicit and unambiguous."""
+    if not state.crew:
+        return
+    active = next((member for member in state.crew if member.id == state.active_member_id), None)
+    if active is None:
+        raise StateError("missing active crew member")
+    if state.position != active.position:
+        raise StateError("crew-bearing state has mismatched active position")
+
+
+def _validate_neural_records(records: object) -> tuple[NeuralRecord, ...] | None:
+    if records is None:
+        return None
+    if not isinstance(records, tuple) or any(not isinstance(record, NeuralRecord) for record in records):
+        raise StateError("invalid neural payload")
+    if any(
+        not isinstance(value, str) or not value
+        for record in records
+        for value in (record.id, record.origin_member_id, record.definition_id)
+    ):
+        raise StateError("invalid neural payload")
+    if len({record.id for record in records}) != len(records):
+        raise StateError("duplicate neural record id")
+    return records
+
+
+def _validate_neural_payloads(state: GameState) -> None:
+    member_ids = {member.id for member in state.crew}
+    custodial_items = [item for member in state.crew for item in member.items] if state.crew else state.items_legacy
+    for item in custodial_items:
+        records = _validate_neural_records(item.neural_records)
+        if records is not None and any(record.origin_member_id not in member_ids for record in records):
+            raise StateError("neural payload has unknown origin")
+
+
+def _validate_installed_neural_items(state: GameState) -> None:
+    for member in state.crew:
+        installed_id = member.installed_neural_item_id
+        if installed_id is None:
+            continue
+        if not isinstance(installed_id, str) or not installed_id:
+            raise StateError("invalid installed neural item reference")
+        matches = [item for item in member.items if item.id == installed_id]
+        if len(matches) != 1 or matches[0].neural_records is None:
+            raise StateError("invalid installed neural item reference")
+        if matches[0].equipped:
+            raise StateError("installed neural item cannot be equipped")
+
+
+def _item_to_dict(item: Item) -> dict[str, object]:
+    records = _validate_neural_records(item.neural_records)
+    row: dict[str, object] = {
+        "id": item.id,
+        "kind": item.kind,
+        "quantity": item.quantity,
+        "equipped": item.equipped,
+        "power": item.power,
+    }
+    if records is not None:
+        row["neural_records"] = [asdict(record) for record in records]
+    return row
+
+
+def _crew_to_dict(member: CrewMember) -> dict[str, object]:
+    row = asdict(member)
+    row["items"] = [_item_to_dict(item) for item in member.items]
+    return row
+
+
 def _position(value: object, context: str) -> Position:
     if not isinstance(value, dict) or set(value) != {"x", "y", "z"} or any(type(value[key]) is not int for key in value):
         raise StateError(f"invalid {context}")
@@ -171,13 +254,44 @@ def _actor(row: object) -> Actor:
     except (KeyError, TypeError, ValueError) as exc:
         raise StateError("invalid actor") from exc
 
+
+def _neural_records(value: object) -> tuple[NeuralRecord, ...]:
+    if not isinstance(value, (list, tuple)):
+        raise StateError("invalid neural payload")
+    records: list[NeuralRecord] = []
+    for row in value:
+        if not isinstance(row, dict) or set(row) != {"id", "origin_member_id", "definition_id"}:
+            raise StateError("invalid neural payload")
+        fields = (row["id"], row["origin_member_id"], row["definition_id"])
+        if any(not isinstance(field, str) or not field for field in fields):
+            raise StateError("invalid neural payload")
+        records.append(NeuralRecord(*fields))
+    result = tuple(records)
+    _validate_neural_records(result)
+    return result
+
+
+def _item(row: object) -> Item:
+    if not isinstance(row, dict):
+        raise StateError("invalid item")
+    values = dict(row)
+    if "neural_records" in values:
+        values["neural_records"] = _neural_records(values["neural_records"])
+    try:
+        return Item(**values)
+    except (TypeError, ValueError) as exc:
+        raise StateError("invalid item") from exc
+
 def _crew_member(row: object) -> CrewMember:
     actor = _actor(row)
     if not isinstance(row, dict) or not isinstance(row.get("items"), list):
         raise StateError("invalid crew member")
+    installed_id = row.get("installed_neural_item_id")
+    if installed_id is not None and (not isinstance(installed_id, str) or not installed_id):
+        raise StateError("invalid installed neural item reference")
     return CrewMember(actor.id, actor.kind, actor.position, actor.health, actor.maximum_health,
                       actor.alive, actor.response_policy, actor.response_power,
-                      [Item(**item) for item in row["items"]])
+                      [_item(item) for item in row["items"]], installed_id)
 
 
 def _feature(row: object) -> Feature:
@@ -290,7 +404,7 @@ def game_state_from_dict(value: object) -> GameState:
             rows=tuple(value["rows"]),
             position=_position(value["position"], "position"),
             courier_legacy=None if "crew" in value else _actor(value["courier"]),
-            items_legacy=[] if "crew" in value else [Item(**row) for row in value["items"]],
+            items_legacy=[] if "crew" in value else [_item(row) for row in value["items"]],
             actors=[_actor(row) for row in value["actors"]],
             quests=[Quest(**row) for row in value["quests"]],
             routes=tuple(value["routes"]),
@@ -310,11 +424,14 @@ def game_state_from_dict(value: object) -> GameState:
         expected = {row["id"] for row in pack.systems["crew"]}
         if {row.id for row in state.crew} != expected or state.active_member_id not in expected:
             raise StateError("crew-bearing save has invalid member identities")
+        _validate_active_crew_position(state)
         if len({item.id for member in state.crew for item in member.items}) != sum(len(member.items) for member in state.crew):
             raise StateError("crew-bearing save duplicates item custody")
         for member in state.crew:
             if member.health < 0 or member.maximum_health < 1 or member.health > member.maximum_health or member.alive != (member.health > 0):
                 raise StateError("crew-bearing save has invalid condition")
+    _validate_neural_payloads(state)
+    _validate_installed_neural_items(state)
     if has_operations:
         expected_features = tuple(_feature_from_pack(row) for row in pack.systems["world"].get("features", []))
         expected_feature_ids = {row.id for row in expected_features}
