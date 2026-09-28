@@ -13,6 +13,7 @@ from .commands import AttackCommand, CharacterSetupCommand, EquipItemCommand, In
 from .font_stack import FontStack
 from .session import GameSession
 from .state import ContentUnavailable, Position
+from .views import readable_result_text
 
 
 def _pygame():
@@ -31,6 +32,17 @@ class MenuItem:
     detail: str = ""
 
 
+@dataclass(frozen=True)
+class WorldLayout:
+    """Shared Debug/ASCII screen regions; all values are presentation-only."""
+    status: Any
+    objective: Any
+    world: Any
+    context: Any
+    feedback: Any
+    tile_size: int
+
+
 class PygameFrontend:
     """Frontend-local controls over one shared semantic session."""
 
@@ -41,6 +53,7 @@ class PygameFrontend:
     accent_colour = (255, 220, 100)
     panel_colour = (14, 23, 37)
     background_colour = (8, 12, 20)
+    title_subtitle = ""
 
     def __init__(
         self,
@@ -55,6 +68,9 @@ class PygameFrontend:
         **_: Any,
     ):
         self.pygame = pygame or _pygame()
+        # The executable entry point must not rely on tests or an embedding
+        # host having initialized Pygame's font module already.
+        self.pygame.init()
         self.screen = self.pygame.display.set_mode(size, self.pygame.RESIZABLE)
         self.pygame.display.set_caption("JOMON")
         self.clock = self.pygame.time.Clock()
@@ -63,7 +79,9 @@ class PygameFrontend:
         self.session = session
         self.seed = seed
         self.settings = settings or load_app_settings()
-        self.panel = "title" if session is None or shell_mode == "title" else ("setup" if shell_mode == "setup" else None)
+        # `--new` deliberately has no session yet: setup, rather than title,
+        # owns that shell state until the player confirms or cancels it.
+        self.panel = "setup" if shell_mode == "setup" else ("title" if session is None or shell_mode == "title" else None)
         self.running = True
         self.selected: Position | None = None
         self.last_result = "ready"
@@ -85,13 +103,74 @@ class PygameFrontend:
         self._sprite_cache: dict[tuple[str, tuple[int, int, int, int], tuple[int, int]], Any] = {}
         self.save_path = Path(save_path or default_save_path())
         self._menu_rects: list[tuple[Any, MenuItem]] = []
+        self.help_return_panel: str | None = None
+        self.pause_return_panel: str | None = None
+        self.settings_return_panel: str | None = "title"
+
+    def _world_layout(self, view) -> WorldLayout:
+        """Return bounded presentation regions shared by both world skins."""
+        width, height = self.screen.get_size()
+        margin = max(8, min(16, width // 40))
+        gap = max(6, margin // 2)
+        status_height = 34
+        objective_height = 72
+        feedback_height = 46
+        top = margin
+        status = self.pygame.Rect(margin, top, max(1, width - margin * 2), status_height)
+        objective = self.pygame.Rect(margin, status.bottom + gap, max(1, width - margin * 2), objective_height)
+        feedback = self.pygame.Rect(margin, max(objective.bottom + gap + 1, height - margin - feedback_height), max(1, width - margin * 2), feedback_height)
+        main_y = objective.bottom + gap
+        main_height = max(1, feedback.y - gap - main_y)
+        context_width = min(390, max(180, width // 3))
+        world_width = max(1, width - margin * 2 - gap - context_width)
+        world = self.pygame.Rect(margin, main_y, world_width, main_height)
+        context = self.pygame.Rect(world.right + gap, main_y, max(1, width - margin - (world.right + gap)), main_height)
+        fit_width = max(8, world.width // max(1, view.width))
+        fit_height = max(8, world.height // max(1, view.height))
+        fit = min(fit_width, fit_height)
+        # Keep the 16px atlas on discrete pixel scales while practical. Small
+        # windows still receive a bounded 8px fallback instead of changing map
+        # coordinates or using a fractional presentation scale.
+        tile_size = 32 if fit >= 32 else 16 if fit >= 16 else 8
+        return WorldLayout(status, objective, world, context, feedback, tile_size)
 
     def _camera(self, view):
-        width, height = self.screen.get_size()
-        return width // 2 - view.courier_position.x * self.tile_size, height // 2 - view.courier_position.y * self.tile_size
+        layout = self._world_layout(view)
+        self.tile_size = layout.tile_size
+        map_width, map_height = view.width * self.tile_size, view.height * self.tile_size
+        desired_x = layout.world.centerx - view.courier_position.x * self.tile_size - self.tile_size // 2
+        desired_y = layout.world.centery - view.courier_position.y * self.tile_size - self.tile_size // 2
+        if map_width <= layout.world.width:
+            x = layout.world.x + (layout.world.width - map_width) // 2
+        else:
+            x = min(layout.world.x, max(layout.world.right - map_width, desired_x))
+        if map_height <= layout.world.height:
+            y = layout.world.y + (layout.world.height - map_height) // 2
+        else:
+            y = min(layout.world.y, max(layout.world.bottom - map_height, desired_y))
+        return x, y
 
     def _rect(self, position: Position, camera: tuple[int, int]):
         return self.pygame.Rect(camera[0] + position.x * self.tile_size, camera[1] + position.y * self.tile_size, self.tile_size, self.tile_size)
+
+    def _known_selected(self) -> bool:
+        if self.session is None or self.selected is None:
+            return False
+        return any(row.position == self.selected and (row.visible or row.remembered) for row in self.session.world_view().cells)
+
+    def _clear_unknown_selection(self) -> None:
+        if self.selected is not None and not self._known_selected():
+            self.selected = None
+
+    def _open_help(self, return_panel: str | None) -> None:
+        self.help_return_panel = return_panel
+        self.panel = "help"
+
+    def _open_pause(self, return_panel: str | None = None) -> None:
+        self.pause_return_panel = return_panel if return_panel is not None else self.panel
+        self.panel = "pause"
+        self.panel_cursor = 0
+        self.last_result = "pause.open"
 
     def _sprite(self, category: str, identity: str, size: tuple[int, int]):
         """Load one pack-bound atlas frame for presentation, with no game-state role."""
@@ -147,6 +226,15 @@ class PygameFrontend:
                 MenuItem("ascii", "ASCII", self.renderer_id != "ascii"),
                 MenuItem("back", "BACK"),
             )
+        if self.panel == "pause" and self.session is not None:
+            return (
+                MenuItem("resume", "RESUME"),
+                MenuItem("save", "SAVE"),
+                MenuItem("settings", "SETTINGS"),
+                MenuItem("help", "HELP"),
+                MenuItem("title", "RETURN TO TITLE"),
+                MenuItem("quit", "QUIT"),
+            )
         if self.panel == "continuation" and self.session is not None:
             return tuple(MenuItem(f"successor:{row.id}", f"CONTINUE AS {row.display_name}", row.alive and not row.active,
                                   f"HP {row.health}/{row.maximum_health}") for row in self.session.crew_views()) or (MenuItem("none", "NO SUCCESSOR AVAILABLE", False),)
@@ -191,9 +279,23 @@ class PygameFrontend:
         if action == "quit":
             self.running = False
         elif action == "settings":
+            self.settings_return_panel = self.panel
             self.panel = "settings"
             self.panel_cursor = 0
         elif action == "back":
+            self.panel = self.settings_return_panel or "title"
+            self.panel_cursor = 0
+        elif action == "resume":
+            self.panel = self.pause_return_panel
+            self.pause_return_panel = None
+            self.panel_cursor = 0
+        elif action == "save":
+            self._save()
+        elif action == "help":
+            self._open_help(self.panel)
+        elif action == "title":
+            self.session = None
+            self.selected = None
             self.panel = "title"
             self.panel_cursor = 0
         elif action in {"debug", "ascii"}:
@@ -219,6 +321,7 @@ class PygameFrontend:
             raise RuntimeError("no active session")
         outcome = self.session.submit(command)
         self.last_result = outcome.result_id
+        self._clear_unknown_selection()
         if not self.session.world_view().courier_alive:
             self.panel = "continuation"
         return outcome
@@ -227,6 +330,8 @@ class PygameFrontend:
         if self.session is None:
             return
         view = self.session.world_view()
+        if not self._world_layout(view).world.collidepoint(position):
+            return
         camera = self._camera(view)
         x, y = (position[0] - camera[0]) // self.tile_size, (position[1] - camera[1]) // self.tile_size
         cell = next((row for row in view.cells if (row.position.x, row.position.y) == (x, y) and (row.visible or row.remembered)), None)
@@ -241,7 +346,7 @@ class PygameFrontend:
     def _selected_actor_id(self) -> str | None:
         if self.session is None or self.selected is None:
             return None
-        return next((row.id for row in self.session.actor_views() if row.position == self.selected and row.actor_kind != "courier" and row.alive), None)
+        return next((row.id for row in self.session.actor_views() if row.position == self.selected and row.visible and row.actor_kind != "courier" and row.alive and row.response_policy_id is not None), None)
 
     def _interact_selected(self) -> None:
         feature_id = self._selected_feature_id()
@@ -437,6 +542,14 @@ class PygameFrontend:
             self._confirm_setup()
 
     def _handle_panel_key(self, event: Any) -> bool:
+        # Saving is canonical-state only and remains usable in every live
+        # modal where a player may need to preserve a difficult situation.
+        if self.session is not None and event.key == self.pygame.K_s and (event.mod & self.pygame.KMOD_CTRL):
+            self._save()
+            return True
+        if event.key == self.pygame.K_h and self.panel not in {"help", "pause", "continuation", "remains", "setup", "title"}:
+            self._open_help(self.panel)
+            return True
         if self.panel == "setup":
             self._handle_setup_key(event)
             return True
@@ -516,8 +629,33 @@ class PygameFrontend:
             return True
         if self.panel == "help":
             if event.key in {self.pygame.K_ESCAPE, self.pygame.K_h}:
-                self.panel = None
+                self.panel = self.help_return_panel
+                self.help_return_panel = None
             return True
+        if self.panel == "settings" and event.key == self.pygame.K_ESCAPE:
+            self._activate("back")
+            return True
+        if self.panel == "pause":
+            if event.key == self.pygame.K_ESCAPE:
+                self._activate("resume")
+                return True
+            if event.key == self.pygame.K_h:
+                self._open_help("pause")
+                return True
+        if self.panel == "continuation":
+            if event.key == self.pygame.K_ESCAPE:
+                self._open_pause("continuation")
+                return True
+            if event.key == self.pygame.K_h:
+                self._open_help("continuation")
+                return True
+        if self.panel == "remains":
+            if event.key == self.pygame.K_ESCAPE:
+                self.panel = None
+                return True
+            if event.key == self.pygame.K_h:
+                self._open_help("remains")
+                return True
         rows = self._rows()
         if not rows:
             return False
@@ -549,17 +687,21 @@ class PygameFrontend:
             if self.session is None:
                 return
             if event.key == pygame.K_ESCAPE:
-                self.panel = "help"
+                self._open_pause()
                 return
             if event.key == pygame.K_h:
-                self.panel = "help"
+                self._open_help(None)
                 return
             if event.key == pygame.K_i:
                 self.panel = "inventory"
                 self.inventory_cursor = 0
                 return
             if event.key == pygame.K_r:
-                member = next((row for row in self.session.crew_views() if row.position == self.selected and not row.alive), None) if self.selected else None
+                visible_remains_id = next((
+                    row.id for row in self.session.actor_views()
+                    if row.position == self.selected and row.visible and not row.alive and row.actor_kind == "crew"
+                ), None) if self.selected else None
+                member = next((row for row in self.session.crew_views() if row.id == visible_remains_id), None)
                 if member is None:
                     self.last_result = "remains.select-body"
                 else:
@@ -781,7 +923,7 @@ class PygameFrontend:
         lines.extend((
             (f"Source: {preview.source_display_name or preview.source_item_id} ({preview.source_item_id})", self.body_colour),
             (f"Site: {site}", self.body_colour if any(row.id == preview.site_id and row.in_range for row in preview.sites) else self.accent_colour),
-            (f"Status: {preview.reason_id}", self.accent_colour if preview.confirmable else (235, 133, 110)),
+            (f"Status: {readable_result_text(preview.reason_id)}", self.accent_colour if preview.confirmable else (235, 133, 110)),
         ))
         if preview.inherited_capacity is not None:
             lines.append((f"Foreign records: {preview.foreign_slots_used}/{preview.inherited_capacity}", self.body_colour))
@@ -866,7 +1008,7 @@ class PygameFrontend:
             "E: use the selected local feature. F: attack the selected adjacent actor.",
             "I: inventory and equipment; D opens details. N on a carried neural source opens selection; R reviews and C confirms it.",
             "Retained installed neural records grant their listed capabilities; carried sources grant none. Ctrl+S saves canonical state only.",
-            "R: recover a selected nearby dead crew member's item. H/Escape: close. Load with --load PATH.",
+            "R: recover a selected nearby dead crew member's item. H closes Help; Esc opens Pause. Load with --load PATH.",
         )
         y = panel.y + 84
         for text in lines:
@@ -890,9 +1032,11 @@ class PygameFrontend:
         elif self.panel == "help":
             self._draw_help()
         elif self.panel == "title":
-            self._draw_menu("JOMON", self._rows(), "A local operation prototype. Select a playable content pack to join.")
+            self._draw_menu("JOMON", self._rows(), self.title_subtitle)
         elif self.panel == "settings":
             self._draw_menu("SETTINGS", self._rows(), "Renderer style is frontend-only and never enters a save.")
+        elif self.panel == "pause":
+            self._draw_menu("PAUSED", self._rows(), "Menu navigation never advances the operation. Load remains available from the command line.")
         elif self.panel == "continuation":
             self._draw_menu("OPERATIVE LOST", self._rows(), "Choose an existing living crew member. This does not advance a turn.")
         elif self.panel == "remains":
@@ -907,7 +1051,11 @@ class PygameFrontend:
         assert self.session is not None
         self.screen.fill(self.background_colour)
         view = self.session.world_view()
+        self._clear_unknown_selection()
+        layout = self._world_layout(view)
         camera = self._camera(view)
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(layout.world)
         for cell in view.cells:
             if not (cell.visible or cell.remembered):
                 continue
@@ -937,13 +1085,14 @@ class PygameFrontend:
             if not self._blit_sprite("features", f"feature.{feature.kind_id}", rect, inset=2):
                 self.pygame.draw.rect(self.screen, colour, rect.inflate(-10, -10))
         for actor in self.session.actor_views():
-            if actor.actor_kind == "courier":
+            if actor.actor_kind == "courier" or not actor.visible:
                 continue
             rect = self._rect(actor.position, camera)
             if actor.alive:
                 self.pygame.draw.ellipse(self.screen, (5, 8, 14), rect.inflate(-6, -16).move(0, 7))
                 if not self._blit_sprite("actors", actor.id, rect, inset=2):
-                    self.pygame.draw.circle(self.screen, (230, 90, 90), rect.center, 7)
+                    colour = (230, 90, 90) if actor.response_policy_id is not None else (110, 205, 220)
+                    self.pygame.draw.circle(self.screen, colour, rect.center, 7)
             else:
                 self.pygame.draw.line(self.screen, (110, 110, 115), rect.topleft, rect.bottomright, 3)
                 self.pygame.draw.line(self.screen, (110, 110, 115), rect.topright, rect.bottomleft, 3)
@@ -958,29 +1107,93 @@ class PygameFrontend:
             selected_rect = self._rect(self.selected, camera)
             self.pygame.draw.rect(self.screen, (255, 247, 180), selected_rect.inflate(4, 4), 1)
             self.pygame.draw.rect(self.screen, self.accent_colour, selected_rect, 2)
-        self._draw_hud()
+        self.screen.set_clip(previous_clip)
+        self._draw_hud(layout)
         self.pygame.display.flip()
 
-    def _draw_hud(self) -> None:
+    def _draw_context(self, rect: Any) -> None:
+        assert self.session is not None
+        context = self.session.context_view(self.selected)
+        self._draw_box(rect, border=(74, 121, 158))
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(rect.inflate(-4, -4))
+        x, y = rect.x + 14, rect.y + 12
+        title = self._render(context.display_name.upper(), self.title_colour)
+        self.screen.blit(title, (x, y)); y += title.get_height() + 5
+        details: list[tuple[str, tuple[int, int, int]]] = []
+        if context.relation_id:
+            details.append((context.relation_id.upper(), self.accent_colour if context.relation_id == "hostile" else self.dim_colour))
+        if context.health is not None and context.maximum_health is not None:
+            details.append((f"HP {context.health} / {context.maximum_health}", self.body_colour))
+        if context.range_text:
+            details.append((f"Range: {context.range_text}", self.dim_colour))
+        if context.description:
+            details.append((context.description, self.body_colour))
+        if context.operation_note:
+            details.append((context.operation_note, self.accent_colour))
+        for text, colour in details:
+            for line in self._wrap(text, rect.width - 28):
+                surface = self._render(line, colour)
+                self.screen.blit(surface, (x, y)); y += surface.get_height() + 3
+        if context.actions:
+            y += 4
+            heading = self._render("ACTIONS", self.title_colour)
+            self.screen.blit(heading, (x, y)); y += heading.get_height() + 3
+            for action in context.actions:
+                colour = self.body_colour if action.enabled else (235, 140, 112)
+                text = f"[{action.binding}] {action.label}" if action.enabled else f"[{action.binding}] {action.label} — unavailable"
+                for line in self._wrap(text, rect.width - 28):
+                    surface = self._render(line, colour)
+                    self.screen.blit(surface, (x, y)); y += surface.get_height() + 2
+                if action.reason_text and not action.enabled:
+                    for line in self._wrap(action.reason_text, rect.width - 36):
+                        surface = self._render(line, self.dim_colour)
+                        self.screen.blit(surface, (x + 8, y)); y += surface.get_height() + 2
+        if context.requirements:
+            y += 4
+            heading = self._render("REQUIREMENTS", self.title_colour)
+            self.screen.blit(heading, (x, y)); y += heading.get_height() + 3
+            for requirement in context.requirements:
+                marker = "✓" if requirement.met else "✗"
+                colour = (119, 215, 160) if requirement.met else (235, 140, 112)
+                for line in self._wrap(f"{marker} {requirement.label}", rect.width - 28):
+                    surface = self._render(line, colour)
+                    self.screen.blit(surface, (x, y)); y += surface.get_height() + 2
+        if context.nearby:
+            y += 4
+            heading = self._render("NEARBY", self.title_colour)
+            self.screen.blit(heading, (x, y)); y += heading.get_height() + 3
+            for row in context.nearby:
+                for line in self._wrap(row, rect.width - 28):
+                    surface = self._render(line, self.dim_colour)
+                    self.screen.blit(surface, (x, y)); y += surface.get_height() + 2
+        self.screen.set_clip(previous_clip)
+
+    def _draw_hud(self, layout: WorldLayout) -> None:
         assert self.session is not None
         actor = self.session.actor_view("courier")
         operations = self.session.operation_views()
         operation = operations[0] if operations else None
-        lines = [f"JOMON  turn:{self.session.world_view().turn}  HP:{actor.health}/{actor.maximum_health}  result:{self.last_result}"]
+        self._draw_box(layout.status, border=(74, 121, 158))
+        self._draw_box(layout.objective, border=(74, 121, 158))
+        self._draw_box(layout.feedback, border=(74, 121, 158))
+        active = next((row.display_name for row in self.session.crew_views() if row.active), actor.id)
+        status = self._render(f"ACTIVE  {active}     HP {actor.health}/{actor.maximum_health}     TURN {self.session.world_view().turn}", self.body_colour)
+        self.screen.blit(status, (layout.status.x + 12, layout.status.y + 7))
+        objective_lines: list[str] = ["ASSIGNMENT"]
         if operation:
-            evidence = ",".join(operation.evidence_method_ids) or "none"
-            lines.append(f"{operation.display_name} [{operation.state_id}]  evidence:{evidence}")
-            lines.extend(self._wrap(operation.objective, self.screen.get_width() - 20))
-        selected = self._feature_view_at(self.selected) if self.selected else None
-        if selected:
-            lines.append(f"Selected: {selected.display_name} — {selected.availability_id}")
-            lines.extend(self._wrap(selected.description, self.screen.get_width() - 20))
-        lines.append("Arrows/WASD move · click select · E interact · F attack · I inventory · H help · Ctrl+S save")
-        y = 8
-        for line in lines[:6]:
-            surface = self._render(line, self.body_colour if not line.startswith("Selected") else self.accent_colour)
-            self.screen.blit(surface, (10, y))
-            y += surface.get_height() + 2
+            objective_lines.extend(self._wrap(operation.objective, layout.objective.width - 28))
+        y = layout.objective.y + 7
+        for index, line in enumerate(objective_lines[:2]):
+            surface = self._render(line, self.title_colour if index == 0 else self.body_colour)
+            self.screen.blit(surface, (layout.objective.x + 12, y)); y += surface.get_height() + 2
+        feedback = readable_result_text(self.last_result)
+        for index, line in enumerate(self._wrap(feedback, layout.feedback.width - 28)[:2]):
+            surface = self._render(line, self.accent_colour if index == 0 else self.body_colour)
+            self.screen.blit(surface, (layout.feedback.x + 12, layout.feedback.y + 5 + index * (surface.get_height() + 1)))
+        hint = self._render("Click a known cell to inspect · WASD/Arrows move · I inventory · H help · Esc pause · Ctrl+S save", self.dim_colour)
+        self.screen.blit(hint, (layout.feedback.x + 12, layout.feedback.bottom - hint.get_height() - 5))
+        self._draw_context(layout.context)
 
     def draw(self) -> None:
         if self.panel is not None:
@@ -1010,6 +1223,9 @@ class PygameFrontend:
         replacement.inventory_cursor = self.inventory_cursor
         replacement.detail_item_id = self.detail_item_id
         replacement.detail_scroll = self.detail_scroll
+        replacement.help_return_panel = self.help_return_panel
+        replacement.pause_return_panel = self.pause_return_panel
+        replacement.settings_return_panel = self.settings_return_panel
         return replacement
 
     def run(self) -> None:

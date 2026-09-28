@@ -54,6 +54,7 @@ from .views import (
     recipe_view,
     travel_view,
     world_view,
+    context_view,
 )
 
 
@@ -159,6 +160,10 @@ class GameSession:
 
     def operation_views(self):
         return operation_views(self._state)
+
+    def context_view(self, selected: Position | None):
+        """Return renderer-neutral action guidance for a known selected cell."""
+        return context_view(self._state, selected)
 
     def effective_neural_capabilities(self, member_id: str | None = None) -> tuple[str, ...]:
         """Expose the same installed-device-only capability projection to callers."""
@@ -306,7 +311,7 @@ class GameSession:
             return self._reject("successor.ineligible")
         self._state.active_member_id = member.id
         self._state.position = member.position
-        self._state.remembered.add(member.position)
+        self._state.remember_current_visibility()
         return self._out(True, "successor.selected", changed=True, events=(SuccessorSelected("successor.selected", member.id),))
 
     def _recover_remains_item(self, command: RecoverRemainsItemCommand) -> CommandOutcome:
@@ -627,7 +632,7 @@ class GameSession:
             before = state.position
             state.position = target
             state.courier.position = target
-            state.remembered.add(target)
+            state.remember_current_visibility()
             return self._advance("move.ok", (ActorMoved("movement.step", "courier", before, target),))
 
         if isinstance(command, AttackCommand):

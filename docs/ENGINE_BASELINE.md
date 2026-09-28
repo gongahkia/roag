@@ -30,3 +30,26 @@ vendored Kenney 1-Bit Pack atlas through presentation-only `assets.json`
 bindings. ASCII remains a separate BigBlueTerm/glyph skin. Missing or
 unresolvable image bindings fall back to Debug primitives, and asset changes do
 not affect mechanical fingerprints or saves.
+
+## UX-01 operation shell
+
+Both renderer skins now consume the same immutable contextual-action projection.
+It only describes selected known terrain and currently visible people: action
+availability, range, requirements, health, hostility, local recovery, and
+operation relevance remain reducer-owned. Current terrain is remembered inside
+the provisional Manhattan-radius-five visibility area; actors and remains are
+never remembered and are not drawn outside that current area.
+
+During a live operation, `Esc` opens Pause and `H` opens Help. Pause offers
+Resume, Save, Settings, Help, Return to Title, and Quit; it does not imply an
+in-app load screen. Ctrl+S is also available while paused or awaiting a
+successor. `--new` opens setup without first creating a world; cancelling it
+returns to Title.
+
+The current subjective first-playable presentation bindings remain explicitly
+provisional and await player review: `terrain.wall` = atlas `48,96,16,16`,
+closed/open gates = `16,80,16,16` / `32,80,16,16`, base = `32,320,16,16`,
+maintenance latch = `512,192,16,16`, objective cache = `80,112,16,16`, and
+floor has no Debug atlas binding. ASCII uses `.`, `#`, `+`, `/`, `H`, `L`, and
+`O` for those semantic identities. Friendly crew now use the neutral NPC icon,
+while a hostile uses the threat icon; glyphs remain presentation only.

@@ -18,7 +18,11 @@ class AsciiPygameFrontend(PygameFrontend):
         assert self.session is not None
         self.screen.fill(self.background_colour)
         view = self.session.world_view()
+        self._clear_unknown_selection()
+        layout = self._world_layout(view)
         camera = self._camera(view)
+        previous_clip = self.screen.get_clip()
+        self.screen.set_clip(layout.world)
         for cell in view.cells:
             if not (cell.visible or cell.remembered):
                 continue
@@ -52,11 +56,12 @@ class AsciiPygameFrontend(PygameFrontend):
             surface = self._render(glyph, colour)
             self.screen.blit(surface, surface.get_rect(center=rect.center))
         for actor in self.session.actor_views():
-            if actor.actor_kind == "courier":
+            if actor.actor_kind == "courier" or not actor.visible:
                 continue
             rect = self._rect(actor.position, camera)
-            glyph = self.font_stack.icon("threat") if actor.alive else "x"
-            colour = (242, 111, 105) if actor.alive else (110, 110, 120)
+            hostile = actor.response_policy_id is not None
+            glyph = self.font_stack.icon("threat" if hostile else "npc") if actor.alive else "x"
+            colour = (242, 111, 105) if hostile else ((108, 207, 224) if actor.alive else (110, 110, 120))
             surface = self._render(glyph, colour, icon=actor.alive)
             self.screen.blit(surface, surface.get_rect(center=rect.center))
         courier_rect = self._rect(view.courier_position, camera)
@@ -65,5 +70,6 @@ class AsciiPygameFrontend(PygameFrontend):
         self.screen.blit(surface, surface.get_rect(center=courier_rect.center))
         if self.selected is not None:
             self.pygame.draw.rect(self.screen, self.accent_colour, self._rect(self.selected, camera), 1)
-        self._draw_hud()
+        self.screen.set_clip(previous_clip)
+        self._draw_hud(layout)
         self.pygame.display.flip()

@@ -166,6 +166,19 @@ class GameState:
             ],
         }
 
+    def remember_current_visibility(self) -> None:
+        """Record terrain presently visible under the provisional radius rule.
+
+        This is terrain knowledge only.  Actors and remains intentionally have no
+        remembered representation, so a renderer cannot turn this into hidden
+        actor knowledge.
+        """
+        for y, row in enumerate(self.rows):
+            for x, _ in enumerate(row):
+                point = Position(x, y)
+                if abs(point.x - self.position.x) + abs(point.y - self.position.y) <= 5:
+                    self.remembered.add(point)
+
 
 def _validate_active_crew_position(state: GameState) -> None:
     """Keep the persisted active-position mirror explicit and unambiguous."""
@@ -417,7 +430,7 @@ def create_world(seed: str) -> GameState:
         crew=crew,
         active_member_id=initial.id if initial else None,
     )
-    state.remembered.add(start)
+    state.remember_current_visibility()
     return state
 
 

@@ -216,7 +216,7 @@
     {
       "id": "operation.recover-diagnostic",
       "name": "Recover diagnostic module",
-      "objective": "Recover the module from the restricted service enclosure and deliver it at base.",
+      "objective": "Recover the diagnostic module from the restricted service enclosure and deliver it at base.",
       "quest_id": "quest.recover-diagnostic",
       "objective_feature_id": "feature.diagnostic-cache",
       "objective_item_id": "item.diagnostic-module",

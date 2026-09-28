@@ -432,15 +432,27 @@ JOMON_CONTENT_PACK=/path/to/template uv run python -m jomon
 ```
 
 At title, choose **Join Game**, select setup options, and confirm with Enter.
-No world exists until confirmation.  During play: arrows/WASD move, click a
-visible or remembered cell to select it, `E` uses a selected local feature,
-`F` attacks a selected adjacent actor, `I` opens inventory/equipment, and `D`
-opens the selected item's read-only detail panel. In that panel Up/Down scrolls
-and `D`, `I`, or Escape returns to inventory. On a carried record-bearing
-neural source, `N` opens transfer selection; Space toggles a record, `R` opens
-the destructive review, and `C` confirms. `H` or Escape opens/closes help, and
-Ctrl+S saves to the app's configured default save path. Loading remains
-available through `--load PATH` in this bounded slice.
+`--new` enters that setup screen directly; cancelling returns to Title and no
+world exists until confirmation. During play, arrows/WASD move, clicking a
+visible or remembered cell selects it, `E` uses a selected local feature, `F`
+attacks a selected adjacent hostile, and `I` opens inventory/equipment. The
+persistent contextual pane explains the selected feature/person, range, health,
+available bindings, and unmet requirements without replacing reducer
+validation. `Esc` opens Pause; `H` opens Help. Pause has Resume, Save,
+Settings, Help, Return to Title, and Quit. Ctrl+S also saves from Pause and the
+successor-continuation screen; loading remains CLI-only through `--load PATH`.
+
+`D` opens the selected item's read-only detail panel. In that panel Up/Down
+scrolls and `D`, `I`, or Escape returns to inventory. On a carried
+record-bearing neural source, `N` opens transfer selection; Space toggles a
+record, `R` opens the destructive review, and `C` confirms. Modal navigation,
+inspection, renderer replacement, and settings are presentation-only: they do
+not advance a turn or leak movement, attack, interaction, or recovery input.
+
+UX-01 uses a shared status strip, bounded assignment strip, enlarged world
+viewport, contextual pane, and readable feedback area in both skins. Terrain
+inside the Manhattan-radius-five field is remembered. Actors and bodies are
+shown only while currently visible; no remembered actor state is presented.
 
 Network space, crew autonomy, schedules, survival, Draw/Dice, broad world
 generation, a general skill tree, personalities, archives, and remote recovery

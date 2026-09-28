@@ -27,6 +27,47 @@ class ActorView:
     maximum_health: int
     alive: bool
     response_policy_id: str | None = None
+    visible: bool = False
+
+
+@dataclass(frozen=True)
+class ContextRequirementView:
+    """One known prerequisite, projected for a renderer without rule authority."""
+    label: str
+    met: bool
+    detail: str = ""
+
+
+@dataclass(frozen=True)
+class ContextActionView:
+    id: str
+    label: str
+    binding: str
+    enabled: bool
+    reason_id: str
+    reason_text: str
+
+
+@dataclass(frozen=True)
+class ContextView:
+    """Read-only guidance for a selected known world position.
+
+    It contains only present terrain knowledge plus currently visible actors.
+    Reducers remain the authority for every submitted action.
+    """
+    position: Position | None
+    entity_type_id: str
+    display_name: str
+    description: str
+    distance: int | None
+    range_text: str
+    relation_id: str
+    health: int | None
+    maximum_health: int | None
+    operation_note: str
+    requirements: tuple[ContextRequirementView, ...]
+    actions: tuple[ContextActionView, ...]
+    nearby: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -252,7 +293,8 @@ def actor_views(state: GameState) -> tuple[ActorView, ...]:
     rows = [state.courier, *state.actors, *(row for row in state.crew if row.id != state.active_member_id)]
     return tuple(
         ActorView(row.id, row.id, "courier" if row.id == state.active_member_id else row.kind,
-                  row.position, row.health, row.maximum_health, row.alive, row.response_policy)
+                  row.position, row.health, row.maximum_health, row.alive, row.response_policy,
+                  True if row.id == state.active_member_id else _visible(state, row.position))
         for row in rows
     )
 
@@ -446,6 +488,267 @@ def feature_views(state: GameState) -> tuple[FeatureView, ...]:
             available, reason = False, "interaction.none"
         result.append(FeatureView(feature.id, feature.kind, feature.position, str(definition["name"]), str(definition["description"]), visible, remembered, open_access, available, reason))
     return tuple(result)
+
+
+# These are presentation labels for stable outcome IDs.  They deliberately do
+# not replace the ID in CommandOutcome, which remains useful to tests and
+# diagnostics.
+_RESULT_TEXT = {
+    "ready": "Ready.",
+    "move.ok": "You move.",
+    "move.rejected": "That way is blocked.",
+    "move.blocked-by-actor": "A living person blocks that space.",
+    "attack.resolved": "Attack resolved.",
+    "attack.rejected": "Target is outside melee range or cannot be attacked.",
+    "attack.select-target": "Select a visible hostile target first.",
+    "interaction.select-feature": "Select a visible feature first.",
+    "interaction.unknown-feature": "That feature is no longer available.",
+    "interaction.out-of-range": "Move next to the feature first.",
+    "interaction.already-open": "That access route is already open.",
+    "interaction.access-opened": "The maintenance route opens.",
+    "interaction.completed": "That access route is already open.",
+    "interaction.available": "Available.",
+    "interaction.requires-equipped-tool": "Equip the required tool first.",
+    "interaction.requires-tool": "Equip the required tool first.",
+    "interaction.requires-capability": "You lack the required learned capability.",
+    "interaction.access-required": "Open a route or clear the guarded approach first.",
+    "interaction.objective-unavailable": "The objective cannot be acquired right now.",
+    "interaction.objective-already-held": "That objective is already in custody.",
+    "interaction.objective-acquired": "You recover the assigned objective.",
+    "interaction.no-delivery": "Bring the recovered objective here to deliver it.",
+    "interaction.objective-missing": "The active operative is not carrying the objective.",
+    "interaction.operation-delivered": "Operation delivered at the base.",
+    "interaction.unsupported-feature": "That feature has no direct interaction.",
+    "item.equipped": "Item equipped.",
+    "item.unequipped": "Item unequipped.",
+    "item.rejected": "That equipment action is unavailable.",
+    "item.neural-payload-not-equippable": "Neural devices cannot be equipped as ordinary gear.",
+    "inventory.empty": "Inventory is empty.",
+    "inventory.detail-open": "Item details opened.",
+    "inventory.detail-unavailable": "That item is no longer carried.",
+    "remains.select-body": "Select a visible dead crew member first.",
+    "remains.unknown": "That body is unavailable for recovery.",
+    "remains.out-of-range": "Move next to the body to recover items.",
+    "remains.item-unavailable": "That item is no longer on the body.",
+    "remains.item-recovered": "Item recovered from the body.",
+    "successor.selected": "You continue as the selected crew member.",
+    "successor.current-alive": "A successor can be selected only after the active operative dies.",
+    "successor.unknown-member": "That crew member is unavailable.",
+    "successor.ineligible": "That crew member cannot continue the operation.",
+    "courier.dead": "Choose a living successor to continue.",
+    "setup.select": "Choose starting selections before creating the world.",
+    "setup.completed": "Setup confirmed.",
+    "setup.cancelled": "New game setup cancelled.",
+    "setup.rejected": "Those setup selections are unavailable.",
+    "setup.locked": "Starting selections are already locked.",
+    "save.no-session": "There is no active game to save.",
+    "save.failed": "The game could not be saved.",
+    "pause.open": "Game paused.",
+    "content.unavailable": "No playable content pack is installed.",
+    "menu.unavailable": "That menu option is unavailable.",
+    "command.unsupported": "That action is not supported here.",
+    "neural.integration-unavailable": "Neural transfer is unavailable here.",
+    "neural.integration.completed": "Selected neural records were retained.",
+    "neural.integration.conflicting-record": "Those records conflict.",
+    "neural.integration.duplicate-record": "A record may appear only once.",
+    "neural.integration.duplicate-selection": "Choose each record only once.",
+    "neural.integration.invalid-record": "That neural record is unavailable.",
+    "neural.integration.invalid-selection": "That neural selection is unavailable.",
+    "neural.integration.invalid-site": "That location cannot integrate records.",
+    "neural.integration.invalid-source": "That item cannot be used as a neural source.",
+    "neural.integration.out-of-range": "Move next to an integration site.",
+    "neural.integration.over-capacity": "That selection exceeds available inherited capacity.",
+    "neural.integration.recipient-unavailable": "The active operative cannot receive records.",
+    "neural.integration.source-empty": "That neural source contains no records.",
+    "neural.integration.source-installed": "Installed devices cannot be used as a transfer source.",
+    "neural.integration.source-unavailable": "That neural source is no longer carried.",
+    "neural.integration.unknown-record": "That neural record is no longer available.",
+    "neural.integration.review-back": "Review closed; no transfer was made.",
+    "neural.integration.review-stale": "The world changed; review the transfer again before confirming.",
+}
+
+
+def readable_result_text(result_id: str) -> str:
+    """Map current semantic outcomes to concise player-facing feedback."""
+    if result_id.startswith("save.ok:"):
+        return "Game saved."
+    return _RESULT_TEXT.get(result_id, "Action unavailable.")
+
+
+def _distance(state: GameState, point: Position) -> int:
+    return abs(point.x - state.position.x) + abs(point.y - state.position.y)
+
+
+def _item_display_name(kind_id: str | None) -> str:
+    if not kind_id:
+        return "Required item"
+    definitions = {row["id"]: row for row in selected_content_pack().systems.get("items", [])}
+    return str(definitions.get(kind_id, {}).get("name", _readable_semantic_id(kind_id)))
+
+
+def _feature_operation_note(feature: Feature) -> str:
+    """Expose an already-mechanical operation relationship without pathfinding."""
+    for operation in selected_content_pack().systems.get("operations", []):
+        if feature.id == operation.get("objective_feature_id"):
+            return "Contains the assigned objective."
+        if feature.id == operation.get("return_feature_id"):
+            return "Deliver the recovered objective here."
+        for method in operation.get("methods", []):
+            if feature.access_id is not None and feature.access_id == method.get("requires_access_id"):
+                return "Controls a route toward the assigned objective."
+    if feature.kind == "access_gate":
+        for related in selected_content_pack().systems.get("world", {}).get("features", []):
+            if related.get("kind") == "maintenance_latch" and related.get("access_id") == feature.access_id:
+                return "This gate is controlled by a local maintenance latch."
+    return ""
+
+
+def _feature_context(state: GameState, feature: FeatureView) -> ContextView:
+    definition = _feature_definition(feature.id)
+    distance = _distance(state, feature.position)
+    in_range = distance <= 1
+    requirements: list[ContextRequirementView] = []
+    action_label = "Interact"
+    if feature.kind_id == "maintenance_latch":
+        action_label = "Open route"
+        state_feature = next((row for row in state.features if row.id == feature.id), None)
+        item_id = state_feature.requires_equipped_item_id if state_feature is not None else None
+        tool_equipped = any(item.kind == item_id and item.equipped for item in state.items)
+        capability_id = definition.get("requires_capability_id")
+        has_capability = capability_id is None or capability_id in effective_neural_capabilities(state)
+        requirements.extend((
+            ContextRequirementView("In range", in_range, "Adjacent interaction range."),
+            ContextRequirementView(f"{_item_display_name(item_id)} equipped", tool_equipped),
+            ContextRequirementView(
+                f"{_readable_semantic_id(str(capability_id))} learned", has_capability,
+            ) if capability_id is not None else ContextRequirementView("No learned capability required", True),
+        ))
+    elif feature.kind_id == "objective_cache":
+        action_label = "Recover objective"
+        operation = next((row for row in state.operations if row.id == definition.get("operation_id")), None)
+        requirements.extend((
+            ContextRequirementView("In range", in_range, "Adjacent interaction range."),
+            ContextRequirementView(
+                "A route into the enclosure is open or clear",
+                bool(_satisfied_method_ids(state, operation)),
+            ),
+        ))
+    elif feature.kind_id == "base":
+        action_label = "Deliver objective"
+        requirements.extend((
+            ContextRequirementView("In range", in_range, "Adjacent interaction range."),
+            ContextRequirementView("Active operative carries a recovered objective", feature.interaction_available or feature.availability_id == "interaction.available"),
+        ))
+    elif feature.kind_id == "access_gate":
+        action_label = "Inspect gate"
+
+    actions: tuple[ContextActionView, ...]
+    if feature.kind_id == "access_gate":
+        actions = ()
+    else:
+        actions = (
+            ContextActionView(
+                "interact", action_label, "E", feature.interaction_available,
+                feature.availability_id, readable_result_text(feature.availability_id),
+            ),
+        )
+    return ContextView(
+        feature.position, feature.kind_id, feature.display_name, feature.description,
+        distance, "Adjacent" if in_range else f"{distance} tiles away", "feature", None, None,
+        _feature_operation_note(next(row for row in state.features if row.id == feature.id)),
+        tuple(requirements), actions,
+    )
+
+
+def _actor_context(state: GameState, actor: ActorView) -> ContextView:
+    distance = _distance(state, actor.position)
+    definitions = {
+        row["id"]: row
+        for section in ("actors", "crew")
+        for row in selected_content_pack().systems.get(section, [])
+    }
+    display_name = str(definitions.get(actor.id, {}).get("name", _readable_semantic_id(actor.presentation_id)))
+    if not actor.alive:
+        source = next((member for member in state.crew if member.id == actor.id), None)
+        recoverable = bool(source and source.items and state.courier.alive and distance <= 1)
+        reason = "interaction.available" if recoverable else (
+            "remains.out-of-range" if source and source.items else "remains.item-unavailable"
+        )
+        return ContextView(
+            actor.position, "remains", display_name, "A dead crew member's physical remains.",
+            distance, "Adjacent" if distance <= 1 else f"{distance} tiles away", "remains",
+            0, actor.maximum_health, "Recover carried items locally.",
+            (
+                ContextRequirementView("In range", distance <= 1, "Adjacent recovery range."),
+                ContextRequirementView("Recoverable items remain", bool(source and source.items)),
+            ),
+            (ContextActionView("recover", "Recover remains", "R", recoverable, reason, readable_result_text(reason)),)
+            if source and source.items else (),
+        )
+
+    if actor.actor_kind == "courier":
+        relation, note = "self", "Active operative"
+    elif actor.response_policy_id is not None:
+        relation, note = "hostile", "Hostile defender"
+    elif actor.actor_kind == "crew":
+        relation, note = "ally", "Friendly crew member"
+    else:
+        relation, note = "neutral", "Neutral actor"
+
+    actions: tuple[ContextActionView, ...] = ()
+    requirements: tuple[ContextRequirementView, ...] = ()
+    if relation == "hostile":
+        dx = abs(actor.position.x - state.position.x)
+        dy = abs(actor.position.y - state.position.y)
+        cardinal = dx + dy == 1
+        diagonal = dx == 1 and dy == 1 and "capability.melee-diagonal" in effective_neural_capabilities(state)
+        enabled = cardinal or diagonal
+        reason = "attack.resolved" if enabled else "attack.rejected"
+        requirements = (ContextRequirementView("Within melee range", enabled, "Cardinal adjacent; diagonal needs a learned technique."),)
+        actions = (ContextActionView("attack", "Attack", "F", enabled, reason, readable_result_text(reason)),)
+    return ContextView(
+        actor.position, actor.actor_kind, display_name, note, distance,
+        "Adjacent" if distance <= 1 else f"{distance} tiles away", relation,
+        actor.health, actor.maximum_health, "", requirements, actions,
+    )
+
+
+def context_view(state: GameState, selected: Position | None) -> ContextView:
+    """Create known local action guidance without exposing hidden actors."""
+    known = {
+        cell.position for cell in world_view(state).cells if cell.visible or cell.remembered
+    }
+    if selected is not None and selected in known:
+        feature = next((row for row in feature_views(state) if row.position == selected and (row.visible or row.remembered)), None)
+        if feature is not None:
+            return _feature_context(state, feature)
+        actor = next((row for row in actor_views(state) if row.position == selected and row.visible), None)
+        if actor is not None:
+            return _actor_context(state, actor)
+        tile = state.rows[selected.y][selected.x]
+        return ContextView(
+            selected, "terrain", "Wall" if tile == "#" else "Ground", "Known terrain.",
+            _distance(state, selected), "Adjacent" if _distance(state, selected) <= 1 else f"{_distance(state, selected)} tiles away",
+            "terrain", None, None, "", (), (),
+        )
+
+    nearby: list[tuple[int, str]] = []
+    for feature in feature_views(state):
+        if feature.visible:
+            nearby.append((_distance(state, feature.position), feature.display_name))
+    for actor in actor_views(state):
+        if actor.visible and actor.actor_kind != "courier":
+            definitions = {
+                row["id"]: row
+                for section in ("actors", "crew")
+                for row in selected_content_pack().systems.get(section, [])
+            }
+            nearby.append((_distance(state, actor.position), str(definitions.get(actor.id, {}).get("name", actor.presentation_id))))
+    labels = tuple(f"{name} — {distance} tile{'s' if distance != 1 else ''} away" for distance, name in sorted(nearby)[:3])
+    return ContextView(
+        None, "none", "Context", "Select a visible feature, person, or known cell to inspect it.",
+        None, "", "", None, None, "", (), (), labels,
+    )
 
 
 def _satisfied_method_ids(state: GameState, operation: OperationState | None) -> tuple[str, ...]:
