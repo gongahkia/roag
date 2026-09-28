@@ -1,0 +1,167 @@
+{
+  "world": {
+    "rows": [
+      "#####################",
+      "#.........#.........#",
+      "#.........#.........#",
+      "#...................#",
+      "#.........#.........#",
+      "#.........#.........#",
+      "#####################"
+    ],
+    "start": [2, 3],
+    "features": [
+      {
+        "id": "feature.shared-base",
+        "kind": "base",
+        "position": [2, 3],
+        "name": "Shared base",
+        "description": "The crew's shared home and the agreed return point.",
+        "access_id": null,
+        "requires_equipped_item_id": null,
+        "operation_id": null,
+        "item_id": null
+      },
+      {
+        "id": "feature.maintenance-latch",
+        "kind": "maintenance_latch",
+        "position": [9, 1],
+        "name": "Maintenance latch",
+        "description": "A local latch controlling the maintenance bypass.",
+        "access_id": "access.maintenance-bypass",
+        "requires_equipped_item_id": "item.maintenance-tool",
+        "operation_id": null,
+        "item_id": null
+      },
+      {
+        "id": "feature.maintenance-gate",
+        "kind": "access_gate",
+        "position": [10, 1],
+        "name": "Maintenance bypass",
+        "description": "A latched opening through the service enclosure wall.",
+        "access_id": "access.maintenance-bypass",
+        "requires_equipped_item_id": null,
+        "operation_id": null,
+        "item_id": null
+      },
+      {
+        "id": "feature.diagnostic-cache",
+        "kind": "objective_cache",
+        "position": [16, 3],
+        "name": "Diagnostic cache",
+        "description": "The local cache containing the assigned diagnostic module.",
+        "access_id": null,
+        "requires_equipped_item_id": null,
+        "operation_id": "operation.recover-diagnostic",
+        "item_id": "item.diagnostic-module"
+      }
+    ]
+  },
+  "setup": {
+    "crew": [
+      {"id": "crew.field-member", "name": "Field crew member", "health_bonus": 0},
+      {"id": "crew.security-member", "name": "Security crew member", "health_bonus": 1}
+    ],
+    "ancestries": [
+      {"id": "ancestry.baseline", "name": "Baseline", "health_bonus": 0},
+      {"id": "ancestry.resilient", "name": "Resilient", "health_bonus": 1}
+    ],
+    "origins": [
+      {"id": "origin.maintenance", "name": "Maintenance background", "health_bonus": 0},
+      {"id": "origin.streetwise", "name": "Streetwise background", "health_bonus": 1}
+    ],
+    "traits": [
+      {"id": "trait.careful", "name": "Careful", "health_bonus": 0},
+      {"id": "trait.durable", "name": "Durable", "health_bonus": 1}
+    ]
+  },
+  "items": [
+    {
+      "id": "item.maintenance-tool",
+      "name": "Maintenance tool",
+      "description": "A carried local-access tool. Equip it before using the latch.",
+      "slot": "hand",
+      "power": 1,
+      "initial": true
+    },
+    {
+      "id": "item.defense-baton",
+      "name": "Defense baton",
+      "description": "A carried close-defense tool.",
+      "slot": "hand",
+      "power": 3,
+      "initial": true
+    },
+    {
+      "id": "item.diagnostic-module",
+      "name": "Diagnostic module",
+      "description": "The assigned physical objective.",
+      "slot": null,
+      "power": 0,
+      "initial": false
+    }
+  ],
+  "actors": [
+    {
+      "id": "actor.service-defender",
+      "name": "Service defender",
+      "kind": "defender",
+      "position": [10, 3],
+      "health": 4,
+      "response_policy": "adjacent-on-valid-action",
+      "response_power": 1
+    }
+  ],
+  "quests": [
+    {
+      "id": "quest.recover-diagnostic",
+      "title": "Assigned retrieval",
+      "objective": "Recover the diagnostic module and deliver it at the shared base.",
+      "state": "active"
+    }
+  ],
+  "routes": [],
+  "recipes": [],
+  "activities": {
+    "production": [],
+    "progression": [],
+    "preparation": [],
+    "chemistry": [],
+    "magic": [],
+    "circuits": [],
+    "vehicles": [],
+    "vessel": [],
+    "crises": [],
+    "situations": [],
+    "worklines": [],
+    "draw": [],
+    "dice": []
+  },
+  "operations": [
+    {
+      "id": "operation.recover-diagnostic",
+      "name": "Recover diagnostic module",
+      "objective": "Recover the module from the restricted service enclosure and deliver it at base.",
+      "quest_id": "quest.recover-diagnostic",
+      "objective_feature_id": "feature.diagnostic-cache",
+      "objective_item_id": "item.diagnostic-module",
+      "return_feature_id": "feature.shared-base",
+      "methods": [
+        {
+          "id": "method.maintenance-bypass",
+          "name": "Open maintenance bypass",
+          "requires_access_id": "access.maintenance-bypass",
+          "requires_defeated_actor_id": null,
+          "consequence_id": "consequence.maintenance-bypass-open"
+        },
+        {
+          "id": "method.main-clearance",
+          "name": "Clear main chokepoint",
+          "requires_access_id": null,
+          "requires_defeated_actor_id": "actor.service-defender",
+          "consequence_id": "consequence.service-defender-defeated"
+        }
+      ]
+    }
+  ]
+}

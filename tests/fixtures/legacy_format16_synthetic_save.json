@@ -1,0 +1,92 @@
+{
+  "actors": [
+    {
+      "alive": true,
+      "health": 4,
+      "id": "test-actor-hostile",
+      "kind": "hostile",
+      "maximum_health": 4,
+      "position": {
+        "x": 3,
+        "y": 1,
+        "z": 0
+      }
+    }
+  ],
+  "courier": {
+    "alive": true,
+    "health": 10,
+    "id": "courier",
+    "kind": "courier",
+    "maximum_health": 10,
+    "position": {
+      "x": 2,
+      "y": 1,
+      "z": 0
+    }
+  },
+  "fingerprint": "a8261ae1306c27f10eedabc4d4e09ce92c42b79913c6d4aa2a4a4ef877ae0a01",
+  "format": 16,
+  "items": [
+    {
+      "equipped": false,
+      "id": "test-item-tool",
+      "kind": "test-item-tool",
+      "power": 3,
+      "quantity": 1
+    },
+    {
+      "equipped": false,
+      "id": "test-item-material",
+      "kind": "test-item-material",
+      "power": 0,
+      "quantity": 1
+    }
+  ],
+  "pack_id": "synthetic-test-pack",
+  "position": {
+    "x": 2,
+    "y": 1,
+    "z": 0
+  },
+  "quests": [
+    {
+      "id": "test-quest",
+      "progress": 0,
+      "state": "active"
+    }
+  ],
+  "recipes": [
+    "test-recipe"
+  ],
+  "remembered": [
+    {
+      "x": 1,
+      "y": 1,
+      "z": 0
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "z": 0
+    }
+  ],
+  "routes": [
+    "test-route"
+  ],
+  "rows": [
+    "#########",
+    "#.......#",
+    "#..#....#",
+    "#.......#",
+    "#########"
+  ],
+  "seed": "legacy-format16-baseline",
+  "setup": {
+    "ancestry": "test-ancestry",
+    "crew": "test-courier",
+    "origin": "test-origin",
+    "trait": "test-trait"
+  },
+  "turn": 1
+}

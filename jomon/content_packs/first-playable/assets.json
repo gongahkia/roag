@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "resources": {},
+  "bindings": {
+    "terrain": {},
+    "actors": {},
+    "events": {},
+    "glyphs": {
+      "terrain.floor": {"glyph": "."},
+      "terrain.wall": {"glyph": "#"},
+      "terrain.gate.closed": {"glyph": "+"},
+      "terrain.gate.open": {"glyph": "/"},
+      "feature.base": {"glyph": "H"},
+      "feature.maintenance_latch": {"glyph": "L"},
+      "feature.objective_cache": {"glyph": "O"}
+    }
+  }
+}
