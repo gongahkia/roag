@@ -23,6 +23,9 @@ ROAG reads `sprite_editor/mappings.json` on launch and whenever its window
 regains focus. Save your selections here, then start or refocus ROAG; no manual
 copying into `sprite_map.lua` is required.
 
+The packaged `roag.love` build also prefers this same sidecar JSON file when it
+is launched beside the repository's `sprite_editor/` directory.
+
 The JSON schema is intentionally small:
 
 ```json

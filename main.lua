@@ -46,8 +46,21 @@ local CURSES = {
 local SPRITE = require("sprite_map")
 local DEFAULT_SPRITE = {}
 for kind,tile in pairs(SPRITE) do DEFAULT_SPRITE[kind]={tile[1],tile[2]} end
+local function sprite_mapping_contents()
+  local source=love.filesystem.getSource()
+  if source:sub(-5):lower()==".love" then
+    local path=love.filesystem.getSourceBaseDirectory().."/sprite_editor/mappings.json"
+    local file=io.open(path,"rb")
+    if file then
+      local contents=file:read("*a")
+      file:close()
+      return contents
+    end
+  end
+  return love.filesystem.read("sprite_editor/mappings.json")
+end
 local function load_sprite_mappings()
-  local contents=love.filesystem.read("sprite_editor/mappings.json")
+  local contents=sprite_mapping_contents()
   if not contents then return end
   for kind,column,row in contents:gmatch('\"([%w_]+)\"%s*:%s*{%s*\"column\"%s*:%s*(%d+)%s*,%s*\"row\"%s*:%s*(%d+)%s*}') do
     column,row=tonumber(column),tonumber(row)
