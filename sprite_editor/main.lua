@@ -147,12 +147,7 @@ function love.load()
   love.graphics.setDefaultFilter("nearest","nearest")
   love.graphics.setNewFont(16)
 
-  local source=love.filesystem.getSource()
-  local repository=source:match("^(.*)[/\\][^/\\]+$")
-  assert(repository,"Launch with `love sprite_editor` from the ROAG repository root.")
-  local mounted,mount_error=love.filesystem.mount(repository.."/assets","roag_assets")
-  assert(mounted,mount_error)
-  sheet=love.graphics.newImage("roag_assets/kenney/Tilesheet/colored_packed.png")
+  sheet=love.graphics.newImage("colored_packed.png")
   quads={}
   for column=1,COLUMNS do
     for row=1,ROWS do

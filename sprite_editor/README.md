@@ -6,6 +6,9 @@ Launch this standalone editor from the repository root:
 love sprite_editor
 ```
 
+The editor includes its own copy of the Kenney sheet, so it does not depend on
+ROAG's runtime or need to mount the parent `assets/` directory.
+
 Click a gameplay role in the left column, then click a tile in the Kenney sheet.
 
 - **Save JSON** serializes the mapping to `mappings.json` in the editor's LÖVE save directory, displayed in the application.
