@@ -39,17 +39,15 @@ $ love .
 
 | Key | Action |
 | --- | --- |
-| arrows or `HJKL`; `YUBN` | Move cardinally or diagonally |
-| `E` or Enter | Interact with the nearby world |
-| `A` / `G` | Attack or choose a target / guard, brace, reload, or listen |
-| `T` / `R` | Follow a known regional route / retreat |
-| `I` / `F` / `X` | Open the pack / inspect materials / use a preparation or relic |
-| `V` / `M` | Offer terms / open combat mastery |
-| `P` / `D` / `W` | Skill tree / spellbook and shrine vigil / crafting and flasks |
-| `\\` / `Z` | Circuit work / regional ledger |
-| `C` / `O` / `;` | Character sheet / observe visible life / inspect without spending time |
-| Tab | Choose the tug at Roag's gangplank or open a vehicle interior |
-| `?` / `S` / `Q` / Escape | Help / save aboard Roag / quit / close or cancel |
+| `W` / `A` / `S` / `D` | Face a direction; press the same key again to move one tile |
+| `E` | Fire in the facing direction |
+| `Q` | Dash two tiles in the facing direction |
+| `B` | Arm a bomb |
+| `F` | Light a flare; it stuns enemies in its blast |
+| `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
+| Enter or `E` | Confirm a menu choice or leave the shop for the boss |
+| `B` / `V` in the shop | Buy / sell the selected item |
+| Escape | Quit the game |
 
 ## Reference
 
