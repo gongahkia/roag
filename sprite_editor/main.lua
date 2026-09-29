@@ -19,7 +19,8 @@ local ROLES = {
   {key="boss", label="Boss"},
 }
 
-local mappings, selected_role, sheet, quads, dirty, status
+local mappings, selected_role, sheet, quads, dirty, status, json_path
+local sheet_zoom, sheet_pan_x, sheet_pan_y, dragging
 
 local function clone_mappings(source)
   local result={}
@@ -28,6 +29,7 @@ local function clone_mappings(source)
 end
 
 local function set_color(r,g,b,a) love.graphics.setColor(r,g,b,a or 1) end
+local function clamp(value,minimum,maximum) return math.max(minimum,math.min(maximum,value)) end
 local function draw_text(value,x,y,size,r,g,b)
   set_color(r or 1,g or 1,b or 1)
   love.graphics.print(value,x,y,0,size or 1)
@@ -35,13 +37,21 @@ end
 
 local function editor_layout()
   local width,height=love.graphics.getDimensions()
-  local scale=math.min(1,math.max(.5,math.min((width-450)/(COLUMNS*SOURCE_TILE_SIZE),(height-112)/(ROWS*SOURCE_TILE_SIZE))))
-  local tile_size=SOURCE_TILE_SIZE*scale
+  local viewport_x,viewport_y=430,86
+  local viewport_width,viewport_height=math.max(180,width-458),math.max(160,height-190)
+  local base_scale=math.min(1,math.max(.5,math.min(viewport_width/(COLUMNS*SOURCE_TILE_SIZE),viewport_height/(ROWS*SOURCE_TILE_SIZE))))
+  local base_tile_size=SOURCE_TILE_SIZE*base_scale
+  local tile_size=base_tile_size*sheet_zoom
   local sheet_width,sheet_height=COLUMNS*tile_size,ROWS*tile_size
+  local base_sheet_x=viewport_x+(viewport_width-COLUMNS*base_tile_size)/2
+  local base_sheet_y=viewport_y+(viewport_height-ROWS*base_tile_size)/2
   return {
     width=width, height=height, tile_size=tile_size,
-    sheet_x=width-sheet_width-28, sheet_y=86,
+    base_sheet_x=base_sheet_x, base_sheet_y=base_sheet_y,
+    sheet_x=base_sheet_x+sheet_pan_x, sheet_y=base_sheet_y+sheet_pan_y,
     sheet_width=sheet_width, sheet_height=sheet_height,
+    viewport_x=viewport_x, viewport_y=viewport_y,
+    viewport_width=viewport_width, viewport_height=viewport_height,
     role_x=24, role_y=154, role_width=380, role_height=30,
     button_y=height-76,
   }
@@ -83,26 +93,43 @@ local function deserialize_json(contents)
   return true
 end
 
+local function read_local_json()
+  local file,err=io.open(json_path,"rb")
+  if not file then return nil,err end
+  local contents=file:read("*a")
+  file:close()
+  return contents
+end
+
+local function write_local_json(contents)
+  local file,err=io.open(json_path,"wb")
+  if not file then return nil,err end
+  local ok,write_error=file:write(contents)
+  file:close()
+  if not ok then return nil,write_error end
+  return true
+end
+
 local function save_json()
-  local ok,err=love.filesystem.write(JSON_FILE,serialize_json())
+  local ok,err=write_local_json(serialize_json())
   if ok then
     dirty=false
-    status="Saved "..JSON_FILE.." in "..love.filesystem.getSaveDirectory()
+    status="Saved "..json_path
   else
     status="Could not save: "..tostring(err)
   end
 end
 
 local function load_json()
-  local contents,err=love.filesystem.read(JSON_FILE)
+  local contents,err=read_local_json()
   if not contents then
-    status="No saved JSON yet. Choose tiles, then click SAVE JSON."
+    status="No "..JSON_FILE.." yet. Choose tiles, then click SAVE JSON."
     return
   end
   local ok,message=deserialize_json(contents)
   if ok then
     dirty=false
-    status="Loaded "..JSON_FILE.." from "..love.filesystem.getSaveDirectory()
+    status="Loaded "..json_path
   else
     status=message or tostring(err)
   end
@@ -143,9 +170,26 @@ local function point_in_rect(x,y,rect)
   return x>=rect.x and x<=rect.x+rect.width and y>=rect.y and y<=rect.y+(rect.height or 34)
 end
 
+local function point_in_viewport(x,y,layout)
+  return x>=layout.viewport_x and x<layout.viewport_x+layout.viewport_width and y>=layout.viewport_y and y<layout.viewport_y+layout.viewport_height
+end
+
+local function tile_at(x,y,layout)
+  if not point_in_viewport(x,y,layout) then return nil end
+  local column=math.floor((x-layout.sheet_x)/layout.tile_size)+1
+  local row=math.floor((y-layout.sheet_y)/layout.tile_size)+1
+  if valid_tile(column,row) then return column,row end
+end
+
+local function reset_view()
+  sheet_zoom,sheet_pan_x,sheet_pan_y=1,0,0
+  status="Reset sprite-sheet zoom and position."
+end
+
 function love.load()
   love.graphics.setDefaultFilter("nearest","nearest")
   love.graphics.setNewFont(16)
+  json_path=love.filesystem.getSource().."/"..JSON_FILE
 
   sheet=love.graphics.newImage("colored_packed.png")
   quads={}
@@ -157,9 +201,10 @@ function love.load()
 
   mappings=clone_mappings(DEFAULT_MAPPINGS)
   selected_role=1
+  sheet_zoom,sheet_pan_x,sheet_pan_y,dragging=1,0,0,false
   dirty=false
   status="Click a role, then click a tile. SAVE JSON persists the mapping locally."
-  if love.filesystem.getInfo(JSON_FILE) then load_json() end
+  if read_local_json() then load_json() end
 end
 
 function love.draw()
@@ -168,7 +213,7 @@ function love.draw()
 
   draw_text("ROAG SPRITE EDITOR",24,24,2,.7,.9,1)
   draw_text("Click a role, then click a sprite-sheet tile.",24,70,1,.78,.84,.94)
-  draw_text("Local JSON: "..love.filesystem.getSaveDirectory().."/"..JSON_FILE,24,94,.7,.65,.72,.84)
+  draw_text("JSON FILE: "..json_path,24,94,.7,.65,.72,.84)
   draw_text("Selected: "..selected().label.."  →  ["..mappings[selected().key][1]..", "..mappings[selected().key][2].."]"..(dirty and "  UNSAVED" or ""),24,120,1,.95,.85,.3)
 
   for index,role in ipairs(ROLES) do
@@ -179,7 +224,9 @@ function love.draw()
     draw_text(role.label.."  ["..tile[1]..", "..tile[2].."]",layout.role_x+36,y+6,.9,index==selected_role and .95 or .78,index==selected_role and .85 or .83,index==selected_role and .3 or .9)
   end
 
-  set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.sheet_x-4,layout.sheet_y-4,layout.sheet_width+8,layout.sheet_height+8)
+  set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.viewport_x-4,layout.viewport_y-4,layout.viewport_width+8,layout.viewport_height+8)
+  set_color(.025,.035,.055);love.graphics.rectangle("fill",layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
+  love.graphics.setScissor(layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
   love.graphics.draw(sheet,layout.sheet_x,layout.sheet_y,0,layout.tile_size/SOURCE_TILE_SIZE,layout.tile_size/SOURCE_TILE_SIZE)
 
   local function outline(column,row,r,g,b,width)
@@ -189,24 +236,26 @@ function love.draw()
   local assigned=mappings[selected().key]
   outline(assigned[1],assigned[2],.15,.9,1,2)
   local mouse_x,mouse_y=love.mouse.getPosition()
-  if mouse_x>=layout.sheet_x and mouse_x<layout.sheet_x+layout.sheet_width and mouse_y>=layout.sheet_y and mouse_y<layout.sheet_y+layout.sheet_height then
-    local column=math.floor((mouse_x-layout.sheet_x)/layout.tile_size)+1
-    local row=math.floor((mouse_y-layout.sheet_y)/layout.tile_size)+1
+  local column,row=tile_at(mouse_x,mouse_y,layout)
+  if column then
     outline(column,row,1,.85,.2,3)
-    draw_text("HOVER: ["..column..", "..row.."]",layout.sheet_x,layout.sheet_y+layout.sheet_height+12,.75,.95,.85,.3)
   end
+  love.graphics.setScissor()
   love.graphics.setLineWidth(1)
+  if column then draw_text("HOVER: ["..column..", "..row.."]",layout.viewport_x,layout.viewport_y+layout.viewport_height+12,.75,.95,.85,.3) end
 
   for _,button in ipairs(button_layout(layout)) do
     set_color(.13,.22,.3);love.graphics.rectangle("fill",button.x,button.y,button.width,34)
     draw_text(button.label,button.x+9,button.y+10,.72,.9,.93,1)
   end
+  draw_text("WHEEL: ZOOM SHEET   RIGHT/MIDDLE DRAG: PAN   0: RESET VIEW",24,layout.height-104,.68,.75,.82,.92)
   draw_text(status,24,layout.height-30,.68,.78,.84,.94)
 end
 
 function love.mousepressed(x,y,button)
-  if button~=1 then return end
   local layout=editor_layout()
+  if (button==2 or button==3) and point_in_viewport(x,y,layout) then dragging=true;return end
+  if button~=1 then return end
   for _,control in ipairs(button_layout(layout)) do
     if point_in_rect(x,y,control) then control.action();return end
   end
@@ -214,17 +263,42 @@ function love.mousepressed(x,y,button)
     local row={x=layout.role_x,y=layout.role_y+(index-1)*layout.role_height,width=layout.role_width,height=layout.role_height-3}
     if point_in_rect(x,y,row) then selected_role=index;return end
   end
-  if x>=layout.sheet_x and x<layout.sheet_x+layout.sheet_width and y>=layout.sheet_y and y<layout.sheet_y+layout.sheet_height then
-    local column=math.floor((x-layout.sheet_x)/layout.tile_size)+1
-    local row=math.floor((y-layout.sheet_y)/layout.tile_size)+1
+  local column,row=tile_at(x,y,layout)
+  if column then
     mappings[selected().key]={column,row}
     dirty=true
     status=selected().label.." is now ["..column..", "..row.."]. Click SAVE JSON to keep it."
   end
 end
 
+function love.mousereleased(_,_,button)
+  if button==2 or button==3 then dragging=false end
+end
+
+function love.mousemoved(_,_,delta_x,delta_y)
+  if dragging then
+    sheet_pan_x=sheet_pan_x+delta_x
+    sheet_pan_y=sheet_pan_y+delta_y
+  end
+end
+
+function love.wheelmoved(_,delta_y)
+  if delta_y==0 then return end
+  local mouse_x,mouse_y=love.mouse.getPosition()
+  local old_layout=editor_layout()
+  if not point_in_viewport(mouse_x,mouse_y,old_layout) then return end
+  local sheet_x=(mouse_x-old_layout.sheet_x)/old_layout.tile_size
+  local sheet_y=(mouse_y-old_layout.sheet_y)/old_layout.tile_size
+  sheet_zoom=clamp(sheet_zoom*(1.15^delta_y),.5,6)
+  local new_layout=editor_layout()
+  sheet_pan_x=mouse_x-new_layout.base_sheet_x-sheet_x*new_layout.tile_size
+  sheet_pan_y=mouse_y-new_layout.base_sheet_y-sheet_y*new_layout.tile_size
+  status=string.format("Sprite sheet zoom: %d%%",math.floor(sheet_zoom*100+.5))
+end
+
 function love.keypressed(key)
   if key=="escape" then love.event.quit()
+  elseif key=="0" then reset_view()
   elseif key=="s" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then save_json()
   elseif key=="l" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then load_json()
   end
