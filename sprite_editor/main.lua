@@ -19,7 +19,7 @@ local ROLES = {
   {key="boss", label="Boss"},
 }
 
-local mappings, selected_role, sheet, quads, dirty, status, json_path
+local mappings, selected_role, sheet, quads, dirty, status, json_path, fonts
 local sheet_zoom, sheet_pan_x, sheet_pan_y, dragging
 
 local function clone_mappings(source)
@@ -30,9 +30,17 @@ end
 
 local function set_color(r,g,b,a) love.graphics.setColor(r,g,b,a or 1) end
 local function clamp(value,minimum,maximum) return math.max(minimum,math.min(maximum,value)) end
+local function font_for(scale)
+  if scale>=1.75 then return fonts.title end
+  if scale>=1.1 then return fonts.large end
+  if scale>=.9 then return fonts.normal end
+  if scale>=.75 then return fonts.small end
+  return fonts.tiny
+end
 local function draw_text(value,x,y,size,r,g,b)
+  love.graphics.setFont(font_for(size or 1))
   set_color(r or 1,g or 1,b or 1)
-  love.graphics.print(value,x,y,0,size or 1)
+  love.graphics.print(value,x,y)
 end
 
 local function editor_layout()
@@ -188,7 +196,11 @@ end
 
 function love.load()
   love.graphics.setDefaultFilter("nearest","nearest")
-  love.graphics.setNewFont(16)
+  fonts={
+    tiny=love.graphics.newFont(11), small=love.graphics.newFont(12),
+    normal=love.graphics.newFont(14), large=love.graphics.newFont(20),
+    title=love.graphics.newFont(32),
+  }
   json_path=love.filesystem.getSource().."/"..JSON_FILE
 
   sheet=love.graphics.newImage("colored_packed.png")
@@ -227,7 +239,7 @@ function love.draw()
   set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.viewport_x-4,layout.viewport_y-4,layout.viewport_width+8,layout.viewport_height+8)
   set_color(.025,.035,.055);love.graphics.rectangle("fill",layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
   love.graphics.setScissor(layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
-  set_color(1,1,1)
+  love.graphics.setColor(1,1,1,1)
   love.graphics.draw(sheet,layout.sheet_x,layout.sheet_y,0,layout.tile_size/SOURCE_TILE_SIZE,layout.tile_size/SOURCE_TILE_SIZE)
 
   local function outline(column,row,r,g,b,width)
