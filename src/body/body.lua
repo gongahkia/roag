@@ -35,6 +35,20 @@ function Body.new(registry, topology_id)
   return self
 end
 
+function Body.from_data(registry, data)
+  assert(type(data) == "table", "Body data must be a table")
+  local body = Body.new(registry, data.topology_id)
+  assert(type(data.slots) == "table", "Body data must include slots")
+  for _, slot_data in ipairs(data.slots) do
+    if slot_data.component then
+      local component = Component.from_data(registry:get_component(slot_data.component.definition_id), slot_data.component)
+      local installed, reason = body:install(slot_data.slot_id, component)
+      assert(installed, reason)
+    end
+  end
+  return body
+end
+
 function Body:get_slot(slot_id)
   return self.slots[slot_id]
 end

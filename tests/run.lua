@@ -8,6 +8,9 @@ local suites = {
   "tests.test_content",
   "tests.test_body",
   "tests.test_body_damage",
+  "tests.test_inventory",
+  "tests.test_corpse_salvage",
+  "tests.test_app_inventory",
   "tests.test_session",
 }
 

@@ -10,6 +10,39 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
 
+  if app.screen == "inventory" then
+    if key == "escape" or key == "i" then
+      app:close_overlay()
+    elseif key == "w" or key == "up" then
+      app:move_inventory_cursor(0, -1)
+    elseif key == "s" or key == "down" then
+      app:move_inventory_cursor(0, 1)
+    elseif key == "a" or key == "left" then
+      app:move_inventory_cursor(-1, 0)
+    elseif key == "d" or key == "right" then
+      app:move_inventory_cursor(1, 0)
+    elseif key == "return" or key == "space" then
+      app:inventory_select_or_place()
+    elseif key == "r" then
+      app:rotate_inventory_item()
+    end
+    return
+  end
+
+  if app.screen == "salvage" then
+    local options = app:salvage_options()
+    if key == "escape" or key == "g" then
+      app:close_overlay()
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #options))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #options))
+    elseif key == "return" or key == "e" then
+      app:salvage_selected()
+    end
+    return
+  end
+
   if key == "escape" then
     app:quit()
     return
@@ -84,6 +117,10 @@ function Input.keypressed(app, key, _, is_repeat)
       if not is_repeat then
         app:perform_turn("shoot_" .. SHOT_KEYS[key])
       end
+    elseif key == "i" then
+      app:open_inventory()
+    elseif key == "g" then
+      app:open_salvage()
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
     end

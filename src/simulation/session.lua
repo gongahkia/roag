@@ -5,6 +5,9 @@ local Body = require("src.body.body")
 local ComponentFactory = require("src.body.component_factory")
 local Registry = require("src.content.registry")
 local BodyDamage = require("src.simulation.body_damage")
+local Inventory = require("src.inventory.inventory")
+local Corpse = require("src.world.corpse")
+local Salvage = require("src.simulation.salvage")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local Rng = require("src.rng")
@@ -57,6 +60,9 @@ function Session.new(options)
     curse_bag = {},
     effects = {},
     next_component_sequence = 1,
+    next_corpse_sequence = 1,
+    corpses = {},
+    inventory = Inventory.new(),
   }
   self.component_factory = ComponentFactory.new(self.registry, self.state)
   return self
@@ -97,6 +103,90 @@ end
 
 function Session:actor_has_capability(actor, ability_id)
   return actor.body and actor.body:has_capability(ability_id) or false
+end
+
+function Session:validate_physical_ownership()
+  local owners = {}
+  local function record(component, owner)
+    if owners[component.id] then
+      error("Physical component '" .. component.id .. "' is owned by both " .. owners[component.id] .. " and " .. owner)
+    end
+    owners[component.id] = owner
+  end
+  local function record_body(body, owner)
+    if body then
+      for _, component in ipairs(body:list_components()) do
+        record(component, owner)
+      end
+    end
+  end
+
+  record_body(self.state.player and self.state.player.body, "player body")
+  for _, enemy in ipairs(self.state.enemies or {}) do
+    record_body(enemy.body, "living enemy '" .. enemy.kind .. "'")
+  end
+  for _, corpse in ipairs(self.state.corpses or {}) do
+    record_body(corpse.body, "corpse '" .. corpse.id .. "'")
+  end
+  for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do
+    if entry.item.item_type == "component" then
+      record(entry.item.object, "inventory")
+    end
+  end
+  return true
+end
+
+function Session:_create_corpse(actor)
+  if not actor.body then
+    return nil
+  end
+  local sequence = self.state.next_corpse_sequence
+  self.state.next_corpse_sequence = sequence + 1
+  local corpse = Corpse.from_actor(string.format("corpse:%06d", sequence), actor)
+  self.state.corpses[#self.state.corpses + 1] = corpse
+  return corpse
+end
+
+function Session:find_corpse(corpse_id)
+  for _, corpse in ipairs(self.state.corpses or {}) do
+    if corpse.id == corpse_id then
+      return corpse
+    end
+  end
+  return nil
+end
+
+function Session:nearby_corpse()
+  local player = self.state.player
+  if not player then
+    return nil
+  end
+  for _, corpse in ipairs(self.state.corpses or {}) do
+    if Grid.distance(player, corpse) <= 1 then
+      return corpse
+    end
+  end
+  return nil
+end
+
+function Session:salvage_corpse_component(corpse_id, slot_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then
+    return { applied = false, corpse_id = corpse_id, slot_id = slot_id, reason = "Unknown corpse" }
+  end
+  if not self.state.player or Grid.distance(self.state.player, corpse) > 1 then
+    return { applied = false, corpse_id = corpse_id, slot_id = slot_id, reason = "Corpse is not within salvage range" }
+  end
+  local result = Salvage.component(corpse, slot_id, self.state.inventory, self.registry)
+  if result.applied then
+    local definition = self.registry:get_component(result.definition_id)
+    self:_log("Salvaged " .. definition.display_name .. ".")
+    self:_sound("pickup")
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
 end
 
 function Session:_log_component_transition(actor, result)
@@ -352,7 +442,7 @@ function Session:start_stage()
     content_id = player_definition.id,
     body = self:_build_body(player_definition),
   })
-  state.explored, state.effects = {}, {}
+  state.explored, state.effects, state.corpses = {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
   state.phase = "combat"
@@ -360,6 +450,7 @@ function Session:start_stage()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
   self:refresh_visibility()
+  self:validate_physical_ownership()
 end
 
 function Session:choose_boons(count)
@@ -414,11 +505,13 @@ function Session:_destroy_target(index)
 end
 
 function Session:_destroy_enemy(index)
-  remove(self.state.enemies, index)
+  local enemy = remove(self.state.enemies, index)
+  self:_create_corpse(enemy)
   self.state.player.score = self.state.player.score + 1
   self:_reload(2, true)
   self:_sound("hit")
   self:_log("Defeated an enemy.")
+  self:validate_physical_ownership()
 end
 
 function Session:_boss_hitbox()
@@ -667,8 +760,10 @@ function Session:_resolve_enemy_attack(enemy, index)
     self:_hurt(messages[enemy.attack_kind] or "An enemy attack struck you.")
   end
   if enemy.attack_kind == "detonate" then
-    remove(self.state.enemies, index)
+    local destroyed = remove(self.state.enemies, index)
+    self:_create_corpse(destroyed)
     self:_log("A bomber exploded nearby!")
+    self:validate_physical_ownership()
   else
     self:_clear_enemy_attack(enemy)
   end
@@ -944,7 +1039,7 @@ function Session:start_boss()
   state.space = Generator.generate("arena", player, self.rng, true)
   state.targets, state.enemies, state.bullets = {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
-  state.effects, state.exit = {}, nil
+  state.effects, state.exit, state.corpses = {}, nil, {}
   state.boss = { kind = "boss", x = 16, y = 1, health = 10, attack = 0, type = "crossfire", name = "CROSSFIRE", radius = 3, line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" }
   self:_new_boss_attack()
   local point = self:_open_location(state.space, self:_occupied(true))
@@ -952,6 +1047,7 @@ function Session:start_boss()
   state.phase = "boss"
   self:_log("The boss awaits.")
   self:refresh_visibility()
+  self:validate_physical_ownership()
 end
 
 function Session:buy(item)

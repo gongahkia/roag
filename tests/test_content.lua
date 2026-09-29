@@ -57,6 +57,7 @@ return {
         max_integrity = 1,
         mass = 1,
         wear_per_use = 0,
+        inventory = { width = 1, height = 1, rotatable = false },
         abilities = { "ability.missing.nope" },
       }
       assert_failure("Unknown ability ID 'ability.missing.nope'", function()
@@ -92,9 +93,30 @@ return {
         max_integrity = 1,
         mass = 1,
         wear_per_use = -1,
+        inventory = { width = 1, height = 1, rotatable = false },
         abilities = {},
       }
       assert_failure("wear_per_use must be a non-negative number", function()
+        Registry.new(invalid_sources)
+      end)
+    end,
+  },
+  {
+    name = "invalid inventory footprint fails validation",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.components = copy_list(invalid_sources.components)
+      invalid_sources.components[#invalid_sources.components + 1] = {
+        id = "component.internal.invalid_footprint",
+        display_name = "Invalid Footprint",
+        compatible_slots = { "internal" },
+        max_integrity = 1,
+        mass = 1,
+        wear_per_use = 0,
+        inventory = { width = 0, height = 1, rotatable = false },
+        abilities = {},
+      }
+      assert_failure("inventory.width must be a positive integer", function()
         Registry.new(invalid_sources)
       end)
     end,

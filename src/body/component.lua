@@ -9,6 +9,19 @@ function Component.new(definition, instance_id)
   }
 end
 
+function Component.from_data(definition, data)
+  assert(type(data) == "table", "Component data must be a table")
+  assert(data.definition_id == definition.id, "Component data definition does not match")
+  assert(type(data.id) == "string" and data.id ~= "", "Component data must include a stable ID")
+  assert(type(data.current_integrity) == "number", "Component data must include current integrity")
+  return {
+    id = data.id,
+    definition_id = definition.id,
+    max_integrity = definition.max_integrity,
+    current_integrity = math.max(0, math.min(definition.max_integrity, data.current_integrity)),
+  }
+end
+
 function Component.condition(instance)
   if instance.current_integrity <= 0 then
     return "broken"

@@ -8,6 +8,7 @@ return {
     max_integrity = 3,
     mass = 1,
     wear_per_use = 0,
+    inventory = { width = 2, height = 2, rotatable = false },
     abilities = {},
   },
   {
@@ -17,6 +18,7 @@ return {
     max_integrity = 5,
     mass = 4,
     wear_per_use = 0,
+    inventory = { width = 2, height = 2, rotatable = false },
     abilities = {},
   },
   {
@@ -26,6 +28,7 @@ return {
     max_integrity = 3,
     mass = 2,
     wear_per_use = 0,
+    inventory = { width = 1, height = 3, rotatable = true },
     abilities = {},
   },
   {
@@ -35,6 +38,7 @@ return {
     max_integrity = 3,
     mass = 2,
     wear_per_use = 0,
+    inventory = { width = 1, height = 2, rotatable = true },
     abilities = {},
   },
   {
@@ -44,6 +48,7 @@ return {
     max_integrity = 2,
     mass = 1,
     wear_per_use = 0,
+    inventory = { width = 1, height = 1, rotatable = false },
     abilities = {},
   },
   {
@@ -53,6 +58,7 @@ return {
     max_integrity = 3,
     mass = 1,
     wear_per_use = 1,
+    inventory = { width = 1, height = 1, rotatable = false },
     abilities = { "ability.explosive.self_destruct" },
   },
 }

@@ -137,6 +137,109 @@ function App:perform_turn(input)
   self:_handle_turn_result(self.session:turn(input))
 end
 
+function App:close_overlay()
+  self.screen = "game"
+  self.menu = 1
+  self.inventory_selected_id = nil
+  self.salvage_corpse_id = nil
+end
+
+function App:open_inventory()
+  if not self.session or not self.session.state.inventory then
+    return false
+  end
+  self.inventory_cursor = self.inventory_cursor or { x = 1, y = 1 }
+  self.inventory_selected_id = nil
+  self.screen = "inventory"
+  self:play_sound("select")
+  return true
+end
+
+function App:move_inventory_cursor(delta_x, delta_y)
+  local inventory = self.session.state.inventory
+  self.inventory_cursor = self.inventory_cursor or { x = 1, y = 1 }
+  self.inventory_cursor.x = clamp(self.inventory_cursor.x + delta_x, 1, inventory.width)
+  self.inventory_cursor.y = clamp(self.inventory_cursor.y + delta_y, 1, inventory.height)
+  self:play_sound("select")
+end
+
+function App:inventory_select_or_place()
+  local inventory = self.session.state.inventory
+  local cursor = self.inventory_cursor
+  if self.inventory_selected_id then
+    local entry = inventory:get(self.inventory_selected_id)
+    local moved, reason = inventory:move(self.inventory_selected_id, cursor.x, cursor.y, entry and entry.rotated)
+    if moved then
+      self.session:_log("Repacked " .. moved.item.display_name .. ".")
+      self.inventory_selected_id = nil
+      self:play_sound("pickup")
+    else
+      self.session:_log(reason)
+      self:play_sound("select")
+    end
+    return moved
+  end
+  local entry = inventory:item_at(cursor.x, cursor.y)
+  if entry then
+    self.inventory_selected_id = entry.physical_id
+    self.session:_log("Selected " .. entry.item.display_name .. ".")
+    self:play_sound("select")
+    return entry
+  end
+  self.session:_log("No item at cursor.")
+  return nil
+end
+
+function App:rotate_inventory_item()
+  local inventory = self.session.state.inventory
+  local entry = self.inventory_selected_id and inventory:get(self.inventory_selected_id)
+    or inventory:item_at(self.inventory_cursor.x, self.inventory_cursor.y)
+  if not entry then
+    self.session:_log("No item selected.")
+    return nil
+  end
+  local rotated, reason = inventory:rotate(entry.physical_id)
+  if rotated then
+    self.session:_log("Rotated " .. entry.item.display_name .. ".")
+    self:play_sound("select")
+  else
+    self.session:_log(reason)
+  end
+  return rotated
+end
+
+function App:open_salvage()
+  local corpse = self.session and self.session:nearby_corpse()
+  if not corpse then
+    if self.session then
+      self.session:_log("No corpse within salvage range.")
+    end
+    return false
+  end
+  self.salvage_corpse_id = corpse.id
+  self.screen, self.menu = "salvage", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:salvage_options()
+  local corpse = self.session and self.session:find_corpse(self.salvage_corpse_id)
+  return corpse and corpse:list_components() or {}
+end
+
+function App:salvage_selected()
+  local options = self:salvage_options()
+  local selection = options[self.menu]
+  if not selection then
+    self.session:_log("Corpse has no salvageable components.")
+    return nil
+  end
+  local result = self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
+  local remaining = self:salvage_options()
+  self.menu = clamp(self.menu, 1, math.max(1, #remaining))
+  return result
+end
+
 function App:start_held_move(direction)
   self.held_direction, self.hold_timer = direction, HOLD_INITIAL_DELAY
 end

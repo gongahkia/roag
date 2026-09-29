@@ -1,4 +1,6 @@
 local Grid = require("src.world.grid")
+local Component = require("src.body.component")
+local PhysicalItem = require("src.inventory.physical_item")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -128,7 +130,7 @@ function Renderer:_draw_game(app)
     end
   end
 
-  local function actor(value, always_visible)
+  local function actor(value, always_visible, override_tint)
     if not value or (not always_visible and not state.visible[Grid.key(value.x, value.y)]) then
       return
     end
@@ -137,7 +139,7 @@ function Renderer:_draw_game(app)
     if not pixel_x then
       return
     end
-    local tint = value.stun and value.stun > 0 and { 1, 0.85, 0.2 } or nil
+    local tint = override_tint or (value.stun and value.stun > 0 and { 1, 0.85, 0.2 } or nil)
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
@@ -147,6 +149,15 @@ function Renderer:_draw_game(app)
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do
     for _, value in ipairs(values) do
       actor(value)
+    end
+  end
+  for _, corpse in ipairs(state.corpses or {}) do
+    local remains = { kind = corpse.source_kind, x = corpse.x, y = corpse.y }
+    actor(remains, false, { 0.32, 0.28, 0.4, 0.8 })
+    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, corpse.x, corpse.y, size, offset_x, offset_y)
+    if pixel_x then
+      self:_color({ 0.85, 0.3, 0.45, 0.75 })
+      love.graphics.rectangle("line", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
     end
   end
   actor(state.ammo)
@@ -181,22 +192,26 @@ function Renderer:_draw_game(app)
   self:_text("FLARES " .. state.player.flares .. "  LIT " .. #state.flares, hud, offset_y + 104)
   self:_text("DASH  " .. (state.player.dash == 0 and "READY" or "RECHARGING"), hud, offset_y + 124)
   self:_text(state.boss and "BOSS " .. state.boss.health .. " / 10" or "SCORE " .. state.player.score .. " / " .. state.settings.score, hud, offset_y + 150, 1, { 0.95, 0.85, 0.25 })
+  local inventory = state.inventory
+  self:_text("CARGO " .. inventory:total_mass() .. "  " .. inventory:encumbrance(), hud, offset_y + 174, 0.88,
+    inventory:encumbrance() == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
   if state.curse then
-    self:_text("CURSE " .. state.curse.name, hud, offset_y + 174, 1, { 0.9, 0.4, 0.8 })
+    self:_text("CURSE " .. state.curse.name, hud, offset_y + 196, 1, { 0.9, 0.4, 0.8 })
   end
   if state.boss then
-    self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, offset_y + 198, 0.8, { 1, 0.6, 0.35 })
+    self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, offset_y + 218, 0.8, { 1, 0.6, 0.35 })
   end
   self:_text("CONTROLS", hud, offset_y + 246, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, offset_y + 266, 0.85)
   self:_text("ARROWS SHOOT   E FORWARD", hud, offset_y + 284, 0.75)
   self:_text("Q dash   B bomb   F flare", hud, offset_y + 302, 0.75)
-  self:_text("INTENTS", hud, offset_y + 338, 1, { 0.9, 0.7, 0.4 })
+  self:_text("G salvage   I inventory", hud, offset_y + 320, 0.75)
+  self:_text("INTENTS", hud, offset_y + 352, 1, { 0.9, 0.7, 0.4 })
   for index, enemy in ipairs(state.enemies) do
     if index > 5 then
       break
     end
-    self:_text(string.upper(enemy.kind) .. ": " .. session:enemy_intent(enemy), hud, offset_y + 356 + index * 17, 0.75)
+    self:_text(string.upper(enemy.kind) .. ": " .. session:enemy_intent(enemy), hud, offset_y + 370 + index * 17, 0.75)
   end
   for index, message in ipairs(state.log) do
     self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
@@ -206,6 +221,100 @@ function Renderer:_draw_game(app)
     self:_color({ 1, 0.04, 0.04, (presentation.hit_flash / 0.32) * 0.16 })
     love.graphics.rectangle("fill", 0, 0, width, height)
   end
+end
+
+function Renderer:_draw_inventory(app)
+  local inventory = app.session.state.inventory
+  local width, height = love.graphics.getDimensions()
+  local cell = math.max(42, math.min(72, math.floor(math.min((width * 0.52) / inventory.width, (height - 210) / inventory.height))))
+  local grid_x = math.floor(width * 0.12)
+  local grid_y = math.floor((height - inventory.height * cell) / 2) + 35
+  local cursor = app.inventory_cursor or { x = 1, y = 1 }
+
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("CARRIED INVENTORY", grid_x, 38, 2, { 0.7, 0.9, 1 })
+  self:_text(inventory:total_mass() .. " MASS  •  " .. inventory:encumbrance(), grid_x, 76, 1, { 0.95, 0.85, 0.3 })
+  for y = 1, inventory.height do
+    for x = 1, inventory.width do
+      local pixel_x = grid_x + (x - 1) * cell
+      local pixel_y = grid_y + (y - 1) * cell
+      self:_color({ 0.055, 0.08, 0.12 })
+      love.graphics.rectangle("fill", pixel_x, pixel_y, cell - 3, cell - 3)
+      self:_color({ 0.18, 0.28, 0.38 })
+      love.graphics.rectangle("line", pixel_x, pixel_y, cell - 3, cell - 3)
+    end
+  end
+  for _, entry in ipairs(inventory.entries) do
+    local item_width, item_height = inventory:footprint(entry.item, entry.rotated)
+    local pixel_x = grid_x + (entry.x - 1) * cell + 2
+    local pixel_y = grid_y + (entry.y - 1) * cell + 2
+    local selected = app.inventory_selected_id == entry.physical_id
+    self:_color(selected and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 })
+    love.graphics.rectangle("fill", pixel_x, pixel_y, item_width * cell - 7, item_height * cell - 7)
+    self:_color({ 0.8, 0.9, 1 })
+    love.graphics.rectangle("line", pixel_x, pixel_y, item_width * cell - 7, item_height * cell - 7)
+    self:_text(entry.item.display_name, pixel_x + 5, pixel_y + 6, 0.7, { 0.95, 0.97, 1 })
+  end
+  local cursor_x = grid_x + (cursor.x - 1) * cell
+  local cursor_y = grid_y + (cursor.y - 1) * cell
+  self:_color({ 1, 0.85, 0.2 })
+  love.graphics.setLineWidth(3)
+  love.graphics.rectangle("line", cursor_x - 2, cursor_y - 2, cell + 1, cell + 1)
+  love.graphics.setLineWidth(1)
+
+  local entry = app.inventory_selected_id and inventory:get(app.inventory_selected_id) or inventory:item_at(cursor.x, cursor.y)
+  local detail_x = grid_x + inventory.width * cell + 42
+  if entry then
+    local item, component = entry.item, entry.item.object
+    local footprint_width, footprint_height = inventory:footprint(item, entry.rotated)
+    self:_text(item.display_name, detail_x, grid_y, 1.25, { 0.95, 0.85, 0.3 })
+    self:_text("ID " .. item.physical_id, detail_x, grid_y + 32, 0.72, { 0.68, 0.76, 0.88 })
+    self:_text("MASS " .. item.mass, detail_x, grid_y + 52, 0.9)
+    self:_text("SIZE " .. footprint_width .. "×" .. footprint_height .. " CELLS", detail_x, grid_y + 74, 0.85)
+    if component then
+      self:_text("INTEGRITY " .. component.current_integrity .. " / " .. component.max_integrity, detail_x, grid_y + 98, 0.85)
+      self:_text(string.upper(Component.condition(component)), detail_x, grid_y + 119, 0.85,
+        Component.is_functional(component) and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+    end
+  else
+    self:_text("EMPTY CELL", detail_x, grid_y, 1, { 0.65, 0.75, 0.9 })
+  end
+  self:_text("WASD / ARROWS MOVE CURSOR", grid_x, height - 96, 0.8, { 0.75, 0.82, 0.92 })
+  self:_text("ENTER SELECT / PLACE     R ROTATE     I / ESC CLOSE", grid_x, height - 70, 0.8, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_salvage(app)
+  local session = app.session
+  local corpse = session:find_corpse(app.salvage_corpse_id)
+  local options = app:salvage_options()
+  local width, height = love.graphics.getDimensions()
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("CORPSE SALVAGE", width * 0.18, 58, 2, { 0.7, 0.9, 1 })
+  if not corpse then
+    self:_text("CORPSE NO LONGER AVAILABLE", width * 0.18, 136, 1, { 1, 0.4, 0.4 })
+  elseif #options == 0 then
+    self:_text("NO SALVAGEABLE COMPONENTS REMAIN", width * 0.18, 136, 1, { 0.72, 0.76, 0.84 })
+  else
+    self:_text(string.upper(corpse.source_kind) .. " REMAINS  " .. corpse.id, width * 0.18, 101, 0.85, { 0.95, 0.85, 0.3 })
+    for index, installed in ipairs(options) do
+      local component = installed.component
+      local definition = session.registry:get_component(component.definition_id)
+      local placement = session.state.inventory:find_first_fit(PhysicalItem.from_component(component, session.registry))
+      local y = 136 + (index - 1) * 88
+      local selected = index == app.menu
+      self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
+      love.graphics.rectangle("fill", width * 0.18, y, width * 0.64, 72)
+      self:_text((selected and "> " or "  ") .. definition.display_name, width * 0.21, y + 9, 1.1,
+        selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
+      self:_text(string.upper(installed.slot_id) .. "  •  " .. component.current_integrity .. "/" .. component.max_integrity
+        .. " " .. string.upper(Component.condition(component)) .. "  •  MASS " .. definition.mass
+        .. "  •  " .. definition.inventory.width .. "×" .. definition.inventory.height,
+        width * 0.21, y + 39, 0.78, { 0.72, 0.76, 0.84 })
+      self:_text(placement and "FITS INVENTORY" or "NO INVENTORY SPACE", width * 0.67, y + 9, 0.72,
+        placement and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.4 })
+    end
+  end
+  self:_text("W/S SELECT     ENTER SALVAGE     G / ESC CLOSE", width * 0.18, height - 58, 0.85, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_menu(title, items, selected, footer)
@@ -287,6 +396,10 @@ function Renderer:draw(app)
     self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
   elseif app.screen == "shop" then
     self:_menu("SHOP — POINTS " .. app.session.state.score, app.content.shop, app.menu, "W/S SELECT     B BUY     V SELL     ENTER FIGHT BOSS")
+  elseif app.screen == "inventory" then
+    self:_draw_inventory(app)
+  elseif app.screen == "salvage" then
+    self:_draw_salvage(app)
   elseif app.screen == "gameover" then
     self:_menu("YOU DIED", { { name = "RETURN TO TITLE", description = "Press Enter to begin a new descent." } }, app.menu, "")
   elseif app.screen == "victory" then

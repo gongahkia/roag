@@ -29,6 +29,12 @@ local function require_nonnegative_number(value, label)
   end
 end
 
+local function require_positive_integer(value, label)
+  if type(value) ~= "number" or value <= 0 or value % 1 ~= 0 then
+    content_error(label .. " must be a positive integer")
+  end
+end
+
 local function validate_declarative(value, path, seen)
   local value_type = type(value)
   if value_type == "function" then
@@ -174,6 +180,14 @@ function Registry:validate()
     require_positive_number(component.max_integrity, "Component '" .. id .. "' max_integrity")
     require_nonnegative_number(component.mass, "Component '" .. id .. "' mass")
     require_nonnegative_number(component.wear_per_use, "Component '" .. id .. "' wear_per_use")
+    if type(component.inventory) ~= "table" then
+      content_error("Component '" .. id .. "' inventory must be a table")
+    end
+    require_positive_integer(component.inventory.width, "Component '" .. id .. "' inventory.width")
+    require_positive_integer(component.inventory.height, "Component '" .. id .. "' inventory.height")
+    if type(component.inventory.rotatable) ~= "boolean" then
+      content_error("Component '" .. id .. "' inventory.rotatable must be a boolean")
+    end
     if type(component.compatible_slots) ~= "table" or #component.compatible_slots == 0 then
       content_error("Component '" .. id .. "' must list compatible_slots")
     end
