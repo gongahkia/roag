@@ -114,6 +114,11 @@ local function slide_axis(current,target,dt,speed)
   if math.abs(delta)<=step then return target end
   return current+(delta>0 and step or -step)
 end
+local function follow_camera_axis(current,target,dt)
+  -- Preserve a subtle follow lag, but close a large gap before the player can leave view.
+  local speed=math.abs(target-current)>1.5 and 18 or 6
+  return slide_axis(current,target,dt,speed)
+end
 
 -- Map generation uses the same cellular forest/cave generation and linked dungeon rooms.
 local function carve(space,x,y,w,h) for px=x,x+w-1 do for py=y,y+h-1 do if px>0 and px<WIDTH-1 and py>0 and py<HEIGHT-1 then space[key(px,py)]=true end end end end
@@ -385,7 +390,7 @@ local function draw_game()
     if e==G.player and (G.hit_flash or 0)>0 then tint={1,.35,.35} end
     draw_sprite(e.kind,px,py,size,tint)
   end
-  for _,list in ipairs({G.torches,G.targets,G.enemies,G.bullets,G.bombs,G.flares}) do for _,e in ipairs(list) do actor(e) end end;actor(G.ammo);actor(G.exit);for k in pairs(G.effects) do local x,y=k:match("(%d+):(%d+)");actor(entity("flare",tonumber(x),tonumber(y))) end;if G.boss then for x=16,24 do actor(entity("boss",x,1)) end end;actor(G.player,true);local px,py=screen_position(G.player.render_x,G.player.render_y,size,ox,oy);color({.15,.9,1});love.graphics.rectangle("line",px,py,size,size);if (G.hit_flash or 0)>0 then color({1,.2,.2,.75});love.graphics.setLineWidth(2);love.graphics.rectangle("line",px-size*.12,py-size*.12,size*1.24,size*1.24);love.graphics.setLineWidth(1) end
+  for _,list in ipairs({G.torches,G.targets,G.enemies,G.bullets,G.bombs,G.flares}) do for _,e in ipairs(list) do actor(e) end end;actor(G.ammo);actor(G.exit);for k in pairs(G.effects) do local x,y=k:match("(%d+):(%d+)");actor(entity("flare",tonumber(x),tonumber(y))) end;if G.boss then for x=16,24 do actor(entity("boss",x,1)) end end;actor(G.player,true);local px,py=screen_position(G.player.render_x,G.player.render_y,size,ox,oy);if px then color({.15,.9,1});love.graphics.rectangle("line",px,py,size,size);if (G.hit_flash or 0)>0 then color({1,.2,.2,.75});love.graphics.setLineWidth(2);love.graphics.rectangle("line",px-size*.12,py-size*.12,size*1.24,size*1.24);love.graphics.setLineWidth(1) end end
   text("ROAG",hud,oy,2,{.7,.9,1});text("HP    "..string.rep("♥",G.player.health),hud,oy+42,1+(G.hit_flash or 0)*.8,{1,.35,.35});text("AMMO  "..G.player.ammo,hud,oy+64);text("BOMBS "..G.player.bombs.."  ARMED "..#G.bombs,hud,oy+84);text("FLARES "..G.player.flares.."  LIT "..#G.flares,hud,oy+104);text("DASH  "..(G.player.dash==0 and "READY" or "RECHARGING"),hud,oy+124);text(G.boss and "BOSS "..G.boss.health.." / 10" or "SCORE "..G.player.score.." / "..G.settings.score,hud,oy+150,1,{.95,.85,.25});if G.curse then text("CURSE "..G.curse.name,hud,oy+174,1,{.9,.4,.8}) end
   if G.boss then text("BOSS "..G.boss.name.." IN "..math.max(0,BOSS_WINDUP-G.boss.attack),hud,oy+198,.8,{1,.6,.35}) end;text("CONTROLS",hud,oy+246,1,{.6,.8,1});text("WASD / ARROWS: FACE, MOVE, HOLD",hud,oy+266,.7);text("E shoot  Q dash",hud,oy+284,.85);text("B bomb   F flare",hud,oy+302,.85);text("INTENTS",hud,oy+338,1,{.9,.7,.4});for i,e in ipairs(G.enemies) do if i>5 then break end;text(string.upper(e.kind)..": "..enemy_intent(e),hud,oy+356+i*17,.75) end;for i,message in ipairs(G.log) do text(message,20,oy+VIEW_H*size+16+(i-1)*17,.78,{.8,.85,.9}) end
   if (G.hit_flash or 0)>0 then local w,h=love.graphics.getDimensions();color({1,.04,.04,(G.hit_flash/.32)*.16});love.graphics.rectangle("fill",0,0,w,h) end
@@ -467,8 +472,8 @@ function love.update(dt)
     e.render_y=slide_axis(e.render_y or e.y,e.y,dt)
   end
   animate(G.player)
-  G.camera_x=slide_axis(G.camera_x or G.player.render_x,G.player.render_x,dt,6)
-  G.camera_y=slide_axis(G.camera_y or G.player.render_y,G.player.render_y,dt,6)
+  G.camera_x=follow_camera_axis(G.camera_x or G.player.render_x,G.player.render_x,dt)
+  G.camera_y=follow_camera_axis(G.camera_y or G.player.render_y,G.player.render_y,dt)
   for _,list in ipairs({G.enemies,G.bullets}) do
     for _,e in ipairs(list) do animate(e) end
   end
