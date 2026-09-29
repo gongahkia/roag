@@ -1,6 +1,9 @@
 -- Authoritative current-run simulation. This module intentionally has no
 -- dependency on LÖVE so it can be created and stepped by tests or tools.
 local Content = require("src.content.legacy")
+local Body = require("src.body.body")
+local ComponentFactory = require("src.body.component_factory")
+local Registry = require("src.content.registry")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local Rng = require("src.rng")
@@ -15,6 +18,9 @@ local DIRECTIONS = {
   d = { 1, 0, "E" },
 }
 local BOSS_WINDUP = 4
+local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
+local PLAYER_ACTOR_ID = "actor.player.legacy"
+local BOMBER_ENEMY_ID = "enemy.legacy.bomber"
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -38,6 +44,7 @@ function Session.new(options)
   options = options or {}
   local self = setmetatable({}, Session)
   self.content = options.content or Content
+  self.registry = options.registry or Registry.load()
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
@@ -48,7 +55,9 @@ function Session.new(options)
     log = {},
     curse_bag = {},
     effects = {},
+    next_component_sequence = 1,
   }
+  self.component_factory = ComponentFactory.new(self.registry, self.state)
   return self
 end
 
@@ -73,6 +82,20 @@ end
 
 function Session:_move_entity(value, x, y)
   value.x, value.y = x, y
+end
+
+function Session:_build_body(actor_definition)
+  local body = Body.new(self.registry, actor_definition.body_topology_id)
+  for _, installation in ipairs(actor_definition.installed_components) do
+    local component = self.component_factory:create(installation.component_id)
+    local installed, reason = body:install(installation.slot_id, component)
+    assert(installed, reason)
+  end
+  return body
+end
+
+function Session:actor_has_capability(actor, ability_id)
+  return actor.body and actor.body:has_capability(ability_id) or false
 end
 
 function Session:_apply(settings, modifiers)
@@ -177,7 +200,7 @@ function Session:_enemy_type(index)
 end
 
 function Session:_make_enemy(kind, point)
-  return entity(kind, point.x, point.y, {
+  local enemy = entity(kind, point.x, point.y, {
     health = 1,
     attack = 0,
     attack_kind = nil,
@@ -187,6 +210,12 @@ function Session:_make_enemy(kind, point)
     radius = 1,
     stun = 0,
   })
+  if kind == "bomber" then
+    local definition = self.registry:get_enemy(BOMBER_ENEMY_ID)
+    enemy.content_id = definition.id
+    enemy.body = self:_build_body(definition)
+  end
+  return enemy
 end
 
 function Session:_spawn_entities()
@@ -239,6 +268,7 @@ end
 function Session:start_stage()
   local state = self.state
   state.settings = self:_settings_for_stage()
+  local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
   state.player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
     direction = "w",
     health = state.settings.health,
@@ -253,6 +283,8 @@ function Session:start_stage()
     bullet_range = state.settings.bullet_range,
     reload_penalty = state.settings.reload_penalty,
     impact = 0,
+    content_id = player_definition.id,
+    body = self:_build_body(player_definition),
   })
   state.explored, state.effects = {}, {}
   state.exit, state.boss = nil, nil
@@ -584,7 +616,7 @@ function Session:_enemy_turn()
         hunt = leader
       end
       local route = self:_path(enemy, hunt, blocked)
-      if enemy.kind == "bomber" and #route <= 2 then
+      if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
         self:_begin_enemy_attack(enemy, "detonate", self.state.player, 0, 1)
       elseif enemy.kind == "wolf" and Grid.distance(enemy, self.state.player) <= 1 then
         self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
@@ -1012,7 +1044,10 @@ function Session:enemy_intent(enemy)
   if enemy.attack > 0 then
     return string.upper(enemy.attack_kind) .. " IN " .. math.max(1, enemy.attack_windup - enemy.attack + 1)
   end
-  return enemy.kind == "wolf" and "POUNCE" or enemy.kind == "bomber" and "DETONATE" or "ADVANCE"
+  if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
+    return "DETONATE"
+  end
+  return enemy.kind == "wolf" and "POUNCE" or "ADVANCE"
 end
 
 return Session
