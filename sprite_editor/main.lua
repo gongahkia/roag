@@ -227,6 +227,7 @@ function love.draw()
   set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.viewport_x-4,layout.viewport_y-4,layout.viewport_width+8,layout.viewport_height+8)
   set_color(.025,.035,.055);love.graphics.rectangle("fill",layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
   love.graphics.setScissor(layout.viewport_x,layout.viewport_y,layout.viewport_width,layout.viewport_height)
+  set_color(1,1,1)
   love.graphics.draw(sheet,layout.sheet_x,layout.sheet_y,0,layout.tile_size/SOURCE_TILE_SIZE,layout.tile_size/SOURCE_TILE_SIZE)
 
   local function outline(column,row,r,g,b,width)
