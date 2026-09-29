@@ -143,18 +143,12 @@ local function load_json()
   end
 end
 
-local function reset_all()
-  mappings=clone_mappings(DEFAULT_MAPPINGS)
-  dirty=true
-  status="Restored the built-in mapping. Click SAVE JSON to keep it."
-end
-
 local function button_layout(layout)
   local width,gap=116,8
   return {
     {label="SAVE JSON", x=24, y=layout.button_y, width=width, action=save_json},
     {label="LOAD JSON", x=24+(width+gap), y=layout.button_y, width=width, action=load_json},
-    {label="RESET", x=24+(width+gap)*2, y=layout.button_y, width=width, action=reset_all},
+    {label="CLOSE", x=24+(width+gap)*2, y=layout.button_y, width=width, action=love.event.quit},
   }
 end
 
@@ -173,11 +167,6 @@ local function tile_at(x,y,layout)
   if valid_tile(column,row) then return column,row end
 end
 
-local function reset_view()
-  sheet_zoom,sheet_pan_x,sheet_pan_y=1,0,0
-  status="Reset sprite-sheet zoom and position."
-end
-
 function love.load()
   love.graphics.setDefaultFilter("nearest","nearest")
   fonts={
@@ -187,7 +176,7 @@ function love.load()
   }
   json_path=love.filesystem.getSource().."/"..JSON_FILE
 
-  sheet=love.graphics.newImage("colored_packed.png")
+  sheet=love.graphics.newImage("colored-transparent_packed.png")
   quads={}
   for column=1,COLUMNS do
     for row=1,ROWS do
@@ -245,7 +234,7 @@ function love.draw()
     set_color(.13,.22,.3);love.graphics.rectangle("fill",button.x,button.y,button.width,34)
     draw_text(button.label,button.x+9,button.y+10,.72,.9,.93,1)
   end
-  draw_text("WHEEL: ZOOM SHEET   RIGHT/MIDDLE DRAG: PAN   0: RESET VIEW",24,layout.height-104,.68,.75,.82,.92)
+  draw_text("WHEEL: ZOOM SHEET   RIGHT/MIDDLE DRAG: PAN",24,layout.height-104,.68,.75,.82,.92)
   draw_text(status,24,layout.height-30,.68,.78,.84,.94)
 end
 
@@ -295,7 +284,6 @@ end
 
 function love.keypressed(key)
   if key=="escape" then love.event.quit()
-  elseif key=="0" then reset_view()
   elseif key=="s" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then save_json()
   elseif key=="l" and (love.keyboard.isDown("lctrl") or love.keyboard.isDown("rctrl")) then load_json()
   end

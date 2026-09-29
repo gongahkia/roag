@@ -13,11 +13,10 @@ Click a gameplay role in the left column, then click a tile in the Kenney sheet.
 
 - Mouse wheel over the sheet: zoom at the cursor.
 - Right- or middle-drag over the sheet: pan.
-- `0`: reset the sheet's zoom and position.
 
 - **Save JSON** serializes the mapping to `sprite_editor/mappings.json` beside this editor.
 - **Load JSON** deserializes that same repository-local file.
-- **Reset** restores the default mapping in the editor; save afterward to persist it.
+- **Close** exits the editor without changing the file; Escape also closes it.
 
 ROAG reads `sprite_editor/mappings.json` on launch and whenever its window
 regains focus. Save your selections here, then start or refocus ROAG; no manual
