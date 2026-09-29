@@ -79,7 +79,8 @@ local SPRITE_ORDER = {
   {kind="boss", label="BOSS"},
 }
 local DIR = { w={0,1,"N"}, a={-1,0,"W"}, s={0,-1,"S"}, d={1,0,"E"} }
-local MOVE_KEY = {w="w",up="w",a="a",left="a",s="s",down="s",d="d",right="d"}
+local MOVE_KEY = {w="w",a="a",s="s",d="d"}
+local SHOT_KEY = {up="w",left="a",down="s",right="d"}
 local HOLD_INITIAL_DELAY, HOLD_REPEAT_DELAY = .28, .11
 
 local G = { screen="title", menu=1, stage=1, score=0, log={}, curse_bag={}, effects={} }
@@ -299,15 +300,25 @@ local function boss_turn()
 end
 local function collect_ammo() if G.ammo and G.player.x==G.ammo.x and G.player.y==G.ammo.y then reload(1,false);G.ammo=nil;sound("pickup");log("Collected ammo.") end end
 local function move_player(direction)
-  local p,d=G.player,DIR[direction];local moved=false;if p.direction==direction and open(p.x+d[1],p.y+d[2]) then move_entity(p,p.x+d[1],p.y+d[2]);moved=true elseif p.direction==direction then log("A wall blocks your path.") end;p.direction=direction;log(moved and "Moved "..d[3].."." or "Faced "..d[3]..".")
+  local p,d=G.player,DIR[direction];local moved=false;p.direction=direction
+  if open(p.x+d[1],p.y+d[2]) then move_entity(p,p.x+d[1],p.y+d[2]);moved=true else log("A wall blocks your path.") end
+  if moved then log("Moved "..d[3]..".") end
 end
 local function dash()
   local p=G.player;if p.dash>0 then log("Dash is recharging.");return end;local d=DIR[p.direction];local ox,oy=p.x,p.y;for _=1,2 do if open(p.x+d[1],p.y+d[2]) then move_entity(p,p.x+d[1],p.y+d[2]) else break end end;if p.x==ox and p.y==oy then log("Dash blocked.");return end;p.dash=p.dash_base;sound("step");log("Dashed forward.")
 end
+local function shoot(direction)
+  local p=G.player;p.direction=direction or p.direction
+  if p.ammo<=0 then log("No more ammo, find more to shoot.");return end
+  p.ammo=p.ammo-1
+  push(G.bullets,entity("bullet",p.x,p.y,{direction=p.direction,active=false,travel=1,max=p.bullet_range,light=2}))
+  sound("shoot");log("Fired "..DIR[p.direction][3]..".")
+end
 local function action(input)
   local p=G.player;if DIR[input] then move_player(input);sound("step");return end;if p.impact>0 then log("You are recovering from the hit.");return end
   if input=="q" then dash()
-  elseif input=="e" then if p.ammo<=0 then log("No more ammo, find more to shoot.") else p.ammo=p.ammo-1;push(G.bullets,entity("bullet",p.x,p.y,{direction=p.direction,active=false,travel=1,max=p.bullet_range,light=2}));sound("shoot");log("Fired a shot.") end
+  elseif input=="e" then shoot()
+  elseif input:match("^shoot_[wasd]$") then shoot(input:sub(-1))
   elseif input=="b" then if p.bombs<=0 then log("No bombs left. Buy bombs in the shop.") else p.bombs=p.bombs-1;push(G.bombs,entity("bomb",p.x,p.y,{fuse=p.bomb_fuse,radius=p.bomb_radius,light=3}));sound("select");log("Bomb armed. Move away before it explodes.") end
   elseif input=="f" then if p.flares<=0 then log("No flares left. Buy flares in the shop.") else p.flares=p.flares-1;push(G.flares,entity("flare",p.x,p.y,{fuse=2,radius=1,stun=2,light=3}));sound("flare");log("Flare lit. Necromancers will be stunned.") end end
 end
@@ -392,7 +403,7 @@ local function draw_game()
   end
   for _,list in ipairs({G.torches,G.targets,G.enemies,G.bullets,G.bombs,G.flares}) do for _,e in ipairs(list) do actor(e) end end;actor(G.ammo);actor(G.exit);for k in pairs(G.effects) do local x,y=k:match("(%d+):(%d+)");actor(entity("flare",tonumber(x),tonumber(y))) end;if G.boss then for x=16,24 do actor(entity("boss",x,1)) end end;actor(G.player,true);local px,py=screen_position(G.player.render_x,G.player.render_y,size,ox,oy);if px then color({.15,.9,1});love.graphics.rectangle("line",px,py,size,size);if (G.hit_flash or 0)>0 then color({1,.2,.2,.75});love.graphics.setLineWidth(2);love.graphics.rectangle("line",px-size*.12,py-size*.12,size*1.24,size*1.24);love.graphics.setLineWidth(1) end end
   text("ROAG",hud,oy,2,{.7,.9,1});text("HP    "..string.rep("♥",G.player.health),hud,oy+42,1+(G.hit_flash or 0)*.8,{1,.35,.35});text("AMMO  "..G.player.ammo,hud,oy+64);text("BOMBS "..G.player.bombs.."  ARMED "..#G.bombs,hud,oy+84);text("FLARES "..G.player.flares.."  LIT "..#G.flares,hud,oy+104);text("DASH  "..(G.player.dash==0 and "READY" or "RECHARGING"),hud,oy+124);text(G.boss and "BOSS "..G.boss.health.." / 10" or "SCORE "..G.player.score.." / "..G.settings.score,hud,oy+150,1,{.95,.85,.25});if G.curse then text("CURSE "..G.curse.name,hud,oy+174,1,{.9,.4,.8}) end
-  if G.boss then text("BOSS "..G.boss.name.." IN "..math.max(0,BOSS_WINDUP-G.boss.attack),hud,oy+198,.8,{1,.6,.35}) end;text("CONTROLS",hud,oy+246,1,{.6,.8,1});text("WASD / ARROWS: FACE, MOVE, HOLD",hud,oy+266,.7);text("E shoot  Q dash",hud,oy+284,.85);text("B bomb   F flare",hud,oy+302,.85);text("INTENTS",hud,oy+338,1,{.9,.7,.4});for i,e in ipairs(G.enemies) do if i>5 then break end;text(string.upper(e.kind)..": "..enemy_intent(e),hud,oy+356+i*17,.75) end;for i,message in ipairs(G.log) do text(message,20,oy+VIEW_H*size+16+(i-1)*17,.78,{.8,.85,.9}) end
+  if G.boss then text("BOSS "..G.boss.name.." IN "..math.max(0,BOSS_WINDUP-G.boss.attack),hud,oy+198,.8,{1,.6,.35}) end;text("CONTROLS",hud,oy+246,1,{.6,.8,1});text("WASD MOVE / HOLD",hud,oy+266,.85);text("ARROWS SHOOT   E FORWARD",hud,oy+284,.75);text("Q dash   B bomb   F flare",hud,oy+302,.75);text("INTENTS",hud,oy+338,1,{.9,.7,.4});for i,e in ipairs(G.enemies) do if i>5 then break end;text(string.upper(e.kind)..": "..enemy_intent(e),hud,oy+356+i*17,.75) end;for i,message in ipairs(G.log) do text(message,20,oy+VIEW_H*size+16+(i-1)*17,.78,{.8,.85,.9}) end
   if (G.hit_flash or 0)>0 then local w,h=love.graphics.getDimensions();color({1,.04,.04,(G.hit_flash/.32)*.16});love.graphics.rectangle("fill",0,0,w,h) end
 end
 
@@ -525,6 +536,8 @@ function love.keypressed(k,scancode,isrepeat)
     local direction=MOVE_KEY[k]
     if direction then
       if not isrepeat then G.held_direction,G.hold_timer=direction,HOLD_INITIAL_DELAY;turn(direction) end
+    elseif SHOT_KEY[k] then
+      if not isrepeat then turn("shoot_"..SHOT_KEY[k]) end
     elseif k=="q" or k=="e" or k=="b" or k=="f" then turn(k) end
   end
 end
