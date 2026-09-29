@@ -17,8 +17,11 @@ Click a gameplay role in the left column, then click a tile in the Kenney sheet.
 
 - **Save JSON** serializes the mapping to `sprite_editor/mappings.json` beside this editor.
 - **Load JSON** deserializes that same repository-local file.
-- **Copy Lua** copies a replacement table for the game's `sprite_map.lua` to the clipboard.
 - **Reset** restores the default mapping in the editor; save afterward to persist it.
+
+ROAG reads `sprite_editor/mappings.json` on launch and whenever its window
+regains focus. Save your selections here, then start or refocus ROAG; no manual
+copying into `sprite_map.lua` is required.
 
 The JSON schema is intentionally small:
 

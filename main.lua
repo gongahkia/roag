@@ -41,11 +41,21 @@ local CURSES = {
   {name="RUSTED BARREL",description="BULLETS FADE EARLY",modifiers={bullet_range=3}},
   {name="DRY RELOAD",description="KILLS RESTORE LESS AMMO",modifiers={reload_penalty=1}},
 }
--- Sprite assignments live in a small, user-editable file. The Sprite Lab on
--- the title screen previews this same table and can change it for this launch.
+-- sprite_map.lua is the safe fallback. The standalone editor owns the JSON
+-- mapping that ROAG reads whenever it starts or regains window focus.
 local SPRITE = require("sprite_map")
 local DEFAULT_SPRITE = {}
 for kind,tile in pairs(SPRITE) do DEFAULT_SPRITE[kind]={tile[1],tile[2]} end
+local function load_sprite_mappings()
+  local contents=love.filesystem.read("sprite_editor/mappings.json")
+  if not contents then return end
+  for kind,column,row in contents:gmatch('\"([%w_]+)\"%s*:%s*{%s*\"column\"%s*:%s*(%d+)%s*,%s*\"row\"%s*:%s*(%d+)%s*}') do
+    column,row=tonumber(column),tonumber(row)
+    if DEFAULT_SPRITE[kind] and column>=1 and column<=49 and row>=1 and row<=22 then
+      SPRITE[kind]={column,row}
+    end
+  end
+end
 local SPRITE_ORDER = {
   {kind="player", label="PLAYER"}, {kind="target", label="TARGET"},
   {kind="ammo", label="AMMO"}, {kind="torch", label="TORCH"},
@@ -354,7 +364,7 @@ local function draw_sprite_lab()
   text("WASD / ARROWS: BROWSE TILE",28,h-104,.78,{.75,.82,.92})
   text("Q / E: CHANGE CHARACTER     ENTER: ASSIGN LIVE",28,h-82,.78,{.75,.82,.92})
   text("R: RESET CHARACTER     X: RESET ALL     P / ESC: RETURN",28,h-60,.78,{.75,.82,.92})
-  text("TO KEEP A CHOICE: COPY ITS [COLUMN, ROW] INTO sprite_map.lua",28,h-34,.72,{.95,.65,.45})
+  text("PREVIEW ONLY — SAVE MAPPINGS IN THE STANDALONE SPRITE EDITOR",28,h-34,.72,{.95,.65,.45})
 end
 local function menu(title,items,footer)
   love.graphics.clear(.025,.035,.055);local w,h=love.graphics.getDimensions();text(title,w/2-#title*8,70,2,{.7,.9,1});for i,item in ipairs(items) do local y=150+(i-1)*84;local selected=i==G.menu;color(selected and {.13,.22,.3} or {.06,.08,.12});love.graphics.rectangle("fill",w*.18,y,w*.64,68);text((selected and "> " or "  ")..item.name,w*.21,y+9,1.25,selected and {.95,.85,.3} or {1,1,1});text(item.description or "",w*.21,y+37,.85,{.72,.76,.84}) end;text(footer or "W/S SELECT     ENTER CONFIRM",w/2-150,h-52,1,{.65,.75,.9})
@@ -363,8 +373,24 @@ local SHOP={{name="HEALTH",description="BUY [B] / SELL [V] — MAX 5",key="healt
 local function draw_shop() menu("SHOP — POINTS "..G.score,SHOP,"W/S SELECT     B BUY     V SELL     ENTER FIGHT BOSS") end
 
 function love.load()
-  love.graphics.setDefaultFilter("nearest","nearest");G.font=love.graphics.newFont("assets/fonts/BigBlueTermPlusNerdFontMono-Regular.ttf",16);love.graphics.setFont(G.font);G.sheet=love.graphics.newImage("assets/kenney/Tilesheet/colored_packed.png");G.quads={};for x=1,49 do for y=1,22 do G.quads[x..":"..y]=love.graphics.newQuad((x-1)*16,(y-1)*16,16,16,G.sheet) end end;G.sounds={};for name,file in pairs({step="footstep00",shoot="drawKnife1",hit="chop",boom="metalPot3",flare="metalClick",hurt="knifeSlice",door="doorOpen_1",pickup="handleCoins",select="bookFlip2"}) do local ok,source=pcall(love.audio.newSource,"assets/sounds/OGG/"..file..".ogg","static");if ok then G.sounds[name]=source end end
+  love.graphics.setDefaultFilter("nearest","nearest")
+  G.font=love.graphics.newFont("assets/fonts/BigBlueTermPlusNerdFontMono-Regular.ttf",16)
+  love.graphics.setFont(G.font)
+  G.sheet=love.graphics.newImage("assets/kenney/Tilesheet/colored_packed.png")
+  G.quads={}
+  for x=1,49 do
+    for y=1,22 do
+      G.quads[x..":"..y]=love.graphics.newQuad((x-1)*16,(y-1)*16,16,16,G.sheet)
+    end
+  end
+  load_sprite_mappings()
+  G.sounds={}
+  for name,file in pairs({step="footstep00",shoot="drawKnife1",hit="chop",boom="metalPot3",flare="metalClick",hurt="knifeSlice",door="doorOpen_1",pickup="handleCoins",select="bookFlip2"}) do
+    local ok,source=pcall(love.audio.newSource,"assets/sounds/OGG/"..file..".ogg","static")
+    if ok then G.sounds[name]=source end
+  end
 end
+function love.focus(focused) if focused then load_sprite_mappings() end end
 function love.draw() if G.screen=="game" then draw_game() elseif G.screen=="title" then love.graphics.clear(.025,.035,.055);local w,h=love.graphics.getDimensions();text("ROAG",w/2-104,h/2-100,4,{.7,.9,1});text("A ONE-BIT DESCENT",w/2-110,h/2-34,1.2,{.7,.75,.85});text("PRESS ENTER TO BEGIN",w/2-115,h/2+48,1,{.95,.85,.3});text("P: SPRITE LAB",w/2-62,h/2+78,.82,{.75,.82,.92}) elseif G.screen=="sprite_lab" then draw_sprite_lab() elseif G.screen=="class" then menu("CHOOSE YOUR CLASS",CLASSES) elseif G.screen=="boon" then menu("CHOOSE A BOON",G.boon_options) elseif G.screen=="curse" then menu("CHOOSE A CURSE",G.curse_options,"W/S SELECT     ENTER ACCEPT BURDEN") elseif G.screen=="shop" then draw_shop() elseif G.screen=="gameover" then menu("YOU DIED",{{name="RETURN TO TITLE",description="Press Enter to begin a new descent."}},"") elseif G.screen=="victory" then menu("YOU HAVE WON",{{name="THE DESCENT IS OVER",description="Press Enter to return to the title."}},"") end end
 local function move_menu(n,limit) G.menu=clamp(G.menu+n,1,limit);sound("select") end
 function love.keypressed(k)
