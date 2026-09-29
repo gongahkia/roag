@@ -52,7 +52,7 @@ return {
       first.current_integrity = 1
       assert(second.current_integrity == 3)
       assert(registry:get_component(first.definition_id).max_integrity == 3)
-      assert(Component.condition(first) == "damaged")
+      assert(Component.condition(first) == "critical")
       assert(Component.condition(second) == "healthy")
     end,
   },
@@ -147,7 +147,7 @@ return {
       assert(bomber.body:uninstall("internal_1"))
       bomber.attack, bomber.attack_kind, bomber.attack_windup = 0, nil, 0
       session:_enemy_turn()
-      assert(bomber.attack_kind == "spell")
+      assert(bomber.attack_kind == nil)
     end,
   },
 }

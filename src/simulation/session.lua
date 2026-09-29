@@ -4,6 +4,7 @@ local Content = require("src.content.legacy")
 local Body = require("src.body.body")
 local ComponentFactory = require("src.body.component_factory")
 local Registry = require("src.content.registry")
+local BodyDamage = require("src.simulation.body_damage")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local Rng = require("src.rng")
@@ -96,6 +97,71 @@ end
 
 function Session:actor_has_capability(actor, ability_id)
   return actor.body and actor.body:has_capability(ability_id) or false
+end
+
+function Session:_log_component_transition(actor, result)
+  if not result.applied or not result.condition_changed then
+    return
+  end
+  local definition = self.registry:get_component(result.definition_id)
+  local owner = actor == self.state.player and "" or string.upper(actor.kind) .. " "
+  self:_log(string.upper(owner .. definition.display_name) .. " " .. string.upper(result.new_condition))
+end
+
+function Session:damage_actor_body(actor, damage_spec)
+  if not actor.body then
+    return {
+      applied = false,
+      cause = damage_spec and damage_spec.cause or "kinetic",
+      reason = "Actor has no body",
+    }
+  end
+  local spec = {}
+  for key, value in pairs(damage_spec or {}) do
+    spec[key] = value
+  end
+  spec.rng = spec.rng or self.rng
+  local result = BodyDamage.apply(actor.body, spec)
+  self:_log_component_transition(actor, result)
+  return result
+end
+
+function Session:wear_actor_component(actor, slot_id, source)
+  if not actor.body then
+    return {
+      applied = false,
+      cause = "wear",
+      slot_id = slot_id,
+      reason = "Actor has no body",
+    }
+  end
+  local component = actor.body:get_component(slot_id)
+  if not component then
+    return {
+      applied = false,
+      cause = "wear",
+      slot_id = slot_id,
+      reason = "Body slot '" .. tostring(slot_id) .. "' is empty",
+    }
+  end
+  local definition = self.registry:get_component(component.definition_id)
+  if definition.wear_per_use == 0 then
+    return {
+      applied = false,
+      cause = "wear",
+      slot_id = slot_id,
+      component_id = component.id,
+      definition_id = component.definition_id,
+      reason = "Component has no usage wear",
+    }
+  end
+  local result = BodyDamage.apply_wear(actor.body, {
+    amount = definition.wear_per_use,
+    slot_id = slot_id,
+    source = source,
+  })
+  self:_log_component_transition(actor, result)
+  return result
 end
 
 function Session:_apply(settings, modifiers)
@@ -458,6 +524,11 @@ function Session:_update_bullets()
       for index = #state.enemies, 1, -1 do
         local enemy = state.enemies[index]
         if enemy.x == bullet.x and enemy.y == bullet.y then
+          self:damage_actor_body(enemy, {
+            amount = 1,
+            cause = "kinetic",
+            source = "bullet",
+          })
           enemy.health = enemy.health - 1
           if enemy.health <= 0 then
             self:_destroy_enemy(index)
@@ -503,6 +574,11 @@ function Session:_update_bombs()
       for index = #state.enemies, 1, -1 do
         local enemy = state.enemies[index]
         if cells[Grid.key(enemy.x, enemy.y)] then
+          self:damage_actor_body(enemy, {
+            amount = 2,
+            cause = "explosive",
+            source = "bomb",
+          })
           enemy.health = enemy.health - 2
           if enemy.health <= 0 then
             self:_destroy_enemy(index)
@@ -618,6 +694,10 @@ function Session:_enemy_turn()
       local route = self:_path(enemy, hunt, blocked)
       if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
         self:_begin_enemy_attack(enemy, "detonate", self.state.player, 0, 1)
+      elseif enemy.kind == "bomber" then
+        if #route > 2 then
+          self:_move_entity(enemy, route[2].x, route[2].y)
+        end
       elseif enemy.kind == "wolf" and Grid.distance(enemy, self.state.player) <= 1 then
         self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
       elseif enemy.kind == "wolf" and #route > 2 then

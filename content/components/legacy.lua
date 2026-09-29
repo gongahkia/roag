@@ -7,6 +7,7 @@ return {
     compatible_slots = { "head" },
     max_integrity = 3,
     mass = 1,
+    wear_per_use = 0,
     abilities = {},
   },
   {
@@ -15,6 +16,7 @@ return {
     compatible_slots = { "torso_core" },
     max_integrity = 5,
     mass = 4,
+    wear_per_use = 0,
     abilities = {},
   },
   {
@@ -23,6 +25,7 @@ return {
     compatible_slots = { "arm" },
     max_integrity = 3,
     mass = 2,
+    wear_per_use = 0,
     abilities = {},
   },
   {
@@ -31,6 +34,7 @@ return {
     compatible_slots = { "leg" },
     max_integrity = 3,
     mass = 2,
+    wear_per_use = 0,
     abilities = {},
   },
   {
@@ -39,14 +43,16 @@ return {
     compatible_slots = { "internal" },
     max_integrity = 2,
     mass = 1,
+    wear_per_use = 0,
     abilities = {},
   },
   {
     id = "component.internal.legacy_volatile_charge",
     display_name = "Volatile Charge",
     compatible_slots = { "internal" },
-    max_integrity = 1,
+    max_integrity = 3,
     mass = 1,
+    wear_per_use = 1,
     abilities = { "ability.explosive.self_destruct" },
   },
 }

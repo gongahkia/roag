@@ -81,11 +81,48 @@ function Body:list_components()
   return components
 end
 
+function Body:list_installed_slots()
+  local installed = {}
+  for _, slot_id in ipairs(self.slot_order) do
+    local slot = self.slots[slot_id]
+    if slot.component then
+      installed[#installed + 1] = {
+        slot_id = slot_id,
+        slot = slot,
+        component = slot.component,
+      }
+    end
+  end
+  return installed
+end
+
+function Body:find_component(component_id)
+  for _, installed in ipairs(self:list_installed_slots()) do
+    if installed.component.id == component_id then
+      return installed
+    end
+  end
+  return nil
+end
+
+function Body:detach(slot_id)
+  local slot = self:get_slot(slot_id)
+  if not slot then
+    return nil, "Unknown body slot '" .. tostring(slot_id) .. "'"
+  end
+  if not slot.component then
+    return nil, "Body slot '" .. slot_id .. "' is empty"
+  end
+  local component = slot.component
+  slot.component = nil
+  return component
+end
+
 function Body:capability_providers(ability_id)
   local providers = {}
   for _, slot_id in ipairs(self.slot_order) do
     local component = self.slots[slot_id].component
-    if component then
+    if component and Component.is_functional(component) then
       local definition = self.registry:get_component(component.definition_id)
       for _, provided_ability in ipairs(definition.abilities) do
         if provided_ability == ability_id then

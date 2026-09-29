@@ -56,6 +56,7 @@ return {
         compatible_slots = { "internal" },
         max_integrity = 1,
         mass = 1,
+        wear_per_use = 0,
         abilities = { "ability.missing.nope" },
       }
       assert_failure("Unknown ability ID 'ability.missing.nope'", function()
@@ -75,6 +76,25 @@ return {
         callback = function() end,
       }
       assert_failure("must be declarative data, not a function", function()
+        Registry.new(invalid_sources)
+      end)
+    end,
+  },
+  {
+    name = "negative usage wear fails validation",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.components = copy_list(invalid_sources.components)
+      invalid_sources.components[#invalid_sources.components + 1] = {
+        id = "component.internal.invalid_wear",
+        display_name = "Invalid Wear",
+        compatible_slots = { "internal" },
+        max_integrity = 1,
+        mass = 1,
+        wear_per_use = -1,
+        abilities = {},
+      }
+      assert_failure("wear_per_use must be a non-negative number", function()
         Registry.new(invalid_sources)
       end)
     end,

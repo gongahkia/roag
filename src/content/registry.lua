@@ -173,6 +173,7 @@ function Registry:validate()
     require_string(component.display_name, "Component '" .. id .. "' display_name")
     require_positive_number(component.max_integrity, "Component '" .. id .. "' max_integrity")
     require_nonnegative_number(component.mass, "Component '" .. id .. "' mass")
+    require_nonnegative_number(component.wear_per_use, "Component '" .. id .. "' wear_per_use")
     if type(component.compatible_slots) ~= "table" or #component.compatible_slots == 0 then
       content_error("Component '" .. id .. "' must list compatible_slots")
     end
