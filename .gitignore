@@ -1,16 +1,1 @@
-__pycache__/
-*.py[cod]
-.coverage
-coverage/
-htmlcov/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-.jomon-data/
-jomon-save.json
-.jomon-save.json.tmp
-test-results/
-AGENTS.md
-jomon-pygame-save.json
+__pycache__
