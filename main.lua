@@ -79,6 +79,8 @@ local SPRITE_ORDER = {
   {kind="boss", label="BOSS"},
 }
 local DIR = { w={0,1,"N"}, a={-1,0,"W"}, s={0,-1,"S"}, d={1,0,"E"} }
+local MOVE_KEY = {w="w",up="w",a="a",left="a",s="s",down="s",d="d",right="d"}
+local HOLD_INITIAL_DELAY, HOLD_REPEAT_DELAY = .28, .11
 
 local G = { screen="title", menu=1, stage=1, score=0, log={}, curse_bag={}, effects={} }
 
@@ -205,12 +207,17 @@ local function refill_entities()
 end
 local function start_stage()
   G.settings=settings_for_stage();G.player=entity("player",math.floor(WIDTH/2),math.floor(HEIGHT/2),{direction="w",health=G.settings.health,ammo=G.settings.ammo,bombs=G.settings.bombs,flares=G.settings.flares,score=0,dash=0,dash_base=G.settings.dash_cooldown,bomb_radius=G.settings.bomb_radius,bomb_fuse=G.settings.bomb_fuse,bullet_range=G.settings.bullet_range,reload_penalty=G.settings.reload_penalty,impact=0})
-  G.camera_x,G.camera_y=G.player.x,G.player.y
+  G.camera_x,G.camera_y=G.player.x,G.player.y;G.explored={};G.held_direction=nil
   G.space=generate(G.settings.terrain,G.player);G.effects={};G.exit=nil;G.boss=nil;G.log={};G.phase="combat";G.screen="game";spawn_entities();log("Descend into the "..G.settings.terrain..".")
 end
 
 local function reload(amount,cursed) G.player.ammo=G.player.ammo+math.max(0,amount-(cursed and G.player.reload_penalty or 0)) end
-local function hurt(message) G.player.health=math.max(0,G.player.health-1);G.player.impact=2;sound("hurt");log(message);if G.player.health==0 then G.screen="gameover" end end
+local function hurt(message)
+  G.player.health=math.max(0,G.player.health-1);G.player.impact=2
+  G.hit_flash,G.hit_shake=.32,.24
+  sound("hurt");log(message)
+  if G.player.health==0 then G.screen="gameover" end
+end
 local function destroy_target(i) remove(G.targets,i);G.player.score=G.player.score+1;reload(1,true);sound("hit");log("Destroyed a target.") end
 local function destroy_enemy(i) remove(G.enemies,i);G.player.score=G.player.score+1;reload(2,true);sound("hit");log("Defeated an enemy.") end
 local function boss_hitbox() local r={};for x=16,24 do r[key(x,1)]=true end;return r end
@@ -310,7 +317,7 @@ local function turn(input)
   elseif G.player.score>=G.settings.score then begin_exit() else enemy_turn();refill_entities() end
 end
 local function start_boss()
-  local p=G.player;p.x,p.y,p.render_x,p.render_y,p.direction,p.score=20,9,20,9,"w",0;G.camera_x,G.camera_y=p.x,p.y;p.bombs,p.flares=math.max(1,p.bombs),math.max(1,p.flares);p.dash=0;p.dash_base=math.max(1,3+(G.class.modifiers.dash_cooldown or 0)+(G.boon.modifiers.dash_cooldown or 0));p.bomb_radius,p.bomb_fuse,p.bullet_range,p.reload_penalty=2,3,nil,0
+  local p=G.player;p.x,p.y,p.render_x,p.render_y,p.direction,p.score=20,9,20,9,"w",0;G.camera_x,G.camera_y=p.x,p.y;G.explored={};G.held_direction=nil;p.bombs,p.flares=math.max(1,p.bombs),math.max(1,p.flares);p.dash=0;p.dash_base=math.max(1,3+(G.class.modifiers.dash_cooldown or 0)+(G.boon.modifiers.dash_cooldown or 0));p.bomb_radius,p.bomb_fuse,p.bullet_range,p.reload_penalty=2,3,nil,0
   G.settings={terrain="arena",vision=99,score=10};G.space=generate("arena",p,true);G.targets,G.enemies,G.bullets,G.bombs,G.flares,G.torches={},{},{},{},{},{};G.effects={};G.exit=nil;G.boss={kind="boss",x=16,y=1,health=10,attack=0,type="crossfire",name="CROSSFIRE",radius=3,line="PuNy MoRtAl, yoU dArE cHalLenGE mE?"};new_boss_attack();local a=open_location(G.space,occupied(true));G.ammo=entity("ammo",a.x,a.y);G.phase="boss";G.screen="game";log("The boss awaits.")
 end
 
@@ -320,6 +327,42 @@ local function draw_sprite(kind,x,y,size,tint) if tint then color(tint) else lov
 local function layout() local w,h=love.graphics.getDimensions();local margin,sidebar,gap=20,270,20;local size=math.max(10,math.min(24,math.floor(math.min((w-sidebar-gap-margin*2)/VIEW_W,(h-130)/VIEW_H))));return size,margin,margin,margin+VIEW_W*size+gap end
 local function camera_position() return G.camera_x or G.player.render_x or G.player.x,G.camera_y or G.player.render_y or G.player.y end
 local function screen_position(x,y,size,ox,oy) local camera_x,camera_y=camera_position();local sx=x-camera_x+math.floor((VIEW_W-1)/2);local sy=y-camera_y+math.floor((VIEW_H-1)/2);if sx<-1 or sx>=VIEW_W+1 or sy<-1 or sy>=VIEW_H+1 then return nil end;return ox+sx*size,oy+(VIEW_H-1-sy)*size end
+local function has_line_of_sight(x0,y0,x1,y1)
+  local dx,dy=math.abs(x1-x0),math.abs(y1-y0)
+  local sx,sy=x0<x1 and 1 or -1,y0<y1 and 1 or -1
+  local err=dx-dy
+  while x0~=x1 or y0~=y1 do
+    local twice=err*2
+    if twice>-dy then err=err-dy;x0=x0+sx end
+    if twice<dx then err=err+dx;y0=y0+sy end
+    if x0~=x1 or y0~=y1 then
+      if not open(x0,y0) then return false end
+    end
+  end
+  return true
+end
+local function light_area(source,radius,visible)
+  if radius>=math.max(WIDTH,HEIGHT) then
+    for x=0,WIDTH-1 do for y=0,HEIGHT-1 do visible[key(x,y)]=true end end
+    return
+  end
+  for x=source.x-radius,source.x+radius do
+    for y=source.y-radius,source.y+radius do
+      local dx,dy=x-source.x,y-source.y
+      if in_world(x,y) and dx*dx+dy*dy<=radius*radius and has_line_of_sight(source.x,source.y,x,y) then visible[key(x,y)]=true end
+    end
+  end
+end
+local function visibility()
+  local visible={};G.explored=G.explored or {}
+  light_area(G.player,G.settings.vision,visible)
+  for _,list in ipairs({G.torches,G.bombs,G.flares,G.bullets}) do
+    for _,e in ipairs(list) do if e.light then light_area(e,e.light,visible) end end
+  end
+  for k in pairs(G.effects) do visible[k]=true end
+  for k in pairs(visible) do G.explored[k]=true end
+  return visible,G.explored
+end
 local function telegraphs()
   local r={};for _,e in ipairs(G.enemies) do if e.attack>0 then for k in pairs(attack_cells(e)) do r[k]=e.attack>=e.attack_windup and "danger" or "warn" end end end;if G.boss then for k in pairs(boss_cells()) do r[k]=G.boss.attack>=BOSS_WINDUP-1 and "danger" or "warn" end end;return r
 end
@@ -329,14 +372,23 @@ local function enemy_intent(e)
   return e.kind=="wolf" and "POUNCE" or e.kind=="bomber" and "DETONATE" or "ADVANCE"
 end
 local function draw_game()
-  local size,ox,oy,hud=layout();love.graphics.clear(.025,.035,.055);color({.08,.1,.14});love.graphics.rectangle("fill",ox-4,oy-4,VIEW_W*size+8,VIEW_H*size+8);local floor=({forest={.09,.19,.13},cave={.12,.14,.18},dungeon={.16,.12,.18},arena={.14,.12,.17}})[G.settings.terrain]
+  local size,ox,oy,hud=layout();love.graphics.clear(.025,.035,.055);local shake=(G.hit_shake or 0)/.24;local time=love.timer.getTime();ox,oy=ox+math.sin(time*78)*6*shake,oy+math.cos(time*93)*4*shake;color({.08,.1,.14});love.graphics.rectangle("fill",ox-4,oy-4,VIEW_W*size+8,VIEW_H*size+8);local floor=({forest={.09,.19,.13},cave={.12,.14,.18},dungeon={.16,.12,.18},arena={.14,.12,.17}})[G.settings.terrain]
+  local visible,explored=visibility()
   local camera_x,camera_y=camera_position();local base_x,base_y=math.floor(camera_x)-math.floor((VIEW_W-1)/2),math.floor(camera_y)-math.floor((VIEW_H-1)/2);local offset_x,offset_y=camera_x-math.floor(camera_x),camera_y-math.floor(camera_y)
-  for vx=-1,VIEW_W do for vy=-1,VIEW_H do local x,y=base_x+vx,base_y+vy;local px,py=ox+(vx-offset_x)*size,oy+(VIEW_H-1-vy+offset_y)*size;if in_world(x,y) then if open(x,y) then color(floor);love.graphics.rectangle("fill",px,py,size,size);if (x*7+y*11)%5==0 then color({floor[1]*1.55,floor[2]*1.55,floor[3]*1.55});love.graphics.rectangle("fill",px+size*.35,py+size*.35,math.max(1,size*.12),math.max(1,size*.12)) end else color({.11,.075,.13});love.graphics.rectangle("fill",px,py,size,size);color({.22,.13,.22});love.graphics.rectangle("line",px,py,size,size) end end end end
+  for vx=-1,VIEW_W do for vy=-1,VIEW_H do local x,y=base_x+vx,base_y+vy;local px,py=ox+(vx-offset_x)*size,oy+(VIEW_H-1-vy+offset_y)*size;local tile=key(x,y);if in_world(x,y) and visible[tile] then if open(x,y) then color(floor);love.graphics.rectangle("fill",px,py,size,size);if (x*7+y*11)%5==0 then color({floor[1]*1.55,floor[2]*1.55,floor[3]*1.55});love.graphics.rectangle("fill",px+size*.35,py+size*.35,math.max(1,size*.12),math.max(1,size*.12)) end else color({.11,.075,.13});love.graphics.rectangle("fill",px,py,size,size);color({.22,.13,.22});love.graphics.rectangle("line",px,py,size,size) end elseif in_world(x,y) and explored[tile] then color(open(x,y) and {floor[1]*.28,floor[2]*.28,floor[3]*.28} or {.035,.025,.04});love.graphics.rectangle("fill",px,py,size,size) else color({.008,.011,.017});love.graphics.rectangle("fill",px,py,size,size) end end end
   for k,style in pairs(telegraphs()) do local x,y=k:match("(%d+):(%d+)");local px,py=screen_position(tonumber(x),tonumber(y),size,ox,oy);if px then color(style=="danger" and {1,.2,.15,.4} or {1,.75,.15,.28});love.graphics.rectangle("fill",px,py,size,size) end end
-  local function actor(e) if e then local px,py=screen_position(e.render_x or e.x,e.render_y or e.y,size,ox,oy);if px then draw_sprite(e.kind,px,py,size,e.stun and e.stun>0 and {1,.85,.2} or nil) end end end
-  for _,list in ipairs({G.torches,G.targets,G.enemies,G.bullets,G.bombs,G.flares}) do for _,e in ipairs(list) do actor(e) end end;actor(G.ammo);actor(G.exit);for k in pairs(G.effects) do local x,y=k:match("(%d+):(%d+)");actor(entity("flare",tonumber(x),tonumber(y))) end;if G.boss then for x=16,24 do actor(entity("boss",x,1)) end end;actor(G.player);local px,py=screen_position(G.player.render_x,G.player.render_y,size,ox,oy);color({.15,.9,1});love.graphics.rectangle("line",px,py,size,size)
-  text("ROAG",hud,oy,2,{.7,.9,1});text("HP    "..string.rep("♥",G.player.health),hud,oy+42,1,{1,.35,.35});text("AMMO  "..G.player.ammo,hud,oy+64);text("BOMBS "..G.player.bombs.."  ARMED "..#G.bombs,hud,oy+84);text("FLARES "..G.player.flares.."  LIT "..#G.flares,hud,oy+104);text("DASH  "..(G.player.dash==0 and "READY" or "RECHARGING"),hud,oy+124);text(G.boss and "BOSS "..G.boss.health.." / 10" or "SCORE "..G.player.score.." / "..G.settings.score,hud,oy+150,1,{.95,.85,.25});if G.curse then text("CURSE "..G.curse.name,hud,oy+174,1,{.9,.4,.8}) end
-  if G.boss then text("BOSS "..G.boss.name.." IN "..math.max(0,BOSS_WINDUP-G.boss.attack),hud,oy+198,.8,{1,.6,.35}) end;text("CONTROLS",hud,oy+246,1,{.6,.8,1});text("WASD face / move",hud,oy+266,.85);text("E shoot  Q dash",hud,oy+284,.85);text("B bomb   F flare",hud,oy+302,.85);text("INTENTS",hud,oy+338,1,{.9,.7,.4});for i,e in ipairs(G.enemies) do if i>5 then break end;text(string.upper(e.kind)..": "..enemy_intent(e),hud,oy+356+i*17,.75) end;for i,message in ipairs(G.log) do text(message,20,oy+VIEW_H*size+16+(i-1)*17,.78,{.8,.85,.9}) end
+  local function actor(e,always_visible)
+    if not e or (not always_visible and not visible[key(e.x,e.y)]) then return end
+    local px,py=screen_position(e.render_x or e.x,e.render_y or e.y,size,ox,oy)
+    if not px then return end
+    local tint=e.stun and e.stun>0 and {1,.85,.2} or nil
+    if e==G.player and (G.hit_flash or 0)>0 then tint={1,.35,.35} end
+    draw_sprite(e.kind,px,py,size,tint)
+  end
+  for _,list in ipairs({G.torches,G.targets,G.enemies,G.bullets,G.bombs,G.flares}) do for _,e in ipairs(list) do actor(e) end end;actor(G.ammo);actor(G.exit);for k in pairs(G.effects) do local x,y=k:match("(%d+):(%d+)");actor(entity("flare",tonumber(x),tonumber(y))) end;if G.boss then for x=16,24 do actor(entity("boss",x,1)) end end;actor(G.player,true);local px,py=screen_position(G.player.render_x,G.player.render_y,size,ox,oy);color({.15,.9,1});love.graphics.rectangle("line",px,py,size,size);if (G.hit_flash or 0)>0 then color({1,.2,.2,.75});love.graphics.setLineWidth(2);love.graphics.rectangle("line",px-size*.12,py-size*.12,size*1.24,size*1.24);love.graphics.setLineWidth(1) end
+  text("ROAG",hud,oy,2,{.7,.9,1});text("HP    "..string.rep("♥",G.player.health),hud,oy+42,1+(G.hit_flash or 0)*.8,{1,.35,.35});text("AMMO  "..G.player.ammo,hud,oy+64);text("BOMBS "..G.player.bombs.."  ARMED "..#G.bombs,hud,oy+84);text("FLARES "..G.player.flares.."  LIT "..#G.flares,hud,oy+104);text("DASH  "..(G.player.dash==0 and "READY" or "RECHARGING"),hud,oy+124);text(G.boss and "BOSS "..G.boss.health.." / 10" or "SCORE "..G.player.score.." / "..G.settings.score,hud,oy+150,1,{.95,.85,.25});if G.curse then text("CURSE "..G.curse.name,hud,oy+174,1,{.9,.4,.8}) end
+  if G.boss then text("BOSS "..G.boss.name.." IN "..math.max(0,BOSS_WINDUP-G.boss.attack),hud,oy+198,.8,{1,.6,.35}) end;text("CONTROLS",hud,oy+246,1,{.6,.8,1});text("WASD / ARROWS: FACE, MOVE, HOLD",hud,oy+266,.7);text("E shoot  Q dash",hud,oy+284,.85);text("B bomb   F flare",hud,oy+302,.85);text("INTENTS",hud,oy+338,1,{.9,.7,.4});for i,e in ipairs(G.enemies) do if i>5 then break end;text(string.upper(e.kind)..": "..enemy_intent(e),hud,oy+356+i*17,.75) end;for i,message in ipairs(G.log) do text(message,20,oy+VIEW_H*size+16+(i-1)*17,.78,{.8,.85,.9}) end
+  if (G.hit_flash or 0)>0 then local w,h=love.graphics.getDimensions();color({1,.04,.04,(G.hit_flash/.32)*.16});love.graphics.rectangle("fill",0,0,w,h) end
 end
 
 local function sprite_lab_item() return SPRITE_ORDER[G.sprite_slot] end
@@ -400,7 +452,16 @@ local SHOP={{name="HEALTH",description="BUY [B] / SELL [V] — MAX 5",key="healt
 local function draw_shop() menu("SHOP — POINTS "..G.score,SHOP,"W/S SELECT     B BUY     V SELL     ENTER FIGHT BOSS") end
 
 function love.update(dt)
+  G.hit_flash=math.max(0,(G.hit_flash or 0)-dt);G.hit_shake=math.max(0,(G.hit_shake or 0)-dt)
   if G.screen~="game" or not G.player then return end
+  if G.held_direction then
+    G.hold_timer=(G.hold_timer or HOLD_INITIAL_DELAY)-dt
+    if G.hold_timer<=0 then
+      G.hold_timer=HOLD_REPEAT_DELAY
+      local d=DIR[G.held_direction]
+      if G.player.direction==G.held_direction and open(G.player.x+d[1],G.player.y+d[2]) then turn(G.held_direction) end
+    end
+  end
   local function animate(e)
     e.render_x=slide_axis(e.render_x or e.x,e.x,dt)
     e.render_y=slide_axis(e.render_y or e.y,e.y,dt)
@@ -434,7 +495,7 @@ end
 function love.focus(focused) if focused then load_sprite_mappings() end end
 function love.draw() if G.screen=="game" then draw_game() elseif G.screen=="title" then love.graphics.clear(.025,.035,.055);local w,h=love.graphics.getDimensions();text("ROAG",w/2-104,h/2-100,4,{.7,.9,1});text("A ONE-BIT DESCENT",w/2-110,h/2-34,1.2,{.7,.75,.85});text("PRESS ENTER TO BEGIN",w/2-115,h/2+48,1,{.95,.85,.3});text("P: SPRITE LAB",w/2-62,h/2+78,.82,{.75,.82,.92}) elseif G.screen=="sprite_lab" then draw_sprite_lab() elseif G.screen=="class" then menu("CHOOSE YOUR CLASS",CLASSES) elseif G.screen=="boon" then menu("CHOOSE A BOON",G.boon_options) elseif G.screen=="curse" then menu("CHOOSE A CURSE",G.curse_options,"W/S SELECT     ENTER ACCEPT BURDEN") elseif G.screen=="shop" then draw_shop() elseif G.screen=="gameover" then menu("YOU DIED",{{name="RETURN TO TITLE",description="Press Enter to begin a new descent."}},"") elseif G.screen=="victory" then menu("YOU HAVE WON",{{name="THE DESCENT IS OVER",description="Press Enter to return to the title."}},"") end end
 local function move_menu(n,limit) G.menu=clamp(G.menu+n,1,limit);sound("select") end
-function love.keypressed(k)
+function love.keypressed(k,scancode,isrepeat)
   if G.screen=="sprite_lab" then
     if k=="escape" or k=="p" then G.screen="title";return end
     if k=="q" then select_sprite_slot(-1)
@@ -455,5 +516,13 @@ function love.keypressed(k)
   if G.screen=="curse" then if k=="w" or k=="up" then move_menu(-1,#G.curse_options) elseif k=="s" or k=="down" then move_menu(1,#G.curse_options) elseif k=="return" or k=="e" then G.curse=G.curse_options[G.menu];start_stage() end;return end
   if G.screen=="shop" then if k=="w" or k=="up" then move_menu(-1,#SHOP) elseif k=="s" or k=="down" then move_menu(1,#SHOP) elseif k=="b" then local i=SHOP[G.menu];if G.score>0 and G.player[i.key]<5 then G.player[i.key]=G.player[i.key]+1;G.score=G.score-1;sound("pickup") else log("Cannot buy that item.") end elseif k=="v" then local i=SHOP[G.menu];if G.player[i.key]>i.minimum then G.player[i.key]=G.player[i.key]-1;G.score=G.score+1;sound("select") else log("That item cannot be sold.") end elseif k=="return" or k=="e" then start_boss() end;return end
   if G.screen=="gameover" or G.screen=="victory" then if k=="return" then G.screen="title" end;return end
-  if G.screen=="game" and (DIR[k] or k=="q" or k=="e" or k=="b" or k=="f") then turn(k) end
+  if G.screen=="game" then
+    local direction=MOVE_KEY[k]
+    if direction then
+      if not isrepeat then G.held_direction,G.hold_timer=direction,HOLD_INITIAL_DELAY;turn(direction) end
+    elseif k=="q" or k=="e" or k=="b" or k=="f" then turn(k) end
+  end
+end
+function love.keyreleased(k)
+  if MOVE_KEY[k] and G.held_direction==MOVE_KEY[k] then G.held_direction=nil;G.hold_timer=nil end
 end
