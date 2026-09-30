@@ -9,6 +9,7 @@ return {
     blocks_vision = false,
     destructible = false,
     flammable = false,
+    conductive = false,
   },
   {
     id = "material.terrain.leaf_litter",
@@ -21,6 +22,7 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = true,
     burn_rate = 1,
+    conductive = false,
   },
   {
     id = "material.terrain.brush",
@@ -33,6 +35,7 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = true,
     burn_rate = 1,
+    conductive = false,
   },
   {
     id = "material.terrain.stone",
@@ -44,6 +47,7 @@ return {
     max_integrity = 4,
     destruction_material_id = "material.terrain.air",
     flammable = false,
+    conductive = false,
   },
   {
     id = "material.structure.masonry",
@@ -55,6 +59,7 @@ return {
     max_integrity = 2,
     destruction_material_id = "material.terrain.air",
     flammable = false,
+    conductive = false,
   },
   {
     id = "material.structure.wood",
@@ -67,6 +72,19 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = true,
     burn_rate = 1,
+    conductive = false,
+  },
+  {
+    id = "material.structure.conductive_metal",
+    display_name = "Conductive Metal",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 5,
+    destruction_material_id = "material.terrain.air",
+    flammable = false,
+    conductive = true,
   },
   {
     id = "material.structure.reinforced",
@@ -76,5 +94,6 @@ return {
     blocks_vision = true,
     destructible = false,
     flammable = false,
+    conductive = false,
   },
 }

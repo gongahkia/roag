@@ -3,7 +3,10 @@
 return {
   stages = {
     { level = 0, terrain = "forest", targets = 4, enemies = 6, score = 5, ammo = 2, vision = 6, torches = 3, wilds = true },
-    { level = 1, terrain = "cave", targets = 3, enemies = 0, score = 4, ammo = 1, vision = 5, torches = 3 },
+    -- One cultist makes the cave's existing shallow pools a restrained first
+    -- electrical encounter, and leaves its physical shock coil available for
+    -- reconstruction before the following dungeon floor.
+    { level = 1, terrain = "cave", targets = 3, enemies = 1, score = 4, ammo = 1, vision = 5, torches = 3, cultists = true },
     { level = 2, terrain = "dungeon", targets = 1, enemies = 2, score = 5, ammo = 2, vision = 4, torches = 3, cultists = true },
   },
   classes = {

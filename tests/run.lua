@@ -11,6 +11,8 @@ local suites = {
   "tests.test_hazards_impact",
   "tests.test_fire",
   "tests.test_liquids",
+  "tests.test_electricity",
+  "tests.test_gas",
   "tests.test_body",
   "tests.test_body_damage",
   "tests.test_body_weapons",

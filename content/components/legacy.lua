@@ -81,4 +81,14 @@ return {
     inventory = { width = 1, height = 1, rotatable = false },
     abilities = { "ability.explosive.self_destruct" },
   },
+  {
+    id = "component.internal.legacy_shock_coil",
+    display_name = "Shock Coil",
+    compatible_slots = { "internal" },
+    max_integrity = 5,
+    mass = 1,
+    wear_per_use = 1,
+    inventory = { width = 1, height = 1, rotatable = false },
+    abilities = { "ability.electrical.discharge" },
+  },
 }

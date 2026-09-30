@@ -29,4 +29,12 @@ return {
     implementation = "locomotion",
     activation_type = "direct",
   },
+  {
+    id = "ability.electrical.discharge",
+    display_name = "Electrical Discharge",
+    implementation = "electrical_discharge",
+    activation_type = "body",
+    max_cells = 12,
+    damage = 1,
+  },
 }

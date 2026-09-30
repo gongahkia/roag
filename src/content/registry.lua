@@ -8,6 +8,7 @@ local KNOWN_ABILITY_IMPLEMENTATIONS = {
   projectile = true,
   area_burst = true,
   locomotion = true,
+  electrical_discharge = true,
 }
 
 local function content_error(message)
@@ -85,6 +86,7 @@ function Registry.new(sources)
     abilities = {},
     materials = {},
     liquids = {},
+    gases = {},
     world_objects = {},
     hazards = {},
     components = {},
@@ -95,6 +97,7 @@ function Registry.new(sources)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
   self:_index("liquid", sources.liquids, self.liquids)
+  self:_index("gas", sources.gases, self.gases)
   self:_index("world_object", sources.world_objects, self.world_objects)
   self:_index("hazard", sources.hazards, self.hazards)
   self:_index("component", sources.components, self.components)
@@ -110,6 +113,7 @@ function Registry.load()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     liquids = require("content.liquids.legacy"),
+    gases = require("content.gases.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -158,6 +162,10 @@ function Registry:get_liquid(id)
   return self:_get(self.liquids, "liquid", id)
 end
 
+function Registry:get_gas(id)
+  return self:_get(self.gases, "gas", id)
+end
+
 function Registry:get_world_object(id)
   return self:_get(self.world_objects, "world object", id)
 end
@@ -186,7 +194,7 @@ function Registry:validate()
   for _, id in ipairs(sorted_keys(self.materials)) do
     local material = self.materials[id]
     require_string(material.display_name, "Material '" .. id .. "' display_name")
-    for _, field in ipairs({ "solid", "blocks_movement", "blocks_vision", "destructible", "flammable" }) do
+    for _, field in ipairs({ "solid", "blocks_movement", "blocks_vision", "destructible", "flammable", "conductive" }) do
       if type(material[field]) ~= "boolean" then
         content_error("Material '" .. id .. "' " .. field .. " must be a boolean")
       end
@@ -215,7 +223,22 @@ function Registry:validate()
     if type(liquid.extinguishes_fire) ~= "boolean" then
       content_error("Liquid '" .. id .. "' extinguishes_fire must be a boolean")
     end
+    if type(liquid.conductive) ~= "boolean" then
+      content_error("Liquid '" .. id .. "' conductive must be a boolean")
+    end
     require_string(liquid.render_style, "Liquid '" .. id .. "' render_style")
+  end
+
+  for _, id in ipairs(sorted_keys(self.gases)) do
+    local gas = self.gases[id]
+    require_string(gas.display_name, "Gas '" .. id .. "' display_name")
+    require_positive_integer(gas.max_concentration, "Gas '" .. id .. "' max_concentration")
+    require_positive_integer(gas.exposure_threshold, "Gas '" .. id .. "' exposure_threshold")
+    if gas.exposure_threshold > gas.max_concentration then
+      content_error("Gas '" .. id .. "' exposure_threshold cannot exceed max_concentration")
+    end
+    require_positive_integer(gas.damage, "Gas '" .. id .. "' damage")
+    require_string(gas.render_style, "Gas '" .. id .. "' render_style")
   end
 
   for _, id in ipairs(sorted_keys(self.world_objects)) do
@@ -226,7 +249,7 @@ function Registry:validate()
     if not material.destructible then
       content_error("World object '" .. id .. "' must reference a destructible material")
     end
-    for _, field in ipairs({ "blocks_movement", "blocks_vision", "blocks_projectiles", "movable_by_force" }) do
+    for _, field in ipairs({ "blocks_movement", "blocks_vision", "blocks_projectiles", "blocks_gas", "movable_by_force" }) do
       if type(object[field]) ~= "boolean" then
         content_error("World object '" .. id .. "' " .. field .. " must be a boolean")
       end
@@ -320,10 +343,14 @@ function Registry:validate()
       require_string(ability.resource.name, "Ability '" .. id .. "' resource.name")
       require_positive_integer(ability.resource.amount, "Ability '" .. id .. "' resource.amount")
     end
-    for _, field in ipairs({ "range", "radius", "delay" }) do
+    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage" }) do
       if ability[field] ~= nil then
         require_positive_integer(ability[field], "Ability '" .. id .. "' " .. field)
       end
+    end
+    if ability.implementation == "electrical_discharge" then
+      require_positive_integer(ability.max_cells, "Ability '" .. id .. "' max_cells")
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
     end
   end
 

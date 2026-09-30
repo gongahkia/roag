@@ -139,6 +139,24 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- Gas is an authoritative concentration layer. The tint is deliberately
+  -- local rather than fog-of-war: opacity communicates trace/harmful/dense
+  -- states while time-based drift remains cosmetic and RNG-free.
+  for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
+    if state.visible[Grid.key(gas.x, gas.y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, gas.x, gas.y, size, offset_x, offset_y)
+      if pixel_x then
+        local definition = session.registry:get_gas(gas.gas_id)
+        local density = gas.concentration / definition.max_concentration
+        local drift = math.sin(time * 2 + gas.x * 3 + gas.y * 7) * size * 0.05
+        self:_color({ 0.45, 0.9, 0.24, 0.14 + density * 0.38 })
+        love.graphics.circle("fill", pixel_x + size * 0.34 + drift, pixel_y + size * 0.48, math.max(1, size * (0.16 + density * 0.16)))
+        self:_color({ 0.7, 1, 0.34, 0.1 + density * 0.26 })
+        love.graphics.circle("fill", pixel_x + size * 0.67 - drift, pixel_y + size * 0.55, math.max(1, size * (0.12 + density * 0.14)))
+      end
+    end
+  end
+
   -- Hazards are a passable, simulation-owned floor layer. The compact crossed
   -- spike marker makes danger readable without introducing a new art set.
   for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do
@@ -180,7 +198,9 @@ function Renderer:_draw_game(app)
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, object.x, object.y, size, offset_x, offset_y)
       if pixel_x then
         local definition = session.registry:get_world_object(object.definition_id)
-        local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
+        local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 }
+          or definition.render_style == "metal_crate" and { 0.28, 0.52, 0.66 }
+          or { 0.42, 0.44, 0.49 }
         self:_color(tint)
         love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
         self:_color({ 0.9, 0.78, 0.5 })
@@ -233,6 +253,18 @@ function Renderer:_draw_game(app)
   for location_key in pairs(state.effects) do
     local x, y = location_key:match("(%d+):(%d+)")
     actor({ kind = "flare", x = tonumber(x), y = tonumber(y) })
+  end
+  -- Discharge cells are an ephemeral presentation of an already-resolved
+  -- network result. They are neither world state nor an energized hazard.
+  for _, cell in ipairs(state.electrical_effects or {}) do
+    local effect_x, effect_y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
+    if effect_x then
+      local pulse = 0.48 + math.sin(time * 21 + cell.x * 5 + cell.y * 7) * 0.18
+      self:_color({ 0.35, 0.85, 1, pulse })
+      love.graphics.line(effect_x + size * 0.16, effect_y + size * 0.52, effect_x + size * 0.42, effect_y + size * 0.28)
+      love.graphics.line(effect_x + size * 0.42, effect_y + size * 0.28, effect_x + size * 0.58, effect_y + size * 0.69)
+      love.graphics.line(effect_x + size * 0.58, effect_y + size * 0.69, effect_x + size * 0.84, effect_y + size * 0.43)
+    end
   end
   if state.boss then
     for x = 16, 24 do
@@ -431,7 +463,12 @@ function Renderer:_draw_body_abilities(app)
       selected and { 1, 0.65, 0.35 } or { 1, 1, 1 })
   end
   if app.body_ability_confirming then
-    self:_text("CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER.", width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
+    local ability_id = app.body_ability_options and app.body_ability_options[app.menu]
+    local ability = ability_id and session.registry:get_ability(ability_id)
+    local warning = ability and ability.implementation == "self_destruct"
+      and "CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER."
+      or "CONFIRM ACTIVATION? PRESS ENTER."
+    self:_text(warning, width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
   else
     self:_text("SELECT AN ABILITY, THEN PRESS ENTER TO ARM CONFIRMATION.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
   end

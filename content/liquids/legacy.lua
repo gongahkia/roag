@@ -6,6 +6,7 @@ return {
     display_name = "Shallow Water",
     max_depth = 3,
     extinguishes_fire = true,
+    conductive = true,
     render_style = "water",
   },
 }

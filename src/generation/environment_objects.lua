@@ -11,10 +11,12 @@ local PLANS = {
   cave = {
     { definition_id = "world_object.cover.timber_crate", count = 1 },
     { definition_id = "world_object.cover.masonry_barricade", count = 1 },
+    { definition_id = "world_object.cover.conductive_metal_crate", count = 1 },
   },
   dungeon = {
     { definition_id = "world_object.cover.timber_crate", count = 1 },
     { definition_id = "world_object.cover.masonry_barricade", count = 2 },
+    { definition_id = "world_object.cover.conductive_metal_crate", count = 1 },
   },
 }
 

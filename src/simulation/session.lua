@@ -16,9 +16,12 @@ local Hazards = require("src.simulation.hazards")
 local Impact = require("src.simulation.impact")
 local Fire = require("src.simulation.fire")
 local Liquid = require("src.simulation.liquid")
+local Electricity = require("src.simulation.electricity")
+local Gas = require("src.simulation.gas")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
+local GasGeneration = require("src.generation.gases")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -41,6 +44,7 @@ local BOSS_WINDUP = 4
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
 local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
 local ARCANE_BURST_ABILITY = "ability.arcane.burst"
+local ELECTRICAL_DISCHARGE_ABILITY = "ability.electrical.discharge"
 local LOCOMOTION_ABILITY = Locomotion.ABILITY_ID
 local PLAYER_ACTOR_ID = "actor.player.legacy"
 local ENEMY_CONTENT_IDS = {
@@ -82,6 +86,7 @@ function Session.new(options)
     log = {},
     curse_bag = {},
     effects = {},
+    electrical_effects = {},
     next_component_sequence = 1,
     next_corpse_sequence = 1,
     next_world_object_sequence = 1,
@@ -493,6 +498,65 @@ function Session:_execute_area_burst(actor, provider, wear, ability, request)
   }
 end
 
+function Session:_electrical_actor_id(actor)
+  if actor == self.state.player then
+    return "actor:player"
+  end
+  local component = actor.body and actor.body:list_components()[1] or nil
+  if component then
+    return "actor:" .. component.id
+  end
+  local index = self:_enemy_index(actor)
+  return string.format("actor:%s:%04d", actor.content_id or actor.kind or "unknown", index or 0)
+end
+
+function Session:_execute_electrical_discharge(actor, provider, wear, ability, request)
+  local state = self.state
+  local discharge = Electricity.discharge(state.world, request.target, {
+    max_cells = ability.max_cells,
+    damage = ability.damage,
+    source_actor_id = self:_electrical_actor_id(actor),
+    source_component_id = provider.id,
+    ability_id = ability.id,
+    cause = "electrical",
+  }, {
+    actors_at = function(x, y)
+      return self:_actors_at(x, y)
+    end,
+    actor_id = function(target)
+      return self:_electrical_actor_id(target)
+    end,
+    on_actor_reached = function(target, cell)
+      return self:_apply_world_actor_damage(target, ability.damage,
+        target == state.player and "ELECTRICITY RIPS THROUGH YOU." or nil, {
+          cause = "electrical",
+          source = "electrical_discharge",
+          source_actor_id = self:_electrical_actor_id(actor),
+          source_component_id = provider.id,
+          ability_id = ability.id,
+          x = cell.x,
+          y = cell.y,
+        })
+    end,
+  })
+  -- This is presentation output for the just-resolved event, not persistent
+  -- energized-world state. It is reset at the next player turn.
+  state.electrical_effects = discharge.reached_cells
+  self:_event("electricity", discharge)
+  if actor == state.player then
+    self:_log("Electrical discharge released.")
+  end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "electrical_discharge",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    discharge = discharge,
+  }
+end
+
 function Session:_ability_failure(ability_id, code, reason)
   return { applied = false, ability_id = ability_id, code = code, reason = reason }
 end
@@ -523,6 +587,22 @@ function Session:_validate_ability_request(actor, ability, params)
     end
     if not Grid.in_bounds(target.x, target.y) then
       return nil, self:_ability_failure(ability.id, "invalid_target", "Burst target is outside the floor")
+    end
+    return { target = target, direction = direction }
+  end
+  if ability.implementation == "electrical_discharge" then
+    local direction = params and params.direction
+    if not DIRECTIONS[direction] then
+      return nil, self:_ability_failure(ability.id, "invalid_direction", "A valid discharge direction is required")
+    end
+    local delta = DIRECTIONS[direction]
+    local target = { x = actor.x + delta[1], y = actor.y + delta[2] }
+    if not Grid.in_bounds(target.x, target.y) then
+      return nil, self:_ability_failure(ability.id, "invalid_target", "Discharge target is outside the floor")
+    end
+    local trace = Electricity.trace(self.state.world, target, { max_cells = ability.max_cells })
+    if not trace.applied then
+      return nil, self:_ability_failure(ability.id, trace.code, "No conductive network reaches that discharge")
     end
     return { target = target, direction = direction }
   end
@@ -585,6 +665,8 @@ function Session:activate_actor_ability(actor, ability_id, params)
     return self:_execute_projectile(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "area_burst" then
     return self:_execute_area_burst(actor, selected.component, wear, ability, request)
+  elseif ability.implementation == "electrical_discharge" then
+    return self:_execute_electrical_discharge(actor, selected.component, wear, ability, request)
   end
   return self:_ability_failure(ability_id, "unbound_implementation", "No runtime binding for ability")
 end
@@ -846,7 +928,11 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   local dead = false
   if actor == state.player then
     actor.health = math.max(0, actor.health - amount)
-    actor.impact = 2
+    -- External collision recovery is an impact consequence, not a generic
+    -- environmental status. Electrical exposure remains direct damage only.
+    if provenance.source == "impact" then
+      actor.impact = 2
+    end
     self:_event("hit")
     self:_sound("hurt")
     if message then
@@ -951,6 +1037,33 @@ function Session:_update_liquids()
   local flow = Liquid.tick(self.state.world)
   local suppression = Liquid.suppress_fires(self.state.world)
   return { applied = flow.applied or suppression.applied, flow = flow, suppression = suppression }
+end
+
+function Session:_apply_gas_exposure(actor, gas, definition)
+  return self:_apply_world_actor_damage(actor, definition.damage,
+    actor == self.state.player and "TOXIC GAS SEARS YOU." or nil, {
+      cause = "toxic",
+      source = "gas",
+      gas_id = definition.id,
+      x = gas.x,
+      y = gas.y,
+      concentration = gas.concentration,
+      exposure_threshold = definition.exposure_threshold,
+    })
+end
+
+function Session:_update_gas()
+  if not self.state.world then
+    return { applied = false, code = "no_world" }
+  end
+  return Gas.tick(self.state.world, {
+    actors_at = function(x, y)
+      return self:_actors_at(x, y)
+    end,
+    on_actor_exposed = function(actor, gas, definition)
+      return self:_apply_gas_exposure(actor, gas, definition)
+    end,
+  })
 end
 
 function Session:_resolve_force_impact(actor, force_result, force_spec)
@@ -1265,7 +1378,7 @@ function Session:start_stage()
   local state = self.state
   state.settings = self:_settings_for_stage()
   self:_prepare_run_player_for_stage(state.settings)
-  state.explored, state.effects, state.corpses = {}, {}, {}
+  state.explored, state.effects, state.electrical_effects, state.corpses = {}, {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
   state.phase = "combat"
@@ -1279,6 +1392,8 @@ function Session:start_stage()
     self.rng:derive("hazards.stage." .. state.stage))
   LiquidGeneration.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("liquids.stage." .. state.stage))
+  GasGeneration.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("gases.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1383,6 +1498,7 @@ function Session:_path(start, finish, blocked, avoid_hazards)
       local is_destination = neighbour.x == finish.x and neighbour.y == finish.y
       local dangerous = self.state.world:is_hazardous(neighbour.x, neighbour.y)
         or #self.state.world:fires_at(neighbour.x, neighbour.y) > 0
+        or self.state.world:is_harmful_gas_at(neighbour.x, neighbour.y)
       if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil
         and (not avoid_hazards or is_destination or not dangerous) then
         previous[location_key] = point
@@ -1845,6 +1961,7 @@ function Session:_enemy_turn()
       -- exists. The fallback preserves pursuit through a narrow dangerous
       -- corridor rather than making environmental danger a permanent wall.
       local route = self:_hazard_aware_path(enemy, hunt, blocked)
+      local electrical_direction = self:_electrical_direction_to(enemy, self.state.player)
       if self:_actor_has_pending_area_attack(enemy) then
         -- The migrated cultist spell keeps its existing delayed, stationary
         -- wind-up behavior while its authoritative effect lives in the shared
@@ -1859,6 +1976,11 @@ function Session:_enemy_turn()
         self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
       elseif enemy.kind == "wolf" and #route > 2 then
         self:_move_actor(enemy, route[2].x, route[2].y)
+      elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+        -- The cultist uses exactly the same network query and activation path
+        -- as the player. It deliberately declines a discharge that would
+        -- include its own coordinate, rather than receiving AI-only immunity.
+        self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
       elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
         self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = self.state.player })
       elseif enemy.kind == "cultist" and #route > 1 then
@@ -1878,6 +2000,31 @@ function Session:_enemy_turn()
       end
     end
   end
+end
+
+local ELECTRICAL_AIM_ORDER = { "w", "d", "s", "a", "ne", "se", "sw", "nw" }
+
+function Session:_electrical_direction_to(actor, target)
+  if not actor or not target or not self:actor_has_capability(actor, ELECTRICAL_DISCHARGE_ABILITY) then
+    return nil
+  end
+  local ability = self.registry:get_ability(ELECTRICAL_DISCHARGE_ABILITY)
+  for _, direction in ipairs(ELECTRICAL_AIM_ORDER) do
+    local delta = DIRECTIONS[direction]
+    local origin = { x = actor.x + delta[1], y = actor.y + delta[2] }
+    if Grid.in_bounds(origin.x, origin.y) then
+      local trace = Electricity.trace(self.state.world, origin, { max_cells = ability.max_cells })
+      local reaches_target, reaches_actor = false, false
+      for _, cell in ipairs(trace.reached_cells or {}) do
+        reaches_target = reaches_target or (cell.x == target.x and cell.y == target.y)
+        reaches_actor = reaches_actor or (cell.x == actor.x and cell.y == actor.y)
+      end
+      if reaches_target and not reaches_actor then
+        return direction
+      end
+    end
+  end
+  return nil
 end
 
 function Session:_boss_cells()
@@ -2098,9 +2245,12 @@ function Session:_action(input)
       self:_log("Flare lit. Necromancers will be stunned.")
     end
   elseif input:match("^activate_ability:") then
-    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
+    local result = self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
+    if not result.applied then
+      self:_log(result.reason)
+    end
   end
 end
 
@@ -2152,7 +2302,7 @@ function Session:start_boss()
   self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
-  state.effects, state.exit, state.corpses = {}, nil, {}
+  state.effects, state.electrical_effects, state.exit, state.corpses = {}, {}, nil, {}
   state.boss = { kind = "boss", x = 16, y = 1, health = 10, attack = 0, type = "crossfire", name = "CROSSFIRE", radius = 3, line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" }
   self:_new_boss_attack()
   local point = self:_open_location(self:_occupied(true))
@@ -2193,7 +2343,7 @@ function Session:turn(input)
   if state.ended then
     return state.ended
   end
-  state.effects = {}
+  state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
 
@@ -2209,6 +2359,7 @@ function Session:turn(input)
     end
     self:_update_liquids()
     self:_update_fire()
+    self:_update_gas()
     if state.ended then
       self:refresh_visibility()
       return state.ended
@@ -2253,9 +2404,11 @@ function Session:turn(input)
   end
   -- World processes run after immediate actions and enemy response. Liquid
   -- redistribution/suppression precedes fire, so newly arrived water can save
-  -- fuel before that turn's burn tick. New fires still wait by ready_tick.
+  -- fuel before that turn's burn tick. Gas then diffuses and exposes actors
+  -- from its post-diffusion concentration. New fires still wait by ready_tick.
   self:_update_liquids()
   self:_update_fire()
+  self:_update_gas()
   self:refresh_visibility()
   return result or state.ended
 end

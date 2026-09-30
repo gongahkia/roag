@@ -5,6 +5,7 @@ local function sources()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     liquids = require("content.liquids.legacy"),
+    gases = require("content.gases.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -40,10 +41,69 @@ return {
       assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
       assert(registry:get_material("material.terrain.brush").max_integrity == 2)
       assert(registry:get_material("material.terrain.brush").flammable)
+      assert(not registry:get_material("material.terrain.brush").conductive)
+      assert(registry:get_material("material.structure.conductive_metal").conductive)
       assert(registry:get_material("material.structure.wood").burn_rate == 1)
       assert(registry:get_liquid("liquid.water.legacy").max_depth == 3)
+      assert(registry:get_liquid("liquid.water.legacy").conductive)
+      assert(registry:get_gas("gas.toxic.legacy").exposure_threshold == 2)
       assert(registry:get_world_object("world_object.cover.timber_crate").material_id == "material.structure.wood")
+      assert(registry:get_world_object("world_object.cover.conductive_metal_crate").material_id == "material.structure.conductive_metal")
+      assert(registry:get_component("component.internal.legacy_shock_coil").abilities[1] == "ability.electrical.discharge")
       assert(registry:get_hazard("hazard.legacy.spike_field").effect.type == "kinetic_damage")
+    end,
+  },
+  {
+    name = "gas definitions validate finite concentration and toxic exposure metadata",
+    run = function()
+      local invalid_maximum = sources()
+      invalid_maximum.gases = copy_list(invalid_maximum.gases)
+      invalid_maximum.gases[#invalid_maximum.gases + 1] = {
+        id = "gas.invalid.maximum",
+        display_name = "Invalid Maximum",
+        max_concentration = 0,
+        exposure_threshold = 1,
+        damage = 1,
+        render_style = "toxic_cloud",
+      }
+      assert_failure("Gas 'gas.invalid.maximum' max_concentration must be a positive integer", function()
+        Registry.new(invalid_maximum)
+      end)
+
+      local invalid_threshold = sources()
+      invalid_threshold.gases = copy_list(invalid_threshold.gases)
+      invalid_threshold.gases[#invalid_threshold.gases + 1] = {
+        id = "gas.invalid.threshold",
+        display_name = "Invalid Threshold",
+        max_concentration = 2,
+        exposure_threshold = 3,
+        damage = 1,
+        render_style = "toxic_cloud",
+      }
+      assert_failure("Gas 'gas.invalid.threshold' exposure_threshold cannot exceed max_concentration", function()
+        Registry.new(invalid_threshold)
+      end)
+
+      local invalid_damage = sources()
+      invalid_damage.gases = copy_list(invalid_damage.gases)
+      invalid_damage.gases[#invalid_damage.gases + 1] = {
+        id = "gas.invalid.damage",
+        display_name = "Invalid Damage",
+        max_concentration = 2,
+        exposure_threshold = 1,
+        damage = -1,
+        render_style = "toxic_cloud",
+      }
+      assert_failure("Gas 'gas.invalid.damage' damage must be a positive integer", function()
+        Registry.new(invalid_damage)
+      end)
+
+      local duplicate = sources()
+      duplicate.gases = copy_list(duplicate.gases)
+      duplicate.gases[#duplicate.gases + 1] = duplicate.gases[1]
+      assert_failure("Duplicate gas ID 'gas.toxic.legacy'", function()
+        Registry.new(duplicate)
+      end)
     end,
   },
   {
@@ -56,6 +116,7 @@ return {
         display_name = "Invalid Depth",
         max_depth = 0,
         extinguishes_fire = true,
+        conductive = true,
         render_style = "water",
       }
       assert_failure("Liquid 'liquid.invalid.depth' max_depth must be a positive integer", function()
@@ -69,10 +130,25 @@ return {
         display_name = "Invalid Extinguishing",
         max_depth = 1,
         extinguishes_fire = "yes",
+        conductive = true,
         render_style = "water",
       }
       assert_failure("Liquid 'liquid.invalid.extinguish' extinguishes_fire must be a boolean", function()
         Registry.new(invalid_extinguish)
+      end)
+
+      local invalid_conductivity = sources()
+      invalid_conductivity.liquids = copy_list(invalid_conductivity.liquids)
+      invalid_conductivity.liquids[#invalid_conductivity.liquids + 1] = {
+        id = "liquid.invalid.conductivity",
+        display_name = "Invalid Conductivity",
+        max_depth = 1,
+        extinguishes_fire = true,
+        conductive = "yes",
+        render_style = "water",
+      }
+      assert_failure("Liquid 'liquid.invalid.conductivity' conductive must be a boolean", function()
+        Registry.new(invalid_conductivity)
       end)
 
       local duplicate = sources()
@@ -98,6 +174,7 @@ return {
         max_integrity = 1,
         destruction_material_id = "material.terrain.air",
         flammable = true,
+        conductive = false,
       }
       assert_failure("Material 'material.invalid.missing_burn_rate' burn_rate must be a positive number", function()
         Registry.new(missing_rate)
@@ -116,9 +193,28 @@ return {
         destruction_material_id = "material.terrain.air",
         flammable = false,
         burn_rate = 1,
+        conductive = false,
       }
       assert_failure("Nonflammable material 'material.invalid.nonflammable_rate' cannot define burn_rate", function()
         Registry.new(invalid_nonflammable)
+      end)
+
+      local invalid_conductivity = sources()
+      invalid_conductivity.materials = copy_list(invalid_conductivity.materials)
+      invalid_conductivity.materials[#invalid_conductivity.materials + 1] = {
+        id = "material.invalid.conductivity",
+        display_name = "Invalid Conductivity",
+        solid = true,
+        blocks_movement = true,
+        blocks_vision = true,
+        destructible = true,
+        max_integrity = 1,
+        destruction_material_id = "material.terrain.air",
+        flammable = false,
+        conductive = "yes",
+      }
+      assert_failure("Material 'material.invalid.conductivity' conductive must be a boolean", function()
+        Registry.new(invalid_conductivity)
       end)
     end,
   },
@@ -184,6 +280,7 @@ return {
         blocks_movement = true,
         blocks_vision = true,
         blocks_projectiles = true,
+        blocks_gas = false,
         movable_by_force = false,
         render_style = "cover",
       }
@@ -200,6 +297,7 @@ return {
         blocks_movement = "yes",
         blocks_vision = true,
         blocks_projectiles = true,
+        blocks_gas = false,
         movable_by_force = false,
         render_style = "cover",
       }
@@ -230,6 +328,7 @@ return {
         max_integrity = 0,
         destruction_material_id = "material.terrain.air",
         flammable = false,
+        conductive = false,
       }
       assert_failure("Material 'material.invalid.zero_durability' max_integrity must be a positive number", function()
         Registry.new(invalid_durability)
@@ -247,6 +346,7 @@ return {
         max_integrity = 1,
         destruction_material_id = "material.missing.void",
         flammable = false,
+        conductive = false,
       }
       assert_failure("Unknown material ID 'material.missing.void'", function()
         Registry.new(invalid_reference)
@@ -352,6 +452,23 @@ return {
         resource = { name = "ammo", amount = 0 },
       }
       assert_failure("resource.amount must be a positive integer", function()
+        Registry.new(invalid_sources)
+      end)
+    end,
+  },
+  {
+    name = "electrical ability definitions require bounded network and damage metadata",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.abilities = copy_list(invalid_sources.abilities)
+      invalid_sources.abilities[#invalid_sources.abilities + 1] = {
+        id = "ability.electrical.invalid_bound",
+        display_name = "Invalid Electrical Bound",
+        implementation = "electrical_discharge",
+        activation_type = "body",
+        damage = 1,
+      }
+      assert_failure("Ability 'ability.electrical.invalid_bound' max_cells must be a positive integer", function()
         Registry.new(invalid_sources)
       end)
     end,

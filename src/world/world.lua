@@ -46,6 +46,8 @@ function World.new(registry, terrain, open_layout, sequence_owner)
     hazards_by_cell = {},
     liquids = {},
     liquid_tick = 0,
+    gases = {},
+    gas_tick = 0,
     fires = {},
     fire_order = {},
     fires_by_target = {},
@@ -224,12 +226,169 @@ function World:total_liquid_amount(liquid_id)
   return total
 end
 
+-- Gas is a coordinate-owned medium. It deliberately remains independent of
+-- liquid, terrain material identity, hazards, fire, and movable objects.
+function World:gas_at(x, y)
+  return Grid.in_bounds(x, y) and self.gases[key(x, y)] or nil
+end
+
+function World:gas_concentration(x, y)
+  local gas = self:gas_at(x, y)
+  return gas and gas.concentration or 0
+end
+
+function World:is_gas_cell(x, y)
+  return self:gas_at(x, y) ~= nil
+end
+
+function World:list_gases()
+  local result = {}
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      local gas = self:gas_at(x, y)
+      if gas then
+        result[#result + 1] = gas
+      end
+    end
+  end
+  return result
+end
+
+-- Ordinary cover is intentionally permeable. The explicit object seam lets
+-- future closed bulkheads or doors become airtight without changing Gas.
+function World:allows_gas_at(x, y)
+  if not self:terrain_is_passable(x, y) then
+    return false
+  end
+  local object = self:object_at(x, y)
+  return not (object and object.blocks_gas)
+end
+
+function World:set_gas(x, y, gas_id, concentration)
+  if not Grid.in_bounds(x, y) then
+    return { applied = false, code = "out_of_bounds", reason = "Gas position is outside the world" }
+  end
+  if type(concentration) ~= "number" or concentration < 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas concentration must be a non-negative integer" }
+  end
+  local location_key = key(x, y)
+  local existing = self.gases[location_key]
+  if concentration == 0 then
+    if existing then
+      self.gases[location_key] = nil
+      return { applied = true, code = "removed", x = x, y = y, gas_id = existing.gas_id, concentration = 0 }
+    end
+    return { applied = false, code = "clear", x = x, y = y, concentration = 0 }
+  end
+  local definition = self.registry.gases[gas_id]
+  if not definition then
+    return { applied = false, code = "unknown_gas", reason = "Unknown gas ID '" .. tostring(gas_id) .. "'" }
+  end
+  if not self:allows_gas_at(x, y) then
+    return { applied = false, code = "blocked_geometry", reason = "Gas requires an accessible cell" }
+  end
+  if existing and existing.gas_id ~= definition.id then
+    return { applied = false, code = "different_gas", reason = "Gas mixing is not supported" }
+  end
+  if concentration > definition.max_concentration then
+    return { applied = false, code = "capacity_exceeded", reason = "Gas concentration exceeds maximum" }
+  end
+  local changed = not existing or existing.concentration ~= concentration
+  self.gases[location_key] = {
+    gas_id = definition.id,
+    concentration = concentration,
+    x = x,
+    y = y,
+  }
+  return {
+    applied = changed,
+    code = changed and "set" or "unchanged",
+    x = x,
+    y = y,
+    gas_id = definition.id,
+    concentration = concentration,
+  }
+end
+
+function World:add_gas(x, y, gas_id, concentration)
+  if type(concentration) ~= "number" or concentration <= 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas addition must be a positive integer" }
+  end
+  local existing = self:gas_at(x, y)
+  if existing and existing.gas_id ~= gas_id then
+    return { applied = false, code = "different_gas", reason = "Gas mixing is not supported" }
+  end
+  return self:set_gas(x, y, gas_id, (existing and existing.concentration or 0) + concentration)
+end
+
+function World:remove_gas(x, y, concentration)
+  if type(concentration) ~= "number" or concentration <= 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas removal must be a positive integer" }
+  end
+  local existing = self:gas_at(x, y)
+  if not existing then
+    return { applied = false, code = "clear", reason = "Gas cell is clear" }
+  end
+  if concentration > existing.concentration then
+    return { applied = false, code = "insufficient_gas", reason = "Gas cell does not contain that concentration" }
+  end
+  return self:set_gas(x, y, existing.gas_id, existing.concentration - concentration)
+end
+
+function World:total_gas_amount(gas_id)
+  local total = 0
+  for _, gas in ipairs(self:list_gases()) do
+    if gas_id == nil or gas.gas_id == gas_id then
+      total = total + gas.concentration
+    end
+  end
+  return total
+end
+
+function World:is_harmful_gas_at(x, y)
+  local gas = self:gas_at(x, y)
+  if not gas then
+    return false
+  end
+  return gas.concentration >= self.registry:get_gas(gas.gas_id).exposure_threshold
+end
+
 function World:liquid_extinguishes_fire_at(x, y)
   local liquid = self:liquid_at(x, y)
   if not liquid then
     return false
   end
   return self.registry:get_liquid(liquid.liquid_id).extinguishes_fire
+end
+
+-- Conductivity is derived from physical layers at the current coordinate.
+-- It is intentionally queried live: moved objects and flowing liquid change
+-- later networks without a stale graph or an invalidation protocol.
+function World:conductivity_at(x, y)
+  if not Grid.in_bounds(x, y) then
+    return {
+      conductive = false,
+      terrain = nil,
+      liquid = nil,
+      object = nil,
+    }
+  end
+  local material = self:get_material(x, y)
+  local liquid = self:liquid_at(x, y)
+  local object = self:object_at(x, y)
+  local liquid_definition = liquid and self.registry:get_liquid(liquid.liquid_id) or nil
+  local object_material = object and self.registry:get_material(object.material_id) or nil
+  return {
+    conductive = material.conductive or (liquid_definition and liquid_definition.conductive)
+      or (object_material and object_material.conductive) or false,
+    terrain = material.conductive and material.id or nil,
+    liquid = liquid_definition and liquid_definition.conductive and liquid_definition.id or nil,
+    object = object_material and object_material.conductive and object.id or nil,
+  }
+end
+
+function World:is_conductive_at(x, y)
+  return self:conductivity_at(x, y).conductive
 end
 
 function World:_next_fire_id()
@@ -591,6 +750,7 @@ function World:place_object(definition_id, x, y, options)
     blocks_movement = definition.blocks_movement,
     blocks_vision = definition.blocks_vision,
     blocks_projectiles = definition.blocks_projectiles,
+    blocks_gas = definition.blocks_gas,
     movable_by_force = definition.movable_by_force,
   }
   self.objects[id] = object
@@ -707,6 +867,7 @@ function World:damage_object(object_or_id, spec)
     object.blocks_movement = false
     object.blocks_vision = false
     object.blocks_projectiles = false
+    object.blocks_gas = false
     self.objects_by_cell[key(object.x, object.y)] = nil
     self:_deactivate_target_fire("object", object.id, nil, nil, "target_destroyed")
     result.destroyed = true
@@ -734,7 +895,9 @@ function World:inspect_object(object_or_id)
     blocks_movement = not object.destroyed and object.blocks_movement or false,
     blocks_vision = not object.destroyed and object.blocks_vision or false,
     blocks_projectiles = not object.destroyed and object.blocks_projectiles or false,
+    blocks_gas = not object.destroyed and object.blocks_gas or false,
     movable_by_force = object.movable_by_force,
+    conductive = material.conductive,
     fires = (function()
       local fires = {}
       for _, fire in ipairs(self:list_fires(true)) do
@@ -775,6 +938,21 @@ function World:inspect_cell(x, y)
       amount = liquid.amount,
       max_depth = definition.max_depth,
       extinguishes_fire = definition.extinguishes_fire,
+      conductive = definition.conductive,
+    }
+  end
+  local gas = self:gas_at(x, y)
+  local gas_data
+  if gas then
+    local definition = self.registry:get_gas(gas.gas_id)
+    gas_data = {
+      gas_id = definition.id,
+      display_name = definition.display_name,
+      concentration = gas.concentration,
+      max_concentration = definition.max_concentration,
+      exposure_threshold = definition.exposure_threshold,
+      damage = definition.damage,
+      harmful = gas.concentration >= definition.exposure_threshold,
     }
   end
   return {
@@ -792,6 +970,8 @@ function World:inspect_cell(x, y)
     objects = objects,
     hazards = hazards,
     liquid = liquid_data,
+    gas = gas_data,
+    conductivity = self:conductivity_at(x, y),
     fires = fires,
   }
 end
@@ -815,10 +995,11 @@ function World:describe_cell(x, y)
     fire_ids[#fire_ids + 1] = fire.id
   end
   local liquid = inspected.liquid and (inspected.liquid.liquid_id .. "@" .. inspected.liquid.amount) or ""
-  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s liquid=%s fires=%s",
+  local gas = inspected.gas and (inspected.gas.gas_id .. "@" .. inspected.gas.concentration) or ""
+  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s conductive=%s objects=%s hazards=%s liquid=%s gas=%s fires=%s",
     x, y, inspected.material_id, tostring(inspected.passable), tostring(inspected.blocks_vision),
-    tostring(inspected.blocks_projectile), integrity, tostring(inspected.destructible), tostring(inspected.destroyed),
-    table.concat(object_ids, ","), table.concat(hazard_ids, ","), liquid, table.concat(fire_ids, ","))
+    tostring(inspected.blocks_projectile), integrity, tostring(inspected.destructible), tostring(inspected.destroyed), tostring(inspected.conductivity.conductive),
+    table.concat(object_ids, ","), table.concat(hazard_ids, ","), liquid, gas, table.concat(fire_ids, ","))
 end
 
 function World:mutation_data()
@@ -869,6 +1050,14 @@ function World:liquid_data()
   return liquids
 end
 
+function World:gas_data()
+  local gases = {}
+  for _, gas in ipairs(self:list_gases()) do
+    gases[#gases + 1] = copy_object(gas)
+  end
+  return gases
+end
+
 function World:fire_data()
   local fires = {}
   for _, fire in ipairs(self:list_fires(true)) do
@@ -886,6 +1075,8 @@ function World:to_data()
     hazards = self:hazard_data(),
     liquids = self:liquid_data(),
     liquid_tick = self.liquid_tick,
+    gases = self:gas_data(),
+    gas_tick = self.gas_tick,
     fires = self:fire_data(),
     fire_tick = self.fire_tick,
   }
@@ -924,6 +1115,21 @@ function World:validate()
     assert(self:terrain_is_passable(liquid.x, liquid.y), "Liquid occupies impassable terrain")
   end
 
+  assert(type(self.gas_tick) == "number" and self.gas_tick >= 0 and self.gas_tick % 1 == 0,
+    "World gas tick must be a non-negative integer")
+  for location_key, gas in pairs(self.gases) do
+    assert(type(gas) == "table", "Gas state must be a table")
+    assert(type(gas.x) == "number" and type(gas.y) == "number"
+      and gas.x % 1 == 0 and gas.y % 1 == 0, "Gas position is invalid")
+    assert(Grid.in_bounds(gas.x, gas.y), "Gas is outside world bounds")
+    assert(key(gas.x, gas.y) == location_key, "Gas cell key does not match its position")
+    local definition = self.registry.gases[gas.gas_id]
+    assert(definition, "Gas references unknown definition")
+    assert(type(gas.concentration) == "number" and gas.concentration > 0 and gas.concentration % 1 == 0
+      and gas.concentration <= definition.max_concentration, "Gas concentration is invalid")
+    assert(self:allows_gas_at(gas.x, gas.y), "Gas occupies inaccessible geometry")
+  end
+
   local object_ids, occupied = {}, {}
   for _, id in ipairs(self.object_order) do
     local object = self.objects[id]
@@ -939,13 +1145,14 @@ function World:validate()
     local location_key = key(object.x, object.y)
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")
-      assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles,
+      assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles and not object.blocks_gas,
         "Destroyed world object cannot retain blocking state")
       assert(self.objects_by_cell[location_key] ~= object, "Destroyed world object cannot occupy a cell")
     else
       assert(self:terrain_is_passable(object.x, object.y), "World object is placed in impassable terrain")
       assert(object.blocks_movement == definition.blocks_movement and object.blocks_vision == definition.blocks_vision
-        and object.blocks_projectiles == definition.blocks_projectiles, "World object blocking state does not match definition")
+        and object.blocks_projectiles == definition.blocks_projectiles and object.blocks_gas == definition.blocks_gas,
+        "World object blocking state does not match definition")
       assert(not occupied[location_key], "Multiple live world objects occupy one cell")
       occupied[location_key] = true
       assert(self.objects_by_cell[location_key] == object, "World object cell index is invalid")
