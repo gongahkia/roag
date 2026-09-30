@@ -122,6 +122,20 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- Hazards are a passable, simulation-owned floor layer. The compact crossed
+  -- spike marker makes danger readable without introducing a new art set.
+  for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do
+    if state.visible[Grid.key(hazard.x, hazard.y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, hazard.x, hazard.y, size, offset_x, offset_y)
+      if pixel_x then
+        self:_color({ 0.9, 0.22, 0.18, 0.92 })
+        love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.78, pixel_x + size * 0.48, pixel_y + size * 0.22)
+        love.graphics.line(pixel_x + size * 0.48, pixel_y + size * 0.78, pixel_x + size * 0.72, pixel_y + size * 0.22)
+        love.graphics.line(pixel_x + size * 0.76, pixel_y + size * 0.78, pixel_x + size * 0.9, pixel_y + size * 0.42)
+      end
+    end
+  end
+
   -- World objects are simulation-owned cover, not terrain decoration. Keep
   -- this compact marker layer beneath actors and telegraphs to preserve the
   -- existing sprite language without requiring new art assets.

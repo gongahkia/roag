@@ -27,8 +27,9 @@ local function copy_object(object)
 end
 
 function World.new(registry, terrain, open_layout, sequence_owner)
-  sequence_owner = sequence_owner or { next_world_object_sequence = 1 }
+  sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1 }
   sequence_owner.next_world_object_sequence = sequence_owner.next_world_object_sequence or 1
+  sequence_owner.next_hazard_sequence = sequence_owner.next_hazard_sequence or 1
   local self = setmetatable({
     registry = registry,
     terrain = terrain,
@@ -36,6 +37,9 @@ function World.new(registry, terrain, open_layout, sequence_owner)
     objects = {},
     object_order = {},
     objects_by_cell = {},
+    hazards = {},
+    hazard_order = {},
+    hazards_by_cell = {},
     sequence_owner = sequence_owner,
   }, World)
   local solid_material_id = SOLID_MATERIAL_BY_TERRAIN[terrain] or "material.terrain.stone"
@@ -104,6 +108,98 @@ function World:list_objects(include_destroyed)
     end
   end
   return result
+end
+
+function World:_next_hazard_id()
+  local sequence = self.sequence_owner.next_hazard_sequence
+  self.sequence_owner.next_hazard_sequence = sequence + 1
+  return string.format("hazard:%06d", sequence)
+end
+
+function World:hazards_at(x, y, include_inactive)
+  local result = {}
+  for _, hazard in ipairs(self.hazards_by_cell[key(x, y)] or {}) do
+    if include_inactive or hazard.active then
+      result[#result + 1] = hazard
+    end
+  end
+  return result
+end
+
+function World:is_hazardous(x, y)
+  return #self:hazards_at(x, y) > 0
+end
+
+function World:list_hazards(include_inactive)
+  local result = {}
+  for _, id in ipairs(self.hazard_order) do
+    local hazard = self.hazards[id]
+    if include_inactive or hazard.active then
+      result[#result + 1] = hazard
+    end
+  end
+  return result
+end
+
+function World:place_hazard(definition_id, x, y, options)
+  options = options or {}
+  if not Grid.in_bounds(x, y) then
+    return nil, { applied = false, code = "out_of_bounds", reason = "Hazard position is outside the world" }
+  end
+  if not self:terrain_is_passable(x, y) then
+    return nil, { applied = false, code = "blocked_terrain", reason = "Hazard requires passable terrain" }
+  end
+  if self:object_at(x, y) then
+    return nil, { applied = false, code = "occupied_object", reason = "Hazard cannot overlap a world object" }
+  end
+  if self:is_hazardous(x, y) then
+    return nil, { applied = false, code = "occupied_hazard", reason = "Hazard tile already contains an active hazard" }
+  end
+  local definition = self.registry:get_hazard(definition_id)
+  local id = options.id or self:_next_hazard_id()
+  if self.hazards[id] then
+    return nil, { applied = false, code = "duplicate_id", reason = "Hazard ID already exists" }
+  end
+  local active = options.active
+  if active == nil then
+    active = true
+  end
+  if type(active) ~= "boolean" then
+    return nil, { applied = false, code = "invalid_active", reason = "Hazard active state must be boolean" }
+  end
+  local hazard = {
+    id = id,
+    kind = "hazard",
+    definition_id = definition.id,
+    x = x,
+    y = y,
+    active = active,
+  }
+  self.hazards[id] = hazard
+  self.hazard_order[#self.hazard_order + 1] = id
+  local cell_hazards = self.hazards_by_cell[key(x, y)] or {}
+  cell_hazards[#cell_hazards + 1] = hazard
+  self.hazards_by_cell[key(x, y)] = cell_hazards
+  return hazard, { applied = true, hazard_id = id }
+end
+
+function World:inspect_hazard(hazard_or_id)
+  local hazard = type(hazard_or_id) == "table" and hazard_or_id or self.hazards[hazard_or_id]
+  if not hazard or self.hazards[hazard.id] ~= hazard then
+    return nil, "Unknown hazard"
+  end
+  local definition = self.registry:get_hazard(hazard.definition_id)
+  return {
+    id = hazard.id,
+    definition_id = definition.id,
+    display_name = definition.display_name,
+    x = hazard.x,
+    y = hazard.y,
+    active = hazard.active,
+    trigger = definition.trigger,
+    effect = copy_object(definition.effect),
+    render_style = definition.render_style,
+  }
 end
 
 function World:is_passable(x, y)
@@ -316,6 +412,10 @@ function World:inspect_cell(x, y)
   for _, object in ipairs(self:objects_at(x, y, true)) do
     objects[#objects + 1] = assert(self:inspect_object(object))
   end
+  local hazards = {}
+  for _, hazard in ipairs(self:hazards_at(x, y, true)) do
+    hazards[#hazards + 1] = assert(self:inspect_hazard(hazard))
+  end
   return {
     x = x,
     y = y,
@@ -329,6 +429,7 @@ function World:inspect_cell(x, y)
     destroyed = cell.destroyed,
     destroyed_from_material_id = cell.destroyed_from_material_id,
     objects = objects,
+    hazards = hazards,
   }
 end
 
@@ -342,10 +443,14 @@ function World:describe_cell(x, y)
   for _, object in ipairs(inspected.objects) do
     object_ids[#object_ids + 1] = object.id
   end
-  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s",
+  local hazard_ids = {}
+  for _, hazard in ipairs(inspected.hazards) do
+    hazard_ids[#hazard_ids + 1] = hazard.id
+  end
+  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s",
     x, y, inspected.material_id, tostring(inspected.passable), tostring(inspected.blocks_vision),
     tostring(inspected.blocks_projectile), integrity, tostring(inspected.destructible), tostring(inspected.destroyed),
-    table.concat(object_ids, ","))
+    table.concat(object_ids, ","), table.concat(hazard_ids, ","))
 end
 
 function World:mutation_data()
@@ -380,11 +485,20 @@ function World:object_data()
   return objects
 end
 
+function World:hazard_data()
+  local hazards = {}
+  for _, hazard in ipairs(self:list_hazards(true)) do
+    hazards[#hazards + 1] = copy_object(hazard)
+  end
+  return hazards
+end
+
 function World:to_data()
   return {
     terrain = self.terrain,
     mutations = self:mutation_data(),
     objects = self:object_data(),
+    hazards = self:hazard_data(),
   }
 end
 
@@ -439,6 +553,37 @@ function World:validate()
   for location_key, object in pairs(self.objects_by_cell) do
     assert(object_ids[object.id] and not object.destroyed and key(object.x, object.y) == location_key,
       "World object cell index references invalid state")
+  end
+  local hazard_ids = {}
+  for _, id in ipairs(self.hazard_order) do
+    local hazard = self.hazards[id]
+    assert(hazard and hazard.id == id, "Hazard order references an invalid hazard")
+    assert(not hazard_ids[id], "Duplicate hazard ID '" .. id .. "'")
+    hazard_ids[id] = true
+    assert(Grid.in_bounds(hazard.x, hazard.y), "Hazard is outside world bounds")
+    self.registry:get_hazard(hazard.definition_id)
+    assert(type(hazard.active) == "boolean", "Hazard active state must be boolean")
+    if hazard.active then
+      assert(self:terrain_is_passable(hazard.x, hazard.y), "Active hazard is placed in impassable terrain")
+      assert(not self:object_at(hazard.x, hazard.y), "Active hazard overlaps a world object")
+    end
+    local indexed = false
+    for _, indexed_hazard in ipairs(self.hazards_by_cell[key(hazard.x, hazard.y)] or {}) do
+      if indexed_hazard == hazard then
+        indexed = true
+        break
+      end
+    end
+    assert(indexed, "Hazard cell index is invalid")
+  end
+  for id in pairs(self.hazards) do
+    assert(hazard_ids[id], "Hazard is missing from deterministic hazard order")
+  end
+  for location_key, hazards in pairs(self.hazards_by_cell) do
+    for _, hazard in ipairs(hazards) do
+      assert(hazard_ids[hazard.id] and key(hazard.x, hazard.y) == location_key,
+        "Hazard cell index references invalid state")
+    end
   end
   return true
 end

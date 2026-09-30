@@ -36,12 +36,14 @@ function Force.apply(world, target, spec)
     value.x, value.y = x, y
     return { applied = true }
   end
-  local path, stopped_code = {}, nil
+  local path, stopped_code, blocker_code = {}, nil, nil
+  local start_x, start_y = target.x, target.y
   for _ = 1, spec.distance do
     local x, y = target.x + dx, target.y + dy
     local blocked, code = is_blocked(x, y, target)
     if blocked then
       stopped_code = code or "blocked"
+      blocker_code = stopped_code
       break
     end
     local moved = move(target, x, y)
@@ -50,6 +52,17 @@ function Force.apply(world, target, spec)
       break
     end
     path[#path + 1] = { x = x, y = y }
+    if spec.on_step then
+      local continuation = spec.on_step(target, x, y, {
+        index = #path,
+        requested_distance = spec.distance,
+        path = path,
+      })
+      if continuation == false or (type(continuation) == "table" and continuation.stop) then
+        stopped_code = type(continuation) == "table" and continuation.code or "stopped"
+        break
+      end
+    end
   end
   return {
     applied = #path > 0,
@@ -61,6 +74,13 @@ function Force.apply(world, target, spec)
     direction = { dx = dx, dy = dy },
     requested_distance = spec.distance,
     moved_distance = #path,
+    remaining_distance = spec.distance - #path,
+    blocked = blocker_code ~= nil,
+    blocker_code = blocker_code,
+    final_x = target.x,
+    final_y = target.y,
+    start_x = start_x,
+    start_y = start_y,
     path = path,
   }
 end

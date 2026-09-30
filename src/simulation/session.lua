@@ -12,7 +12,10 @@ local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
 local EnvironmentDamage = require("src.simulation.environment_damage")
 local Force = require("src.simulation.force")
+local Hazards = require("src.simulation.hazards")
+local Impact = require("src.simulation.impact")
 local EnvironmentObjects = require("src.generation.environment_objects")
+local HazardGeneration = require("src.generation.hazards")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -79,6 +82,7 @@ function Session.new(options)
     next_component_sequence = 1,
     next_corpse_sequence = 1,
     next_world_object_sequence = 1,
+    next_hazard_sequence = 1,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -142,6 +146,13 @@ function Session:inspect_world_object(object_id)
   return self.state.world:inspect_object(object_id)
 end
 
+function Session:inspect_hazard(hazard_id)
+  if not self.state.world then
+    return nil, "No active world"
+  end
+  return self.state.world:inspect_hazard(hazard_id)
+end
+
 function Session:damage_world_object(object_or_id, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", reason = "No active world" }
@@ -195,7 +206,27 @@ function Session:apply_force(target, force_spec)
     self:_move_entity(value, x, y)
     return { applied = true }
   end
-  return Force.apply(world, target, spec)
+  local supplied_on_step = spec.on_step
+  if not is_object then
+    spec.on_step = function(value, x, y, step)
+      local entry = self:_resolve_actor_hazard_entry(value, x, y, {
+        movement = "force",
+        force = force_spec,
+        force_step = step.index,
+      })
+      if entry.dead then
+        return { stop = true, code = "target_destroyed" }
+      end
+      if supplied_on_step then
+        return supplied_on_step(value, x, y, step)
+      end
+    end
+  end
+  local result = Force.apply(world, target, spec)
+  if not is_object and result.code ~= "target_destroyed" then
+    result.impact = self:_resolve_force_impact(target, result, force_spec or {})
+  end
+  return result
 end
 
 function Session:_build_body(actor_definition)
@@ -257,6 +288,10 @@ function Session:_move_actor(actor, x, y)
     end
   end
   self:_move_entity(actor, x, y)
+  result.hazard = self:_resolve_actor_hazard_entry(actor, x, y, { movement = "voluntary" })
+  if result.hazard.dead then
+    result.dead = true
+  end
   return result
 end
 
@@ -593,6 +628,7 @@ function Session:run_data()
       next_component_sequence = self.state.next_component_sequence,
       next_corpse_sequence = self.state.next_corpse_sequence,
       next_world_object_sequence = self.state.next_world_object_sequence,
+      next_hazard_sequence = self.state.next_hazard_sequence,
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -751,6 +787,124 @@ function Session:damage_actor_body(actor, damage_spec)
   return result
 end
 
+function Session:_enemy_index(actor)
+  for index, enemy in ipairs(self.state.enemies or {}) do
+    if enemy == actor then
+      return index
+    end
+  end
+  return nil
+end
+
+-- Hazards and impacts are world-caused injury, but they deliberately retain
+-- the current staged HP model while also using localized body damage.
+function Session:_apply_world_actor_damage(actor, amount, message, provenance)
+  provenance = provenance or {}
+  -- Environmental kinetic injury chooses among components that can still take
+  -- integrity damage. This keeps a wall slam or spike entry meaningful even
+  -- after a different limb has already failed, while remaining deterministic.
+  local damage_spec = {
+    amount = amount,
+    cause = provenance.cause or "kinetic",
+    source = provenance.source,
+    source_actor_id = provenance.source_actor_id,
+    source_component_id = provenance.source_component_id,
+    ability_id = provenance.ability_id,
+  }
+  if actor.body then
+    local candidates = {}
+    for _, slot in ipairs(actor.body:list_installed_slots()) do
+      if slot.component.current_integrity > 0 then
+        candidates[#candidates + 1] = slot
+      end
+    end
+    if #candidates > 0 then
+      damage_spec.slot_id = self.rng:choice(candidates).slot_id
+    end
+  end
+  local body_damage = self:damage_actor_body(actor, damage_spec)
+  local state = self.state
+  local dead = false
+  if actor == state.player then
+    actor.health = math.max(0, actor.health - amount)
+    actor.impact = 2
+    self:_event("hit")
+    self:_sound("hurt")
+    if message then
+      self:_log(message)
+    end
+    if actor.health == 0 then
+      state.ended = "gameover"
+      dead = true
+    end
+  else
+    actor.health = math.max(0, (actor.health or 0) - amount)
+    if actor.health == 0 then
+      local index = self:_enemy_index(actor)
+      if index then
+        self:_destroy_enemy(index)
+      end
+      dead = true
+    end
+  end
+  return {
+    applied = true,
+    amount = amount,
+    body_damage = body_damage,
+    dead = dead,
+    provenance = provenance,
+  }
+end
+
+function Session:_apply_hazard_effect(actor, hazard, definition, context)
+  local effect = definition.effect
+  assert(effect.type == "kinetic_damage", "Unsupported hazard effect '" .. tostring(effect.type) .. "'")
+  local result = self:_apply_world_actor_damage(actor, effect.amount,
+    actor == self.state.player and "SPIKES TEAR INTO YOU." or nil, {
+      cause = "kinetic",
+      source = "hazard",
+      hazard_id = hazard.id,
+      hazard_definition_id = definition.id,
+      x = hazard.x,
+      y = hazard.y,
+      context = context,
+    })
+  result.hazard_id = hazard.id
+  result.hazard_definition_id = definition.id
+  result.x, result.y = hazard.x, hazard.y
+  return result
+end
+
+function Session:_resolve_actor_hazard_entry(actor, x, y, context)
+  local result = Hazards.on_actor_enter(self.state.world, actor, x, y, context,
+    function(target, hazard, definition, entry_context)
+      return self:_apply_hazard_effect(target, hazard, definition, entry_context)
+    end)
+  return result
+end
+
+function Session:_resolve_force_impact(actor, force_result, force_spec)
+  local impact = Impact.from_force(actor, force_result, force_spec)
+  if not impact.applied then
+    return impact
+  end
+  local damage = self:_apply_world_actor_damage(actor, impact.severity,
+    actor == self.state.player and "YOU SLAM INTO THE WALL." or nil, {
+      cause = impact.cause,
+      source = "impact",
+      source_actor_id = impact.source_actor_id,
+      source_component_id = impact.source_component_id,
+      ability_id = impact.ability_id,
+      force_cause = impact.force_cause,
+      blocker_code = impact.blocker_code,
+      x = impact.x,
+      y = impact.y,
+    })
+  impact.damage = damage
+  impact.dead = damage.dead
+  return impact
+end
+
 function Session:wear_actor_component(actor, slot_id, source)
   if not actor.body then
     return {
@@ -873,13 +1027,14 @@ function Session:_occupied(include_boss)
   return occupied
 end
 
-function Session:_open_location(used, minimum)
+function Session:_open_location(used, minimum, avoid_hazards)
   local options = {}
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
       local location_key = Grid.key(x, y)
       local point = Grid.cell(x, y)
       if self:_open(x, y) and not used[location_key]
+        and (not avoid_hazards or not self.state.world:is_hazardous(x, y))
         and (not minimum or Grid.distance(point, self.state.player) >= minimum) then
         options[#options + 1] = point
       end
@@ -965,6 +1120,7 @@ function Session:start_run(class, boon)
   state.next_component_sequence = 1
   state.next_corpse_sequence = 1
   state.next_world_object_sequence = 1
+  state.next_hazard_sequence = 1
   state.run.player = nil
   state.run.inventory = Inventory.new()
   state.inventory = state.run.inventory
@@ -1048,6 +1204,8 @@ function Session:start_stage()
   -- placement cannot perturb legacy actor/content RNG decisions.
   EnvironmentObjects.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("world_objects.stage." .. state.stage))
+  HazardGeneration.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("hazards.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1129,7 +1287,7 @@ function Session:_damage_boss(amount)
   self:_sound("hit")
 end
 
-function Session:_path(start, finish, blocked)
+function Session:_path(start, finish, blocked, avoid_hazards)
   blocked = blocked or {}
   local queue, head = { Grid.cell(start.x, start.y) }, 1
   local previous = { [Grid.key(start.x, start.y)] = false }
@@ -1149,13 +1307,23 @@ function Session:_path(start, finish, blocked)
     end
     for _, neighbour in ipairs(Grid.neighbours(point)) do
       local location_key = Grid.key(neighbour.x, neighbour.y)
-      if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil then
+      local is_destination = neighbour.x == finish.x and neighbour.y == finish.y
+      if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil
+        and (not avoid_hazards or is_destination or not self.state.world:is_hazardous(neighbour.x, neighbour.y)) then
         previous[location_key] = point
         queue[#queue + 1] = neighbour
       end
     end
   end
   return {}
+end
+
+function Session:_hazard_aware_path(start, finish, blocked)
+  local safe = self:_path(start, finish, blocked, true)
+  if #safe > 0 then
+    return safe, true
+  end
+  return self:_path(start, finish, blocked, false), false
 end
 
 function Session:_blast(origin, radius)
@@ -1570,7 +1738,10 @@ function Session:_enemy_turn()
       if enemy.kind == "wolf" and enemy ~= leader and leader and Grid.distance(enemy, leader) <= 10 then
         hunt = leader
       end
-      local route = self:_path(enemy, hunt, blocked)
+      -- Treat active hazards as blocked when a safe route exists. The fallback
+      -- preserves pursuit through a narrow dangerous corridor rather than
+      -- making hazards an artificial permanent wall for AI.
+      local route = self:_hazard_aware_path(enemy, hunt, blocked)
       if self:_actor_has_pending_area_attack(enemy) then
         -- The migrated cultist spell keeps its existing delayed, stationary
         -- wind-up behavior while its authoritative effect lives in the shared
@@ -1740,6 +1911,10 @@ function Session:_dash()
   for _ = 1, 2 do
     if self:_open(player.x + delta[1], player.y + delta[2]) then
       self:_move_entity(player, player.x + delta[1], player.y + delta[2])
+      local entry = self:_resolve_actor_hazard_entry(player, player.x, player.y, { movement = "dash" })
+      if entry.dead then
+        break
+      end
     else
       break
     end
@@ -1826,7 +2001,7 @@ function Session:_action(input)
 end
 
 function Session:_begin_exit()
-  local point = self:_open_location(self:_occupied(), 6)
+  local point = self:_open_location(self:_occupied(), 6, true)
   self.state.exit = entity("door", point.x, point.y)
   self.state.phase = "exit"
   self:_log("All targets are down. Find the exit.")

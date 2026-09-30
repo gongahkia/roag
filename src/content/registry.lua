@@ -85,6 +85,7 @@ function Registry.new(sources)
     abilities = {},
     materials = {},
     world_objects = {},
+    hazards = {},
     components = {},
     topologies = {},
     actors = {},
@@ -93,6 +94,7 @@ function Registry.new(sources)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
   self:_index("world_object", sources.world_objects, self.world_objects)
+  self:_index("hazard", sources.hazards, self.hazards)
   self:_index("component", sources.components, self.components)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
@@ -106,6 +108,7 @@ function Registry.load()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     world_objects = require("content.world_objects.legacy"),
+    hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -150,6 +153,10 @@ end
 
 function Registry:get_world_object(id)
   return self:_get(self.world_objects, "world object", id)
+end
+
+function Registry:get_hazard(id)
+  return self:_get(self.hazards, "hazard", id)
 end
 
 function Registry:get_component(id)
@@ -200,6 +207,22 @@ function Registry:validate()
       end
     end
     require_string(object.render_style, "World object '" .. id .. "' render_style")
+  end
+
+  for _, id in ipairs(sorted_keys(self.hazards)) do
+    local hazard = self.hazards[id]
+    require_string(hazard.display_name, "Hazard '" .. id .. "' display_name")
+    if hazard.trigger ~= "on_enter" then
+      content_error("Hazard '" .. id .. "' trigger must be 'on_enter'")
+    end
+    if type(hazard.effect) ~= "table" then
+      content_error("Hazard '" .. id .. "' effect must be a table")
+    end
+    if hazard.effect.type ~= "kinetic_damage" then
+      content_error("Hazard '" .. id .. "' effect.type must be 'kinetic_damage'")
+    end
+    require_positive_integer(hazard.effect.amount, "Hazard '" .. id .. "' effect.amount")
+    require_string(hazard.render_style, "Hazard '" .. id .. "' render_style")
   end
 
   local known_slot_kinds = {}

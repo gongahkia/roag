@@ -5,6 +5,7 @@ local function sources()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     world_objects = require("content.world_objects.legacy"),
+    hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -38,6 +39,57 @@ return {
       assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
       assert(registry:get_material("material.terrain.brush").max_integrity == 2)
       assert(registry:get_world_object("world_object.cover.timber_crate").material_id == "material.structure.wood")
+      assert(registry:get_hazard("hazard.legacy.spike_field").effect.type == "kinetic_damage")
+    end,
+  },
+  {
+    name = "hazard definitions validate declarative trigger and kinetic effect metadata",
+    run = function()
+      local invalid_trigger = sources()
+      invalid_trigger.hazards = copy_list(invalid_trigger.hazards)
+      invalid_trigger.hazards[#invalid_trigger.hazards + 1] = {
+        id = "hazard.invalid.trigger",
+        display_name = "Invalid Trigger",
+        trigger = "periodic",
+        effect = { type = "kinetic_damage", amount = 1 },
+        render_style = "spikes",
+      }
+      assert_failure("Hazard 'hazard.invalid.trigger' trigger must be 'on_enter'", function()
+        Registry.new(invalid_trigger)
+      end)
+
+      local invalid_effect = sources()
+      invalid_effect.hazards = copy_list(invalid_effect.hazards)
+      invalid_effect.hazards[#invalid_effect.hazards + 1] = {
+        id = "hazard.invalid.effect",
+        display_name = "Invalid Effect",
+        trigger = "on_enter",
+        effect = { type = "fire_damage", amount = 1 },
+        render_style = "spikes",
+      }
+      assert_failure("Hazard 'hazard.invalid.effect' effect.type must be 'kinetic_damage'", function()
+        Registry.new(invalid_effect)
+      end)
+
+      local invalid_amount = sources()
+      invalid_amount.hazards = copy_list(invalid_amount.hazards)
+      invalid_amount.hazards[#invalid_amount.hazards + 1] = {
+        id = "hazard.invalid.amount",
+        display_name = "Invalid Amount",
+        trigger = "on_enter",
+        effect = { type = "kinetic_damage", amount = 0 },
+        render_style = "spikes",
+      }
+      assert_failure("Hazard 'hazard.invalid.amount' effect.amount must be a positive integer", function()
+        Registry.new(invalid_amount)
+      end)
+
+      local duplicate = sources()
+      duplicate.hazards = copy_list(duplicate.hazards)
+      duplicate.hazards[#duplicate.hazards + 1] = duplicate.hazards[1]
+      assert_failure("Duplicate hazard ID 'hazard.legacy.spike_field'", function()
+        Registry.new(duplicate)
+      end)
     end,
   },
   {
