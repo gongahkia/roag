@@ -284,13 +284,17 @@ return {
       assert(object_snapshot(first) == object_snapshot(second))
       local data = first.state.world:to_data()
       assert(#data.circuits == 1 and data.circuits[1].id == "power.circuit.stage_dungeon_maintenance")
-      local found_door = false
+      local found_door, found_generator, found_breaker = false, false, false
       for _, object in ipairs(data.objects) do
         if object.definition_id == DOOR then
           found_door = object.door_state == "closed" and object.circuit_id == data.circuits[1].id
+        elseif object.definition_id == GENERATOR then
+          found_generator = object.generator_online == true and object.circuit_id == data.circuits[1].id
+        elseif object.definition_id == BREAKER then
+          found_breaker = object.circuit_id == data.circuits[1].id
         end
       end
-      assert(found_door and first:validate_world())
+      assert(found_door and found_generator and found_breaker and first:validate_world())
     end,
   },
 }
