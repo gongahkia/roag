@@ -286,12 +286,12 @@ return {
   {
     name = "ordinary turn processing runs fire before gas and skips dead actors",
     run = function()
-      local session = prepare_session(3912, { { 10, 10 } })
+      local session = prepare_session(3912, { { 10, 10 }, { 11, 10 } })
       local state, player = session.state, session.state.player
-      state.world = World.new(session.registry, "forest", layout({ { 10, 10 } }), state)
+      state.world = World.new(session.registry, "forest", layout({ { 10, 10 }, { 11, 10 } }), state)
       player.x, player.y, player.health = 10, 10, 1
       state.settings.targets, state.settings.enemies = 0, 0
-      state.ammo = { kind = "ammo", x = 10, y = 10 }
+      state.ammo = { kind = "ammo", x = 11, y = 10 }
       local integrity = body_integrity(player)
       local fire = assert(session:ignite_terrain(10, 10, { source = "test" }).fire)
       fire.ready_tick = 1
