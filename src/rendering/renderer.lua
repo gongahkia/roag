@@ -139,6 +139,24 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- Gas is an authoritative coordinate layer, rendered after liquid so both
+  -- can coexist visibly. The drifting tint depends only on wall-clock time
+  -- and coordinates; it neither uses simulation RNG nor affects no-fog LOS.
+  for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
+    if state.visible[Grid.key(gas.x, gas.y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, gas.x, gas.y, size, offset_x, offset_y)
+      if pixel_x then
+        local definition = session.registry:get_gas(gas.gas_id)
+        local density = gas.concentration / definition.max_concentration
+        local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * size * 0.06
+        self:_color({ 0.36, 0.86, 0.3, 0.12 + density * 0.32 })
+        love.graphics.circle("fill", pixel_x + size * 0.36 + drift, pixel_y + size * 0.55, math.max(1, size * (0.16 + density * 0.22)))
+        self:_color({ 0.56, 1, 0.4, 0.08 + density * 0.24 })
+        love.graphics.circle("fill", pixel_x + size * 0.65 - drift, pixel_y + size * 0.38, math.max(1, size * (0.12 + density * 0.18)))
+      end
+    end
+  end
+
   -- Hazards are a passable, simulation-owned floor layer. The compact crossed
   -- spike marker makes danger readable without introducing a new art set.
   for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do

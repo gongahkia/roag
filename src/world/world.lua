@@ -912,6 +912,20 @@ function World:inspect_cell(x, y)
       extinguishes_fire = definition.extinguishes_fire,
     }
   end
+  local gas = self:gas_at(x, y)
+  local gas_data
+  if gas then
+    local definition = self.registry:get_gas(gas.gas_id)
+    gas_data = {
+      gas_id = definition.id,
+      display_name = definition.display_name,
+      concentration = gas.concentration,
+      max_concentration = definition.max_concentration,
+      exposure_threshold = definition.exposure_threshold,
+      damage = definition.damage,
+      harmful = gas.concentration >= definition.exposure_threshold,
+    }
+  end
   return {
     x = x,
     y = y,
@@ -927,6 +941,7 @@ function World:inspect_cell(x, y)
     objects = objects,
     hazards = hazards,
     liquid = liquid_data,
+    gas = gas_data,
     fires = fires,
   }
 end
@@ -950,10 +965,11 @@ function World:describe_cell(x, y)
     fire_ids[#fire_ids + 1] = fire.id
   end
   local liquid = inspected.liquid and (inspected.liquid.liquid_id .. "@" .. inspected.liquid.amount) or ""
-  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s liquid=%s fires=%s",
+  local gas = inspected.gas and (inspected.gas.gas_id .. "@" .. inspected.gas.concentration) or ""
+  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s liquid=%s gas=%s fires=%s",
     x, y, inspected.material_id, tostring(inspected.passable), tostring(inspected.blocks_vision),
     tostring(inspected.blocks_projectile), integrity, tostring(inspected.destructible), tostring(inspected.destroyed),
-    table.concat(object_ids, ","), table.concat(hazard_ids, ","), liquid, table.concat(fire_ids, ","))
+    table.concat(object_ids, ","), table.concat(hazard_ids, ","), liquid, gas, table.concat(fire_ids, ","))
 end
 
 function World:mutation_data()
@@ -1004,6 +1020,14 @@ function World:liquid_data()
   return liquids
 end
 
+function World:gas_data()
+  local gases = {}
+  for _, gas in ipairs(self:list_gases()) do
+    gases[#gases + 1] = copy_object(gas)
+  end
+  return gases
+end
+
 function World:fire_data()
   local fires = {}
   for _, fire in ipairs(self:list_fires(true)) do
@@ -1021,6 +1045,7 @@ function World:to_data()
     hazards = self:hazard_data(),
     liquids = self:liquid_data(),
     liquid_tick = self.liquid_tick,
+    gases = self:gas_data(),
     fires = self:fire_data(),
     fire_tick = self.fire_tick,
   }
@@ -1059,6 +1084,19 @@ function World:validate()
     assert(self:terrain_is_passable(liquid.x, liquid.y), "Liquid occupies impassable terrain")
   end
 
+  for location_key, gas in pairs(self.gases) do
+    assert(type(gas) == "table", "Gas state must be a table")
+    assert(type(gas.x) == "number" and type(gas.y) == "number"
+      and gas.x % 1 == 0 and gas.y % 1 == 0, "Gas position is invalid")
+    assert(Grid.in_bounds(gas.x, gas.y), "Gas is outside world bounds")
+    assert(key(gas.x, gas.y) == location_key, "Gas cell key does not match its position")
+    local definition = self.registry.gases[gas.gas_id]
+    assert(definition, "Gas references unknown definition")
+    assert(type(gas.concentration) == "number" and gas.concentration > 0 and gas.concentration % 1 == 0
+      and gas.concentration <= definition.max_concentration, "Gas concentration is invalid")
+    assert(self:allows_gas_at(gas.x, gas.y), "Gas occupies inaccessible terrain")
+  end
+
   local object_ids, occupied = {}, {}
   for _, id in ipairs(self.object_order) do
     local object = self.objects[id]
@@ -1074,13 +1112,14 @@ function World:validate()
     local location_key = key(object.x, object.y)
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")
-      assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles,
+      assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles and not object.blocks_gas,
         "Destroyed world object cannot retain blocking state")
       assert(self.objects_by_cell[location_key] ~= object, "Destroyed world object cannot occupy a cell")
     else
       assert(self:terrain_is_passable(object.x, object.y), "World object is placed in impassable terrain")
       assert(object.blocks_movement == definition.blocks_movement and object.blocks_vision == definition.blocks_vision
-        and object.blocks_projectiles == definition.blocks_projectiles, "World object blocking state does not match definition")
+        and object.blocks_projectiles == definition.blocks_projectiles and object.blocks_gas == definition.blocks_gas,
+        "World object blocking state does not match definition")
       assert(not occupied[location_key], "Multiple live world objects occupy one cell")
       occupied[location_key] = true
       assert(self.objects_by_cell[location_key] == object, "World object cell index is invalid")

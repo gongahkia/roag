@@ -16,9 +16,11 @@ local Hazards = require("src.simulation.hazards")
 local Impact = require("src.simulation.impact")
 local Fire = require("src.simulation.fire")
 local Liquid = require("src.simulation.liquid")
+local Gas = require("src.simulation.gas")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
+local GasGeneration = require("src.generation.gases")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -838,7 +840,10 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
       end
     end
     if #candidates > 0 then
-      damage_spec.slot_id = self.rng:choice(candidates).slot_id
+      -- Gas exposure must not consume combat/session RNG: diffusion itself is
+      -- RNG-free and an environmental medium should not perturb later rolls.
+      damage_spec.slot_id = provenance.deterministic_target and candidates[1].slot_id
+        or self.rng:choice(candidates).slot_id
     end
   end
   local body_damage = self:damage_actor_body(actor, damage_spec)
@@ -951,6 +956,50 @@ function Session:_update_liquids()
   local flow = Liquid.tick(self.state.world)
   local suppression = Liquid.suppress_fires(self.state.world)
   return { applied = flow.applied or suppression.applied, flow = flow, suppression = suppression }
+end
+
+function Session:_apply_gas_exposure(actor, gas, definition)
+  return self:_apply_world_actor_damage(actor, definition.damage,
+    actor == self.state.player and "TOXIC GAS BURNS YOU." or nil, {
+      cause = "toxic",
+      source = "gas",
+      gas_id = definition.id,
+      concentration = gas.concentration,
+      x = gas.x,
+      y = gas.y,
+      -- See _apply_world_actor_damage: this preserves gas's no-RNG contract.
+      deterministic_target = true,
+    })
+end
+
+-- Gas first commits its synchronous diffusion, then exposes living actors at
+-- post-diffusion concentration. Corpses and actors removed by earlier fire
+-- processing never appear in _actors_at and therefore receive no exposure.
+function Session:_update_gas()
+  local world = self.state.world
+  if not world then
+    return { applied = false, code = "no_world" }
+  end
+  local diffusion = Gas.tick(world)
+  local exposures = {}
+  if not self.state.ended then
+    for _, gas in ipairs(world:list_gases()) do
+      local definition = self.registry:get_gas(gas.gas_id)
+      if gas.concentration >= definition.exposure_threshold and definition.damage > 0 then
+        for _, actor in ipairs(self:_actors_at(gas.x, gas.y)) do
+          if not self.state.ended then
+            local exposure = self:_apply_gas_exposure(actor, gas, definition)
+            exposures[#exposures + 1] = exposure
+          end
+        end
+      end
+    end
+  end
+  return {
+    applied = diffusion.applied or #exposures > 0,
+    diffusion = diffusion,
+    exposures = exposures,
+  }
 end
 
 function Session:_resolve_force_impact(actor, force_result, force_spec)
@@ -1279,6 +1328,8 @@ function Session:start_stage()
     self.rng:derive("hazards.stage." .. state.stage))
   LiquidGeneration.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("liquids.stage." .. state.stage))
+  GasGeneration.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("gases.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1383,6 +1434,7 @@ function Session:_path(start, finish, blocked, avoid_hazards)
       local is_destination = neighbour.x == finish.x and neighbour.y == finish.y
       local dangerous = self.state.world:is_hazardous(neighbour.x, neighbour.y)
         or #self.state.world:fires_at(neighbour.x, neighbour.y) > 0
+        or self.state.world:is_harmful_gas_at(neighbour.x, neighbour.y)
       if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil
         and (not avoid_hazards or is_destination or not dangerous) then
         previous[location_key] = point
@@ -2209,6 +2261,9 @@ function Session:turn(input)
     end
     self:_update_liquids()
     self:_update_fire()
+    if not state.ended then
+      self:_update_gas()
+    end
     if state.ended then
       self:refresh_visibility()
       return state.ended
@@ -2256,6 +2311,9 @@ function Session:turn(input)
   -- fuel before that turn's burn tick. New fires still wait by ready_tick.
   self:_update_liquids()
   self:_update_fire()
+  if not state.ended then
+    self:_update_gas()
+  end
   self:refresh_visibility()
   return result or state.ended
 end
