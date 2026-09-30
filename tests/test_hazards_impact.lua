@@ -165,6 +165,24 @@ return {
     end,
   },
   {
+    name = "shared self destruct force inherits structural impact consequences",
+    run = function()
+      local session = new_session(3614)
+      local state, player = session.state, session.state.player
+      state.world = World.new(session.registry, "arena", open_layout({ { 10, 10 }, { 11, 10 } }), state)
+      state.player.x, state.player.y = 11, 10
+      state.player.health = 4
+      state.targets, state.bullets, state.bombs, state.flares, state.torches, state.effects = {}, {}, {}, {}, {}, {}
+      local bomber = session:_make_enemy("bomber", { x = 10, y = 10 })
+      state.enemies = { bomber }
+      local health, integrity = player.health, body_integrity(player)
+      local result = session:activate_actor_ability(bomber, "ability.explosive.self_destruct")
+      assert(result.applied and #state.enemies == 0)
+      assert(player.x == 11 and player.y == 10)
+      assert(player.health == health - 2 and body_integrity(player) == integrity - 1)
+    end,
+  },
+  {
     name = "blocked force exposes remaining distance and causes localized wall impact damage",
     run = function()
       local session = prepare_open_session(3607, { { 8, 5 } })
