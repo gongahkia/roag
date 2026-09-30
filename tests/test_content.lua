@@ -23,6 +23,14 @@ local function copy_list(values)
   return result
 end
 
+local function copy_table(values)
+  local result = {}
+  for key, value in pairs(values) do
+    result[key] = value
+  end
+  return result
+end
+
 local function assert_failure(expected, callback)
   local ok, err = pcall(callback)
   assert(not ok, "Expected content validation to fail")
@@ -260,6 +268,30 @@ return {
       }
       assert_failure("World object 'world_object.invalid.metadata' blocks_movement must be a boolean", function()
         Registry.new(invalid_metadata)
+      end)
+    end,
+  },
+  {
+    name = "interactive device definitions validate declarative roles and powered-door metadata",
+    run = function()
+      local unknown_role = sources()
+      unknown_role.world_objects = copy_list(unknown_role.world_objects)
+      local invalid = copy_table(unknown_role.world_objects[1])
+      invalid.id = "world_object.invalid.unknown_role"
+      invalid.interaction_role = "terminal"
+      unknown_role.world_objects[#unknown_role.world_objects + 1] = invalid
+      assert_failure("World object 'world_object.invalid.unknown_role' has unknown interaction_role 'terminal'", function()
+        Registry.new(unknown_role)
+      end)
+
+      local invalid_door = sources()
+      invalid_door.world_objects = copy_list(invalid_door.world_objects)
+      local door = copy_table(require("content.world_objects.legacy")[3])
+      door.id = "world_object.invalid.powered_door"
+      door.power_required = nil
+      invalid_door.world_objects[#invalid_door.world_objects + 1] = door
+      assert_failure("World object 'world_object.invalid.powered_door' power_required must be a boolean", function()
+        Registry.new(invalid_door)
       end)
     end,
   },

@@ -155,6 +155,8 @@ function Input.keypressed(app, key, _, is_repeat)
       app:open_inventory()
     elseif key == "g" then
       app:open_salvage()
+    elseif key == "u" then
+      app:perform_turn("interact")
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
     elseif key == "x" then

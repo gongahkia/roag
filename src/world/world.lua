@@ -16,6 +16,7 @@ local SOLID_MATERIAL_BY_TERRAIN = {
 local OPEN_MATERIAL_BY_TERRAIN = {
   forest = "material.terrain.leaf_litter",
 }
+local DOOR_STATES = { open = true, closed = true, destroyed = true }
 
 local function key(x, y)
   return Grid.key(x, y)
@@ -27,6 +28,13 @@ local function copy_object(object)
     result[name] = value
   end
   return result
+end
+
+local function object_blocks_for_state(definition, door_state)
+  if definition.interaction_role == "door" and door_state == "open" then
+    return false, false, false, false
+  end
+  return definition.blocks_movement, definition.blocks_vision, definition.blocks_projectiles, definition.blocks_gas
 end
 
 function World.new(registry, terrain, open_layout, sequence_owner)
@@ -49,6 +57,8 @@ function World.new(registry, terrain, open_layout, sequence_owner)
     -- Gas is a coordinate-owned medium like liquid, but remains independent
     -- from terrain, hazards, objects, fire, and liquid state.
     gases = {},
+    circuits = {},
+    circuit_order = {},
     fires = {},
     fire_order = {},
     fires_by_target = {},
@@ -68,6 +78,7 @@ function World.new(registry, terrain, open_layout, sequence_owner)
       }
     end
   end
+
   return self
 end
 
@@ -90,6 +101,108 @@ end
 
 function World:get_object(id)
   return self.objects[id]
+end
+
+-- Persistent circuits are deliberately logical floor infrastructure, not a
+-- second electrical-fluid simulation. Power is derived from enabled circuit
+-- state and online physical generator objects each time it is queried.
+function World:register_circuit(circuit_id, options)
+  options = options or {}
+  if type(circuit_id) ~= "string" or circuit_id == "" then
+    return { applied = false, code = "invalid_circuit", reason = "Circuit ID must be a non-empty string" }
+  end
+  if self.circuits[circuit_id] then
+    return { applied = false, code = "duplicate_circuit", reason = "Circuit ID already exists" }
+  end
+  local enabled = options.enabled
+  if enabled == nil then
+    enabled = true
+  end
+  if type(enabled) ~= "boolean" then
+    return { applied = false, code = "invalid_enabled", reason = "Circuit enabled state must be boolean" }
+  end
+  local circuit = { id = circuit_id, enabled = enabled }
+  self.circuits[circuit_id] = circuit
+  self.circuit_order[#self.circuit_order + 1] = circuit_id
+  return { applied = true, circuit = circuit, circuit_id = circuit_id }
+end
+
+function World:get_circuit(circuit_id)
+  return self.circuits[circuit_id]
+end
+
+function World:list_circuits()
+  local result = {}
+  for _, circuit_id in ipairs(self.circuit_order) do
+    result[#result + 1] = self.circuits[circuit_id]
+  end
+  return result
+end
+
+function World:circuit_sources(circuit_id, online_only)
+  local sources = {}
+  for _, object in ipairs(self:list_objects(true)) do
+    if object.interaction_role == "generator" and object.circuit_id == circuit_id
+      and (not online_only or (not object.destroyed and object.generator_online)) then
+      sources[#sources + 1] = object
+    end
+  end
+  return sources
+end
+
+function World:circuit_consumers(circuit_id)
+  local consumers = {}
+  for _, object in ipairs(self:list_objects()) do
+    if object.interaction_role == "door" and object.circuit_id == circuit_id then
+      consumers[#consumers + 1] = object
+    end
+  end
+  return consumers
+end
+
+function World:is_circuit_powered(circuit_id)
+  local circuit = self.circuits[circuit_id]
+  return circuit and circuit.enabled and #self:circuit_sources(circuit_id, true) > 0 or false
+end
+
+function World:set_circuit_enabled(circuit_id, enabled)
+  local circuit = self.circuits[circuit_id]
+  if not circuit then
+    return { applied = false, code = "unknown_circuit", reason = "Unknown circuit ID '" .. tostring(circuit_id) .. "'" }
+  end
+  if type(enabled) ~= "boolean" then
+    return { applied = false, code = "invalid_enabled", reason = "Circuit enabled state must be boolean" }
+  end
+  local changed = circuit.enabled ~= enabled
+  circuit.enabled = enabled
+  return { applied = changed, code = changed and "set" or "unchanged", circuit_id = circuit_id, enabled = enabled,
+    powered = self:is_circuit_powered(circuit_id) }
+end
+
+function World:inspect_circuit(circuit_id)
+  local circuit = self.circuits[circuit_id]
+  if not circuit then
+    return nil, "Unknown circuit"
+  end
+  local sources, online_sources, consumers = self:circuit_sources(circuit_id), self:circuit_sources(circuit_id, true), self:circuit_consumers(circuit_id)
+  local source_ids, online_source_ids, consumer_ids = {}, {}, {}
+  for _, source in ipairs(sources) do
+    source_ids[#source_ids + 1] = source.id
+  end
+  for _, source in ipairs(online_sources) do
+    online_source_ids[#online_source_ids + 1] = source.id
+  end
+  for _, consumer in ipairs(consumers) do
+    consumer_ids[#consumer_ids + 1] = consumer.id
+  end
+  return {
+    id = circuit.id,
+    enabled = circuit.enabled,
+    powered = self:is_circuit_powered(circuit_id),
+    source_ids = source_ids,
+    online_source_ids = online_source_ids,
+    consumer_ids = consumer_ids,
+  }
 end
 
 function World:object_at(x, y)
@@ -681,6 +794,61 @@ function World:blocks_projectile(x, y)
   return object and object.blocks_projectiles or false
 end
 
+function World:set_door_state(object_or_id, door_state)
+  local object = type(object_or_id) == "table" and object_or_id or self.objects[object_or_id]
+  if not object or self.objects[object.id] ~= object then
+    return { applied = false, code = "invalid_target", reason = "Unknown world object" }
+  end
+  if object.interaction_role ~= "door" then
+    return { applied = false, code = "not_interactable", reason = "Object is not a door" }
+  end
+  if object.destroyed then
+    return { applied = false, code = "destroyed", reason = "Door is destroyed" }
+  end
+  if door_state ~= "open" and door_state ~= "closed" then
+    return { applied = false, code = "invalid_door_state", reason = "Door state is invalid" }
+  end
+  if object.door_state == door_state then
+    return { applied = false, code = door_state == "open" and "already_open" or "already_closed",
+      reason = door_state == "open" and "Door is already open" or "Door is already closed" }
+  end
+  -- A closed door is gas-inaccessible. Refuse to corrupt finite gas state by
+  -- closing onto an occupied doorway; later doors may model a small sealed
+  -- chamber explicitly, but this compact first pass does not delete mass.
+  if door_state == "closed" and self:is_gas_cell(object.x, object.y) then
+    return { applied = false, code = "gas_occupied", reason = "Gas fills the doorway" }
+  end
+  local definition = self.registry:get_world_object(object.definition_id)
+  if definition.power_required and not self:is_circuit_powered(object.circuit_id) then
+    return { applied = false, code = "requires_power", reason = "Door requires circuit power", circuit_id = object.circuit_id }
+  end
+  object.door_state = door_state
+  object.blocks_movement, object.blocks_vision, object.blocks_projectiles, object.blocks_gas =
+    object_blocks_for_state(definition, door_state)
+  return { applied = true, code = door_state, object_id = object.id, door_state = door_state,
+    circuit_id = object.circuit_id, powered = self:is_circuit_powered(object.circuit_id) }
+end
+
+function World:set_generator_online(object_or_id, online)
+  local object = type(object_or_id) == "table" and object_or_id or self.objects[object_or_id]
+  if not object or self.objects[object.id] ~= object then
+    return { applied = false, code = "invalid_target", reason = "Unknown world object" }
+  end
+  if object.interaction_role ~= "generator" then
+    return { applied = false, code = "not_interactable", reason = "Object is not a generator" }
+  end
+  if object.destroyed then
+    return { applied = false, code = "destroyed", reason = "Generator is destroyed" }
+  end
+  if type(online) ~= "boolean" then
+    return { applied = false, code = "invalid_generator_state", reason = "Generator online state must be boolean" }
+  end
+  local changed = object.generator_online ~= online
+  object.generator_online = online
+  return { applied = changed, code = changed and "set" or "unchanged", object_id = object.id,
+    online = online, circuit_id = object.circuit_id, powered = self:is_circuit_powered(object.circuit_id) }
+end
+
 function World:_next_object_id()
   local sequence = self.sequence_owner.next_world_object_sequence
   self.sequence_owner.next_world_object_sequence = sequence + 1
@@ -703,6 +871,25 @@ function World:place_object(definition_id, x, y, options)
   end
   local definition = self.registry:get_world_object(definition_id)
   local material = self.registry:get_material(definition.material_id)
+  local role = definition.interaction_role
+  local circuit_id = options.circuit_id
+  if role and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
+    return nil, { applied = false, code = "unknown_circuit", reason = "Interactive world object requires an existing circuit" }
+  end
+  local door_state = options.door_state or definition.default_door_state
+  if role == "door" and not DOOR_STATES[door_state] then
+    return nil, { applied = false, code = "invalid_door_state", reason = "Door state is invalid" }
+  end
+  if role == "door" and door_state == "destroyed" then
+    return nil, { applied = false, code = "invalid_door_state", reason = "New doors cannot be created destroyed" }
+  end
+  local generator_online = options.generator_online
+  if role == "generator" and generator_online == nil then
+    generator_online = true
+  end
+  if role == "generator" and type(generator_online) ~= "boolean" then
+    return nil, { applied = false, code = "invalid_generator_state", reason = "Generator online state must be boolean" }
+  end
   local id = options.id or self:_next_object_id()
   if self.objects[id] then
     return nil, { applied = false, code = "duplicate_id", reason = "World object ID already exists" }
@@ -720,12 +907,14 @@ function World:place_object(definition_id, x, y, options)
     y = y,
     current_integrity = integrity,
     destroyed = false,
-    blocks_movement = definition.blocks_movement,
-    blocks_vision = definition.blocks_vision,
-    blocks_projectiles = definition.blocks_projectiles,
-    blocks_gas = definition.blocks_gas,
+    interaction_role = role,
+    circuit_id = circuit_id,
+    door_state = role == "door" and door_state or nil,
+    generator_online = role == "generator" and generator_online or nil,
     movable_by_force = definition.movable_by_force,
   }
+  object.blocks_movement, object.blocks_vision, object.blocks_projectiles, object.blocks_gas =
+    object_blocks_for_state(definition, object.door_state)
   self.objects[id] = object
   self.object_order[#self.object_order + 1] = id
   self.objects_by_cell[key(x, y)] = object
@@ -837,6 +1026,13 @@ function World:damage_object(object_or_id, spec)
   }
   if new_integrity == 0 then
     object.destroyed = true
+    if object.interaction_role == "door" then
+      object.door_state = "destroyed"
+    elseif object.interaction_role == "breaker" then
+      -- A destroyed breaker leaves its circuit safely disabled. Generator
+      -- source state remains physical and can later serve another circuit.
+      self:set_circuit_enabled(object.circuit_id, false)
+    end
     object.blocks_movement = false
     object.blocks_vision = false
     object.blocks_projectiles = false
@@ -870,6 +1066,12 @@ function World:inspect_object(object_or_id)
     blocks_projectiles = not object.destroyed and object.blocks_projectiles or false,
     blocks_gas = not object.destroyed and object.blocks_gas or false,
     movable_by_force = object.movable_by_force,
+    interaction_role = object.interaction_role,
+    circuit_id = object.circuit_id,
+    door_state = object.door_state,
+    generator_online = object.generator_online,
+    circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
+    circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
     fires = (function()
       local fires = {}
       for _, fire in ipairs(self:list_fires(true)) do
@@ -1028,6 +1230,14 @@ function World:gas_data()
   return gases
 end
 
+function World:circuit_data()
+  local circuits = {}
+  for _, circuit in ipairs(self:list_circuits()) do
+    circuits[#circuits + 1] = { id = circuit.id, enabled = circuit.enabled }
+  end
+  return circuits
+end
+
 function World:fire_data()
   local fires = {}
   for _, fire in ipairs(self:list_fires(true)) do
@@ -1043,6 +1253,7 @@ function World:to_data()
     mutations = self:mutation_data(),
     objects = self:object_data(),
     hazards = self:hazard_data(),
+    circuits = self:circuit_data(),
     liquids = self:liquid_data(),
     liquid_tick = self.liquid_tick,
     gases = self:gas_data(),
@@ -1067,6 +1278,19 @@ function World:validate()
         assert(cell.current_integrity == nil, "Indestructible terrain cannot have mutable integrity")
       end
     end
+  end
+
+  local circuit_ids = {}
+  for _, circuit_id in ipairs(self.circuit_order) do
+    local circuit = self.circuits[circuit_id]
+    assert(type(circuit_id) == "string" and circuit_id ~= "", "Circuit ID is invalid")
+    assert(circuit and circuit.id == circuit_id, "Circuit order references invalid circuit")
+    assert(not circuit_ids[circuit_id], "Duplicate circuit ID '" .. circuit_id .. "'")
+    circuit_ids[circuit_id] = true
+    assert(type(circuit.enabled) == "boolean", "Circuit enabled state must be boolean")
+  end
+  for circuit_id in pairs(self.circuits) do
+    assert(circuit_ids[circuit_id], "Circuit is missing from deterministic order")
   end
 
   assert(type(self.liquid_tick) == "number" and self.liquid_tick >= 0 and self.liquid_tick % 1 == 0,
@@ -1110,16 +1334,39 @@ function World:validate()
     assert(type(object.current_integrity) == "number" and object.current_integrity >= 0
       and object.current_integrity <= material.max_integrity, "World object integrity is invalid")
     local location_key = key(object.x, object.y)
+    if object.interaction_role then
+      assert(object.interaction_role == definition.interaction_role, "World object interaction role does not match definition")
+      assert(type(object.circuit_id) == "string" and self.circuits[object.circuit_id],
+        "Interactive world object references unknown circuit")
+    else
+      assert(object.circuit_id == nil, "Non-interactive world object cannot reference a circuit")
+    end
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")
       assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles and not object.blocks_gas,
         "Destroyed world object cannot retain blocking state")
+      if object.interaction_role == "door" then
+        assert(object.door_state == "destroyed", "Destroyed door must retain destroyed state")
+      end
       assert(self.objects_by_cell[location_key] ~= object, "Destroyed world object cannot occupy a cell")
     else
       assert(self:terrain_is_passable(object.x, object.y), "World object is placed in impassable terrain")
-      assert(object.blocks_movement == definition.blocks_movement and object.blocks_vision == definition.blocks_vision
-        and object.blocks_projectiles == definition.blocks_projectiles and object.blocks_gas == definition.blocks_gas,
-        "World object blocking state does not match definition")
+      if object.interaction_role ~= "door" then
+        assert(object.blocks_movement == definition.blocks_movement and object.blocks_vision == definition.blocks_vision
+          and object.blocks_projectiles == definition.blocks_projectiles and object.blocks_gas == definition.blocks_gas,
+          "World object blocking state does not match definition")
+      end
+      if object.interaction_role == "door" then
+        assert(object.door_state == "open" or object.door_state == "closed", "Door state is invalid")
+        local movement, vision, projectile, gas = object_blocks_for_state(definition, object.door_state)
+        assert(object.blocks_movement == movement and object.blocks_vision == vision and object.blocks_projectiles == projectile
+          and object.blocks_gas == gas, "Door blocking state does not match door state")
+      elseif object.interaction_role == "generator" then
+        assert(type(object.generator_online) == "boolean" and object.door_state == nil,
+          "Generator has invalid device state")
+      elseif object.interaction_role == "breaker" then
+        assert(object.generator_online == nil and object.door_state == nil, "Breaker has invalid device state")
+      end
       assert(not occupied[location_key], "Multiple live world objects occupy one cell")
       occupied[location_key] = true
       assert(self.objects_by_cell[location_key] == object, "World object cell index is invalid")

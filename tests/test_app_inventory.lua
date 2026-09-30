@@ -20,6 +20,20 @@ return {
     end,
   },
   {
+    name = "U routes a gameplay interaction request through the input boundary",
+    run = function()
+      local calls = {}
+      local app = {
+        screen = "game",
+        perform_turn = function(_, input)
+          calls[#calls + 1] = input
+        end,
+      }
+      Input.keypressed(app, "u", nil, false)
+      assert(#calls == 1 and calls[1] == "interact")
+    end,
+  },
+  {
     name = "inventory and salvage overlays operate without rendering",
     run = function()
       local app = App.new({ seed = 9011 })

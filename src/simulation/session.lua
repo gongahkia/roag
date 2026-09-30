@@ -17,10 +17,12 @@ local Impact = require("src.simulation.impact")
 local Fire = require("src.simulation.fire")
 local Liquid = require("src.simulation.liquid")
 local Gas = require("src.simulation.gas")
+local Interaction = require("src.simulation.interaction")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
 local GasGeneration = require("src.generation.gases")
+local PoweredDevices = require("src.generation.powered_devices")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -157,6 +159,14 @@ function Session:inspect_hazard(hazard_id)
     return nil, "No active world"
   end
   return self.state.world:inspect_hazard(hazard_id)
+end
+
+function Session:available_interactions(actor)
+  return Interaction.available(self, actor or self.state.player)
+end
+
+function Session:interact(actor, object_id, action_id)
+  return Interaction.perform(self, actor or self.state.player, object_id, action_id)
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -1132,6 +1142,9 @@ function Session:_occupied(include_boss)
       occupied[Grid.key(value.x, value.y)] = true
     end
   end
+  for _, object in ipairs(state.world and state.world:list_objects() or {}) do
+    occupied[Grid.key(object.x, object.y)] = true
+  end
   if state.ammo then
     occupied[Grid.key(state.ammo.x, state.ammo.y)] = true
   end
@@ -1330,6 +1343,10 @@ function Session:start_stage()
     self.rng:derive("liquids.stage." .. state.stage))
   GasGeneration.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("gases.stage." .. state.stage))
+  -- Persistent logical power is generated after independent environmental
+  -- layers with its own stream, so it cannot perturb their layouts.
+  PoweredDevices.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("power_devices.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -2103,6 +2120,31 @@ function Session:_shoot(direction)
   return result
 end
 
+function Session:_interact_player()
+  local result = Interaction.primary(self, self.state.player)
+  if result.applied then
+    local object = self.state.world:get_object(result.object_id)
+    if result.action_id == "door.open" then
+      self:_log("OPENED " .. string.upper(self.registry:get_world_object(object.definition_id).display_name) .. ".")
+    elseif result.action_id == "door.close" then
+      self:_log("CLOSED " .. string.upper(self.registry:get_world_object(object.definition_id).display_name) .. ".")
+    elseif result.action_id == "generator.toggle" then
+      self:_log(object.generator_online and "GENERATOR ONLINE." or "GENERATOR OFFLINE.")
+    elseif result.action_id == "breaker.toggle" then
+      local circuit = self.state.world:get_circuit(object.circuit_id)
+      self:_log(circuit.enabled and "CIRCUIT ENABLED." or "CIRCUIT DISABLED.")
+    end
+    self:_sound("select")
+  elseif result.code == "requires_power" then
+    self:_log("NO POWER.")
+  elseif result.code == "not_interactable" then
+    self:_log("NOTHING TO INTERACT WITH.")
+  else
+    self:_log(result.reason or "INTERACTION FAILED.")
+  end
+  return result
+end
+
 function Session:_action(input)
   local player = self.state.player
   if DIRECTIONS[input] then
@@ -2116,6 +2158,8 @@ function Session:_action(input)
   end
   if input == "q" then
     self:_dash()
+  elseif input == "interact" then
+    self:_interact_player()
   elseif input == "e" then
     self:_shoot()
   elseif input:match("^shoot_[wasd]$") then
