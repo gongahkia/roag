@@ -31,7 +31,7 @@ return {
       local registry = Registry.load()
       assert(registry:get_component("component.internal.legacy_volatile_charge").display_name == "Volatile Charge")
       assert(registry:get_enemy("enemy.legacy.bomber").body_topology_id == "body.topology.normal")
-      assert(registry:get_ability("ability.explosive.self_destruct").implementation == "enemy_self_destruct")
+      assert(registry:get_ability("ability.explosive.self_destruct").implementation == "self_destruct")
     end,
   },
   {
@@ -73,7 +73,7 @@ return {
       invalid_sources.abilities[#invalid_sources.abilities + 1] = {
         id = "ability.invalid.callback",
         display_name = "Invalid Callback",
-        implementation = "enemy_self_destruct",
+        implementation = "self_destruct",
         callback = function() end,
       }
       assert_failure("must be declarative data, not a function", function()

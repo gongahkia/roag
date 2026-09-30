@@ -44,6 +44,10 @@ $ love .
 | `Q` | Dash two tiles in the facing direction |
 | `B` | Arm a bomb |
 | `F` | Light a flare; it stuns enemies in its blast |
+| `G` | Salvage a nearby corpse |
+| `I` | Open carried inventory |
+| `X` | Open installed body abilities; activation requires a second confirmation |
+| `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
 | Enter or `E` | Confirm a menu choice or leave the shop for the boss |
 | `B` / `V` in the shop | Buy / sell the selected item |

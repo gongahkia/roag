@@ -43,6 +43,38 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
 
+  if app.screen == "reconstruction" then
+    if key == "tab" then
+      app:toggle_reconstruction_focus()
+    elseif key == "w" or key == "up" then
+      app:move_reconstruction_selection(-1)
+    elseif key == "s" or key == "down" then
+      app:move_reconstruction_selection(1)
+    elseif key == "return" or key == "space" then
+      app:reconstruction_confirm()
+    elseif key == "r" then
+      app:rotate_reconstruction_item()
+    elseif key == "f" then
+      app:finish_reconstruction()
+    end
+    return
+  end
+
+  if app.screen == "body_abilities" then
+    if key == "escape" or key == "x" then
+      app:close_overlay()
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, #app.body_ability_options)
+      app.body_ability_confirming = false
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, #app.body_ability_options)
+      app.body_ability_confirming = false
+    elseif key == "return" or key == "space" then
+      app:confirm_body_ability()
+    end
+    return
+  end
+
   if key == "escape" then
     app:quit()
     return
@@ -123,6 +155,8 @@ function Input.keypressed(app, key, _, is_repeat)
       app:open_salvage()
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
+    elseif key == "x" then
+      app:open_body_abilities()
     end
   end
 end

@@ -58,18 +58,30 @@ function Body:get_component(slot_id)
   return slot and slot.component or nil
 end
 
-function Body:install(slot_id, component)
+function Body:can_install(slot_id, component)
   local slot = self:get_slot(slot_id)
   if not slot then
-    return nil, "Unknown body slot '" .. tostring(slot_id) .. "'"
+    return false, "Unknown body slot '" .. tostring(slot_id) .. "'"
   end
   if slot.component then
-    return nil, "Body slot '" .. slot_id .. "' is already occupied"
+    return false, "Body slot '" .. slot_id .. "' is already occupied"
+  end
+  if type(component) ~= "table" or type(component.definition_id) ~= "string" then
+    return false, "Body installation requires a physical component"
   end
   local definition = self.registry:get_component(component.definition_id)
   if not supports_slot(definition, slot.kind) then
-    return nil, "Component '" .. component.definition_id .. "' is incompatible with slot '" .. slot_id .. "'"
+    return false, "Component '" .. component.definition_id .. "' is incompatible with slot '" .. slot_id .. "'"
   end
+  return true
+end
+
+function Body:install(slot_id, component)
+  local allowed, reason = self:can_install(slot_id, component)
+  if not allowed then
+    return nil, reason
+  end
+  local slot = self:get_slot(slot_id)
   slot.component = component
   return component
 end
@@ -156,11 +168,13 @@ end
 function Body:list_capabilities()
   local abilities, seen = {}, {}
   for _, component in ipairs(self:list_components()) do
-    local definition = self.registry:get_component(component.definition_id)
-    for _, ability_id in ipairs(definition.abilities) do
-      if not seen[ability_id] then
-        abilities[#abilities + 1] = ability_id
-        seen[ability_id] = true
+    if Component.is_functional(component) then
+      local definition = self.registry:get_component(component.definition_id)
+      for _, ability_id in ipairs(definition.abilities) do
+        if not seen[ability_id] then
+          abilities[#abilities + 1] = ability_id
+          seen[ability_id] = true
+        end
       end
     end
   end

@@ -4,6 +4,6 @@ return {
   {
     id = "ability.explosive.self_destruct",
     display_name = "Volatile Self-Destruct",
-    implementation = "enemy_self_destruct",
+    implementation = "self_destruct",
   },
 }

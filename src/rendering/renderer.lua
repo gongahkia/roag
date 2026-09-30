@@ -201,6 +201,11 @@ function Renderer:_draw_game(app)
   if state.boss then
     self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, offset_y + 218, 0.8, { 1, 0.6, 0.35 })
   end
+  local abilities = session:available_actor_abilities(state.player)
+  if #abilities > 0 then
+    local ability = session.registry:get_ability(abilities[1])
+    self:_text("BODY X: " .. string.upper(ability.display_name), hud, offset_y + 236, 0.72, { 0.95, 0.65, 0.35 })
+  end
   self:_text("CONTROLS", hud, offset_y + 246, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, offset_y + 266, 0.85)
   self:_text("ARROWS SHOOT   E FORWARD", hud, offset_y + 284, 0.75)
@@ -221,6 +226,125 @@ function Renderer:_draw_game(app)
     self:_color({ 1, 0.04, 0.04, (presentation.hit_flash / 0.32) * 0.16 })
     love.graphics.rectangle("fill", 0, 0, width, height)
   end
+end
+
+function Renderer:_draw_component_detail(session, component, x, y)
+  if not component then
+    self:_text("EMPTY SLOT", x, y, 1, { 0.65, 0.75, 0.9 })
+    return
+  end
+  local definition = session.registry:get_component(component.definition_id)
+  local abilities = #definition.abilities > 0 and definition.abilities or nil
+  self:_text(definition.display_name, x, y, 1.15, { 0.95, 0.85, 0.3 })
+  self:_text("ID " .. component.id, x, y + 24, 0.68, { 0.68, 0.76, 0.88 })
+  self:_text("SLOTS " .. table.concat(definition.compatible_slots, ", "), x, y + 43, 0.72)
+  self:_text("INTEGRITY " .. component.current_integrity .. " / " .. component.max_integrity, x, y + 61, 0.78)
+  self:_text("CONDITION " .. string.upper(Component.condition(component)), x, y + 79, 0.78,
+    Component.is_functional(component) and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+  self:_text("MASS " .. definition.mass .. "   SIZE " .. definition.inventory.width .. "×" .. definition.inventory.height, x, y + 97, 0.75)
+  if abilities then
+    local labels = {}
+    for _, ability_id in ipairs(abilities) do
+      labels[#labels + 1] = session.registry:get_ability(ability_id).display_name
+    end
+    self:_text("ABILITY " .. table.concat(labels, ", "), x, y + 115, 0.7, { 0.95, 0.65, 0.35 })
+  else
+    self:_text("ABILITY NONE", x, y + 115, 0.7, { 0.65, 0.72, 0.82 })
+  end
+end
+
+function Renderer:_draw_reconstruction(app)
+  local session, state = app.session, app.session.state
+  local inventory, body = state.inventory, state.player.body
+  local width, height = love.graphics.getDimensions()
+  local body_x, body_y = math.floor(width * 0.055), 112
+  local inventory_x = math.floor(width * 0.58)
+  local body_width, body_height = math.max(100, math.floor(width * 0.125)), 48
+  local layout = {
+    head = { 1.2, 0 },
+    left_arm = { 0, 1.25 }, torso_core = { 1.2, 1.25 }, right_arm = { 2.4, 1.25 },
+    internal_1 = { 0.8, 2.45 }, internal_2 = { 1.65, 2.45 },
+    left_leg = { 0.35, 3.65 }, right_leg = { 2.05, 3.65 },
+  }
+
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("RECONSTRUCTION", body_x, 28, 2, { 0.7, 0.9, 1 })
+  self:_text("Installed mass " .. body:installed_mass() .. "   •   Cargo " .. inventory:total_mass() .. " " .. inventory:encumbrance(), body_x, 68, 0.88, { 0.95, 0.85, 0.3 })
+  self:_text("BODY", body_x, 92, 1.15, app.reconstruction_focus == "body" and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
+  self:_text("INVENTORY", inventory_x, 92, 1.15, app.reconstruction_focus == "inventory" and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
+
+  local slots = app:reconstruction_slots()
+  for index, slot in ipairs(slots) do
+    local position = layout[slot.id] or { 0, index - 1 }
+    local x = body_x + position[1] * body_width
+    local y = body_y + position[2] * body_height
+    local selected = app.reconstruction_focus == "body" and index == app.reconstruction_slot_index
+    self:_color(selected and { 0.2, 0.36, 0.46 } or { 0.06, 0.09, 0.14 })
+    love.graphics.rectangle("fill", x, y, body_width - 8, body_height - 6)
+    self:_color(selected and { 1, 0.85, 0.2 } or { 0.23, 0.35, 0.46 })
+    love.graphics.rectangle("line", x, y, body_width - 8, body_height - 6)
+    self:_text(string.upper(slot.id:gsub("_", " ")), x + 5, y + 5, 0.61, { 0.7, 0.8, 0.92 })
+    self:_text(slot.component and session.registry:get_component(slot.component.definition_id).display_name or "EMPTY", x + 5, y + 22, 0.62,
+      slot.component and { 0.9, 0.94, 1 } or { 0.48, 0.56, 0.67 })
+  end
+
+  local cell = math.max(30, math.min(52, math.floor(math.min((width - inventory_x - 34) / inventory.width, 230 / inventory.height))))
+  local grid_y = 122
+  for y = 1, inventory.height do
+    for x = 1, inventory.width do
+      local px, py = inventory_x + (x - 1) * cell, grid_y + (y - 1) * cell
+      self:_color({ 0.055, 0.08, 0.12 })
+      love.graphics.rectangle("fill", px, py, cell - 3, cell - 3)
+      self:_color({ 0.18, 0.28, 0.38 })
+      love.graphics.rectangle("line", px, py, cell - 3, cell - 3)
+    end
+  end
+  for index, entry in ipairs(inventory.entries) do
+    local item_width, item_height = inventory:footprint(entry.item, entry.rotated)
+    local px, py = inventory_x + (entry.x - 1) * cell + 2, grid_y + (entry.y - 1) * cell + 2
+    local selected = app.reconstruction_focus == "inventory" and index == app.reconstruction_inventory_index
+    local queued = app.reconstruction_selected_id == entry.physical_id
+    self:_color((selected or queued) and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 })
+    love.graphics.rectangle("fill", px, py, item_width * cell - 7, item_height * cell - 7)
+    self:_color({ 0.8, 0.9, 1 })
+    love.graphics.rectangle("line", px, py, item_width * cell - 7, item_height * cell - 7)
+    self:_text(entry.item.display_name, px + 4, py + 5, 0.58, { 0.95, 0.97, 1 })
+  end
+
+  local selected_slot = app:reconstruction_slot()
+  local selected_entry = app.reconstruction_selected_id and inventory:get(app.reconstruction_selected_id) or app:reconstruction_inventory_entry()
+  local detail_component = app.reconstruction_focus == "body" and selected_slot and selected_slot.component
+    or selected_entry and selected_entry.item.object
+  self:_draw_component_detail(session, detail_component, inventory_x, grid_y + inventory.height * cell + 28)
+
+  local feedback = app:reconstruction_feedback()
+  local feedback_color = feedback.compatible and { 0.6, 0.9, 0.75 } or { 1, 0.42, 0.42 }
+  self:_text(feedback.compatible and "COMPATIBLE" or "INCOMPATIBLE", body_x, height - 92, 1, feedback_color)
+  self:_text(feedback.reason or "", body_x + 145, height - 92, 0.78, feedback_color)
+  self:_text("TAB FOCUS   W/S SELECT   ENTER INSTALL / UNINSTALL   R ROTATE INVENTORY", body_x, height - 62, 0.7, { 0.75, 0.82, 0.92 })
+  self:_text("F FINISH RECONSTRUCTION", body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
+end
+
+function Renderer:_draw_body_abilities(app)
+  local session = app.session
+  local width, height = love.graphics.getDimensions()
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("BODY ABILITIES", width * 0.18, 64, 2, { 0.7, 0.9, 1 })
+  for index, ability_id in ipairs(app.body_ability_options or {}) do
+    local ability = session.registry:get_ability(ability_id)
+    local y = 142 + (index - 1) * 76
+    local selected = index == app.menu
+    self:_color(selected and { 0.23, 0.16, 0.12 } or { 0.06, 0.08, 0.12 })
+    love.graphics.rectangle("fill", width * 0.18, y, width * 0.64, 58)
+    self:_text((selected and "> " or "  ") .. ability.display_name, width * 0.21, y + 12, 1.05,
+      selected and { 1, 0.65, 0.35 } or { 1, 1, 1 })
+  end
+  if app.body_ability_confirming then
+    self:_text("CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER.", width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
+  else
+    self:_text("SELECT AN ABILITY, THEN PRESS ENTER TO ARM CONFIRMATION.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
+  end
+  self:_text("W/S SELECT     ENTER CONFIRM     X / ESC CANCEL", width * 0.18, height - 62, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_inventory(app)
@@ -400,6 +524,10 @@ function Renderer:draw(app)
     self:_draw_inventory(app)
   elseif app.screen == "salvage" then
     self:_draw_salvage(app)
+  elseif app.screen == "reconstruction" then
+    self:_draw_reconstruction(app)
+  elseif app.screen == "body_abilities" then
+    self:_draw_body_abilities(app)
   elseif app.screen == "gameover" then
     self:_menu("YOU DIED", { { name = "RETURN TO TITLE", description = "Press Enter to begin a new descent." } }, app.menu, "")
   elseif app.screen == "victory" then

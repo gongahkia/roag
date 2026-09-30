@@ -4,7 +4,7 @@ local Registry = {}
 Registry.__index = Registry
 
 local KNOWN_ABILITY_IMPLEMENTATIONS = {
-  enemy_self_destruct = true,
+  self_destruct = true,
 }
 
 local function content_error(message)

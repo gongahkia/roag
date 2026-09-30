@@ -120,7 +120,9 @@ function App:return_to_title()
 end
 
 function App:_handle_turn_result(result)
-  if result == "curse" then
+  if result == "reconstruction" then
+    self:open_reconstruction()
+  elseif result == "curse" then
     self.screen, self.menu = "curse", 1
   elseif result == "shop" then
     self.screen, self.menu = "shop", 1
@@ -153,6 +155,168 @@ function App:open_inventory()
   self.screen = "inventory"
   self:play_sound("select")
   return true
+end
+
+function App:open_reconstruction()
+  if not self.session or self.session.state.phase ~= "reconstruction" then
+    return false
+  end
+  self.reconstruction_focus = "body"
+  self.reconstruction_slot_index = 1
+  self.reconstruction_inventory_index = 1
+  self.reconstruction_selected_id = nil
+  self.screen, self.menu = "reconstruction", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:reconstruction_slots()
+  local body = self.session and self.session.state.player and self.session.state.player.body
+  if not body then
+    return {}
+  end
+  local slots = {}
+  for _, slot_id in ipairs(body.slot_order) do
+    slots[#slots + 1] = body:get_slot(slot_id)
+  end
+  return slots
+end
+
+function App:reconstruction_slot()
+  return self:reconstruction_slots()[self.reconstruction_slot_index or 1]
+end
+
+function App:reconstruction_inventory_entry()
+  local inventory = self.session and self.session.state.inventory
+  return inventory and inventory.entries[self.reconstruction_inventory_index or 1] or nil
+end
+
+function App:move_reconstruction_selection(amount)
+  if self.reconstruction_focus == "body" then
+    local slots = self:reconstruction_slots()
+    self.reconstruction_slot_index = clamp((self.reconstruction_slot_index or 1) + amount, 1, math.max(1, #slots))
+  else
+    local entries = self.session.state.inventory.entries
+    self.reconstruction_inventory_index = clamp((self.reconstruction_inventory_index or 1) + amount, 1, math.max(1, #entries))
+  end
+  self:play_sound("select")
+end
+
+function App:toggle_reconstruction_focus()
+  self.reconstruction_focus = self.reconstruction_focus == "body" and "inventory" or "body"
+  self:play_sound("select")
+end
+
+function App:reconstruction_feedback()
+  local slot = self:reconstruction_slot()
+  local component_id = self.reconstruction_selected_id
+  if not slot then
+    return { applied = false, compatible = false, reason = "No body slot selected" }
+  end
+  if not component_id then
+    if slot.component then
+      local item = require("src.inventory.physical_item").from_component(slot.component, self.session.registry)
+      local placement = self.session.state.inventory:find_first_fit(item)
+      return {
+        applied = placement ~= nil,
+        compatible = placement ~= nil,
+        reason = placement and "Can uninstall to inventory" or "No inventory room for outgoing component",
+      }
+    end
+    return { applied = false, compatible = false, reason = "Select a component from inventory" }
+  end
+  return self.session:reconstruction_compatibility(component_id, slot.id)
+end
+
+function App:reconstruction_confirm()
+  local slot = self:reconstruction_slot()
+  if not slot then
+    return nil
+  end
+  if self.reconstruction_focus == "inventory" then
+    local entry = self:reconstruction_inventory_entry()
+    if not entry then
+      self.session:_log("No inventory item selected.")
+      return nil
+    end
+    self.reconstruction_selected_id = entry.physical_id
+    self.reconstruction_focus = "body"
+    self.session:_log("Selected " .. entry.item.display_name .. " for installation.")
+    self:play_sound("select")
+    return entry
+  end
+  if self.reconstruction_selected_id then
+    local result = self.session:install_inventory_component(self.reconstruction_selected_id, slot.id)
+    if result.applied then
+      self.reconstruction_selected_id = nil
+    end
+    return result
+  end
+  return self.session:uninstall_body_component(slot.id)
+end
+
+function App:rotate_reconstruction_item()
+  if self.reconstruction_focus ~= "inventory" then
+    self.session:_log("Select an inventory item to rotate it.")
+    return nil
+  end
+  local entry = self:reconstruction_inventory_entry()
+  if not entry then
+    self.session:_log("No inventory item selected.")
+    return nil
+  end
+  local rotated, reason = self.session.state.inventory:rotate(entry.physical_id)
+  if rotated then
+    self.session:_log("Rotated " .. entry.item.display_name .. ".")
+    self:play_sound("select")
+  else
+    self.session:_log(reason)
+  end
+  return rotated
+end
+
+function App:finish_reconstruction()
+  local result = self.session:complete_reconstruction()
+  if result.applied then
+    self.reconstruction_selected_id = nil
+    self:_handle_turn_result(result.next)
+    self:play_sound("door")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
+end
+
+function App:open_body_abilities()
+  if not self.session then
+    return false
+  end
+  local abilities = self.session:available_actor_abilities(self.session.state.player)
+  if #abilities == 0 then
+    self.session:_log("No functional body abilities installed.")
+    return false
+  end
+  self.body_ability_options = abilities
+  self.body_ability_confirming = false
+  self.screen, self.menu = "body_abilities", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:confirm_body_ability()
+  local ability_id = self.body_ability_options and self.body_ability_options[self.menu]
+  if not ability_id then
+    return nil
+  end
+  if not self.body_ability_confirming then
+    self.body_ability_confirming = true
+    self:play_sound("select")
+    return { applied = false, confirmation_required = true, ability_id = ability_id }
+  end
+  self.body_ability_confirming = false
+  self.screen = "game"
+  self:perform_turn("activate_ability:" .. ability_id)
+  return { applied = true, ability_id = ability_id }
 end
 
 function App:move_inventory_cursor(delta_x, delta_y)

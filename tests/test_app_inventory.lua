@@ -26,4 +26,26 @@ return {
       assert(app.screen == "game")
     end,
   },
+  {
+    name = "reconstruction overlay installs a selected component and requires explicit finish",
+    run = function()
+      local app = App.new({ seed = 9012 })
+      app:select_class(app.content.classes[1])
+      app:select_boon(app.boon_options[1])
+      local player = app.session.state.player
+      local bomber = app.session:_make_enemy("bomber", { x = player.x, y = player.y + 1 })
+      app.session.state.enemies[#app.session.state.enemies + 1] = bomber
+      local charge = bomber.body:get_component("internal_1")
+      app.session:_destroy_enemy(#app.session.state.enemies)
+      assert(app.session:salvage_corpse_component(app.session.state.corpses[#app.session.state.corpses].id, "internal_1").applied)
+      assert(app.session:_complete_stage() == "reconstruction")
+      assert(app:open_reconstruction() and app.screen == "reconstruction")
+      app.reconstruction_slot_index = 8
+      app:toggle_reconstruction_focus()
+      assert(app:reconstruction_confirm().physical_id == charge.id)
+      assert(app:reconstruction_confirm().applied)
+      assert(app.session.state.player.body:get_component("internal_2") == charge)
+      assert(app:finish_reconstruction().applied and app.screen == "curse")
+    end,
+  },
 }

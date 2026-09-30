@@ -8,6 +8,7 @@ local BodyDamage = require("src.simulation.body_damage")
 local Inventory = require("src.inventory.inventory")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
+local Reconstruction = require("src.simulation.reconstruction")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local Rng = require("src.rng")
@@ -53,6 +54,7 @@ function Session.new(options)
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
   self.emit = options.emit or function() end
+  local inventory = Inventory.new()
   self.state = {
     stage = 1,
     score = 0,
@@ -62,7 +64,15 @@ function Session.new(options)
     next_component_sequence = 1,
     next_corpse_sequence = 1,
     corpses = {},
-    inventory = Inventory.new(),
+    -- A run owns the long-lived player and cargo. Floor construction is only
+    -- allowed to reposition this actor and create floor-local world state.
+    run = {
+      player = nil,
+      inventory = inventory,
+    },
+    -- Compatibility alias while older presentation/tests still read this
+    -- location. It always points at run.inventory, never a floor inventory.
+    inventory = inventory,
   }
   self.component_factory = ComponentFactory.new(self.registry, self.state)
   return self
@@ -103,6 +113,169 @@ end
 
 function Session:actor_has_capability(actor, ability_id)
   return actor.body and actor.body:has_capability(ability_id) or false
+end
+
+function Session:available_actor_abilities(actor)
+  if not actor or not actor.body then
+    return {}
+  end
+  return actor.body:list_capabilities()
+end
+
+function Session:_player_can_activate_body_abilities()
+  local phase = self.state.phase
+  return phase == "combat" or phase == "exit" or phase == "boss"
+end
+
+function Session:_remove_enemy_actor(actor)
+  for index = #self.state.enemies, 1, -1 do
+    if self.state.enemies[index] == actor then
+      local removed = remove(self.state.enemies, index)
+      self:_create_corpse(removed)
+      return true
+    end
+  end
+  return false
+end
+
+function Session:_execute_self_destruct(actor, provider, wear)
+  local state = self.state
+  local radius = 1
+  self:_destroy_terrain(actor, radius)
+  local cells = self:_blast(actor, radius)
+  for location_key in pairs(cells) do
+    state.effects[location_key] = true
+  end
+  self:_sound("boom")
+
+  if actor ~= state.player and cells[Grid.key(state.player.x, state.player.y)] then
+    self:_hurt("A bomber detonated beside you.")
+  end
+  for index = #state.enemies, 1, -1 do
+    local enemy = state.enemies[index]
+    if enemy ~= actor and cells[Grid.key(enemy.x, enemy.y)] then
+      self:damage_actor_body(enemy, {
+        amount = 2,
+        cause = "explosive",
+        source = "self_destruct",
+      })
+      enemy.health = enemy.health - 2
+      if enemy.health <= 0 then
+        self:_destroy_enemy(index)
+      end
+    end
+  end
+
+  if actor == state.player then
+    actor.health = 0
+    actor.impact = 2
+    state.ended = "gameover"
+    self:_event("hit")
+    self:_log("Your volatile charge detonated.")
+  else
+    self:_remove_enemy_actor(actor)
+    self:_log("A bomber exploded nearby!")
+  end
+  self:validate_physical_ownership()
+  return {
+    applied = true,
+    ability_id = SELF_DESTRUCT_ABILITY,
+    implementation = "self_destruct",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    radius = radius,
+  }
+end
+
+-- One activation entry point for player and AI. Decision policy lives in the
+-- input/AI callers; the ability effect and component wear live here.
+function Session:activate_actor_ability(actor, ability_id)
+  if not actor or not actor.body then
+    return { applied = false, ability_id = ability_id, reason = "Actor has no body" }
+  end
+  if actor == self.state.player and not self:_player_can_activate_body_abilities() then
+    return { applied = false, ability_id = ability_id, reason = "Body abilities cannot be activated outside a floor" }
+  end
+  local providers = actor.body:capability_providers(ability_id)
+  local provider = providers[1]
+  if not provider then
+    return { applied = false, ability_id = ability_id, reason = "Actor lacks a functional provider for this ability" }
+  end
+  local installed = actor.body:find_component(provider.id)
+  if not installed then
+    return { applied = false, ability_id = ability_id, reason = "Ability provider is no longer installed" }
+  end
+  local ability = self.registry:get_ability(ability_id)
+  local wear = self:wear_actor_component(actor, installed.slot_id, ability_id)
+  if ability.implementation == "self_destruct" then
+    return self:_execute_self_destruct(actor, provider, wear)
+  end
+  return { applied = false, ability_id = ability_id, reason = "No runtime binding for ability" }
+end
+
+function Session:_reconstruction_allowed()
+  return self.state.phase == "reconstruction"
+end
+
+function Session:reconstruction_compatibility(component_id, slot_id)
+  if not self:_reconstruction_allowed() then
+    return { applied = false, compatible = false, component_id = component_id, slot_id = slot_id, reason = "Reconstruction is only available between floors" }
+  end
+  return Reconstruction.compatibility(self.state.player.body, self.state.run.inventory, component_id, slot_id)
+end
+
+function Session:install_inventory_component(component_id, slot_id)
+  if not self:_reconstruction_allowed() then
+    return { applied = false, component_id = component_id, slot_id = slot_id, reason = "Reconstruction is only available between floors" }
+  end
+  local result = Reconstruction.install(self.state.player.body, self.state.run.inventory, component_id, slot_id)
+  if result.applied then
+    self:_log("Installed " .. self.registry:get_component(result.definition_id).display_name .. ".")
+    self:_sound("pickup")
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:uninstall_body_component(slot_id)
+  if not self:_reconstruction_allowed() then
+    return { applied = false, slot_id = slot_id, reason = "Reconstruction is only available between floors" }
+  end
+  local result = Reconstruction.uninstall(self.state.player.body, self.state.run.inventory, self.registry, slot_id)
+  if result.applied then
+    self:_log("Uninstalled " .. self.registry:get_component(result.definition_id).display_name .. ".")
+    self:_sound("pickup")
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:run_data()
+  local player = self.state.run.player
+  return {
+    progression = {
+      stage = self.state.stage,
+      score = self.state.score,
+      class_name = self.state.class and self.state.class.name or nil,
+      boon_name = self.state.boon and self.state.boon.name or nil,
+      curse_name = self.state.curse and self.state.curse.name or nil,
+      next_component_sequence = self.state.next_component_sequence,
+      next_corpse_sequence = self.state.next_corpse_sequence,
+    },
+    body = player and player.body and player.body:to_data() or nil,
+    inventory = self.state.run.inventory:to_data(),
+    player = player and {
+      health = player.health,
+      ammo = player.ammo,
+      bombs = player.bombs,
+      flares = player.flares,
+    } or nil,
+  }
 end
 
 function Session:validate_physical_ownership()
@@ -411,6 +584,7 @@ function Session:_refill_entities()
 end
 
 function Session:start_run(class, boon)
+  local state = self.state
   self.state.class = class
   self.state.boon = boon
   self.state.stage = 1
@@ -418,30 +592,81 @@ function Session:start_run(class, boon)
   self.state.curse = nil
   self.state.curse_bag = {}
   self.state.ended = nil
+  state.next_component_sequence = 1
+  state.next_corpse_sequence = 1
+  state.run.player = nil
+  state.run.inventory = Inventory.new()
+  state.inventory = state.run.inventory
   self:start_stage()
+end
+
+function Session:_create_run_player(settings)
+  local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
+  local player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
+    direction = "w",
+    health = settings.health,
+    ammo = settings.ammo,
+    bombs = settings.bombs,
+    flares = settings.flares,
+    score = 0,
+    dash = 0,
+    dash_base = settings.dash_cooldown,
+    bomb_radius = settings.bomb_radius,
+    bomb_fuse = settings.bomb_fuse,
+    bullet_range = settings.bullet_range,
+    reload_penalty = settings.reload_penalty,
+    impact = 0,
+    content_id = player_definition.id,
+    body = self:_build_body(player_definition),
+  })
+  self.state.run.player = player
+  return player
+end
+
+function Session:_apply_explicit_curse_resource_effects(player)
+  local curse = self.state.curse
+  if not curse then
+    return
+  end
+  local modifiers = curse.modifiers
+  -- Floors no longer refill resources. These are deliberate effects of the
+  -- currently chosen curse, rather than an implicit legacy stage reset.
+  if modifiers.health then
+    player.health = math.min(player.health, clamp(modifiers.health, 1, 5))
+  end
+  if modifiers.ammo then
+    player.ammo = math.max(0, player.ammo + modifiers.ammo)
+  end
+  if modifiers.bombs ~= nil then
+    player.bombs = math.max(0, modifiers.bombs)
+  end
+  if modifiers.flares ~= nil then
+    player.flares = math.max(0, modifiers.flares)
+  end
+end
+
+function Session:_prepare_run_player_for_stage(settings)
+  local persistent = self.state.run.player
+  local player = persistent or self:_create_run_player(settings)
+  if persistent then
+    self:_apply_explicit_curse_resource_effects(player)
+  end
+  player.x, player.y, player.direction, player.score = math.floor(Grid.width / 2), math.floor(Grid.height / 2), "w", 0
+  player.dash = 0
+  player.dash_base = settings.dash_cooldown
+  player.bomb_radius = settings.bomb_radius
+  player.bomb_fuse = settings.bomb_fuse
+  player.bullet_range = settings.bullet_range
+  player.reload_penalty = settings.reload_penalty
+  player.impact = 0
+  self.state.player = player
+  return player
 end
 
 function Session:start_stage()
   local state = self.state
   state.settings = self:_settings_for_stage()
-  local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
-  state.player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
-    direction = "w",
-    health = state.settings.health,
-    ammo = state.settings.ammo,
-    bombs = state.settings.bombs,
-    flares = state.settings.flares,
-    score = 0,
-    dash = 0,
-    dash_base = state.settings.dash_cooldown,
-    bomb_radius = state.settings.bomb_radius,
-    bomb_fuse = state.settings.bomb_fuse,
-    bullet_range = state.settings.bullet_range,
-    reload_penalty = state.settings.reload_penalty,
-    impact = 0,
-    content_id = player_definition.id,
-    body = self:_build_body(player_definition),
-  })
+  self:_prepare_run_player_for_stage(state.settings)
   state.explored, state.effects, state.corpses = {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
@@ -760,10 +985,7 @@ function Session:_resolve_enemy_attack(enemy, index)
     self:_hurt(messages[enemy.attack_kind] or "An enemy attack struck you.")
   end
   if enemy.attack_kind == "detonate" then
-    local destroyed = remove(self.state.enemies, index)
-    self:_create_corpse(destroyed)
-    self:_log("A bomber exploded nearby!")
-    self:validate_physical_ownership()
+    self:activate_actor_ability(enemy, SELF_DESTRUCT_ABILITY)
   else
     self:_clear_enemy_attack(enemy)
   end
@@ -1008,6 +1230,8 @@ function Session:_action(input)
       self:_sound("flare")
       self:_log("Flare lit. Necromancers will be stunned.")
     end
+  elseif input:match("^activate_ability:") then
+    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1))
   end
 end
 
@@ -1019,13 +1243,32 @@ function Session:_begin_exit()
 end
 
 function Session:_complete_stage()
-  self.state.score = self.state.score + self.state.player.score
-  if self.state.stage < #self.content.stages then
-    self.state.stage = self.state.stage + 1
+  local state = self.state
+  state.score = state.score + state.player.score
+  if state.stage < #self.content.stages then
+    state.stage = state.stage + 1
     self:draw_curses()
-    return "curse"
+    state.reconstruction_next = "curse"
+  else
+    state.reconstruction_next = "shop"
   end
-  return "shop"
+  state.phase = "reconstruction"
+  state.exit = nil
+  self:validate_physical_ownership()
+  self:_log("Reconstruction available. Reconfigure your body before continuing.")
+  return "reconstruction"
+end
+
+function Session:complete_reconstruction()
+  if self.state.phase ~= "reconstruction" then
+    return { applied = false, reason = "No reconstruction phase is active" }
+  end
+  self:validate_physical_ownership()
+  local result = self.state.reconstruction_next
+  assert(result == "curse" or result == "shop", "Reconstruction has no valid continuation")
+  self.state.phase = "transition"
+  self.state.reconstruction_next = nil
+  return { applied = true, next = result }
 end
 
 function Session:start_boss()
@@ -1083,6 +1326,10 @@ function Session:turn(input)
   state.effects = {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
+
+  if state.phase == "reconstruction" or state.phase == "transition" then
+    return "reconstruction"
+  end
 
   if state.phase == "exit" then
     if DIRECTIONS[input] then
