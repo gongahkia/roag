@@ -46,6 +46,9 @@ function World.new(registry, terrain, open_layout, sequence_owner)
     hazards_by_cell = {},
     liquids = {},
     liquid_tick = 0,
+    -- Gas is a coordinate-owned medium like liquid, but remains independent
+    -- from terrain, hazards, objects, fire, and liquid state.
+    gases = {},
     fires = {},
     fire_order = {},
     fires_by_target = {},
@@ -230,6 +233,135 @@ function World:liquid_extinguishes_fire_at(x, y)
     return false
   end
   return self.registry:get_liquid(liquid.liquid_id).extinguishes_fire
+end
+
+-- Gas is finite, integer concentration state. Iterating the fixed grid keeps
+-- inspection, serialization, and diffusion source order deterministic.
+function World:gas_at(x, y)
+  return Grid.in_bounds(x, y) and self.gases[key(x, y)] or nil
+end
+
+function World:gas_concentration(x, y)
+  local gas = self:gas_at(x, y)
+  return gas and gas.concentration or 0
+end
+
+function World:is_gas_cell(x, y)
+  return self:gas_at(x, y) ~= nil
+end
+
+function World:is_harmful_gas_at(x, y)
+  local gas = self:gas_at(x, y)
+  if not gas then
+    return false
+  end
+  local definition = self.registry:get_gas(gas.gas_id)
+  return gas.concentration >= definition.exposure_threshold
+end
+
+function World:list_gases()
+  local result = {}
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      local gas = self:gas_at(x, y)
+      if gas then
+        result[#result + 1] = gas
+      end
+    end
+  end
+  return result
+end
+
+-- The object query is intentionally separate from ordinary movement. Current
+-- cover is permeable, while a later closed bulkhead can set blocks_gas=true
+-- without changing the gas solver.
+function World:allows_gas_at(x, y)
+  if not Grid.in_bounds(x, y) or not self:terrain_is_passable(x, y) then
+    return false
+  end
+  local object = self:object_at(x, y)
+  return not (object and object.blocks_gas)
+end
+
+function World:set_gas(x, y, gas_id, concentration)
+  if not Grid.in_bounds(x, y) then
+    return { applied = false, code = "out_of_bounds", reason = "Gas position is outside the world" }
+  end
+  if type(concentration) ~= "number" or concentration < 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas concentration must be a non-negative integer" }
+  end
+  local location_key = key(x, y)
+  local existing = self.gases[location_key]
+  if concentration == 0 then
+    if existing then
+      self.gases[location_key] = nil
+      return { applied = true, code = "removed", x = x, y = y, gas_id = existing.gas_id, concentration = 0 }
+    end
+    return { applied = false, code = "already_clear", x = x, y = y, concentration = 0 }
+  end
+  local definition = self.registry.gases[gas_id]
+  if not definition then
+    return { applied = false, code = "unknown_gas", reason = "Unknown gas ID '" .. tostring(gas_id) .. "'" }
+  end
+  if not self:allows_gas_at(x, y) then
+    return { applied = false, code = "blocked_terrain", reason = "Gas requires gas-accessible terrain" }
+  end
+  if existing and existing.gas_id ~= definition.id then
+    return { applied = false, code = "different_gas", reason = "Gas mixing is not supported" }
+  end
+  if concentration > definition.max_concentration then
+    return { applied = false, code = "capacity_exceeded", reason = "Gas concentration exceeds max concentration" }
+  end
+  local changed = not existing or existing.concentration ~= concentration
+  self.gases[location_key] = {
+    gas_id = definition.id,
+    concentration = concentration,
+    x = x,
+    y = y,
+  }
+  return {
+    applied = changed,
+    code = changed and "set" or "unchanged",
+    x = x,
+    y = y,
+    gas_id = definition.id,
+    concentration = concentration,
+  }
+end
+
+function World:add_gas(x, y, gas_id, concentration)
+  if type(concentration) ~= "number" or concentration <= 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas addition must be a positive integer" }
+  end
+  local existing = self:gas_at(x, y)
+  if existing and existing.gas_id ~= gas_id then
+    return { applied = false, code = "different_gas", reason = "Gas mixing is not supported" }
+  end
+  return self:set_gas(x, y, gas_id, (existing and existing.concentration or 0) + concentration)
+end
+
+function World:remove_gas(x, y, concentration)
+  if type(concentration) ~= "number" or concentration <= 0 or concentration % 1 ~= 0 then
+    return { applied = false, code = "invalid_concentration", reason = "Gas removal must be a positive integer" }
+  end
+  local existing = self:gas_at(x, y)
+  if not existing then
+    return { applied = false, code = "clear", reason = "Gas cell is clear" }
+  end
+  if concentration > existing.concentration then
+    return { applied = false, code = "insufficient_gas", reason = "Gas cell does not contain that concentration" }
+  end
+  return self:set_gas(x, y, existing.gas_id, existing.concentration - concentration)
+end
+
+function World:total_gas_amount(gas_id)
+  local total = 0
+  for _, gas in ipairs(self:list_gases()) do
+    if gas_id == nil or gas.gas_id == gas_id then
+      total = total + gas.concentration
+    end
+  end
+  return total
 end
 
 function World:_next_fire_id()
@@ -591,6 +723,7 @@ function World:place_object(definition_id, x, y, options)
     blocks_movement = definition.blocks_movement,
     blocks_vision = definition.blocks_vision,
     blocks_projectiles = definition.blocks_projectiles,
+    blocks_gas = definition.blocks_gas,
     movable_by_force = definition.movable_by_force,
   }
   self.objects[id] = object
@@ -707,6 +840,7 @@ function World:damage_object(object_or_id, spec)
     object.blocks_movement = false
     object.blocks_vision = false
     object.blocks_projectiles = false
+    object.blocks_gas = false
     self.objects_by_cell[key(object.x, object.y)] = nil
     self:_deactivate_target_fire("object", object.id, nil, nil, "target_destroyed")
     result.destroyed = true
@@ -734,6 +868,7 @@ function World:inspect_object(object_or_id)
     blocks_movement = not object.destroyed and object.blocks_movement or false,
     blocks_vision = not object.destroyed and object.blocks_vision or false,
     blocks_projectiles = not object.destroyed and object.blocks_projectiles or false,
+    blocks_gas = not object.destroyed and object.blocks_gas or false,
     movable_by_force = object.movable_by_force,
     fires = (function()
       local fires = {}
