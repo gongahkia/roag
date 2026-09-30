@@ -83,9 +83,12 @@ return {
       assert(data.id == hazard.id and data.definition_id == SPIKES and data.x == 6 and data.active)
       local _, duplicate = world:place_hazard(SPIKES, 6, 6)
       assert(duplicate.code == "occupied_hazard")
+      local _, object_overlap = world:place_object(BARRICADE, 6, 6)
+      assert(object_overlap.code == "occupied_hazard")
       assert(world:validate())
 
       local first, second = new_session(3603), new_session(3603)
+      assert(#first.state.world:list_hazards() > 0)
       assert(hazard_snapshot(first) == hazard_snapshot(second))
     end,
   },

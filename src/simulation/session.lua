@@ -1552,9 +1552,9 @@ function Session:_update_bombs()
           end
         end
       end
-      -- Explosion ordering is deliberate: material-backed environment damage
-      -- resolves first, then the resulting blast damages actors, then force
-      -- displaces surviving actors and movable objects one cell at a time.
+      -- Explosion ordering is deliberate: environment damage, direct blast
+      -- actor damage, then stepwise force. Each force step can resolve an
+      -- on-enter hazard; a structural block then resolves its actor impact.
       self:_apply_explosion_force(bomb, bomb.radius, cells, {
         distance = 1,
         cause = "explosive",

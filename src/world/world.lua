@@ -242,6 +242,9 @@ function World:place_object(definition_id, x, y, options)
   if self:object_at(x, y) then
     return nil, { applied = false, code = "occupied", reason = "World object tile is occupied" }
   end
+  if self:is_hazardous(x, y) then
+    return nil, { applied = false, code = "occupied_hazard", reason = "World object cannot overlap an active hazard" }
+  end
   local definition = self.registry:get_world_object(definition_id)
   local material = self.registry:get_material(definition.material_id)
   local id = options.id or self:_next_object_id()
@@ -289,6 +292,9 @@ function World:move_object(object_or_id, x, y)
   local occupant = self:object_at(x, y)
   if occupant and occupant ~= object then
     return { applied = false, code = "blocked_object", reason = "World object destination is occupied" }
+  end
+  if self:is_hazardous(x, y) then
+    return { applied = false, code = "blocked_hazard", reason = "World object destination contains an active hazard" }
   end
   self.objects_by_cell[key(object.x, object.y)] = nil
   object.x, object.y = x, y
