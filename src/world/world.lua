@@ -273,6 +273,9 @@ function World:damage_object(object_or_id, spec)
   }
   if new_integrity == 0 then
     object.destroyed = true
+    object.blocks_movement = false
+    object.blocks_vision = false
+    object.blocks_projectiles = false
     self.objects_by_cell[key(object.x, object.y)] = nil
     result.destroyed = true
   end
@@ -418,13 +421,20 @@ function World:validate()
     local location_key = key(object.x, object.y)
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")
+      assert(not object.blocks_movement and not object.blocks_vision and not object.blocks_projectiles,
+        "Destroyed world object cannot retain blocking state")
       assert(self.objects_by_cell[location_key] ~= object, "Destroyed world object cannot occupy a cell")
     else
       assert(self:terrain_is_passable(object.x, object.y), "World object is placed in impassable terrain")
+      assert(object.blocks_movement == definition.blocks_movement and object.blocks_vision == definition.blocks_vision
+        and object.blocks_projectiles == definition.blocks_projectiles, "World object blocking state does not match definition")
       assert(not occupied[location_key], "Multiple live world objects occupy one cell")
       occupied[location_key] = true
       assert(self.objects_by_cell[location_key] == object, "World object cell index is invalid")
     end
+  end
+  for id in pairs(self.objects) do
+    assert(object_ids[id], "World object is missing from deterministic object order")
   end
   for location_key, object in pairs(self.objects_by_cell) do
     assert(object_ids[object.id] and not object.destroyed and key(object.x, object.y) == location_key,

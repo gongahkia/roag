@@ -95,13 +95,22 @@ return {
       local session = prepare_open_session(3103, { { 8, 5 } })
       local player = session.state.player
       player.x, player.y = 5, 5
+      player.dash = 2
       local result = session:apply_force(player, { dx = 9, dy = 0, distance = 3, cause = "test" })
       assert(result.applied and result.moved_distance == 2 and result.code == "blocked_world")
       assert(#result.path == 2 and result.path[1].x == 6 and result.path[2].x == 7)
       assert(player.x == 7 and player.y == 5)
+      assert(player.dash == 2)
 
       local blocked = session:apply_force(player, { dx = 1, dy = 0, distance = 1, cause = "test" })
       assert(not blocked.applied and blocked.code == "blocked_world" and player.x == 7)
+
+      player.x, player.y = 5, 6
+      local blocker = session:_make_enemy("bomber", { x = 6, y = 6 })
+      session.state.enemies = { blocker }
+      local actor_blocked = session:apply_force(player, { dx = 1, dy = 0, distance = 1, cause = "test" })
+      assert(not actor_blocked.applied and actor_blocked.code == "blocked_actor")
+      assert(player.x == 5 and player.y == 6)
       assert(session:validate_world())
     end,
   },
@@ -176,6 +185,7 @@ return {
       assert(#state.enemies == 1 and enemy.health == 1)
       shoot_cover()
       assert(cover.destroyed and state.world:is_passable(10, 11))
+      assert(session.registry:get_material("material.structure.masonry").max_integrity == 2)
       assert(#state.bullets == 0 and #state.enemies == 1)
       shoot_cover()
       session:_update_bullets()
