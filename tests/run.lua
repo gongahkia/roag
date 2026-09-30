@@ -7,6 +7,7 @@ local suites = {
   "tests.test_generation",
   "tests.test_content",
   "tests.test_materials",
+  "tests.test_force_cover",
   "tests.test_body",
   "tests.test_body_damage",
   "tests.test_body_weapons",

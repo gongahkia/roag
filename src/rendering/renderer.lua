@@ -122,6 +122,23 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- World objects are simulation-owned cover, not terrain decoration. Keep
+  -- this compact marker layer beneath actors and telegraphs to preserve the
+  -- existing sprite language without requiring new art assets.
+  for _, object in ipairs(state.world and state.world:list_objects() or {}) do
+    if state.visible[Grid.key(object.x, object.y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, object.x, object.y, size, offset_x, offset_y)
+      if pixel_x then
+        local definition = session.registry:get_world_object(object.definition_id)
+        local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
+        self:_color(tint)
+        love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+        self:_color({ 0.9, 0.78, 0.5 })
+        love.graphics.rectangle("line", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+      end
+    end
+  end
+
   for location_key, style in pairs(session:telegraphs()) do
     local x, y = location_key:match("(%d+):(%d+)")
     local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)

@@ -310,7 +310,7 @@ end
 function Session:_execute_self_destruct(actor, provider, wear)
   local state = self.state
   local radius = 1
-  self:_damage_terrain_radius(actor, radius, {
+  self:_damage_environment_radius(actor, radius, {
     amount = 2,
     cause = "explosive",
     source = "self_destruct",
@@ -341,6 +341,14 @@ function Session:_execute_self_destruct(actor, provider, wear)
       end
     end
   end
+
+  self:_apply_explosion_force(actor, radius, cells, {
+    distance = 1,
+    cause = "explosive",
+    source_actor_id = actor.content_id or actor.kind,
+    source_component_id = provider and provider.id or nil,
+    ability_id = SELF_DESTRUCT_ABILITY,
+  })
 
   if actor == state.player then
     actor.health = 0
@@ -584,6 +592,7 @@ function Session:run_data()
       curse_name = self.state.curse and self.state.curse.name or nil,
       next_component_sequence = self.state.next_component_sequence,
       next_corpse_sequence = self.state.next_corpse_sequence,
+      next_world_object_sequence = self.state.next_world_object_sequence,
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -1035,7 +1044,10 @@ function Session:start_stage()
   state.phase = "combat"
   state.world = World.new(self.registry, state.settings.terrain,
     Generator.generate(state.settings.terrain, state.player, self.rng), state)
-  EnvironmentObjects.place(state.world, state.settings.terrain, state.player, self.rng)
+  -- Cover uses a named deterministic stream so introducing environmental
+  -- placement cannot perturb legacy actor/content RNG decisions.
+  EnvironmentObjects.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("world_objects.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1183,6 +1195,64 @@ function Session:_damage_terrain_radius(origin, radius, damage_spec)
   return results
 end
 
+function Session:_damage_environment_radius(origin, radius, damage_spec)
+  local results = {
+    terrain = self:_damage_terrain_radius(origin, radius, damage_spec),
+    objects = {},
+  }
+  for _, object in ipairs(self.state.world:list_objects()) do
+    if Grid.distance(origin, object) <= radius then
+      local result = self:damage_world_object(object, damage_spec)
+      if result.applied then
+        results.objects[#results.objects + 1] = result
+      end
+    end
+  end
+  return results
+end
+
+function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
+  local results, state = { actors = {}, objects = {} }, self.state
+  local actors = { state.player }
+  for _, enemy in ipairs(state.enemies) do
+    actors[#actors + 1] = enemy
+  end
+  -- Actor ordering is deterministic: player first, then living-enemy list
+  -- order. A blocked destination simply ends that target's displacement;
+  -- there is intentionally no actor-chain pushing.
+  for _, actor in ipairs(actors) do
+    if actor and blast_cells[Grid.key(actor.x, actor.y)] then
+      local result = self:apply_force(actor, {
+        dx = actor.x - origin.x,
+        dy = actor.y - origin.y,
+        distance = force_spec.distance,
+        cause = force_spec.cause,
+        source_actor_id = force_spec.source_actor_id,
+        source_component_id = force_spec.source_component_id,
+        ability_id = force_spec.ability_id,
+      })
+      results.actors[#results.actors + 1] = { target = actor, result = result }
+    end
+  end
+  -- Objects use the same discrete service. They are considered geometrically
+  -- within the blast even though intact cover itself blocks blast propagation.
+  for _, object in ipairs(self.state.world:list_objects()) do
+    if Grid.distance(origin, object) <= radius then
+      local result = self:apply_force(object, {
+        dx = object.x - origin.x,
+        dy = object.y - origin.y,
+        distance = force_spec.distance,
+        cause = force_spec.cause,
+        source_actor_id = force_spec.source_actor_id,
+        source_component_id = force_spec.source_component_id,
+        ability_id = force_spec.ability_id,
+      })
+      results.objects[#results.objects + 1] = { target = object, result = result }
+    end
+  end
+  return results
+end
+
 function Session:_update_bullets()
   local state, remaining = self.state, {}
   for _, bullet in ipairs(state.bullets) do
@@ -1198,7 +1268,29 @@ function Session:_update_bullets()
       bullet.active = true
     end
 
-    local hit = bullet.expired or not self:_open(bullet.x, bullet.y)
+    local hit = bullet.expired
+    if not hit then
+      local cover = state.world:object_at(bullet.x, bullet.y)
+      if cover and cover.blocks_projectiles then
+        local result = self:damage_world_object(cover, {
+          amount = bullet.damage or 1,
+          cause = "kinetic",
+          source = bullet.ability_id or "bullet",
+          source_actor_id = bullet.source_actor and (bullet.source_actor.content_id or bullet.source_actor.kind) or nil,
+          source_component_id = bullet.source_component_id,
+          ability_id = bullet.ability_id,
+        })
+        if result.applied then
+          state.effects[Grid.key(bullet.x, bullet.y)] = true
+          if result.destroyed then
+            self:_log("Destroyed " .. self.registry:get_world_object(result.definition_id).display_name .. ".")
+          end
+        end
+        hit = true
+      elseif state.world:blocks_projectile(bullet.x, bullet.y) then
+        hit = true
+      end
+    end
     local player_owned = bullet.source_side ~= "enemy"
     if player_owned then
       for index = #state.targets, 1, -1 do
@@ -1250,7 +1342,7 @@ function Session:_update_bombs()
     if bomb.fuse > 0 then
       remaining[#remaining + 1] = bomb
     else
-      self:_damage_terrain_radius(bomb, bomb.radius, {
+      self:_damage_environment_radius(bomb, bomb.radius, {
         amount = 2,
         cause = "explosive",
         source = "bomb",
@@ -1292,6 +1384,14 @@ function Session:_update_bombs()
           end
         end
       end
+      -- Explosion ordering is deliberate: material-backed environment damage
+      -- resolves first, then the resulting blast damages actors, then force
+      -- displaces surviving actors and movable objects one cell at a time.
+      self:_apply_explosion_force(bomb, bomb.radius, cells, {
+        distance = 1,
+        cause = "explosive",
+        source_actor_id = bomb.source_actor_id,
+      })
     end
   end
   state.bombs = remaining
