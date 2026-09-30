@@ -110,6 +110,10 @@ function Session:_open(x, y)
   return self.state.world and self.state.world:is_passable(x, y) or false
 end
 
+function Session:_blocks_vision(x, y)
+  return not self.state.world or self.state.world:blocks_vision(x, y)
+end
+
 function Session:inspect_terrain(x, y)
   if not self.state.world then
     return nil, "No active world"
@@ -248,6 +252,8 @@ function Session:_execute_self_destruct(actor, provider, wear)
     amount = 2,
     cause = "explosive",
     source = "self_destruct",
+    source_actor_id = actor.content_id or actor.kind,
+    source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
   })
   local cells = self:_blast(actor, radius)
@@ -966,6 +972,7 @@ function Session:start_stage()
   state.phase = "combat"
   state.world = World.new(self.registry, state.settings.terrain,
     Generator.generate(state.settings.terrain, state.player, self.rng))
+  self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
   self:refresh_visibility()
@@ -1183,6 +1190,7 @@ function Session:_update_bombs()
         amount = 2,
         cause = "explosive",
         source = "bomb",
+        source_actor_id = bomb.source_actor_id,
       })
       local cells = self:_blast(bomb, bomb.radius)
       for location_key in pairs(cells) do
@@ -1627,6 +1635,7 @@ function Session:_action(input)
         fuse = player.bomb_fuse,
         radius = player.bomb_radius,
         light = 3,
+        source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_sound("select")
       self:_log("Bomb armed. Move away before it explodes.")
@@ -1697,6 +1706,7 @@ function Session:start_boss()
   player.bomb_radius, player.bomb_fuse, player.bullet_range, player.reload_penalty = 2, 3, nil, 0
   state.settings = { terrain = "arena", vision = 99, score = 10 }
   state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true))
+  self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   state.effects, state.exit, state.corpses = {}, nil, {}
@@ -1810,7 +1820,7 @@ function Session:_has_line_of_sight(x0, y0, x1, y1)
       error_value = error_value + delta_x
       y0 = y0 + step_y
     end
-    if (x0 ~= x1 or y0 ~= y1) and not self:_open(x0, y0) then
+    if (x0 ~= x1 or y0 ~= y1) and self:_blocks_vision(x0, y0) then
       return false
     end
   end

@@ -35,6 +35,50 @@ return {
       assert(registry:get_ability("ability.explosive.self_destruct").implementation == "self_destruct")
       assert(registry:get_ability("ability.locomotion.move").implementation == "locomotion")
       assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
+      assert(registry:get_material("material.terrain.brush").max_integrity == 2)
+    end,
+  },
+  {
+    name = "material semantic IDs and destruction references validate",
+    run = function()
+      local duplicate_sources = sources()
+      duplicate_sources.materials = copy_list(duplicate_sources.materials)
+      duplicate_sources.materials[#duplicate_sources.materials + 1] = duplicate_sources.materials[1]
+      assert_failure("Duplicate material ID 'material.terrain.air'", function()
+        Registry.new(duplicate_sources)
+      end)
+
+      local invalid_durability = sources()
+      invalid_durability.materials = copy_list(invalid_durability.materials)
+      invalid_durability.materials[#invalid_durability.materials + 1] = {
+        id = "material.invalid.zero_durability",
+        display_name = "Invalid Material",
+        solid = true,
+        blocks_movement = true,
+        blocks_vision = true,
+        destructible = true,
+        max_integrity = 0,
+        destruction_material_id = "material.terrain.air",
+      }
+      assert_failure("Material 'material.invalid.zero_durability' max_integrity must be a positive number", function()
+        Registry.new(invalid_durability)
+      end)
+
+      local invalid_reference = sources()
+      invalid_reference.materials = copy_list(invalid_reference.materials)
+      invalid_reference.materials[#invalid_reference.materials + 1] = {
+        id = "material.invalid.destroyed_into_void",
+        display_name = "Invalid Material Reference",
+        solid = true,
+        blocks_movement = true,
+        blocks_vision = true,
+        destructible = true,
+        max_integrity = 1,
+        destruction_material_id = "material.missing.void",
+      }
+      assert_failure("Unknown material ID 'material.missing.void'", function()
+        Registry.new(invalid_reference)
+      end)
     end,
   },
   {

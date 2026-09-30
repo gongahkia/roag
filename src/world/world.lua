@@ -57,7 +57,10 @@ end
 
 function World:blocks_vision(x, y)
   local material = self:get_material(x, y)
-  return material and material.blocks_vision or true
+  if not material then
+    return true
+  end
+  return material.blocks_vision
 end
 
 function World:damage_terrain(x, y, spec)
@@ -83,6 +86,8 @@ function World:damage_terrain(x, y, spec)
     material_id = material.id,
     cause = spec.cause,
     source = spec.source,
+    source_actor_id = spec.source_actor_id,
+    source_component_id = spec.source_component_id,
     ability_id = spec.ability_id,
     previous_integrity = previous_integrity,
     new_integrity = new_integrity,
