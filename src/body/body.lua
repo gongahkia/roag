@@ -189,6 +189,25 @@ function Body:installed_mass()
   return mass
 end
 
+function Body:validate()
+  local seen = {}
+  for _, slot_id in ipairs(self.slot_order) do
+    local slot = self.slots[slot_id]
+    assert(slot and slot.id == slot_id, "Body slot order is invalid")
+    if slot.component then
+      local component = slot.component
+      assert(type(component.id) == "string" and component.id ~= "", "Body component must have a stable physical ID")
+      assert(not seen[component.id], "Body contains physical component '" .. component.id .. "' more than once")
+      seen[component.id] = true
+      local definition = self.registry:get_component(component.definition_id)
+      assert(supports_slot(definition, slot.kind), "Body contains incompatible component '" .. component.definition_id .. "' in slot '" .. slot_id .. "'")
+      assert(type(component.current_integrity) == "number" and component.current_integrity >= 0
+        and component.current_integrity <= component.max_integrity, "Body component integrity is invalid")
+    end
+  end
+  return true
+end
+
 function Body:to_data()
   local slots = {}
   for _, slot_id in ipairs(self.slot_order) do

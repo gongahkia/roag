@@ -291,7 +291,7 @@ function App:open_body_abilities()
   if not self.session then
     return false
   end
-  local abilities = self.session:available_actor_abilities(self.session.state.player)
+  local abilities = self.session:available_actor_abilities(self.session.state.player, "body")
   if #abilities == 0 then
     self.session:_log("No functional body abilities installed.")
     return false

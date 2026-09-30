@@ -13,12 +13,15 @@ local function new_run(seed)
   return session
 end
 
-local function salvage_charge(session)
+local function salvage_charge(session, damage)
   local player = session.state.player
   local bomber = session:_make_enemy("bomber", { x = player.x, y = player.y + 1 })
   session.state.enemies[#session.state.enemies + 1] = bomber
   local index = #session.state.enemies
   local charge = bomber.body:get_component("internal_1")
+  if damage then
+    assert(session:damage_actor_body(bomber, { amount = damage, slot_id = "internal_1", cause = "test" }).applied)
+  end
   session:_destroy_enemy(index)
   local corpse = session.state.corpses[#session.state.corpses]
   local result = session:salvage_corpse_component(corpse.id, "internal_1")
@@ -107,6 +110,24 @@ return {
     end,
   },
   {
+    name = "physical ownership validation detects duplicate body and inventory component references",
+    run = function()
+      local session = new_run(1211)
+      local body = session.state.player.body
+      local support = body:get_component("internal_1")
+      body:get_slot("internal_2").component = support
+      local ok, err = pcall(function() session:validate_physical_ownership() end)
+      assert(not ok and tostring(err):find("owned by both", 1, true))
+      body:get_slot("internal_2").component = nil
+
+      assert(session.state.inventory:auto_place(PhysicalItem.from_component(support, session.registry)))
+      ok, err = pcall(function() session:validate_physical_ownership() end)
+      assert(not ok and tostring(err):find("owned by both", 1, true))
+      assert(session.state.inventory:remove(support.id))
+      assert(session:validate_physical_ownership())
+    end,
+  },
+  {
     name = "broken components remain installable but grant no body capability",
     run = function()
       local session = new_run(1205)
@@ -137,7 +158,7 @@ return {
       assert(initial_data.body.slots[8].component == nil)
       enter_reconstruction(session)
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      session:choose_curse(Content.curses[2]) -- Darkness changes floor vision, not carried resources.
       local entry = session.state.inventory:get(arm.id)
       assert(session.state.player == player and session.state.player.body == body)
       assert(session.state.player.body:get_component("internal_2") == nil)
@@ -150,7 +171,7 @@ return {
     name = "vertical slice preserves one bomber volatile charge from corpse through next floor",
     run = function()
       local session = new_run(1207)
-      local charge, corpse = salvage_charge(session)
+      local charge, corpse = salvage_charge(session, 1)
       local id, integrity = charge.id, charge.current_integrity
       assert(corpse.body:get_component("internal_1") == nil)
       assert(session.state.inventory:get(id).item.object == charge)
@@ -163,6 +184,44 @@ return {
       assert(session.state.player.body:get_component("internal_2") == charge)
       assert(charge.id == id and charge.current_integrity == integrity)
       assert(session:actor_has_capability(session.state.player, ABILITY))
+      assert(session:validate_physical_ownership())
+    end,
+  },
+  {
+    name = "reconstruction operations reproduce from the same seed and inputs",
+    run = function()
+      local first, second = new_run(1212), new_run(1212)
+      local first_charge = salvage_charge(first, 1)
+      local second_charge = salvage_charge(second, 1)
+      enter_reconstruction(first)
+      enter_reconstruction(second)
+      assert(first:install_inventory_component(first_charge.id, "internal_2").applied)
+      assert(second:install_inventory_component(second_charge.id, "internal_2").applied)
+      assert(first:complete_reconstruction().next == second:complete_reconstruction().next)
+      first:choose_curse(first.state.curse_options[1])
+      second:choose_curse(second.state.curse_options[1])
+      assert(first_charge.id == second_charge.id)
+      assert(snapshot(first) == snapshot(second))
+      assert(first:actor_has_capability(first.state.player, ABILITY) == second:actor_has_capability(second.state.player, ABILITY))
+    end,
+  },
+  {
+    name = "normal stage reconstruction preserves the legacy curse shop boss sequence",
+    run = function()
+      local session = new_run(1213)
+      local body = session.state.player.body
+      enter_reconstruction(session)
+      assert(session:complete_reconstruction().next == "curse")
+      session:choose_curse(session.state.curse_options[1])
+      assert(session.state.stage == 2 and session.state.phase == "combat")
+      enter_reconstruction(session)
+      assert(session:complete_reconstruction().next == "curse")
+      session:choose_curse(session.state.curse_options[1])
+      assert(session.state.stage == 3 and session.state.phase == "combat")
+      enter_reconstruction(session)
+      assert(session:complete_reconstruction().next == "shop")
+      session:start_boss()
+      assert(session.state.phase == "boss" and session.state.player.body == body)
       assert(session:validate_physical_ownership())
     end,
   },

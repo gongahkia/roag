@@ -5,6 +5,8 @@ Registry.__index = Registry
 
 local KNOWN_ABILITY_IMPLEMENTATIONS = {
   self_destruct = true,
+  projectile = true,
+  area_burst = true,
 }
 
 local function content_error(message)
@@ -211,6 +213,21 @@ function Registry:validate()
     require_string(ability.implementation, "Ability '" .. id .. "' implementation")
     if not KNOWN_ABILITY_IMPLEMENTATIONS[ability.implementation] then
       content_error("Ability '" .. id .. "' has unknown implementation '" .. ability.implementation .. "'")
+    end
+    if ability.activation_type ~= nil and ability.activation_type ~= "direct" and ability.activation_type ~= "body" then
+      content_error("Ability '" .. id .. "' activation_type must be 'direct' or 'body'")
+    end
+    if ability.resource ~= nil then
+      if type(ability.resource) ~= "table" then
+        content_error("Ability '" .. id .. "' resource must be a table")
+      end
+      require_string(ability.resource.name, "Ability '" .. id .. "' resource.name")
+      require_positive_integer(ability.resource.amount, "Ability '" .. id .. "' resource.amount")
+    end
+    for _, field in ipairs({ "range", "radius", "delay" }) do
+      if ability[field] ~= nil then
+        require_positive_integer(ability[field], "Ability '" .. id .. "' " .. field)
+      end
     end
   end
 

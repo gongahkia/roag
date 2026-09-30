@@ -209,6 +209,37 @@ function Inventory:encumbrance()
   return "LIGHT"
 end
 
+function Inventory:validate()
+  local expected_cells, seen = {}, {}
+  for _, entry in ipairs(self.entries) do
+    assert(type(entry.physical_id) == "string" and entry.physical_id ~= "", "Inventory entry must have a stable physical ID")
+    assert(entry.item and entry.item.physical_id == entry.physical_id, "Inventory entry physical ID does not match item")
+    assert(self.by_id[entry.physical_id] == entry, "Inventory entry index is invalid")
+    assert(not seen[entry.physical_id], "Inventory contains physical item '" .. entry.physical_id .. "' more than once")
+    seen[entry.physical_id] = true
+    local allowed, reason = self:can_place(entry.item, entry.x, entry.y, entry.rotated, entry.physical_id)
+    assert(allowed, reason)
+    local width, height = dimensions(entry.item, entry.rotated)
+    for x = entry.x, entry.x + width - 1 do
+      for y = entry.y, entry.y + height - 1 do
+        local key = cell_key(x, y)
+        assert(not expected_cells[key], "Inventory entries overlap at " .. key)
+        expected_cells[key] = entry
+      end
+    end
+  end
+  for physical_id, entry in pairs(self.by_id) do
+    assert(seen[physical_id] and seen[physical_id] == true and entry.physical_id == physical_id, "Inventory index contains an unknown entry")
+  end
+  for key, entry in pairs(expected_cells) do
+    assert(self.cells[key] == entry, "Inventory cell occupancy is invalid at " .. key)
+  end
+  for key, entry in pairs(self.cells) do
+    assert(expected_cells[key] == entry, "Inventory has a stale occupied cell at " .. key)
+  end
+  return true
+end
+
 function Inventory:to_data()
   local entries = {}
   for _, entry in ipairs(self.entries) do

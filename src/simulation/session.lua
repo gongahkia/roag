@@ -24,8 +24,13 @@ local DIRECTIONS = {
 }
 local BOSS_WINDUP = 4
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
+local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
+local ARCANE_BURST_ABILITY = "ability.arcane.burst"
 local PLAYER_ACTOR_ID = "actor.player.legacy"
-local BOMBER_ENEMY_ID = "enemy.legacy.bomber"
+local ENEMY_CONTENT_IDS = {
+  bomber = "enemy.legacy.bomber",
+  cultist = "enemy.legacy.cultist",
+}
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -115,11 +120,35 @@ function Session:actor_has_capability(actor, ability_id)
   return actor.body and actor.body:has_capability(ability_id) or false
 end
 
-function Session:available_actor_abilities(actor)
+function Session:actor_ability_provider(actor, ability_id)
+  if not actor or not actor.body then
+    return nil
+  end
+  -- Body capability_providers follows topology slot_order, which is the
+  -- deterministic first-provider rule until equipment selection exists.
+  local provider = actor.body:capability_providers(ability_id)[1]
+  if not provider then
+    return nil
+  end
+  local installed = actor.body:find_component(provider.id)
+  return installed and {
+    component = provider,
+    slot_id = installed.slot_id,
+  } or nil
+end
+
+function Session:available_actor_abilities(actor, activation_type)
   if not actor or not actor.body then
     return {}
   end
-  return actor.body:list_capabilities()
+  local result = {}
+  for _, ability_id in ipairs(actor.body:list_capabilities()) do
+    local ability = self.registry:get_ability(ability_id)
+    if not activation_type or (ability.activation_type or "body") == activation_type then
+      result[#result + 1] = ability_id
+    end
+  end
+  return result
 end
 
 function Session:_player_can_activate_body_abilities()
@@ -188,30 +217,162 @@ function Session:_execute_self_destruct(actor, provider, wear)
   }
 end
 
+function Session:_actor_side(actor)
+  return actor == self.state.player and "player" or "enemy"
+end
+
+function Session:_execute_projectile(actor, provider, wear, ability, request)
+  local direction = request.direction
+  local bullet = entity("bullet", actor.x, actor.y, {
+    direction = direction,
+    active = false,
+    travel = 1,
+    max = actor.bullet_range or ability.range,
+    light = 2,
+    source_actor = actor,
+    source_actor_kind = actor.kind,
+    source_side = self:_actor_side(actor),
+    source_component_id = provider.id,
+    ability_id = ability.id,
+    damage = 1,
+  })
+  self.state.bullets[#self.state.bullets + 1] = bullet
+  self:_sound("shoot")
+  if actor == self.state.player then
+    self:_log("Fired " .. DIRECTIONS[direction][3] .. ".")
+  end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "projectile",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    projectile = bullet,
+  }
+end
+
+function Session:_execute_area_burst(actor, provider, wear, ability, request)
+  local target = request.target
+  local burst = {
+    kind = "arcane_burst",
+    active = false,
+    source_actor = actor,
+    source_actor_kind = actor.kind,
+    source_side = self:_actor_side(actor),
+    source_component_id = provider.id,
+    ability_id = ability.id,
+    x = target.x,
+    y = target.y,
+    radius = ability.radius,
+    remaining = ability.delay,
+  }
+  self.state.area_attacks[#self.state.area_attacks + 1] = burst
+  if actor == self.state.player then
+    self:_log("Arcane burst primed " .. DIRECTIONS[request.direction][3] .. ".")
+  end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "area_burst",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    burst = burst,
+  }
+end
+
+function Session:_ability_failure(ability_id, code, reason)
+  return { applied = false, ability_id = ability_id, code = code, reason = reason }
+end
+
+function Session:_validate_ability_request(actor, ability, params)
+  if ability.implementation == "projectile" then
+    if not params or not DIRECTIONS[params.direction] then
+      return nil, self:_ability_failure(ability.id, "invalid_direction", "A valid firing direction is required")
+    end
+    return { direction = params.direction }
+  end
+  if ability.implementation == "area_burst" then
+    local target = params and params.target
+    local direction = params and params.direction
+    if target then
+      if type(target.x) ~= "number" or type(target.y) ~= "number" then
+        return nil, self:_ability_failure(ability.id, "invalid_target", "A valid burst target is required")
+      end
+      target = { x = target.x, y = target.y }
+    elseif DIRECTIONS[direction] then
+      local delta = DIRECTIONS[direction]
+      target = {
+        x = actor.x + delta[1] * ability.range,
+        y = actor.y + delta[2] * ability.range,
+      }
+    else
+      return nil, self:_ability_failure(ability.id, "invalid_target", "A burst target or direction is required")
+    end
+    if not Grid.in_bounds(target.x, target.y) then
+      return nil, self:_ability_failure(ability.id, "invalid_target", "Burst target is outside the floor")
+    end
+    return { target = target, direction = direction }
+  end
+  return {}
+end
+
+function Session:_consume_ability_resource(actor, ability)
+  local resource = ability.resource
+  if not resource then
+    return true
+  end
+  local available = actor[resource.name]
+  if type(available) ~= "number" or available < resource.amount then
+    return nil, self:_ability_failure(ability.id, "insufficient_" .. resource.name, "Insufficient " .. resource.name)
+  end
+  actor[resource.name] = available - resource.amount
+  return true
+end
+
 -- One activation entry point for player and AI. Decision policy lives in the
 -- input/AI callers; the ability effect and component wear live here.
-function Session:activate_actor_ability(actor, ability_id)
+function Session:activate_actor_ability(actor, ability_id, params)
   if not actor or not actor.body then
-    return { applied = false, ability_id = ability_id, reason = "Actor has no body" }
+    return self:_ability_failure(ability_id, "missing_capability", "Actor has no body")
   end
   if actor == self.state.player and not self:_player_can_activate_body_abilities() then
-    return { applied = false, ability_id = ability_id, reason = "Body abilities cannot be activated outside a floor" }
-  end
-  local providers = actor.body:capability_providers(ability_id)
-  local provider = providers[1]
-  if not provider then
-    return { applied = false, ability_id = ability_id, reason = "Actor lacks a functional provider for this ability" }
-  end
-  local installed = actor.body:find_component(provider.id)
-  if not installed then
-    return { applied = false, ability_id = ability_id, reason = "Ability provider is no longer installed" }
+    return self:_ability_failure(ability_id, "invalid_phase", "Body abilities cannot be activated outside a floor")
   end
   local ability = self.registry:get_ability(ability_id)
-  local wear = self:wear_actor_component(actor, installed.slot_id, ability_id)
-  if ability.implementation == "self_destruct" then
-    return self:_execute_self_destruct(actor, provider, wear)
+  local selected = self:actor_ability_provider(actor, ability_id)
+  if not selected then
+    local broken_provider = false
+    for _, component in ipairs(actor.body:list_components()) do
+      local definition = self.registry:get_component(component.definition_id)
+      for _, provided_ability in ipairs(definition.abilities) do
+        if provided_ability == ability_id then
+          broken_provider = true
+          break
+        end
+      end
+    end
+    return self:_ability_failure(ability_id, broken_provider and "provider_broken" or "missing_capability",
+      broken_provider and "No functional provider for this ability" or "Actor lacks a functional provider for this ability")
   end
-  return { applied = false, ability_id = ability_id, reason = "No runtime binding for ability" }
+  local request, failure = self:_validate_ability_request(actor, ability, params or {})
+  if not request then
+    return failure
+  end
+  local consumed, resource_failure = self:_consume_ability_resource(actor, ability)
+  if not consumed then
+    return resource_failure
+  end
+  local wear = self:wear_actor_component(actor, selected.slot_id, ability_id)
+  if ability.implementation == "self_destruct" then
+    return self:_execute_self_destruct(actor, selected.component, wear)
+  elseif ability.implementation == "projectile" then
+    return self:_execute_projectile(actor, selected.component, wear, ability, request)
+  elseif ability.implementation == "area_burst" then
+    return self:_execute_area_burst(actor, selected.component, wear, ability, request)
+  end
+  return self:_ability_failure(ability_id, "unbound_implementation", "No runtime binding for ability")
 end
 
 function Session:_reconstruction_allowed()
@@ -305,6 +466,12 @@ function Session:validate_physical_ownership()
     if entry.item.item_type == "component" then
       record(entry.item.object, "inventory")
     end
+  end
+  if self.state.player and self.state.player.body then
+    self.state.player.body:validate()
+  end
+  if self.state.run and self.state.run.inventory then
+    self.state.run.inventory:validate()
   end
   return true
 end
@@ -539,8 +706,9 @@ function Session:_make_enemy(kind, point)
     radius = 1,
     stun = 0,
   })
-  if kind == "bomber" then
-    local definition = self.registry:get_enemy(BOMBER_ENEMY_ID)
+  local enemy_id = ENEMY_CONTENT_IDS[kind]
+  if enemy_id then
+    local definition = self.registry:get_enemy(enemy_id)
     enemy.content_id = definition.id
     enemy.body = self:_build_body(definition)
   end
@@ -549,7 +717,7 @@ end
 
 function Session:_spawn_entities()
   local state = self.state
-  state.targets, state.enemies, state.bullets = {}, {}, {}
+  state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   for _ = 1, state.settings.torches do
     local point = self:_open_location(state.space, self:_occupied())
@@ -830,24 +998,27 @@ function Session:_update_bullets()
     end
 
     local hit = bullet.expired or not self:_open(bullet.x, bullet.y)
-    for index = #state.targets, 1, -1 do
-      local target = state.targets[index]
-      if target.x == bullet.x and target.y == bullet.y then
-        self:_destroy_target(index)
-        hit = true
-        break
+    local player_owned = bullet.source_side ~= "enemy"
+    if player_owned then
+      for index = #state.targets, 1, -1 do
+        local target = state.targets[index]
+        if target.x == bullet.x and target.y == bullet.y then
+          self:_destroy_target(index)
+          hit = true
+          break
+        end
       end
     end
-    if not hit then
+    if not hit and player_owned then
       for index = #state.enemies, 1, -1 do
         local enemy = state.enemies[index]
         if enemy.x == bullet.x and enemy.y == bullet.y then
           self:damage_actor_body(enemy, {
-            amount = 1,
+            amount = bullet.damage or 1,
             cause = "kinetic",
-            source = "bullet",
+            source = bullet.ability_id or "bullet",
           })
-          enemy.health = enemy.health - 1
+          enemy.health = enemy.health - (bullet.damage or 1)
           if enemy.health <= 0 then
             self:_destroy_enemy(index)
           end
@@ -856,8 +1027,12 @@ function Session:_update_bullets()
         end
       end
     end
-    if not hit and state.boss and self:_boss_hitbox()[Grid.key(bullet.x, bullet.y)] then
+    if not hit and player_owned and state.boss and self:_boss_hitbox()[Grid.key(bullet.x, bullet.y)] then
       self:_damage_boss(1)
+      hit = true
+    end
+    if not hit and not player_owned and state.player.x == bullet.x and state.player.y == bullet.y then
+      self:_hurt("An enemy projectile struck you.")
       hit = true
     end
     if not hit then
@@ -937,11 +1112,92 @@ function Session:_update_flares()
         if cells[Grid.key(enemy.x, enemy.y)] then
           enemy.stun = math.max(enemy.stun, flare.stun)
           self:_clear_enemy_attack(enemy)
+          self:_cancel_area_attacks_from(enemy)
         end
       end
     end
   end
   state.flares = remaining
+end
+
+function Session:_area_attack_cells(attack)
+  local cells = {}
+  for x = attack.x - attack.radius, attack.x + attack.radius do
+    for y = attack.y - attack.radius, attack.y + attack.radius do
+      if Grid.in_bounds(x, y) then
+        cells[Grid.key(x, y)] = true
+      end
+    end
+  end
+  return cells
+end
+
+function Session:_actor_has_pending_area_attack(actor)
+  for _, attack in ipairs(self.state.area_attacks or {}) do
+    if attack.source_actor == actor then
+      return true
+    end
+  end
+  return false
+end
+
+function Session:_cancel_area_attacks_from(actor)
+  local remaining = {}
+  for _, attack in ipairs(self.state.area_attacks or {}) do
+    if attack.source_actor ~= actor then
+      remaining[#remaining + 1] = attack
+    end
+  end
+  self.state.area_attacks = remaining
+end
+
+function Session:_resolve_area_attack(attack)
+  local state = self.state
+  local cells = self:_area_attack_cells(attack)
+  for location_key in pairs(cells) do
+    state.effects[location_key] = true
+  end
+  if attack.source_side == "player" then
+    for index = #state.targets, 1, -1 do
+      local target = state.targets[index]
+      if cells[Grid.key(target.x, target.y)] then
+        self:_destroy_target(index)
+      end
+    end
+    for index = #state.enemies, 1, -1 do
+      local enemy = state.enemies[index]
+      if cells[Grid.key(enemy.x, enemy.y)] then
+        self:damage_actor_body(enemy, {
+          amount = 1,
+          cause = "arcane",
+          source = attack.ability_id,
+        })
+        enemy.health = enemy.health - 1
+        if enemy.health <= 0 then
+          self:_destroy_enemy(index)
+        end
+      end
+    end
+  elseif cells[Grid.key(state.player.x, state.player.y)] then
+    self:_hurt("A " .. attack.source_actor_kind .. " spell struck you.")
+  end
+end
+
+function Session:_update_area_attacks()
+  local remaining = {}
+  for _, attack in ipairs(self.state.area_attacks or {}) do
+    if attack.active then
+      attack.remaining = attack.remaining - 1
+    else
+      attack.active = true
+    end
+    if attack.remaining <= 0 then
+      self:_resolve_area_attack(attack)
+    else
+      remaining[#remaining + 1] = attack
+    end
+  end
+  self.state.area_attacks = remaining
 end
 
 function Session:_attack_cells(enemy)
@@ -1009,7 +1265,11 @@ function Session:_enemy_turn()
         hunt = leader
       end
       local route = self:_path(enemy, hunt, blocked)
-      if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
+      if self:_actor_has_pending_area_attack(enemy) then
+        -- The migrated cultist spell keeps its existing delayed, stationary
+        -- wind-up behavior while its authoritative effect lives in the shared
+        -- ability implementation.
+      elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
         self:_begin_enemy_attack(enemy, "detonate", self.state.player, 0, 1)
       elseif enemy.kind == "bomber" then
         if #route > 2 then
@@ -1019,7 +1279,14 @@ function Session:_enemy_turn()
         self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
       elseif enemy.kind == "wolf" and #route > 2 then
         self:_move_entity(enemy, route[2].x, route[2].y)
+      elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
+        self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = self.state.player })
+      elseif enemy.kind == "cultist" and #route > 1 then
+        -- A broken or detached projector leaves the cultist with no magical
+        -- fallback; it can only advance.
+        self:_move_entity(enemy, route[2].x, route[2].y)
       elseif #route > 0 and #route - 1 <= 4 then
+        -- Necromancer spellcasting remains legacy scaffolding for now.
         self:_begin_enemy_attack(enemy, "spell", self.state.player, 1, 3)
       elseif #route > 1 then
         self:_move_entity(enemy, route[2].x, route[2].y)
@@ -1170,20 +1437,20 @@ end
 function Session:_shoot(direction)
   local player = self.state.player
   player.direction = direction or player.direction
-  if player.ammo <= 0 then
-    self:_log("No more ammo, find more to shoot.")
-    return
-  end
-  player.ammo = player.ammo - 1
-  self.state.bullets[#self.state.bullets + 1] = entity("bullet", player.x, player.y, {
+  local result = self:activate_actor_ability(player, BASIC_PROJECTILE_ABILITY, {
     direction = player.direction,
-    active = false,
-    travel = 1,
-    max = player.bullet_range,
-    light = 2,
   })
-  self:_sound("shoot")
-  self:_log("Fired " .. DIRECTIONS[player.direction][3] .. ".")
+  if result.applied then
+    return result
+  end
+  if result.code == "insufficient_ammo" then
+    self:_log("No more ammo, find more to shoot.")
+  elseif result.code == "missing_capability" or result.code == "provider_broken" then
+    self:_log("No functional ranged weapon.")
+  else
+    self:_log(result.reason)
+  end
+  return result
 end
 
 function Session:_action(input)
@@ -1231,7 +1498,9 @@ function Session:_action(input)
       self:_log("Flare lit. Necromancers will be stunned.")
     end
   elseif input:match("^activate_ability:") then
-    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1))
+    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
+      direction = player.direction,
+    })
   end
 end
 
@@ -1280,7 +1549,7 @@ function Session:start_boss()
   player.bomb_radius, player.bomb_fuse, player.bullet_range, player.reload_penalty = 2, 3, nil, 0
   state.settings = { terrain = "arena", vision = 99, score = 10 }
   state.space = Generator.generate("arena", player, self.rng, true)
-  state.targets, state.enemies, state.bullets = {}, {}, {}
+  state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   state.effects, state.exit, state.corpses = {}, nil, {}
   state.boss = { kind = "boss", x = 16, y = 1, health = 10, attack = 0, type = "crossfire", name = "CROSSFIRE", radius = 3, line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" }
@@ -1351,6 +1620,7 @@ function Session:turn(input)
   self:_update_bullets()
   self:_update_bombs()
   self:_update_flares()
+  self:_update_area_attacks()
   if state.ended then
     self:refresh_visibility()
     return state.ended
@@ -1452,6 +1722,11 @@ function Session:telegraphs()
       end
     end
   end
+  for _, attack in ipairs(self.state.area_attacks or {}) do
+    for location_key in pairs(self:_area_attack_cells(attack)) do
+      result[location_key] = attack.remaining <= 1 and "danger" or "warn"
+    end
+  end
   if self.state.boss then
     for location_key in pairs(self:_boss_cells()) do
       result[location_key] = self.state.boss.attack >= BOSS_WINDUP - 1 and "danger" or "warn"
@@ -1466,6 +1741,11 @@ function Session:enemy_intent(enemy)
   end
   if enemy.attack > 0 then
     return string.upper(enemy.attack_kind) .. " IN " .. math.max(1, enemy.attack_windup - enemy.attack + 1)
+  end
+  for _, attack in ipairs(self.state.area_attacks or {}) do
+    if attack.source_actor == enemy then
+      return "ARCANE BURST IN " .. math.max(1, attack.remaining)
+    end
   end
   if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
     return "DETONATE"

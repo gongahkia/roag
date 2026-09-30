@@ -198,25 +198,37 @@ function Renderer:_draw_game(app)
   if state.curse then
     self:_text("CURSE " .. state.curse.name, hud, offset_y + 196, 1, { 0.9, 0.4, 0.8 })
   end
-  if state.boss then
-    self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, offset_y + 218, 0.8, { 1, 0.6, 0.35 })
+  local status_y = offset_y + 218
+  local ranged = session:actor_ability_provider(state.player, "ability.weapon.projectile.basic")
+  if ranged then
+    local definition = session.registry:get_component(ranged.component.definition_id)
+    self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
+  else
+    self:_text("WEAPON OFFLINE", hud, status_y, 0.72, { 1, 0.42, 0.42 })
   end
-  local abilities = session:available_actor_abilities(state.player)
+  status_y = status_y + 18
+  if state.boss then
+    self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, status_y, 0.8, { 1, 0.6, 0.35 })
+    status_y = status_y + 18
+  end
+  local abilities = session:available_actor_abilities(state.player, "body")
   if #abilities > 0 then
     local ability = session.registry:get_ability(abilities[1])
-    self:_text("BODY X: " .. string.upper(ability.display_name), hud, offset_y + 236, 0.72, { 0.95, 0.65, 0.35 })
+    self:_text("BODY X: " .. string.upper(ability.display_name), hud, status_y, 0.72, { 0.95, 0.65, 0.35 })
+    status_y = status_y + 18
   end
-  self:_text("CONTROLS", hud, offset_y + 246, 1, { 0.6, 0.8, 1 })
-  self:_text("WASD MOVE / HOLD", hud, offset_y + 266, 0.85)
-  self:_text("ARROWS SHOOT   E FORWARD", hud, offset_y + 284, 0.75)
-  self:_text("Q dash   B bomb   F flare", hud, offset_y + 302, 0.75)
-  self:_text("G salvage   I inventory", hud, offset_y + 320, 0.75)
-  self:_text("INTENTS", hud, offset_y + 352, 1, { 0.9, 0.7, 0.4 })
+  local controls_y = math.max(offset_y + 278, status_y + 8)
+  self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
+  self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
+  self:_text("ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
+  self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
+  self:_text("G salvage   I inventory", hud, controls_y + 74, 0.75)
+  self:_text("INTENTS", hud, controls_y + 106, 1, { 0.9, 0.7, 0.4 })
   for index, enemy in ipairs(state.enemies) do
     if index > 5 then
       break
     end
-    self:_text(string.upper(enemy.kind) .. ": " .. session:enemy_intent(enemy), hud, offset_y + 370 + index * 17, 0.75)
+    self:_text(string.upper(enemy.kind) .. ": " .. session:enemy_intent(enemy), hud, controls_y + 124 + index * 17, 0.75)
   end
   for index, message in ipairs(state.log) do
     self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
