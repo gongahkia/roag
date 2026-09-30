@@ -40,6 +40,16 @@ return {
     destruction_material_id = "material.terrain.air",
   },
   {
+    id = "material.structure.wood",
+    display_name = "Timber",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 3,
+    destruction_material_id = "material.terrain.air",
+  },
+  {
     id = "material.structure.reinforced",
     display_name = "Reinforced Boundary",
     solid = true,

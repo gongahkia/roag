@@ -84,6 +84,7 @@ function Registry.new(sources)
   local self = setmetatable({
     abilities = {},
     materials = {},
+    world_objects = {},
     components = {},
     topologies = {},
     actors = {},
@@ -91,6 +92,7 @@ function Registry.new(sources)
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
+  self:_index("world_object", sources.world_objects, self.world_objects)
   self:_index("component", sources.components, self.components)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
@@ -103,6 +105,7 @@ function Registry.load()
   return Registry.new({
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
+    world_objects = require("content.world_objects.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -145,6 +148,10 @@ function Registry:get_material(id)
   return self:_get(self.materials, "material", id)
 end
 
+function Registry:get_world_object(id)
+  return self:_get(self.world_objects, "world object", id)
+end
+
 function Registry:get_component(id)
   return self:_get(self.components, "component", id)
 end
@@ -177,6 +184,22 @@ function Registry:validate()
     elseif material.max_integrity ~= nil or material.destruction_material_id ~= nil then
       content_error("Indestructible material '" .. id .. "' cannot define mutable destruction fields")
     end
+  end
+
+  for _, id in ipairs(sorted_keys(self.world_objects)) do
+    local object = self.world_objects[id]
+    require_string(object.display_name, "World object '" .. id .. "' display_name")
+    require_string(object.material_id, "World object '" .. id .. "' material_id")
+    local material = self:get_material(object.material_id)
+    if not material.destructible then
+      content_error("World object '" .. id .. "' must reference a destructible material")
+    end
+    for _, field in ipairs({ "blocks_movement", "blocks_vision", "blocks_projectiles", "movable_by_force" }) do
+      if type(object[field]) ~= "boolean" then
+        content_error("World object '" .. id .. "' " .. field .. " must be a boolean")
+      end
+    end
+    require_string(object.render_style, "World object '" .. id .. "' render_style")
   end
 
   local known_slot_kinds = {}

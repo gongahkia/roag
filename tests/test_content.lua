@@ -4,6 +4,7 @@ local function sources()
   return {
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
+    world_objects = require("content.world_objects.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -36,6 +37,43 @@ return {
       assert(registry:get_ability("ability.locomotion.move").implementation == "locomotion")
       assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
       assert(registry:get_material("material.terrain.brush").max_integrity == 2)
+      assert(registry:get_world_object("world_object.cover.timber_crate").material_id == "material.structure.wood")
+    end,
+  },
+  {
+    name = "world object definitions validate material and physical metadata",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.world_objects = copy_list(invalid_sources.world_objects)
+      invalid_sources.world_objects[#invalid_sources.world_objects + 1] = {
+        id = "world_object.invalid.cover",
+        display_name = "Invalid Cover",
+        material_id = "material.missing.cover",
+        blocks_movement = true,
+        blocks_vision = true,
+        blocks_projectiles = true,
+        movable_by_force = false,
+        render_style = "cover",
+      }
+      assert_failure("Unknown material ID 'material.missing.cover'", function()
+        Registry.new(invalid_sources)
+      end)
+
+      local invalid_metadata = sources()
+      invalid_metadata.world_objects = copy_list(invalid_metadata.world_objects)
+      invalid_metadata.world_objects[#invalid_metadata.world_objects + 1] = {
+        id = "world_object.invalid.metadata",
+        display_name = "Invalid Metadata",
+        material_id = "material.structure.wood",
+        blocks_movement = "yes",
+        blocks_vision = true,
+        blocks_projectiles = true,
+        movable_by_force = false,
+        render_style = "cover",
+      }
+      assert_failure("World object 'world_object.invalid.metadata' blocks_movement must be a boolean", function()
+        Registry.new(invalid_metadata)
+      end)
     end,
   },
   {
