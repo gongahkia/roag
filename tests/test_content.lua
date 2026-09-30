@@ -3,6 +3,7 @@ local Registry = require("src.content.registry")
 local function sources()
   return {
     abilities = require("content.abilities.legacy"),
+    materials = require("content.materials.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -32,6 +33,8 @@ return {
       assert(registry:get_component("component.internal.legacy_volatile_charge").display_name == "Volatile Charge")
       assert(registry:get_enemy("enemy.legacy.bomber").body_topology_id == "body.topology.normal")
       assert(registry:get_ability("ability.explosive.self_destruct").implementation == "self_destruct")
+      assert(registry:get_ability("ability.locomotion.move").implementation == "locomotion")
+      assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
     end,
   },
   {
@@ -117,6 +120,22 @@ return {
         abilities = {},
       }
       assert_failure("inventory.width must be a positive integer", function()
+        Registry.new(invalid_sources)
+      end)
+    end,
+  },
+  {
+    name = "invalid ability resource metadata fails validation",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.abilities = copy_list(invalid_sources.abilities)
+      invalid_sources.abilities[#invalid_sources.abilities + 1] = {
+        id = "ability.invalid.resource",
+        display_name = "Invalid Resource",
+        implementation = "projectile",
+        resource = { name = "ammo", amount = 0 },
+      }
+      assert_failure("resource.amount must be a positive integer", function()
         Registry.new(invalid_sources)
       end)
     end,

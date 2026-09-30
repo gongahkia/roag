@@ -7,6 +7,7 @@ local KNOWN_ABILITY_IMPLEMENTATIONS = {
   self_destruct = true,
   projectile = true,
   area_burst = true,
+  locomotion = true,
 }
 
 local function content_error(message)
@@ -82,12 +83,14 @@ end
 function Registry.new(sources)
   local self = setmetatable({
     abilities = {},
+    materials = {},
     components = {},
     topologies = {},
     actors = {},
     enemies = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
+  self:_index("material", sources.materials, self.materials)
   self:_index("component", sources.components, self.components)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
@@ -99,6 +102,7 @@ end
 function Registry.load()
   return Registry.new({
     abilities = require("content.abilities.legacy"),
+    materials = require("content.materials.legacy"),
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
@@ -137,6 +141,10 @@ function Registry:get_ability(id)
   return self:_get(self.abilities, "ability", id)
 end
 
+function Registry:get_material(id)
+  return self:_get(self.materials, "material", id)
+end
+
 function Registry:get_component(id)
   return self:_get(self.components, "component", id)
 end
@@ -154,6 +162,23 @@ function Registry:get_enemy(id)
 end
 
 function Registry:validate()
+  for _, id in ipairs(sorted_keys(self.materials)) do
+    local material = self.materials[id]
+    require_string(material.display_name, "Material '" .. id .. "' display_name")
+    for _, field in ipairs({ "solid", "blocks_movement", "blocks_vision", "destructible" }) do
+      if type(material[field]) ~= "boolean" then
+        content_error("Material '" .. id .. "' " .. field .. " must be a boolean")
+      end
+    end
+    if material.destructible then
+      require_positive_number(material.max_integrity, "Material '" .. id .. "' max_integrity")
+      require_string(material.destruction_material_id, "Material '" .. id .. "' destruction_material_id")
+      self:get_material(material.destruction_material_id)
+    elseif material.max_integrity ~= nil or material.destruction_material_id ~= nil then
+      content_error("Indestructible material '" .. id .. "' cannot define mutable destruction fields")
+    end
+  end
+
   local known_slot_kinds = {}
   for _, id in ipairs(sorted_keys(self.topologies)) do
     local topology = self.topologies[id]

@@ -39,7 +39,7 @@ $ love .
 
 | Key | Action |
 | --- | --- |
-| `W` / `A` / `S` / `D` | Face a direction; press the same key again to move one tile |
+| `W` / `A` / `S` / `D` | Move; hold one vertical and one horizontal key together to move diagonally |
 | `E` | Fire in the facing direction |
 | `Q` | Dash two tiles in the facing direction |
 | `B` | Arm a bomb |

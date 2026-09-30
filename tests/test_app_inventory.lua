@@ -1,6 +1,24 @@
 local App = require("src.app.app")
+local Input = require("src.app.input")
 
 return {
+  {
+    name = "held WASD combinations produce diagonal locomotion intents without rendering",
+    run = function()
+      local app = App.new({ seed = 9010 })
+      app:select_class(app.content.classes[1])
+      app:select_boon(app.boon_options[1])
+      local player = app.session.state.player
+      Input.keypressed(app, "w", nil, false)
+      local x, y = player.x, player.y
+      Input.keypressed(app, "d", nil, false)
+      assert(player.direction == "ne" and player.x == x + 1 and player.y == y + 1)
+      Input.keyreleased(app, "d")
+      assert(app.held_direction == "w")
+      Input.keyreleased(app, "w")
+      assert(app.held_direction == nil)
+    end,
+  },
   {
     name = "inventory and salvage overlays operate without rendering",
     run = function()
@@ -14,7 +32,7 @@ return {
       app.session:_destroy_enemy(index)
 
       assert(app:open_salvage() and app.screen == "salvage")
-      assert(#app:salvage_options() == 1)
+      assert(#app:salvage_options() == 3)
       assert(app:salvage_selected().applied)
       assert(app:open_inventory() and app.screen == "inventory")
       local entry = app.session.state.inventory.entries[1]

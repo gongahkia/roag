@@ -1,7 +1,7 @@
 -- LÖVE event translation only. Game rules remain in Session.
 local Input = {}
 
-local MOVE_KEYS = { w = "w", a = "a", s = "s", d = "d" }
+local MOVE_KEYS = { w = true, a = true, s = true, d = true }
 local SHOT_KEYS = { up = "w", left = "a", down = "s", right = "d" }
 
 function Input.keypressed(app, key, _, is_repeat)
@@ -139,11 +139,13 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
   if app.screen == "game" then
-    local direction = MOVE_KEYS[key]
-    if direction then
+    if MOVE_KEYS[key] then
       if not is_repeat then
-        app:start_held_move(direction)
-        app:perform_turn(direction)
+        local direction = app:set_movement_key(key, true)
+        if direction then
+          app:start_held_move(direction)
+          app:perform_turn(direction)
+        end
       end
     elseif SHOT_KEYS[key] then
       if not is_repeat then
@@ -162,9 +164,13 @@ function Input.keypressed(app, key, _, is_repeat)
 end
 
 function Input.keyreleased(app, key)
-  local direction = MOVE_KEYS[key]
-  if direction and app.held_direction == direction then
-    app.held_direction, app.hold_timer = nil, nil
+  if MOVE_KEYS[key] then
+    local direction = app:set_movement_key(key, false)
+    if direction then
+      app:start_held_move(direction)
+    else
+      app.held_direction, app.hold_timer = nil, nil
+    end
   end
 end
 

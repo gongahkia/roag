@@ -23,4 +23,10 @@ return {
     radius = 1,
     delay = 3,
   },
+  {
+    id = "ability.locomotion.move",
+    display_name = "Locomotion",
+    implementation = "locomotion",
+    activation_type = "direct",
+  },
 }

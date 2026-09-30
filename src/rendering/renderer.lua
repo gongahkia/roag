@@ -97,8 +97,9 @@ function Renderer:_draw_game(app)
       local pixel_x = offset_x + (view_x - camera_offset_x) * size
       local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
       local location_key = Grid.key(x, y)
+      local passable = state.world and state.world:is_passable(x, y)
       if Grid.in_bounds(x, y) and state.visible[location_key] then
-        if state.space[location_key] then
+        if passable then
           self:_color(floor)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
           if (x * 7 + y * 11) % 5 == 0 then
@@ -112,7 +113,7 @@ function Renderer:_draw_game(app)
           love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
         end
       elseif Grid.in_bounds(x, y) and state.explored[location_key] then
-        self:_color(state.space[location_key] and { floor[1] * 0.28, floor[2] * 0.28, floor[3] * 0.28 } or { 0.035, 0.025, 0.04 })
+        self:_color(passable and { floor[1] * 0.28, floor[2] * 0.28, floor[3] * 0.28 } or { 0.035, 0.025, 0.04 })
         love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
       else
         self:_color({ 0.008, 0.011, 0.017 })
@@ -199,6 +200,12 @@ function Renderer:_draw_game(app)
     self:_text("CURSE " .. state.curse.name, hud, offset_y + 196, 1, { 0.9, 0.4, 0.8 })
   end
   local status_y = offset_y + 218
+  local locomotion = session:locomotion_state(state.player)
+  if locomotion.state ~= "NORMAL" then
+    local locomotion_color = locomotion.state == "IMPAIRED" and { 1, 0.72, 0.3 } or { 1, 0.42, 0.42 }
+    self:_text("LOCOMOTION " .. locomotion.state, hud, status_y, 0.76, locomotion_color)
+    status_y = status_y + 18
+  end
   local ranged = session:actor_ability_provider(state.player, "ability.weapon.projectile.basic")
   if ranged then
     local definition = session.registry:get_component(ranged.component.definition_id)
@@ -282,6 +289,11 @@ function Renderer:_draw_reconstruction(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("RECONSTRUCTION", body_x, 28, 2, { 0.7, 0.9, 1 })
   self:_text("Installed mass " .. body:installed_mass() .. "   •   Cargo " .. inventory:total_mass() .. " " .. inventory:encumbrance(), body_x, 68, 0.88, { 0.95, 0.85, 0.3 })
+  local locomotion = session:locomotion_state(state.player)
+  local locomotion_color = locomotion.state == "NORMAL" and { 0.65, 0.9, 0.8 }
+    or locomotion.state == "IMPAIRED" and { 1, 0.72, 0.3 }
+    or { 1, 0.42, 0.42 }
+  self:_text("LOCOMOTION " .. locomotion.state .. " (" .. locomotion.provider_count .. ")", inventory_x, 68, 0.72, locomotion_color)
   self:_text("BODY", body_x, 92, 1.15, app.reconstruction_focus == "body" and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
   self:_text("INVENTORY", inventory_x, 92, 1.15, app.reconstruction_focus == "inventory" and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
 

@@ -31,6 +31,7 @@ function App.new(options)
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
   self.sprite_lab = { slot = 1, x = 25, y = 1 }
+  self.movement_keys = {}
   return self
 end
 
@@ -87,14 +88,14 @@ end
 function App:select_boon(boon)
   self.session:start_run(self.selected_class, boon)
   self.screen = "game"
-  self.held_direction, self.hold_timer = nil, nil
+  self:clear_held_movement()
   self.presentation:reset(self.session)
 end
 
 function App:select_curse(curse)
   self.session:choose_curse(curse)
   self.screen = "game"
-  self.held_direction, self.hold_timer = nil, nil
+  self:clear_held_movement()
   self.presentation:reset(self.session)
 end
 
@@ -109,14 +110,14 @@ end
 function App:start_boss()
   self.session:start_boss()
   self.screen = "game"
-  self.held_direction, self.hold_timer = nil, nil
+  self:clear_held_movement()
   self.presentation:reset(self.session)
 end
 
 function App:return_to_title()
   self.screen, self.menu = "title", 1
   self.session = nil
-  self.held_direction, self.hold_timer = nil, nil
+  self:clear_held_movement()
 end
 
 function App:_handle_turn_result(result)
@@ -128,7 +129,7 @@ function App:_handle_turn_result(result)
     self.screen, self.menu = "shop", 1
   elseif result == "gameover" or result == "victory" then
     self.screen, self.menu = result, 1
-    self.held_direction, self.hold_timer = nil, nil
+    self:clear_held_movement()
   end
 end
 
@@ -406,6 +407,23 @@ end
 
 function App:start_held_move(direction)
   self.held_direction, self.hold_timer = direction, HOLD_INITIAL_DELAY
+end
+
+function App:clear_held_movement()
+  self.held_direction, self.hold_timer = nil, nil
+  self.movement_keys = {}
+end
+
+function App:set_movement_key(key, held)
+  self.movement_keys = self.movement_keys or {}
+  self.movement_keys[key] = held or nil
+  local keys = self.movement_keys
+  local vertical = keys.w and "w" or keys.s and "s" or nil
+  local horizontal = keys.a and "a" or keys.d and "d" or nil
+  if vertical and horizontal then
+    return ({ wa = "nw", wd = "ne", sa = "sw", sd = "se" })[vertical .. horizontal]
+  end
+  return vertical or horizontal
 end
 
 function App:update(dt)

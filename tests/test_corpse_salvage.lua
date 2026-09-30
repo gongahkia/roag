@@ -75,7 +75,8 @@ return {
       local result = session:salvage_corpse_component(corpse.id, "internal_1")
       assert(result.applied and result.component_id == id)
       assert(corpse.body:get_component("internal_1") == nil)
-      assert(#corpse:list_components() == 0)
+      -- Bomber legs remain physical salvage after its volatile charge moves.
+      assert(#corpse:list_components() == 2)
       local entry = session.state.inventory:get(id)
       assert(entry and entry.item.object == charge and entry.item.physical_id == id)
       assert(entry.item.object.current_integrity == charge.current_integrity)

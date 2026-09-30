@@ -5,12 +5,15 @@ local Body = require("src.body.body")
 local ComponentFactory = require("src.body.component_factory")
 local Registry = require("src.content.registry")
 local BodyDamage = require("src.simulation.body_damage")
+local Locomotion = require("src.simulation.locomotion")
 local Inventory = require("src.inventory.inventory")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
+local EnvironmentDamage = require("src.simulation.environment_damage")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
+local World = require("src.world.world")
 local Rng = require("src.rng")
 
 local Session = {}
@@ -21,11 +24,16 @@ local DIRECTIONS = {
   a = { -1, 0, "W" },
   s = { 0, -1, "S" },
   d = { 1, 0, "E" },
+  nw = { -1, 1, "NW" },
+  ne = { 1, 1, "NE" },
+  sw = { -1, -1, "SW" },
+  se = { 1, -1, "SE" },
 }
 local BOSS_WINDUP = 4
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
 local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
 local ARCANE_BURST_ABILITY = "ability.arcane.burst"
+local LOCOMOTION_ABILITY = Locomotion.ABILITY_ID
 local PLAYER_ACTOR_ID = "actor.player.legacy"
 local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
@@ -99,7 +107,25 @@ function Session:_log(message)
 end
 
 function Session:_open(x, y)
-  return self.state.space[Grid.key(x, y)]
+  return self.state.world and self.state.world:is_passable(x, y) or false
+end
+
+function Session:inspect_terrain(x, y)
+  if not self.state.world then
+    return nil, "No active world"
+  end
+  return self.state.world:inspect_cell(x, y)
+end
+
+function Session:describe_terrain(x, y)
+  return self.state.world and self.state.world:describe_cell(x, y) or "No active world"
+end
+
+function Session:damage_terrain(x, y, spec)
+  if not self.state.world then
+    return { applied = false, code = "no_world", x = x, y = y, reason = "No active world" }
+  end
+  return EnvironmentDamage.apply(self.state.world, x, y, spec)
 end
 
 function Session:_move_entity(value, x, y)
@@ -118,6 +144,54 @@ end
 
 function Session:actor_has_capability(actor, ability_id)
   return actor.body and actor.body:has_capability(ability_id) or false
+end
+
+function Session:locomotion_state(actor)
+  return Locomotion.derive(actor and actor.body or nil)
+end
+
+function Session:locomotion_provider_count(actor)
+  return self:locomotion_state(actor).provider_count
+end
+
+function Session:validate_actor_movement(actor, dx, dy)
+  local result = Locomotion.validate_move(self:locomotion_state(actor), dx, dy)
+  if not result.applied then
+    return result
+  end
+  if not self:_open(actor.x + dx, actor.y + dy) then
+    return {
+      applied = false,
+      code = "blocked_terrain",
+      reason = "A wall blocks the path",
+      locomotion = result.locomotion,
+    }
+  end
+  return result
+end
+
+function Session:_move_actor(actor, x, y)
+  local result = self:validate_actor_movement(actor, x - actor.x, y - actor.y)
+  if not result.applied then
+    return result
+  end
+  -- Legacy enemies move only on cardinal path tiles. A legless body can still
+  -- crawl, but it advances only every other attempted chase step rather than
+  -- retaining its former full pursuit rate. Player crawling never skips turns.
+  if actor ~= self.state.player and result.locomotion.body_derived
+    and result.locomotion.state == Locomotion.CRAWLING then
+    actor.crawl_stride = (actor.crawl_stride or 0) + 1
+    if actor.crawl_stride % 2 == 0 then
+      return {
+        applied = false,
+        code = "crawl_recovering",
+        reason = "Actor is dragging itself forward",
+        locomotion = result.locomotion,
+      }
+    end
+  end
+  self:_move_entity(actor, x, y)
+  return result
 end
 
 function Session:actor_ability_provider(actor, ability_id)
@@ -170,7 +244,12 @@ end
 function Session:_execute_self_destruct(actor, provider, wear)
   local state = self.state
   local radius = 1
-  self:_destroy_terrain(actor, radius)
+  self:_damage_terrain_radius(actor, radius, {
+    amount = 2,
+    cause = "explosive",
+    source = "self_destruct",
+    ability_id = SELF_DESTRUCT_ABILITY,
+  })
   local cells = self:_blast(actor, radius)
   for location_key in pairs(cells) do
     state.effects[location_key] = true
@@ -256,7 +335,10 @@ function Session:_execute_area_burst(actor, provider, wear, ability, request)
   local target = request.target
   local burst = {
     kind = "arcane_burst",
-    active = false,
+    -- Enemy AI invokes after the turn's updates, so it is immediately armed
+    -- for the next player turn. Player activation occurs before updates and
+    -- uses one arming tick to keep the same three-turn delay.
+    active = actor ~= self.state.player,
     source_actor = actor,
     source_actor_kind = actor.kind,
     source_side = self:_actor_side(actor),
@@ -341,6 +423,9 @@ function Session:activate_actor_ability(actor, ability_id, params)
     return self:_ability_failure(ability_id, "invalid_phase", "Body abilities cannot be activated outside a floor")
   end
   local ability = self.registry:get_ability(ability_id)
+  if ability_id == LOCOMOTION_ABILITY then
+    return self:_ability_failure(ability_id, "direct_action", "Locomotion is invoked through movement input")
+  end
   local selected = self:actor_ability_provider(actor, ability_id)
   if not selected then
     local broken_provider = false
@@ -390,9 +475,11 @@ function Session:install_inventory_component(component_id, slot_id)
   if not self:_reconstruction_allowed() then
     return { applied = false, component_id = component_id, slot_id = slot_id, reason = "Reconstruction is only available between floors" }
   end
+  local previous_locomotion = self:locomotion_state(self.state.player)
   local result = Reconstruction.install(self.state.player.body, self.state.run.inventory, component_id, slot_id)
   if result.applied then
     self:_log("Installed " .. self.registry:get_component(result.definition_id).display_name .. ".")
+    self:_log_locomotion_transition(self.state.player, previous_locomotion, self:locomotion_state(self.state.player))
     self:_sound("pickup")
     self:validate_physical_ownership()
   else
@@ -405,9 +492,11 @@ function Session:uninstall_body_component(slot_id)
   if not self:_reconstruction_allowed() then
     return { applied = false, slot_id = slot_id, reason = "Reconstruction is only available between floors" }
   end
+  local previous_locomotion = self:locomotion_state(self.state.player)
   local result = Reconstruction.uninstall(self.state.player.body, self.state.run.inventory, self.registry, slot_id)
   if result.applied then
     self:_log("Uninstalled " .. self.registry:get_component(result.definition_id).display_name .. ".")
+    self:_log_locomotion_transition(self.state.player, previous_locomotion, self:locomotion_state(self.state.player))
     self:_sound("pickup")
     self:validate_physical_ownership()
   else
@@ -430,6 +519,9 @@ function Session:run_data()
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
+    -- World serialisation is intentionally plain data.  A later save system
+    -- can store only World:mutation_data() beside the generated floor seed.
+    world = self.state.world and self.state.world:to_data() or nil,
     player = player and {
       health = player.health,
       ammo = player.ammo,
@@ -437,6 +529,13 @@ function Session:run_data()
       flares = player.flares,
     } or nil,
   }
+end
+
+function Session:validate_world()
+  if not self.state.world then
+    error("No active world to validate")
+  end
+  return self.state.world:validate()
 end
 
 function Session:validate_physical_ownership()
@@ -538,6 +637,19 @@ function Session:_log_component_transition(actor, result)
   self:_log(string.upper(owner .. definition.display_name) .. " " .. string.upper(result.new_condition))
 end
 
+function Session:_log_locomotion_transition(actor, previous, current)
+  if actor ~= self.state.player or not previous or previous.state == current.state then
+    return
+  end
+  if current.state == Locomotion.NORMAL then
+    self:_log("LOCOMOTION NORMAL.")
+  elseif current.state == Locomotion.IMPAIRED then
+    self:_log("LOCOMOTION IMPAIRED.")
+  else
+    self:_log("CRAWLING.")
+  end
+end
+
 function Session:damage_actor_body(actor, damage_spec)
   if not actor.body then
     return {
@@ -551,8 +663,14 @@ function Session:damage_actor_body(actor, damage_spec)
     spec[key] = value
   end
   spec.rng = spec.rng or self.rng
+  local previous_locomotion = self:locomotion_state(actor)
   local result = BodyDamage.apply(actor.body, spec)
   self:_log_component_transition(actor, result)
+  local current_locomotion = self:locomotion_state(actor)
+  result.previous_locomotion = previous_locomotion.state
+  result.locomotion = current_locomotion.state
+  result.locomotion_provider_count = current_locomotion.provider_count
+  self:_log_locomotion_transition(actor, previous_locomotion, current_locomotion)
   return result
 end
 
@@ -585,12 +703,18 @@ function Session:wear_actor_component(actor, slot_id, source)
       reason = "Component has no usage wear",
     }
   end
+  local previous_locomotion = self:locomotion_state(actor)
   local result = BodyDamage.apply_wear(actor.body, {
     amount = definition.wear_per_use,
     slot_id = slot_id,
     source = source,
   })
   self:_log_component_transition(actor, result)
+  local current_locomotion = self:locomotion_state(actor)
+  result.previous_locomotion = previous_locomotion.state
+  result.locomotion = current_locomotion.state
+  result.locomotion_provider_count = current_locomotion.provider_count
+  self:_log_locomotion_transition(actor, previous_locomotion, current_locomotion)
   return result
 end
 
@@ -672,13 +796,13 @@ function Session:_occupied(include_boss)
   return occupied
 end
 
-function Session:_open_location(space, used, minimum)
+function Session:_open_location(used, minimum)
   local options = {}
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
       local location_key = Grid.key(x, y)
       local point = Grid.cell(x, y)
-      if space[location_key] and not used[location_key]
+      if self:_open(x, y) and not used[location_key]
         and (not minimum or Grid.distance(point, self.state.player) >= minimum) then
         options[#options + 1] = point
       end
@@ -705,6 +829,7 @@ function Session:_make_enemy(kind, point)
     attack_y = nil,
     radius = 1,
     stun = 0,
+    crawl_stride = 0,
   })
   local enemy_id = ENEMY_CONTENT_IDS[kind]
   if enemy_id then
@@ -720,33 +845,33 @@ function Session:_spawn_entities()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   for _ = 1, state.settings.torches do
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.torches[#state.torches + 1] = entity("torch", point.x, point.y, { light = state.settings.torch_radius })
   end
   for _ = 1, state.settings.targets do
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.targets[#state.targets + 1] = entity("target", point.x, point.y)
   end
   for index = 1, state.settings.enemies do
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index), point)
   end
-  local point = self:_open_location(state.space, self:_occupied())
+  local point = self:_open_location(self:_occupied())
   state.ammo = entity("ammo", point.x, point.y)
 end
 
 function Session:_refill_entities()
   local state = self.state
   while #state.targets < state.settings.targets do
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.targets[#state.targets + 1] = entity("target", point.x, point.y)
   end
   while #state.enemies < state.settings.enemies do
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1), point)
   end
   if not state.ammo then
-    local point = self:_open_location(state.space, self:_occupied())
+    local point = self:_open_location(self:_occupied())
     state.ammo = entity("ammo", point.x, point.y)
   end
 end
@@ -839,7 +964,8 @@ function Session:start_stage()
   state.exit, state.boss = nil, nil
   state.log = {}
   state.phase = "combat"
-  state.space = Generator.generate(state.settings.terrain, state.player, self.rng)
+  state.world = World.new(self.registry, state.settings.terrain,
+    Generator.generate(state.settings.terrain, state.player, self.rng))
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
   self:refresh_visibility()
@@ -971,15 +1097,19 @@ function Session:_blast(origin, radius)
   return result
 end
 
-function Session:_destroy_terrain(origin, radius)
+function Session:_damage_terrain_radius(origin, radius, damage_spec)
+  local results = {}
   for x = origin.x - radius, origin.x + radius do
     for y = origin.y - radius, origin.y + radius do
-      if x > 0 and x < Grid.width - 1 and y > 0 and y < Grid.height - 1
-        and math.abs(x - origin.x) + math.abs(y - origin.y) <= radius then
-        self.state.space[Grid.key(x, y)] = true
+      if Grid.in_bounds(x, y) and math.abs(x - origin.x) + math.abs(y - origin.y) <= radius then
+        local result = self:damage_terrain(x, y, damage_spec)
+        if result.applied or result.code == "indestructible" then
+          results[#results + 1] = result
+        end
       end
     end
   end
+  return results
 end
 
 function Session:_update_bullets()
@@ -1049,7 +1179,11 @@ function Session:_update_bombs()
     if bomb.fuse > 0 then
       remaining[#remaining + 1] = bomb
     else
-      self:_destroy_terrain(bomb, bomb.radius)
+      self:_damage_terrain_radius(bomb, bomb.radius, {
+        amount = 2,
+        cause = "explosive",
+        source = "bomb",
+      })
       local cells = self:_blast(bomb, bomb.radius)
       for location_key in pairs(cells) do
         state.effects[location_key] = true
@@ -1273,23 +1407,23 @@ function Session:_enemy_turn()
         self:_begin_enemy_attack(enemy, "detonate", self.state.player, 0, 1)
       elseif enemy.kind == "bomber" then
         if #route > 2 then
-          self:_move_entity(enemy, route[2].x, route[2].y)
+          self:_move_actor(enemy, route[2].x, route[2].y)
         end
       elseif enemy.kind == "wolf" and Grid.distance(enemy, self.state.player) <= 1 then
         self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
       elseif enemy.kind == "wolf" and #route > 2 then
-        self:_move_entity(enemy, route[2].x, route[2].y)
+        self:_move_actor(enemy, route[2].x, route[2].y)
       elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
         self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = self.state.player })
       elseif enemy.kind == "cultist" and #route > 1 then
         -- A broken or detached projector leaves the cultist with no magical
         -- fallback; it can only advance.
-        self:_move_entity(enemy, route[2].x, route[2].y)
+        self:_move_actor(enemy, route[2].x, route[2].y)
       elseif #route > 0 and #route - 1 <= 4 then
         -- Necromancer spellcasting remains legacy scaffolding for now.
         self:_begin_enemy_attack(enemy, "spell", self.state.player, 1, 3)
       elseif #route > 1 then
-        self:_move_entity(enemy, route[2].x, route[2].y)
+        self:_move_actor(enemy, route[2].x, route[2].y)
       end
     else
       enemy.attack = enemy.attack + 1
@@ -1353,7 +1487,7 @@ function Session:_new_boss_attack()
   local points = {}
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
-      if self.state.space[Grid.key(x, y)] then
+      if self:_open(x, y) then
         points[#points + 1] = Grid.cell(x, y)
       end
     end
@@ -1374,7 +1508,7 @@ function Session:_boss_turn()
 
   local limit = boss.health < 4 and 3 or (boss.health < 8 and 2 or 1)
   if boss.attack == 0 and #self.state.enemies < limit then
-    local point = self:_open_location(self.state.space, self:_occupied(true), 6)
+    local point = self:_open_location(self:_occupied(true), 6)
     self.state.enemies[#self.state.enemies + 1] = self:_make_enemy("necromancer", point)
     self:_log("The boss summoned a necromancer.")
   end
@@ -1392,29 +1526,42 @@ end
 
 function Session:_move_player(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
-  local moved = false
+  if not delta then
+    return { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
   player.direction = direction
-  if self:_open(player.x + delta[1], player.y + delta[2]) then
-    self:_move_entity(player, player.x + delta[1], player.y + delta[2])
-    moved = true
-  else
-    self:_log("A wall blocks your path.")
-  end
-  if moved then
+  local result = self:_move_actor(player, player.x + delta[1], player.y + delta[2])
+  if result.applied then
     self:_log("Moved " .. delta[3] .. ".")
+  elseif result.code == "blocked_terrain" then
+    self:_log("A wall blocks your path.")
+  elseif result.code == "crawl_cannot_move_diagonally" then
+    self:_log("CRAWLING: cardinal movement only.")
+  else
+    self:_log(result.reason)
   end
+  return result
 end
 
 function Session:can_move(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
-  return player and delta and self:_open(player.x + delta[1], player.y + delta[2])
+  if not player or not delta then
+    return false, { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
+  local result = self:validate_actor_movement(player, delta[1], delta[2])
+  return result.applied, result
 end
 
 function Session:_dash()
   local player = self.state.player
+  local locomotion = Locomotion.validate_dash(self:locomotion_state(player))
+  if not locomotion.applied then
+    self:_log(locomotion.reason .. ".")
+    return locomotion
+  end
   if player.dash > 0 then
     self:_log("Dash is recharging.")
-    return
+    return { applied = false, code = "dash_recharging", reason = "Dash is recharging", locomotion = locomotion.locomotion }
   end
   local delta = DIRECTIONS[player.direction]
   local original_x, original_y = player.x, player.y
@@ -1427,11 +1574,12 @@ function Session:_dash()
   end
   if player.x == original_x and player.y == original_y then
     self:_log("Dash blocked.")
-    return
+    return { applied = false, code = "blocked_terrain", reason = "Dash blocked", locomotion = locomotion.locomotion }
   end
   player.dash = player.dash_base
   self:_sound("step")
   self:_log("Dashed forward.")
+  return { applied = true, locomotion = locomotion.locomotion }
 end
 
 function Session:_shoot(direction)
@@ -1505,7 +1653,7 @@ function Session:_action(input)
 end
 
 function Session:_begin_exit()
-  local point = self:_open_location(self.state.space, self:_occupied(), 6)
+  local point = self:_open_location(self:_occupied(), 6)
   self.state.exit = entity("door", point.x, point.y)
   self.state.phase = "exit"
   self:_log("All targets are down. Find the exit.")
@@ -1548,13 +1696,13 @@ function Session:start_boss()
   player.dash_base = math.max(1, 3 + (state.class.modifiers.dash_cooldown or 0) + (state.boon.modifiers.dash_cooldown or 0))
   player.bomb_radius, player.bomb_fuse, player.bullet_range, player.reload_penalty = 2, 3, nil, 0
   state.settings = { terrain = "arena", vision = 99, score = 10 }
-  state.space = Generator.generate("arena", player, self.rng, true)
+  state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true))
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   state.effects, state.exit, state.corpses = {}, nil, {}
   state.boss = { kind = "boss", x = 16, y = 1, health = 10, attack = 0, type = "crossfire", name = "CROSSFIRE", radius = 3, line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" }
   self:_new_boss_attack()
-  local point = self:_open_location(state.space, self:_occupied(true))
+  local point = self:_open_location(self:_occupied(true))
   state.ammo = entity("ammo", point.x, point.y)
   state.phase = "boss"
   self:_log("The boss awaits.")

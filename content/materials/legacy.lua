@@ -1,0 +1,50 @@
+-- First material foundation. Definitions are immutable shared content; World
+-- owns per-cell integrity and destruction state for the active floor.
+return {
+  {
+    id = "material.terrain.air",
+    display_name = "Open Air",
+    solid = false,
+    blocks_movement = false,
+    blocks_vision = false,
+    destructible = false,
+  },
+  {
+    id = "material.terrain.brush",
+    display_name = "Dense Brush",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 2,
+    destruction_material_id = "material.terrain.air",
+  },
+  {
+    id = "material.terrain.stone",
+    display_name = "Stone",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 4,
+    destruction_material_id = "material.terrain.air",
+  },
+  {
+    id = "material.structure.masonry",
+    display_name = "Weak Masonry",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 2,
+    destruction_material_id = "material.terrain.air",
+  },
+  {
+    id = "material.structure.reinforced",
+    display_name = "Reinforced Boundary",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = false,
+  },
+}

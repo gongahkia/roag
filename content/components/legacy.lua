@@ -59,7 +59,7 @@ return {
     mass = 2,
     wear_per_use = 0,
     inventory = { width = 1, height = 2, rotatable = true },
-    abilities = {},
+    abilities = { "ability.locomotion.move" },
   },
   {
     id = "component.internal.legacy_support",
