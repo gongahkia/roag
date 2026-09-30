@@ -5,6 +5,7 @@ local function sources()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     liquids = require("content.liquids.legacy"),
+    gases = require("content.gases.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -42,8 +43,62 @@ return {
       assert(registry:get_material("material.terrain.brush").flammable)
       assert(registry:get_material("material.structure.wood").burn_rate == 1)
       assert(registry:get_liquid("liquid.water.legacy").max_depth == 3)
+      assert(registry:get_gas("gas.toxic.legacy").exposure_threshold == 2)
       assert(registry:get_world_object("world_object.cover.timber_crate").material_id == "material.structure.wood")
       assert(registry:get_hazard("hazard.legacy.spike_field").effect.type == "kinetic_damage")
+    end,
+  },
+  {
+    name = "gas definitions validate concentration exposure damage and semantic IDs",
+    run = function()
+      local invalid_maximum = sources()
+      invalid_maximum.gases = copy_list(invalid_maximum.gases)
+      invalid_maximum.gases[#invalid_maximum.gases + 1] = {
+        id = "gas.invalid.maximum",
+        display_name = "Invalid Maximum",
+        max_concentration = 0,
+        exposure_threshold = 1,
+        damage = 1,
+        render_style = "toxic_fumes",
+      }
+      assert_failure("Gas 'gas.invalid.maximum' max_concentration must be a positive integer", function()
+        Registry.new(invalid_maximum)
+      end)
+
+      local invalid_threshold = sources()
+      invalid_threshold.gases = copy_list(invalid_threshold.gases)
+      invalid_threshold.gases[#invalid_threshold.gases + 1] = {
+        id = "gas.invalid.threshold",
+        display_name = "Invalid Threshold",
+        max_concentration = 2,
+        exposure_threshold = 3,
+        damage = 1,
+        render_style = "toxic_fumes",
+      }
+      assert_failure("Gas 'gas.invalid.threshold' exposure_threshold cannot exceed max_concentration", function()
+        Registry.new(invalid_threshold)
+      end)
+
+      local invalid_damage = sources()
+      invalid_damage.gases = copy_list(invalid_damage.gases)
+      invalid_damage.gases[#invalid_damage.gases + 1] = {
+        id = "gas.invalid.damage",
+        display_name = "Invalid Damage",
+        max_concentration = 2,
+        exposure_threshold = 1,
+        damage = -1,
+        render_style = "toxic_fumes",
+      }
+      assert_failure("Gas 'gas.invalid.damage' damage must be a non-negative number", function()
+        Registry.new(invalid_damage)
+      end)
+
+      local duplicate = sources()
+      duplicate.gases = copy_list(duplicate.gases)
+      duplicate.gases[#duplicate.gases + 1] = duplicate.gases[1]
+      assert_failure("Duplicate gas ID 'gas.toxic.legacy'", function()
+        Registry.new(duplicate)
+      end)
     end,
   },
   {

@@ -85,6 +85,7 @@ function Registry.new(sources)
     abilities = {},
     materials = {},
     liquids = {},
+    gases = {},
     world_objects = {},
     hazards = {},
     components = {},
@@ -95,6 +96,7 @@ function Registry.new(sources)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
   self:_index("liquid", sources.liquids, self.liquids)
+  self:_index("gas", sources.gases, self.gases)
   self:_index("world_object", sources.world_objects, self.world_objects)
   self:_index("hazard", sources.hazards, self.hazards)
   self:_index("component", sources.components, self.components)
@@ -110,6 +112,7 @@ function Registry.load()
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
     liquids = require("content.liquids.legacy"),
+    gases = require("content.gases.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -156,6 +159,10 @@ end
 
 function Registry:get_liquid(id)
   return self:_get(self.liquids, "liquid", id)
+end
+
+function Registry:get_gas(id)
+  return self:_get(self.gases, "gas", id)
 end
 
 function Registry:get_world_object(id)
@@ -218,6 +225,18 @@ function Registry:validate()
     require_string(liquid.render_style, "Liquid '" .. id .. "' render_style")
   end
 
+  for _, id in ipairs(sorted_keys(self.gases)) do
+    local gas = self.gases[id]
+    require_string(gas.display_name, "Gas '" .. id .. "' display_name")
+    require_positive_integer(gas.max_concentration, "Gas '" .. id .. "' max_concentration")
+    require_positive_integer(gas.exposure_threshold, "Gas '" .. id .. "' exposure_threshold")
+    if gas.exposure_threshold > gas.max_concentration then
+      content_error("Gas '" .. id .. "' exposure_threshold cannot exceed max_concentration")
+    end
+    require_nonnegative_number(gas.damage, "Gas '" .. id .. "' damage")
+    require_string(gas.render_style, "Gas '" .. id .. "' render_style")
+  end
+
   for _, id in ipairs(sorted_keys(self.world_objects)) do
     local object = self.world_objects[id]
     require_string(object.display_name, "World object '" .. id .. "' display_name")
@@ -226,7 +245,7 @@ function Registry:validate()
     if not material.destructible then
       content_error("World object '" .. id .. "' must reference a destructible material")
     end
-    for _, field in ipairs({ "blocks_movement", "blocks_vision", "blocks_projectiles", "movable_by_force" }) do
+    for _, field in ipairs({ "blocks_movement", "blocks_vision", "blocks_projectiles", "blocks_gas", "movable_by_force" }) do
       if type(object[field]) ~= "boolean" then
         content_error("World object '" .. id .. "' " .. field .. " must be a boolean")
       end
