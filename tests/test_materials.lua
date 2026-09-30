@@ -165,14 +165,14 @@ return {
       local enemy = session:_make_enemy("bomber", Grid.cell(10, 10))
 
       session:refresh_visibility()
-      assert(not state.visible[key(12, 10)])
+      assert(not session:_has_line_of_sight(10, 10, 12, 10))
       assert(#session:_path(enemy, Grid.cell(12, 10)) == 0)
       assert(not session:can_move("d"))
 
       local breach = session:damage_terrain(11, 10, { amount = 2, cause = "explosive", source = "test" })
       assert(breach.applied and breach.destroyed)
       session:refresh_visibility()
-      assert(state.visible[key(12, 10)])
+      assert(session:_has_line_of_sight(10, 10, 12, 10))
       assert(#session:_path(enemy, Grid.cell(12, 10)) == 3)
       local moved = session:_move_player("d")
       assert(moved.applied and state.player.x == 11 and state.player.y == 10)

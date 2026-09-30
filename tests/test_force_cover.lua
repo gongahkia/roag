@@ -230,13 +230,13 @@ return {
       local enemy = session:_make_enemy("bomber", { x = 10, y = 10 })
 
       session:refresh_visibility()
-      assert(not state.visible[key(12, 10)])
+      assert(not session:_has_line_of_sight(10, 10, 12, 10))
       assert(#session:_path(enemy, Grid.cell(12, 10)) == 0)
       assert(not session:can_move("d"))
 
       assert(session:apply_force(crate, { dx = 0, dy = 1, distance = 1, cause = "test" }).applied)
       session:refresh_visibility()
-      assert(state.visible[key(12, 10)])
+      assert(session:_has_line_of_sight(10, 10, 12, 10))
       assert(#session:_path(enemy, Grid.cell(12, 10)) == 3)
       assert(session:can_move("d"))
       assert(session:validate_world())

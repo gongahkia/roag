@@ -2191,22 +2191,19 @@ function Session:refresh_visibility()
   if not state.player or not state.settings then
     return
   end
+  -- ROAG currently has no fog of war: every in-bounds cell and entity is
+  -- presented to the player. Retain the independent LOS helpers above for
+  -- physical cover, future targeting, and world simulation queries.
   local visible = {}
-  state.explored = state.explored or {}
-  self:_light_area(state.player, state.settings.vision, visible)
-  for _, values in ipairs({ state.torches or {}, state.bombs or {}, state.flares or {}, state.bullets or {} }) do
-    for _, value in ipairs(values) do
-      if value.light then
-        self:_light_area(value, value.light, visible)
-      end
+  local explored = {}
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      local location_key = Grid.key(x, y)
+      visible[location_key] = true
+      explored[location_key] = true
     end
   end
-  for location_key in pairs(state.effects) do
-    visible[location_key] = true
-  end
-  for location_key in pairs(visible) do
-    state.explored[location_key] = true
-  end
+  state.explored = explored
   state.visible = visible
 end
 

@@ -52,6 +52,15 @@ return {
     end,
   },
   {
+    name = "active worlds are fully visible without fog of war",
+    run = function()
+      local session = new_run(900)
+      local state = session.state
+      assert(state.visible[Grid.key(0, 0)] and state.visible[Grid.key(Grid.width - 1, Grid.height - 1)])
+      assert(state.explored[Grid.key(0, 0)] and state.explored[Grid.key(Grid.width - 1, Grid.height - 1)])
+    end,
+  },
+  {
     name = "same seed and actions reproduce session state",
     run = function()
       local first, second = new_run(902), new_run(902)
