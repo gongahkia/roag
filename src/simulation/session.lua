@@ -11,6 +11,8 @@ local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
 local EnvironmentDamage = require("src.simulation.environment_damage")
+local Force = require("src.simulation.force")
+local EnvironmentObjects = require("src.generation.environment_objects")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -76,6 +78,7 @@ function Session.new(options)
     effects = {},
     next_component_sequence = 1,
     next_corpse_sequence = 1,
+    next_world_object_sequence = 1,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -129,11 +132,70 @@ function Session:damage_terrain(x, y, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", x = x, y = y, reason = "No active world" }
   end
-  return EnvironmentDamage.apply(self.state.world, x, y, spec)
+  return EnvironmentDamage.apply_to_terrain(self.state.world, x, y, spec)
+end
+
+function Session:inspect_world_object(object_id)
+  if not self.state.world then
+    return nil, "No active world"
+  end
+  return self.state.world:inspect_object(object_id)
+end
+
+function Session:damage_world_object(object_or_id, spec)
+  if not self.state.world then
+    return { applied = false, code = "no_world", reason = "No active world" }
+  end
+  return EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
 end
 
 function Session:_move_entity(value, x, y)
   value.x, value.y = x, y
+end
+
+function Session:_actor_at(x, y, excluded)
+  local state = self.state
+  if state.player and state.player ~= excluded and state.player.x == x and state.player.y == y then
+    return state.player
+  end
+  for _, enemy in ipairs(state.enemies or {}) do
+    if enemy ~= excluded and enemy.x == x and enemy.y == y then
+      return enemy
+    end
+  end
+  return nil
+end
+
+function Session:apply_force(target, force_spec)
+  local world = self.state.world
+  if not world then
+    return { applied = false, code = "no_world", reason = "No active world" }
+  end
+  local is_object = target and target.id and world:get_object(target.id) == target
+  if is_object and not target.movable_by_force then
+    return { applied = false, code = "immovable", reason = "World object cannot be displaced" }
+  end
+  local spec = {}
+  for name, value in pairs(force_spec or {}) do
+    spec[name] = value
+  end
+  spec.is_blocked = function(x, y, moving)
+    if not world:is_passable(x, y) then
+      return true, "blocked_world"
+    end
+    if self:_actor_at(x, y, moving) then
+      return true, "blocked_actor"
+    end
+    return false
+  end
+  spec.move = function(value, x, y)
+    if is_object then
+      return world:move_object(value, x, y)
+    end
+    self:_move_entity(value, x, y)
+    return { applied = true }
+  end
+  return Force.apply(world, target, spec)
 end
 
 function Session:_build_body(actor_definition)
@@ -893,6 +955,7 @@ function Session:start_run(class, boon)
   self.state.ended = nil
   state.next_component_sequence = 1
   state.next_corpse_sequence = 1
+  state.next_world_object_sequence = 1
   state.run.player = nil
   state.run.inventory = Inventory.new()
   state.inventory = state.run.inventory
@@ -971,7 +1034,8 @@ function Session:start_stage()
   state.log = {}
   state.phase = "combat"
   state.world = World.new(self.registry, state.settings.terrain,
-    Generator.generate(state.settings.terrain, state.player, self.rng))
+    Generator.generate(state.settings.terrain, state.player, self.rng), state)
+  EnvironmentObjects.place(state.world, state.settings.terrain, state.player, self.rng)
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1705,7 +1769,7 @@ function Session:start_boss()
   player.dash_base = math.max(1, 3 + (state.class.modifiers.dash_cooldown or 0) + (state.boon.modifiers.dash_cooldown or 0))
   player.bomb_radius, player.bomb_fuse, player.bullet_range, player.reload_penalty = 2, 3, nil, 0
   state.settings = { terrain = "arena", vision = 99, score = 10 }
-  state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true))
+  state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true), state)
   self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
