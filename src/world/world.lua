@@ -13,6 +13,9 @@ local SOLID_MATERIAL_BY_TERRAIN = {
   dungeon = "material.structure.masonry",
   arena = "material.structure.reinforced",
 }
+local OPEN_MATERIAL_BY_TERRAIN = {
+  forest = "material.terrain.leaf_litter",
+}
 
 local function key(x, y)
   return Grid.key(x, y)
@@ -27,9 +30,10 @@ local function copy_object(object)
 end
 
 function World.new(registry, terrain, open_layout, sequence_owner)
-  sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1 }
+  sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1, next_fire_sequence = 1 }
   sequence_owner.next_world_object_sequence = sequence_owner.next_world_object_sequence or 1
   sequence_owner.next_hazard_sequence = sequence_owner.next_hazard_sequence or 1
+  sequence_owner.next_fire_sequence = sequence_owner.next_fire_sequence or 1
   local self = setmetatable({
     registry = registry,
     terrain = terrain,
@@ -40,12 +44,19 @@ function World.new(registry, terrain, open_layout, sequence_owner)
     hazards = {},
     hazard_order = {},
     hazards_by_cell = {},
+    liquids = {},
+    liquid_tick = 0,
+    fires = {},
+    fire_order = {},
+    fires_by_target = {},
+    fire_tick = 0,
+    fire_ticking = false,
     sequence_owner = sequence_owner,
   }, World)
   local solid_material_id = SOLID_MATERIAL_BY_TERRAIN[terrain] or "material.terrain.stone"
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
-      local material_id = open_layout[key(x, y)] and AIR or solid_material_id
+      local material_id = open_layout[key(x, y)] and (OPEN_MATERIAL_BY_TERRAIN[terrain] or AIR) or solid_material_id
       local material = registry:get_material(material_id)
       self.cells[key(x, y)] = {
         material_id = material_id,
@@ -108,6 +119,319 @@ function World:list_objects(include_destroyed)
     end
   end
   return result
+end
+
+-- Liquid is a coordinate-owned medium rather than a terrain material or an
+-- object property. Iterating the fixed grid gives stable coordinate order
+-- without depending on Lua table traversal.
+function World:liquid_at(x, y)
+  return Grid.in_bounds(x, y) and self.liquids[key(x, y)] or nil
+end
+
+function World:liquid_amount(x, y)
+  local liquid = self:liquid_at(x, y)
+  return liquid and liquid.amount or 0
+end
+
+function World:is_liquid_cell(x, y)
+  return self:liquid_at(x, y) ~= nil
+end
+
+function World:list_liquids()
+  local result = {}
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      local liquid = self:liquid_at(x, y)
+      if liquid then
+        result[#result + 1] = liquid
+      end
+    end
+  end
+  return result
+end
+
+function World:set_liquid(x, y, liquid_id, amount)
+  if not Grid.in_bounds(x, y) then
+    return { applied = false, code = "out_of_bounds", reason = "Liquid position is outside the world" }
+  end
+  if type(amount) ~= "number" or amount < 0 or amount % 1 ~= 0 then
+    return { applied = false, code = "invalid_amount", reason = "Liquid amount must be a non-negative integer" }
+  end
+  local location_key = key(x, y)
+  local existing = self.liquids[location_key]
+  if amount == 0 then
+    if existing then
+      self.liquids[location_key] = nil
+      return { applied = true, code = "removed", x = x, y = y, liquid_id = existing.liquid_id, amount = 0 }
+    end
+    return { applied = false, code = "already_dry", x = x, y = y, amount = 0 }
+  end
+  local definition = self.registry.liquids[liquid_id]
+  if not definition then
+    return { applied = false, code = "unknown_liquid", reason = "Unknown liquid ID '" .. tostring(liquid_id) .. "'" }
+  end
+  if not self:terrain_is_passable(x, y) then
+    return { applied = false, code = "blocked_terrain", reason = "Liquid requires passable terrain" }
+  end
+  if existing and existing.liquid_id ~= definition.id then
+    return { applied = false, code = "different_liquid", reason = "Liquid mixing is not supported" }
+  end
+  if amount > definition.max_depth then
+    return { applied = false, code = "capacity_exceeded", reason = "Liquid amount exceeds max depth" }
+  end
+  local changed = not existing or existing.amount ~= amount
+  self.liquids[location_key] = {
+    liquid_id = definition.id,
+    amount = amount,
+    x = x,
+    y = y,
+  }
+  return { applied = changed, code = changed and "set" or "unchanged", x = x, y = y, liquid_id = definition.id, amount = amount }
+end
+
+function World:add_liquid(x, y, liquid_id, amount)
+  if type(amount) ~= "number" or amount <= 0 or amount % 1 ~= 0 then
+    return { applied = false, code = "invalid_amount", reason = "Liquid addition must be a positive integer" }
+  end
+  local existing = self:liquid_at(x, y)
+  if existing and existing.liquid_id ~= liquid_id then
+    return { applied = false, code = "different_liquid", reason = "Liquid mixing is not supported" }
+  end
+  return self:set_liquid(x, y, liquid_id, (existing and existing.amount or 0) + amount)
+end
+
+function World:remove_liquid(x, y, amount)
+  if type(amount) ~= "number" or amount <= 0 or amount % 1 ~= 0 then
+    return { applied = false, code = "invalid_amount", reason = "Liquid removal must be a positive integer" }
+  end
+  local existing = self:liquid_at(x, y)
+  if not existing then
+    return { applied = false, code = "dry", reason = "Liquid cell is dry" }
+  end
+  if amount > existing.amount then
+    return { applied = false, code = "insufficient_liquid", reason = "Liquid cell does not contain that amount" }
+  end
+  return self:set_liquid(x, y, existing.liquid_id, existing.amount - amount)
+end
+
+function World:total_liquid_amount(liquid_id)
+  local total = 0
+  for _, liquid in ipairs(self:list_liquids()) do
+    if liquid_id == nil or liquid.liquid_id == liquid_id then
+      total = total + liquid.amount
+    end
+  end
+  return total
+end
+
+function World:liquid_extinguishes_fire_at(x, y)
+  local liquid = self:liquid_at(x, y)
+  if not liquid then
+    return false
+  end
+  return self.registry:get_liquid(liquid.liquid_id).extinguishes_fire
+end
+
+function World:_next_fire_id()
+  local sequence = self.sequence_owner.next_fire_sequence
+  self.sequence_owner.next_fire_sequence = sequence + 1
+  return string.format("fire:%06d", sequence)
+end
+
+function World:_fire_target_key(target_kind, target_id, x, y)
+  if target_kind == "terrain" then
+    return "terrain:" .. key(x, y)
+  elseif target_kind == "object" then
+    return "object:" .. tostring(target_id)
+  end
+  return nil
+end
+
+function World:resolve_fire_target(target_or_fire)
+  local target = target_or_fire
+  if target_or_fire and target_or_fire.target_kind then
+    target = {
+      kind = target_or_fire.target_kind,
+      target_id = target_or_fire.target_id,
+      x = target_or_fire.x,
+      y = target_or_fire.y,
+    }
+  end
+  if type(target) ~= "table" then
+    return nil, "invalid_target"
+  end
+  if target.kind == "terrain" then
+    local cell = self:get_cell(target.x, target.y)
+    if not cell then
+      return nil, "no_target"
+    end
+    if cell.destroyed then
+      return nil, "target_destroyed"
+    end
+    local material = self.registry:get_material(cell.material_id)
+    if not material.flammable then
+      return nil, "not_flammable"
+    end
+    return {
+      target_kind = "terrain",
+      target_key = self:_fire_target_key("terrain", nil, target.x, target.y),
+      x = target.x,
+      y = target.y,
+      material = material,
+    }
+  elseif target.kind == "object" then
+    local object = self.objects[target.target_id]
+    if not object then
+      return nil, "no_target"
+    end
+    if object.destroyed then
+      return nil, "target_destroyed"
+    end
+    local material = self.registry:get_material(object.material_id)
+    if not material.flammable then
+      return nil, "not_flammable"
+    end
+    return {
+      target_kind = "object",
+      target_key = self:_fire_target_key("object", object.id),
+      target_id = object.id,
+      object = object,
+      x = object.x,
+      y = object.y,
+      material = material,
+    }
+  end
+  return nil, "invalid_target"
+end
+
+function World:get_fire(id)
+  return self.fires[id]
+end
+
+function World:list_fires(include_inactive)
+  local result = {}
+  for _, id in ipairs(self.fire_order) do
+    local fire = self.fires[id]
+    if include_inactive or fire.active then
+      result[#result + 1] = fire
+    end
+  end
+  return result
+end
+
+function World:fire_position(fire_or_id)
+  local fire = type(fire_or_id) == "table" and fire_or_id or self.fires[fire_or_id]
+  if not fire or self.fires[fire.id] ~= fire then
+    return nil
+  end
+  local target = self:resolve_fire_target(fire)
+  if target then
+    return target.x, target.y
+  end
+  return fire.x, fire.y
+end
+
+function World:fire_at_target(target_key)
+  return self.fires_by_target[target_key]
+end
+
+function World:fires_at(x, y, include_inactive)
+  local result = {}
+  for _, fire in ipairs(self:list_fires(include_inactive)) do
+    local fire_x, fire_y = self:fire_position(fire)
+    if fire_x == x and fire_y == y then
+      result[#result + 1] = fire
+    end
+  end
+  return result
+end
+
+function World:create_fire(target, provenance)
+  local resolved, code = self:resolve_fire_target(target)
+  if not resolved then
+    return nil, { applied = false, code = code, reason = "Fire target cannot ignite" }
+  end
+  if self:fire_at_target(resolved.target_key) then
+    return nil, { applied = false, code = "already_burning", reason = "Physical target is already burning" }
+  end
+  if self:liquid_extinguishes_fire_at(resolved.x, resolved.y) then
+    return nil, { applied = false, code = "suppressed_by_liquid", reason = "Extinguishing liquid covers this fuel" }
+  end
+  local id = self:_next_fire_id()
+  local fire = {
+    id = id,
+    kind = "fire",
+    target_kind = resolved.target_kind,
+    target_id = resolved.target_id,
+    target_key = resolved.target_key,
+    x = resolved.x,
+    y = resolved.y,
+    age = 0,
+    ready_tick = self.fire_tick + (self.fire_ticking and 1 or 2),
+    active = true,
+    provenance = copy_object(provenance or {}),
+  }
+  self.fires[id] = fire
+  self.fire_order[#self.fire_order + 1] = id
+  self.fires_by_target[fire.target_key] = fire
+  return fire, { applied = true, fire_id = id }
+end
+
+function World:deactivate_fire(fire_or_id, reason)
+  local fire = type(fire_or_id) == "table" and fire_or_id or self.fires[fire_or_id]
+  if not fire or self.fires[fire.id] ~= fire then
+    return { applied = false, code = "no_target", reason = "Unknown fire" }
+  end
+  if not fire.active then
+    return { applied = false, code = "inactive", fire_id = fire.id }
+  end
+  fire.active = false
+  fire.extinguished_reason = reason or "extinguished"
+  if self.fires_by_target[fire.target_key] == fire then
+    self.fires_by_target[fire.target_key] = nil
+  end
+  return { applied = true, fire_id = fire.id, code = "extinguished", reason = fire.extinguished_reason }
+end
+
+function World:_deactivate_target_fire(target_kind, target_id, x, y, reason)
+  local target_key = self:_fire_target_key(target_kind, target_id, x, y)
+  local fire = target_key and self:fire_at_target(target_key) or nil
+  if fire then
+    self:deactivate_fire(fire, reason)
+  end
+end
+
+function World:begin_fire_tick()
+  self.fire_tick = self.fire_tick + 1
+  self.fire_ticking = true
+  return self.fire_tick
+end
+
+function World:end_fire_tick()
+  self.fire_ticking = false
+end
+
+function World:inspect_fire(fire_or_id)
+  local fire = type(fire_or_id) == "table" and fire_or_id or self.fires[fire_or_id]
+  if not fire or self.fires[fire.id] ~= fire then
+    return nil, "Unknown fire"
+  end
+  local target = self:resolve_fire_target(fire)
+  local x, y = self:fire_position(fire)
+  return {
+    id = fire.id,
+    target_kind = fire.target_kind,
+    target_id = fire.target_id,
+    target_key = fire.target_key,
+    x = x,
+    y = y,
+    material_id = target and target.material.id or nil,
+    age = fire.age,
+    ready_tick = fire.ready_tick,
+    active = fire.active,
+    extinguished_reason = fire.extinguished_reason,
+    provenance = copy_object(fire.provenance),
+  }
 end
 
 function World:_next_hazard_id()
@@ -308,11 +632,15 @@ function World:damage_terrain(x, y, spec)
     return { applied = false, code = "out_of_bounds", x = x, y = y, reason = "Terrain position is outside the world" }
   end
   local material = self.registry:get_material(cell.material_id)
-  if not material.solid then
-    return { applied = false, code = "not_solid", x = x, y = y, material_id = material.id, reason = "Terrain is already open" }
-  end
   if not material.destructible then
-    return { applied = false, code = "indestructible", x = x, y = y, material_id = material.id, reason = "Terrain material is indestructible" }
+    return {
+      applied = false,
+      code = material.solid and "indestructible" or "not_destructible",
+      x = x,
+      y = y,
+      material_id = material.id,
+      reason = material.solid and "Terrain material is indestructible" or "Terrain has no destructible physical fuel",
+    }
   end
   local previous_integrity = cell.current_integrity
   local new_integrity = math.max(0, previous_integrity - spec.amount)
@@ -337,6 +665,7 @@ function World:damage_terrain(x, y, spec)
     cell.destroyed = true
     cell.destroyed_from_material_id = material.id
     cell.material_id = material.destruction_material_id
+    self:_deactivate_target_fire("terrain", nil, x, y, "target_destroyed")
     result.destroyed = true
     result.destroyed_material_id = cell.material_id
   end
@@ -379,6 +708,7 @@ function World:damage_object(object_or_id, spec)
     object.blocks_vision = false
     object.blocks_projectiles = false
     self.objects_by_cell[key(object.x, object.y)] = nil
+    self:_deactivate_target_fire("object", object.id, nil, nil, "target_destroyed")
     result.destroyed = true
   end
   return result
@@ -405,6 +735,15 @@ function World:inspect_object(object_or_id)
     blocks_vision = not object.destroyed and object.blocks_vision or false,
     blocks_projectiles = not object.destroyed and object.blocks_projectiles or false,
     movable_by_force = object.movable_by_force,
+    fires = (function()
+      local fires = {}
+      for _, fire in ipairs(self:list_fires(true)) do
+        if fire.target_kind == "object" and fire.target_id == object.id then
+          fires[#fires + 1] = assert(self:inspect_fire(fire))
+        end
+      end
+      return fires
+    end)(),
   }
 end
 
@@ -422,6 +761,22 @@ function World:inspect_cell(x, y)
   for _, hazard in ipairs(self:hazards_at(x, y, true)) do
     hazards[#hazards + 1] = assert(self:inspect_hazard(hazard))
   end
+  local fires = {}
+  for _, fire in ipairs(self:fires_at(x, y, true)) do
+    fires[#fires + 1] = assert(self:inspect_fire(fire))
+  end
+  local liquid = self:liquid_at(x, y)
+  local liquid_data
+  if liquid then
+    local definition = self.registry:get_liquid(liquid.liquid_id)
+    liquid_data = {
+      liquid_id = definition.id,
+      display_name = definition.display_name,
+      amount = liquid.amount,
+      max_depth = definition.max_depth,
+      extinguishes_fire = definition.extinguishes_fire,
+    }
+  end
   return {
     x = x,
     y = y,
@@ -436,6 +791,8 @@ function World:inspect_cell(x, y)
     destroyed_from_material_id = cell.destroyed_from_material_id,
     objects = objects,
     hazards = hazards,
+    liquid = liquid_data,
+    fires = fires,
   }
 end
 
@@ -453,10 +810,15 @@ function World:describe_cell(x, y)
   for _, hazard in ipairs(inspected.hazards) do
     hazard_ids[#hazard_ids + 1] = hazard.id
   end
-  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s",
+  local fire_ids = {}
+  for _, fire in ipairs(inspected.fires) do
+    fire_ids[#fire_ids + 1] = fire.id
+  end
+  local liquid = inspected.liquid and (inspected.liquid.liquid_id .. "@" .. inspected.liquid.amount) or ""
+  return string.format("%d,%d %s passable=%s blocks_vision=%s blocks_projectile=%s integrity=%s destructible=%s destroyed=%s objects=%s hazards=%s liquid=%s fires=%s",
     x, y, inspected.material_id, tostring(inspected.passable), tostring(inspected.blocks_vision),
     tostring(inspected.blocks_projectile), integrity, tostring(inspected.destructible), tostring(inspected.destroyed),
-    table.concat(object_ids, ","), table.concat(hazard_ids, ","))
+    table.concat(object_ids, ","), table.concat(hazard_ids, ","), liquid, table.concat(fire_ids, ","))
 end
 
 function World:mutation_data()
@@ -499,12 +861,33 @@ function World:hazard_data()
   return hazards
 end
 
+function World:liquid_data()
+  local liquids = {}
+  for _, liquid in ipairs(self:list_liquids()) do
+    liquids[#liquids + 1] = copy_object(liquid)
+  end
+  return liquids
+end
+
+function World:fire_data()
+  local fires = {}
+  for _, fire in ipairs(self:list_fires(true)) do
+    fires[#fires + 1] = copy_object(fire)
+    fires[#fires].provenance = copy_object(fire.provenance)
+  end
+  return fires
+end
+
 function World:to_data()
   return {
     terrain = self.terrain,
     mutations = self:mutation_data(),
     objects = self:object_data(),
     hazards = self:hazard_data(),
+    liquids = self:liquid_data(),
+    liquid_tick = self.liquid_tick,
+    fires = self:fire_data(),
+    fire_tick = self.fire_tick,
   }
 end
 
@@ -524,6 +907,21 @@ function World:validate()
         assert(cell.current_integrity == nil, "Indestructible terrain cannot have mutable integrity")
       end
     end
+  end
+
+  assert(type(self.liquid_tick) == "number" and self.liquid_tick >= 0 and self.liquid_tick % 1 == 0,
+    "World liquid tick must be a non-negative integer")
+  for location_key, liquid in pairs(self.liquids) do
+    assert(type(liquid) == "table", "Liquid state must be a table")
+    assert(type(liquid.x) == "number" and type(liquid.y) == "number"
+      and liquid.x % 1 == 0 and liquid.y % 1 == 0, "Liquid position is invalid")
+    assert(Grid.in_bounds(liquid.x, liquid.y), "Liquid is outside world bounds")
+    assert(key(liquid.x, liquid.y) == location_key, "Liquid cell key does not match its position")
+    local definition = self.registry.liquids[liquid.liquid_id]
+    assert(definition, "Liquid references unknown definition")
+    assert(type(liquid.amount) == "number" and liquid.amount > 0 and liquid.amount % 1 == 0
+      and liquid.amount <= definition.max_depth, "Liquid amount is invalid")
+    assert(self:terrain_is_passable(liquid.x, liquid.y), "Liquid occupies impassable terrain")
   end
 
   local object_ids, occupied = {}, {}
@@ -590,6 +988,40 @@ function World:validate()
       assert(hazard_ids[hazard.id] and key(hazard.x, hazard.y) == location_key,
         "Hazard cell index references invalid state")
     end
+  end
+  assert(type(self.fire_tick) == "number" and self.fire_tick >= 0 and self.fire_tick % 1 == 0,
+    "World fire tick must be a non-negative integer")
+  assert(type(self.fire_ticking) == "boolean", "World fire update state must be boolean")
+  local fire_ids, burning_targets = {}, {}
+  for _, id in ipairs(self.fire_order) do
+    local fire = self.fires[id]
+    assert(fire and fire.id == id, "Fire order references an invalid fire")
+    assert(not fire_ids[id], "Duplicate fire ID '" .. id .. "'")
+    fire_ids[id] = true
+    assert(type(fire.active) == "boolean", "Fire active state must be boolean")
+    assert(type(fire.age) == "number" and fire.age >= 0 and fire.age % 1 == 0,
+      "Fire age must be a non-negative integer")
+    assert(type(fire.ready_tick) == "number" and fire.ready_tick >= 0 and fire.ready_tick % 1 == 0,
+      "Fire ready tick must be a non-negative integer")
+    assert(type(fire.provenance) == "table", "Fire provenance must be a table")
+    assert(type(fire.target_key) == "string", "Fire target key must be a string")
+    if fire.active then
+      local target, code = self:resolve_fire_target(fire)
+      assert(target, "Active fire has invalid target: " .. tostring(code))
+      assert(target.target_key == fire.target_key, "Fire target key does not match target")
+      assert(not burning_targets[fire.target_key], "Multiple active fires target '" .. fire.target_key .. "'")
+      burning_targets[fire.target_key] = fire
+      assert(self.fires_by_target[fire.target_key] == fire, "Fire target index is invalid")
+    else
+      assert(self.fires_by_target[fire.target_key] ~= fire, "Inactive fire cannot remain target-indexed")
+    end
+  end
+  for id in pairs(self.fires) do
+    assert(fire_ids[id], "Fire is missing from deterministic fire order")
+  end
+  for target_key, fire in pairs(self.fires_by_target) do
+    assert(fire_ids[fire.id] and fire.active and fire.target_key == target_key,
+      "Fire target index references invalid state")
   end
   return true
 end

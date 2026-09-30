@@ -4,6 +4,7 @@ local function sources()
   return {
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
+    liquids = require("content.liquids.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -38,8 +39,87 @@ return {
       assert(registry:get_ability("ability.locomotion.move").implementation == "locomotion")
       assert(registry:get_component("component.leg.legacy_locomotor").abilities[1] == "ability.locomotion.move")
       assert(registry:get_material("material.terrain.brush").max_integrity == 2)
+      assert(registry:get_material("material.terrain.brush").flammable)
+      assert(registry:get_material("material.structure.wood").burn_rate == 1)
+      assert(registry:get_liquid("liquid.water.legacy").max_depth == 3)
       assert(registry:get_world_object("world_object.cover.timber_crate").material_id == "material.structure.wood")
       assert(registry:get_hazard("hazard.legacy.spike_field").effect.type == "kinetic_damage")
+    end,
+  },
+  {
+    name = "liquid definitions validate discrete depth extinguishing metadata and semantic IDs",
+    run = function()
+      local invalid_depth = sources()
+      invalid_depth.liquids = copy_list(invalid_depth.liquids)
+      invalid_depth.liquids[#invalid_depth.liquids + 1] = {
+        id = "liquid.invalid.depth",
+        display_name = "Invalid Depth",
+        max_depth = 0,
+        extinguishes_fire = true,
+        render_style = "water",
+      }
+      assert_failure("Liquid 'liquid.invalid.depth' max_depth must be a positive integer", function()
+        Registry.new(invalid_depth)
+      end)
+
+      local invalid_extinguish = sources()
+      invalid_extinguish.liquids = copy_list(invalid_extinguish.liquids)
+      invalid_extinguish.liquids[#invalid_extinguish.liquids + 1] = {
+        id = "liquid.invalid.extinguish",
+        display_name = "Invalid Extinguishing",
+        max_depth = 1,
+        extinguishes_fire = "yes",
+        render_style = "water",
+      }
+      assert_failure("Liquid 'liquid.invalid.extinguish' extinguishes_fire must be a boolean", function()
+        Registry.new(invalid_extinguish)
+      end)
+
+      local duplicate = sources()
+      duplicate.liquids = copy_list(duplicate.liquids)
+      duplicate.liquids[#duplicate.liquids + 1] = duplicate.liquids[1]
+      assert_failure("Duplicate liquid ID 'liquid.water.legacy'", function()
+        Registry.new(duplicate)
+      end)
+    end,
+  },
+  {
+    name = "material flammability metadata validates explicit burn behavior",
+    run = function()
+      local missing_rate = sources()
+      missing_rate.materials = copy_list(missing_rate.materials)
+      missing_rate.materials[#missing_rate.materials + 1] = {
+        id = "material.invalid.missing_burn_rate",
+        display_name = "Missing Burn Rate",
+        solid = true,
+        blocks_movement = true,
+        blocks_vision = true,
+        destructible = true,
+        max_integrity = 1,
+        destruction_material_id = "material.terrain.air",
+        flammable = true,
+      }
+      assert_failure("Material 'material.invalid.missing_burn_rate' burn_rate must be a positive number", function()
+        Registry.new(missing_rate)
+      end)
+
+      local invalid_nonflammable = sources()
+      invalid_nonflammable.materials = copy_list(invalid_nonflammable.materials)
+      invalid_nonflammable.materials[#invalid_nonflammable.materials + 1] = {
+        id = "material.invalid.nonflammable_rate",
+        display_name = "Invalid Burn Rate",
+        solid = true,
+        blocks_movement = true,
+        blocks_vision = true,
+        destructible = true,
+        max_integrity = 1,
+        destruction_material_id = "material.terrain.air",
+        flammable = false,
+        burn_rate = 1,
+      }
+      assert_failure("Nonflammable material 'material.invalid.nonflammable_rate' cannot define burn_rate", function()
+        Registry.new(invalid_nonflammable)
+      end)
     end,
   },
   {
@@ -149,6 +229,7 @@ return {
         destructible = true,
         max_integrity = 0,
         destruction_material_id = "material.terrain.air",
+        flammable = false,
       }
       assert_failure("Material 'material.invalid.zero_durability' max_integrity must be a positive number", function()
         Registry.new(invalid_durability)
@@ -165,6 +246,7 @@ return {
         destructible = true,
         max_integrity = 1,
         destruction_material_id = "material.missing.void",
+        flammable = false,
       }
       assert_failure("Unknown material ID 'material.missing.void'", function()
         Registry.new(invalid_reference)

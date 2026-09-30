@@ -9,8 +9,8 @@ local function validate_spec(x, y, spec)
   if type(spec.amount) ~= "number" or spec.amount <= 0 then
     return { applied = false, code = "invalid_damage", x = x, y = y, reason = "Terrain damage amount must be positive" }
   end
-  if spec.cause ~= "explosive" and spec.cause ~= "kinetic" then
-    return { applied = false, code = "invalid_cause", x = x, y = y, reason = "Terrain damage cause must be explosive or kinetic" }
+  if spec.cause ~= "explosive" and spec.cause ~= "kinetic" and spec.cause ~= "thermal" then
+    return { applied = false, code = "invalid_cause", x = x, y = y, reason = "Terrain damage cause must be explosive, kinetic, or thermal" }
   end
   return nil
 end

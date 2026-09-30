@@ -8,6 +8,19 @@ return {
     blocks_movement = false,
     blocks_vision = false,
     destructible = false,
+    flammable = false,
+  },
+  {
+    id = "material.terrain.leaf_litter",
+    display_name = "Dry Leaf Litter",
+    solid = false,
+    blocks_movement = false,
+    blocks_vision = false,
+    destructible = true,
+    max_integrity = 3,
+    destruction_material_id = "material.terrain.air",
+    flammable = true,
+    burn_rate = 1,
   },
   {
     id = "material.terrain.brush",
@@ -18,6 +31,8 @@ return {
     destructible = true,
     max_integrity = 2,
     destruction_material_id = "material.terrain.air",
+    flammable = true,
+    burn_rate = 1,
   },
   {
     id = "material.terrain.stone",
@@ -28,6 +43,7 @@ return {
     destructible = true,
     max_integrity = 4,
     destruction_material_id = "material.terrain.air",
+    flammable = false,
   },
   {
     id = "material.structure.masonry",
@@ -38,6 +54,7 @@ return {
     destructible = true,
     max_integrity = 2,
     destruction_material_id = "material.terrain.air",
+    flammable = false,
   },
   {
     id = "material.structure.wood",
@@ -46,8 +63,10 @@ return {
     blocks_movement = true,
     blocks_vision = true,
     destructible = true,
-    max_integrity = 3,
+    max_integrity = 4,
     destruction_material_id = "material.terrain.air",
+    flammable = true,
+    burn_rate = 1,
   },
   {
     id = "material.structure.reinforced",
@@ -56,5 +75,6 @@ return {
     blocks_movement = true,
     blocks_vision = true,
     destructible = false,
+    flammable = false,
   },
 }

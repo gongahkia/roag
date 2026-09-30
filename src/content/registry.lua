@@ -84,6 +84,7 @@ function Registry.new(sources)
   local self = setmetatable({
     abilities = {},
     materials = {},
+    liquids = {},
     world_objects = {},
     hazards = {},
     components = {},
@@ -93,6 +94,7 @@ function Registry.new(sources)
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
+  self:_index("liquid", sources.liquids, self.liquids)
   self:_index("world_object", sources.world_objects, self.world_objects)
   self:_index("hazard", sources.hazards, self.hazards)
   self:_index("component", sources.components, self.components)
@@ -107,6 +109,7 @@ function Registry.load()
   return Registry.new({
     abilities = require("content.abilities.legacy"),
     materials = require("content.materials.legacy"),
+    liquids = require("content.liquids.legacy"),
     world_objects = require("content.world_objects.legacy"),
     hazards = require("content.hazards.legacy"),
     components = require("content.components.legacy"),
@@ -151,6 +154,10 @@ function Registry:get_material(id)
   return self:_get(self.materials, "material", id)
 end
 
+function Registry:get_liquid(id)
+  return self:_get(self.liquids, "liquid", id)
+end
+
 function Registry:get_world_object(id)
   return self:_get(self.world_objects, "world object", id)
 end
@@ -179,7 +186,7 @@ function Registry:validate()
   for _, id in ipairs(sorted_keys(self.materials)) do
     local material = self.materials[id]
     require_string(material.display_name, "Material '" .. id .. "' display_name")
-    for _, field in ipairs({ "solid", "blocks_movement", "blocks_vision", "destructible" }) do
+    for _, field in ipairs({ "solid", "blocks_movement", "blocks_vision", "destructible", "flammable" }) do
       if type(material[field]) ~= "boolean" then
         content_error("Material '" .. id .. "' " .. field .. " must be a boolean")
       end
@@ -191,6 +198,24 @@ function Registry:validate()
     elseif material.max_integrity ~= nil or material.destruction_material_id ~= nil then
       content_error("Indestructible material '" .. id .. "' cannot define mutable destruction fields")
     end
+    if material.flammable then
+      if not material.destructible then
+        content_error("Flammable material '" .. id .. "' must be destructible")
+      end
+      require_positive_number(material.burn_rate, "Material '" .. id .. "' burn_rate")
+    elseif material.burn_rate ~= nil then
+      content_error("Nonflammable material '" .. id .. "' cannot define burn_rate")
+    end
+  end
+
+  for _, id in ipairs(sorted_keys(self.liquids)) do
+    local liquid = self.liquids[id]
+    require_string(liquid.display_name, "Liquid '" .. id .. "' display_name")
+    require_positive_integer(liquid.max_depth, "Liquid '" .. id .. "' max_depth")
+    if type(liquid.extinguishes_fire) ~= "boolean" then
+      content_error("Liquid '" .. id .. "' extinguishes_fire must be a boolean")
+    end
+    require_string(liquid.render_style, "Liquid '" .. id .. "' render_style")
   end
 
   for _, id in ipairs(sorted_keys(self.world_objects)) do

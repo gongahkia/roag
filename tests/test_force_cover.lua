@@ -212,7 +212,7 @@ return {
       local crate = assert(second.state.world:place_object(CRATE, 11, 10))
       second.state.bombs = { { kind = "bomb", x = 10, y = 10, radius = 1, fuse = 1 } }
       second:_update_bombs()
-      assert(not crate.destroyed and crate.current_integrity == 1)
+      assert(not crate.destroyed and crate.current_integrity == 2)
       assert(crate.x == 12 and crate.y == 10)
       assert(second.state.world:is_passable(11, 10) and not second.state.world:is_passable(12, 10))
     end,

@@ -14,8 +14,11 @@ local EnvironmentDamage = require("src.simulation.environment_damage")
 local Force = require("src.simulation.force")
 local Hazards = require("src.simulation.hazards")
 local Impact = require("src.simulation.impact")
+local Fire = require("src.simulation.fire")
+local Liquid = require("src.simulation.liquid")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
+local LiquidGeneration = require("src.generation.liquids")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -83,6 +86,7 @@ function Session.new(options)
     next_corpse_sequence = 1,
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
+    next_fire_sequence = 1,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -158,6 +162,20 @@ function Session:damage_world_object(object_or_id, spec)
     return { applied = false, code = "no_world", reason = "No active world" }
   end
   return EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
+end
+
+function Session:ignite_terrain(x, y, context)
+  if not self.state.world then
+    return { applied = false, code = "no_world", reason = "No active world" }
+  end
+  return Fire.ignite_terrain(self.state.world, x, y, context)
+end
+
+function Session:ignite_world_object(object_or_id, context)
+  if not self.state.world then
+    return { applied = false, code = "no_world", reason = "No active world" }
+  end
+  return Fire.ignite_object(self.state.world, object_or_id, context)
 end
 
 function Session:_move_entity(value, x, y)
@@ -629,6 +647,7 @@ function Session:run_data()
       next_corpse_sequence = self.state.next_corpse_sequence,
       next_world_object_sequence = self.state.next_world_object_sequence,
       next_hazard_sequence = self.state.next_hazard_sequence,
+      next_fire_sequence = self.state.next_fire_sequence,
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -883,6 +902,57 @@ function Session:_resolve_actor_hazard_entry(actor, x, y, context)
   return result
 end
 
+function Session:_actors_at(x, y)
+  local actors = {}
+  local player = self.state.player
+  if player and player.x == x and player.y == y then
+    actors[#actors + 1] = player
+  end
+  for _, enemy in ipairs(self.state.enemies or {}) do
+    if enemy.x == x and enemy.y == y then
+      actors[#actors + 1] = enemy
+    end
+  end
+  return actors
+end
+
+function Session:_apply_fire_exposure(actor, fire, target, x, y)
+  return self:_apply_world_actor_damage(actor, 1,
+    actor == self.state.player and "FIRE SCORCHES YOU." or nil, {
+      cause = "thermal",
+      source = "fire",
+      fire_id = fire.id,
+      fire_target_kind = target.target_kind,
+      fire_target_id = target.target_id,
+      x = x,
+      y = y,
+      ignition_provenance = fire.provenance,
+    })
+end
+
+function Session:_update_fire()
+  if not self.state.world then
+    return { applied = false, code = "no_world" }
+  end
+  return Fire.tick(self.state.world, {
+    actors_at = function(x, y)
+      return self:_actors_at(x, y)
+    end,
+    on_actor_exposed = function(actor, fire, target, x, y)
+      return self:_apply_fire_exposure(actor, fire, target, x, y)
+    end,
+  })
+end
+
+function Session:_update_liquids()
+  if not self.state.world then
+    return { applied = false, code = "no_world" }
+  end
+  local flow = Liquid.tick(self.state.world)
+  local suppression = Liquid.suppress_fires(self.state.world)
+  return { applied = flow.applied or suppression.applied, flow = flow, suppression = suppression }
+end
+
 function Session:_resolve_force_impact(actor, force_result, force_spec)
   local impact = Impact.from_force(actor, force_result, force_spec)
   if not impact.applied then
@@ -1121,6 +1191,7 @@ function Session:start_run(class, boon)
   state.next_corpse_sequence = 1
   state.next_world_object_sequence = 1
   state.next_hazard_sequence = 1
+  state.next_fire_sequence = 1
   state.run.player = nil
   state.run.inventory = Inventory.new()
   state.inventory = state.run.inventory
@@ -1206,6 +1277,8 @@ function Session:start_stage()
     self.rng:derive("world_objects.stage." .. state.stage))
   HazardGeneration.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("hazards.stage." .. state.stage))
+  LiquidGeneration.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("liquids.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1308,8 +1381,10 @@ function Session:_path(start, finish, blocked, avoid_hazards)
     for _, neighbour in ipairs(Grid.neighbours(point)) do
       local location_key = Grid.key(neighbour.x, neighbour.y)
       local is_destination = neighbour.x == finish.x and neighbour.y == finish.y
+      local dangerous = self.state.world:is_hazardous(neighbour.x, neighbour.y)
+        or #self.state.world:fires_at(neighbour.x, neighbour.y) > 0
       if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil
-        and (not avoid_hazards or is_destination or not self.state.world:is_hazardous(neighbour.x, neighbour.y)) then
+        and (not avoid_hazards or is_destination or not dangerous) then
         previous[location_key] = point
         queue[#queue + 1] = neighbour
       end
@@ -1373,6 +1448,28 @@ function Session:_damage_environment_radius(origin, radius, damage_spec)
       local result = self:damage_world_object(object, damage_spec)
       if result.applied then
         results.objects[#results.objects + 1] = result
+      end
+    end
+  end
+  return results
+end
+
+function Session:_ignite_flammable_radius(origin, radius, provenance)
+  local results = {}
+  for x = origin.x - radius, origin.x + radius do
+    for y = origin.y - radius, origin.y + radius do
+      if Grid.in_bounds(x, y) and math.abs(x - origin.x) + math.abs(y - origin.y) <= radius then
+        local terrain = self:ignite_terrain(x, y, provenance)
+        if terrain.applied then
+          results[#results + 1] = terrain
+        end
+        local object = self.state.world:object_at(x, y)
+        if object then
+          local object_result = self:ignite_world_object(object, provenance)
+          if object_result.applied then
+            results[#results + 1] = object_result
+          end
+        end
       end
     end
   end
@@ -1589,6 +1686,12 @@ function Session:_update_flares()
           self:_cancel_area_attacks_from(enemy)
         end
       end
+      -- Flares ignite surviving material fuel without applying explosive
+      -- damage. Newly created fires wait until a later world fire tick.
+      self:_ignite_flammable_radius(flare, flare.radius, {
+        source = "flare",
+        source_actor_id = flare.source_actor_id,
+      })
     end
   end
   state.flares = remaining
@@ -1738,9 +1841,9 @@ function Session:_enemy_turn()
       if enemy.kind == "wolf" and enemy ~= leader and leader and Grid.distance(enemy, leader) <= 10 then
         hunt = leader
       end
-      -- Treat active hazards as blocked when a safe route exists. The fallback
-      -- preserves pursuit through a narrow dangerous corridor rather than
-      -- making hazards an artificial permanent wall for AI.
+      -- Treat active hazards and burning cells as blocked when a safe route
+      -- exists. The fallback preserves pursuit through a narrow dangerous
+      -- corridor rather than making environmental danger a permanent wall.
       local route = self:_hazard_aware_path(enemy, hunt, blocked)
       if self:_actor_has_pending_area_attack(enemy) then
         -- The migrated cultist spell keeps its existing delayed, stationary
@@ -1989,6 +2092,7 @@ function Session:_action(input)
         radius = 1,
         stun = 2,
         light = 3,
+        source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_sound("flare")
       self:_log("Flare lit. Necromancers will be stunned.")
@@ -2103,6 +2207,12 @@ function Session:turn(input)
     elseif input == "q" then
       self:_dash()
     end
+    self:_update_liquids()
+    self:_update_fire()
+    if state.ended then
+      self:refresh_visibility()
+      return state.ended
+    end
     if state.player.x == state.exit.x and state.player.y == state.exit.y then
       local result = self:_complete_stage()
       self:refresh_visibility()
@@ -2141,6 +2251,11 @@ function Session:turn(input)
     self:_enemy_turn()
     self:_refill_entities()
   end
+  -- World processes run after immediate actions and enemy response. Liquid
+  -- redistribution/suppression precedes fire, so newly arrived water can save
+  -- fuel before that turn's burn tick. New fires still wait by ready_tick.
+  self:_update_liquids()
+  self:_update_fire()
   self:refresh_visibility()
   return result or state.ended
 end
