@@ -935,7 +935,7 @@ end
 -- merely surrounds that already-authoritative world with the canonical
 -- legacy forest -> cave -> dungeon route; it never regenerates a floor.
 function Session:_migrate_legacy_route(progression)
-  local graph = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base")
+  local graph = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", self.state.meta_snapshot.unlock_ids)
   local by_key = {}
   for _, id in ipairs(graph.node_order) do by_key[graph.nodes[id].key] = graph.nodes[id] end
   local opening, cave, dungeon = by_key.opening_forest, by_key.cave_tier_2, by_key.dungeon_tier_3
@@ -2802,10 +2802,14 @@ function Session:_interact_player()
     elseif result.action_id == "service.open" then
       self.state.pending_service_object_id = result.service_object_id
       self:_log("SERVICE ACCESSING AFTER THIS TURN.")
+    elseif result.action_id == "traversal.breach" then
+      self:_log("REINFORCED BARRIER BREACHED.")
     end
     self:_sound("select")
   elseif result.code == "requires_power" then
     self:_log("NO POWER.")
+  elseif result.code == "requires_unlock" then
+    self:_log("REINFORCED BREACH RESEARCH REQUIRED.")
   elseif result.code == "not_interactable" then
     self:_log("NOTHING TO INTERACT WITH.")
   else
@@ -2973,6 +2977,10 @@ function Session:_complete_stage()
   if state.route then
     local completed = state.route:complete_current()
     assert(completed.applied, completed.reason)
+    -- Floor research rewards are persistent account milestones, not combat
+    -- drops.  The event itself is saved with the run so a later resume can
+    -- reconcile a profile write without granting it twice.
+    self:_claim_research_reward(completed.node.id, 1)
     local next_nodes = completed.outgoing
     assert(#next_nodes > 0, "Completed route node has no forward continuation")
     if #next_nodes == 1 and next_nodes[1].type == "shop" then
@@ -3131,6 +3139,7 @@ function Session:turn(input)
   local result
   if state.phase == "boss" then
     if state.boss.health <= 0 then
+      self:_claim_research_reward("boss", 4)
       state.ended = "victory"
       self:_sound("door")
       result = "victory"

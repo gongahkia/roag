@@ -72,8 +72,8 @@ function LoveStore:delete()
   return true
 end
 
-function SaveStore.runtime()
-  if love and love.filesystem then return LoveStore.new() end
+function SaveStore.runtime(filename)
+  if love and love.filesystem then return LoveStore.new(filename) end
   return SaveStore.memory()
 end
 

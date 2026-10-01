@@ -93,6 +93,18 @@ function EnvironmentObjects.place(world, terrain, player, rng)
       end
     end
   end
+  -- A noncritical dungeon proof. Closing this cell cannot disconnect the
+  -- generated floor, so research changes optional traversal only.
+  if terrain == "dungeon" then
+    local options = rng:shuffle(candidates(world, player))
+    for _, point in ipairs(options) do
+      if remains_connected_when_occupied(world, point) then
+        local barrier = world:place_object("world_object.traversal.reinforced_barrier", point.x, point.y)
+        if barrier then placed[#placed + 1] = barrier end
+        break
+      end
+    end
+  end
   return placed
 end
 

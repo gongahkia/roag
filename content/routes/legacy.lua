@@ -29,5 +29,10 @@ return {
       { type = "shop", nodes = { { key = "legacy_shop" } } },
       { type = "boss", nodes = { { key = "legacy_final_boss" } } },
     },
+    -- Every layer links normally; this optional edge supplies one permanent
+    -- traversal opportunity without blocking the canonical completion path.
+    edges = {
+      { from = "cave_tier_2", to = "dungeon_tier_3", requires_unlock = "unlock.traversal.reinforced_breach" },
+    },
   },
 }

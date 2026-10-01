@@ -16,6 +16,12 @@ local function copy_node(node)
   }
 end
 
+local function unlock_set(values)
+  local result = {}
+  for _, value in ipairs(values or {}) do result[value] = true end
+  return result
+end
+
 local function sorted_ids(values)
   local copy = {}
   for _, value in ipairs(values or {}) do copy[#copy + 1] = value end
@@ -23,7 +29,7 @@ local function sorted_ids(values)
   return copy
 end
 
-function Graph.new(root_seed, definitions, profile_id)
+function Graph.new(root_seed, definitions, profile_id, unlock_ids)
   assert(definitions, "Route graph requires route definitions")
   local profile = definitions:get_profile(profile_id or "route_profile.legacy.base")
   local route_rng = Rng.new(root_seed):derive("route.graph")
@@ -31,7 +37,7 @@ function Graph.new(root_seed, definitions, profile_id)
     profile_id = profile.id,
     root_seed = Rng.new(root_seed).seed,
     nodes = {}, edges = {}, node_order = {}, start_node_id = nil,
-    current_node_id = nil, completed_node_ids = {}, path = {},
+    current_node_id = nil, completed_node_ids = {}, path = {}, unlock_ids = sorted_ids(unlock_ids or {}),
   }, Graph)
   local layers = {}
   local sequence = 0
@@ -54,10 +60,13 @@ function Graph.new(root_seed, definitions, profile_id)
       if depth == 1 then graph.start_node_id = id end
     end
   end
+  local requirements = {}
+  for _, edge in ipairs(profile.edges or {}) do requirements[edge.from .. ">" .. edge.to] = edge.requires_unlock end
   for depth = 1, #layers - 1 do
     for _, from in ipairs(layers[depth]) do
       for _, to in ipairs(layers[depth + 1]) do
-        graph.edges[#graph.edges + 1] = { from = from, to = to }
+        graph.edges[#graph.edges + 1] = { from = from, to = to,
+          requires_unlock = requirements[graph.nodes[from].key .. ">" .. graph.nodes[to].key] }
       end
     end
   end
@@ -80,6 +89,23 @@ function Graph:outgoing(id)
   return result
 end
 
+function Graph:has_unlock(unlock_id)
+  return unlock_set(self.unlock_ids)[unlock_id] == true
+end
+
+function Graph:_edge_available(edge)
+  return not edge.requires_unlock or self:has_unlock(edge.requires_unlock)
+end
+
+function Graph:available_outgoing(id)
+  local result = {}
+  for _, edge in ipairs(self.edges) do
+    if edge.from == id and self:_edge_available(edge) then result[#result + 1] = self.nodes[edge.to] end
+  end
+  table.sort(result, function(first, second) return first.id < second.id end)
+  return result
+end
+
 function Graph:incoming(id)
   local result = {}
   for _, edge in ipairs(self.edges) do
@@ -91,7 +117,7 @@ end
 
 function Graph:available()
   if not self.completed_node_ids[self.current_node_id] then return {} end
-  return self:outgoing(self.current_node_id)
+  return self:available_outgoing(self.current_node_id)
 end
 
 function Graph:status(id)
@@ -106,14 +132,14 @@ function Graph:complete_current()
   if not current then return failure("invalid_current", "Route has no current node") end
   if self.completed_node_ids[current.id] then return failure("already_completed", "Current route node is already completed") end
   self.completed_node_ids[current.id] = true
-  return { applied = true, node = current, outgoing = self:outgoing(current.id) }
+  return { applied = true, node = current, outgoing = self:available_outgoing(current.id) }
 end
 
 function Graph:select(id)
   if type(id) ~= "string" or not self.nodes[id] then return failure("unknown_node", "Unknown route node") end
   if not self.completed_node_ids[self.current_node_id] then return failure("current_incomplete", "Current route node is not complete") end
   local selected
-  for _, node in ipairs(self:outgoing(self.current_node_id)) do if node.id == id then selected = node break end end
+  for _, node in ipairs(self:available_outgoing(self.current_node_id)) do if node.id == id then selected = node break end end
   if not selected then return failure("not_connected", "Route node is not reachable from the current node") end
   if self.completed_node_ids[id] then return failure("completed", "Route node is already complete") end
   self.current_node_id = id
@@ -124,7 +150,7 @@ end
 function Graph:to_data()
   local nodes, edges, completed, path = {}, {}, {}, {}
   for _, id in ipairs(self.node_order) do nodes[#nodes + 1] = copy_node(self.nodes[id]) end
-  for _, edge in ipairs(self.edges) do edges[#edges + 1] = { from = edge.from, to = edge.to } end
+  for _, edge in ipairs(self.edges) do edges[#edges + 1] = { from = edge.from, to = edge.to, requires_unlock = edge.requires_unlock } end
   table.sort(edges, function(first, second)
     return first.from == second.from and first.to < second.to or first.from < second.from
   end)
@@ -134,7 +160,7 @@ function Graph:to_data()
   return {
     profile_id = self.profile_id, root_seed = self.root_seed, nodes = nodes, edges = edges,
     start_node_id = self.start_node_id, current_node_id = self.current_node_id,
-    completed_node_ids = completed, path = path,
+    completed_node_ids = completed, path = path, unlock_ids = sorted_ids(self.unlock_ids),
   }
 end
 
@@ -142,7 +168,7 @@ function Graph.from_data(data, definitions)
   if type(data) ~= "table" then return failure("invalid_route", "Route data must be a table") end
   local graph = setmetatable({
     profile_id = data.profile_id, root_seed = data.root_seed, nodes = {}, edges = {}, node_order = {},
-    start_node_id = data.start_node_id, current_node_id = data.current_node_id, completed_node_ids = {}, path = {},
+    start_node_id = data.start_node_id, current_node_id = data.current_node_id, completed_node_ids = {}, path = {}, unlock_ids = sorted_ids(data.unlock_ids or {}),
   }, Graph)
   if type(graph.profile_id) ~= "string" then return failure("invalid_route", "Route profile ID is missing") end
   local ok, err = pcall(function() definitions:get_profile(graph.profile_id) end)
@@ -155,7 +181,7 @@ function Graph.from_data(data, definitions)
     graph.nodes[node.id] = copy_node(node)
     graph.node_order[#graph.node_order + 1] = node.id
   end
-  for _, edge in ipairs(data.edges or {}) do graph.edges[#graph.edges + 1] = { from = edge.from, to = edge.to } end
+  for _, edge in ipairs(data.edges or {}) do graph.edges[#graph.edges + 1] = { from = edge.from, to = edge.to, requires_unlock = edge.requires_unlock } end
   for _, id in ipairs(data.completed_node_ids or {}) do
     if type(id) ~= "string" then return failure("invalid_route", "Completed route node ID is invalid") end
     graph.completed_node_ids[id] = true
@@ -191,7 +217,8 @@ function Graph:validate(definitions)
   end
   if bosses ~= 1 then return invalid("Route must contain exactly one boss node") end
   for _, edge in ipairs(self.edges) do
-    if type(edge.from) ~= "string" or type(edge.to) ~= "string" or not self.nodes[edge.from] or not self.nodes[edge.to] then
+    if type(edge.from) ~= "string" or type(edge.to) ~= "string" or not self.nodes[edge.from] or not self.nodes[edge.to]
+      or (edge.requires_unlock ~= nil and (type(edge.requires_unlock) ~= "string" or not edge.requires_unlock:match("^unlock%.[a-z0-9_%.]+$"))) then
       return invalid("Route edge references an unknown node")
     end
     if self.nodes[edge.from].depth >= self.nodes[edge.to].depth then return invalid("Route edge is not forward") end
@@ -214,6 +241,16 @@ function Graph:validate(definitions)
     for _, node in ipairs(self:incoming(id)) do if not can_reach_boss[node.id] then can_reach_boss[node.id] = true; reverse_queue[#reverse_queue + 1] = node.id end end
   end
   for _, id in ipairs(self.node_order) do if not can_reach_boss[id] then return invalid("Route node cannot reach boss '" .. id .. "'") end end
+  local allowed, queue, cursor = { [self.start_node_id] = true }, { self.start_node_id }, 1
+  while queue[cursor] do
+    local id = queue[cursor]; cursor = cursor + 1
+    for _, node in ipairs(self:available_outgoing(id)) do
+      if not allowed[node.id] then allowed[node.id] = true; queue[#queue + 1] = node.id end
+    end
+  end
+  local unlocked_boss = false
+  for _, id in ipairs(self.node_order) do if self.nodes[id].type == "boss" and allowed[id] then unlocked_boss = true end end
+  if not unlocked_boss then return invalid("Route unlock configuration cannot reach boss") end
   if not self.nodes[self.start_node_id] or self.nodes[self.start_node_id].depth ~= 1 then return invalid("Route start must be in first layer") end
   for id in pairs(self.completed_node_ids) do if not self.nodes[id] then return invalid("Completed route references unknown node") end end
   for _, id in ipairs(self.path) do if not self.nodes[id] then return invalid("Route path references unknown node") end end

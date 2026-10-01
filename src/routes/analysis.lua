@@ -68,7 +68,7 @@ function Analysis.batch(options)
   local branch_total, convergence_total = 0, 0
   for offset = 0, count - 1 do
     local current_seed = seed + offset
-    local ok, graph_or_error = pcall(RouteGraph.new, current_seed, definitions, profile_id)
+    local ok, graph_or_error = pcall(RouteGraph.new, current_seed, definitions, profile_id, options.unlock_ids)
     if not ok then
       failures[#failures + 1] = { seed = current_seed, code = "route_generation_failed", message = tostring(graph_or_error) }
     else

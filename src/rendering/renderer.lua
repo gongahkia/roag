@@ -226,6 +226,12 @@ function Renderer:_draw_game(app)
           love.graphics.rectangle("fill", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
           self:_color({ 0.95, 0.78, 1 })
           love.graphics.rectangle("line", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
+        elseif object.interaction_role == "traversal" then
+          self:_color({ 0.52, 0.22, 0.1 })
+          love.graphics.rectangle("fill", pixel_x + size * 0.1, pixel_y + size * 0.12, size * 0.8, size * 0.76)
+          self:_color({ 1, 0.66, 0.2 })
+          love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.23, pixel_x + size * 0.82, pixel_y + size * 0.77)
+          love.graphics.line(pixel_x + size * 0.82, pixel_y + size * 0.23, pixel_x + size * 0.18, pixel_y + size * 0.77)
         else
           local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
           self:_color(tint)
@@ -628,9 +634,40 @@ function Renderer:_draw_title(app)
     self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
       1, index == app.menu and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
   end
-  local message = app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM"
+  local message = app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE"
+    or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM")
   self:_text(message, width / 2 - #message * 4, height / 2 + 112, 0.78, { 0.75, 0.82, 0.92 })
   self:_text("P: SPRITE LAB", width / 2 - 62, height / 2 + 138, 0.82, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_research(app)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local width, height = love.graphics.getDimensions()
+  local category = app:current_research_category()
+  local categories = app:research_categories()
+  local options = app:research_options(category)
+  self:_text("RESEARCH", 44, 34, 2, { 0.7, 0.9, 1 })
+  self:_text("RESEARCH DATA: " .. app.meta_profile.research_data, 44, 72, 1.05, { 0.95, 0.85, 0.3 })
+  self:_text(app.continue_available and "PURCHASES APPLY TO FUTURE RUNS" or "UNLOCKS APPLY TO YOUR NEXT RUN", 44, 98, 0.78, { 0.72, 0.78, 0.88 })
+  for index, value in ipairs(categories) do
+    local selected = index == app.research_category_index
+    self:_text((selected and "> " or "  ") .. string.upper(value), 44, 145 + (index - 1) * 29, 0.92,
+      selected and { 0.95, 0.85, 0.3 } or { 0.72, 0.78, 0.88 })
+  end
+  local start_y = 146
+  for index, option in ipairs(options) do
+    local selected = index == app.research_node_index
+    local state = option.unlocked and "UNLOCKED" or (option.available and (option.cost .. " DATA") or "PREREQUISITE LOCKED")
+    local tint = option.unlocked and { 0.45, 0.9, 0.67 } or (option.available and { 0.95, 0.85, 0.3 } or { 0.56, 0.62, 0.72 })
+    local y = start_y + (index - 1) * 62
+    self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
+    love.graphics.rectangle("fill", width * 0.28, y, width * 0.62, 52)
+    self:_text((selected and "> " or "  ") .. option.name, width * 0.3, y + 7, 0.95, tint)
+    self:_text(option.description, width * 0.3, y + 27, 0.69, { 0.72, 0.78, 0.88 })
+    self:_text(state, width * 0.79, y + 8, 0.69, tint)
+  end
+  local footer = app.meta_error and ("PROFILE ERROR: " .. tostring(app.meta_error.reason)) or "A/D CATEGORY     W/S NODE     ENTER PURCHASE     ESC TITLE"
+  self:_text(footer, 44, height - 42, 0.78, { 0.75, 0.82, 0.92 })
 end
 
 -- Route state is authoritative data from the session graph.  This renderer
@@ -766,6 +803,8 @@ function Renderer:draw(app)
     self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
   elseif app.screen == "route" then
     self:_draw_route(app)
+  elseif app.screen == "research" then
+    self:_draw_research(app)
   elseif app.screen == "service_hub" then
     self:_menu("FINAL SERVICE HUB — SCRAP " .. app.session.state.scrap, app:service_hub_options(), app.menu, "W/S SELECT     ENTER ACCESS / ENTER BOSS")
   elseif app.screen == "service" then

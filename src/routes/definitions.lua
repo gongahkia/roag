@@ -110,6 +110,7 @@ function Definitions:validate()
     string(profile.display_name, "Route profile '" .. id .. "' display_name")
     if type(profile.layers) ~= "table" or #profile.layers < 3 then fail("Route profile '" .. id .. "' must define ordered layers") end
     local saw_start, saw_shop, saw_boss, normal_floors, has_branch = false, false, false, 0, false
+    local node_keys = {}
     for layer_index, layer in ipairs(profile.layers) do
       if type(layer) ~= "table" or (layer.type ~= "floor" and layer.type ~= "shop" and layer.type ~= "boss") then
         fail("Route profile '" .. id .. "' layer " .. layer_index .. " has invalid type")
@@ -137,6 +138,7 @@ function Definitions:validate()
         string(node.key, "Route profile '" .. id .. "' node key")
         if keys[node.key] then fail("Route profile '" .. id .. "' duplicates node key '" .. node.key .. "'") end
         keys[node.key] = true
+        node_keys[node.key] = { depth = layer_index, type = layer.type }
         if layer.type == "floor" then
           self:get_biome(node.biome_id)
           self:get_tier(node.tier_id)
@@ -148,6 +150,19 @@ function Definitions:validate()
           fail("Route profile '" .. id .. "' special node '" .. node.key .. "' cannot define biome/tier")
         end
       end
+    end
+    local edge_seen = {}
+    for _, edge in ipairs(profile.edges or {}) do
+      if type(edge) ~= "table" or type(edge.from) ~= "string" or type(edge.to) ~= "string"
+        or not node_keys[edge.from] or not node_keys[edge.to] or node_keys[edge.from].depth + 1 ~= node_keys[edge.to].depth then
+        fail("Route profile '" .. id .. "' has invalid explicit edge")
+      end
+      if edge.requires_unlock ~= nil and (type(edge.requires_unlock) ~= "string" or not edge.requires_unlock:match("^unlock%.[a-z0-9_%.]+$")) then
+        fail("Route profile '" .. id .. "' edge has invalid requires_unlock")
+      end
+      local edge_key = edge.from .. ">" .. edge.to
+      if edge_seen[edge_key] then fail("Route profile '" .. id .. "' duplicates explicit edge '" .. edge_key .. "'") end
+      edge_seen[edge_key] = true
     end
     if not (saw_start and saw_shop and saw_boss and normal_floors == 3 and has_branch) then
       fail("Route profile '" .. id .. "' must define start, three floors, shop, and boss")

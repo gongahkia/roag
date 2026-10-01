@@ -942,6 +942,7 @@ function World:place_object(definition_id, x, y, options)
     service_id = role == "service" and options.service_id or nil,
     service_stock = role == "service" and options.service_stock or nil,
     service_origin = role == "service" and options.service_origin or nil,
+    required_unlock = role == "traversal" and definition.required_unlock or nil,
     movable_by_force = definition.movable_by_force,
   }
   if role == "service" then
@@ -1116,6 +1117,7 @@ function World:inspect_object(object_or_id)
     service_id = object.service_id,
     service_stock = object.service_stock,
     service_origin = object.service_origin,
+    required_unlock = object.required_unlock,
     circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
     circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
     conductive = material.conductive,
@@ -1392,6 +1394,7 @@ function World.from_data(registry, data, sequence_owner)
       service_id = saved.service_id,
       service_stock = saved.service_stock,
       service_origin = saved.service_origin,
+      required_unlock = definition.interaction_role == "traversal" and definition.required_unlock or nil,
       movable_by_force = definition.movable_by_force,
     }
     if CIRCUIT_ROLES[object.interaction_role] then

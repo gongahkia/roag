@@ -94,6 +94,7 @@ return {
     blocks_gas = true,
     movable_by_force = false,
     interaction_role = "traversal",
+    required_unlock = "unlock.traversal.reinforced_breach",
     render_style = "reinforced_barrier",
   },
 }

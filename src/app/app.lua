@@ -8,6 +8,8 @@ local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
 local ActiveRun = require("src.persistence.active_run")
 local SaveStore = require("src.persistence.save_store")
+local MetaProfile = require("src.persistence.meta_profile")
+local Registry = require("src.content.registry")
 
 local App = {}
 App.__index = App
@@ -26,7 +28,12 @@ function App.new(options)
   options = options or {}
   local self = setmetatable({}, App)
   self.content = options.content or Content
+  self.registry = options.registry or Registry.load()
   self.save_store = options.save_store or SaveStore.runtime()
+  self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
+  self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
+  self.meta_error = self.meta_profile and nil or self.meta_status
+  if not self.meta_profile then self.meta_profile = MetaProfile.new() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
   self.assets = Assets.new()
@@ -67,7 +74,36 @@ function App:title_options()
   if self.continue_available then
     options[#options + 1] = { name = "CONTINUE", description = "Resume the current active run." }
   end
+  options[#options + 1] = { name = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs." }
   return options
+end
+
+function App:_save_meta(candidate)
+  if self.meta_error then return nil, self.meta_error end
+  local saved, error_data = MetaProfile.save(candidate, self.meta_store, self.registry)
+  if not saved then self.meta_error = error_data; return nil, error_data end
+  self.meta_profile, self.meta_status = candidate, nil
+  return true
+end
+
+function App:_claim_meta_reward(reward_id, amount)
+  if self.meta_error then return { applied = false, code = "meta_unavailable", reason = self.meta_error.reason } end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local result = MetaProfile.claim_reward(candidate, reward_id, amount)
+  if result.applied then
+    local saved, error_data = self:_save_meta(candidate)
+    if not saved then return { applied = false, code = "write_failed", reason = error_data.reason } end
+  end
+  return result
+end
+
+function App:_allocate_new_run()
+  if self.meta_error then return nil, self.meta_error end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local run_id = MetaProfile.allocate_run(candidate)
+  local saved, error_data = self:_save_meta(candidate)
+  if not saved then return nil, error_data end
+  return run_id, MetaProfile.snapshot(candidate, self.registry)
 end
 
 function App:autosave(_boundary)
@@ -94,7 +130,9 @@ function App:request_new_run()
     self.screen, self.menu = "replace_save", 1
     return false
   end
-  self:_new_session()
+  local run_id, snapshot = self:_allocate_new_run()
+  if not run_id then self.title_error = snapshot; return false end
+  self:_new_session(run_id, snapshot)
   self.session:start_run()
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -105,7 +143,9 @@ function App:request_new_run()
 end
 
 function App:confirm_replace_save()
-  self:_new_session()
+  local run_id, snapshot = self:_allocate_new_run()
+  if not run_id then self.title_error = snapshot; self.screen = "title"; return false end
+  self:_new_session(run_id, snapshot)
   self.session:start_run()
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -117,6 +157,9 @@ end
 function App:continue_run()
   local session, error_data = ActiveRun.load(self.save_store, {
     content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+    on_meta_reward = function(id, amount) return self:_claim_meta_reward(id, amount) end,
     emit = function(event) self:_handle_session_event(event) end,
   })
   if not session or session.state.ended then
@@ -147,6 +190,7 @@ end
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
   if selected and selected.name == "CONTINUE" then return self:continue_run() end
+  if selected and selected.name == "RESEARCH" then return self:open_research() end
   return self:request_new_run()
 end
 
@@ -162,15 +206,65 @@ function App:_handle_session_event(event)
   end
 end
 
-function App:_new_session()
+function App:_new_session(run_id, snapshot)
   local seed = self.seed_stream:next()
   self.session = Session.new({
     seed = seed,
     content = self.content,
+    registry = self.registry,
+    run_id = run_id,
+    meta_snapshot = snapshot,
+    on_meta_reward = function(id, amount) return self:_claim_meta_reward(id, amount) end,
     emit = function(event)
       self:_handle_session_event(event)
     end,
   })
+end
+
+function App:research_categories()
+  local values, seen = {}, {}
+  for _, node in pairs(self.registry.research) do if not seen[node.category] then seen[node.category] = true; values[#values + 1] = node.category end end
+  table.sort(values)
+  return values
+end
+
+function App:research_options(category)
+  local values = {}
+  for _, node in pairs(self.registry.research) do
+    if not category or node.category == category then
+      local unlocked = MetaProfile.has_research(self.meta_profile, node.id)
+      local ready = true
+      for _, prerequisite in ipairs(node.prerequisites) do if not MetaProfile.has_research(self.meta_profile, prerequisite) then ready = false end end
+      values[#values + 1] = { id = node.id, name = node.display_name, description = node.description, cost = node.cost,
+        prerequisites = node.prerequisites, unlocked = unlocked, available = not unlocked and ready,
+        locked = not unlocked and not ready, category = node.category }
+    end
+  end
+  table.sort(values, function(a, b) return a.id < b.id end)
+  return values
+end
+
+function App:open_research()
+  self.research_category_index, self.research_node_index = 1, 1
+  self.screen, self.menu = "research", 1
+  return not self.meta_error
+end
+
+function App:current_research_category()
+  return self:research_categories()[self.research_category_index or 1]
+end
+
+function App:purchase_selected_research()
+  if self.meta_error then return { applied = false, code = "meta_unavailable", reason = self.meta_error.reason } end
+  local option = self:research_options(self:current_research_category())[self.research_node_index or 1]
+  if not option then return { applied = false, code = "unknown_research", reason = "No research is selected" } end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local result = MetaProfile.purchase(candidate, self.registry, option.id)
+  if not result.applied then return result end
+  local saved, error_data = self:_save_meta(candidate)
+  if not saved then return { applied = false, code = "write_failed", reason = error_data.reason } end
+  result.applies_next_run = self.continue_available
+  return result
 end
 
 function App:move_menu(amount, limit)

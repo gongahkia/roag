@@ -91,6 +91,26 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
+  if app.screen == "research" then
+    local categories = app:research_categories()
+    local options = app:research_options(app:current_research_category())
+    if key == "escape" then
+      app.screen, app.menu = "title", 1
+    elseif key == "a" or key == "left" then
+      app.research_category_index = math.max(1, (app.research_category_index or 1) - 1)
+      app.research_node_index = 1
+    elseif key == "d" or key == "right" then
+      app.research_category_index = math.min(#categories, (app.research_category_index or 1) + 1)
+      app.research_node_index = 1
+    elseif key == "w" or key == "up" then
+      app.research_node_index = math.max(1, (app.research_node_index or 1) - 1)
+    elseif key == "s" or key == "down" then
+      app.research_node_index = math.min(math.max(1, #options), (app.research_node_index or 1) + 1)
+    elseif key == "return" or key == "e" then
+      app:purchase_selected_research()
+    end
+    return
+  end
   if app.screen == "replace_save" then
     if key == "return" or key == "space" then
       app:confirm_replace_save()

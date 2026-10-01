@@ -2,7 +2,7 @@
 -- asks for an action; this module validates and mutates simulation state.
 local Interaction = {}
 
-local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4 }
+local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4, traversal = 5 }
 
 local function result(applied, code, reason, extra)
   local value = {
@@ -32,7 +32,7 @@ local function action(id, label, available, reason)
   }
 end
 
-function Interaction.actions_for(world, object)
+function Interaction.actions_for(world, object, session)
   if not object or object.destroyed or not object.interaction_role then
     return {}
   end
@@ -55,6 +55,10 @@ function Interaction.actions_for(world, object)
     }
   elseif object.interaction_role == "service" then
     return { action("service.open", "ACCESS SERVICE", true) }
+  elseif object.interaction_role == "traversal" then
+    local available = session and session:has_meta_unlock(object.required_unlock)
+    return { action("traversal.breach", available and "BREACH" or "RESEARCH REQUIRED", available,
+      available and nil or "REINFORCED BREACH RESEARCH REQUIRED") }
   end
   return {}
 end
@@ -77,7 +81,7 @@ function Interaction.available(session, actor)
         y = object.y,
         circuit_id = object.circuit_id,
         powered = world:is_circuit_powered(object.circuit_id),
-        actions = Interaction.actions_for(world, object),
+        actions = Interaction.actions_for(world, object, session),
         _order = order,
       }
     end
@@ -133,6 +137,11 @@ function Interaction.perform(session, actor, object_id, action_id)
       service_id = object.service_id,
       service_object_id = object.id,
     })
+  elseif action_id == "traversal.breach" and object.interaction_role == "traversal" then
+    if not session:has_meta_unlock(object.required_unlock) then
+      return result(false, "requires_unlock", "REINFORCED BREACH RESEARCH REQUIRED", { object_id = object.id, action_id = action_id })
+    end
+    world_result = world:damage_object(object, { amount = object.current_integrity, cause = "traversal", source = "reinforced_breach" })
   else
     return result(false, "invalid_action", "Action is not available for this object", {
       object_id = object.id,

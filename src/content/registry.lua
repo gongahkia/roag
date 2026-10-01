@@ -311,10 +311,18 @@ function Registry:validate()
         if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles or not object.blocks_gas then
           content_error("Door world object '" .. id .. "' must block movement, vision, projectiles, and gas while closed")
         end
-      elseif object.power_required ~= nil or object.default_door_state ~= nil then
+      elseif object.interaction_role == "traversal" then
+        require_string(object.required_unlock, "Traversal world object '" .. id .. "' required_unlock")
+        if not object.required_unlock:match("^unlock%.[a-z0-9_%.]+$") then
+          content_error("Traversal world object '" .. id .. "' required_unlock must be a stable unlock ID")
+        end
+        if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles or not object.blocks_gas then
+          content_error("Traversal world object '" .. id .. "' must block movement, vision, projectiles, and gas")
+        end
+      elseif object.power_required ~= nil or object.default_door_state ~= nil or object.required_unlock ~= nil then
         content_error("Non-door world object '" .. id .. "' cannot define door power metadata")
       end
-    elseif object.power_required ~= nil or object.default_door_state ~= nil then
+    elseif object.power_required ~= nil or object.default_door_state ~= nil or object.required_unlock ~= nil then
       content_error("Non-interactable world object '" .. id .. "' cannot define door power metadata")
     end
     require_string(object.render_style, "World object '" .. id .. "' render_style")
