@@ -129,6 +129,17 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
+  if app.screen == "route" then
+    local options = app:route_options()
+    if key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #options))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #options))
+    elseif key == "return" or key == "e" then
+      app:select_route_choice()
+    end
+    return
+  end
   if app.screen == "shop" then
     if key == "w" or key == "up" then
       app:move_menu(-1, #app.content.shop)

@@ -2,6 +2,7 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local Registry = require("src.content.registry")
 local RoomRegistry = require("src.rooms.registry")
+local RouteDefinitions = require("src.routes.definitions")
 
 local ok, registry_or_error = xpcall(Registry.load, debug.traceback)
 if not ok then
@@ -10,6 +11,12 @@ if not ok then
 end
 
 local registry = registry_or_error
+local routes_ok, routes_or_error = xpcall(RouteDefinitions.load, debug.traceback)
+if not routes_ok then
+  io.stderr:write(routes_or_error, "\n")
+  os.exit(1)
+end
+local routes = routes_or_error
 local rooms, room_failure = RoomRegistry.load({ registry = registry })
 if not rooms then
   io.stderr:write((room_failure.reason or room_failure.code or "Room corpus validation failed"), "\n")
@@ -20,7 +27,7 @@ if not rooms then
 end
 local coverage = rooms:coverage()
 io.write(string.format(
-  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d topologies, %d actors, %d enemies, %d dungeon room templates, %d connector patterns\n",
+  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d topologies, %d actors, %d enemies, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d connector patterns\n",
   (function() local count = 0 for _ in pairs(registry.abilities) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.materials) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.liquids) do count = count + 1 end return count end)(),
@@ -31,6 +38,9 @@ io.write(string.format(
   (function() local count = 0 for _ in pairs(registry.topologies) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.actors) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.enemies) do count = count + 1 end return count end)(),
+  #routes.biome_order,
+  #routes.tier_order,
+  #routes.profile_order,
   #rooms.order,
   (function() local count = 0 for _ in pairs(coverage.patterns) do count = count + 1 end return count end)()
 ))

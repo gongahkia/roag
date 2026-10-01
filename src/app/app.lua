@@ -120,6 +120,8 @@ function App:continue_run()
     self.reconstruction_focus, self.reconstruction_slot_index, self.reconstruction_inventory_index = "body", 1, 1
   elseif session.state.phase == "transition" then
     self.screen = session.state.transition_next == "shop" and "shop" or "curse"
+  elseif session.state.phase == "route" then
+    self.screen = "route"
   else
     self.screen = "game"
   end
@@ -180,11 +182,46 @@ function App:select_boon(boon)
 end
 
 function App:select_curse(curse)
-  self.session:choose_curse(curse)
-  self.screen = "game"
+  local result = self.session:choose_curse(curse)
+  self.screen = result.next == "route" and "route" or "game"
   self:clear_held_movement()
-  self.presentation:reset(self.session)
+  if self.screen == "game" then self.presentation:reset(self.session) end
   self:autosave("curse")
+  return result
+end
+
+function App:route_options()
+  if not self.session then return {} end
+  local result = {}
+  for _, node in ipairs(self.session:available_route_nodes()) do
+    local biome = node.biome_id and self.session.route_definitions:get_biome(node.biome_id)
+    local tier = node.tier_id and self.session.route_definitions:get_tier(node.tier_id)
+    result[#result + 1] = {
+      node_id = node.id,
+      name = biome and biome.display_name or string.upper(node.type),
+      description = biome and ("TIER " .. tier.number .. "  •  FLOOR") or string.upper(node.type),
+      biome_id = node.biome_id,
+      tier_id = node.tier_id,
+      type = node.type,
+    }
+  end
+  return result
+end
+
+function App:select_route_choice()
+  local option = self:route_options()[self.menu]
+  if not option then return { applied = false, code = "no_choice", reason = "No route choice is selected" } end
+  local result = self.session:select_route_node(option.node_id)
+  if result.applied then
+    self.screen, self.menu = "game", 1
+    self:clear_held_movement()
+    self.presentation:reset(self.session)
+    self:play_sound("door")
+    self:autosave("route_selection")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
 end
 
 function App:buy_selected()
@@ -220,6 +257,8 @@ function App:_handle_turn_result(result)
     self.screen, self.menu = "curse", 1
   elseif result == "shop" then
     self.screen, self.menu = "shop", 1
+  elseif result == "route" then
+    self.screen, self.menu = "route", 1
   elseif result == "gameover" or result == "victory" then
     self.screen, self.menu = result, 1
     self:clear_held_movement()

@@ -625,6 +625,85 @@ function Renderer:_draw_title(app)
   self:_text("P: SPRITE LAB", width / 2 - 62, height / 2 + 138, 0.82, { 0.75, 0.82, 0.92 })
 end
 
+-- Route state is authoritative data from the session graph.  This renderer
+-- only lays out compact cards and edges; it never decides availability or
+-- progression, keeping the map safe to rebuild after save/load.
+function Renderer:_draw_route(app)
+  local session, route = app.session, app.session.state.route
+  local width, height = love.graphics.getDimensions()
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("CHOOSE YOUR DESCENT", width * 0.5 - 150, 42, 1.7, { 0.7, 0.9, 1 })
+  self:_text("THE ROUTE IS ONE WAY", width * 0.5 - 96, 77, 0.8, { 0.7, 0.76, 0.86 })
+
+  local by_depth, depth_count = {}, 0
+  for _, id in ipairs(route.node_order) do
+    local node = route:node(id)
+    by_depth[node.depth] = by_depth[node.depth] or {}
+    by_depth[node.depth][#by_depth[node.depth] + 1] = node
+    depth_count = math.max(depth_count, node.depth)
+  end
+  local positions = {}
+  local margin_x, top, bottom = 110, 142, height - 112
+  for depth = 1, depth_count do
+    local nodes = by_depth[depth] or {}
+    table.sort(nodes, function(first, second) return first.id < second.id end)
+    local x = margin_x + (depth - 1) * ((width - margin_x * 2) / math.max(1, depth_count - 1))
+    for index, node in ipairs(nodes) do
+      local y = top + (index - 1) * ((bottom - top) / math.max(1, #nodes - 1))
+      positions[node.id] = { x = x, y = y }
+    end
+  end
+  for _, edge in ipairs(route.edges) do
+    local first, second = positions[edge.from], positions[edge.to]
+    if first and second then
+      local completed = route.completed_node_ids[edge.from]
+      self:_color(completed and { 0.42, 0.74, 0.68, 0.9 } or { 0.22, 0.31, 0.42, 0.85 })
+      love.graphics.setLineWidth(completed and 3 or 2)
+      love.graphics.line(first.x + 62, first.y, second.x - 62, second.y)
+    end
+  end
+  love.graphics.setLineWidth(1)
+
+  local options = app:route_options()
+  local selected_id = options[app.menu] and options[app.menu].node_id
+  for _, id in ipairs(route.node_order) do
+    local node, position = route:node(id), positions[id]
+    local status = route:status(id)
+    local tint = {
+      future = { 0.12, 0.16, 0.23 }, completed = { 0.12, 0.29, 0.25 },
+      completed_current = { 0.12, 0.29, 0.25 }, current = { 0.16, 0.3, 0.42 },
+      available = { 0.26, 0.35, 0.16 },
+    }
+    local text_tint = {
+      future = { 0.47, 0.55, 0.65 }, completed = { 0.58, 0.9, 0.76 },
+      completed_current = { 0.58, 0.9, 0.76 }, current = { 0.78, 0.9, 1 },
+      available = { 1, 0.88, 0.3 },
+    }
+    local selected = node.id == selected_id
+    self:_color(tint[status] or tint.future)
+    love.graphics.rectangle("fill", position.x - 62, position.y - 28, 124, 56)
+    self:_color(selected and { 1, 0.86, 0.22 } or text_tint[status] or text_tint.future)
+    love.graphics.setLineWidth(selected and 3 or 1)
+    love.graphics.rectangle("line", position.x - 62, position.y - 28, 124, 56)
+    love.graphics.setLineWidth(1)
+    local label, detail
+    if node.type == "floor" then
+      local biome = session.route_definitions:get_biome(node.biome_id)
+      local tier = session.route_definitions:get_tier(node.tier_id)
+      label, detail = biome.display_name, "TIER " .. tier.number
+    else
+      label, detail = string.upper(node.type), status == "future" and "LOCKED" or string.upper(status)
+    end
+    self:_text(label, position.x - math.floor(#label * 3.8), position.y - 16, 0.9, text_tint[status] or text_tint.future)
+    self:_text(detail, position.x - math.floor(#detail * 2.8), position.y + 5, 0.65, { 0.74, 0.81, 0.9 })
+  end
+  local selected = options[app.menu]
+  if selected then
+    self:_text("SELECTED: " .. selected.name .. " — " .. selected.description, width * 0.18, height - 76, 0.9, { 0.95, 0.85, 0.3 })
+  end
+  self:_text("W/S SELECT     ENTER / E DESCEND", width * 0.5 - 150, height - 44, 0.85, { 0.72, 0.8, 0.92 })
+end
+
 function Renderer:_draw_sprite_lab(app)
   local lab, sprites = app.sprite_lab, self.assets.sprites
   love.graphics.clear(0.025, 0.035, 0.055)
@@ -681,6 +760,8 @@ function Renderer:draw(app)
     self:_menu("CHOOSE A BOON", app.boon_options, app.menu)
   elseif app.screen == "curse" then
     self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
+  elseif app.screen == "route" then
+    self:_draw_route(app)
   elseif app.screen == "shop" then
     self:_menu("SHOP — POINTS " .. app.session.state.score, app.content.shop, app.menu, "W/S SELECT     B BUY     V SELL     ENTER FIGHT BOSS")
   elseif app.screen == "inventory" then

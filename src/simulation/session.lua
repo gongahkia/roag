@@ -29,6 +29,8 @@ local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
 local Rng = require("src.rng")
+local RouteDefinitions = require("src.routes.definitions")
+local RouteGraph = require("src.routes.graph")
 
 local Session = {}
 Session.__index = Session
@@ -97,6 +99,7 @@ function Session.new(options)
   local self = setmetatable({}, Session)
   self.content = options.content or Content
   self.registry = options.registry or Registry.load()
+  self.route_definitions = options.route_definitions or RouteDefinitions.load()
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
@@ -114,6 +117,8 @@ function Session.new(options)
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
     next_fire_sequence = 1,
+    route = nil,
+    floor_seed = nil,
     transition_next = nil,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
@@ -761,6 +766,7 @@ function Session:run_data()
       next_world_object_sequence = self.state.next_world_object_sequence,
       next_hazard_sequence = self.state.next_hazard_sequence,
       next_fire_sequence = self.state.next_fire_sequence,
+      route = self.state.route and self.state.route:to_data() or nil,
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -835,6 +841,43 @@ local function list_actor_data(session, values)
   return result
 end
 
+-- Pre-route v1 saves restore their current world verbatim.  This migration
+-- merely surrounds that already-authoritative world with the canonical
+-- legacy forest -> cave -> dungeon route; it never regenerates a floor.
+function Session:_migrate_legacy_route(progression)
+  local graph = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base")
+  local by_key = {}
+  for _, id in ipairs(graph.node_order) do by_key[graph.nodes[id].key] = graph.nodes[id] end
+  local opening, cave, dungeon = by_key.opening_forest, by_key.cave_tier_2, by_key.dungeon_tier_3
+  local shop, boss = by_key.legacy_shop, by_key.legacy_final_boss
+  local function set_path(nodes, completed_count)
+    graph.path, graph.completed_node_ids = {}, {}
+    for index, node in ipairs(nodes) do
+      graph.path[#graph.path + 1] = node.id
+      if index <= completed_count then graph.completed_node_ids[node.id] = true end
+    end
+    graph.current_node_id = nodes[#nodes].id
+  end
+  local pending = progression.reconstruction_next or progression.transition_next
+  if progression.phase == "boss" then
+    set_path({ opening, cave, dungeon, shop, boss }, 4)
+  elseif pending == "shop" then
+    set_path({ opening, cave, dungeon }, 3)
+  elseif pending == "curse" then
+    -- The old implementation incremented stage before reconstruction. A
+    -- pending second floor therefore means forest just completed, etc.
+    if progression.stage <= 2 then set_path({ opening }, 1) else set_path({ opening, cave }, 2) end
+  elseif progression.stage <= 1 then
+    set_path({ opening }, 0)
+  elseif progression.stage == 2 then
+    set_path({ opening, cave }, 1)
+  else
+    set_path({ opening, cave, dungeon }, 2)
+  end
+  assert(graph:validate(self.route_definitions))
+  return graph
+end
+
 function Session:to_data()
   self:validate_physical_ownership()
   if self.state.world then self:validate_world() end
@@ -876,6 +919,7 @@ function Session:to_data()
     ammo = self:_actor_to_data(state.ammo),
     exit = self:_actor_to_data(state.exit),
     boss = self:_actor_to_data(state.boss),
+    route = state.route and state.route:to_data() or nil,
   }
   for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.name end
   for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.name end
@@ -894,6 +938,7 @@ function Session.from_data(data, options)
     rng = Rng.from_data(data.rng),
     content = options.content or Content,
     registry = options.registry,
+    route_definitions = options.route_definitions,
     emit = options.emit,
   })
   local progression = data.progression
@@ -917,6 +962,16 @@ function Session.from_data(data, options)
   state.curse_bag, state.curse_options = {}, {}
   for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = named_content(session.content.curses, name, "curse") end
   for _, name in ipairs(progression.curse_options or {}) do state.curse_options[#state.curse_options + 1] = named_content(session.content.curses, name, "curse") end
+  if data.route then
+    local graph, route_failure = RouteGraph.from_data(data.route, session.route_definitions)
+    assert(graph, route_failure and route_failure.reason or "Active run route is invalid")
+    state.route = graph
+  else
+    state.route = session:_migrate_legacy_route(progression)
+  end
+  state.route_node_id = state.route.current_node_id
+  local route_node = state.route:node(state.route_node_id)
+  state.floor_seed = route_node and route_node.floor_seed or nil
   state.settings = copy_plain(data.settings or {})
   state.log = {}
   for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
@@ -1387,8 +1442,24 @@ function Session:_apply(settings, modifiers)
   settings.dash_cooldown = math.max(1, settings.dash_cooldown)
 end
 
-function Session:_settings_for_stage()
-  local settings = Grid.copy(self.content.stages[self.state.stage])
+-- Legacy direct-stage construction remains available to old tests and the
+-- developer inspector. It maps the former numbered prototype stages onto the
+-- canonical biome/tier pairing; normal runs select explicit route nodes.
+function Session:_legacy_floor_reference(stage)
+  local legacy = self.content.stages[stage]
+  assert(legacy, "Unknown legacy stage " .. tostring(stage))
+  local biome_id = "biome.legacy." .. legacy.terrain
+  local tier_id = "tier.legacy." .. tostring(stage)
+  return self.route_definitions:get_biome(biome_id), self.route_definitions:get_tier(tier_id)
+end
+
+function Session:_settings_for_floor(biome, tier)
+  local settings = Grid.copy(tier.settings)
+  settings.terrain = biome.terrain
+  settings.biome_id = biome.id
+  settings.biome_display_name = biome.display_name
+  settings.tier_id = tier.id
+  settings.tier = tier.number
   settings.health, settings.bombs, settings.flares = 2, 1, 1
   settings.torch_radius, settings.dash_cooldown = 4, 3
   settings.bomb_radius, settings.bomb_fuse = 2, 3
@@ -1423,6 +1494,11 @@ function Session:_settings_for_stage()
   return settings
 end
 
+function Session:_settings_for_stage()
+  local biome, tier = self:_legacy_floor_reference(self.state.stage)
+  return self:_settings_for_floor(biome, tier)
+end
+
 function Session:_occupied(include_boss)
   local state = self.state
   local occupied = { [Grid.key(state.player.x, state.player.y)] = true }
@@ -1450,7 +1526,7 @@ function Session:_occupied(include_boss)
   return occupied
 end
 
-function Session:_open_location(used, minimum, avoid_hazards)
+function Session:_open_location(used, minimum, avoid_hazards, rng)
   local options = {}
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
@@ -1464,7 +1540,7 @@ function Session:_open_location(used, minimum, avoid_hazards)
     end
   end
   assert(#options > 0, "No spawn location available")
-  return self.rng:choice(options)
+  return (rng or self.rng):choice(options)
 end
 
 function Session:_enemy_type(index)
@@ -1495,23 +1571,23 @@ function Session:_make_enemy(kind, point)
   return enemy
 end
 
-function Session:_spawn_entities()
+function Session:_spawn_entities(rng)
   local state = self.state
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   for _ = 1, state.settings.torches do
-    local point = self:_open_location(self:_occupied())
+    local point = self:_open_location(self:_occupied(), nil, nil, rng)
     state.torches[#state.torches + 1] = entity("torch", point.x, point.y, { light = state.settings.torch_radius })
   end
   for _ = 1, state.settings.targets do
-    local point = self:_open_location(self:_occupied())
+    local point = self:_open_location(self:_occupied(), nil, nil, rng)
     state.targets[#state.targets + 1] = entity("target", point.x, point.y)
   end
   for index = 1, state.settings.enemies do
-    local point = self:_open_location(self:_occupied())
+    local point = self:_open_location(self:_occupied(), nil, nil, rng)
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index), point)
   end
-  local point = self:_open_location(self:_occupied())
+  local point = self:_open_location(self:_occupied(), nil, nil, rng)
   state.ammo = entity("ammo", point.x, point.y)
 end
 
@@ -1550,7 +1626,8 @@ function Session:start_run(class, boon)
   state.run.player = nil
   state.run.inventory = Inventory.new()
   state.inventory = state.run.inventory
-  self:start_stage()
+  state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base")
+  self:start_route_node(state.route.start_node_id)
 end
 
 function Session:_create_run_player(settings)
@@ -1616,43 +1693,68 @@ function Session:_prepare_run_player_for_stage(settings)
   return player
 end
 
-function Session:start_stage()
+-- Common floor construction.  Route floors receive an isolated node seed so
+-- prior branch choices and combat RNG consumption cannot alter their terrain
+-- or initial placements. Legacy direct-stage callers retain their historical
+-- use of the session stream for tools/tests.
+function Session:_start_floor(settings, floor_rng, stream_prefix)
   local state = self.state
-  state.settings = self:_settings_for_stage()
-  self:_prepare_run_player_for_stage(state.settings)
+  state.settings = settings
+  self:_prepare_run_player_for_stage(settings)
   state.explored, state.effects, state.electrical_effects, state.corpses = {}, {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
   state.transition_next = nil
   state.phase = "combat"
-  local layout, generation_metadata = Generator.generate(state.settings.terrain, state.player, self.rng, nil, {
+  local layout, generation_metadata = Generator.generate(settings.terrain, state.player, floor_rng, nil, {
     registry = self.registry,
-    room_rng = state.settings.terrain == "dungeon" and self.rng:derive("rooms.stage." .. state.stage) or nil,
+    room_rng = settings.terrain == "dungeon" and floor_rng:derive(stream_prefix .. ".rooms") or nil,
   })
   state.generation_metadata = generation_metadata
   if generation_metadata and generation_metadata.player_spawn then
     state.player.x, state.player.y = generation_metadata.player_spawn.x, generation_metadata.player_spawn.y
   end
-  state.world = World.new(self.registry, state.settings.terrain, layout, state)
+  state.world = World.new(self.registry, settings.terrain, layout, state)
   -- Cover uses a named deterministic stream so introducing environmental
   -- placement cannot perturb legacy actor/content RNG decisions.
-  EnvironmentObjects.place(state.world, state.settings.terrain, state.player,
-    self.rng:derive("world_objects.stage." .. state.stage))
-  HazardGeneration.place(state.world, state.settings.terrain, state.player,
-    self.rng:derive("hazards.stage." .. state.stage))
-  LiquidGeneration.place(state.world, state.settings.terrain, state.player,
-    self.rng:derive("liquids.stage." .. state.stage))
-  GasGeneration.place(state.world, state.settings.terrain, state.player,
-    self.rng:derive("gases.stage." .. state.stage))
+  EnvironmentObjects.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".world_objects"))
+  HazardGeneration.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".hazards"))
+  LiquidGeneration.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".liquids"))
+  GasGeneration.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".gases"))
   -- Persistent logical power is generated after independent environmental
   -- layers with its own stream, so it cannot perturb their layouts.
-  PoweredDevices.place(state.world, state.settings.terrain, state.player,
-    self.rng:derive("power_devices.stage." .. state.stage))
+  PoweredDevices.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".power_devices"))
   self:validate_world()
-  self:_spawn_entities()
-  self:_log("Descend into the " .. state.settings.terrain .. ".")
+  self:_spawn_entities(floor_rng:derive(stream_prefix .. ".entities"))
+  self:_log("Descend into the " .. (settings.biome_display_name or settings.terrain) .. ".")
   self:refresh_visibility()
   self:validate_physical_ownership()
+end
+
+function Session:start_stage()
+  local state = self.state
+  state.floor_seed = nil
+  state.route_node_id = nil
+  self:_start_floor(self:_settings_for_stage(), self.rng, "stage." .. state.stage)
+end
+
+function Session:start_route_node(node_id)
+  local state, route = self.state, self.state.route
+  assert(route, "Cannot start a route floor without a route graph")
+  local node = assert(route:node(node_id), "Unknown route node " .. tostring(node_id))
+  assert(node.type == "floor", "Route node '" .. node_id .. "' is not a floor")
+  assert(route.current_node_id == node.id, "Route floor must be the current node")
+  local biome = self.route_definitions:get_biome(node.biome_id)
+  local tier = self.route_definitions:get_tier(node.tier_id)
+  state.stage = tier.number -- compatibility depth for older HUD/tests only.
+  state.route_node_id, state.floor_seed = node.id, node.floor_seed
+  self:_start_floor(self:_settings_for_floor(biome, tier), Rng.new(node.floor_seed), "route." .. node.id)
+  return node
 end
 
 function Session:choose_boons(count)
@@ -1678,7 +1780,40 @@ end
 
 function Session:choose_curse(curse)
   self.state.curse = curse
-  self:start_stage()
+  local route = self.state.route
+  if not route then
+    self:start_stage()
+    return { applied = true, next = "combat" }
+  end
+  local choices = route:available()
+  if #choices == 1 then
+    local selected = route:select(choices[1].id)
+    assert(selected.applied, selected.reason)
+    assert(selected.node.type == "floor", "Curse transition must lead to a floor")
+    self:start_route_node(selected.node.id)
+    return { applied = true, next = "combat", node = selected.node }
+  end
+  assert(#choices >= 2, "A curse transition requires one or more route choices")
+  self.state.phase = "route"
+  self.state.transition_next = nil
+  self:_log("Choose the next route.")
+  return { applied = true, next = "route", choices = choices }
+end
+
+function Session:available_route_nodes()
+  local route = self.state.route
+  return route and route:available() or {}
+end
+
+function Session:select_route_node(node_id)
+  local state, route = self.state, self.state.route
+  if not route then return { applied = false, code = "no_route", reason = "No route is active" } end
+  if state.phase ~= "route" then return { applied = false, code = "invalid_phase", reason = "Route selection is not active" } end
+  local selected, failure = route:select(node_id)
+  if not selected then return { applied = false, code = failure.code, reason = failure.reason } end
+  if selected.node.type ~= "floor" then return { applied = false, code = "invalid_node_type", reason = "Only floor nodes may be selected here" } end
+  self:start_route_node(selected.node.id)
+  return { applied = true, node = selected.node }
 end
 
 function Session:_reload(amount, cursed)
@@ -2541,7 +2676,19 @@ end
 function Session:_complete_stage()
   local state = self.state
   state.score = state.score + state.player.score
-  if state.stage < #self.content.stages then
+  if state.route then
+    local completed = state.route:complete_current()
+    assert(completed.applied, completed.reason)
+    local next_nodes = completed.outgoing
+    assert(#next_nodes > 0, "Completed route node has no forward continuation")
+    if #next_nodes == 1 and next_nodes[1].type == "shop" then
+      state.reconstruction_next = "shop"
+    else
+      for _, node in ipairs(next_nodes) do assert(node.type == "floor", "Normal-floor continuation must be a floor route node") end
+      self:draw_curses()
+      state.reconstruction_next = "curse"
+    end
+  elseif state.stage < #self.content.stages then
     state.stage = state.stage + 1
     self:draw_curses()
     state.reconstruction_next = "curse"
@@ -2562,6 +2709,13 @@ function Session:complete_reconstruction()
   self:validate_physical_ownership()
   local result = self.state.reconstruction_next
   assert(result == "curse" or result == "shop", "Reconstruction has no valid continuation")
+  if result == "shop" and self.state.route then
+    local choices = self.state.route:available()
+    assert(#choices == 1 and choices[1].type == "shop", "Route has no shop continuation")
+    local selected = self.state.route:select(choices[1].id)
+    assert(selected.applied, selected.reason)
+    self.state.route_node_id = selected.node.id
+  end
   self.state.phase = "transition"
   self.state.reconstruction_next = nil
   self.state.transition_next = result
@@ -2570,6 +2724,16 @@ end
 
 function Session:start_boss()
   local state, player = self.state, self.state.player
+  if state.route then
+    local current = assert(state.route:node(state.route.current_node_id), "Route current node is missing")
+    assert(current.type == "shop", "Boss may only start from the route shop node")
+    local completed = state.route:complete_current()
+    assert(completed.applied, completed.reason)
+    assert(#completed.outgoing == 1 and completed.outgoing[1].type == "boss", "Route shop has no boss continuation")
+    local selected = state.route:select(completed.outgoing[1].id)
+    assert(selected.applied, selected.reason)
+    state.route_node_id, state.floor_seed = selected.node.id, nil
+  end
   state.transition_next = nil
   player.x, player.y, player.direction, player.score = 20, 9, "w", 0
   player.bombs, player.flares = math.max(1, player.bombs), math.max(1, player.flares)
@@ -2626,7 +2790,7 @@ function Session:turn(input)
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
 
-  if state.phase == "reconstruction" or state.phase == "transition" then
+  if state.phase == "reconstruction" or state.phase == "transition" or state.phase == "route" then
     return "reconstruction"
   end
 
