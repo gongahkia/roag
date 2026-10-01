@@ -6,9 +6,9 @@
   "tags": ["arena", "junction"],
   "weight": 1,
   "allow_rotation": true,
-  "width": 10,
-  "height": 10,
+  "width": 11,
+  "height": 11,
   "connectors": [{"side":"north","offset":5},{"side":"east","offset":5},{"side":"south","offset":5},{"side":"west","offset":5}],
   "legend": {"#":"material.structure.masonry",".":"material.terrain.air"},
-  "layout": ["#####.####","#........#","#........#","#..#..#..#","#........#","..........","#........#","#..#..#..#","#........#","#####.####"]
+  "layout": ["#####.#####","#........##","#........##","#..#..#..##","#.........#","...........","#........##","#........##","#..#..#..##","#........##","#####.#####"]
 }

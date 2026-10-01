@@ -53,7 +53,9 @@ end
 
 function Template.pattern_key(sides)
   local lookup, ordered = {}, {}
-  for _, side in ipairs(sides or {}) do lookup[side] = true end
+  for _, side in ipairs(sides or {}) do
+    lookup[type(side) == "table" and side.side or side] = true
+  end
   for _, side in ipairs(Config.SIDE_ORDER) do if lookup[side] then ordered[#ordered + 1] = side end end
   return table.concat(ordered, "+")
 end
@@ -128,7 +130,8 @@ function Template.validate(template, registry, options)
         else
           connector_points[point_key], connector_sides[connector.side] = true, true
           local glyph = type(template.layout) == "table" and Template.glyph_at({ width = Config.WIDTH, height = Config.HEIGHT, layout = template.layout }, x, y)
-          local _, material = glyph and material_for(template, glyph, registry) or nil
+          local material
+          if glyph then _, material = material_for(template, glyph, registry) end
           if not material or material.blocks_movement then
             error_at(errors, "solid_connector", "Connector " .. connector.side .. "@" .. connector.offset .. " must open onto passable material", { connector = index })
           end
@@ -144,7 +147,8 @@ function Template.validate(template, registry, options)
     for x = 0, Config.WIDTH - 1 do
       for y = 0, Config.HEIGHT - 1 do
         local glyph = Template.glyph_at({ width = Config.WIDTH, height = Config.HEIGHT, layout = template.layout }, x, y)
-        local _, material = glyph and material_for(template, glyph, registry) or nil
+        local material
+        if glyph then _, material = material_for(template, glyph, registry) end
         if material and not material.blocks_movement then
           local point_key = x .. ":" .. y
           passable[point_key] = true
@@ -186,6 +190,9 @@ function Template.validate(template, registry, options)
   end
   if options.existing_ids and template.id and options.existing_ids[template.id] and options.existing_ids[template.id] ~= options.current_id then
     error_at(errors, "duplicate_id", "Duplicate room semantic ID " .. template.id)
+  end
+  for _, error in ipairs(errors) do
+    error.template_id = template.id
   end
   return { valid = #errors == 0, errors = errors, warnings = warnings }
 end

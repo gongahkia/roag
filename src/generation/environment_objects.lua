@@ -43,17 +43,53 @@ local function candidates(world, player)
   return result
 end
 
+-- Cover remains a tactical obstacle, never an unintentional map partition.
+-- Test only randomized candidates until enough non-articulation cells are
+-- found, avoiding an expensive full flood-fill for every open cell.
+local function remains_connected_when_occupied(world, point)
+  local total, first = 0, nil
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      if (x ~= point.x or y ~= point.y) and world:is_passable(x, y) then
+        total = total + 1
+        first = first or { x = x, y = y }
+      end
+    end
+  end
+  if not first then return false end
+  local visited, queue, cursor = { [Grid.key(first.x, first.y)] = true }, { first }, 1
+  while queue[cursor] do
+    local current = queue[cursor]
+    cursor = cursor + 1
+    for _, neighbour in ipairs(Grid.neighbours(current)) do
+      local cell_key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and (neighbour.x ~= point.x or neighbour.y ~= point.y)
+        and world:is_passable(neighbour.x, neighbour.y) and not visited[cell_key] then
+        visited[cell_key] = true
+        queue[#queue + 1] = neighbour
+      end
+    end
+  end
+  local reached = 0
+  for _ in pairs(visited) do reached = reached + 1 end
+  return reached == total
+end
+
 function EnvironmentObjects.place(world, terrain, player, rng)
   local placed = {}
   for _, plan in ipairs(PLANS[terrain] or {}) do
     local options = rng:shuffle(candidates(world, player))
-    for index = 1, math.min(plan.count, #options) do
-      local point = options[index]
-      local object, result = world:place_object(plan.definition_id, point.x, point.y)
-      if object then
-        placed[#placed + 1] = object
-      else
-        assert(result.code == "occupied", result.reason)
+    local count = 0
+    for _, point in ipairs(options) do
+      if count >= plan.count then break end
+      if terrain ~= "dungeon" or remains_connected_when_occupied(world, point) then
+        local object, result = world:place_object(plan.definition_id, point.x, point.y)
+        if object then
+          placed[#placed + 1] = object
+          count = count + 1
+        else
+          assert(result.code == "occupied", result.reason)
+        end
       end
     end
   end

@@ -6,13 +6,16 @@ return {
   VERSION = 1,
   BIOME = "dungeon",
   DIRECTORY = "content/rooms/dungeon",
-  WIDTH = 10,
-  HEIGHT = 10,
+  WIDTH = 11,
+  HEIGHT = 11,
   GRID_WIDTH = 6,
-  GRID_HEIGHT = 4,
+  GRID_HEIGHT = 3,
   ROOM_COUNT = 11,
-  ORIGIN_X = 10,
-  ORIGIN_Y = 5,
+  -- The centred entrance slot's legal local spawn is (5,5), preserving the
+  -- long-standing dungeon generation contract that a supplied 40,25 start is
+  -- open while retaining a solid outer world margin around the chunk grid.
+  ORIGIN_X = 2,
+  ORIGIN_Y = 9,
   TAGS = {
     entrance = true,
     standard = true,

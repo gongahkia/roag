@@ -1,4 +1,5 @@
 local Grid = require("src.world.grid")
+local DungeonRooms = require("src.generation.dungeon_rooms")
 
 local Map = {}
 
@@ -48,7 +49,7 @@ local function walls_near(space, x, y)
   return walls
 end
 
-function Map.generate(terrain, start, rng, arena)
+function Map.generate(terrain, start, rng, arena, options)
   local space = {}
   if arena then
     carve(space, 2, 2, 37, 15)
@@ -56,22 +57,9 @@ function Map.generate(terrain, start, rng, arena)
   end
 
   if terrain == "dungeon" then
-    local rooms = {}
-    for _ = 1, 14 do
-      local width = rng:int(5, 11)
-      local height = rng:int(4, 8)
-      local x = rng:int(1, Grid.width - width - 2)
-      local y = rng:int(1, Grid.height - height - 2)
-      carve(space, x, y, width, height)
-      local center = Grid.cell(x + math.floor(width / 2), y + math.floor(height / 2))
-      if #rooms > 0 then
-        corridor(space, rooms[#rooms], center, rng)
-      end
-      rooms[#rooms + 1] = center
-    end
-    carve(space, start.x - 3, start.y - 3, 7, 7)
-    corridor(space, start, rooms[1], rng)
-    return space
+    local layout, metadata = DungeonRooms.generate(start, options and options.room_rng or rng, options)
+    assert(layout, metadata and metadata.reason or "Dungeon room assembly failed")
+    return layout, metadata
   end
 
   local chance = terrain == "forest" and 0.25 or 0.43

@@ -1625,8 +1625,15 @@ function Session:start_stage()
   state.log = {}
   state.transition_next = nil
   state.phase = "combat"
-  state.world = World.new(self.registry, state.settings.terrain,
-    Generator.generate(state.settings.terrain, state.player, self.rng), state)
+  local layout, generation_metadata = Generator.generate(state.settings.terrain, state.player, self.rng, nil, {
+    registry = self.registry,
+    room_rng = state.settings.terrain == "dungeon" and self.rng:derive("rooms.stage." .. state.stage) or nil,
+  })
+  state.generation_metadata = generation_metadata
+  if generation_metadata and generation_metadata.player_spawn then
+    state.player.x, state.player.y = generation_metadata.player_spawn.x, generation_metadata.player_spawn.y
+  end
+  state.world = World.new(self.registry, state.settings.terrain, layout, state)
   -- Cover uses a named deterministic stream so introducing environmental
   -- placement cannot perturb legacy actor/content RNG decisions.
   EnvironmentObjects.place(state.world, state.settings.terrain, state.player,

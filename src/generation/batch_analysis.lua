@@ -35,8 +35,9 @@ function Batch.run(options)
   local ranges = {
     passable_cells = { total = 0 }, enemies = { total = 0 }, hazards = { total = 0 },
     liquid_volume = { total = 0 }, gas_volume = { total = 0 }, circuits = { total = 0 }, powered_circuits = { total = 0 },
+    room_count = { total = 0 },
   }
-  local material_counts, object_counts = {}, {}
+  local material_counts, object_counts, template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}, {}, {}
   for offset = 0, count - 1 do
     local current_seed = seed + offset
     local floor, failure = make_floor({ stage = stage, seed = current_seed })
@@ -53,6 +54,10 @@ function Batch.run(options)
       for name, range in pairs(ranges) do update_range(range, metrics[name], current_seed) end
       merge_counts(material_counts, metrics.material_counts)
       merge_counts(object_counts, metrics.object_types)
+      merge_counts(template_usage, metrics.template_usage)
+      merge_counts(rotation_counts, metrics.rotation_counts)
+      merge_counts(connector_patterns, metrics.connector_pattern_counts)
+      merge_counts(graph_degrees, metrics.graph_degree_counts)
     end
   end
   local statistics = {}
@@ -73,7 +78,8 @@ function Batch.run(options)
     version = 1,
     options = { stage = stage, terrain = (InspectionFloor.stages()[stage] or {}).terrain, seed = seed, count = count },
     summary = { generated = report_count, failures = #failures, statistics = statistics, outliers = outliers,
-      material_counts = material_counts, object_counts = object_counts },
+      material_counts = material_counts, object_counts = object_counts, template_usage = template_usage,
+      rotation_counts = rotation_counts, connector_pattern_counts = connector_patterns, graph_degree_counts = graph_degrees },
     failures = failures,
     reports = reports,
     reports_included = retain_reports,

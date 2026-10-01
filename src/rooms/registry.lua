@@ -67,11 +67,12 @@ function RoomRegistry:coverage()
   return { valid = #missing == 0, patterns = patterns, missing = missing }
 end
 
-function RoomRegistry:candidates(required_sides, tags)
+function RoomRegistry:candidates(required_sides, tags, exclude_tags)
   local result = {}
   for _, template in ipairs(self:list()) do
     local allowed = true
     for _, tag in ipairs(tags or {}) do if not has_tag(template, tag) then allowed = false break end end
+    for _, tag in ipairs(exclude_tags or {}) do if has_tag(template, tag) then allowed = false break end end
     if allowed then
       local rotations = template.allow_rotation and 4 or 1
       for turn = 0, rotations - 1 do

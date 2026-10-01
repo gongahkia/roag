@@ -78,6 +78,34 @@ function Store:write(filename, text)
   return true
 end
 
+-- The manifest is part of the authored corpus index, not an arbitrary editor
+-- path.  Keeping its write path separate preserves the normal room-file path
+-- guard while allowing a new validated template to become discoverable.
+function Store:write_manifest(files)
+  if not self:can_write() then
+    return nil, { code = "read_only", reason = "Packaged room content is read-only; run the editor from a source checkout" }
+  end
+  if type(files) ~= "table" then return nil, { code = "invalid_manifest", reason = "Room manifest files must be an array" } end
+  local values, seen = {}, {}
+  for _, filename in ipairs(files) do
+    if not safe_filename(filename) or seen[filename] then
+      return nil, { code = "invalid_manifest", reason = "Room manifest has invalid filename" }
+    end
+    seen[filename] = true
+    values[#values + 1] = filename
+  end
+  table.sort(values)
+  local text, encode_error = Json.encode({ format = "roag.room_manifest", version = 1, files = values })
+  if not text then return nil, { code = "write_failed", reason = tostring(encode_error) } end
+  if self.files then self.files["manifest.json"] = text; return true end
+  local path = self.directory .. "/manifest.json"
+  local handle, error_message = io.open(path, "wb")
+  if not handle then return nil, { code = "write_failed", reason = tostring(error_message) } end
+  handle:write(text)
+  handle:close()
+  return true
+end
+
 function Store.memory(files, writable)
   return Store.new({ files = files or {}, writable = writable ~= false })
 end

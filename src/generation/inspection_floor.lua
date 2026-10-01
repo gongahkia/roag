@@ -46,6 +46,7 @@ local function provenance_for(session)
   local stage = session.state.stage
   local streams = {
     "terrain.root_rng",
+    "rooms.stage." .. stage,
     "world_objects.stage." .. stage,
     "hazards.stage." .. stage,
     "liquids.stage." .. stage,
@@ -64,6 +65,7 @@ local function provenance_for(session)
     gases = {},
   }
   local world, state = session.state.world, session.state
+  result.rooms = state.generation_metadata
   for _, object in ipairs(world:list_objects()) do
     result.objects[object.id] = object.interaction_role and ("power_devices.stage." .. stage)
       or ("world_objects.stage." .. stage)

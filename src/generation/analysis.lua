@@ -2,6 +2,7 @@
 -- separate from the renderer and command line so the interactive inspector
 -- and batch analyzer observe the same world facts.
 local Grid = require("src.world.grid")
+local RoomTemplate = require("src.rooms.template")
 
 local Analysis = {}
 
@@ -249,6 +250,15 @@ function Analysis.analyze(world, metadata)
 
   local enemy_counts = {}
   for _, enemy in ipairs(enemies) do increment(enemy_counts, enemy.semantic_id) end
+  local room_metadata = metadata.provenance and metadata.provenance.rooms or nil
+  local rooms, template_usage, rotation_counts, connector_patterns, degree_counts = {}, {}, {}, {}, {}
+  for _, room in ipairs(room_metadata and room_metadata.rooms or {}) do
+    rooms[#rooms + 1] = room
+    increment(template_usage, room.template_id)
+    increment(rotation_counts, tostring(room.rotation))
+    increment(connector_patterns, RoomTemplate.pattern_key(room.required_connectors))
+    increment(degree_counts, tostring(#(room.required_connectors or {})))
+  end
   local valid = #errors == 0
   return {
     format = "roag.generation_report",
@@ -258,6 +268,7 @@ function Analysis.analyze(world, metadata)
     stage = metadata.stage,
     terrain = metadata.terrain or world.terrain,
     generation_streams = metadata.provenance and metadata.provenance.streams or {},
+    room_provenance = room_metadata,
     errors = errors,
     warnings = warnings,
     player_spawn = player and { x = player.x, y = player.y, nearby_passable_cells = player_exits, component_id = player_component } or nil,
@@ -297,6 +308,11 @@ function Analysis.analyze(world, metadata)
         for _, circuit in ipairs(circuits) do if circuit.powered then count = count + 1 end end
         return count
       end)(),
+      room_count = #rooms,
+      template_usage = template_usage,
+      rotation_counts = rotation_counts,
+      connector_pattern_counts = connector_patterns,
+      graph_degree_counts = degree_counts,
     },
     objects = objects,
     enemies = enemies,
@@ -305,6 +321,7 @@ function Analysis.analyze(world, metadata)
     gases = gases,
     circuits = circuits,
     fires = fires,
+    rooms = rooms,
   }
 end
 
@@ -335,6 +352,8 @@ function Analysis.overlay_model(world, report)
     power = report.circuits,
     objectives = { player_spawn = report.player_spawn, exit = report.exit, targets = report.objectives },
     conductivity = conductivity,
+    rooms = report.rooms,
+    room_provenance = report.room_provenance,
   }
 end
 
