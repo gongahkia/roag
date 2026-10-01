@@ -194,7 +194,7 @@ function Template.validate(template, registry, options)
       if not visited[point_key] then error_at(errors, "disconnected_connector", "Connector does not reach the primary passable region", { point = point_key }) end
     end
   end
-  if options.existing_ids and template.id and options.existing_ids[template.id] and options.existing_ids[template.id] ~= options.current_id then
+  if options.existing_ids and template.id and options.existing_ids[template.id] and options.current_id ~= template.id then
     error_at(errors, "duplicate_id", "Duplicate room semantic ID " .. template.id)
   end
   for _, error in ipairs(errors) do

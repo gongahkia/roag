@@ -6,7 +6,8 @@ Launch the isolated authoring tool from a source checkout:
 love level_editor --room-editor
 ```
 
-The legacy `love . --room-editor` route remains available. See
+The legacy `love . --room-editor` route remains available. Press `C` in the
+editor to switch between the Dungeon and Reactor corpora. See
 [`level_editor/README.md`](../level_editor/README.md) for the consolidated
 level-tool documentation.
 

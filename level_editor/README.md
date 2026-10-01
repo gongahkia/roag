@@ -12,7 +12,7 @@ love level_editor --room-editor
 ```
 
 The first command opens the read-only Generation Inspector. The second opens
-the writable dungeon Room Template Editor. The legacy developer launch routes
+the writable Room Template Editor. The legacy developer launch routes
 remain available for compatibility:
 
 ```console
@@ -42,11 +42,15 @@ systems that do not currently exist.
 
 ## Room Template Editor
 
-The room editor works on one `content/rooms/dungeon/*.room.json` template at a
-time. It refuses invalid saves and only writes inside the room corpus when run
-from a source checkout. Packaged content is read-only.
+The room editor works on one `content/rooms/<corpus>/*.room.json` template at a
+time. It refuses invalid saves and only writes inside the selected corpus when
+run from a source checkout. Packaged content is read-only. Press `C` to switch
+between the Dungeon and Reactor corpora; the browser, new-room IDs, tags, and
+material palette update together.
 
-- Click or drag: paint the selected tile (`1` masonry wall; `2` open floor).
+- Click or drag: paint the selected tile. The numbered palette at right shows
+  the legal materials for the selected corpus (Reactor includes conductive
+  deck plating and industrial bulkheads).
 - Right click a boundary cell: add/remove its explicit connector.
 - `[` / `]`: browse templates. `N`: new. `D`: duplicate. `I`: edit a new or
   duplicated room's semantic ID.
@@ -68,4 +72,5 @@ luajit tools/analyze_generation.lua --stage cave --seed 1000 --count 500
 luajit tools/analyze_generation.lua --biome biome.legacy.forest --tier 2 --seed 3000 --count 100
 luajit tools/validate_content.lua
 luajit tools/validate_dungeon_rooms.lua 500
+luajit tools/validate_reactor_rooms.lua 500
 ```

@@ -12,7 +12,7 @@ Inspector.__index = Inspector
 local LAYER_KEYS = {
   ["1"] = "terrain", ["2"] = "connectivity", ["3"] = "actors", ["4"] = "objects",
   ["5"] = "hazards", ["6"] = "liquids", ["7"] = "gas", ["8"] = "power",
-  ["9"] = "objectives", c = "conductivity", m = "metadata", t = "rooms",
+  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms",
 }
 
 local REGION_COLORS = {
@@ -53,7 +53,7 @@ function Inspector.new(options)
     seed_text = tostring(math.floor(tonumber(options.seed) or 1)),
     layers = {
       terrain = true, connectivity = false, actors = true, objects = true, hazards = true,
-      liquids = true, gas = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false,
+      liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false,
     },
     zoom = 10,
     pan_x = 0,
@@ -273,6 +273,16 @@ function Inspector:_draw_media()
       love.graphics.circle("fill", sx + self.zoom * 0.5, sy + self.zoom * 0.5, math.max(1, self.zoom * (0.16 + ratio * 0.28)))
     end
   end
+  if self.layers.fires then
+    for _, fire in ipairs(self.report.fires) do
+      if fire.active then
+        local sx, sy = self:_screen_point(fire.x, fire.y)
+        self:_set_color({ 1, 0.34, 0.08, 0.9 })
+        love.graphics.polygon("fill", sx + self.zoom * 0.22, sy + self.zoom * 0.8,
+          sx + self.zoom * 0.5, sy + self.zoom * 0.13, sx + self.zoom * 0.78, sy + self.zoom * 0.8)
+      end
+    end
+  end
   if self.layers.hazards then
     for _, hazard in ipairs(self.report.hazards) do
       if hazard.active then
@@ -415,7 +425,7 @@ function Inspector:draw()
   self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
   self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
   local active_layers = {}
-  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "power", "objectives", "conductivity", "metadata", "rooms" }) do
+  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
   self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
@@ -435,7 +445,7 @@ function Inspector:draw()
   end
   if self.help then
     self:_draw_text("1 terrain  2 connectivity  3 actors  4 objects  5 hazards", self.viewport.x, height - 34, { 0.75, 0.82, 0.9 })
-    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  C conductivity  M provenance  T rooms | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
+    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  0 fire  C conductivity  M provenance  T rooms | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
   end
   if self.error then self:_draw_text(self.error, self.viewport.x, 18, { 1, 0.35, 0.3 }) end
 end

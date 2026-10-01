@@ -7,7 +7,10 @@ local JSON_FILE = "mappings.json"
 local DEFAULT_MAPPINGS = {
   player={25,1}, target={38,3}, ammo={23,5}, torch={20,7}, door={22,1},
   bullet={34,3}, bomb={38,6}, flare={23,6}, necromancer={27,10}, wolf={31,9},
-  bomber={20,9}, cultist={28,10}, boss={30,2},
+  bomber={20,9}, cultist={28,10}, ripper={31,9}, skirmisher={29,10},
+  conductor={27,10}, bulwark={30,9}, reclaimer={26,10}, gunner_elite={25,10},
+  shock_bruiser={28,9}, volatile_heavy={20,9}, arc_cutter={27,10},
+  maintenance_heavy={30,9}, reactor_suppressor={29,10}, arc_warden={28,9}, boss={30,2},
 }
 local ROLES = {
   {key="player", label="Player"}, {key="target", label="Target"},
@@ -16,6 +19,12 @@ local ROLES = {
   {key="bomb", label="Bomb"}, {key="flare", label="Flare"},
   {key="wolf", label="Wolf"}, {key="bomber", label="Bomber"},
   {key="necromancer", label="Necromancer"}, {key="cultist", label="Cultist"},
+  {key="ripper", label="Ripper"}, {key="skirmisher", label="Skirmisher"},
+  {key="conductor", label="Conductor"}, {key="bulwark", label="Bulwark"},
+  {key="reclaimer", label="Reclaimer"}, {key="gunner_elite", label="Redundant gunner"},
+  {key="shock_bruiser", label="Shock bruiser"}, {key="volatile_heavy", label="Volatile heavy"},
+  {key="arc_cutter", label="Arc cutter"}, {key="maintenance_heavy", label="Maintenance heavy"},
+  {key="reactor_suppressor", label="Reactor suppressor"}, {key="arc_warden", label="Arc warden"},
   {key="boss", label="Boss"},
 }
 
@@ -60,7 +69,8 @@ local function editor_layout()
     sheet_width=sheet_width, sheet_height=sheet_height,
     viewport_x=viewport_x, viewport_y=viewport_y,
     viewport_width=viewport_width, viewport_height=viewport_height,
-    role_x=24, role_y=154, role_width=380, role_height=30,
+    role_x=24, role_y=154, role_width=380,
+    role_height=math.max(18,math.floor((height-154-112)/#ROLES)),
     button_y=height-76,
   }
 end
@@ -205,8 +215,9 @@ function love.draw()
     local y=layout.role_y+(index-1)*layout.role_height
     if index==selected_role then set_color(.13,.22,.3);love.graphics.rectangle("fill",layout.role_x,y,layout.role_width,layout.role_height-3) end
     local tile=mappings[role.key]
-    love.graphics.draw(sheet,quads[tile[1]..":"..tile[2]],layout.role_x+6,y+3,0,1.5,1.5)
-    draw_text(role.label.."  ["..tile[1]..", "..tile[2].."]",layout.role_x+36,y+6,.9,index==selected_role and .95 or .78,index==selected_role and .85 or .83,index==selected_role and .3 or .9)
+    local icon_scale=math.min(1.5,math.max(1,(layout.role_height-6)/16))
+    love.graphics.draw(sheet,quads[tile[1]..":"..tile[2]],layout.role_x+6,y+2,0,icon_scale,icon_scale)
+    draw_text(role.label.."  ["..tile[1]..", "..tile[2].."]",layout.role_x+32,y+math.max(2,math.floor((layout.role_height-14)/2)),.82,index==selected_role and .95 or .78,index==selected_role and .85 or .83,index==selected_role and .3 or .9)
   end
 
   set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.viewport_x-4,layout.viewport_y-4,layout.viewport_width+8,layout.viewport_height+8)
