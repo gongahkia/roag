@@ -8,6 +8,7 @@ local Grid = require("src.world.grid")
 local RouteGraph = require("src.routes.graph")
 local RouteDefinitions = require("src.routes.definitions")
 local RouteAnalysis = require("src.routes.analysis")
+local Json = require("src.persistence.json")
 
 local function profile_with(ids, data)
   return { research_data = data or 0, unlocked_research_ids = ids or {}, next_run_sequence = 1, claimed_reward_ids = {} }
@@ -51,17 +52,45 @@ return {
     run = function()
       local registry, profile = Registry.load(), MetaProfile.new()
       profile.research_data = 10
-      local missing = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_ii")
-      assert(not missing and false or missing.code == "missing_prerequisite")
+      local missing, missing_error = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_ii")
+      assert(not missing and missing_error.code == "missing_prerequisite")
       local first = assert(MetaProfile.purchase(profile, registry, "research.body.hardened_frame_i"))
       assert(first.applied and profile.research_data == 9)
-      local duplicate = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_i")
-      assert(not duplicate and false or duplicate.code == "already_unlocked")
+      local duplicate, duplicate_error = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_i")
+      assert(not duplicate and duplicate_error.code == "already_unlocked")
       local second = assert(MetaProfile.purchase(profile, registry, "research.body.hardened_frame_ii"))
       assert(second.applied)
       profile.research_data = 0
-      local poor = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_iii")
-      assert(not poor and false or poor.code == "insufficient_research_data")
+      local poor, poor_error = MetaProfile.purchase(profile, registry, "research.body.hardened_frame_iii")
+      assert(not poor and poor_error.code == "insufficient_research_data")
+    end,
+  },
+  {
+    name = "research content rejects prerequisite cycles and profile unknown IDs",
+    run = function()
+      local function source_set(research)
+        return {
+          abilities = require("content.abilities.legacy"), materials = require("content.materials.legacy"), liquids = require("content.liquids.legacy"),
+          gases = require("content.gases.legacy"), world_objects = require("content.world_objects.legacy"), hazards = require("content.hazards.legacy"),
+          components = require("content.components.legacy"), topologies = require("content.body_topologies.normal"), actors = require("content.actors.player_legacy"),
+          enemies = require("content.enemies.legacy"), services = require("content.services.legacy"), boons = require("content.boons.legacy"),
+          charms = require("content.charms.legacy"), curses = require("content.curses.legacy"), research = research,
+        }
+      end
+      local nodes = {}
+      for _, node in ipairs(require("content.research.legacy")) do
+        local copy = {}; for key, value in pairs(node) do copy[key] = value end
+        local prerequisites = {}; for _, id in ipairs(node.prerequisites) do prerequisites[#prerequisites + 1] = id end
+        copy.prerequisites = prerequisites
+        nodes[#nodes + 1] = copy
+      end
+      nodes[1].prerequisites = { nodes[2].id }
+      nodes[2].prerequisites = { nodes[1].id }
+      local ok, error_data = pcall(Registry.new, source_set(nodes))
+      assert(not ok and tostring(error_data):find("cycle", 1, true))
+      local profile = profile_with({ "research.body.unknown" })
+      local valid, failure = pcall(MetaProfile.validate, profile, Registry.load())
+      assert(not valid and tostring(failure):find("unknown research ID", 1, true))
     end,
   },
   {
@@ -82,7 +111,8 @@ return {
       assert(session:has_meta_unlock("unlock.traversal.reinforced_breach"))
       local existing_dash, existing_slots = session.state.player.dash_base, require("src.simulation.run_modifiers").charm_slots(session.state)
       profile.research_data = 10
-      assert(MetaProfile.purchase(profile, registry, "research.preparation.salvage_reserve").code == "already_unlocked")
+      local duplicate, duplicate_error = MetaProfile.purchase(profile, registry, "research.preparation.salvage_reserve")
+      assert(not duplicate and duplicate_error.code == "already_unlocked")
       assert(session.state.player.dash_base == existing_dash and require("src.simulation.run_modifiers").charm_slots(session.state) == existing_slots)
       local impaired = session.state.player
       local legs = impaired.body:list_components()
@@ -127,7 +157,7 @@ return {
       local barrier = assert(fresh.state.world:place_object("world_object.traversal.reinforced_barrier", point.x, point.y))
       local blocked = fresh:interact(fresh.state.player, barrier.id, "traversal.breach")
       assert(not blocked.applied and blocked.code == "requires_unlock" and not barrier.destroyed)
-      assert(fresh:damage_world_object(barrier, { amount = 2, cause = "projectile" }).new_integrity == 97 and not barrier.destroyed)
+      assert(fresh:damage_world_object(barrier, { amount = 2, cause = "kinetic" }).new_integrity == 97 and not barrier.destroyed)
       local profile = profile_with({ "research.traversal.reinforced_breach" })
       local unlocked = new_session(99005, profile)
       point = adjacent_open(unlocked)
@@ -145,13 +175,13 @@ return {
     name = "route unlock gates one optional branch while fresh and unlocked routes reach boss",
     run = function()
       local definitions = RouteDefinitions.load()
-      local fresh = Graph.new(99006, definitions)
+      local fresh = RouteGraph.new(99006, definitions)
       assert(fresh:complete_current().applied)
       local forest
       for _, node in ipairs(fresh:available()) do if node.key == "forest_tier_2" then forest = node end end
       assert(forest and fresh:select(forest.id).applied and fresh:complete_current().applied)
       assert(#fresh:available() == 2)
-      local unlocked = Graph.new(99006, definitions, nil, { "unlock.traversal.reinforced_breach" })
+      local unlocked = RouteGraph.new(99006, definitions, nil, { "unlock.traversal.reinforced_breach" })
       assert(unlocked:complete_current().applied)
       for _, node in ipairs(unlocked:available()) do if node.key == "forest_tier_2" then assert(unlocked:select(node.id).applied) end end
       assert(unlocked:complete_current().applied and #unlocked:available() == 3)
@@ -180,6 +210,30 @@ return {
       assert(option and option.available)
       assert(active:read() == "active")
       assert(meta:read() ~= "active")
+    end,
+  },
+  {
+    name = "research purchases during an active run apply only to a later snapshot and legacy saves migrate safely",
+    run = function()
+      local active, meta = SaveStore.memory(), SaveStore.memory()
+      local app = App.new({ seed = 99008, save_store = active, meta_store = meta })
+      app.meta_profile.research_data = 5
+      assert(MetaProfile.save(app.meta_profile, meta, app.registry))
+      assert(app:request_new_run())
+      local current_health = app.session.state.player.max_health
+      app:open_research()
+      app.research_category_index, app.research_node_index = 1, 1 -- BODY / Hardened Frame I
+      local bought = app:purchase_selected_research()
+      assert(bought.applied and app.session.state.player.max_health == current_health)
+      local future = Session.new({ seed = 99009, registry = app.registry, run_id = "run:000200", meta_snapshot = MetaProfile.snapshot(app.meta_profile, app.registry) })
+      future:start_run()
+      assert(future.state.player.max_health == current_health + 1)
+      local old_data = app.session:to_data()
+      old_data.progression.meta_snapshot, old_data.progression.run_id, old_data.progression.meta_reward_events = nil, nil, nil
+      local world_text = assert(Json.encode(old_data.world))
+      local restored = Session.from_data(old_data, { registry = app.registry, meta_snapshot = MetaProfile.snapshot(app.meta_profile, app.registry) })
+      assert(assert(Json.encode(restored.state.world:to_data())) == world_text)
+      assert(restored.state.meta_snapshot.modifiers.max_health == 1)
     end,
   },
 }

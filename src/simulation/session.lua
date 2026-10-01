@@ -58,6 +58,7 @@ local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
   cultist = "enemy.legacy.cultist",
 }
+local META_MODIFIER_KEYS = { max_health = true, dash_cooldown = true, charm_slots = true, inventory_rows = true, starting_scrap = true }
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -90,10 +91,17 @@ end
 
 local function copy_meta_snapshot(snapshot)
   local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {} }
-  for _, id in ipairs(snapshot and snapshot.unlocked_research_ids or {}) do result.unlocked_research_ids[#result.unlocked_research_ids + 1] = id end
-  for _, id in ipairs(snapshot and snapshot.unlock_ids or {}) do result.unlock_ids[#result.unlock_ids + 1] = id end
+  local seen_research, seen_unlocks = {}, {}
+  for _, id in ipairs(snapshot and snapshot.unlocked_research_ids or {}) do
+    assert(type(id) == "string" and id:match("^research%.[a-z0-9_%.]+$") and not seen_research[id], "Run meta snapshot research ID is invalid")
+    seen_research[id] = true; result.unlocked_research_ids[#result.unlocked_research_ids + 1] = id
+  end
+  for _, id in ipairs(snapshot and snapshot.unlock_ids or {}) do
+    assert(type(id) == "string" and id:match("^unlock%.[a-z0-9_%.]+$") and not seen_unlocks[id], "Run meta snapshot unlock ID is invalid")
+    seen_unlocks[id] = true; result.unlock_ids[#result.unlock_ids + 1] = id
+  end
   for key, value in pairs(snapshot and snapshot.modifiers or {}) do
-    assert(type(key) == "string" and type(value) == "number" and value % 1 == 0, "Run meta snapshot modifier is invalid")
+    assert(META_MODIFIER_KEYS[key] and type(value) == "number" and value % 1 == 0, "Run meta snapshot modifier is invalid")
     result.modifiers[key] = value
   end
   table.sort(result.unlocked_research_ids)
@@ -857,6 +865,7 @@ function Session:run_data()
       route = self.state.route and self.state.route:to_data() or nil,
       run_id = self.state.run_id,
       meta_snapshot = copy_meta_snapshot(self.state.meta_snapshot),
+      meta_reward_events = {},
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -1386,13 +1395,17 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
       dead = true
     end
   end
-  return {
+  local data = {
     applied = true,
     amount = amount,
     body_damage = body_damage,
     dead = dead,
     provenance = provenance,
   }
+  for _, event in ipairs(self.state.meta_reward_events or {}) do
+    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+  end
+  return data
 end
 
 function Session:_apply_hazard_effect(actor, hazard, definition, context)

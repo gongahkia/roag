@@ -99,7 +99,12 @@ function App:_claim_meta_reward(reward_id, amount)
 end
 
 function App:_allocate_new_run()
-  if self.meta_error then return nil, self.meta_error end
+  if self.meta_error then
+    -- A corrupt profile must never trap or overwrite an otherwise playable
+    -- game. This fallback deliberately has no persistent reward handler and
+    -- leaves the damaged profile untouched for manual recovery.
+    return "unprofiled:" .. tostring(self.seed_stream.seed), MetaProfile.snapshot(MetaProfile.new(), self.registry)
+  end
   local candidate = MetaProfile.copy(self.meta_profile)
   local run_id = MetaProfile.allocate_run(candidate)
   local saved, error_data = self:_save_meta(candidate)
@@ -318,6 +323,15 @@ function App:route_options()
     }
   end
   return result
+end
+
+function App:unlock_display_name(unlock_id)
+  for _, node in pairs(self.registry.research) do
+    for _, granted in ipairs(node.unlocks or {}) do
+      if granted == unlock_id then return node.display_name end
+    end
+  end
+  return "RESEARCH REQUIRED"
 end
 
 function App:select_route_choice()

@@ -702,7 +702,8 @@ function Renderer:_draw_route(app)
     local first, second = positions[edge.from], positions[edge.to]
     if first and second then
       local completed = route.completed_node_ids[edge.from]
-      self:_color(completed and { 0.42, 0.74, 0.68, 0.9 } or { 0.22, 0.31, 0.42, 0.85 })
+      local locked = edge.requires_unlock and not route:has_unlock(edge.requires_unlock)
+      self:_color(locked and { 0.62, 0.24, 0.18, 0.9 } or (completed and { 0.42, 0.74, 0.68, 0.9 } or { 0.22, 0.31, 0.42, 0.85 }))
       love.graphics.setLineWidth(completed and 3 or 2)
       love.graphics.line(first.x + 62, first.y, second.x - 62, second.y)
     end
@@ -711,18 +712,24 @@ function Renderer:_draw_route(app)
 
   local options = app:route_options()
   local selected_id = options[app.menu] and options[app.menu].node_id
+  local locked_current = {}
+  if route.completed_node_ids[route.current_node_id] then
+    for _, entry in ipairs(route:locked_outgoing(route.current_node_id)) do locked_current[entry.node.id] = entry.requires_unlock end
+  end
   for _, id in ipairs(route.node_order) do
     local node, position = route:node(id), positions[id]
-    local status = route:status(id)
+    local status = locked_current[id] and "locked" or route:status(id)
     local tint = {
       future = { 0.12, 0.16, 0.23 }, completed = { 0.12, 0.29, 0.25 },
       completed_current = { 0.12, 0.29, 0.25 }, current = { 0.16, 0.3, 0.42 },
       available = { 0.26, 0.35, 0.16 },
+      locked = { 0.32, 0.13, 0.12 },
     }
     local text_tint = {
       future = { 0.47, 0.55, 0.65 }, completed = { 0.58, 0.9, 0.76 },
       completed_current = { 0.58, 0.9, 0.76 }, current = { 0.78, 0.9, 1 },
       available = { 1, 0.88, 0.3 },
+      locked = { 1, 0.48, 0.32 },
     }
     local selected = node.id == selected_id
     self:_color(tint[status] or tint.future)
@@ -735,7 +742,8 @@ function Renderer:_draw_route(app)
     if node.type == "floor" then
       local biome = session.route_definitions:get_biome(node.biome_id)
       local tier = session.route_definitions:get_tier(node.tier_id)
-      label, detail = biome.display_name, "TIER " .. tier.number .. " • " .. session.registry:get_service(node.service_id).display_name
+      label, detail = biome.display_name, locked_current[id] and ("REQUIRES " .. string.upper(app:unlock_display_name(locked_current[id])))
+        or ("TIER " .. tier.number .. " • " .. session.registry:get_service(node.service_id).display_name)
     else
       label, detail = string.upper(node.type), status == "future" and "LOCKED" or string.upper(status)
     end

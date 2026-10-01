@@ -48,10 +48,13 @@ function MetaProfile.validate(profile, registry)
     "Meta profile research_data must be a non-negative integer")
   assert(type(profile.next_run_sequence) == "number" and profile.next_run_sequence >= 1 and profile.next_run_sequence % 1 == 0,
     "Meta profile next_run_sequence must be a positive integer")
-  local unlocked = sorted_unique(profile.unlocked_research_ids, "Meta profile unlocked research IDs")
+  local unlocked, unlocked_set = sorted_unique(profile.unlocked_research_ids, "Meta profile unlocked research IDs")
   local claims = sorted_unique(profile.claimed_reward_ids, "Meta profile claimed reward IDs")
   for _, id in ipairs(unlocked) do
     assert(registry.research[id], "Meta profile references unknown research ID '" .. id .. "'")
+    for _, prerequisite in ipairs(registry:get_research(id).prerequisites or {}) do
+      assert(unlocked_set[prerequisite], "Meta profile research '" .. id .. "' is missing prerequisite '" .. prerequisite .. "'")
+    end
   end
   for _, id in ipairs(claims) do
     assert(id:match("^[%w:_%.%-]+$"), "Meta profile has malformed claimed reward ID '" .. id .. "'")

@@ -103,6 +103,7 @@ local function provenance_for(session)
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".liquids",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".gases",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".power_devices",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".traversal",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".services",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".entities",
   }
@@ -120,7 +121,8 @@ local function provenance_for(session)
   result.rooms = state.generation_metadata
   for _, object in ipairs(world:list_objects()) do
     result.objects[object.id] = object.interaction_role == "service" and "inspection.services"
-      or (object.interaction_role and "inspection.power_devices" or "inspection.world_objects")
+      or (object.interaction_role == "traversal" and "inspection.traversal"
+        or (object.interaction_role and "inspection.power_devices" or "inspection.world_objects"))
   end
   for _, hazard in ipairs(world:list_hazards()) do
     result.hazards[hazard.id] = "inspection.hazards"

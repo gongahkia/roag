@@ -111,6 +111,17 @@ function Graph:available_outgoing(id)
   return result
 end
 
+function Graph:locked_outgoing(id)
+  local result = {}
+  for _, edge in ipairs(self.edges) do
+    if edge.from == id and edge.requires_unlock and not self:_edge_available(edge) then
+      result[#result + 1] = { node = self.nodes[edge.to], requires_unlock = edge.requires_unlock }
+    end
+  end
+  table.sort(result, function(first, second) return first.node.id < second.node.id end)
+  return result
+end
+
 function Graph:incoming(id)
   local result = {}
   for _, edge in ipairs(self.edges) do
