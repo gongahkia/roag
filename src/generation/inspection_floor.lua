@@ -103,6 +103,7 @@ local function provenance_for(session)
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".liquids",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".gases",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".power_devices",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".fires",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".traversal",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".services",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".entities",
@@ -116,6 +117,7 @@ local function provenance_for(session)
     hazards = {},
     liquids = {},
     gases = {},
+    fires = {},
   }
   local world, state = session.state.world, session.state
   result.rooms = state.generation_metadata
@@ -135,6 +137,9 @@ local function provenance_for(session)
   end
   for _, gas in ipairs(world:list_gases()) do
     result.gases[gas.x .. ":" .. gas.y] = "inspection.gases"
+  end
+  for _, fire in ipairs(world:list_fires(true)) do
+    result.fires[fire.id] = "inspection.fires"
   end
   for index in ipairs(state.targets) do
     result.targets[index] = "inspection.entities.targets"

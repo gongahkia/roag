@@ -66,7 +66,7 @@ io.write(string.format("ROAG generation analysis — %s tier %s (%s), seeds %d..
   report.options.seed + report.options.count - 1))
 io.write(string.format("Generated: %d  Structural failures: %d\n", summary.generated, summary.failures))
 io.write("Metrics:\n")
-for _, name in ipairs({ "passable_cells", "enemies", "elite_enemies", "hazards", "liquid_volume", "gas_volume", "circuits", "powered_circuits", "room_count" }) do
+for _, name in ipairs({ "passable_cells", "enemies", "elite_enemies", "hazards", "liquid_volume", "gas_volume", "active_fires", "circuits", "powered_circuits", "room_count" }) do
   print_range(name, summary.statistics[name])
 end
 print_counts("materials", summary.material_counts)
@@ -76,6 +76,7 @@ print_counts("objects", summary.object_counts)
 print_counts("room templates", summary.template_usage)
 print_counts("room rotations", summary.rotation_counts)
 print_counts("connector patterns", summary.connector_pattern_counts)
+io.write(string.format("  fire floors: %d / %d\n", summary.fire_floor_count or 0, summary.generated))
 io.write(string.format("Outliers: smallest-area=%s, largest-area=%s, most-enemies=%s, most-hazards=%s, most-liquid=%s, most-gas=%s\n",
   tostring(summary.outliers.smallest_passable_area.seed), tostring(summary.outliers.largest_passable_area.seed),
   tostring(summary.outliers.most_enemies.seed), tostring(summary.outliers.most_hazards.seed),

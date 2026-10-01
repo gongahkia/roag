@@ -40,9 +40,10 @@ function Batch.run(options)
   local ranges = {
     passable_cells = { total = 0 }, enemies = { total = 0 }, hazards = { total = 0 },
     liquid_volume = { total = 0 }, gas_volume = { total = 0 }, circuits = { total = 0 }, powered_circuits = { total = 0 },
-    room_count = { total = 0 }, elite_enemies = { total = 0 },
+    room_count = { total = 0 }, elite_enemies = { total = 0 }, active_fires = { total = 0 },
   }
   local material_counts, object_counts, enemy_counts, enemy_capabilities, template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}, {}, {}, {}, {}
+  local fire_floor_count = 0
   for offset = 0, count - 1 do
     local current_seed = seed + offset
     local floor, failure = make_floor({ stage = stage, biome = biome.id, tier = tier.id, seed = current_seed })
@@ -57,6 +58,7 @@ function Batch.run(options)
       if retain_reports then reports[#reports + 1] = report end
       if not report.valid then failures[#failures + 1] = { seed = current_seed, errors = report.errors } end
       local metrics = report.metrics
+      if metrics.active_fires > 0 then fire_floor_count = fire_floor_count + 1 end
       for name, range in pairs(ranges) do update_range(range, metrics[name], current_seed) end
       merge_counts(material_counts, metrics.material_counts)
       merge_counts(object_counts, metrics.object_types)
@@ -88,7 +90,8 @@ function Batch.run(options)
     summary = { generated = report_count, failures = #failures, statistics = statistics, outliers = outliers,
       material_counts = material_counts, object_counts = object_counts, template_usage = template_usage,
       enemy_counts = enemy_counts, enemy_capabilities = enemy_capabilities,
-      rotation_counts = rotation_counts, connector_pattern_counts = connector_patterns, graph_degree_counts = graph_degrees },
+      rotation_counts = rotation_counts, connector_pattern_counts = connector_patterns, graph_degree_counts = graph_degrees,
+      fire_floor_count = fire_floor_count },
     failures = failures,
     reports = reports,
     reports_included = retain_reports,

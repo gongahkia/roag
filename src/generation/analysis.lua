@@ -248,7 +248,11 @@ function Analysis.analyze(world, metadata)
   local circuits = {}
   for _, circuit in ipairs(world:list_circuits()) do circuits[#circuits + 1] = assert(world:inspect_circuit(circuit.id)) end
   local fires = {}
-  for _, fire in ipairs(world:list_fires(true)) do fires[#fires + 1] = assert(world:inspect_fire(fire)) end
+  for _, fire in ipairs(world:list_fires(true)) do
+    local inspected = assert(world:inspect_fire(fire))
+    inspected.placed_by = metadata.provenance and metadata.provenance.fires and metadata.provenance.fires[fire.id]
+    fires[#fires + 1] = inspected
+  end
 
   local enemy_counts, enemy_capabilities, elite_count = {}, {}, 0
   for _, enemy in ipairs(enemies) do
@@ -312,6 +316,7 @@ function Analysis.analyze(world, metadata)
       gas_cells = #gases,
       gas_volume = gas_volume,
       harmful_gas_cells = harmful_gas_cells,
+      active_fires = #fires,
       circuits = #circuits,
       powered_circuits = (function()
         local count = 0

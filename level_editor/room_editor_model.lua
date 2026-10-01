@@ -1,7 +1,8 @@
 -- Headless state and safety rules for the one-room authoring tool.  It owns
 -- no gameplay session or save store: content reads/writes only flow through
 -- the constrained room Store supplied at construction.
-local Config = require("src.rooms.config")
+local DefaultConfig = require("src.rooms.config")
+local Corpora = require("src.rooms.corpora")
 local Json = require("src.persistence.json")
 local Writer = require("src.rooms.json_writer")
 local RoomRegistry = require("src.rooms.registry")
@@ -23,16 +24,18 @@ local function replace_character(value, index, replacement)
   return value:sub(1, index - 1) .. replacement .. value:sub(index + 1)
 end
 
-local function valid_side_offset(side, offset)
-  local limit = (side == "east" or side == "west") and Config.HEIGHT or Config.WIDTH
-  return Config.SIDES[side] and type(offset) == "number" and offset % 1 == 0
+local function valid_side_offset(side, offset, config)
+  local limit = (side == "east" or side == "west") and config.HEIGHT or config.WIDTH
+  return config.SIDES[side] and type(offset) == "number" and offset % 1 == 0
     and offset >= 0 and offset < limit
 end
 
 function EditorModel.new(options)
   options = options or {}
+  local config = options.config or (options.store and options.store.config) or DefaultConfig
   local self = setmetatable({
-    store = options.store or Store.new(),
+    config = config,
+    store = options.store or Store.new({ config = config }),
     registry = options.registry,
     current = nil,
     current_filename = nil,
@@ -47,7 +50,7 @@ function EditorModel.new(options)
 end
 
 function EditorModel:reload_registry()
-  local rooms, failure = RoomRegistry.load({ store = self.store, registry = self.registry })
+  local rooms, failure = RoomRegistry.load({ store = self.store, registry = self.registry, config = self.config })
   if not rooms then return nil, failure end
   self.rooms = rooms
   self.registry = rooms.registry
@@ -60,7 +63,26 @@ end
 
 function EditorModel:validation()
   if not self.current then return { valid = false, errors = { { code = "no_template", message = "No room is open" } }, warnings = {} } end
-  return Template.validate(self.current, self.registry, { existing_ids = self.rooms.templates, current_id = self.original_id })
+  return Template.validate(self.current, self.registry, { existing_ids = self.rooms.templates, current_id = self.original_id, config = self.config })
+end
+
+function EditorModel:corpora()
+  return Corpora.list()
+end
+
+function EditorModel:switch_corpus(corpus_id)
+  if self.dirty then
+    return nil, { code = "unsaved_changes", reason = "Save or discard the current room before changing corpus" }
+  end
+  local config = Corpora.get(corpus_id)
+  if not config then return nil, { code = "unknown_corpus", reason = "Unknown room corpus " .. tostring(corpus_id) } end
+  if config.CORPUS_ID == self.config.CORPUS_ID then return true end
+  self.config, self.store = config, Store.new({ config = config })
+  self.current, self.current_filename, self.original_id, self.pending = nil, nil, nil, nil
+  local loaded, failure = self:reload_registry()
+  if not loaded then return nil, failure end
+  self.message = "Opened " .. config.CORPUS_ID
+  return true
 end
 
 function EditorModel:can_discard()
@@ -96,7 +118,7 @@ function EditorModel:new_template(id, discard)
     self.pending = { action = "new", id = id }
     return nil, { code = "unsaved_changes", reason = "Save or discard the current room before creating another template" }
   end
-  self.current = Template.default(id)
+  self.current = Template.default(id, { config = self.config })
   self.current_filename, self.original_id = nil, nil
   self.dirty, self.pending, self.message = true, nil, "New room template"
   return self.current
@@ -134,7 +156,7 @@ end
 
 function EditorModel:paint(x, y, glyph)
   if not self.current then return nil, { code = "no_template" } end
-  if x < 0 or x >= Config.WIDTH or y < 0 or y >= Config.HEIGHT then return nil, { code = "out_of_bounds" } end
+  if x < 0 or x >= self.config.WIDTH or y < 0 or y >= self.config.HEIGHT then return nil, { code = "out_of_bounds" } end
   if type(glyph) ~= "string" or #glyph ~= 1 or not self.current.legend[glyph] then
     return nil, { code = "unknown_glyph", reason = "Glyph is not in this room legend" }
   end
@@ -146,7 +168,7 @@ end
 
 function EditorModel:toggle_connector(side, offset)
   if not self.current then return nil, { code = "no_template" } end
-  if not valid_side_offset(side, offset) then return nil, { code = "invalid_connector", reason = "Connectors must be on a valid room boundary" } end
+  if not valid_side_offset(side, offset, self.config) then return nil, { code = "invalid_connector", reason = "Connectors must be on a valid room boundary" } end
   for index, connector in ipairs(self.current.connectors) do
     if connector.side == side and connector.offset == offset then
       table.remove(self.current.connectors, index)
@@ -157,7 +179,7 @@ function EditorModel:toggle_connector(side, offset)
   self.current.connectors[#self.current.connectors + 1] = { side = side, offset = offset }
   table.sort(self.current.connectors, function(a, b)
     local ai, bi = 0, 0
-    for index, current_side in ipairs(Config.SIDE_ORDER) do
+    for index, current_side in ipairs(self.config.SIDE_ORDER) do
       if current_side == a.side then ai = index end
       if current_side == b.side then bi = index end
     end
@@ -172,7 +194,7 @@ function EditorModel:rotation_preview(turns)
   if not self.current.allow_rotation and (turns or 0) % 4 ~= 0 then
     return nil, { code = "rotation_disabled", reason = "This template does not permit rotation" }
   end
-  return Template.rotate(self.current, turns or 0)
+  return Template.rotate(self.current, turns or 0, { config = self.config })
 end
 
 function EditorModel:save()

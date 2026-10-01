@@ -1,7 +1,6 @@
 -- Developer-only LÖVE front-end for one external dungeon room at a time.
 -- Gameplay App/session/save construction is deliberately absent from this
 -- module; its model writes only validated room corpus data through Store.
-local Config = require("src.rooms.config")
 local EditorModel = require("level_editor.room_editor_model")
 local Template = require("src.rooms.template")
 
@@ -11,9 +10,8 @@ Editor.__index = Editor
 local PALETTE = {
   ["#"] = { 0.28, 0.18, 0.31 },
   ["."] = { 0.11, 0.17, 0.23 },
+  ["="] = { 0.12, 0.34, 0.4 },
 }
-
-local TAG_CYCLE = { "standard", "corridor", "junction", "arena", "dead_end" }
 
 local function contains(values, wanted)
   for _, value in ipairs(values or {}) do if value == wanted then return true end end
@@ -28,6 +26,20 @@ end
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
+end
+
+local function sorted_palette(config)
+  local result = {}
+  for glyph in pairs(config.PALETTE) do result[#result + 1] = glyph end
+  table.sort(result)
+  return result
+end
+
+local function sorted_tags(config)
+  local result = {}
+  for tag in pairs(config.TAGS) do result[#result + 1] = tag end
+  table.sort(result)
+  return result
 end
 
 function Editor.new(options)
@@ -54,11 +66,12 @@ function Editor.new(options)
 end
 
 function Editor:_layout(width, height)
+  local config = self.model.config
   local browser_width, details_width = 270, 340
   local available_width = math.max(160, width - browser_width - details_width - 48)
   local available_height = math.max(160, height - 104)
-  local tile = clamp(math.floor(math.min(available_width / Config.WIDTH, available_height / Config.HEIGHT)), 14, 48)
-  local grid_width, grid_height = tile * Config.WIDTH, tile * Config.HEIGHT
+  local tile = clamp(math.floor(math.min(available_width / config.WIDTH, available_height / config.HEIGHT)), 14, 48)
+  local grid_width, grid_height = tile * config.WIDTH, tile * config.HEIGHT
   self.viewport = {
     browser_x = 12, browser_y = 60, browser_width = browser_width - 20,
     grid_x = browser_width + math.floor((available_width - grid_width) / 2),
@@ -87,7 +100,7 @@ function Editor:_world_from_screen(x, y)
   local view = self.viewport
   if x < view.grid_x or y < view.grid_y or x >= view.grid_x + view.grid_width or y >= view.grid_y + view.grid_height then return nil end
   local local_x = math.floor((x - view.grid_x) / view.tile)
-  local local_y = Config.HEIGHT - 1 - math.floor((y - view.grid_y) / view.tile)
+  local local_y = self.model.config.HEIGHT - 1 - math.floor((y - view.grid_y) / view.tile)
   return local_x, local_y
 end
 
@@ -121,17 +134,31 @@ function Editor:_cycle_tag()
   if not current then return end
   local tags = copy(current.tags)
   local position = 0
-  for index, tag in ipairs(TAG_CYCLE) do if contains(tags, tag) then position = index; break end end
-  local next_tag = TAG_CYCLE[position % #TAG_CYCLE + 1]
+  local cycle = sorted_tags(self.model.config)
+  for index, tag in ipairs(cycle) do if contains(tags, tag) then position = index; break end end
+  local next_tag = cycle[position % #cycle + 1]
   local preserved = {}
   for _, tag in ipairs(tags) do
     local known = false
-    for _, candidate in ipairs(TAG_CYCLE) do if tag == candidate then known = true end end
+    for _, candidate in ipairs(cycle) do if tag == candidate then known = true end end
     if not known then preserved[#preserved + 1] = tag end
   end
   preserved[#preserved + 1] = next_tag
   self.model:set_metadata("tags", preserved)
   self:_set_message("Tags: " .. table.concat(preserved, ", "))
+end
+
+function Editor:_switch_corpus()
+  local corpora, current = self.model:corpora(), self.model.config.CORPUS_ID
+  local index = 1
+  for position, config in ipairs(corpora) do if config.CORPUS_ID == current then index = position end end
+  local next_config = corpora[index % #corpora + 1]
+  local ok, failure = self.model:switch_corpus(next_config.CORPUS_ID)
+  if not ok then self:_set_message(failure.reason or failure.code); return end
+  local rooms = self.model:list()
+  self.selected_id, self.rotation = nil, 0
+  if rooms[1] then self:_request_open(rooms[1].id) end
+  self:_set_message("Corpus: " .. next_config.CORPUS_ID)
 end
 
 function Editor:_paint_at(x, y)
@@ -163,7 +190,8 @@ function Editor:draw()
   love.graphics.rectangle("fill", 6, 48, 270, height - 58)
   love.graphics.rectangle("fill", width - 350, 48, 344, height - 58)
   self:_text("ROOM TEMPLATE EDITOR", 14, 16, { 0.45, 0.9, 1 })
-  self:_text("source corpus: " .. Config.DIRECTORY .. (self.model.store:can_write() and "  [writable]" or "  [READ ONLY]"), 14, 34, self.model.store:can_write() and { 0.65, 0.82, 0.78 } or { 1, 0.5, 0.35 })
+  local config = self.model.config
+  self:_text("source corpus: " .. config.DIRECTORY .. (self.model.store:can_write() and "  [writable]" or "  [READ ONLY]"), 14, 34, self.model.store:can_write() and { 0.65, 0.82, 0.78 } or { 1, 0.5, 0.35 })
 
   self:_text("TEMPLATES", view.browser_x, view.browser_y - 22, { 1, 0.78, 0.3 })
   for index, template in ipairs(self.model:list()) do
@@ -172,17 +200,17 @@ function Editor:draw()
       self:_set_color({ 0.17, 0.42, 0.58, 0.9 })
       love.graphics.rectangle("fill", view.browser_x - 3, y - 2, view.browser_width + 4, 20)
     end
-    self:_text(template.id:gsub("room.dungeon.", ""), view.browser_x, y, { 0.88, 0.9, 0.96 }, view.browser_width)
+    self:_text(template.id:gsub("^room%." .. config.BIOME .. "%.", ""), view.browser_x, y, { 0.88, 0.9, 0.96 }, view.browser_width)
   end
 
   local room = self:_current_preview()
   if room then
     self:_text("authoring view " .. tostring(self.rotation) .. "°", view.grid_x, view.grid_y - 24, { 0.72, 0.8, 0.92 })
-    for local_x = 0, Config.WIDTH - 1 do
-      for local_y = 0, Config.HEIGHT - 1 do
+    for local_x = 0, config.WIDTH - 1 do
+      for local_y = 0, config.HEIGHT - 1 do
         local glyph = Template.glyph_at(room, local_x, local_y)
         local screen_x = view.grid_x + local_x * view.tile
-        local screen_y = view.grid_y + (Config.HEIGHT - 1 - local_y) * view.tile
+        local screen_y = view.grid_y + (config.HEIGHT - 1 - local_y) * view.tile
         self:_set_color(PALETTE[glyph] or { 0.7, 0.12, 0.12 })
         love.graphics.rectangle("fill", screen_x, screen_y, view.tile, view.tile)
         self:_set_color({ 0.25, 0.31, 0.4, 0.75 })
@@ -192,7 +220,7 @@ function Editor:draw()
     for _, connector in ipairs(room.connectors or {}) do
       local x, y = Template.connector_position(room, connector)
       local screen_x = view.grid_x + x * view.tile
-      local screen_y = view.grid_y + (Config.HEIGHT - 1 - y) * view.tile
+      local screen_y = view.grid_y + (config.HEIGHT - 1 - y) * view.tile
       self:_set_color({ 0.25, 0.95, 1, 1 })
       love.graphics.rectangle("fill", screen_x + view.tile * 0.24, screen_y + view.tile * 0.24, view.tile * 0.52, view.tile * 0.52)
     end
@@ -207,8 +235,12 @@ function Editor:draw()
     self:_text("weight: " .. tostring(self.model.current.weight) .. "   rotation: " .. tostring(self.model.current.allow_rotation), x, y); y = y + 18
     self:_text("connectors: " .. #self.model.current.connectors .. "   dirty: " .. tostring(self.model.dirty), x, y); y = y + 26
     self:_text("PALETTE", x, y, { 0.45, 0.9, 1 }); y = y + 18
-    self:_text("[1] # masonry wall" .. (self.selected_glyph == "#" and "  SELECTED" or ""), x, y); y = y + 17
-    self:_text("[2] . open floor" .. (self.selected_glyph == "." and "  SELECTED" or ""), x, y); y = y + 24
+    for index, glyph in ipairs(sorted_palette(config)) do
+      local material = self.model.registry:get_material(config.PALETTE[glyph])
+      self:_text("[" .. index .. "] " .. glyph .. " " .. material.display_name .. (self.selected_glyph == glyph and "  SELECTED" or ""), x, y)
+      y = y + 17
+    end
+    y = y + 7
     self:_text(validation.valid and "VALID — save enabled" or "VALIDATION ERRORS", x, y, validation.valid and { 0.35, 1, 0.58 } or { 1, 0.35, 0.28 }); y = y + 18
     for _, error in ipairs(validation.errors) do
       self:_text(error.code .. ": " .. error.message, x, y, { 1, 0.5, 0.38 }, view.detail_width)
@@ -219,7 +251,7 @@ function Editor:draw()
   local controls_y = height - 152
   self:_text("CONTROLS", x, controls_y, { 0.45, 0.9, 1 }); controls_y = controls_y + 18
   self:_text("click/drag paint | right-click boundary connector", x, controls_y, nil, view.detail_width); controls_y = controls_y + 17
-  self:_text("[ ] browse  N new  D duplicate  I set ID", x, controls_y, nil, view.detail_width); controls_y = controls_y + 17
+  self:_text("[ ] browse  C corpus  N new  D duplicate  I set ID", x, controls_y, nil, view.detail_width); controls_y = controls_y + 17
   self:_text("G cycle tag  +/- weight  A rotate-enabled  R preview", x, controls_y, nil, view.detail_width); controls_y = controls_y + 17
   self:_text("S save  Y discard confirmation  Esc exit", x, controls_y, nil, view.detail_width)
   if self.message or self.model.message then
@@ -258,15 +290,16 @@ function Editor:keypressed(key)
     self:_request_open(rooms[next_index].id)
     return
   end
+  if key == "c" then self:_switch_corpus(); return end
   if key == "n" then
-    local id = self:_unique_id("room.dungeon.standard.new_")
+    local id = self:_unique_id("room." .. self.model.config.BIOME .. ".standard.new_")
     local result, failure = self.model:new_template(id)
     self:_set_message(result and "New template: " .. id or failure.reason or failure.code)
     if result then self.selected_id, self.rotation = id, 0 end
     return
   end
   if key == "d" and self.selected_id then
-    local id = self:_unique_id("room.dungeon.standard.copy_")
+    local id = self:_unique_id("room." .. self.model.config.BIOME .. ".standard.copy_")
     local result, failure = self.model:duplicate(self.selected_id, id)
     self:_set_message(result and "Duplicate: " .. id or failure.reason or failure.code)
     if result then self.selected_id, self.rotation = id, 0 end
@@ -277,8 +310,11 @@ function Editor:keypressed(key)
     else self.editing_id, self.id_text = true, self.model.current.id end
     return
   end
-  if key == "1" then self.selected_glyph = "#"; return end
-  if key == "2" then self.selected_glyph = "."; return end
+  local palette_index = tonumber(key)
+  if palette_index then
+    local glyph = sorted_palette(self.model.config)[palette_index]
+    if glyph then self.selected_glyph = glyph; return end
+  end
   if key == "g" then self:_cycle_tag(); return end
   if key == "a" and self.model.current then
     self.model:set_metadata("allow_rotation", not self.model.current.allow_rotation)
