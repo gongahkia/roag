@@ -1942,7 +1942,9 @@ function Session:_spawn_fallen_recurrence()
   for _, point in ipairs(self:_reachable_floor_cells()) do
     local cell_key = Grid.key(point.x, point.y)
     if not occupied[cell_key] and Grid.distance(state.player, point) >= 6
-      and not state.world:is_hazardous(point.x, point.y) then
+      and not state.world:is_hazardous(point.x, point.y)
+      and not state.world:is_harmful_gas_at(point.x, point.y)
+      and #state.world:fires_at(point.x, point.y) == 0 then
       candidates[#candidates + 1] = point
     end
   end

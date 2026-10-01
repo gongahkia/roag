@@ -93,32 +93,36 @@ function PoweredDevices.place(world, terrain, player, rng)
     for _, door in ipairs(door_candidates) do
       local controls = nearby_controls(world, door, player)
       if #controls >= 3 and remains_connected_when_closed(world, door) then
-      local circuit_id = string.format("power.circuit.stage_%s_%d", plan.prefix, circuit_index)
-      local registered = world:register_circuit(circuit_id, { enabled = true })
-      assert(registered.applied, registered.reason)
-      local generator, generator_result = world:place_object("world_object.power.generator_legacy", controls[1].x, controls[1].y, {
-        circuit_id = circuit_id,
-        generator_online = true,
-      })
-      assert(generator, generator_result.reason)
-      local breaker, breaker_result = world:place_object("world_object.power.breaker_legacy", controls[2].x, controls[2].y, {
-        circuit_id = circuit_id,
-      })
-      assert(breaker, breaker_result.reason)
-      local bulkhead, door_result = world:place_object("world_object.door.powered_legacy", door.x, door.y, {
-        circuit_id = circuit_id,
-        door_state = "closed",
-      })
-      assert(bulkhead, door_result.reason)
-      placed[#placed + 1] = {
-        circuit_id = circuit_id,
-        generator_id = generator.id,
-        breaker_id = breaker.id,
-        door_id = bulkhead.id,
-      }
-      break
+        -- The original dungeon fixture has a public, tested circuit ID. Keep
+        -- that compatibility surface while Reactor receives bounded numbered
+        -- subsystems.
+        local circuit_id = terrain == "dungeon" and "power.circuit.stage_dungeon_maintenance"
+          or string.format("power.circuit.stage_%s_%d", plan.prefix, circuit_index)
+        local registered = world:register_circuit(circuit_id, { enabled = true })
+        assert(registered.applied, registered.reason)
+        local generator, generator_result = world:place_object("world_object.power.generator_legacy", controls[1].x, controls[1].y, {
+          circuit_id = circuit_id,
+          generator_online = true,
+        })
+        assert(generator, generator_result.reason)
+        local breaker, breaker_result = world:place_object("world_object.power.breaker_legacy", controls[2].x, controls[2].y, {
+          circuit_id = circuit_id,
+        })
+        assert(breaker, breaker_result.reason)
+        local bulkhead, door_result = world:place_object("world_object.door.powered_legacy", door.x, door.y, {
+          circuit_id = circuit_id,
+          door_state = "closed",
+        })
+        assert(bulkhead, door_result.reason)
+        placed[#placed + 1] = {
+          circuit_id = circuit_id,
+          generator_id = generator.id,
+          breaker_id = breaker.id,
+          door_id = bulkhead.id,
+        }
+        break
+      end
     end
-  end
   end
   return #placed > 0 and placed or nil
 end

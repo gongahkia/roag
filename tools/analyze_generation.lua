@@ -6,7 +6,7 @@ local Batch = require("src.generation.batch_analysis")
 local Json = require("src.persistence.json")
 
 local function usage()
-  io.stderr:write([[Usage: luajit tools/analyze_generation.lua (--stage <forest|cave|dungeon|index> | --biome <semantic-id|terrain> --tier <tier>) --seed <integer> --count <positive integer> [--json <path>]
+io.stderr:write([[Usage: luajit tools/analyze_generation.lua (--stage <forest|cave|dungeon|reactor|index> | --biome <semantic-id|terrain> --tier <tier>) --seed <integer> --count <positive integer> [--json <path>]
 
 Generates isolated initial floors and reports structural facts. Failed seeds
 can be pasted into: love . --generation-inspector

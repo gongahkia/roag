@@ -11,14 +11,15 @@ local InspectionFloor = {}
 local Definitions = RouteDefinitions.load()
 
 local function stage_index(value)
-  if type(value) == "number" and value % 1 == 0 and Content.stages[value] then
+  if type(value) == "number" and value % 1 == 0 and value >= 1 and value <= 4 then
     return value
   end
   if type(value) == "string" then
     local numeric = tonumber(value)
-    if numeric and numeric % 1 == 0 and Content.stages[numeric] then
+    if numeric and numeric % 1 == 0 and numeric >= 1 and numeric <= 4 then
       return numeric
     end
+    if value == "reactor" then return 4 end
     for index, stage in ipairs(Content.stages) do
       if stage.terrain == value then
         return index
@@ -64,6 +65,14 @@ function InspectionFloor.stages()
       label = string.format("%d: %s", index, stage.terrain),
     }
   end
+  result[#result + 1] = {
+    index = 4,
+    level = 4,
+    terrain = "reactor",
+    biome_id = "biome.legacy.reactor",
+    tier_id = "tier.legacy.3",
+    label = "4: reactor",
+  }
   return result
 end
 
@@ -160,8 +169,9 @@ function InspectionFloor.generate(options)
   local stage = options.stage ~= nil and stage_index(options.stage) or (options.biome == nil and stage_index(1) or nil)
   local biome, tier
   if stage then
-    biome = Definitions:get_biome("biome.legacy." .. Content.stages[stage].terrain)
-    tier = Definitions:get_tier("tier.legacy." .. stage)
+    local canonical = InspectionFloor.stages()[stage]
+    biome = Definitions:get_biome(canonical.biome_id)
+    tier = Definitions:get_tier(canonical.tier_id)
   else
     biome, tier = biome_definition(options.biome), tier_definition(options.tier or 1)
   end

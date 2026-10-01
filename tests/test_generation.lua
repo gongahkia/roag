@@ -35,7 +35,7 @@ return {
     name = "generated worlds retain a legal player start",
     run = function()
       local start = Grid.cell(40, 25)
-      for _, terrain in ipairs({ "forest", "cave", "dungeon" }) do
+      for _, terrain in ipairs({ "forest", "cave", "dungeon", "reactor" }) do
         local world = Generator.generate(terrain, start, Rng.new("start-" .. terrain))
         assert(world[Grid.key(start.x, start.y)])
       end

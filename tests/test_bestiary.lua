@@ -122,7 +122,7 @@ return {
       local session, registry = new_session(108001), nil
       registry = session.registry
       local component_ids, enemy_ids, charm_ids = sorted_ids(registry.components), sorted_ids(registry.enemies), sorted_ids(registry.charms)
-      assert(#component_ids == 16 and #enemy_ids == 10 and #charm_ids == 9)
+      assert(#component_ids == 19 and #enemy_ids == 14 and #charm_ids == 9)
       local ordinary, elite, referenced = 0, 0, {}
       for _, enemy_id in ipairs(enemy_ids) do
         local definition = registry:get_enemy(enemy_id)
@@ -131,7 +131,7 @@ return {
         assert(actor.body and actor.content_id == enemy_id)
         assert(session:locomotion_state(actor).state == "NORMAL")
       end
-      assert(ordinary == 7 and elite == 3)
+      assert(ordinary == 10 and elite == 4)
       for _, biome_id in ipairs({ "biome.legacy.forest", "biome.legacy.cave", "biome.legacy.dungeon" }) do
         for tier = 1, 3 do
           local pool = assert(registry:encounter_pool_for(biome_id, "tier.legacy." .. tier))
@@ -139,11 +139,18 @@ return {
           for _, entry in ipairs(pool.entries) do referenced[entry.enemy_id] = true end
         end
       end
+      for tier = 2, 3 do
+        local pool = assert(registry:encounter_pool_for("biome.legacy.reactor", "tier.legacy." .. tier))
+        assert(#pool.entries > 0)
+        for _, entry in ipairs(pool.entries) do referenced[entry.enemy_id] = true end
+      end
       for _, enemy_id in ipairs(enemy_ids) do assert(referenced[enemy_id], enemy_id .. " is unreachable content") end
       assert(session:actor_has_capability(session:_make_enemy("enemy.cave.conductor", { x = 20, y = 20 }), MELEE))
       assert(session:actor_has_capability(session:_make_enemy("enemy.cave.conductor", { x = 20, y = 20 }), "ability.electrical.discharge"))
       local reclaimer = session:_make_enemy("enemy.dungeon.reclaimer", { x = 20, y = 20 })
       assert(session:actor_has_capability(reclaimer, MELEE) and session:actor_has_capability(reclaimer, HEAVY_PROJECTILE))
+      local cutter = session:_make_enemy("enemy.reactor.arc_cutter", { x = 20, y = 20 })
+      assert(session:actor_has_capability(cutter, MELEE) and session:actor_has_capability(cutter, "ability.electrical.discharge"))
     end,
   },
   {

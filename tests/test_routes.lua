@@ -126,7 +126,7 @@ return {
       finish_to_route(session)
       choose(session, function(node) return node.biome_id == "biome.legacy.cave" end)
       local choices = finish_to_route(session)
-      assert(#choices == 2)
+      assert(#choices == 3)
       choose(session, function(node) return node.biome_id == "biome.legacy.dungeon" end)
       assert(session.state.settings.terrain == "dungeon" and session.state.settings.tier == 3)
       assert(session:_complete_stage() == "reconstruction")
@@ -144,6 +144,8 @@ return {
       assert(forest.terrain == "forest" and forest.state.settings.tier == 2 and forest.state.settings.wilds)
       assert(cave.terrain == "cave" and cave.state.settings.tier == 3 and cave.state.settings.cultists)
       assert(not forest.state.settings.cultists and not cave.state.settings.wilds)
+      local reactor = assert(InspectionFloor.generate({ biome = "biome.legacy.reactor", tier = "tier.legacy.3", seed = 88007 }))
+      assert(reactor.terrain == "reactor" and reactor.state.settings.tier == 3 and reactor.state.settings.industrial)
     end,
   },
   {
@@ -235,6 +237,7 @@ return {
       assert(encode(first) == encode(second))
       assert(first.summary.biome_by_depth[2]["biome.legacy.forest"] == 40)
       assert(first.summary.biome_by_depth[2]["biome.legacy.cave"] == 40)
+      assert(first.summary.biome_by_depth[3]["biome.legacy.reactor"] == 40)
     end,
   },
 }
