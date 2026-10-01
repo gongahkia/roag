@@ -266,6 +266,8 @@ function Analysis.analyze(world, metadata)
     valid = valid,
     seed = metadata.seed,
     stage = metadata.stage,
+    biome_id = metadata.biome_id,
+    tier_id = metadata.tier_id,
     terrain = metadata.terrain or world.terrain,
     generation_streams = metadata.provenance and metadata.provenance.streams or {},
     room_provenance = room_metadata,

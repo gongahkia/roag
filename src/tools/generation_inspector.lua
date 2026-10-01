@@ -40,9 +40,15 @@ end
 
 function Inspector.new(options)
   options = options or {}
+  local stages = InspectionFloor.stages()
+  local stage_index = InspectionFloor.resolve_stage(options.stage or 1) or 1
+  local stage = stages[stage_index]
   local self = setmetatable({
-    stages = InspectionFloor.stages(),
-    stage = InspectionFloor.resolve_stage(options.stage or 1) or 1,
+    stages = stages,
+    tiers = InspectionFloor.tiers(),
+    stage = stage_index,
+    biome_id = options.biome or stage.biome_id,
+    tier_id = options.tier or stage.tier_id,
     seed = tonumber(options.seed) or 1,
     seed_text = tostring(math.floor(tonumber(options.seed) or 1)),
     layers = {
@@ -64,14 +70,14 @@ function Inspector.new(options)
 end
 
 function Inspector:regenerate()
-  local floor, failure = InspectionFloor.generate({ stage = self.stage, seed = self.seed })
+  local floor, failure = InspectionFloor.generate({ biome = self.biome_id, tier = self.tier_id, seed = self.seed })
   if not floor then
     self.error, self.floor, self.report, self.overlays = failure.reason or failure.code, nil, nil, nil
     return nil, failure
   end
   self.floor = floor
   self.report = Analysis.analyze(floor.world, {
-    seed = floor.seed, stage = floor.stage, terrain = floor.terrain, state = floor.state,
+    seed = floor.seed, stage = floor.stage, biome_id = floor.biome_id, tier_id = floor.tier_id, terrain = floor.terrain, state = floor.state,
     session = floor.session, provenance = floor.provenance,
   })
   self.overlays = Analysis.overlay_model(floor.world, self.report)
@@ -102,6 +108,16 @@ end
 
 function Inspector:select_stage(delta)
   self.stage = ((self.stage - 1 + delta) % #self.stages) + 1
+  local stage = self.stages[self.stage]
+  self.biome_id, self.tier_id = stage.biome_id, stage.tier_id
+  return self:regenerate()
+end
+
+function Inspector:select_tier(delta)
+  local index = 1
+  for candidate, tier in ipairs(self.tiers) do if tier.id == self.tier_id then index = candidate break end end
+  index = ((index - 1 + delta) % #self.tiers) + 1
+  self.tier_id = self.tiers[index].id
   return self:regenerate()
 end
 
@@ -390,19 +406,21 @@ function Inspector:draw()
   local panel_x = self.viewport.x + self.viewport.width + 12
   self:_set_color({ 0.06, 0.075, 0.11, 0.96 })
   love.graphics.rectangle("fill", panel_x - 8, 8, width - panel_x, height - 16)
-  local stage = self.stages[self.stage]
+  local biome = InspectionFloor.resolve_biome(self.biome_id)
+  local tier = InspectionFloor.resolve_tier(self.tier_id)
   self:_draw_text("GENERATION INSPECTOR", panel_x, 18, { 0.45, 0.9, 1 })
-  self:_draw_text("stage: " .. stage.terrain .. " [ / ]", panel_x, 38)
-  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 56, { 1, 0.9, 0.4 })
-  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 74)
-  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 92)
+  self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
+  self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
+  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74, { 1, 0.9, 0.4 })
+  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
+  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
   local active_layers = {}
   for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "power", "objectives", "conductivity", "metadata", "rooms" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
-  self:_draw_text(table.concat(active_layers, " "), panel_x, 108, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
+  self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
   local lines = self:_detail_lines(self.selected or self.hover)
-  local y = 136
+  local y = 152
   for _, line in ipairs(lines) do
     self:_draw_text(line, panel_x, y, { 0.88, 0.9, 0.96 }, width - panel_x - 10)
     y = y + 16
@@ -436,6 +454,8 @@ function Inspector:keypressed(key)
   if key == "n" then self:next_seed(); return end
   if key == "[" then self:select_stage(-1); return end
   if key == "]" then self:select_stage(1); return end
+  if key == "," then self:select_tier(-1); return end
+  if key == "." then self:select_tier(1); return end
   if key == "f" then local width, height = love.graphics.getDimensions(); self:fit(width, height); return end
   if key == "return" or key == "kpenter" then self:commit_seed(); return end
   if key == "backspace" then self.seed_text = self.seed_text:sub(1, -2); return end
