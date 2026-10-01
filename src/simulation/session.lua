@@ -553,9 +553,6 @@ function Session:_execute_self_destruct(actor, provider, wear)
     wear = wear,
     radius = radius,
   }
-  for _, event in ipairs(self.state.meta_reward_events or {}) do
-    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
-  end
   return data
 end
 
@@ -851,7 +848,7 @@ function Session:run_data()
   for index = 1, RunModifiers.charm_slots(self.state) do
     if self.state.charms and self.state.charms.slots[index] then charm_slots[#charm_slots + 1] = { slot = index, charm_id = self.state.charms.slots[index] } end
   end
-  return {
+  local data = {
     progression = {
       stage = self.state.stage,
       score = self.state.score,
@@ -883,6 +880,14 @@ function Session:run_data()
       flares = player.flares,
     } or nil,
   }
+  for _, event in ipairs(self.state.meta_reward_events or {}) do
+    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = {
+      id = event.id,
+      amount = event.amount,
+      claimed = event.claimed == true,
+    }
+  end
+  return data
 end
 
 -- Active-run persistence deliberately captures only authoritative state.  The
@@ -1406,9 +1411,6 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     dead = dead,
     provenance = provenance,
   }
-  for _, event in ipairs(self.state.meta_reward_events or {}) do
-    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
-  end
   return data
 end
 
