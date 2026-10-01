@@ -26,3 +26,9 @@ end
 function love.focus(focused)
   app:focus(focused)
 end
+
+function love.quit()
+  -- Regular safe-boundary autosaves are the primary protection. This final
+  -- best-effort checkpoint only runs when LÖVE delivers a normal quit event.
+  app:autosave("quit")
+end

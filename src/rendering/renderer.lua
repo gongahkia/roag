@@ -610,13 +610,19 @@ function Renderer:_menu(title, items, selected, footer)
   self:_text(footer or "W/S SELECT     ENTER CONFIRM", width / 2 - 150, height - 52, 1, { 0.65, 0.75, 0.9 })
 end
 
-function Renderer:_draw_title()
+function Renderer:_draw_title(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
   self:_text("ROAG", width / 2 - 104, height / 2 - 100, 4, { 0.7, 0.9, 1 })
   self:_text("A ONE-BIT DESCENT", width / 2 - 110, height / 2 - 34, 1.2, { 0.7, 0.75, 0.85 })
-  self:_text("PRESS ENTER TO BEGIN", width / 2 - 115, height / 2 + 48, 1, { 0.95, 0.85, 0.3 })
-  self:_text("P: SPRITE LAB", width / 2 - 62, height / 2 + 78, 0.82, { 0.75, 0.82, 0.92 })
+  local options = app:title_options()
+  for index, option in ipairs(options) do
+    self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
+      1, index == app.menu and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
+  end
+  local message = app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM"
+  self:_text(message, width / 2 - #message * 4, height / 2 + 112, 0.78, { 0.75, 0.82, 0.92 })
+  self:_text("P: SPRITE LAB", width / 2 - 62, height / 2 + 138, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_sprite_lab(app)
@@ -663,7 +669,10 @@ function Renderer:draw(app)
   if app.screen == "game" then
     self:_draw_game(app)
   elseif app.screen == "title" then
-    self:_draw_title()
+    self:_draw_title(app)
+  elseif app.screen == "replace_save" then
+    self:_menu("REPLACE ACTIVE RUN?", { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
+      "ENTER CONFIRM     ESC CANCEL")
   elseif app.screen == "sprite_lab" then
     self:_draw_sprite_lab(app)
   elseif app.screen == "class" then

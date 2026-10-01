@@ -40,7 +40,7 @@ function ActiveRun.decode_session(text, options)
   end, debug.traceback)
   if not ok then
     local message = tostring(session_or_error)
-    local code = message:match("Missing .- content") and "missing_content" or "invalid_state"
+    local code = (message:match("Missing .- content") or message:match("Unknown .- ID")) and "missing_content" or "invalid_state"
     return failure(code, message)
   end
   return session_or_error

@@ -824,6 +824,7 @@ function Session:_actor_from_data(data)
   end
   actor.body = data.body and Body.from_data(self.registry, data.body) or nil
   actor.source_actor = nil
+  actor.source_actor_ref = data.source_actor_ref
   return actor
 end
 

@@ -6,6 +6,8 @@ local SoundBank = require("src.audio.sound_bank")
 local Assets = require("src.rendering.assets")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
+local ActiveRun = require("src.persistence.active_run")
+local SaveStore = require("src.persistence.save_store")
 
 local App = {}
 App.__index = App
@@ -24,6 +26,7 @@ function App.new(options)
   options = options or {}
   local self = setmetatable({}, App)
   self.content = options.content or Content
+  self.save_store = options.save_store or SaveStore.runtime()
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
   self.assets = Assets.new()
@@ -32,6 +35,7 @@ function App.new(options)
   self.renderer = Renderer.new(self.assets)
   self.sprite_lab = { slot = 1, x = 25, y = 1 }
   self.movement_keys = {}
+  self:refresh_continue()
   return self
 end
 
@@ -47,7 +51,89 @@ function App:focus(focused)
 end
 
 function App:quit()
-  love.event.quit()
+  self:autosave("quit")
+  if love and love.event then love.event.quit() end
+end
+
+function App:refresh_continue()
+  local available, error_data = ActiveRun.has_valid_save(self.save_store, { content = self.content })
+  self.continue_available = available == true
+  self.title_error = self.continue_available and nil or (self.save_store:exists() and error_data or nil)
+  return self.continue_available
+end
+
+function App:title_options()
+  local options = { { name = "NEW RUN", description = "Begin a new descent." } }
+  if self.continue_available then
+    options[#options + 1] = { name = "CONTINUE", description = "Resume the current active run." }
+  end
+  return options
+end
+
+function App:autosave(_boundary)
+  if not self.session then return true end
+  if self.session.state.ended == "gameover" or self.session.state.ended == "victory" then
+    local retired, error_data = ActiveRun.retire(self.save_store)
+    if not retired then self.save_error = error_data end
+    self:refresh_continue()
+    return retired, error_data
+  end
+  local saved, error_data = ActiveRun.save(self.session, self.save_store)
+  if not saved then
+    self.save_error = error_data
+    self.session:_log("Autosave failed: " .. tostring(error_data and error_data.reason or "unknown error"))
+  else
+    self.save_error = nil
+    self.continue_available = true
+  end
+  return saved, error_data
+end
+
+function App:request_new_run()
+  if self.continue_available then
+    self.screen, self.menu = "replace_save", 1
+    return false
+  end
+  self.screen, self.menu = "class", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:confirm_replace_save()
+  self.screen, self.menu = "class", 1
+  self:play_sound("select")
+end
+
+function App:continue_run()
+  local session, error_data = ActiveRun.load(self.save_store, {
+    content = self.content,
+    emit = function(event) self:_handle_session_event(event) end,
+  })
+  if not session or session.state.ended then
+    self.title_error = error_data or { code = "invalid_state", reason = "Active run is already complete" }
+    self.continue_available = false
+    return nil, self.title_error
+  end
+  self.session = session
+  if session.state.phase == "reconstruction" then
+    self.screen = "reconstruction"
+    self.reconstruction_focus, self.reconstruction_slot_index, self.reconstruction_inventory_index = "body", 1, 1
+  elseif session.state.phase == "transition" then
+    self.screen = session.state.reconstruction_next == "shop" and "shop" or "curse"
+  else
+    self.screen = "game"
+  end
+  self.menu = 1
+  self:clear_held_movement()
+  self.presentation:reset(session)
+  self.title_error = nil
+  return session
+end
+
+function App:activate_title_choice()
+  local selected = self:title_options()[self.menu]
+  if selected and selected.name == "CONTINUE" then return self:continue_run() end
+  return self:request_new_run()
 end
 
 function App:play_sound(name)
@@ -90,6 +176,7 @@ function App:select_boon(boon)
   self.screen = "game"
   self:clear_held_movement()
   self.presentation:reset(self.session)
+  self:autosave("new_run")
 end
 
 function App:select_curse(curse)
@@ -97,14 +184,19 @@ function App:select_curse(curse)
   self.screen = "game"
   self:clear_held_movement()
   self.presentation:reset(self.session)
+  self:autosave("curse")
 end
 
 function App:buy_selected()
-  self.session:buy(self.content.shop[self.menu])
+  local result = self.session:buy(self.content.shop[self.menu])
+  if result then self:autosave("shop") end
+  return result
 end
 
 function App:sell_selected()
-  self.session:sell(self.content.shop[self.menu])
+  local result = self.session:sell(self.content.shop[self.menu])
+  if result then self:autosave("shop") end
+  return result
 end
 
 function App:start_boss()
@@ -112,6 +204,7 @@ function App:start_boss()
   self.screen = "game"
   self:clear_held_movement()
   self.presentation:reset(self.session)
+  self:autosave("boss_transition")
 end
 
 function App:return_to_title()
@@ -137,7 +230,10 @@ function App:perform_turn(input)
   if self.screen ~= "game" then
     return
   end
-  self:_handle_turn_result(self.session:turn(input))
+  local result = self.session:turn(input)
+  self:_handle_turn_result(result)
+  self:autosave("turn")
+  return result
 end
 
 function App:close_overlay()
@@ -250,10 +346,13 @@ function App:reconstruction_confirm()
     local result = self.session:install_inventory_component(self.reconstruction_selected_id, slot.id)
     if result.applied then
       self.reconstruction_selected_id = nil
+      self:autosave("reconstruction")
     end
     return result
   end
-  return self.session:uninstall_body_component(slot.id)
+  local result = self.session:uninstall_body_component(slot.id)
+  if result.applied then self:autosave("reconstruction") end
+  return result
 end
 
 function App:rotate_reconstruction_item()
@@ -270,6 +369,7 @@ function App:rotate_reconstruction_item()
   if rotated then
     self.session:_log("Rotated " .. entry.item.display_name .. ".")
     self:play_sound("select")
+    self:autosave("reconstruction")
   else
     self.session:_log(reason)
   end
@@ -282,6 +382,7 @@ function App:finish_reconstruction()
     self.reconstruction_selected_id = nil
     self:_handle_turn_result(result.next)
     self:play_sound("door")
+    self:autosave("reconstruction_complete")
   else
     self.session:_log(result.reason)
   end
@@ -338,6 +439,7 @@ function App:inventory_select_or_place()
       self.session:_log("Repacked " .. moved.item.display_name .. ".")
       self.inventory_selected_id = nil
       self:play_sound("pickup")
+      self:autosave("inventory")
     else
       self.session:_log(reason)
       self:play_sound("select")
@@ -367,6 +469,7 @@ function App:rotate_inventory_item()
   if rotated then
     self.session:_log("Rotated " .. entry.item.display_name .. ".")
     self:play_sound("select")
+    self:autosave("inventory")
   else
     self.session:_log(reason)
   end
@@ -402,6 +505,7 @@ function App:salvage_selected()
   local result = self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
   local remaining = self:salvage_options()
   self.menu = clamp(self.menu, 1, math.max(1, #remaining))
+  if result.applied then self:autosave("salvage") end
   return result
 end
 

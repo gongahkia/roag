@@ -935,9 +935,14 @@ function World:place_object(definition_id, x, y, options)
     interaction_role = role,
     circuit_id = circuit_id,
     door_state = role == "door" and door_state or nil,
+    -- Preserve an explicit offline generator; Lua's and/or idiom would turn
+    -- false into nil and make a legitimate persistent power state invalid.
     generator_online = role == "generator" and generator_online or nil,
     movable_by_force = definition.movable_by_force,
   }
+  if role == "generator" then
+    object.generator_online = generator_online
+  end
   object.blocks_movement, object.blocks_vision, object.blocks_projectiles, object.blocks_gas =
     object_blocks_for_state(definition, object.door_state)
   self.objects[id] = object
@@ -1337,6 +1342,11 @@ function World.from_data(registry, data, sequence_owner)
     }
   end
   assert(#data.cells == Grid.width * Grid.height, "World cell snapshot has an invalid size")
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      assert(seen_cells[key(x, y)], "World cell snapshot is missing a coordinate")
+    end
+  end
 
   for _, saved in ipairs(data.circuits or {}) do
     local result = world:register_circuit(saved.id, { enabled = saved.enabled })

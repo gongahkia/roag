@@ -82,9 +82,20 @@ function Input.keypressed(app, key, _, is_repeat)
   if app.screen == "title" then
     if key == "p" then
       app:open_sprite_lab()
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, #app:title_options())
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, #app:title_options())
     elseif key == "return" or key == "space" then
-      app.screen, app.menu = "class", 1
-      app:play_sound("select")
+      app:activate_title_choice()
+    end
+    return
+  end
+  if app.screen == "replace_save" then
+    if key == "return" or key == "space" then
+      app:confirm_replace_save()
+    elseif key == "escape" then
+      app.screen, app.menu = "title", 1
     end
     return
   end

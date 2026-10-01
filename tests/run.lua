@@ -23,6 +23,7 @@ local suites = {
   "tests.test_reconstruction",
   "tests.test_app_inventory",
   "tests.test_session",
+  "tests.test_save_resume",
 }
 
 local passed, failed = 0, 0
