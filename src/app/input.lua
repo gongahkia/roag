@@ -70,9 +70,9 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
 
-  -- Research and fallen-history are title-side screens; their own handlers
+  -- Research, fallen-history, and art-pack selection are title-side screens; their own handlers
   -- return to title rather than turning an ordinary browse action into quit.
-  if key == "escape" and app.screen ~= "research" and app.screen ~= "fallen_archive" then
+  if key == "escape" and app.screen ~= "research" and app.screen ~= "fallen_archive" and app.screen ~= "art_packs" then
     app:quit()
     return
   end
@@ -103,6 +103,19 @@ function Input.keypressed(app, key, _, is_repeat)
       app.research_node_index = math.min(math.max(1, #options), (app.research_node_index or 1) + 1)
     elseif key == "return" or key == "e" then
       app:purchase_selected_research()
+    end
+    return
+  end
+  if app.screen == "art_packs" then
+    local options = app:art_pack_options()
+    if key == "escape" then
+      app.screen, app.menu = "title", 1
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #options))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #options))
+    elseif key == "return" or key == "e" or key == "space" then
+      app:select_art_pack()
     end
     return
   end

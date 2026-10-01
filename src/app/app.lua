@@ -12,6 +12,7 @@ local MetaProfile = require("src.persistence.meta_profile")
 local FallenArchive = require("src.persistence.fallen_archive")
 local FallenRecurrence = require("src.simulation.fallen_recurrence")
 local Registry = require("src.content.registry")
+local ArtPackSettings = require("src.persistence.art_pack_settings")
 
 local App = {}
 App.__index = App
@@ -34,6 +35,7 @@ function App.new(options)
   self.save_store = options.save_store or SaveStore.runtime()
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
   self.archive_store = options.archive_store or SaveStore.runtime("fallen_characters.json")
+  self.art_pack_store = options.art_pack_store or SaveStore.runtime("art_pack_settings.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
   self.meta_error = nil
   if not self.meta_profile then self.meta_error = self.meta_status end
@@ -42,9 +44,13 @@ function App.new(options)
   self.archive_error = nil
   if not self.fallen_archive then self.archive_error = self.archive_status end
   if not self.fallen_archive then self.fallen_archive = FallenArchive.new() end
+  self.art_pack_settings, self.art_pack_status = ArtPackSettings.load(self.art_pack_store)
+  self.art_pack_error = nil
+  if not self.art_pack_settings then self.art_pack_error = self.art_pack_status end
+  if not self.art_pack_settings then self.art_pack_settings = ArtPackSettings.new() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
-  self.assets = Assets.new()
+  self.assets = Assets.new({ art_pack_id = self.art_pack_settings.art_pack_id })
   self.sounds = SoundBank.new()
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
@@ -89,7 +95,50 @@ function App:title_options()
   end
   options[#options + 1] = { name = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs." }
   options[#options + 1] = { name = "FALLEN", description = "Inspect bodies lost on earlier descents." }
+  options[#options + 1] = { name = "ART PACKS", description = "Choose the visual tile pack. This never changes gameplay." }
   return options
+end
+
+function App:art_pack_options()
+  local result = {}
+  for _, definition in ipairs(self.assets:available_art_packs()) do
+    result[#result + 1] = {
+      id = definition.id,
+      name = definition.display_name,
+      description = definition.description,
+      license = definition.license,
+      credit = definition.credit,
+      source_url = definition.source_url,
+      selected = definition.id == self.art_pack_settings.art_pack_id,
+    }
+  end
+  return result
+end
+
+function App:open_art_packs()
+  self.screen, self.menu = "art_packs", 1
+  for index, option in ipairs(self:art_pack_options()) do
+    if option.selected then self.menu = index; break end
+  end
+  return true
+end
+
+function App:select_art_pack(id)
+  local selected_id = id or (self:art_pack_options()[self.menu] or {}).id
+  if not selected_id then return nil, { code = "unknown_art_pack", reason = "No art pack is selected" } end
+  local applied, apply_error = self.assets:select_art_pack(selected_id)
+  if not applied then return nil, apply_error end
+  local candidate = ArtPackSettings.copy(self.art_pack_settings)
+  candidate.art_pack_id = selected_id
+  local saved, save_error = ArtPackSettings.save(candidate, self.art_pack_store)
+  if not saved then
+    self.assets:select_art_pack(self.art_pack_settings.art_pack_id)
+    self.art_pack_error = save_error
+    return nil, save_error
+  end
+  self.art_pack_settings, self.art_pack_error = candidate, nil
+  self:play_sound("select")
+  return true
 end
 
 function App:_save_meta(candidate)
@@ -288,6 +337,7 @@ function App:activate_title_choice()
   if selected and selected.name == "CONTINUE" then return self:continue_run() end
   if selected and selected.name == "RESEARCH" then return self:open_research() end
   if selected and selected.name == "FALLEN" then return self:open_fallen_archive() end
+  if selected and selected.name == "ART PACKS" then return self:open_art_packs() end
   return self:request_new_run()
 end
 
