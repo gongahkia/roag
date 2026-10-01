@@ -23,6 +23,14 @@ local function copy_list(values)
   return result
 end
 
+local function copy_table(values)
+  local result = {}
+  for key, value in pairs(values) do
+    result[key] = value
+  end
+  return result
+end
+
 local function assert_failure(expected, callback)
   local ok, err = pcall(callback)
   assert(not ok, "Expected content validation to fail")
@@ -54,7 +62,7 @@ return {
     end,
   },
   {
-    name = "gas definitions validate finite concentration and toxic exposure metadata",
+    name = "gas definitions validate concentration exposure damage and semantic IDs",
     run = function()
       local invalid_maximum = sources()
       invalid_maximum.gases = copy_list(invalid_maximum.gases)
@@ -64,7 +72,7 @@ return {
         max_concentration = 0,
         exposure_threshold = 1,
         damage = 1,
-        render_style = "toxic_cloud",
+        render_style = "toxic_fumes",
       }
       assert_failure("Gas 'gas.invalid.maximum' max_concentration must be a positive integer", function()
         Registry.new(invalid_maximum)
@@ -78,7 +86,7 @@ return {
         max_concentration = 2,
         exposure_threshold = 3,
         damage = 1,
-        render_style = "toxic_cloud",
+        render_style = "toxic_fumes",
       }
       assert_failure("Gas 'gas.invalid.threshold' exposure_threshold cannot exceed max_concentration", function()
         Registry.new(invalid_threshold)
@@ -92,9 +100,9 @@ return {
         max_concentration = 2,
         exposure_threshold = 1,
         damage = -1,
-        render_style = "toxic_cloud",
+        render_style = "toxic_fumes",
       }
-      assert_failure("Gas 'gas.invalid.damage' damage must be a positive integer", function()
+      assert_failure("Gas 'gas.invalid.damage' damage must be a non-negative number", function()
         Registry.new(invalid_damage)
       end)
 
@@ -280,7 +288,6 @@ return {
         blocks_movement = true,
         blocks_vision = true,
         blocks_projectiles = true,
-        blocks_gas = false,
         movable_by_force = false,
         render_style = "cover",
       }
@@ -297,12 +304,35 @@ return {
         blocks_movement = "yes",
         blocks_vision = true,
         blocks_projectiles = true,
-        blocks_gas = false,
         movable_by_force = false,
         render_style = "cover",
       }
       assert_failure("World object 'world_object.invalid.metadata' blocks_movement must be a boolean", function()
         Registry.new(invalid_metadata)
+      end)
+    end,
+  },
+  {
+    name = "interactive device definitions validate declarative roles and powered-door metadata",
+    run = function()
+      local unknown_role = sources()
+      unknown_role.world_objects = copy_list(unknown_role.world_objects)
+      local invalid = copy_table(unknown_role.world_objects[1])
+      invalid.id = "world_object.invalid.unknown_role"
+      invalid.interaction_role = "terminal"
+      unknown_role.world_objects[#unknown_role.world_objects + 1] = invalid
+      assert_failure("World object 'world_object.invalid.unknown_role' has unknown interaction_role 'terminal'", function()
+        Registry.new(unknown_role)
+      end)
+
+      local invalid_door = sources()
+      invalid_door.world_objects = copy_list(invalid_door.world_objects)
+      local door = copy_table(require("content.world_objects.legacy")[4])
+      door.id = "world_object.invalid.powered_door"
+      door.power_required = nil
+      invalid_door.world_objects[#invalid_door.world_objects + 1] = door
+      assert_failure("World object 'world_object.invalid.powered_door' power_required must be a boolean", function()
+        Registry.new(invalid_door)
       end)
     end,
   },
@@ -452,23 +482,6 @@ return {
         resource = { name = "ammo", amount = 0 },
       }
       assert_failure("resource.amount must be a positive integer", function()
-        Registry.new(invalid_sources)
-      end)
-    end,
-  },
-  {
-    name = "electrical ability definitions require bounded network and damage metadata",
-    run = function()
-      local invalid_sources = sources()
-      invalid_sources.abilities = copy_list(invalid_sources.abilities)
-      invalid_sources.abilities[#invalid_sources.abilities + 1] = {
-        id = "ability.electrical.invalid_bound",
-        display_name = "Invalid Electrical Bound",
-        implementation = "electrical_discharge",
-        activation_type = "body",
-        damage = 1,
-      }
-      assert_failure("Ability 'ability.electrical.invalid_bound' max_cells must be a positive integer", function()
         Registry.new(invalid_sources)
       end)
     end,

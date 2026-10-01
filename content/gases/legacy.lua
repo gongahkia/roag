@@ -1,12 +1,12 @@
--- First finite atmospheric medium. Mutable concentration belongs to World;
--- this declarative definition only describes the shared physical substance.
+-- Finite toxic atmosphere proof. Concentration and harm are declarative;
+-- World owns mutable coordinate state and the gas system owns diffusion.
 return {
   {
     id = "gas.toxic.legacy",
-    display_name = "Toxic Gas",
+    display_name = "Toxic Fumes",
     max_concentration = 4,
     exposure_threshold = 2,
     damage = 1,
-    render_style = "toxic_cloud",
+    render_style = "toxic_fumes",
   },
 }

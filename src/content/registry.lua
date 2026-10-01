@@ -11,6 +11,12 @@ local KNOWN_ABILITY_IMPLEMENTATIONS = {
   electrical_discharge = true,
 }
 
+local KNOWN_INTERACTION_ROLES = {
+  door = true,
+  generator = true,
+  breaker = true,
+}
+
 local function content_error(message)
   error("Content validation failed: " .. message, 3)
 end
@@ -237,7 +243,7 @@ function Registry:validate()
     if gas.exposure_threshold > gas.max_concentration then
       content_error("Gas '" .. id .. "' exposure_threshold cannot exceed max_concentration")
     end
-    require_positive_integer(gas.damage, "Gas '" .. id .. "' damage")
+    require_nonnegative_number(gas.damage, "Gas '" .. id .. "' damage")
     require_string(gas.render_style, "Gas '" .. id .. "' render_style")
   end
 
@@ -253,6 +259,27 @@ function Registry:validate()
       if type(object[field]) ~= "boolean" then
         content_error("World object '" .. id .. "' " .. field .. " must be a boolean")
       end
+    end
+    if object.interaction_role ~= nil then
+      require_string(object.interaction_role, "World object '" .. id .. "' interaction_role")
+      if not KNOWN_INTERACTION_ROLES[object.interaction_role] then
+        content_error("World object '" .. id .. "' has unknown interaction_role '" .. object.interaction_role .. "'")
+      end
+      if object.interaction_role == "door" then
+        if type(object.power_required) ~= "boolean" then
+          content_error("World object '" .. id .. "' power_required must be a boolean")
+        end
+        if object.default_door_state ~= "closed" then
+          content_error("World object '" .. id .. "' default_door_state must be 'closed'")
+        end
+        if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles or not object.blocks_gas then
+          content_error("Door world object '" .. id .. "' must block movement, vision, projectiles, and gas while closed")
+        end
+      elseif object.power_required ~= nil or object.default_door_state ~= nil then
+        content_error("Non-door world object '" .. id .. "' cannot define door power metadata")
+      end
+    elseif object.power_required ~= nil or object.default_door_state ~= nil then
+      content_error("Non-interactable world object '" .. id .. "' cannot define door power metadata")
     end
     require_string(object.render_style, "World object '" .. id .. "' render_style")
   end

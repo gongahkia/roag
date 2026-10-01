@@ -13,6 +13,7 @@ local suites = {
   "tests.test_liquids",
   "tests.test_electricity",
   "tests.test_gas",
+  "tests.test_interaction_power",
   "tests.test_body",
   "tests.test_body_damage",
   "tests.test_body_weapons",

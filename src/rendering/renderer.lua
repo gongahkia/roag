@@ -139,20 +139,20 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Gas is an authoritative concentration layer. The tint is deliberately
-  -- local rather than fog-of-war: opacity communicates trace/harmful/dense
-  -- states while time-based drift remains cosmetic and RNG-free.
+  -- Gas is an authoritative coordinate layer, rendered after liquid so both
+  -- can coexist visibly. The drifting tint depends only on wall-clock time
+  -- and coordinates; it neither uses simulation RNG nor affects no-fog LOS.
   for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
     if state.visible[Grid.key(gas.x, gas.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, gas.x, gas.y, size, offset_x, offset_y)
       if pixel_x then
         local definition = session.registry:get_gas(gas.gas_id)
         local density = gas.concentration / definition.max_concentration
-        local drift = math.sin(time * 2 + gas.x * 3 + gas.y * 7) * size * 0.05
-        self:_color({ 0.45, 0.9, 0.24, 0.14 + density * 0.38 })
-        love.graphics.circle("fill", pixel_x + size * 0.34 + drift, pixel_y + size * 0.48, math.max(1, size * (0.16 + density * 0.16)))
-        self:_color({ 0.7, 1, 0.34, 0.1 + density * 0.26 })
-        love.graphics.circle("fill", pixel_x + size * 0.67 - drift, pixel_y + size * 0.55, math.max(1, size * (0.12 + density * 0.14)))
+        local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * size * 0.06
+        self:_color({ 0.36, 0.86, 0.3, 0.12 + density * 0.32 })
+        love.graphics.circle("fill", pixel_x + size * 0.36 + drift, pixel_y + size * 0.55, math.max(1, size * (0.16 + density * 0.22)))
+        self:_color({ 0.56, 1, 0.4, 0.08 + density * 0.24 })
+        love.graphics.circle("fill", pixel_x + size * 0.65 - drift, pixel_y + size * 0.38, math.max(1, size * (0.12 + density * 0.18)))
       end
     end
   end
@@ -190,21 +190,44 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- World objects are simulation-owned cover, not terrain decoration. Keep
-  -- this compact marker layer beneath actors and telegraphs to preserve the
-  -- existing sprite language without requiring new art assets.
+  -- World objects are simulation-owned physical state. These compact markers
+  -- preserve the sprite language while making door/device state readable.
   for _, object in ipairs(state.world and state.world:list_objects() or {}) do
     if state.visible[Grid.key(object.x, object.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, object.x, object.y, size, offset_x, offset_y)
       if pixel_x then
         local definition = session.registry:get_world_object(object.definition_id)
-        local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 }
-          or definition.render_style == "metal_crate" and { 0.28, 0.52, 0.66 }
-          or { 0.42, 0.44, 0.49 }
-        self:_color(tint)
-        love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
-        self:_color({ 0.9, 0.78, 0.5 })
-        love.graphics.rectangle("line", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+        if object.interaction_role == "door" then
+          if object.door_state == "open" then
+            self:_color({ 0.35, 0.9, 0.85, 0.85 })
+            love.graphics.line(pixel_x + size * 0.15, pixel_y + size * 0.15, pixel_x + size * 0.15, pixel_y + size * 0.85)
+            love.graphics.line(pixel_x + size * 0.85, pixel_y + size * 0.15, pixel_x + size * 0.85, pixel_y + size * 0.85)
+          else
+            self:_color({ 0.24, 0.42, 0.58 })
+            love.graphics.rectangle("fill", pixel_x + size * 0.1, pixel_y + size * 0.08, size * 0.8, size * 0.84)
+            self:_color({ 0.75, 0.9, 1 })
+            love.graphics.rectangle("line", pixel_x + size * 0.1, pixel_y + size * 0.08, size * 0.8, size * 0.84)
+            self:_color(state.world:is_circuit_powered(object.circuit_id) and { 0.25, 1, 0.55 } or { 1, 0.38, 0.22 })
+            love.graphics.circle("fill", pixel_x + size * 0.72, pixel_y + size * 0.25, math.max(1, size * 0.07))
+          end
+        elseif object.interaction_role == "generator" then
+          self:_color(object.generator_online and { 0.18, 0.62, 0.36 } or { 0.3, 0.31, 0.34 })
+          love.graphics.rectangle("fill", pixel_x + size * 0.19, pixel_y + size * 0.24, size * 0.62, size * 0.52)
+          self:_color({ 0.72, 0.9, 0.82 })
+          love.graphics.rectangle("line", pixel_x + size * 0.19, pixel_y + size * 0.24, size * 0.62, size * 0.52)
+        elseif object.interaction_role == "breaker" then
+          local circuit = state.world:get_circuit(object.circuit_id)
+          self:_color(circuit.enabled and { 0.92, 0.68, 0.18 } or { 0.48, 0.22, 0.18 })
+          love.graphics.rectangle("fill", pixel_x + size * 0.3, pixel_y + size * 0.16, size * 0.4, size * 0.68)
+          self:_color({ 0.95, 0.88, 0.5 })
+          love.graphics.line(pixel_x + size * 0.5, pixel_y + size * 0.26, pixel_x + size * 0.5, pixel_y + size * 0.73)
+        else
+          local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
+          self:_color(tint)
+          love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+          self:_color({ 0.9, 0.78, 0.5 })
+          love.graphics.rectangle("line", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+        end
       end
     end
   end
@@ -254,8 +277,8 @@ function Renderer:_draw_game(app)
     local x, y = location_key:match("(%d+):(%d+)")
     actor({ kind = "flare", x = tonumber(x), y = tonumber(y) })
   end
-  -- Discharge cells are an ephemeral presentation of an already-resolved
-  -- network result. They are neither world state nor an energized hazard.
+  -- A discharge result is presentation-only. The simulation has already
+  -- resolved the network and clears this brief cyan trace on the next turn.
   for _, cell in ipairs(state.electrical_effects or {}) do
     local effect_x, effect_y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
     if effect_x then
@@ -323,12 +346,20 @@ function Renderer:_draw_game(app)
     self:_text("BODY X: " .. string.upper(ability.display_name), hud, status_y, 0.72, { 0.95, 0.65, 0.35 })
     status_y = status_y + 18
   end
+  local interactions = session:available_interactions(state.player)
+  if #interactions > 0 and interactions[1].actions[1] then
+    local primary = interactions[1]
+    local action = primary.actions[1]
+    self:_text("U " .. action.label .. (action.available and "" or " — " .. (action.reason or "UNAVAILABLE")),
+      hud, status_y, 0.68, action.available and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
+    status_y = status_y + 18
+  end
   local controls_y = math.max(offset_y + 278, status_y + 8)
   self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
   self:_text("ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
   self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
-  self:_text("G salvage   I inventory", hud, controls_y + 74, 0.75)
+  self:_text("G salvage   I inventory   U interact", hud, controls_y + 74, 0.68)
   self:_text("INTENTS", hud, controls_y + 106, 1, { 0.9, 0.7, 0.4 })
   for index, enemy in ipairs(state.enemies) do
     if index > 5 then
@@ -463,12 +494,7 @@ function Renderer:_draw_body_abilities(app)
       selected and { 1, 0.65, 0.35 } or { 1, 1, 1 })
   end
   if app.body_ability_confirming then
-    local ability_id = app.body_ability_options and app.body_ability_options[app.menu]
-    local ability = ability_id and session.registry:get_ability(ability_id)
-    local warning = ability and ability.implementation == "self_destruct"
-      and "CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER."
-      or "CONFIRM ACTIVATION? PRESS ENTER."
-    self:_text(warning, width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
+    self:_text("CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER.", width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
   else
     self:_text("SELECT AN ABILITY, THEN PRESS ENTER TO ARM CONFIRMATION.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
   end

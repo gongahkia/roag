@@ -18,10 +18,12 @@ local Fire = require("src.simulation.fire")
 local Liquid = require("src.simulation.liquid")
 local Electricity = require("src.simulation.electricity")
 local Gas = require("src.simulation.gas")
+local Interaction = require("src.simulation.interaction")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
 local GasGeneration = require("src.generation.gases")
+local PoweredDevices = require("src.generation.powered_devices")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -160,6 +162,14 @@ function Session:inspect_hazard(hazard_id)
     return nil, "No active world"
   end
   return self.state.world:inspect_hazard(hazard_id)
+end
+
+function Session:available_interactions(actor)
+  return Interaction.available(self, actor or self.state.player)
+end
+
+function Session:interact(actor, object_id, action_id)
+  return Interaction.perform(self, actor or self.state.player, object_id, action_id)
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -510,6 +520,8 @@ function Session:_electrical_actor_id(actor)
   return string.format("actor:%s:%04d", actor.content_id or actor.kind or "unknown", index or 0)
 end
 
+-- A discharge is a transient conductive-network event. It does not query or
+-- mutate World circuits, generators, breakers, or powered-door state.
 function Session:_execute_electrical_discharge(actor, provider, wear, ability, request)
   local state = self.state
   local discharge = Electricity.discharge(state.world, request.target, {
@@ -539,8 +551,6 @@ function Session:_execute_electrical_discharge(actor, provider, wear, ability, r
         })
     end,
   })
-  -- This is presentation output for the just-resolved event, not persistent
-  -- energized-world state. It is reset at the next player turn.
   state.electrical_effects = discharge.reached_cells
   self:_event("electricity", discharge)
   if actor == state.player then
@@ -920,7 +930,10 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
       end
     end
     if #candidates > 0 then
-      damage_spec.slot_id = self.rng:choice(candidates).slot_id
+      -- Gas exposure must not consume combat/session RNG: diffusion itself is
+      -- RNG-free and an environmental medium should not perturb later rolls.
+      damage_spec.slot_id = provenance.deterministic_target and candidates[1].slot_id
+        or self.rng:choice(candidates).slot_id
     end
   end
   local body_damage = self:damage_actor_body(actor, damage_spec)
@@ -928,8 +941,8 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   local dead = false
   if actor == state.player then
     actor.health = math.max(0, actor.health - amount)
-    -- External collision recovery is an impact consequence, not a generic
-    -- environmental status. Electrical exposure remains direct damage only.
+    -- Only blocked external force creates the short impact recovery state.
+    -- Electrical, fire, and gas exposure remain direct environmental damage.
     if provenance.source == "impact" then
       actor.impact = 2
     end
@@ -1041,29 +1054,46 @@ end
 
 function Session:_apply_gas_exposure(actor, gas, definition)
   return self:_apply_world_actor_damage(actor, definition.damage,
-    actor == self.state.player and "TOXIC GAS SEARS YOU." or nil, {
+    actor == self.state.player and "TOXIC GAS BURNS YOU." or nil, {
       cause = "toxic",
       source = "gas",
       gas_id = definition.id,
+      concentration = gas.concentration,
       x = gas.x,
       y = gas.y,
-      concentration = gas.concentration,
-      exposure_threshold = definition.exposure_threshold,
+      -- See _apply_world_actor_damage: this preserves gas's no-RNG contract.
+      deterministic_target = true,
     })
 end
 
+-- Gas first commits its synchronous diffusion, then exposes living actors at
+-- post-diffusion concentration. Corpses and actors removed by earlier fire
+-- processing never appear in _actors_at and therefore receive no exposure.
 function Session:_update_gas()
-  if not self.state.world then
+  local world = self.state.world
+  if not world then
     return { applied = false, code = "no_world" }
   end
-  return Gas.tick(self.state.world, {
-    actors_at = function(x, y)
-      return self:_actors_at(x, y)
-    end,
-    on_actor_exposed = function(actor, gas, definition)
-      return self:_apply_gas_exposure(actor, gas, definition)
-    end,
-  })
+  local diffusion = Gas.tick(world)
+  local exposures = {}
+  if not self.state.ended then
+    for _, gas in ipairs(world:list_gases()) do
+      local definition = self.registry:get_gas(gas.gas_id)
+      if gas.concentration >= definition.exposure_threshold and definition.damage > 0 then
+        for _, actor in ipairs(self:_actors_at(gas.x, gas.y)) do
+          if not self.state.ended then
+            local exposure = self:_apply_gas_exposure(actor, gas, definition)
+            exposures[#exposures + 1] = exposure
+          end
+        end
+      end
+    end
+  end
+  return {
+    applied = diffusion.applied or #exposures > 0,
+    diffusion = diffusion,
+    exposures = exposures,
+  }
 end
 
 function Session:_resolve_force_impact(actor, force_result, force_spec)
@@ -1195,6 +1225,9 @@ function Session:_occupied(include_boss)
     for _, value in ipairs(values) do
       occupied[Grid.key(value.x, value.y)] = true
     end
+  end
+  for _, object in ipairs(state.world and state.world:list_objects() or {}) do
+    occupied[Grid.key(object.x, object.y)] = true
   end
   if state.ammo then
     occupied[Grid.key(state.ammo.x, state.ammo.y)] = true
@@ -1394,6 +1427,10 @@ function Session:start_stage()
     self.rng:derive("liquids.stage." .. state.stage))
   GasGeneration.place(state.world, state.settings.terrain, state.player,
     self.rng:derive("gases.stage." .. state.stage))
+  -- Persistent logical power is generated after independent environmental
+  -- layers with its own stream, so it cannot perturb their layouts.
+  PoweredDevices.place(state.world, state.settings.terrain, state.player,
+    self.rng:derive("power_devices.stage." .. state.stage))
   self:validate_world()
   self:_spawn_entities()
   self:_log("Descend into the " .. state.settings.terrain .. ".")
@@ -1977,9 +2014,8 @@ function Session:_enemy_turn()
       elseif enemy.kind == "wolf" and #route > 2 then
         self:_move_actor(enemy, route[2].x, route[2].y)
       elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
-        -- The cultist uses exactly the same network query and activation path
-        -- as the player. It deliberately declines a discharge that would
-        -- include its own coordinate, rather than receiving AI-only immunity.
+        -- This invokes exactly the player-facing implementation. The AI only
+        -- chooses a trace that reaches the player without self-shocking.
         self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
       elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
         self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = self.state.player })
@@ -2198,6 +2234,31 @@ function Session:_shoot(direction)
   return result
 end
 
+function Session:_interact_player()
+  local result = Interaction.primary(self, self.state.player)
+  if result.applied then
+    local object = self.state.world:get_object(result.object_id)
+    if result.action_id == "door.open" then
+      self:_log("OPENED " .. string.upper(self.registry:get_world_object(object.definition_id).display_name) .. ".")
+    elseif result.action_id == "door.close" then
+      self:_log("CLOSED " .. string.upper(self.registry:get_world_object(object.definition_id).display_name) .. ".")
+    elseif result.action_id == "generator.toggle" then
+      self:_log(object.generator_online and "GENERATOR ONLINE." or "GENERATOR OFFLINE.")
+    elseif result.action_id == "breaker.toggle" then
+      local circuit = self.state.world:get_circuit(object.circuit_id)
+      self:_log(circuit.enabled and "CIRCUIT ENABLED." or "CIRCUIT DISABLED.")
+    end
+    self:_sound("select")
+  elseif result.code == "requires_power" then
+    self:_log("NO POWER.")
+  elseif result.code == "not_interactable" then
+    self:_log("NOTHING TO INTERACT WITH.")
+  else
+    self:_log(result.reason or "INTERACTION FAILED.")
+  end
+  return result
+end
+
 function Session:_action(input)
   local player = self.state.player
   if DIRECTIONS[input] then
@@ -2211,6 +2272,8 @@ function Session:_action(input)
   end
   if input == "q" then
     self:_dash()
+  elseif input == "interact" then
+    self:_interact_player()
   elseif input == "e" then
     self:_shoot()
   elseif input:match("^shoot_[wasd]$") then
@@ -2245,12 +2308,9 @@ function Session:_action(input)
       self:_log("Flare lit. Necromancers will be stunned.")
     end
   elseif input:match("^activate_ability:") then
-    local result = self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
+    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
-    if not result.applied then
-      self:_log(result.reason)
-    end
   end
 end
 
@@ -2359,7 +2419,9 @@ function Session:turn(input)
     end
     self:_update_liquids()
     self:_update_fire()
-    self:_update_gas()
+    if not state.ended then
+      self:_update_gas()
+    end
     if state.ended then
       self:refresh_visibility()
       return state.ended
@@ -2404,11 +2466,12 @@ function Session:turn(input)
   end
   -- World processes run after immediate actions and enemy response. Liquid
   -- redistribution/suppression precedes fire, so newly arrived water can save
-  -- fuel before that turn's burn tick. Gas then diffuses and exposes actors
-  -- from its post-diffusion concentration. New fires still wait by ready_tick.
+  -- fuel before that turn's burn tick. New fires still wait by ready_tick.
   self:_update_liquids()
   self:_update_fire()
-  self:_update_gas()
+  if not state.ended then
+    self:_update_gas()
+  end
   self:refresh_visibility()
   return result or state.ended
 end

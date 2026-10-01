@@ -1,11 +1,10 @@
--- Finite deterministic gas diffusion. World owns all coordinate state; this
--- module only performs one synchronous, cardinal redistribution and then
--- resolves exposure from the newly committed concentrations.
+-- Deterministic finite gas diffusion. Gas belongs to World; this module only
+-- resolves one synchronous redistribution step and deliberately uses no RNG.
 local Grid = require("src.world.grid")
 
 local Gas = {}
 
--- Stable order matters for equal choices: north, east, south, west.
+-- Stable tie-break order: north, east, south, west.
 local CARDINAL_DIRECTIONS = {
   { 0, 1 },
   { 1, 0 },
@@ -30,15 +29,16 @@ local function snapshot_gases(world)
   return values
 end
 
--- A source may transfer only one concentration unit per tick. It must exceed
--- the neighbor by at least two snapshot units; this retains trace gas and
--- prevents equal cells from oscillating forever. Queued deltas mean a newly
--- transferred unit cannot diffuse again until the next world tick.
-function Gas.tick(world, hooks)
+-- Each eligible source gives at most one unit per tick. A source must have at
+-- least two units and be at least two units denser than its destination. The
+-- strict gradient prevents trace gas from wandering forever; a distribution
+-- whose neighbours differ by at most one is stable. All choices use the
+-- snapshot, then queued deltas commit together, so new gas never chains
+-- onward during the same tick.
+function Gas.tick(world)
   if not world then
     return { applied = false, code = "no_world", reason = "No active world" }
   end
-  hooks = hooks or {}
   local snapshot = snapshot_gases(world)
   local deltas, planned_gas_ids, transfers = {}, {}, {}
   for x = 0, Grid.width - 1 do
@@ -57,8 +57,7 @@ function Gas.tick(world, hooks)
             and (not planned_id or planned_id == source.gas_id)
             and source.concentration >= target_concentration + 2
             and target_concentration + queued_concentration < definition.max_concentration then
-            local source_key = key(x, y)
-            deltas[source_key] = (deltas[source_key] or 0) - 1
+            deltas[key(x, y)] = (deltas[key(x, y)] or 0) - 1
             deltas[target_key] = queued_concentration + 1
             planned_gas_ids[target_key] = source.gas_id
             transfers[#transfers + 1] = {
@@ -89,28 +88,10 @@ function Gas.tick(world, hooks)
       end
     end
   end
-  world.gas_tick = world.gas_tick + 1
-
-  local exposures, seen = {}, {}
-  if hooks.actors_at and hooks.on_actor_exposed then
-    for _, gas in ipairs(world:list_gases()) do
-      local definition = world.registry:get_gas(gas.gas_id)
-      if gas.concentration >= definition.exposure_threshold then
-        for _, actor in ipairs(hooks.actors_at(gas.x, gas.y)) do
-          if not seen[actor] then
-            seen[actor] = true
-            exposures[#exposures + 1] = hooks.on_actor_exposed(actor, gas, definition)
-          end
-        end
-      end
-    end
-  end
   return {
-    applied = #transfers > 0 or #exposures > 0,
+    applied = #transfers > 0,
     code = "ticked",
-    tick = world.gas_tick,
     transfers = transfers,
-    exposures = exposures,
   }
 end
 
