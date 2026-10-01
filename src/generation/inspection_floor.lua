@@ -103,6 +103,7 @@ local function provenance_for(session)
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".liquids",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".gases",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".power_devices",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".services",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".entities",
   }
   local result = {
@@ -118,8 +119,8 @@ local function provenance_for(session)
   local world, state = session.state.world, session.state
   result.rooms = state.generation_metadata
   for _, object in ipairs(world:list_objects()) do
-    result.objects[object.id] = object.interaction_role and "inspection.power_devices"
-      or "inspection.world_objects"
+    result.objects[object.id] = object.interaction_role == "service" and "inspection.services"
+      or (object.interaction_role and "inspection.power_devices" or "inspection.world_objects")
   end
   for _, hazard in ipairs(world:list_hazards()) do
     result.hazards[hazard.id] = "inspection.hazards"
@@ -163,7 +164,7 @@ function InspectionFloor.generate(options)
   local session = Session.new({ seed = seed, content = options.content })
   session.state.class = (options.content or Content).classes[1]
   session.state.boon = (options.content or Content).boons[1]
-  session:start_biome_tier(biome.id, tier.id, seed)
+  session:start_biome_tier(biome.id, tier.id, seed, options.service_id)
   return {
     seed = session.seed,
     stage = tier.number,

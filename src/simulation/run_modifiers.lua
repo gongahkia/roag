@@ -2,7 +2,7 @@
 -- curse layer.  They never mutate base player statistics permanently.
 local Modifiers = {}
 
-Modifiers.CHARM_SLOTS = 3
+Modifiers.BASE_CHARM_SLOTS = 3
 
 local function add_all(result, values)
   for key, value in pairs(values or {}) do result[key] = (result[key] or 0) + value end
@@ -10,8 +10,11 @@ end
 
 function Modifiers.values(state, registry)
   local result = {}
+  -- A run snapshots account research at creation.  Never consult the live
+  -- profile here: a purchase during a run must affect only a later body.
+  add_all(result, state.meta_snapshot and state.meta_snapshot.modifiers)
   local slots = state.charms and state.charms.slots or {}
-  for index = 1, Modifiers.CHARM_SLOTS do
+  for index = 1, Modifiers.charm_slots(state) do
     local charm_id = slots[index]
     if charm_id then
       local charm = registry:get_charm(charm_id)
@@ -25,11 +28,12 @@ function Modifiers.values(state, registry)
     -- saved floor rather than being silently stripped on restoration.
     add_all(result, state.curse.modifiers)
   end
-  -- Legacy active saves may retain their former selected boon/class exactly
-  -- until that run ends. New runs never set these compatibility fields.
-  add_all(result, state.legacy_class and state.legacy_class.modifiers)
-  add_all(result, state.legacy_boon and state.legacy_boon.modifiers)
   return result
+end
+
+function Modifiers.charm_slots(state)
+  local meta = state and state.meta_snapshot and state.meta_snapshot.modifiers or {}
+  return math.max(0, Modifiers.BASE_CHARM_SLOTS + (meta.charm_slots or 0))
 end
 
 function Modifiers.value(state, registry, key)

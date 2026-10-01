@@ -94,13 +94,23 @@ function App:request_new_run()
     self.screen, self.menu = "replace_save", 1
     return false
   end
-  self.screen, self.menu = "class", 1
+  self:_new_session()
+  self.session:start_run()
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self:autosave("new_run")
   self:play_sound("select")
   return true
 end
 
 function App:confirm_replace_save()
-  self.screen, self.menu = "class", 1
+  self:_new_session()
+  self.session:start_run()
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self:autosave("new_run")
   self:play_sound("select")
 end
 
@@ -119,9 +129,11 @@ function App:continue_run()
     self.screen = "reconstruction"
     self.reconstruction_focus, self.reconstruction_slot_index, self.reconstruction_inventory_index = "body", 1, 1
   elseif session.state.phase == "transition" then
-    self.screen = session.state.transition_next == "shop" and "shop" or "curse"
+    self.screen = session.state.transition_next == "shop" and "service_hub" or "curse"
   elseif session.state.phase == "route" then
     self.screen = "route"
+  elseif session.state.phase == "service" then
+    self.screen = "service"
   else
     self.screen = "game"
   end
@@ -167,10 +179,13 @@ function App:move_menu(amount, limit)
 end
 
 function App:select_class(class)
+  -- Compatibility helper for old save/UI tests. New-run input never routes to
+  -- class or free-boon screens; callers may still explicitly construct an
+  -- old-style run for migration coverage.
   self.selected_class = class
   self:_new_session()
   self.boon_options = self.session:choose_boons(3)
-  self.screen, self.menu = "boon", 1
+  self.screen, self.menu = "title", 1
 end
 
 function App:select_boon(boon)
@@ -200,6 +215,8 @@ function App:route_options()
       node_id = node.id,
       name = biome and biome.display_name or string.upper(node.type),
       description = biome and ("TIER " .. tier.number .. "  •  FLOOR") or string.upper(node.type),
+      service_id = node.service_id,
+      service_name = node.service_id and self.session.registry:get_service(node.service_id).display_name or nil,
       biome_id = node.biome_id,
       tier_id = node.tier_id,
       type = node.type,
@@ -224,16 +241,47 @@ function App:select_route_choice()
   return result
 end
 
-function App:buy_selected()
-  local result = self.session:buy(self.content.shop[self.menu])
-  if result then self:autosave("shop") end
+function App:service_options()
+  return self.session and self.session:service_options(self.service_object_id) or {}
+end
+
+function App:open_service(object_id)
+  self.service_object_id = object_id or self.session.state.active_service_object_id
+  local opened = self.session:open_service(self.service_object_id)
+  if opened.applied then self.screen, self.menu = "service", 1 end
+  return opened
+end
+
+function App:service_execute_selected()
+  local option = self:service_options()[self.menu]
+  if not option then return { applied = false, code = "invalid_item", reason = "No service option selected" } end
+  local result = self.session:service_execute(option, self.service_object_id)
+  if result.applied then self:autosave("service") end
   return result
 end
 
-function App:sell_selected()
-  local result = self.session:sell(self.content.shop[self.menu])
-  if result then self:autosave("shop") end
+function App:close_service()
+  local result = self.session:close_service()
+  if result.applied then self.screen, self.menu, self.service_object_id = result.return_to_hub and "service_hub" or "game", 1, nil end
   return result
+end
+
+function App:service_hub_options()
+  local ids = { "service.supply.legacy", "service.repair.legacy", "service.salvager.legacy", "service.charm_vendor.legacy" }
+  local options = {}
+  for _, id in ipairs(ids) do options[#options + 1] = { service_id = id, name = self.session.registry:get_service(id).display_name } end
+  options[#options + 1] = { action = "boss", name = "ENTER FINAL BOSS" }
+  return options
+end
+
+function App:select_service_hub_option()
+  local option = self:service_hub_options()[self.menu]
+  if option.action == "boss" then return self:start_boss() end
+  -- Final hub stock is stored in the session rather than a rendered pseudo-shop.
+  local hub = self.session.state.final_service_hub
+  if not hub then return { applied = false, code = "invalid_service", reason = "Final service hub is unavailable" } end
+  self.service_object_id = "hub:" .. option.service_id
+  return self:open_service(self.service_object_id)
 end
 
 function App:start_boss()
@@ -256,12 +304,16 @@ function App:_handle_turn_result(result)
   elseif result == "curse" then
     self.screen, self.menu = "curse", 1
   elseif result == "shop" then
-    self.screen, self.menu = "shop", 1
+    self.screen, self.menu = "service_hub", 1
   elseif result == "route" then
     self.screen, self.menu = "route", 1
   elseif result == "gameover" or result == "victory" then
     self.screen, self.menu = result, 1
     self:clear_held_movement()
+  end
+  if result == "service" then
+    self.service_object_id = self.session.state.active_service_object_id
+    self.screen, self.menu = "service", 1
   end
 end
 

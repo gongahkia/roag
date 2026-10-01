@@ -84,4 +84,16 @@ return {
     interaction_role = "service",
     render_style = "service_kiosk",
   },
+  {
+    id = "world_object.traversal.reinforced_barrier",
+    display_name = "Reinforced Barrier",
+    material_id = "material.structure.reinforced_breachable",
+    blocks_movement = true,
+    blocks_vision = true,
+    blocks_projectiles = true,
+    blocks_gas = true,
+    movable_by_force = false,
+    interaction_role = "traversal",
+    render_style = "reinforced_barrier",
+  },
 }

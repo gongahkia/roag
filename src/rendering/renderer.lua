@@ -221,6 +221,11 @@ function Renderer:_draw_game(app)
           love.graphics.rectangle("fill", pixel_x + size * 0.3, pixel_y + size * 0.16, size * 0.4, size * 0.68)
           self:_color({ 0.95, 0.88, 0.5 })
           love.graphics.line(pixel_x + size * 0.5, pixel_y + size * 0.26, pixel_x + size * 0.5, pixel_y + size * 0.73)
+        elseif object.interaction_role == "service" then
+          self:_color({ 0.56, 0.28, 0.72 })
+          love.graphics.rectangle("fill", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
+          self:_color({ 0.95, 0.78, 1 })
+          love.graphics.rectangle("line", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
         else
           local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
           self:_color(tint)
@@ -314,14 +319,17 @@ function Renderer:_draw_game(app)
   self:_text("BOMBS " .. state.player.bombs .. "  ARMED " .. #state.bombs, hud, offset_y + 84)
   self:_text("FLARES " .. state.player.flares .. "  LIT " .. #state.flares, hud, offset_y + 104)
   self:_text("DASH  " .. (state.player.dash == 0 and "READY" or "RECHARGING"), hud, offset_y + 124)
-  self:_text(state.boss and "BOSS " .. state.boss.health .. " / 10" or "SCORE " .. state.player.score .. " / " .. state.settings.score, hud, offset_y + 150, 1, { 0.95, 0.85, 0.25 })
+  self:_text(state.boss and "BOSS " .. state.boss.health .. " / 10" or "OBJECTIVE " .. (state.player.objective_progress or state.player.score) .. " / " .. state.settings.objective_required, hud, offset_y + 150, 0.9, { 0.95, 0.85, 0.25 })
   local inventory = state.inventory
   self:_text("CARGO " .. inventory:total_mass() .. "  " .. inventory:encumbrance(), hud, offset_y + 174, 0.88,
     inventory:encumbrance() == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
+  local charm_count = 0
+  for index = 1, 3 do if state.charms and state.charms.slots[index] then charm_count = charm_count + 1 end end
+  self:_text("SCRAP " .. (state.scrap or 0) .. "  CHARMS " .. charm_count .. "/3", hud, offset_y + 196, 0.82, { 0.65, 0.9, 0.8 })
   if state.curse then
-    self:_text("CURSE " .. state.curse.name, hud, offset_y + 196, 1, { 0.9, 0.4, 0.8 })
+    self:_text("CURSE " .. (state.curse.display_name or state.curse.name), hud, offset_y + 216, 0.82, { 0.9, 0.4, 0.8 })
   end
-  local status_y = offset_y + 218
+  local status_y = offset_y + 238
   local locomotion = session:locomotion_state(state.player)
   if locomotion.state ~= "NORMAL" then
     local locomotion_color = locomotion.state == "IMPAIRED" and { 1, 0.72, 0.3 } or { 1, 0.42, 0.42 }
@@ -690,7 +698,7 @@ function Renderer:_draw_route(app)
     if node.type == "floor" then
       local biome = session.route_definitions:get_biome(node.biome_id)
       local tier = session.route_definitions:get_tier(node.tier_id)
-      label, detail = biome.display_name, "TIER " .. tier.number
+      label, detail = biome.display_name, "TIER " .. tier.number .. " • " .. session.registry:get_service(node.service_id).display_name
     else
       label, detail = string.upper(node.type), status == "future" and "LOCKED" or string.upper(status)
     end
@@ -754,16 +762,20 @@ function Renderer:draw(app)
       "ENTER CONFIRM     ESC CANCEL")
   elseif app.screen == "sprite_lab" then
     self:_draw_sprite_lab(app)
-  elseif app.screen == "class" then
-    self:_menu("CHOOSE YOUR CLASS", app.content.classes, app.menu)
-  elseif app.screen == "boon" then
-    self:_menu("CHOOSE A BOON", app.boon_options, app.menu)
   elseif app.screen == "curse" then
     self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
   elseif app.screen == "route" then
     self:_draw_route(app)
-  elseif app.screen == "shop" then
-    self:_menu("SHOP — POINTS " .. app.session.state.score, app.content.shop, app.menu, "W/S SELECT     B BUY     V SELL     ENTER FIGHT BOSS")
+  elseif app.screen == "service_hub" then
+    self:_menu("FINAL SERVICE HUB — SCRAP " .. app.session.state.scrap, app:service_hub_options(), app.menu, "W/S SELECT     ENTER ACCESS / ENTER BOSS")
+  elseif app.screen == "service" then
+    local items = {}
+    for _, option in ipairs(app:service_options()) do
+      local suffix = option.price and ("  •  " .. option.price .. " SCRAP") or ""
+      if option.remaining ~= nil then suffix = suffix .. "  •  " .. option.remaining .. " LEFT" end
+      items[#items + 1] = { name = option.label .. suffix, description = option.description or (option.integrity and ("INTEGRITY " .. option.integrity .. "/" .. option.max_integrity) or "") }
+    end
+    self:_menu("SERVICE — SCRAP " .. app.session.state.scrap, items, app.menu, "W/S SELECT     ENTER/B/V TRANSACT     ESC CLOSE")
   elseif app.screen == "inventory" then
     self:_draw_inventory(app)
   elseif app.screen == "salvage" then

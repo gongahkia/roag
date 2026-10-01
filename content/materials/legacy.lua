@@ -96,4 +96,16 @@ return {
     flammable = false,
     conductive = false,
   },
+  {
+    id = "material.structure.reinforced_breachable",
+    display_name = "Reinforced Traverse Alloy",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 99,
+    destruction_material_id = "material.terrain.air",
+    flammable = false,
+    conductive = false,
+  },
 }

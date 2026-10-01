@@ -43,6 +43,10 @@ for _, depth in ipairs(depths) do
   local ids = {}; for id in pairs(values) do ids[#ids + 1] = id end; table.sort(ids)
   for _, id in ipairs(ids) do parts[#parts + 1] = id .. "=" .. values[id] end
   io.write("  depth " .. depth .. ": " .. table.concat(parts, ", ") .. "\n")
+  local service_parts, services = {}, report.summary.services_by_depth[depth] or {}
+  local service_ids = {}; for id in pairs(services) do service_ids[#service_ids + 1] = id end; table.sort(service_ids)
+  for _, id in ipairs(service_ids) do service_parts[#service_parts + 1] = id .. "=" .. services[id] end
+  if #service_parts > 0 then io.write("    services: " .. table.concat(service_parts, ", ") .. "\n") end
 end
 if #report.failures > 0 then
   io.write("Failure seeds:\n")

@@ -181,7 +181,7 @@ function Graph:validate(definitions)
       local biome_ok = pcall(function() definitions:get_biome(node.biome_id) end)
       local tier_ok = pcall(function() definitions:get_tier(node.tier_id) end)
       if not biome_ok or not tier_ok or type(node.floor_seed) ~= "number" or node.floor_seed % 1 ~= 0
-        or type(node.service_id) ~= "string" or not node.service_id:match("^service%.") then
+        or (node.service_id ~= nil and (type(node.service_id) ~= "string" or not node.service_id:match("^service%."))) then
         return invalid("Floor node '" .. id .. "' has invalid biome, tier, or seed")
       end
     elseif node.biome_id ~= nil or node.tier_id ~= nil or node.floor_seed ~= nil then

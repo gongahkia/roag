@@ -99,26 +99,6 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
-  if app.screen == "class" then
-    if key == "w" or key == "up" then
-      app:move_menu(-1, #app.content.classes)
-    elseif key == "s" or key == "down" then
-      app:move_menu(1, #app.content.classes)
-    elseif key == "return" or key == "e" then
-      app:select_class(app.content.classes[app.menu])
-    end
-    return
-  end
-  if app.screen == "boon" then
-    if key == "w" or key == "up" then
-      app:move_menu(-1, #app.boon_options)
-    elseif key == "s" or key == "down" then
-      app:move_menu(1, #app.boon_options)
-    elseif key == "return" or key == "e" then
-      app:select_boon(app.boon_options[app.menu])
-    end
-    return
-  end
   if app.screen == "curse" then
     if key == "w" or key == "up" then
       app:move_menu(-1, #app.session.state.curse_options)
@@ -140,17 +120,32 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
-  if app.screen == "shop" then
+  if app.screen == "service_hub" then
+    local options = app:service_hub_options()
     if key == "w" or key == "up" then
-      app:move_menu(-1, #app.content.shop)
+      app:move_menu(-1, #options)
     elseif key == "s" or key == "down" then
-      app:move_menu(1, #app.content.shop)
-    elseif key == "b" then
-      app:buy_selected()
-    elseif key == "v" then
-      app:sell_selected()
+      app:move_menu(1, #options)
     elseif key == "return" or key == "e" then
-      app:start_boss()
+      app:select_service_hub_option()
+    end
+    return
+  end
+  if app.screen == "service" then
+    local options = app:service_options()
+    if key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #options))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #options))
+    elseif key == "b" or key == "return" or key == "e" then
+      app:service_execute_selected()
+    elseif key == "v" then
+      local option = options[app.menu]
+      if option and (option.action == "sell_component" or option.action == "remove_charm") then
+        app:service_execute_selected()
+      end
+    elseif key == "escape" then
+      app:close_service()
     end
     return
   end

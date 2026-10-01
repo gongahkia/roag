@@ -98,6 +98,9 @@ function Definitions:validate()
     if tier_numbers[tier.number] then fail("Duplicate tier number '" .. tier.number .. "'") end
     tier_numbers[tier.number] = true
     if type(tier.settings) ~= "table" then fail("Tier '" .. id .. "' settings must be a table") end
+    -- Pre-8B tooling fixtures used the overloaded score spelling. Retain it
+    -- only as an input alias; all runtime settings use objective_required.
+    if tier.settings.objective_required == nil then tier.settings.objective_required = tier.settings.score end
     for _, field in ipairs({ "targets", "enemies", "objective_required", "ammo", "vision", "torches" }) do
       integer(tier.settings[field], "Tier '" .. id .. "' settings." .. field)
     end

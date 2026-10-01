@@ -27,7 +27,7 @@ if not rooms then
 end
 local coverage = rooms:coverage()
 io.write(string.format(
-  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d topologies, %d actors, %d enemies, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d connector patterns\n",
+  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d services, %d charms, %d boons, %d curses, %d topologies, %d actors, %d enemies, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d connector patterns\n",
   (function() local count = 0 for _ in pairs(registry.abilities) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.materials) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.liquids) do count = count + 1 end return count end)(),
@@ -35,6 +35,10 @@ io.write(string.format(
   (function() local count = 0 for _ in pairs(registry.world_objects) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.hazards) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.components) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.services) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.charms) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.boons) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.curses) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.topologies) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.actors) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.enemies) do count = count + 1 end return count end)(),

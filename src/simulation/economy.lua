@@ -121,7 +121,7 @@ function Economy.buy_charm(session, stock, offer_index)
   if not offer or offer.sold then return fail("out_of_stock", "That charm is no longer available") end
   local slots = session.state.charms.slots
   local slot
-  for index = 1, RunModifiers.CHARM_SLOTS do if not slots[index] then slot = index break end end
+  for index = 1, RunModifiers.charm_slots(session.state) do if not slots[index] then slot = index break end end
   if not slot then return fail("charm_slots_full", "All charm slots are occupied") end
   local charm = session.registry:get_charm(offer.charm_id)
   local ok, failure = spend(session, charm.price)

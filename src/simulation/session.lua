@@ -88,6 +88,19 @@ local function copy_plain(value)
   return result
 end
 
+local function copy_meta_snapshot(snapshot)
+  local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {} }
+  for _, id in ipairs(snapshot and snapshot.unlocked_research_ids or {}) do result.unlocked_research_ids[#result.unlocked_research_ids + 1] = id end
+  for _, id in ipairs(snapshot and snapshot.unlock_ids or {}) do result.unlock_ids[#result.unlock_ids + 1] = id end
+  for key, value in pairs(snapshot and snapshot.modifiers or {}) do
+    assert(type(key) == "string" and type(value) == "number" and value % 1 == 0, "Run meta snapshot modifier is invalid")
+    result.modifiers[key] = value
+  end
+  table.sort(result.unlocked_research_ids)
+  table.sort(result.unlock_ids)
+  return result
+end
+
 local function named_content(values, name, label)
   if name == nil then return nil end
   for _, value in ipairs(values or {}) do
@@ -106,6 +119,8 @@ function Session.new(options)
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
   self.emit = options.emit or function() end
+  self.meta_reward_handler = options.on_meta_reward
+  local meta_snapshot = copy_meta_snapshot(options.meta_snapshot)
   local inventory = Inventory.new()
   self.state = {
     stage = 1,
@@ -128,7 +143,11 @@ function Session.new(options)
     floor_seed = nil,
     transition_next = nil,
     active_service_object_id = nil,
+    service_return_phase = nil,
     final_service_hub = nil,
+    run_id = options.run_id or ("legacy:" .. tostring(self.seed)),
+    meta_snapshot = meta_snapshot,
+    meta_reward_events = {},
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -209,6 +228,43 @@ end
 
 function Session:modifier_value(key)
   return RunModifiers.value(self.state, self.registry, key)
+end
+
+function Session:has_meta_unlock(unlock_id)
+  for _, id in ipairs(self.state.meta_snapshot and self.state.meta_snapshot.unlock_ids or {}) do
+    if id == unlock_id then return true end
+  end
+  return false
+end
+
+function Session:_claim_research_reward(milestone, amount)
+  local state = self.state
+  local reward_id = state.run_id .. ":" .. milestone
+  for _, event in ipairs(state.meta_reward_events) do
+    if event.id == reward_id then return event end
+  end
+  local event = { id = reward_id, amount = amount, claimed = false }
+  state.meta_reward_events[#state.meta_reward_events + 1] = event
+  if not self.meta_reward_handler then
+    event.claimed = true
+    return event
+  end
+  local result = self.meta_reward_handler(event.id, event.amount)
+  if result and (result.applied or result.code == "already_claimed") then event.claimed = true end
+  return event
+end
+
+function Session:reconcile_meta_rewards()
+  local settled = true
+  for _, event in ipairs(self.state.meta_reward_events or {}) do
+    if not event.claimed and self.meta_reward_handler then
+      local result = self.meta_reward_handler(event.id, event.amount)
+      if result and (result.applied or result.code == "already_claimed") then event.claimed = true else settled = false end
+    elseif not event.claimed then
+      settled = false
+    end
+  end
+  return settled
 end
 
 function Session:refresh_derived_player_stats()
@@ -779,12 +835,16 @@ end
 
 function Session:run_data()
   local player = self.state.run.player
+  local charm_slots = {}
+  for index = 1, RunModifiers.charm_slots(self.state) do
+    if self.state.charms and self.state.charms.slots[index] then charm_slots[#charm_slots + 1] = { slot = index, charm_id = self.state.charms.slots[index] } end
+  end
   return {
     progression = {
       stage = self.state.stage,
       score = self.state.score,
       scrap = self.state.scrap,
-      charm_slots = self.state.charms and self.state.charms.slots or {},
+      charm_slots = charm_slots,
       curse_id = self.state.curse_id,
       class_name = self.state.legacy_class and self.state.legacy_class.name or nil,
       boon_name = self.state.legacy_boon and self.state.legacy_boon.name or nil,
@@ -795,6 +855,8 @@ function Session:run_data()
       next_hazard_sequence = self.state.next_hazard_sequence,
       next_fire_sequence = self.state.next_fire_sequence,
       route = self.state.route and self.state.route:to_data() or nil,
+      run_id = self.state.run_id,
+      meta_snapshot = copy_meta_snapshot(self.state.meta_snapshot),
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -910,6 +972,10 @@ function Session:to_data()
   self:validate_physical_ownership()
   if self.state.world then self:validate_world() end
   local state = self.state
+  local charm_slots = {}
+  for index = 1, RunModifiers.charm_slots(state) do
+    if state.charms and state.charms.slots[index] then charm_slots[#charm_slots + 1] = { slot = index, charm_id = state.charms.slots[index] } end
+  end
   local data = {
     seed = self.seed,
     rng = self.rng:to_data(),
@@ -917,7 +983,7 @@ function Session:to_data()
       stage = state.stage,
       score = state.score,
       scrap = state.scrap,
-      charm_slots = state.charms and state.charms.slots or {},
+      charm_slots = charm_slots,
       curse_id = state.curse_id,
       phase = state.phase,
       ended = state.ended,
@@ -927,6 +993,8 @@ function Session:to_data()
       boon_name = state.legacy_boon and state.legacy_boon.name or nil,
       curse_name = state.curse and (state.curse.display_name or state.curse.name) or nil,
       active_service_object_id = state.active_service_object_id,
+      service_return_phase = state.service_return_phase,
+      final_service_hub = state.final_service_hub,
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
@@ -934,6 +1002,9 @@ function Session:to_data()
       next_world_object_sequence = state.next_world_object_sequence,
       next_hazard_sequence = state.next_hazard_sequence,
       next_fire_sequence = state.next_fire_sequence,
+      run_id = state.run_id,
+      meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
+      meta_reward_events = {},
     },
     settings = copy_plain(state.settings or {}),
     log = {},
@@ -957,6 +1028,9 @@ function Session:to_data()
   for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.id or curse.name end
   for _, message in ipairs(state.log or {}) do data.log[#data.log + 1] = message end
   for _, corpse in ipairs(state.corpses or {}) do data.corpses[#data.corpses + 1] = corpse:to_data() end
+  for _, event in ipairs(state.meta_reward_events or {}) do
+    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+  end
   table.sort(data.corpses, function(first, second) return first.id < second.id end)
   return data
 end
@@ -972,6 +1046,9 @@ function Session.from_data(data, options)
     registry = options.registry,
     route_definitions = options.route_definitions,
     emit = options.emit,
+    run_id = options.run_id,
+    meta_snapshot = options.meta_snapshot,
+    on_meta_reward = options.on_meta_reward,
   })
   local progression = data.progression
   local state = session.state
@@ -992,6 +1069,10 @@ function Session.from_data(data, options)
   state.legacy_class = named_content(session.content.classes, progression.class_name, "class")
   state.legacy_boon = named_content(session.content.boons, progression.boon_name, "boon")
   state.class, state.boon = nil, nil
+  state.run_id = progression.run_id or options.run_id or ("legacy:" .. tostring(data.seed))
+  assert(type(state.run_id) == "string" and state.run_id:match("^[%w:_%.%-]+$"), "Active run has an invalid run ID")
+  state.meta_snapshot = copy_meta_snapshot(progression.meta_snapshot or options.meta_snapshot)
+  for _, id in ipairs(state.meta_snapshot.unlocked_research_ids) do assert(session.registry.research[id], "Active run references unknown research ID '" .. id .. "'") end
   local function resolve_curse(value)
     if not value then return nil end
     if session.registry.curses[value] then return session.registry:get_curse(value) end
@@ -1000,12 +1081,23 @@ function Session.from_data(data, options)
   end
   state.curse = resolve_curse(progression.curse_id or progression.curse_name)
   state.curse_id = state.curse and state.curse.id or nil
-  state.charms = { slots = { nil, nil, nil } }
-  for index, charm_id in ipairs(progression.charm_slots or {}) do
-    assert(index <= RunModifiers.CHARM_SLOTS and (charm_id == nil or session.registry.charms[charm_id]), "Active run has an invalid charm slot")
-    state.charms.slots[index] = charm_id
+  state.charms = { slots = {} }
+  for index, saved in ipairs(progression.charm_slots or {}) do
+    local slot, charm_id = saved.slot or index, saved.charm_id or saved
+    assert(type(slot) == "number" and slot >= 1 and slot <= RunModifiers.charm_slots(state) and slot % 1 == 0
+      and type(charm_id) == "string" and session.registry.charms[charm_id] and not state.charms.slots[slot], "Active run has an invalid charm slot")
+    state.charms.slots[slot] = charm_id
   end
   state.active_service_object_id = progression.active_service_object_id
+  state.service_return_phase = progression.service_return_phase
+  state.final_service_hub = progression.final_service_hub
+  state.meta_reward_events = {}
+  for _, event in ipairs(progression.meta_reward_events or {}) do
+    assert(type(event) == "table" and type(event.id) == "string" and event.id:match("^[%w:_%.%-]+$")
+      and type(event.amount) == "number" and event.amount >= 0 and event.amount % 1 == 0,
+      "Active run has an invalid meta reward event")
+    state.meta_reward_events[#state.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+  end
   state.curse_bag, state.curse_options = {}, {}
   for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = resolve_curse(name) end
   for _, name in ipairs(progression.curse_options or {}) do state.curse_options[#state.curse_options + 1] = resolve_curse(name) end
@@ -1062,6 +1154,7 @@ function Session.from_data(data, options)
   session:refresh_visibility()
   session:validate_world()
   session:validate_physical_ownership()
+  session:reconcile_meta_rewards()
   return session
 end
 
@@ -1107,6 +1200,14 @@ function Session:validate_physical_ownership()
         if not offer.sold and offer.component then
           record({ id = offer.component.id }, "service stock '" .. object.id .. "'")
         end
+      end
+    end
+  end
+  local hub = self.state.final_service_hub
+  for service_id, stock in pairs(hub and hub.stocks or {}) do
+    if stock.kind == "salvager" then
+      for _, offer in ipairs(stock.offers or {}) do
+        if not offer.sold and offer.component then record({ id = offer.component.id }, "final service stock '" .. service_id .. "'") end
       end
     end
   end
@@ -1485,7 +1586,9 @@ end
 function Session:_apply(settings, modifiers)
   settings.health = settings.health + (modifiers.health or 0)
   for name, value in pairs(modifiers) do
-    if name ~= "health" then
+    if name == "score" then
+      settings.objective_required = (settings.objective_required or 0) + value
+    elseif name ~= "health" then
       settings[name] = (settings[name] or 0) + value
     end
   end
@@ -1497,6 +1600,7 @@ function Session:_apply(settings, modifiers)
   settings.enemies = math.max(0, settings.enemies)
   settings.torches = math.max(0, settings.torches)
   settings.objective_required = math.max(1, settings.objective_required)
+  settings.score = settings.objective_required -- legacy test/tool compatibility, never currency.
   settings.dash_cooldown = math.max(1, settings.dash_cooldown)
 end
 
@@ -1531,7 +1635,13 @@ function Session:_settings_for_floor(biome, tier)
       settings[key] = (settings[key] or 0) + value
     end
   end
+  -- Existing saved class/boon selections remain mechanically valid for that
+  -- saved run. New runs never create these fields.
+  if self.state.legacy_class then self:_apply(settings, self.state.legacy_class.modifiers) end
+  if self.state.legacy_boon then self:_apply(settings, self.state.legacy_boon.modifiers) end
+  if self.state.curse and not self.state.curse_id then self:_apply(settings, self.state.curse.modifiers) end
   settings.objective_required = math.max(1, settings.objective_required)
+  settings.score = settings.objective_required
   return settings
 end
 
@@ -1656,10 +1766,13 @@ function Session:start_run(class, boon)
   self.state.stage = 1
   self.state.score, self.state.scrap = 0, 0
   self.state.curse, self.state.curse_id = nil, nil
-  self.state.charms = { slots = { nil, nil, nil } }
+  self.state.charms = { slots = {} }
   self.state.curse_bag = {}
   self.state.curse_options = {}
   self.state.transition_next = nil
+  self.state.final_service_hub = nil
+  self.state.active_service_object_id = nil
+  self.state.service_return_phase = nil
   self.state.ended = nil
   state.next_component_sequence = 1
   state.next_corpse_sequence = 1
@@ -1667,9 +1780,13 @@ function Session:start_run(class, boon)
   state.next_hazard_sequence = 1
   state.next_fire_sequence = 1
   state.run.player = nil
-  state.run.inventory = Inventory.new()
+  state.run.inventory = Inventory.new({
+    height = Inventory.DEFAULT_HEIGHT + ((state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.inventory_rows) or 0),
+  })
   state.inventory = state.run.inventory
-  state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base")
+  state.scrap = math.max(0, (state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.starting_scrap) or 0)
+  state.meta_reward_events = {}
+  state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", state.meta_snapshot.unlock_ids)
   self:start_route_node(state.route.start_node_id)
 end
 
@@ -1722,6 +1839,7 @@ function Session:_prepare_run_player_for_stage(settings)
   player.bullet_range = settings.bullet_range
   player.reload_penalty = settings.reload_penalty
   self:refresh_derived_player_stats()
+  if not persistent then player.health = player.max_health end
   player.impact = 0
   self.state.player = player
   return player
@@ -1807,14 +1925,16 @@ end
 -- Developer tooling may inspect any legitimate biome/tier pair without
 -- constructing a full route graph. This shares the exact floor builder used
 -- by route nodes and never touches active-run persistence.
-function Session:start_biome_tier(biome_id, tier_id, floor_seed)
+function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id)
   local state = self.state
   local biome = self.route_definitions:get_biome(biome_id)
   local tier = self.route_definitions:get_tier(tier_id)
   floor_seed = floor_seed or self.seed
   state.route, state.route_node_id = nil, nil
   state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
-  self:_start_floor(self:_settings_for_floor(biome, tier), Rng.new(floor_seed),
+  local settings = self:_settings_for_floor(biome, tier)
+  settings.service_id, settings.service_origin = service_id, "inspection"
+  self:_start_floor(settings, Rng.new(floor_seed),
     "inspection." .. biome.id .. "." .. tier.id)
   return { biome = biome, tier = tier, floor_seed = state.floor_seed }
 end
@@ -1850,10 +1970,11 @@ function Session:choose_curse(curse)
     -- Compatibility direct callers may still pass a legacy display record.
     local found
     for _, value in pairs(self.registry.curses) do
-      if value.display_name == (curse and curse.name) then found = value break end
+      if string.upper(value.display_name) == string.upper(curse and curse.name or "") then found = value break end
     end
-    assert(found, "Unknown curse selection")
-    self.state.curse, self.state.curse_id = found, found.id
+    -- Old direct callers and pre-8B saves can still carry a legacy curse
+    -- record that has no equivalent in the deliberately smaller v1 corpus.
+    self.state.curse, self.state.curse_id = found or curse, found and found.id or nil
   end
   local route = self.state.route
   if not route then
@@ -2694,15 +2815,34 @@ function Session:_interact_player()
 end
 
 function Session:_service_stock(object_id)
+  local service_id = type(object_id) == "string" and object_id:match("^hub:(.+)$") or nil
+  if service_id then
+    local hub = self.state.final_service_hub
+    local stock = hub and hub.stocks and hub.stocks[service_id]
+    if not stock then return nil, "invalid_service" end
+    return stock, { id = object_id, service_id = service_id, interaction_role = "service", service_stock = stock }
+  end
   local object = self.state.world and self.state.world:get_object(object_id)
   if not object or object.destroyed or object.interaction_role ~= "service" then return nil, "invalid_service" end
   return object.service_stock, object
+end
+
+function Session:_ensure_final_service_hub()
+  if self.state.final_service_hub then return self.state.final_service_hub end
+  local rng = Rng.new(self.seed):derive("economy.final_service_hub")
+  local hub = { stocks = {} }
+  for _, service_id in ipairs({ "service.supply.legacy", "service.repair.legacy", "service.salvager.legacy", "service.charm_vendor.legacy" }) do
+    hub.stocks[service_id] = Economy.create_stock(self, service_id, rng:derive(service_id), true)
+  end
+  self.state.final_service_hub = hub
+  return hub
 end
 
 function Session:open_service(object_id)
   local stock, object = self:_service_stock(object_id)
   if not stock then return { applied = false, code = object, reason = "Service kiosk is unavailable" } end
   self.state.active_service_object_id = object_id
+  self.state.service_return_phase = tostring(object_id):match("^hub:") and "service_hub" or "combat"
   self.state.pending_service_object_id = nil
   self.state.phase = "service"
   return { applied = true, service_id = object.service_id, object_id = object_id, stock = stock }
@@ -2710,8 +2850,9 @@ end
 
 function Session:close_service()
   if self.state.phase ~= "service" then return { applied = false, code = "invalid_phase", reason = "No service is open" } end
-  self.state.phase, self.state.active_service_object_id = "combat", nil
-  return { applied = true }
+  local return_to_hub = self.state.service_return_phase == "service_hub"
+  self.state.phase, self.state.active_service_object_id, self.state.service_return_phase = return_to_hub and "transition" or "combat", nil, nil
+  return { applied = true, return_to_hub = return_to_hub }
 end
 
 function Session:service_options(object_id)
@@ -2835,6 +2976,9 @@ function Session:_complete_stage()
     local next_nodes = completed.outgoing
     assert(#next_nodes > 0, "Completed route node has no forward continuation")
     if #next_nodes == 1 and next_nodes[1].type == "shop" then
+      -- Curses are scoped to the normal floor just completed; the service
+      -- hub and boss do not inherit an expired branch burden.
+      state.curse, state.curse_id = nil, nil
       state.reconstruction_next = "shop"
     else
       for _, node in ipairs(next_nodes) do assert(node.type == "floor", "Normal-floor continuation must be a floor route node") end
@@ -2868,6 +3012,7 @@ function Session:complete_reconstruction()
     local selected = self.state.route:select(choices[1].id)
     assert(selected.applied, selected.reason)
     self.state.route_node_id = selected.node.id
+    self:_ensure_final_service_hub()
   end
   self.state.phase = "transition"
   self.state.reconstruction_next = nil
@@ -2995,7 +3140,7 @@ function Session:turn(input)
         self:_enemy_turn()
       end
     end
-  elseif state.player.objective_progress >= state.settings.objective_required then
+  elseif state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
     self:_enemy_turn()

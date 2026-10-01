@@ -16,6 +16,7 @@ local KNOWN_INTERACTION_ROLES = {
   generator = true,
   breaker = true,
   service = true,
+  traversal = true,
 }
 
 local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
@@ -26,6 +27,9 @@ local KNOWN_MODIFIERS = {
   flare_light = true,
   reload_bonus = true,
   objective_required = true,
+  charm_slots = true,
+  inventory_rows = true,
+  starting_scrap = true,
 }
 
 local function content_error(message)
@@ -114,6 +118,7 @@ function Registry.new(sources)
     boons = {},
     charms = {},
     curses = {},
+    research = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
@@ -129,6 +134,7 @@ function Registry.new(sources)
   self:_index("boon", sources.boons or {}, self.boons)
   self:_index("charm", sources.charms or {}, self.charms)
   self:_index("curse", sources.curses or {}, self.curses)
+  self:_index("research", sources.research or {}, self.research)
   self:validate()
   return self
 end
@@ -149,6 +155,7 @@ function Registry.load()
     boons = require("content.boons.legacy"),
     charms = require("content.charms.legacy"),
     curses = require("content.curses.legacy"),
+    research = require("content.research.legacy"),
   })
 end
 
@@ -223,6 +230,7 @@ function Registry:get_service(id) return self:_get(self.services, "service", id)
 function Registry:get_boon(id) return self:_get(self.boons, "boon", id) end
 function Registry:get_charm(id) return self:_get(self.charms, "charm", id) end
 function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
+function Registry:get_research(id) return self:_get(self.research, "research", id) end
 
 function Registry:validate()
   for _, id in ipairs(sorted_keys(self.materials)) do
@@ -398,12 +406,56 @@ function Registry:validate()
     validate_modifiers("Curse", id, curse.modifiers)
   end
 
+  local research_categories = { body = true, mobility = true, loadout = true, traversal = true, preparation = true }
+  for _, id in ipairs(sorted_keys(self.research)) do
+    local node = self.research[id]
+    require_string(node.display_name, "Research '" .. id .. "' display_name")
+    require_string(node.description, "Research '" .. id .. "' description")
+    if not research_categories[node.category] then
+      content_error("Research '" .. id .. "' has unknown category '" .. tostring(node.category) .. "'")
+    end
+    require_positive_integer(node.cost, "Research '" .. id .. "' cost")
+    if type(node.prerequisites) ~= "table" then content_error("Research '" .. id .. "' prerequisites must be a list") end
+    local prerequisite_seen = {}
+    for _, prerequisite in ipairs(node.prerequisites or {}) do
+      if type(prerequisite) ~= "string" or not self.research[prerequisite] then
+        content_error("Research '" .. id .. "' references unknown prerequisite '" .. tostring(prerequisite) .. "'")
+      end
+      if prerequisite == id or prerequisite_seen[prerequisite] then
+        content_error("Research '" .. id .. "' has invalid prerequisite '" .. prerequisite .. "'")
+      end
+      prerequisite_seen[prerequisite] = true
+    end
+    local has_effect = false
+    if node.modifiers ~= nil then validate_modifiers("Research", id, node.modifiers); has_effect = true end
+    if node.unlocks ~= nil then
+      if type(node.unlocks) ~= "table" or #node.unlocks == 0 then content_error("Research '" .. id .. "' unlocks must be a non-empty list") end
+      local seen = {}
+      for _, unlock in ipairs(node.unlocks) do
+        if type(unlock) ~= "string" or not unlock:match("^unlock%.[a-z0-9_%.]+$") or seen[unlock] then
+          content_error("Research '" .. id .. "' has invalid unlock '" .. tostring(unlock) .. "'")
+        end
+        seen[unlock] = true
+      end
+      has_effect = true
+    end
+    if not has_effect then content_error("Research '" .. id .. "' must grant a modifier or unlock") end
+  end
+  local visiting, visited = {}, {}
+  local function visit(id)
+    if visiting[id] then content_error("Research prerequisites contain a cycle at '" .. id .. "'") end
+    if visited[id] then return end
+    visiting[id] = true
+    for _, prerequisite in ipairs(self.research[id].prerequisites or {}) do visit(prerequisite) end
+    visiting[id], visited[id] = nil, true
+  end
+  for _, id in ipairs(sorted_keys(self.research)) do visit(id) end
+
   for _, id in ipairs(sorted_keys(self.components)) do
     local component = self.components[id]
     require_string(component.display_name, "Component '" .. id .. "' display_name")
     require_positive_number(component.max_integrity, "Component '" .. id .. "' max_integrity")
     require_nonnegative_number(component.mass, "Component '" .. id .. "' mass")
-    require_positive_number(component.scrap_value, "Component '" .. id .. "' scrap_value")
     require_nonnegative_number(component.wear_per_use, "Component '" .. id .. "' wear_per_use")
     if type(component.inventory) ~= "table" then
       content_error("Component '" .. id .. "' inventory must be a table")
