@@ -24,15 +24,26 @@ return {
         nodes = {
           { key = "cave_tier_3", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3", service_id = "service.charm_vendor.legacy" },
           { key = "dungeon_tier_3", biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", service_id = "service.supply.legacy" },
+          { key = "forest_tier_3_breach", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.3", service_id = "service.repair.legacy" },
         },
       },
       { type = "shop", nodes = { { key = "legacy_shop" } } },
       { type = "boss", nodes = { { key = "legacy_final_boss" } } },
     },
-    -- Every layer links normally; this optional edge supplies one permanent
-    -- traversal opportunity without blocking the canonical completion path.
+    -- Explicit forward grammar preserves the legacy routes while adding one
+    -- optional, account-gated third-floor branch.
     edges = {
-      { from = "forest_tier_2", to = "dungeon_tier_3", requires_unlock = "unlock.traversal.reinforced_breach" },
+      { from = "opening_forest", to = "forest_tier_2" },
+      { from = "opening_forest", to = "cave_tier_2" },
+      { from = "forest_tier_2", to = "cave_tier_3" },
+      { from = "forest_tier_2", to = "dungeon_tier_3" },
+      { from = "forest_tier_2", to = "forest_tier_3_breach", requires_unlock = "unlock.traversal.reinforced_breach" },
+      { from = "cave_tier_2", to = "cave_tier_3" },
+      { from = "cave_tier_2", to = "dungeon_tier_3" },
+      { from = "cave_tier_3", to = "legacy_shop" },
+      { from = "dungeon_tier_3", to = "legacy_shop" },
+      { from = "forest_tier_3_breach", to = "legacy_shop" },
+      { from = "legacy_shop", to = "legacy_final_boss" },
     },
   },
 }

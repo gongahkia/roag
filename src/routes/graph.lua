@@ -60,13 +60,18 @@ function Graph.new(root_seed, definitions, profile_id, unlock_ids)
       if depth == 1 then graph.start_node_id = id end
     end
   end
-  local requirements = {}
-  for _, edge in ipairs(profile.edges or {}) do requirements[edge.from .. ">" .. edge.to] = edge.requires_unlock end
-  for depth = 1, #layers - 1 do
-    for _, from in ipairs(layers[depth]) do
-      for _, to in ipairs(layers[depth + 1]) do
-        graph.edges[#graph.edges + 1] = { from = from, to = to,
-          requires_unlock = requirements[graph.nodes[from].key .. ">" .. graph.nodes[to].key] }
+  if #(profile.edges or {}) > 0 then
+    local by_key = {}
+    for _, id in ipairs(graph.node_order) do by_key[graph.nodes[id].key] = id end
+    for _, edge in ipairs(profile.edges) do
+      graph.edges[#graph.edges + 1] = { from = by_key[edge.from], to = by_key[edge.to], requires_unlock = edge.requires_unlock }
+    end
+  else
+    for depth = 1, #layers - 1 do
+      for _, from in ipairs(layers[depth]) do
+        for _, to in ipairs(layers[depth + 1]) do
+          graph.edges[#graph.edges + 1] = { from = from, to = to }
+        end
       end
     end
   end

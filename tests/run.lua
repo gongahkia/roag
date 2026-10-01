@@ -28,6 +28,7 @@ local suites = {
   "tests.test_rooms",
   "tests.test_routes",
   "tests.test_economy",
+  "tests.test_meta_progression",
 }
 
 local passed, failed = 0, 0
