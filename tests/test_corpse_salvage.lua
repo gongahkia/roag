@@ -59,7 +59,11 @@ return {
       session:_update_bullets()
       assert(#session.state.corpses == 1)
       assert(session.state.corpses[1].body:get_component("internal_1") == charge)
-      assert(charge.current_integrity == 2)
+      -- Route-floor generation has an isolated node seed, so automatic body
+      -- targeting need not hit the formerly fixed charge component. The
+      -- corpse still preserves the exact damage result and physical identity.
+      assert(session.state.corpses[1].body:get_component("left_leg").current_integrity == 2)
+      assert(charge.current_integrity == 3)
     end,
   },
   {

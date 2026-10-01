@@ -219,7 +219,11 @@ return {
       assert(session:uninstall_body_component("left_leg").applied)
       assert(session:locomotion_state(player).state == "IMPAIRED")
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      local result = session:choose_curse(session.state.curse_options[1])
+      if result.next == "route" then
+        local choice = session:available_route_nodes()[1]
+        assert(choice and session:select_route_node(choice.id).applied)
+      end
       assert(session.state.phase == "combat" and session:locomotion_state(player).state == "IMPAIRED")
       assert(not player.body:get_component("left_leg"))
       assert(session.state.inventory:get(id).item.object == leg)

@@ -34,6 +34,15 @@ local function enter_reconstruction(session)
   assert(session.state.phase == "reconstruction")
 end
 
+local function choose_next_route_floor(session, curse)
+  local result = session:choose_curse(curse)
+  if result.next == "route" then
+    local choice = session:available_route_nodes()[1]
+    assert(choice and session:select_route_node(choice.id).applied)
+  end
+  return result
+end
+
 local function snapshot(session)
   local values = {}
   for _, slot_id in ipairs(session.state.player.body.slot_order) do
@@ -158,7 +167,7 @@ return {
       assert(initial_data.body.slots[8].component == nil)
       enter_reconstruction(session)
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(Content.curses[2]) -- Darkness changes floor vision, not carried resources.
+      choose_next_route_floor(session, Content.curses[2]) -- Darkness changes floor vision, not carried resources.
       local entry = session.state.inventory:get(arm.id)
       assert(session.state.player == player and session.state.player.body == body)
       assert(session.state.player.body:get_component("internal_2") == nil)
@@ -180,7 +189,7 @@ return {
       assert(session.state.player.body:get_component("internal_2") == charge)
       assert(session:actor_has_capability(session.state.player, ABILITY))
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      choose_next_route_floor(session, session.state.curse_options[1])
       assert(session.state.player.body:get_component("internal_2") == charge)
       assert(charge.id == id and charge.current_integrity == integrity)
       assert(session:actor_has_capability(session.state.player, ABILITY))
@@ -198,25 +207,25 @@ return {
       assert(first:install_inventory_component(first_charge.id, "internal_2").applied)
       assert(second:install_inventory_component(second_charge.id, "internal_2").applied)
       assert(first:complete_reconstruction().next == second:complete_reconstruction().next)
-      first:choose_curse(first.state.curse_options[1])
-      second:choose_curse(second.state.curse_options[1])
+      choose_next_route_floor(first, first.state.curse_options[1])
+      choose_next_route_floor(second, second.state.curse_options[1])
       assert(first_charge.id == second_charge.id)
       assert(snapshot(first) == snapshot(second))
       assert(first:actor_has_capability(first.state.player, ABILITY) == second:actor_has_capability(second.state.player, ABILITY))
     end,
   },
   {
-    name = "normal stage reconstruction preserves the legacy curse shop boss sequence",
+    name = "normal route reconstruction preserves curse choices then shop and boss sequence",
     run = function()
       local session = new_run(1213)
       local body = session.state.player.body
       enter_reconstruction(session)
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      choose_next_route_floor(session, session.state.curse_options[1])
       assert(session.state.stage == 2 and session.state.phase == "combat")
       enter_reconstruction(session)
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      choose_next_route_floor(session, session.state.curse_options[1])
       assert(session.state.stage == 3 and session.state.phase == "combat")
       enter_reconstruction(session)
       assert(session:complete_reconstruction().next == "shop")
@@ -243,7 +252,7 @@ return {
       enter_reconstruction(session)
       assert(session:install_inventory_component(charge.id, "internal_2").applied)
       assert(session:complete_reconstruction().next == "curse")
-      session:choose_curse(session.state.curse_options[1])
+      choose_next_route_floor(session, session.state.curse_options[1])
       assert(session:actor_has_capability(session.state.player, ABILITY))
       local player_result = session:activate_actor_ability(session.state.player, ABILITY)
       assert(player_result.applied and player_result.implementation == "self_destruct")
@@ -257,7 +266,7 @@ return {
       assert(BodyDamage.apply(broken.state.player.body, { amount = 3, slot_id = "internal_2" }).became_broken)
       assert(not broken:actor_has_capability(broken.state.player, ABILITY))
       assert(broken:complete_reconstruction().next == "curse")
-      broken:choose_curse(broken.state.curse_options[1])
+      choose_next_route_floor(broken, broken.state.curse_options[1])
       local rejected = broken:activate_actor_ability(broken.state.player, ABILITY)
       assert(not rejected.applied and rejected.reason:find("functional provider", 1, true))
     end,
