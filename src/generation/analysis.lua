@@ -364,6 +364,7 @@ function Analysis.overlay_model(world, report)
     hazards = report.hazards,
     liquids = report.liquids,
     gases = report.gases,
+    fires = report.fires,
     power = report.circuits,
     objectives = { player_spawn = report.player_spawn, exit = report.exit, targets = report.objectives },
     conductivity = conductivity,
