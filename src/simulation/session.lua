@@ -7,6 +7,7 @@ local Registry = require("src.content.registry")
 local BodyDamage = require("src.simulation.body_damage")
 local Locomotion = require("src.simulation.locomotion")
 local Inventory = require("src.inventory.inventory")
+local PhysicalItem = require("src.inventory.physical_item")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
@@ -70,6 +71,25 @@ local function remove(values, index)
   local value = values[index]
   table.remove(values, index)
   return value
+end
+
+local function copy_plain(value)
+  local result = {}
+  for name, field in pairs(value or {}) do
+    local kind = type(field)
+    assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
+      "Active-run entity state must be plain scalar data")
+    result[name] = field
+  end
+  return result
+end
+
+local function named_content(values, name, label)
+  if name == nil then return nil end
+  for _, value in ipairs(values or {}) do
+    if value.name == name then return value end
+  end
+  error("Missing " .. label .. " content '" .. tostring(name) .. "'")
 end
 
 function Session.new(options)
@@ -753,6 +773,190 @@ function Session:run_data()
       flares = player.flares,
     } or nil,
   }
+end
+
+-- Active-run persistence deliberately captures only authoritative state.  The
+-- renderer rebuilds interpolation, camera, particles, screen shake, and the
+-- transient electrical flash after restoration instead of treating them as
+-- simulation data.
+function Session:_saved_actor_ref(actor)
+  if actor == self.state.player then
+    return "player"
+  end
+  for index, enemy in ipairs(self.state.enemies or {}) do
+    if enemy == actor then
+      return "enemy:" .. index
+    end
+  end
+  return nil
+end
+
+function Session:_actor_to_data(actor)
+  if not actor then return nil end
+  local data = {}
+  for name, field in pairs(actor) do
+    if name ~= "body" and name ~= "source_actor" then
+      local kind = type(field)
+      assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
+        "Active-run entity state must be plain scalar data")
+      data[name] = field
+    end
+  end
+  data.body = actor.body and actor.body:to_data() or nil
+  if actor.source_actor then
+    data.source_actor_ref = assert(self:_saved_actor_ref(actor.source_actor), "Saved effect references an unknown actor")
+  end
+  data.source_actor = nil
+  return data
+end
+
+function Session:_actor_from_data(data)
+  if not data then return nil end
+  assert(type(data) == "table" and type(data.kind) == "string", "Actor data is invalid")
+  local actor = {}
+  for name, field in pairs(data) do
+    if name ~= "body" and name ~= "source_actor_ref" then
+      local kind = type(field)
+      assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
+        "Saved entity state must be plain scalar data")
+      actor[name] = field
+    end
+  end
+  actor.body = data.body and Body.from_data(self.registry, data.body) or nil
+  actor.source_actor = nil
+  return actor
+end
+
+local function list_actor_data(session, values)
+  local result = {}
+  for _, value in ipairs(values or {}) do result[#result + 1] = session:_actor_to_data(value) end
+  return result
+end
+
+function Session:to_data()
+  self:validate_physical_ownership()
+  if self.state.world then self:validate_world() end
+  local state = self.state
+  local data = {
+    seed = self.seed,
+    rng = self.rng:to_data(),
+    progression = {
+      stage = state.stage,
+      score = state.score,
+      phase = state.phase,
+      ended = state.ended,
+      reconstruction_next = state.reconstruction_next,
+      class_name = state.class and state.class.name or nil,
+      boon_name = state.boon and state.boon.name or nil,
+      curse_name = state.curse and state.curse.name or nil,
+      curse_bag = {},
+      curse_options = {},
+      next_component_sequence = state.next_component_sequence,
+      next_corpse_sequence = state.next_corpse_sequence,
+      next_world_object_sequence = state.next_world_object_sequence,
+      next_hazard_sequence = state.next_hazard_sequence,
+      next_fire_sequence = state.next_fire_sequence,
+    },
+    settings = copy_plain(state.settings or {}),
+    log = {},
+    player = self:_actor_to_data(state.player),
+    inventory = state.run.inventory:to_data(),
+    enemies = list_actor_data(self, state.enemies),
+    targets = list_actor_data(self, state.targets),
+    bullets = list_actor_data(self, state.bullets),
+    bombs = list_actor_data(self, state.bombs),
+    flares = list_actor_data(self, state.flares),
+    torches = list_actor_data(self, state.torches),
+    area_attacks = list_actor_data(self, state.area_attacks),
+    corpses = {},
+    world = state.world and state.world:to_data() or nil,
+    ammo = self:_actor_to_data(state.ammo),
+    exit = self:_actor_to_data(state.exit),
+    boss = self:_actor_to_data(state.boss),
+  }
+  for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.name end
+  for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.name end
+  for _, message in ipairs(state.log or {}) do data.log[#data.log + 1] = message end
+  for _, corpse in ipairs(state.corpses or {}) do data.corpses[#data.corpses + 1] = corpse:to_data() end
+  table.sort(data.corpses, function(first, second) return first.id < second.id end)
+  return data
+end
+
+function Session.from_data(data, options)
+  options = options or {}
+  assert(type(data) == "table" and type(data.progression) == "table", "Active run data is invalid")
+  assert(type(data.seed) == "number" and type(data.rng) == "table", "Active run is missing RNG state")
+  local session = Session.new({
+    seed = data.seed,
+    rng = Rng.from_data(data.rng),
+    content = options.content or Content,
+    registry = options.registry,
+    emit = options.emit,
+  })
+  local progression = data.progression
+  local state = session.state
+  local sequences = {
+    "next_component_sequence", "next_corpse_sequence", "next_world_object_sequence", "next_hazard_sequence", "next_fire_sequence",
+  }
+  for _, name in ipairs(sequences) do
+    local value = progression[name]
+    assert(type(value) == "number" and value >= 1 and value % 1 == 0, "Active run has an invalid " .. name)
+    state[name] = value
+  end
+  assert(type(progression.stage) == "number" and progression.stage >= 1 and progression.stage % 1 == 0,
+    "Active run has an invalid stage")
+  assert(type(progression.phase) == "string", "Active run has no phase")
+  state.stage, state.score, state.phase = progression.stage, progression.score, progression.phase
+  state.ended, state.reconstruction_next = progression.ended, progression.reconstruction_next
+  state.class = named_content(session.content.classes, progression.class_name, "class")
+  state.boon = named_content(session.content.boons, progression.boon_name, "boon")
+  state.curse = named_content(session.content.curses, progression.curse_name, "curse")
+  state.curse_bag, state.curse_options = {}, {}
+  for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = named_content(session.content.curses, name, "curse") end
+  for _, name in ipairs(progression.curse_options or {}) do state.curse_options[#state.curse_options + 1] = named_content(session.content.curses, name, "curse") end
+  state.settings = copy_plain(data.settings or {})
+  state.log = {}
+  for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
+
+  state.player = session:_actor_from_data(assert(data.player, "Active run has no player"))
+  state.run.player = state.player
+  state.run.inventory = Inventory.from_data(assert(data.inventory, "Active run has no inventory"), function(item)
+    return PhysicalItem.from_data(item, session.registry)
+  end)
+  state.inventory = state.run.inventory
+  state.world = World.from_data(session.registry, assert(data.world, "Active run has no world"), state)
+  state.enemies = {}
+  for _, saved in ipairs(data.enemies or {}) do state.enemies[#state.enemies + 1] = session:_actor_from_data(saved) end
+  state.targets, state.bullets, state.bombs, state.flares, state.torches, state.area_attacks = {}, {}, {}, {}, {}, {}
+  for _, name in ipairs({ "targets", "bullets", "bombs", "flares", "torches", "area_attacks" }) do
+    for _, saved in ipairs(data[name] or {}) do state[name][#state[name] + 1] = session:_actor_from_data(saved) end
+  end
+  state.ammo = session:_actor_from_data(data.ammo)
+  state.exit = session:_actor_from_data(data.exit)
+  state.boss = session:_actor_from_data(data.boss)
+  state.corpses = {}
+  for _, saved in ipairs(data.corpses or {}) do state.corpses[#state.corpses + 1] = Corpse.from_data(session.registry, saved) end
+  table.sort(state.corpses, function(first, second) return first.id < second.id end)
+
+  local function actor_from_ref(reference)
+    if reference == nil then return nil end
+    if reference == "player" then return state.player end
+    local index = reference:match("^enemy:(%d+)$")
+    assert(index and state.enemies[tonumber(index)], "Saved effect references an unknown actor")
+    return state.enemies[tonumber(index)]
+  end
+  for _, values in ipairs({ state.bullets, state.area_attacks }) do
+    for _, value in ipairs(values) do
+      value.source_actor = actor_from_ref(value.source_actor_ref)
+      value.source_actor_ref = nil
+    end
+  end
+  -- Presentation maps/effects are intentionally rebuilt cleanly after load.
+  state.effects, state.electrical_effects = {}, {}
+  session:refresh_visibility()
+  session:validate_world()
+  session:validate_physical_ownership()
+  return session
 end
 
 function Session:validate_world()

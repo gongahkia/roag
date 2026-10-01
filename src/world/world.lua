@@ -1226,6 +1226,27 @@ function World:mutation_data()
   return mutations
 end
 
+-- A generated floor is only construction input.  Active-run saves need every
+-- current terrain cell so restoration cannot consume RNG or accidentally
+-- recreate an already-mutated floor from a seed.
+function World:cell_data()
+  local cells = {}
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      local cell = self.cells[key(x, y)]
+      cells[#cells + 1] = {
+        x = x,
+        y = y,
+        material_id = cell.material_id,
+        current_integrity = cell.current_integrity,
+        destroyed = cell.destroyed,
+        destroyed_from_material_id = cell.destroyed_from_material_id,
+      }
+    end
+  end
+  return cells
+end
+
 function World:object_data()
   local objects = {}
   for _, object in ipairs(self:list_objects(true)) do
@@ -1278,6 +1299,7 @@ end
 function World:to_data()
   return {
     terrain = self.terrain,
+    cells = self:cell_data(),
     mutations = self:mutation_data(),
     objects = self:object_data(),
     hazards = self:hazard_data(),
@@ -1288,6 +1310,130 @@ function World:to_data()
     fires = self:fire_data(),
     fire_tick = self.fire_tick,
   }
+end
+
+-- Restoration deliberately bypasses generation and sequence allocation.  It
+-- rebuilds the ordinary runtime indexes from immutable/plain state, then the
+-- normal World validation enforces all material, object, medium, and fire
+-- contracts.
+function World.from_data(registry, data, sequence_owner)
+  assert(type(data) == "table" and type(data.terrain) == "string", "World data must include terrain")
+  assert(type(data.cells) == "table", "World data must include a full cell snapshot")
+  local closed_layout = {}
+  local world = World.new(registry, data.terrain, closed_layout, sequence_owner)
+  local seen_cells = {}
+  for _, saved in ipairs(data.cells) do
+    assert(type(saved) == "table" and type(saved.x) == "number" and type(saved.y) == "number"
+      and saved.x % 1 == 0 and saved.y % 1 == 0 and Grid.in_bounds(saved.x, saved.y), "World cell is invalid")
+    local location_key = key(saved.x, saved.y)
+    assert(not seen_cells[location_key], "World cell snapshot contains a duplicate coordinate")
+    seen_cells[location_key] = true
+    registry:get_material(saved.material_id)
+    world.cells[location_key] = {
+      material_id = saved.material_id,
+      current_integrity = saved.current_integrity,
+      destroyed = saved.destroyed == true,
+      destroyed_from_material_id = saved.destroyed_from_material_id,
+    }
+  end
+  assert(#data.cells == Grid.width * Grid.height, "World cell snapshot has an invalid size")
+
+  for _, saved in ipairs(data.circuits or {}) do
+    local result = world:register_circuit(saved.id, { enabled = saved.enabled })
+    assert(result.applied, result.reason)
+  end
+
+  for _, saved in ipairs(data.objects or {}) do
+    local definition = registry:get_world_object(saved.definition_id)
+    local material = registry:get_material(saved.material_id)
+    assert(material.id == definition.material_id, "World object material does not match its definition")
+    assert(type(saved.id) == "string" and saved.id ~= "", "World object has an invalid ID")
+    assert(not world.objects[saved.id], "World object ID is duplicated")
+    assert(Grid.in_bounds(saved.x, saved.y), "World object is outside the world")
+    local object = {
+      id = saved.id,
+      kind = "world_object",
+      definition_id = definition.id,
+      material_id = material.id,
+      x = saved.x,
+      y = saved.y,
+      current_integrity = saved.current_integrity,
+      destroyed = saved.destroyed == true,
+      interaction_role = definition.interaction_role,
+      circuit_id = saved.circuit_id,
+      door_state = saved.door_state,
+      generator_online = saved.generator_online,
+      movable_by_force = definition.movable_by_force,
+    }
+    if object.interaction_role then
+      assert(type(object.circuit_id) == "string" and world.circuits[object.circuit_id],
+        "Interactive world object references an unknown circuit")
+    end
+    if object.interaction_role == "door" and object.destroyed then
+      object.door_state = "destroyed"
+    end
+    if object.destroyed then
+      object.current_integrity = 0
+      object.blocks_movement, object.blocks_vision, object.blocks_projectiles, object.blocks_gas = false, false, false, false
+    else
+      object.blocks_movement, object.blocks_vision, object.blocks_projectiles, object.blocks_gas =
+        object_blocks_for_state(definition, object.door_state)
+      assert(not world.objects_by_cell[key(object.x, object.y)], "Multiple live world objects occupy one cell")
+      world.objects_by_cell[key(object.x, object.y)] = object
+    end
+    world.objects[object.id] = object
+    world.object_order[#world.object_order + 1] = object.id
+  end
+
+  for _, saved in ipairs(data.hazards or {}) do
+    local definition = registry:get_hazard(saved.definition_id)
+    assert(type(saved.id) == "string" and saved.id ~= "" and not world.hazards[saved.id], "Hazard ID is invalid")
+    assert(Grid.in_bounds(saved.x, saved.y), "Hazard is outside the world")
+    local hazard = { id = saved.id, kind = "hazard", definition_id = definition.id, x = saved.x, y = saved.y, active = saved.active }
+    world.hazards[hazard.id] = hazard
+    world.hazard_order[#world.hazard_order + 1] = hazard.id
+    local list = world.hazards_by_cell[key(hazard.x, hazard.y)] or {}
+    list[#list + 1] = hazard
+    world.hazards_by_cell[key(hazard.x, hazard.y)] = list
+  end
+
+  for _, saved in ipairs(data.liquids or {}) do
+    local result = world:set_liquid(saved.x, saved.y, saved.liquid_id, saved.amount)
+    assert(result.applied, result.reason)
+  end
+  world.liquid_tick = data.liquid_tick or 0
+  for _, saved in ipairs(data.gases or {}) do
+    local result = world:set_gas(saved.x, saved.y, saved.gas_id, saved.concentration)
+    assert(result.applied, result.reason)
+  end
+
+  world.fire_tick = data.fire_tick or 0
+  world.fire_ticking = false
+  for _, saved in ipairs(data.fires or {}) do
+    assert(type(saved.id) == "string" and saved.id ~= "" and not world.fires[saved.id], "Fire ID is invalid")
+    local fire = {
+      id = saved.id,
+      kind = "fire",
+      target_kind = saved.target_kind,
+      target_id = saved.target_id,
+      target_key = saved.target_key,
+      x = saved.x,
+      y = saved.y,
+      age = saved.age,
+      ready_tick = saved.ready_tick,
+      active = saved.active,
+      extinguished_reason = saved.extinguished_reason,
+      provenance = copy_object(saved.provenance or {}),
+    }
+    world.fires[fire.id] = fire
+    world.fire_order[#world.fire_order + 1] = fire.id
+    if fire.active then
+      assert(not world.fires_by_target[fire.target_key], "Multiple active fires target one physical fuel")
+      world.fires_by_target[fire.target_key] = fire
+    end
+  end
+  world:validate()
+  return world
 end
 
 function World:validate()

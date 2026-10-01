@@ -86,4 +86,22 @@ function Rng:clone()
   return clone
 end
 
+-- Authoritative save state.  A root seed alone is not enough once a stream
+-- has been consumed, so active-run persistence records the current Park-
+-- Miller state as well.  This stays deliberately small and data-only.
+function Rng:to_data()
+  return { seed = self.seed, state = self.state }
+end
+
+function Rng.from_data(data)
+  assert(type(data) == "table", "RNG data must be a table")
+  assert(type(data.seed) == "number" and data.seed % 1 == 0 and data.seed > 0 and data.seed < MODULUS,
+    "RNG data has an invalid seed")
+  assert(type(data.state) == "number" and data.state % 1 == 0 and data.state > 0 and data.state < MODULUS,
+    "RNG data has an invalid state")
+  local rng = Rng.new(data.seed)
+  rng.state = data.state
+  return rng
+end
+
 return Rng
