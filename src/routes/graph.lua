@@ -226,6 +226,9 @@ function Graph:validate(definitions)
         or (node.service_id ~= nil and (type(node.service_id) ~= "string" or not node.service_id:match("^service%."))) then
         return invalid("Floor node '" .. id .. "' has invalid biome, tier, or seed")
       end
+      if not definitions:biome_supports_tier(node.biome_id, node.tier_id) then
+        return invalid("Floor node '" .. id .. "' uses an unsupported biome/tier pair")
+      end
     elseif node.biome_id ~= nil or node.tier_id ~= nil or node.floor_seed ~= nil then
       return invalid("Special node '" .. id .. "' has floor fields")
     end
