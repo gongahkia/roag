@@ -1,5 +1,6 @@
 local Grid = require("src.world.grid")
-local DungeonRooms = require("src.generation.dungeon_rooms")
+local RoomAssembler = require("src.generation.dungeon_rooms")
+local Corpora = require("src.rooms.corpora")
 
 local Map = {}
 
@@ -56,9 +57,13 @@ function Map.generate(terrain, start, rng, arena, options)
     return space
   end
 
-  if terrain == "dungeon" then
-    local layout, metadata = DungeonRooms.generate(start, options and options.room_rng or rng, options)
-    assert(layout, metadata and metadata.reason or "Dungeon room assembly failed")
+  if terrain == "dungeon" or terrain == "reactor" then
+    options = options or {}
+    local room_options = {}
+    for name, value in pairs(options) do room_options[name] = value end
+    room_options.room_config = options.room_config or Corpora.for_biome(terrain)
+    local layout, metadata = RoomAssembler.generate(start, options.room_rng or rng, room_options)
+    assert(layout, metadata and metadata.reason or "Room assembly failed")
     return layout, metadata
   end
 

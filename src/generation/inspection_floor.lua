@@ -162,6 +162,9 @@ function InspectionFloor.generate(options)
   end
   if not biome then return nil, { code = "invalid_biome", reason = "Unknown generated biome '" .. tostring(options.biome or options.stage) .. "'" } end
   if not tier then return nil, { code = "invalid_tier", reason = "Unknown generated tier '" .. tostring(options.tier) .. "'" } end
+  if not Definitions:biome_supports_tier(biome.id, tier.id) then
+    return nil, { code = "unsupported_biome_tier", reason = "Biome/tier combination is not supported" }
+  end
   local seed = tonumber(options.seed)
   if not seed or seed % 1 ~= 0 then
     return nil, { code = "invalid_seed", reason = "Seed must be an integer" }

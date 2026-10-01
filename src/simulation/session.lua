@@ -1818,6 +1818,8 @@ function Session:_legacy_floor_reference(stage)
 end
 
 function Session:_settings_for_floor(biome, tier)
+  assert(self.route_definitions:biome_supports_tier(biome.id, tier.id),
+    "Biome/tier combination is not supported: " .. biome.id .. " / " .. tier.id)
   local settings = Grid.copy(tier.settings)
   settings.terrain = biome.terrain
   settings.biome_id = biome.id
@@ -1827,6 +1829,8 @@ function Session:_settings_for_floor(biome, tier)
   settings.enemy_family = biome.enemy_family
   settings.wilds = biome.enemy_family == "wilds"
   settings.cultists = biome.enemy_family == "cultists"
+  settings.industrial = biome.enemy_family == "industrial"
+  settings.room_corpus_id = biome.room_corpus_id
   settings.health, settings.bombs, settings.flares = 2, 1, 1
   settings.torch_radius, settings.dash_cooldown = 4, 3
   settings.bomb_radius, settings.bomb_fuse = 2, 3
@@ -2185,7 +2189,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   state.phase = "combat"
   local layout, generation_metadata = Generator.generate(settings.terrain, state.player, floor_rng, nil, {
     registry = self.registry,
-    room_rng = settings.terrain == "dungeon" and floor_rng:derive(stream_prefix .. ".rooms") or nil,
+    room_rng = (settings.terrain == "dungeon" or settings.terrain == "reactor") and floor_rng:derive(stream_prefix .. ".rooms") or nil,
   })
   state.generation_metadata = generation_metadata
   if generation_metadata and generation_metadata.player_spawn then

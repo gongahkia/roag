@@ -25,5 +25,9 @@ return {
   gunner_elite = {25, 10},
   shock_bruiser = {28, 9},
   volatile_heavy = {20, 9},
+  arc_cutter = {27, 10},
+  maintenance_heavy = {30, 9},
+  reactor_suppressor = {29, 10},
+  arc_warden = {28, 9},
   boss = {30, 2},
 }

@@ -91,4 +91,25 @@ return {
       { enemy_id = "enemy.elite.volatile_heavy", weight = 1 },
     },
   },
+  {
+    id = "encounter_pool.legacy.reactor.tier2",
+    biome_id = "biome.legacy.reactor",
+    tier_id = "tier.legacy.2",
+    entries = {
+      { enemy_id = "enemy.reactor.arc_cutter", weight = 4 },
+      { enemy_id = "enemy.cave.conductor", weight = 2 },
+      { enemy_id = "enemy.reactor.suppressor", weight = 1 },
+    },
+  },
+  {
+    id = "encounter_pool.legacy.reactor.tier3",
+    biome_id = "biome.legacy.reactor",
+    tier_id = "tier.legacy.3",
+    entries = {
+      { enemy_id = "enemy.reactor.arc_cutter", weight = 3 },
+      { enemy_id = "enemy.reactor.maintenance_heavy", weight = 3 },
+      { enemy_id = "enemy.reactor.suppressor", weight = 2 },
+      { enemy_id = "enemy.elite.arc_warden", weight = 1 },
+    },
+  },
 }

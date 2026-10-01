@@ -1,0 +1,16 @@
+{
+  "format": "roag.room_manifest",
+  "version": 1,
+  "files": [
+    "access_corner_01.room.json",
+    "corridor_straight_01.room.json",
+    "dead_end_01.room.json",
+    "entrance_01.room.json",
+    "junction_cross_01.room.json",
+    "junction_tee_01.room.json",
+    "machinery_hall_01.room.json",
+    "maintenance_chamber_01.room.json",
+    "reactor_chamber_01.room.json",
+    "service_passage_01.room.json"
+  ]
+}

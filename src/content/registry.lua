@@ -635,7 +635,7 @@ function Registry:validate_encounter_pools(route_definitions)
   assert(route_definitions, "Encounter-pool validation requires route definitions")
   for _, biome_id in ipairs(route_definitions.biome_order or {}) do
     for _, tier_id in ipairs(route_definitions.tier_order or {}) do
-      if not self:encounter_pool_for(biome_id, tier_id) then
+      if route_definitions:biome_supports_tier(biome_id, tier_id) and not self:encounter_pool_for(biome_id, tier_id) then
         content_error("Missing encounter pool for '" .. biome_id .. ":" .. tier_id .. "'")
       end
     end
@@ -643,6 +643,9 @@ function Registry:validate_encounter_pools(route_definitions)
   for _, pool in pairs(self.encounter_pools) do
     route_definitions:get_biome(pool.biome_id)
     route_definitions:get_tier(pool.tier_id)
+    if not route_definitions:biome_supports_tier(pool.biome_id, pool.tier_id) then
+      content_error("Encounter pool uses unsupported biome/tier pair '" .. pool.biome_id .. ":" .. pool.tier_id .. "'")
+    end
   end
   return true
 end

@@ -22,4 +22,13 @@ return {
     terrain = "dungeon",
     enemy_family = "cultists",
   },
+  {
+    id = "biome.legacy.reactor",
+    display_name = "REACTOR COMPLEX",
+    generator = "room_templates",
+    terrain = "reactor",
+    room_corpus_id = "room_corpus.reactor",
+    enemy_family = "industrial",
+    supported_tier_ids = { "tier.legacy.2", "tier.legacy.3" },
+  },
 }

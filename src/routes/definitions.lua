@@ -81,6 +81,14 @@ function Definitions:get_profile(id)
   return value
 end
 
+function Definitions:biome_supports_tier(biome_id, tier_id)
+  local biome = self:get_biome(biome_id)
+  for _, supported in ipairs(biome.supported_tier_ids or self.tier_order) do
+    if supported == tier_id then return true end
+  end
+  return false
+end
+
 function Definitions:validate()
   local tier_numbers = {}
   for _, id in ipairs(self.biome_order) do
@@ -88,8 +96,22 @@ function Definitions:validate()
     string(biome.display_name, "Biome '" .. id .. "' display_name")
     string(biome.generator, "Biome '" .. id .. "' generator")
     string(biome.terrain, "Biome '" .. id .. "' terrain")
-    if biome.enemy_family ~= "wilds" and biome.enemy_family ~= "cultists" then
-      fail("Biome '" .. id .. "' enemy_family must be 'wilds' or 'cultists'")
+    if biome.enemy_family ~= "wilds" and biome.enemy_family ~= "cultists" and biome.enemy_family ~= "industrial" then
+      fail("Biome '" .. id .. "' enemy_family must be 'wilds', 'cultists', or 'industrial'")
+    end
+    if biome.room_corpus_id ~= nil then
+      semantic_id(biome.room_corpus_id, "room_corpus", "Biome '" .. id .. "' room_corpus_id")
+    end
+    if biome.supported_tier_ids ~= nil then
+      if type(biome.supported_tier_ids) ~= "table" or #biome.supported_tier_ids == 0 then
+        fail("Biome '" .. id .. "' supported_tier_ids must be a non-empty list")
+      end
+      local seen_tiers = {}
+      for _, tier_id in ipairs(biome.supported_tier_ids) do
+        self:get_tier(tier_id)
+        if seen_tiers[tier_id] then fail("Biome '" .. id .. "' repeats supported tier '" .. tier_id .. "'") end
+        seen_tiers[tier_id] = true
+      end
     end
   end
   for _, id in ipairs(self.tier_order) do
@@ -142,6 +164,9 @@ function Definitions:validate()
         if layer.type == "floor" then
           self:get_biome(node.biome_id)
           self:get_tier(node.tier_id)
+          if not self:biome_supports_tier(node.biome_id, node.tier_id) then
+            fail("Route profile '" .. id .. "' uses unsupported biome/tier pair '" .. node.biome_id .. "' / '" .. node.tier_id .. "'")
+          end
           semantic_id(node.service_id, "service", "Route profile '" .. id .. "' service_id")
           local choice = node.biome_id .. ":" .. node.tier_id
           if choices[choice] then fail("Route profile '" .. id .. "' layer " .. layer_index .. " duplicates floor choice '" .. choice .. "'") end
