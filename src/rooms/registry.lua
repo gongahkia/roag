@@ -1,5 +1,5 @@
 -- Headless registry for the external JSON dungeon-room corpus.
-local Config = require("src.rooms.config")
+local DefaultConfig = require("src.rooms.config")
 local Json = require("src.persistence.json")
 local Store = require("src.rooms.store")
 local Template = require("src.rooms.template")
@@ -13,22 +13,23 @@ local function has_tag(template, tag)
   return false
 end
 
-local function same_pattern(template, required)
-  return Template.pattern_key(template.connectors) == Template.pattern_key(required)
+local function same_pattern(template, required, config)
+  return Template.pattern_key(template.connectors, { config = config }) == Template.pattern_key(required, { config = config })
 end
 
 function RoomRegistry.load(options)
   options = options or {}
-  local store, content = options.store or Store.new(), options.registry or Registry.load()
+  local config = options.config or (options.store and options.store.config) or DefaultConfig
+  local store, content = options.store or Store.new({ config = config }), options.registry or Registry.load()
   local files, failure = store:list()
   if not files then return nil, failure end
-  local self = setmetatable({ store = store, registry = content, templates = {}, order = {}, filenames = {}, validation = {} }, RoomRegistry)
+  local self = setmetatable({ config = config, store = store, registry = content, templates = {}, order = {}, filenames = {}, validation = {} }, RoomRegistry)
   for _, filename in ipairs(files) do
     local text, read_failure = store:read(filename)
     if not text then return nil, read_failure end
     local template, decode_error = Json.decode(text)
     if not template then return nil, { code = "invalid_json", reason = "Room file " .. filename .. ": " .. decode_error, filename = filename } end
-    local validation = Template.validate(template, content, { existing_ids = self.templates })
+    local validation = Template.validate(template, content, { existing_ids = self.templates, config = config })
     if not validation.valid then return nil, { code = "invalid_template", reason = "Room file " .. filename .. " is invalid", filename = filename, errors = validation.errors } end
     self.templates[template.id] = template
     self.order[#self.order + 1] = template.id
@@ -37,7 +38,7 @@ function RoomRegistry.load(options)
   end
   table.sort(self.order)
   local coverage = self:coverage()
-  if not coverage.valid then return nil, { code = "missing_connector_coverage", reason = "Dungeon room corpus lacks required connector patterns", coverage = coverage } end
+  if not coverage.valid then return nil, { code = "missing_connector_coverage", reason = config.BIOME .. " room corpus lacks required connector patterns", coverage = coverage } end
   return self
 end
 
@@ -53,12 +54,12 @@ end
 
 function RoomRegistry:coverage()
   local patterns, missing = {}, {}
-  for _, required in ipairs(Config.REQUIRED_PATTERNS) do
-    local key, count = Template.pattern_key(required), 0
+  for _, required in ipairs(self.config.REQUIRED_PATTERNS) do
+    local key, count = Template.pattern_key(required, { config = self.config }), 0
     for _, template in ipairs(self:list()) do
       local rotations = template.allow_rotation and 4 or 1
       for turn = 0, rotations - 1 do
-        if same_pattern(Template.rotate(template, turn), required) then count = count + 1 end
+        if same_pattern(Template.rotate(template, turn, { config = self.config }), required, self.config) then count = count + 1 end
       end
     end
     patterns[key] = count
@@ -76,8 +77,8 @@ function RoomRegistry:candidates(required_sides, tags, exclude_tags)
     if allowed then
       local rotations = template.allow_rotation and 4 or 1
       for turn = 0, rotations - 1 do
-        local transformed = Template.rotate(template, turn)
-        if same_pattern(transformed, required_sides) then
+        local transformed = Template.rotate(template, turn, { config = self.config })
+        if same_pattern(transformed, required_sides, self.config) then
           transformed.rotation = turn * 90
           transformed.base_id = template.id
           result[#result + 1] = transformed

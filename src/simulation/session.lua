@@ -2191,7 +2191,8 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   if generation_metadata and generation_metadata.player_spawn then
     state.player.x, state.player.y = generation_metadata.player_spawn.x, generation_metadata.player_spawn.y
   end
-  state.world = World.new(self.registry, settings.terrain, layout, state)
+  state.world = World.new(self.registry, settings.terrain, layout, state,
+    generation_metadata and generation_metadata.material_layout)
   -- Cover uses a named deterministic stream so introducing environmental
   -- placement cannot perturb legacy actor/content RNG decisions.
   EnvironmentObjects.place(state.world, settings.terrain, state.player,

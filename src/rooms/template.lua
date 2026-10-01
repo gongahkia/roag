@@ -1,7 +1,7 @@
 -- Validation and coordinate transforms for declarative room-template JSON.
 -- No template may carry executable behavior; runtime only consumes the
 -- resulting material/passability geometry and diagnostic provenance.
-local Config = require("src.rooms.config")
+local DefaultConfig = require("src.rooms.config")
 
 local Template = {}
 
@@ -19,8 +19,12 @@ local function error_at(errors, code, message, extra)
   errors[#errors + 1] = item
 end
 
-local function id_valid(id)
-  return type(id) == "string" and id:match("^room%.dungeon%.[a-z0-9_%.]+$") ~= nil
+local function config_for(options)
+  return options and options.config or DefaultConfig
+end
+
+local function id_valid(id, config)
+  return type(id) == "string" and id:match("^room%." .. config.BIOME .. "%.[a-z0-9_%.]+$") ~= nil
 end
 
 function Template.glyph_at(template, x, y)
@@ -51,17 +55,18 @@ function Template.connector_set(template)
   return result
 end
 
-function Template.pattern_key(sides)
+function Template.pattern_key(sides, options)
+  local config = config_for(options)
   local lookup, ordered = {}, {}
   for _, side in ipairs(sides or {}) do
     lookup[type(side) == "table" and side.side or side] = true
   end
-  for _, side in ipairs(Config.SIDE_ORDER) do if lookup[side] then ordered[#ordered + 1] = side end end
+  for _, side in ipairs(config.SIDE_ORDER) do if lookup[side] then ordered[#ordered + 1] = side end end
   return table.concat(ordered, "+")
 end
 
-local function material_for(template, glyph, registry)
-  local material_id = (template.legend or {})[glyph] or Config.PALETTE[glyph]
+local function material_for(template, glyph, registry, config)
+  local material_id = (template.legend or {})[glyph] or config.PALETTE[glyph]
   if not material_id then return nil end
   local material = registry.materials[material_id]
   return material_id, material
@@ -69,16 +74,17 @@ end
 
 function Template.validate(template, registry, options)
   options = options or {}
+  local config = config_for(options)
   local errors, warnings = {}, {}
   if type(template) ~= "table" then
     return { valid = false, errors = { { code = "invalid_template", message = "Template must be an object" } }, warnings = warnings }
   end
-  if template.format ~= Config.FORMAT then error_at(errors, "unsupported_format", "Template format must be " .. Config.FORMAT) end
-  if template.version ~= Config.VERSION then error_at(errors, "unsupported_version", "Template version must be " .. Config.VERSION) end
-  if not id_valid(template.id) then error_at(errors, "invalid_id", "Template has an invalid room semantic ID") end
-  if template.biome ~= Config.BIOME then error_at(errors, "invalid_biome", "Template biome must be dungeon") end
-  if template.width ~= Config.WIDTH or template.height ~= Config.HEIGHT then
-    error_at(errors, "wrong_dimensions", string.format("Dungeon rooms must be %dx%d", Config.WIDTH, Config.HEIGHT))
+  if template.format ~= config.FORMAT then error_at(errors, "unsupported_format", "Template format must be " .. config.FORMAT) end
+  if template.version ~= config.VERSION then error_at(errors, "unsupported_version", "Template version must be " .. config.VERSION) end
+  if not id_valid(template.id, config) then error_at(errors, "invalid_id", "Template has an invalid room semantic ID") end
+  if template.biome ~= config.BIOME then error_at(errors, "invalid_biome", "Template biome must be " .. config.BIOME) end
+  if template.width ~= config.WIDTH or template.height ~= config.HEIGHT then
+    error_at(errors, "wrong_dimensions", string.format("%s rooms must be %dx%d", config.BIOME, config.WIDTH, config.HEIGHT))
   end
   if type(template.weight) ~= "number" or template.weight <= 0 then error_at(errors, "invalid_weight", "Template weight must be positive") end
   if type(template.allow_rotation) ~= "boolean" then error_at(errors, "invalid_rotation_flag", "allow_rotation must be boolean") end
@@ -87,7 +93,7 @@ function Template.validate(template, registry, options)
   else
     local seen_tags = {}
     for _, tag in ipairs(template.tags) do
-      if type(tag) ~= "string" or not Config.TAGS[tag] then error_at(errors, "invalid_tag", "Unknown room tag " .. tostring(tag))
+      if type(tag) ~= "string" or not config.TAGS[tag] then error_at(errors, "invalid_tag", "Unknown room tag " .. tostring(tag))
       elseif seen_tags[tag] then error_at(errors, "duplicate_tag", "Duplicate room tag " .. tag)
       else seen_tags[tag] = true end
     end
@@ -95,16 +101,16 @@ function Template.validate(template, registry, options)
   if type(template.legend) ~= "table" then
     error_at(errors, "invalid_legend", "legend must map ASCII glyphs to material semantic IDs")
   end
-  if type(template.layout) ~= "table" or #template.layout ~= Config.HEIGHT then
-    error_at(errors, "wrong_row_count", "layout must have exactly " .. Config.HEIGHT .. " rows")
+  if type(template.layout) ~= "table" or #template.layout ~= config.HEIGHT then
+    error_at(errors, "wrong_row_count", "layout must have exactly " .. config.HEIGHT .. " rows")
   else
     for row_index, row in ipairs(template.layout) do
-      if type(row) ~= "string" or #row ~= Config.WIDTH then
-        error_at(errors, "wrong_row_width", "layout row " .. row_index .. " must have width " .. Config.WIDTH, { row = row_index })
+      if type(row) ~= "string" or #row ~= config.WIDTH then
+        error_at(errors, "wrong_row_width", "layout row " .. row_index .. " must have width " .. config.WIDTH, { row = row_index })
       else
-        for x = 0, Config.WIDTH - 1 do
+        for x = 0, config.WIDTH - 1 do
           local glyph = row:sub(x + 1, x + 1)
-          local material_id, material = material_for(template, glyph, registry)
+          local material_id, material = material_for(template, glyph, registry, config)
           if not material_id then error_at(errors, "unknown_glyph", "Unknown glyph '" .. glyph .. "'", { glyph = glyph, row = row_index, x = x })
           elseif not material then error_at(errors, "unknown_material", "Glyph '" .. glyph .. "' references unknown material " .. material_id, { glyph = glyph, material_id = material_id }) end
         end
@@ -117,21 +123,21 @@ function Template.validate(template, registry, options)
     error_at(errors, "invalid_connectors", "connectors must be an array")
   else
     for index, connector in ipairs(template.connectors) do
-      if type(connector) ~= "table" or not Config.SIDES[connector.side] then
+      if type(connector) ~= "table" or not config.SIDES[connector.side] then
         error_at(errors, "invalid_connector_side", "Connector " .. index .. " has an unsupported side", { connector = index })
       elseif type(connector.offset) ~= "number" or connector.offset % 1 ~= 0
-        or connector.offset < 0 or connector.offset >= Config.WIDTH then
+        or connector.offset < 0 or connector.offset >= config.WIDTH then
         error_at(errors, "invalid_connector_offset", "Connector " .. index .. " has an invalid offset", { connector = index })
       else
-        local x, y = Template.connector_position({ width = Config.WIDTH, height = Config.HEIGHT }, connector)
+        local x, y = Template.connector_position({ width = config.WIDTH, height = config.HEIGHT }, connector)
         local point_key = x .. ":" .. y
         if connector_points[point_key] or connector_sides[connector.side] then
           error_at(errors, "duplicate_connector", "Duplicate connector " .. connector.side .. "@" .. connector.offset, { connector = index })
         else
           connector_points[point_key], connector_sides[connector.side] = true, true
-          local glyph = type(template.layout) == "table" and Template.glyph_at({ width = Config.WIDTH, height = Config.HEIGHT, layout = template.layout }, x, y)
+          local glyph = type(template.layout) == "table" and Template.glyph_at({ width = config.WIDTH, height = config.HEIGHT, layout = template.layout }, x, y)
           local material
-          if glyph then _, material = material_for(template, glyph, registry) end
+          if glyph then _, material = material_for(template, glyph, registry, config) end
           if not material or material.blocks_movement then
             error_at(errors, "solid_connector", "Connector " .. connector.side .. "@" .. connector.offset .. " must open onto passable material", { connector = index })
           end
@@ -144,16 +150,16 @@ function Template.validate(template, registry, options)
   -- declared one-cell connector, preventing accidental leaks between chunks.
   local passable, first = {}, nil
   if type(template.layout) == "table" then
-    for x = 0, Config.WIDTH - 1 do
-      for y = 0, Config.HEIGHT - 1 do
-        local glyph = Template.glyph_at({ width = Config.WIDTH, height = Config.HEIGHT, layout = template.layout }, x, y)
+    for x = 0, config.WIDTH - 1 do
+      for y = 0, config.HEIGHT - 1 do
+        local glyph = Template.glyph_at({ width = config.WIDTH, height = config.HEIGHT, layout = template.layout }, x, y)
         local material
-        if glyph then _, material = material_for(template, glyph, registry) end
+        if glyph then _, material = material_for(template, glyph, registry, config) end
         if material and not material.blocks_movement then
           local point_key = x .. ":" .. y
           passable[point_key] = true
           first = first or { x = x, y = y }
-          if x == 0 or y == 0 or x == Config.WIDTH - 1 or y == Config.HEIGHT - 1 then
+          if x == 0 or y == 0 or x == config.WIDTH - 1 or y == config.HEIGHT - 1 then
             if not connector_points[point_key] then
               error_at(errors, "open_boundary", "Passable boundary cell must be declared as a connector", { x = x, y = y })
             end
@@ -201,49 +207,51 @@ local function rotated_position(width, height, x, y)
   return height - 1 - y, x
 end
 
-function Template.rotate(template, turns)
+function Template.rotate(template, turns, options)
+  local config = config_for(options)
   turns = (turns or 0) % 4
   local result = copy(template)
   result.rotation = turns * 90
   result.base_id = template.base_id or template.id
   for _ = 1, turns do
     local rows = {}
-    for row = 1, Config.HEIGHT do rows[row] = {} end
-    for x = 0, Config.WIDTH - 1 do
-      for y = 0, Config.HEIGHT - 1 do
-        local nx, ny = rotated_position(Config.WIDTH, Config.HEIGHT, x, y)
-        rows[Config.HEIGHT - ny][nx + 1] = Template.glyph_at(result, x, y)
+    for row = 1, config.HEIGHT do rows[row] = {} end
+    for x = 0, config.WIDTH - 1 do
+      for y = 0, config.HEIGHT - 1 do
+        local nx, ny = rotated_position(config.WIDTH, config.HEIGHT, x, y)
+        rows[config.HEIGHT - ny][nx + 1] = Template.glyph_at(result, x, y)
       end
     end
     result.layout = {}
-    for row = 1, Config.HEIGHT do result.layout[row] = table.concat(rows[row]) end
+    for row = 1, config.HEIGHT do result.layout[row] = table.concat(rows[row]) end
     local connectors = {}
     for _, connector in ipairs(result.connectors) do
       local x, y = Template.connector_position(result, connector)
-      local nx, ny = rotated_position(Config.WIDTH, Config.HEIGHT, x, y)
+      local nx, ny = rotated_position(config.WIDTH, config.HEIGHT, x, y)
       connectors[#connectors + 1] = Template.connector_from_position(result, nx, ny)
     end
     result.connectors = connectors
   end
   table.sort(result.connectors, function(a, b)
     local ai, bi = 0, 0
-    for index, side in ipairs(Config.SIDE_ORDER) do if side == a.side then ai = index end if side == b.side then bi = index end end
+    for index, side in ipairs(config.SIDE_ORDER) do if side == a.side then ai = index end if side == b.side then bi = index end end
     return ai == bi and a.offset < b.offset or ai < bi
   end)
   return result
 end
 
-function Template.default(id)
+function Template.default(id, options)
+  local config = config_for(options)
   local layout = {}
-  for row = 1, Config.HEIGHT do
-    layout[row] = (row == 1 or row == Config.HEIGHT) and string.rep("#", Config.WIDTH)
-      or ("#" .. string.rep(".", Config.WIDTH - 2) .. "#")
+  for row = 1, config.HEIGHT do
+    layout[row] = (row == 1 or row == config.HEIGHT) and string.rep("#", config.WIDTH)
+      or ("#" .. string.rep(".", config.WIDTH - 2) .. "#")
   end
   return {
-    format = Config.FORMAT, version = Config.VERSION, id = id or "room.dungeon.standard.new_room",
-    biome = Config.BIOME, tags = { "standard" }, weight = 1, allow_rotation = true,
-    width = Config.WIDTH, height = Config.HEIGHT,
-    connectors = {}, legend = copy(Config.PALETTE), layout = layout,
+    format = config.FORMAT, version = config.VERSION, id = id or ("room." .. config.BIOME .. ".standard.new_room"),
+    biome = config.BIOME, tags = { "standard" }, weight = 1, allow_rotation = true,
+    width = config.WIDTH, height = config.HEIGHT,
+    connectors = {}, legend = copy(config.PALETTE), layout = layout,
   }
 end
 

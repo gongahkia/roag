@@ -38,7 +38,7 @@ local function object_blocks_for_state(definition, door_state)
   return definition.blocks_movement, definition.blocks_vision, definition.blocks_projectiles, definition.blocks_gas
 end
 
-function World.new(registry, terrain, open_layout, sequence_owner)
+function World.new(registry, terrain, open_layout, sequence_owner, material_layout)
   sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1, next_fire_sequence = 1 }
   sequence_owner.next_world_object_sequence = sequence_owner.next_world_object_sequence or 1
   sequence_owner.next_hazard_sequence = sequence_owner.next_hazard_sequence or 1
@@ -70,7 +70,8 @@ function World.new(registry, terrain, open_layout, sequence_owner)
   local solid_material_id = SOLID_MATERIAL_BY_TERRAIN[terrain] or "material.terrain.stone"
   for x = 0, Grid.width - 1 do
     for y = 0, Grid.height - 1 do
-      local material_id = open_layout[key(x, y)] and (OPEN_MATERIAL_BY_TERRAIN[terrain] or AIR) or solid_material_id
+      local material_id = (material_layout and material_layout[key(x, y)])
+        or (open_layout[key(x, y)] and (OPEN_MATERIAL_BY_TERRAIN[terrain] or AIR) or solid_material_id)
       local material = registry:get_material(material_id)
       self.cells[key(x, y)] = {
         material_id = material_id,

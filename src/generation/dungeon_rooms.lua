@@ -1,12 +1,12 @@
--- Deterministic v1 authored-room dungeon assembly.  Graph construction is
+-- Deterministic v1 authored-room assembly.  Graph construction is
 -- deliberately small and inspectable: a connected branchy chunk tree, exact
 -- connector matching, and no procedural-rectangle fallback on failure.
-local Config = require("src.rooms.config")
+local DefaultConfig = require("src.rooms.config")
 local Registry = require("src.rooms.registry")
 local Template = require("src.rooms.template")
 local Grid = require("src.world.grid")
 
-local DungeonRooms = {}
+local RoomAssembler = {}
 
 local DIRECTIONS = {
   north = { 0, 1, "south" }, east = { 1, 0, "west" },
@@ -24,12 +24,12 @@ local function sorted_slots(slots)
   return result
 end
 
-local function available_sides(slot, slots, include_occupied)
+local function available_sides(slot, slots, include_occupied, config)
   local result = {}
-  for _, side in ipairs(Config.SIDE_ORDER) do
+  for _, side in ipairs(config.SIDE_ORDER) do
     local delta = DIRECTIONS[side]
     local x, y = slot.x + delta[1], slot.y + delta[2]
-    if x >= 0 and x < Config.GRID_WIDTH and y >= 0 and y < Config.GRID_HEIGHT then
+    if x >= 0 and x < config.GRID_WIDTH and y >= 0 and y < config.GRID_HEIGHT then
       local occupied = slots[slot_key(x, y)] ~= nil
       if occupied == include_occupied then result[#result + 1] = side end
     end
@@ -44,9 +44,9 @@ local function add_edge(a, b)
   b.links[DIRECTIONS[side][3]] = true
 end
 
-local function make_graph(rng)
+local function make_graph(rng, config)
   local slots = {}
-  local entrance = { x = 3, y = 1, links = {}, entrance = true }
+  local entrance = { x = math.floor(config.GRID_WIDTH / 2), y = math.floor(config.GRID_HEIGHT / 2), links = {}, entrance = true }
   slots[slot_key(entrance.x, entrance.y)] = entrance
   -- Entrance always has a two-link corner pattern. It therefore always has a
   -- matching entrance template while retaining four rotated starting shapes.
@@ -60,11 +60,11 @@ local function make_graph(rng)
     slots[slot_key(child.x, child.y)] = child
     add_edge(entrance, child)
   end
-  while #sorted_slots(slots) < Config.ROOM_COUNT do
+  while #sorted_slots(slots) < config.ROOM_COUNT do
     local options = {}
     for _, slot in ipairs(sorted_slots(slots)) do
       if not slot.entrance then
-        for _, side in ipairs(available_sides(slot, slots, false)) do options[#options + 1] = { slot = slot, side = side } end
+        for _, side in ipairs(available_sides(slot, slots, false, config)) do options[#options + 1] = { slot = slot, side = side } end
       end
     end
     if #options == 0 then
@@ -99,9 +99,9 @@ local function make_graph(rng)
   return slots, entrance
 end
 
-local function required_sides(slot)
+local function required_sides(slot, config)
   local result = {}
-  for _, side in ipairs(Config.SIDE_ORDER) do if slot.links[side] then result[#result + 1] = side end end
+  for _, side in ipairs(config.SIDE_ORDER) do if slot.links[side] then result[#result + 1] = side end end
   return result
 end
 
@@ -116,13 +116,14 @@ local function choose_weighted(rng, candidates)
   return candidates[#candidates]
 end
 
-local function local_spawn(template)
+local function local_spawn(template, room_registry)
   local ideal_x, ideal_y, best = math.floor(template.width / 2), math.floor(template.height / 2), nil
   for x = 1, template.width - 2 do
     for y = 1, template.height - 2 do
       local glyph = Template.glyph_at(template, x, y)
       local material_id = template.legend[glyph]
-      if material_id == "material.terrain.air" then
+      local material = room_registry.registry:get_material(material_id)
+      if not material.blocks_movement then
         local distance = math.abs(x - ideal_x) + math.abs(y - ideal_y)
         if not best or distance < best.distance then best = { x = x, y = y, distance = distance } end
       end
@@ -144,22 +145,24 @@ local function graph_edges(slots)
   return result
 end
 
-function DungeonRooms.generate(start, rng, options)
+function RoomAssembler.generate(start, rng, options)
   options = options or {}
-  local room_registry, registry_failure = options.room_registry or Registry.load({ registry = options.registry })
+  local config = options.room_config or DefaultConfig
+  local room_registry, registry_failure = options.room_registry or Registry.load({ registry = options.registry, config = config })
   if not room_registry then return nil, registry_failure end
-  local slots, entrance = make_graph(rng)
+  config = room_registry.config or config
+  local slots, entrance = make_graph(rng, config)
   if not slots then return nil, entrance end
-  local selected, layout, room_entries, cell_provenance = {}, {}, {}, {}
+  local selected, layout, room_entries, cell_provenance, material_layout = {}, {}, {}, {}, {}
   for _, slot in ipairs(sorted_slots(slots)) do
-    local required = required_sides(slot)
+    local required = required_sides(slot, config)
     local tags = slot.entrance and { "entrance" } or nil
     local excluded_tags = nil
     if not slot.entrance then excluded_tags = { "entrance" } end
     local candidates = room_registry:candidates(required, tags, excluded_tags)
     if #candidates == 0 then
       return nil, {
-        code = "missing_template", reason = "No room template matches " .. Template.pattern_key(required),
+        code = "missing_template", reason = "No room template matches " .. Template.pattern_key(required, { config = config }),
         slot = { x = slot.x, y = slot.y }, required_connectors = required, corpus_size = #room_registry.order,
       }
     end
@@ -167,7 +170,7 @@ function DungeonRooms.generate(start, rng, options)
     -- offers another candidate; this is purely cosmetic and never overrides
     -- connector correctness.
     local adjacent = {}
-    for _, side in ipairs(Config.SIDE_ORDER) do
+    for _, side in ipairs(config.SIDE_ORDER) do
       local delta = DIRECTIONS[side]
       local neighbour = selected[slot_key(slot.x + delta[1], slot.y + delta[2])]
       if neighbour then adjacent[neighbour.base_id .. "@" .. neighbour.rotation] = true end
@@ -179,7 +182,7 @@ function DungeonRooms.generate(start, rng, options)
     local chosen = choose_weighted(rng, #alternatives > 0 and alternatives or candidates)
     selected[slot_key(slot.x, slot.y)] = chosen
     slot.template_id, slot.rotation = chosen.base_id, chosen.rotation
-    local origin_x, origin_y = Config.ORIGIN_X + slot.x * Config.WIDTH, Config.ORIGIN_Y + slot.y * Config.HEIGHT
+    local origin_x, origin_y = config.ORIGIN_X + slot.x * config.WIDTH, config.ORIGIN_Y + slot.y * config.HEIGHT
     local entry = {
       slot = { x = slot.x, y = slot.y }, template_id = chosen.base_id, rotation = chosen.rotation,
       origin = { x = origin_x, y = origin_y }, connectors = {}, required_connectors = required,
@@ -189,32 +192,35 @@ function DungeonRooms.generate(start, rng, options)
       entry.connectors[#entry.connectors + 1] = { side = connector.side, offset = connector.offset,
         x = origin_x + local_x, y = origin_y + local_y }
     end
-    for local_x = 0, Config.WIDTH - 1 do
-      for local_y = 0, Config.HEIGHT - 1 do
+    for local_x = 0, config.WIDTH - 1 do
+      for local_y = 0, config.HEIGHT - 1 do
         local glyph = Template.glyph_at(chosen, local_x, local_y)
         local material_id = chosen.legend[glyph]
         local material = room_registry.registry:get_material(material_id)
         local world_x, world_y = origin_x + local_x, origin_y + local_y
+        material_layout[Grid.key(world_x, world_y)] = material_id
         if not material.blocks_movement then layout[Grid.key(world_x, world_y)] = true end
         cell_provenance[Grid.key(world_x, world_y)] = {
           slot = { x = slot.x, y = slot.y }, template_id = chosen.base_id, rotation = chosen.rotation,
-          local_x = local_x, local_y = local_y,
+          local_x = local_x, local_y = local_y, material_id = material_id,
         }
       end
     end
     room_entries[#room_entries + 1] = entry
   end
   local entrance_template = selected[slot_key(entrance.x, entrance.y)]
-  local spawn = local_spawn(entrance_template)
+  local spawn = local_spawn(entrance_template, room_registry)
   if not spawn then return nil, { code = "invalid_entrance", reason = "Entrance template has no legal interior spawn" } end
   return layout, {
-    generator = "dungeon_room_templates_v1",
-    room_config = { width = Config.WIDTH, height = Config.HEIGHT, grid_width = Config.GRID_WIDTH, grid_height = Config.GRID_HEIGHT },
+    generator = "room_templates_v1",
+    corpus_id = config.CORPUS_ID,
+    room_config = { width = config.WIDTH, height = config.HEIGHT, grid_width = config.GRID_WIDTH, grid_height = config.GRID_HEIGHT },
     rooms = room_entries,
     graph_edges = graph_edges(slots),
     cell_provenance = cell_provenance,
-    player_spawn = { x = Config.ORIGIN_X + entrance.x * Config.WIDTH + spawn.x, y = Config.ORIGIN_Y + entrance.y * Config.HEIGHT + spawn.y },
+    material_layout = material_layout,
+    player_spawn = { x = config.ORIGIN_X + entrance.x * config.WIDTH + spawn.x, y = config.ORIGIN_Y + entrance.y * config.HEIGHT + spawn.y },
   }
 end
 
-return DungeonRooms
+return RoomAssembler

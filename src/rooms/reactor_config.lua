@@ -1,20 +1,17 @@
--- Shared v1 authored-dungeon room contract.  Keeping these values together
--- makes the loader, editor, assembler, and diagnostics agree on a single
--- fixed-size corpus rather than carrying hidden dimensions in each system.
+-- Shared authored-room contract for the Reactor Complex.  It deliberately
+-- retains the v1 chunk grammar so rotation, editor behaviour, assembly, and
+-- diagnostic provenance remain identical to the Dungeon corpus.
 return {
-  CORPUS_ID = "room_corpus.dungeon",
+  CORPUS_ID = "room_corpus.reactor",
   FORMAT = "roag.room_template",
   VERSION = 1,
-  BIOME = "dungeon",
-  DIRECTORY = "content/rooms/dungeon",
+  BIOME = "reactor",
+  DIRECTORY = "content/rooms/reactor",
   WIDTH = 11,
   HEIGHT = 11,
   GRID_WIDTH = 6,
   GRID_HEIGHT = 3,
   ROOM_COUNT = 11,
-  -- The centred entrance slot's legal local spawn is (5,5), preserving the
-  -- long-standing dungeon generation contract that a supplied 40,25 start is
-  -- open while retaining a solid outer world margin around the chunk grid.
   ORIGIN_X = 2,
   ORIGIN_Y = 9,
   TAGS = {
@@ -22,13 +19,12 @@ return {
     standard = true,
     corridor = true,
     junction = true,
-    arena = true,
+    maintenance = true,
+    machinery = true,
     dead_end = true,
   },
   SIDES = { north = true, east = true, south = true, west = true },
   SIDE_ORDER = { "north", "east", "south", "west" },
-  -- Every non-empty cardinal neighbour pattern can be produced by the v1
-  -- graph grammar. The corpus validator checks candidates after rotation.
   REQUIRED_PATTERNS = {
     { "north" }, { "east" }, { "south" }, { "west" },
     { "north", "east" }, { "north", "south" }, { "north", "west" },
@@ -38,7 +34,8 @@ return {
     { "north", "east", "south", "west" },
   },
   PALETTE = {
-    ["#"] = "material.structure.masonry",
+    ["#"] = "material.structure.industrial_bulkhead",
+    ["="] = "material.floor.conductive_metal",
     ["."] = "material.terrain.air",
   },
 }

@@ -1,7 +1,7 @@
 -- Room-template data storage. Runtime reads source or packaged content;
 -- editor writes are explicitly constrained to a source checkout directory.
 local Json = require("src.persistence.json")
-local Config = require("src.rooms.config")
+local DefaultConfig = require("src.rooms.config")
 
 local Store = {}
 Store.__index = Store
@@ -11,13 +11,13 @@ Store.__index = Store
 -- location here so both standalone developer tools use the same content as
 -- normal gameplay. Headless tests and packaged builds retain the relative
 -- runtime path.
-local function default_directory()
+local function default_directory(config)
   if love and love.filesystem and love.filesystem.getSource then
     local source = love.filesystem.getSource()
     local root = type(source) == "string" and source:match("^(.*)/level_editor$")
-    if root then return root .. "/" .. Config.DIRECTORY end
+    if root then return root .. "/" .. config.DIRECTORY end
   end
-  return Config.DIRECTORY
+  return config.DIRECTORY
 end
 
 local function safe_filename(filename)
@@ -26,7 +26,8 @@ end
 
 function Store.new(options)
   options = options or {}
-  return setmetatable({ directory = options.directory or default_directory(), files = options.files, writable = options.writable }, Store)
+  local config = options.config or DefaultConfig
+  return setmetatable({ config = config, directory = options.directory or default_directory(config), files = options.files, writable = options.writable }, Store)
 end
 
 function Store:can_write()
@@ -75,8 +76,9 @@ function Store:list()
 end
 
 function Store:filename_for_id(id)
-  if type(id) ~= "string" or not id:match("^room%.dungeon%.[a-z0-9_%.]+$") then return nil end
-  return id:gsub("^room%.dungeon%.", ""):gsub("%.", "_") .. ".room.json"
+  local biome = self.config.BIOME
+  if type(id) ~= "string" or not id:match("^room%." .. biome .. "%.[a-z0-9_%.]+$") then return nil end
+  return id:gsub("^room%." .. biome .. "%.", ""):gsub("%.", "_") .. ".room.json"
 end
 
 function Store:write(filename, text)
@@ -120,8 +122,10 @@ function Store:write_manifest(files)
   return true
 end
 
-function Store.memory(files, writable)
-  return Store.new({ files = files or {}, writable = writable ~= false })
+function Store.memory(files, writable, options)
+  options = options or {}
+  options.files, options.writable = files or {}, writable ~= false
+  return Store.new(options)
 end
 
 return Store
