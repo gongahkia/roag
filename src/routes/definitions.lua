@@ -88,6 +88,9 @@ function Definitions:validate()
     string(biome.display_name, "Biome '" .. id .. "' display_name")
     string(biome.generator, "Biome '" .. id .. "' generator")
     string(biome.terrain, "Biome '" .. id .. "' terrain")
+    if biome.enemy_family ~= "wilds" and biome.enemy_family ~= "cultists" then
+      fail("Biome '" .. id .. "' enemy_family must be 'wilds' or 'cultists'")
+    end
   end
   for _, id in ipairs(self.tier_order) do
     local tier = self.tiers[id]
@@ -98,14 +101,12 @@ function Definitions:validate()
     for _, field in ipairs({ "targets", "enemies", "score", "ammo", "vision", "torches" }) do
       integer(tier.settings[field], "Tier '" .. id .. "' settings." .. field)
     end
-    if tier.settings.wilds ~= nil and type(tier.settings.wilds) ~= "boolean" then fail("Tier '" .. id .. "' settings.wilds must be boolean") end
-    if tier.settings.cultists ~= nil and type(tier.settings.cultists) ~= "boolean" then fail("Tier '" .. id .. "' settings.cultists must be boolean") end
   end
   for _, id in ipairs(self.profile_order) do
     local profile = self.profiles[id]
     string(profile.display_name, "Route profile '" .. id .. "' display_name")
     if type(profile.layers) ~= "table" or #profile.layers < 3 then fail("Route profile '" .. id .. "' must define ordered layers") end
-    local saw_start, saw_shop, saw_boss, normal_floors = false, false, false, 0
+    local saw_start, saw_shop, saw_boss, normal_floors, has_branch = false, false, false, 0, false
     for layer_index, layer in ipairs(profile.layers) do
       if type(layer) ~= "table" or (layer.type ~= "floor" and layer.type ~= "shop" and layer.type ~= "boss") then
         fail("Route profile '" .. id .. "' layer " .. layer_index .. " has invalid type")
@@ -116,12 +117,18 @@ function Definitions:validate()
         saw_start = true
       end
       if layer.type == "floor" then normal_floors = normal_floors + 1 end
-      if layer.type == "shop" then saw_shop = true end
+      if layer.type == "shop" then
+        saw_shop = true
+        if layer_index ~= #profile.layers - 1 or #layer.nodes ~= 1 then
+          fail("Route profile '" .. id .. "' shop must be one node immediately before boss")
+        end
+      end
       if layer.type == "boss" then
         saw_boss = true
         if layer_index ~= #profile.layers then fail("Route profile '" .. id .. "' boss must be terminal") end
       end
       local keys, choices = {}, {}
+      if layer.type == "floor" and #layer.nodes >= 2 then has_branch = true end
       for node_index, node in ipairs(layer.nodes) do
         if type(node) ~= "table" then fail("Route profile '" .. id .. "' layer " .. layer_index .. " node " .. node_index .. " must be a table") end
         string(node.key, "Route profile '" .. id .. "' node key")
@@ -138,7 +145,7 @@ function Definitions:validate()
         end
       end
     end
-    if not (saw_start and saw_shop and saw_boss and normal_floors == 3) then
+    if not (saw_start and saw_shop and saw_boss and normal_floors == 3 and has_branch) then
       fail("Route profile '" .. id .. "' must define start, three floors, shop, and boss")
     end
   end

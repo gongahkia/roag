@@ -1460,6 +1460,9 @@ function Session:_settings_for_floor(biome, tier)
   settings.biome_display_name = biome.display_name
   settings.tier_id = tier.id
   settings.tier = tier.number
+  settings.enemy_family = biome.enemy_family
+  settings.wilds = biome.enemy_family == "wilds"
+  settings.cultists = biome.enemy_family == "cultists"
   settings.health, settings.bombs, settings.flares = 2, 1, 1
   settings.torch_radius, settings.dash_cooldown = 4, 3
   settings.bomb_radius, settings.bomb_fuse = 2, 3

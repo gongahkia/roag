@@ -26,6 +26,7 @@ local suites = {
   "tests.test_save_resume",
   "tests.test_generation_inspector",
   "tests.test_rooms",
+  "tests.test_routes",
 }
 
 local passed, failed = 0, 0

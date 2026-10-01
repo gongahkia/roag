@@ -9,7 +9,8 @@ love . --generation-inspector
 
 Controls:
 
-- `[` / `]`: choose a generated stage/biome
+- `[` / `]`: choose a generated biome/tier pairing; `,` / `.`: adjust the
+  tier independently for biome/tier diagnostics
 - type digits, `Backspace`, `Enter`: set and regenerate the seed
 - `R`: regenerate the current seed; `N`: advance to the next seed
 - mouse wheel: zoom; middle-mouse drag, arrow keys, or `WASD`: pan; `F`: fit
@@ -30,6 +31,7 @@ reports validate required target reachability and label the exit accordingly.
 ```sh
 luajit tools/analyze_generation.lua --stage cave --seed 1000 --count 500
 luajit tools/analyze_generation.lua --stage dungeon --seed 2000 --count 100 --json /tmp/dungeon-report.json
+luajit tools/analyze_generation.lua --biome biome.legacy.forest --tier 2 --seed 3000 --count 100
 ```
 
 The command reports structural failures with exact seeds, ranges for key
