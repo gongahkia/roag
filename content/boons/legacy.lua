@@ -4,4 +4,8 @@ return {
   { id = "boon.legacy.demolition", display_name = "Demolition Kit", description = "Bomb radius +1 while equipped.", modifiers = { bomb_radius = 1 } },
   { id = "boon.legacy.flare_lens", display_name = "Flare Lens", description = "Flare light +2 while equipped.", modifiers = { flare_light = 2 } },
   { id = "boon.legacy.quick_reload", display_name = "Quick Reload", description = "Reload rewards +1 ammo while equipped.", modifiers = { reload_bonus = 1 } },
+  { id = "boon.legacy.kinetic_capacitor", display_name = "Kinetic Capacitor", description = "Melee force +1 while equipped.", modifiers = { melee_force = 1 } },
+  { id = "boon.legacy.edge_tuning", display_name = "Edge Tuning", description = "Melee damage +1 while equipped.", modifiers = { melee_damage = 1 } },
+  { id = "boon.legacy.ballistic_lens", display_name = "Ballistic Lens", description = "Projectile damage +1 while equipped.", modifiers = { projectile_damage = 1 } },
+  { id = "boon.legacy.pathfinder", display_name = "Pathfinder", description = "One fewer floor objective is required while equipped.", modifiers = { objective_required = -1 } },
 }
