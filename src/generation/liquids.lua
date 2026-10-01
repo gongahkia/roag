@@ -7,6 +7,7 @@ local LiquidGeneration = {}
 local PLANS = {
   cave = { liquid_id = "liquid.water.legacy", count = 3 },
   dungeon = { liquid_id = "liquid.water.legacy", count = 2 },
+  reactor = { liquid_id = "liquid.water.legacy", count = 5 },
 }
 
 local function terrain_neighbours(world, x, y)

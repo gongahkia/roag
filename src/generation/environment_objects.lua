@@ -18,6 +18,11 @@ local PLANS = {
     { definition_id = "world_object.cover.masonry_barricade", count = 2 },
     { definition_id = "world_object.cover.conductive_metal_crate", count = 1 },
   },
+  reactor = {
+    { definition_id = "world_object.cover.timber_crate", count = 1 },
+    { definition_id = "world_object.cover.masonry_barricade", count = 2 },
+    { definition_id = "world_object.cover.conductive_metal_crate", count = 2 },
+  },
 }
 
 local function terrain_neighbours(world, x, y)
@@ -82,7 +87,7 @@ function EnvironmentObjects.place(world, terrain, player, rng)
     local count = 0
     for _, point in ipairs(options) do
       if count >= plan.count then break end
-      if terrain ~= "dungeon" or remains_connected_when_occupied(world, point) then
+      if (terrain ~= "dungeon" and terrain ~= "reactor") or remains_connected_when_occupied(world, point) then
         local object, result = world:place_object(plan.definition_id, point.x, point.y)
         if object then
           placed[#placed + 1] = object
@@ -95,7 +100,7 @@ function EnvironmentObjects.place(world, terrain, player, rng)
   end
   -- A noncritical dungeon proof. Closing this cell cannot disconnect the
   -- generated floor, so research changes optional traversal only.
-  if terrain == "dungeon" then
+  if terrain == "dungeon" or terrain == "reactor" then
     local options = rng:shuffle(candidates(world, player))
     for _, point in ipairs(options) do
       if remains_connected_when_occupied(world, point) then

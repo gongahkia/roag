@@ -6,6 +6,7 @@ local GasGeneration = {}
 
 local PLANS = {
   cave = { gas_id = "gas.toxic.legacy", count = 2 },
+  reactor = { gas_id = "gas.toxic.legacy", count = 2 },
 }
 
 local CARDINAL_DIRECTIONS = {

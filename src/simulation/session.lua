@@ -27,6 +27,7 @@ local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
 local GasGeneration = require("src.generation.gases")
+local FireGeneration = require("src.generation.fires")
 local PoweredDevices = require("src.generation.powered_devices")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
@@ -2211,6 +2212,8 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   -- layers with its own stream, so it cannot perturb their layouts.
   PoweredDevices.place(state.world, settings.terrain, state.player,
     floor_rng:derive(stream_prefix .. ".power_devices"))
+  FireGeneration.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".fires"))
   self:validate_world()
   self:_spawn_entities(floor_rng:derive(stream_prefix .. ".entities"))
   if settings.service_id then

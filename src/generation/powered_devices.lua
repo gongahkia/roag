@@ -18,6 +18,7 @@ local function free_floor(world, x, y, player)
     and not world:object_at(x, y)
     and not world:is_hazardous(x, y)
     and not world:is_harmful_gas_at(x, y)
+    and #world:fires_at(x, y) == 0
     and Grid.distance({ x = x, y = y }, player) >= 4
 end
 
@@ -77,19 +78,22 @@ local function remains_connected_when_closed(world, door)
   return count == total
 end
 
--- Dungeon-only initially: it is an optional physical obstacle in an open
--- room, with its controls next to it. Requiring three accessible neighbours
--- prevents it from becoming a legacy-stage critical-path gate.
+-- Generated devices are optional physical obstacles in an open room, with
+-- their controls next to them. Requiring three accessible neighbours prevents
+-- them from becoming a critical-path gate in either authored interior corpus.
 function PoweredDevices.place(world, terrain, player, rng)
-  if terrain ~= "dungeon" then
+  local plan = terrain == "dungeon" and { count = 1, prefix = "dungeon_maintenance" }
+    or terrain == "reactor" and { count = 2, prefix = "reactor_subsystem" }
+  if not plan then
     return nil
   end
-  local door_candidates = candidates(world, player)
-  rng:shuffle(door_candidates)
-  for _, door in ipairs(door_candidates) do
-    local controls = nearby_controls(world, door, player)
-    if #controls >= 3 and remains_connected_when_closed(world, door) then
-      local circuit_id = "power.circuit.stage_dungeon_maintenance"
+  local placed = {}
+  for circuit_index = 1, plan.count do
+    local door_candidates = rng:shuffle(candidates(world, player))
+    for _, door in ipairs(door_candidates) do
+      local controls = nearby_controls(world, door, player)
+      if #controls >= 3 and remains_connected_when_closed(world, door) then
+      local circuit_id = string.format("power.circuit.stage_%s_%d", plan.prefix, circuit_index)
       local registered = world:register_circuit(circuit_id, { enabled = true })
       assert(registered.applied, registered.reason)
       local generator, generator_result = world:place_object("world_object.power.generator_legacy", controls[1].x, controls[1].y, {
@@ -106,15 +110,17 @@ function PoweredDevices.place(world, terrain, player, rng)
         door_state = "closed",
       })
       assert(bulkhead, door_result.reason)
-      return {
+      placed[#placed + 1] = {
         circuit_id = circuit_id,
         generator_id = generator.id,
         breaker_id = breaker.id,
         door_id = bulkhead.id,
       }
+      break
     end
   end
-  return nil
+  end
+  return #placed > 0 and placed or nil
 end
 
 return PoweredDevices

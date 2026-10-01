@@ -67,6 +67,7 @@ function Renderer:_draw_game(app)
     forest = { 0.09, 0.19, 0.13 },
     cave = { 0.12, 0.14, 0.18 },
     dungeon = { 0.16, 0.12, 0.18 },
+    reactor = { 0.08, 0.18, 0.22 },
     arena = { 0.14, 0.12, 0.17 },
   }
   floor = floor[state.settings.terrain]
