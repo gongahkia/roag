@@ -1078,10 +1078,10 @@ function Session:_update_gas()
   local exposures = {}
   if not self.state.ended then
     for _, gas in ipairs(world:list_gases()) do
-      local definition = self.registry:get_gas(gas.gas_id)
-      if gas.concentration >= definition.exposure_threshold and definition.damage > 0 then
-        for _, actor in ipairs(self:_actors_at(gas.x, gas.y)) do
-          if not self.state.ended then
+        local definition = self.registry:get_gas(gas.gas_id)
+        if gas.concentration >= definition.exposure_threshold and definition.damage > 0 then
+          for _, actor in ipairs(self:_actors_at(gas.x, gas.y)) do
+          if not self.state.ended and (actor.health == nil or actor.health > 0) then
             local exposure = self:_apply_gas_exposure(actor, gas, definition)
             exposures[#exposures + 1] = exposure
           end

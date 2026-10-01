@@ -189,6 +189,18 @@ return {
     end,
   },
   {
+    name = "gas skips an actor already killed by an earlier world process",
+    run = function()
+      local session = prepare_session(39045, { { 10, 10 } })
+      local player = session.state.player
+      player.x, player.y, player.health = 10, 10, 0
+      assert(session.state.world:set_gas(10, 10, TOXIC, 2).applied)
+      local integrity = body_integrity(player)
+      local result = session:_update_gas()
+      assert(not result.applied and body_integrity(player) == integrity)
+    end,
+  },
+  {
     name = "gas damage kills body-bearing enemies through ordinary corpse ownership",
     run = function()
       local session = prepare_session(3906, { { 10, 10 } })

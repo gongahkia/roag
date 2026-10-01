@@ -310,6 +310,23 @@ return {
       assert_failure("World object 'world_object.invalid.metadata' blocks_movement must be a boolean", function()
         Registry.new(invalid_metadata)
       end)
+
+      local invalid_gas_blocking = sources()
+      invalid_gas_blocking.world_objects = copy_list(invalid_gas_blocking.world_objects)
+      invalid_gas_blocking.world_objects[#invalid_gas_blocking.world_objects + 1] = {
+        id = "world_object.invalid.gas_blocking",
+        display_name = "Invalid Gas Blocking",
+        material_id = "material.structure.wood",
+        blocks_movement = true,
+        blocks_vision = true,
+        blocks_projectiles = true,
+        blocks_gas = "sealed",
+        movable_by_force = false,
+        render_style = "cover",
+      }
+      assert_failure("World object 'world_object.invalid.gas_blocking' blocks_gas must be a boolean", function()
+        Registry.new(invalid_gas_blocking)
+      end)
     end,
   },
   {

@@ -1,4 +1,5 @@
 local Content = require("src.content.legacy")
+local Electricity = require("src.simulation.electricity")
 local EnvironmentDamage = require("src.simulation.environment_damage")
 local Gas = require("src.simulation.gas")
 local Grid = require("src.world.grid")
@@ -10,6 +11,7 @@ local DOOR = "world_object.door.powered_legacy"
 local GENERATOR = "world_object.power.generator_legacy"
 local BREAKER = "world_object.power.breaker_legacy"
 local TOXIC = "gas.toxic.legacy"
+local WATER = "liquid.water.legacy"
 
 local function key(x, y)
   return Grid.key(x, y)
@@ -247,15 +249,22 @@ return {
     end,
   },
   {
-    name = "logical power has no transient electrical activation path",
+    name = "transient conductive discharge cannot power an unpowered logical circuit or door",
     run = function()
       local session, _, breaker, door = fixture(7115)
       local world = session.state.world
       assert(session:interact(nil, breaker.id, "breaker.toggle").applied)
       assert(not world:is_circuit_powered("power.circuit.test"))
-      -- Persistent circuit power is only derived from breaker state and online
-      -- generators; no transient-electrical API can mutate this state.
-      assert(not session:interact(nil, door.id, "door.open").applied)
+      -- The current 7A door is masonry and intentionally nonconductive. A
+      -- nearby conductive-water discharge remains transient and must not
+      -- mutate circuit state or bypass the normal requires_power gate.
+      assert(not world:is_conductive_at(door.x, door.y))
+      assert(world:add_liquid(9, 10, WATER, 1).applied)
+      local discharge = Electricity.discharge(world, { x = 9, y = 10 }, { max_cells = 12 })
+      assert(discharge.applied and discharge.network_size == 1)
+      assert(not world:is_circuit_powered("power.circuit.test"))
+      local rejected = session:interact(nil, door.id, "door.open")
+      assert(not rejected.applied and rejected.code == "requires_power" and door.door_state == "closed")
       assert(world:inspect_circuit("power.circuit.test").powered == false)
     end,
   },
