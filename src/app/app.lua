@@ -119,7 +119,7 @@ function App:continue_run()
     self.screen = "reconstruction"
     self.reconstruction_focus, self.reconstruction_slot_index, self.reconstruction_inventory_index = "body", 1, 1
   elseif session.state.phase == "transition" then
-    self.screen = session.state.reconstruction_next == "shop" and "shop" or "curse"
+    self.screen = session.state.transition_next == "shop" and "shop" or "curse"
   else
     self.screen = "game"
   end

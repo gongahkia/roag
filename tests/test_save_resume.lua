@@ -157,6 +157,9 @@ return {
       local restored_entry = restored.state.inventory:get(component_id)
       assert(restored.state.phase == "reconstruction" and restored_entry.rotated == entry.rotated)
       assert(restored.state.inventory:validate() and restored:validate_physical_ownership())
+      assert(restored:complete_reconstruction().next == "curse")
+      local transitioned = assert(store_round_trip(restored))
+      assert(transitioned.state.phase == "transition" and transitioned.state.transition_next == "curse")
     end,
   },
   {

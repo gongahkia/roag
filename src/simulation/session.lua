@@ -114,6 +114,7 @@ function Session.new(options)
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
     next_fire_sequence = 1,
+    transition_next = nil,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -847,6 +848,7 @@ function Session:to_data()
       phase = state.phase,
       ended = state.ended,
       reconstruction_next = state.reconstruction_next,
+      transition_next = state.transition_next,
       class_name = state.class and state.class.name or nil,
       boon_name = state.boon and state.boon.name or nil,
       curse_name = state.curse and state.curse.name or nil,
@@ -908,7 +910,7 @@ function Session.from_data(data, options)
     "Active run has an invalid stage")
   assert(type(progression.phase) == "string", "Active run has no phase")
   state.stage, state.score, state.phase = progression.stage, progression.score, progression.phase
-  state.ended, state.reconstruction_next = progression.ended, progression.reconstruction_next
+  state.ended, state.reconstruction_next, state.transition_next = progression.ended, progression.reconstruction_next, progression.transition_next
   state.class = named_content(session.content.classes, progression.class_name, "class")
   state.boon = named_content(session.content.boons, progression.boon_name, "boon")
   state.curse = named_content(session.content.curses, progression.curse_name, "curse")
@@ -1537,6 +1539,8 @@ function Session:start_run(class, boon)
   self.state.score = 0
   self.state.curse = nil
   self.state.curse_bag = {}
+  self.state.curse_options = {}
+  self.state.transition_next = nil
   self.state.ended = nil
   state.next_component_sequence = 1
   state.next_corpse_sequence = 1
@@ -1619,6 +1623,7 @@ function Session:start_stage()
   state.explored, state.effects, state.electrical_effects, state.corpses = {}, {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
+  state.transition_next = nil
   state.phase = "combat"
   state.world = World.new(self.registry, state.settings.terrain,
     Generator.generate(state.settings.terrain, state.player, self.rng), state)
@@ -2552,11 +2557,13 @@ function Session:complete_reconstruction()
   assert(result == "curse" or result == "shop", "Reconstruction has no valid continuation")
   self.state.phase = "transition"
   self.state.reconstruction_next = nil
+  self.state.transition_next = result
   return { applied = true, next = result }
 end
 
 function Session:start_boss()
   local state, player = self.state, self.state.player
+  state.transition_next = nil
   player.x, player.y, player.direction, player.score = 20, 9, "w", 0
   player.bombs, player.flares = math.max(1, player.bombs), math.max(1, player.flares)
   player.dash = 0
