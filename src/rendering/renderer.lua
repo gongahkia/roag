@@ -42,6 +42,18 @@ function Renderer:_camera_position(presentation, player)
   return presentation.camera_x or player.x, presentation.camera_y or player.y
 end
 
+-- Only terrain decides a wall face: a closed door, crate, or kiosk must not
+-- cause its floor cell to be styled as solid map geometry.  There are no
+-- corner roles yet, so an exposed north/south face has visual priority before
+-- the horizontal faces; fully enclosed terrain retains the existing fallback.
+function Renderer:wall_terrain_kind(world, x, y)
+  if world:terrain_is_passable(x, y + 1) then return "wall_up" end
+  if world:terrain_is_passable(x, y - 1) then return "wall_down" end
+  if world:terrain_is_passable(x - 1, y) then return "wall_left" end
+  if world:terrain_is_passable(x + 1, y) then return "wall_right" end
+  return "wall"
+end
+
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
   local camera_x, camera_y = self:_camera_position(presentation, player)
   local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
@@ -87,15 +99,19 @@ function Renderer:_draw_game(app)
         if passable then
           self:_color(floor)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          if (x * 7 + y * 11) % 5 == 0 then
+          local terrain_drawn = self.assets:draw_terrain("floor", pixel_x, pixel_y, size)
+          if not terrain_drawn and (x * 7 + y * 11) % 5 == 0 then
             self:_color({ floor[1] * 1.55, floor[2] * 1.55, floor[3] * 1.55 })
             love.graphics.rectangle("fill", pixel_x + size * 0.35, pixel_y + size * 0.35, math.max(1, size * 0.12), math.max(1, size * 0.12))
           end
         else
           self:_color({ 0.11, 0.075, 0.13 })
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          self:_color({ 0.22, 0.13, 0.22 })
-          love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
+          local terrain_drawn = self.assets:draw_terrain(self:wall_terrain_kind(state.world, x, y), pixel_x, pixel_y, size)
+          if not terrain_drawn then
+            self:_color({ 0.22, 0.13, 0.22 })
+            love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
+          end
         end
       elseif Grid.in_bounds(x, y) and state.explored[location_key] then
         self:_color(passable and { floor[1] * 0.28, floor[2] * 0.28, floor[3] * 0.28 } or { 0.035, 0.025, 0.04 })

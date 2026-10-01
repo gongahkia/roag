@@ -3,6 +3,7 @@ local Assets = require("src.rendering.assets")
 local ArtPackSettings = require("src.persistence.art_pack_settings")
 local SaveStore = require("src.persistence.save_store")
 local App = require("src.app.app")
+local Renderer = require("src.rendering.renderer")
 
 local function title_option(app, name)
   for index, option in ipairs(app:title_options()) do if option.name == name then return index, option end end
@@ -30,9 +31,44 @@ return {
           assert(sprite[1] >= 1 and sprite[1] <= sheet.columns and sprite[2] >= 1 and sprite[2] <= sheet.rows,
             "out-of-range mapping for " .. role .. " in " .. pack.id)
         end
+        for terrain_kind, tile in pairs(pack.terrain or {}) do
+          if tile.role then
+            assert(pack.id == ArtPacks.DEFAULT_ID, "only the original pack may reference an editable terrain role")
+            assert(tile.role:match("^wall_"), "unexpected editable terrain role " .. tile.role)
+          else
+            local sheet = assert(pack.sheets[tile.sheet or "main"], "unknown terrain sheet for " .. terrain_kind)
+            assert(tile[1] >= 1 and tile[1] <= sheet.columns and tile[2] >= 1 and tile[2] <= sheet.rows,
+              "out-of-range terrain mapping for " .. terrain_kind .. " in " .. pack.id)
+          end
+        end
       end
       assert(seen["art_pack.loveable_rogue"] and seen["art_pack.dawnlike"])
       assert(seen["art_pack.kenney_micro_roguelike"] and seen["art_pack.kenney_roguelike_characters"])
+    end,
+  },
+  {
+    name = "directional one-bit wall roles remain opt-in and terrain selection follows passable neighbours",
+    run = function()
+      local renderer = Renderer.new({})
+      local open = {}
+      local world = {
+        terrain_is_passable = function(_, x, y) return open[x .. ":" .. y] == true end,
+      }
+      local function face(key, expected)
+        open = { [key] = true }
+        assert(renderer:wall_terrain_kind(world, 10, 10) == expected)
+      end
+      face("10:11", "wall_up")
+      face("10:9", "wall_down")
+      face("9:10", "wall_left")
+      face("11:10", "wall_right")
+      open = {}
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall")
+
+      local assets = Assets.new()
+      assert(not assets.sprites.wall_up, "wall faces start unassigned so existing presentation is preserved")
+      assets.sprites.wall_up = { 1, 1, sheet = "main" }
+      assert(assets.art_pack.terrain.wall_up.role == "wall_up")
     end,
   },
   {
@@ -73,11 +109,53 @@ return {
       local assets = Assets.new()
       assert(assets:select_art_pack("art_pack.kenney_roguelike_rpg_pack"))
       assert(assets.art_pack_id == "art_pack.kenney_roguelike_rpg_pack")
+      assert(assets:current_art_pack().terrain.floor and assets:current_art_pack().terrain.wall)
       assert(not assets:refresh_sprite_mappings(), "the 1-bit sidecar cannot override a third-party pack")
       local reset, error_data = assets:reset_sprite("player")
       assert(not reset and error_data.code == "not_editable")
       assert(assets:select_art_pack(ArtPacks.DEFAULT_ID))
       assert(assets:reset_sprite("player"))
+    end,
+  },
+  {
+    name = "every art pack builds its declared sheets and terrain mappings through the shared renderer boundary",
+    run = function()
+      local prior_love = love
+      local loaded_paths = {}
+      love = { graphics = {
+        setDefaultFilter = function() end,
+        newFont = function() return {} end,
+        setFont = function() end,
+        newImage = function(path)
+          local source = assert(io.open(path, "rb"), "missing renderer source " .. path)
+          source:close()
+          loaded_paths[path] = true
+          return { getDimensions = function() return 4096, 4096 end }
+        end,
+        newQuad = function() return {} end,
+        setColor = function() end,
+        draw = function() end,
+      } }
+      local ok, reason = xpcall(function()
+        for _, pack in ipairs(ArtPacks.list()) do
+          local assets = Assets.new({ art_pack_id = pack.id })
+          assert(assets:load())
+          assert(assets:draw_sprite("player", 0, 0, 16))
+          for kind, mapping in pairs(pack.terrain or {}) do
+            local drawn = assets:draw_terrain(kind, 0, 0, 16)
+            if mapping.role then
+              assert(not drawn, "unassigned editable terrain role should preserve procedural fallback")
+              assets.sprites[mapping.role] = { 1, 1, sheet = "main" }
+              assert(assets:draw_terrain(kind, 0, 0, 16))
+            else
+              assert(drawn)
+            end
+          end
+        end
+      end, debug.traceback)
+      love = prior_love
+      assert(ok, reason)
+      assert(next(loaded_paths), "no art-pack sheets were loaded")
     end,
   },
 }

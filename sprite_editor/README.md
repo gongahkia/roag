@@ -19,7 +19,10 @@ overwritten by `mappings.json`.
 
 Click a gameplay role in the left column, then click a tile in the Kenney
 sheet. The role list includes every current player, object, ordinary enemy,
-elite, and Reactor mapping; saving retains all of them.
+elite, Reactor mapping, and four optional wall faces: **left**, **right**,
+**up**, and **down**. Assigning a wall face makes terrain walls use that tile
+when the corresponding side faces passable terrain. Unassigned wall faces keep
+the normal procedural fallback, so you can introduce them one at a time.
 
 - Mouse wheel over the sheet: zoom at the cursor.
 - Right- or middle-drag over the sheet: pan.

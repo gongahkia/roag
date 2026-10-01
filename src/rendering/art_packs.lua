@@ -80,7 +80,7 @@ local function dawnlike_sprites()
   return result
 end
 
-local function pack(id, display_name, source_url, license, credit, sheets, sprites, description)
+local function pack(id, display_name, source_url, license, credit, sheets, sprites, description, terrain)
   return {
     id = id,
     display_name = display_name,
@@ -90,6 +90,7 @@ local function pack(id, display_name, source_url, license, credit, sheets, sprit
     sheets = sheets,
     sprites = sprites,
     description = description,
+    terrain = terrain,
   }
 end
 
@@ -97,12 +98,17 @@ local CATALOG = {
   pack(
     "art_pack.roag_kenney_1bit", "ROAG 1-BIT (DEFAULT)", "assets/kenney/License.txt", "CC0", "Kenney",
     { main = { path = "assets/kenney/Tilesheet/colored-transparent_packed.png", tile_width = 16, tile_height = 16, columns = 49, rows = 22 } },
-    base_sprites(), "Original ROAG mapping; editable with the standalone Sprite Editor."
+    base_sprites(), "Original ROAG mapping; editable with the standalone Sprite Editor.",
+    {
+      wall_left = { role = "wall_left" }, wall_right = { role = "wall_right" },
+      wall_up = { role = "wall_up" }, wall_down = { role = "wall_down" },
+    }
   ),
   pack(
     "art_pack.loveable_rogue", "LOVEABLE ROGUE", "https://opengameart.org/content/loveable-rogue", "CC0", "surt / OpenGameArt",
     { main = { path = "assets/art_packs/loveable_rogue.png", tile_width = 16, tile_height = 16, columns = 64, rows = 64 } },
-    grid_sprites(8, 1, 10), "Classic compact roguelike sheet."
+    grid_sprites(8, 1, 10), "Classic compact roguelike sheet.",
+    { floor = { 1, 8 }, wall = { 1, 7 } }
   ),
   pack(
     "art_pack.dawnlike", "DAWNLIKE 16X16", "https://opengameart.org/content/dawnlike-16x16-universal-rogue-like-tileset-v181", "CC-BY 4.0", "DragonDePlatino and DawnBringer",
@@ -120,33 +126,41 @@ local CATALOG = {
       ammo = { path = "assets/art_packs/dawnlike/Items/Ammo.png", tile_width = 16, tile_height = 16, columns = 8, rows = 6 },
       lights = { path = "assets/art_packs/dawnlike/Items/Light.png", tile_width = 16, tile_height = 16, columns = 8, rows = 1 },
       rocks = { path = "assets/art_packs/dawnlike/Items/Rock.png", tile_width = 16, tile_height = 16, columns = 8, rows = 2 },
+      floor = { path = "assets/art_packs/dawnlike/Objects/Floor.png", tile_width = 16, tile_height = 16, columns = 21, rows = 39 },
+      walls = { path = "assets/art_packs/dawnlike/Objects/Wall.png", tile_width = 16, tile_height = 16, columns = 20, rows = 51 },
     },
-    dawnlike_sprites(), "Universal color roguelike tiles. Attribution is required; see assets/art_packs/ATTRIBUTION.md."
+    dawnlike_sprites(), "Universal color roguelike tiles. Attribution is required; see assets/art_packs/ATTRIBUTION.md.",
+    { floor = { 1, 4, sheet = "floor" }, wall = { 1, 3, sheet = "walls" } }
   ),
   pack(
     "art_pack.kenney_micro_roguelike", "KENNEY MICRO ROGUELIKE", "https://kenney-assets.itch.io/micro-roguelike", "CC0", "Kenney",
     { main = { path = "assets/art_packs/kenney_micro_roguelike/Tilemap/colored_tilemap_packed.png", tile_width = 8, tile_height = 8, columns = 16, rows = 10 } },
-    grid_sprites(8, 1, 3), "Small 8x8 roguelike pack, scaled cleanly at runtime."
+    grid_sprites(8, 1, 3), "Small 8x8 roguelike pack, scaled cleanly at runtime.",
+    { floor = { 1, 3 }, wall = { 1, 1 } }
   ),
   pack(
     "art_pack.kenney_roguelike_indoors", "KENNEY ROGUELIKE INDOORS", "https://kenney.nl/assets/roguelike-indoors", "CC0", "Kenney",
     { main = { path = "assets/art_packs/kenney_roguelike_indoors/Tilesheets/roguelikeIndoor_transparent.png", tile_width = 16, tile_height = 16, spacing = 1, columns = 27, rows = 18 } },
-    grid_sprites(9, 1, 4), "Indoor architecture and fixtures."
+    grid_sprites(9, 1, 4), "Indoor architecture and fixtures.",
+    { floor = { 1, 12 }, wall = { 1, 1 } }
   ),
   pack(
     "art_pack.kenney_roguelike_modern_city", "KENNEY ROGUELIKE MODERN CITY", "https://kenney.nl/assets/roguelike-modern-city", "CC0", "Kenney",
     { main = { path = "assets/art_packs/kenney_roguelike_modern_city/Tilemap/tilemap_packed.png", tile_width = 16, tile_height = 16, columns = 37, rows = 28 } },
-    grid_sprites(9, 1, 10), "Dense urban and industrial tile language."
+    grid_sprites(9, 1, 10), "Dense urban and industrial tile language.",
+    { floor = { 1, 1 }, wall = { 2, 1 } }
   ),
   pack(
     "art_pack.kenney_roguelike_caves_dungeons", "KENNEY CAVES & DUNGEONS", "https://kenney.nl/assets/roguelike-caves-dungeons", "CC0", "Kenney",
     { main = { path = "assets/art_packs/kenney_roguelike_caves_dungeons/Spritesheet/roguelikeDungeon_transparent.png", tile_width = 16, tile_height = 16, spacing = 1, columns = 29, rows = 18 } },
-    grid_sprites(9, 1, 7), "Cavern, water, stone, and dungeon architecture."
+    grid_sprites(9, 1, 7), "Cavern, water, stone, and dungeon architecture.",
+    { floor = { 8, 8 }, wall = { 9, 2 } }
   ),
   pack(
     "art_pack.kenney_roguelike_rpg_pack", "KENNEY ROGUELIKE RPG PACK", "https://kenney.nl/assets/roguelike-rpg-pack", "CC0", "Kenney and Lynn Evers",
     { main = { path = "assets/art_packs/kenney_roguelike_rpg_pack/Spritesheet/roguelikeSheet_transparent.png", tile_width = 16, tile_height = 16, spacing = 1, columns = 57, rows = 31 } },
-    grid_sprites(9, 31, 12), "Broad fantasy terrain, prop, and character sheet."
+    grid_sprites(9, 31, 12), "Broad fantasy terrain, prop, and character sheet.",
+    { floor = { 7, 19 }, wall = { 1, 24 } }
   ),
   pack(
     "art_pack.kenney_roguelike_characters", "KENNEY ROGUELIKE CHARACTERS", "https://kenney.nl/assets/roguelike-characters", "CC0", "Kenney",

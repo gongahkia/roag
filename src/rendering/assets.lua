@@ -5,6 +5,17 @@ local ArtPacks = require("src.rendering.art_packs")
 local Assets = {}
 Assets.__index = Assets
 
+-- These terrain faces are authored by the standalone Sprite Editor but are
+-- deliberately absent from sprite_map.lua: an unassigned face must preserve
+-- the normal procedural wall presentation instead of silently using a random
+-- placeholder tile.
+local OPTIONAL_TERRAIN_ROLES = {
+  wall_left = true,
+  wall_right = true,
+  wall_up = true,
+  wall_down = true,
+}
+
 local function clone_sprites(source)
   return ArtPacks.clone_sprites(source)
 end
@@ -66,7 +77,8 @@ function Assets:refresh_sprite_mappings()
   local main = self.art_pack.sheets.main
   for kind, column, row in contents:gmatch('\"([%w_]+)\"%s*:%s*{%s*\"column\"%s*:%s*(%d+)%s*,%s*\"row\"%s*:%s*(%d+)%s*}') do
     column, row = tonumber(column), tonumber(row)
-    if self.default_sprites[kind] and column >= 1 and column <= main.columns and row >= 1 and row <= main.rows then
+    if (self.default_sprites[kind] or OPTIONAL_TERRAIN_ROLES[kind])
+      and column >= 1 and column <= main.columns and row >= 1 and row <= main.rows then
       self.sprites[kind] = { column, row, sheet = "main" }
     end
   end
@@ -76,6 +88,10 @@ end
 function Assets:reset_sprite(kind)
   if self.art_pack_id ~= ArtPacks.DEFAULT_ID then return nil, { code = "not_editable", reason = "Only the original ROAG 1-bit pack has editable mappings" } end
   local tile = self.default_sprites[kind]
+  if OPTIONAL_TERRAIN_ROLES[kind] then
+    self.sprites[kind] = nil
+    return true
+  end
   if not tile then return nil, { code = "unknown_sprite", reason = "Unknown sprite role" } end
   self.sprites[kind] = { tile[1], tile[2], sheet = tile.sheet }
   return true
@@ -155,18 +171,20 @@ function Assets:_sprite_for(kind)
   return self.sprites[kind] or self.sprites.target
 end
 
-function Assets:quad(kind)
-  local sprite = self:_sprite_for(kind)
+function Assets:_quad_for(sprite)
   if not sprite then return nil end
   local sheet_id = sprite.sheet or "main"
   return self.quads[sheet_id] and self.quads[sheet_id][key(sprite[1], sprite[2])]
 end
 
-function Assets:draw_sprite(kind, x, y, size, tint)
-  local sprite = self:_sprite_for(kind)
+function Assets:quad(kind)
+  return self:_quad_for(self:_sprite_for(kind))
+end
+
+function Assets:_draw_mapping(sprite, x, y, size, tint)
   if not sprite then return false end
   local sheet_id = sprite.sheet or "main"
-  local sheet, quad = self.sheets[sheet_id], self:quad(kind)
+  local sheet, quad = self.sheets[sheet_id], self:_quad_for(sprite)
   if not sheet or not quad then return false end
   if tint then
     love.graphics.setColor(tint[1], tint[2], tint[3], tint[4] or 1)
@@ -177,6 +195,21 @@ function Assets:draw_sprite(kind, x, y, size, tint)
   love.graphics.draw(sheet.image, quad, x, y, 0, size / definition.tile_width, size / definition.tile_height)
   love.graphics.setColor(1, 1, 1)
   return true
+end
+
+function Assets:draw_sprite(kind, x, y, size, tint)
+  return self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint)
+end
+
+function Assets:draw_terrain(kind, x, y, size, tint)
+  local terrain = self.art_pack.terrain
+  if not terrain then return false end
+  -- Third-party packs can define a generic wall tile.  The original ROAG pack
+  -- instead references optional editor roles for directional wall faces.
+  local mapping = terrain[kind]
+  if not mapping and kind:match("^wall_") then mapping = terrain.wall end
+  if mapping and mapping.role then mapping = self.sprites[mapping.role] end
+  return self:_draw_mapping(mapping, x, y, size, tint)
 end
 
 return Assets

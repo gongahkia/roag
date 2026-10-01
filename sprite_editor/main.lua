@@ -12,11 +12,20 @@ local DEFAULT_MAPPINGS = {
   shock_bruiser={28,9}, volatile_heavy={20,9}, arc_cutter={27,10},
   maintenance_heavy={30,9}, reactor_suppressor={29,10}, arc_warden={28,9}, boss={30,2},
 }
+-- Directional terrain is opt-in: the base game retains its procedural wall
+-- fallback until an author picks appropriate faces from the sheet.  This is
+-- safer than guessing which of Kenney's many architectural tiles belongs to
+-- each direction.
+local OPTIONAL_MAPPING_ROLES = {
+  wall_left=true, wall_right=true, wall_up=true, wall_down=true,
+}
 local ROLES = {
   {key="player", label="Player"}, {key="target", label="Target"},
   {key="ammo", label="Ammo"}, {key="torch", label="Torch"},
   {key="door", label="Exit door"}, {key="bullet", label="Bullet"},
   {key="bomb", label="Bomb"}, {key="flare", label="Flare"},
+  {key="wall_left", label="Wall left face"}, {key="wall_right", label="Wall right face"},
+  {key="wall_up", label="Wall up face"}, {key="wall_down", label="Wall down face"},
   {key="wolf", label="Wolf"}, {key="bomber", label="Bomber"},
   {key="necromancer", label="Necromancer"}, {key="cultist", label="Cultist"},
   {key="ripper", label="Ripper"}, {key="skirmisher", label="Skirmisher"},
@@ -85,9 +94,13 @@ end
 
 local function serialize_json()
   local lines={"{", "  \"version\": 1,", "  \"sprites\": {"}
-  for index,role in ipairs(ROLES) do
+  local saved_roles={}
+  for _,role in ipairs(ROLES) do
+    if mappings[role.key] then saved_roles[#saved_roles+1]=role end
+  end
+  for index,role in ipairs(saved_roles) do
     local tile=mappings[role.key]
-    local suffix=index==#ROLES and "" or ","
+    local suffix=index==#saved_roles and "" or ","
     lines[#lines+1]=string.format("    \"%s\": {\"column\": %d, \"row\": %d}%s",role.key,tile[1],tile[2],suffix)
   end
   lines[#lines+1]="  }"
@@ -99,7 +112,7 @@ local function deserialize_json(contents)
   local loaded,count={},0
   for key,column,row in contents:gmatch('\"([%w_]+)\"%s*:%s*{%s*\"column\"%s*:%s*(%d+)%s*,%s*\"row\"%s*:%s*(%d+)%s*}') do
     column,row=tonumber(column),tonumber(row)
-    if DEFAULT_MAPPINGS[key] and valid_tile(column,row) then
+    if (DEFAULT_MAPPINGS[key] or OPTIONAL_MAPPING_ROLES[key]) and valid_tile(column,row) then
       loaded[key]={column,row}
       count=count+1
     end
@@ -108,6 +121,7 @@ local function deserialize_json(contents)
   for key,default in pairs(DEFAULT_MAPPINGS) do
     mappings[key]=loaded[key] or {default[1],default[2]}
   end
+  for key in pairs(OPTIONAL_MAPPING_ROLES) do mappings[key]=loaded[key] end
   return true
 end
 
@@ -209,15 +223,22 @@ function love.draw()
   draw_text("ROAG SPRITE EDITOR",24,24,2,.7,.9,1)
   draw_text("Click a role, then click a sprite-sheet tile.",24,70,1,.78,.84,.94)
   draw_text("JSON FILE: "..json_path,24,94,.7,.65,.72,.84)
-  draw_text("Selected: "..selected().label.."  →  ["..mappings[selected().key][1]..", "..mappings[selected().key][2].."]"..(dirty and "  UNSAVED" or ""),24,120,1,.95,.85,.3)
+  local selected_tile=mappings[selected().key]
+  local selected_value=selected_tile and ("["..selected_tile[1]..", "..selected_tile[2].."]") or "UNASSIGNED — CLICK A WALL TILE"
+  draw_text("Selected: "..selected().label.."  →  "..selected_value..(dirty and "  UNSAVED" or ""),24,120,1,.95,.85,.3)
 
   for index,role in ipairs(ROLES) do
     local y=layout.role_y+(index-1)*layout.role_height
     if index==selected_role then set_color(.13,.22,.3);love.graphics.rectangle("fill",layout.role_x,y,layout.role_width,layout.role_height-3) end
     local tile=mappings[role.key]
     local icon_scale=math.min(1.5,math.max(1,(layout.role_height-6)/16))
-    love.graphics.draw(sheet,quads[tile[1]..":"..tile[2]],layout.role_x+6,y+2,0,icon_scale,icon_scale)
-    draw_text(role.label.."  ["..tile[1]..", "..tile[2].."]",layout.role_x+32,y+math.max(2,math.floor((layout.role_height-14)/2)),.82,index==selected_role and .95 or .78,index==selected_role and .85 or .83,index==selected_role and .3 or .9)
+    if tile then
+      love.graphics.draw(sheet,quads[tile[1]..":"..tile[2]],layout.role_x+6,y+2,0,icon_scale,icon_scale)
+    else
+      set_color(.25,.31,.38);love.graphics.rectangle("line",layout.role_x+8,y+5,14,14)
+    end
+    local role_value=tile and ("["..tile[1]..", "..tile[2].."]") or "UNASSIGNED"
+    draw_text(role.label.."  "..role_value,layout.role_x+32,y+math.max(2,math.floor((layout.role_height-14)/2)),.82,index==selected_role and .95 or .78,index==selected_role and .85 or .83,index==selected_role and .3 or .9)
   end
 
   set_color(.08,.1,.14);love.graphics.rectangle("fill",layout.viewport_x-4,layout.viewport_y-4,layout.viewport_width+8,layout.viewport_height+8)
@@ -231,7 +252,7 @@ function love.draw()
     love.graphics.rectangle("line",layout.sheet_x+(column-1)*layout.tile_size,layout.sheet_y+(row-1)*layout.tile_size,layout.tile_size,layout.tile_size)
   end
   local assigned=mappings[selected().key]
-  outline(assigned[1],assigned[2],.15,.9,1,2)
+  if assigned then outline(assigned[1],assigned[2],.15,.9,1,2) end
   local mouse_x,mouse_y=love.mouse.getPosition()
   local column,row=tile_at(mouse_x,mouse_y,layout)
   if column then
