@@ -3,6 +3,7 @@
 -- and batch analyzer observe the same world facts.
 local Grid = require("src.world.grid")
 local RoomTemplate = require("src.rooms.template")
+local Component = require("src.body.component")
 
 local Analysis = {}
 
@@ -36,9 +37,9 @@ local function actor_data(session, actor, provenance)
         id = component.id,
         definition_id = component.definition_id,
         slot_id = component.slot_id,
-        integrity = component.integrity,
+        integrity = component.current_integrity,
         max_integrity = component.max_integrity,
-        condition = component.condition,
+        condition = Component.condition(component),
       }
     end
     for _, ability in ipairs(session:available_actor_abilities(actor)) do
@@ -49,6 +50,7 @@ local function actor_data(session, actor, provenance)
   return {
     kind = actor.kind,
     semantic_id = actor.content_id or actor.kind,
+    elite = actor.elite == true,
     x = actor.x,
     y = actor.y,
     health = actor.health,
@@ -248,8 +250,12 @@ function Analysis.analyze(world, metadata)
   local fires = {}
   for _, fire in ipairs(world:list_fires(true)) do fires[#fires + 1] = assert(world:inspect_fire(fire)) end
 
-  local enemy_counts = {}
-  for _, enemy in ipairs(enemies) do increment(enemy_counts, enemy.semantic_id) end
+  local enemy_counts, enemy_capabilities, elite_count = {}, {}, 0
+  for _, enemy in ipairs(enemies) do
+    increment(enemy_counts, enemy.semantic_id)
+    if enemy.elite then elite_count = elite_count + 1 end
+    for _, ability_id in ipairs(enemy.capabilities or {}) do increment(enemy_capabilities, ability_id) end
+  end
   local room_metadata = metadata.provenance and metadata.provenance.rooms or nil
   local rooms, template_usage, rotation_counts, connector_patterns, degree_counts = {}, {}, {}, {}, {}
   for _, room in ipairs(room_metadata and room_metadata.rooms or {}) do
@@ -290,6 +296,8 @@ function Analysis.analyze(world, metadata)
       conductive_cells = conductive_cells,
       enemies = #enemies,
       enemy_types = enemy_counts,
+      elite_enemies = elite_count,
+      enemy_capabilities = enemy_capabilities,
       nearest_enemy_distance = nearest_distance(player, enemies),
       objects = #objects,
       object_types = object_counts,

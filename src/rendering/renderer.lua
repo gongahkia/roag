@@ -20,6 +20,14 @@ local SPRITE_ORDER = {
   { kind = "bomber", label = "BOMBER" },
   { kind = "necromancer", label = "NECROMANCER" },
   { kind = "cultist", label = "CULTIST" },
+  { kind = "ripper", label = "RIPPER" },
+  { kind = "skirmisher", label = "SKIRMISHER" },
+  { kind = "conductor", label = "CONDUCTOR" },
+  { kind = "bulwark", label = "BULWARK" },
+  { kind = "reclaimer", label = "RECLAIMER" },
+  { kind = "gunner_elite", label = "REDUNDANT GUNNER" },
+  { kind = "shock_bruiser", label = "SHOCK BRUISER" },
+  { kind = "volatile_heavy", label = "VOLATILE HEAVY" },
   { kind = "boss", label = "BOSS" },
 }
 
@@ -347,7 +355,8 @@ function Renderer:_draw_game(app)
     self:_text("LOCOMOTION " .. locomotion.state, hud, status_y, 0.76, locomotion_color)
     status_y = status_y + 18
   end
-  local ranged = session:actor_ability_provider(state.player, "ability.weapon.projectile.basic")
+  local ranged_ability = session:actor_ability_by_implementation(state.player, "projectile")
+  local ranged = ranged_ability and session:actor_ability_provider(state.player, ranged_ability) or nil
   if ranged then
     local definition = session.registry:get_component(ranged.component.definition_id)
     self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
@@ -512,12 +521,16 @@ function Renderer:_draw_body_abilities(app)
     self:_text((selected and "> " or "  ") .. ability.display_name, width * 0.21, y + 12, 1.05,
       selected and { 1, 0.65, 0.35 } or { 1, 1, 1 })
   end
+  local selected_id = app.body_ability_options and app.body_ability_options[app.menu]
+  local selected = selected_id and session.registry:get_ability(selected_id) or nil
   if app.body_ability_confirming then
     self:_text("CONFIRM ACTIVATION? THIS DESTROYS YOUR CURRENT BODY. PRESS ENTER.", width * 0.18, height - 104, 0.82, { 1, 0.38, 0.32 })
+  elseif selected and selected.implementation == "self_destruct" then
+    self:_text("SELECT SELF-DESTRUCT, THEN PRESS ENTER TO ARM CONFIRMATION.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
   else
-    self:_text("SELECT AN ABILITY, THEN PRESS ENTER TO ARM CONFIRMATION.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
+    self:_text("SELECT AN ABILITY, THEN PRESS ENTER TO ACTIVATE USING YOUR FACING.", width * 0.18, height - 104, 0.78, { 0.75, 0.82, 0.92 })
   end
-  self:_text("W/S SELECT     ENTER CONFIRM     X / ESC CANCEL", width * 0.18, height - 62, 0.82, { 0.75, 0.82, 0.92 })
+  self:_text("W/S SELECT     ENTER ACTIVATE     X / ESC CANCEL", width * 0.18, height - 62, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_inventory(app)

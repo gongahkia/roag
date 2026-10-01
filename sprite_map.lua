@@ -17,5 +17,13 @@ return {
   wolf = {31, 9},
   bomber = {20, 9},
   cultist = {28, 10},
+  ripper = {31, 9},
+  skirmisher = {29, 10},
+  conductor = {27, 10},
+  bulwark = {30, 9},
+  reclaimer = {26, 10},
+  gunner_elite = {25, 10},
+  shock_bruiser = {28, 9},
+  volatile_heavy = {20, 9},
   boss = {30, 2},
 }

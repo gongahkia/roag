@@ -17,6 +17,11 @@ if not routes_ok then
   os.exit(1)
 end
 local routes = routes_or_error
+local pools_ok, pools_error = pcall(function() return registry:validate_encounter_pools(routes) end)
+if not pools_ok then
+  io.stderr:write(tostring(pools_error), "\n")
+  os.exit(1)
+end
 local rooms, room_failure = RoomRegistry.load({ registry = registry })
 if not rooms then
   io.stderr:write((room_failure.reason or room_failure.code or "Room corpus validation failed"), "\n")
@@ -27,7 +32,7 @@ if not rooms then
 end
 local coverage = rooms:coverage()
 io.write(string.format(
-  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d services, %d charms, %d boons, %d curses, %d research nodes, %d topologies, %d actors, %d enemies, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d connector patterns\n",
+  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d services, %d charms, %d boons, %d curses, %d research nodes, %d topologies, %d actors, %d enemies, %d encounter pools, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d connector patterns\n",
   (function() local count = 0 for _ in pairs(registry.abilities) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.materials) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.liquids) do count = count + 1 end return count end)(),
@@ -43,6 +48,7 @@ io.write(string.format(
   (function() local count = 0 for _ in pairs(registry.topologies) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.actors) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.enemies) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.encounter_pools) do count = count + 1 end return count end)(),
   #routes.biome_order,
   #routes.tier_order,
   #routes.profile_order,

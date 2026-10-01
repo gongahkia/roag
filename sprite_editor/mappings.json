@@ -13,6 +13,14 @@
     "bomber": {"column": 25, "row": 10},
     "necromancer": {"column": 25, "row": 2},
     "cultist": {"column": 27, "row": 10},
+    "ripper": {"column": 31, "row": 9},
+    "skirmisher": {"column": 29, "row": 10},
+    "conductor": {"column": 27, "row": 10},
+    "bulwark": {"column": 30, "row": 9},
+    "reclaimer": {"column": 26, "row": 10},
+    "gunner_elite": {"column": 25, "row": 10},
+    "shock_bruiser": {"column": 28, "row": 9},
+    "volatile_heavy": {"column": 25, "row": 10},
     "boss": {"column": 27, "row": 11}
   }
 }

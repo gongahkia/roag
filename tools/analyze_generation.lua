@@ -66,10 +66,12 @@ io.write(string.format("ROAG generation analysis — %s tier %s (%s), seeds %d..
   report.options.seed + report.options.count - 1))
 io.write(string.format("Generated: %d  Structural failures: %d\n", summary.generated, summary.failures))
 io.write("Metrics:\n")
-for _, name in ipairs({ "passable_cells", "enemies", "hazards", "liquid_volume", "gas_volume", "circuits", "powered_circuits", "room_count" }) do
+for _, name in ipairs({ "passable_cells", "enemies", "elite_enemies", "hazards", "liquid_volume", "gas_volume", "circuits", "powered_circuits", "room_count" }) do
   print_range(name, summary.statistics[name])
 end
 print_counts("materials", summary.material_counts)
+print_counts("enemy archetypes", summary.enemy_counts)
+print_counts("enemy capabilities", summary.enemy_capabilities)
 print_counts("objects", summary.object_counts)
 print_counts("room templates", summary.template_usage)
 print_counts("room rotations", summary.rotation_counts)

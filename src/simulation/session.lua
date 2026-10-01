@@ -164,6 +164,7 @@ function Session.new(options)
   self.content = options.content or Content
   self.registry = options.registry or Registry.load()
   self.route_definitions = options.route_definitions or RouteDefinitions.load()
+  self.registry:validate_encounter_pools(self.route_definitions)
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
@@ -559,6 +560,28 @@ function Session:available_actor_abilities(actor, activation_type)
   return result
 end
 
+function Session:actor_ability_by_implementation(actor, implementation)
+  if not actor or not actor.body then return nil end
+  for _, ability_id in ipairs(actor.body:list_capabilities()) do
+    if self.registry:get_ability(ability_id).implementation == implementation then
+      return ability_id
+    end
+  end
+  return nil
+end
+
+function Session:actor_known_ability_by_implementation(actor, implementation)
+  if not actor or not actor.body then return nil end
+  for _, component in ipairs(actor.body:list_components()) do
+    for _, ability_id in ipairs(self.registry:get_component(component.definition_id).abilities) do
+      if self.registry:get_ability(ability_id).implementation == implementation then
+        return ability_id
+      end
+    end
+  end
+  return nil
+end
+
 function Session:_player_can_activate_body_abilities()
   local phase = self.state.phase
   return phase == "combat" or phase == "exit" or phase == "boss"
@@ -646,6 +669,7 @@ function Session:_actor_side(actor)
 end
 
 function Session:_execute_projectile(actor, provider, wear, ability, request)
+  local modifier = actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_damage") or 0
   local direction = request.direction
   local bullet = entity("bullet", actor.x, actor.y, {
     direction = direction,
@@ -658,7 +682,7 @@ function Session:_execute_projectile(actor, provider, wear, ability, request)
     source_side = self:_actor_side(actor),
     source_component_id = provider.id,
     ability_id = ability.id,
-    damage = 1,
+    damage = math.max(1, (ability.damage or 1) + modifier),
   })
   self.state.bullets[#self.state.bullets + 1] = bullet
   self:_sound("shoot")
@@ -673,6 +697,49 @@ function Session:_execute_projectile(actor, provider, wear, ability, request)
     component_id = provider.id,
     wear = wear,
     projectile = bullet,
+  }
+end
+
+-- Melee is deliberately a short shared ability rather than an enemy attack
+-- shortcut.  It uses normal localized damage then the existing force service,
+-- so hazards and structural impacts remain authoritative downstream effects.
+function Session:_execute_melee(actor, provider, wear, ability, request)
+  local target = request.target
+  local damage_modifier = actor == self.state.player and RunModifiers.value(self.state, self.registry, "melee_damage") or 0
+  local force_modifier = actor == self.state.player and RunModifiers.value(self.state, self.registry, "melee_force") or 0
+  local damage = math.max(1, ability.damage + damage_modifier)
+  local force_distance = math.max(1, ability.force + force_modifier)
+  local target_damage = self:_apply_world_actor_damage(target, damage,
+    target == self.state.player and "A close strike tears into you." or nil, {
+      cause = "kinetic",
+      source = "melee",
+      source_actor_id = actor.content_id or actor.kind,
+      source_component_id = provider.id,
+      ability_id = ability.id,
+    })
+  local force = nil
+  if not target_damage.dead then
+    force = self:apply_force(target, {
+      dx = target.x - actor.x,
+      dy = target.y - actor.y,
+      distance = force_distance,
+      cause = "kinetic",
+      source_actor_id = actor.content_id or actor.kind,
+      source_component_id = provider.id,
+      ability_id = ability.id,
+    })
+  end
+  if actor == self.state.player then self:_log("Impact strike landed.") end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "melee",
+    actor = actor,
+    target = target,
+    component_id = provider.id,
+    wear = wear,
+    damage = target_damage,
+    force = force,
   }
 end
 
@@ -817,6 +884,22 @@ function Session:_validate_ability_request(actor, ability, params)
     end
     return { target = target, direction = direction }
   end
+  if ability.implementation == "melee" then
+    local direction = params and params.direction
+    if not DIRECTIONS[direction] then
+      return nil, self:_ability_failure(ability.id, "invalid_direction", "A valid strike direction is required")
+    end
+    local delta = DIRECTIONS[direction]
+    local x, y = actor.x + delta[1], actor.y + delta[2]
+    if not Grid.in_bounds(x, y) then
+      return nil, self:_ability_failure(ability.id, "invalid_target", "Strike target is outside the floor")
+    end
+    local target = self:_actor_at(x, y, actor)
+    if not target then
+      return nil, self:_ability_failure(ability.id, "no_adjacent_target", "No adjacent target in that direction")
+    end
+    return { target = target, direction = direction }
+  end
   return {}
 end
 
@@ -878,6 +961,8 @@ function Session:activate_actor_ability(actor, ability_id, params)
     return self:_execute_area_burst(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "electrical_discharge" then
     return self:_execute_electrical_discharge(actor, selected.component, wear, ability, request)
+  elseif ability.implementation == "melee" then
+    return self:_execute_melee(actor, selected.component, wear, ability, request)
   end
   return self:_ability_failure(ability_id, "unbound_implementation", "No runtime binding for ability")
 end
@@ -1909,14 +1994,36 @@ function Session:_spawn_fallen_recurrence()
   return { applied = true, archive_id = spec.archive_id, mode = spec.mode, x = selected.x, y = selected.y }
 end
 
-function Session:_enemy_type(index)
-  if self.state.settings.wilds then
-    return index % 3 == 0 and "bomber" or "wolf"
+function Session:_enemy_type(index, rng)
+  local settings = self.state.settings or {}
+  -- Direct numbered-stage construction is a retained developer/test
+  -- compatibility surface.  Normal play and biome/tier inspector requests
+  -- always select authored encounter pools; preserving this tiny historical
+  -- mapping keeps old exact-stage fixtures reproducible without making a
+  -- stage number authoritative for route floors.
+  if self.state.legacy_stage_generation then
+    local legacy = self.content.stages[self.state.stage] or {}
+    if legacy.wilds then
+      return index % 3 == 0 and "bomber" or "wolf"
+    end
+    return legacy.cultists and "cultist" or "necromancer"
   end
-  return self.state.settings.cultists and "cultist" or "necromancer"
+  local pool = self.registry:encounter_pool_for(settings.biome_id, settings.tier_id)
+  assert(pool, "Missing encounter pool for active biome/tier")
+  local total = 0
+  for _, entry in ipairs(pool.entries) do total = total + entry.weight end
+  local roll = (rng or self.rng):int(1, total)
+  for _, entry in ipairs(pool.entries) do
+    roll = roll - entry.weight
+    if roll <= 0 then return entry.enemy_id end
+  end
+  error("Encounter pool weight selection fell through")
 end
 
-function Session:_make_enemy(kind, point, options)
+function Session:_make_enemy(kind_or_id, point, options)
+  local enemy_id = self.registry.enemies[kind_or_id] and kind_or_id or ENEMY_CONTENT_IDS[kind_or_id]
+  local definition = enemy_id and self.registry:get_enemy(enemy_id) or nil
+  local kind = definition and definition.kind or kind_or_id
   local enemy = entity(kind, point.x, point.y, {
     health = 1,
     attack = 0,
@@ -1929,11 +2036,11 @@ function Session:_make_enemy(kind, point, options)
     crawl_stride = 0,
     scrap_award = options and options.scrap_award == true or false,
   })
-  local enemy_id = ENEMY_CONTENT_IDS[kind]
-  if enemy_id then
-    local definition = self.registry:get_enemy(enemy_id)
+  if definition then
     enemy.content_id = definition.id
     enemy.body = self:_build_body(definition)
+    enemy.ammo = definition.ammo
+    enemy.elite = definition.elite
   end
   return enemy
 end
@@ -1950,9 +2057,10 @@ function Session:_spawn_entities(rng)
     local point = self:_open_location(self:_occupied(), nil, nil, rng)
     state.targets[#state.targets + 1] = entity("target", point.x, point.y, { scrap_award = true })
   end
+  local enemy_rng = rng:derive("encounter_pool")
   for index = 1, state.settings.enemies do
     local point = self:_open_location(self:_occupied(), nil, nil, rng)
-    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index), point, { scrap_award = true })
+    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index, enemy_rng), point, { scrap_award = true })
   end
   local point = self:_open_location(self:_occupied(), nil, nil, rng)
   state.ammo = entity("ammo", point.x, point.y)
@@ -1966,7 +2074,7 @@ function Session:_refill_entities()
   end
   while #state.enemies < state.settings.enemies do
     local point = self:_open_location(self:_occupied())
-    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1), point, { scrap_award = false })
+    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1, self.rng), point, { scrap_award = false })
   end
   if not state.ammo then
     local point = self:_open_location(self:_occupied())
@@ -2125,6 +2233,7 @@ function Session:start_stage()
   local state = self.state
   state.floor_seed = nil
   state.route_node_id = nil
+  state.legacy_stage_generation = true
   self:_start_floor(self:_settings_for_stage(), self.rng, "stage." .. state.stage)
 end
 
@@ -2138,6 +2247,7 @@ function Session:start_route_node(node_id)
   local tier = self.route_definitions:get_tier(node.tier_id)
   state.stage = tier.number -- compatibility depth for older HUD/tests only.
   state.route_node_id, state.floor_seed = node.id, node.floor_seed
+  state.legacy_stage_generation = false
   local settings = self:_settings_for_floor(biome, tier)
   settings.service_id, settings.service_origin = node.service_id, node.id
   self:_start_floor(settings, Rng.new(node.floor_seed), "route." .. node.id)
@@ -2154,6 +2264,7 @@ function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id, opt
   local tier = self.route_definitions:get_tier(tier_id)
   floor_seed = floor_seed or self.seed
   state.route, state.route_node_id = nil, nil
+  state.legacy_stage_generation = false
   state.inspection_floor_depth = options.recurrence_depth
   state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
   local settings = self:_settings_for_floor(biome, tier)
@@ -2721,17 +2832,6 @@ function Session:_attack_cells(enemy)
   return cells
 end
 
-function Session:_nearest_wolf()
-  local leader, distance = nil, math.huge
-  for _, enemy in ipairs(self.state.enemies) do
-    if enemy.kind == "wolf" and Grid.distance(enemy, self.state.player) < distance then
-      leader = enemy
-      distance = Grid.distance(enemy, self.state.player)
-    end
-  end
-  return leader
-end
-
 function Session:_begin_enemy_attack(enemy, kind, target, radius, windup)
   enemy.attack, enemy.attack_kind, enemy.attack_windup = 1, kind, windup
   enemy.attack_x, enemy.attack_y, enemy.radius = target.x, target.y, radius
@@ -2740,7 +2840,6 @@ end
 function Session:_resolve_enemy_attack(enemy, index)
   if self:_attack_cells(enemy)[Grid.key(self.state.player.x, self.state.player.y)] then
     local messages = {
-      pounce = "A forest wolf tore into you.",
       detonate = "A bomber detonated beside you.",
       spell = "A " .. enemy.kind .. " spell struck you.",
     }
@@ -2769,28 +2868,49 @@ function Session:_projectile_direction_to(actor, target)
   return nil
 end
 
-function Session:_fallen_echo_turn(enemy, route, electrical_direction)
+function Session:_melee_direction_to(actor, target)
+  if Grid.distance(actor, target) > 1 then return nil end
+  local dx, dy = target.x - actor.x, target.y - actor.y
+  local horizontal = dx == 0 and "" or (dx > 0 and "d" or "a")
+  local vertical = dy == 0 and "" or (dy > 0 and "w" or "s")
+  local direction = vertical .. horizontal
+  return DIRECTIONS[direction] and direction or nil
+end
+
+-- One capability-driven policy covers authored enemies and fallen echoes.
+-- Content changes body configuration; a broken provider therefore removes the
+-- corresponding decision without a new enemy-kind branch.
+function Session:_body_enemy_turn(enemy, route, electrical_direction)
   local target = self.state.player
   local projectile_direction = self:_projectile_direction_to(enemy, target)
+  local projectile_ability = self:actor_ability_by_implementation(enemy, "projectile")
+  local melee_ability = self:actor_ability_by_implementation(enemy, "melee")
+  local melee_direction = self:_melee_direction_to(enemy, target)
   if self:_actor_has_pending_area_attack(enemy) then
     return
-  elseif self:actor_has_capability(enemy, BASIC_PROJECTILE_ABILITY) and projectile_direction and (enemy.ammo or 0) > 0 then
-    self:activate_actor_ability(enemy, BASIC_PROJECTILE_ABILITY, { direction = projectile_direction })
+  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
+    self:_begin_enemy_attack(enemy, "detonate", target, 0, 1)
   elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
     self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
   elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
     self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = target })
-  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
-    self:_begin_enemy_attack(enemy, "detonate", target, 0, 1)
-  elseif Grid.distance(enemy, target) <= 1 then
-    self:_begin_enemy_attack(enemy, "echo_strike", target, 0, 1)
+  elseif projectile_ability and projectile_direction then
+    local ability = self.registry:get_ability(projectile_ability)
+    if (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0) then
+      self:activate_actor_ability(enemy, projectile_ability, { direction = projectile_direction })
+    elseif melee_ability and melee_direction then
+      self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
+    elseif #route > 1 then
+      self:_move_actor(enemy, route[2].x, route[2].y)
+    end
+  elseif melee_ability and melee_direction then
+    self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
   elseif #route > 1 then
     self:_move_actor(enemy, route[2].x, route[2].y)
   end
 end
 
 function Session:_enemy_turn()
-  local leader = self:_nearest_wolf()
   for index = #self.state.enemies, 1, -1 do
     local enemy = self.state.enemies[index]
     if enemy.stun > 0 then
@@ -2802,43 +2922,15 @@ function Session:_enemy_turn()
           blocked[Grid.key(other.x, other.y)] = true
         end
       end
-      local hunt = self.state.player
-      if enemy.kind == "wolf" and enemy ~= leader and leader and Grid.distance(enemy, leader) <= 10 then
-        hunt = leader
-      end
       -- Treat active hazards and burning cells as blocked when a safe route
       -- exists. The fallback preserves pursuit through a narrow dangerous
       -- corridor rather than making environmental danger a permanent wall.
-      local route = self:_hazard_aware_path(enemy, hunt, blocked)
+      local route = self:_hazard_aware_path(enemy, self.state.player, blocked)
       local electrical_direction = self:_electrical_direction_to(enemy, self.state.player)
-      if enemy.kind == "fallen_echo" then
-        self:_fallen_echo_turn(enemy, route, electrical_direction)
+      if enemy.body then
+        self:_body_enemy_turn(enemy, route, electrical_direction)
       elseif self:_actor_has_pending_area_attack(enemy) then
-        -- The migrated cultist spell keeps its existing delayed, stationary
-        -- wind-up behavior while its authoritative effect lives in the shared
-        -- ability implementation.
-      elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
-        self:_begin_enemy_attack(enemy, "detonate", self.state.player, 0, 1)
-      elseif enemy.kind == "bomber" then
-        if #route > 2 then
-          self:_move_actor(enemy, route[2].x, route[2].y)
-        end
-      elseif enemy.kind == "wolf" and Grid.distance(enemy, self.state.player) <= 1 then
-        self:_begin_enemy_attack(enemy, "pounce", self.state.player, 0, 1)
-      elseif enemy.kind == "wolf" and #route > 2 then
-        self:_move_actor(enemy, route[2].x, route[2].y)
-      elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
-        -- This invokes exactly the player-facing implementation. The AI only
-        -- chooses a trace that reaches the player without self-shocking.
-        self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
-      elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
-        self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = self.state.player })
-      elseif enemy.kind == "cultist" and #route > 1 then
-        -- A broken or detached projector leaves the cultist with no magical
-        -- fallback; it can only advance.
-        self:_move_actor(enemy, route[2].x, route[2].y)
       elseif #route > 0 and #route - 1 <= 4 then
-        -- Necromancer spellcasting remains legacy scaffolding for now.
         self:_begin_enemy_attack(enemy, "spell", self.state.player, 1, 3)
       elseif #route > 1 then
         self:_move_actor(enemy, route[2].x, route[2].y)
@@ -3032,7 +3124,13 @@ end
 function Session:_shoot(direction)
   local player = self.state.player
   player.direction = direction or player.direction
-  local result = self:activate_actor_ability(player, BASIC_PROJECTILE_ABILITY, {
+  local ability_id = self:actor_ability_by_implementation(player, "projectile")
+    or self:actor_known_ability_by_implementation(player, "projectile")
+  if not ability_id then
+    self:_log("No functional ranged weapon.")
+    return self:_ability_failure(BASIC_PROJECTILE_ABILITY, "missing_capability", "No functional ranged weapon")
+  end
+  local result = self:activate_actor_ability(player, ability_id, {
     direction = player.direction,
   })
   if result.applied then
@@ -3536,7 +3634,9 @@ function Session:enemy_intent(enemy)
   if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
     return "DETONATE"
   end
-  return enemy.kind == "wolf" and "POUNCE" or "ADVANCE"
+  if self:actor_ability_by_implementation(enemy, "projectile") then return "RANGED" end
+  if self:actor_ability_by_implementation(enemy, "melee") then return "MELEE" end
+  return "ADVANCE"
 end
 
 return Session

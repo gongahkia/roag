@@ -37,6 +37,8 @@ function Economy.create_stock(session, service_id, rng, final_hub)
       "component.arm.legacy_projectile_emitter", "component.arm.legacy_arcane_projector",
       "component.leg.legacy_locomotor", "component.internal.legacy_support",
       "component.internal.legacy_shock_coil",
+      "component.arm.impact_blade", "component.arm.hydraulic_ram",
+      "component.arm.heavy_projectile_emitter", "component.leg.reinforced_locomotor",
     }
     local offers = {}
     local shuffled = rng:shuffle(pool)

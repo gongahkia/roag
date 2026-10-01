@@ -9,6 +9,7 @@ local KNOWN_ABILITY_IMPLEMENTATIONS = {
   area_burst = true,
   locomotion = true,
   electrical_discharge = true,
+  melee = true,
 }
 
 local KNOWN_INTERACTION_ROLES = {
@@ -30,6 +31,9 @@ local KNOWN_MODIFIERS = {
   charm_slots = true,
   inventory_rows = true,
   starting_scrap = true,
+  melee_damage = true,
+  melee_force = true,
+  projectile_damage = true,
 }
 
 local function content_error(message)
@@ -114,6 +118,7 @@ function Registry.new(sources)
     topologies = {},
     actors = {},
     enemies = {},
+    encounter_pools = {},
     services = {},
     boons = {},
     charms = {},
@@ -130,6 +135,7 @@ function Registry.new(sources)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
   self:_index("enemy", sources.enemies, self.enemies)
+  self:_index("encounter_pool", sources.encounter_pools or {}, self.encounter_pools)
   self:_index("service", sources.services or {}, self.services)
   self:_index("boon", sources.boons or {}, self.boons)
   self:_index("charm", sources.charms or {}, self.charms)
@@ -151,6 +157,7 @@ function Registry.load()
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
     enemies = require("content.enemies.legacy"),
+    encounter_pools = require("content.encounters.legacy"),
     services = require("content.services.legacy"),
     boons = require("content.boons.legacy"),
     charms = require("content.charms.legacy"),
@@ -224,6 +231,14 @@ end
 
 function Registry:get_enemy(id)
   return self:_get(self.enemies, "enemy", id)
+end
+
+function Registry:get_encounter_pool(id)
+  return self:_get(self.encounter_pools, "encounter pool", id)
+end
+
+function Registry:encounter_pool_for(biome_id, tier_id)
+  return self.encounter_pools_by_pair and self.encounter_pools_by_pair[biome_id .. ":" .. tier_id] or nil
 end
 
 function Registry:get_service(id) return self:_get(self.services, "service", id) end
@@ -507,7 +522,7 @@ function Registry:validate()
       require_string(ability.resource.name, "Ability '" .. id .. "' resource.name")
       require_positive_integer(ability.resource.amount, "Ability '" .. id .. "' resource.amount")
     end
-    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage" }) do
+    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage", "force" }) do
       if ability[field] ~= nil then
         require_positive_integer(ability[field], "Ability '" .. id .. "' " .. field)
       end
@@ -516,10 +531,47 @@ function Registry:validate()
       require_positive_integer(ability.max_cells, "Ability '" .. id .. "' max_cells")
       require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
     end
+    if ability.implementation == "melee" then
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
+      require_positive_integer(ability.force, "Ability '" .. id .. "' force")
+      if ability.activation_type ~= "body" then
+        content_error("Melee ability '" .. id .. "' activation_type must be 'body'")
+      end
+    end
   end
 
   self:_validate_actor_collection("Actor", self.actors)
   self:_validate_actor_collection("Enemy", self.enemies)
+  self.encounter_pools_by_pair = {}
+  for _, id in ipairs(sorted_keys(self.encounter_pools)) do
+    local pool = self.encounter_pools[id]
+    require_string(pool.biome_id, "Encounter pool '" .. id .. "' biome_id")
+    require_string(pool.tier_id, "Encounter pool '" .. id .. "' tier_id")
+    if not pool.biome_id:match("^biome%.[a-z0-9_%.]+$") or not pool.tier_id:match("^tier%.[a-z0-9_%.]+$") then
+      content_error("Encounter pool '" .. id .. "' has invalid biome or tier semantic ID")
+    end
+    if type(pool.entries) ~= "table" or #pool.entries == 0 then
+      content_error("Encounter pool '" .. id .. "' entries must be a non-empty list")
+    end
+    local seen_enemy, total_weight = {}, 0
+    for index, entry in ipairs(pool.entries) do
+      if type(entry) ~= "table" then content_error("Encounter pool '" .. id .. "' entry " .. index .. " must be a table") end
+      require_string(entry.enemy_id, "Encounter pool '" .. id .. "' entry enemy_id")
+      self:get_enemy(entry.enemy_id)
+      if seen_enemy[entry.enemy_id] then
+        content_error("Encounter pool '" .. id .. "' repeats enemy '" .. entry.enemy_id .. "'")
+      end
+      seen_enemy[entry.enemy_id] = true
+      require_positive_integer(entry.weight, "Encounter pool '" .. id .. "' entry weight")
+      total_weight = total_weight + entry.weight
+    end
+    assert(total_weight > 0)
+    local key = pool.biome_id .. ":" .. pool.tier_id
+    if self.encounter_pools_by_pair[key] then
+      content_error("Encounter pools duplicate biome/tier pair '" .. key .. "'")
+    end
+    self.encounter_pools_by_pair[key] = pool
+  end
   return true
 end
 
@@ -536,6 +588,7 @@ function Registry:_validate_actor_collection(kind, definitions)
       slots[slot.id] = slot
     end
     local occupied = {}
+    local capabilities = {}
     for index, installation in ipairs(definition.installed_components) do
       if type(installation) ~= "table" then
         content_error(kind .. " '" .. id .. "' installation " .. index .. " must be a table")
@@ -554,8 +607,44 @@ function Registry:_validate_actor_collection(kind, definitions)
       if not list_contains(component.compatible_slots, slot.kind) then
         content_error(kind .. " '" .. id .. "' installs incompatible component '" .. installation.component_id .. "' in slot '" .. installation.slot_id .. "'")
       end
+      for _, ability_id in ipairs(component.abilities or {}) do capabilities[ability_id] = true end
+    end
+    if kind == "Enemy" then
+      require_string(definition.kind, kind .. " '" .. id .. "' kind")
+      if not definition.kind:match("^[a-z0-9_]+$") then
+        content_error(kind .. " '" .. id .. "' kind must be a simple render identity")
+      end
+      if type(definition.elite) ~= "boolean" then
+        content_error(kind .. " '" .. id .. "' elite must be a boolean")
+      end
+      require_nonnegative_number(definition.ammo, kind .. " '" .. id .. "' ammo")
+      if definition.ammo % 1 ~= 0 then
+        content_error(kind .. " '" .. id .. "' ammo must be an integer")
+      end
+      if definition.requires_locomotion ~= false and not capabilities["ability.locomotion.move"] then
+        content_error(kind .. " '" .. id .. "' must have a locomotion provider")
+      end
     end
   end
+end
+
+-- Route content owns the valid biome/tier vocabulary, while this registry
+-- owns the enemy definitions.  Keep the cross-content validation explicit so
+-- either source remains headless and independently useful.
+function Registry:validate_encounter_pools(route_definitions)
+  assert(route_definitions, "Encounter-pool validation requires route definitions")
+  for _, biome_id in ipairs(route_definitions.biome_order or {}) do
+    for _, tier_id in ipairs(route_definitions.tier_order or {}) do
+      if not self:encounter_pool_for(biome_id, tier_id) then
+        content_error("Missing encounter pool for '" .. biome_id .. ":" .. tier_id .. "'")
+      end
+    end
+  end
+  for _, pool in pairs(self.encounter_pools) do
+    route_definitions:get_biome(pool.biome_id)
+    route_definitions:get_tier(pool.tier_id)
+  end
+  return true
 end
 
 return Registry

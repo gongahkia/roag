@@ -734,7 +734,10 @@ function App:confirm_body_ability()
   if not ability_id then
     return nil
   end
-  if not self.body_ability_confirming then
+  local ability = self.session.registry:get_ability(ability_id)
+  -- Only self-destruct is irreversible.  Ordinary body tools such as melee
+  -- activate with the existing single confirmation keypress.
+  if ability.implementation == "self_destruct" and not self.body_ability_confirming then
     self.body_ability_confirming = true
     self:play_sound("select")
     return { applied = false, confirmation_required = true, ability_id = ability_id }
@@ -888,6 +891,14 @@ function App:_sprite_lab_item()
     { kind = "bomber", label = "BOMBER" },
     { kind = "necromancer", label = "NECROMANCER" },
     { kind = "cultist", label = "CULTIST" },
+    { kind = "ripper", label = "RIPPER" },
+    { kind = "skirmisher", label = "SKIRMISHER" },
+    { kind = "conductor", label = "CONDUCTOR" },
+    { kind = "bulwark", label = "BULWARK" },
+    { kind = "reclaimer", label = "RECLAIMER" },
+    { kind = "gunner_elite", label = "REDUNDANT GUNNER" },
+    { kind = "shock_bruiser", label = "SHOCK BRUISER" },
+    { kind = "volatile_heavy", label = "VOLATILE HEAVY" },
     { kind = "boss", label = "BOSS" },
   }
   return items[self.sprite_lab.slot]
@@ -900,7 +911,7 @@ function App:open_sprite_lab()
 end
 
 function App:_select_sprite_slot(delta)
-  self.sprite_lab.slot = clamp(self.sprite_lab.slot + delta, 1, 13)
+  self.sprite_lab.slot = clamp(self.sprite_lab.slot + delta, 1, 21)
   local tile = self.assets.sprites[self:_sprite_lab_item().kind]
   self.sprite_lab.x, self.sprite_lab.y = tile[1], tile[2]
   self:play_sound("select")

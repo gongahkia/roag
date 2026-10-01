@@ -40,9 +40,9 @@ function Batch.run(options)
   local ranges = {
     passable_cells = { total = 0 }, enemies = { total = 0 }, hazards = { total = 0 },
     liquid_volume = { total = 0 }, gas_volume = { total = 0 }, circuits = { total = 0 }, powered_circuits = { total = 0 },
-    room_count = { total = 0 },
+    room_count = { total = 0 }, elite_enemies = { total = 0 },
   }
-  local material_counts, object_counts, template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}, {}, {}
+  local material_counts, object_counts, enemy_counts, enemy_capabilities, template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}, {}, {}, {}, {}
   for offset = 0, count - 1 do
     local current_seed = seed + offset
     local floor, failure = make_floor({ stage = stage, biome = biome.id, tier = tier.id, seed = current_seed })
@@ -60,6 +60,8 @@ function Batch.run(options)
       for name, range in pairs(ranges) do update_range(range, metrics[name], current_seed) end
       merge_counts(material_counts, metrics.material_counts)
       merge_counts(object_counts, metrics.object_types)
+      merge_counts(enemy_counts, metrics.enemy_types)
+      merge_counts(enemy_capabilities, metrics.enemy_capabilities)
       merge_counts(template_usage, metrics.template_usage)
       merge_counts(rotation_counts, metrics.rotation_counts)
       merge_counts(connector_patterns, metrics.connector_pattern_counts)
@@ -85,6 +87,7 @@ function Batch.run(options)
     options = { stage = stage, biome_id = biome.id, tier_id = tier.id, terrain = biome.terrain, seed = seed, count = count },
     summary = { generated = report_count, failures = #failures, statistics = statistics, outliers = outliers,
       material_counts = material_counts, object_counts = object_counts, template_usage = template_usage,
+      enemy_counts = enemy_counts, enemy_capabilities = enemy_capabilities,
       rotation_counts = rotation_counts, connector_pattern_counts = connector_patterns, graph_degree_counts = graph_degrees },
     failures = failures,
     reports = reports,

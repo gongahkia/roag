@@ -30,6 +30,7 @@ local suites = {
   "tests.test_economy",
   "tests.test_meta_progression",
   "tests.test_fallen_archive",
+  "tests.test_bestiary",
 }
 
 local passed, failed = 0, 0
