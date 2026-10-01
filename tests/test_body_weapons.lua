@@ -17,11 +17,15 @@ local function enter_reconstruction(session)
 end
 
 local function finish_normal_reconstruction(session)
-  assert(session:complete_reconstruction().next == "curse")
-  local result = session:choose_curse(Content.curses[2]) -- Darkness does not alter ammo.
-  if result.next == "route" then
-    local choice = session:available_route_nodes()[1]
-    assert(choice and session:select_route_node(choice.id).applied)
+  local next_step = session:complete_reconstruction().next
+  if next_step == "curse" then
+    local result = session:choose_curse(Content.curses[2]) -- Darkness does not alter ammo.
+    if result.next == "route" then
+      local choice = session:available_route_nodes()[1]
+      assert(choice and session:select_route_node(choice.id).applied)
+    end
+  else
+    assert(next_step == "boss" and session.state.phase == "boss")
   end
 end
 

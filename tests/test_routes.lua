@@ -70,7 +70,7 @@ return {
       local first, second = Graph.new(88002, content), Graph.new(88002, content)
       assert(encode(first:to_data()) == encode(second:to_data()))
       local report = RouteAnalysis.analyze(first, content)
-      assert(report.valid and report.metrics.node_count == 9 and report.metrics.edge_count == 14)
+      assert(report.valid and report.metrics.node_count == 11 and report.metrics.edge_count == 17)
       assert(report.metrics.branch_count >= 1 and report.metrics.convergence_count >= 1)
       assert(first:node(first.start_node_id).biome_id == "biome.legacy.forest")
       assert(first:node(first.start_node_id).tier_id == "tier.legacy.1")
@@ -120,12 +120,23 @@ return {
     end,
   },
   {
-    name = "second branch then final reconstruction reaches legacy shop and boss route nodes",
+    name = "tier-two branch forces its physical milestone before tier-three choice and final hub",
     run = function()
       local session = new_run(88006)
       finish_to_route(session)
       choose(session, function(node) return node.biome_id == "biome.legacy.cave" end)
-      local choices = finish_to_route(session)
+      assert(session:_complete_stage() == "reconstruction")
+      assert(session:complete_reconstruction().next == "boss")
+      assert(session.state.boss.boss_id == "boss.cave.flooded_conductor")
+      session.state.boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      assert(session.state.phase == "boss_exit" and #session.state.corpses == 1)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("w") == "reconstruction")
+      assert(session:complete_reconstruction().next == "curse")
+      local curse = session:choose_curse(session.state.curse_options[1])
+      assert(curse.next == "route")
+      local choices = session:available_route_nodes()
       assert(#choices == 3)
       choose(session, function(node) return node.biome_id == "biome.legacy.dungeon" end)
       assert(session.state.settings.terrain == "dungeon" and session.state.settings.tier == 3)
@@ -237,7 +248,7 @@ return {
       assert(encode(first) == encode(second))
       assert(first.summary.biome_by_depth[2]["biome.legacy.forest"] == 40)
       assert(first.summary.biome_by_depth[2]["biome.legacy.cave"] == 40)
-      assert(first.summary.biome_by_depth[3]["biome.legacy.reactor"] == 40)
+      assert(first.summary.biome_by_depth[4]["biome.legacy.reactor"] == 40)
     end,
   },
 }

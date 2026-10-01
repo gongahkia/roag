@@ -215,7 +215,7 @@ return {
     end,
   },
   {
-    name = "normal route reconstruction preserves curse choices then shop and boss sequence",
+    name = "normal route reconstruction reaches a physical milestone boss before tier three",
     run = function()
       local session = new_run(1213)
       local body = session.state.player.body
@@ -224,13 +224,9 @@ return {
       choose_next_route_floor(session, session.state.curse_options[1])
       assert(session.state.stage == 2 and session.state.phase == "combat")
       enter_reconstruction(session)
-      assert(session:complete_reconstruction().next == "curse")
-      choose_next_route_floor(session, session.state.curse_options[1])
-      assert(session.state.stage == 3 and session.state.phase == "combat")
-      enter_reconstruction(session)
-      assert(session:complete_reconstruction().next == "shop")
-      session:start_boss()
+      assert(session:complete_reconstruction().next == "boss")
       assert(session.state.phase == "boss" and session.state.player.body == body)
+      assert(session.state.boss and session.state.boss.body and session.state.boss.boss_id)
       assert(session:validate_physical_ownership())
     end,
   },
