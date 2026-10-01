@@ -52,7 +52,6 @@ $ love .
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
 | Enter or `E` | Confirm a menu choice or leave the shop for the boss |
 | `B` / `V` in the shop | Buy / sell the selected item |
-| `P` on the title screen | Open Sprite Lab; preview and live-assign Kenney tiles, then copy the shown coordinates into `sprite_map.lua` to keep them |
 | Escape | Quit the game |
 
 ## Reference

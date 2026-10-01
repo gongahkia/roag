@@ -1,8 +1,8 @@
 -- ROAG sprite assignments.
 --
 -- Each entry is { column, row } in Kenney's 49 x 22 colored-packed sheet.
--- Edit these values directly, or use the in-game Sprite Lab (P on the title
--- screen) to preview a tile and read its column/row before changing this file.
+-- Edit these values directly, or use the standalone Sprite Editor to save
+-- repository-local mappings without changing normal-game state.
 
 return {
   player = {25, 1},

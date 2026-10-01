@@ -48,7 +48,6 @@ function App.new(options)
   self.sounds = SoundBank.new()
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
-  self.sprite_lab = { slot = 1, x = 25, y = 1 }
   self.movement_keys = {}
   self:_reconcile_pending_death()
   self:refresh_continue()
@@ -875,81 +874,6 @@ end
 
 function App:draw()
   self.renderer:draw(self)
-end
-
-function App:_sprite_lab_item()
-  local items = {
-    { kind = "player", label = "PLAYER" },
-    { kind = "target", label = "TARGET" },
-    { kind = "ammo", label = "AMMO" },
-    { kind = "torch", label = "TORCH" },
-    { kind = "door", label = "EXIT DOOR" },
-    { kind = "bullet", label = "BULLET" },
-    { kind = "bomb", label = "BOMB" },
-    { kind = "flare", label = "FLARE" },
-    { kind = "wolf", label = "WOLF" },
-    { kind = "bomber", label = "BOMBER" },
-    { kind = "necromancer", label = "NECROMANCER" },
-    { kind = "cultist", label = "CULTIST" },
-    { kind = "ripper", label = "RIPPER" },
-    { kind = "skirmisher", label = "SKIRMISHER" },
-    { kind = "conductor", label = "CONDUCTOR" },
-    { kind = "bulwark", label = "BULWARK" },
-    { kind = "reclaimer", label = "RECLAIMER" },
-    { kind = "gunner_elite", label = "REDUNDANT GUNNER" },
-    { kind = "shock_bruiser", label = "SHOCK BRUISER" },
-    { kind = "volatile_heavy", label = "VOLATILE HEAVY" },
-    { kind = "boss", label = "BOSS" },
-  }
-  return items[self.sprite_lab.slot]
-end
-
-function App:open_sprite_lab()
-  self.screen = "sprite_lab"
-  local tile = self.assets.sprites[self:_sprite_lab_item().kind]
-  self.sprite_lab.x, self.sprite_lab.y = tile[1], tile[2]
-end
-
-function App:_select_sprite_slot(delta)
-  self.sprite_lab.slot = clamp(self.sprite_lab.slot + delta, 1, 21)
-  local tile = self.assets.sprites[self:_sprite_lab_item().kind]
-  self.sprite_lab.x, self.sprite_lab.y = tile[1], tile[2]
-  self:play_sound("select")
-end
-
-function App:handle_sprite_lab_key(key)
-  if key == "escape" or key == "p" then
-    self.screen = "title"
-    return
-  end
-  if key == "q" then
-    self:_select_sprite_slot(-1)
-  elseif key == "e" then
-    self:_select_sprite_slot(1)
-  elseif key == "a" or key == "left" then
-    self.sprite_lab.x = clamp(self.sprite_lab.x - 1, 1, 49)
-  elseif key == "d" or key == "right" then
-    self.sprite_lab.x = clamp(self.sprite_lab.x + 1, 1, 49)
-  elseif key == "w" or key == "up" then
-    self.sprite_lab.y = clamp(self.sprite_lab.y - 1, 1, 22)
-  elseif key == "s" or key == "down" then
-    self.sprite_lab.y = clamp(self.sprite_lab.y + 1, 1, 22)
-  elseif key == "return" or key == "space" then
-    self.assets.sprites[self:_sprite_lab_item().kind] = { self.sprite_lab.x, self.sprite_lab.y }
-    self:play_sound("select")
-  elseif key == "r" then
-    self.assets:reset_sprite(self:_sprite_lab_item().kind)
-    local tile = self.assets.sprites[self:_sprite_lab_item().kind]
-    self.sprite_lab.x, self.sprite_lab.y = tile[1], tile[2]
-    self:play_sound("select")
-  elseif key == "x" then
-    for kind in pairs(self.assets.sprites) do
-      self.assets:reset_sprite(kind)
-    end
-    local tile = self.assets.sprites[self:_sprite_lab_item().kind]
-    self.sprite_lab.x, self.sprite_lab.y = tile[1], tile[2]
-    self:play_sound("select")
-  end
 end
 
 function App:keypressed(...)

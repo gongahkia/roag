@@ -5,11 +5,6 @@ local MOVE_KEYS = { w = true, a = true, s = true, d = true }
 local SHOT_KEYS = { up = "w", left = "a", down = "s", right = "d" }
 
 function Input.keypressed(app, key, _, is_repeat)
-  if app.screen == "sprite_lab" then
-    app:handle_sprite_lab_key(key)
-    return
-  end
-
   if app.screen == "inventory" then
     if key == "escape" or key == "i" then
       app:close_overlay()
@@ -82,9 +77,7 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
   if app.screen == "title" then
-    if key == "p" then
-      app:open_sprite_lab()
-    elseif key == "w" or key == "up" then
+    if key == "w" or key == "up" then
       app:move_menu(-1, #app:title_options())
     elseif key == "s" or key == "down" then
       app:move_menu(1, #app:title_options())

@@ -7,30 +7,6 @@ Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
 local BOSS_WINDUP = 4
-local SPRITE_ORDER = {
-  { kind = "player", label = "PLAYER" },
-  { kind = "target", label = "TARGET" },
-  { kind = "ammo", label = "AMMO" },
-  { kind = "torch", label = "TORCH" },
-  { kind = "door", label = "EXIT DOOR" },
-  { kind = "bullet", label = "BULLET" },
-  { kind = "bomb", label = "BOMB" },
-  { kind = "flare", label = "FLARE" },
-  { kind = "wolf", label = "WOLF" },
-  { kind = "bomber", label = "BOMBER" },
-  { kind = "necromancer", label = "NECROMANCER" },
-  { kind = "cultist", label = "CULTIST" },
-  { kind = "ripper", label = "RIPPER" },
-  { kind = "skirmisher", label = "SKIRMISHER" },
-  { kind = "conductor", label = "CONDUCTOR" },
-  { kind = "bulwark", label = "BULWARK" },
-  { kind = "reclaimer", label = "RECLAIMER" },
-  { kind = "gunner_elite", label = "REDUNDANT GUNNER" },
-  { kind = "shock_bruiser", label = "SHOCK BRUISER" },
-  { kind = "volatile_heavy", label = "VOLATILE HEAVY" },
-  { kind = "boss", label = "BOSS" },
-}
-
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
@@ -661,7 +637,6 @@ function Renderer:_draw_title(app)
   -- Keep title feedback below the longest (four-item) normal menu so a
   -- valid Continue/Research/Fallen state remains screenshot-readable.
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
-  self:_text("P: SPRITE LAB", width / 2 - 62, height - 42, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_fallen_archive(app)
@@ -826,46 +801,6 @@ function Renderer:_draw_route(app)
   self:_text("W/S SELECT     ENTER / E DESCEND", width * 0.5 - 150, height - 44, 0.85, { 0.72, 0.8, 0.92 })
 end
 
-function Renderer:_draw_sprite_lab(app)
-  local lab, sprites = app.sprite_lab, self.assets.sprites
-  love.graphics.clear(0.025, 0.035, 0.055)
-  local width, height = love.graphics.getDimensions()
-  local scale = math.min(1, math.max(0.5, math.min((width - 460) / (49 * 16), (height - 130) / (22 * 16))))
-  local tile_size = 16 * scale
-  local sheet_width = 49 * tile_size
-  local sheet_x, sheet_y = width - sheet_width - 28, 88
-  local current = SPRITE_ORDER[lab.slot]
-
-  self:_text("SPRITE LAB", 28, 26, 2, { 0.7, 0.9, 1 })
-  self:_text("EDITING " .. current.label, 28, 72, 1.15, { 0.95, 0.85, 0.3 })
-  self:_text("HIGHLIGHTED TILE: COLUMN " .. lab.x .. "  ROW " .. lab.y, 28, 98, 0.8, { 0.8, 0.85, 0.9 })
-  love.graphics.draw(self.assets.sheet, self.assets.quads[lab.x .. ":" .. lab.y], 28, 122, 0, 4, 4)
-  for index, item in ipairs(SPRITE_ORDER) do
-    local y = 198 + (index - 1) * 29
-    if index == lab.slot then
-      self:_color({ 0.13, 0.22, 0.3 })
-      love.graphics.rectangle("fill", 24, y - 3, 390, 26)
-    end
-    self.assets:draw_sprite(item.kind, 30, y, 24)
-    local tile = sprites[item.kind]
-    self:_text(item.label .. "  [" .. tile[1] .. ", " .. tile[2] .. "]", 62, y + 2, 0.82, index == lab.slot and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
-  end
-  love.graphics.draw(self.assets.sheet, sheet_x, sheet_y, 0, scale, scale)
-  local function outline(column, row, tint, line_width)
-    self:_color(tint)
-    love.graphics.setLineWidth(line_width)
-    love.graphics.rectangle("line", sheet_x + (column - 1) * tile_size, sheet_y + (row - 1) * tile_size, tile_size, tile_size)
-  end
-  local assigned = sprites[current.kind]
-  outline(assigned[1], assigned[2], { 0.15, 0.9, 1 }, 2)
-  outline(lab.x, lab.y, { 1, 0.85, 0.2 }, 3)
-  love.graphics.setLineWidth(1)
-  self:_text("WASD / ARROWS: BROWSE TILE", 28, height - 104, 0.78, { 0.75, 0.82, 0.92 })
-  self:_text("Q / E: CHANGE CHARACTER     ENTER: ASSIGN LIVE", 28, height - 82, 0.78, { 0.75, 0.82, 0.92 })
-  self:_text("R: RESET CHARACTER     X: RESET ALL     P / ESC: RETURN", 28, height - 60, 0.78, { 0.75, 0.82, 0.92 })
-  self:_text("PREVIEW ONLY — SAVE MAPPINGS IN THE STANDALONE SPRITE EDITOR", 28, height - 34, 0.72, { 0.95, 0.65, 0.45 })
-end
-
 function Renderer:draw(app)
   if app.screen == "game" then
     self:_draw_game(app)
@@ -874,8 +809,6 @@ function Renderer:draw(app)
   elseif app.screen == "replace_save" then
     self:_menu("REPLACE ACTIVE RUN?", { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
       "ENTER CONFIRM     ESC CANCEL")
-  elseif app.screen == "sprite_lab" then
-    self:_draw_sprite_lab(app)
   elseif app.screen == "curse" then
     self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
   elseif app.screen == "route" then
