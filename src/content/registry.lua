@@ -118,6 +118,8 @@ function Registry.new(sources)
     topologies = {},
     actors = {},
     enemies = {},
+    bosses = {},
+    boss_arenas = {},
     encounter_pools = {},
     services = {},
     boons = {},
@@ -135,6 +137,8 @@ function Registry.new(sources)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
   self:_index("enemy", sources.enemies, self.enemies)
+  self:_index("boss", sources.bosses or {}, self.bosses)
+  self:_index("boss_arena", sources.boss_arenas or {}, self.boss_arenas)
   self:_index("encounter_pool", sources.encounter_pools or {}, self.encounter_pools)
   self:_index("service", sources.services or {}, self.services)
   self:_index("boon", sources.boons or {}, self.boons)
@@ -157,6 +161,8 @@ function Registry.load()
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
     enemies = require("content.enemies.legacy"),
+    bosses = require("content.bosses.legacy"),
+    boss_arenas = require("content.boss_arenas.legacy"),
     encounter_pools = require("content.encounters.legacy"),
     services = require("content.services.legacy"),
     boons = require("content.boons.legacy"),
@@ -231,6 +237,14 @@ end
 
 function Registry:get_enemy(id)
   return self:_get(self.enemies, "enemy", id)
+end
+
+function Registry:get_boss(id)
+  return self:_get(self.bosses, "boss", id)
+end
+
+function Registry:get_boss_arena(id)
+  return self:_get(self.boss_arenas, "boss arena", id)
 end
 
 function Registry:get_encounter_pool(id)
@@ -542,6 +556,60 @@ function Registry:validate()
 
   self:_validate_actor_collection("Actor", self.actors)
   self:_validate_actor_collection("Enemy", self.enemies)
+  self:_validate_actor_collection("Boss", self.bosses)
+  for _, id in ipairs(sorted_keys(self.boss_arenas)) do
+    local arena = self.boss_arenas[id]
+    require_string(arena.display_name, "Boss arena '" .. id .. "' display_name")
+    require_string(arena.terrain, "Boss arena '" .. id .. "' terrain")
+    for _, field in ipairs({ "player_spawn", "boss_spawn" }) do
+      local point = arena[field]
+      if type(point) ~= "table" or type(point.x) ~= "number" or point.x % 1 ~= 0
+        or type(point.y) ~= "number" or point.y % 1 ~= 0 then
+        content_error("Boss arena '" .. id .. "' " .. field .. " must be an integer coordinate")
+      end
+    end
+    for _, placement in ipairs(arena.cover or {}) do
+      if type(placement) ~= "table" then content_error("Boss arena '" .. id .. "' cover entry must be a table") end
+      self:get_world_object(placement.definition_id)
+      if type(placement.x) ~= "number" or type(placement.y) ~= "number" then content_error("Boss arena '" .. id .. "' cover placement is invalid") end
+    end
+    for _, placement in ipairs(arena.hazards or {}) do
+      if type(placement) ~= "table" then content_error("Boss arena '" .. id .. "' hazard entry must be a table") end
+      self:get_hazard(placement.definition_id)
+      if type(placement.x) ~= "number" or type(placement.y) ~= "number" then content_error("Boss arena '" .. id .. "' hazard placement is invalid") end
+    end
+    for _, placement in ipairs(arena.liquid or {}) do
+      if type(placement) ~= "table" then content_error("Boss arena '" .. id .. "' liquid entry must be a table") end
+      local liquid = self:get_liquid(placement.liquid_id)
+      require_positive_integer(placement.amount, "Boss arena '" .. id .. "' liquid amount")
+      if placement.amount > liquid.max_depth then content_error("Boss arena '" .. id .. "' liquid amount exceeds max depth") end
+      if type(placement.x) ~= "number" or type(placement.y) ~= "number" then content_error("Boss arena '" .. id .. "' liquid placement is invalid") end
+    end
+  end
+  for _, id in ipairs(sorted_keys(self.bosses)) do
+    local boss = self.bosses[id]
+    require_positive_integer(boss.health, "Boss '" .. id .. "' health")
+    self:get_boss_arena(boss.arena_profile_id)
+    if type(boss.ai_profile) ~= "table" or type(boss.ai_profile.preferred_range) ~= "number"
+      or boss.ai_profile.preferred_range <= 0 then
+      content_error("Boss '" .. id .. "' ai_profile must define a positive preferred_range")
+    end
+    if type(boss.ai_profile.telegraph_ability_ids) ~= "table" or #boss.ai_profile.telegraph_ability_ids == 0 then
+      content_error("Boss '" .. id .. "' must declare telegraph_ability_ids")
+    end
+    local capabilities = {}
+    for _, installation in ipairs(boss.installed_components) do
+      for _, ability_id in ipairs(self:get_component(installation.component_id).abilities) do capabilities[ability_id] = true end
+    end
+    local seen = {}
+    for _, ability_id in ipairs(boss.ai_profile.telegraph_ability_ids) do
+      if seen[ability_id] or not capabilities[ability_id] then
+        content_error("Boss '" .. id .. "' telegraph ability has no physical provider '" .. tostring(ability_id) .. "'")
+      end
+      seen[ability_id] = true
+      self:get_ability(ability_id)
+    end
+  end
   self.encounter_pools_by_pair = {}
   for _, id in ipairs(sorted_keys(self.encounter_pools)) do
     local pool = self.encounter_pools[id]
@@ -609,12 +677,12 @@ function Registry:_validate_actor_collection(kind, definitions)
       end
       for _, ability_id in ipairs(component.abilities or {}) do capabilities[ability_id] = true end
     end
-    if kind == "Enemy" then
+    if kind == "Enemy" or kind == "Boss" then
       require_string(definition.kind, kind .. " '" .. id .. "' kind")
       if not definition.kind:match("^[a-z0-9_]+$") then
         content_error(kind .. " '" .. id .. "' kind must be a simple render identity")
       end
-      if type(definition.elite) ~= "boolean" then
+      if kind == "Enemy" and type(definition.elite) ~= "boolean" then
         content_error(kind .. " '" .. id .. "' elite must be a boolean")
       end
       require_nonnegative_number(definition.ammo, kind .. " '" .. id .. "' ammo")

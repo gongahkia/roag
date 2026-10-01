@@ -12,7 +12,7 @@ local function copy_node(node)
   return {
     id = node.id, key = node.key, type = node.type, depth = node.depth,
     biome_id = node.biome_id, tier_id = node.tier_id, floor_seed = node.floor_seed,
-    service_id = node.service_id,
+    service_id = node.service_id, boss_id = node.boss_id, encounter_seed = node.encounter_seed,
   }
 end
 
@@ -49,10 +49,12 @@ function Graph.new(root_seed, definitions, profile_id, unlock_ids)
       local node = {
         id = id, key = source.key, type = layer.type, depth = depth,
         biome_id = source.biome_id, tier_id = source.tier_id,
-        service_id = source.service_id,
+        service_id = source.service_id, boss_id = source.boss_id,
       }
       if layer.type == "floor" then
         node.floor_seed = route_rng:derive("node." .. id):next()
+      elseif layer.type == "boss" then
+        node.encounter_seed = route_rng:derive("boss." .. id):next()
       end
       graph.nodes[id] = node
       graph.node_order[#graph.node_order + 1] = id
@@ -214,7 +216,7 @@ function Graph:validate(definitions)
   if not profile_ok then return invalid("Route references an unknown profile") end
   if type(self.start_node_id) ~= "string" or not self.nodes[self.start_node_id] then return invalid("Route has no valid start node") end
   if type(self.current_node_id) ~= "string" or not self.nodes[self.current_node_id] then return invalid("Route has no valid current node") end
-  local bosses, edge_seen = 0, {}
+  local bosses, terminal_bosses, edge_seen = 0, 0, {}
   for _, id in ipairs(self.node_order) do
     local node = self.nodes[id]
     if not node or node.id ~= id or type(node.key) ~= "string" or type(node.depth) ~= "number" then return invalid("Route node data is malformed") end
@@ -232,9 +234,20 @@ function Graph:validate(definitions)
     elseif node.biome_id ~= nil or node.tier_id ~= nil or node.floor_seed ~= nil then
       return invalid("Special node '" .. id .. "' has floor fields")
     end
-    if node.type == "boss" then bosses = bosses + 1 end
+    if node.type == "boss" then
+      bosses = bosses + 1
+      if node.boss_id ~= nil and (type(node.boss_id) ~= "string" or not node.boss_id:match("^boss%.[a-z0-9_%.]+$")) then
+        return invalid("Route boss node has invalid boss ID")
+      end
+      if type(node.encounter_seed) ~= "number" and node.boss_id ~= nil then
+        return invalid("Route boss node has invalid encounter seed")
+      end
+    end
   end
-  if bosses ~= 1 then return invalid("Route must contain exactly one boss node") end
+  -- A saved pre-8G route has one terminal legacy boss; new generated graphs
+  -- contain one boss node per tier-two branch plus the terminal final boss.
+  -- Any new route path still visits exactly one milestone and one final boss.
+  if bosses ~= 1 and bosses ~= 3 then return invalid("Route must contain one legacy boss or three production boss nodes") end
   for _, edge in ipairs(self.edges) do
     if type(edge.from) ~= "string" or type(edge.to) ~= "string" or not self.nodes[edge.from] or not self.nodes[edge.to]
       or (edge.requires_unlock ~= nil and (type(edge.requires_unlock) ~= "string" or not edge.requires_unlock:match("^unlock%.[a-z0-9_%.]+$"))) then
@@ -245,6 +258,11 @@ function Graph:validate(definitions)
     if edge_seen[key] then return invalid("Route contains duplicate edge '" .. key .. "'") end
     edge_seen[key] = true
   end
+  for _, id in ipairs(self.node_order) do
+    local node = self.nodes[id]
+    if node.type == "boss" and #self:outgoing(id) == 0 then terminal_bosses = terminal_bosses + 1 end
+  end
+  if terminal_bosses ~= 1 then return invalid("Route must contain exactly one terminal boss") end
   local visited, queue, cursor = { [self.start_node_id] = true }, { self.start_node_id }, 1
   while queue[cursor] do
     local id = queue[cursor]; cursor = cursor + 1
@@ -254,7 +272,11 @@ function Graph:validate(definitions)
   end
   for _, id in ipairs(self.node_order) do if not visited[id] then return invalid("Route has unreachable node '" .. id .. "'") end end
   local can_reach_boss, reverse_queue, reverse_cursor = {}, {}, 1
-  for _, id in ipairs(self.node_order) do if self.nodes[id].type == "boss" then can_reach_boss[id] = true; reverse_queue[#reverse_queue + 1] = id end end
+  for _, id in ipairs(self.node_order) do
+    if self.nodes[id].type == "boss" and #self:outgoing(id) == 0 then
+      can_reach_boss[id] = true; reverse_queue[#reverse_queue + 1] = id
+    end
+  end
   while reverse_queue[reverse_cursor] do
     local id = reverse_queue[reverse_cursor]; reverse_cursor = reverse_cursor + 1
     for _, node in ipairs(self:incoming(id)) do if not can_reach_boss[node.id] then can_reach_boss[node.id] = true; reverse_queue[#reverse_queue + 1] = node.id end end
@@ -268,7 +290,9 @@ function Graph:validate(definitions)
     end
   end
   local unlocked_boss = false
-  for _, id in ipairs(self.node_order) do if self.nodes[id].type == "boss" and allowed[id] then unlocked_boss = true end end
+  for _, id in ipairs(self.node_order) do
+    if self.nodes[id].type == "boss" and #self:outgoing(id) == 0 and allowed[id] then unlocked_boss = true end
+  end
   if not unlocked_boss then return invalid("Route unlock configuration cannot reach boss") end
   if not self.nodes[self.start_node_id] or self.nodes[self.start_node_id].depth ~= 1 then return invalid("Route start must be in first layer") end
   for id in pairs(self.completed_node_ids) do if not self.nodes[id] then return invalid("Completed route references unknown node") end end

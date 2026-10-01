@@ -20,6 +20,13 @@ return {
         },
       },
       {
+        type = "boss",
+        nodes = {
+          { key = "forest_milestone_boss", boss_id = "boss.forest.iron_colossus" },
+          { key = "cave_milestone_boss", boss_id = "boss.cave.flooded_conductor" },
+        },
+      },
+      {
         type = "floor",
         nodes = {
           { key = "cave_tier_3", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3", service_id = "service.charm_vendor.legacy" },
@@ -29,20 +36,23 @@ return {
         },
       },
       { type = "shop", nodes = { { key = "legacy_shop" } } },
-      { type = "boss", nodes = { { key = "legacy_final_boss" } } },
+      { type = "boss", nodes = { { key = "legacy_final_boss", boss_id = "boss.legacy.final" } } },
     },
     -- Explicit forward grammar preserves the legacy routes while adding one
     -- optional, account-gated third-floor branch.
     edges = {
       { from = "opening_forest", to = "forest_tier_2" },
       { from = "opening_forest", to = "cave_tier_2" },
-      { from = "forest_tier_2", to = "cave_tier_3" },
-      { from = "forest_tier_2", to = "dungeon_tier_3" },
-      { from = "forest_tier_2", to = "reactor_tier_3" },
-      { from = "forest_tier_2", to = "forest_tier_3_breach", requires_unlock = "unlock.traversal.reinforced_breach" },
-      { from = "cave_tier_2", to = "cave_tier_3" },
-      { from = "cave_tier_2", to = "dungeon_tier_3" },
-      { from = "cave_tier_2", to = "reactor_tier_3" },
+      { from = "forest_tier_2", to = "forest_milestone_boss" },
+      { from = "cave_tier_2", to = "cave_milestone_boss" },
+      { from = "forest_milestone_boss", to = "cave_tier_3" },
+      { from = "forest_milestone_boss", to = "dungeon_tier_3" },
+      { from = "forest_milestone_boss", to = "reactor_tier_3" },
+      { from = "forest_milestone_boss", to = "forest_tier_3_breach", requires_unlock = "unlock.traversal.reinforced_breach" },
+      { from = "cave_milestone_boss", to = "cave_tier_3" },
+      { from = "cave_milestone_boss", to = "dungeon_tier_3" },
+      { from = "cave_milestone_boss", to = "reactor_tier_3" },
+      { from = "cave_milestone_boss", to = "forest_tier_3_breach", requires_unlock = "unlock.traversal.reinforced_breach" },
       { from = "cave_tier_3", to = "legacy_shop" },
       { from = "dungeon_tier_3", to = "legacy_shop" },
       { from = "reactor_tier_3", to = "legacy_shop" },

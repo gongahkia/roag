@@ -484,10 +484,11 @@ function App:route_options()
   for _, node in ipairs(self.session:available_route_nodes()) do
     local biome = node.biome_id and self.session.route_definitions:get_biome(node.biome_id)
     local tier = node.tier_id and self.session.route_definitions:get_tier(node.tier_id)
+    local boss = node.boss_id and self.session.registry:get_boss(node.boss_id) or nil
     result[#result + 1] = {
       node_id = node.id,
-      name = biome and biome.display_name or string.upper(node.type),
-      description = biome and ("TIER " .. tier.number .. "  •  FLOOR") or string.upper(node.type),
+      name = biome and biome.display_name or (boss and boss.display_name) or string.upper(node.type),
+      description = biome and ("TIER " .. tier.number .. "  •  FLOOR") or (boss and "MILESTONE BOSS" or string.upper(node.type)),
       service_id = node.service_id,
       service_name = node.service_id and self.session.registry:get_service(node.service_id).display_name or nil,
       biome_id = node.biome_id,
@@ -587,6 +588,10 @@ function App:_handle_turn_result(result)
     self.screen, self.menu = "curse", 1
   elseif result == "shop" then
     self.screen, self.menu = "service_hub", 1
+  elseif result == "boss" then
+    self.screen, self.menu = "game", 1
+    self:clear_held_movement()
+    self.presentation:reset(self.session)
   elseif result == "route" then
     self.screen, self.menu = "route", 1
   elseif result == "gameover" or result == "victory" then

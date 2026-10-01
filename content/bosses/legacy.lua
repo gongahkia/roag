@@ -1,0 +1,67 @@
+-- Bosses are declarative physical actors. Their behaviour is interpreted by
+-- Session's common capability and telegraph policy; content contains no code.
+return {
+  {
+    id = "boss.forest.iron_colossus",
+    display_name = "IRON COLOSSUS",
+    kind = "boss",
+    health = 12,
+    ammo = 9,
+    body_topology_id = "body.topology.normal",
+    installed_components = {
+      { slot_id = "torso_core", component_id = "component.core.reinforced_frame" },
+      { slot_id = "left_arm", component_id = "component.arm.pile_driver" },
+      { slot_id = "right_arm", component_id = "component.arm.siege_emitter" },
+      { slot_id = "left_leg", component_id = "component.leg.reinforced_locomotor" },
+      { slot_id = "right_leg", component_id = "component.leg.reinforced_locomotor" },
+      { slot_id = "internal_1", component_id = "component.internal.inertial_stabilizer" },
+    },
+    ai_profile = { preferred_range = 5, telegraph_ability_ids = { "ability.weapon.projectile.siege" } },
+    arena_profile_id = "boss_arena.forest.iron_colossus",
+    milestone_data_reward = 2,
+    presentation = { sprite_kind = "boss", line = "THE FOREST'S SCRAP HAS LEARNED TO HUNT." },
+  },
+  {
+    id = "boss.cave.flooded_conductor",
+    display_name = "FLOODED CONDUCTOR",
+    kind = "boss",
+    health = 11,
+    ammo = 8,
+    body_topology_id = "body.topology.normal",
+    installed_components = {
+      { slot_id = "torso_core", component_id = "component.core.reactor_frame" },
+      { slot_id = "left_arm", component_id = "component.arm.reactor_arc_blade" },
+      { slot_id = "right_arm", component_id = "component.arm.siege_emitter" },
+      { slot_id = "left_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "right_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "internal_1", component_id = "component.internal.legacy_shock_coil" },
+    },
+    ai_profile = { preferred_range = 4, telegraph_ability_ids = { "ability.electrical.discharge", "ability.weapon.projectile.siege" } },
+    arena_profile_id = "boss_arena.cave.flooded_conductor",
+    milestone_data_reward = 2,
+    presentation = { sprite_kind = "boss", line = "CURRENT SEEKS THE WEAKEST PATH." },
+  },
+  {
+    -- This preserves the terminal node's legacy key and reward behaviour while
+    -- replacing the old independent hitbox/script with a physical body.
+    id = "boss.legacy.final",
+    display_name = "THE LEGACY WARDEN",
+    kind = "boss",
+    health = 13,
+    ammo = 10,
+    body_topology_id = "body.topology.normal",
+    installed_components = {
+      { slot_id = "torso_core", component_id = "component.core.reactor_frame" },
+      { slot_id = "left_arm", component_id = "component.arm.heavy_projectile_emitter" },
+      { slot_id = "right_arm", component_id = "component.arm.legacy_arcane_projector" },
+      { slot_id = "left_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "right_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "internal_1", component_id = "component.internal.legacy_shock_coil" },
+      { slot_id = "internal_2", component_id = "component.internal.inertial_stabilizer" },
+    },
+    ai_profile = { preferred_range = 5, telegraph_ability_ids = { "ability.arcane.burst", "ability.weapon.projectile.heavy" } },
+    arena_profile_id = "boss_arena.legacy.final",
+    final_data_reward = 4,
+    presentation = { sprite_kind = "boss", line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" },
+  },
+}

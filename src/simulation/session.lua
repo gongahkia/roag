@@ -2,6 +2,7 @@
 -- dependency on LÖVE so it can be created and stepped by tests or tools.
 local Content = require("src.content.legacy")
 local Body = require("src.body.body")
+local Component = require("src.body.component")
 local ComponentFactory = require("src.body.component_factory")
 local Registry = require("src.content.registry")
 local BodyDamage = require("src.simulation.body_damage")
@@ -49,7 +50,6 @@ local DIRECTIONS = {
   sw = { -1, -1, "SW" },
   se = { 1, -1, "SE" },
 }
-local BOSS_WINDUP = 4
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
 local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
 local ARCANE_BURST_ABILITY = "ability.arcane.burst"
@@ -196,6 +196,7 @@ function Session.new(options)
     active_service_object_id = nil,
     service_return_phase = nil,
     final_service_hub = nil,
+    boss_completed = nil,
     run_id = options.run_id or ("legacy:" .. tostring(self.seed)),
     meta_snapshot = meta_snapshot,
     meta_reward_events = {},
@@ -409,6 +410,9 @@ function Session:_actor_at(x, y, excluded)
       return enemy
     end
   end
+  if state.boss and state.boss ~= excluded and state.boss.x == x and state.boss.y == y then
+    return state.boss
+  end
   return nil
 end
 
@@ -530,13 +534,23 @@ function Session:_move_actor(actor, x, y)
   return result
 end
 
-function Session:actor_ability_provider(actor, ability_id)
+function Session:actor_ability_provider(actor, ability_id, provider_component_id)
   if not actor or not actor.body then
     return nil
   end
   -- Body capability_providers follows topology slot_order, which is the
   -- deterministic first-provider rule until equipment selection exists.
-  local provider = actor.body:capability_providers(ability_id)[1]
+  local providers = actor.body:capability_providers(ability_id)
+  local provider = providers[1]
+  if provider_component_id then
+    provider = nil
+    for _, candidate in ipairs(providers) do
+      if candidate.id == provider_component_id then
+        provider = candidate
+        break
+      end
+    end
+  end
   if not provider then
     return nil
   end
@@ -632,6 +646,9 @@ function Session:_execute_self_destruct(actor, provider, wear)
         self:_destroy_enemy(index)
       end
     end
+  end
+  if state.boss and state.boss ~= actor and cells[Grid.key(state.boss.x, state.boss.y)] then
+    self:_apply_world_actor_damage(state.boss, 2, nil, { cause = "explosive", source = "self_destruct" })
   end
 
   self:_apply_explosion_force(actor, radius, cells, {
@@ -930,7 +947,7 @@ function Session:activate_actor_ability(actor, ability_id, params)
   if ability_id == LOCOMOTION_ABILITY then
     return self:_ability_failure(ability_id, "direct_action", "Locomotion is invoked through movement input")
   end
-  local selected = self:actor_ability_provider(actor, ability_id)
+  local selected = self:actor_ability_provider(actor, ability_id, params and params.provider_component_id)
   if not selected then
     local broken_provider = false
     for _, component in ipairs(actor.body:list_components()) do
@@ -1076,14 +1093,38 @@ function Session:_saved_actor_ref(actor)
       return "enemy:" .. index
     end
   end
+  if actor == self.state.boss then
+    return "boss"
+  end
   return nil
+end
+
+local function copy_pending_telegraph(telegraph)
+  if not telegraph then return nil end
+  assert(type(telegraph) == "table", "Boss telegraph must be a table")
+  assert(type(telegraph.ability_id) == "string" and type(telegraph.provider_component_id) == "string",
+    "Boss telegraph is missing its ability provider")
+  assert(type(telegraph.remaining) == "number" and telegraph.remaining >= 1 and telegraph.remaining % 1 == 0,
+    "Boss telegraph has an invalid delay")
+  local result = {
+    ability_id = telegraph.ability_id,
+    provider_component_id = telegraph.provider_component_id,
+    remaining = telegraph.remaining,
+    direction = telegraph.direction,
+    target_x = telegraph.target_x,
+    target_y = telegraph.target_y,
+  }
+  assert(result.direction == nil or DIRECTIONS[result.direction], "Boss telegraph has an invalid direction")
+  assert(result.target_x == nil or (type(result.target_x) == "number" and result.target_x % 1 == 0), "Boss telegraph has an invalid target")
+  assert(result.target_y == nil or (type(result.target_y) == "number" and result.target_y % 1 == 0), "Boss telegraph has an invalid target")
+  return result
 end
 
 function Session:_actor_to_data(actor)
   if not actor then return nil end
   local data = {}
   for name, field in pairs(actor) do
-    if name ~= "body" and name ~= "source_actor" then
+    if name ~= "body" and name ~= "source_actor" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Active-run entity state must be plain scalar data")
@@ -1091,6 +1132,7 @@ function Session:_actor_to_data(actor)
     end
   end
   data.body = actor.body and actor.body:to_data() or nil
+  data.pending_telegraph = copy_pending_telegraph(actor.pending_telegraph)
   if actor.source_actor then
     data.source_actor_ref = assert(self:_saved_actor_ref(actor.source_actor), "Saved effect references an unknown actor")
   end
@@ -1103,7 +1145,7 @@ function Session:_actor_from_data(data)
   assert(type(data) == "table" and type(data.kind) == "string", "Actor data is invalid")
   local actor = {}
   for name, field in pairs(data) do
-    if name ~= "body" and name ~= "source_actor_ref" then
+    if name ~= "body" and name ~= "source_actor_ref" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Saved entity state must be plain scalar data")
@@ -1111,6 +1153,7 @@ function Session:_actor_from_data(data)
     end
   end
   actor.body = data.body and Body.from_data(self.registry, data.body) or nil
+  actor.pending_telegraph = copy_pending_telegraph(data.pending_telegraph)
   actor.source_actor = nil
   actor.source_actor_ref = data.source_actor_ref
   return actor
@@ -1129,6 +1172,23 @@ function Session:_migrate_legacy_route(progression)
   local graph = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", self.state.meta_snapshot.unlock_ids)
   local by_key = {}
   for _, id in ipairs(graph.node_order) do by_key[graph.nodes[id].key] = graph.nodes[id] end
+  -- A pre-8G active save has no milestone encounter in its authoritative
+  -- route. Keep that route shape rather than inserting a boss mid-run.
+  local removed = { [by_key.forest_milestone_boss.id] = true, [by_key.cave_milestone_boss.id] = true }
+  local retained = {}
+  for _, id in ipairs(graph.node_order) do if not removed[id] then retained[#retained + 1] = id else graph.nodes[id] = nil end end
+  graph.node_order = retained
+  local direct = {}
+  for _, edge in ipairs(graph.edges) do
+    if not removed[edge.from] and not removed[edge.to] then direct[#direct + 1] = edge end
+  end
+  for _, from in ipairs({ by_key.forest_tier_2, by_key.cave_tier_2 }) do
+    for _, to in ipairs({ by_key.cave_tier_3, by_key.dungeon_tier_3, by_key.reactor_tier_3, by_key.forest_tier_3_breach }) do
+      direct[#direct + 1] = { from = from.id, to = to.id,
+        requires_unlock = to.key == "forest_tier_3_breach" and "unlock.traversal.reinforced_breach" or nil }
+    end
+  end
+  graph.edges = direct
   local opening, cave, dungeon = by_key.opening_forest, by_key.cave_tier_2, by_key.dungeon_tier_3
   local shop, boss = by_key.legacy_shop, by_key.legacy_final_boss
   local function set_path(nodes, completed_count)
@@ -1186,6 +1246,7 @@ function Session:to_data()
       active_service_object_id = state.active_service_object_id,
       service_return_phase = state.service_return_phase,
       final_service_hub = state.final_service_hub,
+      boss_completed = state.boss_completed,
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
@@ -1259,6 +1320,7 @@ function Session.from_data(data, options)
   state.stage, state.score, state.phase = progression.stage, progression.score or 0, progression.phase
   state.scrap = progression.scrap or progression.score or 0
   state.ended, state.reconstruction_next, state.transition_next = progression.ended, progression.reconstruction_next, progression.transition_next
+  state.boss_completed = progression.boss_completed
   state.legacy_class = named_content(session.content.classes, progression.class_name, "class")
   state.legacy_boon = named_content(session.content.boons, progression.boon_name, "boon")
   state.class, state.boon = nil, nil
@@ -1307,7 +1369,7 @@ function Session.from_data(data, options)
   end
   state.route_node_id = state.route.current_node_id
   local route_node = state.route:node(state.route_node_id)
-  state.floor_seed = route_node and route_node.floor_seed or nil
+  state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
   state.log = {}
   for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
@@ -1335,6 +1397,10 @@ function Session.from_data(data, options)
   local function actor_from_ref(reference)
     if reference == nil then return nil end
     if reference == "player" then return state.player end
+    if reference == "boss" then
+      assert(state.boss, "Saved effect references a missing boss")
+      return state.boss
+    end
     local index = reference:match("^enemy:(%d+)$")
     assert(index and state.enemies[tonumber(index)], "Saved effect references an unknown actor")
     return state.enemies[tonumber(index)]
@@ -1382,6 +1448,7 @@ function Session:validate_physical_ownership()
   for _, enemy in ipairs(self.state.enemies or {}) do
     record_body(enemy.body, "living enemy '" .. enemy.kind .. "'")
   end
+  record_body(self.state.boss and self.state.boss.body, "living boss")
   for _, corpse in ipairs(self.state.corpses or {}) do
     record_body(corpse.body, "corpse '" .. corpse.id .. "'")
   end
@@ -1581,9 +1648,13 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   else
     actor.health = math.max(0, (actor.health or 0) - amount)
     if actor.health == 0 then
-      local index = self:_enemy_index(actor)
-      if index then
+      if actor == state.boss then
+        self:_defeat_boss(actor)
+      else
+        local index = self:_enemy_index(actor)
+        if index then
         self:_destroy_enemy(index)
+        end
       end
       dead = true
     end
@@ -1635,6 +1706,10 @@ function Session:_actors_at(x, y)
     if enemy.x == x and enemy.y == y then
       actors[#actors + 1] = enemy
     end
+  end
+  local boss = self.state.boss
+  if boss and boss.x == x and boss.y == y then
+    actors[#actors + 1] = boss
   end
   return actors
 end
@@ -1877,9 +1952,8 @@ function Session:_occupied(include_boss)
     occupied[Grid.key(state.exit.x, state.exit.y)] = true
   end
   if include_boss then
-    for x = 16, 24 do
-      occupied[Grid.key(x, 1)] = true
-    end
+    local boss = state.boss
+    if boss then occupied[Grid.key(boss.x, boss.y)] = true end
   end
   return occupied
 end
@@ -2396,17 +2470,11 @@ function Session:_destroy_enemy(index)
   self:validate_physical_ownership()
 end
 
-function Session:_boss_hitbox()
-  local cells = {}
-  for x = 16, 24 do
-    cells[Grid.key(x, 1)] = true
-  end
-  return cells
-end
-
 function Session:_damage_boss(amount)
-  self.state.boss.health = self.state.boss.health - amount
+  local boss = self.state.boss
+  if not boss then return { applied = false, code = "no_boss" } end
   self:_sound("hit")
+  return self:_apply_world_actor_damage(boss, amount, nil, { cause = "kinetic", source = "legacy_boss_damage" })
 end
 
 function Session:_path(start, finish, blocked, avoid_hazards)
@@ -2532,6 +2600,7 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
   for _, enemy in ipairs(state.enemies) do
     actors[#actors + 1] = enemy
   end
+  if state.boss then actors[#actors + 1] = state.boss end
   -- Actor ordering is deterministic: player first, then living-enemy list
   -- order. A blocked destination simply ends that target's displacement;
   -- there is intentionally no actor-chain pushing.
@@ -2635,8 +2704,11 @@ function Session:_update_bullets()
         end
       end
     end
-    if not hit and player_owned and state.boss and self:_boss_hitbox()[Grid.key(bullet.x, bullet.y)] then
-      self:_damage_boss(1)
+    if not hit and player_owned and state.boss and state.boss.x == bullet.x and state.boss.y == bullet.y then
+      self:_apply_world_actor_damage(state.boss, bullet.damage or 1, nil, {
+        cause = "kinetic", source = bullet.ability_id or "bullet", source_actor_id = bullet.source_actor and (bullet.source_actor.content_id or bullet.source_actor.kind) or nil,
+        source_component_id = bullet.source_component_id, ability_id = bullet.ability_id,
+      })
       hit = true
     end
     if not hit and not player_owned and state.player.x == bullet.x and state.player.y == bullet.y then
@@ -2691,13 +2763,8 @@ function Session:_update_bombs()
           end
         end
       end
-      if state.boss then
-        for location_key in pairs(cells) do
-          if self:_boss_hitbox()[location_key] then
-            self:_damage_boss(2)
-            break
-          end
-        end
+      if state.boss and cells[Grid.key(state.boss.x, state.boss.y)] then
+        self:_apply_world_actor_damage(state.boss, 2, nil, { cause = "explosive", source = "bomb", source_actor_id = bomb.source_actor_id })
       end
       -- Explosion ordering is deliberate: environment damage, direct blast
       -- actor damage, then stepwise force. Each force step can resolve an
@@ -2804,6 +2871,9 @@ function Session:_resolve_area_attack(attack)
           self:_destroy_enemy(index)
         end
       end
+    end
+    if state.boss and cells[Grid.key(state.boss.x, state.boss.y)] then
+      self:_apply_world_actor_damage(state.boss, 1, nil, { cause = "arcane", source = attack.ability_id, ability_id = attack.ability_id })
     end
   elseif cells[Grid.key(state.player.x, state.player.y)] then
     self:_hurt("A " .. attack.source_actor_kind .. " spell struck you.")
@@ -2979,84 +3049,112 @@ function Session:_electrical_direction_to(actor, target)
   return nil
 end
 
-function Session:_boss_cells()
-  local boss, cells = self.state.boss, {}
-  if not boss.type then
-    return cells
-  end
-  if boss.type == "crossfire" then
-    for x = 0, Grid.width - 1 do
-      cells[Grid.key(x, boss.y1)] = true
-      cells[Grid.key(x, boss.y2)] = true
-    end
-    for y = 0, Grid.height - 1 do
-      cells[Grid.key(boss.x1, y)] = true
-      cells[Grid.key(boss.x2, y)] = true
-    end
-  elseif boss.type == "diagonal" then
-    for y = 0, Grid.height - 1 do
-      local a = boss.x1 + (y - boss.y1)
-      local b = boss.x1 - (y - boss.y1)
-      if Grid.in_bounds(a, y) then
-        cells[Grid.key(a, y)] = true
-      end
-      if Grid.in_bounds(b, y) then
-        cells[Grid.key(b, y)] = true
+function Session:_boss_definition(boss)
+  return self.registry:get_boss((boss and boss.boss_id) or "boss.legacy.final")
+end
+
+function Session:_boss_telegraph_cells(boss)
+  local pending, cells = boss and boss.pending_telegraph, {}
+  if not pending then return cells end
+  local ability = self.registry:get_ability(pending.ability_id)
+  if ability.implementation == "area_burst" then
+    local radius = ability.radius or 1
+    for x = pending.target_x - radius, pending.target_x + radius do
+      for y = pending.target_y - radius, pending.target_y + radius do
+        if Grid.in_bounds(x, y) then cells[Grid.key(x, y)] = true end
       end
     end
-  else
-    for x = boss.x1 - boss.radius, boss.x1 + boss.radius do
-      for y = boss.y1 - boss.radius, boss.y1 + boss.radius do
-        if Grid.in_bounds(x, y) and math.abs(x - boss.x1) + math.abs(y - boss.y1) == boss.radius then
-          cells[Grid.key(x, y)] = true
-        end
-      end
+  elseif ability.implementation == "electrical_discharge" and pending.direction then
+    local delta = DIRECTIONS[pending.direction]
+    local trace = Electricity.trace(self.state.world, { x = boss.x + delta[1], y = boss.y + delta[2] }, { max_cells = ability.max_cells })
+    for _, cell in ipairs(trace.reached_cells or {}) do cells[Grid.key(cell.x, cell.y)] = true end
+  elseif ability.implementation == "projectile" and pending.direction then
+    local delta = DIRECTIONS[pending.direction]
+    local x, y = boss.x, boss.y
+    for _ = 1, ability.range or Grid.width do
+      x, y = x + delta[1], y + delta[2]
+      if not Grid.in_bounds(x, y) or self.state.world:blocks_projectile(x, y) then break end
+      cells[Grid.key(x, y)] = true
     end
+  elseif ability.implementation == "melee" and pending.direction then
+    local delta = DIRECTIONS[pending.direction]
+    cells[Grid.key(boss.x + delta[1], boss.y + delta[2])] = true
   end
   return cells
 end
 
-function Session:_new_boss_attack()
-  local boss = self.state.boss
-  local options = { "crossfire" }
-  if boss.health < 8 then
-    options[#options + 1] = "diagonal"
-  end
-  if boss.health < 4 then
-    options[#options + 1] = "pulse"
-  end
-  boss.type = self.rng:choice(options)
-  boss.name = ({ crossfire = "CROSSFIRE", diagonal = "DIAGONAL SWEEP", pulse = "ARCANE PULSE" })[boss.type]
-  boss.radius = self.rng:int(2, 4)
+function Session:_schedule_boss_telegraph(boss, ability_id, params)
+  local provider = self:actor_ability_provider(boss, ability_id)
+  if not provider then return false end
+  local ability = self.registry:get_ability(ability_id)
+  boss.pending_telegraph = {
+    ability_id = ability_id,
+    provider_component_id = provider.component.id,
+    direction = params.direction,
+    target_x = params.target and params.target.x or nil,
+    target_y = params.target and params.target.y or nil,
+    remaining = 1,
+  }
+  self:_log((self:_boss_definition(boss).display_name or "BOSS") .. " TELEGRAPHS " .. string.upper(ability.display_name) .. ".")
+  return true
+end
 
-  local points = {}
-  for x = 0, Grid.width - 1 do
-    for y = 0, Grid.height - 1 do
-      if self:_open(x, y) then
-        points[#points + 1] = Grid.cell(x, y)
-      end
-    end
+function Session:_resolve_boss_telegraph(boss)
+  local pending = boss.pending_telegraph
+  if not pending then return false end
+  local component = boss.body and boss.body:find_component(pending.provider_component_id)
+  if not component or not Component.is_functional(component.component) then
+    boss.pending_telegraph = nil
+    self:_log("BOSS TELEGRAPH CANCELLED — PROVIDER DISABLED.")
+    return true
   end
-  local first, second = self.rng:choice(points), self.rng:choice(points)
-  boss.x1, boss.y1, boss.x2, boss.y2 = first.x, first.y, second.x, second.y
+  pending.remaining = pending.remaining - 1
+  if pending.remaining > 0 then return true end
+  local params = {
+    provider_component_id = pending.provider_component_id,
+    direction = pending.direction,
+    target = pending.target_x and { x = pending.target_x, y = pending.target_y } or nil,
+  }
+  boss.pending_telegraph = nil
+  local result = self:activate_actor_ability(boss, pending.ability_id, params)
+  if not result.applied then self:_log("BOSS TELEGRAPH FIZZLED.") end
+  return true
+end
+
+function Session:_boss_telegraph_request(boss, ability_id)
+  local ability = self.registry:get_ability(ability_id)
+  local target = self.state.player
+  if ability.implementation == "projectile" then
+    local direction = self:_projectile_direction_to(boss, target)
+    if direction then return { direction = direction } end
+  elseif ability.implementation == "electrical_discharge" then
+    local direction = self:_electrical_direction_to(boss, target)
+    if direction then return { direction = direction } end
+  elseif ability.implementation == "area_burst" then
+    if Grid.distance(boss, target) <= (ability.range or 5) then return { target = { x = target.x, y = target.y } } end
+  elseif ability.implementation == "melee" then
+    local direction = self:_melee_direction_to(boss, target)
+    if direction then return { direction = direction } end
+  end
+  return nil
 end
 
 function Session:_boss_turn()
   local boss = self.state.boss
-  boss.attack = boss.attack + 1
-  if boss.attack > BOSS_WINDUP then
-    boss.attack = 0
-    self:_new_boss_attack()
-  elseif boss.attack == BOSS_WINDUP and self:_boss_cells()[Grid.key(self.state.player.x, self.state.player.y)] then
-    self:_hurt("The boss attack struck you.")
+  if not boss then return end
+  if boss.pending_telegraph then
+    self:_resolve_boss_telegraph(boss)
+    return
   end
-
-  local limit = boss.health < 4 and 3 or (boss.health < 8 and 2 or 1)
-  if boss.attack == 0 and #self.state.enemies < limit then
-    local point = self:_open_location(self:_occupied(true), 6)
-    self.state.enemies[#self.state.enemies + 1] = self:_make_enemy("necromancer", point)
-    self:_log("The boss summoned a necromancer.")
+  local profile = self:_boss_definition(boss).ai_profile
+  for _, ability_id in ipairs(profile.telegraph_ability_ids or {}) do
+    local request = self:_boss_telegraph_request(boss, ability_id)
+    if request and self:_schedule_boss_telegraph(boss, ability_id, request) then return end
   end
+  local blocked = {}
+  for _, enemy in ipairs(self.state.enemies or {}) do blocked[Grid.key(enemy.x, enemy.y)] = true end
+  local route = self:_hazard_aware_path(boss, self.state.player, blocked)
+  self:_body_enemy_turn(boss, route, self:_electrical_direction_to(boss, self.state.player))
 end
 
 function Session:_collect_ammo()
@@ -3353,7 +3451,12 @@ function Session:_complete_stage()
     self:_claim_research_reward(completed.node.id, 1)
     local next_nodes = completed.outgoing
     assert(#next_nodes > 0, "Completed route node has no forward continuation")
-    if #next_nodes == 1 and next_nodes[1].type == "shop" then
+    if #next_nodes == 1 and next_nodes[1].type == "boss" then
+      -- A selected tier-two route feeds a forced milestone encounter. Curses
+      -- affect normal floors only, so nothing leaks into this arena.
+      state.curse, state.curse_id = nil, nil
+      state.reconstruction_next = "boss"
+    elseif #next_nodes == 1 and next_nodes[1].type == "shop" then
       -- Curses are scoped to the normal floor just completed; the service
       -- hub and boss do not inherit an expired branch burden.
       state.curse, state.curse_id = nil, nil
@@ -3383,7 +3486,17 @@ function Session:complete_reconstruction()
   end
   self:validate_physical_ownership()
   local result = self.state.reconstruction_next
-  assert(result == "curse" or result == "shop", "Reconstruction has no valid continuation")
+  assert(result == "curse" or result == "shop" or result == "boss", "Reconstruction has no valid continuation")
+  if result == "boss" and self.state.route then
+    local choices = self.state.route:available()
+    assert(#choices == 1 and choices[1].type == "boss", "Route has no milestone boss continuation")
+    local selected = self.state.route:select(choices[1].id)
+    assert(selected.applied, selected.reason)
+    self.state.route_node_id, self.state.floor_seed = selected.node.id, selected.node.encounter_seed
+    self.state.reconstruction_next, self.state.transition_next = nil, nil
+    self:start_boss()
+    return { applied = true, next = "boss", node = selected.node }
+  end
   if result == "shop" and self.state.route then
     local choices = self.state.route:available()
     assert(#choices == 1 and choices[1].type == "shop", "Route has no shop continuation")
@@ -3398,39 +3511,128 @@ function Session:complete_reconstruction()
   return { applied = true, next = result }
 end
 
+function Session:_apply_boss_arena_profile(profile)
+  local world = self.state.world
+  for _, placement in ipairs(profile.cover or {}) do
+    local object, result = world:place_object(placement.definition_id, placement.x, placement.y)
+    assert(object, result and result.reason)
+  end
+  for _, placement in ipairs(profile.hazards or {}) do
+    local hazard, result = world:place_hazard(placement.definition_id, placement.x, placement.y)
+    assert(hazard, result and result.reason)
+  end
+  for _, placement in ipairs(profile.liquid or {}) do
+    local result = world:set_liquid(placement.x, placement.y, placement.liquid_id, placement.amount)
+    assert(result.applied or result.code == "unchanged", result.reason)
+  end
+end
+
+function Session:_make_boss(boss_id, point)
+  local definition = self.registry:get_boss(boss_id)
+  local boss = entity("boss", point.x, point.y, {
+    content_id = definition.id,
+    boss_id = definition.id,
+    display_name = definition.display_name,
+    health = definition.health,
+    max_health = definition.health,
+    ammo = definition.ammo or 0,
+    direction = "a",
+    crawl_stride = 0,
+    pending_telegraph = nil,
+    body = self:_build_body(definition),
+  })
+  return boss
+end
+
 function Session:start_boss()
   local state, player = self.state, self.state.player
   if state.route then
     local current = assert(state.route:node(state.route.current_node_id), "Route current node is missing")
-    assert(current.type == "shop", "Boss may only start from the route shop node")
-    local completed = state.route:complete_current()
-    assert(completed.applied, completed.reason)
-    assert(#completed.outgoing == 1 and completed.outgoing[1].type == "boss", "Route shop has no boss continuation")
-    local selected = state.route:select(completed.outgoing[1].id)
-    assert(selected.applied, selected.reason)
-    state.route_node_id, state.floor_seed = selected.node.id, nil
+    if current.type == "shop" then
+      local completed = state.route:complete_current()
+      assert(completed.applied, completed.reason)
+      assert(#completed.outgoing == 1 and completed.outgoing[1].type == "boss", "Route shop has no boss continuation")
+      local selected = state.route:select(completed.outgoing[1].id)
+      assert(selected.applied, selected.reason)
+      current = selected.node
+    end
+    assert(current.type == "boss", "Boss may only start from a route boss node")
+    state.route_node_id, state.floor_seed = current.id, current.encounter_seed
   end
+  local node = state.route and state.route:node(state.route.current_node_id) or nil
+  local boss_id = (node and node.boss_id) or "boss.legacy.final"
+  local definition = self.registry:get_boss(boss_id)
+  local profile = self.registry:get_boss_arena(definition.arena_profile_id)
+  local arena_rng = Rng.new((node and node.encounter_seed) or self.seed):derive("boss_arena." .. definition.id)
   state.transition_next = nil
-  player.x, player.y, player.direction, player.score, player.objective_progress = 20, 9, "w", 0, 0
+  player.x, player.y, player.direction, player.score, player.objective_progress = profile.player_spawn.x, profile.player_spawn.y, "w", 0, 0
   player.bombs, player.flares = math.max(1, player.bombs), math.max(1, player.flares)
   player.dash = 0
   player.base_dash_cooldown, player.base_bomb_radius, player.base_flare_light = 3, 2, 3
   self:refresh_derived_player_stats()
   player.bomb_fuse, player.bullet_range, player.reload_penalty = 3, nil, 0
-  state.settings = { terrain = "arena", vision = 99, objective_required = 10 }
-  state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true), state)
+  state.settings = { terrain = profile.terrain, vision = 99, objective_required = 10, arena_profile_id = profile.id }
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), state)
+  self:_apply_boss_arena_profile(profile)
   self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
   state.bombs, state.flares, state.torches = {}, {}, {}
   state.effects, state.electrical_effects, state.exit, state.corpses = {}, {}, nil, {}
-  state.boss = { kind = "boss", x = 16, y = 1, health = 10, attack = 0, type = "crossfire", name = "CROSSFIRE", radius = 3, line = "PuNy MoRtAl, yoU dArE cHalLenGE mE?" }
-  self:_new_boss_attack()
+  state.boss = self:_make_boss(boss_id, profile.boss_spawn)
+  state.boss_completed = nil
   local point = self:_open_location(self:_occupied(true))
   state.ammo = entity("ammo", point.x, point.y)
   state.phase = "boss"
-  self:_log("The boss awaits.")
+  self:_log(definition.display_name .. " AWAITS.")
   self:refresh_visibility()
   self:validate_physical_ownership()
+end
+
+function Session:_defeat_boss(boss)
+  local state = self.state
+  if state.boss ~= boss then return false end
+  local definition = self:_boss_definition(boss)
+  boss.pending_telegraph = nil
+  self:_cancel_area_attacks_from(boss)
+  local node = state.route and state.route:node(state.route.current_node_id) or nil
+  if node and not state.route.completed_node_ids[node.id] then
+    local completed = state.route:complete_current()
+    assert(completed.applied, completed.reason)
+  end
+  local is_final = node and #state.route:outgoing(node.id) == 0
+  if is_final then
+    self:_claim_research_reward(node and node.id or "boss", definition.final_data_reward or 4)
+    state.boss = nil
+    state.ended = "victory"
+    self:_sound("door")
+    self:_log("THE LEGACY YIELDS.")
+    return true
+  end
+  local corpse = self:_create_corpse(boss)
+  state.boss = nil
+  state.boss_completed = definition.id
+  self:_claim_research_reward(node and node.id or definition.id, definition.milestone_data_reward or 2)
+  local point = self:_open_location(self:_occupied(), 4, true)
+  state.exit = entity("door", point.x, point.y)
+  state.phase = "boss_exit"
+  self:_sound("door")
+  self:_log("BOSS DEFEATED. SALVAGE, THEN EXIT.")
+  self:validate_physical_ownership()
+  return corpse
+end
+
+function Session:_complete_boss_exit()
+  local state, route = self.state, self.state.route
+  assert(route and route:node(route.current_node_id) and route:node(route.current_node_id).type == "boss",
+    "Boss exit requires a completed route boss")
+  local choices = route:available()
+  assert(#choices > 0 and choices[1].type == "floor", "Milestone boss must continue to a normal floor")
+  state.curse, state.curse_id = nil, nil
+  self:draw_curses()
+  state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "curse", nil
+  self:_log("Reconstruction available. Reconfigure before the final descent.")
+  self:validate_physical_ownership()
+  return "reconstruction"
 end
 
 function Session:buy(item)
@@ -3471,7 +3673,7 @@ function Session:turn(input)
     return "reconstruction"
   end
 
-  if state.phase == "exit" then
+  if state.phase == "exit" or state.phase == "boss_exit" then
     if DIRECTIONS[input] then
       self:_move_player(input)
     elseif input == "q" then
@@ -3486,8 +3688,8 @@ function Session:turn(input)
       self:refresh_visibility()
       return state.ended
     end
-    if state.player.x == state.exit.x and state.player.y == state.exit.y then
-      local result = self:_complete_stage()
+    if state.exit and state.player.x == state.exit.x and state.player.y == state.exit.y then
+      local result = state.phase == "boss_exit" and self:_complete_boss_exit() or self:_complete_stage()
       self:refresh_visibility()
       return result
     end
@@ -3507,18 +3709,18 @@ function Session:turn(input)
   end
 
   local result
-  if state.phase == "boss" then
-    if state.boss.health <= 0 then
-      self:_claim_research_reward("boss", 4)
-      state.ended = "victory"
-      self:_sound("door")
-      result = "victory"
-    else
+  if state.phase == "boss_exit" then
+    -- The kill action may have transitioned into the salvageable arena-exit
+    -- state. It receives no extra ordinary-floor AI/refill work this turn.
+    result = nil
+  elseif state.phase == "boss" then
+    if state.boss then
       self:_boss_turn()
-      if state.boss.health > 0 then
+      if state.boss and not state.ended then
         self:_enemy_turn()
       end
     end
+    result = state.ended
   elseif state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
@@ -3622,8 +3824,9 @@ function Session:telegraphs()
     end
   end
   if self.state.boss then
-    for location_key in pairs(self:_boss_cells()) do
-      result[location_key] = self.state.boss.attack >= BOSS_WINDUP - 1 and "danger" or "warn"
+    local pending = self.state.boss.pending_telegraph
+    for location_key in pairs(self:_boss_telegraph_cells(self.state.boss)) do
+      result[location_key] = pending and pending.remaining <= 1 and "danger" or "warn"
     end
   end
   return result

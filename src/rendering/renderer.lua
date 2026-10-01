@@ -6,7 +6,6 @@ local Renderer = {}
 Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
-local BOSS_WINDUP = 4
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
@@ -307,9 +306,7 @@ function Renderer:_draw_game(app)
     end
   end
   if state.boss then
-    for x = 16, 24 do
-      actor({ kind = "boss", x = x, y = 1 })
-    end
+    actor(state.boss)
   end
   actor(state.player, true)
   local player_x, player_y = presentation:position(state.player)
@@ -331,7 +328,7 @@ function Renderer:_draw_game(app)
   self:_text("BOMBS " .. state.player.bombs .. "  ARMED " .. #state.bombs, hud, offset_y + 84)
   self:_text("FLARES " .. state.player.flares .. "  LIT " .. #state.flares, hud, offset_y + 104)
   self:_text("DASH  " .. (state.player.dash == 0 and "READY" or "RECHARGING"), hud, offset_y + 124)
-  self:_text(state.boss and "BOSS " .. state.boss.health .. " / 10" or "OBJECTIVE " .. (state.player.objective_progress or state.player.score) .. " / " .. state.settings.objective_required, hud, offset_y + 150, 0.9, { 0.95, 0.85, 0.25 })
+  self:_text(state.boss and ("BOSS " .. state.boss.health .. " / " .. state.boss.max_health) or "OBJECTIVE " .. (state.player.objective_progress or state.player.score) .. " / " .. state.settings.objective_required, hud, offset_y + 150, 0.9, { 0.95, 0.85, 0.25 })
   local inventory = state.inventory
   self:_text("CARGO " .. inventory:total_mass() .. "  " .. inventory:encumbrance(), hud, offset_y + 174, 0.88,
     inventory:encumbrance() == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
@@ -358,8 +355,28 @@ function Renderer:_draw_game(app)
   end
   status_y = status_y + 18
   if state.boss then
-    self:_text("BOSS " .. state.boss.name .. " IN " .. math.max(0, BOSS_WINDUP - state.boss.attack), hud, status_y, 0.8, { 1, 0.6, 0.35 })
+    local boss = state.boss
+    self:_text(boss.display_name, hud, status_y, 0.8, { 1, 0.6, 0.35 })
     status_y = status_y + 18
+    if boss.pending_telegraph then
+      local ability = session.registry:get_ability(boss.pending_telegraph.ability_id)
+      self:_text("TELEGRAPH " .. string.upper(ability.display_name) .. " — RESPOND", hud, status_y, 0.65, { 1, 0.5, 0.28 })
+      status_y = status_y + 18
+    end
+    local shown = 0
+    for _, installed in ipairs(boss.body:list_installed_slots()) do
+      local definition = session.registry:get_component(installed.component.definition_id)
+      if #(definition.abilities or {}) > 0 and shown < 3 then
+        local condition = Component.condition(installed.component)
+        self:_text(string.upper(definition.display_name) .. " " .. string.upper(condition), hud, status_y, 0.58,
+          condition == "broken" and { 1, 0.4, 0.35 } or { 0.75, 0.84, 0.94 })
+        status_y = status_y + 15
+        shown = shown + 1
+      end
+    end
+    local boss_locomotion = session:locomotion_state(boss)
+    self:_text("BOSS LOCOMOTION " .. boss_locomotion.state, hud, status_y, 0.58, { 0.72, 0.82, 0.9 })
+    status_y = status_y + 15
   end
   local abilities = session:available_actor_abilities(state.player, "body")
   if #abilities > 0 then
@@ -837,6 +854,9 @@ function Renderer:_draw_route(app)
       local tier = session.route_definitions:get_tier(node.tier_id)
       label, detail = biome.display_name, locked_current[id] and ("REQUIRES " .. string.upper(app:unlock_display_name(locked_current[id])))
         or ("TIER " .. tier.number .. " • " .. session.registry:get_service(node.service_id).display_name)
+    elseif node.type == "boss" then
+      local boss = session.registry:get_boss(node.boss_id or "boss.legacy.final")
+      label, detail = boss.display_name, status == "future" and "LOCKED" or "BOSS • " .. string.upper(status)
     else
       label, detail = string.upper(node.type), status == "future" and "LOCKED" or string.upper(status)
     end

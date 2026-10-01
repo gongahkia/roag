@@ -131,7 +131,7 @@ function Definitions:validate()
     local profile = self.profiles[id]
     string(profile.display_name, "Route profile '" .. id .. "' display_name")
     if type(profile.layers) ~= "table" or #profile.layers < 3 then fail("Route profile '" .. id .. "' must define ordered layers") end
-    local saw_start, saw_shop, saw_boss, normal_floors, has_branch = false, false, false, 0, false
+    local saw_start, saw_shop, terminal_boss, normal_floors, has_branch, boss_count = false, false, false, 0, false, 0
     local node_keys = {}
     for layer_index, layer in ipairs(profile.layers) do
       if type(layer) ~= "table" or (layer.type ~= "floor" and layer.type ~= "shop" and layer.type ~= "boss") then
@@ -150,8 +150,8 @@ function Definitions:validate()
         end
       end
       if layer.type == "boss" then
-        saw_boss = true
-        if layer_index ~= #profile.layers then fail("Route profile '" .. id .. "' boss must be terminal") end
+        boss_count = boss_count + #layer.nodes
+        if layer_index == #profile.layers then terminal_boss = true end
       end
       local keys, choices = {}, {}
       if layer.type == "floor" and #layer.nodes >= 2 then has_branch = true end
@@ -171,8 +171,15 @@ function Definitions:validate()
           local choice = node.biome_id .. ":" .. node.tier_id
           if choices[choice] then fail("Route profile '" .. id .. "' layer " .. layer_index .. " duplicates floor choice '" .. choice .. "'") end
           choices[choice] = true
-        elseif node.biome_id ~= nil or node.tier_id ~= nil then
-          fail("Route profile '" .. id .. "' special node '" .. node.key .. "' cannot define biome/tier")
+        else
+          if node.biome_id ~= nil or node.tier_id ~= nil then
+            fail("Route profile '" .. id .. "' special node '" .. node.key .. "' cannot define biome/tier")
+          end
+          if layer.type == "boss" then
+            semantic_id(node.boss_id, "boss", "Route profile '" .. id .. "' boss node '" .. node.key .. "' boss_id")
+          elseif node.boss_id ~= nil then
+            fail("Route profile '" .. id .. "' non-boss node '" .. node.key .. "' cannot define boss_id")
+          end
         end
       end
     end
@@ -189,8 +196,11 @@ function Definitions:validate()
       if edge_seen[edge_key] then fail("Route profile '" .. id .. "' duplicates explicit edge '" .. edge_key .. "'") end
       edge_seen[edge_key] = true
     end
-    if not (saw_start and saw_shop and saw_boss and normal_floors == 3 and has_branch) then
-      fail("Route profile '" .. id .. "' must define start, three floors, shop, and boss")
+    -- Two branch-associated milestone nodes converge into one final boss;
+    -- every playable path therefore contains two bosses even though the DAG
+    -- contains three boss nodes in total.
+    if not (saw_start and saw_shop and terminal_boss and normal_floors == 3 and boss_count == 3 and has_branch) then
+      fail("Route profile '" .. id .. "' must define start, three floors, one milestone boss, shop, and one final boss")
     end
   end
   return true

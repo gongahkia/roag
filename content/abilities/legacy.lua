@@ -40,6 +40,22 @@ return {
     force = 2,
   },
   {
+    id = "ability.weapon.melee.pile_driver",
+    display_name = "Pile Driver",
+    implementation = "melee",
+    activation_type = "body",
+    damage = 2,
+    force = 3,
+  },
+  {
+    id = "ability.weapon.projectile.siege",
+    display_name = "Siege Projectile",
+    implementation = "projectile",
+    activation_type = "direct",
+    resource = { name = "ammo", amount = 3 },
+    damage = 3,
+  },
+  {
     id = "ability.arcane.burst",
     display_name = "Arcane Burst",
     implementation = "area_burst",
