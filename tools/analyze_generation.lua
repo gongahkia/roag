@@ -6,7 +6,7 @@ local Batch = require("src.generation.batch_analysis")
 local Json = require("src.persistence.json")
 
 local function usage()
-  io.stderr:write([[Usage: luajit tools/analyze_generation.lua --stage <forest|cave|dungeon|index> --seed <integer> --count <positive integer> [--json <path>]
+  io.stderr:write([[Usage: luajit tools/analyze_generation.lua (--stage <forest|cave|dungeon|index> | --biome <semantic-id|terrain> --tier <tier>) --seed <integer> --count <positive integer> [--json <path>]
 
 Generates isolated initial floors and reports structural facts. Failed seeds
 can be pasted into: love . --generation-inspector
@@ -18,7 +18,7 @@ local function parse(arguments)
   while arguments[index] do
     local flag = arguments[index]
     if flag == "--help" or flag == "-h" then return nil, "help" end
-    if flag ~= "--stage" and flag ~= "--seed" and flag ~= "--count" and flag ~= "--json" then
+    if flag ~= "--stage" and flag ~= "--biome" and flag ~= "--tier" and flag ~= "--seed" and flag ~= "--count" and flag ~= "--json" then
       return nil, "Unknown argument '" .. tostring(flag) .. "'"
     end
     local value = arguments[index + 1]
@@ -26,8 +26,8 @@ local function parse(arguments)
     result[flag:sub(3)] = value
     index = index + 2
   end
-  if not result.stage or not result.seed or not result.count then
-    return nil, "--stage, --seed, and --count are required"
+  if (not result.stage and not (result.biome and result.tier)) or not result.seed or not result.count then
+    return nil, "--stage (or --biome with --tier), --seed, and --count are required"
   end
   return result
 end
@@ -61,8 +61,8 @@ if not report then
 end
 
 local summary = report.summary
-io.write(string.format("ROAG generation analysis — stage %s (%s), seeds %d..%d\n",
-  tostring(report.options.stage), tostring(report.options.terrain), report.options.seed,
+io.write(string.format("ROAG generation analysis — %s tier %s (%s), seeds %d..%d\n",
+  tostring(report.options.biome_id or report.options.stage), tostring(report.options.tier_id or "legacy"), tostring(report.options.terrain), report.options.seed,
   report.options.seed + report.options.count - 1))
 io.write(string.format("Generated: %d  Structural failures: %d\n", summary.generated, summary.failures))
 io.write("Metrics:\n")

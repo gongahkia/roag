@@ -1757,6 +1757,21 @@ function Session:start_route_node(node_id)
   return node
 end
 
+-- Developer tooling may inspect any legitimate biome/tier pair without
+-- constructing a full route graph. This shares the exact floor builder used
+-- by route nodes and never touches active-run persistence.
+function Session:start_biome_tier(biome_id, tier_id, floor_seed)
+  local state = self.state
+  local biome = self.route_definitions:get_biome(biome_id)
+  local tier = self.route_definitions:get_tier(tier_id)
+  floor_seed = floor_seed or self.seed
+  state.route, state.route_node_id = nil, nil
+  state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
+  self:_start_floor(self:_settings_for_floor(biome, tier), Rng.new(floor_seed),
+    "inspection." .. biome.id .. "." .. tier.id)
+  return { biome = biome, tier = tier, floor_seed = state.floor_seed }
+end
+
 function Session:choose_boons(count)
   local options = self.rng:shuffle(self.content.boons)
   local result = {}
