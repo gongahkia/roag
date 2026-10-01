@@ -75,7 +75,9 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
 
-  if key == "escape" then
+  -- Research and fallen-history are title-side screens; their own handlers
+  -- return to title rather than turning an ordinary browse action into quit.
+  if key == "escape" and app.screen ~= "research" and app.screen ~= "fallen_archive" then
     app:quit()
     return
   end
@@ -108,6 +110,17 @@ function Input.keypressed(app, key, _, is_repeat)
       app.research_node_index = math.min(math.max(1, #options), (app.research_node_index or 1) + 1)
     elseif key == "return" or key == "e" then
       app:purchase_selected_research()
+    end
+    return
+  end
+  if app.screen == "fallen_archive" then
+    local entries = app:fallen_archive_entries()
+    if key == "escape" then
+      app.screen, app.menu = "title", 1
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #entries))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #entries))
     end
     return
   end

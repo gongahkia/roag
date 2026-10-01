@@ -119,6 +119,9 @@ local function provenance_for(session)
   }
   local world, state = session.state.world, session.state
   result.rooms = state.generation_metadata
+  if state.generation_metadata and state.generation_metadata.fallen_recurrence then
+    result.fallen_recurrence = state.generation_metadata.fallen_recurrence
+  end
   for _, object in ipairs(world:list_objects()) do
     result.objects[object.id] = object.interaction_role == "service" and "inspection.services"
       or (object.interaction_role == "traversal" and "inspection.traversal"
@@ -163,10 +166,15 @@ function InspectionFloor.generate(options)
   if not seed or seed % 1 ~= 0 then
     return nil, { code = "invalid_seed", reason = "Seed must be an integer" }
   end
-  local session = Session.new({ seed = seed, content = options.content })
+  -- Synthetic plain-data recurrence input is intentionally injected only
+  -- into this isolated Session. Inspector use never opens persistent user
+  -- archive storage or changes an active run.
+  local session = Session.new({ seed = seed, content = options.content, fallen_recurrence = options.fallen_recurrence })
   session.state.class = (options.content or Content).classes[1]
   session.state.boon = (options.content or Content).boons[1]
-  session:start_biome_tier(biome.id, tier.id, seed, options.service_id)
+  session:start_biome_tier(biome.id, tier.id, seed, options.service_id, {
+    recurrence_depth = options.recurrence_depth or (options.fallen_recurrence and options.fallen_recurrence.target_depth),
+  })
   return {
     seed = session.seed,
     stage = tier.number,
@@ -177,6 +185,7 @@ function InspectionFloor.generate(options)
     world = session.state.world,
     state = session.state,
     provenance = provenance_for(session),
+    fallen_recurrence = session.state.fallen_recurrence,
   }
 end
 

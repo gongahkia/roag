@@ -22,6 +22,7 @@ local Gas = require("src.simulation.gas")
 local Interaction = require("src.simulation.interaction")
 local Economy = require("src.simulation.economy")
 local RunModifiers = require("src.simulation.run_modifiers")
+local FallenRecurrence = require("src.simulation.fallen_recurrence")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
@@ -109,6 +110,46 @@ local function copy_meta_snapshot(snapshot)
   return result
 end
 
+local function copy_string_list(values, label)
+  local result = {}
+  for _, value in ipairs(values or {}) do
+    assert(type(value) == "string", label .. " contains an invalid value")
+    result[#result + 1] = value
+  end
+  return result
+end
+
+local function copy_death_pending(snapshot, registry)
+  if not snapshot then return nil end
+  assert(type(snapshot) == "table" and type(snapshot.source_run_id) == "string"
+    and snapshot.source_run_id:match("^run:%d+$"), "Pending fallen archive source run is invalid")
+  assert(type(snapshot.body) == "table", "Pending fallen archive body is invalid")
+  -- Rebuild through Body to validate topology, slot compatibility, component
+  -- IDs, and integrity without making the archived snapshot live ownership.
+  local body = Body.from_data(registry, snapshot.body)
+  local metadata = snapshot.metadata or {}
+  assert(type(metadata) == "table", "Pending fallen archive metadata is invalid")
+  assert(metadata.route_depth == nil or (type(metadata.route_depth) == "number" and metadata.route_depth >= 1
+    and metadata.route_depth % 1 == 0), "Pending fallen archive route depth is invalid")
+  for _, field in ipairs({ "route_node_id", "biome_id", "tier_id", "death_cause" }) do
+    assert(metadata[field] == nil or type(metadata[field]) == "string", "Pending fallen archive metadata is invalid")
+  end
+  return {
+    source_run_id = snapshot.source_run_id,
+    body = body:to_data(),
+    metadata = {
+      route_node_id = metadata.route_node_id,
+      biome_id = metadata.biome_id,
+      tier_id = metadata.tier_id,
+      route_depth = metadata.route_depth,
+      route_path = copy_string_list(metadata.route_path, "Pending fallen route path"),
+      charm_ids = copy_string_list(metadata.charm_ids, "Pending fallen charms"),
+      research_ids = copy_string_list(metadata.research_ids, "Pending fallen research"),
+      death_cause = metadata.death_cause,
+    },
+  }
+end
+
 local function named_content(values, name, label)
   if name == nil then return nil end
   for _, value in ipairs(values or {}) do
@@ -156,6 +197,11 @@ function Session.new(options)
     run_id = options.run_id or ("legacy:" .. tostring(self.seed)),
     meta_snapshot = meta_snapshot,
     meta_reward_events = {},
+    -- This snapshot is selected at New Run, never by consulting the archive
+    -- during a live run. It therefore remains deterministic across resumes.
+    fallen_recurrence = FallenRecurrence.copy_spec(options.fallen_recurrence),
+    death_pending_archive = nil,
+    generation_warnings = {},
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -273,6 +319,45 @@ function Session:reconcile_meta_rewards()
     end
   end
   return settled
+end
+
+function Session:_fallen_metadata(provenance)
+  local state = self.state
+  local node = state.route and state.route:node(state.route.current_node_id) or nil
+  local charms = {}
+  for _, charm_id in pairs(state.charms and state.charms.slots or {}) do
+    if charm_id then charms[#charms + 1] = charm_id end
+  end
+  table.sort(charms)
+  local route_path = state.route and state.route:to_data().path or {}
+  return {
+    route_node_id = node and node.id or nil,
+    biome_id = node and node.biome_id or (state.settings and state.settings.biome_id) or nil,
+    tier_id = node and node.tier_id or (state.settings and state.settings.tier_id) or nil,
+    route_depth = node and node.depth or state.stage,
+    route_path = route_path,
+    charm_ids = charms,
+    research_ids = copy_string_list(state.meta_snapshot and state.meta_snapshot.unlocked_research_ids, "Run meta research"),
+    death_cause = provenance and (provenance.cause or provenance.source) or "unknown",
+  }
+end
+
+-- Fatal state is captured before App retires the active save. The data is a
+-- detached body snapshot, so later archive retries cannot observe a mutable
+-- actor table or accidentally revive its components.
+function Session:_mark_player_dead(provenance)
+  local state = self.state
+  state.ended = "gameover"
+  if state.death_pending_archive or not state.player or not state.player.body
+    or not tostring(state.run_id):match("^run:%d+$") then
+    return state.death_pending_archive
+  end
+  state.death_pending_archive = {
+    source_run_id = state.run_id,
+    body = state.player.body:to_data(),
+    metadata = self:_fallen_metadata(provenance),
+  }
+  return state.death_pending_archive
 end
 
 function Session:refresh_derived_player_stats()
@@ -536,7 +621,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
   if actor == state.player then
     actor.health = 0
     actor.impact = 2
-    state.ended = "gameover"
+    self:_mark_player_dead({ cause = "explosive", source = "self_destruct" })
     self:_event("hit")
     self:_log("Your volatile charge detonated.")
   else
@@ -867,6 +952,8 @@ function Session:run_data()
       run_id = self.state.run_id,
       meta_snapshot = copy_meta_snapshot(self.state.meta_snapshot),
       meta_reward_events = {},
+      fallen_recurrence = FallenRecurrence.copy_spec(self.state.fallen_recurrence),
+      death_pending_archive = copy_death_pending(self.state.death_pending_archive, self.registry),
     },
     body = player and player.body and player.body:to_data() or nil,
     inventory = self.state.run.inventory:to_data(),
@@ -1023,6 +1110,8 @@ function Session:to_data()
       run_id = state.run_id,
       meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
       meta_reward_events = {},
+      fallen_recurrence = FallenRecurrence.copy_spec(state.fallen_recurrence),
+      death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
     },
     settings = copy_plain(state.settings or {}),
     log = {},
@@ -1091,6 +1180,10 @@ function Session.from_data(data, options)
   assert(type(state.run_id) == "string" and state.run_id:match("^[%w:_%.%-]+$"), "Active run has an invalid run ID")
   state.meta_snapshot = copy_meta_snapshot(progression.meta_snapshot or options.meta_snapshot)
   for _, id in ipairs(state.meta_snapshot.unlocked_research_ids) do assert(session.registry.research[id], "Active run references unknown research ID '" .. id .. "'") end
+  state.fallen_recurrence = FallenRecurrence.copy_spec(progression.fallen_recurrence)
+  local recurrence_ok, recurrence_reason = FallenRecurrence.validate_spec(state.fallen_recurrence, session.registry)
+  assert(recurrence_ok, recurrence_reason)
+  state.death_pending_archive = copy_death_pending(progression.death_pending_archive, session.registry)
   local function resolve_curse(value)
     if not value then return nil end
     if session.registry.curses[value] then return session.registry:get_curse(value) end
@@ -1284,6 +1377,11 @@ function Session:salvage_corpse_component(corpse_id, slot_id)
     local definition = self.registry:get_component(result.definition_id)
     self:_log("Salvaged " .. definition.display_name .. ".")
     self:_sound("pickup")
+    local recurrence = self.state.fallen_recurrence
+    if corpse.fallen_archive_id and recurrence and recurrence.archive_id == corpse.fallen_archive_id
+      and #corpse:list_components() == 0 then
+      recurrence.resolved = true
+    end
     self:validate_physical_ownership()
   else
     self:_log(result.reason)
@@ -1391,7 +1489,7 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
       self:_log(message)
     end
     if actor.health == 0 then
-      state.ended = "gameover"
+      self:_mark_player_dead(provenance)
       dead = true
     end
   else
@@ -1713,6 +1811,104 @@ function Session:_open_location(used, minimum, avoid_hazards, rng)
   return (rng or self.rng):choice(options)
 end
 
+function Session:_reachable_floor_cells()
+  local world, player = self.state.world, self.state.player
+  if not world or not player then return {} end
+  local start = Grid.cell(player.x, player.y)
+  if not world:is_passable(start.x, start.y) then return {} end
+  local visited, queue, cursor = { [Grid.key(start.x, start.y)] = true }, { start }, 1
+  while queue[cursor] do
+    local current = queue[cursor]
+    cursor = cursor + 1
+    for _, neighbour in ipairs(Grid.neighbours(current)) do
+      local cell_key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and world:is_passable(neighbour.x, neighbour.y) and not visited[cell_key] then
+        visited[cell_key] = true
+        queue[#queue + 1] = neighbour
+      end
+    end
+  end
+  return queue
+end
+
+function Session:_current_floor_depth()
+  local route = self.state.route
+  local node = route and route:node(route.current_node_id)
+  if node and node.type == "floor" then return node.depth, node end
+  -- Read-only generation tooling may inject a synthetic recurrence without
+  -- constructing or mutating a real route graph.
+  if self.state.inspection_floor_depth then
+    return self.state.inspection_floor_depth, { id = "inspection", type = "floor", depth = self.state.inspection_floor_depth }
+  end
+  return nil, nil
+end
+
+function Session:_spawn_fallen_recurrence()
+  local state, spec = self.state, self.state.fallen_recurrence
+  if not spec or spec.spawned or spec.resolved then return nil end
+  local depth, node = self:_current_floor_depth()
+  if not depth or depth ~= spec.target_depth then return nil end
+  local occupied, candidates = self:_occupied(), {}
+  for _, point in ipairs(self:_reachable_floor_cells()) do
+    local cell_key = Grid.key(point.x, point.y)
+    if not occupied[cell_key] and Grid.distance(state.player, point) >= 6
+      and not state.world:is_hazardous(point.x, point.y) then
+      candidates[#candidates + 1] = point
+    end
+  end
+  local placement_rng = Rng.new(spec.encounter_seed):derive("placement." .. node.id)
+  local selected
+  for _, point in ipairs(placement_rng:shuffle(candidates)) do
+    selected = point
+    break
+  end
+  if not selected then
+    spec.spawned, spec.resolved, spec.skipped = true, true, true
+    spec.placement_failure = { code = "no_valid_recurrence_placement", reason = "No reachable safe recurrence location" }
+    state.generation_warnings[#state.generation_warnings + 1] = spec.placement_failure
+    return nil, spec.placement_failure
+  end
+  local body = FallenRecurrence.materialize_body(self, spec)
+  if spec.mode == "corpse" then
+    local shell = entity("player", selected.x, selected.y, {
+      body = body,
+      fallen_archive_id = spec.archive_id,
+      fallen_source_run_id = spec.source_run_id,
+    })
+    self:_create_corpse(shell)
+  else
+    state.enemies[#state.enemies + 1] = entity("fallen_echo", selected.x, selected.y, {
+      health = FallenRecurrence.ECHO_HEALTH,
+      ammo = 4,
+      attack = 0,
+      attack_kind = nil,
+      attack_windup = 0,
+      attack_x = nil,
+      attack_y = nil,
+      radius = 1,
+      stun = 0,
+      crawl_stride = 0,
+      scrap_award = false,
+      content_id = "enemy.dynamic.fallen_echo",
+      body = body,
+      fallen_archive_id = spec.archive_id,
+      fallen_source_run_id = spec.source_run_id,
+    })
+  end
+  spec.spawned = true
+  spec.placement = { x = selected.x, y = selected.y, node_id = node.id }
+  state.generation_metadata = state.generation_metadata or {}
+  state.generation_metadata.fallen_recurrence = {
+    archive_id = spec.archive_id,
+    mode = spec.mode,
+    x = selected.x,
+    y = selected.y,
+    node_id = node.id,
+  }
+  self:validate_physical_ownership()
+  return { applied = true, archive_id = spec.archive_id, mode = spec.mode, x = selected.x, y = selected.y }
+end
+
 function Session:_enemy_type(index)
   if self.state.settings.wilds then
     return index % 3 == 0 and "bomber" or "wolf"
@@ -1793,6 +1989,8 @@ function Session:start_run(class, boon)
   self.state.active_service_object_id = nil
   self.state.service_return_phase = nil
   self.state.ended = nil
+  self.state.death_pending_archive = nil
+  self.state.generation_warnings = {}
   state.next_component_sequence = 1
   state.next_corpse_sequence = 1
   state.next_world_object_sequence = 1
@@ -1913,6 +2111,11 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
     })
     assert(kiosk, placed and placed.reason)
   end
+  -- Historical recurrence is intentionally last: it observes final geometry,
+  -- ordinary spawns, and the service kiosk without perturbing their streams.
+  self:_spawn_fallen_recurrence()
+  self:validate_world()
+  self:validate_physical_ownership()
   self:_log("Descend into the " .. (settings.biome_display_name or settings.terrain) .. ".")
   self:refresh_visibility()
   self:validate_physical_ownership()
@@ -1944,12 +2147,14 @@ end
 -- Developer tooling may inspect any legitimate biome/tier pair without
 -- constructing a full route graph. This shares the exact floor builder used
 -- by route nodes and never touches active-run persistence.
-function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id)
+function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id, options)
   local state = self.state
+  options = options or {}
   local biome = self.route_definitions:get_biome(biome_id)
   local tier = self.route_definitions:get_tier(tier_id)
   floor_seed = floor_seed or self.seed
   state.route, state.route_node_id = nil, nil
+  state.inspection_floor_depth = options.recurrence_depth
   state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
   local settings = self:_settings_for_floor(biome, tier)
   settings.service_id, settings.service_origin = service_id, "inspection"
@@ -2044,7 +2249,7 @@ function Session:_hurt(message)
   self:_sound("hurt")
   self:_log(message)
   if state.player.health == 0 then
-    state.ended = "gameover"
+    self:_mark_player_dead({ cause = "kinetic", source = "enemy_attack" })
   end
 end
 
@@ -2548,6 +2753,42 @@ function Session:_resolve_enemy_attack(enemy, index)
   end
 end
 
+function Session:_projectile_direction_to(actor, target)
+  local dx, dy = target.x - actor.x, target.y - actor.y
+  if dx == 0 and dy == 0 then return nil end
+  local horizontal = dx == 0 and "" or (dx > 0 and "d" or "a")
+  local vertical = dy == 0 and "" or (dy > 0 and "w" or "s")
+  local direction
+  if dx == 0 then direction = vertical
+  elseif dy == 0 then direction = horizontal
+  elseif math.abs(dx) == math.abs(dy) then direction = vertical .. horizontal
+  end
+  if direction and DIRECTIONS[direction] and self:_has_line_of_sight(actor.x, actor.y, target.x, target.y) then
+    return direction
+  end
+  return nil
+end
+
+function Session:_fallen_echo_turn(enemy, route, electrical_direction)
+  local target = self.state.player
+  local projectile_direction = self:_projectile_direction_to(enemy, target)
+  if self:_actor_has_pending_area_attack(enemy) then
+    return
+  elseif self:actor_has_capability(enemy, BASIC_PROJECTILE_ABILITY) and projectile_direction and (enemy.ammo or 0) > 0 then
+    self:activate_actor_ability(enemy, BASIC_PROJECTILE_ABILITY, { direction = projectile_direction })
+  elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+    self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
+  elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
+    self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = target })
+  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
+    self:_begin_enemy_attack(enemy, "detonate", target, 0, 1)
+  elseif Grid.distance(enemy, target) <= 1 then
+    self:_begin_enemy_attack(enemy, "echo_strike", target, 0, 1)
+  elseif #route > 1 then
+    self:_move_actor(enemy, route[2].x, route[2].y)
+  end
+end
+
 function Session:_enemy_turn()
   local leader = self:_nearest_wolf()
   for index = #self.state.enemies, 1, -1 do
@@ -2570,7 +2811,9 @@ function Session:_enemy_turn()
       -- corridor rather than making environmental danger a permanent wall.
       local route = self:_hazard_aware_path(enemy, hunt, blocked)
       local electrical_direction = self:_electrical_direction_to(enemy, self.state.player)
-      if self:_actor_has_pending_area_attack(enemy) then
+      if enemy.kind == "fallen_echo" then
+        self:_fallen_echo_turn(enemy, route, electrical_direction)
+      elseif self:_actor_has_pending_area_attack(enemy) then
         -- The migrated cultist spell keeps its existing delayed, stationary
         -- wind-up behavior while its authoritative effect lives in the shared
         -- ability implementation.

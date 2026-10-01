@@ -265,7 +265,12 @@ function Renderer:_draw_game(app)
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
-    self.assets:draw_sprite(value.kind, pixel_x, pixel_y, size, tint)
+    -- Historical echoes intentionally share the player body silhouette; the
+    -- corrupt violet tint is presentation only and their actual capabilities
+    -- remain body-derived in the simulation.
+    local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
+    if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
+    self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint)
   end
 
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do
@@ -275,10 +280,10 @@ function Renderer:_draw_game(app)
   end
   for _, corpse in ipairs(state.corpses or {}) do
     local remains = { kind = corpse.source_kind, x = corpse.x, y = corpse.y }
-    actor(remains, false, { 0.32, 0.28, 0.4, 0.8 })
+    actor(remains, false, corpse.fallen_archive_id and { 0.5, 0.24, 0.66, 0.9 } or { 0.32, 0.28, 0.4, 0.8 })
     local pixel_x, pixel_y = self:_screen_position(presentation, state.player, corpse.x, corpse.y, size, offset_x, offset_y)
     if pixel_x then
-      self:_color({ 0.85, 0.3, 0.45, 0.75 })
+      self:_color(corpse.fallen_archive_id and { 0.98, 0.56, 0.9, 0.9 } or { 0.85, 0.3, 0.45, 0.75 })
       love.graphics.rectangle("line", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
     end
   end
@@ -587,7 +592,9 @@ function Renderer:_draw_salvage(app)
   elseif #options == 0 then
     self:_text("NO SALVAGEABLE COMPONENTS REMAIN", width * 0.18, 136, 1, { 0.72, 0.76, 0.84 })
   else
-    self:_text(string.upper(corpse.source_kind) .. " REMAINS  " .. corpse.id, width * 0.18, 101, 0.85, { 0.95, 0.85, 0.3 })
+    local label = corpse.fallen_archive_id and ("FALLEN SHELL — " .. string.upper(corpse.fallen_source_run_id or corpse.fallen_archive_id))
+      or (string.upper(corpse.source_kind) .. " REMAINS  " .. corpse.id)
+    self:_text(label, width * 0.18, 101, 0.85, { 0.95, 0.85, 0.3 })
     for index, installed in ipairs(options) do
       local component = installed.component
       local definition = session.registry:get_component(component.definition_id)
@@ -634,10 +641,59 @@ function Renderer:_draw_title(app)
     self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
       1, index == app.menu and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
   end
-  local message = app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE"
+  local message = app.death_archive_error and "FALLEN ARCHIVE WRITE FAILED — DEAD RUN RETAINED"
+    or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+    or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM")
-  self:_text(message, width / 2 - #message * 4, height / 2 + 112, 0.78, { 0.75, 0.82, 0.92 })
-  self:_text("P: SPRITE LAB", width / 2 - 62, height / 2 + 138, 0.82, { 0.75, 0.82, 0.92 })
+  -- Keep title feedback below the longest (four-item) normal menu so a
+  -- valid Continue/Research/Fallen state remains screenshot-readable.
+  self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
+  self:_text("P: SPRITE LAB", width / 2 - 62, height - 42, 0.82, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_fallen_archive(app)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local width, height = love.graphics.getDimensions()
+  local entries = app:fallen_archive_entries()
+  self:_text("FALLEN ARCHIVE", 42, 34, 2, { 0.7, 0.9, 1 })
+  if #entries == 0 then
+    self:_text("NO BODIES HAVE BEEN ARCHIVED", 42, 106, 1.05, { 0.72, 0.78, 0.88 })
+    self:_text("A DEAD BODY MAY RETURN IN A FUTURE DESCENT.", 42, 138, 0.78, { 0.55, 0.64, 0.75 })
+  else
+    for index, entry in ipairs(entries) do
+      local y, selected = 100 + (index - 1) * 62, index == app.menu
+      self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
+      love.graphics.rectangle("fill", 36, y, width * 0.5, 52)
+      self:_text((selected and "> " or "  ") .. entry.name, 50, y + 7, 0.9,
+        selected and { 0.95, 0.85, 0.3 } or { 0.82, 0.86, 0.94 })
+      self:_text(entry.description, 50, y + 29, 0.7, entry.compatible and { 0.58, 0.9, 0.76 } or { 1, 0.45, 0.35 })
+    end
+    local selected = app:current_fallen_entry()
+    if selected then
+      local record, x, y = selected.record, width * 0.6, 108
+      self:_text("ARCHIVE " .. record.id, x, y, 1.05, { 0.95, 0.85, 0.3 })
+      self:_text("SOURCE " .. record.source_run_id, x, y + 27, 0.78, { 0.72, 0.78, 0.88 })
+      self:_text("BIOME " .. string.upper(record.metadata.biome_id or "UNKNOWN"), x, y + 50, 0.78, { 0.72, 0.78, 0.88 })
+      self:_text("DEPTH " .. tostring(record.metadata.route_depth or "?"), x, y + 72, 0.78, { 0.72, 0.78, 0.88 })
+      local line = y + 108
+      self:_text("BODY", x, line, 0.9, { 0.7, 0.9, 1 })
+      for _, slot in ipairs(record.body.slots or {}) do
+        local value = slot.component and (slot.slot_id .. ": " .. slot.component.definition_id .. "  " .. slot.component.current_integrity .. "/" .. slot.component.max_integrity
+          .. " " .. string.upper(slot.component.condition or "UNKNOWN"))
+          or (slot.slot_id .. ": EMPTY")
+        self:_text(value, x, line + 24, 0.68, slot.component and { 0.78, 0.83, 0.92 } or { 0.48, 0.55, 0.65 })
+        line = line + 24
+      end
+      if #(record.metadata.charm_ids or {}) > 0 then
+        self:_text("CHARMS: " .. table.concat(record.metadata.charm_ids, ", "), x, line + 10, 0.67, { 0.66, 0.73, 0.84 })
+        line = line + 22
+      end
+      if #(record.metadata.route_path or {}) > 0 then
+        self:_text("PATH: " .. table.concat(record.metadata.route_path, " > "), x, line + 10, 0.62, { 0.58, 0.67, 0.78 })
+      end
+    end
+  end
+  self:_text("W/S SELECT     ESC TITLE", 42, height - 42, 0.8, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_research(app)
@@ -813,6 +869,8 @@ function Renderer:draw(app)
     self:_draw_route(app)
   elseif app.screen == "research" then
     self:_draw_research(app)
+  elseif app.screen == "fallen_archive" then
+    self:_draw_fallen_archive(app)
   elseif app.screen == "service_hub" then
     self:_menu("FINAL SERVICE HUB — SCRAP " .. app.session.state.scrap, app:service_hub_options(), app.menu, "W/S SELECT     ENTER ACCESS / ENTER BOSS")
   elseif app.screen == "service" then

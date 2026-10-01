@@ -9,6 +9,8 @@ local Renderer = require("src.rendering.renderer")
 local ActiveRun = require("src.persistence.active_run")
 local SaveStore = require("src.persistence.save_store")
 local MetaProfile = require("src.persistence.meta_profile")
+local FallenArchive = require("src.persistence.fallen_archive")
+local FallenRecurrence = require("src.simulation.fallen_recurrence")
 local Registry = require("src.content.registry")
 
 local App = {}
@@ -31,10 +33,15 @@ function App.new(options)
   self.registry = options.registry or Registry.load()
   self.save_store = options.save_store or SaveStore.runtime()
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
+  self.archive_store = options.archive_store or SaveStore.runtime("fallen_characters.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
   self.meta_error = nil
   if not self.meta_profile then self.meta_error = self.meta_status end
   if not self.meta_profile then self.meta_profile = MetaProfile.new() end
+  self.fallen_archive, self.archive_status = FallenArchive.load(self.archive_store)
+  self.archive_error = nil
+  if not self.fallen_archive then self.archive_error = self.archive_status end
+  if not self.fallen_archive then self.fallen_archive = FallenArchive.new() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
   self.assets = Assets.new()
@@ -43,6 +50,7 @@ function App.new(options)
   self.renderer = Renderer.new(self.assets)
   self.sprite_lab = { slot = 1, x = 25, y = 1 }
   self.movement_keys = {}
+  self:_reconcile_pending_death()
   self:refresh_continue()
   return self
 end
@@ -64,6 +72,11 @@ function App:quit()
 end
 
 function App:refresh_continue()
+  if self.death_archive_error then
+    self.continue_available = false
+    self.title_error = self.death_archive_error
+    return false
+  end
   local available, error_data = ActiveRun.has_valid_save(self.save_store, { content = self.content })
   self.continue_available = available == true
   self.title_error = self.continue_available and nil or (self.save_store:exists() and error_data or nil)
@@ -76,6 +89,7 @@ function App:title_options()
     options[#options + 1] = { name = "CONTINUE", description = "Resume the current active run." }
   end
   options[#options + 1] = { name = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs." }
+  options[#options + 1] = { name = "FALLEN", description = "Inspect bodies lost on earlier descents." }
   return options
 end
 
@@ -84,6 +98,64 @@ function App:_save_meta(candidate)
   local saved, error_data = MetaProfile.save(candidate, self.meta_store, self.registry)
   if not saved then self.meta_error = error_data; return nil, error_data end
   self.meta_profile, self.meta_status = candidate, nil
+  return true
+end
+
+function App:_save_fallen_archive(candidate)
+  if self.archive_error then return nil, self.archive_error end
+  local saved, error_data = FallenArchive.save(candidate, self.archive_store)
+  if not saved then self.archive_error = error_data; return nil, error_data end
+  self.fallen_archive, self.archive_status = candidate, nil
+  return true
+end
+
+-- Death first becomes authoritative in the active run.  Only after that
+-- snapshot is safely written do we append its immutable body to the separate
+-- archive; source-run deduplication makes a retry safe after interruption.
+function App:_archive_pending_death(session)
+  local pending = session and session.state.death_pending_archive
+  if not pending then return true end
+  if self.archive_error then return nil, self.archive_error end
+  local candidate = FallenArchive.copy(self.fallen_archive)
+  local result = FallenArchive.append(candidate, pending)
+  if result.applied then
+    local saved, error_data = self:_save_fallen_archive(candidate)
+    if not saved then return nil, error_data end
+  end
+  return result.record
+end
+
+function App:_pending_death_session()
+  local session, error_data = ActiveRun.load(self.save_store, {
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+  })
+  if not session then return nil, error_data end
+  if session.state.ended ~= "gameover" then return nil end
+  return session
+end
+
+function App:_reconcile_pending_death()
+  local session, error_data = self:_pending_death_session()
+  if not session then
+    -- Missing/corrupt/living active saves remain the responsibility of normal
+    -- Continue validation.  A dead legacy save has no eligible run identity
+    -- and is retired without fabricating archive history.
+    if error_data and error_data.code ~= "missing_file" then self.pending_death_load_error = error_data end
+    return false
+  end
+  local archived, archive_error = self:_archive_pending_death(session)
+  if not archived then
+    self.death_archive_error = archive_error or { code = "write_failed", reason = "Could not archive fallen body" }
+    return nil, self.death_archive_error
+  end
+  local retired, retire_error = ActiveRun.retire(self.save_store)
+  if not retired then
+    self.death_archive_error = retire_error
+    return nil, retire_error
+  end
+  self.death_archive_error = nil
   return true
 end
 
@@ -114,7 +186,26 @@ end
 
 function App:autosave(_boundary)
   if not self.session then return true end
-  if self.session.state.ended == "gameover" or self.session.state.ended == "victory" then
+  if self.session.state.ended == "gameover" then
+    local saved, save_error = ActiveRun.save(self.session, self.save_store)
+    if not saved then
+      self.save_error = save_error
+      return nil, save_error
+    end
+    local archived, archive_error = self:_archive_pending_death(self.session)
+    if not archived then
+      self.death_archive_error = archive_error or { code = "write_failed", reason = "Could not archive fallen body" }
+      self.save_error = self.death_archive_error
+      self:refresh_continue()
+      return nil, self.death_archive_error
+    end
+    local retired, error_data = ActiveRun.retire(self.save_store)
+    if not retired then self.save_error = error_data end
+    if retired then self.death_archive_error = nil end
+    self:refresh_continue()
+    return retired, error_data
+  end
+  if self.session.state.ended == "victory" then
     local retired, error_data = ActiveRun.retire(self.save_store)
     if not retired then self.save_error = error_data end
     self:refresh_continue()
@@ -197,6 +288,7 @@ function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
   if selected and selected.name == "CONTINUE" then return self:continue_run() end
   if selected and selected.name == "RESEARCH" then return self:open_research() end
+  if selected and selected.name == "FALLEN" then return self:open_fallen_archive() end
   return self:request_new_run()
 end
 
@@ -214,17 +306,49 @@ end
 
 function App:_new_session(run_id, snapshot)
   local seed = self.seed_stream:next()
+  local recurrence = nil
+  if run_id and not self.archive_error then
+    recurrence = FallenRecurrence.assign(run_id, seed, FallenArchive.compatible_records(self.fallen_archive, self.registry))
+  end
   self.session = Session.new({
     seed = seed,
     content = self.content,
     registry = self.registry,
     run_id = run_id,
     meta_snapshot = snapshot,
+    fallen_recurrence = recurrence,
     on_meta_reward = function(id, amount) return self:_claim_meta_reward(id, amount) end,
     emit = function(event)
       self:_handle_session_event(event)
     end,
   })
+end
+
+function App:fallen_archive_entries()
+  local entries = {}
+  for _, record in ipairs(self.fallen_archive.characters or {}) do
+    local compatible, reason = FallenArchive.compatibility(record, self.registry)
+    entries[#entries + 1] = {
+      archive_id = record.id,
+      source_run_id = record.source_run_id,
+      record = record,
+      compatible = compatible,
+      incompatibility_reason = reason,
+      name = "FALLEN SHELL — " .. string.upper(record.source_run_id),
+      description = compatible and "RECURRENCE READY" or "INCOMPATIBLE WITH CURRENT CONTENT",
+    }
+  end
+  table.sort(entries, function(first, second) return first.archive_id < second.archive_id end)
+  return entries
+end
+
+function App:open_fallen_archive()
+  self.screen, self.menu = "fallen_archive", 1
+  return true
+end
+
+function App:current_fallen_entry()
+  return self:fallen_archive_entries()[self.menu]
 end
 
 function App:research_categories()

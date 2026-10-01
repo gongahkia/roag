@@ -15,6 +15,8 @@ function Corpse.from_actor(corpse_id, actor)
     x = actor.x,
     y = actor.y,
     body = actor.body,
+    fallen_archive_id = actor.fallen_archive_id,
+    fallen_source_run_id = actor.fallen_source_run_id,
   }, Corpse)
   actor.body = nil
   return corpse
@@ -33,6 +35,8 @@ function Corpse:to_data()
     x = self.x,
     y = self.y,
     body = self.body:to_data(),
+    fallen_archive_id = self.fallen_archive_id,
+    fallen_source_run_id = self.fallen_source_run_id,
   }
 end
 
@@ -46,6 +50,8 @@ function Corpse.from_data(registry, data)
     x = data.x,
     y = data.y,
     body = Body.from_data(registry, data.body),
+    fallen_archive_id = data.fallen_archive_id,
+    fallen_source_run_id = data.fallen_source_run_id,
   }, Corpse)
 end
 
