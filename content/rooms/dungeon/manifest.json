@@ -1,0 +1,16 @@
+{
+  "format": "roag.room_manifest",
+  "version": 1,
+  "files": [
+    "entrance_01.room.json",
+    "standard_straight_01.room.json",
+    "standard_straight_02.room.json",
+    "standard_corner_01.room.json",
+    "standard_corner_02.room.json",
+    "junction_tee_01.room.json",
+    "junction_cross_01.room.json",
+    "dead_end_01.room.json",
+    "dead_end_02.room.json",
+    "arena_01.room.json"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "format": "roag.room_template",
+  "version": 1,
+  "id": "room.dungeon.arena.01",
+  "biome": "dungeon",
+  "tags": ["arena", "junction"],
+  "weight": 1,
+  "allow_rotation": true,
+  "width": 10,
+  "height": 10,
+  "connectors": [{"side":"north","offset":5},{"side":"east","offset":5},{"side":"south","offset":5},{"side":"west","offset":5}],
+  "legend": {"#":"material.structure.masonry",".":"material.terrain.air"},
+  "layout": ["#####.####","#........#","#........#","#..#..#..#","#........#","..........","#........#","#..#..#..#","#........#","#####.####"]
+}
