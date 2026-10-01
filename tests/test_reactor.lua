@@ -71,7 +71,8 @@ return {
     name = "Reactor composes finite coolant gas fire and two optional circuits without unsafe spawn placement",
     run = function()
       for _, tier in ipairs({ TIER_TWO, TIER_THREE }) do
-        local floor = assert(InspectionFloor.generate({ biome = REACTOR, tier = tier, seed = 88610 + (tier == TIER_THREE and 1 or 0) }))
+        local floor = assert(InspectionFloor.generate({ biome = REACTOR, tier = tier, seed = 88610 + (tier == TIER_THREE and 1 or 0),
+          service_id = "service.supply.legacy" }))
         local report = report_for(floor)
         local player = floor.state.player
         assert(report.valid, report.errors[1] and report.errors[1].code)
@@ -79,6 +80,12 @@ return {
         assert(report.metrics.active_fires == 1 and report.metrics.circuits == 2)
         assert(#floor.world:fires_at(player.x, player.y) == 0)
         assert(not floor.world:is_harmful_gas_at(player.x, player.y))
+        local service
+        for _, object in ipairs(floor.world:list_objects()) do
+          if object.interaction_role == "service" then service = object end
+        end
+        assert(service and service.service_id == "service.supply.legacy")
+        assert(floor.world:is_passable(service.x, service.y) and Grid.distance(player, service) >= 3)
       end
     end,
   },
