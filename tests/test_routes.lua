@@ -70,7 +70,7 @@ return {
       local first, second = Graph.new(88002, content), Graph.new(88002, content)
       assert(encode(first:to_data()) == encode(second:to_data()))
       local report = RouteAnalysis.analyze(first, content)
-      assert(report.valid and report.metrics.node_count == 8 and report.metrics.edge_count == 11)
+      assert(report.valid and report.metrics.node_count == 9 and report.metrics.edge_count == 14)
       assert(report.metrics.branch_count >= 1 and report.metrics.convergence_count >= 1)
       assert(first:node(first.start_node_id).biome_id == "biome.legacy.forest")
       assert(first:node(first.start_node_id).tier_id == "tier.legacy.1")

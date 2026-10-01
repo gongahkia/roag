@@ -1,5 +1,8 @@
 # ROAG Sprite Editor
 
+This is the supported sprite-mapping editor. Normal gameplay no longer ships
+an in-game Sprite Lab, so editing mappings here cannot affect an active run.
+
 Launch this standalone editor from the repository root:
 
 ```console
@@ -9,7 +12,9 @@ love sprite_editor
 The editor includes its own copy of the Kenney sheet, so it does not depend on
 ROAG's runtime or need to mount the parent `assets/` directory.
 
-Click a gameplay role in the left column, then click a tile in the Kenney sheet.
+Click a gameplay role in the left column, then click a tile in the Kenney
+sheet. The role list includes every current player, object, ordinary enemy,
+elite, and Reactor mapping; saving retains all of them.
 
 - Mouse wheel over the sheet: zoom at the cursor.
 - Right- or middle-drag over the sheet: pan.

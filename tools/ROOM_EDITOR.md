@@ -12,13 +12,17 @@ editor to switch between the Dungeon and Reactor corpora. See
 level-tool documentation.
 
 The editor never opens an active run or writes `active_run.json`. It edits one
-`content/rooms/dungeon/*.room.json` template at a time and refuses to save a
-template with validation errors. A packaged `.love` archive is read-only for
-this tool; run it from the checkout when authoring content.
+template in the selected `content/rooms/<corpus>/` directory and refuses to
+save a template with validation errors. Press `C` to switch Dungeon/Reactor;
+the palette, tags, browser, and output directory switch together. A packaged
+`.love` archive is read-only for this tool; run it from the checkout when
+authoring content.
 
 ## Controls
 
-- Click or drag: paint the selected tile (`1` masonry wall, `2` open floor).
+- Click or drag: paint the selected tile. The numbered palette shows the
+  selected corpus's legal materials (Reactor includes conductive metal and
+  industrial bulkhead).
 - Right-click a boundary cell: add/remove its explicit connector.
 - `[` / `]`: browse templates; `N`: new; `D`: duplicate.
 - `I`: edit the semantic ID for a new or duplicated template.
@@ -59,6 +63,7 @@ Validate the corpus and a 500-seed dungeon sample with:
 ```bash
 luajit tools/validate_content.lua
 luajit tools/validate_dungeon_rooms.lua 500
+luajit tools/validate_reactor_rooms.lua 500
 ```
 
 The generation inspector (`love . --generation-inspector`) shows the produced

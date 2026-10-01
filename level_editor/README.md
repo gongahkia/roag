@@ -33,7 +33,7 @@ generation pipeline. It does not advance turns or affect the active run.
 - Left click: pin a cell; hover shows its coordinate.
 - `1` terrain, `2` connectivity, `3` actors, `4` objects, `5` hazards,
   `6` liquids, `7` gas, `8` power, `9` objectives, `C` conductivity,
-  `M` placement provenance, `T` authored dungeon room chunks/connectors.
+  `0` fires, `M` placement provenance, `T` authored room chunks/connectors.
 - `H`: show/hide help. `Esc`: exit.
 
 The inspector reports actual generated actors, objectives, media, device state,

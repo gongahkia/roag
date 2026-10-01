@@ -21,7 +21,7 @@ Controls:
 - left click: pin a cell; hover shows the current coordinate
 - `1` terrain, `2` connectivity, `3` actors, `4` objects, `5` hazards,
   `6` liquids, `7` gas, `8` power, `9` objectives, `C` conductivity,
-  `T` authored dungeon room chunks/connectors, `M` placement provenance
+  `0` fires, `T` authored room chunks/connectors, `M` placement provenance
 - `H`: toggle the compact help panel; `Esc`: leave inspector mode
 
 The initial game has no retained hidden spawner/activation-region entities.
@@ -36,11 +36,12 @@ reports validate required target reachability and label the exit accordingly.
 luajit tools/analyze_generation.lua --stage cave --seed 1000 --count 500
 luajit tools/analyze_generation.lua --stage dungeon --seed 2000 --count 100 --json /tmp/dungeon-report.json
 luajit tools/analyze_generation.lua --biome biome.legacy.forest --tier 2 --seed 3000 --count 100
+luajit tools/analyze_generation.lua --biome biome.legacy.reactor --tier 3 --seed 4000 --count 300
 ```
 
 The command reports structural failures with exact seeds, ranges for key
-metrics, material/object distributions, selected outlier seeds, and—on the
-template dungeon—room counts, template usage, rotations, and connector-pattern
-usage. Its JSON output uses the independent diagnostic envelope
+metrics, material/object distributions, selected outlier seeds, finite-fire
+prevalence, and—on template-driven Dungeon and Reactor floors—room counts,
+template usage, rotations, and connector-pattern usage. Its JSON output uses the independent diagnostic envelope
 `roag.generation_report` v1. Use a failed or outlier seed directly in the
 inspector for visual diagnosis.
