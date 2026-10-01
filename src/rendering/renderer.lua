@@ -635,9 +635,41 @@ function Renderer:_draw_title(app)
     or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM")
-  -- Keep title feedback below the longest (four-item) normal menu so a
-  -- valid Continue/Research/Fallen state remains screenshot-readable.
+  -- Keep title feedback below the longest normal menu so valid title states
+  -- remain screenshot-readable as presentation options are added.
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_art_packs(app)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local width, height = love.graphics.getDimensions()
+  local options = app:art_pack_options()
+  self:_text("ART PACKS", 42, 30, 2, { 0.7, 0.9, 1 })
+  self:_text("PRESENTATION ONLY — RUNS, SAVES, AND SIMULATION STAY UNCHANGED", 42, 68, 0.74, { 0.68, 0.76, 0.88 })
+  for index, option in ipairs(options) do
+    local y, selected = 104 + (index - 1) * 57, index == app.menu
+    self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
+    love.graphics.rectangle("fill", 36, y, width * 0.58, 49)
+    self:_text((selected and "> " or "  ") .. option.name, 50, y + 7, 0.94,
+      selected and { 0.95, 0.85, 0.3 } or { 0.82, 0.86, 0.94 })
+    self:_text((option.selected and "ACTIVE  •  " or "") .. option.license .. "  •  " .. option.credit,
+      50, y + 28, 0.65, option.selected and { 0.58, 0.9, 0.76 } or { 0.62, 0.7, 0.81 })
+  end
+  local option = options[app.menu]
+  if option then
+    local x, y = width * 0.66, 130
+    self:_text(option.name, x, y, 1.08, { 0.95, 0.85, 0.3 })
+    self:_text(option.description, x, y + 34, 0.78, { 0.76, 0.82, 0.91 })
+    self:_text("LICENSE: " .. option.license, x, y + 82, 0.73, { 0.65, 0.76, 0.9 })
+    self:_text("CREDIT: " .. option.credit, x, y + 108, 0.73, { 0.65, 0.76, 0.9 })
+    self:_text("SOURCE", x, y + 150, 0.72, { 0.7, 0.9, 1 })
+    self:_text(option.source_url, x, y + 174, 0.58, { 0.56, 0.66, 0.78 })
+    self:_text("Full source pack and license material ship in", x, y + 226, 0.65, { 0.62, 0.7, 0.81 })
+    self:_text("assets/art_packs/.", x, y + 248, 0.65, { 0.62, 0.7, 0.81 })
+  end
+  local footer = app.art_pack_error and ("PREFERENCE ERROR: " .. tostring(app.art_pack_error.reason))
+    or "W/S SELECT     ENTER / E APPLY     ESC TITLE"
+  self:_text(footer, 42, height - 40, 0.78, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_fallen_archive(app)
@@ -816,6 +848,8 @@ function Renderer:draw(app)
     self:_draw_route(app)
   elseif app.screen == "research" then
     self:_draw_research(app)
+  elseif app.screen == "art_packs" then
+    self:_draw_art_packs(app)
   elseif app.screen == "fallen_archive" then
     self:_draw_fallen_archive(app)
   elseif app.screen == "service_hub" then
