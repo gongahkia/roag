@@ -2,7 +2,7 @@
 -- asks for an action; this module validates and mutates simulation state.
 local Interaction = {}
 
-local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3 }
+local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4 }
 
 local function result(applied, code, reason, extra)
   local value = {
@@ -53,6 +53,8 @@ function Interaction.actions_for(world, object)
     return {
       action("breaker.toggle", circuit.enabled and "DISABLE CIRCUIT" or "ENABLE CIRCUIT", true),
     }
+  elseif object.interaction_role == "service" then
+    return { action("service.open", "ACCESS SERVICE", true) }
   end
   return {}
 end
@@ -126,6 +128,11 @@ function Interaction.perform(session, actor, object_id, action_id)
   elseif action_id == "breaker.toggle" and object.interaction_role == "breaker" then
     local circuit = world:get_circuit(object.circuit_id)
     world_result = world:set_circuit_enabled(object.circuit_id, not circuit.enabled)
+  elseif action_id == "service.open" and object.interaction_role == "service" then
+    world_result = result(true, "service_open", nil, {
+      service_id = object.service_id,
+      service_object_id = object.id,
+    })
   else
     return result(false, "invalid_action", "Action is not available for this object", {
       object_id = object.id,

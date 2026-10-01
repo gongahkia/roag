@@ -12,6 +12,7 @@ local function copy_node(node)
   return {
     id = node.id, key = node.key, type = node.type, depth = node.depth,
     biome_id = node.biome_id, tier_id = node.tier_id, floor_seed = node.floor_seed,
+    service_id = node.service_id,
   }
 end
 
@@ -42,6 +43,7 @@ function Graph.new(root_seed, definitions, profile_id)
       local node = {
         id = id, key = source.key, type = layer.type, depth = depth,
         biome_id = source.biome_id, tier_id = source.tier_id,
+        service_id = source.service_id,
       }
       if layer.type == "floor" then
         node.floor_seed = route_rng:derive("node." .. id):next()
@@ -178,7 +180,8 @@ function Graph:validate(definitions)
     if node.type == "floor" then
       local biome_ok = pcall(function() definitions:get_biome(node.biome_id) end)
       local tier_ok = pcall(function() definitions:get_tier(node.tier_id) end)
-      if not biome_ok or not tier_ok or type(node.floor_seed) ~= "number" or node.floor_seed % 1 ~= 0 then
+      if not biome_ok or not tier_ok or type(node.floor_seed) ~= "number" or node.floor_seed % 1 ~= 0
+        or type(node.service_id) ~= "string" or not node.service_id:match("^service%.") then
         return invalid("Floor node '" .. id .. "' has invalid biome, tier, or seed")
       end
     elseif node.biome_id ~= nil or node.tier_id ~= nil or node.floor_seed ~= nil then

@@ -17,6 +17,7 @@ local OPEN_MATERIAL_BY_TERRAIN = {
   forest = "material.terrain.leaf_litter",
 }
 local DOOR_STATES = { open = true, closed = true, destroyed = true }
+local CIRCUIT_ROLES = { door = true, generator = true, breaker = true }
 
 local function key(x, y)
   return Grid.key(x, y)
@@ -898,7 +899,7 @@ function World:place_object(definition_id, x, y, options)
   local material = self.registry:get_material(definition.material_id)
   local role = definition.interaction_role
   local circuit_id = options.circuit_id
-  if role and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
+  if CIRCUIT_ROLES[role] and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
     return nil, { applied = false, code = "unknown_circuit", reason = "Interactive world object requires an existing circuit" }
   end
   local door_state = options.door_state or definition.default_door_state
@@ -938,8 +939,20 @@ function World:place_object(definition_id, x, y, options)
     -- Preserve an explicit offline generator; Lua's and/or idiom would turn
     -- false into nil and make a legitimate persistent power state invalid.
     generator_online = role == "generator" and generator_online or nil,
+    service_id = role == "service" and options.service_id or nil,
+    service_stock = role == "service" and options.service_stock or nil,
+    service_origin = role == "service" and options.service_origin or nil,
     movable_by_force = definition.movable_by_force,
   }
+  if role == "service" then
+    if type(object.service_id) ~= "string" then
+      return nil, { applied = false, code = "invalid_service", reason = "Service kiosk requires a service ID" }
+    end
+    self.registry:get_service(object.service_id)
+    if type(object.service_stock) ~= "table" then
+      return nil, { applied = false, code = "invalid_stock", reason = "Service kiosk requires persistent stock" }
+    end
+  end
   if role == "generator" then
     object.generator_online = generator_online
   end
@@ -1100,6 +1113,9 @@ function World:inspect_object(object_or_id)
     circuit_id = object.circuit_id,
     door_state = object.door_state,
     generator_online = object.generator_online,
+    service_id = object.service_id,
+    service_stock = object.service_stock,
+    service_origin = object.service_origin,
     circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
     circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
     conductive = material.conductive,
@@ -1373,9 +1389,12 @@ function World.from_data(registry, data, sequence_owner)
       circuit_id = saved.circuit_id,
       door_state = saved.door_state,
       generator_online = saved.generator_online,
+      service_id = saved.service_id,
+      service_stock = saved.service_stock,
+      service_origin = saved.service_origin,
       movable_by_force = definition.movable_by_force,
     }
-    if object.interaction_role then
+    if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and world.circuits[object.circuit_id],
         "Interactive world object references an unknown circuit")
     end
@@ -1520,10 +1539,16 @@ function World:validate()
     local location_key = key(object.x, object.y)
     if object.interaction_role then
       assert(object.interaction_role == definition.interaction_role, "World object interaction role does not match definition")
+    end
+    if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and self.circuits[object.circuit_id],
         "Interactive world object references unknown circuit")
-    else
+    elseif not object.interaction_role then
       assert(object.circuit_id == nil, "Non-interactive world object cannot reference a circuit")
+    end
+    if object.interaction_role == "service" then
+      self.registry:get_service(object.service_id)
+      assert(type(object.service_stock) == "table", "Service kiosk has invalid stock")
     end
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")

@@ -98,7 +98,7 @@ function Definitions:validate()
     if tier_numbers[tier.number] then fail("Duplicate tier number '" .. tier.number .. "'") end
     tier_numbers[tier.number] = true
     if type(tier.settings) ~= "table" then fail("Tier '" .. id .. "' settings must be a table") end
-    for _, field in ipairs({ "targets", "enemies", "score", "ammo", "vision", "torches" }) do
+    for _, field in ipairs({ "targets", "enemies", "objective_required", "ammo", "vision", "torches" }) do
       integer(tier.settings[field], "Tier '" .. id .. "' settings." .. field)
     end
   end
@@ -137,6 +137,7 @@ function Definitions:validate()
         if layer.type == "floor" then
           self:get_biome(node.biome_id)
           self:get_tier(node.tier_id)
+          semantic_id(node.service_id, "service", "Route profile '" .. id .. "' service_id")
           local choice = node.biome_id .. ":" .. node.tier_id
           if choices[choice] then fail("Route profile '" .. id .. "' layer " .. layer_index .. " duplicates floor choice '" .. choice .. "'") end
           choices[choice] = true

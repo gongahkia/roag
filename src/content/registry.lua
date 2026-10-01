@@ -15,6 +15,17 @@ local KNOWN_INTERACTION_ROLES = {
   door = true,
   generator = true,
   breaker = true,
+  service = true,
+}
+
+local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
+local KNOWN_MODIFIERS = {
+  max_health = true,
+  dash_cooldown = true,
+  bomb_radius = true,
+  flare_light = true,
+  reload_bonus = true,
+  objective_required = true,
 }
 
 local function content_error(message)
@@ -99,6 +110,10 @@ function Registry.new(sources)
     topologies = {},
     actors = {},
     enemies = {},
+    services = {},
+    boons = {},
+    charms = {},
+    curses = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
@@ -110,6 +125,10 @@ function Registry.new(sources)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
   self:_index("enemy", sources.enemies, self.enemies)
+  self:_index("service", sources.services or {}, self.services)
+  self:_index("boon", sources.boons or {}, self.boons)
+  self:_index("charm", sources.charms or {}, self.charms)
+  self:_index("curse", sources.curses or {}, self.curses)
   self:validate()
   return self
 end
@@ -126,6 +145,10 @@ function Registry.load()
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
     enemies = require("content.enemies.legacy"),
+    services = require("content.services.legacy"),
+    boons = require("content.boons.legacy"),
+    charms = require("content.charms.legacy"),
+    curses = require("content.curses.legacy"),
   })
 end
 
@@ -195,6 +218,11 @@ end
 function Registry:get_enemy(id)
   return self:_get(self.enemies, "enemy", id)
 end
+
+function Registry:get_service(id) return self:_get(self.services, "service", id) end
+function Registry:get_boon(id) return self:_get(self.boons, "boon", id) end
+function Registry:get_charm(id) return self:_get(self.charms, "charm", id) end
+function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
 
 function Registry:validate()
   for _, id in ipairs(sorted_keys(self.materials)) do
@@ -322,11 +350,60 @@ function Registry:validate()
     end
   end
 
+  for _, id in ipairs(sorted_keys(self.services)) do
+    local service = self.services[id]
+    require_string(service.display_name, "Service '" .. id .. "' display_name")
+    require_string(service.role, "Service '" .. id .. "' role")
+    if not KNOWN_SERVICE_ROLES[service.role] then
+      content_error("Service '" .. id .. "' has unknown role '" .. service.role .. "'")
+    end
+    require_string(service.stock_profile, "Service '" .. id .. "' stock_profile")
+    require_string(service.render_style, "Service '" .. id .. "' render_style")
+  end
+
+  local function validate_modifiers(kind, id, modifiers)
+    if type(modifiers) ~= "table" or next(modifiers) == nil then
+      content_error(kind .. " '" .. id .. "' modifiers must be a non-empty table")
+    end
+    for key, value in pairs(modifiers) do
+      if not KNOWN_MODIFIERS[key] then
+        content_error(kind .. " '" .. id .. "' has unknown modifier '" .. tostring(key) .. "'")
+      end
+      if type(value) ~= "number" or value % 1 ~= 0 then
+        content_error(kind .. " '" .. id .. "' modifier '" .. tostring(key) .. "' must be an integer")
+      end
+    end
+  end
+  for _, id in ipairs(sorted_keys(self.boons)) do
+    local boon = self.boons[id]
+    require_string(boon.display_name, "Boon '" .. id .. "' display_name")
+    require_string(boon.description, "Boon '" .. id .. "' description")
+    validate_modifiers("Boon", id, boon.modifiers)
+  end
+  for _, id in ipairs(sorted_keys(self.charms)) do
+    local charm = self.charms[id]
+    require_string(charm.display_name, "Charm '" .. id .. "' display_name")
+    require_string(charm.description, "Charm '" .. id .. "' description")
+    require_positive_number(charm.price, "Charm '" .. id .. "' price")
+    require_string(charm.render_style, "Charm '" .. id .. "' render_style")
+    if type(charm.granted_boon_ids) ~= "table" or #charm.granted_boon_ids == 0 then
+      content_error("Charm '" .. id .. "' granted_boon_ids must be a non-empty list")
+    end
+    for _, boon_id in ipairs(charm.granted_boon_ids) do self:get_boon(boon_id) end
+  end
+  for _, id in ipairs(sorted_keys(self.curses)) do
+    local curse = self.curses[id]
+    require_string(curse.display_name, "Curse '" .. id .. "' display_name")
+    require_string(curse.description, "Curse '" .. id .. "' description")
+    validate_modifiers("Curse", id, curse.modifiers)
+  end
+
   for _, id in ipairs(sorted_keys(self.components)) do
     local component = self.components[id]
     require_string(component.display_name, "Component '" .. id .. "' display_name")
     require_positive_number(component.max_integrity, "Component '" .. id .. "' max_integrity")
     require_nonnegative_number(component.mass, "Component '" .. id .. "' mass")
+    require_positive_number(component.scrap_value, "Component '" .. id .. "' scrap_value")
     require_nonnegative_number(component.wear_per_use, "Component '" .. id .. "' wear_per_use")
     if type(component.inventory) ~= "table" then
       content_error("Component '" .. id .. "' inventory must be a table")

@@ -72,4 +72,16 @@ return {
     interaction_role = "breaker",
     render_style = "breaker",
   },
+  {
+    id = "world_object.service.kiosk",
+    display_name = "Service Kiosk",
+    material_id = "material.structure.conductive_metal",
+    blocks_movement = false,
+    blocks_vision = false,
+    blocks_projectiles = false,
+    blocks_gas = false,
+    movable_by_force = false,
+    interaction_role = "service",
+    render_style = "service_kiosk",
+  },
 }

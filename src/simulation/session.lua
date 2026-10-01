@@ -20,6 +20,8 @@ local Liquid = require("src.simulation.liquid")
 local Electricity = require("src.simulation.electricity")
 local Gas = require("src.simulation.gas")
 local Interaction = require("src.simulation.interaction")
+local Economy = require("src.simulation.economy")
+local RunModifiers = require("src.simulation.run_modifiers")
 local EnvironmentObjects = require("src.generation.environment_objects")
 local HazardGeneration = require("src.generation.hazards")
 local LiquidGeneration = require("src.generation.liquids")
@@ -107,7 +109,12 @@ function Session.new(options)
   local inventory = Inventory.new()
   self.state = {
     stage = 1,
+    -- score remains a legacy save compatibility field only. Objective progress
+    -- is per-floor on the actor; SCRAP is the sole run-wide currency.
     score = 0,
+    scrap = 0,
+    charms = { slots = { nil, nil, nil } },
+    curse_id = nil,
     log = {},
     curse_bag = {},
     effects = {},
@@ -120,6 +127,8 @@ function Session.new(options)
     route = nil,
     floor_seed = nil,
     transition_next = nil,
+    active_service_object_id = nil,
+    final_service_hub = nil,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -196,6 +205,22 @@ end
 
 function Session:interact(actor, object_id, action_id)
   return Interaction.perform(self, actor or self.state.player, object_id, action_id)
+end
+
+function Session:modifier_value(key)
+  return RunModifiers.value(self.state, self.registry, key)
+end
+
+function Session:refresh_derived_player_stats()
+  local player = self.state.player or self.state.run.player
+  if not player then return end
+  local values = RunModifiers.values(self.state, self.registry)
+  player.max_health = math.max(1, (player.base_max_health or 5) + (values.max_health or 0))
+  player.health = math.min(player.health, player.max_health)
+  player.dash_base = math.max(1, (player.base_dash_cooldown or 3) + (values.dash_cooldown or 0))
+  player.bomb_radius = math.max(1, (player.base_bomb_radius or 2) + (values.bomb_radius or 0))
+  player.flare_light = math.max(1, (player.base_flare_light or 3) + (values.flare_light or 0))
+  player.reload_bonus = values.reload_bonus or 0
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -758,9 +783,12 @@ function Session:run_data()
     progression = {
       stage = self.state.stage,
       score = self.state.score,
-      class_name = self.state.class and self.state.class.name or nil,
-      boon_name = self.state.boon and self.state.boon.name or nil,
-      curse_name = self.state.curse and self.state.curse.name or nil,
+      scrap = self.state.scrap,
+      charm_slots = self.state.charms and self.state.charms.slots or {},
+      curse_id = self.state.curse_id,
+      class_name = self.state.legacy_class and self.state.legacy_class.name or nil,
+      boon_name = self.state.legacy_boon and self.state.legacy_boon.name or nil,
+      curse_name = self.state.curse and (self.state.curse.display_name or self.state.curse.name) or nil,
       next_component_sequence = self.state.next_component_sequence,
       next_corpse_sequence = self.state.next_corpse_sequence,
       next_world_object_sequence = self.state.next_world_object_sequence,
@@ -888,13 +916,17 @@ function Session:to_data()
     progression = {
       stage = state.stage,
       score = state.score,
+      scrap = state.scrap,
+      charm_slots = state.charms and state.charms.slots or {},
+      curse_id = state.curse_id,
       phase = state.phase,
       ended = state.ended,
       reconstruction_next = state.reconstruction_next,
       transition_next = state.transition_next,
-      class_name = state.class and state.class.name or nil,
-      boon_name = state.boon and state.boon.name or nil,
-      curse_name = state.curse and state.curse.name or nil,
+      class_name = state.legacy_class and state.legacy_class.name or nil,
+      boon_name = state.legacy_boon and state.legacy_boon.name or nil,
+      curse_name = state.curse and (state.curse.display_name or state.curse.name) or nil,
+      active_service_object_id = state.active_service_object_id,
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
@@ -921,8 +953,8 @@ function Session:to_data()
     boss = self:_actor_to_data(state.boss),
     route = state.route and state.route:to_data() or nil,
   }
-  for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.name end
-  for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.name end
+  for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.id or curse.name end
+  for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.id or curse.name end
   for _, message in ipairs(state.log or {}) do data.log[#data.log + 1] = message end
   for _, corpse in ipairs(state.corpses or {}) do data.corpses[#data.corpses + 1] = corpse:to_data() end
   table.sort(data.corpses, function(first, second) return first.id < second.id end)
@@ -954,14 +986,29 @@ function Session.from_data(data, options)
   assert(type(progression.stage) == "number" and progression.stage >= 1 and progression.stage % 1 == 0,
     "Active run has an invalid stage")
   assert(type(progression.phase) == "string", "Active run has no phase")
-  state.stage, state.score, state.phase = progression.stage, progression.score, progression.phase
+  state.stage, state.score, state.phase = progression.stage, progression.score or 0, progression.phase
+  state.scrap = progression.scrap or progression.score or 0
   state.ended, state.reconstruction_next, state.transition_next = progression.ended, progression.reconstruction_next, progression.transition_next
-  state.class = named_content(session.content.classes, progression.class_name, "class")
-  state.boon = named_content(session.content.boons, progression.boon_name, "boon")
-  state.curse = named_content(session.content.curses, progression.curse_name, "curse")
+  state.legacy_class = named_content(session.content.classes, progression.class_name, "class")
+  state.legacy_boon = named_content(session.content.boons, progression.boon_name, "boon")
+  state.class, state.boon = nil, nil
+  local function resolve_curse(value)
+    if not value then return nil end
+    if session.registry.curses[value] then return session.registry:get_curse(value) end
+    for _, curse in pairs(session.registry.curses) do if curse.display_name == value then return curse end end
+    return named_content(session.content.curses, value, "curse")
+  end
+  state.curse = resolve_curse(progression.curse_id or progression.curse_name)
+  state.curse_id = state.curse and state.curse.id or nil
+  state.charms = { slots = { nil, nil, nil } }
+  for index, charm_id in ipairs(progression.charm_slots or {}) do
+    assert(index <= RunModifiers.CHARM_SLOTS and (charm_id == nil or session.registry.charms[charm_id]), "Active run has an invalid charm slot")
+    state.charms.slots[index] = charm_id
+  end
+  state.active_service_object_id = progression.active_service_object_id
   state.curse_bag, state.curse_options = {}, {}
-  for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = named_content(session.content.curses, name, "curse") end
-  for _, name in ipairs(progression.curse_options or {}) do state.curse_options[#state.curse_options + 1] = named_content(session.content.curses, name, "curse") end
+  for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = resolve_curse(name) end
+  for _, name in ipairs(progression.curse_options or {}) do state.curse_options[#state.curse_options + 1] = resolve_curse(name) end
   if data.route then
     local graph, route_failure = RouteGraph.from_data(data.route, session.route_definitions)
     assert(graph, route_failure and route_failure.reason or "Active run route is invalid")
@@ -1011,6 +1058,7 @@ function Session.from_data(data, options)
   end
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
+  session:refresh_derived_player_stats()
   session:refresh_visibility()
   session:validate_world()
   session:validate_physical_ownership()
@@ -1050,6 +1098,16 @@ function Session:validate_physical_ownership()
   for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do
     if entry.item.item_type == "component" then
       record(entry.item.object, "inventory")
+    end
+  end
+  for _, object in ipairs(self.state.world and self.state.world:list_objects(true) or {}) do
+    local stock = object.service_stock
+    if object.interaction_role == "service" and stock and stock.kind == "salvager" then
+      for _, offer in ipairs(stock.offers or {}) do
+        if not offer.sold and offer.component then
+          record({ id = offer.component.id }, "service stock '" .. object.id .. "'")
+        end
+      end
     end
   end
   if self.state.player and self.state.player.body then
@@ -1438,7 +1496,7 @@ function Session:_apply(settings, modifiers)
   settings.vision = math.max(1, settings.vision)
   settings.enemies = math.max(0, settings.enemies)
   settings.torches = math.max(0, settings.torches)
-  settings.score = math.max(1, settings.score)
+  settings.objective_required = math.max(1, settings.objective_required)
   settings.dash_cooldown = math.max(1, settings.dash_cooldown)
 end
 
@@ -1467,33 +1525,13 @@ function Session:_settings_for_floor(biome, tier)
   settings.torch_radius, settings.dash_cooldown = 4, 3
   settings.bomb_radius, settings.bomb_fuse = 2, 3
   settings.bullet_range, settings.reload_penalty = nil, 0
-
-  if self.state.curse then
-    local modifiers = self.state.curse.modifiers
-    if modifiers.health then
-      settings.health = modifiers.health
-    end
-    if modifiers.bombs ~= nil then
-      settings.bombs = modifiers.bombs
-    end
-    if modifiers.flares ~= nil then
-      settings.flares = modifiers.flares
-    end
-    for _, name in ipairs({
-      "vision", "enemies", "ammo", "score", "torches", "torch_radius",
-      "dash_cooldown", "bomb_radius", "bomb_fuse", "reload_penalty",
-    }) do
-      if modifiers[name] ~= nil then
-        settings[name] = (settings[name] or 0) + modifiers[name]
-      end
-    end
-    if modifiers.bullet_range then
-      settings.bullet_range = modifiers.bullet_range
+  local modifiers = RunModifiers.values(self.state, self.registry)
+  for key, value in pairs(modifiers) do
+    if key == "objective_required" or key == "dash_cooldown" or key == "bomb_radius" or key == "flare_light" or key == "reload_bonus" then
+      settings[key] = (settings[key] or 0) + value
     end
   end
-
-  self:_apply(settings, self.state.class.modifiers)
-  self:_apply(settings, self.state.boon.modifiers)
+  settings.objective_required = math.max(1, settings.objective_required)
   return settings
 end
 
@@ -1553,7 +1591,7 @@ function Session:_enemy_type(index)
   return self.state.settings.cultists and "cultist" or "necromancer"
 end
 
-function Session:_make_enemy(kind, point)
+function Session:_make_enemy(kind, point, options)
   local enemy = entity(kind, point.x, point.y, {
     health = 1,
     attack = 0,
@@ -1564,6 +1602,7 @@ function Session:_make_enemy(kind, point)
     radius = 1,
     stun = 0,
     crawl_stride = 0,
+    scrap_award = options and options.scrap_award == true or false,
   })
   local enemy_id = ENEMY_CONTENT_IDS[kind]
   if enemy_id then
@@ -1584,11 +1623,11 @@ function Session:_spawn_entities(rng)
   end
   for _ = 1, state.settings.targets do
     local point = self:_open_location(self:_occupied(), nil, nil, rng)
-    state.targets[#state.targets + 1] = entity("target", point.x, point.y)
+    state.targets[#state.targets + 1] = entity("target", point.x, point.y, { scrap_award = true })
   end
   for index = 1, state.settings.enemies do
     local point = self:_open_location(self:_occupied(), nil, nil, rng)
-    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index), point)
+    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index), point, { scrap_award = true })
   end
   local point = self:_open_location(self:_occupied(), nil, nil, rng)
   state.ammo = entity("ammo", point.x, point.y)
@@ -1598,11 +1637,11 @@ function Session:_refill_entities()
   local state = self.state
   while #state.targets < state.settings.targets do
     local point = self:_open_location(self:_occupied())
-    state.targets[#state.targets + 1] = entity("target", point.x, point.y)
+    state.targets[#state.targets + 1] = entity("target", point.x, point.y, { scrap_award = false })
   end
   while #state.enemies < state.settings.enemies do
     local point = self:_open_location(self:_occupied())
-    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1), point)
+    state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1), point, { scrap_award = false })
   end
   if not state.ammo then
     local point = self:_open_location(self:_occupied())
@@ -1612,11 +1651,12 @@ end
 
 function Session:start_run(class, boon)
   local state = self.state
-  self.state.class = class
-  self.state.boon = boon
+  self.state.class, self.state.boon = nil, nil
+  self.state.legacy_class, self.state.legacy_boon = class, boon
   self.state.stage = 1
-  self.state.score = 0
-  self.state.curse = nil
+  self.state.score, self.state.scrap = 0, 0
+  self.state.curse, self.state.curse_id = nil, nil
+  self.state.charms = { slots = { nil, nil, nil } }
   self.state.curse_bag = {}
   self.state.curse_options = {}
   self.state.transition_next = nil
@@ -1642,6 +1682,14 @@ function Session:_create_run_player(settings)
     bombs = settings.bombs,
     flares = settings.flares,
     score = 0,
+    objective_progress = 0,
+    base_max_health = 5,
+    max_health = 5,
+    base_dash_cooldown = settings.dash_cooldown,
+    base_bomb_radius = settings.bomb_radius,
+    base_flare_light = 3,
+    flare_light = 3,
+    reload_bonus = 0,
     dash = 0,
     dash_base = settings.dash_cooldown,
     bomb_radius = settings.bomb_radius,
@@ -1657,25 +1705,7 @@ function Session:_create_run_player(settings)
 end
 
 function Session:_apply_explicit_curse_resource_effects(player)
-  local curse = self.state.curse
-  if not curse then
-    return
-  end
-  local modifiers = curse.modifiers
-  -- Floors no longer refill resources. These are deliberate effects of the
-  -- currently chosen curse, rather than an implicit legacy stage reset.
-  if modifiers.health then
-    player.health = math.min(player.health, clamp(modifiers.health, 1, 5))
-  end
-  if modifiers.ammo then
-    player.ammo = math.max(0, player.ammo + modifiers.ammo)
-  end
-  if modifiers.bombs ~= nil then
-    player.bombs = math.max(0, modifiers.bombs)
-  end
-  if modifiers.flares ~= nil then
-    player.flares = math.max(0, modifiers.flares)
-  end
+  self:refresh_derived_player_stats()
 end
 
 function Session:_prepare_run_player_for_stage(settings)
@@ -1684,13 +1714,14 @@ function Session:_prepare_run_player_for_stage(settings)
   if persistent then
     self:_apply_explicit_curse_resource_effects(player)
   end
-  player.x, player.y, player.direction, player.score = math.floor(Grid.width / 2), math.floor(Grid.height / 2), "w", 0
+  player.x, player.y, player.direction, player.score, player.objective_progress = math.floor(Grid.width / 2), math.floor(Grid.height / 2), "w", 0, 0
   player.dash = 0
-  player.dash_base = settings.dash_cooldown
-  player.bomb_radius = settings.bomb_radius
+  player.base_dash_cooldown = settings.dash_cooldown
+  player.base_bomb_radius = settings.bomb_radius
   player.bomb_fuse = settings.bomb_fuse
   player.bullet_range = settings.bullet_range
   player.reload_penalty = settings.reload_penalty
+  self:refresh_derived_player_stats()
   player.impact = 0
   self.state.player = player
   return player
@@ -1734,6 +1765,17 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
     floor_rng:derive(stream_prefix .. ".power_devices"))
   self:validate_world()
   self:_spawn_entities(floor_rng:derive(stream_prefix .. ".entities"))
+  if settings.service_id then
+    local service_rng = floor_rng:derive(stream_prefix .. ".services")
+    local point = self:_open_location(self:_occupied(), 3, true, service_rng)
+    local stock = Economy.create_stock(self, settings.service_id, service_rng, false)
+    local kiosk, placed = state.world:place_object("world_object.service.kiosk", point.x, point.y, {
+      service_id = settings.service_id,
+      service_stock = stock,
+      service_origin = settings.service_origin,
+    })
+    assert(kiosk, placed and placed.reason)
+  end
   self:_log("Descend into the " .. (settings.biome_display_name or settings.terrain) .. ".")
   self:refresh_visibility()
   self:validate_physical_ownership()
@@ -1756,7 +1798,9 @@ function Session:start_route_node(node_id)
   local tier = self.route_definitions:get_tier(node.tier_id)
   state.stage = tier.number -- compatibility depth for older HUD/tests only.
   state.route_node_id, state.floor_seed = node.id, node.floor_seed
-  self:_start_floor(self:_settings_for_floor(biome, tier), Rng.new(node.floor_seed), "route." .. node.id)
+  local settings = self:_settings_for_floor(biome, tier)
+  settings.service_id, settings.service_origin = node.service_id, node.id
+  self:_start_floor(settings, Rng.new(node.floor_seed), "route." .. node.id)
   return node
 end
 
@@ -1785,8 +1829,11 @@ function Session:choose_boons(count)
 end
 
 function Session:draw_curses()
+  local source = {}
+  for _, curse in pairs(self.registry.curses) do source[#source + 1] = curse end
+  table.sort(source, function(a, b) return a.id < b.id end)
   if #self.state.curse_bag < 3 then
-    self.state.curse_bag = self.rng:shuffle(self.content.curses)
+    self.state.curse_bag = self.rng:shuffle(source)
   end
   self.state.curse_options = {
     table.remove(self.state.curse_bag, 1),
@@ -1797,7 +1844,17 @@ function Session:draw_curses()
 end
 
 function Session:choose_curse(curse)
-  self.state.curse = curse
+  if curse and curse.id and self.registry.curses[curse.id] then
+    self.state.curse, self.state.curse_id = curse, curse.id
+  else
+    -- Compatibility direct callers may still pass a legacy display record.
+    local found
+    for _, value in pairs(self.registry.curses) do
+      if value.display_name == (curse and curse.name) then found = value break end
+    end
+    assert(found, "Unknown curse selection")
+    self.state.curse, self.state.curse_id = found, found.id
+  end
   local route = self.state.route
   if not route then
     self:start_stage()
@@ -1836,7 +1893,7 @@ end
 
 function Session:_reload(amount, cursed)
   local player = self.state.player
-  player.ammo = player.ammo + math.max(0, amount - (cursed and player.reload_penalty or 0))
+  player.ammo = player.ammo + math.max(0, amount - (cursed and player.reload_penalty or 0) + (player.reload_bonus or 0))
 end
 
 function Session:_hurt(message)
@@ -1852,8 +1909,10 @@ function Session:_hurt(message)
 end
 
 function Session:_destroy_target(index)
-  remove(self.state.targets, index)
-  self.state.player.score = self.state.player.score + 1
+  local target = remove(self.state.targets, index)
+  self.state.player.objective_progress = self.state.player.objective_progress + 1
+  self.state.player.score = self.state.player.objective_progress -- legacy data alias.
+  if target.scrap_award then self.state.scrap = self.state.scrap + 1 end
   self:_reload(1, true)
   self:_sound("hit")
   self:_log("Destroyed a target.")
@@ -1862,7 +1921,9 @@ end
 function Session:_destroy_enemy(index)
   local enemy = remove(self.state.enemies, index)
   self:_create_corpse(enemy)
-  self.state.player.score = self.state.player.score + 1
+  self.state.player.objective_progress = self.state.player.objective_progress + 1
+  self.state.player.score = self.state.player.objective_progress
+  if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
   self:_reload(2, true)
   self:_sound("hit")
   self:_log("Defeated an enemy.")
@@ -2617,6 +2678,9 @@ function Session:_interact_player()
     elseif result.action_id == "breaker.toggle" then
       local circuit = self.state.world:get_circuit(object.circuit_id)
       self:_log(circuit.enabled and "CIRCUIT ENABLED." or "CIRCUIT DISABLED.")
+    elseif result.action_id == "service.open" then
+      self.state.pending_service_object_id = result.service_object_id
+      self:_log("SERVICE ACCESSING AFTER THIS TURN.")
     end
     self:_sound("select")
   elseif result.code == "requires_power" then
@@ -2626,6 +2690,77 @@ function Session:_interact_player()
   else
     self:_log(result.reason or "INTERACTION FAILED.")
   end
+  return result
+end
+
+function Session:_service_stock(object_id)
+  local object = self.state.world and self.state.world:get_object(object_id)
+  if not object or object.destroyed or object.interaction_role ~= "service" then return nil, "invalid_service" end
+  return object.service_stock, object
+end
+
+function Session:open_service(object_id)
+  local stock, object = self:_service_stock(object_id)
+  if not stock then return { applied = false, code = object, reason = "Service kiosk is unavailable" } end
+  self.state.active_service_object_id = object_id
+  self.state.pending_service_object_id = nil
+  self.state.phase = "service"
+  return { applied = true, service_id = object.service_id, object_id = object_id, stock = stock }
+end
+
+function Session:close_service()
+  if self.state.phase ~= "service" then return { applied = false, code = "invalid_phase", reason = "No service is open" } end
+  self.state.phase, self.state.active_service_object_id = "combat", nil
+  return { applied = true }
+end
+
+function Session:service_options(object_id)
+  local stock, object = self:_service_stock(object_id or self.state.active_service_object_id)
+  if not stock then return {} end
+  local service = self.registry:get_service(object.service_id)
+  local options = {}
+  if service.role == "supply" then
+    for index, offer in ipairs(stock.offers) do options[#options + 1] = { action = "buy_supply", index = index, label = offer.label, price = offer.price, remaining = offer.remaining } end
+  elseif service.role == "repair" then
+    for _, component in ipairs(self.state.player.body:list_components()) do options[#options + 1] = { action = "repair", component_id = component.id, label = self.registry:get_component(component.definition_id).display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price } end
+    for _, entry in ipairs(self.state.run.inventory.entries) do
+      local component = entry.item.object
+      options[#options + 1] = { action = "repair", component_id = component.id, label = entry.item.display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price }
+    end
+  elseif service.role == "salvager" then
+    for index, offer in ipairs(stock.offers) do
+      local component = offer.component
+      options[#options + 1] = { action = "buy_component", index = index, component_id = component.id, label = self.registry:get_component(component.definition_id).display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = offer.price, sold = offer.sold }
+    end
+    for _, entry in ipairs(self.state.run.inventory.entries) do
+      options[#options + 1] = { action = "sell_component", component_id = entry.physical_id, label = "SELL " .. entry.item.display_name, price = nil }
+    end
+  elseif service.role == "charm_vendor" then
+    for index, offer in ipairs(stock.offers) do
+      local charm = self.registry:get_charm(offer.charm_id)
+      options[#options + 1] = { action = "buy_charm", index = index, charm_id = charm.id, label = charm.display_name, description = charm.description, price = charm.price, sold = offer.sold }
+    end
+    for slot, charm_id in ipairs(self.state.charms.slots) do
+      if charm_id then options[#options + 1] = { action = "remove_charm", slot = slot, charm_id = charm_id, label = "REMOVE " .. self.registry:get_charm(charm_id).display_name } end
+    end
+  end
+  return options
+end
+
+function Session:service_execute(option, object_id)
+  if self.state.phase ~= "service" then return { applied = false, code = "invalid_phase", reason = "Service is not open" } end
+  local stock, object = self:_service_stock(object_id or self.state.active_service_object_id)
+  if not stock then return { applied = false, code = object, reason = "Service kiosk is unavailable" } end
+  local service = self.registry:get_service(object.service_id)
+  local result
+  if option.action == "buy_supply" and service.role == "supply" then result = Economy.supply(self, stock, option.index)
+  elseif option.action == "repair" and service.role == "repair" then result = Economy.repair(self, stock, option.component_id)
+  elseif option.action == "buy_component" and service.role == "salvager" then result = Economy.buy_component(self, stock, option.index)
+  elseif option.action == "sell_component" and service.role == "salvager" then result = Economy.sell_component(self, option.component_id)
+  elseif option.action == "buy_charm" and service.role == "charm_vendor" then result = Economy.buy_charm(self, stock, option.index)
+  elseif option.action == "remove_charm" and service.role == "charm_vendor" then result = Economy.remove_charm(self, option.slot)
+  else return { applied = false, code = "invalid_action", reason = "Service action is unavailable" } end
+  if result.applied then self:_sound("pickup"); self:validate_physical_ownership() else self:_log(result.reason) end
   return result
 end
 
@@ -2693,7 +2828,7 @@ end
 
 function Session:_complete_stage()
   local state = self.state
-  state.score = state.score + state.player.score
+  state.scrap = state.scrap + 3 -- finite floor-completion award.
   if state.route then
     local completed = state.route:complete_current()
     assert(completed.applied, completed.reason)
@@ -2753,12 +2888,13 @@ function Session:start_boss()
     state.route_node_id, state.floor_seed = selected.node.id, nil
   end
   state.transition_next = nil
-  player.x, player.y, player.direction, player.score = 20, 9, "w", 0
+  player.x, player.y, player.direction, player.score, player.objective_progress = 20, 9, "w", 0, 0
   player.bombs, player.flares = math.max(1, player.bombs), math.max(1, player.flares)
   player.dash = 0
-  player.dash_base = math.max(1, 3 + (state.class.modifiers.dash_cooldown or 0) + (state.boon.modifiers.dash_cooldown or 0))
-  player.bomb_radius, player.bomb_fuse, player.bullet_range, player.reload_penalty = 2, 3, nil, 0
-  state.settings = { terrain = "arena", vision = 99, score = 10 }
+  player.base_dash_cooldown, player.base_bomb_radius, player.base_flare_light = 3, 2, 3
+  self:refresh_derived_player_stats()
+  player.bomb_fuse, player.bullet_range, player.reload_penalty = 3, nil, 0
+  state.settings = { terrain = "arena", vision = 99, objective_required = 10 }
   state.world = World.new(self.registry, "arena", Generator.generate("arena", player, self.rng, true), state)
   self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
@@ -2776,9 +2912,9 @@ end
 
 function Session:buy(item)
   local player = self.state.player
-  if self.state.score > 0 and player[item.key] < 5 then
+  if self.state.scrap > 0 and player[item.key] < 5 then
     player[item.key] = player[item.key] + 1
-    self.state.score = self.state.score - 1
+    self.state.scrap = self.state.scrap - 1
     self:_sound("pickup")
     return true
   end
@@ -2790,7 +2926,7 @@ function Session:sell(item)
   local player = self.state.player
   if player[item.key] > item.minimum then
     player[item.key] = player[item.key] - 1
-    self.state.score = self.state.score + 1
+    self.state.scrap = self.state.scrap + 1
     self:_sound("select")
     return true
   end
@@ -2808,7 +2944,7 @@ function Session:turn(input)
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
 
-  if state.phase == "reconstruction" or state.phase == "transition" or state.phase == "route" then
+  if state.phase == "reconstruction" or state.phase == "transition" or state.phase == "route" or state.phase == "service" then
     return "reconstruction"
   end
 
@@ -2859,7 +2995,7 @@ function Session:turn(input)
         self:_enemy_turn()
       end
     end
-  elseif state.player.score >= state.settings.score then
+  elseif state.player.objective_progress >= state.settings.objective_required then
     self:_begin_exit()
   else
     self:_enemy_turn()
@@ -2872,6 +3008,14 @@ function Session:turn(input)
   self:_update_fire()
   if not state.ended then
     self:_update_gas()
+  end
+  if state.pending_service_object_id and not state.ended then
+    local opened = self:open_service(state.pending_service_object_id)
+    if opened.applied then
+      self:refresh_visibility()
+      return "service"
+    end
+    state.pending_service_object_id = nil
   end
   self:refresh_visibility()
   return result or state.ended

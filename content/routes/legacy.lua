@@ -9,21 +9,21 @@ return {
       {
         type = "floor",
         nodes = {
-          { key = "opening_forest", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1" },
+          { key = "opening_forest", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1", service_id = "service.supply.legacy" },
         },
       },
       {
         type = "floor",
         nodes = {
-          { key = "forest_tier_2", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.2" },
-          { key = "cave_tier_2", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2" },
+          { key = "forest_tier_2", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.2", service_id = "service.repair.legacy" },
+          { key = "cave_tier_2", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2", service_id = "service.salvager.legacy" },
         },
       },
       {
         type = "floor",
         nodes = {
-          { key = "cave_tier_3", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3" },
-          { key = "dungeon_tier_3", biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3" },
+          { key = "cave_tier_3", biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3", service_id = "service.charm_vendor.legacy" },
+          { key = "dungeon_tier_3", biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", service_id = "service.supply.legacy" },
         },
       },
       { type = "shop", nodes = { { key = "legacy_shop" } } },
