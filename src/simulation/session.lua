@@ -544,7 +544,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     self:_log("A bomber exploded nearby!")
   end
   self:validate_physical_ownership()
-  return {
+  local data = {
     applied = true,
     ability_id = SELF_DESTRUCT_ABILITY,
     implementation = "self_destruct",
@@ -553,6 +553,10 @@ function Session:_execute_self_destruct(actor, provider, wear)
     wear = wear,
     radius = radius,
   }
+  for _, event in ipairs(self.state.meta_reward_events or {}) do
+    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+  end
+  return data
 end
 
 function Session:_actor_side(actor)
