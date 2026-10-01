@@ -32,7 +32,7 @@ return {
     -- Every layer links normally; this optional edge supplies one permanent
     -- traversal opportunity without blocking the canonical completion path.
     edges = {
-      { from = "cave_tier_2", to = "dungeon_tier_3", requires_unlock = "unlock.traversal.reinforced_breach" },
+      { from = "forest_tier_2", to = "dungeon_tier_3", requires_unlock = "unlock.traversal.reinforced_breach" },
     },
   },
 }

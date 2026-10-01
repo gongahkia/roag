@@ -32,7 +32,8 @@ function App.new(options)
   self.save_store = options.save_store or SaveStore.runtime()
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
-  self.meta_error = self.meta_profile and nil or self.meta_status
+  self.meta_error = nil
+  if not self.meta_profile then self.meta_error = self.meta_status end
   if not self.meta_profile then self.meta_profile = MetaProfile.new() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
