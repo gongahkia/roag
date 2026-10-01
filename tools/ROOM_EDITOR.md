@@ -3,8 +3,12 @@
 Launch the isolated authoring tool from a source checkout:
 
 ```bash
-love . --room-editor
+love level_editor --room-editor
 ```
+
+The legacy `love . --room-editor` route remains available. See
+[`level_editor/README.md`](../level_editor/README.md) for the consolidated
+level-tool documentation.
 
 The editor never opens an active run or writes `active_run.json`. It edits one
 `content/rooms/dungeon/*.room.json` template at a time and refuses to save a

@@ -12,10 +12,10 @@ end
 function love.load(...)
   local arguments = ({ ... })[1]
   if requested(arguments, "--generation-inspector") then
-    inspector = require("src.tools.generation_inspector").new()
+    inspector = require("level_editor.generation_inspector").new()
     inspector:fit(love.graphics.getDimensions())
   elseif requested(arguments, "--room-editor") then
-    room_editor = require("src.tools.room_editor").new()
+    room_editor = require("level_editor.room_editor").new()
   else
     app = require("src.app.app").new()
     app:load(...)

@@ -6,13 +6,27 @@ local Config = require("src.rooms.config")
 local Store = {}
 Store.__index = Store
 
+-- `love level_editor` mounts level_editor/ as the source root, while the
+-- authored corpus remains one directory above it. Resolve that source-checkout
+-- location here so both standalone developer tools use the same content as
+-- normal gameplay. Headless tests and packaged builds retain the relative
+-- runtime path.
+local function default_directory()
+  if love and love.filesystem and love.filesystem.getSource then
+    local source = love.filesystem.getSource()
+    local root = type(source) == "string" and source:match("^(.*)/level_editor$")
+    if root then return root .. "/" .. Config.DIRECTORY end
+  end
+  return Config.DIRECTORY
+end
+
 local function safe_filename(filename)
   return type(filename) == "string" and filename:match("^[a-z0-9_%-]+%.room%.json$") ~= nil
 end
 
 function Store.new(options)
   options = options or {}
-  return setmetatable({ directory = options.directory or Config.DIRECTORY, files = options.files, writable = options.writable }, Store)
+  return setmetatable({ directory = options.directory or default_directory(), files = options.files, writable = options.writable }, Store)
 end
 
 function Store:can_write()

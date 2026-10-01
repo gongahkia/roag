@@ -4,8 +4,12 @@ The inspector constructs an isolated initial floor from the normal authoritative
 stage pipeline. It never loads, overwrites, or autosaves `active_run.json`.
 
 ```sh
-love . --generation-inspector
+love level_editor
 ```
+
+The legacy `love . --generation-inspector` route remains available. See
+[`level_editor/README.md`](../level_editor/README.md) for the consolidated
+level-tool documentation and room-editor launch instructions.
 
 Controls:
 
