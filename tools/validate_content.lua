@@ -1,6 +1,7 @@
 package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local Registry = require("src.content.registry")
+local Landmarks = require("src.generation.landmarks")
 local RoomRegistry = require("src.rooms.registry")
 local Corpora = require("src.rooms.corpora")
 local RouteDefinitions = require("src.routes.definitions")
@@ -17,6 +18,11 @@ if not ok then
 end
 
 local registry = registry_or_error
+local landmarks_ok, landmarks_error = pcall(function() return Landmarks.validate(registry) end)
+if not landmarks_ok then
+  io.stderr:write(tostring(landmarks_error), "\n")
+  os.exit(1)
+end
 local balance_ok, balance_error = pcall(function()
   return BalanceReport.validate_config(require("content.balance.legacy"))
 end)

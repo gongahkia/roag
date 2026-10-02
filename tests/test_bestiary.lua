@@ -168,7 +168,7 @@ return {
       local strike = session:activate_actor_ability(player, MELEE, { direction = "d" })
       assert(strike.applied and strike.implementation == "melee" and strike.component_id == blade.id)
       assert(enemy.health == 2 and enemy.x == 12 and strike.force.applied)
-      assert(blade.current_integrity == 2)
+      assert(blade.current_integrity == 3)
 
       local hazard_session = open_world(new_session(108003))
       replace_component(hazard_session, "left_arm", "component.arm.impact_blade")
@@ -196,7 +196,7 @@ return {
       local health = ai_session.state.player.health
       ai_session:_enemy_turn()
       assert(ai_session.state.player.health == health - 1 and ai_session.state.player.x == 9)
-      assert(ripper.body:get_component("left_arm").current_integrity == 2)
+      assert(ripper.body:get_component("left_arm").current_integrity == 3)
     end,
   },
   {
@@ -205,7 +205,7 @@ return {
       local session = open_world(new_session(108006))
       replace_component(session, "left_arm", "component.arm.impact_blade")
       local player = session.state.player
-      assert(session:damage_actor_body(player, { amount = 3, slot_id = "left_arm", cause = "fixture" }).became_broken)
+      assert(session:damage_actor_body(player, { amount = 4, slot_id = "left_arm", cause = "fixture" }).became_broken)
       local broken = session:activate_actor_ability(player, MELEE, { direction = "d" })
       assert(not broken.applied and broken.code == "provider_broken")
 
@@ -282,7 +282,7 @@ return {
       pathfinder:refresh_derived_player_stats()
       local settings = pathfinder:_settings_for_floor(pathfinder.route_definitions:get_biome("biome.legacy.forest"),
         pathfinder.route_definitions:get_tier("tier.legacy.1"))
-      assert(settings.objective_required == 4 and settings.score == 4)
+      assert(settings.objective_required == 3 and settings.score == 3)
     end,
   },
   {

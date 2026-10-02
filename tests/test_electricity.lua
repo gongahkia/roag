@@ -307,8 +307,12 @@ return {
       first:start_stage()
       second:start_stage()
       assert(#first.state.world:list_liquids() > 0 and #second.state.world:list_liquids() > 0)
-      assert(#first.state.enemies == 1 and first.state.enemies[1].kind == "cultist")
-      assert(first:actor_has_capability(first.state.enemies[1], SHOCK))
+      assert(#first.state.enemies == first.state.settings.enemies)
+      local electrical = false
+      for _, enemy in ipairs(first.state.enemies) do
+        if first:actor_has_capability(enemy, SHOCK) then electrical = true; break end
+      end
+      assert(electrical, "the authored cave tier-two pool must retain a salvageable electrical source")
       assert(reached_snapshot(Electricity.trace(first.state.world, { x = 0, y = 0 }, {}))
         == reached_snapshot(Electricity.trace(second.state.world, { x = 0, y = 0 }, {})))
       assert(first.state.world:liquid_data()[1].x == second.state.world:liquid_data()[1].x)

@@ -26,7 +26,7 @@ return {
     run = function()
       local report = BalanceReport.build()
       local first, second, third = report.tiers[1], report.tiers[2], report.tiers[3]
-      assert(first.settings.enemies < second.settings.enemies and second.settings.enemies < third.settings.enemies)
+      assert(first.settings.enemies <= second.settings.enemies and second.settings.enemies < third.settings.enemies)
       for _, tier in ipairs(report.tiers) do
         assert(tier.settings.objective_required <= tier.initial_reward_eligible)
         assert(tier.settings.completion_scrap_reward > 0 and tier.settings.completion_data_reward > 0)

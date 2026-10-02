@@ -34,6 +34,7 @@ local FireGeneration = require("src.generation.fires")
 local PoweredDevices = require("src.generation.powered_devices")
 local DiscoveryGeneration = require("src.generation.discoveries")
 local ReinforcementGeneration = require("src.generation.reinforcements")
+local LandmarkGeneration = require("src.generation.landmarks")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -2515,6 +2516,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   local layout, generation_metadata = Generator.generate(settings.terrain, state.player, floor_rng, nil, {
     registry = self.registry,
     room_rng = (settings.terrain == "dungeon" or settings.terrain == "reactor") and floor_rng:derive(stream_prefix .. ".rooms") or nil,
+    landmark_layout_rng = floor_rng:derive(stream_prefix .. ".landmarks.layout"),
   })
   state.generation_metadata = generation_metadata
   if generation_metadata and generation_metadata.player_spawn then
@@ -2522,6 +2524,12 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   end
   state.world = World.new(self.registry, settings.terrain, layout, state,
     generation_metadata and generation_metadata.material_layout)
+  -- Terrain landmarks are deliberately earlier than ordinary cover/media so
+  -- all later systems see their real physical geometry without sharing RNG.
+  local landmarks = LandmarkGeneration.place(state.world, settings.terrain, state.player,
+    floor_rng:derive(stream_prefix .. ".landmarks.objects"), generation_metadata and generation_metadata.landmark_layout)
+  state.generation_metadata = state.generation_metadata or {}
+  state.generation_metadata.landmarks = landmarks
   -- Cover uses a named deterministic stream so introducing environmental
   -- placement cannot perturb legacy actor/content RNG decisions.
   EnvironmentObjects.place(state.world, settings.terrain, state.player,

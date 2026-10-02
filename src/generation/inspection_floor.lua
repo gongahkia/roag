@@ -107,6 +107,8 @@ local function provenance_for(session)
   local streams = {
     "terrain.root_rng",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".rooms",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".landmarks.layout",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".landmarks.objects",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".world_objects",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".hazards",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".liquids",

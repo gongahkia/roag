@@ -25,6 +25,19 @@ return {
     conductive = false,
   },
   {
+    -- Used for naturally worn clearings and the interior of a Forest stone
+    -- hollow.  It is deliberately a real material rather than a renderer
+    -- decal so inspection and saved terrain state tell the same story.
+    id = "material.terrain.forest_soil",
+    display_name = "Forest Soil",
+    solid = false,
+    blocks_movement = false,
+    blocks_vision = false,
+    destructible = false,
+    flammable = false,
+    conductive = false,
+  },
+  {
     id = "material.terrain.brush",
     display_name = "Dense Brush",
     solid = true,
@@ -47,6 +60,31 @@ return {
     max_integrity = 4,
     destruction_material_id = "material.terrain.air",
     flammable = false,
+    conductive = false,
+  },
+  {
+    id = "material.terrain.granite",
+    display_name = "Granite",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 6,
+    destruction_material_id = "material.terrain.air",
+    flammable = false,
+    conductive = false,
+  },
+  {
+    id = "material.terrain.heartwood",
+    display_name = "Old-Growth Heartwood",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 6,
+    destruction_material_id = "material.terrain.air",
+    flammable = true,
+    burn_rate = 1,
     conductive = false,
   },
   {
