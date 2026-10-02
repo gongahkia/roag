@@ -1,6 +1,8 @@
 local ActiveRun = require("src.persistence.active_run")
+local FallenArchive = require("src.persistence.fallen_archive")
 local Content = require("src.content.legacy")
 local Component = require("src.body.component")
+local Recurrence = require("src.simulation.fallen_recurrence")
 local Session = require("src.simulation.session")
 
 local function new_run(seed)
@@ -311,9 +313,40 @@ return {
       assert(session:install_inventory_component(maul.id, "left_arm").applied)
       assert(session.state.player.body:get_component("left_arm").id == maul.id)
       assert(session:actor_has_capability(session.state.player, "ability.weapon.melee.impact_maul"))
+      -- The salvaged instance drives the ordinary shared player activation,
+      -- rather than a boss-only reward implementation.
+      session.state.phase = "combat"
+      session.state.player.x, session.state.player.y = 8, 9
+      session.state.enemies = { session:_make_enemy("enemy.wild.ripper", { x = 9, y = 9 }) }
+      session.state.enemies[1].health = 5
+      local swing = session:activate_actor_ability(session.state.player, "ability.weapon.melee.impact_maul", { direction = "d" })
+      assert(swing.applied and swing.component_id == maul.id and swing.force.applied)
+      session.state.phase = "reconstruction"
       assert(session:complete_reconstruction().next == "shop")
       local count = #session.state.meta_reward_events
       assert(session:_defeat_boss(boss) == false and #session.state.meta_reward_events == count)
+    end,
+  },
+  {
+    name = "industrial second milestone barrage emitter transfers through corpse and reconstruction into player fire",
+    run = function()
+      local session = new_run(970141)
+      local boss = enter_second_milestone(session, "biome.legacy.cave", "biome.legacy.dungeon")
+      local emitter = boss.body:get_component("right_arm")
+      boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      local corpse = session.state.corpses[#session.state.corpses]
+      session.state.player.x, session.state.player.y = corpse.x - 1, corpse.y
+      assert(session:salvage_corpse_component(corpse.id, "right_arm").component_id == emitter.id)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("") == "reconstruction")
+      assert(session:uninstall_body_component("right_arm").applied)
+      assert(session:install_inventory_component(emitter.id, "right_arm").applied)
+      assert(session.state.player.body:get_component("right_arm").id == emitter.id)
+      session.state.phase = "combat"
+      session.state.player.x, session.state.player.y = 8, 4
+      local fired = session:activate_actor_ability(session.state.player, "ability.weapon.projectile.barrage", { direction = "d" })
+      assert(fired.applied and fired.component_id == emitter.id and #session.state.bullets == 1)
     end,
   },
   {
@@ -339,6 +372,46 @@ return {
       assert(resumed.state.phase == "boss_exit" and resumed.state.boss == nil)
       assert(resumed.state.corpses[#resumed.state.corpses].body:get_component("right_arm") == nil)
       assert(resumed.state.inventory:get(component_id).item.object.id == component_id)
+    end,
+  },
+  {
+    name = "second milestone boss part survives player death archive and future recurrence lineage",
+    run = function()
+      local source = Session.new({ seed = 97016, run_id = "run:009716" })
+      source:start_run(Content.classes[1], Content.boons[1])
+      local boss = enter_second_milestone(source, "biome.legacy.forest", "biome.legacy.cave")
+      local maul = boss.body:get_component("left_arm")
+      boss.health = 1
+      assert(source:_damage_boss(1).dead)
+      local corpse = source.state.corpses[#source.state.corpses]
+      source.state.player.x, source.state.player.y = corpse.x - 1, corpse.y
+      assert(source:salvage_corpse_component(corpse.id, "left_arm").component_id == maul.id)
+      source.state.player.x, source.state.player.y = source.state.exit.x, source.state.exit.y
+      assert(source:turn("") == "reconstruction")
+      assert(source:uninstall_body_component("left_arm").applied)
+      assert(source:install_inventory_component(maul.id, "left_arm").applied)
+      source:_mark_player_dead({ cause = "boss_lineage" })
+      local archive = FallenArchive.new()
+      assert(FallenArchive.append(archive, source.state.death_pending_archive).applied)
+      local record = archive.characters[1]
+      local archived
+      for _, slot in ipairs(record.body.slots) do
+        if slot.slot_id == "left_arm" then archived = slot.component end
+      end
+      assert(archived.id == maul.id and archived.definition_id == "component.arm.impact_maul")
+
+      local spec = assert(Recurrence.assign("run:009717", 97017, archive.characters))
+      spec.mode, spec.target_depth = "corpse", 2
+      local future = Session.new({ seed = 97017, registry = source.registry, run_id = "run:009717", fallen_recurrence = spec })
+      future:start_run()
+      assert(future:_complete_stage() == "reconstruction")
+      assert(future:complete_reconstruction().next == "curse")
+      assert(future:choose_curse(future.state.curse_options[1]).next == "route")
+      assert(future:select_route_node(future:available_route_nodes()[1].id).applied)
+      local echo_corpse = assert(future.state.corpses[1])
+      local materialized = echo_corpse.body:get_component("left_arm")
+      assert(materialized.definition_id == "component.arm.impact_maul" and materialized.id ~= maul.id)
+      assert(materialized.origin.archive_id == record.id and materialized.origin.source_component_id == maul.id)
     end,
   },
 }

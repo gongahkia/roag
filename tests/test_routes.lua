@@ -148,7 +148,9 @@ return {
       assert(session.state.boss.boss_id == "boss.industrial.barrage_custodian")
       session.state.boss.health = 1
       assert(session:_damage_boss(1).dead)
-      assert(session.state.phase == "boss_exit" and #session.state.corpses == 2)
+      -- Corpses are current-floor physical state: the first milestone corpse
+      -- was deliberately retired when the chosen tier-three floor began.
+      assert(session.state.phase == "boss_exit" and #session.state.corpses == 1)
       session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
       assert(session:turn("") == "reconstruction")
       assert(session:complete_reconstruction().next == "shop")
@@ -212,6 +214,13 @@ return {
       for _, path in ipairs(restored:path_compositions()) do
         assert(path.normal_floors == 3 and path.milestone_bosses == 1 and path.final_bosses == 1)
       end
+      -- Active saves own their graph. Loading an 8G-era graph must retain its
+      -- one-milestone structure rather than injecting 8H route nodes.
+      local session = new_run(880063)
+      session.state.route = restored
+      session.state.route_node_id = restored.current_node_id
+      local loaded = Session.from_data(session:to_data())
+      assert(encode(loaded.state.route:to_data()) == encode(restored:to_data()))
     end,
   },
   {

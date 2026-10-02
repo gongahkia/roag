@@ -122,7 +122,9 @@ return {
       local session, registry = new_session(108001), nil
       registry = session.registry
       local component_ids, enemy_ids, charm_ids = sorted_ids(registry.components), sorted_ids(registry.enemies), sorted_ids(registry.charms)
-      assert(#component_ids == 21 and #enemy_ids == 14 and #charm_ids == 9)
+      -- 8H adds two boss-grade but still ordinary physical components; it
+      -- intentionally does not mutate the authored ordinary-enemy roster.
+      assert(#component_ids == 23 and #enemy_ids == 14 and #charm_ids == 9)
       local ordinary, elite, referenced = 0, 0, {}
       for _, enemy_id in ipairs(enemy_ids) do
         local definition = registry:get_enemy(enemy_id)
