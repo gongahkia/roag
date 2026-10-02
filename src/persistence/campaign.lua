@@ -19,8 +19,10 @@ local function assert_directory(store)
   assert(type(store) == "table" and type(store.file) == "function", "Campaign persistence requires a named-file store")
 end
 
-function CampaignPersistence.zone_filename(key)
-  return "zones/" .. ZoneKey.filename(key)
+function CampaignPersistence.zone_filename(key, revision)
+  assert(type(revision) == "number" and revision >= 1 and revision % 1 == 0, "Zone shard revision is invalid")
+  local base = ZoneKey.filename(key):gsub("%.json$", "")
+  return string.format("zones/%s.%06d.json", base, revision)
 end
 
 function CampaignPersistence.encode_manifest(campaign)
@@ -69,18 +71,25 @@ end
 
 function CampaignPersistence.save(campaign, directory)
   assert_directory(directory)
+  local record = campaign.active_zone
+  local previous_revision = record.shard_revision or 0
+  local revision = previous_revision + 1
   local zone_text, zone_error = CampaignPersistence.encode_zone(campaign)
   if not zone_text then return nil, zone_error end
-  local zone_store = directory:file(CampaignPersistence.zone_filename(campaign.state.current_zone))
+  local zone_store = directory:file(CampaignPersistence.zone_filename(campaign.state.current_zone, revision))
   -- Zone first: the previous manifest remains the committed head whenever a
   -- new zone write fails. A manifest failure may leave an orphan newer shard,
   -- which is harmless because load follows only the old manifest reference.
   local zone_written, zone_write_error = zone_store:write(zone_text)
   if not zone_written then return failure("zone_write_failed", (zone_write_error and zone_write_error.reason) or "Could not write zone shard") end
+  record.shard_revision = revision
   local manifest_text, manifest_error = CampaignPersistence.encode_manifest(campaign)
-  if not manifest_text then return nil, manifest_error end
+  if not manifest_text then record.shard_revision = previous_revision; return nil, manifest_error end
   local manifest_written, manifest_write_error = directory:file(CampaignPersistence.MANIFEST_FILE):write(manifest_text)
-  if not manifest_written then return failure("manifest_write_failed", (manifest_write_error and manifest_write_error.reason) or "Could not write campaign manifest") end
+  if not manifest_written then
+    record.shard_revision = previous_revision
+    return failure("manifest_write_failed", (manifest_write_error and manifest_write_error.reason) or "Could not write campaign manifest")
+  end
   return true
 end
 
@@ -92,7 +101,12 @@ function CampaignPersistence.load(directory, options)
   if not manifest then return nil, decoded_manifest_error end
   local ok_key, key_or_error = pcall(ZoneKey.from_data, manifest.current_zone)
   if not ok_key then return failure("invalid_state", tostring(key_or_error)) end
-  local zone_text, zone_error = directory:file(CampaignPersistence.zone_filename(key_or_error)):read()
+  local current_record
+  for _, record in ipairs(manifest.zones or {}) do
+    if ZoneKey.equal(ZoneKey.from_data(record.key), key_or_error) then current_record = record break end
+  end
+  if not current_record then return failure("invalid_state", "Campaign manifest does not index its current zone") end
+  local zone_text, zone_error = directory:file(CampaignPersistence.zone_filename(key_or_error, current_record.shard_revision or 0)):read()
   if not zone_text then return nil, zone_error end
   local shard, decoded_zone_error = CampaignPersistence.decode_zone(zone_text)
   if not shard then return nil, decoded_zone_error end
