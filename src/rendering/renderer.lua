@@ -204,6 +204,8 @@ function Renderer:_draw_game(app)
         local definition = session.registry:get_liquid(liquid.liquid_id)
         local depth = liquid.amount / definition.max_depth
         local shimmer = 0.03 + math.sin(time * 3 + liquid.x * 2 + liquid.y * 5) * 0.02
+        self.assets:draw_sprite(depth >= 0.66 and "water_deep" or "water_shallow", pixel_x, pixel_y, size,
+          { 0.32, 0.78, 1, 0.42 + depth * 0.28 })
         self:_color({ 0.08, 0.36 + depth * 0.14, 0.72 + shimmer, 0.38 + depth * 0.3 })
         love.graphics.rectangle("fill", pixel_x + size * 0.06, pixel_y + size * (0.62 - depth * 0.16), size * 0.88, size * (0.3 + depth * 0.16))
         self:_color({ 0.42, 0.78, 1, 0.45 + depth * 0.2 })
@@ -222,6 +224,9 @@ function Renderer:_draw_game(app)
         local definition = session.registry:get_gas(gas.gas_id)
         local density = gas.concentration / definition.max_concentration
         local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * size * 0.06
+        self.assets:draw_sprite("gas", pixel_x, pixel_y, size, { 0.56, 1, 0.4, 0.16 + density * 0.38 }, {
+          offset_x = drift, offset_y = -drift * 0.35, scale_x = 0.92 + density * 0.12, scale_y = 0.92 + density * 0.12,
+        })
         self:_color({ 0.36, 0.86, 0.3, 0.12 + density * 0.32 })
         love.graphics.circle("fill", pixel_x + size * 0.36 + drift, pixel_y + size * 0.55, math.max(1, size * (0.16 + density * 0.22)))
         self:_color({ 0.56, 1, 0.4, 0.08 + density * 0.24 })
@@ -236,6 +241,7 @@ function Renderer:_draw_game(app)
     if state.visible[Grid.key(hazard.x, hazard.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, hazard.x, hazard.y, size, offset_x, offset_y)
       if pixel_x then
+        self.assets:draw_sprite("spikes", pixel_x, pixel_y, size, { 1, 0.35, 0.25, 0.92 })
         self:_color({ 0.9, 0.22, 0.18, 0.92 })
         love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.78, pixel_x + size * 0.48, pixel_y + size * 0.22)
         love.graphics.line(pixel_x + size * 0.48, pixel_y + size * 0.78, pixel_x + size * 0.72, pixel_y + size * 0.22)
@@ -252,6 +258,9 @@ function Renderer:_draw_game(app)
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, fire_x, fire_y, size, offset_x, offset_y)
       if pixel_x then
         local flicker = 0.06 + math.sin(time * 11 + fire_x * 3 + fire_y * 5) * 0.035
+        self.assets:draw_sprite("fire", pixel_x, pixel_y, size, { 1, 0.42 + flicker, 0.12, 0.94 }, {
+          offset_y = -size * flicker, scale_x = 0.94, scale_y = 1.02 + flicker,
+        })
         self:_color({ 1, 0.28 + flicker, 0.05, 0.92 })
         love.graphics.polygon("fill",
           pixel_x + size * 0.28, pixel_y + size * 0.78,
@@ -358,6 +367,7 @@ function Renderer:_draw_game(app)
     local effect_x, effect_y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
     if effect_x then
       local pulse = 0.48 + math.sin(time * 21 + cell.x * 5 + cell.y * 7) * 0.18
+      self.assets:draw_sprite("electric_arc", effect_x, effect_y, size, { 0.35, 0.85, 1, pulse })
       self:_color({ 0.35, 0.85, 1, pulse })
       love.graphics.line(effect_x + size * 0.16, effect_y + size * 0.52, effect_x + size * 0.42, effect_y + size * 0.28)
       love.graphics.line(effect_x + size * 0.42, effect_y + size * 0.28, effect_x + size * 0.58, effect_y + size * 0.69)

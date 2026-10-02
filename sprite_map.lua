@@ -13,6 +13,15 @@ return {
   bullet = {34, 3},
   bomb = {38, 6},
   flare = {23, 6},
+  -- Simulation-owned terrain and effect layers are presentation roles too.
+  -- They intentionally remain editable in the standalone Sprite Editor.
+  ground = {1, 22},
+  water_shallow = {10, 6},
+  water_deep = {11, 6},
+  spikes = {15, 11},
+  fire = {15, 11},
+  gas = {1, 22},
+  electric_arc = {28, 21},
   necromancer = {27, 10},
   wolf = {31, 9},
   bomber = {20, 9},

@@ -69,7 +69,7 @@ return {
         for terrain_kind, tile in pairs(pack.terrain or {}) do
           if tile.role then
             assert(pack.id == ArtPacks.DEFAULT_ID, "only the original pack may reference an editable terrain role")
-            assert(tile.role:match("^wall_"), "unexpected editable terrain role " .. tile.role)
+            assert(pack.sprites[tile.role], "unknown editable terrain role " .. tile.role)
           else
             local sheet = assert(pack.sheets[tile.sheet or "main"], "unknown terrain sheet for " .. terrain_kind)
             assert(tile[1] >= 1 and tile[1] <= sheet.columns and tile[2] >= 1 and tile[2] <= sheet.rows,
@@ -103,6 +103,7 @@ return {
       for _, role in ipairs(ArtPacks.roles()) do roles[role] = true end
       local runtime_roles = {
         "player", "target", "ammo", "torch", "door", "bullet", "bomb", "flare",
+        "ground", "water_shallow", "water_deep", "spikes", "fire", "gas", "electric_arc",
       }
       for _, enemy in ipairs(Enemies) do runtime_roles[#runtime_roles + 1] = enemy.kind end
       for _, boss in ipairs(Bosses) do runtime_roles[#runtime_roles + 1] = boss.presentation.sprite_kind end

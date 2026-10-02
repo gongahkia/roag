@@ -100,6 +100,7 @@ local CATALOG = {
     { main = { path = "assets/kenney/Tilesheet/colored-transparent_packed.png", tile_width = 16, tile_height = 16, columns = 49, rows = 22 } },
     base_sprites(), "Original ROAG mapping; editable with the standalone Sprite Editor.",
     {
+      floor = { role = "ground" },
       wall_left = { role = "wall_left" }, wall_right = { role = "wall_right" },
       wall_up = { role = "wall_up" }, wall_down = { role = "wall_down" },
       wall_top_left = { role = "wall_top_left" }, wall_top_right = { role = "wall_top_right" },
