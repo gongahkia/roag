@@ -70,12 +70,12 @@ return {
       local first, second = Graph.new(88002, content), Graph.new(88002, content)
       assert(encode(first:to_data()) == encode(second:to_data()))
       local report = RouteAnalysis.analyze(first, content)
-      assert(report.valid and report.metrics.node_count == 13 and report.metrics.edge_count == 19)
+      assert(report.valid and report.metrics.node_count == 17 and report.metrics.edge_count == 22)
       assert(report.metrics.branch_count >= 1 and report.metrics.convergence_count >= 1)
       assert(first:node(first.start_node_id).biome_id == "biome.legacy.forest")
       assert(first:node(first.start_node_id).tier_id == "tier.legacy.1")
       for _, path in ipairs(first:path_compositions()) do
-        assert(path.normal_floors == 3 and path.milestone_bosses == 2 and path.final_bosses == 1)
+        assert(path.normal_floors == 3 and path.milestone_bosses == 3 and path.final_bosses == 1)
       end
     end,
   },
@@ -123,7 +123,7 @@ return {
     end,
   },
   {
-    name = "tier-two and tier-three branches force their physical milestones before the final hub",
+    name = "tier-two and tier-three branches force milestones then an Apex before their terminal boss",
     run = function()
       local session = new_run(88006)
       finish_to_route(session)
@@ -156,7 +156,13 @@ return {
       assert(session:complete_reconstruction().next == "shop")
       assert(session.state.route:node(session.state.route.current_node_id).type == "shop")
       session:start_boss()
-      assert(session.state.phase == "boss" and session.state.route:node(session.state.route.current_node_id).type == "boss")
+      assert(session.state.phase == "boss" and session.state.boss.boss_id == "boss.apex.kinetic_harbinger")
+      session.state.boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("") == "reconstruction")
+      assert(session:complete_reconstruction().next == "boss")
+      assert(session.state.boss.boss_id == "boss.industrial.terminal_bastion")
     end,
   },
   {
@@ -180,13 +186,44 @@ return {
     end,
   },
   {
+    name = "explicit late route chains make Apex universal and terminal identity path-dependent",
+    run = function()
+      local graph = Graph.new(8800611, definitions())
+      local by_key = {}
+      for _, id in ipairs(graph.node_order) do by_key[graph:node(id).key] = graph:node(id) end
+      local function only(node)
+        local outgoing = graph:outgoing(node.id)
+        assert(#outgoing == 1)
+        return outgoing[1]
+      end
+      assert(only(by_key.wild_second_milestone_boss).key == "legacy_shop")
+      assert(only(by_key.industrial_second_milestone_boss).key == "industrial_final_hub")
+      assert(only(by_key.legacy_shop).key == "wild_apex_boss")
+      assert(only(by_key.industrial_final_hub).key == "industrial_apex_boss")
+      assert(only(by_key.wild_apex_boss).boss_id == "boss.legacy.final")
+      assert(only(by_key.industrial_apex_boss).boss_id == "boss.industrial.terminal_bastion")
+      for _, path in ipairs(graph:path_compositions()) do
+        assert(path.normal_floors == 3 and path.milestone_bosses == 3 and path.final_bosses == 1)
+        if path.boss_ids[#path.boss_ids] == "boss.legacy.final" then
+          assert(path.boss_ids[#path.boss_ids - 1] == "boss.apex.kinetic_harbinger")
+          assert(path.node_keys[#path.node_keys - 1] == "wild_apex_boss")
+        else
+          assert(path.boss_ids[#path.boss_ids] == "boss.industrial.terminal_bastion")
+          assert(path.node_keys[#path.node_keys - 1] == "industrial_apex_boss")
+        end
+      end
+    end,
+  },
+  {
     name = "pre-8H route graphs remain authoritative with one milestone layer",
     run = function()
       local current = Graph.new(880062, definitions())
       local data = current:to_data()
       local remove = {}
       for _, node in ipairs(data.nodes) do
-        if node.key == "wild_second_milestone_boss" or node.key == "industrial_second_milestone_boss" then
+        if node.key == "wild_second_milestone_boss" or node.key == "industrial_second_milestone_boss"
+          or node.key == "wild_apex_boss" or node.key == "industrial_apex_boss"
+          or node.key == "industrial_final_boss" or node.key == "industrial_final_hub" then
           remove[node.id] = true
         end
       end
@@ -208,6 +245,7 @@ return {
           requires_unlock = key == "forest_tier_3_breach" and "unlock.traversal.reinforced_breach" or nil,
         }
       end
+      edges[#edges + 1] = { from = by_key.legacy_shop, to = by_key.legacy_final_boss }
       data.edges = edges
       local restored = Graph.from_data(data, definitions())
       assert(restored:validate(definitions()))
@@ -219,6 +257,39 @@ return {
       local session = new_run(880063)
       session.state.route = restored
       session.state.route_node_id = restored.current_node_id
+      local loaded = Session.from_data(session:to_data())
+      assert(encode(loaded.state.route:to_data()) == encode(restored:to_data()))
+    end,
+  },
+  {
+    name = "pre-8I five-boss route graphs remain authoritative without an Apex insertion",
+    run = function()
+      local current = Graph.new(880064, definitions())
+      local data = current:to_data()
+      local remove = {}
+      for _, node in ipairs(data.nodes) do
+        if node.key == "wild_apex_boss" or node.key == "industrial_apex_boss"
+          or node.key == "industrial_final_boss" or node.key == "industrial_final_hub" then
+          remove[node.id] = true
+        end
+      end
+      local retained, by_key = {}, {}
+      for _, node in ipairs(data.nodes) do
+        if not remove[node.id] then retained[#retained + 1] = node; by_key[node.key] = node.id end
+      end
+      data.nodes = retained
+      local edges = {}
+      for _, edge in ipairs(data.edges) do
+        if not remove[edge.from] and not remove[edge.to] then edges[#edges + 1] = edge end
+      end
+      edges[#edges + 1] = { from = by_key.legacy_shop, to = by_key.legacy_final_boss }
+      data.edges = edges
+      local restored = assert(Graph.from_data(data, definitions()))
+      for _, path in ipairs(restored:path_compositions()) do
+        assert(path.normal_floors == 3 and path.milestone_bosses == 2 and path.final_bosses == 1)
+      end
+      local session = new_run(880065)
+      session.state.route, session.state.route_node_id = restored, restored.current_node_id
       local loaded = Session.from_data(session:to_data())
       assert(encode(loaded.state.route:to_data()) == encode(restored:to_data()))
     end,

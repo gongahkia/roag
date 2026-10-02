@@ -122,9 +122,9 @@ return {
       local session, registry = new_session(108001), nil
       registry = session.registry
       local component_ids, enemy_ids, charm_ids = sorted_ids(registry.components), sorted_ids(registry.enemies), sorted_ids(registry.charms)
-      -- 8H adds two boss-grade but still ordinary physical components; it
-      -- intentionally does not mutate the authored ordinary-enemy roster.
-      assert(#component_ids == 23 and #enemy_ids == 14 and #charm_ids == 9)
+      -- 8I adds the Apex's player-usable Vector Lance without mutating the
+      -- authored ordinary-enemy roster or charm corpus.
+      assert(#component_ids == 24 and #enemy_ids == 14 and #charm_ids == 9)
       local ordinary, elite, referenced = 0, 0, {}
       for _, enemy_id in ipairs(enemy_ids) do
         local definition = registry:get_enemy(enemy_id)

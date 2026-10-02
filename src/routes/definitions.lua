@@ -145,8 +145,8 @@ function Definitions:validate()
       if layer.type == "floor" then normal_floors = normal_floors + 1 end
       if layer.type == "shop" then
         saw_shop = true
-        if layer_index ~= #profile.layers - 1 or #layer.nodes ~= 1 then
-          fail("Route profile '" .. id .. "' shop must be one node immediately before boss")
+        if layer_index >= #profile.layers or #layer.nodes < 1 then
+          fail("Route profile '" .. id .. "' shop must precede a boss layer")
         end
       end
       if layer.type == "boss" then
@@ -196,11 +196,12 @@ function Definitions:validate()
       if edge_seen[edge_key] then fail("Route profile '" .. id .. "' duplicates explicit edge '" .. edge_key .. "'") end
       edge_seen[edge_key] = true
     end
-    -- Two first-milestone variants and two late-milestone variants converge
-    -- into one final boss. Every new playable path therefore contains three
-    -- bosses even though the complete route DAG contains five boss nodes.
-    if not (saw_start and saw_shop and terminal_boss and normal_floors == 3 and boss_count == 5 and has_branch) then
-      fail("Route profile '" .. id .. "' must define start, three floors, two milestone layers, shop, and one final boss")
+    -- Two first-milestone variants, two second-milestone variants, two
+    -- route-history-specific Apex nodes, and two terminal nodes form the
+    -- explicit production DAG. Each playable path visits only one from every
+    -- pair, producing three milestones and one terminal boss.
+    if not (saw_start and saw_shop and terminal_boss and normal_floors == 3 and boss_count == 8 and has_branch) then
+      fail("Route profile '" .. id .. "' must define start, three floors, three milestone layers, final services, and a terminal boss")
     end
   end
   return true

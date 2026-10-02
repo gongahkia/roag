@@ -122,4 +122,70 @@ return {
       { liquid_id = "liquid.water.legacy", amount = 1, x = 19, y = 8 },
     },
   },
+  {
+    -- The Apex has space to turn and several destructible lanes. It does not
+    -- repeat the flooded, gas/fire, or powered-door identities of the other
+    -- milestone arenas.
+    id = "boss_arena.apex.kinetic_harbinger",
+    display_name = "SHATTERED TRANSIT",
+    terrain = "arena",
+    player_spawn = { x = 8, y = 9 },
+    boss_spawn = { x = 31, y = 9 },
+    cover = {
+      { definition_id = "world_object.cover.timber_crate", x = 15, y = 6 },
+      { definition_id = "world_object.cover.masonry_barricade", x = 15, y = 12 },
+      { definition_id = "world_object.cover.timber_crate", x = 21, y = 6 },
+      { definition_id = "world_object.cover.masonry_barricade", x = 21, y = 12 },
+      { definition_id = "world_object.cover.conductive_metal_crate", x = 26, y = 9 },
+    },
+    hazards = {
+      { definition_id = "hazard.legacy.spike_field", x = 19, y = 8 },
+      { definition_id = "hazard.legacy.spike_field", x = 19, y = 10 },
+    },
+  },
+  {
+    -- Two ordinary powered doors divide sightlines but leave north/south
+    -- lanes open, so circuits are tactical terrain and never a boss gate.
+    id = "boss_arena.industrial.terminal_bastion",
+    display_name = "TERMINAL SWITCHYARD",
+    terrain = "arena",
+    player_spawn = { x = 8, y = 9 },
+    boss_spawn = { x = 31, y = 9 },
+    terrain_cells = {
+      { material_id = "material.floor.conductive_metal", x = 17, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 18, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 19, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 20, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 21, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 22, y = 7 },
+      { material_id = "material.floor.conductive_metal", x = 17, y = 11 },
+      { material_id = "material.floor.conductive_metal", x = 18, y = 11 },
+      { material_id = "material.floor.conductive_metal", x = 19, y = 11 },
+      { material_id = "material.floor.conductive_metal", x = 20, y = 11 },
+      { material_id = "material.floor.conductive_metal", x = 21, y = 11 },
+      { material_id = "material.floor.conductive_metal", x = 22, y = 11 },
+    },
+    circuits = {
+      { id = "power.circuit.boss_terminal_control", enabled = true },
+    },
+    devices = {
+      { definition_id = "world_object.power.generator_legacy", x = 14, y = 9,
+        circuit_id = "power.circuit.boss_terminal_control", generator_online = true },
+      { definition_id = "world_object.power.breaker_legacy", x = 14, y = 12,
+        circuit_id = "power.circuit.boss_terminal_control" },
+      { definition_id = "world_object.door.powered_legacy", x = 20, y = 7,
+        circuit_id = "power.circuit.boss_terminal_control", door_state = "closed" },
+      { definition_id = "world_object.door.powered_legacy", x = 20, y = 11,
+        circuit_id = "power.circuit.boss_terminal_control", door_state = "closed" },
+    },
+    cover = {
+      { definition_id = "world_object.cover.conductive_metal_crate", x = 17, y = 9 },
+      { definition_id = "world_object.cover.masonry_barricade", x = 24, y = 6 },
+      { definition_id = "world_object.cover.masonry_barricade", x = 24, y = 12 },
+    },
+    liquid = {
+      { liquid_id = "liquid.water.legacy", amount = 1, x = 18, y = 7 },
+      { liquid_id = "liquid.water.legacy", amount = 1, x = 19, y = 7 },
+    },
+  },
 }

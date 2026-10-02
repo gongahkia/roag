@@ -254,4 +254,19 @@ return {
     inventory = { width = 3, height = 3, rotatable = true },
     abilities = { "ability.weapon.projectile.barrage" },
   },
+  {
+    -- Apex salvage deliberately combines two already-shared body abilities
+    -- instead of adding a one-off boss attack. Its mass and wear make it a
+    -- flexible finale choice rather than a strict replacement for either
+    -- the Pile Driver or Barrage Emitter.
+    id = "component.arm.vector_lance",
+    display_name = "Vector Lance",
+    compatible_slots = { "arm" },
+    max_integrity = 6,
+    mass = 8,
+    scrap_value = 26,
+    wear_per_use = 2,
+    inventory = { width = 3, height = 3, rotatable = true },
+    abilities = { "ability.weapon.melee.basic", "ability.weapon.projectile.barrage" },
+  },
 }

@@ -53,6 +53,32 @@ local function enter_second_milestone(session, first_biome_id, tier_three_biome_
   return assert(session.state.boss)
 end
 
+-- The final service hub now deliberately precedes the universal Apex. This
+-- helper walks the real 8I transition, keeping route history explicit for
+-- both Wild and Industrial terminal-lineage tests.
+local function enter_apex(session, first_biome_id, tier_three_biome_id)
+  local second = enter_second_milestone(session, first_biome_id, tier_three_biome_id)
+  second.health = 1
+  assert(session:_damage_boss(1).dead)
+  session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+  assert(session:turn("") == "reconstruction")
+  assert(session:complete_reconstruction().next == "shop")
+  assert(session.state.route:node(session.state.route.current_node_id).type == "shop")
+  session:start_boss()
+  assert(session.state.boss.boss_id == "boss.apex.kinetic_harbinger")
+  return session.state.boss
+end
+
+local function enter_terminal_after_apex(session, first_biome_id, tier_three_biome_id)
+  local apex = enter_apex(session, first_biome_id, tier_three_biome_id)
+  apex.health = 1
+  assert(session:_damage_boss(1).dead)
+  session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+  assert(session:turn("") == "reconstruction")
+  assert(session:complete_reconstruction().next == "boss")
+  return assert(session.state.boss)
+end
+
 local function count_events(session, suffix)
   local count = 0
   for _, event in ipairs(session.state.meta_reward_events) do
@@ -186,22 +212,29 @@ return {
     end,
   },
   {
-    name = "legacy final boss node resolves to a physical final boss without a separate hitbox path",
+    name = "the Wild final hub explicitly resolves Apex then the physical Legacy Warden",
     run = function()
       local session = new_run(97008)
       local route = session.state.route
-      local shop, final
+      local shop, apex, final
       for _, id in ipairs(route.node_order) do
         local node = route:node(id)
         if node.key == "legacy_shop" then shop = node end
+        if node.key == "wild_apex_boss" then apex = node end
         if node.key == "legacy_final_boss" then final = node end
       end
       route.current_node_id = shop.id
       route.completed_node_ids[shop.id] = nil
       route.path = { shop.id }
       session:start_boss()
-      assert(session.state.route.current_node_id == final.id)
-      assert(session.state.boss.boss_id == "boss.legacy.final")
+      assert(session.state.route.current_node_id == apex.id)
+      assert(session.state.boss.boss_id == "boss.apex.kinetic_harbinger")
+      session.state.boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("") == "reconstruction")
+      assert(session:complete_reconstruction().next == "boss")
+      assert(session.state.route.current_node_id == final.id and session.state.boss.boss_id == "boss.legacy.final")
       assert(session.state.boss.body:has_capability("ability.arcane.burst"))
       assert(session.state.boss.body:has_capability("ability.weapon.projectile.heavy"))
     end,

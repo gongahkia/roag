@@ -283,11 +283,11 @@ function Graph:validate(definitions)
       end
     end
   end
-  -- Saved pre-8G/8H graphs retain their old boss counts. New production
-  -- graphs contain two branch-associated first milestones, two branch-family
-  -- second milestones, and one terminal final boss.
-  if bosses ~= 1 and bosses ~= 3 and bosses ~= 5 then
-    return invalid("Route must contain one legacy boss, three 8G boss nodes, or five production boss nodes")
+  -- Saved pre-8G/8H graphs retain their old boss counts. The explicit 8I DAG
+  -- has two variants at each branch-associated boss layer, including the
+  -- Apex/final chain, while every concrete path still visits four bosses.
+  if bosses ~= 1 and bosses ~= 3 and bosses ~= 5 and bosses ~= 8 then
+    return invalid("Route must contain one legacy boss, three 8G boss nodes, five 8H boss nodes, or eight 8I boss nodes")
   end
   for _, edge in ipairs(self.edges) do
     if type(edge.from) ~= "string" or type(edge.to) ~= "string" or not self.nodes[edge.from] or not self.nodes[edge.to]
@@ -303,7 +303,10 @@ function Graph:validate(definitions)
     local node = self.nodes[id]
     if node.type == "boss" and #self:outgoing(id) == 0 then terminal_bosses = terminal_bosses + 1 end
   end
-  if terminal_bosses ~= 1 then return invalid("Route must contain exactly one terminal boss") end
+  local expected_terminal_bosses = bosses == 8 and 2 or 1
+  if terminal_bosses ~= expected_terminal_bosses then
+    return invalid("Route has an invalid terminal boss count")
+  end
   local visited, queue, cursor = { [self.start_node_id] = true }, { self.start_node_id }, 1
   while queue[cursor] do
     local id = queue[cursor]; cursor = cursor + 1
@@ -335,7 +338,7 @@ function Graph:validate(definitions)
     if self.nodes[id].type == "boss" and #self:outgoing(id) == 0 and allowed[id] then unlocked_boss = true end
   end
   if not unlocked_boss then return invalid("Route unlock configuration cannot reach boss") end
-  local expected_milestones = bosses == 5 and 2 or (bosses == 3 and 1 or 0)
+  local expected_milestones = bosses == 8 and 3 or (bosses == 5 and 2 or (bosses == 3 and 1 or 0))
   for _, composition in ipairs(self:path_compositions()) do
     if composition.normal_floors ~= 3 or composition.milestone_bosses ~= expected_milestones or composition.final_bosses ~= 1 then
       return invalid("Route path has invalid normal-floor or boss composition")

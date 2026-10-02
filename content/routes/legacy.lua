@@ -42,8 +42,31 @@ return {
           { key = "industrial_second_milestone_boss", boss_id = "boss.industrial.barrage_custodian" },
         },
       },
-      { type = "shop", nodes = { { key = "legacy_shop" } } },
-      { type = "boss", nodes = { { key = "legacy_final_boss", boss_id = "boss.legacy.final" } } },
+      -- The two hubs share ordinary final-service behaviour, but remain
+      -- explicit route nodes so late route history deterministically selects
+      -- both the universal Apex node and the terminal boss without a hidden
+      -- Session conditional.
+      {
+        type = "shop",
+        nodes = {
+          { key = "legacy_shop" },
+          { key = "industrial_final_hub" },
+        },
+      },
+      {
+        type = "boss",
+        nodes = {
+          { key = "wild_apex_boss", boss_id = "boss.apex.kinetic_harbinger" },
+          { key = "industrial_apex_boss", boss_id = "boss.apex.kinetic_harbinger" },
+        },
+      },
+      {
+        type = "boss",
+        nodes = {
+          { key = "legacy_final_boss", boss_id = "boss.legacy.final" },
+          { key = "industrial_final_boss", boss_id = "boss.industrial.terminal_bastion" },
+        },
+      },
     },
     -- Explicit forward grammar preserves the legacy routes while adding one
     -- optional, account-gated third-floor branch.
@@ -67,8 +90,13 @@ return {
       { from = "dungeon_tier_3", to = "industrial_second_milestone_boss" },
       { from = "reactor_tier_3", to = "industrial_second_milestone_boss" },
       { from = "wild_second_milestone_boss", to = "legacy_shop" },
-      { from = "industrial_second_milestone_boss", to = "legacy_shop" },
-      { from = "legacy_shop", to = "legacy_final_boss" },
+      { from = "industrial_second_milestone_boss", to = "industrial_final_hub" },
+      { from = "legacy_shop", to = "wild_apex_boss" },
+      { from = "industrial_final_hub", to = "industrial_apex_boss" },
+      -- Wild and breach paths retain the Legacy Warden. Industrial paths
+      -- receive the alternate physical terminal without a reroll at entry.
+      { from = "wild_apex_boss", to = "legacy_final_boss" },
+      { from = "industrial_apex_boss", to = "industrial_final_boss" },
     },
   },
 }

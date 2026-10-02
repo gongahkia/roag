@@ -1179,8 +1179,12 @@ function Session:_migrate_legacy_route(progression)
   for _, key in ipairs({
     "forest_milestone_boss", "cave_milestone_boss",
     "wild_second_milestone_boss", "industrial_second_milestone_boss",
+    "wild_apex_boss", "industrial_apex_boss", "industrial_final_boss",
+    "industrial_final_hub",
   }) do
-    removed[by_key[key].id] = true
+    -- Keys introduced after a save's original route are absent only in
+    -- synthetic compatibility fixtures; real 8I graphs contain all of them.
+    if by_key[key] then removed[by_key[key].id] = true end
   end
   local retained = {}
   for _, id in ipairs(graph.node_order) do if not removed[id] then retained[#retained + 1] = id else graph.nodes[id] = nil end end
@@ -1198,6 +1202,7 @@ function Session:_migrate_legacy_route(progression)
   for _, from in ipairs({ by_key.cave_tier_3, by_key.dungeon_tier_3, by_key.reactor_tier_3, by_key.forest_tier_3_breach }) do
     direct[#direct + 1] = { from = from.id, to = by_key.legacy_shop.id }
   end
+  direct[#direct + 1] = { from = by_key.legacy_shop.id, to = by_key.legacy_final_boss.id }
   graph.edges = direct
   local opening, cave, dungeon = by_key.opening_forest, by_key.cave_tier_2, by_key.dungeon_tier_3
   local shop, boss = by_key.legacy_shop, by_key.legacy_final_boss
@@ -3702,8 +3707,14 @@ function Session:_complete_boss_exit()
     -- service hub. No curse leaks into either special node.
     state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "shop", nil
     self:_log("Reconstruction available. Reconfigure before final services.")
+  elseif #choices == 1 and choices[1].type == "boss" then
+    -- The universal Apex is a milestone, so its corpse remains salvageable.
+    -- Its only successor is the route-predetermined terminal boss; enter a
+    -- normal reconstruction phase first, with no second service hub.
+    state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "boss", nil
+    self:_log("Reconstruction available. Reconfigure before the terminal threat.")
   else
-    error("Milestone boss must continue to a floor or service hub")
+    error("Milestone boss must continue to a floor, service hub, or terminal boss")
   end
   self:validate_physical_ownership()
   return "reconstruction"

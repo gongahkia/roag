@@ -104,4 +104,51 @@ return {
     milestone_data_reward = 3,
     presentation = { sprite_kind = "boss", line = "THE FACILITY STILL ENFORCES ITS SIGHTLINES." },
   },
+  {
+    -- Universal late milestone: its pressure comes from an ordinary mixed
+    -- arm, a real siege arm, and redundant locomotion rather than a phase
+    -- script or a hidden immunity.
+    id = "boss.apex.kinetic_harbinger",
+    display_name = "KINETIC HARBINGER",
+    kind = "boss",
+    health = 14,
+    ammo = 11,
+    body_topology_id = "body.topology.normal",
+    installed_components = {
+      { slot_id = "torso_core", component_id = "component.core.reactor_frame" },
+      { slot_id = "left_arm", component_id = "component.arm.vector_lance" },
+      { slot_id = "right_arm", component_id = "component.arm.siege_emitter" },
+      { slot_id = "left_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "right_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "internal_1", component_id = "component.internal.inertial_stabilizer" },
+    },
+    ai_profile = { preferred_range = 4, telegraph_ability_ids = { "ability.weapon.projectile.siege", "ability.weapon.melee.basic" } },
+    arena_profile_id = "boss_arena.apex.kinetic_harbinger",
+    milestone_data_reward = 3,
+    presentation = { sprite_kind = "boss", line = "THE LAST MACHINE BETWEEN YOU AND THE EXIT." },
+  },
+  {
+    -- The Industrial terminal intentionally has two real barrage providers:
+    -- losing one arm cancels its active telegraph but does not disarm the
+    -- platform. Electricity remains a separate, destroyable subsystem.
+    id = "boss.industrial.terminal_bastion",
+    display_name = "TERMINAL BASTION",
+    kind = "boss",
+    health = 15,
+    ammo = 14,
+    body_topology_id = "body.topology.normal",
+    installed_components = {
+      { slot_id = "torso_core", component_id = "component.core.reactor_frame" },
+      { slot_id = "left_arm", component_id = "component.arm.barrage_emitter" },
+      { slot_id = "right_arm", component_id = "component.arm.barrage_emitter" },
+      { slot_id = "left_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "right_leg", component_id = "component.leg.shielded_locomotor" },
+      { slot_id = "internal_1", component_id = "component.internal.legacy_shock_coil" },
+      { slot_id = "internal_2", component_id = "component.internal.inertial_stabilizer" },
+    },
+    ai_profile = { preferred_range = 6, telegraph_ability_ids = { "ability.electrical.discharge", "ability.weapon.projectile.barrage" } },
+    arena_profile_id = "boss_arena.industrial.terminal_bastion",
+    final_data_reward = 4,
+    presentation = { sprite_kind = "boss", line = "THE FACILITY'S LAST DEFENCE STILL HAS AMMUNITION." },
+  },
 }
