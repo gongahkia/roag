@@ -35,6 +35,13 @@ return {
           { key = "forest_tier_3_breach", biome_id = "biome.legacy.forest", tier_id = "tier.legacy.3", service_id = "service.repair.legacy" },
         },
       },
+      {
+        type = "boss",
+        nodes = {
+          { key = "wild_second_milestone_boss", boss_id = "boss.wild.ash_mauler" },
+          { key = "industrial_second_milestone_boss", boss_id = "boss.industrial.barrage_custodian" },
+        },
+      },
       { type = "shop", nodes = { { key = "legacy_shop" } } },
       { type = "boss", nodes = { { key = "legacy_final_boss", boss_id = "boss.legacy.final" } } },
     },
@@ -53,10 +60,14 @@ return {
       { from = "cave_milestone_boss", to = "dungeon_tier_3" },
       { from = "cave_milestone_boss", to = "reactor_tier_3" },
       { from = "cave_milestone_boss", to = "forest_tier_3_breach", requires_unlock = "unlock.traversal.reinforced_breach" },
-      { from = "cave_tier_3", to = "legacy_shop" },
-      { from = "dungeon_tier_3", to = "legacy_shop" },
-      { from = "reactor_tier_3", to = "legacy_shop" },
-      { from = "forest_tier_3_breach", to = "legacy_shop" },
+      -- Tier-three biome is the deterministic second-milestone assignment;
+      -- there is no reroll on entry.
+      { from = "cave_tier_3", to = "wild_second_milestone_boss" },
+      { from = "forest_tier_3_breach", to = "wild_second_milestone_boss" },
+      { from = "dungeon_tier_3", to = "industrial_second_milestone_boss" },
+      { from = "reactor_tier_3", to = "industrial_second_milestone_boss" },
+      { from = "wild_second_milestone_boss", to = "legacy_shop" },
+      { from = "industrial_second_milestone_boss", to = "legacy_shop" },
       { from = "legacy_shop", to = "legacy_final_boss" },
     },
   },
