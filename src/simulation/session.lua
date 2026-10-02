@@ -1172,9 +1172,16 @@ function Session:_migrate_legacy_route(progression)
   local graph = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", self.state.meta_snapshot.unlock_ids)
   local by_key = {}
   for _, id in ipairs(graph.node_order) do by_key[graph.nodes[id].key] = graph.nodes[id] end
-  -- A pre-8G active save has no milestone encounter in its authoritative
-  -- route. Keep that route shape rather than inserting a boss mid-run.
-  local removed = { [by_key.forest_milestone_boss.id] = true, [by_key.cave_milestone_boss.id] = true }
+  -- A pre-route active save has no milestone encounters in its authoritative
+  -- route. Keep that shape rather than injecting either 8G or 8H bosses into
+  -- a run whose current world and transition state already exist.
+  local removed = {}
+  for _, key in ipairs({
+    "forest_milestone_boss", "cave_milestone_boss",
+    "wild_second_milestone_boss", "industrial_second_milestone_boss",
+  }) do
+    removed[by_key[key].id] = true
+  end
   local retained = {}
   for _, id in ipairs(graph.node_order) do if not removed[id] then retained[#retained + 1] = id else graph.nodes[id] = nil end end
   graph.node_order = retained
@@ -1187,6 +1194,9 @@ function Session:_migrate_legacy_route(progression)
       direct[#direct + 1] = { from = from.id, to = to.id,
         requires_unlock = to.key == "forest_tier_3_breach" and "unlock.traversal.reinforced_breach" or nil }
     end
+  end
+  for _, from in ipairs({ by_key.cave_tier_3, by_key.dungeon_tier_3, by_key.reactor_tier_3, by_key.forest_tier_3_breach }) do
+    direct[#direct + 1] = { from = from.id, to = by_key.legacy_shop.id }
   end
   graph.edges = direct
   local opening, cave, dungeon = by_key.opening_forest, by_key.cave_tier_2, by_key.dungeon_tier_3
@@ -3527,8 +3537,28 @@ function Session:complete_reconstruction()
   return { applied = true, next = result }
 end
 
+function Session:_boss_arena_material_layout(profile)
+  local layout = {}
+  for _, placement in ipairs(profile.terrain_cells or {}) do
+    layout[Grid.key(placement.x, placement.y)] = placement.material_id
+  end
+  return next(layout) and layout or nil
+end
+
 function Session:_apply_boss_arena_profile(profile)
   local world = self.state.world
+  for _, circuit in ipairs(profile.circuits or {}) do
+    local result = world:register_circuit(circuit.id, { enabled = circuit.enabled })
+    assert(result.applied, result.reason)
+  end
+  for _, placement in ipairs(profile.devices or {}) do
+    local object, result = world:place_object(placement.definition_id, placement.x, placement.y, {
+      circuit_id = placement.circuit_id,
+      door_state = placement.door_state,
+      generator_online = placement.generator_online,
+    })
+    assert(object, result and result.reason)
+  end
   for _, placement in ipairs(profile.cover or {}) do
     local object, result = world:place_object(placement.definition_id, placement.x, placement.y)
     assert(object, result and result.reason)
@@ -3540,6 +3570,19 @@ function Session:_apply_boss_arena_profile(profile)
   for _, placement in ipairs(profile.liquid or {}) do
     local result = world:set_liquid(placement.x, placement.y, placement.liquid_id, placement.amount)
     assert(result.applied or result.code == "unchanged", result.reason)
+  end
+  for _, placement in ipairs(profile.gas or {}) do
+    local result = world:set_gas(placement.x, placement.y, placement.gas_id, placement.concentration)
+    assert(result.applied or result.code == "unchanged", result.reason)
+  end
+  for _, placement in ipairs(profile.fires or {}) do
+    local target = placement.target_kind == "object" and world:object_at(placement.x, placement.y) or nil
+    assert(target, "Boss arena fire requires an object target")
+    local result = self:ignite_world_object(target, {
+      source = "boss_arena.initial_fire",
+      arena_profile_id = profile.id,
+    })
+    assert(result.applied, result.reason)
   end
 end
 
@@ -3588,7 +3631,8 @@ function Session:start_boss()
   self:refresh_derived_player_stats()
   player.bomb_fuse, player.bullet_range, player.reload_penalty = 3, nil, 0
   state.settings = { terrain = profile.terrain, vision = 99, objective_required = 10, arena_profile_id = profile.id }
-  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), state)
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), state,
+    self:_boss_arena_material_layout(profile))
   self:_apply_boss_arena_profile(profile)
   self:validate_world()
   state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
@@ -3642,11 +3686,22 @@ function Session:_complete_boss_exit()
   assert(route and route:node(route.current_node_id) and route:node(route.current_node_id).type == "boss",
     "Boss exit requires a completed route boss")
   local choices = route:available()
-  assert(#choices > 0 and choices[1].type == "floor", "Milestone boss must continue to a normal floor")
+  assert(#choices == 1, "Milestone boss must have one deterministic continuation")
   state.curse, state.curse_id = nil, nil
-  self:draw_curses()
-  state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "curse", nil
-  self:_log("Reconstruction available. Reconfigure before the final descent.")
+  if choices[1].type == "floor" then
+    -- The first milestone still opens the player-facing tier-three route
+    -- selection, with a fresh curse scoped to that next normal floor.
+    self:draw_curses()
+    state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "curse", nil
+    self:_log("Reconstruction available. Reconfigure before the next descent.")
+  elseif choices[1].type == "shop" then
+    -- The second milestone is followed by reconstruction, then the final
+    -- service hub. No curse leaks into either special node.
+    state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "shop", nil
+    self:_log("Reconstruction available. Reconfigure before final services.")
+  else
+    error("Milestone boss must continue to a floor or service hub")
+  end
   self:validate_physical_ownership()
   return "reconstruction"
 end

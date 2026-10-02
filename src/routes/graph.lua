@@ -138,6 +138,45 @@ function Graph:available()
   return self:available_outgoing(self.current_node_id)
 end
 
+-- Enumerate the small forward production graph using only edges available to
+-- this run snapshot. This is a diagnostic/validation view, never gameplay
+-- selection state, and keeps unlock-gated branches honest without a separate
+-- route model.
+function Graph:path_compositions()
+  local result = {}
+  local function visit(node, node_ids, node_keys, boss_ids, normal_floors, milestone_bosses, final_bosses)
+    local next_ids, next_keys, next_bosses = {}, {}, {}
+    for _, value in ipairs(node_ids) do next_ids[#next_ids + 1] = value end
+    for _, value in ipairs(node_keys) do next_keys[#next_keys + 1] = value end
+    for _, value in ipairs(boss_ids) do next_bosses[#next_bosses + 1] = value end
+    next_ids[#next_ids + 1], next_keys[#next_keys + 1] = node.id, node.key
+    if node.type == "floor" then
+      normal_floors = normal_floors + 1
+    elseif node.type == "boss" then
+      next_bosses[#next_bosses + 1] = node.boss_id or "boss.legacy.final"
+      if #self:outgoing(node.id) == 0 then final_bosses = final_bosses + 1 else milestone_bosses = milestone_bosses + 1 end
+    end
+    local outgoing = self:available_outgoing(node.id)
+    if #outgoing == 0 then
+      result[#result + 1] = {
+        node_ids = next_ids,
+        node_keys = next_keys,
+        boss_ids = next_bosses,
+        normal_floors = normal_floors,
+        milestone_bosses = milestone_bosses,
+        final_bosses = final_bosses,
+      }
+      return
+    end
+    for _, child in ipairs(outgoing) do
+      visit(child, next_ids, next_keys, next_bosses, normal_floors, milestone_bosses, final_bosses)
+    end
+  end
+  visit(assert(self:node(self.start_node_id)), {}, {}, {}, 0, 0, 0)
+  table.sort(result, function(left, right) return table.concat(left.node_ids, ",") < table.concat(right.node_ids, ",") end)
+  return result
+end
+
 function Graph:status(id)
   if id == self.current_node_id then return self.completed_node_ids[id] and "completed_current" or "current" end
   if self.completed_node_ids[id] then return "completed" end
@@ -244,10 +283,12 @@ function Graph:validate(definitions)
       end
     end
   end
-  -- A saved pre-8G route has one terminal legacy boss; new generated graphs
-  -- contain one boss node per tier-two branch plus the terminal final boss.
-  -- Any new route path still visits exactly one milestone and one final boss.
-  if bosses ~= 1 and bosses ~= 3 then return invalid("Route must contain one legacy boss or three production boss nodes") end
+  -- Saved pre-8G/8H graphs retain their old boss counts. New production
+  -- graphs contain two branch-associated first milestones, two branch-family
+  -- second milestones, and one terminal final boss.
+  if bosses ~= 1 and bosses ~= 3 and bosses ~= 5 then
+    return invalid("Route must contain one legacy boss, three 8G boss nodes, or five production boss nodes")
+  end
   for _, edge in ipairs(self.edges) do
     if type(edge.from) ~= "string" or type(edge.to) ~= "string" or not self.nodes[edge.from] or not self.nodes[edge.to]
       or (edge.requires_unlock ~= nil and (type(edge.requires_unlock) ~= "string" or not edge.requires_unlock:match("^unlock%.[a-z0-9_%.]+$"))) then
@@ -294,6 +335,12 @@ function Graph:validate(definitions)
     if self.nodes[id].type == "boss" and #self:outgoing(id) == 0 and allowed[id] then unlocked_boss = true end
   end
   if not unlocked_boss then return invalid("Route unlock configuration cannot reach boss") end
+  local expected_milestones = bosses == 5 and 2 or (bosses == 3 and 1 or 0)
+  for _, composition in ipairs(self:path_compositions()) do
+    if composition.normal_floors ~= 3 or composition.milestone_bosses ~= expected_milestones or composition.final_bosses ~= 1 then
+      return invalid("Route path has invalid normal-floor or boss composition")
+    end
+  end
   if not self.nodes[self.start_node_id] or self.nodes[self.start_node_id].depth ~= 1 then return invalid("Route start must be in first layer") end
   for id in pairs(self.completed_node_ids) do if not self.nodes[id] then return invalid("Completed route references unknown node") end end
   for _, id in ipairs(self.path) do if not self.nodes[id] then return invalid("Route path references unknown node") end end

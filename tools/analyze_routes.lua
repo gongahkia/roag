@@ -62,6 +62,14 @@ for _, depth in ipairs(boss_depths) do
   for _, id in ipairs(ids) do parts[#parts + 1] = id .. "=" .. values[id] end
   io.write("  boss depth " .. depth .. ": " .. table.concat(parts, ", ") .. "\n")
 end
+local compositions = {}
+for shape in pairs(report.summary.path_compositions or {}) do compositions[#compositions + 1] = shape end
+table.sort(compositions)
+for _, shape in ipairs(compositions) do
+  local normal, milestones, final = shape:match("^(%d+):(%d+):(%d+)$")
+  io.write(string.format("  paths: %s normal floors, %s milestones, %s final bosses = %d\n",
+    normal, milestones, final, report.summary.path_compositions[shape]))
+end
 if #report.failures > 0 then
   io.write("Failure seeds:\n")
   for _, item in ipairs(report.failures) do io.write("  " .. item.seed .. "  " .. (item.code or "invalid_route") .. "\n") end

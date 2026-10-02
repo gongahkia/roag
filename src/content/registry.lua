@@ -610,6 +610,53 @@ function Registry:validate()
       if placement.amount > liquid.max_depth then content_error("Boss arena '" .. id .. "' liquid amount exceeds max depth") end
       if type(placement.x) ~= "number" or type(placement.y) ~= "number" then content_error("Boss arena '" .. id .. "' liquid placement is invalid") end
     end
+    for _, placement in ipairs(arena.terrain_cells or {}) do
+      if type(placement) ~= "table" then content_error("Boss arena '" .. id .. "' terrain cell must be a table") end
+      self:get_material(placement.material_id)
+      if type(placement.x) ~= "number" or placement.x % 1 ~= 0 or type(placement.y) ~= "number" or placement.y % 1 ~= 0 then
+        content_error("Boss arena '" .. id .. "' terrain cell coordinate is invalid")
+      end
+    end
+    for _, placement in ipairs(arena.gas or {}) do
+      if type(placement) ~= "table" then content_error("Boss arena '" .. id .. "' gas entry must be a table") end
+      local gas = self:get_gas(placement.gas_id)
+      require_positive_integer(placement.concentration, "Boss arena '" .. id .. "' gas concentration")
+      if placement.concentration > gas.max_concentration then content_error("Boss arena '" .. id .. "' gas concentration exceeds max") end
+      if type(placement.x) ~= "number" or placement.x % 1 ~= 0 or type(placement.y) ~= "number" or placement.y % 1 ~= 0 then
+        content_error("Boss arena '" .. id .. "' gas placement is invalid")
+      end
+    end
+    local circuits = {}
+    for _, circuit in ipairs(arena.circuits or {}) do
+      if type(circuit) ~= "table" or type(circuit.id) ~= "string" or not circuit.id:match("^power%.circuit%.[a-z0-9_%.]+$") then
+        content_error("Boss arena '" .. id .. "' circuit ID is invalid")
+      end
+      if circuits[circuit.id] then content_error("Boss arena '" .. id .. "' repeats circuit '" .. circuit.id .. "'") end
+      if circuit.enabled ~= nil and type(circuit.enabled) ~= "boolean" then content_error("Boss arena '" .. id .. "' circuit enabled state is invalid") end
+      circuits[circuit.id] = true
+    end
+    for _, device in ipairs(arena.devices or {}) do
+      if type(device) ~= "table" then content_error("Boss arena '" .. id .. "' device entry must be a table") end
+      local object = self:get_world_object(device.definition_id)
+      if type(device.x) ~= "number" or device.x % 1 ~= 0 or type(device.y) ~= "number" or device.y % 1 ~= 0 then
+        content_error("Boss arena '" .. id .. "' device coordinate is invalid")
+      end
+      if object.interaction_role == "door" or object.interaction_role == "generator" or object.interaction_role == "breaker" then
+        if not circuits[device.circuit_id] then content_error("Boss arena '" .. id .. "' device references an unknown circuit") end
+      end
+      if device.door_state ~= nil and device.door_state ~= "open" and device.door_state ~= "closed" then
+        content_error("Boss arena '" .. id .. "' device door state is invalid")
+      end
+      if device.generator_online ~= nil and type(device.generator_online) ~= "boolean" then
+        content_error("Boss arena '" .. id .. "' device generator state is invalid")
+      end
+    end
+    for _, fire in ipairs(arena.fires or {}) do
+      if type(fire) ~= "table" or fire.target_kind ~= "object"
+        or type(fire.x) ~= "number" or fire.x % 1 ~= 0 or type(fire.y) ~= "number" or fire.y % 1 ~= 0 then
+        content_error("Boss arena '" .. id .. "' fire entry is invalid")
+      end
+    end
   end
   for _, id in ipairs(sorted_keys(self.bosses)) do
     local boss = self.bosses[id]

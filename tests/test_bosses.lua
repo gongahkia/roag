@@ -26,6 +26,31 @@ local function enter_milestone(session, biome_id)
   return session.state.boss
 end
 
+-- New production routes have a deterministic second milestone immediately
+-- after the selected tier-three normal floor.  This deliberately walks the
+-- ordinary 8G lifecycle so these tests cover route transition, salvage exit,
+-- reconstruction and curse scoping rather than constructing a boss directly.
+local function enter_second_milestone(session, first_biome_id, tier_three_biome_id)
+  local first = enter_milestone(session, first_biome_id)
+  first.health = 1
+  assert(session:_damage_boss(1).dead)
+  assert(session.state.phase == "boss_exit")
+  session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+  assert(session:turn("") == "reconstruction")
+  assert(session:complete_reconstruction().next == "curse")
+  assert(session:choose_curse(session.state.curse_options[1]).next == "route")
+  for _, node in ipairs(session:available_route_nodes()) do
+    if node.biome_id == tier_three_biome_id then
+      assert(session:select_route_node(node.id).applied)
+      break
+    end
+  end
+  assert(session.state.settings.biome_id == tier_three_biome_id)
+  assert(session:_complete_stage() == "reconstruction")
+  assert(session:complete_reconstruction().next == "boss")
+  return assert(session.state.boss)
+end
+
 local function count_events(session, suffix)
   local count = 0
   for _, event in ipairs(session.state.meta_reward_events) do
@@ -195,6 +220,125 @@ return {
       local restored = Session.from_data(data)
       assert(restored.state.boss.body and restored.state.boss.boss_id == "boss.legacy.final")
       assert(restored.state.boss.health == 6 and restored:validate_physical_ownership())
+    end,
+  },
+  {
+    name = "wild second milestone has a physical force body, safe environmental arena and cancellable telegraph",
+    run = function()
+      local session = new_run(97012)
+      local boss = enter_second_milestone(session, "biome.legacy.forest", "biome.legacy.cave")
+      assert(boss.boss_id == "boss.wild.ash_mauler")
+      assert(boss.body:get_component("left_arm").definition_id == "component.arm.impact_maul")
+      assert(boss.body:get_component("right_arm").definition_id == "component.arm.legacy_arcane_projector")
+      assert(session:actor_has_capability(boss, "ability.weapon.melee.impact_maul"))
+      assert(session:actor_has_capability(boss, "ability.arcane.burst"))
+      assert(#session.state.world:list_gases() == 2)
+      assert(#session.state.world:list_fires() == 1)
+      assert(not session.state.world:is_harmful_gas_at(session.state.player.x, session.state.player.y))
+      assert(#session.state.world:fires_at(session.state.player.x, session.state.player.y) == 0)
+
+      session.state.player.x, session.state.player.y = boss.x + 1, boss.y
+      session:_boss_turn()
+      local pending = assert(boss.pending_telegraph)
+      assert(pending.ability_id == "ability.weapon.melee.impact_maul")
+      assert(session:damage_actor_body(boss, { amount = 99, slot_id = "left_arm", cause = "test" }).became_broken)
+      session:_boss_turn()
+      assert(boss.pending_telegraph == nil)
+      assert(not session:actor_has_capability(boss, "ability.weapon.melee.impact_maul"))
+      assert(session:actor_has_capability(boss, "ability.arcane.burst"))
+    end,
+  },
+  {
+    name = "industrial second milestone keeps redundant barrage until both real providers break and uses ordinary power",
+    run = function()
+      local session = new_run(97013)
+      local boss = enter_second_milestone(session, "biome.legacy.cave", "biome.legacy.dungeon")
+      local world = session.state.world
+      assert(boss.boss_id == "boss.industrial.barrage_custodian")
+      assert(boss.body:get_component("left_arm").definition_id == "component.arm.barrage_emitter")
+      assert(boss.body:get_component("right_arm").definition_id == "component.arm.barrage_emitter")
+      assert(world:is_conductive_at(18, 8))
+      assert(world:is_circuit_powered("power.circuit.boss_industrial_control"))
+      local breaker, door
+      for _, object in ipairs(world:list_objects()) do
+        if object.interaction_role == "breaker" then breaker = object end
+        if object.interaction_role == "door" then door = object end
+      end
+      assert(breaker and door and door.door_state == "closed")
+      session.state.player.x, session.state.player.y = breaker.x - 1, breaker.y
+      assert(session:interact(nil, breaker.id, "breaker.toggle").applied)
+      assert(not world:is_circuit_powered(breaker.circuit_id))
+      assert(session:interact(nil, breaker.id, "breaker.toggle").applied)
+      session.state.player.x, session.state.player.y = door.x - 1, door.y
+      assert(session:interact(nil, door.id, "door.open").applied)
+      assert(door.door_state == "open")
+
+      session.state.player.x, session.state.player.y = 8, 4
+      boss.x, boss.y = 26, 4
+      session:_boss_turn()
+      local pending = assert(boss.pending_telegraph)
+      assert(pending.ability_id == "ability.weapon.projectile.barrage")
+      assert(session:damage_actor_body(boss, { amount = 99, slot_id = "left_arm", cause = "test" }).became_broken)
+      session:_boss_turn()
+      assert(boss.pending_telegraph == nil)
+      assert(session:actor_has_capability(boss, "ability.weapon.projectile.barrage"))
+      session:_boss_turn()
+      assert(assert(boss.pending_telegraph).provider_component_id == boss.body:get_component("right_arm").id)
+      assert(session:damage_actor_body(boss, { amount = 99, slot_id = "right_arm", cause = "test" }).became_broken)
+      assert(not session:actor_has_capability(boss, "ability.weapon.projectile.barrage"))
+    end,
+  },
+  {
+    name = "second milestone corpse grants three DATA once and reconstructs exact exceptional salvage before the hub",
+    run = function()
+      local session = new_run(97014)
+      local boss = enter_second_milestone(session, "biome.legacy.forest", "biome.legacy.cave")
+      local maul = boss.body:get_component("left_arm")
+      boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      assert(session.state.phase == "boss_exit" and session.state.boss_completed == "boss.wild.ash_mauler")
+      local reward
+      for _, event in ipairs(session.state.meta_reward_events) do
+        if event.id:find(session.state.route.current_node_id, 1, true) then reward = event end
+      end
+      assert(reward and reward.amount == 3)
+      local corpse = session.state.corpses[#session.state.corpses]
+      session.state.player.x, session.state.player.y = corpse.x - 1, corpse.y
+      assert(session:salvage_corpse_component(corpse.id, "left_arm").component_id == maul.id)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("") == "reconstruction")
+      assert(session:uninstall_body_component("left_arm").applied)
+      assert(session:install_inventory_component(maul.id, "left_arm").applied)
+      assert(session.state.player.body:get_component("left_arm").id == maul.id)
+      assert(session:actor_has_capability(session.state.player, "ability.weapon.melee.impact_maul"))
+      assert(session:complete_reconstruction().next == "shop")
+      local count = #session.state.meta_reward_events
+      assert(session:_defeat_boss(boss) == false and #session.state.meta_reward_events == count)
+    end,
+  },
+  {
+    name = "second milestone live telegraph and post-death stripped corpse save resume exactly",
+    run = function()
+      local session = new_run(97015)
+      local boss = enter_second_milestone(session, "biome.legacy.cave", "biome.legacy.reactor")
+      session.state.player.x, session.state.player.y = 8, 4
+      boss.x, boss.y = 26, 4
+      session:_boss_turn()
+      local pending = assert(boss.pending_telegraph)
+      local restored = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(session))))
+      assert(restored.state.boss.boss_id == "boss.industrial.barrage_custodian")
+      assert(restored.state.boss.pending_telegraph.ability_id == pending.ability_id)
+      local live = restored.state.boss
+      local component_id = live.body:get_component("right_arm").id
+      live.health = 1
+      assert(restored:_damage_boss(1).dead)
+      local corpse = restored.state.corpses[#restored.state.corpses]
+      restored.state.player.x, restored.state.player.y = corpse.x - 1, corpse.y
+      assert(restored:salvage_corpse_component(corpse.id, "right_arm").applied)
+      local resumed = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(restored))))
+      assert(resumed.state.phase == "boss_exit" and resumed.state.boss == nil)
+      assert(resumed.state.corpses[#resumed.state.corpses].body:get_component("right_arm") == nil)
+      assert(resumed.state.inventory:get(component_id).item.object.id == component_id)
     end,
   },
 }

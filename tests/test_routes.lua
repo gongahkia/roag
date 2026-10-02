@@ -70,10 +70,13 @@ return {
       local first, second = Graph.new(88002, content), Graph.new(88002, content)
       assert(encode(first:to_data()) == encode(second:to_data()))
       local report = RouteAnalysis.analyze(first, content)
-      assert(report.valid and report.metrics.node_count == 11 and report.metrics.edge_count == 17)
+      assert(report.valid and report.metrics.node_count == 13 and report.metrics.edge_count == 19)
       assert(report.metrics.branch_count >= 1 and report.metrics.convergence_count >= 1)
       assert(first:node(first.start_node_id).biome_id == "biome.legacy.forest")
       assert(first:node(first.start_node_id).tier_id == "tier.legacy.1")
+      for _, path in ipairs(first:path_compositions()) do
+        assert(path.normal_floors == 3 and path.milestone_bosses == 2 and path.final_bosses == 1)
+      end
     end,
   },
   {
@@ -120,7 +123,7 @@ return {
     end,
   },
   {
-    name = "tier-two branch forces its physical milestone before tier-three choice and final hub",
+    name = "tier-two and tier-three branches force their physical milestones before the final hub",
     run = function()
       local session = new_run(88006)
       finish_to_route(session)
@@ -141,10 +144,74 @@ return {
       choose(session, function(node) return node.biome_id == "biome.legacy.dungeon" end)
       assert(session.state.settings.terrain == "dungeon" and session.state.settings.tier == 3)
       assert(session:_complete_stage() == "reconstruction")
+      assert(session:complete_reconstruction().next == "boss")
+      assert(session.state.boss.boss_id == "boss.industrial.barrage_custodian")
+      session.state.boss.health = 1
+      assert(session:_damage_boss(1).dead)
+      assert(session.state.phase == "boss_exit" and #session.state.corpses == 2)
+      session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
+      assert(session:turn("") == "reconstruction")
       assert(session:complete_reconstruction().next == "shop")
       assert(session.state.route:node(session.state.route.current_node_id).type == "shop")
       session:start_boss()
       assert(session.state.phase == "boss" and session.state.route:node(session.state.route.current_node_id).type == "boss")
+    end,
+  },
+  {
+    name = "tier-three biome deterministically selects the matching second milestone family",
+    run = function()
+      local graph = Graph.new(880061, definitions())
+      local by_key = {}
+      for _, id in ipairs(graph.node_order) do
+        local node = graph:node(id)
+        by_key[node.key] = node
+      end
+      local function only_boss(key)
+        local outgoing = graph:outgoing(by_key[key].id)
+        assert(#outgoing == 1 and outgoing[1].type == "boss")
+        return outgoing[1].boss_id
+      end
+      assert(only_boss("cave_tier_3") == "boss.wild.ash_mauler")
+      assert(only_boss("forest_tier_3_breach") == "boss.wild.ash_mauler")
+      assert(only_boss("dungeon_tier_3") == "boss.industrial.barrage_custodian")
+      assert(only_boss("reactor_tier_3") == "boss.industrial.barrage_custodian")
+    end,
+  },
+  {
+    name = "pre-8H route graphs remain authoritative with one milestone layer",
+    run = function()
+      local current = Graph.new(880062, definitions())
+      local data = current:to_data()
+      local remove = {}
+      for _, node in ipairs(data.nodes) do
+        if node.key == "wild_second_milestone_boss" or node.key == "industrial_second_milestone_boss" then
+          remove[node.id] = true
+        end
+      end
+      local retained, by_key = {}, {}
+      for _, node in ipairs(data.nodes) do
+        if not remove[node.id] then
+          retained[#retained + 1] = node
+          by_key[node.key] = node.id
+        end
+      end
+      data.nodes = retained
+      local edges = {}
+      for _, edge in ipairs(data.edges) do
+        if not remove[edge.from] and not remove[edge.to] then edges[#edges + 1] = edge end
+      end
+      for _, key in ipairs({ "cave_tier_3", "dungeon_tier_3", "reactor_tier_3", "forest_tier_3_breach" }) do
+        edges[#edges + 1] = {
+          from = by_key[key], to = by_key.legacy_shop,
+          requires_unlock = key == "forest_tier_3_breach" and "unlock.traversal.reinforced_breach" or nil,
+        }
+      end
+      data.edges = edges
+      local restored = Graph.from_data(data, definitions())
+      assert(restored:validate(definitions()))
+      for _, path in ipairs(restored:path_compositions()) do
+        assert(path.normal_floors == 3 and path.milestone_bosses == 1 and path.final_bosses == 1)
+      end
     end,
   },
   {

@@ -196,11 +196,11 @@ function Definitions:validate()
       if edge_seen[edge_key] then fail("Route profile '" .. id .. "' duplicates explicit edge '" .. edge_key .. "'") end
       edge_seen[edge_key] = true
     end
-    -- Two branch-associated milestone nodes converge into one final boss;
-    -- every playable path therefore contains two bosses even though the DAG
-    -- contains three boss nodes in total.
-    if not (saw_start and saw_shop and terminal_boss and normal_floors == 3 and boss_count == 3 and has_branch) then
-      fail("Route profile '" .. id .. "' must define start, three floors, one milestone boss, shop, and one final boss")
+    -- Two first-milestone variants and two late-milestone variants converge
+    -- into one final boss. Every new playable path therefore contains three
+    -- bosses even though the complete route DAG contains five boss nodes.
+    if not (saw_start and saw_shop and terminal_boss and normal_floors == 3 and boss_count == 5 and has_branch) then
+      fail("Route profile '" .. id .. "' must define start, three floors, two milestone layers, shop, and one final boss")
     end
   end
   return true

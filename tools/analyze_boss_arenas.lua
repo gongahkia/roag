@@ -16,7 +16,7 @@ table.sort(boss_ids)
 
 local failures, totals = {}, {}
 for boss_index, boss_id in ipairs(boss_ids) do
-  totals[boss_id] = { generated = 0, liquid = 0, hazards = 0, cover = 0, exits = 0 }
+  totals[boss_id] = { generated = 0, liquid = 0, gas = 0, fires = 0, circuits = 0, hazards = 0, cover = 0, exits = 0 }
   for offset = 1, count do
     local session = Session.new({ seed = 970000 + boss_index * 10000 + offset })
     session:start_run(Content.classes[1], Content.boons[1])
@@ -33,6 +33,9 @@ for boss_index, boss_id in ipairs(boss_ids) do
       session:validate_world()
       session:validate_physical_ownership()
       totals[boss_id].liquid = totals[boss_id].liquid + #world:list_liquids()
+      totals[boss_id].gas = totals[boss_id].gas + #world:list_gases()
+      totals[boss_id].fires = totals[boss_id].fires + #world:list_fires()
+      totals[boss_id].circuits = totals[boss_id].circuits + #world:list_circuits()
       totals[boss_id].hazards = totals[boss_id].hazards + #world:list_hazards()
       totals[boss_id].cover = totals[boss_id].cover + #world:list_objects()
       if boss_id ~= "boss.legacy.final" then
@@ -54,8 +57,9 @@ end
 
 for _, boss_id in ipairs(boss_ids) do
   local total = totals[boss_id]
-  io.write(string.format("%s: %d/%d valid  avg cover %.2f  avg hazards %.2f  avg liquid %.2f  exits %d\n",
-    boss_id, total.generated, count, total.cover / count, total.hazards / count, total.liquid / count, total.exits))
+  io.write(string.format("%s: %d/%d valid  avg cover %.2f  avg hazards %.2f  avg liquid %.2f  avg gas %.2f  avg fire %.2f  avg circuits %.2f  exits %d\n",
+    boss_id, total.generated, count, total.cover / count, total.hazards / count, total.liquid / count,
+    total.gas / count, total.fires / count, total.circuits / count, total.exits))
 end
 io.write(string.format("Boss arena batch: %d constructions, %d structural failures\n", #boss_ids * count, #failures))
 for _, failure in ipairs(failures) do
