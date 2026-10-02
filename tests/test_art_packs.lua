@@ -118,6 +118,31 @@ return {
     end,
   },
   {
+    name = "sprite cutout masking removes only a corner-connected opaque backdrop",
+    run = function()
+      local background = { 0.1, 0.1, 0.1, 1 }
+      local foreground = { 0.9, 0.5, 0.2, 1 }
+      local pixels = {
+        background, background, background, background,
+        background, foreground, foreground, background,
+        background, foreground, foreground, background,
+        background, background, background, background,
+      }
+      local cutout, removed = Assets.cutout_background_mask(pixels, 4, 4)
+      assert(removed == 12)
+      assert(cutout[1][4] == 0 and cutout[6][4] == 1, "mask removed foreground instead of the tile backdrop")
+
+      local transparent = { 0.1, 0.1, 0.1, 0 }
+      local already_cutout, already_removed = Assets.cutout_background_mask({
+        transparent, transparent, transparent, transparent,
+        transparent, foreground, foreground, transparent,
+        transparent, foreground, foreground, transparent,
+        transparent, transparent, transparent, transparent,
+      }, 4, 4)
+      assert(already_removed == 0 and already_cutout[6][4] == 1, "existing alpha transparency must be preserved")
+    end,
+  },
+  {
     name = "complete one-bit wall roles are required mappings and terrain selection follows passable neighbours",
     run = function()
       local renderer = Renderer.new({})

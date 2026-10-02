@@ -17,6 +17,86 @@ local function key(column, row)
   return tostring(column) .. ":" .. tostring(row)
 end
 
+local function clone_pixel(pixel)
+  return { pixel[1], pixel[2], pixel[3], pixel[4] }
+end
+
+local function color_key(pixel)
+  return table.concat({
+    math.floor((pixel[1] or 0) * 255 + 0.5),
+    math.floor((pixel[2] or 0) * 255 + 0.5),
+    math.floor((pixel[3] or 0) * 255 + 0.5),
+    math.floor((pixel[4] or 0) * 255 + 0.5),
+  }, ":")
+end
+
+local function pixel_index(x, y, width)
+  return (y - 1) * width + x
+end
+
+-- Some supported sheets already carry transparency, while other source
+-- sheets encode an otherwise-transparent sprite over a flat opaque tile.  A
+-- corner-connected colour mask removes only that backdrop from sprite roles.
+-- Terrain keeps its original full tile, and a solid/outlined prop is retained
+-- unless its edge colour demonstrably forms a background field.
+function Assets.cutout_background_mask(pixels, width, height)
+  local result = {}
+  for index, pixel in ipairs(pixels or {}) do result[index] = clone_pixel(pixel) end
+  if width < 1 or height < 1 then return result, 0 end
+
+  local corners = {
+    result[pixel_index(1, 1, width)], result[pixel_index(width, 1, width)],
+    result[pixel_index(1, height, width)], result[pixel_index(width, height, width)],
+  }
+  local candidates = {}
+  for _, pixel in ipairs(corners) do
+    if pixel and (pixel[4] or 0) > 0 then
+      local candidate = color_key(pixel)
+      candidates[candidate] = (candidates[candidate] or 0) + 1
+    end
+  end
+  local background_key, background_count
+  for candidate, count in pairs(candidates) do
+    if count >= 2 and (not background_count or count > background_count) then
+      background_key, background_count = candidate, count
+    end
+  end
+  if not background_key then return result, 0 end
+
+  local function matches_background(x, y)
+    local pixel = result[pixel_index(x, y, width)]
+    return pixel and (pixel[4] or 0) > 0 and color_key(pixel) == background_key
+  end
+
+  local queue, queued, head = {}, {}, 1
+  local function enqueue(x, y)
+    if x < 1 or x > width or y < 1 or y > height then return end
+    local index = pixel_index(x, y, width)
+    if not queued[index] and matches_background(x, y) then
+      queued[index] = true
+      queue[#queue + 1] = { x, y }
+    end
+  end
+  for x = 1, width do enqueue(x, 1); enqueue(x, height) end
+  for y = 2, height - 1 do enqueue(1, y); enqueue(width, y) end
+
+  local removed = 0
+  while queue[head] do
+    local point = queue[head]
+    head = head + 1
+    local index = pixel_index(point[1], point[2], width)
+    if result[index][4] ~= 0 then
+      result[index][4] = 0
+      removed = removed + 1
+    end
+    enqueue(point[1] - 1, point[2])
+    enqueue(point[1] + 1, point[2])
+    enqueue(point[1], point[2] - 1)
+    enqueue(point[1], point[2] + 1)
+  end
+  return result, removed
+end
+
 function Assets.new(options)
   options = options or {}
   local art_pack_id = options.art_pack_id or ArtPacks.DEFAULT_ID
@@ -30,6 +110,7 @@ function Assets.new(options)
     loaded = false,
     sheets = {},
     quads = {},
+    sprite_cutouts = {},
   }, Assets)
 end
 
@@ -71,6 +152,10 @@ function Assets:refresh_sprite_mappings()
       self.sprites[kind] = { column, row, sheet = "main" }
     end
   end
+  -- A focus refresh can pick up a standalone Sprite Editor save. Rebuild the
+  -- presentation-only cutouts too, otherwise the newly assigned tile would
+  -- retain the previous role's masked source image until restart.
+  if self.loaded then self:_load_sprite_cutouts() end
   return true
 end
 
@@ -107,6 +192,58 @@ function Assets:_load_sheet(id, definition)
   return true
 end
 
+function Assets:_sprite_cutout(role, sprite, source_data)
+  if not source_data or not love or not love.image or not love.graphics then return nil end
+  local sheet_id = sprite.sheet or "main"
+  local sheet = self.sheets[sheet_id]
+  if not sheet then return nil end
+  local definition = sheet.definition
+  local width, height = definition.tile_width, definition.tile_height
+  local step_x = width + (definition.spacing or 0)
+  local step_y = height + (definition.spacing or 0)
+  local source_x, source_y = (sprite[1] - 1) * step_x, (sprite[2] - 1) * step_y
+  local pixels = {}
+  for y = 1, height do
+    for x = 1, width do
+      local red, green, blue, alpha = source_data:getPixel(source_x + x - 1, source_y + y - 1)
+      pixels[pixel_index(x, y, width)] = { red, green, blue, alpha }
+    end
+  end
+  local masked, removed = Assets.cutout_background_mask(pixels, width, height)
+  if removed == 0 then return nil end
+  -- A full-tile mark has no evidence of a separate backdrop. Preserve it so
+  -- a deliberately solid icon never vanishes merely because it touches every
+  -- corner of its source tile.
+  if removed == width * height then return nil end
+  local cutout = love.image.newImageData(width, height)
+  for y = 1, height do
+    for x = 1, width do
+      local pixel = masked[pixel_index(x, y, width)]
+      cutout:setPixel(x - 1, y - 1, pixel[1], pixel[2], pixel[3], pixel[4])
+    end
+  end
+  local image = love.graphics.newImage(cutout)
+  image:setFilter("nearest", "nearest")
+  return { image = image, width = width, height = height, role = role }
+end
+
+function Assets:_load_sprite_cutouts()
+  self.sprite_cutouts = {}
+  if not love or not love.image or not love.graphics then return true end
+  local source_data = {}
+  for role, sprite in pairs(self.sprites) do
+    local sheet_id = sprite.sheet or "main"
+    local sheet = self.sheets[sheet_id]
+    if sheet and not source_data[sheet_id] then
+      local ok, data = pcall(love.image.newImageData, sheet.definition.path)
+      if ok then source_data[sheet_id] = data end
+    end
+    local cutout = self:_sprite_cutout(role, sprite, source_data[sheet_id])
+    if cutout then self.sprite_cutouts[role] = cutout end
+  end
+  return true
+end
+
 function Assets:_load_art_pack()
   self.sheets, self.quads = {}, {}
   for id, definition in pairs(self.art_pack.sheets) do
@@ -119,6 +256,7 @@ function Assets:_load_art_pack()
   self.sprites = clone_sprites(self.art_pack.sprites)
   self.sheet = self.sheets.main and self.sheets.main.image
   if self.art_pack_id == ArtPacks.DEFAULT_ID then self:refresh_sprite_mappings() end
+  self:_load_sprite_cutouts()
   return true
 end
 
@@ -189,8 +327,26 @@ function Assets:_draw_mapping(sprite, x, y, size, tint, transform)
   return true
 end
 
+function Assets:_draw_cutout(cutout, x, y, size, tint, transform)
+  if not cutout or not cutout.image then return false end
+  if tint then
+    love.graphics.setColor(tint[1], tint[2], tint[3], tint[4] or 1)
+  else
+    love.graphics.setColor(1, 1, 1)
+  end
+  transform = transform or {}
+  local scale_x, scale_y = transform.scale_x or 1, transform.scale_y or 1
+  local draw_x = x + (transform.offset_x or 0) + (size - size * scale_x) * 0.5
+  local draw_y = y + (transform.offset_y or 0) + (size - size * scale_y)
+  love.graphics.draw(cutout.image, draw_x, draw_y, 0,
+    size / cutout.width * scale_x, size / cutout.height * scale_y)
+  love.graphics.setColor(1, 1, 1)
+  return true
+end
+
 function Assets:draw_sprite(kind, x, y, size, tint, transform)
-  return self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint, transform)
+  return self:_draw_cutout(self.sprite_cutouts[kind], x, y, size, tint, transform)
+    or self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint, transform)
 end
 
 function Assets:draw_terrain(kind, x, y, size, tint)
