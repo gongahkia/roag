@@ -65,15 +65,24 @@ function Renderer:_camera_position(presentation, player)
 end
 
 -- Only terrain decides a wall face: a closed door, crate, or kiosk must not
--- cause its floor cell to be styled as solid map geometry.  There are no
--- corner roles yet, so an exposed north/south face has visual priority before
--- the horizontal faces; fully enclosed terrain retains the existing fallback.
+-- cause its floor cell to be styled as solid map geometry.  All wall roles
+-- map to real editor-assigned sheet tiles.  Corner roles are used for a single
+-- exposed diagonal pair; more complex silhouettes retain the established
+-- cardinal priority rather than implying an unsupported T-junction sprite.
 function Renderer:wall_terrain_kind(world, x, y)
-  if world:terrain_is_passable(x, y + 1) then return "wall_up" end
-  if world:terrain_is_passable(x, y - 1) then return "wall_down" end
-  if world:terrain_is_passable(x - 1, y) then return "wall_left" end
-  if world:terrain_is_passable(x + 1, y) then return "wall_right" end
-  return "wall"
+  local north = world:terrain_is_passable(x, y + 1)
+  local south = world:terrain_is_passable(x, y - 1)
+  local west = world:terrain_is_passable(x - 1, y)
+  local east = world:terrain_is_passable(x + 1, y)
+  if north and west and not south and not east then return "wall_top_left" end
+  if north and east and not south and not west then return "wall_top_right" end
+  if south and west and not north and not east then return "wall_bottom_left" end
+  if south and east and not north and not west then return "wall_bottom_right" end
+  if north then return "wall_up" end
+  if south then return "wall_down" end
+  if west then return "wall_left" end
+  if east then return "wall_right" end
+  return "wall_center"
 end
 
 -- Material identity remains authoritative in World, but the palette below
@@ -105,6 +114,23 @@ function Renderer:_screen_position(presentation, player, x, y, size, offset_x, o
     return nil
   end
   return offset_x + screen_x * size, offset_y + (VIEW_HEIGHT - 1 - screen_y) * size
+end
+
+function Renderer:_draw_forecast_fill(x, y, size, style, time)
+  local danger = style == "danger"
+  local pulse = 0.5 + math.sin((time or 0) * (danger and 10 or 7)) * 0.12
+  self:_color(danger and { 1, 0.16, 0.1, 0.2 + pulse * 0.2 } or { 1, 0.72, 0.12, 0.13 + pulse * 0.15 })
+  love.graphics.rectangle("fill", x, y, size, size)
+end
+
+function Renderer:_draw_forecast_outline(x, y, size, style, time)
+  local danger = style == "danger"
+  local pulse = 0.5 + math.sin((time or 0) * (danger and 10 or 7)) * 0.2
+  self:_color(danger and { 1, 0.24, 0.16, 0.68 + pulse * 0.25 } or { 1, 0.82, 0.22, 0.58 + pulse * 0.25 })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.1)))
+  local inset = math.max(1, size * 0.09)
+  love.graphics.rectangle("line", x + inset, y + inset, size - inset * 2, size - inset * 2)
+  love.graphics.setLineWidth(1)
 end
 
 function Renderer:_draw_game(app)
@@ -269,12 +295,12 @@ function Renderer:_draw_game(app)
     end
   end
 
-  for location_key, style in pairs(session:telegraphs()) do
+  local forecasts = session:telegraphs()
+  for location_key, style in pairs(forecasts) do
     local x, y = location_key:match("(%d+):(%d+)")
     local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)
     if pixel_x then
-      self:_color(style == "danger" and { 1, 0.2, 0.15, 0.4 } or { 1, 0.75, 0.15, 0.28 })
-      love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
+      self:_draw_forecast_fill(pixel_x, pixel_y, size, style, time)
     end
   end
 
@@ -302,7 +328,8 @@ function Renderer:_draw_game(app)
     -- remain body-derived in the simulation.
     local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
-    self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint)
+    local transform = value.body and presentation:idle_transform(session, value, time, size) or nil
+    self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
   end
 
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do
@@ -341,6 +368,14 @@ function Renderer:_draw_game(app)
     actor(state.boss)
   end
   actor(state.player, true)
+  -- Draw the forecast border after actors so a target cell stays legible even
+  -- when the player or another actor occupies it. The player selection box is
+  -- still drawn last.
+  for location_key, style in pairs(forecasts) do
+    local x, y = location_key:match("(%d+):(%d+)")
+    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)
+    if pixel_x then self:_draw_forecast_outline(pixel_x, pixel_y, size, style, time) end
+  end
   local player_x, player_y = presentation:position(state.player)
   local pixel_x, pixel_y = self:_screen_position(presentation, state.player, player_x, player_y, size, offset_x, offset_y)
   if pixel_x then

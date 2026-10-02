@@ -118,7 +118,7 @@ return {
     end,
   },
   {
-    name = "directional one-bit wall roles are required mappings and terrain selection follows passable neighbours",
+    name = "complete one-bit wall roles are required mappings and terrain selection follows passable neighbours",
     run = function()
       local renderer = Renderer.new({})
       local open = {}
@@ -133,12 +133,22 @@ return {
       face("10:9", "wall_down")
       face("9:10", "wall_left")
       face("11:10", "wall_right")
+      open = { ["10:11"] = true, ["9:10"] = true }
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall_top_left")
+      open = { ["10:11"] = true, ["11:10"] = true }
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall_top_right")
+      open = { ["10:9"] = true, ["9:10"] = true }
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall_bottom_left")
+      open = { ["10:9"] = true, ["11:10"] = true }
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall_bottom_right")
       open = {}
-      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall")
+      assert(renderer:wall_terrain_kind(world, 10, 10) == "wall_center")
 
       local assets = Assets.new()
       assert(assets.sprites.wall_up, "wall faces are required mapped terrain roles")
       assert(assets.art_pack.terrain.wall_up.role == "wall_up")
+      assert(assets.sprites.wall_center, "closed walls are editor-mapped terrain roles")
+      assert(assets.art_pack.terrain.wall_top_left.role == "wall_top_left")
     end,
   },
   {
@@ -170,7 +180,7 @@ return {
     name = "every art pack builds its declared sheets and terrain mappings through the shared renderer boundary",
     run = function()
       local prior_love = love
-      local loaded_paths = {}
+      local loaded_paths, draws = {}, {}
       love = { graphics = {
         setDefaultFilter = function() end,
         newFont = function() return {} end,
@@ -183,7 +193,9 @@ return {
         end,
         newQuad = function() return {} end,
         setColor = function() end,
-        draw = function() end,
+        draw = function(_, _, x, y, rotation, scale_x, scale_y)
+          draws[#draws + 1] = { x = x, y = y, rotation = rotation, scale_x = scale_x, scale_y = scale_y }
+        end,
       } }
       local ok, reason = xpcall(function()
         for _, pack in ipairs(ArtPacks.list()) do
@@ -192,6 +204,12 @@ return {
           for _, role in ipairs(ArtPacks.roles()) do
             assert(assets:draw_sprite(role, 0, 0, 16), "required sprite role must draw directly: " .. role)
           end
+          assert(assets:draw_sprite("player", 0, 0, 16, nil, {
+            offset_x = 1, offset_y = -1, scale_x = 1.01, scale_y = 0.98,
+          }))
+          local transformed = draws[#draws]
+          assert(transformed.x ~= 0 or transformed.y ~= 0, "sprite transform did not affect draw origin")
+          assert(transformed.scale_x > 0 and transformed.scale_y > 0, "sprite transform produced invalid scale")
           for kind, mapping in pairs(pack.terrain or {}) do
             local drawn = assets:draw_terrain(kind, 0, 0, 16)
             assert(drawn, "every declared terrain role must resolve to source art")

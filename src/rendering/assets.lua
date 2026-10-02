@@ -166,7 +166,7 @@ function Assets:quad(kind)
   return self:_quad_for(self:_sprite_for(kind))
 end
 
-function Assets:_draw_mapping(sprite, x, y, size, tint)
+function Assets:_draw_mapping(sprite, x, y, size, tint, transform)
   if not sprite then return false end
   local sheet_id = sprite.sheet or "main"
   local sheet, quad = self.sheets[sheet_id], self:_quad_for(sprite)
@@ -177,13 +177,20 @@ function Assets:_draw_mapping(sprite, x, y, size, tint)
     love.graphics.setColor(1, 1, 1)
   end
   local definition = sheet.definition
-  love.graphics.draw(sheet.image, quad, x, y, 0, size / definition.tile_width, size / definition.tile_height)
+  transform = transform or {}
+  local scale_x, scale_y = transform.scale_x or 1, transform.scale_y or 1
+  local draw_x = x + (transform.offset_x or 0) + (size - size * scale_x) * 0.5
+  -- Preserve bottom alignment while breathing so a sprite does not look as
+  -- though it is sliding through the tile beneath it.
+  local draw_y = y + (transform.offset_y or 0) + (size - size * scale_y)
+  love.graphics.draw(sheet.image, quad, draw_x, draw_y, 0,
+    size / definition.tile_width * scale_x, size / definition.tile_height * scale_y)
   love.graphics.setColor(1, 1, 1)
   return true
 end
 
-function Assets:draw_sprite(kind, x, y, size, tint)
-  return self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint)
+function Assets:draw_sprite(kind, x, y, size, tint, transform)
+  return self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint, transform)
 end
 
 function Assets:draw_terrain(kind, x, y, size, tint)

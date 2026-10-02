@@ -102,6 +102,9 @@ local CATALOG = {
     {
       wall_left = { role = "wall_left" }, wall_right = { role = "wall_right" },
       wall_up = { role = "wall_up" }, wall_down = { role = "wall_down" },
+      wall_top_left = { role = "wall_top_left" }, wall_top_right = { role = "wall_top_right" },
+      wall_bottom_left = { role = "wall_bottom_left" }, wall_bottom_right = { role = "wall_bottom_right" },
+      wall_center = { role = "wall_center" },
     }
   ),
   pack(

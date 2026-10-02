@@ -36,6 +36,14 @@ return {
   wall_right = {11, 4},
   wall_up = {12, 4},
   wall_down = {13, 4},
+  -- Wall corners and the closed centre complete the terrain autotile set.
+  -- The standalone Sprite Editor owns the shipped coordinates for the
+  -- original sheet, so these defaults are intentionally editable too.
+  wall_top_left = {17, 14},
+  wall_top_right = {19, 14},
+  wall_bottom_left = {17, 16},
+  wall_bottom_right = {19, 16},
+  wall_center = {18, 15},
   old_growth_tree = {5, 2},
   fallen_log = {9, 3},
   granite_boulder = {2, 14},
