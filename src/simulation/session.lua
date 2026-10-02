@@ -61,6 +61,15 @@ local ARCANE_BURST_ABILITY = "ability.arcane.burst"
 local ELECTRICAL_DISCHARGE_ABILITY = "ability.electrical.discharge"
 local LOCOMOTION_ABILITY = Locomotion.ABILITY_ID
 local PLAYER_ACTOR_ID = "actor.player.legacy"
+-- OW-01 uses the existing floor generators as zone profiles. These are
+-- deliberately a small mapping rather than macro geography; OW-02 will own
+-- which profile a neighboring coordinate receives.
+local CAMPAIGN_ZONE_PROFILES = {
+  ["zone_profile.legacy.forest"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1" },
+  ["zone_profile.legacy.cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2" },
+  ["zone_profile.legacy.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3" },
+  ["zone_profile.legacy.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3" },
+}
 local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
   cultist = "enemy.legacy.cultist",
@@ -2556,10 +2565,17 @@ function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boo
   self:start_run(class, boon, true)
   local state, route = self.state, self.state.route
   local node = assert(route and route:node(route.current_node_id), "Campaign zone requires an opening route node")
-  local biome = self.route_definitions:get_biome(node.biome_id)
-  local tier = self.route_definitions:get_tier(node.tier_id)
+  local profile = assert(CAMPAIGN_ZONE_PROFILES[profile_id], "Unknown campaign zone profile '" .. tostring(profile_id) .. "'")
+  local biome = self.route_definitions:get_biome(profile.biome_id)
+  local tier = self.route_definitions:get_tier(profile.tier_id)
   local settings = self:_settings_for_floor(biome, tier)
-  settings.service_id, settings.service_origin = node.service_id, node.id
+  -- Existing opening-floor service content remains available for the playable
+  -- forest start. Other reusable generator profiles stay headless/tooling
+  -- inputs until OW-02 places services geographically.
+  if profile_id == "zone_profile.legacy.forest" then
+    settings.service_id, settings.service_origin = node.service_id, node.id
+  end
+  state.stage = tier.number
   state.floor_seed = zone_seed
   state.zone_key = { world_x = zone_key.world_x, world_y = zone_key.world_y, z = zone_key.z }
   state.zone_profile_id = profile_id

@@ -101,6 +101,8 @@ return {
       assert(encoded(first_b.world) == encoded(second_b.world))
       assert(Campaign.derive_zone_seed(611003, a) == Campaign.derive_zone_seed(611003, a))
       assert(Campaign.derive_zone_seed(611003, a) ~= Campaign.derive_zone_seed(611003, b))
+      local _, cave = Campaign.generate_zone(611003, "campaign:000003", a, "zone_profile.legacy.cave")
+      assert(cave.world.terrain == "cave")
       local seen = {}
       for _, id in ipairs(object_ids(first_a)) do seen[id] = true end
       for _, id in ipairs(object_ids(first_b)) do assert(not seen[id], "zone-generated identity collided: " .. id) end
