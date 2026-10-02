@@ -15,6 +15,7 @@ if repository_root then
 end
 
 local tool
+local cursor_manager
 
 local function requested(arguments, flag)
   for _, value in ipairs(arguments or arg or {}) do
@@ -31,6 +32,11 @@ function love.load(...)
     tool = require("generation_inspector").new()
     tool:fit(love.graphics.getDimensions())
   end
+  -- The standalone level tools have their own runtime mirror of the Kenney
+  -- cursor pack, so they stay launchable independently from ROAG itself.
+  cursor_manager = require("sprite_editor.cursor_manager").new()
+  cursor_manager:load()
+  cursor_manager:set("default")
 end
 
 function love.update(dt) tool:update(dt) end

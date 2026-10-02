@@ -34,6 +34,7 @@ local suites = {
   "tests.test_reactor",
   "tests.test_bosses",
   "tests.test_art_packs",
+  "tests.test_tooling_ui",
 }
 
 local passed, failed = 0, 0

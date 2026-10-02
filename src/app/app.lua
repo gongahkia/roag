@@ -75,6 +75,14 @@ end
 function App:focus(focused)
   if focused then
     self.assets:refresh_sprite_mappings()
+    -- Screen copy/layout data is development-authored presentation only. A
+    -- refocus picks up a saved Studio edit without altering any run state.
+    local screens, failure = ScreenManager.load()
+    if screens then
+      self.screens, self.screen_definition_error = screens, nil
+    else
+      self.screen_definition_error = failure
+    end
   end
 end
 

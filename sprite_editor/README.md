@@ -17,19 +17,32 @@ bundled third-party visual pack from the normal game's **ART PACKS** title-menu
 entry; those packs use their own declarative built-in role maps and are not
 overwritten by `mappings.json`.
 
-Click a gameplay role in the left column, then click a tile in the Kenney
-sheet. The role list includes every current player, object, ordinary enemy,
-elite, Reactor mapping, and four optional wall faces: **left**, **right**,
-**up**, and **down**. Assigning a wall face makes terrain walls use that tile
-when the corresponding side faces passable terrain. Unassigned wall faces keep
-the normal procedural fallback, so you can introduce them one at a time.
+The current **Sprite Workbench** is deliberately click-first:
 
-- Mouse wheel over the sheet: zoom at the cursor.
-- Right- or middle-drag over the sheet: pan.
+- Filter roles by **Core**, **Terrain**, **Enemies**, **Elites**, **Reactor**,
+  or **Boss**, then type `F` to filter by role name/semantic role.
+- Click a role, then click a sheet tile to assign it. The assignment panel has
+  precise column/row steppers, Reset, and Clear for optional wall faces.
+- The panel also shows whether the hovered tile is already used by another
+  role; shared tiles are intentional and visible rather than hidden.
+- Mouse wheel over the sheet zooms at the cursor. Right- or middle-drag pans.
+  Wheel over the role list scrolls it. `Home` fits the sheet.
+- `⌘/Ctrl+S` saves, `⌘/Ctrl+Z` undoes, `⌘/Ctrl+Y` redoes, arrow keys adjust the
+  chosen role's column/row, `R` resets, and Delete clears an optional role.
 
-- **Save JSON** serializes the mapping to `sprite_editor/mappings.json` beside this editor.
-- **Load JSON** deserializes that same repository-local file.
-- **Close** exits the editor without changing the file; Escape also closes it.
+The role list includes every current player, object, ordinary enemy, elite,
+Reactor mapping, and four optional wall faces: **left**, **right**, **up**, and
+**down**. Assigning a wall face makes terrain walls use that tile when the
+corresponding side faces passable terrain. Unassigned wall faces keep the
+normal procedural fallback, so you can introduce them one at a time.
+
+- **Save** serializes the mapping to `sprite_editor/mappings.json` beside this editor.
+- **Reload** deserializes that same repository-local file.
+- **Close** exits the editor; Escape also closes it.
+
+The editor and all standalone authoring tools use the bundled Kenney Cursor
+Pack for pointer, picker, hand, and pan states. Its CC0 license/source lives
+under `assets/cursors/kenney/`.
 
 ROAG reads `sprite_editor/mappings.json` on launch and whenever its window
 regains focus. Save your selections here, then start or refocus ROAG; no manual

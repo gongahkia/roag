@@ -685,6 +685,7 @@ function Renderer:_draw_title(app)
   local message = app.death_archive_error and "FALLEN ARCHIVE WRITE FAILED — DEAD RUN RETAINED"
     or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+    or (app.screen_definition_error and "SCREEN DEFINITIONS INVALID — USING SAFE FALLBACK")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))
   -- Keep title feedback below the longest normal menu so valid title states
   -- remain screenshot-readable as presentation options are added.

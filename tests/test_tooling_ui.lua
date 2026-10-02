@@ -1,0 +1,52 @@
+local ScreenManager = require("src.ui.screen_manager")
+local SpriteModel = require("sprite_editor.model")
+
+return {
+  {
+    name = "screen definitions are validated serializable data with safe fallback semantics",
+    run = function()
+      local source = assert(io.open("content/screens/legacy.json", "rb"))
+      local payload = source:read("*a")
+      source:close()
+      local manager = assert(ScreenManager.load({ payload = payload }))
+      assert(manager:screen("title").title == "ROAG")
+      assert(manager:screen("route").layout == "route")
+      local encoded = assert(ScreenManager.encode(manager:to_data()))
+      local restored = assert(ScreenManager.load({ payload = encoded }))
+      assert(restored:text("research", "footer"):find("PURCHASE", 1, true))
+      local invalid, failure = ScreenManager.load({ payload = '{"format":"roag.screen_definitions","version":1,"screens":[{"id":"title","layout":"unknown","title":"x","subtitle":"x","footer":"x","accent":"cyan"}]}' })
+      assert(not invalid and failure.code == "invalid_screen_layout")
+      assert(ScreenManager.fallback():screen("title"))
+    end,
+  },
+  {
+    name = "sprite workbench model filters roles and preserves undoable physical mapping edits",
+    run = function()
+      local model = SpriteModel.new()
+      assert(#model:filtered("Reactor", "") == 4)
+      assert(#model:filtered("All", "wall") == 4)
+      local original = assert(model:tile("player"))
+      local changed = assert(model:assign("player", 1, 1))
+      assert(changed.applied and model:tile("player")[1] == 1)
+      assert(model:undo().applied and model:tile("player")[1] == original[1])
+      assert(model:redo().applied and model:tile("player")[1] == 1)
+      local forbidden, failure = model:clear("player")
+      assert(not forbidden and failure.code == "required_role")
+      assert(model:assign("wall_left", 2, 2).applied)
+      assert(model:clear("wall_left").applied and not model:tile("wall_left"))
+      assert(model:adjust("player", "column", -99).mapping[1] == 1)
+      assert(#model:roles_at(1, 1) >= 1)
+    end,
+  },
+  {
+    name = "sprite mapping JSON round trips known roles while rejecting invalid-only data",
+    run = function()
+      local model = SpriteModel.new()
+      assert(model:assign("wall_up", 4, 5).applied)
+      local restored = assert(SpriteModel.deserialize(model:serialize()))
+      assert(restored.wall_up[1] == 4 and restored.wall_up[2] == 5)
+      local missing, failure = SpriteModel.deserialize('{"sprites":{"player":{"column":99,"row":99}}}')
+      assert(not missing and failure.code == "no_valid_mappings")
+    end,
+  },
+}
