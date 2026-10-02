@@ -478,8 +478,14 @@ return {
       local corpse = restored.state.corpses[#restored.state.corpses]
       restored.state.player.x, restored.state.player.y = corpse.x - 1, corpse.y
       assert(restored:salvage_corpse_component(corpse.id, "left_arm").component_id == lance.id)
+      restored = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(restored))))
+      assert(restored.state.phase == "boss_exit" and restored.state.boss == nil)
+      assert(restored.state.corpses[#restored.state.corpses].body:get_component("left_arm") == nil)
+      assert(restored.state.inventory:get(lance.id).item.object.id == lance.id)
       restored.state.player.x, restored.state.player.y = restored.state.exit.x, restored.state.exit.y
       assert(restored:turn("") == "reconstruction")
+      restored = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(restored))))
+      assert(restored.state.phase == "reconstruction" and restored.state.reconstruction_next == "boss")
       assert(restored:uninstall_body_component("left_arm").applied)
       assert(restored:install_inventory_component(lance.id, "left_arm").applied)
       assert(restored:actor_has_capability(restored.state.player, "ability.weapon.melee.basic"))
@@ -517,6 +523,9 @@ return {
       electrical_session.state.player.x, electrical_session.state.player.y = 17, 7
       electrical_session:_boss_turn()
       assert(assert(electrical.pending_telegraph).ability_id == "ability.electrical.discharge")
+      electrical_session = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(electrical_session))))
+      electrical = electrical_session.state.boss
+      assert(electrical.pending_telegraph and electrical.pending_telegraph.ability_id == "ability.electrical.discharge")
       assert(electrical_session:damage_actor_body(electrical, { amount = 99, slot_id = "internal_1", cause = "test" }).became_broken)
       electrical_session:_boss_turn()
       assert(electrical.pending_telegraph == nil)

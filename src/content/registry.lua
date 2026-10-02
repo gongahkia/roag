@@ -18,6 +18,15 @@ local KNOWN_INTERACTION_ROLES = {
   breaker = true,
   service = true,
   traversal = true,
+  discovery = true,
+  clue = true,
+}
+
+local KNOWN_DISCOVERY_ACCESS_PROFILES = {
+  ["access_profile.discovery.open"] = true,
+  ["access_profile.discovery.breachable"] = true,
+  ["access_profile.discovery.powered"] = true,
+  ["access_profile.discovery.maintenance_hatch"] = true,
 }
 
 local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
@@ -126,6 +135,7 @@ function Registry.new(sources)
     charms = {},
     curses = {},
     research = {},
+    discoveries = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
@@ -145,6 +155,7 @@ function Registry.new(sources)
   self:_index("charm", sources.charms or {}, self.charms)
   self:_index("curse", sources.curses or {}, self.curses)
   self:_index("research", sources.research or {}, self.research)
+  self:_index("discovery", sources.discoveries or {}, self.discoveries)
   self:validate()
   return self
 end
@@ -169,6 +180,7 @@ function Registry.load()
     charms = require("content.charms.legacy"),
     curses = require("content.curses.legacy"),
     research = require("content.research.legacy"),
+    discoveries = require("content.discoveries.legacy"),
   })
 end
 
@@ -285,6 +297,7 @@ function Registry:get_boon(id) return self:_get(self.boons, "boon", id) end
 function Registry:get_charm(id) return self:_get(self.charms, "charm", id) end
 function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
 function Registry:get_research(id) return self:_get(self.research, "research", id) end
+function Registry:get_discovery(id) return self:_get(self.discoveries, "discovery", id) end
 
 function Registry:validate()
   for _, id in ipairs(sorted_keys(self.materials)) do
@@ -468,7 +481,7 @@ function Registry:validate()
     validate_modifiers("Curse", id, curse.modifiers)
   end
 
-  local research_categories = { body = true, mobility = true, loadout = true, traversal = true, preparation = true }
+  local research_categories = { body = true, mobility = true, loadout = true, traversal = true, preparation = true, combat = true }
   for _, id in ipairs(sorted_keys(self.research)) do
     local node = self.research[id]
     require_string(node.display_name, "Research '" .. id .. "' display_name")
@@ -512,6 +525,36 @@ function Registry:validate()
     visiting[id], visited[id] = nil, true
   end
   for _, id in ipairs(sorted_keys(self.research)) do visit(id) end
+
+  for _, id in ipairs(sorted_keys(self.discoveries)) do
+    local discovery = self.discoveries[id]
+    require_string(discovery.display_name, "Discovery '" .. id .. "' display_name")
+    require_string(discovery.description, "Discovery '" .. id .. "' description")
+    if type(discovery.allowed_biome_ids) ~= "table" or #discovery.allowed_biome_ids == 0 then
+      content_error("Discovery '" .. id .. "' allowed_biome_ids must be a non-empty list")
+    end
+    local biome_ids = {}
+    for _, biome_id in ipairs(discovery.allowed_biome_ids) do
+      if type(biome_id) ~= "string" or not biome_id:match("^biome%.[a-z0-9_%.]+$") or biome_ids[biome_id] then
+        content_error("Discovery '" .. id .. "' has invalid allowed biome '" .. tostring(biome_id) .. "'")
+      end
+      biome_ids[biome_id] = true
+    end
+    require_string(discovery.access_profile_id, "Discovery '" .. id .. "' access_profile_id")
+    if not KNOWN_DISCOVERY_ACCESS_PROFILES[discovery.access_profile_id] then
+      content_error("Discovery '" .. id .. "' has unknown access_profile_id '" .. discovery.access_profile_id .. "'")
+    end
+    require_positive_integer(discovery.first_data_reward, "Discovery '" .. id .. "' first_data_reward")
+    require_nonnegative_number(discovery.repeat_scrap_reward, "Discovery '" .. id .. "' repeat_scrap_reward")
+    if discovery.repeat_scrap_reward % 1 ~= 0 then
+      content_error("Discovery '" .. id .. "' repeat_scrap_reward must be an integer")
+    end
+    if type(discovery.presentation) ~= "table" then
+      content_error("Discovery '" .. id .. "' presentation must be a table")
+    end
+    require_string(discovery.presentation.clue, "Discovery '" .. id .. "' presentation.clue")
+    require_string(discovery.presentation.render_style, "Discovery '" .. id .. "' presentation.render_style")
+  end
 
   for _, id in ipairs(sorted_keys(self.components)) do
     local component = self.components[id]
@@ -785,6 +828,24 @@ function Registry:validate_encounter_pools(route_definitions)
     route_definitions:get_tier(pool.tier_id)
     if not route_definitions:biome_supports_tier(pool.biome_id, pool.tier_id) then
       content_error("Encounter pool uses unsupported biome/tier pair '" .. pool.biome_id .. ":" .. pool.tier_id .. "'")
+    end
+  end
+  return true
+end
+
+-- Discoveries are account-facing content but their biome vocabulary belongs
+-- to the route registry. Keep this join explicit, as with encounter pools.
+function Registry:validate_discoveries(route_definitions)
+  assert(route_definitions, "Discovery validation requires route definitions")
+  for _, discovery_id in ipairs(sorted_keys(self.discoveries)) do
+    local discovery = self.discoveries[discovery_id]
+    local usable = false
+    for _, biome_id in ipairs(discovery.allowed_biome_ids) do
+      route_definitions:get_biome(biome_id)
+      usable = true
+    end
+    if not usable then
+      content_error("Discovery '" .. discovery_id .. "' is production content but has no usable biome")
     end
   end
   return true

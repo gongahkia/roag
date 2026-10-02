@@ -2,7 +2,7 @@
 -- asks for an action; this module validates and mutates simulation state.
 local Interaction = {}
 
-local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4, traversal = 5 }
+local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4, traversal = 5, discovery = 6, clue = 7 }
 
 local function result(applied, code, reason, extra)
   local value = {
@@ -57,8 +57,17 @@ function Interaction.actions_for(world, object, session)
     return { action("service.open", "ACCESS SERVICE", true) }
   elseif object.interaction_role == "traversal" then
     local available = session and session:has_meta_unlock(object.required_unlock)
-    return { action("traversal.breach", available and "BREACH" or "RESEARCH REQUIRED", available,
-      available and nil or "REINFORCED BREACH RESEARCH REQUIRED") }
+    local maintenance = object.required_unlock == "unlock.traversal.maintenance_override"
+    local label = maintenance and "OVERRIDE HATCH" or "BREACH"
+    local reason = maintenance and "SEALED MAINTENANCE HATCH — OVERRIDE RESEARCH REQUIRED"
+      or "REINFORCED BREACH RESEARCH REQUIRED"
+    return { action("traversal.breach", available and label or "RESEARCH REQUIRED", available, available and nil or reason) }
+  elseif object.interaction_role == "discovery" then
+    local claimed = object.discovery_claimed == true
+    return { action("discovery.claim", claimed and "CACHE CLAIMED" or "RECOVER DISCOVERY", not claimed,
+      claimed and "DISCOVERY ALREADY CLAIMED" or nil) }
+  elseif object.interaction_role == "clue" then
+    return { action("clue.read", "READ ACCESS MARKING", true) }
   end
   return {}
 end
@@ -139,9 +148,20 @@ function Interaction.perform(session, actor, object_id, action_id)
     })
   elseif action_id == "traversal.breach" and object.interaction_role == "traversal" then
     if not session:has_meta_unlock(object.required_unlock) then
-      return result(false, "requires_unlock", "REINFORCED BREACH RESEARCH REQUIRED", { object_id = object.id, action_id = action_id })
+      local maintenance = object.required_unlock == "unlock.traversal.maintenance_override"
+      return result(false, "requires_unlock", maintenance and "SEALED MAINTENANCE HATCH — OVERRIDE RESEARCH REQUIRED"
+        or "REINFORCED BREACH RESEARCH REQUIRED", { object_id = object.id, action_id = action_id })
     end
-    world_result = world:damage_object(object, { amount = object.current_integrity, cause = "traversal", source = "reinforced_breach" })
+    world_result = world:damage_object(object, { amount = object.current_integrity, cause = "traversal",
+      source = object.required_unlock == "unlock.traversal.maintenance_override" and "maintenance_override" or "reinforced_breach" })
+  elseif action_id == "discovery.claim" and object.interaction_role == "discovery" then
+    world_result = session:claim_discovery(object)
+  elseif action_id == "clue.read" and object.interaction_role == "clue" then
+    local discovery = session.registry:get_discovery(object.discovery_id)
+    world_result = result(true, "clue_read", discovery.presentation.clue, {
+      discovery_id = discovery.id,
+      clue = discovery.presentation.clue,
+    })
   else
     return result(false, "invalid_action", "Action is not available for this object", {
       object_id = object.id,

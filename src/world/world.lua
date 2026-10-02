@@ -38,6 +38,47 @@ local function object_blocks_for_state(definition, door_state)
   return definition.blocks_movement, definition.blocks_vision, definition.blocks_projectiles, definition.blocks_gas
 end
 
+-- Discovery state remains ordinary world-object state. The cache, clue, and
+-- any gate all carry the same semantic ID so inspection and save restoration
+-- never need a second object graph.
+local function discovery_fields(registry, definition, source)
+  source = source or {}
+  local discovery_id = source.discovery_id
+  local access_profile_id = source.discovery_access_profile_id
+  local provenance = source.discovery_provenance
+  local claimed = source.discovery_claimed
+  local requires_discovery = definition.interaction_role == "discovery" or definition.interaction_role == "clue"
+  if requires_discovery and type(discovery_id) ~= "string" then
+    return nil, "Discovery object requires a discovery ID"
+  end
+  if discovery_id ~= nil then
+    if type(discovery_id) ~= "string" or not registry.discoveries[discovery_id] then
+      return nil, "World object references an unknown discovery"
+    end
+    local discovery = registry:get_discovery(discovery_id)
+    if type(access_profile_id) ~= "string" or access_profile_id ~= discovery.access_profile_id then
+      return nil, "World object discovery access profile is invalid"
+    end
+  elseif access_profile_id ~= nil or provenance ~= nil or claimed ~= nil then
+    return nil, "World object discovery metadata requires a discovery ID"
+  end
+  if provenance ~= nil and type(provenance) ~= "string" then
+    return nil, "Discovery provenance must be a string"
+  end
+  if definition.interaction_role == "discovery" then
+    if claimed == nil then claimed = false end
+    if type(claimed) ~= "boolean" then return nil, "Discovery claim state must be boolean" end
+  elseif claimed ~= nil then
+    return nil, "Only discovery caches may store claim state"
+  end
+  return {
+    discovery_id = discovery_id,
+    discovery_access_profile_id = access_profile_id,
+    discovery_provenance = provenance,
+    discovery_claimed = claimed,
+  }
+end
+
 function World.new(registry, terrain, open_layout, sequence_owner, material_layout)
   sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1, next_fire_sequence = 1 }
   sequence_owner.next_world_object_sequence = sequence_owner.next_world_object_sequence or 1
@@ -917,6 +958,10 @@ function World:place_object(definition_id, x, y, options)
   if role == "generator" and type(generator_online) ~= "boolean" then
     return nil, { applied = false, code = "invalid_generator_state", reason = "Generator online state must be boolean" }
   end
+  local discovery, discovery_reason = discovery_fields(self.registry, definition, options)
+  if not discovery then
+    return nil, { applied = false, code = "invalid_discovery", reason = discovery_reason }
+  end
   local id = options.id or self:_next_object_id()
   if self.objects[id] then
     return nil, { applied = false, code = "duplicate_id", reason = "World object ID already exists" }
@@ -944,6 +989,10 @@ function World:place_object(definition_id, x, y, options)
     service_stock = role == "service" and options.service_stock or nil,
     service_origin = role == "service" and options.service_origin or nil,
     required_unlock = role == "traversal" and definition.required_unlock or nil,
+    discovery_id = discovery.discovery_id,
+    discovery_access_profile_id = discovery.discovery_access_profile_id,
+    discovery_provenance = discovery.discovery_provenance,
+    discovery_claimed = discovery.discovery_claimed,
     movable_by_force = definition.movable_by_force,
   }
   if role == "service" then
@@ -1119,6 +1168,10 @@ function World:inspect_object(object_or_id)
     service_stock = object.service_stock,
     service_origin = object.service_origin,
     required_unlock = object.required_unlock,
+    discovery_id = object.discovery_id,
+    discovery_access_profile_id = object.discovery_access_profile_id,
+    discovery_provenance = object.discovery_provenance,
+    discovery_claimed = object.discovery_claimed,
     circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
     circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
     conductive = material.conductive,
@@ -1396,8 +1449,18 @@ function World.from_data(registry, data, sequence_owner)
       service_stock = saved.service_stock,
       service_origin = saved.service_origin,
       required_unlock = definition.interaction_role == "traversal" and definition.required_unlock or nil,
+      discovery_id = saved.discovery_id,
+      discovery_access_profile_id = saved.discovery_access_profile_id,
+      discovery_provenance = saved.discovery_provenance,
+      discovery_claimed = saved.discovery_claimed,
       movable_by_force = definition.movable_by_force,
     }
+    local discovery, discovery_reason = discovery_fields(registry, definition, object)
+    assert(discovery, discovery_reason)
+    object.discovery_id = discovery.discovery_id
+    object.discovery_access_profile_id = discovery.discovery_access_profile_id
+    object.discovery_provenance = discovery.discovery_provenance
+    object.discovery_claimed = discovery.discovery_claimed
     if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and world.circuits[object.circuit_id],
         "Interactive world object references an unknown circuit")
@@ -1544,6 +1607,8 @@ function World:validate()
     if object.interaction_role then
       assert(object.interaction_role == definition.interaction_role, "World object interaction role does not match definition")
     end
+    local discovery, discovery_reason = discovery_fields(self.registry, definition, object)
+    assert(discovery, discovery_reason)
     if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and self.circuits[object.circuit_id],
         "Interactive world object references unknown circuit")

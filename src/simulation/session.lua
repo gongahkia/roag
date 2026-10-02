@@ -30,6 +30,7 @@ local LiquidGeneration = require("src.generation.liquids")
 local GasGeneration = require("src.generation.gases")
 local FireGeneration = require("src.generation.fires")
 local PoweredDevices = require("src.generation.powered_devices")
+local DiscoveryGeneration = require("src.generation.discoveries")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -60,7 +61,10 @@ local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
   cultist = "enemy.legacy.cultist",
 }
-local META_MODIFIER_KEYS = { max_health = true, dash_cooldown = true, charm_slots = true, inventory_rows = true, starting_scrap = true }
+local META_MODIFIER_KEYS = {
+  max_health = true, dash_cooldown = true, charm_slots = true, inventory_rows = true, starting_scrap = true,
+  melee_force = true, projectile_damage = true,
+}
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -92,8 +96,8 @@ local function copy_plain(value)
 end
 
 local function copy_meta_snapshot(snapshot)
-  local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {} }
-  local seen_research, seen_unlocks = {}, {}
+  local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {}, discovered_discovery_ids = {} }
+  local seen_research, seen_unlocks, seen_discoveries = {}, {}, {}
   for _, id in ipairs(snapshot and snapshot.unlocked_research_ids or {}) do
     assert(type(id) == "string" and id:match("^research%.[a-z0-9_%.]+$") and not seen_research[id], "Run meta snapshot research ID is invalid")
     seen_research[id] = true; result.unlocked_research_ids[#result.unlocked_research_ids + 1] = id
@@ -102,13 +106,35 @@ local function copy_meta_snapshot(snapshot)
     assert(type(id) == "string" and id:match("^unlock%.[a-z0-9_%.]+$") and not seen_unlocks[id], "Run meta snapshot unlock ID is invalid")
     seen_unlocks[id] = true; result.unlock_ids[#result.unlock_ids + 1] = id
   end
+  for _, id in ipairs(snapshot and snapshot.discovered_discovery_ids or {}) do
+    assert(type(id) == "string" and id:match("^discovery%.[a-z0-9_%.]+$") and not seen_discoveries[id],
+      "Run meta snapshot discovery ID is invalid")
+    seen_discoveries[id] = true
+    result.discovered_discovery_ids[#result.discovered_discovery_ids + 1] = id
+  end
   for key, value in pairs(snapshot and snapshot.modifiers or {}) do
     assert(META_MODIFIER_KEYS[key] and type(value) == "number" and value % 1 == 0, "Run meta snapshot modifier is invalid")
     result.modifiers[key] = value
   end
   table.sort(result.unlocked_research_ids)
   table.sort(result.unlock_ids)
+  table.sort(result.discovered_discovery_ids)
   return result
+end
+
+local function copy_discovery_state(value, legacy_disabled)
+  if value == nil then
+    return { enabled = legacy_disabled ~= false and false or true, assigned_discovery_ids = {} }
+  end
+  assert(type(value) == "table" and type(value.enabled) == "boolean", "Discovery state is invalid")
+  local assigned, seen = {}, {}
+  for _, id in ipairs(value.assigned_discovery_ids or {}) do
+    assert(type(id) == "string" and id:match("^discovery%.[a-z0-9_%.]+$") and not seen[id], "Discovery assignment is invalid")
+    seen[id] = true
+    assigned[#assigned + 1] = id
+  end
+  table.sort(assigned)
+  return { enabled = value.enabled, assigned_discovery_ids = assigned }
 end
 
 local function copy_string_list(values, label)
@@ -166,6 +192,7 @@ function Session.new(options)
   self.registry = options.registry or Registry.load()
   self.route_definitions = options.route_definitions or RouteDefinitions.load()
   self.registry:validate_encounter_pools(self.route_definitions)
+  self.registry:validate_discoveries(self.route_definitions)
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
@@ -200,6 +227,10 @@ function Session.new(options)
     run_id = options.run_id or ("legacy:" .. tostring(self.seed)),
     meta_snapshot = meta_snapshot,
     meta_reward_events = {},
+    -- New runs opt in from start_run. A Session constructed only to restore a
+    -- pre-8J active save keeps this disabled unless persisted state says
+    -- otherwise, avoiding retroactive future-floor injection.
+    discovery_state = copy_discovery_state(nil),
     -- This snapshot is selected at New Run, never by consulting the archive
     -- during a live run. It therefore remains deterministic across resumes.
     fallen_recurrence = FallenRecurrence.copy_spec(options.fallen_recurrence),
@@ -294,20 +325,24 @@ function Session:has_meta_unlock(unlock_id)
   return false
 end
 
-function Session:_claim_research_reward(milestone, amount)
+function Session:_claim_research_reward(milestone, amount, metadata)
   local state = self.state
   local reward_id = state.run_id .. ":" .. milestone
   for _, event in ipairs(state.meta_reward_events) do
     if event.id == reward_id then return event end
   end
   local event = { id = reward_id, amount = amount, claimed = false }
+  if metadata then
+    event.kind = metadata.kind
+    event.discovery_id = metadata.discovery_id
+  end
   state.meta_reward_events[#state.meta_reward_events + 1] = event
   if not self.meta_reward_handler then
     event.claimed = true
     return event
   end
-  local result = self.meta_reward_handler(event.id, event.amount)
-  if result and (result.applied or result.code == "already_claimed") then event.claimed = true end
+  local result = self.meta_reward_handler(event.id, event.amount, event)
+  if result and (result.applied or result.code == "already_claimed" or result.code == "already_discovered") then event.claimed = true end
   return event
 end
 
@@ -315,13 +350,57 @@ function Session:reconcile_meta_rewards()
   local settled = true
   for _, event in ipairs(self.state.meta_reward_events or {}) do
     if not event.claimed and self.meta_reward_handler then
-      local result = self.meta_reward_handler(event.id, event.amount)
-      if result and (result.applied or result.code == "already_claimed") then event.claimed = true else settled = false end
+      local result = self.meta_reward_handler(event.id, event.amount, event)
+      if result and (result.applied or result.code == "already_claimed" or result.code == "already_discovered") then event.claimed = true else settled = false end
     elseif not event.claimed then
       settled = false
     end
   end
   return settled
+end
+
+function Session:_snapshot_discovery(discovery_id)
+  local ids = self.state.meta_snapshot.discovered_discovery_ids
+  for _, id in ipairs(ids) do if id == discovery_id then return false end end
+  ids[#ids + 1] = discovery_id
+  table.sort(ids)
+  return true
+end
+
+-- Discovery caches are physical one-use world objects. The persistent DATA
+-- event uses the same saved/reconciled pipeline as boss and floor rewards;
+-- a profile write failure cannot create a second reward on later Continue.
+function Session:claim_discovery(object)
+  local world = self.state.world
+  if not object or world:get_object(object.id) ~= object or object.interaction_role ~= "discovery" then
+    return { applied = false, code = "invalid_discovery", reason = "Discovery cache is unavailable" }
+  end
+  if object.destroyed then return { applied = false, code = "destroyed", reason = "Discovery cache is destroyed" } end
+  if object.discovery_claimed then
+    return { applied = false, code = "already_claimed", reason = "Discovery cache already claimed", discovery_id = object.discovery_id }
+  end
+  local definition = self.registry:get_discovery(object.discovery_id)
+  object.discovery_claimed = true
+  local known = false
+  for _, id in ipairs(self.state.meta_snapshot.discovered_discovery_ids or {}) do
+    if id == definition.id then known = true; break end
+  end
+  if known then
+    self.state.scrap = self.state.scrap + definition.repeat_scrap_reward
+    return {
+      applied = true, code = "repeat_discovery", discovery_id = definition.id,
+      scrap = definition.repeat_scrap_reward, reason = "Known discovery recovered",
+    }
+  end
+  self:_snapshot_discovery(definition.id)
+  local event = self:_claim_research_reward("discovery:" .. definition.id, definition.first_data_reward, {
+    kind = "discovery", discovery_id = definition.id,
+  })
+  return {
+    applied = true, code = "first_discovery", discovery_id = definition.id,
+    data = definition.first_data_reward, event_id = event.id, event_claimed = event.claimed,
+    reason = "New discovery recorded",
+  }
 end
 
 function Session:_fallen_metadata(provenance)
@@ -1271,6 +1350,7 @@ function Session:to_data()
       next_fire_sequence = state.next_fire_sequence,
       run_id = state.run_id,
       meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
+      discovery_state = copy_discovery_state(state.discovery_state),
       meta_reward_events = {},
       fallen_recurrence = FallenRecurrence.copy_spec(state.fallen_recurrence),
       death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
@@ -1298,7 +1378,10 @@ function Session:to_data()
   for _, message in ipairs(state.log or {}) do data.log[#data.log + 1] = message end
   for _, corpse in ipairs(state.corpses or {}) do data.corpses[#data.corpses + 1] = corpse:to_data() end
   for _, event in ipairs(state.meta_reward_events or {}) do
-    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+    data.progression.meta_reward_events[#data.progression.meta_reward_events + 1] = {
+      id = event.id, amount = event.amount, claimed = event.claimed == true,
+      kind = event.kind, discovery_id = event.discovery_id,
+    }
   end
   table.sort(data.corpses, function(first, second) return first.id < second.id end)
   return data
@@ -1344,6 +1427,10 @@ function Session.from_data(data, options)
   state.meta_snapshot = copy_meta_snapshot(progression.meta_snapshot or options.meta_snapshot)
   for _, id in ipairs(state.meta_snapshot.unlocked_research_ids) do assert(session.registry.research[id], "Active run references unknown research ID '" .. id .. "'") end
   state.fallen_recurrence = FallenRecurrence.copy_spec(progression.fallen_recurrence)
+  -- Absent state identifies a pre-8J active run. Keep that run and all of
+  -- its future route floors discovery-free rather than changing its stored
+  -- deterministic content midway through a descent.
+  state.discovery_state = copy_discovery_state(progression.discovery_state)
   local recurrence_ok, recurrence_reason = FallenRecurrence.validate_spec(state.fallen_recurrence, session.registry)
   assert(recurrence_ok, recurrence_reason)
   state.death_pending_archive = copy_death_pending(progression.death_pending_archive, session.registry)
@@ -1370,7 +1457,16 @@ function Session.from_data(data, options)
     assert(type(event) == "table" and type(event.id) == "string" and event.id:match("^[%w:_%.%-]+$")
       and type(event.amount) == "number" and event.amount >= 0 and event.amount % 1 == 0,
       "Active run has an invalid meta reward event")
-    state.meta_reward_events[#state.meta_reward_events + 1] = { id = event.id, amount = event.amount, claimed = event.claimed == true }
+    if event.kind ~= nil then
+      assert(event.kind == "discovery" and type(event.discovery_id) == "string"
+        and event.discovery_id:match("^discovery%.[a-z0-9_%.]+$"), "Active run has an invalid meta reward event")
+    elseif event.discovery_id ~= nil then
+      assert(false, "Active run has an invalid meta reward event")
+    end
+    state.meta_reward_events[#state.meta_reward_events + 1] = {
+      id = event.id, amount = event.amount, claimed = event.claimed == true,
+      kind = event.kind, discovery_id = event.discovery_id,
+    }
   end
   state.curse_bag, state.curse_options = {}, {}
   for _, name in ipairs(progression.curse_bag or {}) do state.curse_bag[#state.curse_bag + 1] = resolve_curse(name) end
@@ -2223,6 +2319,7 @@ function Session:start_run(class, boon)
   state.inventory = state.run.inventory
   state.scrap = math.max(0, (state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.starting_scrap) or 0)
   state.meta_reward_events = {}
+  state.discovery_state = { enabled = true, assigned_discovery_ids = {} }
   state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", state.meta_snapshot.unlock_ids)
   self:start_route_node(state.route.start_node_id)
 end
@@ -2337,6 +2434,13 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   -- Historical recurrence is intentionally last: it observes final geometry,
   -- ordinary spawns, and the service kiosk without perturbing their streams.
   self:_spawn_fallen_recurrence()
+  -- Discoveries are normal-floor-only optional content. They use their own
+  -- named stream and run after recurrence so neither placement can collide.
+  local discovery, discovery_reason = DiscoveryGeneration.place(self,
+    floor_rng:derive(stream_prefix .. ".discoveries"), stream_prefix .. ".discoveries")
+  state.generation_metadata = state.generation_metadata or {}
+  state.generation_metadata.discovery = discovery
+  state.generation_metadata.discovery_reason = discovery_reason
   self:validate_world()
   self:validate_physical_ownership()
   self:_log("Descend into the " .. (settings.biome_display_name or settings.terrain) .. ".")
@@ -2379,6 +2483,10 @@ function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id, opt
   local tier = self.route_definitions:get_tier(tier_id)
   floor_seed = floor_seed or self.seed
   state.route, state.route_node_id = nil, nil
+  -- Inspector/batch floors are fresh synthetic constructions, never restored
+  -- active runs. They therefore exercise discovery generation without any
+  -- persistent profile access.
+  state.discovery_state = copy_discovery_state(options.discovery_state, false)
   state.legacy_stage_generation = false
   state.inspection_floor_depth = options.recurrence_depth
   state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
@@ -3302,13 +3410,23 @@ function Session:_interact_player()
       self.state.pending_service_object_id = result.service_object_id
       self:_log("SERVICE ACCESSING AFTER THIS TURN.")
     elseif result.action_id == "traversal.breach" then
-      self:_log("REINFORCED BARRIER BREACHED.")
+      self:_log(object.required_unlock == "unlock.traversal.maintenance_override"
+        and "MAINTENANCE HATCH OVERRIDDEN." or "REINFORCED BARRIER BREACHED.")
+    elseif result.action_id == "discovery.claim" then
+      local discovery = self.registry:get_discovery(result.discovery_id)
+      if result.code == "first_discovery" then
+        self:_log("DISCOVERY RECORDED: " .. string.upper(discovery.display_name) .. "  +" .. result.data .. " DATA.")
+      else
+        self:_log("KNOWN DISCOVERY RECOVERED: +" .. result.scrap .. " SCRAP.")
+      end
+    elseif result.action_id == "clue.read" then
+      self:_log(result.clue or result.reason or "ACCESS MARKING UNREADABLE.")
     end
     self:_sound("select")
   elseif result.code == "requires_power" then
     self:_log("NO POWER.")
   elseif result.code == "requires_unlock" then
-    self:_log("REINFORCED BREACH RESEARCH REQUIRED.")
+    self:_log(result.reason or "RESEARCH REQUIRED.")
   elseif result.code == "not_interactable" then
     self:_log("NOTHING TO INTERACT WITH.")
   else

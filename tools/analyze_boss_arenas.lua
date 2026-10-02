@@ -38,7 +38,9 @@ for boss_index, boss_id in ipairs(boss_ids) do
       totals[boss_id].circuits = totals[boss_id].circuits + #world:list_circuits()
       totals[boss_id].hazards = totals[boss_id].hazards + #world:list_hazards()
       totals[boss_id].cover = totals[boss_id].cover + #world:list_objects()
-      if boss_id ~= "boss.legacy.final" then
+      -- Terminal status belongs to the explicit route node, not to the old
+      -- Legacy Warden ID: the Industrial lineage now has its own final boss.
+      if #route:outgoing(route.current_node_id) > 0 then
         state.boss.health = 1
         session:_damage_boss(1)
         assert(state.exit and world:is_passable(state.exit.x, state.exit.y))

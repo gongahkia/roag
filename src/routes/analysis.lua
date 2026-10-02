@@ -72,7 +72,7 @@ function Analysis.batch(options)
   if not seed or seed % 1 ~= 0 then return nil, { code = "invalid_seed", reason = "Seed must be an integer" } end
   if not count or count <= 0 or count % 1 ~= 0 then return nil, { code = "invalid_count", reason = "Count must be a positive integer" } end
   local profile_id = options.profile_id or "route_profile.legacy.base"
-  local failures, biome_by_depth, services_by_depth, boss_by_depth, degree_counts, path_compositions = {}, {}, {}, {}, {}, {}
+  local failures, biome_by_depth, services_by_depth, boss_by_depth, degree_counts, path_compositions, terminal_bosses = {}, {}, {}, {}, {}, {}, {}
   local branch_total, convergence_total = 0, 0
   for offset = 0, count - 1 do
     local current_seed = seed + offset
@@ -106,6 +106,8 @@ function Analysis.batch(options)
       for _, composition in ipairs(report.metrics.path_compositions) do
         local key = table.concat({ composition.normal_floors, composition.milestone_bosses, composition.final_bosses }, ":")
         path_compositions[key] = (path_compositions[key] or 0) + 1
+        local terminal = composition.boss_ids[#composition.boss_ids]
+        if terminal then terminal_bosses[terminal] = (terminal_bosses[terminal] or 0) + 1 end
       end
     end
   end
@@ -117,7 +119,7 @@ function Analysis.batch(options)
       generated = count - #failures, failures = #failures,
       biome_by_depth = biome_by_depth, outgoing_degree_counts = degree_counts,
       services_by_depth = services_by_depth, boss_by_depth = boss_by_depth,
-      path_compositions = path_compositions,
+      path_compositions = path_compositions, terminal_bosses = terminal_bosses,
       average_branch_count = (count - #failures) > 0 and branch_total / (count - #failures) or 0,
       average_convergence_count = (count - #failures) > 0 and convergence_total / (count - #failures) or 0,
     },

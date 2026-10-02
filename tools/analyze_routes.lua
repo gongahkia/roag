@@ -70,6 +70,14 @@ for _, shape in ipairs(compositions) do
   io.write(string.format("  paths: %s normal floors, %s milestones, %s final bosses = %d\n",
     normal, milestones, final, report.summary.path_compositions[shape]))
 end
+local terminal_ids = {}
+for id in pairs(report.summary.terminal_bosses or {}) do terminal_ids[#terminal_ids + 1] = id end
+table.sort(terminal_ids)
+if #terminal_ids > 0 then
+  local parts = {}
+  for _, id in ipairs(terminal_ids) do parts[#parts + 1] = id .. "=" .. report.summary.terminal_bosses[id] end
+  io.write("  terminal bosses: " .. table.concat(parts, ", ") .. "\n")
+end
 if #report.failures > 0 then
   io.write("Failure seeds:\n")
   for _, item in ipairs(report.failures) do io.write("  " .. item.seed .. "  " .. (item.code or "invalid_route") .. "\n") end

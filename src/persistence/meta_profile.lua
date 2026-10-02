@@ -30,7 +30,7 @@ local function copy_map(values)
 end
 
 function MetaProfile.new()
-  return { research_data = 0, unlocked_research_ids = {}, next_run_sequence = 1, claimed_reward_ids = {} }
+  return { research_data = 0, unlocked_research_ids = {}, next_run_sequence = 1, claimed_reward_ids = {}, discovered_discovery_ids = {} }
 end
 
 function MetaProfile.copy(profile)
@@ -39,6 +39,7 @@ function MetaProfile.copy(profile)
     unlocked_research_ids = sorted_unique(profile.unlocked_research_ids, "unlocked_research_ids"),
     next_run_sequence = profile.next_run_sequence,
     claimed_reward_ids = sorted_unique(profile.claimed_reward_ids, "claimed_reward_ids"),
+    discovered_discovery_ids = sorted_unique(profile.discovered_discovery_ids, "discovered_discovery_ids"),
   }
 end
 
@@ -50,6 +51,10 @@ function MetaProfile.validate(profile, registry)
     "Meta profile next_run_sequence must be a positive integer")
   local unlocked, unlocked_set = sorted_unique(profile.unlocked_research_ids, "Meta profile unlocked research IDs")
   local claims = sorted_unique(profile.claimed_reward_ids, "Meta profile claimed reward IDs")
+  -- Discovery history deliberately tolerates semantic IDs no longer present
+  -- in current content. Account history is more valuable than a strict
+  -- content prune, and future content can safely reintroduce an ID.
+  local discoveries = sorted_unique(profile.discovered_discovery_ids, "Meta profile discovered discovery IDs")
   for _, id in ipairs(unlocked) do
     assert(registry.research[id], "Meta profile references unknown research ID '" .. id .. "'")
     for _, prerequisite in ipairs(registry:get_research(id).prerequisites or {}) do
@@ -59,7 +64,10 @@ function MetaProfile.validate(profile, registry)
   for _, id in ipairs(claims) do
     assert(id:match("^[%w:_%.%-]+$"), "Meta profile has malformed claimed reward ID '" .. id .. "'")
   end
-  profile.unlocked_research_ids, profile.claimed_reward_ids = unlocked, claims
+  for _, id in ipairs(discoveries) do
+    assert(id:match("^discovery%.[a-z0-9_%.]+$"), "Meta profile has malformed discovery ID '" .. id .. "'")
+  end
+  profile.unlocked_research_ids, profile.claimed_reward_ids, profile.discovered_discovery_ids = unlocked, claims, discoveries
   return true
 end
 
@@ -114,7 +122,7 @@ end
 
 function MetaProfile.snapshot(profile, registry)
   MetaProfile.validate(profile, registry)
-  local result = { unlocked_research_ids = {}, modifiers = {}, unlock_ids = {} }
+  local result = { unlocked_research_ids = {}, modifiers = {}, unlock_ids = {}, discovered_discovery_ids = {} }
   for _, id in ipairs(profile.unlocked_research_ids) do
     local node = registry:get_research(id)
     result.unlocked_research_ids[#result.unlocked_research_ids + 1] = id
@@ -122,7 +130,13 @@ function MetaProfile.snapshot(profile, registry)
     for _, unlock in ipairs(node.unlocks or {}) do result.unlock_ids[#result.unlock_ids + 1] = unlock end
   end
   table.sort(result.unlock_ids)
+  for _, id in ipairs(profile.discovered_discovery_ids) do result.discovered_discovery_ids[#result.discovered_discovery_ids + 1] = id end
   return result
+end
+
+function MetaProfile.has_discovery(profile, discovery_id)
+  for _, id in ipairs(profile.discovered_discovery_ids or {}) do if id == discovery_id then return true end end
+  return false
 end
 
 function MetaProfile.has_unlock(snapshot, unlock_id)
@@ -154,6 +168,38 @@ function MetaProfile.claim_reward(profile, reward_id, amount)
   table.sort(profile.claimed_reward_ids)
   profile.research_data = profile.research_data + amount
   return { applied = true, reward_id = reward_id, amount = amount, research_data = profile.research_data }
+end
+
+-- A discovery record and its DATA reward are committed to one copied profile
+-- by App before it is written. The reward claim remains stable for crash
+-- reconciliation while the semantic discovery record makes later runs use
+-- their repeat-SCRAP path.
+function MetaProfile.claim_discovery(profile, discovery_id, reward_id, amount)
+  assert(type(discovery_id) == "string" and discovery_id:match("^discovery%.[a-z0-9_%.]+$"), "Discovery ID is invalid")
+  profile.discovered_discovery_ids = profile.discovered_discovery_ids or {}
+  local discovered = MetaProfile.has_discovery(profile, discovery_id)
+  if not discovered then
+    profile.discovered_discovery_ids[#profile.discovered_discovery_ids + 1] = discovery_id
+    table.sort(profile.discovered_discovery_ids)
+  end
+  local reward = MetaProfile.claim_reward(profile, reward_id, amount)
+  if reward.applied or not discovered then
+    return {
+      applied = true,
+      code = reward.applied and "claimed" or "discovery_recorded",
+      discovery_id = discovery_id,
+      reward_id = reward_id,
+      amount = reward.applied and amount or 0,
+      research_data = profile.research_data,
+    }
+  end
+  return {
+    applied = false,
+    code = "already_discovered",
+    discovery_id = discovery_id,
+    reward_id = reward_id,
+    research_data = profile.research_data,
+  }
 end
 
 return MetaProfile

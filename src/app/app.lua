@@ -222,10 +222,15 @@ function App:_reconcile_pending_death()
   return true
 end
 
-function App:_claim_meta_reward(reward_id, amount)
+function App:_claim_meta_reward(reward_id, amount, event)
   if self.meta_error then return { applied = false, code = "meta_unavailable", reason = self.meta_error.reason } end
   local candidate = MetaProfile.copy(self.meta_profile)
-  local result = MetaProfile.claim_reward(candidate, reward_id, amount)
+  local result
+  if event and event.kind == "discovery" then
+    result = MetaProfile.claim_discovery(candidate, event.discovery_id, reward_id, amount)
+  else
+    result = MetaProfile.claim_reward(candidate, reward_id, amount)
+  end
   if result.applied then
     local saved, error_data = self:_save_meta(candidate)
     if not saved then return { applied = false, code = "write_failed", reason = error_data.reason } end
@@ -319,7 +324,7 @@ function App:continue_run()
     content = self.content,
     registry = self.registry,
     meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
-    on_meta_reward = function(id, amount) return self:_claim_meta_reward(id, amount) end,
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
     emit = function(event) self:_handle_session_event(event) end,
   })
   if not session or session.state.ended then
@@ -381,7 +386,7 @@ function App:_new_session(run_id, snapshot)
     run_id = run_id,
     meta_snapshot = snapshot,
     fallen_recurrence = recurrence,
-    on_meta_reward = function(id, amount) return self:_claim_meta_reward(id, amount) end,
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
     emit = function(event)
       self:_handle_session_event(event)
     end,
@@ -436,6 +441,21 @@ function App:research_options(category)
   end
   table.sort(values, function(a, b) return a.id < b.id end)
   return values
+end
+
+function App:discovery_history()
+  local entries = {}
+  for id, definition in pairs(self.registry.discoveries) do
+    entries[#entries + 1] = {
+      id = id,
+      discovered = MetaProfile.has_discovery(self.meta_profile, id),
+      name = definition.display_name,
+      description = definition.description,
+      biome_id = definition.allowed_biome_ids[1],
+    }
+  end
+  table.sort(entries, function(left, right) return left.id < right.id end)
+  return entries
 end
 
 function App:open_research()

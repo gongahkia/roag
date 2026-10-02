@@ -241,12 +241,31 @@ function Renderer:_draw_game(app)
           love.graphics.rectangle("fill", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
           self:_color({ 0.95, 0.78, 1 })
           love.graphics.rectangle("line", pixel_x + size * 0.2, pixel_y + size * 0.2, size * 0.6, size * 0.6)
+        elseif object.interaction_role == "discovery" then
+          self:_color(object.discovery_claimed and { 0.22, 0.28, 0.31 } or { 0.12, 0.46, 0.55 })
+          love.graphics.rectangle("fill", pixel_x + size * 0.18, pixel_y + size * 0.24, size * 0.64, size * 0.54)
+          self:_color(object.discovery_claimed and { 0.47, 0.55, 0.58 } or { 0.96, 0.82, 0.24 })
+          love.graphics.rectangle("line", pixel_x + size * 0.18, pixel_y + size * 0.24, size * 0.64, size * 0.54)
+          love.graphics.line(pixel_x + size * 0.3, pixel_y + size * 0.51, pixel_x + size * 0.7, pixel_y + size * 0.51)
+          love.graphics.circle("fill", pixel_x + size * 0.5, pixel_y + size * 0.51, math.max(1, size * 0.08))
+        elseif object.interaction_role == "clue" then
+          self:_color({ 1, 0.72, 0.22, 0.95 })
+          love.graphics.line(pixel_x + size * 0.27, pixel_y + size * 0.2, pixel_x + size * 0.27, pixel_y + size * 0.8)
+          love.graphics.line(pixel_x + size * 0.73, pixel_y + size * 0.2, pixel_x + size * 0.73, pixel_y + size * 0.8)
+          love.graphics.line(pixel_x + size * 0.38, pixel_y + size * 0.34, pixel_x + size * 0.62, pixel_y + size * 0.34)
+          love.graphics.line(pixel_x + size * 0.38, pixel_y + size * 0.66, pixel_x + size * 0.62, pixel_y + size * 0.66)
         elseif object.interaction_role == "traversal" then
-          self:_color({ 0.52, 0.22, 0.1 })
+          local hatch = object.required_unlock == "unlock.traversal.maintenance_override"
+          self:_color(hatch and { 0.15, 0.28, 0.34 } or { 0.52, 0.22, 0.1 })
           love.graphics.rectangle("fill", pixel_x + size * 0.1, pixel_y + size * 0.12, size * 0.8, size * 0.76)
-          self:_color({ 1, 0.66, 0.2 })
-          love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.23, pixel_x + size * 0.82, pixel_y + size * 0.77)
-          love.graphics.line(pixel_x + size * 0.82, pixel_y + size * 0.23, pixel_x + size * 0.18, pixel_y + size * 0.77)
+          self:_color(hatch and { 0.3, 0.9, 0.88 } or { 1, 0.66, 0.2 })
+          if hatch then
+            love.graphics.rectangle("line", pixel_x + size * 0.18, pixel_y + size * 0.2, size * 0.64, size * 0.6)
+            love.graphics.line(pixel_x + size * 0.5, pixel_y + size * 0.23, pixel_x + size * 0.5, pixel_y + size * 0.77)
+          else
+            love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.23, pixel_x + size * 0.82, pixel_y + size * 0.77)
+            love.graphics.line(pixel_x + size * 0.82, pixel_y + size * 0.23, pixel_x + size * 0.18, pixel_y + size * 0.77)
+          end
         else
           local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
           self:_color(tint)

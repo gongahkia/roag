@@ -282,6 +282,7 @@ return {
       for _, edge in ipairs(data.edges) do
         if not remove[edge.from] and not remove[edge.to] then edges[#edges + 1] = edge end
       end
+      edges[#edges + 1] = { from = by_key.industrial_second_milestone_boss, to = by_key.legacy_shop }
       edges[#edges + 1] = { from = by_key.legacy_shop, to = by_key.legacy_final_boss }
       data.edges = edges
       local restored = assert(Graph.from_data(data, definitions()))
