@@ -195,28 +195,23 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Liquid is a simulation-owned layer over passable terrain. The restrained
-  -- depth tint is presentation only; it never affects the authoritative flow.
+  -- Liquid is a simulation-owned layer over passable terrain. Its sprite role
+  -- and depth tint are presentation only; they never affect the flow.
   for _, liquid in ipairs(state.world and state.world:list_liquids() or {}) do
     if state.visible[Grid.key(liquid.x, liquid.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, liquid.x, liquid.y, size, offset_x, offset_y)
       if pixel_x then
         local definition = session.registry:get_liquid(liquid.liquid_id)
         local depth = liquid.amount / definition.max_depth
-        local shimmer = 0.03 + math.sin(time * 3 + liquid.x * 2 + liquid.y * 5) * 0.02
         self.assets:draw_sprite(depth >= 0.66 and "water_deep" or "water_shallow", pixel_x, pixel_y, size,
           { 0.32, 0.78, 1, 0.42 + depth * 0.28 })
-        self:_color({ 0.08, 0.36 + depth * 0.14, 0.72 + shimmer, 0.38 + depth * 0.3 })
-        love.graphics.rectangle("fill", pixel_x + size * 0.06, pixel_y + size * (0.62 - depth * 0.16), size * 0.88, size * (0.3 + depth * 0.16))
-        self:_color({ 0.42, 0.78, 1, 0.45 + depth * 0.2 })
-        love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.65, pixel_x + size * 0.78, pixel_y + size * 0.65)
       end
     end
   end
 
   -- Gas is an authoritative coordinate layer, rendered after liquid so both
-  -- can coexist visibly. The drifting tint depends only on wall-clock time
-  -- and coordinates; it neither uses simulation RNG nor affects no-fog LOS.
+  -- can coexist visibly. Its sprite drift depends only on wall-clock time and
+  -- coordinates; it neither uses simulation RNG nor affects no-fog LOS.
   for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
     if state.visible[Grid.key(gas.x, gas.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, gas.x, gas.y, size, offset_x, offset_y)
@@ -227,31 +222,23 @@ function Renderer:_draw_game(app)
         self.assets:draw_sprite("gas", pixel_x, pixel_y, size, { 0.56, 1, 0.4, 0.16 + density * 0.38 }, {
           offset_x = drift, offset_y = -drift * 0.35, scale_x = 0.92 + density * 0.12, scale_y = 0.92 + density * 0.12,
         })
-        self:_color({ 0.36, 0.86, 0.3, 0.12 + density * 0.32 })
-        love.graphics.circle("fill", pixel_x + size * 0.36 + drift, pixel_y + size * 0.55, math.max(1, size * (0.16 + density * 0.22)))
-        self:_color({ 0.56, 1, 0.4, 0.08 + density * 0.24 })
-        love.graphics.circle("fill", pixel_x + size * 0.65 - drift, pixel_y + size * 0.38, math.max(1, size * (0.12 + density * 0.18)))
       end
     end
   end
 
-  -- Hazards are a passable, simulation-owned floor layer. The compact crossed
-  -- spike marker makes danger readable without introducing a new art set.
+  -- Hazards are a passable, simulation-owned floor layer. Their silhouette is
+  -- an editable art-pack role rather than renderer-authored line geometry.
   for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do
     if state.visible[Grid.key(hazard.x, hazard.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, hazard.x, hazard.y, size, offset_x, offset_y)
       if pixel_x then
         self.assets:draw_sprite("spikes", pixel_x, pixel_y, size, { 1, 0.35, 0.25, 0.92 })
-        self:_color({ 0.9, 0.22, 0.18, 0.92 })
-        love.graphics.line(pixel_x + size * 0.18, pixel_y + size * 0.78, pixel_x + size * 0.48, pixel_y + size * 0.22)
-        love.graphics.line(pixel_x + size * 0.48, pixel_y + size * 0.78, pixel_x + size * 0.72, pixel_y + size * 0.22)
-        love.graphics.line(pixel_x + size * 0.76, pixel_y + size * 0.78, pixel_x + size * 0.9, pixel_y + size * 0.42)
       end
     end
   end
 
-  -- Fire is authoritative world state. Flicker is presentation-only and uses
-  -- wall-clock time, never the deterministic simulation RNG.
+  -- Fire is authoritative world state. Its sprite flicker is presentation-only
+  -- and uses wall-clock time, never the deterministic simulation RNG.
   for _, fire in ipairs(state.world and state.world:list_fires() or {}) do
     local fire_x, fire_y = state.world:fire_position(fire)
     if fire_x and state.visible[Grid.key(fire_x, fire_y)] then
@@ -261,13 +248,6 @@ function Renderer:_draw_game(app)
         self.assets:draw_sprite("fire", pixel_x, pixel_y, size, { 1, 0.42 + flicker, 0.12, 0.94 }, {
           offset_y = -size * flicker, scale_x = 0.94, scale_y = 1.02 + flicker,
         })
-        self:_color({ 1, 0.28 + flicker, 0.05, 0.92 })
-        love.graphics.polygon("fill",
-          pixel_x + size * 0.28, pixel_y + size * 0.78,
-          pixel_x + size * 0.5, pixel_y + size * 0.14,
-          pixel_x + size * 0.74, pixel_y + size * 0.78)
-        self:_color({ 1, 0.82, 0.25, 0.95 })
-        love.graphics.circle("fill", pixel_x + size * 0.5, pixel_y + size * 0.59, math.max(1, size * 0.13))
       end
     end
   end
@@ -368,10 +348,6 @@ function Renderer:_draw_game(app)
     if effect_x then
       local pulse = 0.48 + math.sin(time * 21 + cell.x * 5 + cell.y * 7) * 0.18
       self.assets:draw_sprite("electric_arc", effect_x, effect_y, size, { 0.35, 0.85, 1, pulse })
-      self:_color({ 0.35, 0.85, 1, pulse })
-      love.graphics.line(effect_x + size * 0.16, effect_y + size * 0.52, effect_x + size * 0.42, effect_y + size * 0.28)
-      love.graphics.line(effect_x + size * 0.42, effect_y + size * 0.28, effect_x + size * 0.58, effect_y + size * 0.69)
-      love.graphics.line(effect_x + size * 0.58, effect_y + size * 0.69, effect_x + size * 0.84, effect_y + size * 0.43)
     end
   end
   if state.boss then
