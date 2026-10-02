@@ -1522,6 +1522,8 @@ function Session.from_data(data, options)
     run_id = options.run_id,
     meta_snapshot = options.meta_snapshot,
     on_meta_reward = options.on_meta_reward,
+    identity_allocator = options.identity_allocator,
+    campaign = options.campaign,
   })
   local progression = data.progression
   local state = session.state
