@@ -76,6 +76,27 @@ function Renderer:wall_terrain_kind(world, x, y)
   return "wall"
 end
 
+-- Material identity remains authoritative in World, but the palette below
+-- gives the new natural/industrial landmarks readable silhouettes even when
+-- an art pack has only a generic floor and wall assignment.  It is purely
+-- presentational: sprite packs may still replace the underlying tile art.
+function Renderer:terrain_tint(world, x, y, fallback, passable)
+  local material = world and world:get_material(x, y)
+  local id = material and material.id or ""
+  if passable then
+    if id == "material.terrain.forest_soil" then return { 0.23, 0.18, 0.1 } end
+    if id == "material.floor.conductive_metal" then return { 0.09, 0.28, 0.31 } end
+    if id == "material.terrain.air" then return fallback end
+  else
+    if id == "material.terrain.brush" then return { 0.055, 0.22, 0.095 } end
+    if id == "material.terrain.granite" then return { 0.18, 0.2, 0.25 } end
+    if id == "material.terrain.stone" then return { 0.17, 0.18, 0.22 } end
+    if id == "material.structure.industrial_bulkhead" then return { 0.08, 0.2, 0.25 } end
+    if id == "material.structure.masonry" then return { 0.18, 0.13, 0.16 } end
+  end
+  return fallback
+end
+
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
   local camera_x, camera_y = self:_camera_position(presentation, player)
   local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
@@ -119,24 +140,27 @@ function Renderer:_draw_game(app)
       local passable = state.world and state.world:is_passable(x, y)
       if Grid.in_bounds(x, y) and state.visible[location_key] then
         if passable then
-          self:_color(floor)
+          local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
+          self:_color(floor_tint)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain("floor", pixel_x, pixel_y, size)
+          local terrain_drawn = self.assets:draw_terrain("floor", pixel_x, pixel_y, size, floor_tint)
           if not terrain_drawn and (x * 7 + y * 11) % 5 == 0 then
-            self:_color({ floor[1] * 1.55, floor[2] * 1.55, floor[3] * 1.55 })
+            self:_color({ floor_tint[1] * 1.55, floor_tint[2] * 1.55, floor_tint[3] * 1.55 })
             love.graphics.rectangle("fill", pixel_x + size * 0.35, pixel_y + size * 0.35, math.max(1, size * 0.12), math.max(1, size * 0.12))
           end
         else
-          self:_color({ 0.11, 0.075, 0.13 })
+          local wall_tint = self:terrain_tint(state.world, x, y, { 0.11, 0.075, 0.13 }, false)
+          self:_color(wall_tint)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain(self:wall_terrain_kind(state.world, x, y), pixel_x, pixel_y, size)
+          local terrain_drawn = self.assets:draw_terrain(self:wall_terrain_kind(state.world, x, y), pixel_x, pixel_y, size, wall_tint)
           if not terrain_drawn then
-            self:_color({ 0.22, 0.13, 0.22 })
+            self:_color({ wall_tint[1] * 1.4, wall_tint[2] * 1.4, wall_tint[3] * 1.4 })
             love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
           end
         end
       elseif Grid.in_bounds(x, y) and state.explored[location_key] then
-        self:_color(passable and { floor[1] * 0.28, floor[2] * 0.28, floor[3] * 0.28 } or { 0.035, 0.025, 0.04 })
+        local explored_tint = self:terrain_tint(state.world, x, y, floor, passable)
+        self:_color(passable and { explored_tint[1] * 0.28, explored_tint[2] * 0.28, explored_tint[3] * 0.28 } or { 0.035, 0.025, 0.04 })
         love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
       else
         self:_color({ 0.008, 0.011, 0.017 })
@@ -287,11 +311,61 @@ function Renderer:_draw_game(app)
             love.graphics.line(pixel_x + size * 0.82, pixel_y + size * 0.23, pixel_x + size * 0.18, pixel_y + size * 0.77)
           end
         else
-          local tint = definition.render_style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
-          self:_color(tint)
-          love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
-          self:_color({ 0.9, 0.78, 0.5 })
-          love.graphics.rectangle("line", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+          local style = definition.render_style
+          if style == "old_growth_tree" then
+            self:_color({ 0.24, 0.13, 0.06 })
+            love.graphics.rectangle("fill", pixel_x + size * 0.43, pixel_y + size * 0.42, size * 0.17, size * 0.46)
+            self:_color({ 0.08, 0.38, 0.16 })
+            love.graphics.circle("fill", pixel_x + size * 0.38, pixel_y + size * 0.38, math.max(2, size * 0.23))
+            love.graphics.circle("fill", pixel_x + size * 0.62, pixel_y + size * 0.34, math.max(2, size * 0.22))
+            self:_color({ 0.38, 0.8, 0.3 })
+            love.graphics.circle("line", pixel_x + size * 0.5, pixel_y + size * 0.3, math.max(2, size * 0.27))
+          elseif style == "fallen_log" then
+            self:_color({ 0.42, 0.22, 0.08 })
+            love.graphics.rectangle("fill", pixel_x + size * 0.1, pixel_y + size * 0.42, size * 0.8, size * 0.22)
+            self:_color({ 0.8, 0.53, 0.2 })
+            love.graphics.circle("line", pixel_x + size * 0.18, pixel_y + size * 0.53, math.max(2, size * 0.13))
+          elseif style == "granite_boulder" or style == "stalagmite" then
+            self:_color(style == "stalagmite" and { 0.42, 0.44, 0.52 } or { 0.32, 0.36, 0.42 })
+            if style == "stalagmite" then
+              love.graphics.polygon("fill", pixel_x + size * 0.25, pixel_y + size * 0.84, pixel_x + size * 0.5, pixel_y + size * 0.1,
+                pixel_x + size * 0.76, pixel_y + size * 0.84)
+            else
+              love.graphics.polygon("fill", pixel_x + size * 0.18, pixel_y + size * 0.72, pixel_x + size * 0.3, pixel_y + size * 0.22,
+                pixel_x + size * 0.66, pixel_y + size * 0.14, pixel_x + size * 0.85, pixel_y + size * 0.68, pixel_x + size * 0.63, pixel_y + size * 0.86)
+            end
+            self:_color({ 0.72, 0.77, 0.86 })
+            love.graphics.line(pixel_x + size * 0.32, pixel_y + size * 0.56, pixel_x + size * 0.61, pixel_y + size * 0.35)
+          elseif style == "rubble_pile" then
+            self:_color({ 0.38, 0.28, 0.23 })
+            love.graphics.polygon("fill", pixel_x + size * 0.12, pixel_y + size * 0.8, pixel_x + size * 0.35, pixel_y + size * 0.34,
+              pixel_x + size * 0.56, pixel_y + size * 0.57, pixel_x + size * 0.78, pixel_y + size * 0.25, pixel_x + size * 0.9, pixel_y + size * 0.8)
+          elseif style == "ruined_statue" then
+            self:_color({ 0.47, 0.48, 0.5 })
+            love.graphics.rectangle("fill", pixel_x + size * 0.39, pixel_y + size * 0.28, size * 0.22, size * 0.43)
+            love.graphics.circle("fill", pixel_x + size * 0.5, pixel_y + size * 0.21, math.max(2, size * 0.12))
+            self:_color({ 0.78, 0.71, 0.55 })
+            love.graphics.rectangle("line", pixel_x + size * 0.25, pixel_y + size * 0.71, size * 0.5, size * 0.13)
+          elseif style == "machine_bank" then
+            self:_color({ 0.11, 0.33, 0.4 })
+            love.graphics.rectangle("fill", pixel_x + size * 0.1, pixel_y + size * 0.16, size * 0.8, size * 0.68)
+            self:_color({ 0.38, 0.9, 0.88 })
+            love.graphics.rectangle("line", pixel_x + size * 0.1, pixel_y + size * 0.16, size * 0.8, size * 0.68)
+            love.graphics.line(pixel_x + size * 0.24, pixel_y + size * 0.33, pixel_x + size * 0.76, pixel_y + size * 0.33)
+            love.graphics.line(pixel_x + size * 0.24, pixel_y + size * 0.58, pixel_x + size * 0.76, pixel_y + size * 0.58)
+          elseif style == "cable_trunk" then
+            self:_color({ 0.18, 0.72, 0.86 })
+            love.graphics.setLineWidth(math.max(1, size * 0.11))
+            love.graphics.line(pixel_x + size * 0.1, pixel_y + size * 0.7, pixel_x + size * 0.38, pixel_y + size * 0.31,
+              pixel_x + size * 0.64, pixel_y + size * 0.65, pixel_x + size * 0.9, pixel_y + size * 0.24)
+            love.graphics.setLineWidth(1)
+          else
+            local tint = style == "crate" and { 0.56, 0.34, 0.14 } or { 0.42, 0.44, 0.49 }
+            self:_color(tint)
+            love.graphics.rectangle("fill", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+            self:_color({ 0.9, 0.78, 0.5 })
+            love.graphics.rectangle("line", pixel_x + size * 0.17, pixel_y + size * 0.17, size * 0.66, size * 0.66)
+          end
         end
       end
     end

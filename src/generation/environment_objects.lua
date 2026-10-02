@@ -39,7 +39,8 @@ local function candidates(world, player)
   local result = {}
   for x = 1, Grid.width - 2 do
     for y = 1, Grid.height - 2 do
-      if world:is_passable(x, y) and Grid.distance(player, Grid.cell(x, y)) >= 7
+      if world:is_passable(x, y) and not world:is_liquid_cell(x, y) and not world:is_gas_cell(x, y)
+        and Grid.distance(player, Grid.cell(x, y)) >= 7
         and terrain_neighbours(world, x, y) >= 3 then
         result[#result + 1] = Grid.cell(x, y)
       end
