@@ -59,6 +59,9 @@ return {
       { enemy_id = "enemy.cave.conductor", weight = 3 },
       { enemy_id = "enemy.legacy.cultist", weight = 3 },
       { enemy_id = "enemy.elite.shock_bruiser", weight = 1 },
+      -- A rare Ravager intruder creates occasional readable cross-faction
+      -- contact without erasing the cave's Altered identity.
+      { enemy_id = "enemy.wild.ripper", weight = 1 },
     },
   },
   {
@@ -89,6 +92,7 @@ return {
       { enemy_id = "enemy.dungeon.reclaimer", weight = 4 },
       { enemy_id = "enemy.elite.redundant_gunner", weight = 1 },
       { enemy_id = "enemy.elite.volatile_heavy", weight = 1 },
+      { enemy_id = "enemy.legacy.cultist", weight = 1 },
     },
   },
   {
@@ -110,6 +114,8 @@ return {
       { enemy_id = "enemy.reactor.maintenance_heavy", weight = 3 },
       { enemy_id = "enemy.reactor.suppressor", weight = 2 },
       { enemy_id = "enemy.elite.arc_warden", weight = 1 },
+      -- Limited intrusion only: Reactor remains overwhelmingly machine-held.
+      { enemy_id = "enemy.cave.conductor", weight = 1 },
     },
   },
 }

@@ -54,6 +54,8 @@ local function actor_data(session, actor, provenance)
     x = actor.x,
     y = actor.y,
     health = actor.health,
+    faction_id = session:actor_faction_id(actor),
+    faction_display_name = session.registry:get_faction(session:actor_faction_id(actor)).display_name,
     locomotion = locomotion and locomotion.state or nil,
     components = components,
     capabilities = capabilities,
@@ -193,6 +195,73 @@ function Analysis.analyze(world, metadata)
     end
   end
 
+  -- Discovery caches are optional by definition, but their visible clue and
+  -- access point must still be reachable from the ordinary player region.
+  -- This catches secret placement regressions without treating the deliberately
+  -- sealed cache pocket as a critical-path failure.
+  local discoveries, discovery_access_profiles = {}, {}
+  local discovery_objects = {}
+  for _, object in ipairs(objects) do
+    if object.discovery_id then
+      discovery_objects[object.discovery_id] = discovery_objects[object.discovery_id] or {}
+      discovery_objects[object.discovery_id][#discovery_objects[object.discovery_id] + 1] = object
+    end
+  end
+  local gated_discoveries, unreachable_discovery_gates = 0, 0
+  for discovery_id, related in pairs(discovery_objects) do
+    local cache, gate, clue
+    for _, object in ipairs(related) do
+      if object.interaction_role == "discovery" then cache = object
+      elseif object.interaction_role == "clue" then clue = object
+      elseif object.blocks_movement then gate = object end
+    end
+    if cache then
+      local profile = cache.discovery_access_profile_id
+      increment(discovery_access_profiles, profile or "unknown")
+      local gated = gate ~= nil
+      if gated then gated_discoveries = gated_discoveries + 1 end
+      local first_time = true
+      for _, known_id in ipairs(state.meta_snapshot and state.meta_snapshot.discovered_discovery_ids or {}) do
+        if known_id == discovery_id then first_time = false; break end
+      end
+      discoveries[#discoveries + 1] = {
+        discovery_id = discovery_id,
+        access_profile_id = profile,
+        claimed = cache.discovery_claimed == true,
+        first_time = first_time,
+        cache = point_data(cache),
+        gate = point_data(gate),
+        clue = point_data(clue),
+        placement_provenance = cache.discovery_provenance,
+      }
+      local gate_reachable = false
+      if gate then
+        for _, delta in ipairs(CARDINAL) do
+          if component_by_cell[Grid.key(gate.x + delta[1], gate.y + delta[2])] == player_component then
+            gate_reachable = true
+            break
+          end
+        end
+      end
+      local clue_reachable = clue and component_by_cell[Grid.key(clue.x, clue.y)] == player_component
+      if gated and (not gate_reachable or not clue_reachable) then
+        unreachable_discovery_gates = unreachable_discovery_gates + 1
+        errors[#errors + 1] = {
+          code = "unreachable_discovery_gate",
+          message = "Discovery gate or visible clue is unreachable from player spawn",
+          discovery_id = discovery_id,
+        }
+      elseif not gated and component_by_cell[Grid.key(cache.x, cache.y)] ~= player_component then
+        errors[#errors + 1] = {
+          code = "unreachable_open_discovery",
+          message = "Open discovery cache is unreachable from player spawn",
+          discovery_id = discovery_id,
+        }
+      end
+    end
+  end
+  table.sort(discoveries, function(left, right) return left.discovery_id < right.discovery_id end)
+
   -- Closed doors are optional logical gates rather than evidence that every
   -- currently unreachable passable cell is a generator defect.  We do not
   -- solve interactions here; this small classification only identifies an
@@ -254,12 +323,15 @@ function Analysis.analyze(world, metadata)
     fires[#fires + 1] = inspected
   end
 
-  local enemy_counts, enemy_capabilities, elite_count = {}, {}, 0
+  local enemy_counts, enemy_capabilities, enemy_factions, elite_count = {}, {}, {}, 0
   for _, enemy in ipairs(enemies) do
     increment(enemy_counts, enemy.semantic_id)
+    increment(enemy_factions, enemy.faction_id or "unknown")
     if enemy.elite then elite_count = elite_count + 1 end
     for _, ability_id in ipairs(enemy.capabilities or {}) do increment(enemy_capabilities, ability_id) end
   end
+  local faction_count = 0
+  for _ in pairs(enemy_factions) do faction_count = faction_count + 1 end
   local room_metadata = metadata.provenance and metadata.provenance.rooms or nil
   local rooms, template_usage, rotation_counts, connector_patterns, degree_counts = {}, {}, {}, {}, {}
   for _, room in ipairs(room_metadata and room_metadata.rooms or {}) do
@@ -268,6 +340,31 @@ function Analysis.analyze(world, metadata)
     increment(rotation_counts, tostring(room.rotation))
     increment(connector_patterns, RoomTemplate.pattern_key(room.required_connectors))
     increment(degree_counts, tostring(#(room.required_connectors or {})))
+  end
+  local reinforcements, reinforcement_source_types, reinforcement_source_factions = {}, {}, {}
+  for _, object in ipairs(objects) do
+    if object.interaction_role == "reinforcement" then
+      increment(reinforcement_source_types, object.definition_id)
+      increment(reinforcement_source_factions, object.reinforcement_faction_id or "unknown")
+      local reachable = false
+      for _, delta in ipairs(CARDINAL) do
+        if component_by_cell[Grid.key(object.x + delta[1], object.y + delta[2])] == player_component then
+          reachable = true
+          break
+        end
+      end
+      if not reachable then
+        errors[#errors + 1] = { code = "unreachable_reinforcement_source",
+          message = "Reinforcement source is not reachable from player spawn", object_id = object.id }
+      end
+      reinforcements[#reinforcements + 1] = {
+        object_id = object.id, definition_id = object.definition_id,
+        profile_id = object.reinforcement_profile_id, faction_id = object.reinforcement_faction_id,
+        state = object.reinforcement_state, charges = object.reinforcement_charges,
+        delay = object.reinforcement_delay, wave_enemy_ids = object.reinforcement_wave_enemy_ids,
+        provenance = object.reinforcement_provenance, x = object.x, y = object.y, reachable = reachable,
+      }
+    end
   end
   local valid = #errors == 0
   return {
@@ -300,6 +397,8 @@ function Analysis.analyze(world, metadata)
       conductive_cells = conductive_cells,
       enemies = #enemies,
       enemy_types = enemy_counts,
+      enemy_factions = enemy_factions,
+      mixed_faction_floor = faction_count > 1,
       elite_enemies = elite_count,
       enemy_capabilities = enemy_capabilities,
       nearest_enemy_distance = nearest_distance(player, enemies),
@@ -328,6 +427,13 @@ function Analysis.analyze(world, metadata)
       rotation_counts = rotation_counts,
       connector_pattern_counts = connector_patterns,
       graph_degree_counts = degree_counts,
+      discovery_sites = #discoveries,
+      discovery_access_profiles = discovery_access_profiles,
+      gated_discovery_sites = gated_discoveries,
+      unreachable_discovery_gates = unreachable_discovery_gates,
+      reinforcement_sources = #reinforcements,
+      reinforcement_source_types = reinforcement_source_types,
+      reinforcement_source_factions = reinforcement_source_factions,
     },
     objects = objects,
     enemies = enemies,
@@ -336,6 +442,8 @@ function Analysis.analyze(world, metadata)
     gases = gases,
     circuits = circuits,
     fires = fires,
+    discoveries = discoveries,
+    reinforcements = reinforcements,
     rooms = rooms,
   }
 end
@@ -370,6 +478,8 @@ function Analysis.overlay_model(world, report)
     conductivity = conductivity,
     rooms = report.rooms,
     room_provenance = report.room_provenance,
+    discoveries = report.discoveries,
+    reinforcements = report.reinforcements,
   }
 end
 

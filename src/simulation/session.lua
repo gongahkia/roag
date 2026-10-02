@@ -21,6 +21,8 @@ local Liquid = require("src.simulation.liquid")
 local Electricity = require("src.simulation.electricity")
 local Gas = require("src.simulation.gas")
 local Interaction = require("src.simulation.interaction")
+local Factions = require("src.simulation.factions")
+local ReinforcementSimulation = require("src.simulation.reinforcements")
 local Economy = require("src.simulation.economy")
 local RunModifiers = require("src.simulation.run_modifiers")
 local FallenRecurrence = require("src.simulation.fallen_recurrence")
@@ -31,6 +33,7 @@ local GasGeneration = require("src.generation.gases")
 local FireGeneration = require("src.generation.fires")
 local PoweredDevices = require("src.generation.powered_devices")
 local DiscoveryGeneration = require("src.generation.discoveries")
+local ReinforcementGeneration = require("src.generation.reinforcements")
 local Generator = require("src.generation.map")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
@@ -124,7 +127,10 @@ end
 
 local function copy_discovery_state(value, legacy_disabled)
   if value == nil then
-    return { enabled = legacy_disabled ~= false and false or true, assigned_discovery_ids = {} }
+    -- New synthetic inspection floors may explicitly opt in with
+    -- legacy_disabled=false. Ordinary constructors and old active saves stay
+    -- disabled unless their serialized progression already carries the field.
+    return { enabled = legacy_disabled == false, assigned_discovery_ids = {} }
   end
   assert(type(value) == "table" and type(value.enabled) == "boolean", "Discovery state is invalid")
   local assigned, seen = {}, {}
@@ -135,6 +141,12 @@ local function copy_discovery_state(value, legacy_disabled)
   end
   table.sort(assigned)
   return { enabled = value.enabled, assigned_discovery_ids = assigned }
+end
+
+local function copy_reinforcement_state(value, legacy_disabled)
+  if value == nil then return { enabled = legacy_disabled == false } end
+  assert(type(value) == "table" and type(value.enabled) == "boolean", "Reinforcement state is invalid")
+  return { enabled = value.enabled }
 end
 
 local function copy_string_list(values, label)
@@ -193,6 +205,7 @@ function Session.new(options)
   self.route_definitions = options.route_definitions or RouteDefinitions.load()
   self.registry:validate_encounter_pools(self.route_definitions)
   self.registry:validate_discoveries(self.route_definitions)
+  self.registry:validate_reinforcement_profiles(self.route_definitions)
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
@@ -231,6 +244,9 @@ function Session.new(options)
     -- pre-8J active save keeps this disabled unless persisted state says
     -- otherwise, avoiding retroactive future-floor injection.
     discovery_state = copy_discovery_state(nil),
+    -- As with discoveries, old active saves remain ecology-free rather than
+    -- silently receiving sources on later deterministic floors.
+    reinforcement_state = copy_reinforcement_state(nil),
     -- This snapshot is selected at New Run, never by consulting the archive
     -- during a live run. It therefore remains deterministic across resumes.
     fallen_recurrence = FallenRecurrence.copy_spec(options.fallen_recurrence),
@@ -461,6 +477,14 @@ function Session:damage_world_object(object_or_id, spec)
   return EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
 end
 
+function Session:actor_faction_id(actor)
+  return Factions.actor_id(self.registry, actor, self.state.player)
+end
+
+function Session:are_hostile(first, second)
+  return Factions.are_hostile(self.registry, first, second, self.state.player)
+end
+
 function Session:ignite_terrain(x, y, context)
   if not self.state.world then
     return { applied = false, code = "no_world", reason = "No active world" }
@@ -493,6 +517,78 @@ function Session:_actor_at(x, y, excluded)
     return state.boss
   end
   return nil
+end
+
+function Session:_living_actors()
+  local state, actors = self.state, {}
+  if state.player and (state.player.health == nil or state.player.health > 0) then actors[#actors + 1] = state.player end
+  for _, enemy in ipairs(state.enemies or {}) do
+    if enemy.health == nil or enemy.health > 0 then actors[#actors + 1] = enemy end
+  end
+  if state.boss and (state.boss.health == nil or state.boss.health > 0) then actors[#actors + 1] = state.boss end
+  return actors
+end
+
+function Session:_actor_stable_id(actor)
+  if actor == self.state.player then return "actor:player" end
+  if actor == self.state.boss then return "actor:boss:" .. tostring(actor.boss_id or actor.content_id or actor.kind) end
+  local component = actor.body and actor.body:list_components()[1] or nil
+  return "actor:" .. tostring(component and component.id or actor.content_id or actor.kind or "unknown")
+end
+
+-- Nearest reachable hostile target with a semantic/physical stable tie-break.
+-- The player receives no hidden universal priority: a nearby rival is a valid
+-- ecology target, while a reachable player remains an equally ordinary foe.
+function Session:_nearest_hostile_target(actor)
+  -- One terrain BFS finds the nearest reachable hostile layer.  We then run
+  -- the existing hazard-aware path only for the winner, avoiding an expensive
+  -- full-map path solve for every actor pair each ordinary turn.
+  local targets_by_cell = {}
+  for _, target in ipairs(self:_living_actors()) do
+    if target ~= actor and self:are_hostile(actor, target) then
+      local location_key = Grid.key(target.x, target.y)
+      targets_by_cell[location_key] = targets_by_cell[location_key] or {}
+      targets_by_cell[location_key][#targets_by_cell[location_key] + 1] = target
+    end
+  end
+  local candidates, seen, queue, cursor, nearest = {}, { [Grid.key(actor.x, actor.y)] = 0 },
+    { { x = actor.x, y = actor.y } }, 1, nil
+  while queue[cursor] do
+    local point = queue[cursor]
+    cursor = cursor + 1
+    local distance = seen[Grid.key(point.x, point.y)]
+    if nearest and distance > nearest then break end
+    for _, target in ipairs(targets_by_cell[Grid.key(point.x, point.y)] or {}) do
+      nearest = distance
+      candidates[#candidates + 1] = { actor = target, distance = distance, stable_id = self:_actor_stable_id(target) }
+    end
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local location_key = Grid.key(neighbour.x, neighbour.y)
+      if not nearest and Grid.in_bounds(neighbour.x, neighbour.y) and self.state.world:is_passable(neighbour.x, neighbour.y)
+        and seen[location_key] == nil then
+        seen[location_key] = distance + 1
+        queue[#queue + 1] = neighbour
+      end
+    end
+  end
+  table.sort(candidates, function(first, second)
+    if first.distance ~= second.distance then return first.distance < second.distance end
+    return first.stable_id < second.stable_id
+  end)
+  local chosen = candidates[1] and candidates[1].actor
+  if not chosen then return nil, {} end
+  local blocked = {}
+  for _, other in ipairs(self:_living_actors()) do
+    if other ~= actor and other ~= chosen then blocked[Grid.key(other.x, other.y)] = true end
+  end
+  return chosen, self:_hazard_aware_path(actor, chosen, blocked)
+end
+
+function Session:_notify_combat(first, second)
+  if self.state.reinforcement_state and self.state.reinforcement_state.enabled then
+    return ReinforcementSimulation.arm_for_combat(self, first, second)
+  end
+  return { applied = false, code = "disabled" }
 end
 
 function Session:apply_force(target, force_spec)
@@ -699,6 +795,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     amount = 2,
     cause = "explosive",
     source = "self_destruct",
+    source_actor = actor,
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
@@ -709,30 +806,27 @@ function Session:_execute_self_destruct(actor, provider, wear)
   end
   self:_sound("boom")
 
-  if actor ~= state.player and cells[Grid.key(state.player.x, state.player.y)] then
-    self:_hurt("A bomber detonated beside you.")
-  end
-  for index = #state.enemies, 1, -1 do
-    local enemy = state.enemies[index]
-    if enemy ~= actor and cells[Grid.key(enemy.x, enemy.y)] then
-      self:damage_actor_body(enemy, {
-        amount = 2,
-        cause = "explosive",
-        source = "self_destruct",
-      })
-      enemy.health = enemy.health - 2
-      if enemy.health <= 0 then
-        self:_destroy_enemy(index)
-      end
+  -- Explosions deliberately remain faction-impartial.  The same authoritative
+  -- body damage path handles player, rival, and boss casualties.
+  for _, target in ipairs(self:_living_actors()) do
+    if target ~= actor and cells[Grid.key(target.x, target.y)] then
+      self:_apply_world_actor_damage(target, target == state.player and 1 or 2,
+        target == state.player and "A bomber detonated beside you." or nil, {
+          cause = "explosive",
+          source = "self_destruct",
+          source_actor = actor,
+          source_actor_id = actor.content_id or actor.kind,
+          source_component_id = provider and provider.id or nil,
+          ability_id = SELF_DESTRUCT_ABILITY,
+          skip_body_damage = true,
+        })
     end
-  end
-  if state.boss and state.boss ~= actor and cells[Grid.key(state.boss.x, state.boss.y)] then
-    self:_apply_world_actor_damage(state.boss, 2, nil, { cause = "explosive", source = "self_destruct" })
   end
 
   self:_apply_explosion_force(actor, radius, cells, {
     distance = 1,
     cause = "explosive",
+    source_actor = actor,
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
@@ -810,6 +904,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
     target == self.state.player and "A close strike tears into you." or nil, {
       cause = "kinetic",
       source = "melee",
+      source_actor = actor,
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
@@ -821,6 +916,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
       dy = target.y - actor.y,
       distance = force_distance,
       cause = "kinetic",
+      source_actor = actor,
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
@@ -908,6 +1004,7 @@ function Session:_execute_electrical_discharge(actor, provider, wear, ability, r
         target == state.player and "ELECTRICITY RIPS THROUGH YOU." or nil, {
           cause = "electrical",
           source = "electrical_discharge",
+          source_actor = actor,
           source_actor_id = self:_electrical_actor_id(actor),
           source_component_id = provider.id,
           ability_id = ability.id,
@@ -994,6 +1091,9 @@ function Session:_validate_ability_request(actor, ability, params)
     local target = self:_actor_at(x, y, actor)
     if not target then
       return nil, self:_ability_failure(ability.id, "no_adjacent_target", "No adjacent target in that direction")
+    end
+    if not self:are_hostile(actor, target) then
+      return nil, self:_ability_failure(ability.id, "friendly_target", "That actor is not hostile")
     end
     return { target = target, direction = direction }
   end
@@ -1351,6 +1451,7 @@ function Session:to_data()
       run_id = state.run_id,
       meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
       discovery_state = copy_discovery_state(state.discovery_state),
+      reinforcement_state = copy_reinforcement_state(state.reinforcement_state),
       meta_reward_events = {},
       fallen_recurrence = FallenRecurrence.copy_spec(state.fallen_recurrence),
       death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
@@ -1431,6 +1532,9 @@ function Session.from_data(data, options)
   -- its future route floors discovery-free rather than changing its stored
   -- deterministic content midway through a descent.
   state.discovery_state = copy_discovery_state(progression.discovery_state)
+  -- An absent field identifies a pre-8K active run.  It remains ecology-free
+  -- on later floors rather than changing a saved deterministic descent.
+  state.reinforcement_state = copy_reinforcement_state(progression.reinforcement_state)
   local recurrence_ok, recurrence_reason = FallenRecurrence.validate_spec(state.fallen_recurrence, session.registry)
   assert(recurrence_ok, recurrence_reason)
   state.death_pending_archive = copy_death_pending(progression.death_pending_archive, session.registry)
@@ -1723,6 +1827,9 @@ end
 -- the current staged HP model while also using localized body damage.
 function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   provenance = provenance or {}
+  if provenance.source_actor and provenance.source_actor ~= actor then
+    self:_notify_combat(provenance.source_actor, actor)
+  end
   -- Environmental kinetic injury chooses among components that can still take
   -- integrity damage. This keeps a wall slam or spike entry meaningful even
   -- after a different limb has already failed, while remaining deterministic.
@@ -1748,7 +1855,11 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
         or self.rng:choice(candidates).slot_id
     end
   end
-  local body_damage = self:damage_actor_body(actor, damage_spec)
+  -- Legacy bombs and self-destruct blasts apply direct health damage before
+  -- their force/impact body injury. Shared weapons still take the normal
+  -- localized-damage path.
+  local body_damage = provenance.skip_body_damage and { applied = false, skipped = true }
+    or self:damage_actor_body(actor, damage_spec)
   local state = self.state
   local dead = false
   if actor == state.player then
@@ -1775,7 +1886,7 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
       else
         local index = self:_enemy_index(actor)
         if index then
-        self:_destroy_enemy(index)
+          self:_destroy_enemy(index, { player_caused = provenance.source_actor == state.player })
         end
       end
       dead = true
@@ -1800,6 +1911,10 @@ function Session:_apply_hazard_effect(actor, hazard, definition, context)
       source = "hazard",
       hazard_id = hazard.id,
       hazard_definition_id = definition.id,
+      source_actor = context and context.force and context.force.source_actor or nil,
+      source_actor_id = context and context.force and context.force.source_actor_id or nil,
+      source_component_id = context and context.force and context.force.source_component_id or nil,
+      ability_id = context and context.force and context.force.ability_id or nil,
       x = hazard.x,
       y = hazard.y,
       context = context,
@@ -1926,6 +2041,7 @@ function Session:_resolve_force_impact(actor, force_result, force_spec)
     actor == self.state.player and "YOU SLAM INTO THE WALL." or nil, {
       cause = impact.cause,
       source = "impact",
+      source_actor = force_spec and force_spec.source_actor or nil,
       source_actor_id = impact.source_actor_id,
       source_component_id = impact.source_component_id,
       ability_id = impact.ability_id,
@@ -2183,6 +2299,7 @@ function Session:_spawn_fallen_recurrence()
       crawl_stride = 0,
       scrap_award = false,
       content_id = "enemy.dynamic.fallen_echo",
+      faction_id = Factions.ECHO_ID,
       body = body,
       fallen_archive_id = spec.archive_id,
       fallen_source_run_id = spec.source_run_id,
@@ -2246,6 +2363,7 @@ function Session:_make_enemy(kind_or_id, point, options)
   })
   if definition then
     enemy.content_id = definition.id
+    enemy.faction_id = definition.faction_id
     enemy.body = self:_build_body(definition)
     enemy.ammo = definition.ammo
     enemy.elite = definition.elite
@@ -2320,6 +2438,7 @@ function Session:start_run(class, boon)
   state.scrap = math.max(0, (state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.starting_scrap) or 0)
   state.meta_reward_events = {}
   state.discovery_state = { enabled = true, assigned_discovery_ids = {} }
+  state.reinforcement_state = { enabled = true }
   state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", state.meta_snapshot.unlock_ids)
   self:start_route_node(state.route.start_node_id)
 end
@@ -2349,6 +2468,7 @@ function Session:_create_run_player(settings)
     reload_penalty = settings.reload_penalty,
     impact = 0,
     content_id = player_definition.id,
+    faction_id = Factions.PLAYER_ID,
     body = self:_build_body(player_definition),
   })
   self.state.run.player = player
@@ -2441,6 +2561,10 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   state.generation_metadata = state.generation_metadata or {}
   state.generation_metadata.discovery = discovery
   state.generation_metadata.discovery_reason = discovery_reason
+  local reinforcement, reinforcement_reason = ReinforcementGeneration.place(self,
+    floor_rng:derive(stream_prefix .. ".reinforcements"), stream_prefix .. ".reinforcements")
+  state.generation_metadata.reinforcement = reinforcement
+  state.generation_metadata.reinforcement_reason = reinforcement_reason
   self:validate_world()
   self:validate_physical_ownership()
   self:_log("Descend into the " .. (settings.biome_display_name or settings.terrain) .. ".")
@@ -2487,6 +2611,9 @@ function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id, opt
   -- active runs. They therefore exercise discovery generation without any
   -- persistent profile access.
   state.discovery_state = copy_discovery_state(options.discovery_state, false)
+  -- Existing isolated fixtures remain ecology-free unless tooling explicitly
+  -- opts in, matching the established discovery-inspector compatibility seam.
+  state.reinforcement_state = copy_reinforcement_state(options.reinforcement_state or { enabled = false }, false)
   state.legacy_stage_generation = false
   state.inspection_floor_depth = options.recurrence_depth
   state.stage, state.floor_seed = tier.number, Rng.new(floor_seed).seed
@@ -2597,15 +2724,23 @@ function Session:_destroy_target(index)
   self:_log("Destroyed a target.")
 end
 
-function Session:_destroy_enemy(index)
+function Session:_destroy_enemy(index, context)
   local enemy = remove(self.state.enemies, index)
   self:_create_corpse(enemy)
-  self.state.player.objective_progress = self.state.player.objective_progress + 1
-  self.state.player.score = self.state.player.objective_progress
-  if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
-  self:_reload(2, true)
-  self:_sound("hit")
-  self:_log("Defeated an enemy.")
+  -- Only player-caused kills retain the historic progression/reload/SCRAP
+  -- reward.  Faction-on-faction deaths still leave complete salvageable
+  -- corpses, but cannot become an off-screen currency farm.
+  local player_caused = context == nil or context.player_caused ~= false
+  if player_caused then
+    self.state.player.objective_progress = self.state.player.objective_progress + 1
+    self.state.player.score = self.state.player.objective_progress
+    if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
+    self:_reload(2, true)
+    self:_sound("hit")
+    self:_log("Defeated an enemy.")
+  else
+    self:_log("Hostile bodies collapse into salvage.")
+  end
   self:validate_physical_ownership()
 end
 
@@ -2750,6 +2885,7 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         dy = actor.y - origin.y,
         distance = force_spec.distance,
         cause = force_spec.cause,
+        source_actor = force_spec.source_actor,
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
@@ -2766,6 +2902,7 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         dy = object.y - origin.y,
         distance = force_spec.distance,
         cause = force_spec.cause,
+        source_actor = force_spec.source_actor,
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
@@ -2779,6 +2916,15 @@ end
 function Session:_update_bullets()
   local state, remaining = self.state, {}
   for _, bullet in ipairs(state.bullets) do
+    -- Old active saves and compatibility fixtures predate persisted effect
+    -- actor references. Those bullets represented ordinary player fire; give
+    -- them that bounded legacy meaning instead of making them inert. New
+    -- ecology projectiles always retain their exact source actor.
+    local source_actor = bullet.source_actor
+    if not source_actor and bullet.source_side ~= "enemy" then
+      source_actor = state.player
+      bullet.source_actor = source_actor
+    end
     if bullet.active then
       if bullet.max and bullet.travel >= bullet.max then
         bullet.expired = true
@@ -2799,7 +2945,8 @@ function Session:_update_bullets()
           amount = bullet.damage or 1,
           cause = "kinetic",
           source = bullet.ability_id or "bullet",
-          source_actor_id = bullet.source_actor and (bullet.source_actor.content_id or bullet.source_actor.kind) or nil,
+          source_actor = source_actor,
+          source_actor_id = source_actor and (source_actor.content_id or source_actor.kind) or nil,
           source_component_id = bullet.source_component_id,
           ability_id = bullet.ability_id,
         })
@@ -2814,7 +2961,7 @@ function Session:_update_bullets()
         hit = true
       end
     end
-    local player_owned = bullet.source_side ~= "enemy"
+    local player_owned = source_actor == state.player or bullet.source_side == "player"
     if player_owned then
       for index = #state.targets, 1, -1 do
         local target = state.targets[index]
@@ -2825,33 +2972,17 @@ function Session:_update_bullets()
         end
       end
     end
-    if not hit and player_owned then
-      for index = #state.enemies, 1, -1 do
-        local enemy = state.enemies[index]
-        if enemy.x == bullet.x and enemy.y == bullet.y then
-          self:damage_actor_body(enemy, {
-            amount = bullet.damage or 1,
-            cause = "kinetic",
-            source = bullet.ability_id or "bullet",
-          })
-          enemy.health = enemy.health - (bullet.damage or 1)
-          if enemy.health <= 0 then
-            self:_destroy_enemy(index)
-          end
-          hit = true
-          break
-        end
-      end
-    end
-    if not hit and player_owned and state.boss and state.boss.x == bullet.x and state.boss.y == bullet.y then
-      self:_apply_world_actor_damage(state.boss, bullet.damage or 1, nil, {
-        cause = "kinetic", source = bullet.ability_id or "bullet", source_actor_id = bullet.source_actor and (bullet.source_actor.content_id or bullet.source_actor.kind) or nil,
-        source_component_id = bullet.source_component_id, ability_id = bullet.ability_id,
-      })
-      hit = true
-    end
-    if not hit and not player_owned and state.player.x == bullet.x and state.player.y == bullet.y then
-      self:_hurt("An enemy projectile struck you.")
+    local target = not hit and self:_actor_at(bullet.x, bullet.y, source_actor) or nil
+    if target and source_actor and self:are_hostile(source_actor, target) then
+      self:_apply_world_actor_damage(target, bullet.damage or 1,
+        target == state.player and "An enemy projectile struck you." or nil, {
+          cause = "kinetic",
+          source = bullet.ability_id or "bullet",
+          source_actor = source_actor,
+          source_actor_id = source_actor.content_id or source_actor.kind,
+          source_component_id = bullet.source_component_id,
+          ability_id = bullet.ability_id,
+        })
       hit = true
     end
     if not hit then
@@ -2864,6 +2995,9 @@ end
 function Session:_update_bombs()
   local state, remaining = self.state, {}
   for _, bomb in ipairs(state.bombs) do
+    local source_actor = bomb.source_actor or state.player
+    bomb.source_actor = source_actor
+    local source_actor_id = bomb.source_actor_id or (source_actor.content_id or source_actor.kind)
     bomb.fuse = bomb.fuse - 1
     if bomb.fuse > 0 then
       remaining[#remaining + 1] = bomb
@@ -2872,38 +3006,29 @@ function Session:_update_bombs()
         amount = 2,
         cause = "explosive",
         source = "bomb",
-        source_actor_id = bomb.source_actor_id,
+        source_actor = source_actor,
+        source_actor_id = source_actor_id,
       })
       local cells = self:_blast(bomb, bomb.radius)
       for location_key in pairs(cells) do
         state.effects[location_key] = true
       end
       self:_sound("boom")
-      if cells[Grid.key(state.player.x, state.player.y)] then
-        self:_hurt("You were caught in the blast.")
-      end
       for index = #state.targets, 1, -1 do
         local target = state.targets[index]
         if cells[Grid.key(target.x, target.y)] then
           self:_destroy_target(index)
         end
       end
-      for index = #state.enemies, 1, -1 do
-        local enemy = state.enemies[index]
-        if cells[Grid.key(enemy.x, enemy.y)] then
-          self:damage_actor_body(enemy, {
-            amount = 2,
-            cause = "explosive",
-            source = "bomb",
-          })
-          enemy.health = enemy.health - 2
-          if enemy.health <= 0 then
-            self:_destroy_enemy(index)
-          end
+      for _, actor in ipairs(self:_living_actors()) do
+        if cells[Grid.key(actor.x, actor.y)] then
+          self:_apply_world_actor_damage(actor, actor == state.player and 1 or 2,
+            actor == state.player and "You were caught in the blast." or nil, {
+              cause = "explosive", source = "bomb", source_actor = source_actor,
+              source_actor_id = source_actor_id,
+              skip_body_damage = true,
+            })
         end
-      end
-      if state.boss and cells[Grid.key(state.boss.x, state.boss.y)] then
-        self:_apply_world_actor_damage(state.boss, 2, nil, { cause = "explosive", source = "bomb", source_actor_id = bomb.source_actor_id })
       end
       -- Explosion ordering is deliberate: environment damage, direct blast
       -- actor damage, then stepwise force. Each force step can resolve an
@@ -2911,7 +3036,8 @@ function Session:_update_bombs()
       self:_apply_explosion_force(bomb, bomb.radius, cells, {
         distance = 1,
         cause = "explosive",
-        source_actor_id = bomb.source_actor_id,
+        source_actor = source_actor,
+        source_actor_id = source_actor_id,
       })
     end
   end
@@ -2990,32 +3116,24 @@ function Session:_resolve_area_attack(attack)
   for location_key in pairs(cells) do
     state.effects[location_key] = true
   end
-  if attack.source_side == "player" then
+  if attack.source_actor == state.player or attack.source_side == "player" then
     for index = #state.targets, 1, -1 do
       local target = state.targets[index]
       if cells[Grid.key(target.x, target.y)] then
         self:_destroy_target(index)
       end
     end
-    for index = #state.enemies, 1, -1 do
-      local enemy = state.enemies[index]
-      if cells[Grid.key(enemy.x, enemy.y)] then
-        self:damage_actor_body(enemy, {
-          amount = 1,
-          cause = "arcane",
-          source = attack.ability_id,
+  end
+  for _, target in ipairs(self:_living_actors()) do
+    if target ~= attack.source_actor and cells[Grid.key(target.x, target.y)]
+      and attack.source_actor and self:are_hostile(attack.source_actor, target) then
+      self:_apply_world_actor_damage(target, 1,
+        target == state.player and "A " .. attack.source_actor_kind .. " spell struck you." or nil, {
+          cause = "arcane", source = attack.ability_id, source_actor = attack.source_actor,
+          source_actor_id = attack.source_actor.content_id or attack.source_actor.kind,
+          source_component_id = attack.source_component_id, ability_id = attack.ability_id,
         })
-        enemy.health = enemy.health - 1
-        if enemy.health <= 0 then
-          self:_destroy_enemy(index)
-        end
-      end
     end
-    if state.boss and cells[Grid.key(state.boss.x, state.boss.y)] then
-      self:_apply_world_actor_damage(state.boss, 1, nil, { cause = "arcane", source = attack.ability_id, ability_id = attack.ability_id })
-    end
-  elseif cells[Grid.key(state.player.x, state.player.y)] then
-    self:_hurt("A " .. attack.source_actor_kind .. " spell struck you.")
   end
 end
 
@@ -3057,12 +3175,17 @@ function Session:_begin_enemy_attack(enemy, kind, target, radius, windup)
 end
 
 function Session:_resolve_enemy_attack(enemy, index)
-  if self:_attack_cells(enemy)[Grid.key(self.state.player.x, self.state.player.y)] then
-    local messages = {
-      detonate = "A bomber detonated beside you.",
-      spell = "A " .. enemy.kind .. " spell struck you.",
-    }
-    self:_hurt(messages[enemy.attack_kind] or "An enemy attack struck you.")
+  local cells = self:_attack_cells(enemy)
+  if enemy.attack_kind ~= "detonate" then
+    for _, target in ipairs(self:_living_actors()) do
+      if target ~= enemy and cells[Grid.key(target.x, target.y)] and self:are_hostile(enemy, target) then
+        self:_apply_world_actor_damage(target, 1,
+          target == self.state.player and "A " .. enemy.kind .. " spell struck you." or nil, {
+            cause = "arcane", source = "legacy_enemy_attack", source_actor = enemy,
+            source_actor_id = enemy.content_id or enemy.kind,
+          })
+      end
+    end
   end
   if enemy.attack_kind == "detonate" then
     self:activate_actor_ability(enemy, SELF_DESTRUCT_ABILITY)
@@ -3099,8 +3222,7 @@ end
 -- One capability-driven policy covers authored enemies and fallen echoes.
 -- Content changes body configuration; a broken provider therefore removes the
 -- corresponding decision without a new enemy-kind branch.
-function Session:_body_enemy_turn(enemy, route, electrical_direction)
-  local target = self.state.player
+function Session:_body_enemy_turn(enemy, target, route, electrical_direction)
   local projectile_direction = self:_projectile_direction_to(enemy, target)
   local projectile_ability = self:actor_ability_by_implementation(enemy, "projectile")
   local melee_ability = self:actor_ability_by_implementation(enemy, "melee")
@@ -3135,23 +3257,13 @@ function Session:_enemy_turn()
     if enemy.stun > 0 then
       enemy.stun = enemy.stun - 1
     elseif enemy.attack == 0 then
-      local blocked = {}
-      for _, other in ipairs(self.state.enemies) do
-        if other ~= enemy then
-          blocked[Grid.key(other.x, other.y)] = true
-        end
-      end
-      -- Treat active hazards and burning cells as blocked when a safe route
-      -- exists. The fallback preserves pursuit through a narrow dangerous
-      -- corridor rather than making environmental danger a permanent wall.
-      local route = self:_hazard_aware_path(enemy, self.state.player, blocked)
-      local electrical_direction = self:_electrical_direction_to(enemy, self.state.player)
-      if enemy.body then
-        self:_body_enemy_turn(enemy, route, electrical_direction)
+      local target, route = self:_nearest_hostile_target(enemy)
+      if target and enemy.body then
+        self:_body_enemy_turn(enemy, target, route, self:_electrical_direction_to(enemy, target))
       elseif self:_actor_has_pending_area_attack(enemy) then
-      elseif #route > 0 and #route - 1 <= 4 then
-        self:_begin_enemy_attack(enemy, "spell", self.state.player, 1, 3)
-      elseif #route > 1 then
+      elseif target and #route > 0 and #route - 1 <= 4 then
+        self:_begin_enemy_attack(enemy, "spell", target, 1, 3)
+      elseif target and #route > 1 then
         self:_move_actor(enemy, route[2].x, route[2].y)
       end
     else
@@ -3293,7 +3405,7 @@ function Session:_boss_turn()
   local blocked = {}
   for _, enemy in ipairs(self.state.enemies or {}) do blocked[Grid.key(enemy.x, enemy.y)] = true end
   local route = self:_hazard_aware_path(boss, self.state.player, blocked)
-  self:_body_enemy_turn(boss, route, self:_electrical_direction_to(boss, self.state.player))
+  self:_body_enemy_turn(boss, self.state.player, route, self:_electrical_direction_to(boss, self.state.player))
 end
 
 function Session:_collect_ammo()
@@ -3554,6 +3666,7 @@ function Session:_action(input)
         fuse = player.bomb_fuse,
         radius = player.bomb_radius,
         light = 3,
+        source_actor = player,
         source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_sound("select")
@@ -3882,6 +3995,7 @@ function Session:turn(input)
     elseif input == "q" then
       self:_dash()
     end
+    if not state.ended then ReinforcementSimulation.tick(self) end
     self:_update_liquids()
     self:_update_fire()
     if not state.ended then
@@ -3933,6 +4047,7 @@ function Session:turn(input)
     self:_enemy_turn()
     self:_refill_entities()
   end
+  if not state.ended then ReinforcementSimulation.tick(self) end
   -- World processes run after immediate actions and enemy response. Liquid
   -- redistribution/suppression precedes fire, so newly arrived water can save
   -- fuel before that turn's burn tick. New fires still wait by ready_tick.

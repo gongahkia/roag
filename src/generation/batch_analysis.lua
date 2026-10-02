@@ -41,12 +41,22 @@ function Batch.run(options)
     passable_cells = { total = 0 }, enemies = { total = 0 }, hazards = { total = 0 },
     liquid_volume = { total = 0 }, gas_volume = { total = 0 }, circuits = { total = 0 }, powered_circuits = { total = 0 },
     room_count = { total = 0 }, elite_enemies = { total = 0 }, active_fires = { total = 0 },
+    discovery_sites = { total = 0 }, gated_discovery_sites = { total = 0 }, unreachable_discovery_gates = { total = 0 },
+    reinforcement_sources = { total = 0 },
   }
-  local material_counts, object_counts, enemy_counts, enemy_capabilities, template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}, {}, {}, {}, {}
-  local fire_floor_count = 0
+  local material_counts, object_counts, enemy_counts, enemy_capabilities, enemy_factions, template_usage, rotation_counts, connector_patterns, graph_degrees, discovery_access_profiles, reinforcement_source_types, reinforcement_source_factions = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+  local fire_floor_count, mixed_faction_floor_count = 0, 0
   for offset = 0, count - 1 do
     local current_seed = seed + offset
-    local floor, failure = make_floor({ stage = stage, biome = biome.id, tier = tier.id, seed = current_seed })
+    local floor, failure = make_floor({
+      stage = stage, biome = biome.id, tier = tier.id, seed = current_seed,
+      meta_snapshot = options.meta_snapshot,
+      -- Callers opt in when they want discovery distribution data. Keeping
+      -- the default fixture-compatible prevents unrelated legacy analyses
+      -- from silently changing their object/circuit baseline.
+      discovery_state = options.discovery_state or { enabled = false, assigned_discovery_ids = {} },
+      reinforcement_state = options.reinforcement_state or { enabled = false },
+    })
     if not floor then
       failures[#failures + 1] = { seed = current_seed, code = failure.code, message = failure.reason }
     else
@@ -59,15 +69,20 @@ function Batch.run(options)
       if not report.valid then failures[#failures + 1] = { seed = current_seed, errors = report.errors } end
       local metrics = report.metrics
       if metrics.active_fires > 0 then fire_floor_count = fire_floor_count + 1 end
-      for name, range in pairs(ranges) do update_range(range, metrics[name], current_seed) end
+      if metrics.mixed_faction_floor then mixed_faction_floor_count = mixed_faction_floor_count + 1 end
+      for name, range in pairs(ranges) do update_range(range, metrics[name] or 0, current_seed) end
       merge_counts(material_counts, metrics.material_counts)
       merge_counts(object_counts, metrics.object_types)
       merge_counts(enemy_counts, metrics.enemy_types)
       merge_counts(enemy_capabilities, metrics.enemy_capabilities)
+      merge_counts(enemy_factions, metrics.enemy_factions)
       merge_counts(template_usage, metrics.template_usage)
       merge_counts(rotation_counts, metrics.rotation_counts)
       merge_counts(connector_patterns, metrics.connector_pattern_counts)
       merge_counts(graph_degrees, metrics.graph_degree_counts)
+      merge_counts(discovery_access_profiles, metrics.discovery_access_profiles)
+      merge_counts(reinforcement_source_types, metrics.reinforcement_source_types)
+      merge_counts(reinforcement_source_factions, metrics.reinforcement_source_factions)
     end
   end
   local statistics = {}
@@ -90,8 +105,13 @@ function Batch.run(options)
     summary = { generated = report_count, failures = #failures, statistics = statistics, outliers = outliers,
       material_counts = material_counts, object_counts = object_counts, template_usage = template_usage,
       enemy_counts = enemy_counts, enemy_capabilities = enemy_capabilities,
+      enemy_factions = enemy_factions,
       rotation_counts = rotation_counts, connector_pattern_counts = connector_patterns, graph_degree_counts = graph_degrees,
-      fire_floor_count = fire_floor_count },
+      discovery_access_profiles = discovery_access_profiles,
+      reinforcement_source_types = reinforcement_source_types,
+      reinforcement_source_factions = reinforcement_source_factions,
+      fire_floor_count = fire_floor_count,
+      mixed_faction_floor_count = mixed_faction_floor_count },
     failures = failures,
     reports = reports,
     reports_included = retain_reports,

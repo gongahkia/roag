@@ -1,15 +1,47 @@
 local ArtPacks = require("src.rendering.art_packs")
 local Assets = require("src.rendering.assets")
-local ArtPackSettings = require("src.persistence.art_pack_settings")
-local SaveStore = require("src.persistence.save_store")
+local ArtPackConfig = require("src.presentation.art_pack_config")
+local ArtPackCatalog = require("src.presentation.art_pack_catalog")
 local App = require("src.app.app")
+local SaveStore = require("src.persistence.save_store")
 local Renderer = require("src.rendering.renderer")
-
-local function title_option(app, name)
-  for index, option in ipairs(app:title_options()) do if option.name == name then return index, option end end
-end
+local WorkbenchExport = require("src.presentation.art_workbench_export")
 
 return {
+  {
+    name = "ROAG reads externalized presentation data while title no longer exposes art authoring",
+    run = function()
+      local configured = assert(ArtPackConfig.load())
+      local app = App.new({ seed = 450001, save_store = SaveStore.memory(), meta_store = SaveStore.memory(), archive_store = SaveStore.memory() })
+      assert(app.assets.art_pack_id == configured.art_pack_id)
+      for _, option in ipairs(app:title_options()) do
+        assert(option.id ~= "art_packs" and option.name ~= "ART PACKS")
+      end
+      assert(app:title_options()[1].id == "new_run")
+    end,
+  },
+  {
+    name = "source-controlled art-pack catalog exactly mirrors renderer pack identifiers",
+    run = function()
+      local catalog = assert(ArtPackCatalog.load())
+      assert(#catalog.art_packs == #ArtPacks.list())
+      local partial, failure = ArtPackCatalog.load({ payload = '{"format":"roag.presentation_art_pack_catalog","version":1,"art_packs":[]}' })
+      assert(not partial and failure.code == "incomplete_presentation_art_pack_catalog")
+    end,
+  },
+  {
+    name = "art workbench exports a presentation-only sibling-project contract",
+    run = function()
+      assert(WorkbenchExport.validate())
+      local manifest = WorkbenchExport.manifest()
+      assert(manifest.project_name == "unpolished-bees" and manifest.integration.selection_format == "roag.presentation_art_pack")
+      assert(manifest.integration.settings_path == "content/presentation/art_pack.json")
+      assert(#manifest.art_packs == #ArtPacks.list())
+      for _, entry in ipairs(WorkbenchExport.entries) do
+        assert(not entry.source:match("^src/simulation/") and not entry.source:match("^src/persistence/"))
+      end
+    end,
+  },
   {
     name = "art-pack catalog contains every bundled source with complete bounded role maps",
     run = function()
@@ -72,35 +104,14 @@ return {
     end,
   },
   {
-    name = "art-pack preferences round trip separately and reject unknown packs",
+    name = "source-controlled art-pack selection validates outside persistence and rejects unknown packs",
     run = function()
-      local store = SaveStore.memory()
-      local settings = ArtPackSettings.new()
-      settings.art_pack_id = "art_pack.dawnlike"
-      assert(ArtPackSettings.save(settings, store))
-      local loaded = assert(ArtPackSettings.load(store))
-      assert(loaded.art_pack_id == "art_pack.dawnlike")
-      local invalid, error_data = ArtPackSettings.decode('{"format":"roag.art_pack_settings","version":1,"settings":{"art_pack_id":"art_pack.missing"}}')
-      assert(not invalid and error_data.code == "invalid_state")
-    end,
-  },
-  {
-    name = "art-pack selection persists as presentation state without altering active-run storage",
-    run = function()
-      local active, meta, archive, art = SaveStore.memory(), SaveStore.memory(), SaveStore.memory(), SaveStore.memory()
-      local app = App.new({ seed = 450001, save_store = active, meta_store = meta, archive_store = archive, art_pack_store = art })
-      local index = assert(title_option(app, "ART PACKS"))
-      app.menu = index
-      assert(app:activate_title_choice() and app.screen == "art_packs")
-      assert(app:select_art_pack("art_pack.kenney_micro_roguelike"))
-      assert(app.assets.art_pack_id == "art_pack.kenney_micro_roguelike")
-      assert(not active:exists(), "visual preferences must not create an active run")
-      local restored = App.new({ seed = 450002, save_store = active, meta_store = meta, archive_store = archive, art_pack_store = art })
-      assert(restored.assets.art_pack_id == "art_pack.kenney_micro_roguelike")
-      local prior = assert(art:read())
-      local changed, error_data = restored:select_art_pack("art_pack.missing")
-      assert(not changed and error_data.code == "unknown_art_pack")
-      assert(assert(art:read()) == prior, "failed selection must not mutate preferences")
+      local selected = assert(ArtPackConfig.load({ payload = '{"format":"roag.presentation_art_pack","version":1,"art_pack_id":"art_pack.dawnlike"}' }))
+      assert(selected.art_pack_id == "art_pack.dawnlike")
+      local invalid, error_data = ArtPackConfig.decode('{"format":"roag.presentation_art_pack","version":1,"art_pack_id":"art_pack.missing"}')
+      assert(not invalid and error_data.code == "unknown_presentation_art_pack")
+      local payload = assert(ArtPackConfig.encode(selected))
+      assert(assert(ArtPackConfig.decode(payload)).art_pack_id == "art_pack.dawnlike")
     end,
   },
   {

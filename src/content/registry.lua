@@ -20,7 +20,10 @@ local KNOWN_INTERACTION_ROLES = {
   traversal = true,
   discovery = true,
   clue = true,
+  reinforcement = true,
 }
+
+local KNOWN_REINFORCEMENT_SOURCE_TYPES = { nest = true, lift = true }
 
 local KNOWN_DISCOVERY_ACCESS_PROFILES = {
   ["access_profile.discovery.open"] = true,
@@ -126,7 +129,9 @@ function Registry.new(sources)
     components = {},
     topologies = {},
     actors = {},
+    factions = {},
     enemies = {},
+    reinforcement_profiles = {},
     bosses = {},
     boss_arenas = {},
     encounter_pools = {},
@@ -146,7 +151,9 @@ function Registry.new(sources)
   self:_index("component", sources.components, self.components)
   self:_index("body.topology", sources.topologies, self.topologies)
   self:_index("actor", sources.actors, self.actors)
+  self:_index("faction", sources.factions or {}, self.factions)
   self:_index("enemy", sources.enemies, self.enemies)
+  self:_index("reinforcement_profile", sources.reinforcement_profiles or {}, self.reinforcement_profiles)
   self:_index("boss", sources.bosses or {}, self.bosses)
   self:_index("boss_arena", sources.boss_arenas or {}, self.boss_arenas)
   self:_index("encounter_pool", sources.encounter_pools or {}, self.encounter_pools)
@@ -171,7 +178,9 @@ function Registry.load()
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
+    factions = require("content.factions.legacy"),
     enemies = require("content.enemies.legacy"),
+    reinforcement_profiles = require("content.reinforcements.legacy"),
     bosses = require("content.bosses.legacy"),
     boss_arenas = require("content.boss_arenas.legacy"),
     encounter_pools = require("content.encounters.legacy"),
@@ -247,6 +256,10 @@ function Registry:get_actor(id)
   return self:_get(self.actors, "actor", id)
 end
 
+function Registry:get_faction(id)
+  return self:_get(self.factions, "faction", id)
+end
+
 function Registry:get_enemy(id)
   return self:_get(self.enemies, "enemy", id)
 end
@@ -288,6 +301,10 @@ function Registry:get_encounter_pool(id)
   return self:_get(self.encounter_pools, "encounter pool", id)
 end
 
+function Registry:get_reinforcement_profile(id)
+  return self:_get(self.reinforcement_profiles, "reinforcement profile", id)
+end
+
 function Registry:encounter_pool_for(biome_id, tier_id)
   return self.encounter_pools_by_pair and self.encounter_pools_by_pair[biome_id .. ":" .. tier_id] or nil
 end
@@ -300,6 +317,39 @@ function Registry:get_research(id) return self:_get(self.research, "research", i
 function Registry:get_discovery(id) return self:_get(self.discoveries, "discovery", id) end
 
 function Registry:validate()
+  -- Faction relationships are a small explicit matrix.  Different IDs are
+  -- not implicitly hostile: this keeps target selection content-driven.
+  for _, id in ipairs(sorted_keys(self.factions)) do
+    local faction = self.factions[id]
+    require_string(faction.display_name, "Faction '" .. id .. "' display_name")
+    if type(faction.hostile_faction_ids) ~= "table" then
+      content_error("Faction '" .. id .. "' hostile_faction_ids must be a list")
+    end
+    local seen = {}
+    for _, hostile_id in ipairs(faction.hostile_faction_ids) do
+      require_string(hostile_id, "Faction '" .. id .. "' hostile faction")
+      if hostile_id == id or seen[hostile_id] then
+        content_error("Faction '" .. id .. "' has an invalid hostile relationship")
+      end
+      self:get_faction(hostile_id)
+      seen[hostile_id] = true
+    end
+    if faction.synthetic ~= nil and type(faction.synthetic) ~= "boolean" then
+      content_error("Faction '" .. id .. "' synthetic must be a boolean")
+    end
+    if type(faction.presentation) ~= "table" then
+      content_error("Faction '" .. id .. "' presentation must be a table")
+    end
+    require_string(faction.presentation.color, "Faction '" .. id .. "' presentation.color")
+  end
+  for _, id in ipairs(sorted_keys(self.factions)) do
+    for _, hostile_id in ipairs(self.factions[id].hostile_faction_ids) do
+      if not list_contains(self.factions[hostile_id].hostile_faction_ids, id) then
+        content_error("Faction hostility must be symmetric: '" .. id .. "' -> '" .. hostile_id .. "'")
+      end
+    end
+  end
+
   for _, id in ipairs(sorted_keys(self.materials)) do
     local material = self.materials[id]
     require_string(material.display_name, "Material '" .. id .. "' display_name")
@@ -386,10 +436,22 @@ function Registry:validate()
         if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles or not object.blocks_gas then
           content_error("Traversal world object '" .. id .. "' must block movement, vision, projectiles, and gas")
         end
+      elseif object.interaction_role == "reinforcement" then
+        require_string(object.reinforcement_source_type, "Reinforcement world object '" .. id .. "' reinforcement_source_type")
+        if not KNOWN_REINFORCEMENT_SOURCE_TYPES[object.reinforcement_source_type] then
+          content_error("Reinforcement world object '" .. id .. "' has unknown source type")
+        end
+        if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles then
+          content_error("Reinforcement world object '" .. id .. "' must visibly block movement, vision, and projectiles")
+        end
       elseif object.power_required ~= nil or object.default_door_state ~= nil or object.required_unlock ~= nil then
         content_error("Non-door world object '" .. id .. "' cannot define door power metadata")
       end
-    elseif object.power_required ~= nil or object.default_door_state ~= nil or object.required_unlock ~= nil then
+      if object.interaction_role ~= "reinforcement" and object.reinforcement_source_type ~= nil then
+        content_error("Non-reinforcement world object '" .. id .. "' cannot define reinforcement metadata")
+      end
+    elseif object.power_required ~= nil or object.default_door_state ~= nil or object.required_unlock ~= nil
+      or object.reinforcement_source_type ~= nil then
       content_error("Non-interactable world object '" .. id .. "' cannot define door power metadata")
     end
     require_string(object.render_style, "World object '" .. id .. "' render_style")
@@ -625,6 +687,48 @@ function Registry:validate()
   self:_validate_actor_collection("Actor", self.actors)
   self:_validate_actor_collection("Enemy", self.enemies)
   self:_validate_actor_collection("Boss", self.bosses)
+  for _, id in ipairs(sorted_keys(self.reinforcement_profiles)) do
+    local profile = self.reinforcement_profiles[id]
+    require_string(profile.display_name, "Reinforcement profile '" .. id .. "' display_name")
+    require_string(profile.source_type, "Reinforcement profile '" .. id .. "' source_type")
+    if not KNOWN_REINFORCEMENT_SOURCE_TYPES[profile.source_type] then
+      content_error("Reinforcement profile '" .. id .. "' has unknown source type")
+    end
+    require_string(profile.faction_id, "Reinforcement profile '" .. id .. "' faction_id")
+    self:get_faction(profile.faction_id)
+    require_positive_integer(profile.wave_size, "Reinforcement profile '" .. id .. "' wave_size")
+    if profile.wave_size > 2 then content_error("Reinforcement profile '" .. id .. "' wave_size must remain bounded at two") end
+    for _, field in ipairs({ "allowed_biome_ids", "allowed_tier_ids", "entries" }) do
+      if type(profile[field]) ~= "table" or #profile[field] == 0 then
+        content_error("Reinforcement profile '" .. id .. "' " .. field .. " must be a non-empty list")
+      end
+    end
+    local biomes, tiers, enemies = {}, {}, {}
+    for _, biome_id in ipairs(profile.allowed_biome_ids) do
+      if type(biome_id) ~= "string" or not biome_id:match("^biome%.[a-z0-9_%.]+$") or biomes[biome_id] then
+        content_error("Reinforcement profile '" .. id .. "' has invalid biome")
+      end
+      biomes[biome_id] = true
+    end
+    for _, tier_id in ipairs(profile.allowed_tier_ids) do
+      if type(tier_id) ~= "string" or not tier_id:match("^tier%.[a-z0-9_%.]+$") or tiers[tier_id] then
+        content_error("Reinforcement profile '" .. id .. "' has invalid tier")
+      end
+      tiers[tier_id] = true
+    end
+    for index, entry in ipairs(profile.entries) do
+      if type(entry) ~= "table" then content_error("Reinforcement profile '" .. id .. "' entry " .. index .. " must be a table") end
+      require_string(entry.enemy_id, "Reinforcement profile '" .. id .. "' entry enemy_id")
+      local enemy = self:get_enemy(entry.enemy_id)
+      if enemy.elite then content_error("Reinforcement profile '" .. id .. "' cannot deploy elite '" .. enemy.id .. "'") end
+      if enemy.faction_id ~= profile.faction_id then
+        content_error("Reinforcement profile '" .. id .. "' enemy faction does not match profile")
+      end
+      if enemies[enemy.id] then content_error("Reinforcement profile '" .. id .. "' repeats enemy '" .. enemy.id .. "'") end
+      enemies[enemy.id] = true
+      require_positive_integer(entry.weight, "Reinforcement profile '" .. id .. "' entry weight")
+    end
+  end
   for _, id in ipairs(sorted_keys(self.boss_arenas)) do
     local arena = self.boss_arenas[id]
     require_string(arena.display_name, "Boss arena '" .. id .. "' display_name")
@@ -800,6 +904,10 @@ function Registry:_validate_actor_collection(kind, definitions)
       if kind == "Enemy" and type(definition.elite) ~= "boolean" then
         content_error(kind .. " '" .. id .. "' elite must be a boolean")
       end
+      if kind == "Enemy" then
+        require_string(definition.faction_id, "Enemy '" .. id .. "' faction_id")
+        self:get_faction(definition.faction_id)
+      end
       require_nonnegative_number(definition.ammo, kind .. " '" .. id .. "' ammo")
       if definition.ammo % 1 ~= 0 then
         content_error(kind .. " '" .. id .. "' ammo must be an integer")
@@ -809,6 +917,23 @@ function Registry:_validate_actor_collection(kind, definitions)
       end
     end
   end
+end
+
+function Registry:validate_reinforcement_profiles(route_definitions)
+  assert(route_definitions, "Reinforcement-profile validation requires route definitions")
+  for _, id in ipairs(sorted_keys(self.reinforcement_profiles)) do
+    local profile = self.reinforcement_profiles[id]
+    local usable = false
+    for _, biome_id in ipairs(profile.allowed_biome_ids) do
+      route_definitions:get_biome(biome_id)
+      for _, tier_id in ipairs(profile.allowed_tier_ids) do
+        route_definitions:get_tier(tier_id)
+        if route_definitions:biome_supports_tier(biome_id, tier_id) then usable = true end
+      end
+    end
+    if not usable then content_error("Reinforcement profile '" .. id .. "' has no supported biome/tier pair") end
+  end
+  return true
 end
 
 -- Route content owns the valid biome/tier vocabulary, while this registry

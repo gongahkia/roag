@@ -45,7 +45,9 @@ return {
     name = "headless inspector controller regenerates the same source without LÖVE or save state",
     run = function()
       local inspector = Inspector.new({ stage = "cave", seed = 73102 })
-      local direct = assert(InspectionFloor.generate({ stage = "cave", seed = 73102 }))
+      local direct = assert(InspectionFloor.generate({ stage = "cave", seed = 73102,
+        discovery_state = { enabled = true, assigned_discovery_ids = {} },
+        reinforcement_state = { enabled = true } }))
       local a, a_error = Json.encode(inspector.report)
       local b, b_error = Json.encode(report_for(direct))
       assert(a, a_error); assert(b, b_error); assert(a == b)

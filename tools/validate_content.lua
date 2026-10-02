@@ -4,6 +4,10 @@ local Registry = require("src.content.registry")
 local RoomRegistry = require("src.rooms.registry")
 local Corpora = require("src.rooms.corpora")
 local RouteDefinitions = require("src.routes.definitions")
+local ScreenManager = require("src.ui.screen_manager")
+local PresentationFlow = require("src.presentation.presentation_flow")
+local ArtPackConfig = require("src.presentation.art_pack_config")
+local ArtPackCatalog = require("src.presentation.art_pack_catalog")
 
 local ok, registry_or_error = xpcall(Registry.load, debug.traceback)
 if not ok then
@@ -12,6 +16,19 @@ if not ok then
 end
 
 local registry = registry_or_error
+local presentation_checks = {
+  { label = "screen definitions", loader = ScreenManager.load },
+  { label = "presentation flow", loader = PresentationFlow.load },
+  { label = "art-pack config", loader = function() return ArtPackConfig.load({ strict = true }) end },
+  { label = "art-pack catalog", loader = ArtPackCatalog.load },
+}
+for _, check in ipairs(presentation_checks) do
+  local value, failure = check.loader()
+  if not value then
+    io.stderr:write("Invalid ", check.label, ": ", tostring(failure and failure.reason or failure), "\n")
+    os.exit(1)
+  end
+end
 local routes_ok, routes_or_error = xpcall(RouteDefinitions.load, debug.traceback)
 if not routes_ok then
   io.stderr:write(routes_or_error, "\n")
@@ -21,6 +38,16 @@ local routes = routes_or_error
 local pools_ok, pools_error = pcall(function() return registry:validate_encounter_pools(routes) end)
 if not pools_ok then
   io.stderr:write(tostring(pools_error), "\n")
+  os.exit(1)
+end
+local reinforcements_ok, reinforcements_error = pcall(function() return registry:validate_reinforcement_profiles(routes) end)
+if not reinforcements_ok then
+  io.stderr:write(tostring(reinforcements_error), "\n")
+  os.exit(1)
+end
+local discoveries_ok, discoveries_error = pcall(function() return registry:validate_discoveries(routes) end)
+if not discoveries_ok then
+  io.stderr:write(tostring(discoveries_error), "\n")
   os.exit(1)
 end
 local bosses_ok, bosses_error = pcall(function() return registry:validate_boss_routes(routes) end)
@@ -41,7 +68,7 @@ for _, config in ipairs(Corpora.list()) do
   room_counts[config.BIOME], room_coverages[config.BIOME] = #rooms.order, rooms:coverage()
 end
 io.write(string.format(
-  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d bosses, %d boss arenas, %d services, %d charms, %d boons, %d curses, %d research nodes, %d topologies, %d actors, %d enemies, %d encounter pools, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d reactor room templates\n",
+  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d bosses, %d boss arenas, %d services, %d charms, %d boons, %d curses, %d research nodes, %d discoveries, %d factions, %d reinforcement profiles, %d topologies, %d actors, %d enemies, %d encounter pools, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d reactor room templates\n",
   (function() local count = 0 for _ in pairs(registry.abilities) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.materials) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.liquids) do count = count + 1 end return count end)(),
@@ -56,6 +83,9 @@ io.write(string.format(
   (function() local count = 0 for _ in pairs(registry.boons) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.curses) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.research) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.discoveries) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.factions) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.reinforcement_profiles) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.topologies) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.actors) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.enemies) do count = count + 1 end return count end)(),

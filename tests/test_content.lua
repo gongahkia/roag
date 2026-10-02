@@ -11,6 +11,7 @@ local function sources()
     components = require("content.components.legacy"),
     topologies = require("content.body_topologies.normal"),
     actors = require("content.actors.player_legacy"),
+    factions = require("content.factions.legacy"),
     enemies = require("content.enemies.legacy"),
   }
 end

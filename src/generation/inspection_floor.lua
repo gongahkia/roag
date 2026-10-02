@@ -116,6 +116,8 @@ local function provenance_for(session)
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".traversal",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".services",
     "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".entities",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".discoveries",
+    "inspection." .. tostring(biome_id) .. "." .. tostring(tier_id) .. ".reinforcements",
   }
   local result = {
     streams = streams,
@@ -134,9 +136,11 @@ local function provenance_for(session)
     result.fallen_recurrence = state.generation_metadata.fallen_recurrence
   end
   for _, object in ipairs(world:list_objects()) do
-    result.objects[object.id] = object.interaction_role == "service" and "inspection.services"
+    result.objects[object.id] = object.discovery_id and "inspection.discoveries"
+      or (object.interaction_role == "service" and "inspection.services"
       or (object.interaction_role == "traversal" and "inspection.traversal"
-        or (object.interaction_role and "inspection.power_devices" or "inspection.world_objects"))
+        or (object.interaction_role == "reinforcement" and "inspection.reinforcements"
+          or (object.interaction_role and "inspection.power_devices" or "inspection.world_objects"))))
   end
   for _, hazard in ipairs(world:list_hazards()) do
     result.hazards[hazard.id] = "inspection.hazards"
@@ -187,11 +191,22 @@ function InspectionFloor.generate(options)
   -- Synthetic plain-data recurrence input is intentionally injected only
   -- into this isolated Session. Inspector use never opens persistent user
   -- archive storage or changes an active run.
-  local session = Session.new({ seed = seed, content = options.content, fallen_recurrence = options.fallen_recurrence })
+  local session = Session.new({
+    seed = seed,
+    content = options.content,
+    meta_snapshot = options.meta_snapshot,
+    fallen_recurrence = options.fallen_recurrence,
+  })
   session.state.class = (options.content or Content).classes[1]
   session.state.boon = (options.content or Content).boons[1]
   session:start_biome_tier(biome.id, tier.id, seed, options.service_id, {
     recurrence_depth = options.recurrence_depth or (options.fallen_recurrence and options.fallen_recurrence.target_depth),
+    -- Existing inspector callers intentionally retain their historical,
+    -- discovery-free fixture output unless they opt in.  The interactive
+    -- inspector and batch analyzer pass this explicitly, so discovery
+    -- diagnostics still exercise the same authoritative floor builder.
+    discovery_state = options.discovery_state or { enabled = false, assigned_discovery_ids = {} },
+    reinforcement_state = options.reinforcement_state or { enabled = false },
   })
   return {
     seed = session.seed,

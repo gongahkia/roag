@@ -2,6 +2,7 @@ return {
   {
     id = "enemy.legacy.bomber",
     display_name = "Bomber",
+    faction_id = "faction.feral",
     kind = "bomber",
     elite = false,
     ammo = 0,
@@ -15,6 +16,7 @@ return {
   {
     id = "enemy.legacy.cultist",
     display_name = "Cultist",
+    faction_id = "faction.cult",
     kind = "cultist",
     elite = false,
     ammo = 0,
@@ -29,6 +31,7 @@ return {
   {
     id = "enemy.wild.ripper",
     display_name = "Ripper",
+    faction_id = "faction.feral",
     kind = "ripper",
     elite = false,
     ammo = 0,
@@ -43,6 +46,7 @@ return {
   {
     id = "enemy.wild.skirmisher",
     display_name = "Skirmisher",
+    faction_id = "faction.feral",
     kind = "skirmisher",
     elite = false,
     ammo = 3,
@@ -56,6 +60,7 @@ return {
   {
     id = "enemy.cave.conductor",
     display_name = "Conductor",
+    faction_id = "faction.cult",
     kind = "conductor",
     elite = false,
     ammo = 0,
@@ -70,6 +75,7 @@ return {
   {
     id = "enemy.dungeon.bulwark",
     display_name = "Bulwark",
+    faction_id = "faction.machine",
     kind = "bulwark",
     elite = false,
     ammo = 0,
@@ -85,6 +91,7 @@ return {
   {
     id = "enemy.dungeon.reclaimer",
     display_name = "Reclaimer",
+    faction_id = "faction.feral",
     kind = "reclaimer",
     elite = false,
     ammo = 4,
@@ -99,6 +106,7 @@ return {
   {
     id = "enemy.elite.redundant_gunner",
     display_name = "Redundant Gunner",
+    faction_id = "faction.machine",
     kind = "gunner_elite",
     elite = true,
     ammo = 6,
@@ -113,6 +121,7 @@ return {
   {
     id = "enemy.elite.shock_bruiser",
     display_name = "Shock Bruiser",
+    faction_id = "faction.cult",
     kind = "shock_bruiser",
     elite = true,
     ammo = 0,
@@ -129,6 +138,7 @@ return {
   {
     id = "enemy.elite.volatile_heavy",
     display_name = "Volatile Heavy",
+    faction_id = "faction.machine",
     kind = "volatile_heavy",
     elite = true,
     ammo = 0,
@@ -145,6 +155,7 @@ return {
   {
     id = "enemy.reactor.arc_cutter",
     display_name = "Arc Cutter",
+    faction_id = "faction.machine",
     kind = "arc_cutter",
     elite = false,
     ammo = 0,
@@ -159,6 +170,7 @@ return {
   {
     id = "enemy.reactor.maintenance_heavy",
     display_name = "Maintenance Heavy",
+    faction_id = "faction.machine",
     kind = "maintenance_heavy",
     elite = false,
     ammo = 0,
@@ -174,6 +186,7 @@ return {
   {
     id = "enemy.reactor.suppressor",
     display_name = "Reactor Suppressor",
+    faction_id = "faction.machine",
     kind = "reactor_suppressor",
     elite = false,
     ammo = 4,
@@ -188,6 +201,7 @@ return {
   {
     id = "enemy.elite.arc_warden",
     display_name = "Arc Warden",
+    faction_id = "faction.machine",
     kind = "arc_warden",
     elite = true,
     ammo = 5,

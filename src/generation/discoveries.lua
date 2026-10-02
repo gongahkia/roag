@@ -92,16 +92,25 @@ end
 local function gate_layout(session, occupied, rng)
   local world, player = session.state.world, session.state.player
   local open_reachable = reachable_from(world, player)
+  -- Compute the legal free-space catalogue once.  Discovery placement runs
+  -- on generated floors, so repeatedly scanning the full map for every
+  -- possible gate would make large diagnostic batches needlessly expensive.
+  local all_free = free_cells(session, occupied, nil)
   local gate_options = {}
-  for _, point in ipairs(free_cells(session, occupied, 8)) do
+  for _, point in ipairs(all_free) do
+    if Grid.distance(player, point) >= 8 then
     local neighbours = 0
     for _, direction in ipairs(CARDINAL) do
       if world:is_passable(point.x + direction[1], point.y + direction[2]) then neighbours = neighbours + 1 end
     end
-    if neighbours >= 2 then gate_options[#gate_options + 1] = point end
+      if neighbours >= 2 then gate_options[#gate_options + 1] = point end
+    end
   end
   gate_options = rng:shuffle(gate_options)
-  local attempts = math.min(#gate_options, 36)
+  -- A dozen deterministic articulation candidates is ample on the current
+  -- floor dimensions and keeps the optional phase bounded for hundreds of
+  -- headless constructions.
+  local attempts = math.min(#gate_options, 12)
   for index = 1, attempts do
     local gate = gate_options[index]
     local closed_reachable = reachable_from(world, player, key(gate))
@@ -111,9 +120,11 @@ local function gate_layout(session, occupied, rng)
     end
     if next(isolated) and not has_occupied_cell(isolated, occupied) then
       local cache_options = {}
-      for _, point in ipairs(free_cells(session, occupied, nil)) do
+      for _, point in ipairs(all_free) do
         local location_key = key(point)
-        if isolated[location_key] then cache_options[#cache_options + 1] = point end
+        -- The virtual closed-region difference includes the gate cell itself;
+        -- it is not an optional room cell and must never also host the cache.
+        if location_key ~= key(gate) and isolated[location_key] then cache_options[#cache_options + 1] = point end
       end
       local clue_options = {}
       for _, direction in ipairs(CARDINAL) do
@@ -128,6 +139,7 @@ local function gate_layout(session, occupied, rng)
           cache = rng:choice(cache_options),
           clue = rng:choice(clue_options),
           player_region = closed_reachable,
+          free_cells = all_free,
         }
       end
     end
@@ -180,7 +192,7 @@ end
 
 local function controls_for(session, layout, occupied, rng)
   local choices = {}
-  for _, point in ipairs(free_cells(session, occupied, nil)) do
+  for _, point in ipairs(layout.free_cells or free_cells(session, occupied, nil)) do
     local location_key = key(point)
     if layout.player_region[location_key] and location_key ~= key(layout.clue) and location_key ~= key(layout.gate) then
       choices[#choices + 1] = point

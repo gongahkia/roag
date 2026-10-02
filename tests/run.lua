@@ -29,6 +29,8 @@ local suites = {
   "tests.test_routes",
   "tests.test_economy",
   "tests.test_meta_progression",
+  "tests.test_discoveries",
+  "tests.test_factions_reinforcements",
   "tests.test_fallen_archive",
   "tests.test_bestiary",
   "tests.test_reactor",

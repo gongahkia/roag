@@ -73,6 +73,7 @@ return {
           abilities = require("content.abilities.legacy"), materials = require("content.materials.legacy"), liquids = require("content.liquids.legacy"),
           gases = require("content.gases.legacy"), world_objects = require("content.world_objects.legacy"), hazards = require("content.hazards.legacy"),
           components = require("content.components.legacy"), topologies = require("content.body_topologies.normal"), actors = require("content.actors.player_legacy"),
+          factions = require("content.factions.legacy"),
           enemies = require("content.enemies.legacy"), services = require("content.services.legacy"), boons = require("content.boons.legacy"),
           charms = require("content.charms.legacy"), curses = require("content.curses.legacy"), research = research,
         }

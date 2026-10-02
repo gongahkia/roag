@@ -42,6 +42,14 @@ function Renderer:_text(value, x, y, scale, color)
   love.graphics.setColor(1, 1, 1)
 end
 
+-- Menu callers span lightweight UI models (`name`), declarative content
+-- (`display_name`), and service entries (`label`). Keep that schema boundary
+-- here so a content-backed menu can never crash while it is being drawn.
+function Renderer:menu_item_label(item)
+  item = item or {}
+  return item.name or item.display_name or item.label or item.id or "UNNAMED OPTION"
+end
+
 function Renderer:_layout()
   local width, height = love.graphics.getDimensions()
   local margin, sidebar, gap = 20, 270, 20
@@ -254,6 +262,18 @@ function Renderer:_draw_game(app)
           love.graphics.line(pixel_x + size * 0.73, pixel_y + size * 0.2, pixel_x + size * 0.73, pixel_y + size * 0.8)
           love.graphics.line(pixel_x + size * 0.38, pixel_y + size * 0.34, pixel_x + size * 0.62, pixel_y + size * 0.34)
           love.graphics.line(pixel_x + size * 0.38, pixel_y + size * 0.66, pixel_x + size * 0.62, pixel_y + size * 0.66)
+        elseif object.interaction_role == "reinforcement" then
+          local armed = object.reinforcement_state == "armed"
+          local spent = object.reinforcement_state == "spent" or object.reinforcement_state == "cancelled"
+          self:_color(spent and { 0.25, 0.28, 0.3 } or (armed and { 0.82, 0.17, 0.08 } or { 0.42, 0.28, 0.14 }))
+          love.graphics.rectangle("fill", pixel_x + size * 0.12, pixel_y + size * 0.16, size * 0.76, size * 0.68)
+          self:_color(armed and { 1, 0.82, 0.22 } or { 0.94, 0.62, 0.24 })
+          love.graphics.rectangle("line", pixel_x + size * 0.12, pixel_y + size * 0.16, size * 0.76, size * 0.68)
+          if armed then
+            love.graphics.circle("line", pixel_x + size * 0.5, pixel_y + size * 0.5, math.max(2, size * 0.31))
+          else
+            love.graphics.line(pixel_x + size * 0.25, pixel_y + size * 0.5, pixel_x + size * 0.75, pixel_y + size * 0.5)
+          end
         elseif object.interaction_role == "traversal" then
           local hatch = object.required_unlock == "unlock.traversal.maintenance_override"
           self:_color(hatch and { 0.15, 0.28, 0.34 } or { 0.52, 0.22, 0.1 })
@@ -296,6 +316,12 @@ function Renderer:_draw_game(app)
       return
     end
     local tint = override_tint or (value.stun and value.stun > 0 and { 1, 0.85, 0.2 } or nil)
+    if not tint and value ~= state.player then
+      tint = value.faction_id == "faction.machine" and { 0.52, 0.82, 0.96 }
+        or value.faction_id == "faction.cult" and { 0.82, 0.5, 0.96 }
+        or value.faction_id == "faction.feral" and { 0.96, 0.58, 0.32 }
+        or nil
+    end
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
@@ -682,7 +708,8 @@ function Renderer:_menu(title, items, selected, footer)
     local is_selected = index == selected
     self:_color(is_selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
     love.graphics.rectangle("fill", width * 0.18, y, width * 0.64, 68)
-    self:_text((is_selected and "> " or "  ") .. item.name, width * 0.21, y + 9, 1.25, is_selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
+    self:_text((is_selected and "> " or "  ") .. self:menu_item_label(item), width * 0.21, y + 9, 1.25,
+      is_selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
     self:_text(item.description or "", width * 0.21, y + 37, 0.85, { 0.72, 0.76, 0.84 })
   end
   self:_text(footer or "W/S SELECT     ENTER CONFIRM", width / 2 - 150, height - 52, 1, { 0.65, 0.75, 0.9 })
@@ -705,43 +732,12 @@ function Renderer:_draw_title(app)
     or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.screen_definition_error and "SCREEN DEFINITIONS INVALID — USING SAFE FALLBACK")
+    or (app.presentation_flow_error and "PRESENTATION FLOW INVALID — USING SAFE FALLBACK")
+    or (app.art_pack_config_error and "PRESENTATION ART PACK INVALID — USING DEFAULT")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))
   -- Keep title feedback below the longest normal menu so valid title states
   -- remain screenshot-readable as presentation options are added.
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
-end
-
-function Renderer:_draw_art_packs(app)
-  love.graphics.clear(0.025, 0.035, 0.055)
-  local width, height = love.graphics.getDimensions()
-  local options = app:art_pack_options()
-  local screen, accent = self:_screen_definition(app, "art_packs")
-  self:_text(self:_screen_text(app, "art_packs", "title", "ART PACKS"), 42, 30, 2, accent)
-  self:_text(self:_screen_text(app, "art_packs", "subtitle", "PRESENTATION ONLY — RUNS, SAVES, AND SIMULATION STAY UNCHANGED"), 42, 68, 0.74, { 0.68, 0.76, 0.88 })
-  for index, option in ipairs(options) do
-    local y, selected = 104 + (index - 1) * 57, index == app.menu
-    self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
-    love.graphics.rectangle("fill", 36, y, width * 0.58, 49)
-    self:_text((selected and "> " or "  ") .. option.name, 50, y + 7, 0.94,
-      selected and { 0.95, 0.85, 0.3 } or { 0.82, 0.86, 0.94 })
-    self:_text((option.selected and "ACTIVE  •  " or "") .. option.license .. "  •  " .. option.credit,
-      50, y + 28, 0.65, option.selected and { 0.58, 0.9, 0.76 } or { 0.62, 0.7, 0.81 })
-  end
-  local option = options[app.menu]
-  if option then
-    local x, y = width * 0.66, 130
-    self:_text(option.name, x, y, 1.08, { 0.95, 0.85, 0.3 })
-    self:_text(option.description, x, y + 34, 0.78, { 0.76, 0.82, 0.91 })
-    self:_text("LICENSE: " .. option.license, x, y + 82, 0.73, { 0.65, 0.76, 0.9 })
-    self:_text("CREDIT: " .. option.credit, x, y + 108, 0.73, { 0.65, 0.76, 0.9 })
-    self:_text("SOURCE", x, y + 150, 0.72, { 0.7, 0.9, 1 })
-    self:_text(option.source_url, x, y + 174, 0.58, { 0.56, 0.66, 0.78 })
-    self:_text("Full source pack and license material ship in", x, y + 226, 0.65, { 0.62, 0.7, 0.81 })
-    self:_text("assets/art_packs/.", x, y + 248, 0.65, { 0.62, 0.7, 0.81 })
-  end
-  local footer = app.art_pack_error and ("PREFERENCE ERROR: " .. tostring(app.art_pack_error.reason))
-    or (screen and screen.footer or "W/S SELECT     ENTER / E APPLY     ESC TITLE")
-  self:_text(footer, 42, height - 40, 0.78, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_fallen_archive(app)
@@ -806,6 +802,30 @@ function Renderer:_draw_research(app)
     local selected = index == app.research_category_index
     self:_text((selected and "> " or "  ") .. string.upper(value), 44, 145 + (index - 1) * 29, 0.92,
       selected and { 0.95, 0.85, 0.3 } or { 0.72, 0.78, 0.88 })
+  end
+  -- Persistent discoveries live beside research rather than becoming another
+  -- title-screen branch. The compact ledger exposes account progress without
+  -- revealing the name or description of content the player has not found.
+  local history = app:discovery_history()
+  local discovered = 0
+  for _, entry in ipairs(history) do if entry.discovered then discovered = discovered + 1 end end
+  local history_x, history_y, history_width = 38, 326, math.max(230, width * 0.21)
+  self:_color({ 0.045, 0.07, 0.1 })
+  love.graphics.rectangle("fill", history_x, history_y, history_width, math.min(height - history_y - 58, 292))
+  self:_color({ 0.16, 0.3, 0.37 })
+  love.graphics.rectangle("line", history_x, history_y, history_width, math.min(height - history_y - 58, 292))
+  self:_text("DISCOVERIES " .. discovered .. " / " .. #history, history_x + 10, history_y + 9, 0.72, { 0.55, 0.9, 0.82 })
+  for index, entry in ipairs(history) do
+    local y = history_y + 34 + (index - 1) * 31
+    if y + 25 < height - 48 then
+      local biome = (entry.biome_id or "UNKNOWN"):gsub("^biome%.legacy%.", "")
+      local title = entry.discovered and entry.name or "???"
+      local detail = entry.discovered and entry.description or "UNRECOVERED"
+      if #detail > 46 then detail = detail:sub(1, 43) .. "..." end
+      self:_text(title, history_x + 10, y, 0.61, entry.discovered and { 0.78, 0.88, 0.96 } or { 0.48, 0.55, 0.64 })
+      self:_text((entry.discovered and string.upper(biome) .. " — " or "") .. detail, history_x + 10, y + 14, 0.46,
+        entry.discovered and { 0.55, 0.69, 0.77 } or { 0.38, 0.43, 0.5 })
+    end
   end
   local start_y = 146
   for index, option in ipairs(options) do
@@ -931,8 +951,6 @@ function Renderer:draw(app)
     self:_draw_route(app)
   elseif app.screen == "research" then
     self:_draw_research(app)
-  elseif app.screen == "art_packs" then
-    self:_draw_art_packs(app)
   elseif app.screen == "fallen_archive" then
     self:_draw_fallen_archive(app)
   elseif app.screen == "service_hub" then

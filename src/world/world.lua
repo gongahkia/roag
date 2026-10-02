@@ -18,6 +18,7 @@ local OPEN_MATERIAL_BY_TERRAIN = {
 }
 local DOOR_STATES = { open = true, closed = true, destroyed = true }
 local CIRCUIT_ROLES = { door = true, generator = true, breaker = true }
+local REINFORCEMENT_STATES = { idle = true, armed = true, spent = true, cancelled = true }
 
 local function key(x, y)
   return Grid.key(x, y)
@@ -76,6 +77,90 @@ local function discovery_fields(registry, definition, source)
     discovery_access_profile_id = access_profile_id,
     discovery_provenance = provenance,
     discovery_claimed = claimed,
+  }
+end
+
+-- Reinforcement origins are ordinary physical world objects.  Their bounded
+-- deployment state lives beside doors, discovery caches, and service stock so
+-- active saves require no parallel ecology object graph.
+local function reinforcement_fields(registry, definition, source)
+  source = source or {}
+  local profile_id = source.reinforcement_profile_id
+  local faction_id = source.reinforcement_faction_id
+  local charges = source.reinforcement_charges
+  local state = source.reinforcement_state
+  local delay = source.reinforcement_delay
+  local just_armed = source.reinforcement_just_armed
+  local wave = source.reinforcement_wave_enemy_ids
+  local provenance = source.reinforcement_provenance
+  local requires_reinforcement = definition.interaction_role == "reinforcement"
+  if not requires_reinforcement then
+    if profile_id ~= nil or faction_id ~= nil or charges ~= nil or state ~= nil or delay ~= nil or just_armed ~= nil or wave ~= nil or provenance ~= nil then
+      return nil, "World object reinforcement metadata requires a reinforcement source"
+    end
+    return {
+      reinforcement_profile_id = nil, reinforcement_faction_id = nil, reinforcement_charges = nil,
+      reinforcement_state = nil, reinforcement_delay = nil, reinforcement_just_armed = nil, reinforcement_wave_enemy_ids = nil,
+      reinforcement_provenance = nil,
+    }
+  end
+  if type(profile_id) ~= "string" or not registry.reinforcement_profiles[profile_id] then
+    return nil, "Reinforcement source requires a valid profile"
+  end
+  local profile = registry:get_reinforcement_profile(profile_id)
+  if profile.source_type ~= definition.reinforcement_source_type then
+    return nil, "Reinforcement source profile does not match source type"
+  end
+  if faction_id ~= profile.faction_id or not registry.factions[faction_id] then
+    return nil, "Reinforcement source faction does not match profile"
+  end
+  if type(charges) ~= "number" or charges % 1 ~= 0 or charges < 0 or charges > 1 then
+    return nil, "Reinforcement source charges must be zero or one"
+  end
+  if type(state) ~= "string" or not REINFORCEMENT_STATES[state] then
+    return nil, "Reinforcement source state is invalid"
+  end
+  if (state == "idle" or state == "armed") and charges ~= 1 then
+    return nil, "Active reinforcement source must retain one charge"
+  end
+  if (state == "spent" or state == "cancelled") and charges ~= 0 then
+    return nil, "Spent reinforcement source cannot retain a charge"
+  end
+  if state == "armed" then
+    if type(delay) ~= "number" or delay % 1 ~= 0 or delay < 1 then
+      return nil, "Armed reinforcement source requires a positive delay"
+    end
+  elseif delay ~= nil then
+    return nil, "Only armed reinforcement source may retain a delay"
+  end
+  if just_armed ~= nil and type(just_armed) ~= "boolean" then
+    return nil, "Reinforcement source arm state is invalid"
+  end
+  if just_armed == true and state ~= "armed" then
+    return nil, "Only armed reinforcement source may defer its countdown"
+  end
+  if type(wave) ~= "table" or #wave ~= profile.wave_size then
+    return nil, "Reinforcement source wave does not match its profile"
+  end
+  local copied_wave = {}
+  for index, enemy_id in ipairs(wave) do
+    if type(enemy_id) ~= "string" then return nil, "Reinforcement wave entry is invalid" end
+    local enemy = registry:get_enemy(enemy_id)
+    if enemy.elite or enemy.faction_id ~= faction_id then
+      return nil, "Reinforcement wave contains an invalid enemy"
+    end
+    copied_wave[index] = enemy_id
+  end
+  if type(provenance) ~= "string" then return nil, "Reinforcement provenance must be a string" end
+  return {
+    reinforcement_profile_id = profile_id,
+    reinforcement_faction_id = faction_id,
+    reinforcement_charges = charges,
+    reinforcement_state = state,
+    reinforcement_delay = delay,
+    reinforcement_just_armed = just_armed == true,
+    reinforcement_wave_enemy_ids = copied_wave,
+    reinforcement_provenance = provenance,
   }
 end
 
@@ -962,6 +1047,10 @@ function World:place_object(definition_id, x, y, options)
   if not discovery then
     return nil, { applied = false, code = "invalid_discovery", reason = discovery_reason }
   end
+  local reinforcement, reinforcement_reason = reinforcement_fields(self.registry, definition, options)
+  if not reinforcement then
+    return nil, { applied = false, code = "invalid_reinforcement", reason = reinforcement_reason }
+  end
   local id = options.id or self:_next_object_id()
   if self.objects[id] then
     return nil, { applied = false, code = "duplicate_id", reason = "World object ID already exists" }
@@ -993,6 +1082,14 @@ function World:place_object(definition_id, x, y, options)
     discovery_access_profile_id = discovery.discovery_access_profile_id,
     discovery_provenance = discovery.discovery_provenance,
     discovery_claimed = discovery.discovery_claimed,
+    reinforcement_profile_id = reinforcement.reinforcement_profile_id,
+    reinforcement_faction_id = reinforcement.reinforcement_faction_id,
+    reinforcement_charges = reinforcement.reinforcement_charges,
+    reinforcement_state = reinforcement.reinforcement_state,
+    reinforcement_delay = reinforcement.reinforcement_delay,
+    reinforcement_just_armed = reinforcement.reinforcement_just_armed,
+    reinforcement_wave_enemy_ids = reinforcement.reinforcement_wave_enemy_ids,
+    reinforcement_provenance = reinforcement.reinforcement_provenance,
     movable_by_force = definition.movable_by_force,
   }
   if role == "service" then
@@ -1126,6 +1223,11 @@ function World:damage_object(object_or_id, spec)
       -- A destroyed breaker leaves its circuit safely disabled. Generator
       -- source state remains physical and can later serve another circuit.
       self:set_circuit_enabled(object.circuit_id, false)
+    elseif object.interaction_role == "reinforcement" then
+      object.reinforcement_charges = 0
+      if object.reinforcement_state ~= "spent" then object.reinforcement_state = "cancelled" end
+      object.reinforcement_delay = nil
+      object.reinforcement_just_armed = false
     end
     object.blocks_movement = false
     object.blocks_vision = false
@@ -1172,6 +1274,14 @@ function World:inspect_object(object_or_id)
     discovery_access_profile_id = object.discovery_access_profile_id,
     discovery_provenance = object.discovery_provenance,
     discovery_claimed = object.discovery_claimed,
+    reinforcement_profile_id = object.reinforcement_profile_id,
+    reinforcement_faction_id = object.reinforcement_faction_id,
+    reinforcement_charges = object.reinforcement_charges,
+    reinforcement_state = object.reinforcement_state,
+    reinforcement_delay = object.reinforcement_delay,
+    reinforcement_just_armed = object.reinforcement_just_armed,
+    reinforcement_wave_enemy_ids = object.reinforcement_wave_enemy_ids,
+    reinforcement_provenance = object.reinforcement_provenance,
     circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
     circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
     conductive = material.conductive,
@@ -1453,6 +1563,14 @@ function World.from_data(registry, data, sequence_owner)
       discovery_access_profile_id = saved.discovery_access_profile_id,
       discovery_provenance = saved.discovery_provenance,
       discovery_claimed = saved.discovery_claimed,
+      reinforcement_profile_id = saved.reinforcement_profile_id,
+      reinforcement_faction_id = saved.reinforcement_faction_id,
+      reinforcement_charges = saved.reinforcement_charges,
+      reinforcement_state = saved.reinforcement_state,
+      reinforcement_delay = saved.reinforcement_delay,
+      reinforcement_just_armed = saved.reinforcement_just_armed,
+      reinforcement_wave_enemy_ids = saved.reinforcement_wave_enemy_ids,
+      reinforcement_provenance = saved.reinforcement_provenance,
       movable_by_force = definition.movable_by_force,
     }
     local discovery, discovery_reason = discovery_fields(registry, definition, object)
@@ -1461,6 +1579,16 @@ function World.from_data(registry, data, sequence_owner)
     object.discovery_access_profile_id = discovery.discovery_access_profile_id
     object.discovery_provenance = discovery.discovery_provenance
     object.discovery_claimed = discovery.discovery_claimed
+    local reinforcement, reinforcement_reason = reinforcement_fields(registry, definition, object)
+    assert(reinforcement, reinforcement_reason)
+    object.reinforcement_profile_id = reinforcement.reinforcement_profile_id
+    object.reinforcement_faction_id = reinforcement.reinforcement_faction_id
+    object.reinforcement_charges = reinforcement.reinforcement_charges
+    object.reinforcement_state = reinforcement.reinforcement_state
+    object.reinforcement_delay = reinforcement.reinforcement_delay
+    object.reinforcement_just_armed = reinforcement.reinforcement_just_armed
+    object.reinforcement_wave_enemy_ids = reinforcement.reinforcement_wave_enemy_ids
+    object.reinforcement_provenance = reinforcement.reinforcement_provenance
     if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and world.circuits[object.circuit_id],
         "Interactive world object references an unknown circuit")
@@ -1609,6 +1737,8 @@ function World:validate()
     end
     local discovery, discovery_reason = discovery_fields(self.registry, definition, object)
     assert(discovery, discovery_reason)
+    local reinforcement, reinforcement_reason = reinforcement_fields(self.registry, definition, object)
+    assert(reinforcement, reinforcement_reason)
     if CIRCUIT_ROLES[object.interaction_role] then
       assert(type(object.circuit_id) == "string" and self.circuits[object.circuit_id],
         "Interactive world object references unknown circuit")

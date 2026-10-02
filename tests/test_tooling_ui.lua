@@ -1,7 +1,23 @@
 local ScreenManager = require("src.ui.screen_manager")
 local SpriteModel = require("sprite_editor.model")
+local PresentationFlow = require("src.presentation.presentation_flow")
 
 return {
+  {
+    name = "presentation title flow is validated data with safe action targets and conditional continuation",
+    run = function()
+      local source = assert(io.open("content/presentation/flow.json", "rb"))
+      local payload = source:read("*a")
+      source:close()
+      local flow = assert(PresentationFlow.load({ payload = payload }))
+      assert(#flow:available({ continue_available = false }) == 3)
+      assert(#flow:available({ continue_available = true }) == 4)
+      local invalid, failure = PresentationFlow.decode('{"format":"roag.presentation_flow","version":1,"home":"title","title_actions":[{"id":"new_run","label":"NEW","description":"x","target":"game"}]}')
+      assert(not invalid and failure.code == "invalid_presentation_transition")
+      local restored = assert(PresentationFlow.decode(assert(PresentationFlow.encode(flow:to_data()))))
+      assert(restored.title_actions[1].id == "new_run")
+    end,
+  },
   {
     name = "screen definitions are validated serializable data with safe fallback semantics",
     run = function()

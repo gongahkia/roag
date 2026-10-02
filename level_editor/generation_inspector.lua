@@ -12,7 +12,7 @@ Inspector.__index = Inspector
 local LAYER_KEYS = {
   ["1"] = "terrain", ["2"] = "connectivity", ["3"] = "actors", ["4"] = "objects",
   ["5"] = "hazards", ["6"] = "liquids", ["7"] = "gas", ["8"] = "power",
-  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms",
+  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms", v = "discoveries", z = "ecology",
 }
 
 local REGION_COLORS = {
@@ -53,7 +53,7 @@ function Inspector.new(options)
     seed_text = tostring(math.floor(tonumber(options.seed) or 1)),
     layers = {
       terrain = true, connectivity = false, actors = true, objects = true, hazards = true,
-      liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false,
+      liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false, discoveries = true, ecology = true,
     },
     zoom = 10,
     pan_x = 0,
@@ -70,7 +70,11 @@ function Inspector.new(options)
 end
 
 function Inspector:regenerate()
-  local floor, failure = InspectionFloor.generate({ biome = self.biome_id, tier = self.tier_id, seed = self.seed })
+  local floor, failure = InspectionFloor.generate({
+    biome = self.biome_id, tier = self.tier_id, seed = self.seed,
+    discovery_state = { enabled = true, assigned_discovery_ids = {} },
+    reinforcement_state = { enabled = true },
+  })
   if not floor then
     self.error, self.floor, self.report, self.overlays = failure.reason or failure.code, nil, nil, nil
     return nil, failure
@@ -155,7 +159,9 @@ function Inspector:inspect_at(x, y)
   local actors = {}
   local function add_actor(actor, category, index)
     if actor and actor.x == x and actor.y == y then
-      local data = { category = category, kind = actor.kind, semantic_id = actor.content_id or actor.kind, health = actor.health, index = index }
+      local data = { category = category, kind = actor.kind, semantic_id = actor.content_id or actor.kind, health = actor.health, index = index,
+        faction_id = self.floor.session:actor_faction_id(actor),
+        faction_display_name = self.floor.session.registry:get_faction(self.floor.session:actor_faction_id(actor)).display_name }
       if actor.body then
         data.components = {}
         for _, component in ipairs(actor.body:list_components()) do
@@ -297,14 +303,31 @@ function Inspector:_draw_media()
     for _, object in ipairs(self.report.objects) do
       local sx, sy = self:_screen_point(object.x, object.y)
       local color = object.destroyed and { 0.35, 0.35, 0.35, 0.4 }
+        or object.interaction_role == "discovery" and { 0.22, 0.92, 0.78, 0.98 }
+        or object.interaction_role == "clue" and { 1, 0.72, 0.18, 0.98 }
         or object.interaction_role == "door" and { 0.3, 0.58, 0.9, 0.95 }
+        or object.interaction_role == "reinforcement" and (object.reinforcement_state == "armed" and { 1, 0.28, 0.14, 0.98 } or { 0.94, 0.46, 0.18, 0.98 })
         or object.conductive and { 0.25, 0.85, 0.95, 0.95 }
         or { 0.68, 0.43, 0.2, 0.95 }
       self:_set_color(color)
       love.graphics.rectangle("fill", sx + self.zoom * 0.18, sy + self.zoom * 0.18, self.zoom * 0.64, self.zoom * 0.64)
+      if self.layers.ecology and object.interaction_role == "reinforcement" then
+        self:_set_color({ 1, 0.9, 0.35, 1 })
+        love.graphics.circle("line", sx + self.zoom * 0.5, sy + self.zoom * 0.5, math.max(2, self.zoom * 0.38))
+      end
       if self.layers.power and object.circuit_id then
         self:_set_color(object.circuit_powered and { 0.2, 1, 0.4, 1 } or { 1, 0.42, 0.18, 1 })
         love.graphics.circle("fill", sx + self.zoom * 0.75, sy + self.zoom * 0.25, math.max(1, self.zoom * 0.09))
+      end
+    end
+  end
+  if self.layers.discoveries then
+    for _, discovery in ipairs(self.report.discoveries or {}) do
+      local point = discovery.cache
+      if point then
+        local sx, sy = self:_screen_point(point.x, point.y)
+        self:_set_color(discovery.first_time and { 0.2, 1, 0.72, 0.95 } or { 0.62, 0.75, 0.9, 0.9 })
+        love.graphics.rectangle("line", sx + self.zoom * 0.08, sy + self.zoom * 0.08, self.zoom * 0.84, self.zoom * 0.84)
       end
     end
   end
@@ -330,7 +353,10 @@ function Inspector:_draw_actors_and_objectives()
   if self.layers.actors then
     for _, enemy in ipairs(self.report.enemies) do
       local sx, sy = self:_screen_point(enemy.x, enemy.y)
-      self:_set_color({ 0.96, 0.4, 0.56, 1 })
+      local faction = enemy.faction_id
+      self:_set_color(faction == "faction.machine" and { 0.4, 0.8, 0.95, 1 }
+        or faction == "faction.cult" and { 0.8, 0.42, 0.96, 1 }
+        or { 0.96, 0.4, 0.56, 1 })
       love.graphics.circle("fill", sx + self.zoom * 0.5, sy + self.zoom * 0.5, math.max(2, self.zoom * 0.22))
     end
   end
@@ -372,9 +398,18 @@ function Inspector:_detail_lines(point)
     append(lines, string.format("  movable=%s conductive=%s gas_block=%s", tostring(object.movable_by_force), tostring(object.conductive), tostring(object.blocks_gas)))
     if object.interaction_role then append(lines, "  role=" .. object.interaction_role .. " circuit=" .. tostring(object.circuit_id) .. " powered=" .. tostring(object.circuit_powered)) end
     if object.door_state then append(lines, "  door=" .. object.door_state) end
+    if object.discovery_id then
+      append(lines, "  discovery=" .. object.discovery_id .. " profile=" .. tostring(object.discovery_access_profile_id))
+      append(lines, "  claimed=" .. tostring(object.discovery_claimed) .. " provenance=" .. tostring(object.discovery_provenance))
+    end
+    if object.reinforcement_profile_id then
+      append(lines, "  reinforcement=" .. object.reinforcement_profile_id .. " faction=" .. tostring(object.reinforcement_faction_id))
+      append(lines, "  state=" .. tostring(object.reinforcement_state) .. " charges=" .. tostring(object.reinforcement_charges)
+        .. " delay=" .. tostring(object.reinforcement_delay) .. " provenance=" .. tostring(object.reinforcement_provenance))
+    end
   end
   for _, actor in ipairs(detail.actors) do
-    append(lines, "actor: " .. actor.category .. " " .. actor.semantic_id .. " hp=" .. tostring(actor.health) .. " locomotion=" .. tostring(actor.locomotion))
+    append(lines, "actor: " .. actor.category .. " " .. actor.semantic_id .. " faction=" .. tostring(actor.faction_display_name) .. " hp=" .. tostring(actor.health) .. " locomotion=" .. tostring(actor.locomotion))
     for _, component in ipairs(actor.components or {}) do append(lines, "  " .. component) end
     if actor.capabilities and #actor.capabilities > 0 then append(lines, "  abilities: " .. table.concat(actor.capabilities, ", ")) end
   end
@@ -425,7 +460,7 @@ function Inspector:draw()
   self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
   self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
   local active_layers = {}
-  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms" }) do
+  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms", "discoveries", "ecology" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
   self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
@@ -445,7 +480,7 @@ function Inspector:draw()
   end
   if self.help then
     self:_draw_text("1 terrain  2 connectivity  3 actors  4 objects  5 hazards", self.viewport.x, height - 34, { 0.75, 0.82, 0.9 })
-    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  0 fire  C conductivity  M provenance  T rooms | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
+    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  0 fire  C conductivity  M provenance  T rooms  V discoveries  Z ecology | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
   end
   if self.error then self:_draw_text(self.error, self.viewport.x, 18, { 1, 0.35, 0.3 }) end
 end

@@ -1,5 +1,6 @@
 local App = require("src.app.app")
 local Input = require("src.app.input")
+local Renderer = require("src.rendering.renderer")
 
 return {
   {
@@ -78,6 +79,20 @@ return {
       assert(app:reconstruction_confirm().applied)
       assert(app.session.state.player.body:get_component("internal_2") == charge)
       assert(app:finish_reconstruction().applied and app.screen == "curse")
+    end,
+  },
+  {
+    name = "content-backed curse menus use their display names without a renderer schema crash",
+    run = function()
+      local app = App.new({ seed = 9013 })
+      app:select_class(app.content.classes[1])
+      app:select_boon(app.boon_options[1])
+      assert(app.session:_complete_stage() == "reconstruction")
+      assert(app:finish_reconstruction().applied and app.screen == "curse")
+      local curse = assert(app.session.state.curse_options[1])
+      assert(curse.display_name and not curse.name)
+      local renderer = Renderer.new({})
+      assert(renderer:menu_item_label(curse) == curse.display_name)
     end,
   },
 }
