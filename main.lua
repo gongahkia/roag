@@ -1,6 +1,6 @@
--- LÖVE bootstrap. The generation inspector is an isolated developer mode;
--- normal application/save construction does not occur when it is requested.
-local app, inspector, room_editor, screen_editor
+-- LÖVE bootstrap. Developer tools are isolated: they never construct normal
+-- application/save state. `--screen-editor` is the direct Studio composer.
+local app, inspector, room_editor, screen_editor, tool_cursors
 
 local function requested(arguments, flag)
   for _, value in ipairs(arguments or arg or {}) do
@@ -18,6 +18,9 @@ function love.load(...)
     room_editor = require("level_editor.room_editor").new()
   elseif requested(arguments, "--screen-editor") then
     screen_editor = require("studio.screen_editor").new()
+    tool_cursors = require("src.ui.cursor_manager").new()
+    tool_cursors:load()
+    tool_cursors:set("default")
   else
     app = require("src.app.app").new()
     app:load(...)
@@ -33,7 +36,15 @@ function love.draw()
 end
 
 function love.keypressed(...)
-  if inspector then inspector:keypressed(...) elseif room_editor then room_editor:keypressed(...) elseif screen_editor then screen_editor:keypressed(...) else app:keypressed(...) end
+  if inspector then
+    inspector:keypressed(...)
+  elseif room_editor then
+    room_editor:keypressed(...)
+  elseif screen_editor then
+    if screen_editor:keypressed(...) == "back" then love.event.quit() end
+  else
+    app:keypressed(...)
+  end
 end
 
 function love.keyreleased(...)

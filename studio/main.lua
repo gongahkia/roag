@@ -19,6 +19,16 @@ function love.load()
   fonts = { normal = love.graphics.newFont(14), large = love.graphics.newFont(19), title = love.graphics.newFont(30) }
   cursor = CursorManager.new(); cursor:load(); cursor:set("default"); mode = "home"
 end
+function love.update()
+  local x, y = love.mouse.getPosition()
+  if mode == "screens" then
+    cursor:set("action")
+  else
+    local active = false
+    for _, card in ipairs(cards) do if card.rect and inside(x, y, card.rect) and card.action then active = true end end
+    cursor:set(active and "action" or "default")
+  end
+end
 function love.draw()
   if mode == "screens" then editor:draw(); return end
   local w, h = love.graphics.getDimensions(); love.graphics.clear(.025, .035, .055)

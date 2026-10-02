@@ -39,7 +39,10 @@ function love.load(...)
   cursor_manager:set("default")
 end
 
-function love.update(dt) tool:update(dt) end
+function love.update(dt)
+  tool:update(dt)
+  if cursor_manager then cursor_manager:set(tool.dragging and "pan" or "action") end
+end
 function love.draw() tool:draw() end
 function love.keypressed(...) tool:keypressed(...) end
 function love.textinput(...) if tool.textinput then tool:textinput(...) end end
