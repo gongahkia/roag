@@ -43,8 +43,11 @@ function Batch.run(options)
     room_count = { total = 0 }, elite_enemies = { total = 0 }, active_fires = { total = 0 },
     discovery_sites = { total = 0 }, gated_discovery_sites = { total = 0 }, unreachable_discovery_gates = { total = 0 },
     reinforcement_sources = { total = 0 },
+    landmarks = { total = 0 },
   }
-  local material_counts, object_counts, enemy_counts, enemy_capabilities, enemy_factions, template_usage, rotation_counts, connector_patterns, graph_degrees, discovery_access_profiles, reinforcement_source_types, reinforcement_source_factions = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+  local material_counts, object_counts, enemy_counts, enemy_capabilities, enemy_factions = {}, {}, {}, {}, {}
+  local template_usage, rotation_counts, connector_patterns, graph_degrees = {}, {}, {}, {}
+  local discovery_access_profiles, reinforcement_source_types, reinforcement_source_factions, landmark_types = {}, {}, {}, {}
   local fire_floor_count, mixed_faction_floor_count = 0, 0
   for offset = 0, count - 1 do
     local current_seed = seed + offset
@@ -83,6 +86,7 @@ function Batch.run(options)
       merge_counts(discovery_access_profiles, metrics.discovery_access_profiles)
       merge_counts(reinforcement_source_types, metrics.reinforcement_source_types)
       merge_counts(reinforcement_source_factions, metrics.reinforcement_source_factions)
+      merge_counts(landmark_types, metrics.landmark_types)
     end
   end
   local statistics = {}
@@ -110,6 +114,7 @@ function Batch.run(options)
       discovery_access_profiles = discovery_access_profiles,
       reinforcement_source_types = reinforcement_source_types,
       reinforcement_source_factions = reinforcement_source_factions,
+      landmark_types = landmark_types,
       fire_floor_count = fire_floor_count,
       mixed_faction_floor_count = mixed_faction_floor_count },
     failures = failures,

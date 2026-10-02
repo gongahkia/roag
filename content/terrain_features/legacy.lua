@@ -14,7 +14,7 @@ return {
     { id = "landmark.cave.underground_run", kind = "stream", liquid_id = "liquid.water.legacy", count = 7 },
   },
   dungeon = {
-    { id = "landmark.dungeon.collapsed_gallery", kind = "ridge", definition_id = "world_object.feature.rubble_pile", count = 4 },
+    { id = "landmark.dungeon.collapsed_gallery", kind = "scatter", definition_id = "world_object.feature.rubble_pile", count = 4 },
     { id = "landmark.dungeon.memorial_court", kind = "scatter", definition_id = "world_object.feature.ruined_statue", count = 2 },
     { id = "landmark.dungeon.abandoned_stores", kind = "scatter", definition_id = "world_object.cover.timber_crate", count = 2 },
   },

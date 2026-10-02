@@ -88,7 +88,11 @@ function EnvironmentObjects.place(world, terrain, player, rng)
     local count = 0
     for _, point in ipairs(options) do
       if count >= plan.count then break end
-      if (terrain ~= "dungeon" and terrain ~= "reactor") or remains_connected_when_occupied(world, point) then
+      -- Open-biome landmarks now create intentional narrow woodland/cavern
+      -- routes too, so generic cover receives the same no-partition proof as
+      -- authored interiors.  A crate is tactical cover, never a hidden map
+      -- split that can strand future generated content.
+      if remains_connected_when_occupied(world, point) then
         local object, result = world:place_object(plan.definition_id, point.x, point.y)
         if object then
           placed[#placed + 1] = object

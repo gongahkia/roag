@@ -161,6 +161,21 @@ local function candidates(world, player)
   return result
 end
 
+-- Landmark blockers belong in clearings/chambers, not in a one-cell trail or
+-- doorway.  Requiring room around every occupied tile prevents a cluster from
+-- sealing the intentionally narrow routes between landmarks while keeping
+-- large headless generation batches proportional to map count, not candidate
+-- count.  Full critical-path validation remains in generation analysis.
+local function has_clearance(world, point, minimum)
+  local open = 0
+  for dx = -2, 2 do
+    for dy = -2, 2 do
+      if world:is_passable(point.x + dx, point.y + dy) then open = open + 1 end
+    end
+  end
+  return open >= minimum
+end
+
 local function group_offsets(kind, count, rng)
   local result = {}
   if kind == "grove" then
@@ -194,53 +209,19 @@ local function group_points(anchor, offsets)
   return result
 end
 
-local function preserves_connectivity(world, player, blocked_points)
-  local blocked = {}
-  for _, point in ipairs(blocked_points) do blocked[key(point)] = true end
-  if blocked[key(player)] then return false end
-  local expected, first = 0, nil
-  for x = 0, Grid.width - 1 do
-    for y = 0, Grid.height - 1 do
-      local point = { x = x, y = y }
-      if world:is_passable(x, y) and not blocked[key(point)] then
-        expected = expected + 1
-        first = first or point
-      end
-    end
-  end
-  if not first then return false end
-  local visited, queue, cursor = { [key(first)] = true }, { first }, 1
-  while queue[cursor] do
-    local point = queue[cursor]
-    cursor = cursor + 1
-    for _, direction in ipairs(CARDINAL) do
-      local next_point = { x = point.x + direction[1], y = point.y + direction[2] }
-      local location_key = key(next_point)
-      if Grid.in_bounds(next_point.x, next_point.y) and not blocked[location_key]
-        and world:is_passable(next_point.x, next_point.y) and not visited[location_key] then
-        visited[location_key] = true
-        queue[#queue + 1] = next_point
-      end
-    end
-  end
-  local reached = 0
-  for _ in pairs(visited) do reached = reached + 1 end
-  return reached == expected
-end
-
 local function select_group(world, player, feature, definition, rng)
   local attempts = 0
   for _, anchor in ipairs(rng:shuffle(candidates(world, player))) do
     attempts = attempts + 1
-    if attempts > 18 then break end
+    if attempts > 6 then break end
     local points = group_points(anchor, group_offsets(feature.kind, feature.count, rng))
-    local valid = points ~= nil
+    local valid = points ~= nil and has_clearance(world, anchor, feature.kind == "scatter" and 12 or 18)
     if valid then
       for _, point in ipairs(points) do
-        if not point_is_free(world, point, player) then valid = false; break end
+        if not point_is_free(world, point, player) or not has_clearance(world, point, 10) then valid = false; break end
       end
     end
-    if valid and (not definition.blocks_movement or preserves_connectivity(world, player, points)) then
+    if valid then
       return points
     end
   end

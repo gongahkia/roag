@@ -366,6 +366,14 @@ function Analysis.analyze(world, metadata)
       }
     end
   end
+  -- Layout hollows and physical landmark groups are both retained as plain
+  -- generation provenance.  This gives the inspector and batch analyzer a
+  -- factual terrain-content view without a renderer-only side channel.
+  local landmarks, landmark_types = {}, {}
+  for _, landmark in ipairs(state.generation_metadata and state.generation_metadata.landmarks or {}) do
+    landmarks[#landmarks + 1] = landmark
+    increment(landmark_types, landmark.id or "unknown")
+  end
   local valid = #errors == 0
   return {
     format = "roag.generation_report",
@@ -434,6 +442,8 @@ function Analysis.analyze(world, metadata)
       reinforcement_sources = #reinforcements,
       reinforcement_source_types = reinforcement_source_types,
       reinforcement_source_factions = reinforcement_source_factions,
+      landmarks = #landmarks,
+      landmark_types = landmark_types,
     },
     objects = objects,
     enemies = enemies,
@@ -444,6 +454,7 @@ function Analysis.analyze(world, metadata)
     fires = fires,
     discoveries = discoveries,
     reinforcements = reinforcements,
+    landmarks = landmarks,
     rooms = rooms,
   }
 end
@@ -480,6 +491,7 @@ function Analysis.overlay_model(world, report)
     room_provenance = report.room_provenance,
     discoveries = report.discoveries,
     reinforcements = report.reinforcements,
+    landmarks = report.landmarks,
   }
 end
 
