@@ -43,6 +43,7 @@ function Identity.new(campaign, key, campaign_state, local_state)
 end
 
 function Identity.campaign_state_data(state)
+  state = state or {}
   return {
     next_component_sequence = positive(state.next_component_sequence or 1, "Campaign component sequence"),
     next_actor_sequence = positive(state.next_actor_sequence or 1, "Campaign actor sequence"),

@@ -25,7 +25,8 @@ end
 
 function Campaign.derive_zone_seed(seed, key)
   ZoneKey.validate(key)
-  return Rng.new(seed):derive(ZoneKey.encode(key)):seed
+  local derived = Rng.new(seed):derive(ZoneKey.encode(key))
+  return derived.seed
 end
 
 function Campaign.zone_generation_rng(seed, key, subsystem)

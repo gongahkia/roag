@@ -7,6 +7,8 @@ local Assets = require("src.rendering.assets")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
 local ActiveRun = require("src.persistence.active_run")
+local Campaign = require("src.campaign.campaign")
+local CampaignPersistence = require("src.persistence.campaign")
 local SaveStore = require("src.persistence.save_store")
 local MetaProfile = require("src.persistence.meta_profile")
 local FallenArchive = require("src.persistence.fallen_archive")
@@ -36,6 +38,7 @@ function App.new(options)
   self.content = options.content or Content
   self.registry = options.registry or Registry.load()
   self.save_store = options.save_store or SaveStore.runtime()
+  self.campaign_store = options.campaign_store or SaveStore.runtime_directory("campaign")
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
   self.archive_store = options.archive_store or SaveStore.runtime("fallen_characters.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
@@ -62,6 +65,7 @@ function App.new(options)
   self.movement_keys = {}
   self:_reconcile_pending_death()
   self:refresh_continue()
+  self:refresh_campaign_continue()
   return self
 end
 
@@ -99,8 +103,23 @@ function App:focus(focused)
 end
 
 function App:quit()
+  self:autosave_campaign("quit")
   self:autosave("quit")
   if love and love.event then love.event.quit() end
+end
+
+-- Campaign Continue is intentionally separate from the historical active-run
+-- slot. OW-01 never interprets, migrates, or deletes active_run.json.
+function App:refresh_campaign_continue()
+  local available, error_data = CampaignPersistence.has_valid_campaign(self.campaign_store, {
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+  })
+  self.campaign_continue_available = available == true
+  self.campaign_continue_error = self.campaign_continue_available and nil or error_data
+  self.legacy_active_run_present = self.save_store:exists()
+  return self.campaign_continue_available
 end
 
 function App:refresh_continue()
@@ -221,7 +240,77 @@ function App:_allocate_new_run()
   return run_id, MetaProfile.snapshot(candidate, self.registry)
 end
 
+function App:_allocate_new_campaign()
+  if self.meta_error then
+    return "campaign:000001", MetaProfile.snapshot(MetaProfile.new(), self.registry)
+  end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local campaign_id = MetaProfile.allocate_campaign(candidate)
+  local saved, error_data = self:_save_meta(candidate)
+  if not saved then return nil, error_data end
+  return campaign_id, MetaProfile.snapshot(candidate, self.registry)
+end
+
+function App:request_new_campaign()
+  local campaign_id, snapshot = self:_allocate_new_campaign()
+  if not campaign_id then self.campaign_continue_error = snapshot; return nil, snapshot end
+  local campaign = Campaign.new({
+    seed = self.seed_stream:next(),
+    campaign_id = campaign_id,
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = snapshot,
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
+    emit = function(event) self:_handle_session_event(event) end,
+  })
+  self.campaign, self.session = campaign, campaign.session
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  local saved, error_data = self:autosave_campaign("new_campaign")
+  if not saved then return nil, error_data end
+  self:play_sound("select")
+  return campaign
+end
+
+function App:continue_campaign()
+  local campaign, error_data = CampaignPersistence.load(self.campaign_store, {
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
+    emit = function(event) self:_handle_session_event(event) end,
+  })
+  if not campaign then
+    self.campaign_continue_error = error_data
+    self.campaign_continue_available = false
+    return nil, error_data
+  end
+  self.campaign, self.session = campaign, campaign.session
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self.campaign_continue_available, self.campaign_continue_error = true, nil
+  return campaign
+end
+
+function App:autosave_campaign(_boundary)
+  if not self.campaign then return true end
+  local saved, error_data = CampaignPersistence.save(self.campaign, self.campaign_store)
+  if not saved then
+    self.campaign_save_error = error_data
+    self.campaign.session:_log("Campaign save failed: " .. tostring(error_data and error_data.reason or "unknown error"))
+    return nil, error_data
+  end
+  self.campaign_save_error = nil
+  self.campaign_continue_available = true
+  return true
+end
+
 function App:autosave(_boundary)
+  if self.campaign and self.session == self.campaign.session then
+    return self:autosave_campaign(_boundary)
+  end
   if not self.session then return true end
   if self.session.state.ended == "gameover" then
     local saved, save_error = ActiveRun.save(self.session, self.save_store)

@@ -2508,7 +2508,7 @@ function Session:_refill_entities()
   end
 end
 
-function Session:start_run(class, boon)
+function Session:start_run(class, boon, defer_initial_floor)
   local state = self.state
   self.state.class, self.state.boon = nil, nil
   self.state.legacy_class, self.state.legacy_boon = class, boon
@@ -2541,7 +2541,9 @@ function Session:start_run(class, boon)
   state.discovery_state = { enabled = true, assigned_discovery_ids = {} }
   state.reinforcement_state = { enabled = true }
   state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", state.meta_snapshot.unlock_ids)
-  self:start_route_node(state.route.start_node_id)
+  if not defer_initial_floor then
+    self:start_route_node(state.route.start_node_id)
+  end
 end
 
 -- OW-01 keeps the temporary route graph available, but establishes a
@@ -2551,7 +2553,7 @@ end
 function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boon)
   assert(self.identity_allocator, "Campaign zones require a zone identity allocator")
   assert(type(zone_seed) == "number" and zone_seed % 1 == 0 and zone_seed > 0, "Campaign zone seed is invalid")
-  self:start_run(class, boon)
+  self:start_run(class, boon, true)
   local state, route = self.state, self.state.route
   local node = assert(route and route:node(route.current_node_id), "Campaign zone requires an opening route node")
   local biome = self.route_definitions:get_biome(node.biome_id)
