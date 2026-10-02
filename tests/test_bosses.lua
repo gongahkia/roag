@@ -447,4 +447,140 @@ return {
       assert(materialized.origin.archive_id == record.id and materialized.origin.source_component_id == maul.id)
     end,
   },
+  {
+    name = "Apex uses shared physical systems, cancels a disabled telegraph, and yields installable Vector Lance salvage",
+    run = function()
+      local session = new_run(97017)
+      local apex = enter_apex(session, "biome.legacy.forest", "biome.legacy.cave")
+      local lance = apex.body:get_component("left_arm")
+      assert(lance.definition_id == "component.arm.vector_lance")
+      assert(session:actor_has_capability(apex, "ability.weapon.melee.basic"))
+      assert(session:actor_has_capability(apex, "ability.weapon.projectile.barrage"))
+      assert(session:actor_has_capability(apex, "ability.weapon.projectile.siege"))
+      assert(session:locomotion_state(apex).state == "NORMAL")
+
+      apex.x, apex.y = 26, 4
+      session.state.player.x, session.state.player.y = 8, 4
+      session:_boss_turn()
+      local pending = assert(apex.pending_telegraph)
+      assert(pending.ability_id == "ability.weapon.projectile.siege")
+      local restored = assert(ActiveRun.decode_session(assert(ActiveRun.encode_session(session))))
+      apex = restored.state.boss
+      assert(apex.pending_telegraph.ability_id == "ability.weapon.projectile.siege")
+      assert(restored:damage_actor_body(apex, { amount = 99, slot_id = "right_arm", cause = "test" }).became_broken)
+      restored:_boss_turn()
+      assert(apex.pending_telegraph == nil)
+      assert(not restored:actor_has_capability(apex, "ability.weapon.projectile.siege"))
+      assert(restored:actor_has_capability(apex, "ability.weapon.melee.basic"))
+
+      apex.health = 1
+      assert(restored:_damage_boss(1).dead)
+      local corpse = restored.state.corpses[#restored.state.corpses]
+      restored.state.player.x, restored.state.player.y = corpse.x - 1, corpse.y
+      assert(restored:salvage_corpse_component(corpse.id, "left_arm").component_id == lance.id)
+      restored.state.player.x, restored.state.player.y = restored.state.exit.x, restored.state.exit.y
+      assert(restored:turn("") == "reconstruction")
+      assert(restored:uninstall_body_component("left_arm").applied)
+      assert(restored:install_inventory_component(lance.id, "left_arm").applied)
+      assert(restored:actor_has_capability(restored.state.player, "ability.weapon.melee.basic"))
+      assert(restored:actor_has_capability(restored.state.player, "ability.weapon.projectile.barrage"))
+      local reward
+      for _, event in ipairs(restored.state.meta_reward_events) do
+        if event.id:find(restored.state.route.current_node_id, 1, true) then reward = event end
+      end
+      assert(reward and reward.amount == 3)
+    end,
+  },
+  {
+    name = "Industrial terminal has two provider-backed telegraphs, ordinary powered geometry, redundancy, and final victory",
+    run = function()
+      local electrical_session = new_run(97018)
+      local electrical = enter_terminal_after_apex(electrical_session, "biome.legacy.forest", "biome.legacy.dungeon")
+      assert(electrical.boss_id == "boss.industrial.terminal_bastion")
+      assert(electrical.body:get_component("left_arm").definition_id == "component.arm.barrage_emitter")
+      assert(electrical.body:get_component("right_arm").definition_id == "component.arm.barrage_emitter")
+      local world = electrical_session.state.world
+      assert(world:is_circuit_powered("power.circuit.boss_terminal_control"))
+      local breaker, doors
+      doors = 0
+      for _, object in ipairs(world:list_objects()) do
+        if object.interaction_role == "breaker" then breaker = object end
+        if object.interaction_role == "door" then doors = doors + 1 end
+      end
+      assert(breaker and doors == 2)
+      electrical_session.state.player.x, electrical_session.state.player.y = breaker.x - 1, breaker.y
+      assert(electrical_session:interact(nil, breaker.id, "breaker.toggle").applied)
+      assert(not world:is_circuit_powered(breaker.circuit_id))
+      assert(electrical_session:interact(nil, breaker.id, "breaker.toggle").applied)
+
+      electrical.x, electrical.y = 23, 7
+      electrical_session.state.player.x, electrical_session.state.player.y = 17, 7
+      electrical_session:_boss_turn()
+      assert(assert(electrical.pending_telegraph).ability_id == "ability.electrical.discharge")
+      assert(electrical_session:damage_actor_body(electrical, { amount = 99, slot_id = "internal_1", cause = "test" }).became_broken)
+      electrical_session:_boss_turn()
+      assert(electrical.pending_telegraph == nil)
+      assert(not electrical_session:actor_has_capability(electrical, "ability.electrical.discharge"))
+
+      local barrage_session = new_run(97019)
+      local barrage = enter_terminal_after_apex(barrage_session, "biome.legacy.cave", "biome.legacy.reactor")
+      barrage.x, barrage.y = 26, 4
+      barrage_session.state.player.x, barrage_session.state.player.y = 8, 4
+      barrage_session:_boss_turn()
+      local pending = assert(barrage.pending_telegraph)
+      assert(pending.ability_id == "ability.weapon.projectile.barrage")
+      local first_provider = pending.provider_component_id
+      assert(barrage_session:damage_actor_body(barrage, { amount = 99, component_id = first_provider, cause = "test" }).became_broken)
+      barrage_session:_boss_turn()
+      assert(barrage.pending_telegraph == nil)
+      assert(barrage_session:actor_has_capability(barrage, "ability.weapon.projectile.barrage"))
+      barrage_session:_boss_turn()
+      local second_provider = assert(barrage.pending_telegraph).provider_component_id
+      assert(second_provider ~= first_provider)
+      assert(barrage_session:damage_actor_body(barrage, { amount = 99, component_id = second_provider, cause = "test" }).became_broken)
+      assert(not barrage_session:actor_has_capability(barrage, "ability.weapon.projectile.barrage"))
+      barrage.health = 1
+      assert(barrage_session:_damage_boss(1).dead)
+      assert(barrage_session.state.ended == "victory" and barrage_session.state.boss == nil)
+      local reward = barrage_session.state.meta_reward_events[#barrage_session.state.meta_reward_events]
+      assert(reward.amount == 4)
+    end,
+  },
+  {
+    name = "Apex Vector Lance follows corpse to player death archive and future recurrence with fresh live identity",
+    run = function()
+      local source = Session.new({ seed = 97020, run_id = "run:009720" })
+      source:start_run(Content.classes[1], Content.boons[1])
+      local apex = enter_apex(source, "biome.legacy.forest", "biome.legacy.cave")
+      local lance = apex.body:get_component("left_arm")
+      apex.health = 1
+      assert(source:_damage_boss(1).dead)
+      local corpse = source.state.corpses[#source.state.corpses]
+      source.state.player.x, source.state.player.y = corpse.x - 1, corpse.y
+      assert(source:salvage_corpse_component(corpse.id, "left_arm").component_id == lance.id)
+      source.state.player.x, source.state.player.y = source.state.exit.x, source.state.exit.y
+      assert(source:turn("") == "reconstruction")
+      assert(source:uninstall_body_component("left_arm").applied)
+      assert(source:install_inventory_component(lance.id, "left_arm").applied)
+      source:_mark_player_dead({ cause = "apex_lineage" })
+      local archive = FallenArchive.new()
+      assert(FallenArchive.append(archive, source.state.death_pending_archive).applied)
+      local record = archive.characters[1]
+      local archived
+      for _, slot in ipairs(record.body.slots) do if slot.slot_id == "left_arm" then archived = slot.component end end
+      assert(archived.id == lance.id and archived.definition_id == "component.arm.vector_lance")
+
+      local spec = assert(Recurrence.assign("run:009721", 97021, archive.characters))
+      spec.mode, spec.target_depth = "corpse", 2
+      local future = Session.new({ seed = 97021, registry = source.registry, run_id = "run:009721", fallen_recurrence = spec })
+      future:start_run()
+      assert(future:_complete_stage() == "reconstruction")
+      assert(future:complete_reconstruction().next == "curse")
+      assert(future:choose_curse(future.state.curse_options[1]).next == "route")
+      assert(future:select_route_node(future:available_route_nodes()[1].id).applied)
+      local echo = assert(future.state.corpses[1]).body:get_component("left_arm")
+      assert(echo.definition_id == "component.arm.vector_lance" and echo.id ~= lance.id)
+      assert(echo.origin.archive_id == record.id and echo.origin.source_component_id == lance.id)
+    end,
+  },
 }
