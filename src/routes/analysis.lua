@@ -27,8 +27,9 @@ function Analysis.analyze(graph, definitions)
       services_by_depth[node.depth] = services_by_depth[node.depth] or {}
       increment(services_by_depth[node.depth], node.service_id)
     elseif node.type == "boss" then
-      boss_by_depth[node.depth] = boss_by_depth[node.depth] or {}
-      increment(boss_by_depth[node.depth], node.boss_id or "boss.legacy.final")
+      local depth = tostring(node.depth)
+      boss_by_depth[depth] = boss_by_depth[depth] or {}
+      increment(boss_by_depth[depth], node.boss_id or "boss.legacy.final")
     end
     if #outgoing >= 2 then branches = branches + 1 end
     if #incoming >= 2 then convergences = convergences + 1 end

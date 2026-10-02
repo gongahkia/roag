@@ -158,7 +158,16 @@ return {
           assert(value:select_route_node(value:available_route_nodes()[choice or 1].id).applied)
         end
       end
-      advance(1); advance(1)
+      advance(1)
+      assert(value:_complete_stage() == "reconstruction")
+      assert(value:complete_reconstruction().next == "boss")
+      value.state.boss.health = 1
+      assert(value:_damage_boss(1).dead and value.state.phase == "boss_exit")
+      value.state.player.x, value.state.player.y = value.state.exit.x, value.state.exit.y
+      assert(value:turn("") == "reconstruction")
+      assert(value:complete_reconstruction().next == "curse")
+      assert(value:choose_curse(value.state.curse_options[1]).next == "route")
+      assert(value:select_route_node(value:available_route_nodes()[1].id).applied)
       assert(value:_complete_stage() == "reconstruction")
       assert(value:complete_reconstruction().next == "shop")
       assert(value.state.final_service_hub and value.state.final_service_hub.stocks["service.salvager.legacy"])

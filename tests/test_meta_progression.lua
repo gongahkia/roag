@@ -180,11 +180,15 @@ return {
       local forest
       for _, node in ipairs(fresh:available()) do if node.key == "forest_tier_2" then forest = node end end
       assert(forest and fresh:select(forest.id).applied and fresh:complete_current().applied)
+      assert(#fresh:available() == 1 and fresh:available()[1].type == "boss")
+      assert(fresh:select(fresh:available()[1].id).applied and fresh:complete_current().applied)
       assert(#fresh:available() == 3)
       local unlocked = RouteGraph.new(99006, definitions, nil, { "unlock.traversal.reinforced_breach" })
       assert(unlocked:complete_current().applied)
       for _, node in ipairs(unlocked:available()) do if node.key == "forest_tier_2" then assert(unlocked:select(node.id).applied) end end
-      assert(unlocked:complete_current().applied and #unlocked:available() == 4)
+      assert(unlocked:complete_current().applied and #unlocked:available() == 1)
+      assert(unlocked:select(unlocked:available()[1].id).applied and unlocked:complete_current().applied)
+      assert(#unlocked:available() == 4)
       assert(RouteAnalysis.analyze(fresh, definitions).valid and RouteAnalysis.analyze(unlocked, definitions).valid)
       assert(RouteAnalysis.batch({ definitions = definitions, seed = 99000, count = 20 }).summary.failures == 0)
       assert(RouteAnalysis.batch({ definitions = definitions, seed = 99000, count = 20, unlock_ids = { "unlock.traversal.reinforced_breach" } }).summary.failures == 0)

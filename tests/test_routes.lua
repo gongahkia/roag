@@ -132,7 +132,7 @@ return {
       assert(session:_damage_boss(1).dead)
       assert(session.state.phase == "boss_exit" and #session.state.corpses == 1)
       session.state.player.x, session.state.player.y = session.state.exit.x, session.state.exit.y
-      assert(session:turn("w") == "reconstruction")
+      assert(session:turn("") == "reconstruction")
       assert(session:complete_reconstruction().next == "curse")
       local curse = session:choose_curse(session.state.curse_options[1])
       assert(curse.next == "route")

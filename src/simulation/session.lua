@@ -1390,6 +1390,17 @@ function Session.from_data(data, options)
   state.ammo = session:_actor_from_data(data.ammo)
   state.exit = session:_actor_from_data(data.exit)
   state.boss = session:_actor_from_data(data.boss)
+  -- The legacy final encounter stored a static hitbox with no Body. Preserve
+  -- the saved arena/world, but promote that actor to the physical final-boss
+  -- definition exactly once on load so old mid-boss saves remain playable.
+  if state.phase == "boss" and state.boss and not state.boss.body then
+    local legacy_health = state.boss.health or session.registry:get_boss("boss.legacy.final").health
+    local definition = session.registry:get_boss("boss.legacy.final")
+    local profile = session.registry:get_boss_arena(definition.arena_profile_id)
+    local upgraded = session:_make_boss(definition.id, profile.boss_spawn)
+    upgraded.health = math.max(1, math.min(upgraded.max_health, legacy_health))
+    state.boss = upgraded
+  end
   state.corpses = {}
   for _, saved in ipairs(data.corpses or {}) do state.corpses[#state.corpses + 1] = Corpse.from_data(session.registry, saved) end
   table.sort(state.corpses, function(first, second) return first.id < second.id end)
@@ -1936,7 +1947,7 @@ function Session:_occupied(include_boss)
   local state = self.state
   local occupied = { [Grid.key(state.player.x, state.player.y)] = true }
   for _, values in ipairs({
-    state.targets, state.enemies, state.bullets, state.bombs, state.flares, state.torches,
+    state.targets, state.enemies, state.corpses, state.bullets, state.bombs, state.flares, state.torches,
   }) do
     for _, value in ipairs(values) do
       occupied[Grid.key(value.x, value.y)] = true
@@ -1998,7 +2009,12 @@ end
 function Session:_current_floor_depth()
   local route = self.state.route
   local node = route and route:node(route.current_node_id)
-  if node and node.type == "floor" then return node.depth, node end
+  if node and node.type == "floor" then
+    -- Route graph depth includes non-floor milestone nodes. Recurrence depth
+    -- is intentionally the player-facing normal-floor ordinal (tier 1–3),
+    -- so inserting bosses never moves a stored future encounter.
+    return self.route_definitions:get_tier(node.tier_id).number, node
+  end
   -- Read-only generation tooling may inject a synthetic recurrence without
   -- constructing or mutating a real route graph.
   if self.state.inspection_floor_depth then
@@ -3599,7 +3615,7 @@ function Session:_defeat_boss(boss)
     local completed = state.route:complete_current()
     assert(completed.applied, completed.reason)
   end
-  local is_final = node and #state.route:outgoing(node.id) == 0
+  local is_final = not node or #state.route:outgoing(node.id) == 0
   if is_final then
     self:_claim_research_reward(node and node.id or "boss", definition.final_data_reward or 4)
     state.boss = nil
@@ -3714,7 +3730,10 @@ function Session:turn(input)
     -- state. It receives no extra ordinary-floor AI/refill work this turn.
     result = nil
   elseif state.phase == "boss" then
-    if state.boss then
+    if state.boss and state.boss.health <= 0 then
+      self:_defeat_boss(state.boss)
+      result = state.ended
+    elseif state.boss then
       self:_boss_turn()
       if state.boss and not state.ended then
         self:_enemy_turn()

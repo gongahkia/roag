@@ -247,6 +247,31 @@ function Registry:get_boss_arena(id)
   return self:_get(self.boss_arenas, "boss arena", id)
 end
 
+-- Route content lives in a separate registry, so this explicit join keeps a
+-- boss node from silently pointing at missing physical content.
+function Registry:validate_boss_routes(route_definitions)
+  assert(route_definitions and route_definitions.profile_order, "Boss route validation requires route definitions")
+  local referenced = {}
+  for _, profile_id in ipairs(route_definitions.profile_order) do
+    local profile = route_definitions:get_profile(profile_id)
+    for _, layer in ipairs(profile.layers) do
+      if layer.type == "boss" then
+        for _, node in ipairs(layer.nodes) do
+          local boss = self:get_boss(node.boss_id)
+          self:get_boss_arena(boss.arena_profile_id)
+          referenced[boss.id] = true
+        end
+      end
+    end
+  end
+  for id in pairs(self.bosses) do
+    if not referenced[id] then
+      content_error("Boss '" .. id .. "' is production content but is unused by every route profile")
+    end
+  end
+  return true
+end
+
 function Registry:get_encounter_pool(id)
   return self:_get(self.encounter_pools, "encounter pool", id)
 end

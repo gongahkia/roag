@@ -53,6 +53,15 @@ for _, depth in ipairs(depths) do
   for _, id in ipairs(service_ids) do service_parts[#service_parts + 1] = id .. "=" .. services[id] end
   if #service_parts > 0 then io.write("    services: " .. table.concat(service_parts, ", ") .. "\n") end
 end
+local boss_depths = {}
+for depth in pairs(report.summary.boss_by_depth or {}) do boss_depths[#boss_depths + 1] = depth end
+table.sort(boss_depths, function(left, right) return tonumber(left) < tonumber(right) end)
+for _, depth in ipairs(boss_depths) do
+  local parts, values = {}, report.summary.boss_by_depth[depth]
+  local ids = {}; for id in pairs(values) do ids[#ids + 1] = id end; table.sort(ids)
+  for _, id in ipairs(ids) do parts[#parts + 1] = id .. "=" .. values[id] end
+  io.write("  boss depth " .. depth .. ": " .. table.concat(parts, ", ") .. "\n")
+end
 if #report.failures > 0 then
   io.write("Failure seeds:\n")
   for _, item in ipairs(report.failures) do io.write("  " .. item.seed .. "  " .. (item.code or "invalid_route") .. "\n") end

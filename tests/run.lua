@@ -32,6 +32,7 @@ local suites = {
   "tests.test_fallen_archive",
   "tests.test_bestiary",
   "tests.test_reactor",
+  "tests.test_bosses",
   "tests.test_art_packs",
 }
 

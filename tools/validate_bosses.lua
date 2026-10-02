@@ -5,6 +5,7 @@ local Definitions = require("src.routes.definitions")
 
 local registry, routes = Registry.load(), Definitions.load()
 registry:validate_encounter_pools(routes)
+registry:validate_boss_routes(routes)
 
 local usage = {}
 for _, profile_id in ipairs(routes.profile_order) do

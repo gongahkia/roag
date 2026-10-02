@@ -30,8 +30,12 @@ local function start_target_depth(session, depth, variant)
   assert(graph:select(first_choices[(variant % #first_choices) + 1].id).applied)
   if depth == 3 then
     assert(graph:complete_current().applied)
-    local second_choices = graph:available()
-    assert(graph:select(second_choices[(math.floor(variant / 2) % #second_choices) + 1].id).applied)
+    local boss_choices = graph:available()
+    assert(#boss_choices == 1 and boss_choices[1].type == "boss")
+    assert(graph:select(boss_choices[1].id).applied)
+    assert(graph:complete_current().applied)
+    local third_choices = graph:available()
+    assert(graph:select(third_choices[(math.floor(variant / 2) % #third_choices) + 1].id).applied)
   end
   session:start_route_node(graph.current_node_id)
 end

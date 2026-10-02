@@ -134,7 +134,7 @@ return {
         local node = graph:node(node_id)
         if node.biome_id == REACTOR then reactor = node end
       end
-      assert(reactor and reactor.type == "floor" and reactor.depth == 3 and reactor.tier_id == TIER_THREE)
+      assert(reactor and reactor.type == "floor" and reactor.depth == 4 and reactor.tier_id == TIER_THREE)
       local normal = 0
       for _, node_id in ipairs(graph.node_order) do if graph:node(node_id).type == "floor" then normal = normal + 1 end end
       assert(normal == 7, "profile alternatives must not add a fourth floor to any path")

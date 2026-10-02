@@ -23,6 +23,11 @@ if not pools_ok then
   io.stderr:write(tostring(pools_error), "\n")
   os.exit(1)
 end
+local bosses_ok, bosses_error = pcall(function() return registry:validate_boss_routes(routes) end)
+if not bosses_ok then
+  io.stderr:write(tostring(bosses_error), "\n")
+  os.exit(1)
+end
 local room_counts, room_coverages = {}, {}
 for _, config in ipairs(Corpora.list()) do
   local rooms, room_failure = RoomRegistry.load({ registry = registry, config = config })
@@ -36,7 +41,7 @@ for _, config in ipairs(Corpora.list()) do
   room_counts[config.BIOME], room_coverages[config.BIOME] = #rooms.order, rooms:coverage()
 end
 io.write(string.format(
-  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d services, %d charms, %d boons, %d curses, %d research nodes, %d topologies, %d actors, %d enemies, %d encounter pools, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d reactor room templates\n",
+  "Content valid: %d abilities, %d materials, %d liquids, %d gases, %d world objects, %d hazards, %d components, %d bosses, %d boss arenas, %d services, %d charms, %d boons, %d curses, %d research nodes, %d topologies, %d actors, %d enemies, %d encounter pools, %d biomes, %d tiers, %d route profiles, %d dungeon room templates, %d reactor room templates\n",
   (function() local count = 0 for _ in pairs(registry.abilities) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.materials) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.liquids) do count = count + 1 end return count end)(),
@@ -44,6 +49,8 @@ io.write(string.format(
   (function() local count = 0 for _ in pairs(registry.world_objects) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.hazards) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.components) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.bosses) do count = count + 1 end return count end)(),
+  (function() local count = 0 for _ in pairs(registry.boss_arenas) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.services) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.charms) do count = count + 1 end return count end)(),
   (function() local count = 0 for _ in pairs(registry.boons) do count = count + 1 end return count end)(),
