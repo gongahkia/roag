@@ -137,9 +137,17 @@ end
 function App:title_options()
   -- The sibling Unpolished Bees workbench owns title labels/order and art
   -- selection.  Runtime only filters a declared action for actual save state.
-  local actions, options = self.presentation_flow:available({ continue_available = self.continue_available }), {}
+  local actions, options = self.presentation_flow:available({
+    continue_available = self.campaign_continue_available or self.continue_available,
+  }), {}
   for _, action in ipairs(actions) do
-    options[#options + 1] = { id = action.id, name = action.label, description = action.description, target = action.target }
+    local name, description = action.label, action.description
+    if action.id == "continue" and self.campaign_continue_available then
+      name, description = "CONTINUE CAMPAIGN", "Resume the persistent one-zone campaign."
+    elseif action.id == "continue" and self.continue_available then
+      name, description = "LEGACY RUN", "Resume a preserved pre-open-world run in compatibility mode."
+    end
+    options[#options + 1] = { id = action.id, name = name, description = description, target = action.target }
   end
   return options
 end
@@ -377,6 +385,14 @@ function App:begin_new_run()
   return self:request_new_run()
 end
 
+function App:begin_new_campaign()
+  if self.campaign_continue_available then
+    self.title_error = { code = "campaign_exists", reason = "A campaign already exists. Continue it before starting another." }
+    return nil, self.title_error
+  end
+  return self:request_new_campaign()
+end
+
 function App:onboarding_sections()
   return {
     "YOUR BODY IS TEMPORARY.",
@@ -450,11 +466,13 @@ end
 
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
-  if selected and selected.id == "continue" then return self:continue_run() end
+  if selected and selected.id == "continue" then
+    return self.campaign_continue_available and self:continue_campaign() or self:continue_run()
+  end
   if selected and selected.id == "research" then return self:open_research() end
   if selected and selected.id == "fallen" then return self:open_fallen_archive() end
   if selected and selected.id == "help" then return self:open_help() end
-  return self:begin_new_run()
+  return self:begin_new_campaign()
 end
 
 function App:play_sound(name)

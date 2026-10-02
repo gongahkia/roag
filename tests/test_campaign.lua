@@ -236,4 +236,24 @@ return {
       assert(active:read() == original_active)
     end,
   },
+  {
+    name = "title starts campaigns by default and labels preserved active runs as legacy",
+    run = function()
+      local campaign_store = SaveStore.memory_directory()
+      local app = App.new({ seed = 611010, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
+        archive_store = SaveStore.memory(), campaign_store = campaign_store })
+      assert(app:title_options()[1].id == "new_run")
+      assert(app:activate_title_choice() and app.campaign)
+      local resumed = App.new({ seed = 611011, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
+        archive_store = SaveStore.memory(), campaign_store = campaign_store })
+      assert(resumed:title_options()[2].name == "CONTINUE CAMPAIGN")
+
+      local legacy_store = SaveStore.memory()
+      local legacy = Session.new({ seed = 611012 }); legacy:start_run(); assert(ActiveRun.save(legacy, legacy_store))
+      local legacy_app = App.new({ seed = 611012, save_store = legacy_store, meta_store = SaveStore.memory(),
+        archive_store = SaveStore.memory(), campaign_store = SaveStore.memory_directory() })
+      local options = legacy_app:title_options()
+      assert(options[1].name == "NEW RUN" and options[2].name == "LEGACY RUN")
+    end,
+  },
 }
