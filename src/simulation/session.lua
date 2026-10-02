@@ -3686,15 +3686,18 @@ function Session:_complete_boss_exit()
   assert(route and route:node(route.current_node_id) and route:node(route.current_node_id).type == "boss",
     "Boss exit requires a completed route boss")
   local choices = route:available()
-  assert(#choices == 1, "Milestone boss must have one deterministic continuation")
+  assert(#choices >= 1, "Milestone boss must have a forward continuation")
   state.curse, state.curse_id = nil, nil
   if choices[1].type == "floor" then
     -- The first milestone still opens the player-facing tier-three route
     -- selection, with a fresh curse scoped to that next normal floor.
+    for _, choice in ipairs(choices) do
+      assert(choice.type == "floor", "First milestone may only branch to normal floors")
+    end
     self:draw_curses()
     state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "curse", nil
     self:_log("Reconstruction available. Reconfigure before the next descent.")
-  elseif choices[1].type == "shop" then
+  elseif #choices == 1 and choices[1].type == "shop" then
     -- The second milestone is followed by reconstruction, then the final
     -- service hub. No curse leaks into either special node.
     state.phase, state.exit, state.reconstruction_next, state.transition_next = "reconstruction", nil, "shop", nil
