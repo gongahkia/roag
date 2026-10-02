@@ -4,6 +4,11 @@ local Grid = require("src.world.grid")
 
 local EnvironmentObjects = {}
 
+-- Generic cover is optional texture around richer landmark geometry.  A
+-- bounded number of full-map checks avoids pathological seeds making batch
+-- analysis spend most of its time searching for a third crate placement.
+local MAX_CONNECTIVITY_CANDIDATES_PER_PLAN = 4
+
 local PLANS = {
   forest = {
     { definition_id = "world_object.cover.timber_crate", count = 2 },
@@ -85,9 +90,11 @@ function EnvironmentObjects.place(world, terrain, player, rng)
   local placed = {}
   for _, plan in ipairs(PLANS[terrain] or {}) do
     local options = rng:shuffle(candidates(world, player))
-    local count = 0
+    local count, checked = 0, 0
     for _, point in ipairs(options) do
       if count >= plan.count then break end
+      checked = checked + 1
+      if checked > MAX_CONNECTIVITY_CANDIDATES_PER_PLAN then break end
       -- Open-biome landmarks now create intentional narrow woodland/cavern
       -- routes too, so generic cover receives the same no-partition proof as
       -- authored interiors.  A crate is tactical cover, never a hidden map

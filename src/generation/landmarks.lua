@@ -209,6 +209,39 @@ local function group_points(anchor, offsets)
   return result
 end
 
+-- Authored interior maps have compact room necks where a visually roomy
+-- local patch can still be the only link between rooms.  Keep an exact proof
+-- there; Forest/Cave use broad local terrain and the inexpensive clearance
+-- rule above.  This keeps the safety check proportional to the biomes that
+-- actually need it.
+local function preserves_structured_connectivity(world, player, blocked_points)
+  local blocked, expected = {}, 0
+  for _, point in ipairs(blocked_points) do blocked[key(point)] = true end
+  if blocked[key(player)] then return false end
+  for x = 0, Grid.width - 1 do
+    for y = 0, Grid.height - 1 do
+      if world:is_passable(x, y) and not blocked[Grid.key(x, y)] then expected = expected + 1 end
+    end
+  end
+  local visited, queue, cursor = { [key(player)] = true }, { { x = player.x, y = player.y } }, 1
+  while queue[cursor] do
+    local point = queue[cursor]
+    cursor = cursor + 1
+    for _, direction in ipairs(CARDINAL) do
+      local next_point = { x = point.x + direction[1], y = point.y + direction[2] }
+      local location_key = key(next_point)
+      if Grid.in_bounds(next_point.x, next_point.y) and not blocked[location_key]
+        and world:is_passable(next_point.x, next_point.y) and not visited[location_key] then
+        visited[location_key] = true
+        queue[#queue + 1] = next_point
+      end
+    end
+  end
+  local reached = 0
+  for _ in pairs(visited) do reached = reached + 1 end
+  return reached == expected
+end
+
 local function select_group(world, player, feature, definition, rng)
   local attempts = 0
   for _, anchor in ipairs(rng:shuffle(candidates(world, player))) do
@@ -216,6 +249,9 @@ local function select_group(world, player, feature, definition, rng)
     if attempts > 6 then break end
     local points = group_points(anchor, group_offsets(feature.kind, feature.count, rng))
     local valid = points ~= nil and has_clearance(world, anchor, feature.kind == "scatter" and 12 or 18)
+    if valid and definition.blocks_movement and (world.terrain == "dungeon" or world.terrain == "reactor") then
+      valid = preserves_structured_connectivity(world, player, points)
+    end
     if valid then
       for _, point in ipairs(points) do
         if not point_is_free(world, point, player) or not has_clearance(world, point, 10) then valid = false; break end
