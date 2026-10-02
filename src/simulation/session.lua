@@ -210,6 +210,10 @@ function Session.new(options)
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
+  -- In campaign mode this is a zone-scoped allocator. Legacy Session users
+  -- retain their established run-local counters and ID strings.
+  self.identity_allocator = options.identity_allocator
+  self.campaign = options.campaign
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
   local meta_snapshot = copy_meta_snapshot(options.meta_snapshot)
@@ -227,6 +231,7 @@ function Session.new(options)
     effects = {},
     electrical_effects = {},
     next_component_sequence = 1,
+    next_actor_sequence = 1,
     next_corpse_sequence = 1,
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
@@ -264,7 +269,7 @@ function Session.new(options)
     -- location. It always points at run.inventory, never a floor inventory.
     inventory = inventory,
   }
-  self.component_factory = ComponentFactory.new(self.registry, self.state)
+  self.component_factory = ComponentFactory.new(self.registry, self.state, self.identity_allocator)
   return self
 end
 
@@ -644,10 +649,19 @@ function Session:apply_force(target, force_spec)
   return result
 end
 
-function Session:_build_body(actor_definition)
+function Session:_allocate_actor_id(scope)
+  if self.identity_allocator then
+    return self.identity_allocator:allocate_actor(scope or "zone")
+  end
+  local sequence = self.state.next_actor_sequence
+  self.state.next_actor_sequence = sequence + 1
+  return string.format("actor:legacy:%06d", sequence)
+end
+
+function Session:_build_body(actor_definition, scope)
   local body = Body.new(self.registry, actor_definition.body_topology_id)
   for _, installation in ipairs(actor_definition.installed_components) do
-    local component = self.component_factory:create(installation.component_id)
+    local component = self.component_factory:create(installation.component_id, scope or "zone")
     local installed, reason = body:install(installation.slot_id, component)
     assert(installed, reason)
   end
@@ -797,6 +811,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     cause = "explosive",
     source = "self_destruct",
     source_actor = actor,
+    source_actor_id = actor.actor_id,
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
@@ -1265,6 +1280,9 @@ end
 -- transient electrical flash after restoration instead of treating them as
 -- simulation data.
 function Session:_saved_actor_ref(actor)
+  if actor and actor.actor_id then
+    return actor.actor_id
+  end
   if actor == self.state.player then
     return "player"
   end
@@ -1445,6 +1463,7 @@ function Session:to_data()
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
+      next_actor_sequence = state.next_actor_sequence,
       next_corpse_sequence = state.next_corpse_sequence,
       next_world_object_sequence = state.next_world_object_sequence,
       next_hazard_sequence = state.next_hazard_sequence,
@@ -1514,6 +1533,9 @@ function Session.from_data(data, options)
     assert(type(value) == "number" and value >= 1 and value % 1 == 0, "Active run has an invalid " .. name)
     state[name] = value
   end
+  state.next_actor_sequence = progression.next_actor_sequence or 1
+  assert(type(state.next_actor_sequence) == "number" and state.next_actor_sequence >= 1
+    and state.next_actor_sequence % 1 == 0, "Active run has an invalid next_actor_sequence")
   assert(type(progression.stage) == "number" and progression.stage >= 1 and progression.stage % 1 == 0,
     "Active run has an invalid stage")
   assert(type(progression.phase) == "string", "Active run has no phase")
@@ -1596,7 +1618,7 @@ function Session.from_data(data, options)
     return PhysicalItem.from_data(item, session.registry)
   end)
   state.inventory = state.run.inventory
-  state.world = World.from_data(session.registry, assert(data.world, "Active run has no world"), state)
+  state.world = World.from_data(session.registry, assert(data.world, "Active run has no world"), session.identity_allocator or state)
   state.enemies = {}
   for _, saved in ipairs(data.enemies or {}) do state.enemies[#state.enemies + 1] = session:_actor_from_data(saved) end
   state.targets, state.bullets, state.bombs, state.flares, state.torches, state.area_attacks = {}, {}, {}, {}, {}, {}
@@ -1623,6 +1645,9 @@ function Session.from_data(data, options)
 
   local function actor_from_ref(reference)
     if reference == nil then return nil end
+    for _, actor in ipairs(session:_living_actors()) do
+      if actor.actor_id == reference then return actor end
+    end
     if reference == "player" then return state.player end
     if reference == "boss" then
       assert(state.boss, "Saved effect references a missing boss")
@@ -1637,6 +1662,12 @@ function Session.from_data(data, options)
       value.source_actor = actor_from_ref(value.source_actor_ref)
       value.source_actor_ref = nil
     end
+  end
+  -- Old active saves encoded enemy references by array index and did not have
+  -- actor IDs. Restore them safely, then assign deterministic legacy IDs so
+  -- all subsequent saves use stable references.
+  for _, actor in ipairs(session:_living_actors()) do
+    if not actor.actor_id then actor.actor_id = session:_allocate_actor_id(actor == state.player and "campaign" or "zone") end
   end
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
@@ -1671,13 +1702,29 @@ function Session:validate_physical_ownership()
     end
   end
 
+  local identities = {}
+  local function record_identity(value, owner)
+    assert(type(value) == "string" and value ~= "", owner .. " has no stable ID")
+    if identities[value] then error("Physical identity '" .. value .. "' is used by both " .. identities[value] .. " and " .. owner) end
+    identities[value] = owner
+  end
+
   record_body(self.state.player and self.state.player.body, "player body")
+  if self.state.player then record_identity(self.state.player.actor_id, "player actor") end
   for _, enemy in ipairs(self.state.enemies or {}) do
     record_body(enemy.body, "living enemy '" .. enemy.kind .. "'")
+    record_identity(enemy.actor_id, "living enemy '" .. enemy.kind .. "'")
   end
   record_body(self.state.boss and self.state.boss.body, "living boss")
+  if self.state.boss then record_identity(self.state.boss.actor_id, "living boss") end
   for _, corpse in ipairs(self.state.corpses or {}) do
     record_body(corpse.body, "corpse '" .. corpse.id .. "'")
+    record_identity(corpse.id, "corpse")
+  end
+  if self.state.world then
+    for _, object in ipairs(self.state.world:list_objects(true)) do record_identity(object.id, "world object") end
+    for _, hazard in ipairs(self.state.world:list_hazards(true)) do record_identity(hazard.id, "hazard") end
+    for _, fire in ipairs(self.state.world:list_fires(true)) do record_identity(fire.id, "fire") end
   end
   for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do
     if entry.item.item_type == "component" then
@@ -1715,9 +1762,15 @@ function Session:_create_corpse(actor)
   if not actor.body then
     return nil
   end
-  local sequence = self.state.next_corpse_sequence
-  self.state.next_corpse_sequence = sequence + 1
-  local corpse = Corpse.from_actor(string.format("corpse:%06d", sequence), actor)
+  local corpse_id
+  if self.identity_allocator then
+    corpse_id = self.identity_allocator:allocate_corpse_id()
+  else
+    local sequence = self.state.next_corpse_sequence
+    self.state.next_corpse_sequence = sequence + 1
+    corpse_id = string.format("corpse:%06d", sequence)
+  end
+  local corpse = Corpse.from_actor(corpse_id, actor)
   self.state.corpses[#self.state.corpses + 1] = corpse
   return corpse
 end
@@ -2322,6 +2375,7 @@ function Session:_spawn_fallen_recurrence()
   local body = FallenRecurrence.materialize_body(self, spec)
   if spec.mode == "corpse" then
     local shell = entity("player", selected.x, selected.y, {
+      actor_id = self:_allocate_actor_id("zone"),
       body = body,
       fallen_archive_id = spec.archive_id,
       fallen_source_run_id = spec.source_run_id,
@@ -2329,6 +2383,7 @@ function Session:_spawn_fallen_recurrence()
     self:_create_corpse(shell)
   else
     state.enemies[#state.enemies + 1] = entity("fallen_echo", selected.x, selected.y, {
+      actor_id = self:_allocate_actor_id("zone"),
       health = FallenRecurrence.ECHO_HEALTH,
       ammo = 4,
       attack = 0,
@@ -2392,6 +2447,7 @@ function Session:_make_enemy(kind_or_id, point, options)
   local definition = enemy_id and self.registry:get_enemy(enemy_id) or nil
   local kind = definition and definition.kind or kind_or_id
   local enemy = entity(kind, point.x, point.y, {
+    actor_id = self:_allocate_actor_id("zone"),
     health = 1,
     attack = 0,
     attack_kind = nil,
@@ -2406,7 +2462,7 @@ function Session:_make_enemy(kind_or_id, point, options)
   if definition then
     enemy.content_id = definition.id
     enemy.faction_id = definition.faction_id
-    enemy.body = self:_build_body(definition)
+    enemy.body = self:_build_body(definition, "zone")
     enemy.ammo = definition.ammo
     enemy.elite = definition.elite
   end
@@ -2468,6 +2524,7 @@ function Session:start_run(class, boon)
   self.state.death_pending_archive = nil
   self.state.generation_warnings = {}
   state.next_component_sequence = 1
+  state.next_actor_sequence = 1
   state.next_corpse_sequence = 1
   state.next_world_object_sequence = 1
   state.next_hazard_sequence = 1
@@ -2485,9 +2542,31 @@ function Session:start_run(class, boon)
   self:start_route_node(state.route.start_node_id)
 end
 
+-- OW-01 keeps the temporary route graph available, but establishes a
+-- campaign-derived seed as the authority for the active physical zone.  The
+-- route node remains legacy progression metadata; it no longer supplies this
+-- zone's identity or generation root.
+function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boon)
+  assert(self.identity_allocator, "Campaign zones require a zone identity allocator")
+  assert(type(zone_seed) == "number" and zone_seed % 1 == 0 and zone_seed > 0, "Campaign zone seed is invalid")
+  self:start_run(class, boon)
+  local state, route = self.state, self.state.route
+  local node = assert(route and route:node(route.current_node_id), "Campaign zone requires an opening route node")
+  local biome = self.route_definitions:get_biome(node.biome_id)
+  local tier = self.route_definitions:get_tier(node.tier_id)
+  local settings = self:_settings_for_floor(biome, tier)
+  settings.service_id, settings.service_origin = node.service_id, node.id
+  state.floor_seed = zone_seed
+  state.zone_key = { world_x = zone_key.world_x, world_y = zone_key.world_y, z = zone_key.z }
+  state.zone_profile_id = profile_id
+  self:_start_floor(settings, Rng.new(zone_seed), "campaign." .. tostring(zone_key))
+  return state.world
+end
+
 function Session:_create_run_player(settings)
   local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
   local player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
+    actor_id = self:_allocate_actor_id("campaign"),
     direction = "w",
     health = settings.health,
     ammo = settings.ammo,
@@ -2511,7 +2590,7 @@ function Session:_create_run_player(settings)
     impact = 0,
     content_id = player_definition.id,
     faction_id = Factions.PLAYER_ID,
-    body = self:_build_body(player_definition),
+    body = self:_build_body(player_definition, "campaign"),
   })
   self.state.run.player = player
   return player
@@ -2563,7 +2642,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   if generation_metadata and generation_metadata.player_spawn then
     state.player.x, state.player.y = generation_metadata.player_spawn.x, generation_metadata.player_spawn.y
   end
-  state.world = World.new(self.registry, settings.terrain, layout, state,
+  state.world = World.new(self.registry, settings.terrain, layout, self.identity_allocator or state,
     generation_metadata and generation_metadata.material_layout)
   -- Terrain landmarks are deliberately earlier than ordinary cover/media so
   -- all later systems see their real physical geometry without sharing RNG.
@@ -3874,6 +3953,7 @@ end
 function Session:_make_boss(boss_id, point)
   local definition = self.registry:get_boss(boss_id)
   local boss = entity("boss", point.x, point.y, {
+    actor_id = self:_allocate_actor_id("zone"),
     content_id = definition.id,
     boss_id = definition.id,
     display_name = definition.display_name,
@@ -3883,7 +3963,7 @@ function Session:_make_boss(boss_id, point)
     direction = "a",
     crawl_stride = 0,
     pending_telegraph = nil,
-    body = self:_build_body(definition),
+    body = self:_build_body(definition, "zone"),
   })
   return boss
 end
@@ -3916,7 +3996,7 @@ function Session:start_boss()
   self:refresh_derived_player_stats()
   player.bomb_fuse, player.bullet_range, player.reload_penalty = 3, nil, 0
   state.settings = { terrain = profile.terrain, vision = 99, objective_required = 10, arena_profile_id = profile.id }
-  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), state,
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), self.identity_allocator or state,
     self:_boss_arena_material_layout(profile))
   self:_apply_boss_arena_profile(profile)
   self:validate_world()

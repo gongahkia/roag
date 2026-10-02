@@ -1,4 +1,5 @@
 local Component = {}
+local Identity = require("src.campaign.identity")
 
 function Component.new(definition, instance_id)
   return {
@@ -18,8 +19,9 @@ function Component.from_data(definition, data)
   if data.origin ~= nil then
     assert(type(data.origin) == "table"
       and type(data.origin.archive_id) == "string" and data.origin.archive_id:match("^fallen:%d+$")
-      and type(data.origin.source_run_id) == "string" and data.origin.source_run_id:match("^run:%d+$")
-      and type(data.origin.source_component_id) == "string" and data.origin.source_component_id:match("^component:%d+$"),
+      and type(data.origin.source_run_id) == "string"
+      and (data.origin.source_run_id:match("^run:%d+$") or Identity.is_campaign_id(data.origin.source_run_id))
+      and Identity.is_component_id(data.origin.source_component_id),
       "Component provenance is invalid")
     origin = {
       archive_id = data.origin.archive_id,

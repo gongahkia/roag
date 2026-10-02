@@ -631,6 +631,9 @@ function World:total_gas_amount(gas_id)
 end
 
 function World:_next_fire_id()
+  if self.sequence_owner.allocate_fire_id then
+    return self.sequence_owner:allocate_fire_id()
+  end
   local sequence = self.sequence_owner.next_fire_sequence
   self.sequence_owner.next_fire_sequence = sequence + 1
   return string.format("fire:%06d", sequence)
@@ -833,6 +836,9 @@ function World:inspect_fire(fire_or_id)
 end
 
 function World:_next_hazard_id()
+  if self.sequence_owner.allocate_hazard_id then
+    return self.sequence_owner:allocate_hazard_id()
+  end
   local sequence = self.sequence_owner.next_hazard_sequence
   self.sequence_owner.next_hazard_sequence = sequence + 1
   return string.format("hazard:%06d", sequence)
@@ -1003,6 +1009,9 @@ function World:set_generator_online(object_or_id, online)
 end
 
 function World:_next_object_id()
+  if self.sequence_owner.allocate_world_object_id then
+    return self.sequence_owner:allocate_world_object_id()
+  end
   local sequence = self.sequence_owner.next_world_object_sequence
   self.sequence_owner.next_world_object_sequence = sequence + 1
   return string.format("world_object:%06d", sequence)

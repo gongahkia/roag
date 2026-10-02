@@ -3,6 +3,7 @@
 -- content later makes them unavailable for recurrence.
 local Json = require("src.persistence.json")
 local Body = require("src.body.body")
+local Identity = require("src.campaign.identity")
 
 local FallenArchive = {
   FORMAT = "roag.fallen_archive",
@@ -82,7 +83,7 @@ local function validate_body_shape(body)
     slots[slot.slot_id] = true
     if slot.component then
       local component = slot.component
-      assert_id(component.id, "^component:%d+$", "Fallen source component ID")
+      assert(Identity.is_component_id(component.id), "Fallen source component ID is invalid")
       assert_id(component.definition_id, "^component%.[a-z0-9_%.]+$", "Fallen component definition ID")
       assert(not components[component.id], "Fallen record duplicates source component '" .. component.id .. "'")
       components[component.id] = true
