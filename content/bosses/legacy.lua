@@ -25,7 +25,7 @@ return {
     id = "boss.cave.flooded_conductor",
     display_name = "FLOODED CONDUCTOR",
     kind = "boss",
-    health = 11,
+    health = 12,
     ammo = 8,
     body_topology_id = "body.topology.normal",
     installed_components = {
@@ -47,7 +47,7 @@ return {
     id = "boss.legacy.final",
     display_name = "THE LEGACY WARDEN",
     kind = "boss",
-    health = 13,
+    health = 16,
     ammo = 10,
     body_topology_id = "body.topology.normal",
     installed_components = {
@@ -68,7 +68,7 @@ return {
     id = "boss.wild.ash_mauler",
     display_name = "ASH MAULER",
     kind = "boss",
-    health = 13,
+    health = 14,
     ammo = 0,
     body_topology_id = "body.topology.normal",
     installed_components = {
@@ -88,7 +88,7 @@ return {
     id = "boss.industrial.barrage_custodian",
     display_name = "BARRAGE CUSTODIAN",
     kind = "boss",
-    health = 13,
+    health = 14,
     ammo = 12,
     body_topology_id = "body.topology.normal",
     installed_components = {
@@ -111,7 +111,7 @@ return {
     id = "boss.apex.kinetic_harbinger",
     display_name = "KINETIC HARBINGER",
     kind = "boss",
-    health = 14,
+    health = 15,
     ammo = 11,
     body_topology_id = "body.topology.normal",
     installed_components = {
@@ -134,7 +134,7 @@ return {
     id = "boss.industrial.terminal_bastion",
     display_name = "TERMINAL BASTION",
     kind = "boss",
-    health = 15,
+    health = 16,
     ammo = 14,
     body_topology_id = "body.topology.normal",
     installed_components = {

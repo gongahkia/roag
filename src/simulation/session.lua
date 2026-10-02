@@ -3703,14 +3703,14 @@ end
 
 function Session:_complete_stage()
   local state = self.state
-  state.scrap = state.scrap + 3 -- finite floor-completion award.
+  state.scrap = state.scrap + (state.settings.completion_scrap_reward or 3) -- finite authored floor-completion award.
   if state.route then
     local completed = state.route:complete_current()
     assert(completed.applied, completed.reason)
     -- Floor research rewards are persistent account milestones, not combat
     -- drops.  The event itself is saved with the run so a later resume can
     -- reconcile a profile write without granting it twice.
-    self:_claim_research_reward(completed.node.id, 1)
+    self:_claim_research_reward(completed.node.id, state.settings.completion_data_reward or 1)
     local next_nodes = completed.outgoing
     assert(#next_nodes > 0, "Completed route node has no forward continuation")
     if #next_nodes == 1 and next_nodes[1].type == "boss" then

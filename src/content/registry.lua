@@ -504,6 +504,31 @@ function Registry:validate()
     end
     require_string(service.stock_profile, "Service '" .. id .. "' stock_profile")
     require_string(service.render_style, "Service '" .. id .. "' render_style")
+    if type(service.stock) ~= "table" then
+      content_error("Service '" .. id .. "' stock must be a table")
+    end
+    for _, profile_id in ipairs({ "normal", "final_hub" }) do
+      local stock = service.stock[profile_id]
+      if type(stock) ~= "table" then
+        content_error("Service '" .. id .. "' stock." .. profile_id .. " must be a table")
+      end
+      if service.role == "supply" then
+        if type(stock.offers) ~= "table" or #stock.offers == 0 then
+          content_error("Supply service '" .. id .. "' stock." .. profile_id .. ".offers must be a non-empty list")
+        end
+        for index, offer in ipairs(stock.offers) do
+          require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
+          require_string(offer.label, "Supply service '" .. id .. "' offer " .. index .. " label")
+          require_positive_integer(offer.price, "Supply service '" .. id .. "' offer " .. index .. " price")
+          require_positive_integer(offer.remaining, "Supply service '" .. id .. "' offer " .. index .. " remaining")
+        end
+      elseif service.role == "repair" then
+        require_positive_integer(stock.price, "Repair service '" .. id .. "' stock." .. profile_id .. " price")
+        require_positive_integer(stock.remaining, "Repair service '" .. id .. "' stock." .. profile_id .. " remaining")
+      else
+        require_positive_integer(stock.offer_count, "Service '" .. id .. "' stock." .. profile_id .. " offer_count")
+      end
+    end
   end
 
   local function validate_modifiers(kind, id, modifiers)

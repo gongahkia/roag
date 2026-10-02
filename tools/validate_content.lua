@@ -8,6 +8,7 @@ local ScreenManager = require("src.ui.screen_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local ArtPackConfig = require("src.presentation.art_pack_config")
 local ArtPackCatalog = require("src.presentation.art_pack_catalog")
+local BalanceReport = require("src.balance.report")
 
 local ok, registry_or_error = xpcall(Registry.load, debug.traceback)
 if not ok then
@@ -16,6 +17,13 @@ if not ok then
 end
 
 local registry = registry_or_error
+local balance_ok, balance_error = pcall(function()
+  return BalanceReport.validate_config(require("content.balance.legacy"))
+end)
+if not balance_ok then
+  io.stderr:write(tostring(balance_error), "\n")
+  os.exit(1)
+end
 local presentation_checks = {
   { label = "screen definitions", loader = ScreenManager.load },
   { label = "presentation flow", loader = PresentationFlow.load },

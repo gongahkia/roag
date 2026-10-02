@@ -2,10 +2,11 @@
 -- after normal occupants and services have been placed, so a secret can never
 -- steal a required target, kiosk, recurrence, or spawn cell.
 local Grid = require("src.world.grid")
+local Balance = require("content.balance.legacy")
 
 local Discoveries = {
-  PLACEMENT_PERCENT = 65,
-  MAX_SITES_PER_FLOOR = 1,
+  PLACEMENT_PERCENT = Balance.discoveries.placement_percent,
+  MAX_SITES_PER_FLOOR = Balance.discoveries.max_sites_per_floor,
 }
 
 local CARDINAL = {

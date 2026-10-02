@@ -2,10 +2,11 @@
 -- This phase owns its own named RNG stream and never changes encounter,
 -- service, discovery, recurrence, media, or room streams.
 local Grid = require("src.world.grid")
+local Balance = require("content.balance.legacy")
 
 local Reinforcements = {
-  PLACEMENT_PERCENT = 34,
-  MAX_SOURCES_PER_FLOOR = 1,
+  PLACEMENT_PERCENT = Balance.reinforcements.placement_percent,
+  MAX_SOURCES_PER_FLOOR = Balance.reinforcements.max_sources_per_floor,
 }
 
 local CARDINAL = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } }

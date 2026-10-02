@@ -2,6 +2,7 @@
 local Component = require("src.body.component")
 local PhysicalItem = require("src.inventory.physical_item")
 local RunModifiers = require("src.simulation.run_modifiers")
+local Balance = require("content.balance.legacy")
 
 local Economy = {}
 
@@ -19,19 +20,30 @@ local function component_value(session, component)
   local definition = session.registry:get_component(component.definition_id)
   local base = definition.scrap_value or definition.max_integrity
   local condition = component.max_integrity > 0 and component.current_integrity / component.max_integrity or 0
-  return math.max(1, math.floor(base * (0.25 + 0.75 * condition)))
+  local tuning = Balance.economy
+  return math.max(1, math.floor(base * (tuning.resale_base_fraction + tuning.resale_condition_fraction * condition)))
+end
+
+local function configured_stock(service, final_hub)
+  local profiles = assert(service.stock, "Service '" .. service.id .. "' has no authored stock")
+  local profile = profiles[final_hub and "final_hub" or "normal"]
+  assert(profile, "Service '" .. service.id .. "' has no authored stock profile")
+  return profile
+end
+
+local function copy_offer(offer)
+  return { key = offer.key, label = offer.label, price = offer.price, remaining = offer.remaining }
 end
 
 function Economy.create_stock(session, service_id, rng, final_hub)
   local service = session.registry:get_service(service_id)
+  local profile = configured_stock(service, final_hub)
   if service.role == "supply" then
-    return { kind = "supply", offers = {
-      { key = "ammo", label = "AMMO", price = 2, remaining = final_hub and 6 or 3 },
-      { key = "bombs", label = "BOMB", price = 4, remaining = final_hub and 3 or 1 },
-      { key = "flares", label = "FLARE", price = 3, remaining = final_hub and 3 or 1 },
-    } }
+    local offers = {}
+    for _, offer in ipairs(profile.offers) do offers[#offers + 1] = copy_offer(offer) end
+    return { kind = "supply", offers = offers }
   elseif service.role == "repair" then
-    return { kind = "repair", price = 2, remaining = final_hub and 6 or 3 }
+    return { kind = "repair", price = profile.price, remaining = profile.remaining }
   elseif service.role == "salvager" then
     local pool = {
       "component.arm.legacy_projectile_emitter", "component.arm.legacy_arcane_projector",
@@ -42,7 +54,7 @@ function Economy.create_stock(session, service_id, rng, final_hub)
     }
     local offers = {}
     local shuffled = rng:shuffle(pool)
-    for index = 1, math.min(final_hub and 4 or 2, #shuffled) do
+    for index = 1, math.min(profile.offer_count, #shuffled) do
       local component = session.component_factory:create(shuffled[index])
       local definition = session.registry:get_component(component.definition_id)
       offers[#offers + 1] = { component = Component.to_data(component), price = definition.scrap_value or definition.max_integrity, sold = false }
@@ -54,7 +66,7 @@ function Economy.create_stock(session, service_id, rng, final_hub)
     table.sort(ids)
     ids = rng:shuffle(ids)
     local offers = {}
-    for index = 1, math.min(final_hub and 5 or 3, #ids) do offers[#offers + 1] = { charm_id = ids[index], sold = false } end
+    for index = 1, math.min(profile.offer_count, #ids) do offers[#offers + 1] = { charm_id = ids[index], sold = false } end
     return { kind = "charm_vendor", offers = offers }
   end
   error("Unsupported service role " .. service.role)

@@ -2,8 +2,9 @@
 -- world objects; this module only changes their ordinary saved state and
 -- creates normal enemy actors at their visible origin.
 local Grid = require("src.world.grid")
+local Balance = require("content.balance.legacy")
 
-local Reinforcements = { WARNING_DELAY = 2 }
+local Reinforcements = { WARNING_DELAY = Balance.reinforcements.warning_delay_turns }
 local CARDINAL = { { 0, 1 }, { 1, 0 }, { 0, -1 }, { -1, 0 } }
 
 local function source_objects(session)

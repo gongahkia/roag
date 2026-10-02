@@ -123,7 +123,12 @@ function Definitions:validate()
     -- Pre-8B tooling fixtures used the overloaded score spelling. Retain it
     -- only as an input alias; all runtime settings use objective_required.
     if tier.settings.objective_required == nil then tier.settings.objective_required = tier.settings.score end
-    for _, field in ipairs({ "targets", "enemies", "objective_required", "ammo", "vision", "torches" }) do
+    -- These rewards became authored tier values during the 8L tuning pass.
+    -- Keep compact third-party/test tier fixtures valid with the historical
+    -- one-DATA / three-SCRAP completion defaults.
+    if tier.settings.completion_scrap_reward == nil then tier.settings.completion_scrap_reward = 3 end
+    if tier.settings.completion_data_reward == nil then tier.settings.completion_data_reward = 1 end
+    for _, field in ipairs({ "targets", "enemies", "objective_required", "ammo", "vision", "torches", "completion_scrap_reward", "completion_data_reward" }) do
       integer(tier.settings[field], "Tier '" .. id .. "' settings." .. field)
     end
   end
