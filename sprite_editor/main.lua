@@ -84,7 +84,7 @@ local function edit(control)
   if control.axis then
     local result = model:adjust(selected, control.axis, control.delta); local current = result and result.mapping
     status = current and (role().label .. " → [" .. current[1] .. ", " .. current[2] .. "]") or "Could not adjust mapping."
-  elseif control.action == "reset" then model:reset(selected); status = "Role reset to default." 
+  elseif control.action == "reset" then model:reset(selected); status = "Role reset to default."
   elseif control.action == "clear" then local ok, failure = model:clear(selected); status = ok and "Optional role cleared; fallback art will render." or (failure and failure.reason or "Cannot clear this role.") end
 end
 
