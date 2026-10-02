@@ -23,3 +23,12 @@ catalog lives in `src/rendering/art_packs.lua`; it supplies bounded starter
 role maps for every renderer sprite. The original ROAG 1-bit mapping remains
 the one supported by the standalone `sprite_editor`, because its JSON schema
 is intentionally tied to the original 49×22 sheet.
+
+## Tool cursors
+
+The standalone editors and ROAG Studio use [Kenney Cursor Pack](https://kenney.nl/assets/cursor-pack)
+for their pointer, hand, picker, pan, and unavailable states. It is CC0 by
+Kenney; the untouched upstream distribution and its `License.txt` live at
+`assets/cursors/kenney/`. The standalone editor copies are deliberately small
+runtime mirrors so `love sprite_editor` and `love level_editor` work without
+mounting the parent project.

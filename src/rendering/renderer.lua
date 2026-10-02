@@ -6,6 +6,10 @@ local Renderer = {}
 Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
+local SCREEN_ACCENTS = {
+  cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
+  coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
+}
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
@@ -16,6 +20,17 @@ end
 
 function Renderer:_color(color)
   love.graphics.setColor(color[1], color[2], color[3], color[4] or 1)
+end
+
+function Renderer:_screen_definition(app, id)
+  local screen = app and app.screens and app.screens:screen(id) or nil
+  local accent = screen and SCREEN_ACCENTS[screen.accent] or SCREEN_ACCENTS.cyan
+  return screen, accent
+end
+
+function Renderer:_screen_text(app, id, field, fallback)
+  local screen = app and app.screens and app.screens:screen(id) or nil
+  return screen and screen[field] or fallback
 end
 
 function Renderer:_text(value, x, y, scale, color)
@@ -657,8 +672,11 @@ end
 function Renderer:_draw_title(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
-  self:_text("ROAG", width / 2 - 104, height / 2 - 100, 4, { 0.7, 0.9, 1 })
-  self:_text("A ONE-BIT DESCENT", width / 2 - 110, height / 2 - 34, 1.2, { 0.7, 0.75, 0.85 })
+  local screen, accent = self:_screen_definition(app, "title")
+  local title = self:_screen_text(app, "title", "title", "ROAG")
+  local subtitle = self:_screen_text(app, "title", "subtitle", "A ONE-BIT DESCENT")
+  self:_text(title, width / 2 - #title * 13, height / 2 - 100, 4, accent)
+  self:_text(subtitle, width / 2 - #subtitle * 4.5, height / 2 - 34, 1.2, { 0.7, 0.75, 0.85 })
   local options = app:title_options()
   for index, option in ipairs(options) do
     self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
@@ -667,7 +685,7 @@ function Renderer:_draw_title(app)
   local message = app.death_archive_error and "FALLEN ARCHIVE WRITE FAILED — DEAD RUN RETAINED"
     or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
-    or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or "W/S SELECT     ENTER CONFIRM")
+    or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))
   -- Keep title feedback below the longest normal menu so valid title states
   -- remain screenshot-readable as presentation options are added.
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
@@ -677,8 +695,9 @@ function Renderer:_draw_art_packs(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
   local options = app:art_pack_options()
-  self:_text("ART PACKS", 42, 30, 2, { 0.7, 0.9, 1 })
-  self:_text("PRESENTATION ONLY — RUNS, SAVES, AND SIMULATION STAY UNCHANGED", 42, 68, 0.74, { 0.68, 0.76, 0.88 })
+  local screen, accent = self:_screen_definition(app, "art_packs")
+  self:_text(self:_screen_text(app, "art_packs", "title", "ART PACKS"), 42, 30, 2, accent)
+  self:_text(self:_screen_text(app, "art_packs", "subtitle", "PRESENTATION ONLY — RUNS, SAVES, AND SIMULATION STAY UNCHANGED"), 42, 68, 0.74, { 0.68, 0.76, 0.88 })
   for index, option in ipairs(options) do
     local y, selected = 104 + (index - 1) * 57, index == app.menu
     self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
@@ -701,7 +720,7 @@ function Renderer:_draw_art_packs(app)
     self:_text("assets/art_packs/.", x, y + 248, 0.65, { 0.62, 0.7, 0.81 })
   end
   local footer = app.art_pack_error and ("PREFERENCE ERROR: " .. tostring(app.art_pack_error.reason))
-    or "W/S SELECT     ENTER / E APPLY     ESC TITLE"
+    or (screen and screen.footer or "W/S SELECT     ENTER / E APPLY     ESC TITLE")
   self:_text(footer, 42, height - 40, 0.78, { 0.75, 0.82, 0.92 })
 end
 
@@ -709,7 +728,9 @@ function Renderer:_draw_fallen_archive(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
   local entries = app:fallen_archive_entries()
-  self:_text("FALLEN ARCHIVE", 42, 34, 2, { 0.7, 0.9, 1 })
+  local screen, accent = self:_screen_definition(app, "fallen_archive")
+  self:_text(self:_screen_text(app, "fallen_archive", "title", "FALLEN ARCHIVE"), 42, 34, 2, accent)
+  self:_text(self:_screen_text(app, "fallen_archive", "subtitle", "HISTORICAL BODIES — NOT A LIVE INVENTORY"), 42, 68, 0.72, { 0.68, 0.76, 0.88 })
   if #entries == 0 then
     self:_text("NO BODIES HAVE BEEN ARCHIVED", 42, 106, 1.05, { 0.72, 0.78, 0.88 })
     self:_text("A DEAD BODY MAY RETURN IN A FUTURE DESCENT.", 42, 138, 0.78, { 0.55, 0.64, 0.75 })
@@ -747,7 +768,7 @@ function Renderer:_draw_fallen_archive(app)
       end
     end
   end
-  self:_text("W/S SELECT     ESC TITLE", 42, height - 42, 0.8, { 0.75, 0.82, 0.92 })
+  self:_text((screen and screen.footer) or "W/S SELECT     ESC TITLE", 42, height - 42, 0.8, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_research(app)
@@ -756,7 +777,9 @@ function Renderer:_draw_research(app)
   local category = app:current_research_category()
   local categories = app:research_categories()
   local options = app:research_options(category)
-  self:_text("RESEARCH", 44, 34, 2, { 0.7, 0.9, 1 })
+  local screen, accent = self:_screen_definition(app, "research")
+  self:_text(self:_screen_text(app, "research", "title", "RESEARCH"), 44, 34, 2, accent)
+  self:_text(self:_screen_text(app, "research", "subtitle", "PERMANENT ACCOUNT PROGRESSION"), 44, 60, 0.68, { 0.68, 0.76, 0.88 })
   self:_text("RESEARCH DATA: " .. app.meta_profile.research_data, 44, 72, 1.05, { 0.95, 0.85, 0.3 })
   self:_text(app.continue_available and "PURCHASES APPLY TO FUTURE RUNS" or "UNLOCKS APPLY TO YOUR NEXT RUN", 44, 98, 0.78, { 0.72, 0.78, 0.88 })
   for index, value in ipairs(categories) do
@@ -776,7 +799,7 @@ function Renderer:_draw_research(app)
     self:_text(option.description, width * 0.3, y + 27, 0.69, { 0.72, 0.78, 0.88 })
     self:_text(state, width * 0.79, y + 8, 0.69, tint)
   end
-  local footer = app.meta_error and ("PROFILE ERROR: " .. tostring(app.meta_error.reason)) or "A/D CATEGORY     W/S NODE     ENTER PURCHASE     ESC TITLE"
+  local footer = app.meta_error and ("PROFILE ERROR: " .. tostring(app.meta_error.reason)) or (screen and screen.footer or "A/D CATEGORY     W/S NODE     ENTER PURCHASE     ESC TITLE")
   self:_text(footer, 44, height - 42, 0.78, { 0.75, 0.82, 0.92 })
 end
 
@@ -787,8 +810,11 @@ function Renderer:_draw_route(app)
   local session, route = app.session, app.session.state.route
   local width, height = love.graphics.getDimensions()
   love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("CHOOSE YOUR DESCENT", width * 0.5 - 150, 42, 1.7, { 0.7, 0.9, 1 })
-  self:_text("THE ROUTE IS ONE WAY", width * 0.5 - 96, 77, 0.8, { 0.7, 0.76, 0.86 })
+  local screen, accent = self:_screen_definition(app, "route")
+  local title = self:_screen_text(app, "route", "title", "CHOOSE YOUR DESCENT")
+  local subtitle = self:_screen_text(app, "route", "subtitle", "THE ROUTE IS ONE WAY")
+  self:_text(title, width * 0.5 - #title * 5, 42, 1.7, accent)
+  self:_text(subtitle, width * 0.5 - #subtitle * 3.2, 77, 0.8, { 0.7, 0.76, 0.86 })
 
   local by_depth, depth_count = {}, 0
   for _, id in ipairs(route.node_order) do
@@ -867,7 +893,7 @@ function Renderer:_draw_route(app)
   if selected then
     self:_text("SELECTED: " .. selected.name .. " — " .. selected.description, width * 0.18, height - 76, 0.9, { 0.95, 0.85, 0.3 })
   end
-  self:_text("W/S SELECT     ENTER / E DESCEND", width * 0.5 - 150, height - 44, 0.85, { 0.72, 0.8, 0.92 })
+  self:_text((screen and screen.footer) or "W/S SELECT     ENTER / E DESCEND", width * 0.5 - 150, height - 44, 0.85, { 0.72, 0.8, 0.92 })
 end
 
 function Renderer:draw(app)
@@ -876,10 +902,11 @@ function Renderer:draw(app)
   elseif app.screen == "title" then
     self:_draw_title(app)
   elseif app.screen == "replace_save" then
-    self:_menu("REPLACE ACTIVE RUN?", { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
-      "ENTER CONFIRM     ESC CANCEL")
+    self:_menu(self:_screen_text(app, "replace_save", "title", "REPLACE ACTIVE RUN?"), { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
+      self:_screen_text(app, "replace_save", "footer", "ENTER CONFIRM     ESC CANCEL"))
   elseif app.screen == "curse" then
-    self:_menu("CHOOSE A CURSE", app.session.state.curse_options, app.menu, "W/S SELECT     ENTER ACCEPT BURDEN")
+    self:_menu(self:_screen_text(app, "curse", "title", "CHOOSE A CURSE"), app.session.state.curse_options, app.menu,
+      self:_screen_text(app, "curse", "footer", "W/S SELECT     ENTER ACCEPT BURDEN"))
   elseif app.screen == "route" then
     self:_draw_route(app)
   elseif app.screen == "research" then
@@ -889,7 +916,8 @@ function Renderer:draw(app)
   elseif app.screen == "fallen_archive" then
     self:_draw_fallen_archive(app)
   elseif app.screen == "service_hub" then
-    self:_menu("FINAL SERVICE HUB — SCRAP " .. app.session.state.scrap, app:service_hub_options(), app.menu, "W/S SELECT     ENTER ACCESS / ENTER BOSS")
+    self:_menu(self:_screen_text(app, "service_hub", "title", "FINAL SERVICE HUB") .. " — SCRAP " .. app.session.state.scrap, app:service_hub_options(), app.menu,
+      self:_screen_text(app, "service_hub", "footer", "W/S SELECT     ENTER ACCESS / ENTER BOSS"))
   elseif app.screen == "service" then
     local items = {}
     for _, option in ipairs(app:service_options()) do
@@ -897,7 +925,8 @@ function Renderer:draw(app)
       if option.remaining ~= nil then suffix = suffix .. "  •  " .. option.remaining .. " LEFT" end
       items[#items + 1] = { name = option.label .. suffix, description = option.description or (option.integrity and ("INTEGRITY " .. option.integrity .. "/" .. option.max_integrity) or "") }
     end
-    self:_menu("SERVICE — SCRAP " .. app.session.state.scrap, items, app.menu, "W/S SELECT     ENTER/B/V TRANSACT     ESC CLOSE")
+    self:_menu(self:_screen_text(app, "service", "title", "SERVICE") .. " — SCRAP " .. app.session.state.scrap, items, app.menu,
+      self:_screen_text(app, "service", "footer", "W/S SELECT     ENTER/B/V TRANSACT     ESC CLOSE"))
   elseif app.screen == "inventory" then
     self:_draw_inventory(app)
   elseif app.screen == "salvage" then
@@ -907,9 +936,11 @@ function Renderer:draw(app)
   elseif app.screen == "body_abilities" then
     self:_draw_body_abilities(app)
   elseif app.screen == "gameover" then
-    self:_menu("YOU DIED", { { name = "RETURN TO TITLE", description = "Press Enter to begin a new descent." } }, app.menu, "")
+    self:_menu(self:_screen_text(app, "gameover", "title", "YOU DIED"), { { name = "RETURN TO TITLE", description = self:_screen_text(app, "gameover", "subtitle", "The body is gone.") } }, app.menu,
+      self:_screen_text(app, "gameover", "footer", "ENTER RETURN TO TITLE"))
   elseif app.screen == "victory" then
-    self:_menu("YOU HAVE WON", { { name = "THE DESCENT IS OVER", description = "Press Enter to return to the title." } }, app.menu, "")
+    self:_menu(self:_screen_text(app, "victory", "title", "YOU HAVE WON"), { { name = "THE DESCENT IS OVER", description = self:_screen_text(app, "victory", "subtitle", "The descent is over.") } }, app.menu,
+      self:_screen_text(app, "victory", "footer", "ENTER RETURN TO TITLE"))
   end
 end
 

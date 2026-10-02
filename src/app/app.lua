@@ -13,6 +13,8 @@ local FallenArchive = require("src.persistence.fallen_archive")
 local FallenRecurrence = require("src.simulation.fallen_recurrence")
 local Registry = require("src.content.registry")
 local ArtPackSettings = require("src.persistence.art_pack_settings")
+local ScreenManager = require("src.ui.screen_manager")
+local CursorManager = require("src.ui.cursor_manager")
 
 local App = {}
 App.__index = App
@@ -48,12 +50,15 @@ function App.new(options)
   self.art_pack_error = nil
   if not self.art_pack_settings then self.art_pack_error = self.art_pack_status end
   if not self.art_pack_settings then self.art_pack_settings = ArtPackSettings.new() end
+  self.screens, self.screen_definition_error = ScreenManager.load()
+  if not self.screens then self.screens = ScreenManager.fallback() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
   self.assets = Assets.new({ art_pack_id = self.art_pack_settings.art_pack_id })
   self.sounds = SoundBank.new()
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
+  self.cursors = CursorManager.new()
   self.movement_keys = {}
   self:_reconcile_pending_death()
   self:refresh_continue()
@@ -63,6 +68,8 @@ end
 function App:load()
   self.assets:load()
   self.sounds:load()
+  self.cursors:load()
+  self.cursors:set("default")
 end
 
 function App:focus(focused)
