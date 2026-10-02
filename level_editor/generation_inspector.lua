@@ -12,7 +12,7 @@ Inspector.__index = Inspector
 local LAYER_KEYS = {
   ["1"] = "terrain", ["2"] = "connectivity", ["3"] = "actors", ["4"] = "objects",
   ["5"] = "hazards", ["6"] = "liquids", ["7"] = "gas", ["8"] = "power",
-  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms", v = "discoveries", z = "ecology",
+  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms", v = "discoveries", z = "ecology", l = "landmarks",
 }
 
 local REGION_COLORS = {
@@ -53,7 +53,7 @@ function Inspector.new(options)
     seed_text = tostring(math.floor(tonumber(options.seed) or 1)),
     layers = {
       terrain = true, connectivity = false, actors = true, objects = true, hazards = true,
-      liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false, discoveries = true, ecology = true,
+      liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false, discoveries = true, ecology = true, landmarks = false,
     },
     zoom = 10,
     pan_x = 0,
@@ -214,6 +214,21 @@ function Inspector:_draw_rooms()
       love.graphics.rectangle("fill", cx + self.zoom * 0.25, cy + self.zoom * 0.25, self.zoom * 0.5, self.zoom * 0.5)
     end
     if self.zoom >= 10 then self:_draw_text(room.template_id .. " @" .. room.rotation, sx + 2, sy + 2, { 1, 0.78, 0.3 }, width * self.zoom - 4) end
+  end
+end
+
+function Inspector:_draw_landmarks()
+  if not self.layers.landmarks then return end
+  for _, landmark in ipairs(self.report.landmarks or {}) do
+    local x, y = landmark.x, landmark.y
+    if x and y then
+      local sx, sy = self:_screen_point(x, y)
+      self:_set_color({ 0.98, 0.78, 0.22, 0.92 })
+      love.graphics.circle("line", sx + self.zoom * 0.5, sy + self.zoom * 0.5, math.max(3, self.zoom * 0.7))
+      if self.zoom >= 9 then
+        self:_draw_text((landmark.kind or landmark.id):gsub("^landmark%.[^.]+%.", ""), sx + self.zoom + 2, sy, { 1, 0.82, 0.32 }, 112)
+      end
+    end
   end
 end
 
@@ -437,6 +452,7 @@ function Inspector:draw()
   self:_draw_base()
   self:_draw_media()
   self:_draw_rooms()
+  self:_draw_landmarks()
   self:_draw_actors_and_objectives()
   if self.selected then
     local sx, sy = self:_screen_point(self.selected.x, self.selected.y)
@@ -460,7 +476,7 @@ function Inspector:draw()
   self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
   self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
   local active_layers = {}
-  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms", "discoveries", "ecology" }) do
+  for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms", "discoveries", "ecology", "landmarks" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
   self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
@@ -480,7 +496,7 @@ function Inspector:draw()
   end
   if self.help then
     self:_draw_text("1 terrain  2 connectivity  3 actors  4 objects  5 hazards", self.viewport.x, height - 34, { 0.75, 0.82, 0.9 })
-    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  0 fire  C conductivity  M provenance  T rooms  V discoveries  Z ecology | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
+    self:_draw_text("6 liquid  7 gas  8 power  9 objectives  0 fire  C conductivity  M provenance  T rooms  V discoveries  Z ecology  L landmarks | wheel zoom | middle drag/WASD pan | F fit", self.viewport.x, height - 18, { 0.75, 0.82, 0.9 })
   end
   if self.error then self:_draw_text(self.error, self.viewport.x, 18, { 1, 0.35, 0.3 }) end
 end

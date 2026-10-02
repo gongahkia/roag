@@ -15,6 +15,7 @@ local ACTIONS = {
   continue = { target = "game", conditional = "continue_available" },
   research = { target = "research" },
   fallen = { target = "fallen_archive" },
+  help = { target = "help" },
 }
 
 local FALLBACK = {
@@ -26,6 +27,7 @@ local FALLBACK = {
     { id = "continue", label = "CONTINUE", description = "Resume the current active run.", target = "game" },
     { id = "research", label = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs.", target = "research" },
     { id = "fallen", label = "FALLEN", description = "Inspect bodies lost on earlier descents.", target = "fallen_archive" },
+    { id = "help", label = "HOW TO PLAY", description = "Read the core loop and current controls.", target = "help" },
   },
 }
 

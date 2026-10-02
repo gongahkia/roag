@@ -56,6 +56,9 @@ return {
       assert(inspector.selected == nil and inspector.seed == 73103)
       inspector:toggle_layer("gas")
       assert(not inspector.layers.gas)
+      assert(#(inspector.overlays.landmarks or {}) == #(inspector.report.landmarks or {}))
+      inspector:toggle_layer("landmarks")
+      assert(inspector.layers.landmarks)
     end,
   },
   {

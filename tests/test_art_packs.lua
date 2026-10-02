@@ -6,6 +6,9 @@ local App = require("src.app.app")
 local SaveStore = require("src.persistence.save_store")
 local Renderer = require("src.rendering.renderer")
 local WorkbenchExport = require("src.presentation.art_workbench_export")
+local WorldObjects = require("content.world_objects.legacy")
+local Enemies = require("content.enemies.legacy")
+local Bosses = require("content.bosses.legacy")
 
 return {
   {
@@ -79,7 +82,43 @@ return {
     end,
   },
   {
-    name = "directional one-bit wall roles remain opt-in and terrain selection follows passable neighbours",
+    name = "every production world fixture resolves to a required art-pack sprite role",
+    run = function()
+      local roles = {}
+      for _, role in ipairs(ArtPacks.roles()) do roles[role] = true end
+      for _, object in ipairs(WorldObjects) do
+        assert(roles[object.render_style], "missing required sprite role for " .. object.id)
+      end
+      for _, pack in ipairs(ArtPacks.list()) do
+        for _, object in ipairs(WorldObjects) do
+          assert(pack.sprites[object.render_style], "unassigned " .. object.render_style .. " in " .. pack.id)
+        end
+      end
+    end,
+  },
+  {
+    name = "every runtime actor, projectile, boss, and world fixture role is assigned in every art pack",
+    run = function()
+      local roles = {}
+      for _, role in ipairs(ArtPacks.roles()) do roles[role] = true end
+      local runtime_roles = {
+        "player", "target", "ammo", "torch", "door", "bullet", "bomb", "flare",
+      }
+      for _, enemy in ipairs(Enemies) do runtime_roles[#runtime_roles + 1] = enemy.kind end
+      for _, boss in ipairs(Bosses) do runtime_roles[#runtime_roles + 1] = boss.presentation.sprite_kind end
+      for _, object in ipairs(WorldObjects) do runtime_roles[#runtime_roles + 1] = object.render_style end
+      for _, role in ipairs(runtime_roles) do
+        assert(roles[role], "renderer role is absent from the required sprite map: " .. role)
+      end
+      for _, pack in ipairs(ArtPacks.list()) do
+        for _, role in ipairs(runtime_roles) do
+          assert(pack.sprites[role], "renderer role is unassigned in " .. pack.id .. ": " .. role)
+        end
+      end
+    end,
+  },
+  {
+    name = "directional one-bit wall roles are required mappings and terrain selection follows passable neighbours",
     run = function()
       local renderer = Renderer.new({})
       local open = {}
@@ -98,8 +137,7 @@ return {
       assert(renderer:wall_terrain_kind(world, 10, 10) == "wall")
 
       local assets = Assets.new()
-      assert(not assets.sprites.wall_up, "wall faces start unassigned so existing presentation is preserved")
-      assets.sprites.wall_up = { 1, 1, sheet = "main" }
+      assert(assets.sprites.wall_up, "wall faces are required mapped terrain roles")
       assert(assets.art_pack.terrain.wall_up.role == "wall_up")
     end,
   },
@@ -151,16 +189,12 @@ return {
         for _, pack in ipairs(ArtPacks.list()) do
           local assets = Assets.new({ art_pack_id = pack.id })
           assert(assets:load())
-          assert(assets:draw_sprite("player", 0, 0, 16))
+          for _, role in ipairs(ArtPacks.roles()) do
+            assert(assets:draw_sprite(role, 0, 0, 16), "required sprite role must draw directly: " .. role)
+          end
           for kind, mapping in pairs(pack.terrain or {}) do
             local drawn = assets:draw_terrain(kind, 0, 0, 16)
-            if mapping.role then
-              assert(not drawn, "unassigned editable terrain role should preserve procedural fallback")
-              assets.sprites[mapping.role] = { 1, 1, sheet = "main" }
-              assert(assets:draw_terrain(kind, 0, 0, 16))
-            else
-              assert(drawn)
-            end
+            assert(drawn, "every declared terrain role must resolve to source art")
           end
         end
       end, debug.traceback)

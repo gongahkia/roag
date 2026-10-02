@@ -85,7 +85,10 @@ return {
       session.state.enemies[#session.state.enemies + 1] = corpse_enemy
       session:_destroy_enemy(#session.state.enemies)
       assert(session:salvage_corpse_component(session.state.corpses[1].id, "internal_1").applied)
-      session:turn("shoot_w")
+      -- The north edge of the richer forest spawn clearing may now contain a
+      -- real landmark.  Shoot along the open west side of this fixed fixture
+      -- so a live bullet, bomb, and flare all exercise serialization.
+      session:turn("shoot_a")
       session:turn("b")
       session.state.player.flares = 1
       session:turn("f")

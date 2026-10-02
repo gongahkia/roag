@@ -32,6 +32,13 @@ local function copy_table(values)
   return result
 end
 
+local function by_id(values, id)
+  for _, value in ipairs(values) do
+    if value.id == id then return value end
+  end
+  error("Missing fixture content " .. id)
+end
+
 local function assert_failure(expected, callback)
   local ok, err = pcall(callback)
   assert(not ok, "Expected content validation to fail")
@@ -345,7 +352,9 @@ return {
 
       local invalid_door = sources()
       invalid_door.world_objects = copy_list(invalid_door.world_objects)
-      local door = copy_table(require("content.world_objects.legacy")[4])
+      -- Fixture content grows over time; select the powered door by its
+      -- authority rather than a brittle table position.
+      local door = copy_table(by_id(require("content.world_objects.legacy"), "world_object.door.powered_legacy"))
       door.id = "world_object.invalid.powered_door"
       door.power_required = nil
       invalid_door.world_objects[#invalid_door.world_objects + 1] = door

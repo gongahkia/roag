@@ -127,7 +127,7 @@ return {
         cause = "kinetic",
       })
       assert(player_damage.applied and player_damage.new_condition == "damaged")
-      assert(session.state.log[1] == "LEGACY MANIPULATOR DAMAGED")
+      assert(session.state.log[1] == "LEFT ARM — LEGACY MANIPULATOR DAMAGED")
 
       local player = session.state.player
       local bomber = session:_make_enemy("bomber", { x = player.x, y = player.y + 1 })

@@ -5,6 +5,8 @@
     {"id":"title","layout":"title_menu","title":"ROAG","subtitle":"A ONE-BIT DESCENT","footer":"W/S SELECT     ENTER CONFIRM","accent":"cyan"},
     {"id":"research","layout":"catalog","title":"RESEARCH","subtitle":"PERMANENT ACCOUNT PROGRESSION","footer":"A/D CATEGORY     W/S NODE     ENTER PURCHASE     ESC TITLE","accent":"cyan"},
     {"id":"fallen_archive","layout":"list_detail","title":"FALLEN ARCHIVE","subtitle":"HISTORICAL BODIES — NOT A LIVE INVENTORY","footer":"W/S SELECT     ESC TITLE","accent":"violet"},
+    {"id":"help","layout":"list_detail","title":"HOW TO PLAY","subtitle":"THE BODY IS TEMPORARY. THE KNOWLEDGE IS NOT.","footer":"ENTER / ESC TITLE","accent":"mint"},
+    {"id":"onboarding","layout":"notice","title":"YOUR BODY IS TEMPORARY","subtitle":"BREAK. SALVAGE. REBUILD. RESEARCH SURVIVES.","footer":"ENTER BEGIN DESCENT     ESC TITLE","accent":"cyan"},
     {"id":"route","layout":"route","title":"CHOOSE YOUR DESCENT","subtitle":"THE ROUTE IS ONE WAY","footer":"W/S SELECT     ENTER / E DESCEND","accent":"amber"},
     {"id":"replace_save","layout":"notice","title":"REPLACE ACTIVE RUN?","subtitle":"THE ACTIVE BODY WILL BE RETIRED WITHOUT ARCHIVING IT","footer":"ENTER CONFIRM     ESC CANCEL","accent":"coral"},
     {"id":"curse","layout":"menu","title":"CHOOSE A CURSE","subtitle":"THE NEXT NORMAL FLOOR WILL CARRY THIS BURDEN","footer":"W/S SELECT     ENTER ACCEPT BURDEN","accent":"violet"},

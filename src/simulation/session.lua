@@ -1774,8 +1774,41 @@ function Session:_log_component_transition(actor, result)
     return
   end
   local definition = self.registry:get_component(result.definition_id)
-  local owner = actor == self.state.player and "" or string.upper(actor.kind) .. " "
-  self:_log(string.upper(owner .. definition.display_name) .. " " .. string.upper(result.new_condition))
+  local owner
+  if actor == self.state.player then
+    owner = string.upper((result.slot_id or "body"):gsub("_", " ")) .. " — "
+  else
+    local enemy = actor.content_id and self.registry.enemies[actor.content_id]
+    owner = string.upper((enemy and enemy.display_name) or actor.kind or "ENEMY") .. " — "
+  end
+  self:_log(owner .. string.upper(definition.display_name) .. " " .. string.upper(result.new_condition))
+end
+
+function Session:_log_capability_loss(actor, before, after)
+  local current = {}
+  for _, ability_id in ipairs(after or {}) do current[ability_id] = true end
+  for _, ability_id in ipairs(before or {}) do
+    if not current[ability_id] then
+      local ability = self.registry:get_ability(ability_id)
+      local owner = actor == self.state.player and "" or (string.upper(actor.kind or "ENEMY") .. " — ")
+      self:_log(owner .. string.upper(ability.display_name) .. " OFFLINE")
+    end
+  end
+end
+
+-- Economy repair is the only ordinary path that can restore an installed
+-- provider during a run.  Keep the message at the Session boundary so the
+-- renderer does not have to infer gameplay state from a repair receipt.
+function Session:_log_capability_restoration(actor, before, after)
+  local previous = {}
+  for _, ability_id in ipairs(before or {}) do previous[ability_id] = true end
+  for _, ability_id in ipairs(after or {}) do
+    if not previous[ability_id] then
+      local ability = self.registry:get_ability(ability_id)
+      local owner = actor == self.state.player and "" or (string.upper(actor.kind or "ENEMY") .. " — ")
+      self:_log(owner .. string.upper(ability.display_name) .. " RESTORED")
+    end
+  end
 end
 
 function Session:_log_locomotion_transition(actor, previous, current)
@@ -1805,8 +1838,12 @@ function Session:damage_actor_body(actor, damage_spec)
   end
   spec.rng = spec.rng or self.rng
   local previous_locomotion = self:locomotion_state(actor)
+  local before_capabilities = actor.body:list_capabilities()
   local result = BodyDamage.apply(actor.body, spec)
   self:_log_component_transition(actor, result)
+  if result.became_broken then
+    self:_log_capability_loss(actor, before_capabilities, actor.body:list_capabilities())
+  end
   local current_locomotion = self:locomotion_state(actor)
   result.previous_locomotion = previous_locomotion.state
   result.locomotion = current_locomotion.state
@@ -2086,12 +2123,16 @@ function Session:wear_actor_component(actor, slot_id, source)
     }
   end
   local previous_locomotion = self:locomotion_state(actor)
+  local before_capabilities = actor.body:list_capabilities()
   local result = BodyDamage.apply_wear(actor.body, {
     amount = definition.wear_per_use,
     slot_id = slot_id,
     source = source,
   })
   self:_log_component_transition(actor, result)
+  if result.became_broken then
+    self:_log_capability_loss(actor, before_capabilities, actor.body:list_capabilities())
+  end
   local current_locomotion = self:locomotion_state(actor)
   result.previous_locomotion = previous_locomotion.state
   result.locomotion = current_locomotion.state

@@ -5,17 +5,6 @@ local ArtPacks = require("src.rendering.art_packs")
 local Assets = {}
 Assets.__index = Assets
 
--- These terrain faces are authored by the standalone Sprite Editor but are
--- deliberately absent from sprite_map.lua: an unassigned face must preserve
--- the normal procedural wall presentation instead of silently using a random
--- placeholder tile.
-local OPTIONAL_TERRAIN_ROLES = {
-  wall_left = true,
-  wall_right = true,
-  wall_up = true,
-  wall_down = true,
-}
-
 local function clone_sprites(source)
   return ArtPacks.clone_sprites(source)
 end
@@ -77,7 +66,7 @@ function Assets:refresh_sprite_mappings()
   local main = self.art_pack.sheets.main
   for kind, column, row in contents:gmatch('\"([%w_]+)\"%s*:%s*{%s*\"column\"%s*:%s*(%d+)%s*,%s*\"row\"%s*:%s*(%d+)%s*}') do
     column, row = tonumber(column), tonumber(row)
-    if (self.default_sprites[kind] or OPTIONAL_TERRAIN_ROLES[kind])
+    if self.default_sprites[kind]
       and column >= 1 and column <= main.columns and row >= 1 and row <= main.rows then
       self.sprites[kind] = { column, row, sheet = "main" }
     end
@@ -88,10 +77,6 @@ end
 function Assets:reset_sprite(kind)
   if self.art_pack_id ~= ArtPacks.DEFAULT_ID then return nil, { code = "not_editable", reason = "Only the original ROAG 1-bit pack has editable mappings" } end
   local tile = self.default_sprites[kind]
-  if OPTIONAL_TERRAIN_ROLES[kind] then
-    self.sprites[kind] = nil
-    return true
-  end
   if not tile then return nil, { code = "unknown_sprite", reason = "Unknown sprite role" } end
   self.sprites[kind] = { tile[1], tile[2], sheet = tile.sheet }
   return true
@@ -168,7 +153,7 @@ function Assets:select_art_pack(id)
 end
 
 function Assets:_sprite_for(kind)
-  return self.sprites[kind] or self.sprites.target
+  return self.sprites[kind]
 end
 
 function Assets:_quad_for(sprite)

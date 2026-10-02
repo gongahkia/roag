@@ -70,6 +70,25 @@ return {
     end,
   },
   {
+    name = "repair announces a provider capability only when it becomes functional again",
+    run = function()
+      local value = session(980031)
+      value.state.scrap = 30
+      local component
+      for _, installed in ipairs(value.state.player.body:list_components()) do
+        if #value.registry:get_component(installed.definition_id).abilities > 0 then
+          component = installed
+          break
+        end
+      end
+      assert(component)
+      component.current_integrity = 0
+      local repair = Economy.create_stock(value, "service.repair.legacy", value.rng:derive("restoration"))
+      assert(Economy.repair(value, repair, component.id).applied)
+      assert(value.state.log[1]:find("RESTORED", 1, true))
+    end,
+  },
+  {
     name = "charms derive modifiers compose with curses and survive save resume",
     run = function()
       local value = session(98004)

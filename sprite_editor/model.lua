@@ -14,14 +14,21 @@ local DEFAULT_MAPPINGS = {
   conductor = { 27, 10 }, bulwark = { 30, 9 }, reclaimer = { 26, 10 }, gunner_elite = { 25, 10 },
   shock_bruiser = { 28, 9 }, volatile_heavy = { 20, 9 }, arc_cutter = { 27, 10 },
   maintenance_heavy = { 30, 9 }, reactor_suppressor = { 29, 10 }, arc_warden = { 28, 9 }, boss = { 30, 2 },
+  wall_left = { 10, 4 }, wall_right = { 11, 4 }, wall_up = { 12, 4 }, wall_down = { 13, 4 },
+  old_growth_tree = { 5, 2 }, fallen_log = { 9, 3 }, granite_boulder = { 2, 14 }, stalagmite = { 3, 14 },
+  rubble_pile = { 17, 15 }, ruined_statue = { 18, 15 }, machine_bank = { 24, 11 }, cable_trunk = { 24, 10 },
+  barricade = { 16, 11 }, crate = { 12, 9 }, metal_crate = { 14, 9 }, powered_door = { 22, 1 },
+  generator = { 19, 8 }, breaker = { 20, 8 }, service_kiosk = { 23, 8 }, reinforced_barrier = { 15, 12 },
+  maintenance_hatch = { 17, 12 }, discovery_cache = { 22, 8 }, discovery_clue = { 21, 8 },
+  reinforcement_nest = { 8, 3 }, reinforcement_lift = { 24, 8 },
 }
 
 local ROLE_DATA = {
   { "player", "Player", "Core" }, { "target", "Target", "Core" }, { "ammo", "Ammo", "Core" },
   { "torch", "Torch", "Core" }, { "door", "Exit door", "Core" }, { "bullet", "Bullet", "Core" },
   { "bomb", "Bomb", "Core" }, { "flare", "Flare", "Core" },
-  { "wall_left", "Wall left face", "Terrain", true }, { "wall_right", "Wall right face", "Terrain", true },
-  { "wall_up", "Wall up face", "Terrain", true }, { "wall_down", "Wall down face", "Terrain", true },
+  { "wall_left", "Wall left face", "Terrain" }, { "wall_right", "Wall right face", "Terrain" },
+  { "wall_up", "Wall up face", "Terrain" }, { "wall_down", "Wall down face", "Terrain" },
   { "wolf", "Wolf", "Enemies" }, { "bomber", "Bomber", "Enemies" }, { "necromancer", "Necromancer", "Enemies" },
   { "cultist", "Cultist", "Enemies" }, { "ripper", "Ripper", "Enemies" }, { "skirmisher", "Skirmisher", "Enemies" },
   { "conductor", "Conductor", "Enemies" }, { "bulwark", "Bulwark", "Enemies" }, { "reclaimer", "Reclaimer", "Enemies" },
@@ -30,6 +37,17 @@ local ROLE_DATA = {
   { "arc_cutter", "Arc cutter", "Reactor" }, { "maintenance_heavy", "Maintenance heavy", "Reactor" },
   { "reactor_suppressor", "Reactor suppressor", "Reactor" }, { "arc_warden", "Arc warden", "Reactor" },
   { "boss", "Boss", "Boss" },
+  { "old_growth_tree", "Old-growth tree", "World" }, { "fallen_log", "Fallen trunk", "World" },
+  { "granite_boulder", "Granite boulder", "World" }, { "stalagmite", "Stone pillar", "World" },
+  { "rubble_pile", "Collapsed rubble", "World" }, { "ruined_statue", "Ruined statue", "World" },
+  { "machine_bank", "Derelict machine bank", "World" }, { "cable_trunk", "Exposed cable trunk", "World" },
+  { "barricade", "Masonry barricade", "World" }, { "crate", "Timber crate", "World" },
+  { "metal_crate", "Metal crate", "World" }, { "powered_door", "Powered bulkhead", "World" },
+  { "generator", "Maintenance generator", "World" }, { "breaker", "Circuit breaker", "World" },
+  { "service_kiosk", "Service kiosk", "World" }, { "reinforced_barrier", "Reinforced barrier", "World" },
+  { "maintenance_hatch", "Maintenance hatch", "World" }, { "discovery_cache", "Discovery cache", "World" },
+  { "discovery_clue", "Access marking", "World" }, { "reinforcement_nest", "Disturbed nest", "World" },
+  { "reinforcement_lift", "Maintenance lift", "World" },
 }
 
 local function clone_tile(tile)
@@ -72,7 +90,7 @@ function Model.roles()
 end
 
 function Model.categories()
-  return { "All", "Core", "Terrain", "Enemies", "Elites", "Reactor", "Boss" }
+  return { "All", "Core", "Terrain", "Enemies", "Elites", "Reactor", "Boss", "World" }
 end
 
 function Model.new(mappings)

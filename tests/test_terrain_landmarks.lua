@@ -116,6 +116,13 @@ return {
           assert(#Analysis.overlay_model(value.world, report).landmarks == report.metrics.landmarks)
         end
       end
+      -- These were the sparse-forest regression seeds that showed why local
+      -- clearance alone is insufficient: a real tree/boulder formation must
+      -- not separate a target from the arrival clearing.
+      for _, seed in ipairs({ 931013, 931026, 931044 }) do
+        local value = floor("biome.legacy.forest", "tier.legacy.1", seed)
+        assert(report_for(value).valid)
+      end
     end,
   },
 }

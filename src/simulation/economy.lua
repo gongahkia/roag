@@ -85,8 +85,13 @@ end
 
 function Economy.repair(session, stock, component_id)
   if not stock or stock.remaining <= 0 then return fail("out_of_stock", "No repair operations remain") end
-  local component
-  for _, installed in ipairs(session.state.player.body:list_components()) do if installed.id == component_id then component = installed break end end
+  local component, installed_on_body
+  for _, installed in ipairs(session.state.player.body:list_components()) do
+    if installed.id == component_id then
+      component, installed_on_body = installed, true
+      break
+    end
+  end
   if not component then
     local entry = session.state.run.inventory:get(component_id)
     component = entry and entry.item.object or nil
@@ -96,8 +101,12 @@ function Economy.repair(session, stock, component_id)
   local price = stock.price or 2
   local ok, failure = spend(session, price)
   if not ok then return failure end
+  local before_capabilities = installed_on_body and session.state.player.body:list_capabilities() or nil
   component.current_integrity = math.min(component.max_integrity, component.current_integrity + 1)
   stock.remaining = stock.remaining - 1
+  if before_capabilities then
+    session:_log_capability_restoration(session.state.player, before_capabilities, session.state.player.body:list_capabilities())
+  end
   return { applied = true, code = "repaired", component_id = component.id, price = price, integrity = component.current_integrity }
 end
 

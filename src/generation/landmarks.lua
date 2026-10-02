@@ -209,11 +209,11 @@ local function group_points(anchor, offsets)
   return result
 end
 
--- Authored interior maps have compact room necks where a visually roomy
--- local patch can still be the only link between rooms.  Keep an exact proof
--- there; Forest/Cave use broad local terrain and the inexpensive clearance
--- rule above.  This keeps the safety check proportional to the biomes that
--- actually need it.
+-- A landmark must never turn its otherwise decorative placement into a
+-- progression gate.  The local clearance rule keeps most candidates out of
+-- chokepoints, while this exact proof rejects the rare layout where a grove,
+-- ridge, or pile would still sever the initial passable region.  It is run
+-- only for the bounded landmark candidates (never every cell on the map).
 local function preserves_structured_connectivity(world, player, blocked_points)
   local blocked, expected = {}, 0
   for _, point in ipairs(blocked_points) do blocked[key(point)] = true end
@@ -249,7 +249,7 @@ local function select_group(world, player, feature, definition, rng)
     if attempts > 6 then break end
     local points = group_points(anchor, group_offsets(feature.kind, feature.count, rng))
     local valid = points ~= nil and has_clearance(world, anchor, feature.kind == "scatter" and 12 or 18)
-    if valid and definition.blocks_movement and (world.terrain == "dungeon" or world.terrain == "reactor") then
+    if valid and definition.blocks_movement then
       valid = preserves_structured_connectivity(world, player, points)
     end
     if valid then

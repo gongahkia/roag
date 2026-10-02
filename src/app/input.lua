@@ -72,7 +72,7 @@ function Input.keypressed(app, key, _, is_repeat)
 
   -- Research and fallen-history are title-side screens; their own handlers
   -- return to title rather than turning an ordinary browse action into quit.
-  if key == "escape" and app.screen ~= "research" and app.screen ~= "fallen_archive" then
+  if key == "escape" and app.screen ~= "research" and app.screen ~= "fallen_archive" and app.screen ~= "help" and app.screen ~= "onboarding" then
     app:quit()
     return
   end
@@ -84,6 +84,15 @@ function Input.keypressed(app, key, _, is_repeat)
     elseif key == "return" or key == "space" then
       app:activate_title_choice()
     end
+    return
+  end
+  if app.screen == "help" then
+    if key == "escape" or key == "return" or key == "space" then app.screen, app.menu = "title", 1 end
+    return
+  end
+  if app.screen == "onboarding" then
+    if key == "escape" then app.screen, app.menu = "title", 1
+    elseif key == "return" or key == "space" then app:request_new_run() end
     return
   end
   if app.screen == "research" then

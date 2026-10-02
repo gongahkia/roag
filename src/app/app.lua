@@ -276,6 +276,44 @@ function App:request_new_run()
   return true
 end
 
+-- The profile's initial sequence number is enough to identify the first-ever
+-- run.  This adds no persistence field: cancelling the briefing leaves the
+-- account untouched, while direct/test callers can still start a run through
+-- the existing request_new_run API.
+function App:begin_new_run()
+  if not self.continue_available and not self.meta_error and self.meta_profile.next_run_sequence == 1 then
+    self.screen, self.menu = "onboarding", 1
+    return true
+  end
+  return self:request_new_run()
+end
+
+function App:onboarding_sections()
+  return {
+    "YOUR BODY IS TEMPORARY.",
+    "BREAK ENEMY BODIES. SALVAGE USEFUL PARTS. SURVIVE THE FLOOR.",
+    "REBUILD BETWEEN FLOORS. DEATH ENDS THE RUN; RESEARCH SURVIVES.",
+    "WASD MOVE   ARROWS SHOOT   X BODY ABILITIES   G SALVAGE   I INVENTORY   U INTERACT",
+  }
+end
+
+function App:help_sections()
+  return {
+    { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
+    { title = "MOVEMENT + COMBAT", text = "WASD moves. Arrow keys shoot. Q dashes. B throws a bomb. F places a flare." },
+    { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
+    { title = "SALVAGE + INVENTORY", text = "G opens a nearby corpse. Parts need space in the grid; R rotates selected cargo." },
+    { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
+    { title = "SERVICES + ROUTE", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms; route choices are one way." },
+    { title = "RESEARCH + DEATH", text = "RESEARCH DATA unlocks future runs. Death archives the body; a fallen shell can recur later." },
+  }
+end
+
+function App:open_help()
+  self.screen, self.menu = "help", 1
+  return true
+end
+
 function App:confirm_replace_save()
   local run_id, snapshot = self:_allocate_new_run()
   if not run_id then self.title_error = snapshot; self.screen = "title"; return false end
@@ -326,7 +364,8 @@ function App:activate_title_choice()
   if selected and selected.id == "continue" then return self:continue_run() end
   if selected and selected.id == "research" then return self:open_research() end
   if selected and selected.id == "fallen" then return self:open_fallen_archive() end
-  return self:request_new_run()
+  if selected and selected.id == "help" then return self:open_help() end
+  return self:begin_new_run()
 end
 
 function App:play_sound(name)
@@ -402,9 +441,14 @@ function App:research_options(category)
       local unlocked = MetaProfile.has_research(self.meta_profile, node.id)
       local ready = true
       for _, prerequisite in ipairs(node.prerequisites) do if not MetaProfile.has_research(self.meta_profile, prerequisite) then ready = false end end
+      local prerequisite_names = {}
+      for _, prerequisite in ipairs(node.prerequisites) do
+        local prerequisite_node = self.registry:get_research(prerequisite)
+        prerequisite_names[#prerequisite_names + 1] = prerequisite_node.display_name
+      end
       values[#values + 1] = { id = node.id, name = node.display_name, description = node.description, cost = node.cost,
         prerequisites = node.prerequisites, unlocked = unlocked, available = not unlocked and ready,
-        locked = not unlocked and not ready, category = node.category }
+        locked = not unlocked and not ready, category = node.category, prerequisite_names = prerequisite_names }
     end
   end
   table.sort(values, function(a, b) return a.id < b.id end)
