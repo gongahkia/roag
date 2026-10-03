@@ -134,6 +134,7 @@ function GameplayUI.hud(session)
     -- retain the normal-floor counter until route progression is retired.
     objective_progress = session.campaign and nil or (player.objective_progress or 0),
     objective_required = session.campaign and nil or state.settings.objective_required,
+    location = session.campaign and state.settings.location_name or nil,
     scrap = state.scrap or 0,
     charm_count = charm_count,
     charm_slots = charm_slots,

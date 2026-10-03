@@ -102,13 +102,20 @@ local PLAYER_ACTOR_ID = "actor.player.legacy"
 -- deliberately a small mapping rather than macro geography; OW-02 will own
 -- which profile a neighboring coordinate receives.
 local CAMPAIGN_ZONE_PROFILES = {
-  ["zone_profile.legacy.forest"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1" },
-  ["zone_profile.legacy.cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2" },
+  ["zone_profile.legacy.forest"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1", ecology_profile_id = "ecology.surface.feral" },
+  ["zone_profile.legacy.cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2", ecology_profile_id = "ecology.cave.feral_cult" },
   -- Compatibility tiers only: Z/profile is the campaign authority, not the
   -- legacy route depth encoded by these existing Cave generators.
-  ["zone_profile.legacy.deep_cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3" },
-  ["zone_profile.legacy.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3" },
-  ["zone_profile.legacy.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3" },
+  ["zone_profile.legacy.deep_cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.cave.feral_cult" },
+  ["zone_profile.legacy.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.legacy.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  -- Semantic campaign profiles keep the reusable legacy generators and tiers
+  -- as a compatibility implementation detail rather than route progression.
+  ["zone_profile.world.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.world.deep_dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.world.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  ["zone_profile.world.reactor_core"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  ["zone_profile.world.boss_lair"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.boss_lair" },
 }
 local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
@@ -1541,6 +1548,7 @@ function Session:to_data()
       service_return_phase = state.service_return_phase,
       final_service_hub = state.final_service_hub,
       boss_completed = state.boss_completed,
+      campaign_boss_site_id = state.campaign_boss_site_id,
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
@@ -1576,6 +1584,7 @@ function Session:to_data()
     boss = self:_actor_to_data(state.boss),
     route = state.route and state.route:to_data() or nil,
     surface_connector_cells = copy_plain(state.surface_connector_cells or {}),
+    protected_content_cells = copy_plain(state.protected_content_cells or {}),
   }
   for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.id or curse.name end
   for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.id or curse.name end
@@ -1632,6 +1641,7 @@ function Session.from_data(data, options)
   state.scrap = progression.scrap or progression.score or 0
   state.ended, state.reconstruction_next, state.transition_next = progression.ended, progression.reconstruction_next, progression.transition_next
   state.boss_completed = progression.boss_completed
+  state.campaign_boss_site_id = progression.campaign_boss_site_id
   state.legacy_class = named_content(session.content.classes, progression.class_name, "class")
   state.legacy_boon = named_content(session.content.boons, progression.boon_name, "boon")
   state.class, state.boon = nil, nil
@@ -1699,6 +1709,7 @@ function Session.from_data(data, options)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
   state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
+  state.protected_content_cells = copy_plain(data.protected_content_cells or {})
   state.log = {}
   for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
 
@@ -2734,7 +2745,97 @@ end
 -- campaign-derived seed as the authority for the active physical zone.  The
 -- route node remains legacy progression metadata; it no longer supplies this
 -- zone's identity or generation root.
-function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boon)
+function Session:_place_campaign_world_content(zone_sites, zone_seed)
+  local state = self.state
+  local metadata = { sites = {} }
+  for _, site in ipairs(zone_sites or {}) do
+    local rng = Rng.new(zone_seed):derive("campaign.world_site." .. site.id)
+    if site.type == "service_outpost" then
+      local placed, anchor = {}, nil
+      for _, service_id in ipairs(site.service_ids or {}) do
+        local point
+        if anchor then
+          local nearby = {}
+          local occupied = self:_occupied()
+          for y = anchor.y - 3, anchor.y + 3 do
+            for x = anchor.x - 3, anchor.x + 3 do
+              if math.max(math.abs(x - anchor.x), math.abs(y - anchor.y)) <= 3 and Grid.in_bounds(x, y)
+                and state.world:is_passable(x, y) and not state.world:object_at(x, y)
+                and not state.world:is_hazardous(x, y) and not state.world:is_harmful_gas_at(x, y)
+                and #state.world:fires_at(x, y) == 0 then
+                if not occupied[Grid.key(x, y)] then nearby[#nearby + 1] = { x = x, y = y } end
+              end
+            end
+          end
+          table.sort(nearby, function(a, b) return a.y == b.y and a.x < b.x or a.y < b.y end)
+          if #nearby > 0 then point = rng:derive(service_id .. ".cluster"):choice(nearby) end
+        end
+        point = point or self:_open_location(self:_occupied(), 5, true, rng:derive(service_id))
+        local stock = Economy.create_stock(self, service_id, rng:derive(service_id .. ".stock"), false)
+        local kiosk, result = state.world:place_object("world_object.service.kiosk", point.x, point.y, {
+          service_id = service_id, service_stock = stock, service_origin = site.id,
+          world_content_site_id = site.id,
+        })
+        assert(kiosk, result and result.reason)
+        anchor = anchor or { x = point.x, y = point.y }
+        placed[#placed + 1] = kiosk.id
+      end
+      metadata.sites[#metadata.sites + 1] = { id = site.id, type = site.type, object_ids = placed }
+    elseif site.type == "discovery_site" then
+      state.discovery_state.enabled = true
+      local discovery, reason = DiscoveryGeneration.place(self, rng, "campaign." .. site.id, site.discovery_id, true)
+      assert(discovery, "Campaign discovery site could not be placed: " .. site.discovery_id .. " (" .. tostring(reason) .. ")")
+      metadata.sites[#metadata.sites + 1] = { id = site.id, type = site.type, discovery_id = site.discovery_id,
+        cache_object_id = discovery.cache_object_id }
+    end
+  end
+  state.generation_metadata = state.generation_metadata or {}
+  state.generation_metadata.world_content = metadata
+end
+
+function Session:apply_pending_campaign_world_content()
+  local state = self.state
+  if not state.pending_world_content_sites then return false end
+  local sites, seed = state.pending_world_content_sites, state.floor_seed
+  state.pending_world_content_sites = nil
+  self:_place_campaign_world_content(sites, seed)
+  state.discovery_state.enabled = true
+  self:validate_world()
+  self:validate_physical_ownership()
+  return true
+end
+
+function Session:_start_campaign_boss_lair(boss_site, zone_seed)
+  local state, player = self.state, self.state.player
+  local definition = self.registry:get_boss(assert(boss_site.boss_id, "Boss site has no boss ID"))
+  local profile = self.registry:get_boss_arena(definition.arena_profile_id)
+  local arena_rng = Rng.new(zone_seed):derive("campaign.boss_arena." .. definition.id)
+  player.x, player.y, player.direction, player.score, player.objective_progress = profile.player_spawn.x, profile.player_spawn.y, "w", 0, 0
+  player.dash = 0
+  state.settings.terrain, state.settings.vision, state.settings.arena_profile_id = profile.terrain, 99, profile.id
+  state.settings.location_name = definition.display_name
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), self.identity_allocator or state,
+    self:_boss_arena_material_layout(profile))
+  self:_apply_boss_arena_profile(profile)
+  state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
+  state.bombs, state.flares, state.torches = {}, {}, {}
+  state.effects, state.electrical_effects, state.exit, state.corpses = {}, {}, nil, {}
+  state.boss = self:_make_boss(definition.id, profile.boss_spawn)
+  state.boss_completed = nil
+  state.campaign_boss_site_id = boss_site.id
+  state.protected_content_cells = { [Grid.key(profile.boss_spawn.x, profile.boss_spawn.y)] = true }
+  local point = self:_open_location(self:_occupied(true))
+  state.ammo = entity("ammo", point.x, point.y)
+  state.phase = "boss"
+  state.generation_metadata = { world_content = { sites = { { id = boss_site.id, type = "boss_site", boss_id = definition.id } } } }
+  self:_log(definition.display_name .. " AWAITS.")
+  self:refresh_visibility()
+  self:validate_world()
+  self:validate_physical_ownership()
+end
+
+function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boon, options)
+  options = options or {}
   assert(self.identity_allocator, "Campaign zones require a zone identity allocator")
   assert(type(zone_seed) == "number" and zone_seed % 1 == 0 and zone_seed > 0, "Campaign zone seed is invalid")
   self:start_run(class, boon, true)
@@ -2744,17 +2845,24 @@ function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boo
   local biome = self.route_definitions:get_biome(profile.biome_id)
   local tier = self.route_definitions:get_tier(profile.tier_id)
   local settings = self:_settings_for_floor(biome, tier)
-  -- Existing opening-floor service content remains available for the playable
-  -- forest start. Other reusable generator profiles stay headless/tooling
-  -- inputs until OW-02 places services geographically.
-  if profile_id == "zone_profile.legacy.forest" then
-    settings.service_id, settings.service_origin = node.service_id, node.id
-  end
+  -- In campaign mode services and discoveries are placed only through the
+  -- persistent world plan. Legacy route floors retain their own generation.
+  settings.location_name = options.location_name
+  settings.ecology_profile_id = profile.ecology_profile_id
   state.stage = tier.number
   state.floor_seed = zone_seed
   state.zone_key = { world_x = zone_key.world_x, world_y = zone_key.world_y, z = zone_key.z }
   state.zone_profile_id = profile_id
+  state.discovery_state = { enabled = false, assigned_discovery_ids = state.discovery_state.assigned_discovery_ids or {} }
   self:_start_floor(settings, Rng.new(zone_seed), "campaign." .. tostring(zone_key))
+  if options.boss_site then
+    self:_start_campaign_boss_lair(options.boss_site, zone_seed)
+  else
+    -- Campaign installs its protected physical topology after this call.
+    -- Apply POI contents only afterwards so caches/kiosks never occupy a
+    -- connector throat that will be carved into the generated terrain.
+    state.pending_world_content_sites = options.zone_sites or {}
+  end
   return state.world
 end
 
@@ -4415,6 +4523,21 @@ function Session:_defeat_boss(boss)
   local definition = self:_boss_definition(boss)
   boss.pending_telegraph = nil
   self:_cancel_area_attacks_from(boss)
+  -- A campaign boss is an ordinary persistent zone resident.  Its defeat
+  -- leaves the physical corpse in place, records a one-time semantic reward,
+  -- and returns the zone to normal exploration without touching the route.
+  if self.campaign and state.campaign_boss_site_id then
+    local corpse = self:_create_corpse(boss)
+    state.boss = nil
+    state.boss_completed = definition.id
+    state.phase = "combat"
+    local reward = definition.final_data_reward or definition.milestone_data_reward or 2
+    self:_claim_research_reward("world_boss." .. state.campaign_boss_site_id, reward)
+    self:_sound("door")
+    self:_log("MAJOR THREAT ELIMINATED.")
+    self:validate_physical_ownership()
+    return corpse
+  end
   local node = state.route and state.route:node(state.route.current_node_id) or nil
   if node and not state.route.completed_node_ids[node.id] then
     local completed = state.route:complete_current()
@@ -4596,7 +4719,9 @@ function Session:turn(input)
     self:_begin_exit()
   else
     self:_enemy_turn()
-    self:_refill_entities()
+    -- Finite campaign zones stay cleared. The legacy run retains the old
+    -- floor-refill pressure as a compatibility behaviour.
+    if not self.campaign then self:_refill_entities() end
   end
   if not state.ended then ReinforcementSimulation.tick(self) end
   -- World processes run after immediate actions and enemy response. Liquid

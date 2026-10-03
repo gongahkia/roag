@@ -7,6 +7,8 @@ local ZoneRecord = require("src.campaign.zone_record")
 local Identity = require("src.campaign.identity")
 local SurfaceWorld = require("src.campaign.surface_world")
 local WorldTopology = require("src.campaign.world_topology")
+local WorldContent = require("src.campaign.world_content")
+local Registry = require("src.content.registry")
 local Grid = require("src.world.grid")
 local Corpse = require("src.world.corpse")
 local Inventory = require("src.inventory.inventory")
@@ -54,15 +56,15 @@ function Campaign.is_zone_in_bounds(key)
   return WorldTopology.is_zone_in_bounds(key)
 end
 
-local function zone_connections(seed, key)
-  return WorldTopology.is_zone_in_bounds(key) and WorldTopology.connections(seed, key) or {}
+local function zone_connections(seed, key, world_content_plan)
+  return WorldTopology.is_zone_in_bounds(key) and WorldTopology.connections(seed, key, world_content_plan) or {}
 end
 
-local function ensure_record_connections(seed, record)
+local function ensure_record_connections(seed, record, world_content_plan)
   -- Connection metadata is derived only from campaign seed + ZoneKey. This
   -- makes OW-01/02 records safely additive: a former surface record gains its
   -- vertical landmark index without changing its established edge geometry.
-  record.connections = zone_connections(seed, record.key)
+  record.connections = zone_connections(seed, record.key, world_content_plan)
   return record.connections
 end
 
@@ -112,7 +114,7 @@ local function install_zone_connections(session, record)
         SurfaceWorld.reserve_interior_connection(session, cell, reserved)
         object = world:object_at(cell.x, cell.y)
         assert(not object, "Vertical connection cell could not be reserved")
-        local placed, placement = world:place_object(WorldTopology.object_definition_for(connection.connection_type), cell.x, cell.y, {
+        local placed, placement = world:place_object(WorldTopology.object_definition_for(connection.connection_type, connection), cell.x, cell.y, {
           zone_connection_id = connection.id,
           zone_connection_type = connection.connection_type,
           zone_connection_direction = connection.direction,
@@ -189,10 +191,13 @@ function Campaign.new(options)
   local id = campaign_id(options.campaign_id or "campaign:000001")
   local key = options.current_zone and ZoneKey.from_data(options.current_zone) or ZoneKey.new(0, 0, 0)
   assert(WorldTopology.is_zone_in_bounds(key), "Campaign initial ZoneKey is outside world bounds")
-  local profile_id = options.profile_id or WorldTopology.profile_for(key)
+  local plan_registry = options.registry or Registry.load()
+  local world_content_plan = options.world_content_plan or WorldContent.new(seed, plan_registry)
+  WorldContent.validate(world_content_plan, plan_registry)
+  local profile_id = options.profile_id or WorldTopology.profile_for(key, world_content_plan)
   local campaign_identity = Identity.campaign_state_data(options.identity_state)
   local record = ZoneRecord.new(key, profile_id, Campaign.derive_zone_seed(seed, key), options.zone_identity_state, {
-    campaign_id = id, visited = true, connections = zone_connections(seed, key),
+    campaign_id = id, visited = true, connections = zone_connections(seed, key, world_content_plan),
   })
   local identity = Identity.new(id, key, campaign_identity, record.identity_state)
   record.identity_state = identity.zone_state
@@ -206,6 +211,7 @@ function Campaign.new(options)
       reconstruction_anchor = parse_anchor(options.reconstruction_anchor),
       pending_successor = options.pending_successor,
       body_death_count = options.body_death_count or 0,
+      world_content_plan = world_content_plan,
     },
     active_zone = record,
     identity = identity,
@@ -220,8 +226,14 @@ function Campaign.new(options)
     identity_allocator = identity, campaign = self, campaign_state = self.state,
     on_meta_reward = options.on_meta_reward, emit = options.emit, run_id = id,
   })
-  session:start_campaign_zone(key, record.generation_seed, profile_id, options.class, options.boon)
+  session:start_campaign_zone(key, record.generation_seed, profile_id, options.class, options.boon, {
+    world_content_plan = world_content_plan,
+    zone_sites = WorldContent.sites_for_zone(world_content_plan, key),
+    location_name = WorldContent.location_name(world_content_plan, key, profile_id),
+    boss_site = WorldContent.boss_site_for_zone(world_content_plan, key),
+  })
   install_zone_connections(session, record)
+  session:apply_pending_campaign_world_content()
   self.session = session
   ensure_reconstruction_anchor(self, record, session)
   self:sync_active_references()
@@ -273,8 +285,8 @@ end
 
 function Campaign:_new_record(key)
   assert(WorldTopology.is_zone_in_bounds(key), "Campaign zone is outside finite world bounds")
-  local record = ZoneRecord.new(key, WorldTopology.profile_for(key), Campaign.derive_zone_seed(self.state.seed, key), nil, {
-    campaign_id = self.state.campaign_id, visited = true, connections = zone_connections(self.state.seed, key),
+  local record = ZoneRecord.new(key, WorldTopology.profile_for(key, self.state.world_content_plan), Campaign.derive_zone_seed(self.state.seed, key), nil, {
+    campaign_id = self.state.campaign_id, visited = true, connections = zone_connections(self.state.seed, key, self.state.world_content_plan),
   })
   self.state.zone_records[ZoneKey.encode(key)] = record
   return record
@@ -297,13 +309,13 @@ function Campaign:validate()
     assert(record.visited, "Campaign zone index contains an unvisited record")
     if WorldTopology.is_zone_in_bounds(record.key) then
       for _, direction in ipairs(WorldTopology.DIRECTION_ORDER) do
-        local expected = WorldTopology.connection(state.seed, record.key, direction)
+        local expected = WorldTopology.connection(state.seed, record.key, direction, state.world_content_plan)
         assert((expected and record.connections[direction]) or (not expected and not record.connections[direction]),
           "Campaign zone connection index is incomplete")
       end
     end
     for direction, data in pairs(record.connections or {}) do
-      assert(WorldTopology.connection_matches(state.seed, record.key, data),
+      assert(WorldTopology.connection_matches(state.seed, record.key, data, state.world_content_plan),
         "Campaign zone connection metadata is invalid for " .. tostring(direction))
     end
   end
@@ -332,6 +344,15 @@ end
 function Campaign:_zone_data_for(record, session)
   local snapshot = session:to_data()
   snapshot.seed, snapshot.player, snapshot.inventory = nil, nil, nil
+  -- Legacy progression is campaign compatibility state, but a persistent
+  -- zone can own a live boss encounter. Preserve only the local phase/status
+  -- subset beside the shard so returning to a lair never converts a damaged
+  -- boss into a fresh ordinary-floor state.
+  snapshot.campaign_zone_state = {
+    phase = snapshot.progression and snapshot.progression.phase,
+    boss_completed = snapshot.progression and snapshot.progression.boss_completed,
+    campaign_boss_site_id = snapshot.progression and snapshot.progression.campaign_boss_site_id,
+  }
   snapshot.progression, snapshot.route = nil, nil
   return {
     key = ZoneKey.to_data(record.key), profile_id = record.profile_id,
@@ -363,6 +384,7 @@ function Campaign:to_manifest_data()
     reconstruction_anchor = anchor_data(self.state.reconstruction_anchor),
     pending_successor = self.state.pending_successor,
     body_death_count = self.state.body_death_count or 0,
+    world_content_plan = self.state.world_content_plan,
     zones = zones,
   }
 end
@@ -393,6 +415,12 @@ function Campaign:_session_from_shard(record, shard, active_player, carried_inve
     on_meta_reward = self._runtime_options.on_meta_reward, emit = self._runtime_options.emit,
     active_player = active_player, carried_inventory = carried_inventory,
   })
+  local local_state = shard.simulation and shard.simulation.campaign_zone_state
+  if local_state then
+    if local_state.phase then session.state.phase = local_state.phase end
+    session.state.boss_completed = local_state.boss_completed
+    session.state.campaign_boss_site_id = local_state.campaign_boss_site_id
+  end
   return session, identity
 end
 
@@ -409,11 +437,17 @@ function Campaign:_generate_zone_session(record, active_player, carried_inventor
   local generated = Session.new({
     seed = self.state.seed, rng = Rng.new(record.generation_seed), content = self._runtime_options.content,
     registry = self._runtime_options.registry, route_definitions = self._runtime_options.route_definitions,
-    meta_snapshot = self.state.meta_snapshot, identity_allocator = identity, campaign_state = preview_state,
+    meta_snapshot = self.state.meta_snapshot, identity_allocator = identity, campaign = self, campaign_state = preview_state,
     run_id = self.state.run_id,
   })
-  generated:start_campaign_zone(record.key, record.generation_seed, record.profile_id)
+  generated:start_campaign_zone(record.key, record.generation_seed, record.profile_id, nil, nil, {
+    world_content_plan = self.state.world_content_plan,
+    zone_sites = WorldContent.sites_for_zone(self.state.world_content_plan, record.key),
+    location_name = WorldContent.location_name(self.state.world_content_plan, record.key, record.profile_id),
+    boss_site = WorldContent.boss_site_for_zone(self.state.world_content_plan, record.key),
+  })
   install_zone_connections(generated, record)
+  generated:apply_pending_campaign_world_content()
   record.identity_state = identity:zone_state_data()
   local shard = self:_zone_data_for(record, generated)
   -- Rehydrate with the real existing body; generated's temporary player is
@@ -423,7 +457,7 @@ end
 
 function Campaign:_load_zone_session(record, directory, active_player, carried_inventory)
   local Persistence = require("src.persistence.campaign")
-  ensure_record_connections(self.state.seed, record)
+  ensure_record_connections(self.state.seed, record, self.state.world_content_plan)
   if not directory then return nil, { code = "persistence_unavailable", reason = "Campaign persistence is unavailable" } end
   if not record.shard_revision or record.shard_revision < 1 then
     return nil, { code = "destination_load_failed", reason = "Visited zone has no committed shard" }
@@ -799,14 +833,21 @@ function Campaign.generate_zone(seed, campaign_id_value, key, profile_id, option
   options = options or {}
   local campaign = Campaign.new({ seed = seed, campaign_id = campaign_id_value, current_zone = key,
     profile_id = profile_id, registry = options.registry, content = options.content,
-    route_definitions = options.route_definitions, meta_snapshot = options.meta_snapshot })
+    route_definitions = options.route_definitions, meta_snapshot = options.meta_snapshot,
+    world_content_plan = options.world_content_plan })
   return campaign.active_zone:to_data(), campaign.session:to_data()
 end
 
 function Campaign.inspect_surface_zone(seed, campaign_id_value, key, options)
   assert(WorldTopology.is_zone_in_bounds(key), "Inspection requires an in-bounds campaign ZoneKey")
+  options = options or {}
+  local registry = options.registry or Registry.load()
+  local plan = options.world_content_plan or WorldContent.new(seed, registry)
   local record, data = Campaign.generate_zone(seed, campaign_id_value or "campaign:000001", key,
-    WorldTopology.profile_for(key), options)
+    WorldTopology.profile_for(key, plan), {
+      registry = registry, content = options.content, route_definitions = options.route_definitions,
+      meta_snapshot = options.meta_snapshot, world_content_plan = plan,
+    })
   return { record = record, simulation = data, connections = record.connections }
 end
 
@@ -821,7 +862,17 @@ function Campaign.from_data(manifest, shard, options)
   -- deterministic additive vertical index before campaign validation. Their
   -- physical landmark is added only when that specific shard becomes active.
   local manifest_seed = Rng.new(manifest.seed).seed
-  for _, candidate in ipairs(records) do ensure_record_connections(manifest_seed, candidate) end
+  local plan_registry = options.registry or Registry.load()
+  local reserved_columns = {}
+  for _, candidate in ipairs(records) do
+    reserved_columns[ZoneKey.encode(ZoneKey.new(candidate.key.world_x, candidate.key.world_y, 0))] = true
+  end
+  -- OW-01..05 saves did not store a semantic plan. Their committed columns
+  -- are permanently reserved before an additive plan is made, so loading
+  -- never turns an explored forest into a newly invented facility.
+  local world_content_plan = manifest.world_content_plan or WorldContent.new(manifest_seed, plan_registry, reserved_columns)
+  WorldContent.validate(world_content_plan, plan_registry)
+  for _, candidate in ipairs(records) do ensure_record_connections(manifest_seed, candidate, world_content_plan) end
   local map, record = record_map(records), nil
   for _, candidate in ipairs(records) do if ZoneKey.equal(candidate.key, key) then record = candidate break end end
   assert(record, "Campaign manifest does not index its current zone")
@@ -838,7 +889,8 @@ function Campaign.from_data(manifest, shard, options)
       legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route,
       reconstruction_anchor = parse_anchor(manifest.reconstruction_anchor),
       pending_successor = manifest.pending_successor,
-      body_death_count = manifest.body_death_count or 0 },
+      body_death_count = manifest.body_death_count or 0,
+      world_content_plan = world_content_plan },
     active_zone = record, identity = identity,
     _runtime_options = { content = options.content, registry = options.registry, route_definitions = options.route_definitions,
       on_meta_reward = options.on_meta_reward, emit = options.emit },
@@ -865,7 +917,7 @@ function Campaign.from_data(manifest, shard, options)
   -- Existing campaign v1 saves gain deterministic additive topology when a
   -- zone becomes active. Their immutable old shard is retained until normal
   -- save/transition creates the next revision.
-  ensure_record_connections(self.state.seed, record)
+  ensure_record_connections(self.state.seed, record, self.state.world_content_plan)
   install_zone_connections(session, record)
   ensure_reconstruction_anchor(self, record, session)
   if self.state.pending_successor then

@@ -145,7 +145,69 @@ local function gate_layout(session, occupied, rng)
       end
     end
   end
+  -- Open wilderness often has no natural articulation cell. Persistent
+  -- campaign discoveries must still retain their authored access rule, so
+  -- construct the smallest deterministic side cache: a cache cell enclosed
+  -- by ordinary removable barriers with one named access gate. It is not a
+  -- hidden reward; breaking/opening that gate is the same physical action as
+  -- at an organically isolated cache.
+  for _, cache in ipairs(rng:shuffle(all_free)) do
+    if Grid.distance(player, cache) >= 8 then
+      local neighbours, legal = {}, true
+      for _, direction in ipairs(CARDINAL) do
+        local point = { x = cache.x + direction[1], y = cache.y + direction[2] }
+        if safe_free(session, point, occupied, nil) then
+          neighbours[#neighbours + 1] = point
+        elseif session.state.world:is_passable(point.x, point.y) then
+          -- An occupied/hazardous open neighbour cannot become part of a
+          -- deterministic sealed cache; choose another cache cell instead.
+          legal = false
+          break
+        end
+      end
+      if legal and #neighbours >= 1 then
+        local gate = rng:choice(neighbours)
+        local seals = {}
+        for _, point in ipairs(neighbours) do
+          if point.x ~= gate.x or point.y ~= gate.y then seals[#seals + 1] = point end
+        end
+        local clue_options = {}
+        for _, point in ipairs(all_free) do
+          local location_key = key(point)
+          if location_key ~= key(cache) and location_key ~= key(gate) then clue_options[#clue_options + 1] = point end
+        end
+        if #clue_options > 0 then
+          local player_region = {}
+          for _, point in ipairs(all_free) do
+            local location_key = key(point)
+            if location_key ~= key(cache) and location_key ~= key(gate) then
+              local sealed = false
+              for _, seal in ipairs(seals) do if location_key == key(seal) then sealed = true; break end end
+              if not sealed then player_region[location_key] = true end
+            end
+          end
+          return { gate = gate, cache = cache, clue = rng:choice(clue_options), player_region = player_region,
+            free_cells = all_free, seals = seals }
+        end
+      end
+    end
+  end
   return nil
+end
+
+local function place_seals(world, layout, definition, provenance)
+  for _, point in ipairs(layout.seals or {}) do
+    -- Auxiliary masonry belongs to the same semantic site as its named gate.
+    -- Supplying the complete discovery tuple keeps it valid World state and
+    -- lets analysis/persistence treat the compact cache as one site.
+    local seal, failure = world:place_object("world_object.cover.masonry_barricade", point.x, point.y, {
+      discovery_id = definition.id,
+      discovery_access_profile_id = definition.access_profile_id,
+      discovery_provenance = provenance,
+    })
+    if not seal then return nil, failure.reason end
+  end
+  return true
 end
 
 local function place_cache(world, definition, point, provenance)
@@ -181,6 +243,8 @@ local function place_breachable(session, definition, occupied, rng, provenance)
   if not cache then return nil, cache_failure.reason end
   local clue, clue_failure = place_clue(world, definition, layout.clue, provenance)
   if not clue then return nil, clue_failure.reason end
+  local sealed, seal_failure = place_seals(world, layout, definition, provenance)
+  if not sealed then return nil, seal_failure end
   local gate, gate_failure = world:place_object("world_object.cover.masonry_barricade", layout.gate.x, layout.gate.y, {
     discovery_id = definition.id,
     discovery_access_profile_id = definition.access_profile_id,
@@ -214,6 +278,8 @@ local function place_powered(session, definition, occupied, rng, provenance)
   if not cache then return nil, cache_failure.reason end
   local clue, clue_failure = place_clue(world, definition, layout.clue, provenance)
   if not clue then return nil, clue_failure.reason end
+  local sealed, seal_failure = place_seals(world, layout, definition, provenance)
+  if not sealed then return nil, seal_failure end
   local circuit_id = "power.circuit.discovery." .. definition.id:gsub("^discovery%.", ""):gsub("%.", "_")
   local circuit = world:register_circuit(circuit_id, { enabled = false })
   if not circuit.applied then return nil, circuit.reason end
@@ -245,6 +311,8 @@ local function place_hatch(session, definition, occupied, rng, provenance)
   if not cache then return nil, cache_failure.reason end
   local clue, clue_failure = place_clue(world, definition, layout.clue, provenance)
   if not clue then return nil, clue_failure.reason end
+  local sealed, seal_failure = place_seals(world, layout, definition, provenance)
+  if not sealed then return nil, seal_failure end
   local gate, gate_failure = world:place_object("world_object.traversal.maintenance_hatch", layout.gate.x, layout.gate.y, {
     discovery_id = definition.id, discovery_access_profile_id = definition.access_profile_id, discovery_provenance = provenance,
   })
@@ -260,15 +328,28 @@ local PLACERS = {
   ["access_profile.discovery.maintenance_hatch"] = place_hatch,
 }
 
-function Discoveries.place(session, rng, provenance)
+-- `requested_id` / `force` are used by the persistent campaign world plan.
+-- Legacy floor generation retains its optional percentage and selection pool.
+function Discoveries.place(session, rng, provenance, requested_id, force)
   local state = session.state
   local tracker = state.discovery_state
   if not tracker or tracker.enabled ~= true then return nil, "disabled" end
-  if rng:int(1, 100) > Discoveries.PLACEMENT_PERCENT then return nil, "not_selected" end
+  if not force and rng:int(1, 100) > Discoveries.PLACEMENT_PERCENT then return nil, "not_selected" end
   local known, assigned = {}, {}
   for _, id in ipairs(state.meta_snapshot.discovered_discovery_ids or {}) do known[id] = true end
   for _, id in ipairs(tracker.assigned_discovery_ids or {}) do assigned[id] = true end
-  local definitions = sorted_discoveries(session.registry, state.settings.biome_id, assigned, known)
+  local definitions
+  if requested_id then
+    local requested = session.registry:get_discovery(requested_id)
+    local compatible = false
+    for _, biome_id in ipairs(requested.allowed_biome_ids or {}) do
+      if biome_id == state.settings.biome_id then compatible = true; break end
+    end
+    if not compatible then return nil, "incompatible_profile" end
+    definitions = { requested }
+  else
+    definitions = sorted_discoveries(session.registry, state.settings.biome_id, assigned, known)
+  end
   local occupied = session:_occupied()
   for _, definition in ipairs(rng:shuffle(definitions)) do
     local placer = PLACERS[definition.access_profile_id]

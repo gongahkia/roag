@@ -42,6 +42,9 @@ end
 local function protected_cell(session, x, y)
   local state = session.state
   if state.surface_connector_cells and state.surface_connector_cells[Grid.key(x, y)] then return true, "blocks_travel_connection" end
+  if state.protected_content_cells and state.protected_content_cells[Grid.key(x, y)] then
+    return true, "blocks_world_content"
+  end
   local campaign = session.campaign
   if campaign and campaign.state and campaign.state.reconstruction_anchor
     and campaign.active_zone and campaign.active_zone.key

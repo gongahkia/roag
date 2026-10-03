@@ -103,8 +103,15 @@ function WorldTopology.has_deep_cave(seed, x, y)
   return column_rng(seed, x, y, "deep_cave"):int(1, 100) <= WorldTopology.DEEP_CAVE_RATE_PERCENT
 end
 
-function WorldTopology.profile_for(key)
+function WorldTopology.profile_for(key, world_content_plan)
   assert(WorldTopology.is_zone_in_bounds(key), "Zone profile requested outside campaign bounds")
+  -- The persisted campaign content plan may reserve a column for an authored
+  -- interior.  It is an optional argument so legacy runs and OW-01..05 test
+  -- fixtures retain their original topology exactly.
+  if world_content_plan and world_content_plan.zone_profiles then
+    local planned = world_content_plan.zone_profiles[ZoneKey.encode(key)]
+    if planned then return planned end
+  end
   if key.z == 0 then return WorldTopology.PROFILE_SURFACE end
   if key.z == -1 then return WorldTopology.PROFILE_CAVE end
   if key.z == -2 then return WorldTopology.PROFILE_DEEP_CAVE end
@@ -113,7 +120,32 @@ function WorldTopology.profile_for(key)
   return WorldTopology.PROFILE_SURFACE
 end
 
-local function vertical_type(seed, key, direction)
+local function planned_vertical_link(world_content_plan, key, direction)
+  if not world_content_plan then return nil end
+  local encoded = ZoneKey.encode(key)
+  for _, link in ipairs(world_content_plan.vertical_links or {}) do
+    if ZoneKey.encode(ZoneKey.from_data(link.source)) == encoded and direction == "down" then return link, true end
+    if ZoneKey.encode(ZoneKey.from_data(link.destination)) == encoded and direction == "up" then return link, false end
+  end
+  return nil
+end
+
+local function planned_column(world_content_plan, key)
+  if not world_content_plan then return false end
+  for _, link in ipairs(world_content_plan.vertical_links or {}) do
+    local source = ZoneKey.from_data(link.source)
+    if source.world_x == key.world_x and source.world_y == key.world_y then return true end
+  end
+  return false
+end
+
+local function vertical_type(seed, key, direction, world_content_plan)
+  local link = planned_vertical_link(world_content_plan, key, direction)
+  if link then return link.connection_type, link end
+  -- Authored structure columns own their complete vertical topology. Suppress
+  -- ordinary cave mouths there so an entrance can never have competing DOWN
+  -- destinations.
+  if planned_column(world_content_plan, key) then return nil end
   if direction == "down" and key.z == 0 and WorldTopology.has_surface_cave(seed, key.world_x, key.world_y) then
     return "cave_mouth"
   elseif direction == "up" and key.z == -1 and WorldTopology.has_surface_cave(seed, key.world_x, key.world_y) then
@@ -135,10 +167,10 @@ local function vertical_endpoint_candidate(seed, connection_id, key, direction, 
   return { x = rng:int(7, Grid.width - 8), y = rng:int(7, Grid.height - 8) }
 end
 
-local function vertical_specs(seed, key)
+local function vertical_specs(seed, key, world_content_plan)
   local specs = {}
   for _, direction in ipairs(WorldTopology.VERTICAL_DIRECTIONS) do
-    local kind = vertical_type(seed, key, direction)
+    local kind = vertical_type(seed, key, direction, world_content_plan)
     if kind then
       local destination = WorldTopology.neighbor(key, direction)
       specs[#specs + 1] = {
@@ -162,9 +194,17 @@ local function too_close(left, right)
   return math.max(math.abs(left.x - right.x), math.abs(left.y - right.y)) <= 2
 end
 
-local function vertical_endpoint(seed, connection_id, key, direction)
+local function vertical_endpoint(seed, connection_id, key, direction, world_content_plan)
+  -- Existing boss arenas intentionally use hard containment walls around a
+  -- compact authored playfield. Their reciprocal campaign exit therefore has
+  -- a fixed, visible cell inside that playfield instead of attempting to
+  -- carve an indestructible arena boundary.
+  if world_content_plan and world_content_plan.zone_profiles
+    and world_content_plan.zone_profiles[ZoneKey.encode(key)] == "zone_profile.world.boss_lair" then
+    return { x = 5, y = 9 }
+  end
   local allocated = {}
-  for _, spec in ipairs(vertical_specs(seed, key)) do
+  for _, spec in ipairs(vertical_specs(seed, key, world_content_plan)) do
     local selected
     for attempt = 1, 128 do
       local candidate = vertical_endpoint_candidate(seed, spec.id, key, spec.direction, attempt)
@@ -194,7 +234,8 @@ local function vertical_endpoint(seed, connection_id, key, direction)
   return vertical_endpoint_candidate(seed, connection_id, key, direction, 1)
 end
 
-function WorldTopology.object_definition_for(connection_type)
+function WorldTopology.object_definition_for(connection_type, connection)
+  if connection and connection.object_definition_id then return connection.object_definition_id end
   local definitions = {
     cave_mouth = "world_object.connection.cave_mouth",
     stairs = "world_object.connection.stairs",
@@ -206,6 +247,7 @@ function WorldTopology.object_definition_for(connection_type)
 end
 
 function WorldTopology.presentation_label(connection)
+  if connection.presentation_label then return connection.presentation_label end
   local direction, kind = connection.direction, connection.connection_type
   if kind == "cave_mouth" then
     return direction == "down" and "DESCEND INTO CAVE" or "ASCEND TO SURFACE"
@@ -221,7 +263,8 @@ function WorldTopology.presentation_label(connection)
   return "TRAVEL"
 end
 
-function WorldTopology.generic_vertical_connection(seed, key, direction, connection_type)
+function WorldTopology.generic_vertical_connection(seed, key, direction, connection_type, options)
+  options = options or {}
   ZoneKey.validate(key)
   assert(direction == "up" or direction == "down", "Generic vertical connections require up or down")
   assert(WorldTopology.CONNECTION_TYPES[connection_type] and connection_type ~= "cardinal",
@@ -231,8 +274,8 @@ function WorldTopology.generic_vertical_connection(seed, key, direction, connect
     return nil, { code = "world_boundary", reason = "No zone exists beyond this vertical world boundary" }
   end
   local id = WorldTopology.canonical_vertical_id(key, destination, connection_type)
-  local cell = vertical_endpoint(seed, id, key, direction)
-  local destination_cell = vertical_endpoint(seed, id, destination, WorldTopology.opposite(direction))
+  local cell = vertical_endpoint(seed, id, key, direction, options.world_content_plan)
+  local destination_cell = vertical_endpoint(seed, id, destination, WorldTopology.opposite(direction), options.world_content_plan)
   return {
     id = id,
     connection_id = id,
@@ -249,7 +292,9 @@ function WorldTopology.generic_vertical_connection(seed, key, direction, connect
     interior = copy_cell(cell),
     boundary = copy_cell(cell),
     bidirectional = true,
-    presentation_role = connection_type,
+    presentation_role = options.presentation_role or connection_type,
+    presentation_label = options.presentation_label,
+    object_definition_id = options.object_definition_id,
   }
 end
 
@@ -273,7 +318,7 @@ local function horizontal_connection(seed, key, direction)
   }
 end
 
-function WorldTopology.connection(seed, key, direction)
+function WorldTopology.connection(seed, key, direction, world_content_plan)
   ZoneKey.validate(key)
   assert(WorldTopology.DIRECTIONS[direction], "Unknown zone direction '" .. tostring(direction) .. "'")
   if not WorldTopology.is_zone_in_bounds(key) then
@@ -283,7 +328,7 @@ function WorldTopology.connection(seed, key, direction)
     if key.z ~= 0 then return nil, { code = "no_zone_connection", reason = "No horizontal connection exists at this level" } end
     return horizontal_connection(seed, key, direction)
   end
-  local kind = vertical_type(seed, key, direction)
+  local kind, link = vertical_type(seed, key, direction, world_content_plan)
   if not kind then
     local destination = WorldTopology.neighbor(key, direction)
     return nil, {
@@ -291,15 +336,20 @@ function WorldTopology.connection(seed, key, direction)
       reason = "No vertical connection exists here",
     }
   end
-  return WorldTopology.generic_vertical_connection(seed, key, direction, kind)
+  return WorldTopology.generic_vertical_connection(seed, key, direction, kind, {
+    world_content_plan = world_content_plan,
+    presentation_role = link and (link.presentation_role or kind) or kind,
+    presentation_label = link and ((key.z > ZoneKey.from_data(link.destination).z) and link.source_label or link.destination_label) or nil,
+    object_definition_id = link and ((key.z > ZoneKey.from_data(link.destination).z) and link.source_object_definition_id or link.destination_object_definition_id) or nil,
+  })
 end
 
-function WorldTopology.connections(seed, key)
+function WorldTopology.connections(seed, key, world_content_plan)
   ZoneKey.validate(key)
   local result = {}
   if not WorldTopology.is_zone_in_bounds(key) then return result end
   for _, direction in ipairs(WorldTopology.DIRECTION_ORDER) do
-    local connection = WorldTopology.connection(seed, key, direction)
+    local connection = WorldTopology.connection(seed, key, direction, world_content_plan)
     if connection then result[direction] = connection end
   end
   return result
@@ -331,6 +381,8 @@ function WorldTopology.connection_from_data(data)
     cell = copy_cell(data.cell or boundary),
     bidirectional = data.bidirectional ~= false,
     presentation_role = data.presentation_role or kind,
+    presentation_label = data.presentation_label,
+    object_definition_id = data.object_definition_id,
   }
 end
 
@@ -339,14 +391,15 @@ function WorldTopology.connection_at(record, direction)
   return data and WorldTopology.connection_from_data(data) or nil
 end
 
-function WorldTopology.connection_matches(seed, key, data)
+function WorldTopology.connection_matches(seed, key, data, world_content_plan)
   local actual = WorldTopology.connection_from_data(data)
-  local expected = WorldTopology.connection(seed, key, actual.direction)
+  local expected = WorldTopology.connection(seed, key, actual.direction, world_content_plan)
   if not expected then return false end
   return actual.id == expected.id and actual.connection_type == expected.connection_type
     and ZoneKey.equal(actual.destination, expected.destination)
     and actual.boundary.x == expected.boundary.x and actual.boundary.y == expected.boundary.y
     and actual.interior.x == expected.interior.x and actual.interior.y == expected.interior.y
+    and actual.presentation_label == expected.presentation_label
 end
 
 return WorldTopology

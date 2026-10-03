@@ -512,20 +512,22 @@ function Inspector:draw()
     local key = self.floor.zone_key
     self:_draw_text(string.format("campaign: %d  zone: %d,%d,%d", self.floor.campaign_seed, key.world_x, key.world_y, key.z), panel_x, 38)
     self:_draw_text("profile: " .. tostring(self.floor.profile_id), panel_x, 56)
+    self:_draw_text("location: " .. tostring(self.floor.location_name or "WILDERNESS"), panel_x, 72, { 0.78, 0.78, 0.6 })
   else
     self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
     self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
   end
-  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74, { 1, 0.9, 0.4 })
-  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
-  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
+  local y_offset = self.campaign_mode and 18 or 0
+  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74 + y_offset, { 1, 0.9, 0.4 })
+  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92 + y_offset)
+  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110 + y_offset)
   local active_layers = {}
   for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms", "discoveries", "ecology", "landmarks" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
-  self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
+  self:_draw_text(table.concat(active_layers, " "), panel_x, 126 + y_offset, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
   local lines = self:_detail_lines(self.selected or self.hover)
-  local y = 152
+  local y = 152 + y_offset
   for _, line in ipairs(lines) do
     self:_draw_text(line, panel_x, y, { 0.88, 0.9, 0.96 }, width - panel_x - 10)
     y = y + 16

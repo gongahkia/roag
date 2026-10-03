@@ -394,6 +394,7 @@ function Renderer:_draw_game(app)
 
   local ui = GameplayUI.hud(session)
   self:_text("ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
+  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.66, { 0.78, 0.78, 0.6 }) end
   self:_text("HP " .. ui.health .. " / " .. ui.max_health .. "   " .. string.rep("♥", ui.health), hud, offset_y + 42,
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
   self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)

@@ -1256,6 +1256,7 @@ function World:place_object(definition_id, x, y, options)
     service_id = role == "service" and options.service_id or nil,
     service_stock = role == "service" and options.service_stock or nil,
     service_origin = role == "service" and options.service_origin or nil,
+    world_content_site_id = options.world_content_site_id,
     required_unlock = role == "traversal" and definition.required_unlock or nil,
     zone_connection_id = role == "zone_connection" and options.zone_connection_id or nil,
     zone_connection_type = role == "zone_connection" and options.zone_connection_type or nil,
@@ -1479,6 +1480,7 @@ function World:inspect_object(object_or_id)
     service_id = object.service_id,
     service_stock = object.service_stock,
     service_origin = object.service_origin,
+    world_content_site_id = object.world_content_site_id,
     required_unlock = object.required_unlock,
     zone_connection_id = object.zone_connection_id,
     zone_connection_type = object.zone_connection_type,
@@ -1799,6 +1801,7 @@ function World.from_data(registry, data, sequence_owner)
       service_id = saved.service_id,
       service_stock = saved.service_stock,
       service_origin = saved.service_origin,
+      world_content_site_id = saved.world_content_site_id,
       required_unlock = definition.interaction_role == "traversal" and definition.required_unlock or nil,
       zone_connection_id = definition.interaction_role == "zone_connection" and saved.zone_connection_id or nil,
       zone_connection_type = definition.interaction_role == "zone_connection" and saved.zone_connection_type or nil,
@@ -2012,6 +2015,8 @@ function World:validate()
       self.registry:get_service(object.service_id)
       assert(type(object.service_stock) == "table", "Service kiosk has invalid stock")
     end
+    assert(object.world_content_site_id == nil or (type(object.world_content_site_id) == "string" and object.world_content_site_id ~= ""),
+      "World object has invalid world content provenance")
     if object.interaction_role == "storage" then
       assert(object.storage_inventory and getmetatable(object.storage_inventory) == Inventory,
         "Storage object is missing its inventory")

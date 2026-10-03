@@ -191,6 +191,12 @@ local function clear_blocker(session, cell)
   local world = session.state.world
   local object = world:object_at(cell.x, cell.y)
   if object then
+    -- A later vertical throat may meet an already-installed reciprocal
+    -- landmark in a dense authored interior.  The landmark is itself
+    -- passable, so it is a valid piece of the shared approach; moving it
+    -- would desynchronise the durable connection metadata from the physical
+    -- object and make the zone impossible to validate or traverse.
+    if object.zone_connection_id then return end
     -- Existing generation has no reservation input.  Preserve rather than
     -- erase generated content by moving an incidental blocker to the first
     -- deterministic adjacent legal tile. This is only a post-generation

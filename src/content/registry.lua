@@ -904,6 +904,10 @@ function Registry:validate()
     local boss = self.bosses[id]
     require_positive_integer(boss.health, "Boss '" .. id .. "' health")
     self:get_boss_arena(boss.arena_profile_id)
+    if boss.world_site_family ~= nil and boss.world_site_family ~= "ruin"
+      and boss.world_site_family ~= "reactor" and boss.world_site_family ~= "cave" then
+      content_error("Boss '" .. id .. "' world_site_family is invalid")
+    end
     if type(boss.ai_profile) ~= "table" or type(boss.ai_profile.preferred_range) ~= "number"
       or boss.ai_profile.preferred_range <= 0 then
       content_error("Boss '" .. id .. "' ai_profile must define a positive preferred_range")
