@@ -449,34 +449,63 @@ function Renderer:_draw_game(app)
   if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.66, { 0.78, 0.78, 0.6 }) end
   self:_text("HP " .. ui.health .. " / " .. ui.max_health .. "   " .. string.rep("♥", ui.health), hud, offset_y + 42,
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
-  self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
-  self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
+  if ui.quick then
+    local active_weapon = ui.quick.weapons[1].active and ui.quick.weapons[1] or ui.quick.weapons[2]
+    local active_ability = ui.quick.abilities[1].active and ui.quick.abilities[1] or ui.quick.abilities[2]
+    local function quick_label(prefix, slot, index)
+      return prefix .. " " .. string.char(string.byte("A") + index - 1) .. (slot.active and " * " or "   ") .. string.upper(slot.label)
+    end
+    self:_text(quick_label("W", ui.quick.weapons[1], 1), hud, offset_y + 64, 0.66,
+      ui.quick.weapons[1].active and { 0.95, 0.85, 0.3 } or { 0.72, 0.8, 0.92 })
+    self:_text(quick_label("W", ui.quick.weapons[2], 2), hud, offset_y + 80, 0.66,
+      ui.quick.weapons[2].active and { 0.95, 0.85, 0.3 } or { 0.72, 0.8, 0.92 })
+    if active_weapon and active_weapon.ammo then
+      local ammo = active_weapon.ammo
+      self:_text("MAG " .. ammo.loaded .. "/" .. ammo.capacity .. " " .. string.upper(session.registry:get_resource(ammo.family).display_name)
+        .. " · " .. ammo.reserve .. " RESERVE", hud, offset_y + 96, 0.62, { 0.6, 0.9, 0.75 })
+    else
+      self:_text("MELEE / NO MAGAZINE", hud, offset_y + 96, 0.62, { 0.72, 0.8, 0.92 })
+    end
+    self:_text(quick_label("A", ui.quick.abilities[1], 1), hud, offset_y + 112, 0.64,
+      ui.quick.abilities[1].active and { 0.95, 0.65, 0.35 } or { 0.72, 0.8, 0.92 })
+    self:_text(quick_label("A", ui.quick.abilities[2], 2), hud, offset_y + 128, 0.64,
+      ui.quick.abilities[2].active and { 0.95, 0.65, 0.35 } or { 0.72, 0.8, 0.92 })
+    if active_ability and not active_ability.available then
+      self:_text("ABILITY OFFLINE", hud, offset_y + 144, 0.6, { 1, 0.42, 0.42 })
+    end
+  else
+    self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
+    self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
+  end
   local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
     or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
   if primary_status then
     self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
   end
-  self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, offset_y + 134, 0.82, { 0.65, 0.9, 0.8 })
-  self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, offset_y + 154, 0.8,
+  local economy_y = ui.quick and offset_y + 162 or offset_y + 134
+  self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
+  self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
     ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
   if ui.curse then
-    self:_text("CURSE " .. ui.curse, hud, offset_y + 174, 0.76, { 0.9, 0.4, 0.8 })
+    self:_text("CURSE " .. ui.curse, hud, economy_y + 40, 0.76, { 0.9, 0.4, 0.8 })
   end
-  local status_y = offset_y + 198
+  local status_y = ui.quick and economy_y + 64 or offset_y + 198
   if ui.locomotion ~= "NORMAL" then
     local locomotion_color = ui.locomotion == "IMPAIRED" and { 1, 0.72, 0.3 } or { 1, 0.42, 0.42 }
     self:_text("LOCOMOTION " .. ui.locomotion, hud, status_y, 0.8, locomotion_color)
     status_y = status_y + 18
   end
-  local ranged_ability = session:actor_ability_by_implementation(state.player, "projectile")
-  local ranged = ranged_ability and session:actor_ability_provider(state.player, ranged_ability) or nil
-  if ranged then
-    local definition = session.registry:get_component(ranged.component.definition_id)
-    self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
-  else
-    self:_text("WEAPON OFFLINE", hud, status_y, 0.72, { 1, 0.42, 0.42 })
+  if not ui.quick then
+    local ranged_ability = session:actor_ability_by_implementation(state.player, "projectile")
+    local ranged = ranged_ability and session:actor_ability_provider(state.player, ranged_ability) or nil
+    if ranged then
+      local definition = session.registry:get_component(ranged.component.definition_id)
+      self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
+    else
+      self:_text("WEAPON OFFLINE", hud, status_y, 0.72, { 1, 0.42, 0.42 })
+    end
+    status_y = status_y + 18
   end
-  status_y = status_y + 18
   if state.boss then
     local boss = state.boss
     local boss_model = GameplayUI.boss(session, boss)
@@ -503,7 +532,7 @@ function Renderer:_draw_game(app)
     status_y = status_y + 15
   end
   local abilities = session:available_actor_abilities(state.player, "body")
-  if #abilities > 0 then
+  if not ui.quick and #abilities > 0 then
     local ability = session.registry:get_ability(abilities[1])
     self:_text("BODY X: " .. string.upper(ability.display_name), hud, status_y, 0.72, { 0.95, 0.65, 0.35 })
     status_y = status_y + 18
@@ -514,11 +543,11 @@ function Renderer:_draw_game(app)
       hud, status_y, 0.68, context.available and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
     status_y = status_y + 18
   end
-  local controls_y = math.max(offset_y + 278, status_y + 8)
+  local controls_y = math.max(ui.quick and offset_y + 342 or offset_y + 278, status_y + 8)
   self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
-  self:_text(session.campaign and "E ATTACK FORWARD" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
-  self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
+  self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
+  self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
   self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
     controls_y + 74, 0.68)
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
@@ -764,7 +793,8 @@ function Renderer:_draw_inventory(app)
     self:_text("EMPTY CELL", detail_x, detail_y, 0.72, { 0.65, 0.75, 0.9 })
   end
   self:_text("DRAG TO REPACK  •  R ROTATE  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
-  self:_text("ENTER SELECT / PLACE     I / ESC CLOSE", grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
+  self:_text(app:is_campaign_mode() and "TAB LOADOUT     ENTER SELECT / PLACE     I / ESC CLOSE" or "ENTER SELECT / PLACE     I / ESC CLOSE",
+    grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
   local body_y = grid_y + layout.height + 10
   local body_x = grid_x
   self:_text("EQUIPPED BODY", body_x, body_y, 0.68, { 0.7, 0.9, 1 })
@@ -773,6 +803,44 @@ function Renderer:_draw_inventory(app)
       self:_text((component.slot or "SLOT") .. "  " .. (component.empty and "EMPTY" or component.name) .. " — " .. component.condition,
         body_x, body_y + index * 14, 0.45, component.empty and { 0.48, 0.55, 0.65 }
           or (component.functional and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }))
+    end
+  end
+  if app:is_campaign_mode() then
+    local loadout = app.session:campaign_loadout()
+    local panel_x = grid_x + math.floor(layout.width * 0.55)
+    local panel_y = body_y + 8
+    local slots = {
+      { kind = "weapon", index = 1, label = "WEAPON A" },
+      { kind = "weapon", index = 2, label = "WEAPON B" },
+      { kind = "ability", index = 1, label = "ABILITY A" },
+      { kind = "ability", index = 2, label = "ABILITY B" },
+    }
+    self:_text("QUICK LOADOUT", panel_x, panel_y, 0.68, { 0.7, 0.9, 1 })
+    for focus, slot in ipairs(slots) do
+      local binding = slot.kind == "weapon" and loadout.weapon_slots[slot.index] or loadout.ability_slots[slot.index]
+      local ability = binding and app.session.registry.abilities[binding.ability_id] or nil
+      local active = slot.index == (slot.kind == "weapon" and loadout.active_weapon or loadout.active_ability)
+      local selected = app.inventory_panel == "loadout" and focus == (app.loadout_focus or 1)
+      local color = selected and { 0.95, 0.85, 0.3 } or active and { 0.6, 0.9, 0.75 } or { 0.72, 0.8, 0.92 }
+      self:_text((selected and "> " or "  ") .. slot.label .. (active and " * " or "   ")
+        .. string.upper(ability and ability.display_name or "EMPTY"), panel_x, panel_y + focus * 15, 0.5, color)
+    end
+    if app.inventory_panel == "loadout" then
+      local target = app:loadout_target()
+      local options = app:loadout_options()
+      local option_y = panel_y + 82
+      self:_text("ASSIGN " .. target.label, panel_x, option_y, 0.56, { 0.95, 0.85, 0.3 })
+      for index, option in ipairs(options) do
+        if option_y + index * 14 < height - 34 then
+          local selected = index == (app.loadout_selection or 1)
+          local color = selected and { 0.95, 0.85, 0.3 }
+            or option.available and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }
+          self:_text((selected and "> " or "  ") .. string.upper(option.display_name) .. " — "
+            .. string.upper(option.provider_name) .. " " .. string.upper(option.condition),
+            panel_x, option_y + index * 14, 0.44, color)
+        end
+      end
+      self:_text("A/D SLOT  W/S ACTION  ENTER ASSIGN  TAB CLOSE", panel_x, height - 20, 0.44, { 0.75, 0.82, 0.92 })
     end
   end
 end

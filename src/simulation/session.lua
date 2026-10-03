@@ -43,6 +43,7 @@ local RouteDefinitions = require("src.routes.definitions")
 local RouteGraph = require("src.routes.graph")
 local WorldTopology = require("src.campaign.world_topology")
 local Building = require("src.construction.building")
+local Loadout = require("src.simulation.loadout")
 
 local Session = {}
 Session.__index = Session
@@ -58,6 +59,7 @@ local CAMPAIGN_STATE_FIELDS = {
   run_id = true, meta_snapshot = true, meta_reward_events = true,
   fallen_recurrence = true, death_pending_archive = true,
   discovery_state = true, reinforcement_state = true,
+  loadout = true,
 }
 
 local function attach_campaign_state(state, campaign_state)
@@ -318,6 +320,7 @@ function Session.new(options)
     fallen_recurrence = FallenRecurrence.copy_spec(options.fallen_recurrence),
     death_pending_archive = nil,
     generation_warnings = {},
+    loadout = nil,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -578,6 +581,214 @@ function Session:create_resource_stack(resource_id, quantity, scope)
     item_id = string.format("item:%06d", sequence)
   end
   return PhysicalItem.from_resource(resource_id, quantity, item_id, self.registry)
+end
+
+-- Campaign loadout state is deliberately body-identity-bound. Zone travel
+-- retains it, while physical succession receives a fresh deterministic setup.
+function Session:ensure_campaign_loadout()
+  if not self.campaign then return nil end
+  local state, player = self.state, self.state.player
+  if not player or not player.body then return nil end
+  local loadout = Loadout.from_data(state.loadout)
+  if not loadout or loadout.body_actor_id ~= player.actor_id then
+    loadout = Loadout.new_for(self, player)
+    state.loadout = loadout
+  else
+    state.loadout = loadout
+  end
+  -- Keep an uninstalled owned part bound so a reconstruction can restore the
+  -- same physical provider, but never leave a dangling reference once that
+  -- part has actually left player ownership (for example through sale).
+  for _, kind in ipairs({ "weapon", "ability" }) do
+    local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+    for index = 1, Loadout.SLOT_COUNT do
+      local binding = slots[index]
+      if binding and binding.source_kind == "component"
+        and not player.body:find_component(binding.physical_id)
+        and not state.inventory:get(binding.physical_id) then
+        slots[index] = nil
+      end
+    end
+  end
+  -- A historical Campaign's scalar reserve is converted once per physical
+  -- player body. No ranged provider means no fabricated arbitrary ammo.
+  if loadout.ammo_migration_actor_id ~= player.actor_id and (player.ammo or 0) > 0 then
+    local selected
+    for index = 1, Loadout.SLOT_COUNT do
+      local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
+      if resolved and resolved.ability.ammo then selected = resolved; break end
+    end
+    if selected then
+      -- Historical reserve values were unbounded scalars. Convert them in
+      -- physical stack-sized chunks so a large legacy save never creates an
+      -- invalid stack or loses reserve when cargo is partly full.
+      local definition = self.registry:get_resource(selected.ability.ammo.family)
+      while player.ammo > 0 do
+        local quantity = math.min(player.ammo, definition.max_stack)
+        local item = self:create_resource_stack(selected.ability.ammo.family, quantity, "campaign")
+        if not state.inventory:auto_place(item) then break end
+        player.ammo = player.ammo - quantity
+      end
+      if player.ammo == 0 then
+        loadout.ammo_migration_actor_id = player.actor_id
+      end
+    end
+  elseif loadout.ammo_migration_actor_id == nil and (player.ammo or 0) == 0 then
+    loadout.ammo_migration_actor_id = player.actor_id
+  end
+  for index = 1, Loadout.SLOT_COUNT do
+    local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
+    if resolved and resolved.ability.ammo then self:weapon_magazine(resolved.provider, resolved.ability) end
+  end
+  return loadout
+end
+
+function Session:campaign_loadout()
+  return self:ensure_campaign_loadout()
+end
+
+function Session:quick_slot(kind, index)
+  local loadout = self:ensure_campaign_loadout()
+  if not loadout then return nil end
+  index = tonumber(index) or (kind == "weapon" and loadout.active_weapon or loadout.active_ability)
+  if index ~= 1 and index ~= 2 then return nil end
+  return kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]
+end
+
+function Session:loadout_candidates(kind)
+  return Loadout.candidates(self, self.state.player, kind)
+end
+
+function Session:assign_campaign_loadout(kind, index, binding)
+  local loadout = self:ensure_campaign_loadout()
+  if not loadout or (kind ~= "weapon" and kind ~= "ability") or (index ~= 1 and index ~= 2) then
+    return { applied = false, code = "invalid_loadout_slot", reason = "Loadout slot is unavailable" }
+  end
+  if binding ~= nil then
+    local valid = false
+    for _, candidate in ipairs(self:loadout_candidates(kind)) do
+      if candidate.source_kind == binding.source_kind and candidate.physical_id == binding.physical_id
+        and candidate.ability_id == binding.ability_id then valid = true; break end
+    end
+    if not valid then return { applied = false, code = "invalid_loadout_binding", reason = "That source cannot fill this quick slot" } end
+    binding = { source_kind = binding.source_kind, physical_id = binding.physical_id, ability_id = binding.ability_id }
+  end
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  slots[index] = binding
+  return { applied = true, kind = kind, index = index, binding = binding }
+end
+
+function Session:weapon_magazine(component, ability)
+  local ammo = ability and ability.ammo
+  if not ammo or not component then return nil end
+  component.weapon_state = component.weapon_state or {}
+  local key = ammo.magazine_key or ability.id
+  local magazine = component.weapon_state[key]
+  if not magazine then
+    magazine = { loaded = ammo.magazine_capacity }
+    component.weapon_state[key] = magazine
+  end
+  magazine.loaded = math.max(0, math.min(ammo.magazine_capacity, math.floor(magazine.loaded or 0)))
+  return magazine, key
+end
+
+function Session:ammo_reserve(resource_id)
+  return self.state.inventory and self.state.inventory:resource_quantity(resource_id) or 0
+end
+
+function Session:_reload_weapon(provider, ability)
+  local ammo, inventory = ability.ammo, self.state.inventory
+  local magazine = self:weapon_magazine(provider, ability)
+  local missing = ammo.magazine_capacity - magazine.loaded
+  local reserve = inventory:resource_quantity(ammo.family)
+  if missing <= 0 then return { applied = false, code = "magazine_full", reason = "Magazine is already full" } end
+  if reserve <= 0 then
+    return self:_ability_failure(ability.id, "no_compatible_ammo", "No compatible " .. self.registry:get_resource(ammo.family).display_name)
+  end
+  local amount = math.min(missing, reserve)
+  local consumed, reason = inventory:consume_resources({ [ammo.family] = amount })
+  if not consumed then return self:_ability_failure(ability.id, "no_compatible_ammo", reason) end
+  magazine.loaded = magazine.loaded + amount
+  local family = string.upper(self.registry:get_resource(ammo.family).display_name)
+  self:_log("RELOADED — " .. magazine.loaded .. "/" .. ammo.magazine_capacity .. " " .. family .. ".")
+  self:_sound("pickup")
+  return { applied = true, code = "reloaded", ability_id = ability.id, component_id = provider.id,
+    loaded = magazine.loaded, capacity = ammo.magazine_capacity, consumed = amount, family = ammo.family }
+end
+
+function Session:attack_active_weapon()
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return self:_ability_failure("attack", "missing_loadout", "No Campaign loadout is available") end
+  local resolved, failure = Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon")
+  if not resolved then
+    self:_log((failure and failure.reason) or "WEAPON SLOT UNAVAILABLE.")
+    return self:_ability_failure("attack", failure and failure.code or "slot_unavailable", failure and failure.reason or "Weapon slot is unavailable")
+  end
+  local ability = resolved.ability
+  if ability.ammo then
+    local magazine = self:weapon_magazine(resolved.provider, ability)
+    local cost = ability.ammo.ammo_per_attack
+    if magazine.loaded < cost then return self:_reload_weapon(resolved.provider, ability) end
+    magazine.loaded = magazine.loaded - cost
+    local result = self:activate_actor_ability(player, ability.id, {
+      direction = player.direction, provider_component_id = resolved.provider.id, skip_resource = true,
+    })
+    if not result.applied then magazine.loaded = magazine.loaded + cost end
+    return result
+  end
+  return self:activate_actor_ability(player, ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+function Session:activate_active_ability()
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return self:_ability_failure("ability", "missing_loadout", "No Campaign loadout is available") end
+  local resolved, failure = Loadout.resolve(self, player, loadout.ability_slots[loadout.active_ability], "ability")
+  if not resolved then
+    self:_log((failure and failure.reason) or "ABILITY SLOT UNAVAILABLE.")
+    return self:_ability_failure("ability", failure and failure.code or "slot_unavailable", failure and failure.reason or "Ability slot is unavailable")
+  end
+  if resolved.ability.implementation == "dash" then return self:_dash() end
+  return self:activate_actor_ability(player, resolved.ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+function Session:swap_campaign_loadout(kind)
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return { applied = false, code = "missing_loadout", reason = "No Campaign loadout is available" } end
+  local active_key = kind == "weapon" and "active_weapon" or "active_ability"
+  local other = loadout[active_key] == 1 and 2 or 1
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  local resolved, failure = Loadout.resolve(self, player, slots[other], kind)
+  if not resolved then
+    self:_log((failure and failure.reason) or "ALTERNATE SLOT UNAVAILABLE.")
+    return { applied = false, code = failure and failure.code or "slot_unavailable", reason = failure and failure.reason or "Alternate slot is unavailable" }
+  end
+  loadout[active_key] = other
+  self:_log(string.upper(kind) .. " → " .. string.upper(resolved.ability.display_name) .. ".")
+  self:_sound("select")
+  return { applied = true, kind = kind, active = other, ability_id = resolved.ability.id, component_id = resolved.provider and resolved.provider.id }
+end
+
+function Session:campaign_loadout_swap_available(kind)
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then
+    return nil, { applied = false, code = "missing_loadout", reason = "No Campaign loadout is available" }
+  end
+  local active_key = kind == "weapon" and "active_weapon" or kind == "ability" and "active_ability" or nil
+  if not active_key then
+    return nil, { applied = false, code = "invalid_loadout_slot", reason = "Loadout slot is unavailable" }
+  end
+  local other = loadout[active_key] == 1 and 2 or 1
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  local resolved, failure = Loadout.resolve(self, player, slots[other], kind)
+  if not resolved then
+    return nil, { applied = false, code = failure and failure.code or "slot_unavailable",
+      reason = failure and failure.reason or "Alternate slot is unavailable" }
+  end
+  return resolved
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -1455,9 +1666,9 @@ function Session:activate_actor_ability(actor, ability_id, params)
   if not request then
     return failure
   end
-  local consumed, resource_failure = self:_consume_ability_resource(actor, ability)
-  if not consumed then
-    return resource_failure
+  if not (params and params.skip_resource) then
+    local consumed, resource_failure = self:_consume_ability_resource(actor, ability)
+    if not consumed then return resource_failure end
   end
   local wear = self:wear_actor_component(actor, selected.slot_id, ability_id)
   if ability.implementation == "self_destruct" then
@@ -1990,6 +2201,7 @@ function Session.from_data(data, options)
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
   session:refresh_derived_player_stats()
+  session:ensure_campaign_loadout()
   -- Tactical perception is transient and is rebuilt after loading. Terrain
   -- itself is never hidden or remembered as an exploration layer.
   session:refresh_visibility()
@@ -2942,7 +3154,14 @@ function Session:_spawn_entities(rng)
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index, enemy_rng), point, { scrap_award = true })
   end
   local point = self:_open_location(self:_occupied(), nil, nil, rng)
-  state.ammo = entity("ammo", point.x, point.y)
+  if self.campaign then
+    local item = self:create_resource_stack("resource.ammo.bullets", 4, "zone")
+    local ground, result = state.world:place_ground_item(item, point.x, point.y)
+    assert(ground, result and result.reason)
+    state.ammo = nil
+  else
+    state.ammo = entity("ammo", point.x, point.y)
+  end
 end
 
 function Session:_refill_entities()
@@ -2955,7 +3174,7 @@ function Session:_refill_entities()
     local point = self:_open_location(self:_occupied())
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1, self.rng), point, { scrap_award = false })
   end
-  if not state.ammo then
+  if not self.campaign and not state.ammo then
     local point = self:_open_location(self:_occupied())
     state.ammo = entity("ammo", point.x, point.y)
   end
@@ -3114,6 +3333,7 @@ function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boo
   state.zone_profile_id = profile_id
   state.discovery_state = { enabled = false, assigned_discovery_ids = state.discovery_state.assigned_discovery_ids or {} }
   self:_start_floor(settings, Rng.new(zone_seed), "campaign." .. tostring(zone_key))
+  self:ensure_campaign_loadout()
   if options.boss_site then
     self:_start_campaign_boss_lair(options.boss_site, zone_seed)
   else
@@ -4229,6 +4449,7 @@ end
 
 function Session:_collect_ammo()
   local state = self.state
+  if self.campaign then return end
   if state.ammo and state.player.x == state.ammo.x and state.player.y == state.ammo.y then
     self:_reload(1, false)
     state.ammo = nil
@@ -4491,6 +4712,10 @@ end
 
 function Session:_shoot(direction)
   local player = self.state.player
+  if self.campaign then
+    if direction then player.direction = direction end
+    return self:attack_active_weapon()
+  end
   player.direction = direction or player.direction
   local ranged_implementations = { "projectile", "scattershot", "piercing_projectile" }
   local ability_id = self:actor_ability_by_implementations(player, ranged_implementations)
@@ -4697,7 +4922,13 @@ function Session:_action(input)
     return { applied = false, code = "recovering", reason = "You are recovering from the hit" }
   end
   if input == "q" then
-    return self:_dash()
+    return self.campaign and self:activate_active_ability() or self:_dash()
+  elseif input == "swap_weapon" then
+    return self.campaign and self:swap_campaign_loadout("weapon")
+      or { applied = false, code = "campaign_only", reason = "Weapon swapping is available in Campaign" }
+  elseif input == "swap_ability" then
+    return self.campaign and self:swap_campaign_loadout("ability")
+      or { applied = false, code = "campaign_only", reason = "Ability swapping is available in Campaign" }
   elseif input == "interact" then
     return self:_interact_player()
   elseif input == "e" or input == "attack" then
@@ -5095,6 +5326,19 @@ function Session:turn(input)
     self.last_action_result = self:_move_player(input)
     self:refresh_visibility()
     return "no_action"
+  end
+  -- A field quick-slot swap is an ordinary turn only when it actually has a
+  -- valid alternate source. Empty/broken alternates are a readable no-op,
+  -- matching the responsive Campaign input contract.
+  if self.campaign and (input == "swap_weapon" or input == "swap_ability") then
+    local kind = input == "swap_weapon" and "weapon" or "ability"
+    local _, failure = self:campaign_loadout_swap_available(kind)
+    if failure then
+      self.last_action_result = failure
+      self:_log(failure.reason)
+      self:refresh_visibility()
+      return "no_action"
+    end
   end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)

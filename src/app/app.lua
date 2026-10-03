@@ -980,6 +980,8 @@ function App:close_overlay()
   self.menu = 1
   self.inventory_selected_id = nil
   self.inventory_drag = nil
+  self.inventory_panel = nil
+  self.quick_ability_confirmation = nil
   self.salvage_corpse_id = nil
   self.storage_object_id = nil
   if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
@@ -1093,10 +1095,87 @@ function App:open_inventory()
   self.inventory_cursor = self.inventory_cursor or { x = 1, y = 1 }
   self.inventory_selected_id = nil
   self.inventory_drag = nil
+  self.inventory_panel = nil
+  self.loadout_focus = self.loadout_focus or 1
+  self.loadout_selection = self.loadout_selection or 1
   self.screen = "inventory"
   self:clear_held_movement()
   self:play_sound("select")
   return true
+end
+
+-- Inventory is the deliberately-paused place where a player organises quick
+-- bindings. Field R/X are still turn-consuming tactical choices.
+function App:loadout_target()
+  local index = self.loadout_focus or 1
+  local targets = {
+    { kind = "weapon", index = 1, label = "WEAPON A" },
+    { kind = "weapon", index = 2, label = "WEAPON B" },
+    { kind = "ability", index = 1, label = "ABILITY A" },
+    { kind = "ability", index = 2, label = "ABILITY B" },
+  }
+  return targets[math.max(1, math.min(#targets, index))]
+end
+
+function App:loadout_options()
+  local target = self:loadout_target()
+  return target and self.session:loadout_candidates(target.kind) or {}
+end
+
+function App:toggle_inventory_loadout_panel()
+  if not self:is_campaign_mode() then
+    self.session:_log("Quick loadouts are available in Campaign.")
+    return false
+  end
+  self.inventory_panel = self.inventory_panel == "loadout" and nil or "loadout"
+  self.loadout_focus, self.loadout_selection = self.loadout_focus or 1, 1
+  self:play_sound("select")
+  return true
+end
+
+function App:move_loadout_focus(amount)
+  self.loadout_focus = math.max(1, math.min(4, (self.loadout_focus or 1) + amount))
+  self.loadout_selection = 1
+  self:play_sound("select")
+end
+
+function App:move_loadout_selection(amount)
+  local count = #self:loadout_options()
+  self.loadout_selection = math.max(1, math.min(math.max(1, count), (self.loadout_selection or 1) + amount))
+  self:play_sound("select")
+end
+
+function App:assign_selected_loadout()
+  local target = self:loadout_target()
+  local binding = self:loadout_options()[self.loadout_selection or 1]
+  if not target or not binding then
+    self.session:_log("No compatible quick action selected.")
+    return nil
+  end
+  local result = self.session:assign_campaign_loadout(target.kind, target.index, binding)
+  if result.applied then
+    self.session:_log(target.label .. " → " .. string.upper(binding.display_name) .. ".")
+    self:autosave("loadout_assignment")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
+end
+
+function App:activate_campaign_ability()
+  if not self:is_campaign_mode() then return nil end
+  local loadout = self.session:campaign_loadout()
+  local binding = loadout and self.session:quick_slot("ability", loadout.active_ability) or nil
+  local ability = binding and self.session.registry.abilities[binding.ability_id] or nil
+  if ability and ability.implementation == "self_destruct" and not self.quick_ability_confirmation then
+    self.quick_ability_confirmation = binding.ability_id
+    self.session:_log("CONFIRM SELF-DESTRUCT — PRESS Q AGAIN.")
+    self:play_sound("select")
+    return { applied = false, code = "confirmation_required", reason = "Confirm self-destruct" }
+  end
+  self.quick_ability_confirmation = nil
+  return self:perform_turn("q")
 end
 
 function App:open_reconstruction()

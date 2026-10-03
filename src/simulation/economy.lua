@@ -32,7 +32,8 @@ local function configured_stock(service, final_hub)
 end
 
 local function copy_offer(offer)
-  return { key = offer.key, label = offer.label, price = offer.price, remaining = offer.remaining }
+  return { key = offer.key, resource_id = offer.resource_id, quantity = offer.quantity,
+    label = offer.label, price = offer.price, remaining = offer.remaining }
 end
 
 function Economy.create_stock(session, service_id, rng, final_hub)
@@ -76,6 +77,30 @@ function Economy.supply(session, stock, offer_index)
   local offer = stock and stock.offers and stock.offers[offer_index]
   if not offer or offer.remaining <= 0 then return fail("out_of_stock", "That supply is out of stock") end
   local player = session.state.player
+  if session.campaign and offer.resource_id then
+    local item = session:create_resource_stack(offer.resource_id, offer.quantity or 1, "campaign")
+    local placement = session.state.inventory:find_first_fit(item)
+    if not placement then return fail("inventory_full", "Inventory has no room for that ammunition") end
+    local ok, failure = spend(session, offer.price)
+    if not ok then return failure end
+    local entry, reason = session.state.inventory:place(item, placement.x, placement.y, placement.rotated)
+    if not entry then
+      session.state.scrap = session.state.scrap + offer.price
+      return fail("inventory_full", reason)
+    end
+    offer.remaining = offer.remaining - 1
+    return { applied = true, code = "purchased", resource_id = offer.resource_id, physical_id = item.physical_id, price = offer.price }
+  end
+  -- Legacy route mode retains its historical abstract ammo wallet. The same
+  -- authored supply entries therefore remain usable without making NPC/legacy
+  -- systems depend on Campaign cargo.
+  if offer.resource_id then
+    local ok, failure = spend(session, offer.price)
+    if not ok then return failure end
+    player.ammo = (player.ammo or 0) + (offer.quantity or 1)
+    offer.remaining = offer.remaining - 1
+    return { applied = true, code = "purchased", key = "ammo", price = offer.price }
+  end
   local ok, failure = spend(session, offer.price)
   if not ok then return failure end
   player[offer.key] = (player[offer.key] or 0) + 1

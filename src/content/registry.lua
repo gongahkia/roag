@@ -12,6 +12,7 @@ local KNOWN_ABILITY_IMPLEMENTATIONS = {
   locomotion = true,
   electrical_discharge = true,
   melee = true,
+  dash = true,
 }
 
 local KNOWN_INTERACTION_ROLES = {
@@ -609,7 +610,18 @@ function Registry:validate()
           content_error("Supply service '" .. id .. "' stock." .. profile_id .. ".offers must be a non-empty list")
         end
         for index, offer in ipairs(stock.offers) do
-          require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
+          if offer.resource_id ~= nil then
+            require_string(offer.resource_id, "Supply service '" .. id .. "' offer " .. index .. " resource_id")
+            if not self.resources[offer.resource_id] then
+              content_error("Supply service '" .. id .. "' offer " .. index .. " references unknown resource '" .. offer.resource_id .. "'")
+            end
+            require_positive_integer(offer.quantity, "Supply service '" .. id .. "' offer " .. index .. " quantity")
+            if offer.quantity > self.resources[offer.resource_id].max_stack then
+              content_error("Supply service '" .. id .. "' offer " .. index .. " quantity exceeds resource stack limit")
+            end
+          else
+            require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
+          end
           require_string(offer.label, "Supply service '" .. id .. "' offer " .. index .. " label")
           require_positive_integer(offer.price, "Supply service '" .. id .. "' offer " .. index .. " price")
           require_positive_integer(offer.remaining, "Supply service '" .. id .. "' offer " .. index .. " remaining")
@@ -777,6 +789,9 @@ function Registry:validate()
     if ability.activation_type ~= nil and ability.activation_type ~= "direct" and ability.activation_type ~= "body" then
       content_error("Ability '" .. id .. "' activation_type must be 'direct' or 'body'")
     end
+    if ability.loadout_kind ~= nil and ability.loadout_kind ~= "weapon" and ability.loadout_kind ~= "ability" then
+      content_error("Ability '" .. id .. "' loadout_kind must be 'weapon' or 'ability'")
+    end
     if ability.resource ~= nil then
       if type(ability.resource) ~= "table" then
         content_error("Ability '" .. id .. "' resource must be a table")
@@ -809,6 +824,20 @@ function Registry:validate()
       require_positive_integer(ability.range, "Ability '" .. id .. "' range")
       require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
       require_positive_integer(ability.pierce, "Ability '" .. id .. "' pierce")
+    end
+    local ranged = ability.implementation == "projectile" or ability.implementation == "scattershot"
+      or ability.implementation == "piercing_projectile"
+    if ranged and ability.loadout_kind == "weapon" then
+      if type(ability.ammo) ~= "table" then
+        content_error("Ranged weapon ability '" .. id .. "' must declare ammo")
+      end
+      require_string(ability.ammo.family, "Ability '" .. id .. "' ammo.family")
+      self:get_resource(ability.ammo.family)
+      require_positive_integer(ability.ammo.magazine_capacity, "Ability '" .. id .. "' ammo.magazine_capacity")
+      require_positive_integer(ability.ammo.ammo_per_attack, "Ability '" .. id .. "' ammo.ammo_per_attack")
+      if ability.ammo.magazine_key ~= nil then require_string(ability.ammo.magazine_key, "Ability '" .. id .. "' ammo.magazine_key") end
+    elseif ability.ammo ~= nil and not ranged then
+      content_error("Non-ranged ability '" .. id .. "' cannot declare weapon ammo")
     end
   end
 

@@ -5,6 +5,7 @@
 local Component = require("src.body.component")
 local Grid = require("src.world.grid")
 local PhysicalItem = require("src.inventory.physical_item")
+local Loadout = require("src.simulation.loadout")
 
 local GameplayUI = {}
 
@@ -121,6 +122,36 @@ function GameplayUI.hud(session)
   local charm_count = 0
   for index = 1, charm_slots do if state.charms and state.charms.slots[index] then charm_count = charm_count + 1 end end
   local locomotion = session:locomotion_state(player)
+  local quick = nil
+  if session.campaign then
+    local loadout = session:campaign_loadout()
+    local function slot_model(kind, index)
+      local binding = loadout and (kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]) or nil
+      local resolved, failure = Loadout.resolve(session, player, binding, kind)
+      local label = resolved and resolved.ability.display_name or "EMPTY"
+      local model = {
+        label = label,
+        active = index == (kind == "weapon" and loadout.active_weapon or loadout.active_ability),
+        available = resolved ~= nil,
+        reason = failure and failure.reason or nil,
+        ability_id = binding and binding.ability_id or nil,
+      }
+      if resolved and resolved.ability.ammo then
+        local magazine = session:weapon_magazine(resolved.provider, resolved.ability)
+        model.ammo = {
+          loaded = magazine.loaded,
+          capacity = resolved.ability.ammo.magazine_capacity,
+          family = resolved.ability.ammo.family,
+          reserve = session:ammo_reserve(resolved.ability.ammo.family),
+        }
+      end
+      return model
+    end
+    quick = {
+      weapons = { slot_model("weapon", 1), slot_model("weapon", 2) },
+      abilities = { slot_model("ability", 1), slot_model("ability", 2) },
+    }
+  end
   return {
     health = player.health,
     max_health = player.max_health,
@@ -142,6 +173,7 @@ function GameplayUI.hud(session)
     locomotion = locomotion.state,
     cargo_mass = inventory:total_mass(),
     encumbrance = inventory:encumbrance(),
+    quick = quick,
   }
 end
 

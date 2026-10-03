@@ -13,6 +13,7 @@ local Grid = require("src.world.grid")
 local Corpse = require("src.world.corpse")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local Loadout = require("src.simulation.loadout")
 
 local Campaign = {}
 Campaign.__index = Campaign
@@ -209,7 +210,8 @@ function Campaign.new(options)
       zone_records = record_map({ record }),
       legacy_progression = nil, legacy_route = nil,
       reconstruction_anchor = parse_anchor(options.reconstruction_anchor),
-      pending_successor = options.pending_successor,
+    pending_successor = options.pending_successor,
+      loadout = nil,
       body_death_count = options.body_death_count or 0,
       world_content_plan = world_content_plan,
     },
@@ -383,6 +385,7 @@ function Campaign:to_manifest_data()
     legacy_progression = session_data.progression, legacy_route = session_data.route,
     reconstruction_anchor = anchor_data(self.state.reconstruction_anchor),
     pending_successor = self.state.pending_successor,
+    loadout = Loadout.to_data(self.state.loadout),
     body_death_count = self.state.body_death_count or 0,
     world_content_plan = self.state.world_content_plan,
     zones = zones,
@@ -740,6 +743,10 @@ function Campaign:_complete_pending_successor(pending, directory)
   local arrival, arrival_error = self:_resolve_anchor_arrival(destination_session, station)
   if not arrival then return nil, arrival_error end
   successor.x, successor.y, successor.direction = arrival.x, arrival.y, "w"
+  -- A successor receives a new body and therefore a new deterministic quick
+  -- loadout. The corpse retains its old physical providers and magazines;
+  -- its references must never become the successor's controls.
+  destination_session:ensure_campaign_loadout()
   destination_session:refresh_visibility()
   destination_session:validate_physical_ownership()
 
@@ -889,6 +896,7 @@ function Campaign.from_data(manifest, shard, options)
       legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route,
       reconstruction_anchor = parse_anchor(manifest.reconstruction_anchor),
       pending_successor = manifest.pending_successor,
+      loadout = Loadout.from_data(manifest.loadout),
       body_death_count = manifest.body_death_count or 0,
       world_content_plan = world_content_plan },
     active_zone = record, identity = identity,

@@ -41,8 +41,10 @@ return {
       local hub_supply = Economy.create_stock(value, "service.supply.legacy", value.rng:derive("balance.hub.supply"), true)
       local repair = Economy.create_stock(value, "service.repair.legacy", value.rng:derive("balance.repair"), false)
       local hub_repair = Economy.create_stock(value, "service.repair.legacy", value.rng:derive("balance.hub.repair"), true)
-      assert(supply.offers[1].remaining == 2 and supply.offers[2].price == 5)
-      assert(hub_supply.offers[1].remaining == 6 and hub_supply.offers[2].remaining == 2)
+      assert(supply.offers[1].resource_id == "resource.ammo.bullets" and supply.offers[1].remaining == 2)
+      assert(supply.offers[#supply.offers - 1].key == "bombs" and supply.offers[#supply.offers - 1].price == 5)
+      assert(hub_supply.offers[1].resource_id == "resource.ammo.bullets" and hub_supply.offers[1].remaining == 4)
+      assert(hub_supply.offers[#hub_supply.offers - 1].key == "bombs" and hub_supply.offers[#hub_supply.offers - 1].remaining == 2)
       assert(repair.remaining == 2 and repair.price == 2)
       assert(hub_repair.remaining == 4 and hub_repair.price == 3)
     end,

@@ -131,7 +131,8 @@ return {
       local first = kill(campaign, "explosive")
       assert(#campaign.session.state.corpses == 1 and #campaign.session.state.charms.slots == 0)
       local successor = campaign.session.state.player
-      assert(successor.ammo == campaign.session.state.settings.ammo and successor.bombs == campaign.session.state.settings.bombs)
+      assert(successor.ammo == 0 and campaign.session:ammo_reserve("resource.ammo.bullets") == campaign.session.state.settings.ammo
+        and successor.bombs == campaign.session.state.settings.bombs)
       local second = kill(campaign, "kinetic")
       assert(#campaign.session.state.corpses == 2 and first.corpse_id ~= second.corpse_id)
       assert(campaign:validate())

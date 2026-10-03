@@ -58,6 +58,20 @@ function Input.keypressed(app, key, _, is_repeat)
   if app.screen == "inventory" then
     if key == "escape" or key == "i" then
       app:close_overlay()
+    elseif key == "tab" then
+      app:toggle_inventory_loadout_panel()
+    elseif app.inventory_panel == "loadout" then
+      if key == "w" or key == "up" then
+        app:move_loadout_selection(-1)
+      elseif key == "s" or key == "down" then
+        app:move_loadout_selection(1)
+      elseif key == "a" or key == "left" then
+        app:move_loadout_focus(-1)
+      elseif key == "d" or key == "right" then
+        app:move_loadout_focus(1)
+      elseif key == "return" or key == "space" then
+        app:assign_selected_loadout()
+      end
     elseif key == "w" or key == "up" then
       app:move_inventory_cursor(0, -1)
     elseif key == "s" or key == "down" then
@@ -283,9 +297,15 @@ function Input.keypressed(app, key, _, is_repeat)
       app:perform_turn("interact")
     elseif key == "e" and campaign then
       app:perform_turn("attack")
+    elseif key == "r" and campaign and not is_repeat then
+      app:perform_turn("swap_weapon")
+    elseif key == "q" and campaign and not is_repeat then
+      app:activate_campaign_ability()
+    elseif key == "x" and campaign and not is_repeat then
+      app:perform_turn("swap_ability")
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
-    elseif key == "x" then
+    elseif key == "x" and not campaign then
       app:open_body_abilities()
     elseif key == "c" then
       app:open_build()

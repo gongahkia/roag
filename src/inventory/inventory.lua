@@ -276,7 +276,11 @@ function Inventory:consume_resources(costs)
         candidates[#candidates + 1] = entry
       end
     end
-    table.sort(candidates, function(a, b) return a.physical_id < b.physical_id end)
+    table.sort(candidates, function(a, b)
+      if a.y ~= b.y then return a.y < b.y end
+      if a.x ~= b.x then return a.x < b.x end
+      return a.physical_id < b.physical_id
+    end)
     for _, entry in ipairs(candidates) do
       if remaining <= 0 then break end
       local amount = math.min(remaining, entry.item.quantity)
