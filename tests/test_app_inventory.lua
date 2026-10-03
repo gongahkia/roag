@@ -45,6 +45,25 @@ return {
     end,
   },
   {
+    name = "a title background click confirms the highlighted New Run option",
+    run = function()
+      local app = App.new({ seed = 9018 })
+      assert(app:mousepressed(1, 1, 1, 900, 700))
+      assert(app.screen == "onboarding" or app.screen == "game")
+    end,
+  },
+  {
+    name = "New Run asks before replacing an existing campaign and starts fresh after confirmation",
+    run = function()
+      local app = App.new({ seed = 9019 })
+      local first = assert(app:request_new_campaign())
+      app:return_to_title()
+      assert(not app:begin_new_campaign() and app.screen == "replace_campaign")
+      local replacement = assert(app:confirm_replace_campaign())
+      assert(app.screen == "game" and replacement ~= first)
+    end,
+  },
+  {
     name = "title clicks tolerate Windows physical-pixel mouse coordinates",
     run = function()
       local prior_love = love

@@ -391,10 +391,25 @@ end
 
 function App:begin_new_campaign()
   if self.campaign_continue_available then
-    self.title_error = { code = "campaign_exists", reason = "A campaign already exists. Continue it before starting another." }
-    return nil, self.title_error
+    self.screen, self.menu = "replace_campaign", 1
+    return false
   end
   return self:request_new_campaign()
+end
+
+-- Campaign manifests have no separate archive slot: beginning a fresh
+-- campaign writes a new manifest over the Continue target.  Keep that action
+-- behind its own confirmation instead of silently treating NEW RUN as broken.
+function App:confirm_replace_campaign()
+  self.campaign, self.session = nil, nil
+  self.campaign_continue_available, self.campaign_continue_error = false, nil
+  self.title_error = nil
+  local campaign, error_data = self:request_new_campaign()
+  if not campaign then
+    self.title_error = error_data or { code = "write_failed", reason = "Could not start a new campaign" }
+    self.screen, self.menu = "title", 1
+  end
+  return campaign, error_data
 end
 
 function App:onboarding_sections()
@@ -1369,12 +1384,16 @@ function App:keyreleased(...)
 end
 
 function App:mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen == "replace_campaign" and button == 1 then
+    return self:confirm_replace_campaign()
+  end
   if self.screen == "title" and button == 1 then
     local index = self:title_option_at(x, y, viewport_width, viewport_height)
-    if index then
-      self.menu = index
-      return self:activate_title_choice()
-    end
+    -- The default selection is NEW RUN.  Treat any title-screen click as
+    -- confirmation so scaled Windows window coordinates cannot make the
+    -- title feel unresponsive; a recognised row still selects that row.
+    self.menu = index or self.menu
+    return self:activate_title_choice()
   end
   return self:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
 end
@@ -1383,8 +1402,16 @@ function App:mousemoved(...)
   return self:inventory_mousemoved(...)
 end
 
-function App:mousereleased(...)
-  return self:inventory_mousereleased(...)
+function App:mousereleased(x, y, button, viewport_width, viewport_height)
+  -- Some Windows touchpad drivers reliably deliver the button-up event even
+  -- when their button-down event was consumed by desktop scaling.  It is safe
+  -- to confirm here too: a successful press has already changed the screen.
+  if self.screen == "title" and button == 1 then
+    local index = self:title_option_at(x, y, viewport_width, viewport_height)
+    self.menu = index or self.menu
+    return self:activate_title_choice()
+  end
+  return self:inventory_mousereleased(x, y, button, viewport_width, viewport_height)
 end
 
 return App

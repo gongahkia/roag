@@ -1113,6 +1113,9 @@ function Renderer:draw(app)
   elseif app.screen == "replace_save" then
     self:_menu(self:_screen_text(app, "replace_save", "title", "REPLACE ACTIVE RUN?"), { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
       self:_screen_text(app, "replace_save", "footer", "ENTER CONFIRM     ESC CANCEL"))
+  elseif app.screen == "replace_campaign" then
+    self:_menu("REPLACE CAMPAIGN?", { { name = "START FRESH CAMPAIGN", description = "Your current campaign save will be replaced." } }, app.menu,
+      "CLICK / ENTER REPLACE     ESC CANCEL")
   elseif app.screen == "curse" then
     self:_menu(self:_screen_text(app, "curse", "title", "CHOOSE A CURSE"), app.session.state.curse_options, app.menu,
       self:_screen_text(app, "curse", "footer", "W/S SELECT     ENTER ACCEPT BURDEN"))

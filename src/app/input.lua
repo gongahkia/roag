@@ -180,6 +180,14 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
+  if app.screen == "replace_campaign" then
+    if key == "return" or key == "space" then
+      app:confirm_replace_campaign()
+    elseif key == "escape" then
+      app.screen, app.menu = "title", 1
+    end
+    return
+  end
   if app.screen == "curse" then
     if key == "w" or key == "up" then
       app:move_menu(-1, #app.session.state.curse_options)
