@@ -162,13 +162,7 @@ for index = 0, options.columns - 1 do
   metadata_check(options.seed + index, x, y, failures)
 end
 for index = 0, options.full_zones - 1 do generated_check(options.seed + index, index, failures) end
-for index = 1, options.transitions do
-  -- Progress stays on stderr so the final stdout contract remains one concise
-  -- machine-readable summary; it also identifies an exact failing seed in a
-  -- long headless validation run.
-  io.stderr:write("transition-scenario=", index, "\n")
-  transition_check(options.seed + index, index, failures)
-end
+for index = 1, options.transitions do transition_check(options.seed + index, index, failures) end
 
 io.write(string.format("world-columns columns=%d full-zones=%d transitions=%d failures=%d\n",
   options.columns, options.full_zones, options.transitions, #failures))
