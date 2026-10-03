@@ -1105,12 +1105,32 @@ function App:title_option_at(x, y, viewport_width, viewport_height)
     if not (love and love.graphics) then return nil end
     viewport_width, viewport_height = love.graphics.getDimensions()
   end
-  local start_x = viewport_width / 2 - 84
-  local end_x = viewport_width / 2 + 260
-  if x < start_x or x > end_x then return nil end
-  for index = 1, #self:title_options() do
-    local line_y = viewport_height / 2 + 26 + index * 29
-    if y >= line_y - 8 and y <= line_y + 20 then return index end
+  local function option_at(pointer_x, pointer_y)
+    local start_x = viewport_width / 2 - 84
+    local end_x = viewport_width / 2 + 260
+    if pointer_x < start_x or pointer_x > end_x then return nil end
+    for index = 1, #self:title_options() do
+      local line_y = viewport_height / 2 + 26 + index * 29
+      if pointer_y >= line_y - 8 and pointer_y <= line_y + 20 then return index end
+    end
+    return nil
+  end
+  local selected = option_at(x, y)
+  if selected then return selected end
+  -- Windows can report pointer coordinates in physical pixels while a
+  -- non-high-DPI LÖVE canvas is rendered in logical pixels.  The title is the
+  -- first pointer-driven screen, so accept that scaled coordinate space too.
+  local dpi = love and love.window and love.window.getDPIScale and love.window.getDPIScale() or 1
+  -- Prefer the 150% scale visible in the shipped Windows build before less
+  -- common guesses: scaled row spacing can otherwise map one click to a
+  -- neighbouring title option.
+  local scales, tried = { dpi, 1.5, 1.25, 2 }, {}
+  for _, scale in ipairs(scales) do
+    if type(scale) == "number" and scale > 1 and not tried[scale] then
+      tried[scale] = true
+      selected = option_at(x / scale, y / scale)
+      if selected then return selected end
+    end
   end
   return nil
 end

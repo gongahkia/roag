@@ -45,6 +45,40 @@ return {
     end,
   },
   {
+    name = "title clicks tolerate Windows physical-pixel mouse coordinates",
+    run = function()
+      local prior_love = love
+      love = {
+        graphics = { getDimensions = function() return 1280, 720 end },
+        window = { getDPIScale = function() return 1.5 end },
+      }
+      local ok, error_data = xpcall(function()
+        local app = App.new({ seed = 9016 })
+        -- The rendered NEW RUN line is at logical 622,423. Windows can pass
+        -- the corresponding 1.5x physical coordinate to mousepressed.
+        assert(app:title_option_at(933, 635) == 1)
+      end, debug.traceback)
+      love = prior_love
+      assert(ok, error_data)
+    end,
+  },
+  {
+    name = "title clicks retain common Windows scaling fallback when DPI reporting is unavailable",
+    run = function()
+      local prior_love = love
+      love = {
+        graphics = { getDimensions = function() return 1280, 720 end },
+        window = { getDPIScale = function() return 1 end },
+      }
+      local ok, error_data = xpcall(function()
+        local app = App.new({ seed = 9017 })
+        assert(app:title_option_at(933, 635) == 1)
+      end, debug.traceback)
+      love = prior_love
+      assert(ok, error_data)
+    end,
+  },
+  {
     name = "inventory and salvage overlays operate without rendering",
     run = function()
       local app = App.new({ seed = 9011 })
