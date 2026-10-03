@@ -72,7 +72,7 @@ return {
       assert(app.screen == "game" and app.active_campaign_slot == 1 and replacement ~= first)
 
       local resumed = App.new({ seed = 9020, campaign_slot_stores = slots })
-      assert(resumed.campaign_slot_count() == 3)
+      assert(resumed:campaign_slot_count() == 3)
       assert(resumed:continue_campaign(2).state.campaign_id == second.state.campaign_id)
     end,
   },
