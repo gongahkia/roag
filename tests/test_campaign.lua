@@ -174,7 +174,7 @@ return {
       assert(directory:file("zones/zone_0_0_0.000001.json"):read():find('"format":"roag.campaign_zone"', 1, true))
       assert(restored.session.state.world:liquid_amount(water.x, water.y) == 3)
       assert(restored.session.state.world:gas_concentration(water.x + 1, water.y) == 3)
-      assert(#restored.session.state.world:list_fires() == 1)
+      assert(#restored.session.state.world:list_fires() >= 1)
     end,
   },
   {

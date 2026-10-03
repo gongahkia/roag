@@ -109,7 +109,9 @@ return {
       assert(#restored.state.bullets >= 1 and #restored.state.bombs >= 1 and #restored.state.flares >= 1)
       assert(restored.state.world:liquid_amount(water.x, water.y) == 3)
       assert(restored.state.world:gas_concentration(water.x + 1, water.y) == 3)
-      assert(#restored.state.world:list_fires() == 1)
+      -- An immediate flare can now ignite nearby fuel before the deliberate
+      -- fixture ignition below, so one or more active fires are valid here.
+      assert(#restored.state.world:list_fires() >= 1)
     end,
   },
   {

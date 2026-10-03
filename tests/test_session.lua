@@ -52,12 +52,23 @@ return {
     end,
   },
   {
-    name = "active worlds are fully visible without fog of war",
+    name = "fog of war keeps explored terrain while lights reveal the current area",
     run = function()
       local session = new_run(900)
       local state = session.state
-      assert(state.visible[Grid.key(0, 0)] and state.visible[Grid.key(Grid.width - 1, Grid.height - 1)])
-      assert(state.explored[Grid.key(0, 0)] and state.explored[Grid.key(Grid.width - 1, Grid.height - 1)])
+      state.player.x, state.player.y = 10, 10
+      state.settings.vision = 2
+      state.torches, state.bombs, state.flares, state.explored = {}, {}, {}, {}
+      session:refresh_visibility()
+      assert(state.visible[Grid.key(10, 10)])
+      assert(not state.visible[Grid.key(20, 10)] and not state.explored[Grid.key(20, 10)])
+
+      state.torches = { { kind = "torch", x = 20, y = 10, light = 3 } }
+      session:refresh_visibility()
+      assert(state.visible[Grid.key(20, 10)] and state.explored[Grid.key(20, 10)])
+      state.torches = {}
+      session:refresh_visibility()
+      assert(not state.visible[Grid.key(20, 10)] and state.explored[Grid.key(20, 10)])
     end,
   },
   {

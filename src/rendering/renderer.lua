@@ -253,6 +253,28 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- A detonated flare remains a short control zone. Its low-key amber field
+  -- makes the mechanical enemy-avoidance radius readable without revealing
+  -- unexplored terrain beyond the light it supplies.
+  for _, flare in ipairs(state.flares or {}) do
+    if flare.detonated and (flare.light_remaining or 0) > 0 then
+      local pulse = 0.08 + math.sin(time * 8 + flare.x * 3 + flare.y) * 0.025
+      local radius = flare.radius or 0
+      for x = flare.x - radius, flare.x + radius do
+        for y = flare.y - radius, flare.y + radius do
+          if Grid.in_bounds(x, y) and Grid.distance(flare, { x = x, y = y }) <= radius
+            and state.visible[Grid.key(x, y)] then
+            local pixel_x, pixel_y = self:_screen_position(presentation, state.player, x, y, size, offset_x, offset_y)
+            if pixel_x then
+              self:_color({ 1, 0.64, 0.12, pulse })
+              love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
+            end
+          end
+        end
+      end
+    end
+  end
+
   -- Every physical world object is a named art-pack role.  State remains
   -- readable through a restrained tint, but landmarks and fixtures never fall
   -- back to renderer-made rectangles, lines, or polygons.
@@ -305,9 +327,12 @@ function Renderer:_draw_game(app)
   local forecasts = session:telegraphs()
   for location_key, style in pairs(forecasts) do
     local x, y = location_key:match("(%d+):(%d+)")
-    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)
-    if pixel_x then
-      self:_draw_forecast_fill(pixel_x, pixel_y, size, style, time)
+    local forecast_x, forecast_y = tonumber(x), tonumber(y)
+    if state.visible[Grid.key(forecast_x, forecast_y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, forecast_x, forecast_y, size, offset_x, offset_y)
+      if pixel_x then
+        self:_draw_forecast_fill(pixel_x, pixel_y, size, style, time)
+      end
     end
   end
 

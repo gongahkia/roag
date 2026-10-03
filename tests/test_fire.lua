@@ -248,6 +248,27 @@ return {
     end,
   },
   {
+    name = "an immediate flare flash stuns a wide area and leaves an enemy-denial afterglow",
+    run = function()
+      local session = prepare_session(37105, "forest", { { 10, 10 }, { 11, 10 }, { 10, 11 }, { 12, 10 } })
+      local state = session.state
+      local enemy = session:_make_enemy("bomber", { x = 11, y = 10 })
+      local boss = session:_make_boss("boss.legacy.final", { x = 10, y = 11 })
+      state.enemies, state.boss = { enemy }, boss
+      state.flares = {
+        { kind = "flare", x = 10, y = 10, fuse = 0, radius = 2, stun = 3, boss_stun = 1,
+          light = 3, light_duration = 3, source_actor_id = "actor.test" },
+      }
+      session:_update_flares()
+      local flare = assert(state.flares[1])
+      assert(flare.detonated and flare.light_remaining == 3)
+      assert(enemy.stun == 3 and boss.stun == 1)
+      assert(session:is_flare_controlled(12, 10))
+      session:_update_flares()
+      assert(flare.light_remaining == 2)
+    end,
+  },
+  {
     name = "fire serialization and validation preserve deterministic state and reject impossible active targets",
     run = function()
       local session = prepare_session(3711, "forest", { { 8, 8 } })

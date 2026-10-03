@@ -1791,7 +1791,9 @@ function Session.from_data(data, options)
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
   session:refresh_derived_player_stats()
-  session:refresh_visibility()
+  -- Saved discovery is authoritative. Rebuild the transient visible layer
+  -- without expanding exploration merely because loading re-evaluates lights.
+  session:refresh_visibility(true)
   session:validate_world()
   session:validate_physical_ownership()
   session:reconcile_meta_rewards()
@@ -3252,6 +3254,7 @@ function Session:_path(start, finish, blocked, avoid_hazards)
       local dangerous = self.state.world:is_hazardous(neighbour.x, neighbour.y)
         or #self.state.world:fires_at(neighbour.x, neighbour.y) > 0
         or self.state.world:is_harmful_gas_at(neighbour.x, neighbour.y)
+        or self:is_flare_controlled(neighbour.x, neighbour.y)
       if self:_open(neighbour.x, neighbour.y) and not blocked[location_key] and previous[location_key] == nil
         and (not avoid_hazards or is_destination or not dangerous) then
         previous[location_key] = point
@@ -3268,6 +3271,18 @@ function Session:_hazard_aware_path(start, finish, blocked)
     return safe, true
   end
   return self:_path(start, finish, blocked, false), false
+end
+
+-- A flare's afterglow is an enemy-denial zone. The player can cross it
+-- freely, while hostile route selection avoids it whenever a safe path exists.
+function Session:is_flare_controlled(x, y)
+  for _, flare in ipairs(self.state.flares or {}) do
+    if flare.detonated and (flare.light_remaining or 0) > 0
+      and Grid.distance(flare, { x = x, y = y }) <= (flare.radius or 0) then
+      return true
+    end
+  end
+  return false
 end
 
 function Session:_blast(origin, radius)
@@ -4347,7 +4362,6 @@ function Session:_action(input)
         light_duration = 3,
         source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
-      self:_sound("flare")
       self:_log("Flare primed — immediate flash and afterglow.")
     end
   elseif input:match("^activate_ability:") then
@@ -4837,22 +4851,31 @@ function Session:_light_area(source, radius, visible)
   end
 end
 
-function Session:refresh_visibility()
+function Session:refresh_visibility(preserve_explored)
   local state = self.state
   if not state.player or not state.settings then
     return
   end
-  -- ROAG currently has no fog of war: every in-bounds cell and entity is
-  -- presented to the player. Retain the independent LOS helpers above for
-  -- physical cover, future targeting, and world simulation queries.
   local visible = {}
-  local explored = {}
-  for x = 0, Grid.width - 1 do
-    for y = 0, Grid.height - 1 do
-      local location_key = Grid.key(x, y)
-      visible[location_key] = true
-      explored[location_key] = true
+  self:_light_area(state.player, math.max(1, state.settings.vision or 1), visible)
+  for _, torch in ipairs(state.torches or {}) do
+    self:_light_area(torch, math.max(1, torch.light or 1), visible)
+  end
+  for _, flare in ipairs(state.flares or {}) do
+    if flare.detonated and (flare.light_remaining or 0) > 0 then
+      self:_light_area(flare, math.max(1, flare.light or 1), visible)
     end
+  end
+  for _, bomb in ipairs(state.bombs or {}) do
+    self:_light_area(bomb, math.max(1, bomb.light or 1), visible)
+  end
+  for _, fire in ipairs(state.world and state.world:list_fires() or {}) do
+    local x, y = state.world:fire_position(fire)
+    if x then self:_light_area({ x = x, y = y }, 2, visible) end
+  end
+  local explored = state.explored or {}
+  if not preserve_explored then
+    for location_key in pairs(visible) do explored[location_key] = true end
   end
   state.explored = explored
   state.visible = visible
