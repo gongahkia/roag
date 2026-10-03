@@ -6,6 +6,8 @@ Registry.__index = Registry
 local KNOWN_ABILITY_IMPLEMENTATIONS = {
   self_destruct = true,
   projectile = true,
+  scattershot = true,
+  piercing_projectile = true,
   area_burst = true,
   locomotion = true,
   electrical_discharge = true,
@@ -27,6 +29,7 @@ local KNOWN_INTERACTION_ROLES = {
 }
 
 local KNOWN_REINFORCEMENT_SOURCE_TYPES = { nest = true, lift = true }
+local KNOWN_AI_ROLES = { rusher = true, flanker = true, skirmisher = true, controller = true, heavy = true }
 
 local KNOWN_DISCOVERY_ACCESS_PROFILES = {
   ["access_profile.discovery.open"] = true,
@@ -781,7 +784,7 @@ function Registry:validate()
       require_string(ability.resource.name, "Ability '" .. id .. "' resource.name")
       require_positive_integer(ability.resource.amount, "Ability '" .. id .. "' resource.amount")
     end
-    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage", "force" }) do
+    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage", "force", "pellets", "pierce" }) do
       if ability[field] ~= nil then
         require_positive_integer(ability[field], "Ability '" .. id .. "' " .. field)
       end
@@ -796,6 +799,16 @@ function Registry:validate()
       if ability.activation_type ~= "body" then
         content_error("Melee ability '" .. id .. "' activation_type must be 'body'")
       end
+    end
+    if ability.implementation == "scattershot" then
+      require_positive_integer(ability.range, "Ability '" .. id .. "' range")
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
+      require_positive_integer(ability.pellets, "Ability '" .. id .. "' pellets")
+    end
+    if ability.implementation == "piercing_projectile" then
+      require_positive_integer(ability.range, "Ability '" .. id .. "' range")
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
+      require_positive_integer(ability.pierce, "Ability '" .. id .. "' pierce")
     end
   end
 
@@ -1026,6 +1039,9 @@ function Registry:_validate_actor_collection(kind, definitions)
       if kind == "Enemy" then
         require_string(definition.faction_id, "Enemy '" .. id .. "' faction_id")
         self:get_faction(definition.faction_id)
+        if definition.ai_role ~= nil and not KNOWN_AI_ROLES[definition.ai_role] then
+          content_error("Enemy '" .. id .. "' has unknown ai_role '" .. tostring(definition.ai_role) .. "'")
+        end
       end
       require_nonnegative_number(definition.ammo, kind .. " '" .. id .. "' ammo")
       if definition.ammo % 1 ~= 0 then

@@ -92,6 +92,9 @@ local DIRECTIONS = {
   sw = { -1, -1, "SW" },
   se = { 1, -1, "SE" },
 }
+-- Clockwise order gives the scatter weapon a predictable, symmetric fan
+-- without consuming run RNG or making save/replay outcomes drift.
+local DIRECTION_RING = { "w", "ne", "d", "se", "s", "sw", "a", "nw" }
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
 local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
 local ARCANE_BURST_ABILITY = "ability.arcane.burst"
@@ -635,10 +638,158 @@ function Session:_actor_stable_id(actor)
   return "actor:" .. tostring(component and component.id or actor.content_id or actor.kind or "unknown")
 end
 
+function Session:_navigation_begin()
+  self._navigation = {
+    hostile_fields = {},
+    route_fields = {},
+    reserved = {},
+    stats = { hostile_fields = 0, route_fields = 0, fallbacks = 0 },
+  }
+end
+
+function Session:_navigation_finish()
+  if self._navigation then
+    self._last_navigation_stats = self._navigation.stats
+    self._navigation = nil
+  end
+end
+
+function Session:navigation_stats()
+  local stats = (self._navigation and self._navigation.stats) or self._last_navigation_stats or {}
+  return {
+    hostile_fields = stats.hostile_fields or 0,
+    route_fields = stats.route_fields or 0,
+    fallbacks = stats.fallbacks or 0,
+  }
+end
+
+function Session:_navigation_is_dangerous(x, y)
+  return self.state.world:is_hazardous(x, y)
+    or #self.state.world:fires_at(x, y) > 0
+    or self.state.world:is_harmful_gas_at(x, y)
+    or self:is_flare_controlled(x, y)
+end
+
+-- A multi-source reverse BFS is shared by every enemy of a faction during a
+-- turn. The old per-enemy search walked most of the 80x50 map repeatedly;
+-- this keeps the same nearest-reachable-hostile rule while doing that terrain
+-- work once per faction instead.
+function Session:_navigation_hostile_field(actor)
+  local navigation = self._navigation
+  if not navigation then return nil end
+  local faction_id = self:actor_faction_id(actor)
+  if navigation.hostile_fields[faction_id] then return navigation.hostile_fields[faction_id] end
+  local sources = {}
+  for _, target in ipairs(self:_living_actors()) do
+    if target ~= actor and self:are_hostile(actor, target) then sources[#sources + 1] = target end
+  end
+  table.sort(sources, function(first, second)
+    local first_id, second_id = self:_actor_stable_id(first), self:_actor_stable_id(second)
+    if first_id ~= second_id then return first_id < second_id end
+    if first.y ~= second.y then return first.y < second.y end
+    return first.x < second.x
+  end)
+  local field, queue, head = {}, {}, 1
+  for _, target in ipairs(sources) do
+    local key = Grid.key(target.x, target.y)
+    if not field[key] then
+      field[key] = { distance = 0, target = target }
+      queue[#queue + 1] = { x = target.x, y = target.y, target = target }
+    end
+  end
+  while queue[head] do
+    local point = queue[head]
+    head = head + 1
+    local here = field[Grid.key(point.x, point.y)]
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y) and not field[key] then
+        field[key] = { distance = here.distance + 1, target = here.target }
+        queue[#queue + 1] = { x = neighbour.x, y = neighbour.y, target = here.target }
+      end
+    end
+  end
+  navigation.hostile_fields[faction_id] = field
+  navigation.stats.hostile_fields = navigation.stats.hostile_fields + 1
+  return field
+end
+
+function Session:_navigation_route_field(finish, avoid_hazards)
+  local navigation = self._navigation
+  if not navigation then return nil end
+  local key = Grid.key(finish.x, finish.y) .. ":" .. (avoid_hazards and "safe" or "unsafe")
+  if navigation.route_fields[key] then return navigation.route_fields[key] end
+  local field, queue, head = { [Grid.key(finish.x, finish.y)] = 0 }, { Grid.cell(finish.x, finish.y) }, 1
+  while queue[head] do
+    local point = queue[head]
+    head = head + 1
+    local distance = field[Grid.key(point.x, point.y)]
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local neighbour_key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y) and field[neighbour_key] == nil
+        and (not avoid_hazards or not self:_navigation_is_dangerous(neighbour.x, neighbour.y)) then
+        field[neighbour_key] = distance + 1
+        queue[#queue + 1] = neighbour
+      end
+    end
+  end
+  navigation.route_fields[key] = field
+  navigation.stats.route_fields = navigation.stats.route_fields + 1
+  return field
+end
+
+function Session:_navigation_route(actor, finish, blocked, avoid_hazards)
+  local field = self:_navigation_route_field(finish, avoid_hazards)
+  if not field then return nil end
+  local route, point = { Grid.cell(actor.x, actor.y) }, Grid.cell(actor.x, actor.y)
+  local maximum_steps = Grid.width * Grid.height
+  while point.x ~= finish.x or point.y ~= finish.y do
+    local distance = field[Grid.key(point.x, point.y)]
+    if distance == nil or distance <= 0 or #route > maximum_steps then return nil end
+    local options = {}
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local key = Grid.key(neighbour.x, neighbour.y)
+      if field[key] == distance - 1 and not blocked[key] and not self._navigation.reserved[key] then
+        options[#options + 1] = neighbour
+      end
+    end
+    if #options == 0 then return nil end
+    -- Flankers rotate otherwise-equal gradients. It creates a readable side
+    -- approach without random number consumption or diagonal clipping.
+    local choice = 1
+    if actor.ai_role == "flanker" and #options > 1 then
+      choice = ((actor.ai_phase or 0) + (actor.ai_cycle or 0)) % #options + 1
+    end
+    point = options[choice]
+    route[#route + 1] = Grid.cell(point.x, point.y)
+  end
+  return route
+end
+
+function Session:_navigation_hazard_aware_path(actor, finish, blocked)
+  local route = self:_navigation_route(actor, finish, blocked, true)
+  if route then return route, true end
+  route = self:_navigation_route(actor, finish, blocked, false)
+  if route then return route, false end
+  self._navigation.stats.fallbacks = self._navigation.stats.fallbacks + 1
+  return self:_hazard_aware_path(actor, finish, blocked)
+end
+
 -- Nearest reachable hostile target with a semantic/physical stable tie-break.
 -- The player receives no hidden universal priority: a nearby rival is a valid
 -- ecology target, while a reachable player remains an equally ordinary foe.
 function Session:_nearest_hostile_target(actor)
+  if self._navigation then
+    local field = self:_navigation_hostile_field(actor)
+    local entry = field and field[Grid.key(actor.x, actor.y)]
+    local chosen = entry and entry.target
+    if not chosen or chosen.health == 0 then return nil, {} end
+    local blocked = {}
+    for _, other in ipairs(self:_living_actors()) do
+      if other ~= actor and other ~= chosen then blocked[Grid.key(other.x, other.y)] = true end
+    end
+    return chosen, self:_navigation_hazard_aware_path(actor, chosen, blocked)
+  end
   -- One terrain BFS finds the nearest reachable hostile layer.  We then run
   -- the existing hazard-aware path only for the winner, avoiding an expensive
   -- full-map path solve for every actor pair each ordinary turn.
@@ -868,6 +1019,16 @@ function Session:actor_ability_by_implementation(actor, implementation)
   return nil
 end
 
+function Session:actor_ability_by_implementations(actor, implementations)
+  if not actor or not actor.body then return nil end
+  local wanted = {}
+  for _, implementation in ipairs(implementations or {}) do wanted[implementation] = true end
+  for _, ability_id in ipairs(actor.body:list_capabilities()) do
+    if wanted[self.registry:get_ability(ability_id).implementation] then return ability_id end
+  end
+  return nil
+end
+
 function Session:actor_known_ability_by_implementation(actor, implementation)
   if not actor or not actor.body then return nil end
   for _, component in ipairs(actor.body:list_components()) do
@@ -968,14 +1129,13 @@ function Session:_actor_side(actor)
   return actor == self.state.player and "player" or "enemy"
 end
 
-function Session:_execute_projectile(actor, provider, wear, ability, request)
+function Session:_spawn_projectile(actor, provider, ability, direction)
   local modifier = actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_damage") or 0
-  local direction = request.direction
   local bullet = entity("bullet", actor.x, actor.y, {
     direction = direction,
     active = false,
     travel = 1,
-    max = actor.bullet_range or ability.range,
+    max = ability.range or actor.bullet_range,
     light = 2,
     source_actor = actor,
     source_actor_kind = actor.kind,
@@ -983,20 +1143,52 @@ function Session:_execute_projectile(actor, provider, wear, ability, request)
     source_component_id = provider.id,
     ability_id = ability.id,
     damage = math.max(1, (ability.damage or 1) + modifier),
+    pierce_remaining = ability.pierce or 0,
   })
   self.state.bullets[#self.state.bullets + 1] = bullet
+  return bullet
+end
+
+function Session:_execute_projectile(actor, provider, wear, ability, request)
+  local bullet = self:_spawn_projectile(actor, provider, ability, request.direction)
   self:_sound("shoot")
   if actor == self.state.player then
-    self:_log("Fired " .. DIRECTIONS[direction][3] .. ".")
+    self:_log("Fired " .. DIRECTIONS[request.direction][3] .. ".")
   end
   return {
     applied = true,
     ability_id = ability.id,
-    implementation = "projectile",
+    implementation = ability.implementation,
     actor = actor,
     component_id = provider.id,
     wear = wear,
     projectile = bullet,
+  }
+end
+
+function Session:_execute_scattershot(actor, provider, wear, ability, request)
+  local center_index = 1
+  for index, direction in ipairs(DIRECTION_RING) do
+    if direction == request.direction then center_index = index; break end
+  end
+  local pellets, count = {}, math.max(1, ability.pellets or 3)
+  local offset_start = -math.floor(count / 2)
+  for offset = offset_start, offset_start + count - 1 do
+    local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+    pellets[#pellets + 1] = self:_spawn_projectile(actor, provider, ability, DIRECTION_RING[index])
+  end
+  self:_sound("shoot")
+  if actor == self.state.player then
+    self:_log("Scatter fired " .. DIRECTIONS[request.direction][3] .. ".")
+  end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "scattershot",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    projectiles = pellets,
   }
 end
 
@@ -1143,7 +1335,8 @@ function Session:_ability_failure(ability_id, code, reason)
 end
 
 function Session:_validate_ability_request(actor, ability, params)
-  if ability.implementation == "projectile" then
+  if ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile" then
     if not params or not DIRECTIONS[params.direction] then
       return nil, self:_ability_failure(ability.id, "invalid_direction", "A valid firing direction is required")
     end
@@ -1261,8 +1454,10 @@ function Session:activate_actor_ability(actor, ability_id, params)
   local wear = self:wear_actor_component(actor, selected.slot_id, ability_id)
   if ability.implementation == "self_destruct" then
     return self:_execute_self_destruct(actor, selected.component, wear)
-  elseif ability.implementation == "projectile" then
+  elseif ability.implementation == "projectile" or ability.implementation == "piercing_projectile" then
     return self:_execute_projectile(actor, selected.component, wear, ability, request)
+  elseif ability.implementation == "scattershot" then
+    return self:_execute_scattershot(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "area_burst" then
     return self:_execute_area_burst(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "electrical_discharge" then
@@ -2655,6 +2850,27 @@ function Session:_enemy_type(index, rng)
   error("Encounter pool weight selection fell through")
 end
 
+function Session:_infer_ai_role(enemy)
+  if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then return "rusher" end
+  if self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY)
+    or self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) then return "controller" end
+  if self:actor_ability_by_implementation(enemy, "melee")
+    and self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then
+    return "flanker"
+  end
+  if self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then
+    return "skirmisher"
+  end
+  if self:actor_ability_by_implementation(enemy, "melee") then return "heavy" end
+  return "rusher"
+end
+
+local function ai_phase_for(actor_id)
+  local total = 0
+  for index = 1, #tostring(actor_id) do total = total + string.byte(tostring(actor_id), index) end
+  return total % 8
+end
+
 function Session:_make_enemy(kind_or_id, point, options)
   local enemy_id = self.registry.enemies[kind_or_id] and kind_or_id or ENEMY_CONTENT_IDS[kind_or_id]
   local definition = enemy_id and self.registry:get_enemy(enemy_id) or nil
@@ -2678,7 +2894,12 @@ function Session:_make_enemy(kind_or_id, point, options)
     enemy.body = self:_build_body(definition, "zone")
     enemy.ammo = definition.ammo
     enemy.elite = definition.elite
+    enemy.ai_role = definition.ai_role or self:_infer_ai_role(enemy)
+  else
+    enemy.ai_role = self:_infer_ai_role(enemy)
   end
+  enemy.ai_phase = ai_phase_for(enemy.actor_id)
+  enemy.ai_cycle = 0
   return enemy
 end
 
@@ -3475,7 +3696,15 @@ function Session:_update_bullets()
           source_component_id = bullet.source_component_id,
           ability_id = bullet.ability_id,
         })
-      hit = true
+      -- A piercing lance crosses one damaged body, but intact terrain and
+      -- projectile-blocking cover above always terminate it immediately.
+      -- The projectile advances on later turns, so this cannot hit the same
+      -- actor a second time while remaining in its cell.
+      if (bullet.pierce_remaining or 0) > 0 then
+        bullet.pierce_remaining = bullet.pierce_remaining - 1
+      else
+        hit = true
+      end
     end
     if not hit then
       remaining[#remaining + 1] = bullet
@@ -3742,41 +3971,83 @@ end
 -- One capability-driven policy covers authored enemies and fallen echoes.
 -- Content changes body configuration; a broken provider therefore removes the
 -- corresponding decision without a new enemy-kind branch.
+function Session:_move_enemy_route(enemy, route)
+  if not route or #route <= 1 then return { applied = false, code = "no_route" } end
+  local destination = route[2]
+  local destination_key = Grid.key(destination.x, destination.y)
+  if self:_actor_at(destination.x, destination.y, enemy)
+    or (self._navigation and self._navigation.reserved[destination_key]) then
+    return { applied = false, code = "blocked_actor" }
+  end
+  local result = self:_move_actor(enemy, destination.x, destination.y)
+  if result.applied and self._navigation then self._navigation.reserved[destination_key] = true end
+  return result
+end
+
+function Session:_retreat_enemy(enemy, target)
+  local options, current_distance = {}, Grid.distance(enemy, target)
+  for _, neighbour in ipairs(Grid.neighbours(enemy)) do
+    local key = Grid.key(neighbour.x, neighbour.y)
+    if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y)
+      and not self:_navigation_is_dangerous(neighbour.x, neighbour.y)
+      and not self:_actor_at(neighbour.x, neighbour.y, enemy)
+      and not (self._navigation and self._navigation.reserved[key])
+      and Grid.distance(neighbour, target) > current_distance then
+      options[#options + 1] = neighbour
+    end
+  end
+  if #options == 0 then return { applied = false, code = "no_retreat" } end
+  local index = ((enemy.ai_phase or 0) + (enemy.ai_cycle or 0)) % #options + 1
+  local destination = options[index]
+  local result = self:_move_actor(enemy, destination.x, destination.y)
+  if result.applied and self._navigation then self._navigation.reserved[Grid.key(destination.x, destination.y)] = true end
+  return result
+end
+
 function Session:_body_enemy_turn(enemy, target, route, electrical_direction)
   local projectile_direction = self:_projectile_direction_to(enemy, target)
-  local projectile_ability = self:actor_ability_by_implementation(enemy, "projectile")
+  local projectile_ability = self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" })
   local melee_ability = self:actor_ability_by_implementation(enemy, "melee")
   local melee_direction = self:_melee_direction_to(enemy, target)
+  local role = enemy.ai_role or self:_infer_ai_role(enemy)
+  local distance = math.max(0, #route - 1)
+  local can_fire = projectile_ability and projectile_direction
+  if can_fire then
+    local ability = self.registry:get_ability(projectile_ability)
+    can_fire = (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0)
+  end
+  local function fire()
+    return self:activate_actor_ability(enemy, projectile_ability, { direction = projectile_direction })
+  end
   if self:_actor_has_pending_area_attack(enemy) then
     return
-  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
+  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and distance <= 1 then
     self:_begin_enemy_attack(enemy, "detonate", target, 0, 1)
-  elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+  elseif role == "controller" and electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
     self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
-  elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
+  elseif role == "controller" and self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and distance <= 4 then
     self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = target })
-  elseif projectile_ability and projectile_direction then
-    local ability = self.registry:get_ability(projectile_ability)
-    if (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0) then
-      self:activate_actor_ability(enemy, projectile_ability, { direction = projectile_direction })
-    elseif melee_ability and melee_direction then
-      self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
-    elseif #route > 1 then
-      self:_move_actor(enemy, route[2].x, route[2].y)
-    end
   elseif melee_ability and melee_direction then
     self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
-  elseif #route > 1 then
-    self:_move_actor(enemy, route[2].x, route[2].y)
+  elseif (role == "skirmisher" or role == "controller") and distance <= 2 then
+    self:_retreat_enemy(enemy, target)
+  elseif role == "flanker" and (enemy.ai_cycle or 0) % 3 ~= 0 then
+    self:_move_enemy_route(enemy, route)
+  elseif can_fire then
+    fire()
+  else
+    self:_move_enemy_route(enemy, route)
   end
 end
 
 function Session:_enemy_turn()
+  self:_navigation_begin()
   for index = #self.state.enemies, 1, -1 do
     local enemy = self.state.enemies[index]
     if enemy.stun > 0 then
       enemy.stun = enemy.stun - 1
     elseif enemy.attack == 0 then
+      enemy.ai_cycle = (enemy.ai_cycle or 0) + 1
       local target, route = self:_nearest_hostile_target(enemy)
       if target and enemy.body then
         self:_body_enemy_turn(enemy, target, route, self:_electrical_direction_to(enemy, target))
@@ -3784,7 +4055,7 @@ function Session:_enemy_turn()
       elseif target and #route > 0 and #route - 1 <= 4 then
         self:_begin_enemy_attack(enemy, "spell", target, 1, 3)
       elseif target and #route > 1 then
-        self:_move_actor(enemy, route[2].x, route[2].y)
+        self:_move_enemy_route(enemy, route)
       end
     else
       enemy.attack = enemy.attack + 1
@@ -3793,6 +4064,7 @@ function Session:_enemy_turn()
       end
     end
   end
+  self:_navigation_finish()
 end
 
 local ELECTRICAL_AIM_ORDER = { "w", "d", "s", "a", "ne", "se", "sw", "nw" }
@@ -3839,7 +4111,8 @@ function Session:_boss_telegraph_cells(boss)
     local delta = DIRECTIONS[pending.direction]
     local trace = Electricity.trace(self.state.world, { x = boss.x + delta[1], y = boss.y + delta[2] }, { max_cells = ability.max_cells })
     for _, cell in ipairs(trace.reached_cells or {}) do cells[Grid.key(cell.x, cell.y)] = true end
-  elseif ability.implementation == "projectile" and pending.direction then
+  elseif (ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile") and pending.direction then
     local delta = DIRECTIONS[pending.direction]
     local x, y = boss.x, boss.y
     for _ = 1, ability.range or Grid.width do
@@ -3895,7 +4168,8 @@ end
 function Session:_boss_telegraph_request(boss, ability_id)
   local ability = self.registry:get_ability(ability_id)
   local target = self.state.player
-  if ability.implementation == "projectile" then
+  if ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile" then
     local direction = self:_projectile_direction_to(boss, target)
     if direction then return { direction = direction } end
   elseif ability.implementation == "electrical_discharge" then
@@ -4140,8 +4414,14 @@ end
 function Session:_shoot(direction)
   local player = self.state.player
   player.direction = direction or player.direction
-  local ability_id = self:actor_ability_by_implementation(player, "projectile")
-    or self:actor_known_ability_by_implementation(player, "projectile")
+  local ranged_implementations = { "projectile", "scattershot", "piercing_projectile" }
+  local ability_id = self:actor_ability_by_implementations(player, ranged_implementations)
+  if not ability_id then
+    for _, implementation in ipairs(ranged_implementations) do
+      ability_id = self:actor_known_ability_by_implementation(player, implementation)
+      if ability_id then break end
+    end
+  end
   if not ability_id then
     self:_log("No functional ranged weapon.")
     return self:_ability_failure(BASIC_PROJECTILE_ABILITY, "missing_capability", "No functional ranged weapon")
@@ -4919,7 +5199,7 @@ function Session:enemy_intent(enemy)
   if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
     return "DETONATE"
   end
-  if self:actor_ability_by_implementation(enemy, "projectile") then return "RANGED" end
+  if self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then return "RANGED" end
   if self:actor_ability_by_implementation(enemy, "melee") then return "MELEE" end
   return "ADVANCE"
 end

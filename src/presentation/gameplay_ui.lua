@@ -257,6 +257,15 @@ function GameplayUI.enemy(session, actor)
       abilities[#abilities + 1] = session.registry:get_ability(ability_id).display_name
     end
   end
+  local weapon = nil
+  for _, ability_id in ipairs(actor.body and actor.body:list_capabilities() or {}) do
+    local ability = session.registry:get_ability(ability_id)
+    if ability.implementation == "projectile" or ability.implementation == "scattershot"
+      or ability.implementation == "piercing_projectile" or ability.implementation == "melee" then
+      weapon = ability.display_name
+      break
+    end
+  end
   return {
     name = definition and definition.display_name or string.upper(actor.kind or "UNKNOWN"),
     faction = faction and faction.display_name or nil,
@@ -264,6 +273,8 @@ function GameplayUI.enemy(session, actor)
     max_health = actor.max_health,
     locomotion = session:locomotion_state(actor).state,
     abilities = abilities,
+    role = uppercase_words(actor.ai_role or "rusher"),
+    weapon = weapon,
     intent = session:enemy_intent(actor),
   }
 end

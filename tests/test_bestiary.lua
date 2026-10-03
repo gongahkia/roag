@@ -123,9 +123,9 @@ return {
       local session, registry = new_session(108001), nil
       registry = session.registry
       local component_ids, enemy_ids, charm_ids = sorted_ids(registry.components), sorted_ids(registry.enemies), sorted_ids(registry.charms)
-      -- 8I adds the Apex's player-usable Vector Lance without mutating the
-      -- authored ordinary-enemy roster or charm corpus.
-      assert(#component_ids == 24 and #enemy_ids == 14 and #charm_ids == 9)
+      -- Scatter and piercing weapons add four authored tactical variants,
+      -- while retaining the same elite and charm corpus.
+      assert(#component_ids == 26 and #enemy_ids == 18 and #charm_ids == 9)
       local ordinary, elite, referenced = 0, 0, {}
       for _, enemy_id in ipairs(enemy_ids) do
         local definition = registry:get_enemy(enemy_id)
@@ -134,7 +134,7 @@ return {
         assert(actor.body and actor.content_id == enemy_id)
         assert(session:locomotion_state(actor).state == "NORMAL")
       end
-      assert(ordinary == 10 and elite == 4)
+      assert(ordinary == 14 and elite == 4)
       for _, biome_id in ipairs({ "biome.legacy.forest", "biome.legacy.cave", "biome.legacy.dungeon" }) do
         for tier = 1, 3 do
           local pool = assert(registry:encounter_pool_for(biome_id, "tier.legacy." .. tier))
@@ -154,6 +154,10 @@ return {
       assert(session:actor_has_capability(reclaimer, MELEE) and session:actor_has_capability(reclaimer, HEAVY_PROJECTILE))
       local cutter = session:_make_enemy("enemy.reactor.arc_cutter", { x = 20, y = 20 })
       assert(session:actor_has_capability(cutter, MELEE) and session:actor_has_capability(cutter, "ability.electrical.discharge"))
+      local scatter = session:_make_enemy("enemy.wild.scatter_skirmisher", { x = 20, y = 20 })
+      assert(scatter.ai_role == "skirmisher" and session:actor_has_capability(scatter, "ability.weapon.scatter_caster"))
+      local hunter = session:_make_enemy("enemy.reactor.rail_hunter", { x = 20, y = 20 })
+      assert(hunter.ai_role == "skirmisher" and session:actor_has_capability(hunter, "ability.weapon.piercing_lance"))
     end,
   },
   {

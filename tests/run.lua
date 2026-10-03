@@ -18,6 +18,7 @@ local suites = {
   "tests.test_body",
   "tests.test_body_damage",
   "tests.test_body_weapons",
+  "tests.test_enemy_tactics",
   "tests.test_locomotion",
   "tests.test_inventory",
   "tests.test_corpse_salvage",

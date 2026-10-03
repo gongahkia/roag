@@ -403,8 +403,11 @@ function Renderer:_draw_game(app)
   -- still drawn last.
   for location_key, style in pairs(forecasts) do
     local x, y = location_key:match("(%d+):(%d+)")
-    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)
-    if pixel_x then self:_draw_forecast_outline(pixel_x, pixel_y, size, style, time) end
+    local forecast_x, forecast_y = tonumber(x), tonumber(y)
+    if state.visible[Grid.key(forecast_x, forecast_y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, forecast_x, forecast_y, size, offset_x, offset_y)
+      if pixel_x then self:_draw_forecast_outline(pixel_x, pixel_y, size, style, time) end
+    end
   end
   local player_x, player_y = presentation:position(state.player)
   local pixel_x, pixel_y = self:_screen_position(presentation, state.player, player_x, player_y, size, offset_x, offset_y)
@@ -496,13 +499,18 @@ function Renderer:_draw_game(app)
   self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
   self:_text("G salvage   I inventory   U interact", hud, controls_y + 74, 0.68)
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
-  for index, enemy in ipairs(state.enemies) do
-    if index > 5 then
-      break
+  local shown_threats = 0
+  for _, enemy in ipairs(state.enemies) do
+    if state.visible[Grid.key(enemy.x, enemy.y)] then
+      shown_threats = shown_threats + 1
+      if shown_threats > 5 then break end
+      local enemy_model = GameplayUI.enemy(session, enemy)
+      local faction = enemy_model.faction and (" — " .. string.upper(enemy_model.faction)) or ""
+      local loadout = enemy_model.weapon and (" [" .. enemy_model.role .. " / " .. string.upper(enemy_model.weapon) .. "]")
+        or (" [" .. enemy_model.role .. "]")
+      self:_text(enemy_model.name .. faction .. loadout .. ": " .. enemy_model.intent,
+        hud, controls_y + 124 + shown_threats * 17, 0.62)
     end
-    local enemy_model = GameplayUI.enemy(session, enemy)
-    local faction = enemy_model.faction and (" — " .. string.upper(enemy_model.faction)) or ""
-    self:_text(enemy_model.name .. faction .. ": " .. enemy_model.intent, hud, controls_y + 124 + index * 17, 0.67)
   end
   for index, message in ipairs(state.log) do
     self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
