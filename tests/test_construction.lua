@@ -62,7 +62,7 @@ end
 local function descend(campaign_value)
   local connection = assert(campaign_value.active_zone.connections.down)
   local object = assert(campaign_value.session.state.world:object_at(connection.cell.x, connection.cell.y))
-  campaign_value.session.state.player.x, campaign_value.session.state.player.y = object.x + 1, object.y
+  campaign_value.session.state.player.x, campaign_value.session.state.player.y, campaign_value.session.state.player.direction = object.x + 1, object.y, "a"
   assert(campaign_value.session:turn("interact") == "zone_transition")
 end
 

@@ -4,6 +4,10 @@ local Input = {}
 local MOVE_KEYS = { w = true, a = true, s = true, d = true }
 local SHOT_KEYS = { up = "w", left = "a", down = "s", right = "d" }
 
+local function campaign_field(app)
+  return app.is_campaign_mode and app:is_campaign_mode()
+end
+
 function Input.keypressed(app, key, _, is_repeat)
   if app.screen == "build" then
     local recipes = app:build_recipes()
@@ -258,6 +262,7 @@ function Input.keypressed(app, key, _, is_repeat)
     return
   end
   if app.screen == "game" then
+    local campaign = campaign_field(app)
     if MOVE_KEYS[key] then
       if not is_repeat then
         local direction = app:set_movement_key(key, true)
@@ -266,16 +271,18 @@ function Input.keypressed(app, key, _, is_repeat)
           app:perform_turn(direction)
         end
       end
-    elseif SHOT_KEYS[key] then
+    elseif SHOT_KEYS[key] and not campaign then
       if not is_repeat then
         app:perform_turn("shoot_" .. SHOT_KEYS[key])
       end
     elseif key == "i" then
       app:open_inventory()
-    elseif key == "g" then
+    elseif key == "g" and not campaign then
       app:open_salvage()
     elseif key == "u" then
       app:perform_turn("interact")
+    elseif key == "e" and campaign then
+      app:perform_turn("attack")
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
     elseif key == "x" then

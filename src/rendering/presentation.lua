@@ -6,6 +6,10 @@ Presentation.__index = Presentation
 local IDLE_SETTLE_EPSILON = 0.01
 local IDLE_BEAT_SECONDS = 1.35
 local MOVE_SPEED = 7.5
+local BUMP_SECONDS = 0.16
+local BUMP_DIRECTIONS = {
+  w = { 0, -1 }, a = { -1, 0 }, s = { 0, 1 }, d = { 1, 0 },
+}
 
 local function stable_phase(entity)
   -- Components and fallen records are already stable physical identities.  A
@@ -43,6 +47,8 @@ function Presentation.new()
     positions = setmetatable({}, { __mode = "k" }),
     hit_flash = 0,
     hit_shake = 0,
+    bump_time = 0,
+    bump_direction = nil,
   }, Presentation)
 end
 
@@ -60,10 +66,44 @@ function Presentation:reset(session)
   if player then
     self.camera_x, self.camera_y = player.x, player.y
   end
+  self.bump_time, self.bump_direction = 0, nil
 end
 
 function Presentation:hit()
   self.hit_flash, self.hit_shake = 0.32, 0.24
+end
+
+-- The collision reaction belongs wholly to presentation.  It never changes a
+-- grid position, enters campaign serialization, or consumes another turn.
+function Presentation:bump(direction)
+  if BUMP_DIRECTIONS[direction] then
+    self.bump_time, self.bump_direction = BUMP_SECONDS, direction
+  end
+end
+
+function Presentation:player_bump_transform(tile_size)
+  local direction = self.bump_direction and BUMP_DIRECTIONS[self.bump_direction]
+  if not direction or self.bump_time <= 0 then return nil end
+  local elapsed = 1 - self.bump_time / BUMP_SECONDS
+  local amount
+  if elapsed < 0.42 then
+    amount = elapsed / 0.42 * 0.16
+  else
+    amount = -((1 - elapsed) / 0.58) * 0.09
+  end
+  local size = tile_size or 16
+  return { offset_x = direction[1] * size * amount, offset_y = direction[2] * size * amount }
+end
+
+function Presentation.merge_transforms(first, second)
+  if not first then return second end
+  if not second then return first end
+  return {
+    offset_x = (first.offset_x or 0) + (second.offset_x or 0),
+    offset_y = (first.offset_y or 0) + (second.offset_y or 0),
+    scale_x = (first.scale_x or 1) * (second.scale_x or 1),
+    scale_y = (first.scale_y or 1) * (second.scale_y or 1),
+  }
 end
 
 function Presentation:_animate(entity, dt)
@@ -131,6 +171,8 @@ end
 function Presentation:update(session, dt)
   self.hit_flash = math.max(0, self.hit_flash - dt)
   self.hit_shake = math.max(0, self.hit_shake - dt)
+  self.bump_time = math.max(0, self.bump_time - dt)
+  if self.bump_time == 0 then self.bump_direction = nil end
   local state, player = session.state, session.state.player
   if not player then
     return

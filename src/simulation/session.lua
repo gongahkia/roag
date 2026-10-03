@@ -393,6 +393,25 @@ function Session:available_interactions(actor)
   return Interaction.available(self, actor or self.state.player)
 end
 
+function Session:faced_cell(actor)
+  actor = actor or self.state.player
+  if not self.campaign or not actor then return nil end
+  local delta = DIRECTIONS[actor.direction]
+  -- Campaign facing is cardinal.  Treat a diagonal direction carried by an
+  -- old save as unavailable rather than quietly making directional USE scan a
+  -- diagonal cell.
+  if not delta or math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then return nil end
+  local x, y = actor.x + delta[1], actor.y + delta[2]
+  if not Grid.in_bounds(x, y) then return nil end
+  return { x = x, y = y, direction = actor.direction }
+end
+
+function Session:faced_interactions(actor)
+  local cell = self:faced_cell(actor)
+  if not cell then return {} end
+  return Interaction.available_at(self, actor or self.state.player, cell.x, cell.y)
+end
+
 function Session:interact(actor, object_id, action_id)
   return Interaction.perform(self, actor or self.state.player, object_id, action_id)
 end
@@ -2099,6 +2118,15 @@ function Session:find_corpse(corpse_id)
   return nil
 end
 
+function Session:faced_corpse()
+  local cell = self:faced_cell()
+  if not cell then return nil end
+  for _, corpse in ipairs(self.state.corpses or {}) do
+    if corpse.x == cell.x and corpse.y == cell.y then return corpse end
+  end
+  return nil
+end
+
 function Session:nearby_corpse()
   local player = self.state.player
   if not player then
@@ -2130,6 +2158,14 @@ function Session:nearby_ground_item()
     return left.id < right.id
   end)
   return candidates[1]
+end
+
+function Session:faced_ground_item()
+  local cell, world = self:faced_cell(), self.state.world
+  if not cell or not world then return nil end
+  local items = world:ground_items_at(cell.x, cell.y)
+  table.sort(items, function(left, right) return left.id < right.id end)
+  return items[1]
 end
 
 function Session:pickup_ground_item(ground_item_id)
@@ -4206,8 +4242,47 @@ function Session:_move_player(direction)
   if not delta then
     return { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
   end
+  if self.campaign and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
+  end
+
+  local destination_x, destination_y = player.x + delta[1], player.y + delta[2]
+  -- Terrain failure is deliberately checked before facing changes.  Walking
+  -- into a wall is not a turn-in-place action in the Campaign control model.
+  local movement = self:validate_actor_movement(player, delta[1], delta[2])
+  if not movement.applied then
+    if movement.code == "blocked_terrain" then
+      self:_log("A wall blocks your path.")
+    elseif movement.code == "crawl_cannot_move_diagonally" then
+      self:_log("CRAWLING: cardinal movement only.")
+    else
+      self:_log(movement.reason)
+    end
+    return movement
+  end
+
+  local occupant = self:_actor_at(destination_x, destination_y, player)
+  if occupant and (occupant.health == nil or occupant.health > 0) then
+    -- Occupancy is physical rather than an implicit attack.  The action is
+    -- still consumed by Session:turn, giving the existing enemy response
+    -- pipeline its ordinary opportunity to act.
+    player.direction = direction
+    local hostile = self:are_hostile(player, occupant)
+    self:_event("bump", { direction = direction, hostile = hostile, actor = occupant })
+    self:_sound("select")
+    self:_log(hostile and "BLOCKED BY HOSTILE." or "BLOCKED BY ACTOR.")
+    return {
+      applied = false,
+      consumed = true,
+      code = hostile and "enemy_bump" or "actor_blocked",
+      reason = hostile and "A hostile blocks the path" or "An actor blocks the path",
+      actor = occupant,
+      direction = direction,
+    }
+  end
+
   player.direction = direction
-  local result = self:_move_actor(player, player.x + delta[1], player.y + delta[2])
+  local result = self:_move_actor(player, destination_x, destination_y)
   if result.applied then
     self:_log("Moved " .. delta[3] .. ".")
   elseif result.code == "blocked_terrain" then
@@ -4304,12 +4379,11 @@ end
 
 function Session:_nearby_vertical_connection()
   if not self.campaign then return nil end
-  local player, world = self.state.player, self.state.world
-  if not player or not world then return nil end
+  local cell, world = self:faced_cell(), self.state.world
+  if not cell or not world then return nil end
   for _, object in ipairs(world:list_objects()) do
     if object.interaction_role == "zone_connection" and object.zone_connection_id
-      and math.abs(player.x - object.x) <= 1 and math.abs(player.y - object.y) <= 1
-      and not (player.x == object.x and player.y == object.y) then
+      and object.x == cell.x and object.y == cell.y then
       return object
     end
   end
@@ -4347,10 +4421,29 @@ function Session:_try_surface_transition(input)
   return true, failure or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
 end
 
+-- A solid tile is not an action in the Campaign control model.  Run this
+-- before turn bookkeeping so a wall bump neither advances the world nor
+-- changes facing.  Living actors are intentionally excluded here: attempting
+-- their occupied cell is the meaningful enemy-bump action handled by
+-- _move_player during the normal turn.
+function Session:_campaign_movement_preflight(direction)
+  if not self.campaign or not DIRECTIONS[direction] then return nil end
+  local player, delta = self.state.player, DIRECTIONS[direction]
+  if math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
+  end
+  local movement = self:validate_actor_movement(player, delta[1], delta[2])
+  if not movement.applied then return movement end
+  return nil
+end
+
 function Session:can_move(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
   if not player or not delta then
     return false, { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
+  if self.campaign and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return false, { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
   end
   if self.campaign and SURFACE_DIRECTION_BY_INPUT[direction] and not Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then
     local connection = self.campaign.active_zone.connections and self.campaign.active_zone.connections[SURFACE_DIRECTION_BY_INPUT[direction]]
@@ -4428,7 +4521,22 @@ function Session:_shoot(direction)
 end
 
 function Session:_interact_player()
-  local ground = self:nearby_ground_item()
+  local ground, result
+  if self.campaign then
+    local cell = self:faced_cell()
+    if not cell then
+      result = { applied = false, code = "not_interactable", reason = "Nothing to interact with" }
+    else
+      local interactions = Interaction.available_at(self, self.state.player, cell.x, cell.y)
+      if #interactions > 0 then
+        result = Interaction.primary_at(self, self.state.player, cell.x, cell.y)
+      else
+        ground = self:faced_ground_item()
+      end
+    end
+  else
+    ground = self:nearby_ground_item()
+  end
   if ground then
     local pickup = self:pickup_ground_item(ground.id)
     if pickup.applied then
@@ -4439,7 +4547,7 @@ function Session:_interact_player()
     end
     return pickup
   end
-  local result = Interaction.primary(self, self.state.player)
+  result = result or Interaction.primary(self, self.state.player)
   if result.applied then
     local object = self.state.world:get_object(result.object_id)
     if result.action_id == "door.open" then
@@ -4580,22 +4688,22 @@ end
 function Session:_action(input)
   local player = self.state.player
   if DIRECTIONS[input] then
-    self:_move_player(input)
-    self:_sound("step")
-    return
+    local result = self:_move_player(input)
+    if result.applied then self:_sound("step") end
+    return result
   end
   if player.impact > 0 then
     self:_log("You are recovering from the hit.")
-    return
+    return { applied = false, code = "recovering", reason = "You are recovering from the hit" }
   end
   if input == "q" then
-    self:_dash()
+    return self:_dash()
   elseif input == "interact" then
-    self:_interact_player()
-  elseif input == "e" then
-    self:_shoot()
+    return self:_interact_player()
+  elseif input == "e" or input == "attack" then
+    return self:_shoot()
   elseif input:match("^shoot_[wasd]$") then
-    self:_shoot(input:sub(-1))
+    return self:_shoot(input:sub(-1))
   elseif input == "b" then
     if player.bombs <= 0 then
       self:_log("No bombs left. Buy bombs in the shop.")
@@ -4610,6 +4718,7 @@ function Session:_action(input)
       })
       self:_sound("select")
       self:_log("Bomb armed. Move away before it explodes.")
+      return { applied = true, code = "bomb_armed" }
     end
   elseif input == "f" then
     if player.flares <= 0 then
@@ -4628,9 +4737,10 @@ function Session:_action(input)
         source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_log("Flare primed — immediate flash and afterglow.")
+      return { applied = true, code = "flare_primed" }
     end
   elseif input:match("^activate_ability:") then
-    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
+    return self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
   else
@@ -4644,8 +4754,10 @@ function Session:_action(input)
       else
         self:_log(result.reason or "BUILD FAILED.")
       end
+      return result
     end
   end
+  return { applied = false, code = "unknown_action", reason = "Unknown action" }
 end
 
 function Session:_begin_exit()
@@ -4957,6 +5069,7 @@ end
 function Session:turn(input)
   local state = self.state
   assert(state.player, "A run must be started before it can advance")
+  self.last_action_result = nil
   if state.ended then
     return state.ended
   end
@@ -4968,6 +5081,21 @@ function Session:turn(input)
   if vertical_transitioned then
     return vertical_result and vertical_result.applied and "zone_transition" or "zone_transition_failed"
   end
+  -- Salvage opens the existing modal without advancing simulation.  It is a
+  -- Campaign-only faced-tile action; the legacy G/nearby flow remains intact.
+  if self.campaign and input == "interact" then
+    local corpse = self:faced_corpse()
+    if corpse then
+      self.pending_salvage_corpse_id = corpse.id
+      return "salvage"
+    end
+  end
+  local blocked_movement = self:_campaign_movement_preflight(input)
+  if blocked_movement then
+    self.last_action_result = self:_move_player(input)
+    self:refresh_visibility()
+    return "no_action"
+  end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
@@ -4978,9 +5106,9 @@ function Session:turn(input)
 
   if state.phase == "exit" or state.phase == "boss_exit" then
     if DIRECTIONS[input] then
-      self:_move_player(input)
+      self.last_action_result = self:_move_player(input)
     elseif input == "q" then
-      self:_dash()
+      self.last_action_result = self:_dash()
     end
     if not state.ended then ReinforcementSimulation.tick(self) end
     self:_update_liquids()
@@ -5001,7 +5129,7 @@ function Session:turn(input)
     return nil
   end
 
-  self:_action(input)
+  self.last_action_result = self:_action(input)
   -- Station reconstruction opens before enemy/environment updates. Browsing
   -- the modal thereafter runs no simulation ticks.
   if state.pending_reconstruction_station_id and not state.ended then

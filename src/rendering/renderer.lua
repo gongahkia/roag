@@ -360,6 +360,9 @@ function Renderer:_draw_game(app)
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
     local transform = value.body and (presentation:movement_transform(value)
       or presentation:idle_transform(session, value, time, size)) or nil
+    if value == state.player then
+      transform = presentation.merge_transforms(transform, presentation:player_bump_transform(size))
+    end
     self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
   end
 
@@ -493,9 +496,10 @@ function Renderer:_draw_game(app)
   local controls_y = math.max(offset_y + 278, status_y + 8)
   self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
-  self:_text("ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
+  self:_text(session.campaign and "E ATTACK FORWARD" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
   self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
-  self:_text("G salvage   I inventory   U interact", hud, controls_y + 74, 0.68)
+  self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
+    controls_y + 74, 0.68)
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
   local shown_threats = 0
   for _, enemy in ipairs(state.enemies) do

@@ -39,22 +39,23 @@ $ love .
 
 | Key | Action |
 | --- | --- |
-| `W` / `A` / `S` / `D` | Move; hold one vertical and one horizontal key together to move diagonally |
-| `E` | Fire in the facing direction |
+| `W` / `A` / `S` / `D` | **Campaign:** cardinal movement only; the most recently pressed held direction wins. Movement sets facing. |
+| `E` | **Campaign:** attack in the facing direction |
 | `Q` | Dash two tiles in the facing direction |
 | `B` | Arm a bomb |
 | `F` | Light a flare; it stuns enemies in its blast |
-| `G` | Salvage a nearby corpse |
 | `I` | Open carried inventory |
 | Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview |
 | `C` | Open the campaign construction menu |
-| `U` | Pick up nearby cargo or interact with adjacent world objects (doors, storage, power, stations) |
+| `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, cargo, or corpse salvage |
 | `X` | Open installed body abilities; activation requires a second confirmation |
 | `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
 | Enter or `E` | Confirm a menu choice or leave the shop for the boss |
 | `B` / `V` in the shop | Buy / sell the selected item |
 | Escape | Quit the game |
+
+Legacy/run-based mode retains its compatibility controls: diagonal held WASD movement, arrow-key firing, and `G` for nearby corpse salvage.
 
 ## Reference
 

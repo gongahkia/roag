@@ -28,7 +28,7 @@ end
 local function descend(campaign)
   local connection = assert(campaign.active_zone.connections.down, "expected deterministic downward connection")
   local object = assert(campaign.session.state.world:object_at(connection.cell.x, connection.cell.y))
-  campaign.session.state.player.x, campaign.session.state.player.y = object.x + 1, object.y
+  campaign.session.state.player.x, campaign.session.state.player.y, campaign.session.state.player.direction = object.x + 1, object.y, "a"
   assert(campaign.session:turn("interact") == "zone_transition")
 end
 
@@ -146,7 +146,7 @@ return {
       assert(station.interaction_role == "reconstruction_station")
       assert(campaign.session.state.world:damage_object(station, { amount = station.current_integrity, cause = "test" }).code == "protected_station")
       local player = campaign.session.state.player
-      player.x, player.y = station.x + 1, station.y
+      player.x, player.y, player.direction = station.x + 1, station.y, "a"
       assert(campaign.session:turn("interact") == "reconstruction")
       assert(campaign.session:_reconstruction_allowed())
       assert(campaign.session:complete_reconstruction().applied)

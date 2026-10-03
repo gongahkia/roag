@@ -152,6 +152,46 @@ function GameplayUI.context_action(session)
   if state.exit and Grid.distance(player, state.exit) <= 1 then
     return { key = "MOVE", label = "EXIT READY — STEP ONTO EXIT", available = true, priority = 1 }
   end
+  -- Campaign context is intentionally physical and directional. A corpse is
+  -- selected before ordinary objects on the faced cell; Session handles a
+  -- faced vertical connection before this UI helper is consulted.
+  if session.campaign then
+    local corpse = session.faced_corpse and session:faced_corpse() or nil
+    if corpse then
+      local count = #corpse:list_components() + #corpse:list_carried_items()
+      return {
+        key = "U",
+        label = corpse.source_kind == "player" and "SALVAGE FALLEN BODY"
+          or (corpse.fallen_archive_id and "SALVAGE FALLEN SHELL" or "SALVAGE REMAINS"),
+        available = count > 0,
+        reason = count > 0 and nil or "NO SALVAGE REMAINS",
+        priority = 2,
+      }
+    end
+    local interactions = session.faced_interactions and session:faced_interactions(player) or {}
+    if interactions[1] and interactions[1].actions[1] then
+      local action = interactions[1].actions[1]
+      return {
+        key = "U",
+        label = action.label,
+        available = action.available,
+        reason = action.available and nil or GameplayUI.failure_text(action),
+        object_name = interactions[1].display_name,
+        priority = 3,
+      }
+    end
+    local ground = session.faced_ground_item and session:faced_ground_item() or nil
+    if ground then
+      return {
+        key = "U",
+        label = "PICK UP " .. string.upper(ground.item.display_name),
+        available = session.state.inventory:find_first_fit(ground.item) ~= nil,
+        reason = "INVENTORY FULL",
+        priority = 4,
+      }
+    end
+    return nil
+  end
   local ground = session.nearby_ground_item and session:nearby_ground_item() or nil
   if ground then
     return {

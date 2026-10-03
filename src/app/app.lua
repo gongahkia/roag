@@ -24,8 +24,17 @@ local InventoryLayout = require("src.ui.inventory_layout")
 local App = {}
 App.__index = App
 App.CAMPAIGN_SLOT_COUNT = 3
-
-local HOLD_INITIAL_DELAY, HOLD_REPEAT_DELAY = 0.28, 0.11
+-- Input cadence lives at the application boundary.  Each command still
+-- advances exactly one deterministic simulation turn; these values govern
+-- only how quickly a physically held key asks for another command.
+App.HOLD_INITIAL_DELAY = 0.22
+App.HOLD_REPEAT_DELAY = 0.09
+App.ENCUMBRANCE_REPEAT_MULTIPLIERS = {
+  LIGHT = 1.00,
+  BURDENED = 1.20,
+  HEAVY = 1.50,
+  OVERLOADED = 2.00,
+}
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -83,10 +92,28 @@ function App.new(options)
   self.renderer = Renderer.new(self.assets)
   self.cursors = CursorManager.new()
   self.movement_keys = {}
+  self.movement_key_order = {}
+  self.movement_key_sequence = 0
+  self.held_movement_blocked = false
   self:_reconcile_pending_death()
   self:refresh_continue()
   self:refresh_campaign_continue()
   return self
+end
+
+function App:is_campaign_mode()
+  return self.campaign ~= nil and self.session ~= nil and self.session == self.campaign.session
+end
+
+function App.movement_repeat_interval_for_encumbrance(encumbrance)
+  local multiplier = App.ENCUMBRANCE_REPEAT_MULTIPLIERS[encumbrance] or App.ENCUMBRANCE_REPEAT_MULTIPLIERS.LIGHT
+  return App.HOLD_REPEAT_DELAY * multiplier
+end
+
+function App:movement_repeat_interval()
+  local inventory = self.session and self.session.state and self.session.state.inventory
+  local encumbrance = inventory and inventory:encumbrance() or "LIGHT"
+  return App.movement_repeat_interval_for_encumbrance(encumbrance)
 end
 
 function App:load()
@@ -553,9 +580,9 @@ end
 function App:help_sections()
   return {
     { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
-    { title = "MOVEMENT + COMBAT", text = "WASD moves. Arrow keys shoot. Q dashes. B throws a bomb. F places a flare." },
+    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward. U uses exactly the faced tile. Q dashes; B arms a bomb; F primes a flare." },
     { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
-    { title = "SALVAGE + INVENTORY", text = "G opens a nearby corpse. Parts need space in the grid; R rotates selected cargo." },
+    { title = "SALVAGE + INVENTORY", text = "Campaign U opens a faced corpse. Parts need space in the grid; R rotates selected cargo. Legacy mode retains G for nearby salvage." },
     { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
     { title = "SERVICES + ROUTE", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms; route choices are one way." },
     { title = "RESEARCH + DEATH", text = "RESEARCH DATA unlocks future runs. Death archives the body; a fallen shell can recur later." },
@@ -639,6 +666,8 @@ function App:_handle_session_event(event)
     self:play_sound(event.value)
   elseif event.type == "hit" then
     self.presentation:hit()
+  elseif event.type == "bump" then
+    self.presentation:bump(event.value and event.value.direction)
   end
 end
 
@@ -910,6 +939,10 @@ function App:_handle_turn_result(result)
     self.screen, self.menu = result, 1
     self:clear_held_movement()
   end
+  if result == "salvage" then
+    self:open_salvage(self.session and self.session.pending_salvage_corpse_id)
+    if self.session then self.session.pending_salvage_corpse_id = nil end
+  end
   if result == "service" then
     self.service_object_id = self.session.state.active_service_object_id
     self.screen, self.menu = "service", 1
@@ -924,6 +957,12 @@ function App:perform_turn(input)
     return
   end
   local result = self.session:turn(input)
+  local action_result = self.session.last_action_result
+  if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
+    -- Keep held-key state for release bookkeeping, but never issue another
+    -- turn into the same physical blocker until a fresh directional intent.
+    self.held_direction, self.hold_timer, self.held_movement_blocked = nil, nil, true
+  end
   if (result == "zone_transition" or result == "campaign_succession") and self.campaign then
     -- Campaign atomically swaps its active local simulator only after the
     -- zone shards and manifest commit. Presentation observes that new zone.
@@ -944,6 +983,7 @@ function App:close_overlay()
   self.salvage_corpse_id = nil
   self.storage_object_id = nil
   if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
+  self:clear_held_movement()
 end
 
 function App:open_build()
@@ -951,6 +991,7 @@ function App:open_build()
   self.build_recipe_index = 1
   self.build_recipe_id = nil
   self.screen, self.menu = "build", 1
+  self:clear_held_movement()
   self:play_sound("select")
   return true
 end
@@ -1053,6 +1094,7 @@ function App:open_inventory()
   self.inventory_selected_id = nil
   self.inventory_drag = nil
   self.screen = "inventory"
+  self:clear_held_movement()
   self:play_sound("select")
   return true
 end
@@ -1458,8 +1500,9 @@ function App:rotate_inventory_item()
   return rotated
 end
 
-function App:open_salvage()
-  local corpse = self.session and self.session:nearby_corpse()
+function App:open_salvage(corpse_id)
+  local corpse = corpse_id and self.session and self.session:find_corpse(corpse_id)
+    or (self.session and (self:is_campaign_mode() and self.session:faced_corpse() or self.session:nearby_corpse()))
   if not corpse then
     if self.session then
       self.session:_log("No corpse within salvage range.")
@@ -1468,6 +1511,7 @@ function App:open_salvage()
   end
   self.salvage_corpse_id = corpse.id
   self.screen, self.menu = "salvage", 1
+  self:clear_held_movement()
   self:play_sound("select")
   return true
 end
@@ -1501,18 +1545,38 @@ function App:salvage_selected()
 end
 
 function App:start_held_move(direction)
-  self.held_direction, self.hold_timer = direction, HOLD_INITIAL_DELAY
+  self.held_direction, self.hold_timer = direction, App.HOLD_INITIAL_DELAY
+  self.held_movement_blocked = false
 end
 
 function App:clear_held_movement()
   self.held_direction, self.hold_timer = nil, nil
   self.movement_keys = {}
+  self.movement_key_order = {}
+  self.held_movement_blocked = false
 end
 
 function App:set_movement_key(key, held)
   self.movement_keys = self.movement_keys or {}
-  self.movement_keys[key] = held or nil
+  self.movement_key_order = self.movement_key_order or {}
+  if held then
+    self.movement_key_sequence = (self.movement_key_sequence or 0) + 1
+    self.movement_keys[key] = true
+    self.movement_key_order[key] = self.movement_key_sequence
+  else
+    self.movement_keys[key], self.movement_key_order[key] = nil, nil
+  end
   local keys = self.movement_keys
+  if self:is_campaign_mode() then
+    local selected, newest = nil, -1
+    for _, candidate in ipairs({ "w", "a", "s", "d" }) do
+      local order = self.movement_key_order[candidate]
+      if keys[candidate] and order and order > newest then
+        selected, newest = candidate, order
+      end
+    end
+    return selected
+  end
   local vertical = keys.w and "w" or keys.s and "s" or nil
   local horizontal = keys.a and "a" or keys.d and "d" or nil
   if vertical and horizontal then
@@ -1523,13 +1587,16 @@ end
 
 function App:update(dt)
   if self.screen == "game" and self.session then
-    if self.held_direction then
-      self.hold_timer = (self.hold_timer or HOLD_INITIAL_DELAY) - dt
+    if self.held_direction and not self.held_movement_blocked then
+      self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then
-        self.hold_timer = HOLD_REPEAT_DELAY
-        local player = self.session.state.player
-        if player.direction == self.held_direction and self.session:can_move(self.held_direction) then
+        self.hold_timer = self:movement_repeat_interval()
+        if self.session:can_move(self.held_direction) then
           self:perform_turn(self.held_direction)
+        else
+          -- A wall/invalid terrain is not a turn; it simply ends this held
+          -- sequence until the player supplies a new movement intent.
+          self.held_direction, self.hold_timer = nil, nil
         end
       end
     end

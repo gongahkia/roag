@@ -76,6 +76,21 @@ return {
     end,
   },
   {
+    name = "enemy bump presentation recoils without changing authoritative player position",
+    run = function()
+      local session, player = idle_session()
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      presentation:bump("d")
+      presentation:update(session, 0.04)
+      local transform = assert(presentation:player_bump_transform(20))
+      assert(transform.offset_x ~= 0 and transform.offset_y == 0)
+      assert(player.x == 10 and player.y == 10)
+      presentation:update(session, 1)
+      assert(presentation:player_bump_transform(20) == nil)
+    end,
+  },
+  {
     name = "forecast rendering draws an underlay and visible danger outline without changing telegraph authority",
     run = function()
       local prior_love, calls = love, {}
