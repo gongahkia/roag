@@ -35,6 +35,16 @@ return {
     end,
   },
   {
+    name = "clicking a title option activates the same new-run flow as Enter",
+    run = function()
+      local app = App.new({ seed = 9015 })
+      local width, height = 900, 700
+      local new_run_y = height / 2 + 26 + 29
+      assert(app:mousepressed(width / 2, new_run_y, 1, width, height))
+      assert(app.screen == "onboarding" or app.screen == "game")
+    end,
+  },
+  {
     name = "inventory and salvage overlays operate without rendering",
     run = function()
       local app = App.new({ seed = 9011 })

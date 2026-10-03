@@ -1099,6 +1099,22 @@ function App:inventory_layout(viewport_width, viewport_height)
   return InventoryLayout.for_viewport(inventory, viewport_width, viewport_height)
 end
 
+function App:title_option_at(x, y, viewport_width, viewport_height)
+  if self.screen ~= "title" then return nil end
+  if type(viewport_width) ~= "number" or type(viewport_height) ~= "number" then
+    if not (love and love.graphics) then return nil end
+    viewport_width, viewport_height = love.graphics.getDimensions()
+  end
+  local start_x = viewport_width / 2 - 84
+  local end_x = viewport_width / 2 + 260
+  if x < start_x or x > end_x then return nil end
+  for index = 1, #self:title_options() do
+    local line_y = viewport_height / 2 + 26 + index * 29
+    if y >= line_y - 8 and y <= line_y + 20 then return index end
+  end
+  return nil
+end
+
 function App:_update_inventory_drag(pointer_x, pointer_y, layout)
   local drag = self.inventory_drag
   if not drag then return nil end
@@ -1332,8 +1348,15 @@ function App:keyreleased(...)
   Input.keyreleased(self, ...)
 end
 
-function App:mousepressed(...)
-  return self:inventory_mousepressed(...)
+function App:mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen == "title" and button == 1 then
+    local index = self:title_option_at(x, y, viewport_width, viewport_height)
+    if index then
+      self.menu = index
+      return self:activate_title_choice()
+    end
+  end
+  return self:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
 end
 
 function App:mousemoved(...)
