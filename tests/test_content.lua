@@ -498,6 +498,26 @@ return {
     end,
   },
   {
+    name = "inventory shape definitions require a complete occupied bitmap",
+    run = function()
+      local invalid_sources = sources()
+      invalid_sources.components = copy_list(invalid_sources.components)
+      invalid_sources.components[#invalid_sources.components + 1] = {
+        id = "component.internal.invalid_shape",
+        display_name = "Invalid Shape",
+        compatible_slots = { "internal" },
+        max_integrity = 1,
+        mass = 1,
+        wear_per_use = 0,
+        inventory = { width = 2, height = 2, rotatable = false, shape = { "11", "2" } },
+        abilities = {},
+      }
+      assert_failure("inventory.shape row 2 must be a 2-character 0/1 string", function()
+        Registry.new(invalid_sources)
+      end)
+    end,
+  },
+  {
     name = "invalid ability resource metadata fails validation",
     run = function()
       local invalid_sources = sources()

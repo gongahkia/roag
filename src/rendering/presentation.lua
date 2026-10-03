@@ -5,6 +5,7 @@ Presentation.__index = Presentation
 
 local IDLE_SETTLE_EPSILON = 0.01
 local IDLE_BEAT_SECONDS = 1.35
+local MOVE_SPEED = 7.5
 
 local function stable_phase(entity)
   -- Components and fallen records are already stable physical identities.  A
@@ -30,7 +31,10 @@ local function slide_axis(current, target, dt, speed)
 end
 
 local function follow_camera_axis(current, target, dt)
-  local speed = math.abs(target - current) > 1.5 and 18 or 6
+  -- Let a moving actor lead the camera for a beat.  Following at the old
+  -- near-lockstep speed kept the player visually pinned to the screen centre,
+  -- which made a real interpolation read like a tile-to-tile teleport.
+  local speed = math.abs(target - current) > 1.5 and 12 or 3.2
   return slide_axis(current, target, dt, speed)
 end
 
@@ -44,7 +48,15 @@ end
 
 function Presentation:reset(session)
   self.positions = setmetatable({}, { __mode = "k" })
-  local player = session.state.player
+  local state, player = session.state, session.state.player
+  local function seed(entity)
+    if entity then self.positions[entity] = { x = entity.x, y = entity.y } end
+  end
+  seed(player)
+  for _, values in ipairs({ state.enemies, state.bullets }) do
+    for _, entity in ipairs(values or {}) do seed(entity) end
+  end
+  seed(state.boss)
   if player then
     self.camera_x, self.camera_y = player.x, player.y
   end
@@ -60,9 +72,24 @@ function Presentation:_animate(entity, dt)
     position = { x = entity.x, y = entity.y }
     self.positions[entity] = position
   end
-  position.x = slide_axis(position.x, entity.x, dt)
-  position.y = slide_axis(position.y, entity.y, dt)
+  position.x = slide_axis(position.x, entity.x, dt, MOVE_SPEED)
+  position.y = slide_axis(position.y, entity.y, dt, MOVE_SPEED)
   return position
+end
+
+-- A restrained stretch makes the slide feel physical while position remains
+-- fully presentation-only.  It is intentionally unavailable at rest so it
+-- composes cleanly with the quieter idle breathing animation.
+function Presentation:movement_transform(entity)
+  local x, y = self:position(entity)
+  local delta_x, delta_y = entity.x - x, entity.y - y
+  local magnitude = math.max(math.abs(delta_x), math.abs(delta_y))
+  if magnitude <= IDLE_SETTLE_EPSILON then return nil end
+  local stretch = math.min(0.075, magnitude * 0.075)
+  if math.abs(delta_x) >= math.abs(delta_y) then
+    return { scale_x = 1 + stretch, scale_y = 1 - stretch * 0.55 }
+  end
+  return { scale_x = 1 - stretch * 0.55, scale_y = 1 + stretch }
 end
 
 function Presentation:position(entity)

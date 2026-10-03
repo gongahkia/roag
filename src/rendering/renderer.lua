@@ -1,6 +1,7 @@
 local Grid = require("src.world.grid")
 local Component = require("src.body.component")
 local GameplayUI = require("src.presentation.gameplay_ui")
+local InventoryLayout = require("src.ui.inventory_layout")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -334,7 +335,8 @@ function Renderer:_draw_game(app)
     -- remain body-derived in the simulation.
     local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
-    local transform = value.body and presentation:idle_transform(session, value, time, size) or nil
+    local transform = value.body and (presentation:movement_transform(value)
+      or presentation:idle_transform(session, value, time, size)) or nil
     self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
   end
 
@@ -565,15 +567,18 @@ function Renderer:_draw_reconstruction(app)
     end
   end
   for index, entry in ipairs(inventory.entries) do
-    local item_width, item_height = inventory:footprint(entry.item, entry.rotated)
-    local px, py = inventory_x + (entry.x - 1) * cell + 2, grid_y + (entry.y - 1) * cell + 2
     local selected = app.reconstruction_focus == "inventory" and index == app.reconstruction_inventory_index
     local queued = app.reconstruction_selected_id == entry.physical_id
-    self:_color((selected or queued) and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 })
-    love.graphics.rectangle("fill", px, py, item_width * cell - 7, item_height * cell - 7)
-    self:_color({ 0.8, 0.9, 1 })
-    love.graphics.rectangle("line", px, py, item_width * cell - 7, item_height * cell - 7)
-    self:_text(entry.item.display_name, px + 4, py + 5, 0.58, { 0.95, 0.97, 1 })
+    local color = (selected or queued) and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 }
+    for _, shape_cell in ipairs(inventory:footprint_cells(entry.item, entry.rotated)) do
+      local px = inventory_x + (entry.x - 1 + shape_cell.x) * cell + 2
+      local py = grid_y + (entry.y - 1 + shape_cell.y) * cell + 2
+      self:_color(color)
+      love.graphics.rectangle("fill", px, py, cell - 7, cell - 7)
+      self:_color({ 0.8, 0.9, 1 })
+      love.graphics.rectangle("line", px, py, cell - 7, cell - 7)
+    end
+    self:_text(entry.item.display_name, inventory_x + (entry.x - 1) * cell + 4, grid_y + (entry.y - 1) * cell + 5, 0.58, { 0.95, 0.97, 1 })
   end
 
   local selected_slot = app:reconstruction_slot()
@@ -626,14 +631,27 @@ end
 function Renderer:_draw_inventory(app)
   local inventory = app.session.state.inventory
   local width, height = love.graphics.getDimensions()
-  local cell = math.max(42, math.min(72, math.floor(math.min((width * 0.52) / inventory.width, (height - 210) / inventory.height))))
-  local grid_x = math.floor(width * 0.12)
-  local grid_y = math.floor((height - inventory.height * cell) / 2) + 35
+  local layout = InventoryLayout.for_viewport(inventory, width, height)
+  local cell, grid_x, grid_y = layout.cell, layout.grid_x, layout.grid_y
   local cursor = app.inventory_cursor or { x = 1, y = 1 }
 
+  local function draw_item(entry, anchor_x, anchor_y, color, label_color)
+    local cells = inventory:footprint_cells(entry.item, entry.rotated)
+    for _, shape_cell in ipairs(cells) do
+      local pixel_x = grid_x + (anchor_x - 1 + shape_cell.x) * cell + 2
+      local pixel_y = grid_y + (anchor_y - 1 + shape_cell.y) * cell + 2
+      self:_color(color)
+      love.graphics.rectangle("fill", pixel_x, pixel_y, cell - 7, cell - 7)
+      self:_color({ 0.8, 0.9, 1, color[4] or 1 })
+      love.graphics.rectangle("line", pixel_x, pixel_y, cell - 7, cell - 7)
+    end
+    self:_text(entry.item.display_name, grid_x + (anchor_x - 1) * cell + 6, grid_y + (anchor_y - 1) * cell + 7,
+      math.min(0.7, math.max(0.38, cell / 90)), label_color or { 0.95, 0.97, 1, color[4] or 1 })
+  end
+
   love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("CARRIED INVENTORY + BODY", grid_x, 38, 2, { 0.7, 0.9, 1 })
-  self:_text(inventory:total_mass() .. " MASS  •  " .. inventory:encumbrance() .. " (CARGO STATUS ONLY)", grid_x, 76, 0.82, { 0.95, 0.85, 0.3 })
+  self:_text("CARRIED INVENTORY", grid_x, math.max(18, grid_y - 58), 1.35, { 0.7, 0.9, 1 })
+  self:_text(inventory:total_mass() .. " MASS  •  " .. inventory:encumbrance(), grid_x, math.max(38, grid_y - 31), 0.72, { 0.95, 0.85, 0.3 })
   for y = 1, inventory.height do
     for x = 1, inventory.width do
       local pixel_x = grid_x + (x - 1) * cell
@@ -645,15 +663,21 @@ function Renderer:_draw_inventory(app)
     end
   end
   for _, entry in ipairs(inventory.entries) do
-    local item_width, item_height = inventory:footprint(entry.item, entry.rotated)
-    local pixel_x = grid_x + (entry.x - 1) * cell + 2
-    local pixel_y = grid_y + (entry.y - 1) * cell + 2
-    local selected = app.inventory_selected_id == entry.physical_id
-    self:_color(selected and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 })
-    love.graphics.rectangle("fill", pixel_x, pixel_y, item_width * cell - 7, item_height * cell - 7)
-    self:_color({ 0.8, 0.9, 1 })
-    love.graphics.rectangle("line", pixel_x, pixel_y, item_width * cell - 7, item_height * cell - 7)
-    self:_text(entry.item.display_name, pixel_x + 5, pixel_y + 6, 0.7, { 0.95, 0.97, 1 })
+    local dragging = app.inventory_drag and app.inventory_drag.physical_id == entry.physical_id
+    if not dragging then
+      local selected = app.inventory_selected_id == entry.physical_id
+      draw_item(entry, entry.x, entry.y, selected and { 0.92, 0.7, 0.2 } or { 0.18, 0.45, 0.58 })
+    end
+  end
+  local drag = app.inventory_drag
+  if drag then
+    local entry = inventory:get(drag.physical_id)
+    if entry then
+      local preview = { item = entry.item, rotated = drag.rotated }
+      draw_item(preview, drag.x, drag.y,
+        drag.valid and { 0.45, 0.92, 0.74, 0.8 } or { 1, 0.28, 0.22, 0.7 },
+        drag.valid and { 0.9, 1, 0.94, 0.9 } or { 1, 0.82, 0.8, 0.9 })
+    end
   end
   local cursor_x = grid_x + (cursor.x - 1) * cell
   local cursor_y = grid_y + (cursor.y - 1) * cell
@@ -663,31 +687,35 @@ function Renderer:_draw_inventory(app)
   love.graphics.setLineWidth(1)
 
   local entry = app.inventory_selected_id and inventory:get(app.inventory_selected_id) or inventory:item_at(cursor.x, cursor.y)
-  local detail_x = grid_x + inventory.width * cell + 42
-  if entry then
-    local model = GameplayUI.inventory_entry(app.session, entry, inventory)
-    self:_text(model.name, detail_x, grid_y, 1.25, { 0.95, 0.85, 0.3 })
-    self:_text("MASS " .. model.mass .. "   SIZE " .. model.width .. "×" .. model.height .. " CELLS" .. (model.rotated and " (ROTATED)" or ""), detail_x, grid_y + 32, 0.75)
+  local detail_entry = entry
+  if drag and entry and drag.physical_id == entry.physical_id then
+    detail_entry = { item = entry.item, rotated = drag.rotated }
+  end
+  local detail_x = grid_x + math.floor(layout.width * 0.52)
+  local detail_y = math.max(18, grid_y - 58)
+  if detail_entry then
+    local model = GameplayUI.inventory_entry(app.session, detail_entry, inventory)
+    self:_text(model.name, detail_x, detail_y, 0.82, { 0.95, 0.85, 0.3 })
+    self:_text("MASS " .. model.mass .. "   BOUNDS " .. model.width .. "×" .. model.height .. (model.rotated and " (ROTATED)" or ""), detail_x, detail_y + 17, 0.54)
     if model.item_type == "resource" then
-      self:_text("RESOURCE STACK ×" .. model.quantity, detail_x, grid_y + 52, 0.85, { 0.6, 0.9, 0.75 })
-      self:_text(model.description, detail_x, grid_y + 73, 0.7, { 0.95, 0.65, 0.35 })
+      self:_text("RESOURCE ×" .. model.quantity, detail_x, detail_y + 33, 0.58, { 0.6, 0.9, 0.75 })
     else
-      self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, grid_y + 52, 0.85)
-      self:_text(model.condition, detail_x, grid_y + 73, 0.85,
+      self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, detail_y + 33, 0.58)
+      self:_text(model.condition, detail_x, detail_y + 46, 0.58,
         model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
-      self:_text("ABILITY " .. model.ability_text, detail_x, grid_y + 94, 0.66, { 0.95, 0.65, 0.35 })
     end
   else
-    self:_text("EMPTY CELL", detail_x, grid_y, 1, { 0.65, 0.75, 0.9 })
+    self:_text("EMPTY CELL", detail_x, detail_y, 0.72, { 0.65, 0.75, 0.9 })
   end
-  self:_text("WASD / ARROWS MOVE CURSOR", grid_x, height - 96, 0.8, { 0.75, 0.82, 0.92 })
-  self:_text("ENTER SELECT / PLACE     R ROTATE     I / ESC CLOSE", grid_x, height - 70, 0.8, { 0.75, 0.82, 0.92 })
-  local body_y = grid_y + 135
-  self:_text("EQUIPPED BODY", detail_x, body_y, 0.92, { 0.7, 0.9, 1 })
+  self:_text("DRAG TO REPACK  •  R ROTATE  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
+  self:_text("ENTER SELECT / PLACE     I / ESC CLOSE", grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
+  local body_y = grid_y + layout.height + 10
+  local body_x = grid_x
+  self:_text("EQUIPPED BODY", body_x, body_y, 0.68, { 0.7, 0.9, 1 })
   for index, component in ipairs(GameplayUI.body(app.session, app.session.state.player)) do
-    if body_y + index * 17 < height - 100 then
+    if body_y + index * 14 < height - 62 then
       self:_text((component.slot or "SLOT") .. "  " .. (component.empty and "EMPTY" or component.name) .. " — " .. component.condition,
-        detail_x, body_y + index * 17, 0.55, component.empty and { 0.48, 0.55, 0.65 }
+        body_x, body_y + index * 14, 0.45, component.empty and { 0.48, 0.55, 0.65 }
           or (component.functional and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }))
     end
   end

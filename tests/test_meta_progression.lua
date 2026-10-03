@@ -108,7 +108,7 @@ return {
       session:start_run()
       assert(session.state.player.max_health == 8 and session.state.player.health == 8)
       assert(session.state.player.dash_base == 1)
-      assert(session.state.inventory.height == 6 and session.state.scrap == 3)
+      assert(session.state.inventory.height == 9 and session.state.scrap == 3)
       assert(session:has_meta_unlock("unlock.traversal.reinforced_breach"))
       local existing_dash, existing_slots = session.state.player.dash_base, require("src.simulation.run_modifiers").charm_slots(session.state)
       profile.research_data = 10

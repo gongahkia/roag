@@ -225,7 +225,7 @@ return {
       })
       local session = assert(new_session(profile))
       local modifiers = require("src.simulation.run_modifiers")
-      assert(session.state.player.max_health == 9 and session.state.inventory.height == 7 and session.state.scrap == 6)
+      assert(session.state.player.max_health == 9 and session.state.inventory.height == 10 and session.state.scrap == 6)
       assert(modifiers.charm_slots(session.state) == 5 and session:available_actor_abilities(session.state.player))
       assert(modifiers.value(session.state, session.registry, "melee_force") == 1
         and modifiers.value(session.state, session.registry, "projectile_damage") == 1)

@@ -3,8 +3,8 @@
 local Inventory = {}
 Inventory.__index = Inventory
 
-Inventory.DEFAULT_WIDTH = 5
-Inventory.DEFAULT_HEIGHT = 4
+Inventory.DEFAULT_WIDTH = 7
+Inventory.DEFAULT_HEIGHT = 7
 Inventory.DEFAULT_THRESHOLDS = {
   burdened = 5,
   heavy = 9,
@@ -31,6 +31,39 @@ local function dimensions(item, rotated)
   return footprint.width, footprint.height
 end
 
+-- A footprint can optionally be a small bitmap.  `1` marks an occupied
+-- inventory cell and `0` leaves a hole, making placement play like actual
+-- packing rather than a collection of rectangles.  The bitmap stays in the
+-- item definition; entries only retain their anchor and orientation.
+local function footprint_cells(item, rotated)
+  local footprint = assert(item.footprint, "Inventory item must have a footprint")
+  local cells = {}
+  local shape = footprint.shape
+  if shape then
+    for y, row in ipairs(shape) do
+      for x = 1, #row do
+        if row:sub(x, x) == "1" then
+          local cell_x, cell_y = x - 1, y - 1
+          if rotated then
+            -- Clockwise rotation inside the footprint's bounding box.
+            cell_x, cell_y = footprint.height - 1 - cell_y, cell_x
+          end
+          cells[#cells + 1] = { x = cell_x, y = cell_y }
+        end
+      end
+    end
+  else
+    local width, height = dimensions(item, rotated)
+    for y = 0, height - 1 do
+      for x = 0, width - 1 do
+        cells[#cells + 1] = { x = x, y = y }
+      end
+    end
+  end
+  assert(#cells > 0, "Inventory item footprint must occupy at least one cell")
+  return cells
+end
+
 function Inventory.new(options)
   options = options or {}
   local width = options.width or Inventory.DEFAULT_WIDTH
@@ -52,6 +85,13 @@ function Inventory:footprint(item, rotated)
     return nil, "Item '" .. item.physical_id .. "' cannot rotate"
   end
   return dimensions(item, rotated)
+end
+
+function Inventory:footprint_cells(item, rotated)
+  if rotated and not item.footprint.rotatable then
+    return nil, "Item '" .. item.physical_id .. "' cannot rotate"
+  end
+  return footprint_cells(item, rotated)
 end
 
 function Inventory:get(physical_id)
@@ -77,32 +117,24 @@ function Inventory:can_place(item, x, y, rotated, ignored_id)
   if x < 1 or y < 1 or x + width - 1 > self.width or y + height - 1 > self.height then
     return false, "Item does not fit within inventory bounds"
   end
-  for cell_x = x, x + width - 1 do
-    for cell_y = y, y + height - 1 do
-      local occupant = self.cells[cell_key(cell_x, cell_y)]
-      if occupant and occupant.physical_id ~= ignored_id then
-        return false, "Item overlaps '" .. occupant.physical_id .. "'"
-      end
+  for _, cell in ipairs(footprint_cells(item, rotated)) do
+    local occupant = self.cells[cell_key(x + cell.x, y + cell.y)]
+    if occupant and occupant.physical_id ~= ignored_id then
+      return false, "Item overlaps '" .. occupant.physical_id .. "'"
     end
   end
   return true
 end
 
 function Inventory:_occupy(entry)
-  local width, height = dimensions(entry.item, entry.rotated)
-  for x = entry.x, entry.x + width - 1 do
-    for y = entry.y, entry.y + height - 1 do
-      self.cells[cell_key(x, y)] = entry
-    end
+  for _, cell in ipairs(footprint_cells(entry.item, entry.rotated)) do
+    self.cells[cell_key(entry.x + cell.x, entry.y + cell.y)] = entry
   end
 end
 
 function Inventory:_clear(entry)
-  local width, height = dimensions(entry.item, entry.rotated)
-  for x = entry.x, entry.x + width - 1 do
-    for y = entry.y, entry.y + height - 1 do
-      self.cells[cell_key(x, y)] = nil
-    end
+  for _, cell in ipairs(footprint_cells(entry.item, entry.rotated)) do
+    self.cells[cell_key(entry.x + cell.x, entry.y + cell.y)] = nil
   end
 end
 
@@ -352,13 +384,10 @@ function Inventory:validate()
     seen[entry.physical_id] = true
     local allowed, reason = self:can_place(entry.item, entry.x, entry.y, entry.rotated, entry.physical_id)
     assert(allowed, reason)
-    local width, height = dimensions(entry.item, entry.rotated)
-    for x = entry.x, entry.x + width - 1 do
-      for y = entry.y, entry.y + height - 1 do
-        local key = cell_key(x, y)
-        assert(not expected_cells[key], "Inventory entries overlap at " .. key)
-        expected_cells[key] = entry
-      end
+    for _, cell in ipairs(footprint_cells(entry.item, entry.rotated)) do
+      local key = cell_key(entry.x + cell.x, entry.y + cell.y)
+      assert(not expected_cells[key], "Inventory entries overlap at " .. key)
+      expected_cells[key] = entry
     end
   end
   for physical_id, entry in pairs(self.by_id) do

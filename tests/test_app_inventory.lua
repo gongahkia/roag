@@ -60,6 +60,29 @@ return {
     end,
   },
   {
+    name = "inventory drag previews the live drop cell and commits only on release",
+    run = function()
+      local app = App.new({ seed = 9014 })
+      app:select_class(app.content.classes[1])
+      app:select_boon(app.boon_options[1])
+      local inventory = app.session.state.inventory
+      local cargo = app.session:create_resource_stack("resource.material.timber", 1, "test")
+      assert(inventory:place(cargo, 1, 1))
+      assert(app:open_inventory())
+      local layout = assert(app:inventory_layout(900, 760))
+      assert(layout.grid_x == math.floor((900 - layout.width) / 2), "Inventory grid must be centred")
+      local from_x, from_y = layout.grid_x + layout.cell * 0.5, layout.grid_y + layout.cell * 0.5
+      local to_x, to_y = layout.grid_x + layout.cell * 3.5, layout.grid_y + layout.cell * 2.5
+      assert(app:inventory_mousepressed(from_x, from_y, 1, 900, 760))
+      local drag = assert(app:inventory_mousemoved(to_x, to_y, 0, 0, 900, 760))
+      assert(drag.x == 4 and drag.y == 3 and drag.valid)
+      local moved = assert(app:inventory_mousereleased(to_x, to_y, 1, 900, 760))
+      assert(moved.x == 4 and moved.y == 3)
+      assert(inventory:item_at(4, 3).physical_id == cargo.physical_id)
+      assert(not app.inventory_drag and not app.inventory_selected_id)
+    end,
+  },
+  {
     name = "reconstruction overlay installs a selected component and requires explicit finish",
     run = function()
       local app = App.new({ seed = 9012 })

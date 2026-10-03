@@ -1,11 +1,11 @@
 local Inventory = require("src.inventory.inventory")
 
-local function item(id, width, height, rotatable, mass)
+local function item(id, width, height, rotatable, mass, shape)
   return {
     item_type = "fixture",
     physical_id = id,
     display_name = id,
-    footprint = { width = width, height = height, rotatable = rotatable },
+    footprint = { width = width, height = height, rotatable = rotatable, shape = shape },
     mass = mass or 1,
     to_data = function(self)
       return {
@@ -67,6 +67,25 @@ return {
       assert(removed == module)
       assert(not inventory:item_at(4, 2))
       assert(inventory:total_mass() == 0)
+    end,
+  },
+  {
+    name = "irregular inventory footprints occupy only their authored cells and rotate as shapes",
+    run = function()
+      local inventory = Inventory.new({ width = 3, height = 3 })
+      local hook = item("item:hook", 2, 2, true, 1, { "11", "10" })
+      local token = item("item:token", 1, 1, false)
+      assert(inventory:place(hook, 1, 1))
+      assert(inventory:item_at(1, 1).physical_id == hook.physical_id)
+      assert(inventory:item_at(2, 1).physical_id == hook.physical_id)
+      assert(inventory:item_at(1, 2).physical_id == hook.physical_id)
+      assert(not inventory:item_at(2, 2), "The hole in an L footprint must remain usable")
+      assert(inventory:place(token, 2, 2))
+      assert(inventory:remove(token.physical_id))
+      assert(inventory:move(hook.physical_id, 1, 1, true))
+      assert(inventory:item_at(1, 1).physical_id == hook.physical_id)
+      assert(not inventory:item_at(1, 2), "Rotation must move the footprint hole")
+      assert(inventory:item_at(2, 2).physical_id == hook.physical_id)
     end,
   },
   {

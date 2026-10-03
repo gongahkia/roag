@@ -79,6 +79,24 @@ local function require_positive_integer(value, label)
   end
 end
 
+local function validate_inventory_shape(inventory, label)
+  local shape = inventory.shape
+  if shape == nil then return end
+  if type(shape) ~= "table" or #shape ~= inventory.height then
+    content_error(label .. ".shape must have exactly inventory.height rows")
+  end
+  local occupied = false
+  for row_index, row in ipairs(shape) do
+    if type(row) ~= "string" or #row ~= inventory.width or row:find("[^01]") then
+      content_error(label .. ".shape row " .. row_index .. " must be a " .. inventory.width .. "-character 0/1 string")
+    end
+    occupied = occupied or row:find("1", 1, true) ~= nil
+  end
+  if not occupied then
+    content_error(label .. ".shape must occupy at least one cell")
+  end
+end
+
 local function validate_declarative(value, path, seen)
   local value_type = type(value)
   if value_type == "function" then
@@ -410,6 +428,7 @@ function Registry:validate()
     if type(resource.inventory.rotatable) ~= "boolean" then
       content_error("Resource '" .. id .. "' inventory.rotatable must be a boolean")
     end
+    validate_inventory_shape(resource.inventory, "Resource '" .. id .. "' inventory")
   end
 
   for _, id in ipairs(sorted_keys(self.liquids)) do
@@ -727,6 +746,7 @@ function Registry:validate()
     if type(component.inventory.rotatable) ~= "boolean" then
       content_error("Component '" .. id .. "' inventory.rotatable must be a boolean")
     end
+    validate_inventory_shape(component.inventory, "Component '" .. id .. "' inventory")
     if type(component.compatible_slots) ~= "table" or #component.compatible_slots == 0 then
       content_error("Component '" .. id .. "' must list compatible_slots")
     end

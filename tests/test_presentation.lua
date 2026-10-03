@@ -53,6 +53,21 @@ return {
     end,
   },
   {
+    name = "reset seeds actor positions so the first move slides and gets a motion stretch",
+    run = function()
+      local session, player = idle_session()
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      player.x = 11
+      presentation:update(session, 0.01)
+      local rendered_x = select(1, presentation:position(player))
+      assert(rendered_x > 10 and rendered_x < 11, "The first move after a reset must not snap")
+      local transform = assert(presentation:movement_transform(player))
+      assert(transform.scale_x > 1 and transform.scale_y < 1)
+      assert(player.x == 11, "Presentation transforms must not mutate simulation state")
+    end,
+  },
+  {
     name = "forecast rendering draws an underlay and visible danger outline without changing telegraph authority",
     run = function()
       local prior_love, calls = love, {}

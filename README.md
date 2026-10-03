@@ -46,6 +46,7 @@ $ love .
 | `F` | Light a flare; it stuns enemies in its blast |
 | `G` | Salvage a nearby corpse |
 | `I` | Open carried inventory |
+| Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview |
 | `C` | Open the campaign construction menu |
 | `U` | Pick up nearby cargo or interact with adjacent world objects (doors, storage, power, stations) |
 | `X` | Open installed body abilities; activation requires a second confirmation |

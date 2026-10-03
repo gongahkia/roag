@@ -9,7 +9,7 @@ return {
     mass = 1,
     scrap_value = 2,
     wear_per_use = 0,
-    inventory = { width = 2, height = 2, rotatable = false },
+    inventory = { width = 2, height = 2, rotatable = false, shape = { "11", "10" } },
     abilities = {},
   },
   {
@@ -20,7 +20,7 @@ return {
     mass = 4,
     scrap_value = 6,
     wear_per_use = 0,
-    inventory = { width = 2, height = 2, rotatable = false },
+    inventory = { width = 2, height = 2, rotatable = false, shape = { "11", "10" } },
     abilities = {},
   },
   {
@@ -64,7 +64,7 @@ return {
     mass = 5,
     scrap_value = 8,
     wear_per_use = 1,
-    inventory = { width = 2, height = 3, rotatable = true },
+    inventory = { width = 2, height = 3, rotatable = true, shape = { "11", "10", "11" } },
     abilities = { "ability.weapon.melee.ram" },
   },
   {
@@ -75,7 +75,7 @@ return {
     mass = 4,
     scrap_value = 8,
     wear_per_use = 1,
-    inventory = { width = 2, height = 3, rotatable = true },
+    inventory = { width = 2, height = 3, rotatable = true, shape = { "11", "01", "01" } },
     abilities = { "ability.weapon.projectile.heavy" },
   },
   {
@@ -130,7 +130,7 @@ return {
     mass = 7,
     scrap_value = 10,
     wear_per_use = 0,
-    inventory = { width = 3, height = 3, rotatable = false },
+    inventory = { width = 3, height = 3, rotatable = false, shape = { "111", "101", "111" } },
     abilities = {},
   },
   {
@@ -185,7 +185,7 @@ return {
     mass = 4,
     scrap_value = 10,
     wear_per_use = 1,
-    inventory = { width = 2, height = 3, rotatable = true },
+    inventory = { width = 2, height = 3, rotatable = true, shape = { "11", "10", "10" } },
     abilities = { "ability.weapon.melee.basic", "ability.electrical.discharge" },
   },
   {
@@ -207,7 +207,7 @@ return {
     mass = 8,
     scrap_value = 13,
     wear_per_use = 0,
-    inventory = { width = 3, height = 3, rotatable = false },
+    inventory = { width = 3, height = 3, rotatable = false, shape = { "111", "101", "111" } },
     abilities = {},
   },
   {
@@ -218,7 +218,7 @@ return {
     mass = 7,
     scrap_value = 18,
     wear_per_use = 1,
-    inventory = { width = 3, height = 3, rotatable = true },
+    inventory = { width = 3, height = 3, rotatable = true, shape = { "110", "010", "010" } },
     abilities = { "ability.weapon.melee.pile_driver" },
   },
   {
@@ -229,7 +229,7 @@ return {
     mass = 6,
     scrap_value = 18,
     wear_per_use = 1,
-    inventory = { width = 3, height = 3, rotatable = true },
+    inventory = { width = 3, height = 3, rotatable = true, shape = { "111", "010", "010" } },
     abilities = { "ability.weapon.projectile.siege" },
   },
   {
@@ -240,7 +240,7 @@ return {
     mass = 8,
     scrap_value = 22,
     wear_per_use = 1,
-    inventory = { width = 3, height = 3, rotatable = true },
+    inventory = { width = 3, height = 3, rotatable = true, shape = { "110", "110", "010" } },
     abilities = { "ability.weapon.melee.impact_maul" },
   },
   {
@@ -251,7 +251,7 @@ return {
     mass = 6,
     scrap_value = 22,
     wear_per_use = 1,
-    inventory = { width = 3, height = 3, rotatable = true },
+    inventory = { width = 3, height = 3, rotatable = true, shape = { "110", "011", "001" } },
     abilities = { "ability.weapon.projectile.barrage" },
   },
   {
@@ -266,7 +266,7 @@ return {
     mass = 8,
     scrap_value = 26,
     wear_per_use = 1,
-    inventory = { width = 3, height = 3, rotatable = true },
+    inventory = { width = 3, height = 3, rotatable = true, shape = { "111", "010", "010" } },
     abilities = { "ability.weapon.melee.basic", "ability.weapon.projectile.barrage" },
   },
 }

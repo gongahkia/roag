@@ -186,7 +186,7 @@ function Report.build(options)
       research_rich_moderate = { starting_scrap = research_rich_starting_scrap, expected_scrap_before_sales = research_rich_starting_scrap + economy.moderate_scrap,
         expected_known_discovery_scrap = known_repeat_scrap, persistent_data_before_discoveries = economy.floor_data + first_milestone + second_milestone + apex + final },
       heavy_boss_part_build = { component_mass_range = { min = 6, max = 8 }, footprint_cells = 9,
-        note = "Impact Maul, Barrage Emitter, and Vector Lance each consume a 3x3 cargo footprint; only one fits in the baseline 5x4 inventory alongside ordinary salvage." },
+        note = "Large weapons use irregular 3x3 cargo footprints, so their rotation and holes matter when packing the baseline 7x7 inventory." },
     },
     inventory = { width = Inventory.DEFAULT_WIDTH, height = Inventory.DEFAULT_HEIGHT, thresholds = Inventory.DEFAULT_THRESHOLDS,
       note = "Encumbrance is currently an informational cargo classification; it has no movement penalty." },

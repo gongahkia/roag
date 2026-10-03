@@ -19,6 +19,7 @@ local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
+local InventoryLayout = require("src.ui.inventory_layout")
 
 local App = {}
 App.__index = App
@@ -788,6 +789,7 @@ function App:close_overlay()
   self.screen = "game"
   self.menu = 1
   self.inventory_selected_id = nil
+  self.inventory_drag = nil
   self.salvage_corpse_id = nil
   self.storage_object_id = nil
   if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
@@ -898,6 +900,7 @@ function App:open_inventory()
   end
   self.inventory_cursor = self.inventory_cursor or { x = 1, y = 1 }
   self.inventory_selected_id = nil
+  self.inventory_drag = nil
   self.screen = "inventory"
   self:play_sound("select")
   return true
@@ -1086,6 +1089,96 @@ function App:move_inventory_cursor(delta_x, delta_y)
   self:play_sound("select")
 end
 
+function App:inventory_layout(viewport_width, viewport_height)
+  local inventory = self.session and self.session.state and self.session.state.inventory
+  if not inventory then return nil end
+  if type(viewport_width) ~= "number" or type(viewport_height) ~= "number" then
+    if not (love and love.graphics) then return nil end
+    viewport_width, viewport_height = love.graphics.getDimensions()
+  end
+  return InventoryLayout.for_viewport(inventory, viewport_width, viewport_height)
+end
+
+function App:_update_inventory_drag(pointer_x, pointer_y, layout)
+  local drag = self.inventory_drag
+  if not drag then return nil end
+  local inventory = self.session.state.inventory
+  local entry = inventory:get(drag.physical_id)
+  if not entry then
+    self.inventory_drag, self.inventory_selected_id = nil, nil
+    return nil
+  end
+  local cell_x, cell_y = InventoryLayout.cell_at(layout, pointer_x, pointer_y, true)
+  drag.x, drag.y = cell_x - drag.grab_x, cell_y - drag.grab_y
+  drag.valid, drag.reason = inventory:can_place(entry.item, drag.x, drag.y, drag.rotated, entry.physical_id)
+  return drag
+end
+
+function App:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "inventory" or button ~= 1 then return nil end
+  local layout = self:inventory_layout(viewport_width, viewport_height)
+  if not layout then return nil end
+  local cell_x, cell_y = InventoryLayout.cell_at(layout, x, y)
+  if not cell_x then return nil end
+  self.inventory_cursor.x, self.inventory_cursor.y = cell_x, cell_y
+  local inventory = self.session.state.inventory
+  local entry = inventory:item_at(cell_x, cell_y)
+  if not entry then
+    self.inventory_selected_id = nil
+    return nil
+  end
+  self.inventory_selected_id = entry.physical_id
+  self.inventory_drag = {
+    physical_id = entry.physical_id,
+    grab_x = cell_x - entry.x,
+    grab_y = cell_y - entry.y,
+    x = entry.x,
+    y = entry.y,
+    rotated = entry.rotated,
+    valid = true,
+  }
+  self:play_sound("select")
+  return self.inventory_drag
+end
+
+function App:inventory_mousemoved(x, y, _, _, viewport_width, viewport_height)
+  if self.screen ~= "inventory" or not self.inventory_drag then return nil end
+  local layout = self:inventory_layout(viewport_width, viewport_height)
+  return layout and self:_update_inventory_drag(x, y, layout) or nil
+end
+
+function App:inventory_mousereleased(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "inventory" or button ~= 1 or not self.inventory_drag then return nil end
+  local layout = self:inventory_layout(viewport_width, viewport_height)
+  if layout then self:_update_inventory_drag(x, y, layout) end
+  local drag = self.inventory_drag
+  local inventory = self.session.state.inventory
+  local entry = drag and inventory:get(drag.physical_id) or nil
+  self.inventory_drag = nil
+  if drag and entry and drag.x == entry.x and drag.y == entry.y and drag.rotated == entry.rotated then
+    -- A plain click keeps the familiar keyboard-style selection without
+    -- producing an unnecessary save; only a changed drop repacks cargo.
+    self.inventory_selected_id = entry.physical_id
+    return entry
+  end
+  self.inventory_selected_id = nil
+  if not drag or not drag.valid then
+    self:play_sound("select")
+    return nil, drag and drag.reason or "Item was not dropped on the inventory"
+  end
+  local moved, reason = inventory:move(drag.physical_id, drag.x, drag.y, drag.rotated)
+  if moved then
+    self.inventory_cursor.x, self.inventory_cursor.y = drag.x, drag.y
+    self.session:_log("Repacked " .. moved.item.display_name .. ".")
+    self:play_sound("pickup")
+    self:autosave("inventory")
+  else
+    self.session:_log(reason)
+    self:play_sound("select")
+  end
+  return moved, reason
+end
+
 function App:inventory_select_or_place()
   local inventory = self.session.state.inventory
   local cursor = self.inventory_cursor
@@ -1116,6 +1209,21 @@ end
 
 function App:rotate_inventory_item()
   local inventory = self.session.state.inventory
+  if self.inventory_drag then
+    local drag = self.inventory_drag
+    local entry = inventory:get(drag.physical_id)
+    if not entry then return nil end
+    drag.rotated = not drag.rotated
+    local layout = self:inventory_layout()
+    if layout and love and love.mouse then
+      local pointer_x, pointer_y = love.mouse.getPosition()
+      self:_update_inventory_drag(pointer_x, pointer_y, layout)
+    else
+      drag.valid, drag.reason = inventory:can_place(entry.item, drag.x, drag.y, drag.rotated, entry.physical_id)
+    end
+    self:play_sound("select")
+    return drag
+  end
   local entry = self.inventory_selected_id and inventory:get(self.inventory_selected_id)
     or inventory:item_at(self.inventory_cursor.x, self.inventory_cursor.y)
   if not entry then
@@ -1222,6 +1330,18 @@ end
 
 function App:keyreleased(...)
   Input.keyreleased(self, ...)
+end
+
+function App:mousepressed(...)
+  return self:inventory_mousepressed(...)
+end
+
+function App:mousemoved(...)
+  return self:inventory_mousemoved(...)
+end
+
+function App:mousereleased(...)
+  return self:inventory_mousereleased(...)
 end
 
 return App

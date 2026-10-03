@@ -56,15 +56,15 @@ function love.textinput(...)
 end
 
 function love.mousepressed(...)
-  if inspector then inspector:mousepressed(...) elseif room_editor then room_editor:mousepressed(...) elseif screen_editor then screen_editor:mousepressed(...) end
+  if inspector then inspector:mousepressed(...) elseif room_editor then room_editor:mousepressed(...) elseif screen_editor then screen_editor:mousepressed(...) else app:mousepressed(...) end
 end
 
 function love.mousereleased(...)
-  if inspector then inspector:mousereleased(...) elseif room_editor then room_editor:mousereleased(...) elseif screen_editor and screen_editor.mousereleased then screen_editor:mousereleased(...) end
+  if inspector then inspector:mousereleased(...) elseif room_editor then room_editor:mousereleased(...) elseif screen_editor and screen_editor.mousereleased then screen_editor:mousereleased(...) elseif app then app:mousereleased(...) end
 end
 
 function love.mousemoved(...)
-  if inspector then inspector:mousemoved(...) elseif room_editor then room_editor:mousemoved(...) elseif screen_editor and screen_editor.mousemoved then screen_editor:mousemoved(...) end
+  if inspector then inspector:mousemoved(...) elseif room_editor then room_editor:mousemoved(...) elseif screen_editor and screen_editor.mousemoved then screen_editor:mousemoved(...) elseif app then app:mousemoved(...) end
 end
 
 function love.wheelmoved(...)
