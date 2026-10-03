@@ -92,4 +92,38 @@ return {
       assert(not restored.session.state.ended and restored.session.state.exit == nil)
     end,
   },
+  {
+    name = "authored interior throats preserve each installed reciprocal landmark",
+    run = function()
+      -- This deterministic ruin used to make the second vertical throat route
+      -- through the first. Both physical objects must retain their exact
+      -- metadata even when those generated approaches meet.
+      local seed, origin = 990814, campaign(990814)
+      local ruin
+      for _, site in ipairs(origin.state.world_content_plan.sites) do
+        if site.type == "ruin_complex" then ruin = site; break end
+      end
+      local interior = Campaign.new({ seed = seed, campaign_id = "campaign:990815",
+        current_zone = ZoneKey.from_data(ruin.interior_keys[1]), world_content_plan = origin.state.world_content_plan })
+      for _, connection in pairs(interior.active_zone.connections) do
+        local object = interior.session.state.world:object_at(connection.cell.x, connection.cell.y)
+        assert(object and object.zone_connection_id == connection.id)
+      end
+      assert(interior:validate())
+    end,
+  },
+  {
+    name = "vertical throat relocation never reoccupies an earlier reserved cell",
+    run = function()
+      local seed, origin = 880180, campaign(880180)
+      local target
+      for _, site in ipairs(origin.state.world_content_plan.sites) do
+        if site.id == "world_site.discovery.discovery_dungeon_archivist_niche" then target = site; break end
+      end
+      assert(target)
+      local interior = Campaign.new({ seed = seed, campaign_id = "campaign:880181",
+        current_zone = ZoneKey.from_data(target.zone_key), world_content_plan = origin.state.world_content_plan })
+      assert(interior:validate())
+    end,
+  },
 }

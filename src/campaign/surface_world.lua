@@ -187,8 +187,9 @@ local function carve_cell(world, cell)
   return true
 end
 
-local function clear_blocker(session, cell)
+local function clear_blocker(session, cell, reserved)
   local world = session.state.world
+  reserved = reserved or {}
   local object = world:object_at(cell.x, cell.y)
   if object then
     -- A later vertical throat may meet an already-installed reciprocal
@@ -203,7 +204,8 @@ local function clear_blocker(session, cell)
     -- safety seam until generators consume connector reservations directly.
     for _, candidate in ipairs(relocation_candidates(cell, 4)) do
       if Grid.in_bounds(candidate.x, candidate.y) and world:is_passable(candidate.x, candidate.y)
-        and not world:object_at(candidate.x, candidate.y) and not world:is_hazardous(candidate.x, candidate.y) then
+        and not world:object_at(candidate.x, candidate.y) and not world:is_hazardous(candidate.x, candidate.y)
+        and not reserved[cell_key(candidate)] then
         assert(world:move_object(object, candidate.x, candidate.y).applied)
         break
       end
@@ -226,7 +228,8 @@ local function clear_blocker(session, cell)
         for _, candidate in ipairs(relocation_candidates(cell, 4)) do
           if Grid.in_bounds(candidate.x, candidate.y) and world:is_passable(candidate.x, candidate.y)
             and not world:is_hazardous(candidate.x, candidate.y)
-            and not session:_actor_at(candidate.x, candidate.y, actor) and not world:object_at(candidate.x, candidate.y) then
+            and not session:_actor_at(candidate.x, candidate.y, actor) and not world:object_at(candidate.x, candidate.y)
+            and not reserved[cell_key(candidate)] then
             actor.x, actor.y, moved = candidate.x, candidate.y, true
             break
           end
@@ -267,8 +270,8 @@ function SurfaceWorld.carve_connections(session, connections)
       local x, y = connection.boundary.x, connection.boundary.y
       while true do
         local throat_cell = { x = x, y = y }
-        clear_blocker(session, throat_cell)
         reserved[cell_key(throat_cell)] = true
+        clear_blocker(session, throat_cell, reserved)
         if x == nearest.x and y == nearest.y then break end
         if x ~= nearest.x then x = x + (nearest.x > x and 1 or -1)
         else y = y + (nearest.y > y and 1 or -1) end
@@ -293,8 +296,8 @@ function SurfaceWorld.reserve_interior_connection(session, cell, reserved)
   local x, y = cell.x, cell.y
   while true do
     local throat_cell = { x = x, y = y }
-    clear_blocker(session, throat_cell)
     reserved[cell_key(throat_cell)] = true
+    clear_blocker(session, throat_cell, reserved)
     if x == nearest.x and y == nearest.y then break end
     if x ~= nearest.x then x = x + (nearest.x > x and 1 or -1)
     else y = y + (nearest.y > y and 1 or -1) end
