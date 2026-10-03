@@ -1034,6 +1034,15 @@ function World:place_object(definition_id, x, y, options)
   local definition = self.registry:get_world_object(definition_id)
   local material = self.registry:get_material(definition.material_id)
   local role = definition.interaction_role
+  if role == "zone_connection" then
+    if type(options.zone_connection_id) ~= "string" or options.zone_connection_id == ""
+      or type(options.zone_connection_type) ~= "string" or options.zone_connection_type == ""
+      or type(options.zone_connection_direction) ~= "string" or options.zone_connection_direction == "" then
+      return nil, { applied = false, code = "invalid_zone_connection", reason = "Zone connection requires durable topology metadata" }
+    end
+  elseif options.zone_connection_id ~= nil or options.zone_connection_type ~= nil or options.zone_connection_direction ~= nil then
+    return nil, { applied = false, code = "invalid_zone_connection", reason = "Only zone connection objects may carry topology metadata" }
+  end
   local circuit_id = options.circuit_id
   if CIRCUIT_ROLES[role] and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
     return nil, { applied = false, code = "unknown_circuit", reason = "Interactive world object requires an existing circuit" }
@@ -1087,6 +1096,9 @@ function World:place_object(definition_id, x, y, options)
     service_stock = role == "service" and options.service_stock or nil,
     service_origin = role == "service" and options.service_origin or nil,
     required_unlock = role == "traversal" and definition.required_unlock or nil,
+    zone_connection_id = role == "zone_connection" and options.zone_connection_id or nil,
+    zone_connection_type = role == "zone_connection" and options.zone_connection_type or nil,
+    zone_connection_direction = role == "zone_connection" and options.zone_connection_direction or nil,
     discovery_id = discovery.discovery_id,
     discovery_access_profile_id = discovery.discovery_access_profile_id,
     discovery_provenance = discovery.discovery_provenance,
@@ -1202,6 +1214,13 @@ function World:damage_object(object_or_id, spec)
   if object.destroyed then
     return { applied = false, code = "destroyed", object_id = object.id, reason = "World object is already destroyed" }
   end
+  if object.zone_connection_id then
+    -- Required campaign links are protected infrastructure. Future player
+    -- construction validation will reserve the same footprint; combat cannot
+    -- quietly turn a generated return route into a softlock in this tranche.
+    return { applied = false, code = "protected_connection", object_id = object.id,
+      reason = "Persistent zone connection cannot be destroyed" }
+  end
   local material = self.registry:get_material(object.material_id)
   local previous_integrity = object.current_integrity
   local new_integrity = math.max(0, previous_integrity - spec.amount)
@@ -1279,6 +1298,9 @@ function World:inspect_object(object_or_id)
     service_stock = object.service_stock,
     service_origin = object.service_origin,
     required_unlock = object.required_unlock,
+    zone_connection_id = object.zone_connection_id,
+    zone_connection_type = object.zone_connection_type,
+    zone_connection_direction = object.zone_connection_direction,
     discovery_id = object.discovery_id,
     discovery_access_profile_id = object.discovery_access_profile_id,
     discovery_provenance = object.discovery_provenance,
@@ -1568,6 +1590,9 @@ function World.from_data(registry, data, sequence_owner)
       service_stock = saved.service_stock,
       service_origin = saved.service_origin,
       required_unlock = definition.interaction_role == "traversal" and definition.required_unlock or nil,
+      zone_connection_id = definition.interaction_role == "zone_connection" and saved.zone_connection_id or nil,
+      zone_connection_type = definition.interaction_role == "zone_connection" and saved.zone_connection_type or nil,
+      zone_connection_direction = definition.interaction_role == "zone_connection" and saved.zone_connection_direction or nil,
       discovery_id = saved.discovery_id,
       discovery_access_profile_id = saved.discovery_access_profile_id,
       discovery_provenance = saved.discovery_provenance,
@@ -1757,6 +1782,15 @@ function World:validate()
     if object.interaction_role == "service" then
       self.registry:get_service(object.service_id)
       assert(type(object.service_stock) == "table", "Service kiosk has invalid stock")
+    end
+    if object.interaction_role == "zone_connection" then
+      assert(type(object.zone_connection_id) == "string" and object.zone_connection_id ~= ""
+        and type(object.zone_connection_type) == "string" and object.zone_connection_type ~= ""
+        and type(object.zone_connection_direction) == "string" and object.zone_connection_direction ~= "",
+        "Zone connection object has invalid topology metadata")
+    else
+      assert(object.zone_connection_id == nil and object.zone_connection_type == nil and object.zone_connection_direction == nil,
+        "Only zone connection objects may carry topology metadata")
     end
     if object.destroyed then
       assert(object.current_integrity == 0, "Destroyed world object integrity must be zero")

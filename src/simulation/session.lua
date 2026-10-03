@@ -41,6 +41,7 @@ local World = require("src.world.world")
 local Rng = require("src.rng")
 local RouteDefinitions = require("src.routes.definitions")
 local RouteGraph = require("src.routes.graph")
+local WorldTopology = require("src.campaign.world_topology")
 
 local Session = {}
 Session.__index = Session
@@ -102,6 +103,9 @@ local PLAYER_ACTOR_ID = "actor.player.legacy"
 local CAMPAIGN_ZONE_PROFILES = {
   ["zone_profile.legacy.forest"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1" },
   ["zone_profile.legacy.cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2" },
+  -- Compatibility tiers only: Z/profile is the campaign authority, not the
+  -- legacy route depth encoded by these existing Cave generators.
+  ["zone_profile.legacy.deep_cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3" },
   ["zone_profile.legacy.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3" },
   ["zone_profile.legacy.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3" },
 }
@@ -3630,6 +3634,56 @@ end
 
 local SURFACE_DIRECTION_BY_INPUT = { w = "north", a = "west", s = "south", d = "east" }
 
+function Session:zone_connection_label(object)
+  if not self.campaign or not object or not object.zone_connection_id then return "TRAVEL" end
+  local direction = object.zone_connection_direction
+  local record = self.campaign.active_zone
+  local connection = record and WorldTopology.connection_at(record, direction)
+  if not connection or connection.id ~= object.zone_connection_id then return "TRAVEL" end
+  return WorldTopology.presentation_label(connection)
+end
+
+function Session:use_zone_connection(object)
+  if not self.campaign or not object or object.destroyed or not object.zone_connection_id then
+    return { applied = false, code = "no_zone_connection", reason = "No active zone connection is available" }
+  end
+  local direction = object.zone_connection_direction
+  local connection = WorldTopology.connection_at(self.campaign.active_zone, direction)
+  if not connection or connection.id ~= object.zone_connection_id then
+    return { applied = false, code = "no_zone_connection", reason = "Zone connection metadata is unavailable" }
+  end
+  local transitioned, failure = self.campaign:request_transition(direction)
+  if transitioned and transitioned.applied then return transitioned end
+  return failure or { applied = false, code = "no_zone_connection", reason = "Zone travel failed" }
+end
+
+function Session:_nearby_vertical_connection()
+  if not self.campaign then return nil end
+  local player, world = self.state.player, self.state.world
+  if not player or not world then return nil end
+  for _, object in ipairs(world:list_objects()) do
+    if object.interaction_role == "zone_connection" and object.zone_connection_id
+      and math.abs(player.x - object.x) <= 1 and math.abs(player.y - object.y) <= 1
+      and not (player.x == object.x and player.y == object.y) then
+      return object
+    end
+  end
+  return nil
+end
+
+-- Like the cardinal edge path, explicit U travel commits before an ordinary
+-- simulation turn begins. It cannot advance AI/media/reinforcements or add a
+-- hidden tick; failed transfers leave the source simulator untouched.
+function Session:_try_vertical_transition(input)
+  if input ~= "interact" then return false end
+  local object = self:_nearby_vertical_connection()
+  if not object then return false end
+  local transitioned = self:use_zone_connection(object)
+  if transitioned and transitioned.applied then return true, transitioned end
+  self:_log((transitioned and transitioned.reason) or "Travel failed.")
+  return true, transitioned or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
+end
+
 -- A successful campaign edge transfer is deliberately handled before an
 -- ordinary turn starts. It therefore cannot advance AI, media, effects,
 -- reinforcement timers, player cooldowns, or the source-zone RNG.
@@ -4202,6 +4256,10 @@ function Session:turn(input)
   local transitioned, transition_result = self:_try_surface_transition(input)
   if transitioned then
     return transition_result and transition_result.applied and "zone_transition" or "zone_transition_failed"
+  end
+  local vertical_transitioned, vertical_result = self:_try_vertical_transition(input)
+  if vertical_transitioned then
+    return vertical_result and vertical_result.applied and "zone_transition" or "zone_transition_failed"
   end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)

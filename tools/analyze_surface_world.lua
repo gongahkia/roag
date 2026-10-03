@@ -35,7 +35,9 @@ local function metadata_check(seed, radius, failures)
     for y = -radius, radius do
       local key = ZoneKey.new(x, y, 0)
       local connections = SurfaceWorld.connections(seed, key)
-      for direction, connection in pairs(connections) do
+      for _, direction in ipairs(SurfaceWorld.DIRECTION_ORDER) do
+        local connection = connections[direction]
+        if connection then
         local destination = ZoneKey.from_data(connection.destination)
         if not SurfaceWorld.is_zone_in_bounds(destination) then fail(failures, "out-of-bounds connection " .. ZoneKey.encode(key)) end
         local reciprocal = SurfaceWorld.connection(seed, destination, SurfaceWorld.opposite(direction))
@@ -49,6 +51,7 @@ local function metadata_check(seed, radius, failures)
           elseif (direction == "north" or direction == "south") and reciprocal.boundary.x ~= connection.boundary.x then
             fail(failures, "mismatched vertical edge offset " .. connection.id)
           end
+        end
         end
       end
       if x == -4 and connections.west then fail(failures, "west boundary opened") end

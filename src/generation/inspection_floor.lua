@@ -239,7 +239,7 @@ function InspectionFloor.generate_campaign_zone(options)
   end
   local key = ZoneKey.new(x, y, z)
   if not Campaign.is_zone_in_bounds(key) then
-    return nil, { code = "out_of_bounds", reason = "OW-02 inspector supports only the finite z=0 surface" }
+    return nil, { code = "out_of_bounds", reason = "Campaign zone is outside the finite world bounds" }
   end
   local campaign = Campaign.new({
     seed = seed, campaign_id = options.campaign_id or "campaign:000001", current_zone = key,
@@ -253,7 +253,7 @@ function InspectionFloor.generate_campaign_zone(options)
     campaign = campaign, session = session, world = session.state.world, state = session.state,
     seed = session.seed, stage = session.state.stage, terrain = session.state.settings.terrain,
     biome_id = session.state.settings.biome_id, tier_id = session.state.settings.tier_id,
-    provenance = { surface_connections = record.connections, zone_key = ZoneKey.encode(key) },
+    provenance = { zone_connections = record.connections, surface_connections = record.connections, zone_key = ZoneKey.encode(key) },
   }
 end
 

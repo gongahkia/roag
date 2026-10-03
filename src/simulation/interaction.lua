@@ -2,7 +2,7 @@
 -- asks for an action; this module validates and mutates simulation state.
 local Interaction = {}
 
-local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4, traversal = 5, discovery = 6, clue = 7 }
+local ROLE_PRIORITY = { zone_connection = 0, door = 1, generator = 2, breaker = 3, service = 4, traversal = 5, discovery = 6, clue = 7 }
 
 local function result(applied, code, reason, extra)
   local value = {
@@ -62,6 +62,8 @@ function Interaction.actions_for(world, object, session)
     local reason = maintenance and "SEALED MAINTENANCE HATCH — OVERRIDE RESEARCH REQUIRED"
       or "REINFORCED BREACH RESEARCH REQUIRED"
     return { action("traversal.breach", available and label or "RESEARCH REQUIRED", available, available and nil or reason) }
+  elseif object.interaction_role == "zone_connection" then
+    return { action("zone_connection.use", session and session:zone_connection_label(object) or "TRAVEL", true) }
   elseif object.interaction_role == "discovery" then
     local claimed = object.discovery_claimed == true
     return { action("discovery.claim", claimed and "CACHE CLAIMED" or "RECOVER DISCOVERY", not claimed,
@@ -154,6 +156,8 @@ function Interaction.perform(session, actor, object_id, action_id)
     end
     world_result = world:damage_object(object, { amount = object.current_integrity, cause = "traversal",
       source = object.required_unlock == "unlock.traversal.maintenance_override" and "maintenance_override" or "reinforced_breach" })
+  elseif action_id == "zone_connection.use" and object.interaction_role == "zone_connection" then
+    world_result = session:use_zone_connection(object)
   elseif action_id == "discovery.claim" and object.interaction_role == "discovery" then
     world_result = session:claim_discovery(object)
   elseif action_id == "clue.read" and object.interaction_role == "clue" then

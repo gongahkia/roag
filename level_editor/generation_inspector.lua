@@ -99,7 +99,10 @@ function Inspector:regenerate()
     session = floor.session, provenance = floor.provenance,
   })
   self.overlays = Analysis.overlay_model(floor.world, self.report)
-  self.overlays.surface_connections = floor.connections or {}
+  -- `surface_connections` remains an alias for existing inspector callers;
+  -- campaign overlays now include up/down endpoints as well.
+  self.overlays.zone_connections = floor.connections or {}
+  self.overlays.surface_connections = self.overlays.zone_connections
   self.seed = floor.seed
   self.seed_text = tostring(floor.seed)
   self.selected, self.hover, self.error = nil, nil, nil
@@ -365,14 +368,19 @@ end
 
 function Inspector:_draw_surface_connections()
   if not self.layers.connections then return end
-  for direction, connection in pairs(self.overlays.surface_connections or {}) do
+  for direction, connection in pairs(self.overlays.zone_connections or self.overlays.surface_connections or {}) do
     local sx, sy = self:_screen_point(connection.boundary.x, connection.boundary.y)
-    self:_set_color({ 0.22, 0.95, 0.72, 1 })
+    local vertical = direction == "up" or direction == "down"
+    self:_set_color(vertical and { 0.78, 0.54, 1, 1 } or { 0.22, 0.95, 0.72, 1 })
     love.graphics.setLineWidth(math.max(1, self.zoom * 0.12))
     love.graphics.rectangle("line", sx + self.zoom * 0.08, sy + self.zoom * 0.08, self.zoom * 0.84, self.zoom * 0.84)
     love.graphics.setLineWidth(1)
     if self.layers.metadata then
-      self:_draw_text(string.format("%s → %s", direction:upper(), connection.destination.world_x .. ":" .. connection.destination.world_y .. ":" .. connection.destination.z), sx + 2, sy + 2, { 0.72, 1, 0.88 })
+      local destination = connection.destination
+      local role = connection.connection_type and (" " .. connection.connection_type) or ""
+      self:_draw_text(string.format("%s%s → %s [%s]", direction:upper(), role,
+        destination.world_x .. ":" .. destination.world_y .. ":" .. destination.z, connection.id), sx + 2, sy + 2,
+        vertical and { 0.9, 0.76, 1 } or { 0.72, 1, 0.88 })
     end
   end
 end
@@ -500,8 +508,14 @@ function Inspector:draw()
   local biome = InspectionFloor.resolve_biome(self.biome_id)
   local tier = InspectionFloor.resolve_tier(self.tier_id)
   self:_draw_text("GENERATION INSPECTOR", panel_x, 18, { 0.45, 0.9, 1 })
-  self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
-  self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
+  if self.campaign_mode then
+    local key = self.floor.zone_key
+    self:_draw_text(string.format("campaign: %d  zone: %d,%d,%d", self.floor.campaign_seed, key.world_x, key.world_y, key.z), panel_x, 38)
+    self:_draw_text("profile: " .. tostring(self.floor.profile_id), panel_x, 56)
+  else
+    self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
+    self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
+  end
   self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74, { 1, 0.9, 0.4 })
   self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
   self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)

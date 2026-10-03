@@ -6,6 +6,7 @@ local ZoneKey = require("src.campaign.zone_key")
 local ZoneRecord = require("src.campaign.zone_record")
 local Identity = require("src.campaign.identity")
 local SurfaceWorld = require("src.campaign.surface_world")
+local WorldTopology = require("src.campaign.world_topology")
 local Grid = require("src.world.grid")
 
 local Campaign = {}
@@ -47,11 +48,79 @@ function Campaign.zone_generation_rng(seed, key, subsystem)
 end
 
 function Campaign.is_zone_in_bounds(key)
-  return SurfaceWorld.is_zone_in_bounds(key)
+  return WorldTopology.is_zone_in_bounds(key)
 end
 
-local function surface_connections(seed, key)
-  return SurfaceWorld.is_zone_in_bounds(key) and SurfaceWorld.connections(seed, key) or {}
+local function zone_connections(seed, key)
+  return WorldTopology.is_zone_in_bounds(key) and WorldTopology.connections(seed, key) or {}
+end
+
+local function ensure_record_connections(seed, record)
+  -- Connection metadata is derived only from campaign seed + ZoneKey. This
+  -- makes OW-01/02 records safely additive: a former surface record gains its
+  -- vertical landmark index without changing its established edge geometry.
+  record.connections = zone_connections(seed, record.key)
+  return record.connections
+end
+
+local function install_zone_connections(session, record)
+  local connections = record.connections or {}
+  local world = session.state.world
+  local needs_surface_carve = false
+  for _, direction in ipairs(SurfaceWorld.DIRECTION_ORDER) do
+    local connection = WorldTopology.connection_at(record, direction)
+    if connection and (not world:is_passable(connection.boundary.x, connection.boundary.y)
+      or not world:is_passable(connection.interior.x, connection.interior.y)) then
+      needs_surface_carve = true
+      break
+    end
+  end
+  -- Restored shards already own their physical throats. Re-carving one while
+  -- staging a destination would use the travelling body's temporary local
+  -- coordinates, so carve only fresh or compatibility-migrated terrain.
+  if needs_surface_carve then SurfaceWorld.carve_connections(session, connections) end
+  local reserved = session.state.surface_connector_cells or {}
+  local player = session.state.player
+  local restore_player
+  -- A staged visited destination receives the body before final arrival is
+  -- resolved. Its prior local coordinates can be solid in this different
+  -- terrain, so give connection carving a deterministic temporary anchor.
+  if player and not world:is_passable(player.x, player.y) then
+    for y = 0, Grid.height - 1 do
+      for x = 0, Grid.width - 1 do
+        if world:is_passable(x, y) then
+          restore_player = { x = player.x, y = player.y }
+          player.x, player.y = x, y
+          break
+        end
+      end
+      if restore_player then break end
+    end
+    assert(restore_player, "Zone has no passable temporary connection anchor")
+  end
+  for _, direction in ipairs(WorldTopology.VERTICAL_DIRECTIONS) do
+    local connection = WorldTopology.connection_at(record, direction)
+    if connection then
+      local cell = connection.cell
+      local object = world:object_at(cell.x, cell.y)
+      if object and object.zone_connection_id == connection.id then
+        reserved[Grid.key(cell.x, cell.y)] = true
+      else
+        SurfaceWorld.reserve_interior_connection(session, cell, reserved)
+        object = world:object_at(cell.x, cell.y)
+        assert(not object, "Vertical connection cell could not be reserved")
+        local placed, placement = world:place_object(WorldTopology.object_definition_for(connection.connection_type), cell.x, cell.y, {
+          zone_connection_id = connection.id,
+          zone_connection_type = connection.connection_type,
+          zone_connection_direction = connection.direction,
+        })
+        assert(placed, placement and placement.reason)
+      end
+    end
+  end
+  if restore_player then player.x, player.y = restore_player.x, restore_player.y end
+  session.state.surface_connector_cells = reserved
+  session:validate_world()
 end
 
 function Campaign.new(options)
@@ -59,10 +128,11 @@ function Campaign.new(options)
   local seed = Rng.new(options.seed or 1).seed
   local id = campaign_id(options.campaign_id or "campaign:000001")
   local key = options.current_zone and ZoneKey.from_data(options.current_zone) or ZoneKey.new(0, 0, 0)
-  local profile_id = options.profile_id or (SurfaceWorld.is_zone_in_bounds(key) and SurfaceWorld.profile_for(key) or Campaign.INITIAL_PROFILE_ID)
+  assert(WorldTopology.is_zone_in_bounds(key), "Campaign initial ZoneKey is outside world bounds")
+  local profile_id = options.profile_id or WorldTopology.profile_for(key)
   local campaign_identity = Identity.campaign_state_data(options.identity_state)
   local record = ZoneRecord.new(key, profile_id, Campaign.derive_zone_seed(seed, key), options.zone_identity_state, {
-    campaign_id = id, visited = true, connections = surface_connections(seed, key),
+    campaign_id = id, visited = true, connections = zone_connections(seed, key),
   })
   local identity = Identity.new(id, key, campaign_identity, record.identity_state)
   record.identity_state = identity.zone_state
@@ -88,7 +158,7 @@ function Campaign.new(options)
     on_meta_reward = options.on_meta_reward, emit = options.emit, run_id = id,
   })
   session:start_campaign_zone(key, record.generation_seed, profile_id, options.class, options.boon)
-  if next(record.connections) then SurfaceWorld.carve_connections(session, record.connections) end
+  install_zone_connections(session, record)
   self.session = session
   self:sync_active_references()
   self:validate()
@@ -115,9 +185,9 @@ function Campaign:zone_records()
 end
 
 function Campaign:_new_record(key)
-  assert(SurfaceWorld.is_zone_in_bounds(key), "OW-02 only generates in-bounds surface zones")
-  local record = ZoneRecord.new(key, SurfaceWorld.profile_for(key), Campaign.derive_zone_seed(self.state.seed, key), nil, {
-    campaign_id = self.state.campaign_id, visited = true, connections = surface_connections(self.state.seed, key),
+  assert(WorldTopology.is_zone_in_bounds(key), "Campaign zone is outside finite world bounds")
+  local record = ZoneRecord.new(key, WorldTopology.profile_for(key), Campaign.derive_zone_seed(self.state.seed, key), nil, {
+    campaign_id = self.state.campaign_id, visited = true, connections = zone_connections(self.state.seed, key),
   })
   self.state.zone_records[ZoneKey.encode(key)] = record
   return record
@@ -134,25 +204,30 @@ function Campaign:validate()
   for _, record in ipairs(self:zone_records()) do
     ZoneRecord.from_data(record:to_data(), state.campaign_id)
     assert(record.visited, "Campaign zone index contains an unvisited record")
-    if SurfaceWorld.is_zone_in_bounds(record.key) then
-      for _, direction in ipairs(SurfaceWorld.DIRECTION_ORDER) do
-        local expected = SurfaceWorld.connection(state.seed, record.key, direction)
+    if WorldTopology.is_zone_in_bounds(record.key) then
+      for _, direction in ipairs(WorldTopology.DIRECTION_ORDER) do
+        local expected = WorldTopology.connection(state.seed, record.key, direction)
         assert((expected and record.connections[direction]) or (not expected and not record.connections[direction]),
-          "Campaign surface connection index is incomplete")
+          "Campaign zone connection index is incomplete")
       end
     end
     for direction, data in pairs(record.connections or {}) do
-      local actual = SurfaceWorld.connection_from_data(data)
-      local expected = SurfaceWorld.connection(state.seed, record.key, direction)
-      assert(expected and actual.id == expected.id and ZoneKey.equal(actual.destination, expected.destination)
-        and actual.boundary.x == expected.boundary.x and actual.boundary.y == expected.boundary.y
-        and actual.interior.x == expected.interior.x and actual.interior.y == expected.interior.y,
-        "Campaign surface connection metadata is invalid")
+      assert(WorldTopology.connection_matches(state.seed, record.key, data),
+        "Campaign zone connection metadata is invalid for " .. tostring(direction))
     end
   end
   assert(self.session and self.session.state.player == state.active_body, "Campaign active body is not canonical")
   assert(self.session.state.run.inventory == state.carried_inventory, "Campaign carried inventory is not canonical")
   assert(self.session.state.scrap == state.scrap, "Campaign SCRAP ownership is inconsistent")
+  for _, direction in ipairs(WorldTopology.VERTICAL_DIRECTIONS) do
+    local connection = WorldTopology.connection_at(self.active_zone, direction)
+    if connection then
+      local object = self.session.state.world:object_at(connection.cell.x, connection.cell.y)
+      assert(object and object.interaction_role == "zone_connection" and object.zone_connection_id == connection.id
+        and object.zone_connection_type == connection.connection_type and object.zone_connection_direction == direction,
+        "Active zone is missing its physical vertical connection landmark")
+    end
+  end
   self.session:validate_physical_ownership()
   return true
 end
@@ -240,7 +315,7 @@ function Campaign:_generate_zone_session(record)
     run_id = self.state.run_id,
   })
   generated:start_campaign_zone(record.key, record.generation_seed, record.profile_id)
-  if next(record.connections) then SurfaceWorld.carve_connections(generated, record.connections) end
+  install_zone_connections(generated, record)
   record.identity_state = identity:zone_state_data()
   local shard = self:_zone_data_for(record, generated)
   -- Rehydrate with the real existing body; generated's temporary player is
@@ -250,6 +325,7 @@ end
 
 function Campaign:_load_zone_session(record, directory)
   local Persistence = require("src.persistence.campaign")
+  ensure_record_connections(self.state.seed, record)
   if not directory then return nil, { code = "persistence_unavailable", reason = "Campaign persistence is unavailable" } end
   if not record.shard_revision or record.shard_revision < 1 then
     return nil, { code = "destination_load_failed", reason = "Visited zone has no committed shard" }
@@ -260,6 +336,7 @@ function Campaign:_load_zone_session(record, directory)
   if not shard then return nil, { code = "destination_load_failed", reason = decode_error.reason } end
   local ok, session_or_error, identity = xpcall(function()
     local session, zone_identity = self:_session_from_shard(record, shard, self.state.active_body, self.state.carried_inventory)
+    install_zone_connections(session, record)
     return session, zone_identity
   end, debug.traceback)
   if not ok then return nil, { code = "destination_load_failed", reason = tostring(session_or_error) } end
@@ -344,15 +421,21 @@ end
 
 function Campaign:transition(direction, directory)
   local source_record, source_session = self.active_zone, self.session
-  local connection = SurfaceWorld.connection_at(source_record, direction)
+  local connection = WorldTopology.connection_at(source_record, direction)
   if not connection then
-    local destination = SurfaceWorld.neighbor(source_record.key, direction)
-    return nil, { code = SurfaceWorld.is_zone_in_bounds(destination) and "no_zone_connection" or "world_boundary",
-      reason = "No surface connection exists in that direction" }
+    local destination = WorldTopology.neighbor(source_record.key, direction)
+    return nil, { code = WorldTopology.is_zone_in_bounds(destination) and "no_zone_connection" or "world_boundary",
+      reason = "No zone connection exists in that direction" }
   end
   local player = source_session.state.player
-  if player.x ~= connection.boundary.x or player.y ~= connection.boundary.y then
-    return nil, { code = "no_zone_connection", reason = "Travel requires standing at the surface connection" }
+  local at_connection
+  if WorldTopology.is_vertical(direction) then
+    at_connection = math.abs(player.x - connection.cell.x) <= 1 and math.abs(player.y - connection.cell.y) <= 1
+  else
+    at_connection = player.x == connection.boundary.x and player.y == connection.boundary.y
+  end
+  if not at_connection then
+    return nil, { code = "no_zone_connection", reason = "Travel requires reaching the zone connection" }
   end
   directory = directory or self.persistence_directory
   if not directory then return nil, { code = "persistence_unavailable", reason = "Campaign persistence is unavailable" } end
@@ -373,10 +456,10 @@ function Campaign:transition(direction, directory)
     if created then self.state.zone_records[ZoneKey.encode(destination_record.key)] = nil end
     return nil, load_error or { code = "destination_load_failed", reason = "Could not prepare destination zone" }
   end
-  local arrival_connection = SurfaceWorld.connection_at(destination_record, SurfaceWorld.opposite(direction))
-  if not arrival_connection or arrival_connection.id ~= connection.id then
+  local arrival_connection = WorldTopology.connection_at(destination_record, WorldTopology.opposite(direction))
+  if not arrival_connection or arrival_connection.id ~= connection.id or arrival_connection.connection_type ~= connection.connection_type then
     if created then self.state.zone_records[ZoneKey.encode(destination_record.key)] = nil end
-    return nil, { code = "destination_generation_failed", reason = "Destination surface edge is not reciprocal" }
+    return nil, { code = "destination_generation_failed", reason = "Destination zone connection is not reciprocal" }
   end
   local arrival, arrival_error = self:_resolve_arrival(destination_session, arrival_connection)
   if not arrival then
@@ -436,9 +519,9 @@ function Campaign.generate_zone(seed, campaign_id_value, key, profile_id, option
 end
 
 function Campaign.inspect_surface_zone(seed, campaign_id_value, key, options)
-  assert(SurfaceWorld.is_zone_in_bounds(key), "Inspection requires an in-bounds surface ZoneKey")
+  assert(WorldTopology.is_zone_in_bounds(key), "Inspection requires an in-bounds campaign ZoneKey")
   local record, data = Campaign.generate_zone(seed, campaign_id_value or "campaign:000001", key,
-    SurfaceWorld.profile_for(key), options)
+    WorldTopology.profile_for(key), options)
   return { record = record, simulation = data, connections = record.connections }
 end
 
@@ -449,6 +532,11 @@ function Campaign.from_data(manifest, shard, options)
   assert(type(manifest.zones) == "table" and #manifest.zones >= 1, "Campaign manifest has no zone index")
   local records = {}
   for _, data in ipairs(manifest.zones) do records[#records + 1] = ZoneRecord.from_data(data, id) end
+  -- All records, including frozen OW-02 surface shards, receive the same
+  -- deterministic additive vertical index before campaign validation. Their
+  -- physical landmark is added only when that specific shard becomes active.
+  local manifest_seed = Rng.new(manifest.seed).seed
+  for _, candidate in ipairs(records) do ensure_record_connections(manifest_seed, candidate) end
   local map, record = record_map(records), nil
   for _, candidate in ipairs(records) do if ZoneKey.equal(candidate.key, key) then record = candidate break end end
   assert(record, "Campaign manifest does not index its current zone")
@@ -460,7 +548,7 @@ function Campaign.from_data(manifest, shard, options)
   local identity = Identity.new(id, key, identity_state, record.identity_state)
   record.identity_state = identity.zone_state
   local self = setmetatable({
-    state = { campaign_id = id, seed = Rng.new(manifest.seed).seed, current_zone = key, run_id = id,
+    state = { campaign_id = id, seed = manifest_seed, current_zone = key, run_id = id,
       meta_snapshot = manifest.meta_snapshot or {}, identity_state = identity_state, zone_records = map,
       legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route },
     active_zone = record, identity = identity,
@@ -473,12 +561,11 @@ function Campaign.from_data(manifest, shard, options)
     on_meta_reward = options.on_meta_reward, emit = options.emit,
   })
   self.session = session
-  -- Old OW-01 one-zone campaigns can load safely: introduce deterministic
-  -- surface metadata and carve the real physical boundary before next save.
-  if SurfaceWorld.is_zone_in_bounds(key) and not next(record.connections) then
-    record.connections = surface_connections(self.state.seed, key)
-    SurfaceWorld.carve_connections(session, record.connections)
-  end
+  -- Existing campaign v1 saves gain deterministic additive topology when a
+  -- zone becomes active. Their immutable old shard is retained until normal
+  -- save/transition creates the next revision.
+  ensure_record_connections(self.state.seed, record)
+  install_zone_connections(session, record)
   self:sync_active_references()
   self:validate()
   return self

@@ -276,6 +276,8 @@ function Renderer:_draw_game(app)
           tint = spent and { 0.38, 0.42, 0.48 } or (object.reinforcement_state == "armed" and { 1, 0.35, 0.2 } or { 1, 0.68, 0.3 })
         elseif object.interaction_role == "traversal" then
           tint = object.required_unlock == "unlock.traversal.maintenance_override" and { 0.38, 0.95, 0.9 } or { 1, 0.63, 0.28 }
+        elseif object.interaction_role == "zone_connection" then
+          tint = object.zone_connection_direction == "down" and { 0.72, 0.54, 1 } or { 0.45, 0.9, 1 }
         elseif object.interaction_role == "clue" then
           tint = { 1, 0.78, 0.28 }
         end

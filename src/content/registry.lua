@@ -21,6 +21,7 @@ local KNOWN_INTERACTION_ROLES = {
   discovery = true,
   clue = true,
   reinforcement = true,
+  zone_connection = true,
 }
 
 local KNOWN_REINFORCEMENT_SOURCE_TYPES = { nest = true, lift = true }
@@ -435,6 +436,10 @@ function Registry:validate()
         end
         if not object.blocks_movement or not object.blocks_vision or not object.blocks_projectiles or not object.blocks_gas then
           content_error("Traversal world object '" .. id .. "' must block movement, vision, projectiles, and gas")
+        end
+      elseif object.interaction_role == "zone_connection" then
+        if object.blocks_movement or object.blocks_vision or object.blocks_projectiles or object.blocks_gas then
+          content_error("Zone connection world object '" .. id .. "' must remain passable and non-blocking")
         end
       elseif object.interaction_role == "reinforcement" then
         require_string(object.reinforcement_source_type, "Reinforcement world object '" .. id .. "' reinforcement_source_type")

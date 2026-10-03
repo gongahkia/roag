@@ -120,11 +120,16 @@ end
 
 function SurfaceWorld.connection_from_data(data)
   assert(type(data) == "table" and type(data.id) == "string", "Surface connection is invalid")
-  assert(SurfaceWorld.DIRECTIONS[data.direction], "Surface connection direction is invalid")
-  assert(type(data.boundary) == "table" and type(data.interior) == "table", "Surface connection cells are invalid")
+  -- Compatibility helpers remain useful to existing surface diagnostics even
+  -- when a ZoneRecord now also exposes an interior up/down landmark. They use
+  -- the same local passability/reachability contract, not cell-level Z.
+  local vertical = data.direction == "up" or data.direction == "down"
+  assert(SurfaceWorld.DIRECTIONS[data.direction] or vertical, "Surface connection direction is invalid")
+  assert(type(data.boundary or data.cell) == "table" and type(data.interior or data.cell) == "table", "Surface connection cells are invalid")
   local destination = ZoneKey.from_data(data.destination)
-  local boundary = { x = data.boundary.x, y = data.boundary.y }
-  local interior = { x = data.interior.x, y = data.interior.y }
+  local boundary_source, interior_source = data.boundary or data.cell, data.interior or data.cell
+  local boundary = { x = boundary_source.x, y = boundary_source.y }
+  local interior = { x = interior_source.x, y = interior_source.y }
   assert(Grid.in_bounds(boundary.x, boundary.y) and Grid.in_bounds(interior.x, interior.y),
     "Surface connection cells are out of bounds")
   return { id = data.id, direction = data.direction, destination = destination, boundary = boundary, interior = interior }
@@ -139,13 +144,18 @@ local function cell_key(cell)
   return Grid.key(cell.x, cell.y)
 end
 
-local function component_neighbours(cell, direction)
-  local delta = SurfaceWorld.DIRECTIONS[direction]
-  return {
-    { x = cell.x + delta.dx, y = cell.y + delta.dy },
-    { x = cell.x - delta.dy, y = cell.y + delta.dx },
-    { x = cell.x + delta.dy, y = cell.y - delta.dx },
-  }
+local function relocation_candidates(cell, maximum_radius)
+  local candidates = {}
+  for radius = 1, maximum_radius do
+    for y = cell.y - radius, cell.y + radius do
+      for x = cell.x - radius, cell.x + radius do
+        if Grid.in_bounds(x, y) and math.max(math.abs(x - cell.x), math.abs(y - cell.y)) == radius then
+          candidates[#candidates + 1] = { x = x, y = y }
+        end
+      end
+    end
+  end
+  return candidates
 end
 
 local function choose_nearest_open(session, start)
@@ -185,7 +195,7 @@ local function clear_blocker(session, cell)
     -- erase generated content by moving an incidental blocker to the first
     -- deterministic adjacent legal tile. This is only a post-generation
     -- safety seam until generators consume connector reservations directly.
-    for _, candidate in ipairs(component_neighbours(cell, "north")) do
+    for _, candidate in ipairs(relocation_candidates(cell, 4)) do
       if Grid.in_bounds(candidate.x, candidate.y) and world:is_passable(candidate.x, candidate.y)
         and not world:object_at(candidate.x, candidate.y) and not world:is_hazardous(candidate.x, candidate.y) then
         assert(world:move_object(object, candidate.x, candidate.y).applied)
@@ -194,6 +204,12 @@ local function clear_blocker(session, cell)
     end
     assert(not world:object_at(cell.x, cell.y), "Surface connector blocker cannot be relocated")
   end
+  -- Vertical landmarks are placed after ordinary generation. A generated
+  -- hazard at the reserved landmark would make the physical object invalid,
+  -- so retain its historical entry but deactivate it deterministically.
+  for _, hazard in ipairs(world:hazards_at(cell.x, cell.y, true)) do
+    hazard.active = false
+  end
   for _, collection in ipairs({ session.state.targets, session.state.enemies, session.state.corpses,
     session.state.bullets, session.state.bombs, session.state.flares, session.state.torches }) do
     for _, actor in ipairs(collection or {}) do
@@ -201,8 +217,9 @@ local function clear_blocker(session, cell)
         -- Connector creation happens only in a fresh generated zone. Move
         -- dynamic occupants into the first deterministic nearby legal cell.
         local moved = false
-        for _, candidate in ipairs(component_neighbours(cell, "north")) do
+        for _, candidate in ipairs(relocation_candidates(cell, 4)) do
           if Grid.in_bounds(candidate.x, candidate.y) and world:is_passable(candidate.x, candidate.y)
+            and not world:is_hazardous(candidate.x, candidate.y)
             and not session:_actor_at(candidate.x, candidate.y, actor) and not world:object_at(candidate.x, candidate.y) then
             actor.x, actor.y, moved = candidate.x, candidate.y, true
             break
@@ -251,6 +268,30 @@ function SurfaceWorld.carve_connections(session, connections)
         else y = y + (nearest.y > y and 1 or -1) end
       end
     end
+  end
+  session.state.surface_connector_cells = reserved
+  session:validate_world()
+  return reserved
+end
+
+-- Reusable deterministic seam for an interior landmark (cave mouth, stairs,
+-- ladder, elevator, shaft). It uses the exact same path/material APIs as a
+-- surface edge and reserves the entire throat against normal placement.
+function SurfaceWorld.reserve_interior_connection(session, cell, reserved)
+  local world = assert(session and session.state and session.state.world, "Zone connector requires a World")
+  assert(type(cell) == "table" and Grid.in_bounds(cell.x, cell.y), "Zone connector cell is out of bounds")
+  reserved = reserved or session.state.surface_connector_cells or {}
+  local nearest = choose_nearest_open(session, cell)
+  assert(nearest, "Zone generated no traversable terrain")
+  carve_path(world, cell, nearest)
+  local x, y = cell.x, cell.y
+  while true do
+    local throat_cell = { x = x, y = y }
+    clear_blocker(session, throat_cell)
+    reserved[cell_key(throat_cell)] = true
+    if x == nearest.x and y == nearest.y then break end
+    if x ~= nearest.x then x = x + (nearest.x > x and 1 or -1)
+    else y = y + (nearest.y > y and 1 or -1) end
   end
   session.state.surface_connector_cells = reserved
   session:validate_world()
