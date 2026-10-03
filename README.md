@@ -47,7 +47,7 @@ $ love .
 | `G` | Salvage a nearby corpse |
 | `I` | Open carried inventory |
 | `C` | Open the campaign construction menu |
-| `U` | Interact with an adjacent door, generator, or breaker |
+| `U` | Pick up nearby cargo or interact with adjacent world objects (doors, storage, power, stations) |
 | `X` | Open installed body abilities; activation requires a second confirmation |
 | `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |

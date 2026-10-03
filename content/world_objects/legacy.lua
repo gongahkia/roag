@@ -272,10 +272,10 @@ return {
     render_style = "service_kiosk",
   },
   {
-    -- The campaign's initial anchor is ordinary persistent world state.  It
-    -- is deliberately indestructible at runtime in OW-04 so a combat event
-    -- cannot erase the only successor spawn; OW-05 will add player-built
-    -- stations and construction-specific destruction policy.
+    -- Both generated and player-built stations use this one physical role.
+    -- Campaign marks its currently selected anchor instance protected, so a
+    -- successor point cannot be destroyed while non-anchor stations remain
+    -- ordinary destructible construction.
     id = "world_object.station.reconstruction",
     display_name = "Reconstruction Station",
     material_id = "material.structure.conductive_metal",

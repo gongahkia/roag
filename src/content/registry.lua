@@ -387,6 +387,14 @@ function Registry:validate()
     elseif material.burn_rate ~= nil then
       content_error("Nonflammable material '" .. id .. "' cannot define burn_rate")
     end
+    if material.harvest_yield ~= nil then
+      if type(material.harvest_yield) ~= "table" then
+        content_error("Material '" .. id .. "' harvest_yield must be a table")
+      end
+      require_string(material.harvest_yield.resource_id, "Material '" .. id .. "' harvest_yield.resource_id")
+      self:get_resource(material.harvest_yield.resource_id)
+      require_positive_integer(material.harvest_yield.amount, "Material '" .. id .. "' harvest_yield.amount")
+    end
   end
 
   for _, id in ipairs(sorted_keys(self.resources)) do
