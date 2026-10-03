@@ -107,6 +107,12 @@ function Renderer:terrain_tint(world, x, y, fallback, passable)
   return fallback
 end
 
+-- Terrain is always readable inside the world bounds. Tactical line-of-sight
+-- controls information such as enemies and telegraphs, never map discovery.
+function Renderer:terrain_is_renderable(x, y)
+  return Grid.in_bounds(x, y)
+end
+
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
   local camera_x, camera_y = self:_camera_position(presentation, player)
   local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
@@ -163,9 +169,8 @@ function Renderer:_draw_game(app)
       local x, y = base_x + view_x, base_y + view_y
       local pixel_x = offset_x + (view_x - camera_offset_x) * size
       local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
-      local location_key = Grid.key(x, y)
       local passable = state.world and state.world:is_passable(x, y)
-      if Grid.in_bounds(x, y) and state.visible[location_key] then
+      if self:terrain_is_renderable(x, y) then
         if passable then
           local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
           self:_color(floor_tint)
@@ -185,13 +190,6 @@ function Renderer:_draw_game(app)
             love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
           end
         end
-      elseif Grid.in_bounds(x, y) and state.explored[location_key] then
-        local explored_tint = self:terrain_tint(state.world, x, y, floor, passable)
-        self:_color(passable and { explored_tint[1] * 0.28, explored_tint[2] * 0.28, explored_tint[3] * 0.28 } or { 0.035, 0.025, 0.04 })
-        love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-      else
-        self:_color({ 0.008, 0.011, 0.017 })
-        love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
       end
     end
   end
@@ -254,8 +252,8 @@ function Renderer:_draw_game(app)
   end
 
   -- A detonated flare remains a short control zone. Its low-key amber field
-  -- makes the mechanical enemy-avoidance radius readable without revealing
-  -- unexplored terrain beyond the light it supplies.
+  -- makes the mechanical enemy-avoidance radius readable without exposing
+  -- tactical information outside the player's current perception.
   for _, flare in ipairs(state.flares or {}) do
     if flare.detonated and (flare.light_remaining or 0) > 0 then
       local pulse = 0.08 + math.sin(time * 8 + flare.x * 3 + flare.y) * 0.025

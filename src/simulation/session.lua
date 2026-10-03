@@ -158,16 +158,6 @@ local function copy_plain(value)
   return result
 end
 
-local function copy_explored_cells(cells)
-  local result = {}
-  for location_key, explored in pairs(cells or {}) do
-    assert(type(location_key) == "string" and location_key:match("^%-?%d+:%-?%d+$") and explored == true,
-      "Explored-cell data is invalid")
-    result[location_key] = true
-  end
-  return result
-end
-
 local function copy_meta_snapshot(snapshot)
   local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {}, discovered_discovery_ids = {} }
   local seen_research, seen_unlocks, seen_discoveries = {}, {}, {}
@@ -297,7 +287,6 @@ function Session.new(options)
     curse_id = nil,
     log = {},
     curse_bag = {},
-    explored = {},
     effects = {},
     electrical_effects = {},
     next_component_sequence = 1,
@@ -1773,9 +1762,6 @@ function Session:to_data()
       death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
     },
     settings = copy_plain(state.settings or {}),
-    -- Visibility is transient, but discovered terrain is player knowledge and
-    -- must survive a save/load just like the generated world does.
-    explored = copy_explored_cells(state.explored),
     log = {},
     player = self:_actor_to_data(state.player),
     inventory = state.run.inventory:to_data(),
@@ -1917,7 +1903,6 @@ function Session.from_data(data, options)
   local route_node = state.route:node(state.route_node_id)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
-  state.explored = copy_explored_cells(data.explored)
   state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
   state.protected_content_cells = copy_plain(data.protected_content_cells or {})
   state.log = {}
@@ -1986,9 +1971,9 @@ function Session.from_data(data, options)
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
   session:refresh_derived_player_stats()
-  -- Saved discovery is authoritative. Rebuild the transient visible layer
-  -- without expanding exploration merely because loading re-evaluates lights.
-  session:refresh_visibility(true)
+  -- Tactical perception is transient and is rebuilt after loading. Terrain
+  -- itself is never hidden or remembered as an exploration layer.
+  session:refresh_visibility()
   session:validate_world()
   session:validate_physical_ownership()
   session:reconcile_meta_rewards()
@@ -3200,7 +3185,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   local state = self.state
   state.settings = settings
   self:_prepare_run_player_for_stage(settings)
-  state.explored, state.effects, state.electrical_effects, state.corpses = {}, {}, {}, {}
+  state.effects, state.electrical_effects, state.corpses = {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
   state.transition_next = nil
@@ -5131,7 +5116,7 @@ function Session:_light_area(source, radius, visible)
   end
 end
 
-function Session:refresh_visibility(preserve_explored)
+function Session:refresh_visibility()
   local state = self.state
   if not state.player or not state.settings then
     return
@@ -5153,11 +5138,8 @@ function Session:refresh_visibility(preserve_explored)
     local x, y = state.world:fire_position(fire)
     if x then self:_light_area({ x = x, y = y }, 2, visible) end
   end
-  local explored = state.explored or {}
-  if not preserve_explored then
-    for location_key in pairs(visible) do explored[location_key] = true end
-  end
-  state.explored = explored
+  -- This is tactical line-of-sight only. Renderer terrain is deliberately
+  -- independent from it: ROAG has no exploration/discovery fog-of-war.
   state.visible = visible
 end
 

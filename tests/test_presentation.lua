@@ -10,6 +10,14 @@ end
 
 return {
   {
+    name = "terrain remains renderable outside tactical line of sight",
+    run = function()
+      local renderer = Renderer.new({})
+      assert(renderer:terrain_is_renderable(20, 10))
+      assert(not renderer:terrain_is_renderable(-1, 10))
+    end,
+  },
+  {
     name = "idle sprite transforms are stable, bounded, and never mutate authoritative actor state",
     run = function()
       local session, player = idle_session()
