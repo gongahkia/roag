@@ -489,16 +489,23 @@ function World:remove_ground_item(item_or_id)
 end
 
 function World:_drop_resource(resource_id, amount, x, y)
-  local item = PhysicalItem.from_resource(resource_id, amount, self:_next_item_id(), self.registry)
-  local ground, result = self:place_ground_item(item, x, y)
-  assert(ground, result.reason)
-  return ground
+  local definition = self.registry:get_resource(resource_id)
+  local dropped = {}
+  while amount > 0 do
+    local quantity = math.min(amount, definition.max_stack)
+    local item = PhysicalItem.from_resource(resource_id, quantity, self:_next_item_id(), self.registry)
+    local ground, result = self:place_ground_item(item, x, y)
+    assert(ground, result.reason)
+    dropped[#dropped + 1] = ground
+    amount = amount - quantity
+  end
+  return dropped
 end
 
 function World:_drop_yields(yields, x, y)
   local dropped = {}
   for _, yield in ipairs(yields or {}) do
-    dropped[#dropped + 1] = self:_drop_resource(yield.resource_id, yield.amount, x, y)
+    for _, ground in ipairs(self:_drop_resource(yield.resource_id, yield.amount, x, y)) do dropped[#dropped + 1] = ground end
   end
   return dropped
 end

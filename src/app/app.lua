@@ -18,6 +18,7 @@ local ScreenManager = require("src.ui.screen_manager")
 local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local ArtPackConfig = require("src.presentation.art_pack_config")
+local Grid = require("src.world.grid")
 
 local App = {}
 App.__index = App
@@ -812,7 +813,7 @@ function App:select_build_recipe()
   local player = self.session.state.player
   local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[player.direction] or { 1, 0 }
   self.build_recipe_id = recipe.id
-  self.build_cursor = { x = math.max(0, math.min(79, player.x + delta[1])), y = math.max(0, math.min(49, player.y + delta[2])) }
+  self.build_cursor = { x = clamp(player.x + delta[1], 0, Grid.width - 1), y = clamp(player.y + delta[2], 0, Grid.height - 1) }
   self.screen = "build_place"
   self:play_sound("select")
   return recipe
@@ -820,7 +821,7 @@ end
 
 function App:move_build_cursor(dx, dy)
   local cursor = self.build_cursor or { x = self.session.state.player.x, y = self.session.state.player.y }
-  cursor.x, cursor.y = math.max(0, math.min(79, cursor.x + dx)), math.max(0, math.min(49, cursor.y + dy))
+  cursor.x, cursor.y = clamp(cursor.x + dx, 0, Grid.width - 1), clamp(cursor.y + dy, 0, Grid.height - 1)
   self.build_cursor = cursor
   self:play_sound("select")
 end

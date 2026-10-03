@@ -25,10 +25,16 @@ local function add(session, resource_id, amount)
 end
 
 local function build(session, recipe_id)
-  local player = session.state.player
-  for _, point in ipairs(Grid.neighbours({ x = player.x, y = player.y })) do
-    local result = Building.place(session, recipe_id, point.x, point.y)
-    if result.applied then return assert(session.state.world:get_object(result.object_id)) end
+  -- A valid construction contract must be tested across the generated zone,
+  -- not merely against the four cells around an occasionally crowded spawn.
+  -- Preserve a deterministic candidate order and only relocate the test actor
+  -- through its primary reachable region.
+  for _, location in ipairs(session:_reachable_floor_cells()) do
+    session.state.player.x, session.state.player.y = location.x, location.y
+    for _, point in ipairs(Grid.neighbours(location)) do
+      local result = Building.place(session, recipe_id, point.x, point.y)
+      if result.applied then return assert(session.state.world:get_object(result.object_id)) end
+    end
   end
   error("No legal construction cell")
 end

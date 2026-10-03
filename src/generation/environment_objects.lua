@@ -12,10 +12,6 @@ local MAX_CONNECTIVITY_CANDIDATES_PER_PLAN = 4
 local PLANS = {
   forest = {
     { definition_id = "world_object.cover.timber_crate", count = 2 },
-    -- A single deliberate harvestable tree gives surface exploration a real
-    -- TIMBER source without turning every decorative forest cell into mineable
-    -- terrain or flooding the starting zone with construction material.
-    { definition_id = "world_object.feature.old_growth_tree", count = 1 },
   },
   cave = {
     { definition_id = "world_object.cover.timber_crate", count = 1 },

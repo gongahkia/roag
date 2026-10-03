@@ -151,7 +151,7 @@ function GameplayUI.context_action(session)
   if state.exit and Grid.distance(player, state.exit) <= 1 then
     return { key = "MOVE", label = "EXIT READY — STEP ONTO EXIT", available = true, priority = 1 }
   end
-  local ground = session:nearby_ground_item()
+  local ground = session.nearby_ground_item and session:nearby_ground_item() or nil
   if ground then
     return {
       key = "U",
