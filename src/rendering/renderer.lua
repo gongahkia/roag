@@ -262,8 +262,9 @@ function Renderer:_draw_game(app)
         local definition = session.registry:get_world_object(object.definition_id)
         local tint = { 1, 1, 1 }
         if object.interaction_role == "door" then
+          local operational = definition.power_required ~= true or state.world:is_circuit_powered(object.circuit_id)
           tint = object.door_state == "open" and { 0.42, 0.9, 0.86, 0.5 }
-            or (state.world:is_circuit_powered(object.circuit_id) and { 0.65, 1, 0.83 } or { 1, 0.46, 0.3 })
+            or (operational and { 0.65, 1, 0.83 } or { 1, 0.46, 0.3 })
         elseif object.interaction_role == "generator" then
           tint = object.generator_online and { 0.43, 1, 0.65 } or { 0.5, 0.55, 0.6 }
         elseif object.interaction_role == "breaker" then
@@ -276,10 +277,26 @@ function Renderer:_draw_game(app)
           tint = spent and { 0.38, 0.42, 0.48 } or (object.reinforcement_state == "armed" and { 1, 0.35, 0.2 } or { 1, 0.68, 0.3 })
         elseif object.interaction_role == "traversal" then
           tint = object.required_unlock == "unlock.traversal.maintenance_override" and { 0.38, 0.95, 0.9 } or { 1, 0.63, 0.28 }
+        elseif object.interaction_role == "zone_connection" then
+          tint = object.zone_connection_direction == "down" and { 0.72, 0.54, 1 } or { 0.45, 0.9, 1 }
+        elseif object.interaction_role == "reconstruction_station" then
+          tint = { 0.48, 0.95, 1 }
         elseif object.interaction_role == "clue" then
           tint = { 1, 0.78, 0.28 }
         end
         self.assets:draw_sprite(definition.render_style, pixel_x, pixel_y, size, tint)
+      end
+    end
+  end
+
+  -- Ground cargo is authoritative zone state. A compact glyph keeps stacks
+  -- visible without inventing a second object/physics layer or new art role.
+  for _, ground in ipairs(state.world and state.world:list_ground_items() or {}) do
+    if state.visible[Grid.key(ground.x, ground.y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, ground.x, ground.y, size, offset_x, offset_y)
+      if pixel_x then
+        local tint = ground.item.item_type == "resource_stack" and { 0.95, 0.82, 0.32 } or { 0.7, 0.9, 1 }
+        self:_text("+", pixel_x + size * 0.32, pixel_y + size * 0.2, 0.7, tint)
       end
     end
   end
@@ -377,12 +394,16 @@ function Renderer:_draw_game(app)
 
   local ui = GameplayUI.hud(session)
   self:_text("ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
+  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.66, { 0.78, 0.78, 0.6 }) end
   self:_text("HP " .. ui.health .. " / " .. ui.max_health .. "   " .. string.rep("♥", ui.health), hud, offset_y + 42,
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
   self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
   self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
-  self:_text(state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
-    or ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required), hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
+  local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
+    or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
+  if primary_status then
+    self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
+  end
   self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, offset_y + 134, 0.82, { 0.65, 0.9, 0.8 })
   self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, offset_y + 154, 0.8,
     ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
@@ -647,10 +668,15 @@ function Renderer:_draw_inventory(app)
     local model = GameplayUI.inventory_entry(app.session, entry, inventory)
     self:_text(model.name, detail_x, grid_y, 1.25, { 0.95, 0.85, 0.3 })
     self:_text("MASS " .. model.mass .. "   SIZE " .. model.width .. "×" .. model.height .. " CELLS" .. (model.rotated and " (ROTATED)" or ""), detail_x, grid_y + 32, 0.75)
-    self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, grid_y + 52, 0.85)
-    self:_text(model.condition, detail_x, grid_y + 73, 0.85,
-      model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
-    self:_text("ABILITY " .. model.ability_text, detail_x, grid_y + 94, 0.66, { 0.95, 0.65, 0.35 })
+    if model.item_type == "resource" then
+      self:_text("RESOURCE STACK ×" .. model.quantity, detail_x, grid_y + 52, 0.85, { 0.6, 0.9, 0.75 })
+      self:_text(model.description, detail_x, grid_y + 73, 0.7, { 0.95, 0.65, 0.35 })
+    else
+      self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, grid_y + 52, 0.85)
+      self:_text(model.condition, detail_x, grid_y + 73, 0.85,
+        model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+      self:_text("ABILITY " .. model.ability_text, detail_x, grid_y + 94, 0.66, { 0.95, 0.65, 0.35 })
+    end
   else
     self:_text("EMPTY CELL", detail_x, grid_y, 1, { 0.65, 0.75, 0.9 })
   end
@@ -680,31 +706,80 @@ function Renderer:_draw_salvage(app)
     self:_text("NO SALVAGEABLE COMPONENTS REMAIN", width * 0.18, 136, 1, { 0.72, 0.76, 0.84 })
   else
     local source = corpse.source_kind and session.registry.enemies["enemy.legacy." .. corpse.source_kind]
-    local label = corpse.fallen_archive_id and ("FALLEN SHELL")
+    local label = corpse.source_kind == "player" and "FALLEN BODY"
+      or (corpse.fallen_archive_id and "FALLEN SHELL")
       or ((source and source.display_name or "ENEMY") .. " REMAINS")
     self:_text(label, width * 0.18, 101, 0.85, { 0.95, 0.85, 0.3 })
     for index, installed in ipairs(options) do
-      local model = GameplayUI.salvage(session, installed)
-      local component = model.component
       local y = 136 + (index - 1) * 102
       local selected = index == app.menu
       self:_color(selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
       love.graphics.rectangle("fill", width * 0.18, y, width * 0.64, 88)
-      self:_text((selected and "> " or "  ") .. component.name, width * 0.21, y + 8, 1.1,
-        selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
-      self:_text(component.slot .. "  •  " .. component.current_integrity .. "/" .. component.max_integrity
-        .. " " .. component.condition .. "  •  MASS " .. component.mass .. "  •  " .. component.width .. "×" .. component.height,
-        width * 0.21, y + 33, 0.72, { 0.72, 0.76, 0.84 })
-      self:_text("ABILITY " .. component.ability_text, width * 0.21, y + 53, 0.66, { 0.95, 0.72, 0.35 })
-      if model.current then
-        self:_text("CURRENT " .. model.current.name .. " " .. model.current.current_integrity .. "/" .. model.current.max_integrity,
-          width * 0.21, y + 69, 0.59, { 0.6, 0.72, 0.84 })
+      if installed.item and installed.item.item_type == "resource_stack" then
+        local placement = session.state.inventory:find_first_fit(installed.item)
+        self:_text((selected and "> " or "  ") .. installed.item.display_name, width * 0.21, y + 8, 1.1,
+          selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
+        self:_text("CARRIED RESOURCE  •  MASS " .. installed.item.mass .. "  •  1×1", width * 0.21, y + 35, 0.72, { 0.72, 0.76, 0.84 })
+        self:_text(placement and "FITS INVENTORY" or "NO INVENTORY SPACE", width * 0.67, y + 9, 0.72,
+          placement and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.4 })
+      else
+        local model = GameplayUI.salvage(session, installed)
+        local component = model.component
+        self:_text((selected and "> " or "  ") .. component.name, width * 0.21, y + 8, 1.1,
+          selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
+        self:_text(component.slot .. "  •  " .. component.current_integrity .. "/" .. component.max_integrity
+          .. " " .. component.condition .. "  •  MASS " .. component.mass .. "  •  " .. component.width .. "×" .. component.height,
+          width * 0.21, y + 33, 0.72, { 0.72, 0.76, 0.84 })
+        self:_text("ABILITY " .. component.ability_text, width * 0.21, y + 53, 0.66, { 0.95, 0.72, 0.35 })
+        if model.current then
+          self:_text("CURRENT " .. model.current.name .. " " .. model.current.current_integrity .. "/" .. model.current.max_integrity,
+            width * 0.21, y + 69, 0.59, { 0.6, 0.72, 0.84 })
+        end
+        self:_text(model.fit_text, width * 0.67, y + 9, 0.72,
+          model.fits and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.4 })
       end
-      self:_text(model.fit_text, width * 0.67, y + 9, 0.72,
-        model.fits and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.4 })
     end
   end
   self:_text("W/S SELECT     ENTER SALVAGE     G / ESC CLOSE", width * 0.18, height - 58, 0.85, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_build_place(app)
+  local width, height = love.graphics.getDimensions()
+  local preview = app:build_preview()
+  local recipe = app.session.registry:get_construction_recipe(app.build_recipe_id)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("PLACE " .. string.upper(recipe.display_name), width * 0.18, 58, 2, { 0.7, 0.9, 1 })
+  local cursor = app.build_cursor
+  self:_text("TARGET " .. cursor.x .. "," .. cursor.y, width * 0.18, 116, 1.05, { 0.95, 0.85, 0.3 })
+  self:_text(preview.applied and "VALID" or ("INVALID — " .. GameplayUI.failure_text(preview)), width * 0.18, 152, 0.92,
+    preview.applied and { 0.6, 0.9, 0.75 } or { 1, 0.42, 0.42 })
+  local counts = app.session.state.inventory:resource_counts()
+  local resources = { "resource.material.timber", "resource.material.masonry", "resource.material.metal" }
+  for index, id in ipairs(resources) do
+    local resource = app.session.registry:get_resource(id)
+    self:_text(string.upper(resource.display_name) .. "  " .. (counts[id] or 0), width * 0.18, 210 + (index - 1) * 28, 0.85, { 0.75, 0.82, 0.92 })
+  end
+  self:_text("WASD / ARROWS MOVE TARGET     ENTER BUILD     C / ESC BACK", width * 0.18, height - 58, 0.78, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_storage(app)
+  local width, height = love.graphics.getDimensions()
+  local player_entries = app.session.state.inventory.entries
+  local storage = app:storage_inventory()
+  love.graphics.clear(0.025, 0.035, 0.055)
+  self:_text("STORAGE", width * 0.15, 48, 2, { 0.7, 0.9, 1 })
+  local function column(title, entries, x, selected)
+    self:_text(title, x, 108, 1.15, selected and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
+    if #entries == 0 then self:_text("EMPTY", x, 145, 0.8, { 0.48, 0.55, 0.65 }) end
+    for index, entry in ipairs(entries) do
+      local active = selected and index == app.storage_index
+      self:_text((active and "> " or "  ") .. entry.item.display_name, x, 145 + (index - 1) * 27, 0.78,
+        active and { 0.95, 0.85, 0.3 } or { 0.88, 0.92, 1 })
+    end
+  end
+  column("PLAYER", player_entries, width * 0.15, app.storage_focus == "player")
+  column("STORAGE", storage and storage.entries or {}, width * 0.55, app.storage_focus == "storage")
+  self:_text("TAB SWITCH     W/S SELECT     ENTER TRANSFER     U / ESC CLOSE", width * 0.15, height - 58, 0.78, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_menu(title, items, selected, footer)
@@ -1044,6 +1119,20 @@ function Renderer:draw(app)
     self:_draw_reconstruction(app)
   elseif app.screen == "body_abilities" then
     self:_draw_body_abilities(app)
+  elseif app.screen == "build" then
+    local items = {}
+    for _, recipe in ipairs(app:build_recipes()) do
+      local cost = {}
+      for _, value in ipairs(recipe.costs) do
+        cost[#cost + 1] = app.session.registry:get_resource(value.resource_id).display_name:upper() .. " " .. value.amount
+      end
+      items[#items + 1] = { name = recipe.display_name, description = table.concat(cost, "  •  ") }
+    end
+    self:_menu("BUILD", items, app.menu, "W/S SELECT     ENTER PLACE     C / ESC CLOSE")
+  elseif app.screen == "build_place" then
+    self:_draw_build_place(app)
+  elseif app.screen == "storage" then
+    self:_draw_storage(app)
   elseif app.screen == "gameover" then
     self:_menu(self:_screen_text(app, "gameover", "title", "YOU DIED"), { { name = "RETURN TO TITLE", description = self:_screen_text(app, "gameover", "subtitle", "The body is gone.") } }, app.menu,
       self:_screen_text(app, "gameover", "footer", "ENTER RETURN TO TITLE"))

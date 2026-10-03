@@ -5,6 +5,52 @@ local MOVE_KEYS = { w = true, a = true, s = true, d = true }
 local SHOT_KEYS = { up = "w", left = "a", down = "s", right = "d" }
 
 function Input.keypressed(app, key, _, is_repeat)
+  if app.screen == "build" then
+    local recipes = app:build_recipes()
+    if key == "escape" or key == "c" then
+      app:close_overlay()
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #recipes))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #recipes))
+    elseif key == "return" or key == "space" then
+      app:select_build_recipe()
+    end
+    return
+  end
+
+  if app.screen == "build_place" then
+    if key == "escape" or key == "c" then
+      app.screen = "build"
+    elseif key == "w" or key == "up" then
+      app:move_build_cursor(0, -1)
+    elseif key == "s" or key == "down" then
+      app:move_build_cursor(0, 1)
+    elseif key == "a" or key == "left" then
+      app:move_build_cursor(-1, 0)
+    elseif key == "d" or key == "right" then
+      app:move_build_cursor(1, 0)
+    elseif key == "return" or key == "space" then
+      app:confirm_build()
+    end
+    return
+  end
+
+  if app.screen == "storage" then
+    if key == "escape" or key == "u" then
+      app:close_overlay()
+    elseif key == "tab" then
+      app:toggle_storage_focus()
+    elseif key == "w" or key == "up" then
+      app:move_storage_selection(-1)
+    elseif key == "s" or key == "down" then
+      app:move_storage_selection(1)
+    elseif key == "return" or key == "space" then
+      app:storage_transfer_selected()
+    end
+    return
+  end
+
   if app.screen == "inventory" then
     if key == "escape" or key == "i" then
       app:close_overlay()
@@ -213,6 +259,8 @@ function Input.keypressed(app, key, _, is_repeat)
       app:perform_turn(key)
     elseif key == "x" then
       app:open_body_abilities()
+    elseif key == "c" then
+      app:open_build()
     end
   end
 end

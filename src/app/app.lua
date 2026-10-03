@@ -7,6 +7,8 @@ local Assets = require("src.rendering.assets")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
 local ActiveRun = require("src.persistence.active_run")
+local Campaign = require("src.campaign.campaign")
+local CampaignPersistence = require("src.persistence.campaign")
 local SaveStore = require("src.persistence.save_store")
 local MetaProfile = require("src.persistence.meta_profile")
 local FallenArchive = require("src.persistence.fallen_archive")
@@ -16,6 +18,7 @@ local ScreenManager = require("src.ui.screen_manager")
 local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local ArtPackConfig = require("src.presentation.art_pack_config")
+local Grid = require("src.world.grid")
 
 local App = {}
 App.__index = App
@@ -36,6 +39,7 @@ function App.new(options)
   self.content = options.content or Content
   self.registry = options.registry or Registry.load()
   self.save_store = options.save_store or SaveStore.runtime()
+  self.campaign_store = options.campaign_store or SaveStore.runtime_directory("campaign")
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
   self.archive_store = options.archive_store or SaveStore.runtime("fallen_characters.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
@@ -62,6 +66,7 @@ function App.new(options)
   self.movement_keys = {}
   self:_reconcile_pending_death()
   self:refresh_continue()
+  self:refresh_campaign_continue()
   return self
 end
 
@@ -99,8 +104,23 @@ function App:focus(focused)
 end
 
 function App:quit()
+  self:autosave_campaign("quit")
   self:autosave("quit")
   if love and love.event then love.event.quit() end
+end
+
+-- Campaign Continue is intentionally separate from the historical active-run
+-- slot. OW-01 never interprets, migrates, or deletes active_run.json.
+function App:refresh_campaign_continue()
+  local available, error_data = CampaignPersistence.has_valid_campaign(self.campaign_store, {
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+  })
+  self.campaign_continue_available = available == true
+  self.campaign_continue_error = self.campaign_continue_available and nil or error_data
+  self.legacy_active_run_present = self.save_store:exists()
+  return self.campaign_continue_available
 end
 
 function App:refresh_continue()
@@ -118,9 +138,17 @@ end
 function App:title_options()
   -- The sibling Unpolished Bees workbench owns title labels/order and art
   -- selection.  Runtime only filters a declared action for actual save state.
-  local actions, options = self.presentation_flow:available({ continue_available = self.continue_available }), {}
+  local actions, options = self.presentation_flow:available({
+    continue_available = self.campaign_continue_available or self.continue_available,
+  }), {}
   for _, action in ipairs(actions) do
-    options[#options + 1] = { id = action.id, name = action.label, description = action.description, target = action.target }
+    local name, description = action.label, action.description
+    if action.id == "continue" and self.campaign_continue_available then
+      name, description = "CONTINUE CAMPAIGN", "Resume the persistent one-zone campaign."
+    elseif action.id == "continue" and self.continue_available then
+      name, description = "LEGACY RUN", "Resume a preserved pre-open-world run in compatibility mode."
+    end
+    options[#options + 1] = { id = action.id, name = name, description = description, target = action.target }
   end
   return options
 end
@@ -221,7 +249,79 @@ function App:_allocate_new_run()
   return run_id, MetaProfile.snapshot(candidate, self.registry)
 end
 
+function App:_allocate_new_campaign()
+  if self.meta_error then
+    return "campaign:000001", MetaProfile.snapshot(MetaProfile.new(), self.registry)
+  end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local campaign_id = MetaProfile.allocate_campaign(candidate)
+  local saved, error_data = self:_save_meta(candidate)
+  if not saved then return nil, error_data end
+  return campaign_id, MetaProfile.snapshot(candidate, self.registry)
+end
+
+function App:request_new_campaign()
+  local campaign_id, snapshot = self:_allocate_new_campaign()
+  if not campaign_id then self.campaign_continue_error = snapshot; return nil, snapshot end
+  local campaign = Campaign.new({
+    seed = self.seed_stream:next(),
+    campaign_id = campaign_id,
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = snapshot,
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
+    emit = function(event) self:_handle_session_event(event) end,
+  })
+  campaign:set_persistence_directory(self.campaign_store)
+  self.campaign, self.session = campaign, campaign.session
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  local saved, error_data = self:autosave_campaign("new_campaign")
+  if not saved then return nil, error_data end
+  self:play_sound("select")
+  return campaign
+end
+
+function App:continue_campaign()
+  local campaign, error_data = CampaignPersistence.load(self.campaign_store, {
+    content = self.content,
+    registry = self.registry,
+    meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
+    on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
+    emit = function(event) self:_handle_session_event(event) end,
+  })
+  if not campaign then
+    self.campaign_continue_error = error_data
+    self.campaign_continue_available = false
+    return nil, error_data
+  end
+  campaign:set_persistence_directory(self.campaign_store)
+  self.campaign, self.session = campaign, campaign.session
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self.campaign_continue_available, self.campaign_continue_error = true, nil
+  return campaign
+end
+
+function App:autosave_campaign(_boundary)
+  if not self.campaign then return true end
+  local saved, error_data = CampaignPersistence.save(self.campaign, self.campaign_store)
+  if not saved then
+    self.campaign_save_error = error_data
+    self.campaign.session:_log("Campaign save failed: " .. tostring(error_data and error_data.reason or "unknown error"))
+    return nil, error_data
+  end
+  self.campaign_save_error = nil
+  self.campaign_continue_available = true
+  return true
+end
+
 function App:autosave(_boundary)
+  if self.campaign and self.session == self.campaign.session then
+    return self:autosave_campaign(_boundary)
+  end
   if not self.session then return true end
   if self.session.state.ended == "gameover" then
     local saved, save_error = ActiveRun.save(self.session, self.save_store)
@@ -286,6 +386,14 @@ function App:begin_new_run()
     return true
   end
   return self:request_new_run()
+end
+
+function App:begin_new_campaign()
+  if self.campaign_continue_available then
+    self.title_error = { code = "campaign_exists", reason = "A campaign already exists. Continue it before starting another." }
+    return nil, self.title_error
+  end
+  return self:request_new_campaign()
 end
 
 function App:onboarding_sections()
@@ -361,11 +469,13 @@ end
 
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
-  if selected and selected.id == "continue" then return self:continue_run() end
+  if selected and selected.id == "continue" then
+    return self.campaign_continue_available and self:continue_campaign() or self:continue_run()
+  end
   if selected and selected.id == "research" then return self:open_research() end
   if selected and selected.id == "fallen" then return self:open_fallen_archive() end
   if selected and selected.id == "help" then return self:open_help() end
-  return self:begin_new_run()
+  return self:begin_new_campaign()
 end
 
 function App:play_sound(name)
@@ -652,6 +762,9 @@ function App:_handle_turn_result(result)
     self.service_object_id = self.session.state.active_service_object_id
     self.screen, self.menu = "service", 1
   end
+  if result == "storage" then
+    self:open_storage(self.session.state.active_storage_object_id)
+  end
 end
 
 function App:perform_turn(input)
@@ -659,6 +772,13 @@ function App:perform_turn(input)
     return
   end
   local result = self.session:turn(input)
+  if (result == "zone_transition" or result == "campaign_succession") and self.campaign then
+    -- Campaign atomically swaps its active local simulator only after the
+    -- zone shards and manifest commit. Presentation observes that new zone.
+    self.session = self.campaign.session
+    self:clear_held_movement()
+    self.presentation:reset(self.session)
+  end
   self:_handle_turn_result(result)
   self:autosave("turn")
   return result
@@ -669,6 +789,107 @@ function App:close_overlay()
   self.menu = 1
   self.inventory_selected_id = nil
   self.salvage_corpse_id = nil
+  self.storage_object_id = nil
+  if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
+end
+
+function App:open_build()
+  if not self.session or not self.campaign then return false end
+  self.build_recipe_index = 1
+  self.build_recipe_id = nil
+  self.screen, self.menu = "build", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:build_recipes()
+  if not self.session then return {} end
+  return require("src.construction.building").recipes(self.session.registry)
+end
+
+function App:select_build_recipe()
+  local recipe = self:build_recipes()[self.menu]
+  if not recipe then return nil end
+  local player = self.session.state.player
+  local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[player.direction] or { 1, 0 }
+  self.build_recipe_id = recipe.id
+  self.build_cursor = { x = clamp(player.x + delta[1], 0, Grid.width - 1), y = clamp(player.y + delta[2], 0, Grid.height - 1) }
+  self.screen = "build_place"
+  self:play_sound("select")
+  return recipe
+end
+
+function App:move_build_cursor(dx, dy)
+  local cursor = self.build_cursor or { x = self.session.state.player.x, y = self.session.state.player.y }
+  cursor.x, cursor.y = clamp(cursor.x + dx, 0, Grid.width - 1), clamp(cursor.y + dy, 0, Grid.height - 1)
+  self.build_cursor = cursor
+  self:play_sound("select")
+end
+
+function App:build_preview()
+  if not self.session or not self.build_recipe_id or not self.build_cursor then
+    return { applied = false, code = "unknown_recipe", reason = "No construction recipe selected" }
+  end
+  return require("src.construction.building").validate(self.session, self.build_recipe_id, self.build_cursor.x, self.build_cursor.y)
+end
+
+function App:confirm_build()
+  if not self.build_recipe_id or not self.build_cursor then return nil end
+  self.session.state.last_build_result = nil
+  self.screen = "game"
+  self:perform_turn(string.format("build:%s:%d:%d", self.build_recipe_id, self.build_cursor.x, self.build_cursor.y))
+  local result = self.session.state.last_build_result
+  if result and not result.applied then self.screen = "build_place" end
+  if result and result.applied then self.build_recipe_id = nil end
+  return result
+end
+
+function App:open_storage(object_id)
+  local object = self.session and self.session.state.world and self.session.state.world:get_object(object_id)
+  if not object or not object.storage_inventory then return false end
+  self.storage_object_id = object_id
+  self.storage_focus, self.storage_index = "player", 1
+  self.screen, self.menu = "storage", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:storage_inventory()
+  local object = self.session and self.session.state.world and self.session.state.world:get_object(self.storage_object_id)
+  return object and object.storage_inventory or nil
+end
+
+function App:storage_entries()
+  local inventory = self.storage_focus == "storage" and self:storage_inventory()
+    or (self.session and self.session.state.inventory)
+  return inventory and inventory.entries or {}
+end
+
+function App:toggle_storage_focus()
+  self.storage_focus = self.storage_focus == "player" and "storage" or "player"
+  self.storage_index = 1
+  self:play_sound("select")
+end
+
+function App:move_storage_selection(amount)
+  self.storage_index = clamp((self.storage_index or 1) + amount, 1, math.max(1, #self:storage_entries()))
+  self:play_sound("select")
+end
+
+function App:storage_transfer_selected()
+  local entry = self:storage_entries()[self.storage_index or 1]
+  if not entry then return nil end
+  local direction = self.storage_focus == "player" and "to_storage" or "to_player"
+  local result = self.session:storage_transfer(self.storage_object_id, entry.physical_id, direction)
+  if result.applied then
+    self.session:_log("MOVED " .. result.item.display_name .. ".")
+    self.storage_index = clamp(self.storage_index, 1, math.max(1, #self:storage_entries()))
+    self:autosave("storage")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
 end
 
 function App:open_inventory()
@@ -683,7 +904,7 @@ function App:open_inventory()
 end
 
 function App:open_reconstruction()
-  if not self.session or self.session.state.phase ~= "reconstruction" then
+  if not self.session or not self.session:_reconstruction_allowed() then
     return false
   end
   self.reconstruction_focus = "body"
@@ -764,6 +985,10 @@ function App:reconstruction_confirm()
       self.session:_log("No inventory item selected.")
       return nil
     end
+    if entry.item.item_type ~= "component" then
+      self.session:_log("Only components can be installed into a body.")
+      return nil
+    end
     self.reconstruction_selected_id = entry.physical_id
     self.reconstruction_focus = "body"
     self.session:_log("Selected " .. entry.item.display_name .. " for installation.")
@@ -809,6 +1034,7 @@ function App:finish_reconstruction()
   if result.applied then
     self.reconstruction_selected_id = nil
     self:_handle_turn_result(result.next)
+    if result.next == "combat" then self.screen, self.menu = "game", 1 end
     self:play_sound("door")
     self:autosave("reconstruction_complete")
   else
@@ -923,7 +1149,14 @@ end
 
 function App:salvage_options()
   local corpse = self.session and self.session:find_corpse(self.salvage_corpse_id)
-  return corpse and corpse:list_components() or {}
+  if not corpse then return {} end
+  local options = corpse:list_components()
+  for _, entry in ipairs(corpse:list_carried_items()) do
+    options[#options + 1] = {
+      slot_id = "CARRIED", component = entry.item.object, item = entry.item, physical_id = entry.physical_id, carried = true,
+    }
+  end
+  return options
 end
 
 function App:salvage_selected()
@@ -933,7 +1166,9 @@ function App:salvage_selected()
     self.session:_log("Corpse has no salvageable components.")
     return nil
   end
-  local result = self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
+  local result = selection.carried
+    and self.session:salvage_corpse_carried_item(self.salvage_corpse_id, selection.physical_id)
+    or self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
   local remaining = self:salvage_options()
   self.menu = clamp(self.menu, 1, math.max(1, #remaining))
   if result.applied then self:autosave("salvage") end

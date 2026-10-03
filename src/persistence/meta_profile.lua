@@ -30,7 +30,8 @@ local function copy_map(values)
 end
 
 function MetaProfile.new()
-  return { research_data = 0, unlocked_research_ids = {}, next_run_sequence = 1, claimed_reward_ids = {}, discovered_discovery_ids = {} }
+  return { research_data = 0, unlocked_research_ids = {}, next_run_sequence = 1, next_campaign_sequence = 1,
+    claimed_reward_ids = {}, discovered_discovery_ids = {} }
 end
 
 function MetaProfile.copy(profile)
@@ -38,6 +39,7 @@ function MetaProfile.copy(profile)
     research_data = profile.research_data,
     unlocked_research_ids = sorted_unique(profile.unlocked_research_ids, "unlocked_research_ids"),
     next_run_sequence = profile.next_run_sequence,
+    next_campaign_sequence = profile.next_campaign_sequence or 1,
     claimed_reward_ids = sorted_unique(profile.claimed_reward_ids, "claimed_reward_ids"),
     discovered_discovery_ids = sorted_unique(profile.discovered_discovery_ids, "discovered_discovery_ids"),
   }
@@ -49,6 +51,11 @@ function MetaProfile.validate(profile, registry)
     "Meta profile research_data must be a non-negative integer")
   assert(type(profile.next_run_sequence) == "number" and profile.next_run_sequence >= 1 and profile.next_run_sequence % 1 == 0,
     "Meta profile next_run_sequence must be a positive integer")
+  -- Optional in pre-OW-01 profiles. Normalizing here keeps old account
+  -- research/discovery history intact while giving campaigns a durable ID.
+  if profile.next_campaign_sequence == nil then profile.next_campaign_sequence = 1 end
+  assert(type(profile.next_campaign_sequence) == "number" and profile.next_campaign_sequence >= 1
+    and profile.next_campaign_sequence % 1 == 0, "Meta profile next_campaign_sequence must be a positive integer")
   local unlocked, unlocked_set = sorted_unique(profile.unlocked_research_ids, "Meta profile unlocked research IDs")
   local claims = sorted_unique(profile.claimed_reward_ids, "Meta profile claimed reward IDs")
   -- Discovery history deliberately tolerates semantic IDs no longer present
@@ -117,6 +124,15 @@ end
 function MetaProfile.allocate_run(profile)
   local id = string.format("run:%06d", profile.next_run_sequence)
   profile.next_run_sequence = profile.next_run_sequence + 1
+  return id
+end
+
+function MetaProfile.allocate_campaign(profile)
+  assert(type(profile) == "table" and type(profile.next_campaign_sequence) == "number"
+    and profile.next_campaign_sequence >= 1 and profile.next_campaign_sequence % 1 == 0,
+    "Meta profile campaign sequence is invalid")
+  local id = string.format("campaign:%06d", profile.next_campaign_sequence)
+  profile.next_campaign_sequence = profile.next_campaign_sequence + 1
   return id
 end
 

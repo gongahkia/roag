@@ -5,6 +5,8 @@
 local Content = require("src.content.legacy")
 local Session = require("src.simulation.session")
 local RouteDefinitions = require("src.routes.definitions")
+local Campaign = require("src.campaign.campaign")
+local ZoneKey = require("src.campaign.zone_key")
 
 local InspectionFloor = {}
 
@@ -221,6 +223,88 @@ function InspectionFloor.generate(options)
     state = session.state,
     provenance = provenance_for(session),
     fallen_recurrence = session.state.fallen_recurrence,
+  }
+end
+
+-- OW-02 inspection entry point. It deliberately constructs the same
+-- campaign-zone generator used by play, but never opens persistence or a
+-- renderer. Legacy biome/tier inspection above remains untouched.
+function InspectionFloor.generate_campaign_zone(options)
+  options = options or {}
+  local seed = tonumber(options.campaign_seed or options.seed)
+  local x, y, z = tonumber(options.world_x), tonumber(options.world_y), tonumber(options.z or 0)
+  if not seed or seed % 1 ~= 0 then return nil, { code = "invalid_seed", reason = "Campaign seed must be an integer" } end
+  if not x or x % 1 ~= 0 or not y or y % 1 ~= 0 or not z or z % 1 ~= 0 then
+    return nil, { code = "invalid_zone_key", reason = "Campaign zone coordinates must be integers" }
+  end
+  local key = ZoneKey.new(x, y, z)
+  if not Campaign.is_zone_in_bounds(key) then
+    return nil, { code = "out_of_bounds", reason = "Campaign zone is outside the finite world bounds" }
+  end
+  local campaign = Campaign.new({
+    seed = seed, campaign_id = options.campaign_id or "campaign:000001", current_zone = key,
+    profile_id = options.profile_id, content = options.content, registry = options.registry,
+    route_definitions = options.route_definitions, meta_snapshot = options.meta_snapshot,
+  })
+  local session, record = campaign.session, campaign.active_zone
+  local player_corpses = {}
+  for _, corpse in ipairs(session.state.corpses or {}) do
+    if corpse.source_kind == "player" then
+      player_corpses[#player_corpses + 1] = {
+        corpse_id = corpse.id, source_body_id = corpse.source_body_id, x = corpse.x, y = corpse.y,
+        carried_item_count = #(corpse.carried_inventory and corpse.carried_inventory.entries or {}),
+      }
+    end
+  end
+  local constructed, harvestable, storage, ground_items, circuits = {}, {}, {}, {}, {}
+  for _, object in ipairs(session.state.world:list_objects(true)) do
+    local definition = session.registry:get_world_object(object.definition_id)
+    if definition.harvest_yield then
+      harvestable[#harvestable + 1] = { object_id = object.id, definition_id = object.definition_id, x = object.x, y = object.y,
+        resource_id = definition.harvest_yield.resource_id, amount = definition.harvest_yield.amount }
+    end
+    if object.constructed then
+      constructed[#constructed + 1] = { object_id = object.id, recipe_id = object.construction_recipe_id,
+        x = object.x, y = object.y, circuit_id = object.circuit_id }
+    end
+    if object.storage_inventory then
+      storage[#storage + 1] = { object_id = object.id, item_count = #object.storage_inventory.entries,
+        mass = object.storage_inventory:total_mass() }
+    end
+  end
+  for _, ground in ipairs(session.state.world:list_ground_items()) do
+    ground_items[#ground_items + 1] = { item_id = ground.id, x = ground.x, y = ground.y,
+      item_type = ground.item.item_type, resource_id = ground.item.resource_id, quantity = ground.item.quantity }
+  end
+  for _, circuit in ipairs(session.state.world:list_circuits()) do
+    circuits[#circuits + 1] = { id = circuit.id, enabled = circuit.enabled,
+      powered = session.state.world:is_circuit_powered(circuit.id) }
+  end
+  return {
+    campaign_seed = campaign.state.seed, zone_key = ZoneKey.to_data(key), profile_id = record.profile_id,
+    generation_seed = record.generation_seed, connections = record.connections,
+    campaign = campaign, session = session, world = session.state.world, state = session.state,
+    reconstruction_anchor = campaign.state.reconstruction_anchor and {
+      zone_key = ZoneKey.to_data(campaign.state.reconstruction_anchor.zone_key),
+      station_object_id = campaign.state.reconstruction_anchor.station_object_id,
+    } or nil,
+    player_corpses = player_corpses,
+    harvestable_sources = harvestable,
+    constructed_objects = constructed,
+    storage = storage,
+    ground_items = ground_items,
+    player_circuits = circuits,
+    world_content_plan = campaign.state.world_content_plan,
+    world_content_sites = require("src.campaign.world_content").sites_for_zone(campaign.state.world_content_plan, key),
+    location_name = session.state.settings.location_name,
+    ecology_profile_id = session.state.settings.ecology_profile_id,
+    boss_state = session.state.boss and {
+      boss_id = session.state.boss.boss_id, actor_id = session.state.boss.actor_id,
+      health = session.state.boss.health, max_health = session.state.boss.max_health,
+    } or (session.state.boss_completed and { defeated_boss_id = session.state.boss_completed } or nil),
+    seed = session.seed, stage = session.state.stage, terrain = session.state.settings.terrain,
+    biome_id = session.state.settings.biome_id, tier_id = session.state.settings.tier_id,
+    provenance = { zone_connections = record.connections, surface_connections = record.connections, zone_key = ZoneKey.encode(key) },
   }
 end
 

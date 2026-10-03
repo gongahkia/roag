@@ -197,6 +197,139 @@ function Inventory:total_mass()
   return mass
 end
 
+function Inventory:resource_quantity(resource_id)
+  local total = 0
+  for _, entry in ipairs(self.entries) do
+    local item = entry.item
+    if item.item_type == "resource_stack" and item.resource_id == resource_id then
+      total = total + item.quantity
+    end
+  end
+  return total
+end
+
+function Inventory:resource_counts()
+  local counts = {}
+  for _, entry in ipairs(self.entries) do
+    local item = entry.item
+    if item.item_type == "resource_stack" then
+      counts[item.resource_id] = (counts[item.resource_id] or 0) + item.quantity
+    end
+  end
+  return counts
+end
+
+function Inventory:can_afford(costs)
+  for resource_id, amount in pairs(costs or {}) do
+    if self:resource_quantity(resource_id) < amount then return false, resource_id end
+  end
+  return true
+end
+
+-- Resource consumption is reversible until its caller commits. This keeps
+-- build placement atomic even if an authoritative World placement rejects an
+-- otherwise preview-valid request.
+function Inventory:consume_resources(costs)
+  local affordable, missing = self:can_afford(costs)
+  if not affordable then return nil, "Insufficient " .. tostring(missing) end
+  local resource_ids = {}
+  for resource_id in pairs(costs or {}) do resource_ids[#resource_ids + 1] = resource_id end
+  table.sort(resource_ids)
+  local changes = {}
+  for _, resource_id in ipairs(resource_ids) do
+    local remaining = costs[resource_id]
+    local candidates = {}
+    for _, entry in ipairs(self.entries) do
+      if entry.item.item_type == "resource_stack" and entry.item.resource_id == resource_id then
+        candidates[#candidates + 1] = entry
+      end
+    end
+    table.sort(candidates, function(a, b) return a.physical_id < b.physical_id end)
+    for _, entry in ipairs(candidates) do
+      if remaining <= 0 then break end
+      local amount = math.min(remaining, entry.item.quantity)
+      local snapshot = { item = entry.item, x = entry.x, y = entry.y, rotated = entry.rotated,
+        physical_id = entry.physical_id, quantity = entry.item.quantity, consumed = amount, removed = false }
+      changes[#changes + 1] = snapshot
+      if amount == entry.item.quantity then
+        self:remove(entry.physical_id)
+        snapshot.removed = true
+      else
+        entry.item:set_quantity(entry.item.quantity - amount)
+      end
+      remaining = remaining - amount
+    end
+    assert(remaining == 0, "Resource affordability changed during consumption")
+  end
+  return changes
+end
+
+function Inventory:restore_consumed_resources(changes)
+  for index = #changes, 1, -1 do
+    local change = changes[index]
+    if change.removed then
+      change.item:set_quantity(change.quantity)
+      local placed, reason = self:place(change.item, change.x, change.y, change.rotated)
+      assert(placed, reason)
+    else
+      local entry = assert(self:get(change.physical_id), "Consumed resource stack disappeared")
+      entry.item:set_quantity(change.quantity)
+    end
+  end
+  return true
+end
+
+function Inventory:merge_resource_stacks(primary_id, secondary_id)
+  local primary, secondary = self:get(primary_id), self:get(secondary_id)
+  if not primary or not secondary then return nil, "Resource stack is unavailable" end
+  local first, second = primary.item, secondary.item
+  if first.item_type ~= "resource_stack" or second.item_type ~= "resource_stack" or first.resource_id ~= second.resource_id then
+    return nil, "Only matching resource stacks can merge"
+  end
+  local moved = math.min(first.max_stack - first.quantity, second.quantity)
+  if moved <= 0 then return nil, "Resource stack is already full" end
+  first:set_quantity(first.quantity + moved)
+  if second.quantity == moved then self:remove(secondary_id) else second:set_quantity(second.quantity - moved) end
+  return { applied = true, moved = moved, primary_id = primary_id, secondary_id = secondary_id }
+end
+
+function Inventory:split_resource_stack(physical_id, quantity, new_item, x, y, rotated)
+  local entry = self:get(physical_id)
+  if not entry or entry.item.item_type ~= "resource_stack" then return nil, "Resource stack is unavailable" end
+  if not new_item or new_item.item_type ~= "resource_stack" or new_item.resource_id ~= entry.item.resource_id then
+    return nil, "Split stack does not match source resource"
+  end
+  if type(quantity) ~= "number" or quantity < 1 or quantity >= entry.item.quantity or quantity % 1 ~= 0
+    or new_item.quantity ~= quantity then return nil, "Resource split quantity is invalid" end
+  local allowed, reason = self:can_place(new_item, x, y, rotated)
+  if not allowed then return nil, reason end
+  entry.item:set_quantity(entry.item.quantity - quantity)
+  local placed, placement_reason = self:place(new_item, x, y, rotated)
+  if not placed then
+    entry.item:set_quantity(entry.item.quantity + quantity)
+    return nil, placement_reason
+  end
+  return { applied = true, source_id = physical_id, split_id = new_item.physical_id, quantity = quantity }
+end
+
+function Inventory:transfer_to(destination, physical_id, placement)
+  assert(destination and destination.auto_place, "Inventory transfer requires a destination inventory")
+  local entry = self:get(physical_id)
+  if not entry then return nil, "Physical item is not in this inventory" end
+  local destination_placement = placement or destination:find_first_fit(entry.item)
+  if not destination_placement then return nil, "No space in destination inventory" end
+  local allowed, reason = destination:can_place(entry.item, destination_placement.x, destination_placement.y, destination_placement.rotated)
+  if not allowed then return nil, reason end
+  local item, original = self:remove(physical_id)
+  local placed, place_reason = destination:place(item, destination_placement.x, destination_placement.y, destination_placement.rotated)
+  if not placed then
+    local restored, restore_reason = self:place(item, original.x, original.y, original.rotated)
+    assert(restored, restore_reason)
+    return nil, place_reason
+  end
+  return { applied = true, physical_id = physical_id, item = item }
+end
+
 function Inventory:encumbrance()
   local mass, thresholds = self:total_mass(), self.thresholds
   if mass >= thresholds.overloaded then

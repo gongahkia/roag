@@ -41,9 +41,46 @@ local World = require("src.world.world")
 local Rng = require("src.rng")
 local RouteDefinitions = require("src.routes.definitions")
 local RouteGraph = require("src.routes.graph")
+local WorldTopology = require("src.campaign.world_topology")
+local Building = require("src.construction.building")
 
 local Session = {}
 Session.__index = Session
+
+-- These values describe the enduring body/cargo/progression layer. In a
+-- legacy standalone Session they remain ordinary fields. Campaign supplies a
+-- single backing table, so the simulator has references to campaign state
+-- without maintaining second mutable copies of the active body, inventory,
+-- SCRAP, or account snapshot.
+local CAMPAIGN_STATE_FIELDS = {
+  stage = true, score = true, scrap = true, charms = true, curse = true, curse_id = true,
+  curse_bag = true, curse_options = true, route = true, run = true, inventory = true,
+  run_id = true, meta_snapshot = true, meta_reward_events = true,
+  fallen_recurrence = true, death_pending_archive = true,
+  discovery_state = true, reinforcement_state = true,
+}
+
+local function attach_campaign_state(state, campaign_state)
+  if not campaign_state then return state end
+  assert(type(campaign_state) == "table", "Campaign state must be a table")
+  for name in pairs(CAMPAIGN_STATE_FIELDS) do
+    if campaign_state[name] == nil then campaign_state[name] = state[name] end
+    state[name] = nil
+  end
+  return setmetatable(state, {
+    __index = function(_, name)
+      if CAMPAIGN_STATE_FIELDS[name] then return campaign_state[name] end
+      return nil
+    end,
+    __newindex = function(target, name, value)
+      if CAMPAIGN_STATE_FIELDS[name] then
+        campaign_state[name] = value
+      else
+        rawset(target, name, value)
+      end
+    end,
+  })
+end
 
 local DIRECTIONS = {
   w = { 0, 1, "N" },
@@ -61,6 +98,25 @@ local ARCANE_BURST_ABILITY = "ability.arcane.burst"
 local ELECTRICAL_DISCHARGE_ABILITY = "ability.electrical.discharge"
 local LOCOMOTION_ABILITY = Locomotion.ABILITY_ID
 local PLAYER_ACTOR_ID = "actor.player.legacy"
+-- OW-01 uses the existing floor generators as zone profiles. These are
+-- deliberately a small mapping rather than macro geography; OW-02 will own
+-- which profile a neighboring coordinate receives.
+local CAMPAIGN_ZONE_PROFILES = {
+  ["zone_profile.legacy.forest"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.1", ecology_profile_id = "ecology.surface.feral" },
+  ["zone_profile.legacy.cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.2", ecology_profile_id = "ecology.cave.feral_cult" },
+  -- Compatibility tiers only: Z/profile is the campaign authority, not the
+  -- legacy route depth encoded by these existing Cave generators.
+  ["zone_profile.legacy.deep_cave"] = { biome_id = "biome.legacy.cave", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.cave.feral_cult" },
+  ["zone_profile.legacy.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.legacy.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  -- Semantic campaign profiles keep the reusable legacy generators and tiers
+  -- as a compatibility implementation detail rather than route progression.
+  ["zone_profile.world.dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.world.deep_dungeon"] = { biome_id = "biome.legacy.dungeon", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.ruin.machine_feral" },
+  ["zone_profile.world.reactor"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  ["zone_profile.world.reactor_core"] = { biome_id = "biome.legacy.reactor", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.reactor.machine" },
+  ["zone_profile.world.boss_lair"] = { biome_id = "biome.legacy.forest", tier_id = "tier.legacy.3", ecology_profile_id = "ecology.boss_lair" },
+}
 local ENEMY_CONTENT_IDS = {
   bomber = "enemy.legacy.bomber",
   cultist = "enemy.legacy.cultist",
@@ -210,6 +266,10 @@ function Session.new(options)
   self.seed = options.seed or 1
   self.rng = options.rng or Rng.new(self.seed)
   self.seed = self.rng.seed
+  -- In campaign mode this is a zone-scoped allocator. Legacy Session users
+  -- retain their established run-local counters and ID strings.
+  self.identity_allocator = options.identity_allocator
+  self.campaign = options.campaign
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
   local meta_snapshot = copy_meta_snapshot(options.meta_snapshot)
@@ -227,10 +287,12 @@ function Session.new(options)
     effects = {},
     electrical_effects = {},
     next_component_sequence = 1,
+    next_actor_sequence = 1,
     next_corpse_sequence = 1,
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
     next_fire_sequence = 1,
+    next_item_sequence = 1,
     route = nil,
     floor_seed = nil,
     transition_next = nil,
@@ -264,7 +326,8 @@ function Session.new(options)
     -- location. It always points at run.inventory, never a floor inventory.
     inventory = inventory,
   }
-  self.component_factory = ComponentFactory.new(self.registry, self.state)
+  self.state = attach_campaign_state(self.state, options.campaign_state)
+  self.component_factory = ComponentFactory.new(self.registry, self.state, self.identity_allocator)
   return self
 end
 
@@ -446,6 +509,18 @@ end
 -- actor table or accidentally revive its components.
 function Session:_mark_player_dead(provenance)
   local state = self.state
+  -- A campaign owns the world, not this particular actor. Fatal resolution
+  -- is a durable campaign transaction; legacy standalone runs stay below.
+  if self.campaign then
+    local result, failure = self.campaign:handle_player_death(provenance or {})
+    if result and result.applied then
+      state.ended = "campaign_succession"
+      return result
+    end
+    state.ended = "campaign_pending"
+    self:_log("BODY LOST — SUCCESSION WILL RESUME FROM THE LAST COMMITTED CAMPAIGN.")
+    return failure
+  end
   state.ended = "gameover"
   if state.death_pending_archive or not state.player or not state.player.body
     or not tostring(state.run_id):match("^run:%d+$") then
@@ -469,6 +544,18 @@ function Session:refresh_derived_player_stats()
   player.bomb_radius = math.max(1, (player.base_bomb_radius or 2) + (values.bomb_radius or 0))
   player.flare_light = math.max(1, (player.base_flare_light or 3) + (values.flare_light or 0))
   player.reload_bonus = values.reload_bonus or 0
+end
+
+function Session:create_resource_stack(resource_id, quantity, scope)
+  local item_id
+  if self.identity_allocator then
+    item_id = self.identity_allocator:allocate_item_id(scope or "zone")
+  else
+    local sequence = self.state.next_item_sequence
+    self.state.next_item_sequence = sequence + 1
+    item_id = string.format("item:%06d", sequence)
+  end
+  return PhysicalItem.from_resource(resource_id, quantity, item_id, self.registry)
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -644,10 +731,19 @@ function Session:apply_force(target, force_spec)
   return result
 end
 
-function Session:_build_body(actor_definition)
+function Session:_allocate_actor_id(scope)
+  if self.identity_allocator then
+    return self.identity_allocator:allocate_actor(scope or "zone")
+  end
+  local sequence = self.state.next_actor_sequence
+  self.state.next_actor_sequence = sequence + 1
+  return string.format("actor:legacy:%06d", sequence)
+end
+
+function Session:_build_body(actor_definition, scope)
   local body = Body.new(self.registry, actor_definition.body_topology_id)
   for _, installation in ipairs(actor_definition.installed_components) do
-    local component = self.component_factory:create(installation.component_id)
+    local component = self.component_factory:create(installation.component_id, scope or "zone")
     local installed, reason = body:install(installation.slot_id, component)
     assert(installed, reason)
   end
@@ -797,6 +893,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     cause = "explosive",
     source = "self_destruct",
     source_actor = actor,
+    source_actor_id = actor.actor_id,
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
@@ -1166,7 +1263,12 @@ function Session:activate_actor_ability(actor, ability_id, params)
 end
 
 function Session:_reconstruction_allowed()
-  return self.state.phase == "reconstruction"
+  if self.state.phase == "reconstruction" then return true end
+  local station_id = self.state.active_reconstruction_station_id
+  if not self.campaign or not station_id or not self.state.player or not self.state.world then return false end
+  local station = self.state.world:get_object(station_id)
+  return station and not station.destroyed and station.interaction_role == "reconstruction_station"
+    and Interaction.is_adjacent(self.state.player, station)
 end
 
 function Session:reconstruction_compatibility(component_id, slot_id)
@@ -1231,6 +1333,7 @@ function Session:run_data()
       next_world_object_sequence = self.state.next_world_object_sequence,
       next_hazard_sequence = self.state.next_hazard_sequence,
       next_fire_sequence = self.state.next_fire_sequence,
+      next_item_sequence = self.state.next_item_sequence,
       route = self.state.route and self.state.route:to_data() or nil,
       run_id = self.state.run_id,
       meta_snapshot = copy_meta_snapshot(self.state.meta_snapshot),
@@ -1265,6 +1368,9 @@ end
 -- transient electrical flash after restoration instead of treating them as
 -- simulation data.
 function Session:_saved_actor_ref(actor)
+  if actor and actor.actor_id then
+    return actor.actor_id
+  end
   if actor == self.state.player then
     return "player"
   end
@@ -1442,13 +1548,16 @@ function Session:to_data()
       service_return_phase = state.service_return_phase,
       final_service_hub = state.final_service_hub,
       boss_completed = state.boss_completed,
+      campaign_boss_site_id = state.campaign_boss_site_id,
       curse_bag = {},
       curse_options = {},
       next_component_sequence = state.next_component_sequence,
+      next_actor_sequence = state.next_actor_sequence,
       next_corpse_sequence = state.next_corpse_sequence,
       next_world_object_sequence = state.next_world_object_sequence,
       next_hazard_sequence = state.next_hazard_sequence,
       next_fire_sequence = state.next_fire_sequence,
+      next_item_sequence = state.next_item_sequence,
       run_id = state.run_id,
       meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
       discovery_state = copy_discovery_state(state.discovery_state),
@@ -1474,6 +1583,8 @@ function Session:to_data()
     exit = self:_actor_to_data(state.exit),
     boss = self:_actor_to_data(state.boss),
     route = state.route and state.route:to_data() or nil,
+    surface_connector_cells = copy_plain(state.surface_connector_cells or {}),
+    protected_content_cells = copy_plain(state.protected_content_cells or {}),
   }
   for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.id or curse.name end
   for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.id or curse.name end
@@ -1503,6 +1614,9 @@ function Session.from_data(data, options)
     run_id = options.run_id,
     meta_snapshot = options.meta_snapshot,
     on_meta_reward = options.on_meta_reward,
+    identity_allocator = options.identity_allocator,
+    campaign = options.campaign,
+    campaign_state = options.campaign_state,
   })
   local progression = data.progression
   local state = session.state
@@ -1514,6 +1628,12 @@ function Session.from_data(data, options)
     assert(type(value) == "number" and value >= 1 and value % 1 == 0, "Active run has an invalid " .. name)
     state[name] = value
   end
+  state.next_item_sequence = progression.next_item_sequence or 1
+  assert(type(state.next_item_sequence) == "number" and state.next_item_sequence >= 1 and state.next_item_sequence % 1 == 0,
+    "Active run has an invalid next_item_sequence")
+  state.next_actor_sequence = progression.next_actor_sequence or 1
+  assert(type(state.next_actor_sequence) == "number" and state.next_actor_sequence >= 1
+    and state.next_actor_sequence % 1 == 0, "Active run has an invalid next_actor_sequence")
   assert(type(progression.stage) == "number" and progression.stage >= 1 and progression.stage % 1 == 0,
     "Active run has an invalid stage")
   assert(type(progression.phase) == "string", "Active run has no phase")
@@ -1521,6 +1641,7 @@ function Session.from_data(data, options)
   state.scrap = progression.scrap or progression.score or 0
   state.ended, state.reconstruction_next, state.transition_next = progression.ended, progression.reconstruction_next, progression.transition_next
   state.boss_completed = progression.boss_completed
+  state.campaign_boss_site_id = progression.campaign_boss_site_id
   state.legacy_class = named_content(session.content.classes, progression.class_name, "class")
   state.legacy_boon = named_content(session.content.boons, progression.boon_name, "boon")
   state.class, state.boon = nil, nil
@@ -1587,16 +1708,21 @@ function Session.from_data(data, options)
   local route_node = state.route:node(state.route_node_id)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
+  state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
+  state.protected_content_cells = copy_plain(data.protected_content_cells or {})
   state.log = {}
   for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
 
-  state.player = session:_actor_from_data(assert(data.player, "Active run has no player"))
+  -- A zone reload reuses Campaign's exact active instance. The zone shard
+  -- intentionally has no player/cargo copy, so this branch is the critical
+  -- no-duplication seam for cross-zone traversal.
+  state.player = options.active_player or session:_actor_from_data(assert(data.player, "Active run has no player"))
   state.run.player = state.player
-  state.run.inventory = Inventory.from_data(assert(data.inventory, "Active run has no inventory"), function(item)
+  state.run.inventory = options.carried_inventory or Inventory.from_data(assert(data.inventory, "Active run has no inventory"), function(item)
     return PhysicalItem.from_data(item, session.registry)
   end)
   state.inventory = state.run.inventory
-  state.world = World.from_data(session.registry, assert(data.world, "Active run has no world"), state)
+  state.world = World.from_data(session.registry, assert(data.world, "Active run has no world"), session.identity_allocator or state)
   state.enemies = {}
   for _, saved in ipairs(data.enemies or {}) do state.enemies[#state.enemies + 1] = session:_actor_from_data(saved) end
   state.targets, state.bullets, state.bombs, state.flares, state.torches, state.area_attacks = {}, {}, {}, {}, {}, {}
@@ -1623,6 +1749,9 @@ function Session.from_data(data, options)
 
   local function actor_from_ref(reference)
     if reference == nil then return nil end
+    for _, actor in ipairs(session:_living_actors()) do
+      if actor.actor_id == reference then return actor end
+    end
     if reference == "player" then return state.player end
     if reference == "boss" then
       assert(state.boss, "Saved effect references a missing boss")
@@ -1637,6 +1766,12 @@ function Session.from_data(data, options)
       value.source_actor = actor_from_ref(value.source_actor_ref)
       value.source_actor_ref = nil
     end
+  end
+  -- Old active saves encoded enemy references by array index and did not have
+  -- actor IDs. Restore them safely, then assign deterministic legacy IDs so
+  -- all subsequent saves use stable references.
+  for _, actor in ipairs(session:_living_actors()) do
+    if not actor.actor_id then actor.actor_id = session:_allocate_actor_id(actor == state.player and "campaign" or "zone") end
   end
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
@@ -1671,18 +1806,48 @@ function Session:validate_physical_ownership()
     end
   end
 
+  local identities = {}
+  local function record_identity(value, owner)
+    assert(type(value) == "string" and value ~= "", owner .. " has no stable ID")
+    if identities[value] then error("Physical identity '" .. value .. "' is used by both " .. identities[value] .. " and " .. owner) end
+    identities[value] = owner
+  end
+
+  local function record_item(item, owner)
+    assert(item and type(item.physical_id) == "string", owner .. " has an invalid physical item")
+    record_identity(item.physical_id, owner)
+    if item.item_type == "component" then record(item.object, owner) end
+  end
+
   record_body(self.state.player and self.state.player.body, "player body")
+  if self.state.player then record_identity(self.state.player.actor_id, "player actor") end
   for _, enemy in ipairs(self.state.enemies or {}) do
     record_body(enemy.body, "living enemy '" .. enemy.kind .. "'")
+    record_identity(enemy.actor_id, "living enemy '" .. enemy.kind .. "'")
   end
   record_body(self.state.boss and self.state.boss.body, "living boss")
+  if self.state.boss then record_identity(self.state.boss.actor_id, "living boss") end
   for _, corpse in ipairs(self.state.corpses or {}) do
     record_body(corpse.body, "corpse '" .. corpse.id .. "'")
-  end
-  for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do
-    if entry.item.item_type == "component" then
-      record(entry.item.object, "inventory")
+    record_identity(corpse.id, "corpse")
+    for _, entry in ipairs(corpse.carried_inventory and corpse.carried_inventory.entries or {}) do
+      record_item(entry.item, "corpse cargo '" .. corpse.id .. "'")
     end
+    if corpse.carried_inventory then corpse.carried_inventory:validate() end
+  end
+  if self.state.world then
+    for _, object in ipairs(self.state.world:list_objects(true)) do record_identity(object.id, "world object") end
+    for _, hazard in ipairs(self.state.world:list_hazards(true)) do record_identity(hazard.id, "hazard") end
+    for _, fire in ipairs(self.state.world:list_fires(true)) do record_identity(fire.id, "fire") end
+  end
+  for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do record_item(entry.item, "inventory") end
+  for _, object in ipairs(self.state.world and self.state.world:list_objects(true) or {}) do
+    for _, entry in ipairs(object.storage_inventory and object.storage_inventory.entries or {}) do
+      record_item(entry.item, "storage '" .. object.id .. "'")
+    end
+  end
+  for _, ground in ipairs(self.state.world and self.state.world:list_ground_items() or {}) do
+    record_item(ground.item, "ground item '" .. ground.id .. "'")
   end
   for _, object in ipairs(self.state.world and self.state.world:list_objects(true) or {}) do
     local stock = object.service_stock
@@ -1711,13 +1876,19 @@ function Session:validate_physical_ownership()
   return true
 end
 
-function Session:_create_corpse(actor)
+function Session:_create_corpse(actor, carried_inventory, provenance)
   if not actor.body then
     return nil
   end
-  local sequence = self.state.next_corpse_sequence
-  self.state.next_corpse_sequence = sequence + 1
-  local corpse = Corpse.from_actor(string.format("corpse:%06d", sequence), actor)
+  local corpse_id
+  if self.identity_allocator then
+    corpse_id = self.identity_allocator:allocate_corpse_id()
+  else
+    local sequence = self.state.next_corpse_sequence
+    self.state.next_corpse_sequence = sequence + 1
+    corpse_id = string.format("corpse:%06d", sequence)
+  end
+  local corpse = Corpse.from_actor(corpse_id, actor, carried_inventory, provenance)
   self.state.corpses[#self.state.corpses + 1] = corpse
   return corpse
 end
@@ -1744,6 +1915,46 @@ function Session:nearby_corpse()
   return nil
 end
 
+function Session:nearby_ground_item()
+  local player, world = self.state.player, self.state.world
+  if not player or not world then return nil end
+  local candidates = {}
+  for y = player.y - 1, player.y + 1 do
+    for x = player.x - 1, player.x + 1 do
+      if Grid.in_bounds(x, y) then
+        for _, ground in ipairs(world:ground_items_at(x, y)) do candidates[#candidates + 1] = ground end
+      end
+    end
+  end
+  table.sort(candidates, function(left, right)
+    local left_distance = math.max(math.abs(left.x - player.x), math.abs(left.y - player.y))
+    local right_distance = math.max(math.abs(right.x - player.x), math.abs(right.y - player.y))
+    if left_distance ~= right_distance then return left_distance < right_distance end
+    return left.id < right.id
+  end)
+  return candidates[1]
+end
+
+function Session:pickup_ground_item(ground_item_id)
+  local ground = self.state.world and self.state.world:get_ground_item(ground_item_id)
+  if not ground then return { applied = false, code = "unknown_ground_item", reason = "Ground item is unavailable" } end
+  if not self.state.player or Grid.distance(self.state.player, ground) > 1 then
+    return { applied = false, code = "out_of_range", reason = "Ground item is not within pickup range" }
+  end
+  local placement, reason = self.state.inventory:find_first_fit(ground.item)
+  if not placement then return { applied = false, code = "inventory_full", reason = reason } end
+  local item, removed = self.state.world:remove_ground_item(ground)
+  assert(item and removed.applied, "Ground item removal failed")
+  local entry, place_reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated)
+  if not entry then
+    local restored, restore_reason = self.state.world:place_ground_item(item, ground.x, ground.y)
+    assert(restored, restore_reason and restore_reason.reason)
+    return { applied = false, code = "inventory_full", reason = place_reason }
+  end
+  self:validate_physical_ownership()
+  return { applied = true, code = "picked_up", ground_item_id = ground.id, physical_id = item.physical_id, entry = entry }
+end
+
 function Session:salvage_corpse_component(corpse_id, slot_id)
   local corpse = self:find_corpse(corpse_id)
   if not corpse then
@@ -1762,6 +1973,43 @@ function Session:salvage_corpse_component(corpse_id, slot_id)
       and #corpse:list_components() == 0 then
       recurrence.resolved = true
     end
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:salvage_corpse_carried_component(corpse_id, component_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then
+    return { applied = false, corpse_id = corpse_id, component_id = component_id, reason = "Unknown corpse" }
+  end
+  if not self.state.player or Grid.distance(self.state.player, corpse) > 1 then
+    return { applied = false, corpse_id = corpse_id, component_id = component_id, reason = "Corpse is not within salvage range" }
+  end
+  local result = Salvage.carried_component(corpse, component_id, self.state.inventory)
+  if result.applied then
+    local definition = result.definition_id and self.registry:get_component(result.definition_id)
+    self:_log("Recovered " .. (definition and definition.display_name or "carried component") .. ".")
+    self:_sound("pickup")
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:salvage_corpse_carried_item(corpse_id, physical_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return { applied = false, corpse_id = corpse_id, physical_id = physical_id, reason = "Unknown corpse" } end
+  if not self.state.player or Grid.distance(self.state.player, corpse) > 1 then
+    return { applied = false, corpse_id = corpse_id, physical_id = physical_id, reason = "Corpse is not within salvage range" }
+  end
+  local result = Salvage.carried_item(corpse, physical_id, self.state.inventory)
+  if result.applied then
+    self:_log("Recovered " .. result.entry.item.display_name .. ".")
+    self:_sound("pickup")
     self:validate_physical_ownership()
   else
     self:_log(result.reason)
@@ -2245,6 +2493,7 @@ function Session:_open_location(used, minimum, avoid_hazards, rng)
       local location_key = Grid.key(x, y)
       local point = Grid.cell(x, y)
       if self:_open(x, y) and not used[location_key]
+        and not (self.state.surface_connector_cells and self.state.surface_connector_cells[location_key])
         and (not avoid_hazards or not self.state.world:is_hazardous(x, y))
         and (not minimum or Grid.distance(point, self.state.player) >= minimum) then
         options[#options + 1] = point
@@ -2322,6 +2571,7 @@ function Session:_spawn_fallen_recurrence()
   local body = FallenRecurrence.materialize_body(self, spec)
   if spec.mode == "corpse" then
     local shell = entity("player", selected.x, selected.y, {
+      actor_id = self:_allocate_actor_id("zone"),
       body = body,
       fallen_archive_id = spec.archive_id,
       fallen_source_run_id = spec.source_run_id,
@@ -2329,6 +2579,7 @@ function Session:_spawn_fallen_recurrence()
     self:_create_corpse(shell)
   else
     state.enemies[#state.enemies + 1] = entity("fallen_echo", selected.x, selected.y, {
+      actor_id = self:_allocate_actor_id("zone"),
       health = FallenRecurrence.ECHO_HEALTH,
       ammo = 4,
       attack = 0,
@@ -2392,6 +2643,7 @@ function Session:_make_enemy(kind_or_id, point, options)
   local definition = enemy_id and self.registry:get_enemy(enemy_id) or nil
   local kind = definition and definition.kind or kind_or_id
   local enemy = entity(kind, point.x, point.y, {
+    actor_id = self:_allocate_actor_id("zone"),
     health = 1,
     attack = 0,
     attack_kind = nil,
@@ -2406,7 +2658,7 @@ function Session:_make_enemy(kind_or_id, point, options)
   if definition then
     enemy.content_id = definition.id
     enemy.faction_id = definition.faction_id
-    enemy.body = self:_build_body(definition)
+    enemy.body = self:_build_body(definition, "zone")
     enemy.ammo = definition.ammo
     enemy.elite = definition.elite
   end
@@ -2450,7 +2702,7 @@ function Session:_refill_entities()
   end
 end
 
-function Session:start_run(class, boon)
+function Session:start_run(class, boon, defer_initial_floor)
   local state = self.state
   self.state.class, self.state.boon = nil, nil
   self.state.legacy_class, self.state.legacy_boon = class, boon
@@ -2468,10 +2720,12 @@ function Session:start_run(class, boon)
   self.state.death_pending_archive = nil
   self.state.generation_warnings = {}
   state.next_component_sequence = 1
+  state.next_actor_sequence = 1
   state.next_corpse_sequence = 1
   state.next_world_object_sequence = 1
   state.next_hazard_sequence = 1
   state.next_fire_sequence = 1
+  state.next_item_sequence = 1
   state.run.player = nil
   state.run.inventory = Inventory.new({
     height = Inventory.DEFAULT_HEIGHT + ((state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.inventory_rows) or 0),
@@ -2482,12 +2736,140 @@ function Session:start_run(class, boon)
   state.discovery_state = { enabled = true, assigned_discovery_ids = {} }
   state.reinforcement_state = { enabled = true }
   state.route = RouteGraph.new(self.seed, self.route_definitions, "route_profile.legacy.base", state.meta_snapshot.unlock_ids)
-  self:start_route_node(state.route.start_node_id)
+  if not defer_initial_floor then
+    self:start_route_node(state.route.start_node_id)
+  end
+end
+
+-- OW-01 keeps the temporary route graph available, but establishes a
+-- campaign-derived seed as the authority for the active physical zone.  The
+-- route node remains legacy progression metadata; it no longer supplies this
+-- zone's identity or generation root.
+function Session:_place_campaign_world_content(zone_sites, zone_seed)
+  local state = self.state
+  local metadata = { sites = {} }
+  for _, site in ipairs(zone_sites or {}) do
+    local rng = Rng.new(zone_seed):derive("campaign.world_site." .. site.id)
+    if site.type == "service_outpost" then
+      local placed, anchor = {}, nil
+      for _, service_id in ipairs(site.service_ids or {}) do
+        local point
+        if anchor then
+          local nearby = {}
+          local occupied = self:_occupied()
+          for y = anchor.y - 3, anchor.y + 3 do
+            for x = anchor.x - 3, anchor.x + 3 do
+              if math.max(math.abs(x - anchor.x), math.abs(y - anchor.y)) <= 3 and Grid.in_bounds(x, y)
+                and state.world:is_passable(x, y) and not state.world:object_at(x, y)
+                and not state.world:is_hazardous(x, y) and not state.world:is_harmful_gas_at(x, y)
+                and #state.world:fires_at(x, y) == 0 then
+                if not occupied[Grid.key(x, y)] then nearby[#nearby + 1] = { x = x, y = y } end
+              end
+            end
+          end
+          table.sort(nearby, function(a, b) return a.y == b.y and a.x < b.x or a.y < b.y end)
+          if #nearby > 0 then point = rng:derive(service_id .. ".cluster"):choice(nearby) end
+        end
+        point = point or self:_open_location(self:_occupied(), 5, true, rng:derive(service_id))
+        local stock = Economy.create_stock(self, service_id, rng:derive(service_id .. ".stock"), false)
+        local kiosk, result = state.world:place_object("world_object.service.kiosk", point.x, point.y, {
+          service_id = service_id, service_stock = stock, service_origin = site.id,
+          world_content_site_id = site.id,
+        })
+        assert(kiosk, result and result.reason)
+        anchor = anchor or { x = point.x, y = point.y }
+        placed[#placed + 1] = kiosk.id
+      end
+      metadata.sites[#metadata.sites + 1] = { id = site.id, type = site.type, object_ids = placed }
+    elseif site.type == "discovery_site" then
+      state.discovery_state.enabled = true
+      local discovery, reason = DiscoveryGeneration.place(self, rng, "campaign." .. site.id, site.discovery_id, true)
+      assert(discovery, "Campaign discovery site could not be placed: " .. site.discovery_id .. " (" .. tostring(reason) .. ")")
+      metadata.sites[#metadata.sites + 1] = { id = site.id, type = site.type, discovery_id = site.discovery_id,
+        cache_object_id = discovery.cache_object_id }
+    end
+  end
+  state.generation_metadata = state.generation_metadata or {}
+  state.generation_metadata.world_content = metadata
+end
+
+function Session:apply_pending_campaign_world_content()
+  local state = self.state
+  if not state.pending_world_content_sites then return false end
+  local sites, seed = state.pending_world_content_sites, state.floor_seed
+  state.pending_world_content_sites = nil
+  self:_place_campaign_world_content(sites, seed)
+  state.discovery_state.enabled = true
+  self:validate_world()
+  self:validate_physical_ownership()
+  return true
+end
+
+function Session:_start_campaign_boss_lair(boss_site, zone_seed)
+  local state, player = self.state, self.state.player
+  local definition = self.registry:get_boss(assert(boss_site.boss_id, "Boss site has no boss ID"))
+  local profile = self.registry:get_boss_arena(definition.arena_profile_id)
+  local arena_rng = Rng.new(zone_seed):derive("campaign.boss_arena." .. definition.id)
+  player.x, player.y, player.direction, player.score, player.objective_progress = profile.player_spawn.x, profile.player_spawn.y, "w", 0, 0
+  player.dash = 0
+  state.settings.terrain, state.settings.vision, state.settings.arena_profile_id = profile.terrain, 99, profile.id
+  state.settings.location_name = definition.display_name
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), self.identity_allocator or state,
+    self:_boss_arena_material_layout(profile))
+  self:_apply_boss_arena_profile(profile)
+  state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
+  state.bombs, state.flares, state.torches = {}, {}, {}
+  state.effects, state.electrical_effects, state.exit, state.corpses = {}, {}, nil, {}
+  state.boss = self:_make_boss(definition.id, profile.boss_spawn)
+  state.boss_completed = nil
+  state.campaign_boss_site_id = boss_site.id
+  state.protected_content_cells = { [Grid.key(profile.boss_spawn.x, profile.boss_spawn.y)] = true }
+  local point = self:_open_location(self:_occupied(true))
+  state.ammo = entity("ammo", point.x, point.y)
+  state.phase = "boss"
+  state.generation_metadata = { world_content = { sites = { { id = boss_site.id, type = "boss_site", boss_id = definition.id } } } }
+  self:_log(definition.display_name .. " AWAITS.")
+  self:refresh_visibility()
+  self:validate_world()
+  self:validate_physical_ownership()
+end
+
+function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boon, options)
+  options = options or {}
+  assert(self.identity_allocator, "Campaign zones require a zone identity allocator")
+  assert(type(zone_seed) == "number" and zone_seed % 1 == 0 and zone_seed > 0, "Campaign zone seed is invalid")
+  self:start_run(class, boon, true)
+  local state, route = self.state, self.state.route
+  local node = assert(route and route:node(route.current_node_id), "Campaign zone requires an opening route node")
+  local profile = assert(CAMPAIGN_ZONE_PROFILES[profile_id], "Unknown campaign zone profile '" .. tostring(profile_id) .. "'")
+  local biome = self.route_definitions:get_biome(profile.biome_id)
+  local tier = self.route_definitions:get_tier(profile.tier_id)
+  local settings = self:_settings_for_floor(biome, tier)
+  -- In campaign mode services and discoveries are placed only through the
+  -- persistent world plan. Legacy route floors retain their own generation.
+  settings.location_name = options.location_name
+  settings.ecology_profile_id = profile.ecology_profile_id
+  state.stage = tier.number
+  state.floor_seed = zone_seed
+  state.zone_key = { world_x = zone_key.world_x, world_y = zone_key.world_y, z = zone_key.z }
+  state.zone_profile_id = profile_id
+  state.discovery_state = { enabled = false, assigned_discovery_ids = state.discovery_state.assigned_discovery_ids or {} }
+  self:_start_floor(settings, Rng.new(zone_seed), "campaign." .. tostring(zone_key))
+  if options.boss_site then
+    self:_start_campaign_boss_lair(options.boss_site, zone_seed)
+  else
+    -- Campaign installs its protected physical topology after this call.
+    -- Apply POI contents only afterwards so caches/kiosks never occupy a
+    -- connector throat that will be carved into the generated terrain.
+    state.pending_world_content_sites = options.zone_sites or {}
+  end
+  return state.world
 end
 
 function Session:_create_run_player(settings)
   local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
   local player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
+    actor_id = self:_allocate_actor_id("campaign"),
     direction = "w",
     health = settings.health,
     ammo = settings.ammo,
@@ -2511,10 +2893,41 @@ function Session:_create_run_player(settings)
     impact = 0,
     content_id = player_definition.id,
     faction_id = Factions.PLAYER_ID,
-    body = self:_build_body(player_definition),
+    body = self:_build_body(player_definition, "campaign"),
   })
   self.state.run.player = player
   return player
+end
+
+-- This deliberately does not call start_run: a successor gets a fresh body
+-- and baseline consumables while the campaign wallet, map, and one-time
+-- campaign-start rewards remain untouched.
+function Session:make_campaign_successor()
+  assert(self.campaign and self.identity_allocator, "Campaign successor requires campaign identity")
+  local settings = assert(self.state.settings, "Campaign successor requires active zone settings")
+  local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
+  local player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
+    actor_id = self:_allocate_actor_id("campaign"), direction = "w",
+    health = settings.health, ammo = settings.ammo, bombs = settings.bombs, flares = settings.flares,
+    score = 0, objective_progress = 0, base_max_health = 5, max_health = 5,
+    base_dash_cooldown = settings.dash_cooldown, base_bomb_radius = settings.bomb_radius,
+    base_flare_light = 3, flare_light = 3, reload_bonus = 0, dash = 0,
+    dash_base = settings.dash_cooldown, bomb_radius = settings.bomb_radius,
+    bomb_fuse = settings.bomb_fuse, bullet_range = settings.bullet_range,
+    reload_penalty = settings.reload_penalty, impact = 0, content_id = player_definition.id,
+    faction_id = Factions.PLAYER_ID, body = self:_build_body(player_definition, "campaign"),
+  })
+  local modifiers = RunModifiers.values(self.state, self.registry)
+  player.max_health = math.max(1, player.base_max_health + (modifiers.max_health or 0))
+  player.health = player.max_health
+  player.dash_base = math.max(1, player.base_dash_cooldown + (modifiers.dash_cooldown or 0))
+  player.bomb_radius = math.max(1, player.base_bomb_radius + (modifiers.bomb_radius or 0))
+  player.flare_light = math.max(1, player.base_flare_light + (modifiers.flare_light or 0))
+  player.reload_bonus = modifiers.reload_bonus or 0
+  local inventory = Inventory.new({
+    height = Inventory.DEFAULT_HEIGHT + ((self.state.meta_snapshot.modifiers and self.state.meta_snapshot.modifiers.inventory_rows) or 0),
+  })
+  return player, inventory
 end
 
 function Session:_apply_explicit_curse_resource_effects(player)
@@ -2563,7 +2976,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   if generation_metadata and generation_metadata.player_spawn then
     state.player.x, state.player.y = generation_metadata.player_spawn.x, generation_metadata.player_spawn.y
   end
-  state.world = World.new(self.registry, settings.terrain, layout, state,
+  state.world = World.new(self.registry, settings.terrain, layout, self.identity_allocator or state,
     generation_metadata and generation_metadata.material_layout)
   -- Terrain landmarks are deliberately earlier than ordinary cover/media so
   -- all later systems see their real physical geometry without sharing RNG.
@@ -3486,10 +3899,143 @@ function Session:_move_player(direction)
   return result
 end
 
+local SURFACE_DIRECTION_BY_INPUT = { w = "north", a = "west", s = "south", d = "east" }
+
+function Session:zone_connection_label(object)
+  if not self.campaign or not object or not object.zone_connection_id then return "TRAVEL" end
+  local direction = object.zone_connection_direction
+  local record = self.campaign.active_zone
+  local connection = record and WorldTopology.connection_at(record, direction)
+  if not connection or connection.id ~= object.zone_connection_id then return "TRAVEL" end
+  return WorldTopology.presentation_label(connection)
+end
+
+function Session:use_zone_connection(object)
+  if not self.campaign or not object or object.destroyed or not object.zone_connection_id then
+    return { applied = false, code = "no_zone_connection", reason = "No active zone connection is available" }
+  end
+  local direction = object.zone_connection_direction
+  local connection = WorldTopology.connection_at(self.campaign.active_zone, direction)
+  if not connection or connection.id ~= object.zone_connection_id then
+    return { applied = false, code = "no_zone_connection", reason = "Zone connection metadata is unavailable" }
+  end
+  local transitioned, failure = self.campaign:request_transition(direction)
+  if transitioned and transitioned.applied then return transitioned end
+  return failure or { applied = false, code = "no_zone_connection", reason = "Zone travel failed" }
+end
+
+function Session:open_reconstruction_station(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "reconstruction_station" then
+    return { applied = false, code = "invalid_station", reason = "No reconstruction station is available" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Reconstruction station is not adjacent" }
+  end
+  self.state.pending_reconstruction_station_id = object.id
+  return { applied = true, code = "reconstruction_open", station_object_id = object.id }
+end
+
+function Session:is_reconstruction_anchor(object)
+  local anchor = self.campaign and self.campaign.state.reconstruction_anchor
+  return anchor and self.campaign.active_zone and anchor.station_object_id == object.id
+    and anchor.zone_key.world_x == self.campaign.active_zone.key.world_x
+    and anchor.zone_key.world_y == self.campaign.active_zone.key.world_y
+    and anchor.zone_key.z == self.campaign.active_zone.key.z or false
+end
+
+function Session:set_reconstruction_anchor(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "reconstruction_station" then
+    return { applied = false, code = "invalid_station", reason = "No reconstruction station is available" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Reconstruction station is not adjacent" }
+  end
+  return self.campaign:set_reconstruction_anchor(object)
+end
+
+function Session:open_storage(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "storage" or not object.storage_inventory then
+    return { applied = false, code = "invalid_storage", reason = "Storage is unavailable" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Storage is not adjacent" }
+  end
+  self.state.pending_storage_object_id = object.id
+  return { applied = true, code = "storage_open", storage_object_id = object.id }
+end
+
+function Session:storage_transfer(object_id, physical_id, direction)
+  local world = self.state.world
+  local object = world and world:get_object(object_id)
+  if not object or object.destroyed or object.interaction_role ~= "storage" or not object.storage_inventory then
+    return { applied = false, code = "invalid_storage", reason = "Storage is unavailable" }
+  end
+  local from, to = direction == "to_storage" and self.state.inventory or object.storage_inventory,
+    direction == "to_storage" and object.storage_inventory or self.state.inventory
+  if direction ~= "to_storage" and direction ~= "to_player" then
+    return { applied = false, code = "invalid_direction", reason = "Storage transfer direction is invalid" }
+  end
+  local result, reason = from:transfer_to(to, physical_id)
+  if not result then return { applied = false, code = "inventory_full", reason = reason } end
+  self:validate_physical_ownership()
+  return result
+end
+
+function Session:_nearby_vertical_connection()
+  if not self.campaign then return nil end
+  local player, world = self.state.player, self.state.world
+  if not player or not world then return nil end
+  for _, object in ipairs(world:list_objects()) do
+    if object.interaction_role == "zone_connection" and object.zone_connection_id
+      and math.abs(player.x - object.x) <= 1 and math.abs(player.y - object.y) <= 1
+      and not (player.x == object.x and player.y == object.y) then
+      return object
+    end
+  end
+  return nil
+end
+
+-- Like the cardinal edge path, explicit U travel commits before an ordinary
+-- simulation turn begins. It cannot advance AI/media/reinforcements or add a
+-- hidden tick; failed transfers leave the source simulator untouched.
+function Session:_try_vertical_transition(input)
+  if input ~= "interact" then return false end
+  local object = self:_nearby_vertical_connection()
+  if not object then return false end
+  local transitioned = self:use_zone_connection(object)
+  if transitioned and transitioned.applied then return true, transitioned end
+  self:_log((transitioned and transitioned.reason) or "Travel failed.")
+  return true, transitioned or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
+end
+
+-- A successful campaign edge transfer is deliberately handled before an
+-- ordinary turn starts. It therefore cannot advance AI, media, effects,
+-- reinforcement timers, player cooldowns, or the source-zone RNG.
+function Session:_try_surface_transition(input)
+  local direction, player, delta = SURFACE_DIRECTION_BY_INPUT[input], self.state.player, DIRECTIONS[input]
+  if not direction or not self.campaign or not player or not delta then return false end
+  if Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then return false end
+  local transitioned, failure = self.campaign:request_transition(direction)
+  if transitioned and transitioned.applied then
+    self.campaign.session.state.player.direction = input
+    return true, transitioned
+  end
+  -- An attempted connector must never spill into a normal blocked movement
+  -- turn. Persistence/arrival errors leave the current zone entirely frozen.
+  if failure then self:_log(failure.reason or "Travel failed.") end
+  return true, failure or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
+end
+
 function Session:can_move(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
   if not player or not delta then
     return false, { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
+  if self.campaign and SURFACE_DIRECTION_BY_INPUT[direction] and not Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then
+    local connection = self.campaign.active_zone.connections and self.campaign.active_zone.connections[SURFACE_DIRECTION_BY_INPUT[direction]]
+    if connection and player.x == connection.boundary.x and player.y == connection.boundary.y then
+      return true, { applied = true, code = "zone_connection", direction = SURFACE_DIRECTION_BY_INPUT[direction] }
+    end
   end
   local result = self:validate_actor_movement(player, delta[1], delta[2])
   return result.applied, result
@@ -3555,6 +4101,17 @@ function Session:_shoot(direction)
 end
 
 function Session:_interact_player()
+  local ground = self:nearby_ground_item()
+  if ground then
+    local pickup = self:pickup_ground_item(ground.id)
+    if pickup.applied then
+      self:_log("PICKED UP " .. string.upper(ground.item.display_name) .. ".")
+      self:_sound("pickup")
+    else
+      self:_log(pickup.reason or "INVENTORY FULL.")
+    end
+    return pickup
+  end
   local result = Interaction.primary(self, self.state.player)
   if result.applied then
     local object = self.state.world:get_object(result.object_id)
@@ -3570,6 +4127,12 @@ function Session:_interact_player()
     elseif result.action_id == "service.open" then
       self.state.pending_service_object_id = result.service_object_id
       self:_log("SERVICE ACCESSING AFTER THIS TURN.")
+    elseif result.action_id == "reconstruction.open" then
+      self:_log("RECONSTRUCTION STATION READY.")
+    elseif result.action_id == "reconstruction.set_anchor" then
+      self:_log("RECONSTRUCTION ANCHOR SET.")
+    elseif result.action_id == "storage.open" then
+      self:_log("STORAGE OPENING AFTER THIS TURN.")
     elseif result.action_id == "traversal.breach" then
       self:_log(object.required_unlock == "unlock.traversal.maintenance_override"
         and "MAINTENANCE HATCH OVERRIDDEN." or "REINFORCED BARRIER BREACHED.")
@@ -3740,6 +4303,18 @@ function Session:_action(input)
     self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
+  else
+    local recipe_id, x, y = input:match("^build:([%w%._]+):(%-?%d+):(%-?%d+)$")
+    if recipe_id then
+      local result = Building.place(self, recipe_id, tonumber(x), tonumber(y))
+      self.state.last_build_result = result
+      if result.applied then
+        self:_log("BUILT " .. string.upper(self.registry:get_construction_recipe(recipe_id).display_name) .. ".")
+        self:_sound("select")
+      else
+        self:_log(result.reason or "BUILD FAILED.")
+      end
+    end
   end
 end
 
@@ -3792,6 +4367,14 @@ function Session:_complete_stage()
 end
 
 function Session:complete_reconstruction()
+  if self.campaign and self.state.active_reconstruction_station_id then
+    if not self:_reconstruction_allowed() then
+      return { applied = false, reason = "Reconstruction station is no longer accessible" }
+    end
+    self:validate_physical_ownership()
+    self.state.active_reconstruction_station_id = nil
+    return { applied = true, next = "combat" }
+  end
   if self.state.phase ~= "reconstruction" then
     return { applied = false, reason = "No reconstruction phase is active" }
   end
@@ -3874,6 +4457,7 @@ end
 function Session:_make_boss(boss_id, point)
   local definition = self.registry:get_boss(boss_id)
   local boss = entity("boss", point.x, point.y, {
+    actor_id = self:_allocate_actor_id("zone"),
     content_id = definition.id,
     boss_id = definition.id,
     display_name = definition.display_name,
@@ -3883,7 +4467,7 @@ function Session:_make_boss(boss_id, point)
     direction = "a",
     crawl_stride = 0,
     pending_telegraph = nil,
-    body = self:_build_body(definition),
+    body = self:_build_body(definition, "zone"),
   })
   return boss
 end
@@ -3916,7 +4500,7 @@ function Session:start_boss()
   self:refresh_derived_player_stats()
   player.bomb_fuse, player.bullet_range, player.reload_penalty = 3, nil, 0
   state.settings = { terrain = profile.terrain, vision = 99, objective_required = 10, arena_profile_id = profile.id }
-  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), state,
+  state.world = World.new(self.registry, profile.terrain, Generator.generate("arena", player, arena_rng, true), self.identity_allocator or state,
     self:_boss_arena_material_layout(profile))
   self:_apply_boss_arena_profile(profile)
   self:validate_world()
@@ -3939,6 +4523,21 @@ function Session:_defeat_boss(boss)
   local definition = self:_boss_definition(boss)
   boss.pending_telegraph = nil
   self:_cancel_area_attacks_from(boss)
+  -- A campaign boss is an ordinary persistent zone resident.  Its defeat
+  -- leaves the physical corpse in place, records a one-time semantic reward,
+  -- and returns the zone to normal exploration without touching the route.
+  if self.campaign and state.campaign_boss_site_id then
+    local corpse = self:_create_corpse(boss)
+    state.boss = nil
+    state.boss_completed = definition.id
+    state.phase = "combat"
+    local reward = definition.final_data_reward or definition.milestone_data_reward or 2
+    self:_claim_research_reward("world_boss." .. state.campaign_boss_site_id, reward)
+    self:_sound("door")
+    self:_log("MAJOR THREAT ELIMINATED.")
+    self:validate_physical_ownership()
+    return corpse
+  end
   local node = state.route and state.route:node(state.route.current_node_id) or nil
   if node and not state.route.completed_node_ids[node.id] then
     local completed = state.route:complete_current()
@@ -4030,6 +4629,14 @@ function Session:turn(input)
   if state.ended then
     return state.ended
   end
+  local transitioned, transition_result = self:_try_surface_transition(input)
+  if transitioned then
+    return transition_result and transition_result.applied and "zone_transition" or "zone_transition_failed"
+  end
+  local vertical_transitioned, vertical_result = self:_try_vertical_transition(input)
+  if vertical_transitioned then
+    return vertical_result and vertical_result.applied and "zone_transition" or "zone_transition_failed"
+  end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
@@ -4064,6 +4671,24 @@ function Session:turn(input)
   end
 
   self:_action(input)
+  -- Station reconstruction opens before enemy/environment updates. Browsing
+  -- the modal thereafter runs no simulation ticks.
+  if state.pending_reconstruction_station_id and not state.ended then
+    state.active_reconstruction_station_id = state.pending_reconstruction_station_id
+    state.pending_reconstruction_station_id = nil
+    self:refresh_visibility()
+    return "reconstruction"
+  end
+  if state.pending_storage_object_id and not state.ended then
+    state.active_storage_object_id = state.pending_storage_object_id
+    state.pending_storage_object_id = nil
+    self:refresh_visibility()
+    return "storage"
+  end
+  if state.ended then
+    self:refresh_visibility()
+    return state.ended
+  end
   self:_collect_ammo()
   self:_update_bullets()
   self:_update_bombs()
@@ -4090,11 +4715,13 @@ function Session:turn(input)
       end
     end
     result = state.ended
-  elseif state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
+  elseif not self.campaign and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
     self:_enemy_turn()
-    self:_refill_entities()
+    -- Finite campaign zones stay cleared. The legacy run retains the old
+    -- floor-refill pressure as a compatibility behaviour.
+    if not self.campaign then self:_refill_entities() end
   end
   if not state.ended then ReinforcementSimulation.tick(self) end
   -- World processes run after immediate actions and enemy response. Liquid

@@ -77,4 +77,54 @@ function SaveStore.runtime(filename)
   return SaveStore.memory()
 end
 
+-- A tiny named-file directory boundary for campaign manifests and zone
+-- shards. It deliberately reuses the same memory/LÖVE write behavior as the
+-- historical active-run store rather than depending on desktop paths.
+local MemoryDirectory = {}
+MemoryDirectory.__index = MemoryDirectory
+
+function MemoryDirectory:file(filename)
+  assert(type(filename) == "string" and filename ~= "" and not filename:find("%.%.", 1, true), "Save filename is invalid")
+  local directory, name = self, filename
+  return {
+    exists = function() return directory.files[name] ~= nil end,
+    read = function()
+      if directory.files[name] == nil then return nil, { code = "missing_file", reason = "Save file is missing" } end
+      return directory.files[name]
+    end,
+    write = function(_, payload)
+      if type(payload) ~= "string" then return nil, { code = "write_failed", reason = "Save payload must be text" } end
+      directory.files[name] = payload
+      return true
+    end,
+    delete = function()
+      directory.files[name] = nil
+      return true
+    end,
+  }
+end
+
+function SaveStore.memory_directory(initial)
+  return setmetatable({ files = initial or {} }, MemoryDirectory)
+end
+
+local LoveDirectory = {}
+LoveDirectory.__index = LoveDirectory
+
+function LoveDirectory:file(filename)
+  assert(type(filename) == "string" and filename ~= "" and not filename:find("%.%.", 1, true), "Save filename is invalid")
+  if love and love.filesystem and love.filesystem.createDirectory then
+    local parent = filename:match("^(.*)/[^/]+$")
+    love.filesystem.createDirectory(self.prefix)
+    if parent then love.filesystem.createDirectory(self.prefix .. "/" .. parent) end
+  end
+  return LoveStore.new(self.prefix .. "/" .. filename)
+end
+
+function SaveStore.runtime_directory(prefix)
+  assert(type(prefix) == "string" and prefix ~= "" and not prefix:find("%.%.", 1, true), "Save directory is invalid")
+  if love and love.filesystem then return setmetatable({ prefix = prefix }, LoveDirectory) end
+  return SaveStore.memory_directory()
+end
+
 return SaveStore

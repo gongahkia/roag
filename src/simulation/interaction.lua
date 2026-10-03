@@ -2,7 +2,7 @@
 -- asks for an action; this module validates and mutates simulation state.
 local Interaction = {}
 
-local ROLE_PRIORITY = { door = 1, generator = 2, breaker = 3, service = 4, traversal = 5, discovery = 6, clue = 7 }
+local ROLE_PRIORITY = { zone_connection = 0, reconstruction_station = 1, storage = 2, door = 3, generator = 4, breaker = 5, service = 6, traversal = 7, discovery = 8, clue = 9 }
 
 local function result(applied, code, reason, extra)
   local value = {
@@ -37,13 +37,15 @@ function Interaction.actions_for(world, object, session)
     return {}
   end
   local powered = object.circuit_id and world:is_circuit_powered(object.circuit_id) or false
+  local definition = session and session.registry:get_world_object(object.definition_id) or nil
   if object.interaction_role == "door" then
+    local operational = not definition or definition.power_required ~= true or powered
     if object.door_state == "open" then
       local gas_occupied = world:is_gas_cell(object.x, object.y)
-      return { action("door.close", "CLOSE DOOR", powered and not gas_occupied,
-        gas_occupied and "GAS IN DOORWAY" or (powered and nil or "NO POWER")) }
+      return { action("door.close", "CLOSE DOOR", operational and not gas_occupied,
+        gas_occupied and "GAS IN DOORWAY" or (operational and nil or "NO POWER")) }
     end
-    return { action("door.open", "OPEN DOOR", powered, powered and nil or "NO POWER") }
+    return { action("door.open", "OPEN DOOR", operational, operational and nil or "NO POWER") }
   elseif object.interaction_role == "generator" then
     return {
       action("generator.toggle", object.generator_online and "TURN GENERATOR OFF" or "TURN GENERATOR ON", true),
@@ -62,6 +64,20 @@ function Interaction.actions_for(world, object, session)
     local reason = maintenance and "SEALED MAINTENANCE HATCH — OVERRIDE RESEARCH REQUIRED"
       or "REINFORCED BREACH RESEARCH REQUIRED"
     return { action("traversal.breach", available and label or "RESEARCH REQUIRED", available, available and nil or reason) }
+  elseif object.interaction_role == "zone_connection" then
+    return { action("zone_connection.use", session and session:zone_connection_label(object) or "TRAVEL", true) }
+  elseif object.interaction_role == "reconstruction_station" then
+    if session and session.campaign and not session:is_reconstruction_anchor(object) then
+      return {
+        action("reconstruction.set_anchor", "SET AS RECONSTRUCTION ANCHOR", true),
+        action("reconstruction.open", "RECONSTRUCT BODY", true),
+      }
+    end
+    return { action("reconstruction.open", "RECONSTRUCT BODY", session and session.campaign ~= nil,
+      session and session.campaign and nil or "CAMPAIGN STATION REQUIRED") }
+  elseif object.interaction_role == "storage" then
+    return { action("storage.open", "OPEN STORAGE", session and session.campaign ~= nil,
+      session and session.campaign and nil or "CAMPAIGN STORAGE REQUIRED") }
   elseif object.interaction_role == "discovery" then
     local claimed = object.discovery_claimed == true
     return { action("discovery.claim", claimed and "CACHE CLAIMED" or "RECOVER DISCOVERY", not claimed,
@@ -154,6 +170,14 @@ function Interaction.perform(session, actor, object_id, action_id)
     end
     world_result = world:damage_object(object, { amount = object.current_integrity, cause = "traversal",
       source = object.required_unlock == "unlock.traversal.maintenance_override" and "maintenance_override" or "reinforced_breach" })
+  elseif action_id == "zone_connection.use" and object.interaction_role == "zone_connection" then
+    world_result = session:use_zone_connection(object)
+  elseif action_id == "reconstruction.open" and object.interaction_role == "reconstruction_station" then
+    world_result = session:open_reconstruction_station(object)
+  elseif action_id == "reconstruction.set_anchor" and object.interaction_role == "reconstruction_station" then
+    world_result = session:set_reconstruction_anchor(object)
+  elseif action_id == "storage.open" and object.interaction_role == "storage" then
+    world_result = session:open_storage(object)
   elseif action_id == "discovery.claim" and object.interaction_role == "discovery" then
     world_result = session:claim_discovery(object)
   elseif action_id == "clue.read" and object.interaction_role == "clue" then

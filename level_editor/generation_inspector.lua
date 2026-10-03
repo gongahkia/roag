@@ -12,7 +12,7 @@ Inspector.__index = Inspector
 local LAYER_KEYS = {
   ["1"] = "terrain", ["2"] = "connectivity", ["3"] = "actors", ["4"] = "objects",
   ["5"] = "hazards", ["6"] = "liquids", ["7"] = "gas", ["8"] = "power",
-  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms", v = "discoveries", z = "ecology", l = "landmarks",
+  ["9"] = "objectives", ["0"] = "fires", c = "conductivity", m = "metadata", t = "rooms", v = "discoveries", z = "ecology", l = "landmarks", p = "connections",
 }
 
 local REGION_COLORS = {
@@ -43,6 +43,7 @@ function Inspector.new(options)
   local stages = InspectionFloor.stages()
   local stage_index = InspectionFloor.resolve_stage(options.stage or 1) or 1
   local stage = stages[stage_index]
+  local campaign_mode = options.campaign_seed ~= nil
   local self = setmetatable({
     stages = stages,
     tiers = InspectionFloor.tiers(),
@@ -51,9 +52,15 @@ function Inspector.new(options)
     tier_id = options.tier or stage.tier_id,
     seed = tonumber(options.seed) or 1,
     seed_text = tostring(math.floor(tonumber(options.seed) or 1)),
+    campaign_mode = campaign_mode,
+    campaign_seed = tonumber(options.campaign_seed),
+    world_x = tonumber(options.world_x) or 0,
+    world_y = tonumber(options.world_y) or 0,
+    world_z = tonumber(options.z) or 0,
     layers = {
       terrain = true, connectivity = false, actors = true, objects = true, hazards = true,
       liquids = true, gas = true, fires = true, power = true, objectives = true, conductivity = false, metadata = false, rooms = false, discoveries = true, ecology = true, landmarks = false,
+      connections = true,
     },
     zoom = 10,
     pan_x = 0,
@@ -70,11 +77,18 @@ function Inspector.new(options)
 end
 
 function Inspector:regenerate()
-  local floor, failure = InspectionFloor.generate({
-    biome = self.biome_id, tier = self.tier_id, seed = self.seed,
-    discovery_state = { enabled = true, assigned_discovery_ids = {} },
-    reinforcement_state = { enabled = true },
-  })
+  local floor, failure
+  if self.campaign_mode then
+    floor, failure = InspectionFloor.generate_campaign_zone({
+      campaign_seed = self.campaign_seed, world_x = self.world_x, world_y = self.world_y, z = self.world_z,
+    })
+  else
+    floor, failure = InspectionFloor.generate({
+      biome = self.biome_id, tier = self.tier_id, seed = self.seed,
+      discovery_state = { enabled = true, assigned_discovery_ids = {} },
+      reinforcement_state = { enabled = true },
+    })
+  end
   if not floor then
     self.error, self.floor, self.report, self.overlays = failure.reason or failure.code, nil, nil, nil
     return nil, failure
@@ -85,6 +99,10 @@ function Inspector:regenerate()
     session = floor.session, provenance = floor.provenance,
   })
   self.overlays = Analysis.overlay_model(floor.world, self.report)
+  -- `surface_connections` remains an alias for existing inspector callers;
+  -- campaign overlays now include up/down endpoints as well.
+  self.overlays.zone_connections = floor.connections or {}
+  self.overlays.surface_connections = self.overlays.zone_connections
   self.seed = floor.seed
   self.seed_text = tostring(floor.seed)
   self.selected, self.hover, self.error = nil, nil, nil
@@ -348,6 +366,25 @@ function Inspector:_draw_media()
   end
 end
 
+function Inspector:_draw_surface_connections()
+  if not self.layers.connections then return end
+  for direction, connection in pairs(self.overlays.zone_connections or self.overlays.surface_connections or {}) do
+    local sx, sy = self:_screen_point(connection.boundary.x, connection.boundary.y)
+    local vertical = direction == "up" or direction == "down"
+    self:_set_color(vertical and { 0.78, 0.54, 1, 1 } or { 0.22, 0.95, 0.72, 1 })
+    love.graphics.setLineWidth(math.max(1, self.zoom * 0.12))
+    love.graphics.rectangle("line", sx + self.zoom * 0.08, sy + self.zoom * 0.08, self.zoom * 0.84, self.zoom * 0.84)
+    love.graphics.setLineWidth(1)
+    if self.layers.metadata then
+      local destination = connection.destination
+      local role = connection.connection_type and (" " .. connection.connection_type) or ""
+      self:_draw_text(string.format("%s%s → %s [%s]", direction:upper(), role,
+        destination.world_x .. ":" .. destination.world_y .. ":" .. destination.z, connection.id), sx + 2, sy + 2,
+        vertical and { 0.9, 0.76, 1 } or { 0.72, 1, 0.88 })
+    end
+  end
+end
+
 function Inspector:_draw_actors_and_objectives()
   local state = self.floor.state
   if self.layers.objectives then
@@ -450,6 +487,7 @@ function Inspector:draw()
     return
   end
   self:_draw_base()
+  self:_draw_surface_connections()
   self:_draw_media()
   self:_draw_rooms()
   self:_draw_landmarks()
@@ -470,18 +508,26 @@ function Inspector:draw()
   local biome = InspectionFloor.resolve_biome(self.biome_id)
   local tier = InspectionFloor.resolve_tier(self.tier_id)
   self:_draw_text("GENERATION INSPECTOR", panel_x, 18, { 0.45, 0.9, 1 })
-  self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
-  self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
-  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74, { 1, 0.9, 0.4 })
-  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92)
-  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110)
+  if self.campaign_mode then
+    local key = self.floor.zone_key
+    self:_draw_text(string.format("campaign: %d  zone: %d,%d,%d", self.floor.campaign_seed, key.world_x, key.world_y, key.z), panel_x, 38)
+    self:_draw_text("profile: " .. tostring(self.floor.profile_id), panel_x, 56)
+    self:_draw_text("location: " .. tostring(self.floor.location_name or "WILDERNESS"), panel_x, 72, { 0.78, 0.78, 0.6 })
+  else
+    self:_draw_text("biome: " .. biome.terrain .. " [ / ]", panel_x, 38)
+    self:_draw_text("tier: " .. tier.number .. "  , / .", panel_x, 56)
+  end
+  local y_offset = self.campaign_mode and 18 or 0
+  self:_draw_text("seed: " .. self.seed_text .. "  [enter]", panel_x, 74 + y_offset, { 1, 0.9, 0.4 })
+  self:_draw_text("zoom: " .. tostring(self.zoom) .. "  regions: " .. self.report.metrics.connected_region_count, panel_x, 92 + y_offset)
+  self:_draw_text("exit: " .. self.report.exit_status, panel_x, 110 + y_offset)
   local active_layers = {}
   for _, layer in ipairs({ "terrain", "connectivity", "actors", "objects", "hazards", "liquids", "gas", "fires", "power", "objectives", "conductivity", "metadata", "rooms", "discoveries", "ecology", "landmarks" }) do
     active_layers[#active_layers + 1] = (self.layers[layer] and "+" or "-") .. layer
   end
-  self:_draw_text(table.concat(active_layers, " "), panel_x, 126, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
+  self:_draw_text(table.concat(active_layers, " "), panel_x, 126 + y_offset, { 0.62, 0.75, 0.86 }, width - panel_x - 10)
   local lines = self:_detail_lines(self.selected or self.hover)
-  local y = 152
+  local y = 152 + y_offset
   for _, line in ipairs(lines) do
     self:_draw_text(line, panel_x, y, { 0.88, 0.9, 0.96 }, width - panel_x - 10)
     y = y + 16
