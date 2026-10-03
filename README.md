@@ -46,6 +46,7 @@ $ love .
 | `F` | Light a flare; it stuns enemies in its blast |
 | `G` | Salvage a nearby corpse |
 | `I` | Open carried inventory |
+| `C` | Open the campaign construction menu |
 | `U` | Interact with an adjacent door, generator, or breaker |
 | `X` | Open installed body abilities; activation requires a second confirmation |
 | `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |

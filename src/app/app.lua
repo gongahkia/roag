@@ -761,6 +761,9 @@ function App:_handle_turn_result(result)
     self.service_object_id = self.session.state.active_service_object_id
     self.screen, self.menu = "service", 1
   end
+  if result == "storage" then
+    self:open_storage(self.session.state.active_storage_object_id)
+  end
 end
 
 function App:perform_turn(input)
@@ -768,7 +771,7 @@ function App:perform_turn(input)
     return
   end
   local result = self.session:turn(input)
-  if result == "zone_transition" and self.campaign then
+  if (result == "zone_transition" or result == "campaign_succession") and self.campaign then
     -- Campaign atomically swaps its active local simulator only after the
     -- zone shards and manifest commit. Presentation observes that new zone.
     self.session = self.campaign.session
@@ -785,6 +788,107 @@ function App:close_overlay()
   self.menu = 1
   self.inventory_selected_id = nil
   self.salvage_corpse_id = nil
+  self.storage_object_id = nil
+  if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
+end
+
+function App:open_build()
+  if not self.session or not self.campaign then return false end
+  self.build_recipe_index = 1
+  self.build_recipe_id = nil
+  self.screen, self.menu = "build", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:build_recipes()
+  if not self.session then return {} end
+  return require("src.construction.building").recipes(self.session.registry)
+end
+
+function App:select_build_recipe()
+  local recipe = self:build_recipes()[self.menu]
+  if not recipe then return nil end
+  local player = self.session.state.player
+  local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[player.direction] or { 1, 0 }
+  self.build_recipe_id = recipe.id
+  self.build_cursor = { x = math.max(0, math.min(79, player.x + delta[1])), y = math.max(0, math.min(49, player.y + delta[2])) }
+  self.screen = "build_place"
+  self:play_sound("select")
+  return recipe
+end
+
+function App:move_build_cursor(dx, dy)
+  local cursor = self.build_cursor or { x = self.session.state.player.x, y = self.session.state.player.y }
+  cursor.x, cursor.y = math.max(0, math.min(79, cursor.x + dx)), math.max(0, math.min(49, cursor.y + dy))
+  self.build_cursor = cursor
+  self:play_sound("select")
+end
+
+function App:build_preview()
+  if not self.session or not self.build_recipe_id or not self.build_cursor then
+    return { applied = false, code = "unknown_recipe", reason = "No construction recipe selected" }
+  end
+  return require("src.construction.building").validate(self.session, self.build_recipe_id, self.build_cursor.x, self.build_cursor.y)
+end
+
+function App:confirm_build()
+  if not self.build_recipe_id or not self.build_cursor then return nil end
+  self.session.state.last_build_result = nil
+  self.screen = "game"
+  self:perform_turn(string.format("build:%s:%d:%d", self.build_recipe_id, self.build_cursor.x, self.build_cursor.y))
+  local result = self.session.state.last_build_result
+  if result and not result.applied then self.screen = "build_place" end
+  if result and result.applied then self.build_recipe_id = nil end
+  return result
+end
+
+function App:open_storage(object_id)
+  local object = self.session and self.session.state.world and self.session.state.world:get_object(object_id)
+  if not object or not object.storage_inventory then return false end
+  self.storage_object_id = object_id
+  self.storage_focus, self.storage_index = "player", 1
+  self.screen, self.menu = "storage", 1
+  self:play_sound("select")
+  return true
+end
+
+function App:storage_inventory()
+  local object = self.session and self.session.state.world and self.session.state.world:get_object(self.storage_object_id)
+  return object and object.storage_inventory or nil
+end
+
+function App:storage_entries()
+  local inventory = self.storage_focus == "storage" and self:storage_inventory()
+    or (self.session and self.session.state.inventory)
+  return inventory and inventory.entries or {}
+end
+
+function App:toggle_storage_focus()
+  self.storage_focus = self.storage_focus == "player" and "storage" or "player"
+  self.storage_index = 1
+  self:play_sound("select")
+end
+
+function App:move_storage_selection(amount)
+  self.storage_index = clamp((self.storage_index or 1) + amount, 1, math.max(1, #self:storage_entries()))
+  self:play_sound("select")
+end
+
+function App:storage_transfer_selected()
+  local entry = self:storage_entries()[self.storage_index or 1]
+  if not entry then return nil end
+  local direction = self.storage_focus == "player" and "to_storage" or "to_player"
+  local result = self.session:storage_transfer(self.storage_object_id, entry.physical_id, direction)
+  if result.applied then
+    self.session:_log("MOVED " .. result.item.display_name .. ".")
+    self.storage_index = clamp(self.storage_index, 1, math.max(1, #self:storage_entries()))
+    self:autosave("storage")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
 end
 
 function App:open_inventory()
@@ -799,7 +903,7 @@ function App:open_inventory()
 end
 
 function App:open_reconstruction()
-  if not self.session or self.session.state.phase ~= "reconstruction" then
+  if not self.session or not self.session:_reconstruction_allowed() then
     return false
   end
   self.reconstruction_focus = "body"
@@ -880,6 +984,10 @@ function App:reconstruction_confirm()
       self.session:_log("No inventory item selected.")
       return nil
     end
+    if entry.item.item_type ~= "component" then
+      self.session:_log("Only components can be installed into a body.")
+      return nil
+    end
     self.reconstruction_selected_id = entry.physical_id
     self.reconstruction_focus = "body"
     self.session:_log("Selected " .. entry.item.display_name .. " for installation.")
@@ -925,6 +1033,7 @@ function App:finish_reconstruction()
   if result.applied then
     self.reconstruction_selected_id = nil
     self:_handle_turn_result(result.next)
+    if result.next == "combat" then self.screen, self.menu = "game", 1 end
     self:play_sound("door")
     self:autosave("reconstruction_complete")
   else
@@ -1039,7 +1148,14 @@ end
 
 function App:salvage_options()
   local corpse = self.session and self.session:find_corpse(self.salvage_corpse_id)
-  return corpse and corpse:list_components() or {}
+  if not corpse then return {} end
+  local options = corpse:list_components()
+  for _, entry in ipairs(corpse:list_carried_items()) do
+    options[#options + 1] = {
+      slot_id = "CARRIED", component = entry.item.object, item = entry.item, physical_id = entry.physical_id, carried = true,
+    }
+  end
+  return options
 end
 
 function App:salvage_selected()
@@ -1049,7 +1165,9 @@ function App:salvage_selected()
     self.session:_log("Corpse has no salvageable components.")
     return nil
   end
-  local result = self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
+  local result = selection.carried
+    and self.session:salvage_corpse_carried_item(self.salvage_corpse_id, selection.physical_id)
+    or self.session:salvage_corpse_component(self.salvage_corpse_id, selection.slot_id)
   local remaining = self:salvage_options()
   self.menu = clamp(self.menu, 1, math.max(1, #remaining))
   if result.applied then self:autosave("salvage") end

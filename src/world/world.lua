@@ -2,6 +2,8 @@
 -- generator's boolean layout is construction input only; physical state lives
 -- here and is queried by every simulation consumer.
 local Grid = require("src.world.grid")
+local Inventory = require("src.inventory.inventory")
+local PhysicalItem = require("src.inventory.physical_item")
 
 local World = {}
 World.__index = World
@@ -30,6 +32,45 @@ local function copy_object(object)
     result[name] = value
   end
   return result
+end
+
+local function copy_yields(values)
+  local result = {}
+  for _, value in ipairs(values or {}) do
+    result[#result + 1] = { resource_id = value.resource_id, amount = value.amount }
+  end
+  return result
+end
+
+local function requires_circuit(definition)
+  return definition.interaction_role == "generator" or definition.interaction_role == "breaker"
+    or (definition.interaction_role == "door" and definition.power_required == true)
+end
+
+local function construction_fields(definition, options)
+  local constructed = options.constructed == true
+  if not constructed then
+    assert(options.construction_recipe_id == nil and options.construction_campaign_id == nil
+      and options.construction_recovery_yields == nil, "Construction provenance requires a constructed world object")
+    return { constructed = false, construction_recipe_id = nil, construction_campaign_id = nil, construction_recovery_yields = {} }
+  end
+  assert(type(options.construction_recipe_id) == "string" and options.construction_recipe_id ~= "",
+    "Constructed world object requires a recipe ID")
+  assert(type(options.construction_campaign_id) == "string" and options.construction_campaign_id ~= "",
+    "Constructed world object requires a campaign ID")
+  local yields = copy_yields(options.construction_recovery_yields)
+  for _, yield in ipairs(yields) do
+    assert(type(yield.resource_id) == "string" and definition and yield.resource_id:match("^resource%.[a-z0-9_%.]+$"),
+      "Construction recovery resource ID is invalid")
+    assert(type(yield.amount) == "number" and yield.amount >= 1 and yield.amount % 1 == 0,
+      "Construction recovery amount is invalid")
+  end
+  return {
+    constructed = true,
+    construction_recipe_id = options.construction_recipe_id,
+    construction_campaign_id = options.construction_campaign_id,
+    construction_recovery_yields = yields,
+  }
 end
 
 local function object_blocks_for_state(definition, door_state)
@@ -165,10 +206,11 @@ local function reinforcement_fields(registry, definition, source)
 end
 
 function World.new(registry, terrain, open_layout, sequence_owner, material_layout)
-  sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1, next_fire_sequence = 1 }
+  sequence_owner = sequence_owner or { next_world_object_sequence = 1, next_hazard_sequence = 1, next_fire_sequence = 1, next_item_sequence = 1 }
   sequence_owner.next_world_object_sequence = sequence_owner.next_world_object_sequence or 1
   sequence_owner.next_hazard_sequence = sequence_owner.next_hazard_sequence or 1
   sequence_owner.next_fire_sequence = sequence_owner.next_fire_sequence or 1
+  sequence_owner.next_item_sequence = sequence_owner.next_item_sequence or 1
   local self = setmetatable({
     registry = registry,
     terrain = terrain,
@@ -189,6 +231,9 @@ function World.new(registry, terrain, open_layout, sequence_owner, material_layo
     fires = {},
     fire_order = {},
     fires_by_target = {},
+    ground_items = {},
+    ground_item_order = {},
+    ground_items_by_cell = {},
     fire_tick = 0,
     fire_ticking = false,
     sequence_owner = sequence_owner,
@@ -257,6 +302,21 @@ end
 
 function World:get_circuit(circuit_id)
   return self.circuits[circuit_id]
+end
+
+function World:remove_empty_circuit(circuit_id)
+  local circuit = self.circuits[circuit_id]
+  if not circuit then return { applied = false, code = "unknown_circuit", reason = "Unknown circuit" } end
+  for _, object in ipairs(self:list_objects(true)) do
+    if object.circuit_id == circuit_id then
+      return { applied = false, code = "circuit_in_use", reason = "Circuit is in use" }
+    end
+  end
+  self.circuits[circuit_id] = nil
+  for index, id in ipairs(self.circuit_order) do
+    if id == circuit_id then table.remove(self.circuit_order, index); break end
+  end
+  return { applied = true, code = "removed", circuit_id = circuit_id }
 end
 
 function World:list_circuits()
@@ -363,6 +423,84 @@ function World:list_objects(include_destroyed)
     end
   end
   return result
+end
+
+function World:_next_item_id()
+  if self.sequence_owner.allocate_item_id then
+    return self.sequence_owner:allocate_item_id()
+  end
+  local sequence = self.sequence_owner.next_item_sequence
+  self.sequence_owner.next_item_sequence = sequence + 1
+  return string.format("item:%06d", sequence)
+end
+
+function World:ground_items_at(x, y)
+  if not Grid.in_bounds(x, y) then return {} end
+  local values = {}
+  for _, item in ipairs(self.ground_items_by_cell[key(x, y)] or {}) do values[#values + 1] = item end
+  table.sort(values, function(left, right) return left.id < right.id end)
+  return values
+end
+
+function World:get_ground_item(id)
+  return self.ground_items[id]
+end
+
+function World:list_ground_items()
+  local values = {}
+  for _, id in ipairs(self.ground_item_order) do values[#values + 1] = self.ground_items[id] end
+  return values
+end
+
+function World:place_ground_item(item, x, y)
+  if not Grid.in_bounds(x, y) then return nil, { applied = false, code = "out_of_bounds", reason = "Ground item is outside the world" } end
+  if not self:terrain_is_passable(x, y) then return nil, { applied = false, code = "blocked_terrain", reason = "Ground item requires passable terrain" } end
+  if type(item) ~= "table" or type(item.physical_id) ~= "string" or item.physical_id == "" or type(item.to_data) ~= "function" then
+    return nil, { applied = false, code = "invalid_item", reason = "Ground item requires a physical inventory item" }
+  end
+  if self.ground_items[item.physical_id] then
+    return nil, { applied = false, code = "duplicate_id", reason = "Ground item ID already exists" }
+  end
+  local ground = { id = item.physical_id, kind = "ground_item", item = item, x = x, y = y }
+  self.ground_items[ground.id] = ground
+  self.ground_item_order[#self.ground_item_order + 1] = ground.id
+  local cell_items = self.ground_items_by_cell[key(x, y)] or {}
+  cell_items[#cell_items + 1] = ground
+  table.sort(cell_items, function(left, right) return left.id < right.id end)
+  self.ground_items_by_cell[key(x, y)] = cell_items
+  return ground, { applied = true, ground_item_id = ground.id }
+end
+
+function World:remove_ground_item(item_or_id)
+  local ground = type(item_or_id) == "table" and item_or_id or self.ground_items[item_or_id]
+  if not ground or self.ground_items[ground.id] ~= ground then
+    return nil, { applied = false, code = "unknown_ground_item", reason = "Ground item is unavailable" }
+  end
+  self.ground_items[ground.id] = nil
+  for index, id in ipairs(self.ground_item_order) do
+    if id == ground.id then table.remove(self.ground_item_order, index); break end
+  end
+  local cell_items = self.ground_items_by_cell[key(ground.x, ground.y)] or {}
+  for index, value in ipairs(cell_items) do
+    if value == ground then table.remove(cell_items, index); break end
+  end
+  if #cell_items == 0 then self.ground_items_by_cell[key(ground.x, ground.y)] = nil end
+  return ground.item, { applied = true, ground_item_id = ground.id }
+end
+
+function World:_drop_resource(resource_id, amount, x, y)
+  local item = PhysicalItem.from_resource(resource_id, amount, self:_next_item_id(), self.registry)
+  local ground, result = self:place_ground_item(item, x, y)
+  assert(ground, result.reason)
+  return ground
+end
+
+function World:_drop_yields(yields, x, y)
+  local dropped = {}
+  for _, yield in ipairs(yields or {}) do
+    dropped[#dropped + 1] = self:_drop_resource(yield.resource_id, yield.amount, x, y)
+  end
+  return dropped
 end
 
 -- Liquid is a coordinate-owned medium rather than a terrain material or an
@@ -1044,8 +1182,11 @@ function World:place_object(definition_id, x, y, options)
     return nil, { applied = false, code = "invalid_zone_connection", reason = "Only zone connection objects may carry topology metadata" }
   end
   local circuit_id = options.circuit_id
-  if CIRCUIT_ROLES[role] and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
+  if requires_circuit(definition) and (type(circuit_id) ~= "string" or not self.circuits[circuit_id]) then
     return nil, { applied = false, code = "unknown_circuit", reason = "Interactive world object requires an existing circuit" }
+  end
+  if not requires_circuit(definition) and circuit_id ~= nil then
+    return nil, { applied = false, code = "unexpected_circuit", reason = "World object does not use a circuit" }
   end
   local door_state = options.door_state or definition.default_door_state
   if role == "door" and not DOOR_STATES[door_state] then
@@ -1076,6 +1217,19 @@ function World:place_object(definition_id, x, y, options)
   local integrity = options.current_integrity or material.max_integrity
   if type(integrity) ~= "number" or integrity <= 0 or integrity > material.max_integrity then
     return nil, { applied = false, code = "invalid_integrity", reason = "World object integrity is invalid" }
+  end
+  local construction = construction_fields(definition, options)
+  local storage_inventory
+  if role == "storage" then
+    storage_inventory = options.storage_inventory or Inventory.new({ width = definition.storage_width, height = definition.storage_height })
+    assert(getmetatable(storage_inventory) == Inventory, "Storage object requires an Inventory")
+    storage_inventory:validate()
+  elseif options.storage_inventory ~= nil then
+    return nil, { applied = false, code = "invalid_storage", reason = "Only storage objects may own an inventory" }
+  end
+  local anchor_protected = options.anchor_protected == true
+  if anchor_protected and role ~= "reconstruction_station" then
+    return nil, { applied = false, code = "invalid_anchor", reason = "Only reconstruction stations may be protected anchors" }
   end
   local object = {
     id = id,
@@ -1112,6 +1266,12 @@ function World:place_object(definition_id, x, y, options)
     reinforcement_wave_enemy_ids = reinforcement.reinforcement_wave_enemy_ids,
     reinforcement_provenance = reinforcement.reinforcement_provenance,
     movable_by_force = definition.movable_by_force,
+    constructed = construction.constructed,
+    construction_recipe_id = construction.construction_recipe_id,
+    construction_campaign_id = construction.construction_campaign_id,
+    construction_recovery_yields = construction.construction_recovery_yields,
+    storage_inventory = storage_inventory,
+    anchor_protected = role == "reconstruction_station" and anchor_protected or nil,
   }
   if role == "service" then
     if type(object.service_id) ~= "string" then
@@ -1202,6 +1362,7 @@ function World:damage_terrain(x, y, spec)
     self:_deactivate_target_fire("terrain", nil, x, y, "target_destroyed")
     result.destroyed = true
     result.destroyed_material_id = cell.material_id
+    result.harvest_drops = self:_drop_yields(material.harvest_yield and { material.harvest_yield } or {}, x, y)
   end
   return result
 end
@@ -1214,12 +1375,12 @@ function World:damage_object(object_or_id, spec)
   if object.destroyed then
     return { applied = false, code = "destroyed", object_id = object.id, reason = "World object is already destroyed" }
   end
-  if object.zone_connection_id then
+  if object.zone_connection_id or (object.interaction_role == "reconstruction_station" and object.anchor_protected) then
     -- Required campaign links are protected infrastructure. Future player
     -- construction validation will reserve the same footprint; combat cannot
     -- quietly turn a generated return route into a softlock in this tranche.
-    return { applied = false, code = "protected_connection", object_id = object.id,
-      reason = "Persistent zone connection cannot be destroyed" }
+    return { applied = false, code = object.zone_connection_id and "protected_connection" or "protected_station", object_id = object.id,
+      reason = object.zone_connection_id and "Persistent zone connection cannot be destroyed" or "Active reconstruction station cannot be destroyed" }
   end
   local material = self.registry:get_material(object.material_id)
   local previous_integrity = object.current_integrity
@@ -1263,6 +1424,20 @@ function World:damage_object(object_or_id, spec)
     object.blocks_gas = false
     self.objects_by_cell[key(object.x, object.y)] = nil
     self:_deactivate_target_fire("object", object.id, nil, nil, "target_destroyed")
+    local definition = self.registry:get_world_object(object.definition_id)
+    local yields = object.constructed and object.construction_recovery_yields or (definition.harvest_yield and { definition.harvest_yield } or {})
+    result.harvest_drops = self:_drop_yields(yields, object.x, object.y)
+    result.storage_drops = {}
+    if object.storage_inventory then
+      local entries = {}
+      for _, entry in ipairs(object.storage_inventory.entries) do entries[#entries + 1] = entry end
+      for _, entry in ipairs(entries) do
+        local item = assert(object.storage_inventory:remove(entry.physical_id))
+        local ground, ground_result = self:place_ground_item(item, object.x, object.y)
+        assert(ground, ground_result.reason)
+        result.storage_drops[#result.storage_drops + 1] = ground
+      end
+    end
     result.destroyed = true
   end
   return result
@@ -1315,6 +1490,11 @@ function World:inspect_object(object_or_id)
     reinforcement_provenance = object.reinforcement_provenance,
     circuit_powered = object.circuit_id and self:is_circuit_powered(object.circuit_id) or nil,
     circuit_enabled = object.circuit_id and self.circuits[object.circuit_id].enabled or nil,
+    constructed = object.constructed == true,
+    construction_recipe_id = object.construction_recipe_id,
+    construction_campaign_id = object.construction_campaign_id,
+    storage_item_count = object.storage_inventory and #object.storage_inventory.entries or nil,
+    anchor_protected = object.anchor_protected == true,
     conductive = material.conductive,
     fires = (function()
       local fires = {}
@@ -1345,6 +1525,11 @@ function World:inspect_cell(x, y)
   local fires = {}
   for _, fire in ipairs(self:fires_at(x, y, true)) do
     fires[#fires + 1] = assert(self:inspect_fire(fire))
+  end
+  local ground_items = {}
+  for _, ground in ipairs(self:ground_items_at(x, y)) do
+    ground_items[#ground_items + 1] = { id = ground.id, item_type = ground.item.item_type,
+      display_name = ground.item.display_name, resource_id = ground.item.resource_id, quantity = ground.item.quantity }
   end
   local liquid = self:liquid_at(x, y)
   local liquid_data
@@ -1391,6 +1576,7 @@ function World:inspect_cell(x, y)
     gas = gas_data,
     conductivity = self:conductivity_at(x, y),
     fires = fires,
+    ground_items = ground_items,
   }
 end
 
@@ -1468,9 +1654,25 @@ end
 function World:object_data()
   local objects = {}
   for _, object in ipairs(self:list_objects(true)) do
-    objects[#objects + 1] = copy_object(object)
+    local saved = copy_object(object)
+    saved.construction_recovery_yields = copy_yields(object.construction_recovery_yields)
+    saved.storage_inventory = object.storage_inventory and object.storage_inventory:to_data() or nil
+    objects[#objects + 1] = saved
   end
   return objects
+end
+
+function World:ground_item_data()
+  local values = {}
+  for _, ground in ipairs(self:list_ground_items()) do
+    values[#values + 1] = {
+      id = ground.id,
+      x = ground.x,
+      y = ground.y,
+      item = ground.item:to_data(),
+    }
+  end
+  return values
 end
 
 function World:hazard_data()
@@ -1527,6 +1729,7 @@ function World:to_data()
     gases = self:gas_data(),
     fires = self:fire_data(),
     fire_tick = self.fire_tick,
+    ground_items = self:ground_item_data(),
   }
 end
 
@@ -1606,6 +1809,14 @@ function World.from_data(registry, data, sequence_owner)
       reinforcement_wave_enemy_ids = saved.reinforcement_wave_enemy_ids,
       reinforcement_provenance = saved.reinforcement_provenance,
       movable_by_force = definition.movable_by_force,
+      constructed = saved.constructed == true,
+      construction_recipe_id = saved.construction_recipe_id,
+      construction_campaign_id = saved.construction_campaign_id,
+      construction_recovery_yields = copy_yields(saved.construction_recovery_yields),
+      storage_inventory = saved.storage_inventory and Inventory.from_data(saved.storage_inventory, function(item)
+        return PhysicalItem.from_data(item, registry)
+      end) or nil,
+      anchor_protected = definition.interaction_role == "reconstruction_station" and saved.anchor_protected == true or nil,
     }
     local discovery, discovery_reason = discovery_fields(registry, definition, object)
     assert(discovery, discovery_reason)
@@ -1623,9 +1834,11 @@ function World.from_data(registry, data, sequence_owner)
     object.reinforcement_just_armed = reinforcement.reinforcement_just_armed
     object.reinforcement_wave_enemy_ids = reinforcement.reinforcement_wave_enemy_ids
     object.reinforcement_provenance = reinforcement.reinforcement_provenance
-    if CIRCUIT_ROLES[object.interaction_role] then
+    if requires_circuit(definition) then
       assert(type(object.circuit_id) == "string" and world.circuits[object.circuit_id],
         "Interactive world object references an unknown circuit")
+    else
+      assert(object.circuit_id == nil, "World object unexpectedly references a circuit")
     end
     if object.interaction_role == "door" and object.destroyed then
       object.door_state = "destroyed"
@@ -1641,6 +1854,15 @@ function World.from_data(registry, data, sequence_owner)
     end
     world.objects[object.id] = object
     world.object_order[#world.object_order + 1] = object.id
+  end
+
+  for _, saved in ipairs(data.ground_items or {}) do
+    assert(type(saved) == "table" and type(saved.id) == "string" and saved.id ~= "" and Grid.in_bounds(saved.x, saved.y),
+      "Ground item data is invalid")
+    local item = PhysicalItem.from_data(saved.item, registry)
+    assert(item.physical_id == saved.id, "Ground item ID does not match item")
+    local ground, result = world:place_ground_item(item, saved.x, saved.y)
+    assert(ground, result.reason)
   end
 
   for _, saved in ipairs(data.hazards or {}) do
@@ -1773,15 +1995,41 @@ function World:validate()
     assert(discovery, discovery_reason)
     local reinforcement, reinforcement_reason = reinforcement_fields(self.registry, definition, object)
     assert(reinforcement, reinforcement_reason)
-    if CIRCUIT_ROLES[object.interaction_role] then
+    if requires_circuit(definition) then
       assert(type(object.circuit_id) == "string" and self.circuits[object.circuit_id],
         "Interactive world object references unknown circuit")
-    elseif not object.interaction_role then
-      assert(object.circuit_id == nil, "Non-interactive world object cannot reference a circuit")
+    else
+      assert(object.circuit_id == nil, "World object cannot reference an unused circuit")
     end
     if object.interaction_role == "service" then
       self.registry:get_service(object.service_id)
       assert(type(object.service_stock) == "table", "Service kiosk has invalid stock")
+    end
+    if object.interaction_role == "storage" then
+      assert(object.storage_inventory and getmetatable(object.storage_inventory) == Inventory,
+        "Storage object is missing its inventory")
+      object.storage_inventory:validate()
+    else
+      assert(object.storage_inventory == nil, "Only storage object may retain an inventory")
+    end
+    if object.constructed then
+      assert(type(object.construction_recipe_id) == "string" and object.construction_recipe_id ~= ""
+        and type(object.construction_campaign_id) == "string" and object.construction_campaign_id ~= "",
+        "Constructed world object has invalid provenance")
+      for _, yield in ipairs(object.construction_recovery_yields or {}) do
+        self.registry:get_resource(yield.resource_id)
+        assert(type(yield.amount) == "number" and yield.amount >= 1 and yield.amount % 1 == 0,
+          "Constructed world object has invalid recovery yield")
+      end
+    else
+      assert(object.construction_recipe_id == nil and object.construction_campaign_id == nil,
+        "Generated world object cannot carry construction provenance")
+    end
+    if object.interaction_role == "reconstruction_station" then
+      assert(object.anchor_protected == nil or type(object.anchor_protected) == "boolean",
+        "Reconstruction station anchor protection is invalid")
+    else
+      assert(object.anchor_protected == nil, "Only reconstruction stations may be anchor protected")
     end
     if object.interaction_role == "zone_connection" then
       assert(type(object.zone_connection_id) == "string" and object.zone_connection_id ~= ""
@@ -1829,6 +2077,30 @@ function World:validate()
   for location_key, object in pairs(self.objects_by_cell) do
     assert(object_ids[object.id] and not object.destroyed and key(object.x, object.y) == location_key,
       "World object cell index references invalid state")
+  end
+  local ground_ids = {}
+  for _, id in ipairs(self.ground_item_order) do
+    local ground = self.ground_items[id]
+    assert(ground and ground.id == id and ground.item and ground.item.physical_id == id,
+      "Ground item order references invalid state")
+    assert(not ground_ids[id], "Duplicate ground item ID '" .. id .. "'")
+    ground_ids[id] = true
+    assert(Grid.in_bounds(ground.x, ground.y) and self:terrain_is_passable(ground.x, ground.y),
+      "Ground item is not on passable terrain")
+    local found = false
+    for _, cell_item in ipairs(self.ground_items_by_cell[key(ground.x, ground.y)] or {}) do
+      if cell_item == ground then found = true; break end
+    end
+    assert(found, "Ground item cell index is invalid")
+  end
+  for id, ground in pairs(self.ground_items) do
+    assert(ground_ids[id] and ground.id == id, "Ground item is missing from deterministic order")
+  end
+  for location_key, values in pairs(self.ground_items_by_cell) do
+    for _, ground in ipairs(values) do
+      assert(ground_ids[ground.id] and key(ground.x, ground.y) == location_key,
+        "Ground item cell index references invalid state")
+    end
   end
   local hazard_ids = {}
   for _, id in ipairs(self.hazard_order) do

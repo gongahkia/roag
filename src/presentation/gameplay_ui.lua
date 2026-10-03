@@ -147,6 +147,16 @@ function GameplayUI.context_action(session)
   if state.exit and Grid.distance(player, state.exit) <= 1 then
     return { key = "MOVE", label = "EXIT READY — STEP ONTO EXIT", available = true, priority = 1 }
   end
+  local ground = session:nearby_ground_item()
+  if ground then
+    return {
+      key = "U",
+      label = "PICK UP " .. string.upper(ground.item.display_name),
+      available = session.state.inventory:find_first_fit(ground.item) ~= nil,
+      reason = "INVENTORY FULL",
+      priority = 3,
+    }
+  end
   local interactions = session:available_interactions(player)
   if interactions[1] and interactions[1].actions[1] then
     local action = interactions[1].actions[1]
@@ -161,12 +171,14 @@ function GameplayUI.context_action(session)
   end
   local corpse = session:nearby_corpse()
   if corpse then
+    local count = #corpse:list_components() + #corpse:list_carried_items()
     return {
       key = "G",
-      label = corpse.fallen_archive_id and "SALVAGE FALLEN SHELL" or "SALVAGE REMAINS",
-      available = #corpse:list_components() > 0,
-      reason = #corpse:list_components() > 0 and nil or "NO SALVAGE REMAINS",
-      priority = 3,
+      label = corpse.source_kind == "player" and "SALVAGE FALLEN BODY"
+        or (corpse.fallen_archive_id and "SALVAGE FALLEN SHELL" or "SALVAGE REMAINS"),
+      available = count > 0,
+      reason = count > 0 and nil or "NO SALVAGE REMAINS",
+      priority = 4,
     }
   end
   return nil
@@ -176,7 +188,7 @@ function GameplayUI.salvage(session, installed)
   local model = GameplayUI.component(session, installed.component, installed.slot_id)
   local item = PhysicalItem.from_component(installed.component, session.registry)
   local placement = session.state.inventory:find_first_fit(item)
-  local current = session.state.player.body:get_slot(installed.slot_id)
+  local current = not installed.carried and session.state.player.body:get_slot(installed.slot_id) or nil
   return {
     component = model,
     fits = placement ~= nil,
@@ -186,7 +198,22 @@ function GameplayUI.salvage(session, installed)
 end
 
 function GameplayUI.inventory_entry(session, entry, inventory)
+  if entry.item.item_type == "resource_stack" then
+    local definition = session.registry:get_resource(entry.item.resource_id)
+    local width, height = inventory:footprint(entry.item, entry.rotated)
+    return {
+      item_type = "resource",
+      name = definition.display_name,
+      quantity = entry.item.quantity,
+      mass = entry.item.mass,
+      width = width,
+      height = height,
+      rotated = entry.rotated == true,
+      description = "CONSTRUCTION RESOURCE",
+    }
+  end
   local model = GameplayUI.component(session, entry.item.object)
+  model.item_type = "component"
   local width, height = inventory:footprint(entry.item, entry.rotated)
   model.width, model.height = width, height
   model.rotated = entry.rotated == true

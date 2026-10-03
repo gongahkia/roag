@@ -8,6 +8,9 @@ local Identity = require("src.campaign.identity")
 local SurfaceWorld = require("src.campaign.surface_world")
 local WorldTopology = require("src.campaign.world_topology")
 local Grid = require("src.world.grid")
+local Corpse = require("src.world.corpse")
+local Inventory = require("src.inventory.inventory")
+local PhysicalItem = require("src.inventory.physical_item")
 
 local Campaign = {}
 Campaign.__index = Campaign
@@ -123,6 +126,63 @@ local function install_zone_connections(session, record)
   session:validate_world()
 end
 
+local function anchor_data(anchor)
+  if not anchor then return nil end
+  return {
+    zone_key = ZoneKey.to_data(anchor.zone_key),
+    station_object_id = anchor.station_object_id,
+  }
+end
+
+local function parse_anchor(data)
+  if not data then return nil end
+  assert(type(data) == "table" and type(data.station_object_id) == "string" and data.station_object_id ~= "",
+    "Campaign reconstruction anchor is invalid")
+  return { zone_key = ZoneKey.from_data(data.zone_key), station_object_id = data.station_object_id }
+end
+
+local function anchor_candidate(session, record, seed)
+  local player, world = session.state.player, session.state.world
+  local candidates = {}
+  for _, point in ipairs(session:_reachable_floor_cells()) do
+    local blocked = world:object_at(point.x, point.y) or world:is_hazardous(point.x, point.y)
+    if not blocked and (not player or point.x ~= player.x or point.y ~= player.y) then
+      local clear = true
+      for _, connection in pairs(record.connections or {}) do
+        local cell = connection.cell or connection.interior
+        if cell and math.max(math.abs(point.x - cell.x), math.abs(point.y - cell.y)) <= 2 then clear = false; break end
+      end
+      if clear then candidates[#candidates + 1] = point end
+    end
+  end
+  assert(#candidates > 0, "Campaign start has no legal reconstruction station location")
+  return Rng.new(seed):derive("reconstruction_anchor." .. ZoneKey.encode(record.key)):shuffle(candidates)[1]
+end
+
+-- An anchor is a physical object, not a special menu state. Old campaign
+-- saves receive one additively in their currently loaded zone; new campaigns
+-- always create it at the initial surface zone.
+local function ensure_reconstruction_anchor(campaign, record, session)
+  local anchor = campaign.state.reconstruction_anchor
+  if anchor then
+    if ZoneKey.equal(anchor.zone_key, record.key) then
+      local object = session.state.world:get_object(anchor.station_object_id)
+      assert(object and object.interaction_role == "reconstruction_station" and not object.destroyed,
+        "Campaign reconstruction anchor object is missing")
+      object.anchor_protected = true
+    end
+    return anchor
+  end
+  local point = anchor_candidate(session, record, campaign.state.seed)
+  local station, placement = session.state.world:place_object("world_object.station.reconstruction", point.x, point.y, {
+    anchor_protected = true,
+  })
+  assert(station, placement and placement.reason)
+  anchor = { zone_key = ZoneKey.from_data(record.key), station_object_id = station.id }
+  campaign.state.reconstruction_anchor = anchor
+  return anchor
+end
+
 function Campaign.new(options)
   options = options or {}
   local seed = Rng.new(options.seed or 1).seed
@@ -143,6 +203,9 @@ function Campaign.new(options)
       identity_state = campaign_identity,
       zone_records = record_map({ record }),
       legacy_progression = nil, legacy_route = nil,
+      reconstruction_anchor = parse_anchor(options.reconstruction_anchor),
+      pending_successor = options.pending_successor,
+      body_death_count = options.body_death_count or 0,
     },
     active_zone = record,
     identity = identity,
@@ -160,6 +223,7 @@ function Campaign.new(options)
   session:start_campaign_zone(key, record.generation_seed, profile_id, options.class, options.boon)
   install_zone_connections(session, record)
   self.session = session
+  ensure_reconstruction_anchor(self, record, session)
   self:sync_active_references()
   self:validate()
   return self
@@ -170,10 +234,11 @@ function Campaign:set_persistence_directory(directory)
 end
 
 function Campaign:sync_active_references()
-  self.state.active_body = self.session and self.session.state.run.player or self.state.active_body
-  self.state.carried_inventory = self.session and self.session.state.run.inventory or self.state.carried_inventory
-  self.state.legacy_progression = self.session and self.session:to_data().progression or self.state.legacy_progression
-  self.state.legacy_route = self.session and self.session.state.route and self.session.state.route:to_data() or self.state.legacy_route
+  if not self.session then return end
+  self.state.active_body = self.session.state.run.player
+  self.state.carried_inventory = self.session.state.run.inventory
+  self.state.legacy_progression = self.session:to_data().progression
+  self.state.legacy_route = self.session.state.route and self.session.state.route:to_data() or nil
 end
 
 function Campaign:zone_record(key)
@@ -182,6 +247,28 @@ end
 
 function Campaign:zone_records()
   return sorted_records(self.state.zone_records)
+end
+
+-- An anchor is a campaign reference to an ordinary station object. The newly
+-- selected station is protected immediately; a former unloaded anchor may
+-- remain conservatively protected until that frozen zone is next restored,
+-- which is safe and cannot create a successor softlock.
+function Campaign:set_reconstruction_anchor(station)
+  local world = self.session and self.session.state.world
+  if not world or not station or world:get_object(station.id) ~= station
+    or station.destroyed or station.interaction_role ~= "reconstruction_station" then
+    return { applied = false, code = "invalid_station", reason = "Reconstruction station is unavailable" }
+  end
+  local previous = self.state.reconstruction_anchor
+  if previous and ZoneKey.equal(previous.zone_key, self.active_zone.key) then
+    local old = world:get_object(previous.station_object_id)
+    if old and old ~= station then old.anchor_protected = false end
+  end
+  station.anchor_protected = true
+  self.state.reconstruction_anchor = { zone_key = ZoneKey.from_data(self.active_zone.key), station_object_id = station.id }
+  self:sync_active_references()
+  self:validate()
+  return { applied = true, code = "anchor_set", station_object_id = station.id, zone_key = ZoneKey.to_data(self.active_zone.key) }
 end
 
 function Campaign:_new_record(key)
@@ -200,6 +287,10 @@ function Campaign:validate()
   ZoneKey.validate(state.current_zone)
   assert(self.active_zone and ZoneKey.equal(self.active_zone.key, state.current_zone), "Campaign current zone is missing")
   assert(self:zone_record(state.current_zone) == self.active_zone, "Campaign zone index is inconsistent")
+  local anchor = state.reconstruction_anchor
+  assert(anchor and WorldTopology.is_zone_in_bounds(anchor.zone_key) and type(anchor.station_object_id) == "string",
+    "Campaign reconstruction anchor is invalid")
+  assert(self:zone_record(anchor.zone_key), "Campaign reconstruction anchor zone is not indexed")
   Identity.campaign_state_data(state.identity_state)
   for _, record in ipairs(self:zone_records()) do
     ZoneRecord.from_data(record:to_data(), state.campaign_id)
@@ -216,8 +307,12 @@ function Campaign:validate()
         "Campaign zone connection metadata is invalid for " .. tostring(direction))
     end
   end
-  assert(self.session and self.session.state.player == state.active_body, "Campaign active body is not canonical")
-  assert(self.session.state.run.inventory == state.carried_inventory, "Campaign carried inventory is not canonical")
+  if state.pending_successor then
+    assert(state.active_body == nil, "Pending successor campaign cannot retain an active body")
+  else
+    assert(self.session and self.session.state.player == state.active_body, "Campaign active body is not canonical")
+    assert(self.session.state.run.inventory == state.carried_inventory, "Campaign carried inventory is not canonical")
+  end
   assert(self.session.state.scrap == state.scrap, "Campaign SCRAP ownership is inconsistent")
   for _, direction in ipairs(WorldTopology.VERTICAL_DIRECTIONS) do
     local connection = WorldTopology.connection_at(self.active_zone, direction)
@@ -265,6 +360,9 @@ function Campaign:to_manifest_data()
     identity_state = Identity.campaign_state_data(self.state.identity_state),
     active_body = session_data.player, carried_inventory = session_data.inventory,
     legacy_progression = session_data.progression, legacy_route = session_data.route,
+    reconstruction_anchor = anchor_data(self.state.reconstruction_anchor),
+    pending_successor = self.state.pending_successor,
+    body_death_count = self.state.body_death_count or 0,
     zones = zones,
   }
 end
@@ -301,7 +399,7 @@ end
 -- Generate through an isolated preview campaign allocator. The disposable
 -- preview player may consume campaign-scope IDs, but its counters are never
 -- committed; zone-local identity counters are committed to the ZoneRecord.
-function Campaign:_generate_zone_session(record)
+function Campaign:_generate_zone_session(record, active_player, carried_inventory)
   local preview_campaign_identity = Identity.campaign_state_data(self.state.identity_state)
   local identity = Identity.new(self.state.campaign_id, record.key, preview_campaign_identity, record.identity_state)
   local preview_state = {
@@ -320,10 +418,10 @@ function Campaign:_generate_zone_session(record)
   local shard = self:_zone_data_for(record, generated)
   -- Rehydrate with the real existing body; generated's temporary player is
   -- excluded from the shard and therefore never becomes an owned duplicate.
-  return self:_session_from_shard(record, shard, self.state.active_body, self.state.carried_inventory)
+  return self:_session_from_shard(record, shard, active_player or self.state.active_body, carried_inventory or self.state.carried_inventory)
 end
 
-function Campaign:_load_zone_session(record, directory)
+function Campaign:_load_zone_session(record, directory, active_player, carried_inventory)
   local Persistence = require("src.persistence.campaign")
   ensure_record_connections(self.state.seed, record)
   if not directory then return nil, { code = "persistence_unavailable", reason = "Campaign persistence is unavailable" } end
@@ -335,7 +433,8 @@ function Campaign:_load_zone_session(record, directory)
   local shard, decode_error = Persistence.decode_zone(text)
   if not shard then return nil, { code = "destination_load_failed", reason = decode_error.reason } end
   local ok, session_or_error, identity = xpcall(function()
-    local session, zone_identity = self:_session_from_shard(record, shard, self.state.active_body, self.state.carried_inventory)
+    local session, zone_identity = self:_session_from_shard(record, shard, active_player or self.state.active_body,
+      carried_inventory or self.state.carried_inventory)
     install_zone_connections(session, record)
     return session, zone_identity
   end, debug.traceback)
@@ -408,11 +507,19 @@ function Campaign:_validate_transition_ownership(source, destination)
     local simulation = data.simulation
     for _, value in ipairs(simulation.enemies or {}) do actor(value, owner .. " enemy") end
     actor(simulation.boss, owner .. " boss")
-    for _, corpse in ipairs(simulation.corpses or {}) do add(corpse.id, owner .. " corpse"); body(corpse.body, owner .. " corpse") end
+    for _, corpse in ipairs(simulation.corpses or {}) do
+      add(corpse.id, owner .. " corpse")
+      body(corpse.body, owner .. " corpse")
+      inventory(corpse.carried_inventory, owner .. " corpse cargo")
+    end
     local world = simulation.world or {}
-    for _, object in ipairs(world.objects or {}) do add(object.id, owner .. " object") end
+    for _, object in ipairs(world.objects or {}) do
+      add(object.id, owner .. " object")
+      inventory(object.storage_inventory, owner .. " storage")
+    end
     for _, hazard in ipairs(world.hazards or {}) do add(hazard.id, owner .. " hazard") end
     for _, fire in ipairs(world.fires or {}) do add(fire.id, owner .. " fire") end
+    for _, ground in ipairs(world.ground_items or {}) do add(ground.id, owner .. " ground item") end
   end
   zone(source, "source zone")
   zone(destination, "destination zone")
@@ -508,6 +615,184 @@ function Campaign:request_transition(direction)
   return self:transition(direction, self.persistence_directory)
 end
 
+local function charm_ids(state)
+  local values = {}
+  for _, charm_id in pairs(state.charms and state.charms.slots or {}) do
+    if charm_id then values[#values + 1] = charm_id end
+  end
+  table.sort(values)
+  return values
+end
+
+local function corpse_in_session(session, corpse_id)
+  for _, corpse in ipairs(session.state.corpses or {}) do
+    if corpse.id == corpse_id then return corpse end
+  end
+  return nil
+end
+
+local function inventory_from_data(data, registry)
+  return Inventory.from_data(data, function(item) return PhysicalItem.from_data(item, registry) end)
+end
+
+function Campaign:_resolve_anchor_arrival(session, station)
+  -- The station cell itself remains passable for rendering/interaction, but
+  -- a reconstructed body always arrives beside it. Ordering is bounded and
+  -- lexical, so an occupied preferred cell cannot create visit-order drift.
+  for radius = 1, 4 do
+    for y = station.y - radius, station.y + radius do
+      for x = station.x - radius, station.x + radius do
+        if math.max(math.abs(x - station.x), math.abs(y - station.y)) == radius
+          and x >= 0 and x < Grid.width and y >= 0 and y < Grid.height
+          and not session.state.world:object_at(x, y) and not occupied(session, x, y) then
+          return { x = x, y = y }
+        end
+      end
+    end
+  end
+  return nil, { code = "arrival_blocked", reason = "No safe reconstruction arrival cell exists" }
+end
+
+-- Complete a pending campaign death from either the live fatal handler or a
+-- later load reconciliation. The pending manifest already contains both the
+-- exact dead body/cargo and a fresh successor identity, making retries
+-- idempotent even if a later shard or manifest write failed.
+function Campaign:_complete_pending_successor(pending, directory)
+  directory = directory or self.persistence_directory
+  if not directory then return nil, { code = "persistence_unavailable", reason = "Campaign persistence is unavailable" } end
+  assert(type(pending) == "table" and type(pending.corpse) == "table" and type(pending.successor_player) == "table"
+    and type(pending.successor_inventory) == "table", "Campaign pending successor is invalid")
+  local source_record, source_session = self.active_zone, self.session
+  assert(ZoneKey.equal(source_record.key, ZoneKey.from_data(pending.death_zone)), "Pending successor source zone is invalid")
+
+  if not corpse_in_session(source_session, pending.corpse.id) then
+    source_session.state.corpses[#source_session.state.corpses + 1] = Corpse.from_data(source_session.registry, pending.corpse)
+  end
+  source_session.state.player = nil
+  source_session.state.run.player = nil
+  source_session.state.run.inventory = Inventory.new({
+    height = Inventory.DEFAULT_HEIGHT + ((self.state.meta_snapshot.modifiers and self.state.meta_snapshot.modifiers.inventory_rows) or 0),
+  })
+  source_session.state.inventory = source_session.state.run.inventory
+  source_session.state.curse, source_session.state.curse_id = nil, nil
+  source_session.state.charms = { slots = {} }
+  source_session:validate_physical_ownership()
+
+  local successor = source_session:_actor_from_data(pending.successor_player)
+  local successor_inventory = inventory_from_data(pending.successor_inventory, source_session.registry)
+  local anchor = assert(self.state.reconstruction_anchor, "Campaign has no reconstruction anchor")
+  local anchor_record = assert(self:zone_record(anchor.zone_key), "Campaign anchor zone is not indexed")
+  local destination_session, destination_identity
+  if ZoneKey.equal(source_record.key, anchor_record.key) then
+    destination_session, destination_identity = source_session, self.identity
+    destination_session.state.player, destination_session.state.run.player = successor, successor
+    destination_session.state.run.inventory, destination_session.state.inventory = successor_inventory, successor_inventory
+  elseif anchor_record.shard_revision and anchor_record.shard_revision > 0 then
+    destination_session, destination_identity = self:_load_zone_session(anchor_record, directory, successor, successor_inventory)
+  else
+    local ok, generated, identity_or_error = xpcall(function()
+      return self:_generate_zone_session(anchor_record, successor, successor_inventory)
+    end, debug.traceback)
+    if ok then destination_session, destination_identity = generated, identity_or_error
+    else return nil, { code = "anchor_generation_failed", reason = tostring(generated) } end
+  end
+  if not destination_session then
+    return nil, { code = "anchor_load_failed", reason = "Could not load reconstruction anchor zone" }
+  end
+  local station = destination_session.state.world:get_object(anchor.station_object_id)
+  if not station or station.destroyed or station.interaction_role ~= "reconstruction_station" then
+    return nil, { code = "anchor_missing", reason = "Campaign reconstruction anchor is unavailable" }
+  end
+  local arrival, arrival_error = self:_resolve_anchor_arrival(destination_session, station)
+  if not arrival then return nil, arrival_error end
+  successor.x, successor.y, successor.direction = arrival.x, arrival.y, "w"
+  destination_session:refresh_visibility()
+  destination_session:validate_physical_ownership()
+
+  source_record.identity_state = self.identity:zone_state_data()
+  anchor_record.identity_state = destination_identity:zone_state_data()
+  local source_data = self:_zone_data_for(source_record, source_session)
+  local destination_data = ZoneKey.equal(source_record.key, anchor_record.key) and source_data
+    or self:_zone_data_for(anchor_record, destination_session)
+  if not ZoneKey.equal(source_record.key, anchor_record.key) then
+    self:_validate_transition_ownership(source_data, destination_data)
+  end
+  local Persistence = require("src.persistence.campaign")
+  local source_previous, anchor_previous = source_record.shard_revision, anchor_record.shard_revision
+  local source_revision, source_error = Persistence.write_zone_data(source_record, source_data, directory)
+  if not source_revision then return nil, { code = "persistence_failed", reason = source_error.reason, detail = source_error.code } end
+  local anchor_revision = source_revision
+  if not ZoneKey.equal(source_record.key, anchor_record.key) then
+    local error_data
+    anchor_revision, error_data = Persistence.write_zone_data(anchor_record, destination_data, directory)
+    if not anchor_revision then return nil, { code = "persistence_failed", reason = error_data.reason, detail = error_data.code } end
+  end
+
+  local old_key, old_record, old_identity, old_session = self.state.current_zone, self.active_zone, self.identity, self.session
+  source_record.shard_revision, anchor_record.shard_revision = source_revision, anchor_revision
+  self.state.current_zone, self.active_zone, self.identity, self.session = anchor_record.key, anchor_record, destination_identity, destination_session
+  self.state.pending_successor = nil
+  self.state.body_death_count = (self.state.body_death_count or 0) + 1
+  destination_session:_log("BODY LOST. SUCCESSOR RECONSTRUCTED.")
+  self:sync_active_references()
+  local committed, manifest_error = Persistence.write_manifest(self, directory)
+  if not committed then
+    source_record.shard_revision, anchor_record.shard_revision = source_previous, anchor_previous
+    self.state.current_zone, self.active_zone, self.identity, self.session = old_key, old_record, old_identity, old_session
+    self.state.pending_successor = pending
+    self:sync_active_references()
+    return nil, { code = "persistence_failed", reason = manifest_error.reason, detail = manifest_error.code }
+  end
+  self:validate()
+  return {
+    applied = true, code = "campaign_succession", corpse_id = pending.corpse.id,
+    body_id = successor.actor_id, death_zone = pending.death_zone,
+    anchor_zone = ZoneKey.to_data(anchor_record.key), arrival = arrival,
+    source_revision = source_revision, anchor_revision = anchor_revision,
+  }
+end
+
+function Campaign:handle_player_death(provenance)
+  if self.state.pending_successor then
+    return self:_complete_pending_successor(self.state.pending_successor, self.persistence_directory)
+  end
+  local source = self.session
+  assert(source and source.state.player and source.state.player.body, "Campaign death requires active body")
+  local player = source.state.player
+  local corpse_id = self.identity:allocate_corpse_id()
+  local dead_player = source:_actor_to_data(player)
+  local dead_inventory = source.state.inventory:to_data()
+  local successor, successor_inventory = source:make_campaign_successor()
+  local key = ZoneKey.to_data(self.active_zone.key)
+  local pending = {
+    death_zone = key,
+    corpse = {
+      id = corpse_id, kind = "corpse", source_kind = "player", source_actor_id = player.content_id,
+      x = player.x, y = player.y, body = dead_player.body, carried_inventory = dead_inventory,
+      source_body_id = player.actor_id, campaign_id = self.state.campaign_id, death_zone_key = key,
+      death_cause = provenance and (provenance.cause or provenance.source) or "unknown",
+      lost_charm_ids = charm_ids(source.state),
+    },
+    successor_player = source:_actor_to_data(successor),
+    successor_inventory = successor_inventory:to_data(),
+  }
+  -- Make the pending manifest authoritative before altering a committed zone.
+  -- It has enough detached data to rebuild the corpse and successor exactly.
+  source.state.player, source.state.run.player = nil, nil
+  source.state.run.inventory = Inventory.new({ height = successor_inventory.height })
+  source.state.inventory = source.state.run.inventory
+  source.state.curse, source.state.curse_id = nil, nil
+  source.state.charms = { slots = {} }
+  self.state.pending_successor = pending
+  self:sync_active_references()
+  local Persistence = require("src.persistence.campaign")
+  local marked, marker_error = Persistence.write_manifest(self, self.persistence_directory)
+  if not marked then
+    return nil, { code = "persistence_failed", reason = marker_error.reason, detail = marker_error.code }
+  end
+  return self:_complete_pending_successor(pending, self.persistence_directory)
+end
+
 -- Headless construction API used by inspectors/analyzers. It uses the exact
 -- campaign/ZoneKey root and connection carving without creating macro travel.
 function Campaign.generate_zone(seed, campaign_id_value, key, profile_id, options)
@@ -550,12 +835,28 @@ function Campaign.from_data(manifest, shard, options)
   local self = setmetatable({
     state = { campaign_id = id, seed = manifest_seed, current_zone = key, run_id = id,
       meta_snapshot = manifest.meta_snapshot or {}, identity_state = identity_state, zone_records = map,
-      legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route },
+      legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route,
+      reconstruction_anchor = parse_anchor(manifest.reconstruction_anchor),
+      pending_successor = manifest.pending_successor,
+      body_death_count = manifest.body_death_count or 0 },
     active_zone = record, identity = identity,
     _runtime_options = { content = options.content, registry = options.registry, route_definitions = options.route_definitions,
       on_meta_reward = options.on_meta_reward, emit = options.emit },
   }, Campaign)
-  local session = Session.from_data(fake_session_data(manifest, shard), {
+  self.persistence_directory = options.persistence_directory
+  -- A pending marker deliberately has no active player in its manifest. Use
+  -- the serialized successor only as a temporary parser body while the
+  -- reconciliation operation restores the corpse, then injects that same
+  -- successor at the anchor exactly once.
+  local load_manifest = manifest
+  if manifest.pending_successor then
+    assert(type(manifest.pending_successor.successor_player) == "table"
+      and type(manifest.pending_successor.successor_inventory) == "table", "Pending campaign successor is invalid")
+    load_manifest = plain_copy(manifest)
+    load_manifest.active_body = manifest.pending_successor.successor_player
+    load_manifest.carried_inventory = manifest.pending_successor.successor_inventory
+  end
+  local session = Session.from_data(fake_session_data(load_manifest, shard), {
     content = options.content, registry = options.registry, route_definitions = options.route_definitions,
     meta_snapshot = self.state.meta_snapshot, identity_allocator = identity, campaign = self, campaign_state = self.state,
     on_meta_reward = options.on_meta_reward, emit = options.emit,
@@ -566,6 +867,12 @@ function Campaign.from_data(manifest, shard, options)
   -- save/transition creates the next revision.
   ensure_record_connections(self.state.seed, record)
   install_zone_connections(session, record)
+  ensure_reconstruction_anchor(self, record, session)
+  if self.state.pending_successor then
+    local reconciled, reconciliation_error = self:_complete_pending_successor(self.state.pending_successor, self.persistence_directory)
+    assert(reconciled, reconciliation_error and reconciliation_error.reason or "Campaign succession reconciliation failed")
+    return self
+  end
   self:sync_active_references()
   self:validate()
   return self

@@ -247,10 +247,53 @@ function InspectionFloor.generate_campaign_zone(options)
     route_definitions = options.route_definitions, meta_snapshot = options.meta_snapshot,
   })
   local session, record = campaign.session, campaign.active_zone
+  local player_corpses = {}
+  for _, corpse in ipairs(session.state.corpses or {}) do
+    if corpse.source_kind == "player" then
+      player_corpses[#player_corpses + 1] = {
+        corpse_id = corpse.id, source_body_id = corpse.source_body_id, x = corpse.x, y = corpse.y,
+        carried_item_count = #(corpse.carried_inventory and corpse.carried_inventory.entries or {}),
+      }
+    end
+  end
+  local constructed, harvestable, storage, ground_items, circuits = {}, {}, {}, {}, {}
+  for _, object in ipairs(session.state.world:list_objects(true)) do
+    local definition = session.registry:get_world_object(object.definition_id)
+    if definition.harvest_yield then
+      harvestable[#harvestable + 1] = { object_id = object.id, definition_id = object.definition_id, x = object.x, y = object.y,
+        resource_id = definition.harvest_yield.resource_id, amount = definition.harvest_yield.amount }
+    end
+    if object.constructed then
+      constructed[#constructed + 1] = { object_id = object.id, recipe_id = object.construction_recipe_id,
+        x = object.x, y = object.y, circuit_id = object.circuit_id }
+    end
+    if object.storage_inventory then
+      storage[#storage + 1] = { object_id = object.id, item_count = #object.storage_inventory.entries,
+        mass = object.storage_inventory:total_mass() }
+    end
+  end
+  for _, ground in ipairs(session.state.world:list_ground_items()) do
+    ground_items[#ground_items + 1] = { item_id = ground.id, x = ground.x, y = ground.y,
+      item_type = ground.item.item_type, resource_id = ground.item.resource_id, quantity = ground.item.quantity }
+  end
+  for _, circuit in ipairs(session.state.world:list_circuits()) do
+    circuits[#circuits + 1] = { id = circuit.id, enabled = circuit.enabled,
+      powered = session.state.world:is_circuit_powered(circuit.id) }
+  end
   return {
     campaign_seed = campaign.state.seed, zone_key = ZoneKey.to_data(key), profile_id = record.profile_id,
     generation_seed = record.generation_seed, connections = record.connections,
     campaign = campaign, session = session, world = session.state.world, state = session.state,
+    reconstruction_anchor = campaign.state.reconstruction_anchor and {
+      zone_key = ZoneKey.to_data(campaign.state.reconstruction_anchor.zone_key),
+      station_object_id = campaign.state.reconstruction_anchor.station_object_id,
+    } or nil,
+    player_corpses = player_corpses,
+    harvestable_sources = harvestable,
+    constructed_objects = constructed,
+    storage = storage,
+    ground_items = ground_items,
+    player_circuits = circuits,
     seed = session.seed, stage = session.state.stage, terrain = session.state.settings.terrain,
     biome_id = session.state.settings.biome_id, tier_id = session.state.settings.tier_id,
     provenance = { zone_connections = record.connections, surface_connections = record.connections, zone_key = ZoneKey.encode(key) },

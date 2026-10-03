@@ -125,6 +125,7 @@ end
 
 function CampaignPersistence.load(directory, options)
   assert_directory(directory)
+  options = options or {}
   local manifest_text, manifest_error = directory:file(CampaignPersistence.MANIFEST_FILE):read()
   if not manifest_text then return nil, manifest_error end
   local manifest, decoded_manifest_error = CampaignPersistence.decode_manifest(manifest_text)
@@ -141,7 +142,10 @@ function CampaignPersistence.load(directory, options)
   local shard, decoded_zone_error = CampaignPersistence.decode_zone(zone_text)
   if not shard then return nil, decoded_zone_error end
   local ok, campaign_or_error = xpcall(function()
-    return Campaign.from_data(manifest, shard, options)
+    local load_options = {}
+    for key, value in pairs(options) do load_options[key] = value end
+    load_options.persistence_directory = directory
+    return Campaign.from_data(manifest, shard, load_options)
   end, debug.traceback)
   if not ok then return failure("invalid_state", tostring(campaign_or_error)) end
   return campaign_or_error

@@ -25,6 +25,8 @@ local suites = {
   "tests.test_app_inventory",
   "tests.test_session",
   "tests.test_campaign",
+  "tests.test_campaign_succession",
+  "tests.test_construction",
   "tests.test_surface_world",
   "tests.test_vertical_world",
   "tests.test_save_resume",

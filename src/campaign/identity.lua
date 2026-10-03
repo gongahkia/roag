@@ -25,6 +25,7 @@ local function zone_state(data)
     next_world_object_sequence = positive(data.next_world_object_sequence or 1, "Zone object sequence"),
     next_hazard_sequence = positive(data.next_hazard_sequence or 1, "Zone hazard sequence"),
     next_fire_sequence = positive(data.next_fire_sequence or 1, "Zone fire sequence"),
+    next_item_sequence = positive(data.next_item_sequence or 1, "Zone item sequence"),
   }
 end
 
@@ -34,6 +35,7 @@ function Identity.new(campaign, key, campaign_state, local_state)
   campaign_state = campaign_state or {}
   campaign_state.next_component_sequence = positive(campaign_state.next_component_sequence or 1, "Campaign component sequence")
   campaign_state.next_actor_sequence = positive(campaign_state.next_actor_sequence or 1, "Campaign actor sequence")
+  campaign_state.next_item_sequence = positive(campaign_state.next_item_sequence or 1, "Campaign item sequence")
   return setmetatable({
     campaign_id = campaign,
     key = ZoneKey.from_data(key),
@@ -47,6 +49,7 @@ function Identity.campaign_state_data(state)
   return {
     next_component_sequence = positive(state.next_component_sequence or 1, "Campaign component sequence"),
     next_actor_sequence = positive(state.next_actor_sequence or 1, "Campaign actor sequence"),
+    next_item_sequence = positive(state.next_item_sequence or 1, "Campaign item sequence"),
   }
 end
 
@@ -94,6 +97,13 @@ function Identity:allocate_fire_id()
   return string.format("fire:%s:%06d", self:_zone_prefix(), next_counter(self.zone_state, "next_fire_sequence"))
 end
 
+function Identity:allocate_item_id(scope)
+  if scope == "campaign" then
+    return string.format("item:%s:campaign:%06d", self.campaign_id, next_counter(self.campaign_state, "next_item_sequence"))
+  end
+  return string.format("item:%s:%06d", self:_zone_prefix(), next_counter(self.zone_state, "next_item_sequence"))
+end
+
 function Identity.is_component_id(value)
   return type(value) == "string" and (value:match("^component:%d+$") ~= nil or value:match("^cmp:campaign:%d+:(campaign|zone:%-?%d+:%-?%d+:%-?%d+):%d+$") ~= nil)
 end
@@ -101,6 +111,11 @@ end
 function Identity.is_actor_id(value)
   return type(value) == "string" and (value:match("^actor:legacy:%d+$") ~= nil
     or value:match("^actor:campaign:%d+:(campaign|zone:%-?%d+:%-?%d+:%-?%d+):%d+$") ~= nil)
+end
+
+function Identity.is_item_id(value)
+  return type(value) == "string" and (value:match("^item:%d+$") ~= nil
+    or value:match("^item:campaign:%d+:(campaign|zone:%-?%d+:%-?%d+:%-?%d+):%d+$") ~= nil)
 end
 
 function Identity.is_campaign_id(value)

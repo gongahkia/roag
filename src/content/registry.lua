@@ -22,6 +22,8 @@ local KNOWN_INTERACTION_ROLES = {
   clue = true,
   reinforcement = true,
   zone_connection = true,
+  reconstruction_station = true,
+  storage = true,
 }
 
 local KNOWN_REINFORCEMENT_SOURCE_TYPES = { nest = true, lift = true }
@@ -142,6 +144,8 @@ function Registry.new(sources)
     curses = {},
     research = {},
     discoveries = {},
+    resources = {},
+    construction_recipes = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
   self:_index("material", sources.materials, self.materials)
@@ -164,6 +168,11 @@ function Registry.new(sources)
   self:_index("curse", sources.curses or {}, self.curses)
   self:_index("research", sources.research or {}, self.research)
   self:_index("discovery", sources.discoveries or {}, self.discoveries)
+  -- Test/content callers historically supplied only the original source
+  -- tables. Keep that contract while construction content supplies its own
+  -- stable base vocabulary unless a caller explicitly overrides it.
+  self:_index("resource", sources.resources or require("content.resources.legacy"), self.resources)
+  self:_index("construction", sources.construction_recipes or require("content.construction.legacy"), self.construction_recipes)
   self:validate()
   return self
 end
@@ -191,6 +200,8 @@ function Registry.load()
     curses = require("content.curses.legacy"),
     research = require("content.research.legacy"),
     discoveries = require("content.discoveries.legacy"),
+    resources = require("content.resources.legacy"),
+    construction_recipes = require("content.construction.legacy"),
   })
 end
 
@@ -316,6 +327,8 @@ function Registry:get_charm(id) return self:_get(self.charms, "charm", id) end
 function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
 function Registry:get_research(id) return self:_get(self.research, "research", id) end
 function Registry:get_discovery(id) return self:_get(self.discoveries, "discovery", id) end
+function Registry:get_resource(id) return self:_get(self.resources, "resource", id) end
+function Registry:get_construction_recipe(id) return self:_get(self.construction_recipes, "construction recipe", id) end
 
 function Registry:validate()
   -- Faction relationships are a small explicit matrix.  Different IDs are
@@ -373,6 +386,21 @@ function Registry:validate()
       require_positive_number(material.burn_rate, "Material '" .. id .. "' burn_rate")
     elseif material.burn_rate ~= nil then
       content_error("Nonflammable material '" .. id .. "' cannot define burn_rate")
+    end
+  end
+
+  for _, id in ipairs(sorted_keys(self.resources)) do
+    local resource = self.resources[id]
+    require_string(resource.display_name, "Resource '" .. id .. "' display_name")
+    require_positive_number(resource.mass_per_unit, "Resource '" .. id .. "' mass_per_unit")
+    require_positive_integer(resource.max_stack, "Resource '" .. id .. "' max_stack")
+    if type(resource.inventory) ~= "table" then
+      content_error("Resource '" .. id .. "' inventory must be a table")
+    end
+    require_positive_integer(resource.inventory.width, "Resource '" .. id .. "' inventory.width")
+    require_positive_integer(resource.inventory.height, "Resource '" .. id .. "' inventory.height")
+    if type(resource.inventory.rotatable) ~= "boolean" then
+      content_error("Resource '" .. id .. "' inventory.rotatable must be a boolean")
     end
   end
 
@@ -441,6 +469,13 @@ function Registry:validate()
         if object.blocks_movement or object.blocks_vision or object.blocks_projectiles or object.blocks_gas then
           content_error("Zone connection world object '" .. id .. "' must remain passable and non-blocking")
         end
+      elseif object.interaction_role == "reconstruction_station" then
+        if object.blocks_movement or object.blocks_vision or object.blocks_projectiles or object.blocks_gas then
+          content_error("Reconstruction station world object '" .. id .. "' must remain passable and non-blocking")
+        end
+      elseif object.interaction_role == "storage" then
+        require_positive_integer(object.storage_width, "Storage world object '" .. id .. "' storage_width")
+        require_positive_integer(object.storage_height, "Storage world object '" .. id .. "' storage_height")
       elseif object.interaction_role == "reinforcement" then
         require_string(object.reinforcement_source_type, "Reinforcement world object '" .. id .. "' reinforcement_source_type")
         if not KNOWN_REINFORCEMENT_SOURCE_TYPES[object.reinforcement_source_type] then
@@ -459,7 +494,29 @@ function Registry:validate()
       or object.reinforcement_source_type ~= nil then
       content_error("Non-interactable world object '" .. id .. "' cannot define door power metadata")
     end
+    if object.harvest_yield ~= nil then
+      if type(object.harvest_yield) ~= "table" then
+        content_error("World object '" .. id .. "' harvest_yield must be a table")
+      end
+      require_string(object.harvest_yield.resource_id, "World object '" .. id .. "' harvest_yield.resource_id")
+      self:get_resource(object.harvest_yield.resource_id)
+      require_positive_integer(object.harvest_yield.amount, "World object '" .. id .. "' harvest_yield.amount")
+    end
     require_string(object.render_style, "World object '" .. id .. "' render_style")
+  end
+
+  for _, id in ipairs(sorted_keys(self.construction_recipes)) do
+    local recipe = self.construction_recipes[id]
+    require_string(recipe.display_name, "Construction recipe '" .. id .. "' display_name")
+    require_string(recipe.world_object_id, "Construction recipe '" .. id .. "' world_object_id")
+    self:get_world_object(recipe.world_object_id)
+    if type(recipe.costs) ~= "table" or next(recipe.costs) == nil then
+      content_error("Construction recipe '" .. id .. "' costs must be a non-empty map")
+    end
+    for resource_id, amount in pairs(recipe.costs) do
+      self:get_resource(resource_id)
+      require_positive_integer(amount, "Construction recipe '" .. id .. "' cost for '" .. tostring(resource_id) .. "'")
+    end
   end
 
   for _, id in ipairs(sorted_keys(self.hazards)) do

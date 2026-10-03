@@ -42,6 +42,7 @@ local Rng = require("src.rng")
 local RouteDefinitions = require("src.routes.definitions")
 local RouteGraph = require("src.routes.graph")
 local WorldTopology = require("src.campaign.world_topology")
+local Building = require("src.construction.building")
 
 local Session = {}
 Session.__index = Session
@@ -284,6 +285,7 @@ function Session.new(options)
     next_world_object_sequence = 1,
     next_hazard_sequence = 1,
     next_fire_sequence = 1,
+    next_item_sequence = 1,
     route = nil,
     floor_seed = nil,
     transition_next = nil,
@@ -500,6 +502,18 @@ end
 -- actor table or accidentally revive its components.
 function Session:_mark_player_dead(provenance)
   local state = self.state
+  -- A campaign owns the world, not this particular actor. Fatal resolution
+  -- is a durable campaign transaction; legacy standalone runs stay below.
+  if self.campaign then
+    local result, failure = self.campaign:handle_player_death(provenance or {})
+    if result and result.applied then
+      state.ended = "campaign_succession"
+      return result
+    end
+    state.ended = "campaign_pending"
+    self:_log("BODY LOST — SUCCESSION WILL RESUME FROM THE LAST COMMITTED CAMPAIGN.")
+    return failure
+  end
   state.ended = "gameover"
   if state.death_pending_archive or not state.player or not state.player.body
     or not tostring(state.run_id):match("^run:%d+$") then
@@ -523,6 +537,18 @@ function Session:refresh_derived_player_stats()
   player.bomb_radius = math.max(1, (player.base_bomb_radius or 2) + (values.bomb_radius or 0))
   player.flare_light = math.max(1, (player.base_flare_light or 3) + (values.flare_light or 0))
   player.reload_bonus = values.reload_bonus or 0
+end
+
+function Session:create_resource_stack(resource_id, quantity, scope)
+  local item_id
+  if self.identity_allocator then
+    item_id = self.identity_allocator:allocate_item_id(scope or "zone")
+  else
+    local sequence = self.state.next_item_sequence
+    self.state.next_item_sequence = sequence + 1
+    item_id = string.format("item:%06d", sequence)
+  end
+  return PhysicalItem.from_resource(resource_id, quantity, item_id, self.registry)
 end
 
 function Session:damage_world_object(object_or_id, spec)
@@ -1230,7 +1256,12 @@ function Session:activate_actor_ability(actor, ability_id, params)
 end
 
 function Session:_reconstruction_allowed()
-  return self.state.phase == "reconstruction"
+  if self.state.phase == "reconstruction" then return true end
+  local station_id = self.state.active_reconstruction_station_id
+  if not self.campaign or not station_id or not self.state.player or not self.state.world then return false end
+  local station = self.state.world:get_object(station_id)
+  return station and not station.destroyed and station.interaction_role == "reconstruction_station"
+    and Interaction.is_adjacent(self.state.player, station)
 end
 
 function Session:reconstruction_compatibility(component_id, slot_id)
@@ -1295,6 +1326,7 @@ function Session:run_data()
       next_world_object_sequence = self.state.next_world_object_sequence,
       next_hazard_sequence = self.state.next_hazard_sequence,
       next_fire_sequence = self.state.next_fire_sequence,
+      next_item_sequence = self.state.next_item_sequence,
       route = self.state.route and self.state.route:to_data() or nil,
       run_id = self.state.run_id,
       meta_snapshot = copy_meta_snapshot(self.state.meta_snapshot),
@@ -1517,6 +1549,7 @@ function Session:to_data()
       next_world_object_sequence = state.next_world_object_sequence,
       next_hazard_sequence = state.next_hazard_sequence,
       next_fire_sequence = state.next_fire_sequence,
+      next_item_sequence = state.next_item_sequence,
       run_id = state.run_id,
       meta_snapshot = copy_meta_snapshot(state.meta_snapshot),
       discovery_state = copy_discovery_state(state.discovery_state),
@@ -1586,6 +1619,9 @@ function Session.from_data(data, options)
     assert(type(value) == "number" and value >= 1 and value % 1 == 0, "Active run has an invalid " .. name)
     state[name] = value
   end
+  state.next_item_sequence = progression.next_item_sequence or 1
+  assert(type(state.next_item_sequence) == "number" and state.next_item_sequence >= 1 and state.next_item_sequence % 1 == 0,
+    "Active run has an invalid next_item_sequence")
   state.next_actor_sequence = progression.next_actor_sequence or 1
   assert(type(state.next_actor_sequence) == "number" and state.next_actor_sequence >= 1
     and state.next_actor_sequence % 1 == 0, "Active run has an invalid next_actor_sequence")
@@ -1766,6 +1802,12 @@ function Session:validate_physical_ownership()
     identities[value] = owner
   end
 
+  local function record_item(item, owner)
+    assert(item and type(item.physical_id) == "string", owner .. " has an invalid physical item")
+    record_identity(item.physical_id, owner)
+    if item.item_type == "component" then record(item.object, owner) end
+  end
+
   record_body(self.state.player and self.state.player.body, "player body")
   if self.state.player then record_identity(self.state.player.actor_id, "player actor") end
   for _, enemy in ipairs(self.state.enemies or {}) do
@@ -1777,16 +1819,24 @@ function Session:validate_physical_ownership()
   for _, corpse in ipairs(self.state.corpses or {}) do
     record_body(corpse.body, "corpse '" .. corpse.id .. "'")
     record_identity(corpse.id, "corpse")
+    for _, entry in ipairs(corpse.carried_inventory and corpse.carried_inventory.entries or {}) do
+      record_item(entry.item, "corpse cargo '" .. corpse.id .. "'")
+    end
+    if corpse.carried_inventory then corpse.carried_inventory:validate() end
   end
   if self.state.world then
     for _, object in ipairs(self.state.world:list_objects(true)) do record_identity(object.id, "world object") end
     for _, hazard in ipairs(self.state.world:list_hazards(true)) do record_identity(hazard.id, "hazard") end
     for _, fire in ipairs(self.state.world:list_fires(true)) do record_identity(fire.id, "fire") end
   end
-  for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do
-    if entry.item.item_type == "component" then
-      record(entry.item.object, "inventory")
+  for _, entry in ipairs(self.state.inventory and self.state.inventory.entries or {}) do record_item(entry.item, "inventory") end
+  for _, object in ipairs(self.state.world and self.state.world:list_objects(true) or {}) do
+    for _, entry in ipairs(object.storage_inventory and object.storage_inventory.entries or {}) do
+      record_item(entry.item, "storage '" .. object.id .. "'")
     end
+  end
+  for _, ground in ipairs(self.state.world and self.state.world:list_ground_items() or {}) do
+    record_item(ground.item, "ground item '" .. ground.id .. "'")
   end
   for _, object in ipairs(self.state.world and self.state.world:list_objects(true) or {}) do
     local stock = object.service_stock
@@ -1815,7 +1865,7 @@ function Session:validate_physical_ownership()
   return true
 end
 
-function Session:_create_corpse(actor)
+function Session:_create_corpse(actor, carried_inventory, provenance)
   if not actor.body then
     return nil
   end
@@ -1827,7 +1877,7 @@ function Session:_create_corpse(actor)
     self.state.next_corpse_sequence = sequence + 1
     corpse_id = string.format("corpse:%06d", sequence)
   end
-  local corpse = Corpse.from_actor(corpse_id, actor)
+  local corpse = Corpse.from_actor(corpse_id, actor, carried_inventory, provenance)
   self.state.corpses[#self.state.corpses + 1] = corpse
   return corpse
 end
@@ -1854,6 +1904,46 @@ function Session:nearby_corpse()
   return nil
 end
 
+function Session:nearby_ground_item()
+  local player, world = self.state.player, self.state.world
+  if not player or not world then return nil end
+  local candidates = {}
+  for y = player.y - 1, player.y + 1 do
+    for x = player.x - 1, player.x + 1 do
+      if Grid.in_bounds(x, y) then
+        for _, ground in ipairs(world:ground_items_at(x, y)) do candidates[#candidates + 1] = ground end
+      end
+    end
+  end
+  table.sort(candidates, function(left, right)
+    local left_distance = math.max(math.abs(left.x - player.x), math.abs(left.y - player.y))
+    local right_distance = math.max(math.abs(right.x - player.x), math.abs(right.y - player.y))
+    if left_distance ~= right_distance then return left_distance < right_distance end
+    return left.id < right.id
+  end)
+  return candidates[1]
+end
+
+function Session:pickup_ground_item(ground_item_id)
+  local ground = self.state.world and self.state.world:get_ground_item(ground_item_id)
+  if not ground then return { applied = false, code = "unknown_ground_item", reason = "Ground item is unavailable" } end
+  if not self.state.player or Grid.distance(self.state.player, ground) > 1 then
+    return { applied = false, code = "out_of_range", reason = "Ground item is not within pickup range" }
+  end
+  local placement, reason = self.state.inventory:find_first_fit(ground.item)
+  if not placement then return { applied = false, code = "inventory_full", reason = reason } end
+  local item, removed = self.state.world:remove_ground_item(ground)
+  assert(item and removed.applied, "Ground item removal failed")
+  local entry, place_reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated)
+  if not entry then
+    local restored, restore_reason = self.state.world:place_ground_item(item, ground.x, ground.y)
+    assert(restored, restore_reason and restore_reason.reason)
+    return { applied = false, code = "inventory_full", reason = place_reason }
+  end
+  self:validate_physical_ownership()
+  return { applied = true, code = "picked_up", ground_item_id = ground.id, physical_id = item.physical_id, entry = entry }
+end
+
 function Session:salvage_corpse_component(corpse_id, slot_id)
   local corpse = self:find_corpse(corpse_id)
   if not corpse then
@@ -1872,6 +1962,43 @@ function Session:salvage_corpse_component(corpse_id, slot_id)
       and #corpse:list_components() == 0 then
       recurrence.resolved = true
     end
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:salvage_corpse_carried_component(corpse_id, component_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then
+    return { applied = false, corpse_id = corpse_id, component_id = component_id, reason = "Unknown corpse" }
+  end
+  if not self.state.player or Grid.distance(self.state.player, corpse) > 1 then
+    return { applied = false, corpse_id = corpse_id, component_id = component_id, reason = "Corpse is not within salvage range" }
+  end
+  local result = Salvage.carried_component(corpse, component_id, self.state.inventory)
+  if result.applied then
+    local definition = result.definition_id and self.registry:get_component(result.definition_id)
+    self:_log("Recovered " .. (definition and definition.display_name or "carried component") .. ".")
+    self:_sound("pickup")
+    self:validate_physical_ownership()
+  else
+    self:_log(result.reason)
+  end
+  return result
+end
+
+function Session:salvage_corpse_carried_item(corpse_id, physical_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return { applied = false, corpse_id = corpse_id, physical_id = physical_id, reason = "Unknown corpse" } end
+  if not self.state.player or Grid.distance(self.state.player, corpse) > 1 then
+    return { applied = false, corpse_id = corpse_id, physical_id = physical_id, reason = "Corpse is not within salvage range" }
+  end
+  local result = Salvage.carried_item(corpse, physical_id, self.state.inventory)
+  if result.applied then
+    self:_log("Recovered " .. result.entry.item.display_name .. ".")
+    self:_sound("pickup")
     self:validate_physical_ownership()
   else
     self:_log(result.reason)
@@ -2587,6 +2714,7 @@ function Session:start_run(class, boon, defer_initial_floor)
   state.next_world_object_sequence = 1
   state.next_hazard_sequence = 1
   state.next_fire_sequence = 1
+  state.next_item_sequence = 1
   state.run.player = nil
   state.run.inventory = Inventory.new({
     height = Inventory.DEFAULT_HEIGHT + ((state.meta_snapshot.modifiers and state.meta_snapshot.modifiers.inventory_rows) or 0),
@@ -2661,6 +2789,37 @@ function Session:_create_run_player(settings)
   })
   self.state.run.player = player
   return player
+end
+
+-- This deliberately does not call start_run: a successor gets a fresh body
+-- and baseline consumables while the campaign wallet, map, and one-time
+-- campaign-start rewards remain untouched.
+function Session:make_campaign_successor()
+  assert(self.campaign and self.identity_allocator, "Campaign successor requires campaign identity")
+  local settings = assert(self.state.settings, "Campaign successor requires active zone settings")
+  local player_definition = self.registry:get_actor(PLAYER_ACTOR_ID)
+  local player = entity("player", math.floor(Grid.width / 2), math.floor(Grid.height / 2), {
+    actor_id = self:_allocate_actor_id("campaign"), direction = "w",
+    health = settings.health, ammo = settings.ammo, bombs = settings.bombs, flares = settings.flares,
+    score = 0, objective_progress = 0, base_max_health = 5, max_health = 5,
+    base_dash_cooldown = settings.dash_cooldown, base_bomb_radius = settings.bomb_radius,
+    base_flare_light = 3, flare_light = 3, reload_bonus = 0, dash = 0,
+    dash_base = settings.dash_cooldown, bomb_radius = settings.bomb_radius,
+    bomb_fuse = settings.bomb_fuse, bullet_range = settings.bullet_range,
+    reload_penalty = settings.reload_penalty, impact = 0, content_id = player_definition.id,
+    faction_id = Factions.PLAYER_ID, body = self:_build_body(player_definition, "campaign"),
+  })
+  local modifiers = RunModifiers.values(self.state, self.registry)
+  player.max_health = math.max(1, player.base_max_health + (modifiers.max_health or 0))
+  player.health = player.max_health
+  player.dash_base = math.max(1, player.base_dash_cooldown + (modifiers.dash_cooldown or 0))
+  player.bomb_radius = math.max(1, player.base_bomb_radius + (modifiers.bomb_radius or 0))
+  player.flare_light = math.max(1, player.base_flare_light + (modifiers.flare_light or 0))
+  player.reload_bonus = modifiers.reload_bonus or 0
+  local inventory = Inventory.new({
+    height = Inventory.DEFAULT_HEIGHT + ((self.state.meta_snapshot.modifiers and self.state.meta_snapshot.modifiers.inventory_rows) or 0),
+  })
+  return player, inventory
 end
 
 function Session:_apply_explicit_curse_resource_effects(player)
@@ -3657,6 +3816,63 @@ function Session:use_zone_connection(object)
   return failure or { applied = false, code = "no_zone_connection", reason = "Zone travel failed" }
 end
 
+function Session:open_reconstruction_station(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "reconstruction_station" then
+    return { applied = false, code = "invalid_station", reason = "No reconstruction station is available" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Reconstruction station is not adjacent" }
+  end
+  self.state.pending_reconstruction_station_id = object.id
+  return { applied = true, code = "reconstruction_open", station_object_id = object.id }
+end
+
+function Session:is_reconstruction_anchor(object)
+  local anchor = self.campaign and self.campaign.state.reconstruction_anchor
+  return anchor and self.campaign.active_zone and anchor.station_object_id == object.id
+    and anchor.zone_key.world_x == self.campaign.active_zone.key.world_x
+    and anchor.zone_key.world_y == self.campaign.active_zone.key.world_y
+    and anchor.zone_key.z == self.campaign.active_zone.key.z or false
+end
+
+function Session:set_reconstruction_anchor(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "reconstruction_station" then
+    return { applied = false, code = "invalid_station", reason = "No reconstruction station is available" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Reconstruction station is not adjacent" }
+  end
+  return self.campaign:set_reconstruction_anchor(object)
+end
+
+function Session:open_storage(object)
+  if not self.campaign or not object or object.destroyed or object.interaction_role ~= "storage" or not object.storage_inventory then
+    return { applied = false, code = "invalid_storage", reason = "Storage is unavailable" }
+  end
+  if not Interaction.is_adjacent(self.state.player, object) then
+    return { applied = false, code = "out_of_range", reason = "Storage is not adjacent" }
+  end
+  self.state.pending_storage_object_id = object.id
+  return { applied = true, code = "storage_open", storage_object_id = object.id }
+end
+
+function Session:storage_transfer(object_id, physical_id, direction)
+  local world = self.state.world
+  local object = world and world:get_object(object_id)
+  if not object or object.destroyed or object.interaction_role ~= "storage" or not object.storage_inventory then
+    return { applied = false, code = "invalid_storage", reason = "Storage is unavailable" }
+  end
+  local from, to = direction == "to_storage" and self.state.inventory or object.storage_inventory,
+    direction == "to_storage" and object.storage_inventory or self.state.inventory
+  if direction ~= "to_storage" and direction ~= "to_player" then
+    return { applied = false, code = "invalid_direction", reason = "Storage transfer direction is invalid" }
+  end
+  local result, reason = from:transfer_to(to, physical_id)
+  if not result then return { applied = false, code = "inventory_full", reason = reason } end
+  self:validate_physical_ownership()
+  return result
+end
+
 function Session:_nearby_vertical_connection()
   if not self.campaign then return nil end
   local player, world = self.state.player, self.state.world
@@ -3777,6 +3993,17 @@ function Session:_shoot(direction)
 end
 
 function Session:_interact_player()
+  local ground = self:nearby_ground_item()
+  if ground then
+    local pickup = self:pickup_ground_item(ground.id)
+    if pickup.applied then
+      self:_log("PICKED UP " .. string.upper(ground.item.display_name) .. ".")
+      self:_sound("pickup")
+    else
+      self:_log(pickup.reason or "INVENTORY FULL.")
+    end
+    return pickup
+  end
   local result = Interaction.primary(self, self.state.player)
   if result.applied then
     local object = self.state.world:get_object(result.object_id)
@@ -3792,6 +4019,12 @@ function Session:_interact_player()
     elseif result.action_id == "service.open" then
       self.state.pending_service_object_id = result.service_object_id
       self:_log("SERVICE ACCESSING AFTER THIS TURN.")
+    elseif result.action_id == "reconstruction.open" then
+      self:_log("RECONSTRUCTION STATION READY.")
+    elseif result.action_id == "reconstruction.set_anchor" then
+      self:_log("RECONSTRUCTION ANCHOR SET.")
+    elseif result.action_id == "storage.open" then
+      self:_log("STORAGE OPENING AFTER THIS TURN.")
     elseif result.action_id == "traversal.breach" then
       self:_log(object.required_unlock == "unlock.traversal.maintenance_override"
         and "MAINTENANCE HATCH OVERRIDDEN." or "REINFORCED BARRIER BREACHED.")
@@ -3962,6 +4195,18 @@ function Session:_action(input)
     self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
+  else
+    local recipe_id, x, y = input:match("^build:([%w%._]+):(%-?%d+):(%-?%d+)$")
+    if recipe_id then
+      local result = Building.place(self, recipe_id, tonumber(x), tonumber(y))
+      self.state.last_build_result = result
+      if result.applied then
+        self:_log("BUILT " .. string.upper(self.registry:get_construction_recipe(recipe_id).display_name) .. ".")
+        self:_sound("select")
+      else
+        self:_log(result.reason or "BUILD FAILED.")
+      end
+    end
   end
 end
 
@@ -4014,6 +4259,14 @@ function Session:_complete_stage()
 end
 
 function Session:complete_reconstruction()
+  if self.campaign and self.state.active_reconstruction_station_id then
+    if not self:_reconstruction_allowed() then
+      return { applied = false, reason = "Reconstruction station is no longer accessible" }
+    end
+    self:validate_physical_ownership()
+    self.state.active_reconstruction_station_id = nil
+    return { applied = true, next = "combat" }
+  end
   if self.state.phase ~= "reconstruction" then
     return { applied = false, reason = "No reconstruction phase is active" }
   end
@@ -4295,6 +4548,24 @@ function Session:turn(input)
   end
 
   self:_action(input)
+  -- Station reconstruction opens before enemy/environment updates. Browsing
+  -- the modal thereafter runs no simulation ticks.
+  if state.pending_reconstruction_station_id and not state.ended then
+    state.active_reconstruction_station_id = state.pending_reconstruction_station_id
+    state.pending_reconstruction_station_id = nil
+    self:refresh_visibility()
+    return "reconstruction"
+  end
+  if state.pending_storage_object_id and not state.ended then
+    state.active_storage_object_id = state.pending_storage_object_id
+    state.pending_storage_object_id = nil
+    self:refresh_visibility()
+    return "storage"
+  end
+  if state.ended then
+    self:refresh_visibility()
+    return state.ended
+  end
   self:_collect_ammo()
   self:_update_bullets()
   self:_update_bombs()
