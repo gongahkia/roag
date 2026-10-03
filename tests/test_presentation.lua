@@ -18,6 +18,16 @@ return {
     end,
   },
   {
+    name = "facing marker remains a small cardinal presentation affordance",
+    run = function()
+      local renderer = Renderer.new({})
+      local north_x, north_y, marker = assert(renderer:facing_marker_bounds("w", 10, 20, 20))
+      local east_x, east_y = assert(renderer:facing_marker_bounds("d", 10, 20, 20))
+      assert(marker >= 2 and north_y < east_y and east_x > north_x)
+      assert(renderer:facing_marker_bounds("ne", 10, 20, 20) == nil)
+    end,
+  },
+  {
     name = "idle sprite transforms are stable, bounded, and never mutate authoritative actor state",
     run = function()
       local session, player = idle_session()

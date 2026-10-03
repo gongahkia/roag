@@ -11,6 +11,9 @@ local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
 }
+local FACING_MARKER_OFFSETS = {
+  w = { 0.5, 0.10 }, a = { 0.10, 0.5 }, s = { 0.5, 0.90 }, d = { 0.90, 0.5 },
+}
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
@@ -121,6 +124,23 @@ function Renderer:_screen_position(presentation, player, x, y, size, offset_x, o
     return nil
   end
   return offset_x + screen_x * size, offset_y + (VIEW_HEIGHT - 1 - screen_y) * size
+end
+
+-- A small art-independent pip makes the movement-derived facing readable for
+-- both ATTACK and directional USE without turning it into a large HUD arrow.
+function Renderer:facing_marker_bounds(direction, x, y, size)
+  local offset = FACING_MARKER_OFFSETS[direction]
+  if not offset then return nil end
+  local marker = math.max(2, math.floor(size * 0.16))
+  return x + size * offset[1] - marker / 2, y + size * offset[2] - marker / 2, marker
+end
+
+function Renderer:_draw_facing_marker(direction, x, y, size)
+  local marker_x, marker_y, marker = self:facing_marker_bounds(direction, x, y, size)
+  if not marker_x then return end
+  self:_color({ 0.96, 0.84, 0.28, 0.9 })
+  love.graphics.rectangle("fill", marker_x, marker_y, marker, marker)
+  love.graphics.setColor(1, 1, 1)
 end
 
 function Renderer:_draw_forecast_fill(x, y, size, style, time)
@@ -364,6 +384,7 @@ function Renderer:_draw_game(app)
       transform = presentation.merge_transforms(transform, presentation:player_bump_transform(size))
     end
     self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
+    if value == state.player then self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size) end
   end
 
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do

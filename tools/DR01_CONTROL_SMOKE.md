@@ -8,7 +8,7 @@ Run `love .`, start or continue a Campaign, and check the following manually.
 4. Hold into a hostile. The player should lunge/recoil without entering its cell, one turn should resolve, and holding must not spend repeated bump turns.
 5. Let the blocked hostile attack. The collision recoil and the existing hit flash/shake should read as separate, connected events.
 6. Compare a LIGHT body/cargo load with BURDENED, HEAVY, and OVERLOADED loads: only held movement repeat cadence should slow. Single steps and attacks remain one turn.
-7. Move to establish facing, then press `E`; the current ranged attack must use that facing. Arrow keys must not fire or rotate the Campaign player.
+7. Move to establish facing, then press `E`; the current ranged attack must use that facing. The small amber edge pip marks the current direction. Arrow keys must not fire or rotate the Campaign player.
 8. Face a door, corpse, storage crate, service kiosk, reconstruction station, cave connection, ruin entrance, and Reactor access in turn. `U` must affect only the object directly ahead.
 9. Face a corpse and press `U`; the existing salvage panel must open. `G` must not be needed in Campaign.
 10. Face ground cargo and press `U`; it remains explicit pickup for now (no walk-over auto-pickup in DR-01).
