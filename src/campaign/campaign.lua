@@ -56,6 +56,7 @@ function Campaign.new(options)
       campaign_id = id,
       seed = seed,
       current_zone = key,
+      run_id = id,
       meta_snapshot = options.meta_snapshot or { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {}, discovered_discovery_ids = {} },
       identity_state = campaign_identity,
       zone_records = record_map(record),
@@ -74,6 +75,7 @@ function Campaign.new(options)
     meta_snapshot = self.state.meta_snapshot,
     identity_allocator = identity,
     campaign = self,
+    campaign_state = self.state,
     on_meta_reward = options.on_meta_reward,
     emit = options.emit,
     run_id = id,
@@ -91,7 +93,6 @@ function Campaign:sync_active_references()
   -- boundary while ZoneRecord owns only local simulation state.
   self.state.active_body = self.session and self.session.state.run.player or nil
   self.state.carried_inventory = self.session and self.session.state.run.inventory or nil
-  self.state.campaign_scrap = self.session and self.session.state.scrap or 0
   self.state.legacy_progression = self.session and self.session:to_data().progression or self.state.legacy_progression
   self.state.legacy_route = self.session and self.session.state.route and self.session.state.route:to_data() or self.state.legacy_route
 end
@@ -111,7 +112,7 @@ function Campaign:validate()
   Identity.campaign_state_data(state.identity_state)
   assert(self.session and self.session.state.player == state.active_body, "Campaign active body is not canonical")
   assert(self.session.state.run.inventory == state.carried_inventory, "Campaign carried inventory is not canonical")
-  assert(self.session.state.scrap == state.campaign_scrap, "Campaign SCRAP ownership is inconsistent")
+  assert(self.session.state.scrap == state.scrap, "Campaign SCRAP ownership is inconsistent")
   self.session:validate_physical_ownership()
   return true
 end
@@ -208,6 +209,7 @@ function Campaign.from_data(manifest, shard, options)
       campaign_id = id,
       seed = Rng.new(manifest.seed).seed,
       current_zone = key,
+      run_id = id,
       meta_snapshot = manifest.meta_snapshot or {},
       identity_state = identity_state,
       zone_records = record_map(record),
@@ -224,6 +226,7 @@ function Campaign.from_data(manifest, shard, options)
     meta_snapshot = self.state.meta_snapshot,
     identity_allocator = identity,
     campaign = self,
+    campaign_state = self.state,
     on_meta_reward = options.on_meta_reward,
     emit = options.emit,
   })

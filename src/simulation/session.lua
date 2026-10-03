@@ -45,6 +45,41 @@ local RouteGraph = require("src.routes.graph")
 local Session = {}
 Session.__index = Session
 
+-- These values describe the enduring body/cargo/progression layer. In a
+-- legacy standalone Session they remain ordinary fields. Campaign supplies a
+-- single backing table, so the simulator has references to campaign state
+-- without maintaining second mutable copies of the active body, inventory,
+-- SCRAP, or account snapshot.
+local CAMPAIGN_STATE_FIELDS = {
+  stage = true, score = true, scrap = true, charms = true, curse = true, curse_id = true,
+  curse_bag = true, curse_options = true, route = true, run = true, inventory = true,
+  run_id = true, meta_snapshot = true, meta_reward_events = true,
+  fallen_recurrence = true, death_pending_archive = true,
+  discovery_state = true, reinforcement_state = true,
+}
+
+local function attach_campaign_state(state, campaign_state)
+  if not campaign_state then return state end
+  assert(type(campaign_state) == "table", "Campaign state must be a table")
+  for name in pairs(CAMPAIGN_STATE_FIELDS) do
+    if campaign_state[name] == nil then campaign_state[name] = state[name] end
+    state[name] = nil
+  end
+  return setmetatable(state, {
+    __index = function(_, name)
+      if CAMPAIGN_STATE_FIELDS[name] then return campaign_state[name] end
+      return nil
+    end,
+    __newindex = function(target, name, value)
+      if CAMPAIGN_STATE_FIELDS[name] then
+        campaign_state[name] = value
+      else
+        rawset(target, name, value)
+      end
+    end,
+  })
+end
+
 local DIRECTIONS = {
   w = { 0, 1, "N" },
   a = { -1, 0, "W" },
@@ -278,6 +313,7 @@ function Session.new(options)
     -- location. It always points at run.inventory, never a floor inventory.
     inventory = inventory,
   }
+  self.state = attach_campaign_state(self.state, options.campaign_state)
   self.component_factory = ComponentFactory.new(self.registry, self.state, self.identity_allocator)
   return self
 end
@@ -1533,6 +1569,7 @@ function Session.from_data(data, options)
     on_meta_reward = options.on_meta_reward,
     identity_allocator = options.identity_allocator,
     campaign = options.campaign,
+    campaign_state = options.campaign_state,
   })
   local progression = data.progression
   local state = session.state
