@@ -1,6 +1,7 @@
 local App = require("src.app.app")
 local Input = require("src.app.input")
 local Renderer = require("src.rendering.renderer")
+local SaveStore = require("src.persistence.save_store")
 
 return {
   {
@@ -53,14 +54,26 @@ return {
     end,
   },
   {
-    name = "New Run asks before replacing an existing campaign and starts fresh after confirmation",
+    name = "New Run fills separate campaign slots before asking to replace one",
     run = function()
-      local app = App.new({ seed = 9019 })
+      local slots = { SaveStore.memory_directory(), SaveStore.memory_directory(), SaveStore.memory_directory() }
+      local app = App.new({ seed = 9019, campaign_slot_stores = slots })
       local first = assert(app:request_new_campaign())
       app:return_to_title()
-      assert(not app:begin_new_campaign() and app.screen == "replace_campaign")
+      local second = assert(app:begin_new_campaign())
+      assert(app.screen == "game" and app.active_campaign_slot == 2 and second ~= first)
+      app:return_to_title()
+      local third = assert(app:begin_new_campaign())
+      assert(app.screen == "game" and app.active_campaign_slot == 3 and third ~= second)
+      app:return_to_title()
+      assert(app:begin_new_campaign() and app.screen == "campaign_slots")
+      assert(not app:select_campaign_slot() and app.screen == "replace_campaign")
       local replacement = assert(app:confirm_replace_campaign())
-      assert(app.screen == "game" and replacement ~= first)
+      assert(app.screen == "game" and app.active_campaign_slot == 1 and replacement ~= first)
+
+      local resumed = App.new({ seed = 9020, campaign_slot_stores = slots })
+      assert(resumed.campaign_slot_count() == 3)
+      assert(resumed:continue_campaign(2).state.campaign_id == second.state.campaign_id)
     end,
   },
   {

@@ -23,6 +23,7 @@ local InventoryLayout = require("src.ui.inventory_layout")
 
 local App = {}
 App.__index = App
+App.CAMPAIGN_SLOT_COUNT = 3
 
 local HOLD_INITIAL_DELAY, HOLD_REPEAT_DELAY = 0.28, 0.11
 
@@ -40,7 +41,24 @@ function App.new(options)
   self.content = options.content or Content
   self.registry = options.registry or Registry.load()
   self.save_store = options.save_store or SaveStore.runtime()
-  self.campaign_store = options.campaign_store or SaveStore.runtime_directory("campaign")
+  -- Slot one deliberately keeps the original `campaign` directory. Existing
+  -- installs therefore retain their campaign without a migration; the extra
+  -- slots live beside it. Tests and integrations can inject all three stores
+  -- explicitly through campaign_slot_stores.
+  local primary_campaign_store = options.campaign_store or SaveStore.runtime_directory("campaign")
+  self.campaign_stores = options.campaign_slot_stores or {}
+  self.campaign_stores[1] = self.campaign_stores[1] or primary_campaign_store
+  for index = 2, App.CAMPAIGN_SLOT_COUNT do
+    if not self.campaign_stores[index] then
+      self.campaign_stores[index] = love and love.filesystem
+        and SaveStore.runtime_directory("campaign/slot_" .. index)
+        or SaveStore.memory_directory()
+    end
+  end
+  self.active_campaign_slot = 1
+  -- Kept as the active-store alias for the campaign/save boundary and older
+  -- callers that inject a single campaign_store.
+  self.campaign_store = self.campaign_stores[self.active_campaign_slot]
   self.meta_store = options.meta_store or SaveStore.runtime("meta_profile.json")
   self.archive_store = options.archive_store or SaveStore.runtime("fallen_characters.json")
   self.meta_profile, self.meta_status = MetaProfile.load(self.meta_store, self.registry)
@@ -110,18 +128,107 @@ function App:quit()
   if love and love.event then love.event.quit() end
 end
 
--- Campaign Continue is intentionally separate from the historical active-run
--- slot. OW-01 never interprets, migrates, or deletes active_run.json.
-function App:refresh_campaign_continue()
-  local available, error_data = CampaignPersistence.has_valid_campaign(self.campaign_store, {
+function App:campaign_slot_store(index)
+  index = tonumber(index)
+  if not index or index % 1 ~= 0 or index < 1 or index > App.CAMPAIGN_SLOT_COUNT then return nil end
+  return self.campaign_stores[index]
+end
+
+function App:_campaign_persistence_options()
+  return {
     content = self.content,
     registry = self.registry,
     meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
-  })
-  self.campaign_continue_available = available == true
-  self.campaign_continue_error = self.campaign_continue_available and nil or error_data
+  }
+end
+
+-- Campaign slots are intentionally separate from the historical active-run
+-- slot. OW-01 never interprets, migrates, or deletes active_run.json.
+function App:refresh_campaign_continue()
+  local any_available, first_error = false, nil
+  self.campaign_slots = {}
+  for index = 1, App.CAMPAIGN_SLOT_COUNT do
+    local available, error_data = CampaignPersistence.has_valid_campaign(self.campaign_stores[index], self:_campaign_persistence_options())
+    local slot = { index = index, store = self.campaign_stores[index], available = available == true, error = error_data }
+    self.campaign_slots[index] = slot
+    any_available = any_available or slot.available
+    first_error = first_error or error_data
+  end
+  self.campaign_continue_available = any_available
+  self.campaign_continue_error = any_available and nil or first_error
   self.legacy_active_run_present = self.save_store:exists()
-  return self.campaign_continue_available
+  return any_available
+end
+
+function App:first_empty_campaign_slot()
+  for _, slot in ipairs(self.campaign_slots or {}) do
+    if not slot.available then return slot.index end
+  end
+  return nil
+end
+
+function App:first_campaign_slot()
+  for _, slot in ipairs(self.campaign_slots or {}) do
+    if slot.available then return slot.index end
+  end
+  return nil
+end
+
+function App:campaign_slot_count()
+  local count = 0
+  for _, slot in ipairs(self.campaign_slots or {}) do
+    if slot.available then count = count + 1 end
+  end
+  return count
+end
+
+function App:campaign_slot_options()
+  local mode = self.campaign_slot_mode or "continue"
+  local options = {}
+  for _, slot in ipairs(self.campaign_slots or {}) do
+    local suffix, description
+    if slot.available then
+      suffix = mode == "new" and "OCCUPIED" or "CONTINUE"
+      description = mode == "new" and "Selecting this slot asks before replacing its campaign."
+        or "Resume the campaign saved in this slot."
+    else
+      suffix = mode == "new" and "EMPTY" or "EMPTY"
+      description = mode == "new" and "Start a fresh campaign in this empty slot."
+        or "No campaign is saved in this slot."
+    end
+    options[#options + 1] = {
+      slot_index = slot.index,
+      available = slot.available,
+      name = "SLOT " .. slot.index .. " — " .. suffix,
+      description = description,
+    }
+  end
+  return options
+end
+
+function App:open_campaign_slots(mode)
+  self:refresh_campaign_continue()
+  self.campaign_slot_mode = mode == "new" and "new" or "continue"
+  local preferred = self.campaign_slot_mode == "new" and self:first_empty_campaign_slot() or self:first_campaign_slot()
+  self.screen, self.menu = "campaign_slots", preferred or 1
+  return true
+end
+
+function App:select_campaign_slot()
+  local option = self:campaign_slot_options()[self.menu]
+  if not option then return nil, { code = "invalid_slot", reason = "No campaign slot is selected" } end
+  if self.campaign_slot_mode == "new" then
+    if option.available then
+      self.campaign_replace_slot = option.slot_index
+      self.screen, self.menu = "replace_campaign", 1
+      return false
+    end
+    return self:request_new_campaign(option.slot_index)
+  end
+  if not option.available then
+    return nil, { code = "empty_slot", reason = "This campaign slot is empty" }
+  end
+  return self:continue_campaign(option.slot_index)
 end
 
 function App:refresh_continue()
@@ -261,7 +368,12 @@ function App:_allocate_new_campaign()
   return campaign_id, MetaProfile.snapshot(candidate, self.registry)
 end
 
-function App:request_new_campaign()
+function App:request_new_campaign(slot_index)
+  slot_index = slot_index or self:first_empty_campaign_slot()
+  local store = self:campaign_slot_store(slot_index)
+  if not store then
+    return nil, { code = "no_empty_campaign_slot", reason = "All campaign slots are occupied" }
+  end
   local campaign_id, snapshot = self:_allocate_new_campaign()
   if not campaign_id then self.campaign_continue_error = snapshot; return nil, snapshot end
   local campaign = Campaign.new({
@@ -273,7 +385,8 @@ function App:request_new_campaign()
     on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
     emit = function(event) self:_handle_session_event(event) end,
   })
-  campaign:set_persistence_directory(self.campaign_store)
+  self.active_campaign_slot, self.campaign_store = slot_index, store
+  campaign:set_persistence_directory(store)
   self.campaign, self.session = campaign, campaign.session
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -284,8 +397,13 @@ function App:request_new_campaign()
   return campaign
 end
 
-function App:continue_campaign()
-  local campaign, error_data = CampaignPersistence.load(self.campaign_store, {
+function App:continue_campaign(slot_index)
+  slot_index = slot_index or self:first_campaign_slot()
+  local store = self:campaign_slot_store(slot_index)
+  if not store then
+    return nil, { code = "missing_campaign", reason = "No campaign slot is available to continue" }
+  end
+  local campaign, error_data = CampaignPersistence.load(store, {
     content = self.content,
     registry = self.registry,
     meta_snapshot = MetaProfile.snapshot(self.meta_profile, self.registry),
@@ -297,12 +415,16 @@ function App:continue_campaign()
     self.campaign_continue_available = false
     return nil, error_data
   end
-  campaign:set_persistence_directory(self.campaign_store)
+  self.active_campaign_slot, self.campaign_store = slot_index, store
+  campaign:set_persistence_directory(store)
   self.campaign, self.session = campaign, campaign.session
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
   self.presentation:reset(self.session)
   self.campaign_continue_available, self.campaign_continue_error = true, nil
+  if self.campaign_slots and self.campaign_slots[slot_index] then
+    self.campaign_slots[slot_index].available, self.campaign_slots[slot_index].error = true, nil
+  end
   return campaign
 end
 
@@ -316,6 +438,10 @@ function App:autosave_campaign(_boundary)
   end
   self.campaign_save_error = nil
   self.campaign_continue_available = true
+  if self.campaign_slots and self.campaign_slots[self.active_campaign_slot] then
+    self.campaign_slots[self.active_campaign_slot].available = true
+    self.campaign_slots[self.active_campaign_slot].error = nil
+  end
   return true
 end
 
@@ -390,21 +516,24 @@ function App:begin_new_run()
 end
 
 function App:begin_new_campaign()
-  if self.campaign_continue_available then
-    self.screen, self.menu = "replace_campaign", 1
-    return false
-  end
-  return self:request_new_campaign()
+  self:refresh_campaign_continue()
+  local empty_slot = self:first_empty_campaign_slot()
+  if empty_slot then return self:request_new_campaign(empty_slot) end
+  -- All slots are in use. Show the player exactly which campaign they are
+  -- replacing instead of treating their existing save as a New Run blocker.
+  return self:open_campaign_slots("new")
 end
 
--- Campaign manifests have no separate archive slot: beginning a fresh
--- campaign writes a new manifest over the Continue target.  Keep that action
--- behind its own confirmation instead of silently treating NEW RUN as broken.
 function App:confirm_replace_campaign()
+  local slot_index = self.campaign_replace_slot
+  if not self:campaign_slot_store(slot_index) then
+    self.screen, self.menu = "campaign_slots", 1
+    return nil, { code = "invalid_slot", reason = "No campaign slot was selected for replacement" }
+  end
   self.campaign, self.session = nil, nil
-  self.campaign_continue_available, self.campaign_continue_error = false, nil
   self.title_error = nil
-  local campaign, error_data = self:request_new_campaign()
+  local campaign, error_data = self:request_new_campaign(slot_index)
+  self.campaign_replace_slot = nil
   if not campaign then
     self.title_error = error_data or { code = "write_failed", reason = "Could not start a new campaign" }
     self.screen, self.menu = "title", 1
@@ -486,7 +615,14 @@ end
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
   if selected and selected.id == "continue" then
-    return self.campaign_continue_available and self:continue_campaign() or self:continue_run()
+    if not self.campaign_continue_available then return self:continue_run() end
+    self:refresh_campaign_continue()
+    local first = self:first_campaign_slot()
+    -- A single saved campaign keeps the original one-click Continue flow.
+    if first and self:campaign_slot_count() == 1 then
+      return self:continue_campaign(first)
+    end
+    return self:open_campaign_slots("continue")
   end
   if selected and selected.id == "research" then return self:open_research() end
   if selected and selected.id == "fallen" then return self:open_fallen_archive() end
@@ -1150,6 +1286,36 @@ function App:title_option_at(x, y, viewport_width, viewport_height)
   return nil
 end
 
+function App:campaign_slot_at(x, y, viewport_width, viewport_height)
+  if self.screen ~= "campaign_slots" then return nil end
+  if type(viewport_width) ~= "number" or type(viewport_height) ~= "number" then
+    if not (love and love.graphics) then return nil end
+    viewport_width, viewport_height = love.graphics.getDimensions()
+  end
+  local options = self:campaign_slot_options()
+  local function option_at(pointer_x, pointer_y)
+    if pointer_x < viewport_width * 0.18 or pointer_x > viewport_width * 0.82 then return nil end
+    local first_y, stride = 138, 70
+    for index = 1, #options do
+      local y = first_y + (index - 1) * stride
+      if pointer_y >= y and pointer_y <= y + 58 then return index end
+    end
+    return nil
+  end
+  local selected = option_at(x, y)
+  if selected then return selected end
+  local dpi = love and love.window and love.window.getDPIScale and love.window.getDPIScale() or 1
+  local scales, tried = { dpi, 1.5, 1.25, 2 }, {}
+  for _, scale in ipairs(scales) do
+    if type(scale) == "number" and scale > 1 and not tried[scale] then
+      tried[scale] = true
+      selected = option_at(x / scale, y / scale)
+      if selected then return selected end
+    end
+  end
+  return nil
+end
+
 function App:_update_inventory_drag(pointer_x, pointer_y, layout)
   local drag = self.inventory_drag
   if not drag then return nil end
@@ -1384,6 +1550,10 @@ function App:keyreleased(...)
 end
 
 function App:mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen == "campaign_slots" and button == 1 then
+    self.menu = self:campaign_slot_at(x, y, viewport_width, viewport_height) or self.menu
+    return self:select_campaign_slot()
+  end
   if self.screen == "replace_campaign" and button == 1 then
     return self:confirm_replace_campaign()
   end
@@ -1410,6 +1580,10 @@ function App:mousereleased(x, y, button, viewport_width, viewport_height)
     local index = self:title_option_at(x, y, viewport_width, viewport_height)
     self.menu = index or self.menu
     return self:activate_title_choice()
+  end
+  if self.screen == "campaign_slots" and button == 1 then
+    self.menu = self:campaign_slot_at(x, y, viewport_width, viewport_height) or self.menu
+    return self:select_campaign_slot()
   end
   return self:inventory_mousereleased(x, y, button, viewport_width, viewport_height)
 end

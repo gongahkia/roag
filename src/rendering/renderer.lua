@@ -1113,8 +1113,13 @@ function Renderer:draw(app)
   elseif app.screen == "replace_save" then
     self:_menu(self:_screen_text(app, "replace_save", "title", "REPLACE ACTIVE RUN?"), { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
       self:_screen_text(app, "replace_save", "footer", "ENTER CONFIRM     ESC CANCEL"))
+  elseif app.screen == "campaign_slots" then
+    local choosing_new = app.campaign_slot_mode == "new"
+    self:_menu(choosing_new and "CAMPAIGN SLOTS — REPLACE ONE" or "CAMPAIGN SLOTS", app:campaign_slot_options(), app.menu,
+      choosing_new and "W/S OR CLICK SELECT SLOT     ESC TITLE" or "W/S OR CLICK SELECT SLOT     ESC TITLE")
   elseif app.screen == "replace_campaign" then
-    self:_menu("REPLACE CAMPAIGN?", { { name = "START FRESH CAMPAIGN", description = "Your current campaign save will be replaced." } }, app.menu,
+    local slot = app.campaign_replace_slot or "?"
+    self:_menu("REPLACE SLOT " .. slot .. "?", { { name = "START FRESH CAMPAIGN", description = "Only this slot's campaign will be replaced." } }, app.menu,
       "CLICK / ENTER REPLACE     ESC CANCEL")
   elseif app.screen == "curse" then
     self:_menu(self:_screen_text(app, "curse", "title", "CHOOSE A CURSE"), app.session.state.curse_options, app.menu,
