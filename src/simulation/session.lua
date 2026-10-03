@@ -155,6 +155,16 @@ local function copy_plain(value)
   return result
 end
 
+local function copy_explored_cells(cells)
+  local result = {}
+  for location_key, explored in pairs(cells or {}) do
+    assert(type(location_key) == "string" and location_key:match("^%-?%d+:%-?%d+$") and explored == true,
+      "Explored-cell data is invalid")
+    result[location_key] = true
+  end
+  return result
+end
+
 local function copy_meta_snapshot(snapshot)
   local result = { unlocked_research_ids = {}, unlock_ids = {}, modifiers = {}, discovered_discovery_ids = {} }
   local seen_research, seen_unlocks, seen_discoveries = {}, {}, {}
@@ -284,6 +294,7 @@ function Session.new(options)
     curse_id = nil,
     log = {},
     curse_bag = {},
+    explored = {},
     effects = {},
     electrical_effects = {},
     next_component_sequence = 1,
@@ -1567,6 +1578,9 @@ function Session:to_data()
       death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
     },
     settings = copy_plain(state.settings or {}),
+    -- Visibility is transient, but discovered terrain is player knowledge and
+    -- must survive a save/load just like the generated world does.
+    explored = copy_explored_cells(state.explored),
     log = {},
     player = self:_actor_to_data(state.player),
     inventory = state.run.inventory:to_data(),
@@ -1708,6 +1722,7 @@ function Session.from_data(data, options)
   local route_node = state.route:node(state.route_node_id)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
+  state.explored = copy_explored_cells(data.explored)
   state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
   state.protected_content_cells = copy_plain(data.protected_content_cells or {})
   state.log = {}
@@ -3511,31 +3526,59 @@ function Session:_clear_enemy_attack(enemy)
   enemy.attack_x, enemy.attack_y = nil, nil
 end
 
+function Session:_detonate_flare(flare)
+  local state, cells = self.state, self:_blast(flare, flare.radius)
+  for location_key in pairs(cells) do
+    state.effects[location_key] = true
+  end
+  self:_sound("flare")
+
+  local stunned = 0
+  for _, enemy in ipairs(state.enemies) do
+    if cells[Grid.key(enemy.x, enemy.y)] then
+      enemy.stun = math.max(enemy.stun or 0, flare.stun)
+      self:_clear_enemy_attack(enemy)
+      self:_cancel_area_attacks_from(enemy)
+      stunned = stunned + 1
+    end
+  end
+  local boss_stunned = false
+  if state.boss and cells[Grid.key(state.boss.x, state.boss.y)] then
+    state.boss.stun = math.max(state.boss.stun or 0, flare.boss_stun or 1)
+    state.boss.pending_telegraph = nil
+    self:_cancel_area_attacks_from(state.boss)
+    boss_stunned = true
+  end
+
+  -- Flares ignite surviving material fuel without applying explosive damage.
+  -- Newly created fires wait until a later world fire tick.
+  self:_ignite_flammable_radius(flare, flare.radius, {
+    source = "flare",
+    source_actor_id = flare.source_actor_id,
+  })
+  flare.detonated = true
+  flare.light_remaining = flare.light_duration or 3
+  self:_log("FLARE FLASH — " .. stunned .. " HOSTILES STUNNED" .. (boss_stunned and " • BOSS DISRUPTED" or "") .. ".")
+end
+
 function Session:_update_flares()
   local state, remaining = self.state, {}
   for _, flare in ipairs(state.flares) do
-    flare.fuse = flare.fuse - 1
-    if flare.fuse > 0 then
+    if not flare.detonated then
+      -- Old saves can retain a pre-overhaul lit flare. Honour its remaining
+      -- fuse once; newly deployed flares use fuse 0 and burst immediately.
+      flare.fuse = flare.fuse or 0
+      if flare.fuse > 0 then
+        flare.fuse = flare.fuse - 1
+      end
+      if flare.fuse <= 0 then self:_detonate_flare(flare) end
+    elseif flare.light_remaining then
+      flare.light_remaining = flare.light_remaining - 1
+    end
+    if flare.detonated and (flare.light_remaining or 0) > 0 then
       remaining[#remaining + 1] = flare
-    else
-      local cells = self:_blast(flare, flare.radius)
-      for location_key in pairs(cells) do
-        state.effects[location_key] = true
-      end
-      self:_sound("flare")
-      for _, enemy in ipairs(state.enemies) do
-        if cells[Grid.key(enemy.x, enemy.y)] then
-          enemy.stun = math.max(enemy.stun, flare.stun)
-          self:_clear_enemy_attack(enemy)
-          self:_cancel_area_attacks_from(enemy)
-        end
-      end
-      -- Flares ignite surviving material fuel without applying explosive
-      -- damage. Newly created fires wait until a later world fire tick.
-      self:_ignite_flammable_radius(flare, flare.radius, {
-        source = "flare",
-        source_actor_id = flare.source_actor_id,
-      })
+    elseif not flare.detonated then
+      remaining[#remaining + 1] = flare
     end
   end
   state.flares = remaining
@@ -3855,6 +3898,10 @@ end
 function Session:_boss_turn()
   local boss = self.state.boss
   if not boss then return end
+  if (boss.stun or 0) > 0 then
+    boss.stun = boss.stun - 1
+    return
+  end
   if boss.pending_telegraph then
     self:_resolve_boss_telegraph(boss)
     return
@@ -4290,14 +4337,18 @@ function Session:_action(input)
     else
       player.flares = player.flares - 1
       self.state.flares[#self.state.flares + 1] = entity("flare", player.x, player.y, {
-        fuse = 2,
-        radius = 1,
-        stun = 2,
-        light = 3,
+        -- The flash resolves during this turn before enemies can answer it.
+        -- Its afterglow remains as a visible, hostile-avoided light zone.
+        fuse = 0,
+        radius = 2,
+        stun = 3,
+        boss_stun = 1,
+        light = player.flare_light,
+        light_duration = 3,
         source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_sound("flare")
-      self:_log("Flare lit. Necromancers will be stunned.")
+      self:_log("Flare primed — immediate flash and afterglow.")
     end
   elseif input:match("^activate_ability:") then
     self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
@@ -4465,6 +4516,7 @@ function Session:_make_boss(boss_id, point)
     max_health = definition.health,
     ammo = definition.ammo or 0,
     direction = "a",
+    stun = 0,
     crawl_stride = 0,
     pending_telegraph = nil,
     body = self:_build_body(definition, "zone"),
