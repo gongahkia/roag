@@ -5,6 +5,8 @@
 local Content = require("src.content.legacy")
 local Session = require("src.simulation.session")
 local RouteDefinitions = require("src.routes.definitions")
+local Campaign = require("src.campaign.campaign")
+local ZoneKey = require("src.campaign.zone_key")
 
 local InspectionFloor = {}
 
@@ -221,6 +223,37 @@ function InspectionFloor.generate(options)
     state = session.state,
     provenance = provenance_for(session),
     fallen_recurrence = session.state.fallen_recurrence,
+  }
+end
+
+-- OW-02 inspection entry point. It deliberately constructs the same
+-- campaign-zone generator used by play, but never opens persistence or a
+-- renderer. Legacy biome/tier inspection above remains untouched.
+function InspectionFloor.generate_campaign_zone(options)
+  options = options or {}
+  local seed = tonumber(options.campaign_seed or options.seed)
+  local x, y, z = tonumber(options.world_x), tonumber(options.world_y), tonumber(options.z or 0)
+  if not seed or seed % 1 ~= 0 then return nil, { code = "invalid_seed", reason = "Campaign seed must be an integer" } end
+  if not x or x % 1 ~= 0 or not y or y % 1 ~= 0 or not z or z % 1 ~= 0 then
+    return nil, { code = "invalid_zone_key", reason = "Campaign zone coordinates must be integers" }
+  end
+  local key = ZoneKey.new(x, y, z)
+  if not Campaign.is_zone_in_bounds(key) then
+    return nil, { code = "out_of_bounds", reason = "OW-02 inspector supports only the finite z=0 surface" }
+  end
+  local campaign = Campaign.new({
+    seed = seed, campaign_id = options.campaign_id or "campaign:000001", current_zone = key,
+    profile_id = options.profile_id, content = options.content, registry = options.registry,
+    route_definitions = options.route_definitions, meta_snapshot = options.meta_snapshot,
+  })
+  local session, record = campaign.session, campaign.active_zone
+  return {
+    campaign_seed = campaign.state.seed, zone_key = ZoneKey.to_data(key), profile_id = record.profile_id,
+    generation_seed = record.generation_seed, connections = record.connections,
+    campaign = campaign, session = session, world = session.state.world, state = session.state,
+    seed = session.seed, stage = session.state.stage, terrain = session.state.settings.terrain,
+    biome_id = session.state.settings.biome_id, tier_id = session.state.settings.tier_id,
+    provenance = { surface_connections = record.connections, zone_key = ZoneKey.encode(key) },
   }
 end
 

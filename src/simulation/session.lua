@@ -1538,6 +1538,7 @@ function Session:to_data()
     exit = self:_actor_to_data(state.exit),
     boss = self:_actor_to_data(state.boss),
     route = state.route and state.route:to_data() or nil,
+    surface_connector_cells = copy_plain(state.surface_connector_cells or {}),
   }
   for _, curse in ipairs(state.curse_bag or {}) do data.progression.curse_bag[#data.progression.curse_bag + 1] = curse.id or curse.name end
   for _, curse in ipairs(state.curse_options or {}) do data.progression.curse_options[#data.progression.curse_options + 1] = curse.id or curse.name end
@@ -1657,12 +1658,16 @@ function Session.from_data(data, options)
   local route_node = state.route:node(state.route_node_id)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
+  state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
   state.log = {}
   for _, message in ipairs(data.log or {}) do assert(type(message) == "string", "Active run log contains invalid data"); state.log[#state.log + 1] = message end
 
-  state.player = session:_actor_from_data(assert(data.player, "Active run has no player"))
+  -- A zone reload reuses Campaign's exact active instance. The zone shard
+  -- intentionally has no player/cargo copy, so this branch is the critical
+  -- no-duplication seam for cross-zone traversal.
+  state.player = options.active_player or session:_actor_from_data(assert(data.player, "Active run has no player"))
   state.run.player = state.player
-  state.run.inventory = Inventory.from_data(assert(data.inventory, "Active run has no inventory"), function(item)
+  state.run.inventory = options.carried_inventory or Inventory.from_data(assert(data.inventory, "Active run has no inventory"), function(item)
     return PhysicalItem.from_data(item, session.registry)
   end)
   state.inventory = state.run.inventory
@@ -2346,6 +2351,7 @@ function Session:_open_location(used, minimum, avoid_hazards, rng)
       local location_key = Grid.key(x, y)
       local point = Grid.cell(x, y)
       if self:_open(x, y) and not used[location_key]
+        and not (self.state.surface_connector_cells and self.state.surface_connector_cells[location_key])
         and (not avoid_hazards or not self.state.world:is_hazardous(x, y))
         and (not minimum or Grid.distance(point, self.state.player) >= minimum) then
         options[#options + 1] = point
@@ -3622,10 +3628,36 @@ function Session:_move_player(direction)
   return result
 end
 
+local SURFACE_DIRECTION_BY_INPUT = { w = "north", a = "west", s = "south", d = "east" }
+
+-- A successful campaign edge transfer is deliberately handled before an
+-- ordinary turn starts. It therefore cannot advance AI, media, effects,
+-- reinforcement timers, player cooldowns, or the source-zone RNG.
+function Session:_try_surface_transition(input)
+  local direction, player, delta = SURFACE_DIRECTION_BY_INPUT[input], self.state.player, DIRECTIONS[input]
+  if not direction or not self.campaign or not player or not delta then return false end
+  if Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then return false end
+  local transitioned, failure = self.campaign:request_transition(direction)
+  if transitioned and transitioned.applied then
+    self.campaign.session.state.player.direction = input
+    return true, transitioned
+  end
+  -- An attempted connector must never spill into a normal blocked movement
+  -- turn. Persistence/arrival errors leave the current zone entirely frozen.
+  if failure then self:_log(failure.reason or "Travel failed.") end
+  return true, failure or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
+end
+
 function Session:can_move(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
   if not player or not delta then
     return false, { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
+  if self.campaign and SURFACE_DIRECTION_BY_INPUT[direction] and not Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then
+    local connection = self.campaign.active_zone.connections and self.campaign.active_zone.connections[SURFACE_DIRECTION_BY_INPUT[direction]]
+    if connection and player.x == connection.boundary.x and player.y == connection.boundary.y then
+      return true, { applied = true, code = "zone_connection", direction = SURFACE_DIRECTION_BY_INPUT[direction] }
+    end
   end
   local result = self:validate_actor_movement(player, delta[1], delta[2])
   return result.applied, result
@@ -4167,6 +4199,10 @@ function Session:turn(input)
   if state.ended then
     return state.ended
   end
+  local transitioned, transition_result = self:_try_surface_transition(input)
+  if transitioned then
+    return transition_result and transition_result.applied and "zone_transition" or "zone_transition_failed"
+  end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
@@ -4227,7 +4263,7 @@ function Session:turn(input)
       end
     end
     result = state.ended
-  elseif state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
+  elseif not self.campaign and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
     self:_enemy_turn()

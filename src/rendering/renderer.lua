@@ -381,8 +381,11 @@ function Renderer:_draw_game(app)
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
   self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
   self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
-  self:_text(state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
-    or ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required), hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
+  local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
+    or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
+  if primary_status then
+    self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
+  end
   self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, offset_y + 134, 0.82, { 0.65, 0.9, 0.8 })
   self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, offset_y + 154, 0.8,
     ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })

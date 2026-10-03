@@ -23,6 +23,9 @@ function ZoneRecord.new(key, profile_id, generation_seed, identity_state, option
     -- commit can therefore leave a harmless orphan without changing what the
     -- previous manifest loads.
     shard_revision = options.shard_revision or 0,
+    -- Surface metadata is deliberately index-sized. Full mutable simulation
+    -- state still belongs in the independently revisioned zone shard.
+    connections = options.connections or {},
     identity_state = identity_state and Identity.new(options.campaign_id or "campaign:000001", key, {}, identity_state):zone_state_data()
       or Identity.new(options.campaign_id or "campaign:000001", key, {}, nil):zone_state_data(),
   }, ZoneRecord)
@@ -35,6 +38,7 @@ function ZoneRecord:to_data()
     generation_seed = self.generation_seed,
     visited = self.visited == true,
     shard_revision = self.shard_revision,
+    connections = self.connections,
     identity_state = self.identity_state,
   }
 end
@@ -44,6 +48,7 @@ function ZoneRecord.from_data(data, campaign_id)
   return ZoneRecord.new(ZoneKey.from_data(data.key), data.profile_id, data.generation_seed, data.identity_state, {
     visited = data.visited == true,
     shard_revision = data.shard_revision or 0,
+    connections = data.connections or {},
     campaign_id = campaign_id,
   })
 end

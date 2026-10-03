@@ -271,6 +271,7 @@ function App:request_new_campaign()
     on_meta_reward = function(id, amount, event) return self:_claim_meta_reward(id, amount, event) end,
     emit = function(event) self:_handle_session_event(event) end,
   })
+  campaign:set_persistence_directory(self.campaign_store)
   self.campaign, self.session = campaign, campaign.session
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -294,6 +295,7 @@ function App:continue_campaign()
     self.campaign_continue_available = false
     return nil, error_data
   end
+  campaign:set_persistence_directory(self.campaign_store)
   self.campaign, self.session = campaign, campaign.session
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -766,6 +768,13 @@ function App:perform_turn(input)
     return
   end
   local result = self.session:turn(input)
+  if result == "zone_transition" and self.campaign then
+    -- Campaign atomically swaps its active local simulator only after the
+    -- zone shards and manifest commit. Presentation observes that new zone.
+    self.session = self.campaign.session
+    self:clear_held_movement()
+    self.presentation:reset(self.session)
+  end
   self:_handle_turn_result(result)
   self:autosave("turn")
   return result

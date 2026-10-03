@@ -49,6 +49,16 @@ function CampaignPersistence.encode_zone(campaign)
   return text
 end
 
+function CampaignPersistence.encode_zone_data(data)
+  local text, reason = Json.encode({
+    format = CampaignPersistence.ZONE_FORMAT,
+    version = CampaignPersistence.ZONE_VERSION,
+    zone = data,
+  })
+  if not text then return failure("encode_failed", tostring(reason)) end
+  return text
+end
+
 function CampaignPersistence.decode_manifest(text)
   local envelope, reason = Json.decode(text)
   if not envelope then return failure("invalid_json", tostring(reason)) end
@@ -72,22 +82,42 @@ end
 function CampaignPersistence.save(campaign, directory)
   assert_directory(directory)
   local record = campaign.active_zone
+  local revision, zone_error = CampaignPersistence.write_zone_data(record, campaign:to_zone_data(), directory)
+  if not revision then return nil, zone_error end
+  local previous_revision = record.shard_revision or 0
+  record.shard_revision = revision
+  local manifest_written, manifest_error = CampaignPersistence.write_manifest(campaign, directory)
+  if not manifest_written then
+    record.shard_revision = previous_revision
+    return nil, manifest_error
+  end
+  return true
+end
+
+-- Low-level commit primitives are intentionally public to Campaign's staged
+-- cross-zone transfer. Neither mutates a record, so callers can roll their
+-- in-memory head back if a later manifest write fails.
+function CampaignPersistence.write_zone_data(record, zone_data, directory)
+  assert_directory(directory)
   local previous_revision = record.shard_revision or 0
   local revision = previous_revision + 1
-  local zone_text, zone_error = CampaignPersistence.encode_zone(campaign)
+  local zone_text, zone_error = CampaignPersistence.encode_zone_data(zone_data)
   if not zone_text then return nil, zone_error end
-  local zone_store = directory:file(CampaignPersistence.zone_filename(campaign.state.current_zone, revision))
+  local zone_store = directory:file(CampaignPersistence.zone_filename(record.key, revision))
   -- Zone first: the previous manifest remains the committed head whenever a
   -- new zone write fails. A manifest failure may leave an orphan newer shard,
   -- which is harmless because load follows only the old manifest reference.
   local zone_written, zone_write_error = zone_store:write(zone_text)
   if not zone_written then return failure("zone_write_failed", (zone_write_error and zone_write_error.reason) or "Could not write zone shard") end
-  record.shard_revision = revision
+  return revision
+end
+
+function CampaignPersistence.write_manifest(campaign, directory)
+  assert_directory(directory)
   local manifest_text, manifest_error = CampaignPersistence.encode_manifest(campaign)
-  if not manifest_text then record.shard_revision = previous_revision; return nil, manifest_error end
+  if not manifest_text then return nil, manifest_error end
   local manifest_written, manifest_write_error = directory:file(CampaignPersistence.MANIFEST_FILE):write(manifest_text)
   if not manifest_written then
-    record.shard_revision = previous_revision
     return failure("manifest_write_failed", (manifest_write_error and manifest_write_error.reason) or "Could not write campaign manifest")
   end
   return true

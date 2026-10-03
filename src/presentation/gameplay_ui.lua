@@ -126,8 +126,10 @@ function GameplayUI.hud(session)
     armed_bombs = #(state.bombs or {}),
     lit_flares = #(state.flares or {}),
     dash = player.dash == 0 and "READY" or "RECHARGING",
-    objective_progress = player.objective_progress or 0,
-    objective_required = state.settings.objective_required,
+    -- Surface campaign traversal is never objective-gated. Legacy sessions
+    -- retain the normal-floor counter until route progression is retired.
+    objective_progress = session.campaign and nil or (player.objective_progress or 0),
+    objective_required = session.campaign and nil or state.settings.objective_required,
     scrap = state.scrap or 0,
     charm_count = charm_count,
     charm_slots = charm_slots,

@@ -158,7 +158,8 @@ function Analysis.analyze(world, metadata)
     end
   end
   for index, enemy in ipairs(metadata.enemies or state.enemies or {}) do
-    enemies[#enemies + 1] = session and actor_data(session, enemy, metadata.provenance and metadata.provenance.enemies[index])
+    enemies[#enemies + 1] = session and actor_data(session, enemy,
+      metadata.provenance and metadata.provenance.enemies and metadata.provenance.enemies[index])
       or { kind = enemy.kind, semantic_id = enemy.content_id or enemy.kind, x = enemy.x, y = enemy.y, health = enemy.health }
   end
 

@@ -25,6 +25,7 @@ local suites = {
   "tests.test_app_inventory",
   "tests.test_session",
   "tests.test_campaign",
+  "tests.test_surface_world",
   "tests.test_save_resume",
   "tests.test_generation_inspector",
   "tests.test_rooms",
