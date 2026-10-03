@@ -160,15 +160,14 @@ return {
   {
     name = "Campaign E dispatches a facing attack while arrow keys no longer issue field attacks",
     run = function()
-      local calls = {}
-      local app = {
-        screen = "game",
-        is_campaign_mode = function() return true end,
-        perform_turn = function(_, input) calls[#calls + 1] = input end,
-      }
-      Input.keypressed(app, "e", nil, false)
+      local app = campaign_app(920009)
+      local session, player = app.session, app.session.state.player
+      session.state.enemies, session.state.bullets = {}, {}
+      player.direction = "a"
       Input.keypressed(app, "left", nil, false)
-      assert(#calls == 1 and calls[1] == "attack")
+      assert(player.direction == "a" and #session.state.bullets == 0)
+      Input.keypressed(app, "e", nil, false)
+      assert(session.last_action_result.applied and player.direction == "a" and #session.state.bullets == 1)
     end,
   },
   {
@@ -212,6 +211,18 @@ return {
       Input.keypressed(app, "i", nil, false)
       app:update(2)
       assert(app.screen == "game" and session.state.player.x == x and session.state.player.y == y)
+    end,
+  },
+  {
+    name = "Campaign zone transitions clear held movement before the destination can receive input",
+    run = function()
+      local app = campaign_app(920010)
+      local connection = assert(app.campaign.active_zone.connections.east)
+      local player = app.session.state.player
+      player.x, player.y = connection.boundary.x, connection.boundary.y
+      Input.keypressed(app, "d", nil, false)
+      assert(app.session == app.campaign.session and app.campaign.active_zone.key.world_x == 1)
+      assert(app.held_direction == nil and next(app.movement_keys) == nil)
     end,
   },
 }
