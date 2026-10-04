@@ -58,6 +58,8 @@ $ love .
 
 Campaign uses two identity-bound quick weapon slots and two quick ability slots; `E` and `Q` always use the active selections shown in the HUD. Ranged reserve ammunition is physical 1×1 cargo (bullets, shells, energy cells, or explosives), while a loaded magazine stays on its exact physical weapon component.
 
+Equipped charms can also create deterministic reactive build effects with your weapons, body capabilities, collisions, reloads, and the environment. Inspect the paused Inventory's **BUILD EFFECTS** section to see active combinations and any missing requirement.
+
 Campaign supplies are deliberately physical but fast: walk onto TIMBER, MASONRY, METAL, or ammunition to collect the whole stack if it fits. Loose components and corpses are deliberate: face them with `U`; corpse salvage opens two spatial grids where rotation and placement matter. Inventory and salvage pause the world, and dropped cargo stays at your feet until you leave and walk back onto that cell.
 
 Tools are physical cargo, not body parts. Assign an Axe, Pickaxe, Cutter, or Drill from the paused Inventory loadout panel, then face a compatible tree, stone, metal, or industrial obstacle and press `E` repeatedly. Tools take durability from physical strikes, remain as repairable broken cargo at zero durability, and repair at Repair Kiosks. Material drops stay on the ground until walked over.

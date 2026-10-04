@@ -46,6 +46,7 @@ local RouteGraph = require("src.routes.graph")
 local WorldTopology = require("src.campaign.world_topology")
 local Building = require("src.construction.building")
 local Loadout = require("src.simulation.loadout")
+local BuildEffects = require("src.simulation.build_effects")
 
 local Session = {}
 Session.__index = Session
@@ -279,6 +280,10 @@ function Session.new(options)
   self.campaign = options.campaign
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
+  -- Presentation/combat-chain bookkeeping is intentionally outside state so
+  -- a Campaign never serializes a half-resolved reactive queue. A restored
+  -- in-flight projectile simply starts a fresh bounded root on its next hit.
+  self._build_chains_by_entity = setmetatable({}, { __mode = "k" })
   local meta_snapshot = copy_meta_snapshot(options.meta_snapshot)
   local inventory = Inventory.new()
   self.state = {
@@ -377,7 +382,13 @@ function Session:damage_terrain(x, y, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", x = x, y = y, reason = "No active world" }
   end
-  return EnvironmentDamage.apply_to_terrain(self.state.world, x, y, spec)
+  local result = EnvironmentDamage.apply_to_terrain(self.state.world, x, y, spec)
+  if result.destroyed and spec and spec.source_actor == self.state.player then
+    self:_emit_build_event({ type = "on_terrain_break", source_actor = self.state.player,
+      target_cell = { x = x, y = y }, ability_id = spec.ability_id, source_component_id = spec.source_component_id,
+      attack_tags = spec.attack_tags or {}, build_chain = spec.build_chain })
+  end
+  return result
 end
 
 function Session:inspect_world_object(object_id)
@@ -727,8 +738,178 @@ function Session:_reload_weapon(provider, ability)
   local family = string.upper(self.registry:get_resource(ammo.family).display_name)
   self:_log("RELOADED — " .. magazine.loaded .. "/" .. ammo.magazine_capacity .. " " .. family .. ".")
   self:_sound("pickup")
-  return { applied = true, code = "reloaded", ability_id = ability.id, component_id = provider.id,
+  local result = { applied = true, code = "reloaded", ability_id = ability.id, component_id = provider.id,
     loaded = magazine.loaded, capacity = ammo.magazine_capacity, consumed = amount, family = ammo.family }
+  self:_emit_build_event({
+    type = "on_reload", source_actor = self.state.player, weapon_ability = ability,
+    provider = provider, attack_tags = BuildEffects.tags_for_ability(ability),
+  })
+  return result
+end
+
+-- The resolver is intentionally scoped to player charms and immediate combat
+-- consequences.  Session remains the authority for all damage, Force, fire,
+-- ammunition and persistence mutations.
+function Session:build_effects()
+  return BuildEffects.describe(self, self.state.player)
+end
+
+function Session:_build_event_trace(chain, kind, data)
+  if not chain or not chain.budget then return end
+  local entry = { kind = kind, depth = chain.depth }
+  for key, value in pairs(data or {}) do entry[key] = value end
+  chain.budget.trace[#chain.budget.trace + 1] = entry
+  self._last_build_trace = chain.budget.trace
+end
+
+function Session:build_effect_trace()
+  return self._last_build_trace or {}
+end
+
+function Session:_build_small_explosion(origin, spec, provenance)
+  local radius = spec.radius or 1
+  local cells = self:_blast(origin, radius)
+  self:_damage_environment_radius(origin, radius, {
+    amount = spec.damage or 1, cause = "explosive", source = "build_effect",
+    source_actor = provenance.source_actor, source_actor_id = provenance.source_actor_id,
+    source_component_id = provenance.source_component_id, ability_id = provenance.ability_id,
+    attack_tags = provenance.attack_tags, build_chain = provenance.build_chain,
+  })
+  for location_key in pairs(cells) do self.state.effects[location_key] = true end
+  for _, actor in ipairs(self:_living_actors()) do
+    if cells[Grid.key(actor.x, actor.y)] then
+      self:_apply_world_actor_damage(actor, spec.damage or 1,
+        actor == self.state.player and "A volatile rupture catches you." or nil, {
+          cause = "explosive", source = "build_effect", source_actor = provenance.source_actor,
+          source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+          ability_id = provenance.ability_id, attack_tags = provenance.attack_tags,
+          build_chain = provenance.build_chain, skip_body_damage = true,
+        })
+    end
+  end
+  self:_apply_explosion_force(origin, radius, cells, {
+    distance = spec.force or 1, cause = "explosive", source_actor = provenance.source_actor,
+    source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+    ability_id = provenance.ability_id, attack_tags = provenance.attack_tags,
+    build_chain = provenance.build_chain,
+  })
+  if spec.ignite then self:_ignite_flammable_radius(origin, radius, provenance) end
+  self:_sound("boom")
+  return { cells = cells, radius = radius }
+end
+
+function Session:_apply_build_effect(entry, event, chain)
+  local effect, spec = entry.effect, entry.effect.effect
+  local source = event.source_actor
+  local provenance = {
+    source_actor = source,
+    source_actor_id = source and (source.actor_id or source.content_id or source.kind),
+    source_component_id = event.source_component_id or (event.provider and event.provider.id),
+    ability_id = event.ability_id or (event.weapon_ability and event.weapon_ability.id),
+    attack_tags = event.attack_tags,
+    build_chain = chain,
+  }
+  if spec.kind == "chain_electricity" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    if not origin then return { applied = false, code = "no_origin" } end
+    local discharge = Electricity.discharge(self.state.world, origin, {
+      max_cells = spec.max_cells or 12, damage = spec.damage or 1,
+      source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+      ability_id = provenance.ability_id, cause = "electrical",
+    }, {
+      actors_at = function(x, y) return self:_actors_at(x, y) end,
+      actor_id = function(actor) return self:_electrical_actor_id(actor) end,
+      on_actor_reached = function(actor, cell)
+        return self:_apply_world_actor_damage(actor, spec.damage or 1,
+          actor == self.state.player and "ARC RELAY ELECTRICITY RIPS THROUGH YOU." or nil, {
+            cause = "electrical", source = "build_effect", source_actor = source,
+            source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+            ability_id = provenance.ability_id, attack_tags = event.attack_tags,
+            build_chain = chain, x = cell.x, y = cell.y,
+          })
+      end,
+    })
+    self.state.electrical_effects = discharge.reached_cells
+    self:_event("electricity", discharge)
+    return discharge
+  elseif spec.kind == "kinetic_burst" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    if not origin then return { applied = false, code = "no_origin" } end
+    local results = {}
+    for _, target in ipairs(self:_living_actors()) do
+      if target ~= source and Grid.distance(origin, target) <= (spec.radius or 1) then
+        local dx, dy = target.x - origin.x, target.y - origin.y
+        if dx == 0 and dy == 0 then dx, dy = event.force_dx or 1, event.force_dy or 0 end
+        results[#results + 1] = self:apply_force(target, {
+          dx = dx, dy = dy, distance = spec.force or 1, cause = "kinetic",
+          source_actor = source, source_actor_id = provenance.source_actor_id,
+          source_component_id = provenance.source_component_id, ability_id = provenance.ability_id,
+          attack_tags = event.attack_tags, build_chain = chain,
+        })
+      end
+    end
+    self.state.effects[Grid.key(origin.x, origin.y)] = true
+    self:_sound("hit")
+    return { applied = #results > 0, results = results }
+  elseif spec.kind == "small_explosion" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    return origin and self:_build_small_explosion(origin, spec, provenance) or { applied = false, code = "no_origin" }
+  elseif spec.kind == "magazine_refund" then
+    local loadout = self:ensure_campaign_loadout()
+    local resolved = loadout and Loadout.resolve(self, self.state.player, loadout.weapon_slots[loadout.active_weapon], "weapon") or nil
+    if not resolved or not resolved.ability or not resolved.ability.ammo then
+      return { applied = false, code = "active_weapon_not_ranged" }
+    end
+    local magazine = self:weapon_magazine(resolved.provider, resolved.ability)
+    local previous = magazine.loaded
+    magazine.loaded = math.min(resolved.ability.ammo.magazine_capacity, magazine.loaded + (spec.amount or 1))
+    if magazine.loaded > previous then self:_log("RECYCLER +" .. (magazine.loaded - previous) .. ".") end
+    return { applied = magazine.loaded > previous, loaded = magazine.loaded, previous = previous }
+  elseif spec.kind == "cooldown_reduction" then
+    local player = self.state.player
+    local previous = player.dash or 0
+    player.dash = math.max(0, previous - (spec.amount or 1))
+    if player.dash < previous then self:_log("QUICK RELOAD — DASH CHARGED.") end
+    return { applied = player.dash < previous, previous = previous, cooldown = player.dash }
+  elseif spec.kind == "ignite" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    return origin and self:_ignite_flammable_radius(origin, spec.radius or 0, provenance) or { applied = false, code = "no_origin" }
+  end
+  return { applied = false, code = "unknown_build_effect" }
+end
+
+function Session:_emit_build_event(event)
+  if not event or not event.type or event.source_actor ~= self.state.player then return { applied = false, code = "not_player_build" } end
+  local chain = event.build_chain or BuildEffects.new_chain(event.type)
+  event.build_chain = chain
+  self:_build_event_trace(chain, event.type, {
+    source = self:_electrical_actor_id(event.source_actor),
+    target = event.target and self:_electrical_actor_id(event.target) or nil,
+  })
+  if chain.depth >= BuildEffects.MAX_CHAIN_DEPTH then
+    chain.budget.truncated = true
+    self:_build_event_trace(chain, "truncated", { reason = "depth" })
+    return { applied = false, code = "chain_depth_limit", chain = chain }
+  end
+  local applied = {}
+  for _, entry in ipairs(BuildEffects.resolve(self, self.state.player, event)) do
+    if entry.active and not chain.ancestry[entry.key] then
+      if chain.budget.executions >= BuildEffects.MAX_EXECUTIONS then
+        chain.budget.truncated = true
+        self:_build_event_trace(chain, "truncated", { reason = "execution_budget" })
+        break
+      end
+      chain.budget.executions = chain.budget.executions + 1
+      local derived = BuildEffects.derive_chain(chain, entry.key)
+      self:_build_event_trace(derived, "effect", { effect_id = entry.effect.id, charm_id = entry.charm_id })
+      self:_event("build_effect", { effect_id = entry.effect.id, charm_id = entry.charm_id,
+        x = event.target_cell and event.target_cell.x, y = event.target_cell and event.target_cell.y })
+      if event.target_cell then self.state.effects[Grid.key(event.target_cell.x, event.target_cell.y)] = true end
+      self:_log(string.upper(entry.charm.display_name) .. ".")
+      applied[#applied + 1] = { entry = entry, result = self:_apply_build_effect(entry, event, derived) }
+    end
+  end
+  return { applied = #applied > 0, effects = applied, chain = chain }
 end
 
 function Session:attack_active_weapon()
@@ -741,10 +922,14 @@ function Session:attack_active_weapon()
   end
   if resolved.source_kind == "tool" then return self:attack_tool(resolved.tool, resolved.tool_definition) end
   local ability = resolved.ability
+  local attack_event = { type = "on_attack", source_actor = player, provider = resolved.provider,
+    weapon_ability = ability, ability_id = ability.id, source_component_id = resolved.provider.id,
+    attack_tags = BuildEffects.tags_for_ability(ability) }
   if ability.ammo then
     local magazine = self:weapon_magazine(resolved.provider, ability)
     local cost = ability.ammo.ammo_per_attack
     if magazine.loaded < cost then return self:_reload_weapon(resolved.provider, ability) end
+    self:_emit_build_event(attack_event)
     magazine.loaded = magazine.loaded - cost
     local result = self:activate_actor_ability(player, ability.id, {
       direction = player.direction, provider_component_id = resolved.provider.id, skip_resource = true,
@@ -752,6 +937,7 @@ function Session:attack_active_weapon()
     if not result.applied then magazine.loaded = magazine.loaded + cost end
     return result
   end
+  self:_emit_build_event(attack_event)
   return self:activate_actor_ability(player, ability.id, {
     direction = player.direction, provider_component_id = resolved.provider.id,
   })
@@ -810,7 +996,7 @@ function Session:_tool_modify_target(tool, definition, x, y, object)
       local amount = math.max(1, math.floor(definition.modification.damage * effectiveness + 0.0001))
       local spec = { amount = amount, cause = "kinetic", source = "tool", source_actor = self.state.player,
         source_actor_id = self.state.player and self.state.player.actor_id, source_tool_id = tool.id,
-        tool_family = definition.family }
+        tool_family = definition.family, attack_tags = BuildEffects.tags_for_tool() }
       result = object and self:damage_world_object(object, spec) or self:damage_terrain(x, y, spec)
     end
   end
@@ -845,15 +1031,18 @@ function Session:attack_tool(tool, definition)
       self:_log("TOOL STRIKE HAS NO HOSTILE TARGET.")
       return self:_ability_failure("tool.attack", "friendly_target", "That actor is not hostile")
     end
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
     local damage = self:_apply_world_actor_damage(actor, definition.combat.damage, nil, {
       cause = "kinetic", source = "tool", source_actor = player, source_actor_id = player.actor_id,
-      source_tool_id = tool.id, tool_family = definition.family,
+      source_tool_id = tool.id, tool_family = definition.family, attack_tags = BuildEffects.tags_for_tool(),
     })
     local force = nil
     if not damage.dead and (definition.combat.force or 0) > 0 then
       local delta = DIRECTIONS[player.direction]
       force = self:apply_force(actor, { dx = delta[1], dy = delta[2], distance = definition.combat.force,
-        cause = "kinetic", source_actor = player, source_actor_id = player.actor_id, source_tool_id = tool.id })
+        cause = "kinetic", source_actor = player, source_actor_id = player.actor_id, source_tool_id = tool.id,
+        attack_tags = BuildEffects.tags_for_tool() })
     end
     self:_wear_tool(tool, definition)
     self:_sound("hit")
@@ -863,11 +1052,15 @@ function Session:attack_tool(tool, definition)
   end
   local object = self.state.world:object_at(cell.x, cell.y)
   if object and not object.destroyed then
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
     return self:_tool_modify_target(tool, definition, cell.x, cell.y, object)
   end
   local terrain = self.state.world:get_cell(cell.x, cell.y)
   local material = terrain and self.registry:get_material(terrain.material_id)
   if material and (material.solid or material.destructible) then
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
     return self:_tool_modify_target(tool, definition, cell.x, cell.y, nil)
   end
   self:_log("NOTHING PHYSICAL TO STRIKE.")
@@ -929,7 +1122,14 @@ function Session:damage_world_object(object_or_id, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", reason = "No active world" }
   end
-  return EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
+  local object = type(object_or_id) == "table" and object_or_id or self.state.world:get_object(object_or_id)
+  local result = EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
+  if result.destroyed and spec and spec.source_actor == self.state.player and object then
+    self:_emit_build_event({ type = "on_terrain_break", source_actor = self.state.player,
+      target_cell = { x = object.x, y = object.y }, ability_id = spec.ability_id,
+      source_component_id = spec.source_component_id, attack_tags = spec.attack_tags or {}, build_chain = spec.build_chain })
+  end
+  return result
 end
 
 function Session:actor_faction_id(actor)
@@ -1242,6 +1442,15 @@ function Session:apply_force(target, force_spec)
   local result = Force.apply(world, target, spec)
   if not is_object and result.code ~= "target_destroyed" then
     result.impact = self:_resolve_force_impact(target, result, force_spec or {})
+    if result.impact and result.impact.applied and force_spec and force_spec.source_actor == self.state.player then
+      self:_emit_build_event({
+        type = "on_push_collision", source_actor = self.state.player, target = target,
+        target_cell = { x = result.impact.x, y = result.impact.y }, ability_id = force_spec.ability_id,
+        source_component_id = force_spec.source_component_id, attack_tags = force_spec.attack_tags or {},
+        force_dx = result.direction and result.direction.dx, force_dy = result.direction and result.direction.dy,
+        build_chain = force_spec.build_chain,
+      })
+    end
   end
   return result
 end
@@ -1422,6 +1631,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
+    attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
   })
   local cells = self:_blast(actor, radius)
   for location_key in pairs(cells) do
@@ -1441,6 +1651,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
           source_actor_id = actor.content_id or actor.kind,
           source_component_id = provider and provider.id or nil,
           ability_id = SELF_DESTRUCT_ABILITY,
+          attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
           skip_body_damage = true,
         })
     end
@@ -1453,6 +1664,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
+    attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
   })
 
   if actor == state.player then
@@ -1497,8 +1709,12 @@ function Session:_spawn_projectile(actor, provider, ability, direction)
     ability_id = ability.id,
     damage = math.max(1, (ability.damage or 1) + modifier),
     pierce_remaining = ability.pierce or 0,
+    attack_tags = BuildEffects.tags_for_ability(ability),
   })
   self.state.bullets[#self.state.bullets + 1] = bullet
+  if actor == self.state.player then
+    self._build_chains_by_entity[bullet] = BuildEffects.new_chain("projectile:" .. ability.id)
+  end
   return bullet
 end
 
@@ -1562,6 +1778,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
+      attack_tags = BuildEffects.tags_for_ability(ability),
     })
   local force = nil
   if not target_damage.dead then
@@ -1574,6 +1791,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
+      attack_tags = BuildEffects.tags_for_ability(ability),
     })
   end
   if actor == self.state.player then self:_log("Impact strike landed.") end
@@ -1662,6 +1880,7 @@ function Session:_execute_electrical_discharge(actor, provider, wear, ability, r
           source_actor_id = self:_electrical_actor_id(actor),
           source_component_id = provider.id,
           ability_id = ability.id,
+          attack_tags = BuildEffects.tags_for_ability(ability),
           x = cell.x,
           y = cell.y,
         })
@@ -1969,7 +2188,11 @@ function Session:_actor_to_data(actor)
   if not actor then return nil end
   local data = {}
   for name, field in pairs(actor) do
-    if name ~= "body" and name ~= "source_actor" and name ~= "pending_telegraph" then
+    if name == "attack_tags" then
+      data.attack_tags = {}
+      for tag, enabled in pairs(field or {}) do if enabled then data.attack_tags[#data.attack_tags + 1] = tag end end
+      table.sort(data.attack_tags)
+    elseif name ~= "body" and name ~= "source_actor" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Active-run entity state must be plain scalar data")
@@ -1990,7 +2213,11 @@ function Session:_actor_from_data(data)
   assert(type(data) == "table" and type(data.kind) == "string", "Actor data is invalid")
   local actor = {}
   for name, field in pairs(data) do
-    if name ~= "body" and name ~= "source_actor_ref" and name ~= "pending_telegraph" then
+    if name == "attack_tags" then
+      assert(type(field) == "table", "Saved attack tags must be a list")
+      actor.attack_tags = {}
+      for _, tag in ipairs(field) do assert(type(tag) == "string", "Saved attack tag must be a string"); actor.attack_tags[tag] = true end
+    elseif name ~= "body" and name ~= "source_actor_ref" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Saved entity state must be plain scalar data")
@@ -2001,6 +2228,9 @@ function Session:_actor_from_data(data)
   actor.pending_telegraph = copy_pending_telegraph(data.pending_telegraph)
   actor.source_actor = nil
   actor.source_actor_ref = data.source_actor_ref
+  if actor.kind == "bullet" and not actor.attack_tags then
+    actor.attack_tags = BuildEffects.tags_for_ability(self.registry.abilities[actor.ability_id])
+  end
   return actor
 end
 
@@ -2902,6 +3132,7 @@ end
 -- the current staged HP model while also using localized body damage.
 function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   provenance = provenance or {}
+  local was_alive = actor and (actor.health == nil or actor.health > 0)
   if provenance.source_actor and provenance.source_actor ~= actor then
     self:_notify_combat(provenance.source_actor, actor)
   end
@@ -2974,6 +3205,23 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     dead = dead,
     provenance = provenance,
   }
+  -- Build triggers observe only completed authoritative damage.  This keeps
+  -- kill and component-break events one-shot even when an explosion or a
+  -- chained electrical discharge touches the same actor in one root action.
+  if provenance.source_actor == state.player and was_alive then
+    local event_base = {
+      source_actor = state.player, target = actor, target_cell = { x = actor.x, y = actor.y },
+      ability_id = provenance.ability_id, source_component_id = provenance.source_component_id,
+      attack_tags = provenance.attack_tags or {}, build_chain = provenance.build_chain,
+    }
+    self:_emit_build_event(setmetatable({ type = "on_hit" }, { __index = event_base }))
+    if body_damage and body_damage.became_broken then
+      self:_emit_build_event(setmetatable({ type = "on_component_break", component_id = body_damage.component_id }, { __index = event_base }))
+    end
+    if dead then
+      self:_emit_build_event(setmetatable({ type = "on_kill" }, { __index = event_base }))
+    end
+  end
   return data
 end
 
@@ -2990,6 +3238,8 @@ function Session:_apply_hazard_effect(actor, hazard, definition, context)
       source_actor_id = context and context.force and context.force.source_actor_id or nil,
       source_component_id = context and context.force and context.force.source_component_id or nil,
       ability_id = context and context.force and context.force.ability_id or nil,
+      attack_tags = context and context.force and context.force.attack_tags or nil,
+      build_chain = context and context.force and context.force.build_chain or nil,
       x = hazard.x,
       y = hazard.y,
       context = context,
@@ -3124,6 +3374,8 @@ function Session:_resolve_force_impact(actor, force_result, force_spec)
       blocker_code = impact.blocker_code,
       x = impact.x,
       y = impact.y,
+      attack_tags = force_spec and force_spec.attack_tags,
+      build_chain = force_spec and force_spec.build_chain,
     })
   impact.damage = damage
   impact.dead = damage.dead
@@ -4187,6 +4439,8 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
+        attack_tags = force_spec.attack_tags,
+        build_chain = force_spec.build_chain,
       })
       results.actors[#results.actors + 1] = { target = actor, result = result }
     end
@@ -4204,6 +4458,8 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
+        attack_tags = force_spec.attack_tags,
+        build_chain = force_spec.build_chain,
       })
       results.objects[#results.objects + 1] = { target = object, result = result }
     end
@@ -4272,6 +4528,9 @@ function Session:_update_bullets()
     end
     local target = not hit and self:_actor_at(bullet.x, bullet.y, source_actor) or nil
     if target and source_actor and self:are_hostile(source_actor, target) then
+      local build_chain = source_actor == state.player and (self._build_chains_by_entity[bullet]
+        or BuildEffects.new_chain("projectile:" .. tostring(bullet.ability_id))) or nil
+      if build_chain then self._build_chains_by_entity[bullet] = build_chain end
       self:_apply_world_actor_damage(target, bullet.damage or 1,
         target == state.player and "An enemy projectile struck you." or nil, {
           cause = "kinetic",
@@ -4280,6 +4539,8 @@ function Session:_update_bullets()
           source_actor_id = source_actor.content_id or source_actor.kind,
           source_component_id = bullet.source_component_id,
           ability_id = bullet.ability_id,
+          attack_tags = bullet.attack_tags or {},
+          build_chain = build_chain,
         })
       -- A piercing lance crosses one damaged body, but intact terrain and
       -- projectile-blocking cover above always terminate it immediately.
@@ -4287,12 +4548,19 @@ function Session:_update_bullets()
       -- actor a second time while remaining in its cell.
       if (bullet.pierce_remaining or 0) > 0 then
         bullet.pierce_remaining = bullet.pierce_remaining - 1
+        if source_actor == state.player then
+          self:_emit_build_event({ type = "on_pierce", source_actor = state.player, target = target,
+            target_cell = { x = target.x, y = target.y }, ability_id = bullet.ability_id,
+            source_component_id = bullet.source_component_id, attack_tags = bullet.attack_tags or {}, build_chain = build_chain })
+        end
       else
         hit = true
       end
     end
     if not hit then
       remaining[#remaining + 1] = bullet
+    else
+      self._build_chains_by_entity[bullet] = nil
     end
   end
   state.bullets = remaining

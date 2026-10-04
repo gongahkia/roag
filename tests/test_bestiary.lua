@@ -123,9 +123,9 @@ return {
       local session, registry = new_session(108001), nil
       registry = session.registry
       local component_ids, enemy_ids, charm_ids = sorted_ids(registry.components), sorted_ids(registry.enemies), sorted_ids(registry.charms)
-      -- Scatter and piercing weapons add four authored tactical variants,
-      -- while retaining the same elite and charm corpus.
-      assert(#component_ids == 26 and #enemy_ids == 18 and #charm_ids == 9)
+      -- DR-05 adds four charm-side build effects without changing the shared
+      -- body/enemy corpus or the authored tactical encounter inventory.
+      assert(#component_ids == 26 and #enemy_ids == 18 and #charm_ids == 13)
       local ordinary, elite, referenced = 0, 0, {}
       for _, enemy_id in ipairs(enemy_ids) do
         local definition = registry:get_enemy(enemy_id)

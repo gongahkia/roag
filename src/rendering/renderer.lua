@@ -910,6 +910,23 @@ function Renderer:_draw_inventory(app)
       end
       self:_text("A/D SLOT  W/S ACTION  ENTER ASSIGN  TAB CLOSE", panel_x, height - 20, 0.44, { 0.75, 0.82, 0.92 })
     end
+    -- The assignment list may be taller than the panel on smaller windows.
+    -- Keep build readability on the normal paused Inventory surface instead
+    -- of drawing it on top of a selectable loadout option.
+    local effects = app.inventory_panel ~= "loadout" and GameplayUI.build_effects(app.session) or {}
+    local effects_y = panel_y + 86
+    if effects_y < height - 56 then
+      self:_text("BUILD EFFECTS", panel_x, effects_y, 0.62, { 0.7, 0.9, 1 })
+      for index, effect in ipairs(effects) do
+        if effects_y + index * 23 < height - 34 then
+          local color = effect.active and { 0.6, 0.9, 0.75 } or { 1, 0.55, 0.34 }
+          self:_text((effect.active and "ACTIVE " or "INACTIVE ") .. string.upper(effect.charm_name),
+            panel_x, effects_y + index * 23, 0.43, color)
+          self:_text(effect.active and effect.description or effect.reason,
+            panel_x, effects_y + index * 23 + 9, 0.34, { 0.72, 0.8, 0.9 })
+        end
+      end
+    end
   end
 end
 

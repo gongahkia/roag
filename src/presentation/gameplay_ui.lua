@@ -187,6 +187,15 @@ function GameplayUI.hud(session)
   }
 end
 
+-- Read-only build vocabulary for the paused Inventory/loadout screen.  The
+-- simulation resolves conditions live, so a broken Shock Coil immediately
+-- changes an Arc Relay from active to informative rather than leaving stale
+-- UI state behind.
+function GameplayUI.build_effects(session)
+  if not session or not session.campaign or not session.build_effects then return {} end
+  return session:build_effects()
+end
+
 -- This mirrors Interaction.primary's stable ordering.  It only decides which
 -- already-authoritative action to show, never which action will execute.
 function GameplayUI.context_action(session)

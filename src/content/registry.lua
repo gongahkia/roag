@@ -41,6 +41,18 @@ local KNOWN_DISCOVERY_ACCESS_PROFILES = {
 
 local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
 local KNOWN_TOOL_FAMILIES = { axe = true, pickaxe = true, cutter = true, drill = true }
+local KNOWN_ATTACK_TAGS = {
+  melee = true, projectile = true, scatter = true, piercing = true,
+  electric = true, explosive = true, fire = true, forceful = true, tool = true,
+}
+local KNOWN_BUILD_EFFECT_TRIGGERS = {
+  on_attack = true, on_hit = true, on_kill = true, on_component_break = true,
+  on_pierce = true, on_push_collision = true, on_reload = true, on_terrain_break = true,
+}
+local KNOWN_BUILD_EFFECT_KINDS = {
+  chain_electricity = true, kinetic_burst = true, small_explosion = true,
+  magazine_refund = true, cooldown_reduction = true, ignite = true,
+}
 local KNOWN_MODIFIERS = {
   max_health = true,
   dash_cooldown = true,
@@ -697,10 +709,46 @@ function Registry:validate()
     require_string(charm.description, "Charm '" .. id .. "' description")
     require_positive_number(charm.price, "Charm '" .. id .. "' price")
     require_string(charm.render_style, "Charm '" .. id .. "' render_style")
-    if type(charm.granted_boon_ids) ~= "table" or #charm.granted_boon_ids == 0 then
-      content_error("Charm '" .. id .. "' granted_boon_ids must be a non-empty list")
+    if type(charm.granted_boon_ids) ~= "table" then
+      content_error("Charm '" .. id .. "' granted_boon_ids must be a list")
     end
     for _, boon_id in ipairs(charm.granted_boon_ids) do self:get_boon(boon_id) end
+    local reactive = charm.reactive_effects or {}
+    if type(reactive) ~= "table" then content_error("Charm '" .. id .. "' reactive_effects must be a list") end
+    if #charm.granted_boon_ids == 0 and #reactive == 0 then
+      content_error("Charm '" .. id .. "' must grant a boon or reactive effect")
+    end
+    local seen_effects = {}
+    for index, effect in ipairs(reactive) do
+      if type(effect) ~= "table" then content_error("Charm '" .. id .. "' reactive effect " .. index .. " must be a table") end
+      require_string(effect.id, "Charm '" .. id .. "' reactive effect " .. index .. " id")
+      if seen_effects[effect.id] then content_error("Charm '" .. id .. "' duplicates reactive effect '" .. effect.id .. "'") end
+      seen_effects[effect.id] = true
+      if not KNOWN_BUILD_EFFECT_TRIGGERS[effect.trigger] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown trigger")
+      end
+      require_string(effect.description, "Charm '" .. id .. "' reactive effect '" .. effect.id .. "' description")
+      if type(effect.effect) ~= "table" or not KNOWN_BUILD_EFFECT_KINDS[effect.effect.kind] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown effect kind")
+      end
+      local conditions = effect.conditions or {}
+      if type(conditions) ~= "table" then content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' conditions must be a table") end
+      if conditions.attack_tag ~= nil and not KNOWN_ATTACK_TAGS[conditions.attack_tag] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown attack tag")
+      end
+      if conditions.requires_capability ~= nil then self:get_ability(conditions.requires_capability) end
+      if conditions.requires_ranged ~= nil and type(conditions.requires_ranged) ~= "boolean" then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' requires_ranged must be a boolean")
+      end
+      for _, field in ipairs({ "amount", "max_cells", "damage", "radius", "force" }) do
+        if effect.effect[field] ~= nil then
+          require_positive_integer(effect.effect[field], "Charm '" .. id .. "' reactive effect '" .. effect.id .. "' " .. field)
+        end
+      end
+      if effect.effect.ignite ~= nil and type(effect.effect.ignite) ~= "boolean" then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' ignite must be a boolean")
+      end
+    end
   end
   for _, id in ipairs(sorted_keys(self.curses)) do
     local curse = self.curses[id]
@@ -828,6 +876,18 @@ function Registry:validate()
     end
     if ability.loadout_kind ~= nil and ability.loadout_kind ~= "weapon" and ability.loadout_kind ~= "ability" then
       content_error("Ability '" .. id .. "' loadout_kind must be 'weapon' or 'ability'")
+    end
+    if ability.attack_tags ~= nil then
+      if type(ability.attack_tags) ~= "table" or #ability.attack_tags == 0 then
+        content_error("Ability '" .. id .. "' attack_tags must be a non-empty list")
+      end
+      local seen_tags = {}
+      for _, tag in ipairs(ability.attack_tags) do
+        if not KNOWN_ATTACK_TAGS[tag] or seen_tags[tag] then
+          content_error("Ability '" .. id .. "' has invalid attack tag '" .. tostring(tag) .. "'")
+        end
+        seen_tags[tag] = true
+      end
     end
     if ability.resource ~= nil then
       if type(ability.resource) ~= "table" then
