@@ -203,11 +203,23 @@ return {
       local second = session:_emit_build_event({ type = "on_pierce", source_actor = session.state.player,
         target_cell = { x = 11, y = 10 }, attack_tags = { projectile = true, piercing = true } })
       assert(#first.chain.budget.trace == #second.chain.budget.trace)
-      local guarded = BuildEffects.derive_chain(first.chain, "charm.legacy.arc_relay:arc_relay")
+      local guarded = BuildEffects.derive_chain(first.chain, "charm.legacy.arc_relay:1:arc_relay")
       local blocked = session:_emit_build_event({ type = "on_pierce", source_actor = session.state.player,
         target_cell = { x = 11, y = 10 }, attack_tags = { projectile = true, piercing = true }, build_chain = guarded })
       assert(not blocked.applied)
       assert(BuildEffects.MAX_CHAIN_DEPTH >= 6 and BuildEffects.MAX_EXECUTIONS >= 128)
+    end,
+  },
+  {
+    name = "separately equipped duplicate charms each resolve once with slot-specific ancestry",
+    run = function()
+      local session = open_session(950008)
+      install(session, "internal_2", "component.internal.legacy_shock_coil")
+      session.state.charms.slots = { "charm.legacy.arc_relay", "charm.legacy.arc_relay" }
+      local result = session:_emit_build_event({ type = "on_pierce", source_actor = session.state.player,
+        target_cell = { x = 11, y = 10 }, attack_tags = { projectile = true, piercing = true } })
+      assert(result.applied and #result.effects == 2)
+      assert(result.effects[1].entry.key ~= result.effects[2].entry.key)
     end,
   },
 }

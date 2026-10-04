@@ -125,7 +125,10 @@ function BuildEffects.resolve(session, actor, event)
           slot_index = slot_index,
           effect_index = effect_index,
           effect = effect,
-          key = charm_id .. ":" .. effect.id,
+          -- Slot identity keeps separately equipped duplicate charms
+          -- independently meaningful while the ancestry guard still blocks a
+          -- particular charm effect from recursively causing itself again.
+          key = charm_id .. ":" .. slot_index .. ":" .. effect.id,
           active = active,
           reason = reason,
         }
@@ -134,6 +137,7 @@ function BuildEffects.resolve(session, actor, event)
   end
   table.sort(results, function(left, right)
     if left.charm_id ~= right.charm_id then return left.charm_id < right.charm_id end
+    if left.slot_index ~= right.slot_index then return left.slot_index < right.slot_index end
     return left.effect.id < right.effect.id
   end)
   return results
