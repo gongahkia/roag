@@ -84,11 +84,33 @@ function Input.keypressed(app, key, _, is_repeat)
       app:inventory_select_or_place()
     elseif key == "r" then
       app:rotate_inventory_item()
+    elseif key == "delete" or key == "backspace" then
+      app:inventory_drop_selected()
     end
     return
   end
 
   if app.screen == "salvage" then
+    if campaign_field(app) then
+      if key == "escape" or key == "u" then
+        app:close_overlay()
+      elseif key == "tab" then
+        app:toggle_salvage_focus()
+      elseif key == "w" or key == "up" then
+        app:move_salvage_cursor(0, -1)
+      elseif key == "s" or key == "down" then
+        app:move_salvage_cursor(0, 1)
+      elseif key == "a" or key == "left" then
+        app:move_salvage_cursor(-1, 0)
+      elseif key == "d" or key == "right" then
+        app:move_salvage_cursor(1, 0)
+      elseif key == "return" or key == "space" or key == "e" then
+        app:salvage_select_or_place()
+      elseif key == "r" then
+        app:rotate_salvage_item()
+      end
+      return
+    end
     local options = app:salvage_options()
     if key == "escape" or key == "g" then
       app:close_overlay()

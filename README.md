@@ -46,10 +46,10 @@ $ love .
 | `B` | Arm a bomb |
 | `F` | Light a flare; it stuns enemies in its blast |
 | `X` | **Campaign:** swap quick ability; a successful field swap costs one turn |
-| `I` | Open carried inventory; press `Tab` in Campaign to assign weapon/ability quick slots while the world is paused |
-| Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview |
+| `I` | Open carried inventory; press `Tab` in Campaign to assign weapon/ability quick slots while the world is paused. `Delete`/`Backspace` or the explicit drop target drops selected cargo at your feet. |
+| Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview. In Campaign corpse salvage, drag body parts and cargo from the fallen grid into your inventory grid. |
 | `C` | Open the campaign construction menu |
-| `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, cargo, or corpse salvage |
+| `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, loose cargo, or corpse salvage. Ordinary resource/ammo stacks are collected by walking over them. |
 | `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
 | Enter or `E` | Confirm a menu choice or leave the shop for the boss |
@@ -57,6 +57,8 @@ $ love .
 | Escape | Quit the game |
 
 Campaign uses two identity-bound quick weapon slots and two quick ability slots; `E` and `Q` always use the active selections shown in the HUD. Ranged reserve ammunition is physical 1×1 cargo (bullets, shells, energy cells, or explosives), while a loaded magazine stays on its exact physical weapon component.
+
+Campaign supplies are deliberately physical but fast: walk onto TIMBER, MASONRY, METAL, or ammunition to collect the whole stack if it fits. Loose components and corpses are deliberate: face them with `U`; corpse salvage opens two spatial grids where rotation and placement matter. Inventory and salvage pause the world, and dropped cargo stays at your feet until you leave and walk back onto that cell.
 
 Legacy/run-based mode retains its compatibility controls: diagonal held WASD movement, arrow-key firing, `G` for nearby corpse salvage, the generic ammo wallet, and the installed-body ability list.
 

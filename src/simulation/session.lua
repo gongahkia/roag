@@ -9,6 +9,7 @@ local BodyDamage = require("src.simulation.body_damage")
 local Locomotion = require("src.simulation.locomotion")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local CorpseLootGrid = require("src.inventory.corpse_loot_grid")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
@@ -2376,7 +2377,14 @@ function Session:faced_ground_item()
   local cell, world = self:faced_cell(), self.state.world
   if not cell or not world then return nil end
   local items = world:ground_items_at(cell.x, cell.y)
-  table.sort(items, function(left, right) return left.id < right.id end)
+  table.sort(items, function(left, right)
+    -- Campaign supplies are automatic on arrival, so a deliberate physical
+    -- component wins the faced-use target when both happen to share a cell.
+    local left_supply = left.item.item_type == "resource_stack"
+    local right_supply = right.item.item_type == "resource_stack"
+    if left_supply ~= right_supply then return not left_supply end
+    return left.id < right.id
+  end)
   return items[1]
 end
 
@@ -2398,6 +2406,209 @@ function Session:pickup_ground_item(ground_item_id)
   end
   self:validate_physical_ownership()
   return { applied = true, code = "picked_up", ground_item_id = ground.id, physical_id = item.physical_id, entry = entry }
+end
+
+-- Projecting a corpse is intentionally read-only.  The dual-grid UI can be
+-- rebuilt at any time from the current Body/cargo owners, so no modal layout
+-- state is serialized and no item gains a second owner merely for display.
+function Session:corpse_loot_grid(corpse_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return nil, "Unknown corpse" end
+  return CorpseLootGrid.project(corpse, self.registry)
+end
+
+local function salvage_distance_allowed(session, corpse)
+  return session.state.player and Grid.distance(session.state.player, corpse) <= 1
+end
+
+function Session:salvage_corpse_to_inventory(corpse_id, physical_id, placement)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return { applied = false, code = "unknown_corpse", reason = "Unknown corpse" } end
+  if not salvage_distance_allowed(self, corpse) then
+    return { applied = false, code = "out_of_range", reason = "Corpse is not within salvage range" }
+  end
+  if type(placement) ~= "table" then
+    return { applied = false, code = "invalid_placement", reason = "Salvage placement is invalid" }
+  end
+  local projection = CorpseLootGrid.project(corpse, self.registry)
+  local source, projected = projection:source(physical_id), projection.inventory:get(physical_id)
+  if not source or not projected then
+    return { applied = false, code = "unknown_salvage", reason = "Corpse item is unavailable" }
+  end
+  local item
+  if source.source_kind == "body" then
+    local component = corpse.body:get_component(source.slot_id)
+    if not component or component.id ~= physical_id then
+      return { applied = false, code = "unknown_salvage", reason = "Corpse component is unavailable" }
+    end
+    item = PhysicalItem.from_component(component, self.registry)
+  else
+    local entry = corpse.carried_inventory and corpse.carried_inventory:get(physical_id)
+    if not entry then return { applied = false, code = "unknown_salvage", reason = "Corpse cargo is unavailable" } end
+    item = entry.item
+  end
+  local allowed, reason = self.state.inventory:can_place(item, placement.x, placement.y, placement.rotated == true)
+  if not allowed then return { applied = false, code = "inventory_full", reason = reason } end
+
+  local placed
+  if source.source_kind == "body" then
+    -- Placement has already been authoritatively validated.  Only now is the
+    -- installed part detached, so an invalid UI drop cannot strip a corpse.
+    local detached, detach_reason = corpse.body:detach(source.slot_id)
+    if not detached then return { applied = false, code = "detach_failed", reason = detach_reason } end
+    assert(detached.id == physical_id, "Corpse detached a different physical component")
+    placed, reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated == true)
+    if not placed then
+      local restored, restore_reason = corpse.body:install(source.slot_id, detached)
+      assert(restored, restore_reason)
+      return { applied = false, code = "inventory_full", reason = reason }
+    end
+  else
+    local entry = assert(corpse.carried_inventory:get(physical_id), "Corpse cargo changed during salvage")
+    local removed = corpse.carried_inventory:remove(physical_id)
+    assert(removed == item, "Corpse cargo removal lost its physical item")
+    placed, reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated == true)
+    if not placed then
+      local restored, restore_reason = corpse.carried_inventory:place(item, entry.x, entry.y, entry.rotated)
+      assert(restored, restore_reason)
+      return { applied = false, code = "inventory_full", reason = reason }
+    end
+  end
+  local definition = item.item_type == "component" and self.registry:get_component(item.object.definition_id) or nil
+  self:_log((source.source_kind == "body" and "SALVAGED " or "RECOVERED ")
+    .. string.upper(definition and definition.display_name or item.display_name) .. ".")
+  self:_sound("pickup")
+  local recurrence = self.state.fallen_recurrence
+  if corpse.fallen_archive_id and recurrence and recurrence.archive_id == corpse.fallen_archive_id
+    and #corpse:list_components() == 0 then recurrence.resolved = true end
+  self:validate_physical_ownership()
+  return {
+    applied = true, corpse_id = corpse_id, physical_id = physical_id,
+    source_kind = source.source_kind, slot_id = source.slot_id, entry = placed,
+  }
+end
+
+local function copy_inventory_for_pickup(inventory)
+  local preview = Inventory.new({ width = inventory.width, height = inventory.height, thresholds = inventory.thresholds })
+  for _, entry in ipairs(inventory.entries) do
+    local placed, reason = preview:place(entry.item, entry.x, entry.y, entry.rotated)
+    assert(placed, reason)
+  end
+  return preview
+end
+
+local function resource_entries_in_order(inventory, resource_id)
+  local values = {}
+  for _, entry in ipairs(inventory.entries) do
+    if entry.item.item_type == "resource_stack" and entry.item.resource_id == resource_id then values[#values + 1] = entry end
+  end
+  table.sort(values, function(left, right)
+    if left.y ~= right.y then return left.y < right.y end
+    if left.x ~= right.x then return left.x < right.x end
+    return left.physical_id < right.physical_id
+  end)
+  return values
+end
+
+-- A walk-over resource pickup is planned in full before either owner mutates.
+-- Existing matching stacks are filled first, then deterministic empty cells
+-- are considered.  A source stack is never partially taken from the ground.
+function Session:_plan_resource_pickup(item)
+  if not item or item.item_type ~= "resource_stack" then return nil, "Ground item is not an auto-pickup supply" end
+  local inventory, remaining, merge = self.state.inventory, item.quantity, {}
+  for _, entry in ipairs(resource_entries_in_order(inventory, item.resource_id)) do
+    if remaining <= 0 then break end
+    local amount = math.min(remaining, entry.item.max_stack - entry.item.quantity)
+    if amount > 0 then
+      merge[#merge + 1] = { entry = entry, amount = amount }
+      remaining = remaining - amount
+    end
+  end
+  local preview, placements, preview_index = copy_inventory_for_pickup(inventory), {}, 0
+  while remaining > 0 do
+    local quantity = math.min(remaining, item.max_stack)
+    preview_index = preview_index + 1
+    local ghost = PhysicalItem.from_resource(item.resource_id, quantity, "pickup-preview:" .. preview_index, self.registry)
+    local placement = preview:find_first_fit(ghost)
+    if not placement then return nil, "No space for the full supply stack" end
+    local placed, reason = preview:place(ghost, placement.x, placement.y, placement.rotated)
+    assert(placed, reason)
+    placements[#placements + 1] = { quantity = quantity, placement = placement }
+    remaining = remaining - quantity
+  end
+  return { merge = merge, placements = placements }
+end
+
+function Session:_pickup_resource_stack(ground)
+  local plan, reason = self:_plan_resource_pickup(ground.item)
+  if not plan then return { applied = false, code = "inventory_full", reason = reason } end
+  local world, source, original_quantity = self.state.world, ground.item, ground.item.quantity
+  local removed, remove_result = world:remove_ground_item(ground)
+  assert(removed == source and remove_result.applied, "Ground resource removal failed")
+  for _, change in ipairs(plan.merge) do change.entry.item:set_quantity(change.entry.item.quantity + change.amount) end
+  for index, allocation in ipairs(plan.placements) do
+    local item = index == 1 and source or self:create_resource_stack(source.resource_id, allocation.quantity, "zone")
+    item:set_quantity(allocation.quantity)
+    local placed, place_reason = self.state.inventory:place(item, allocation.placement.x, allocation.placement.y,
+      allocation.placement.rotated)
+    assert(placed, place_reason)
+  end
+  self:validate_physical_ownership()
+  return { applied = true, code = "auto_picked_up", quantity = original_quantity, resource_id = source.resource_id,
+    physical_id = source.physical_id }
+end
+
+function Session:_auto_pickup_ground_supplies(x, y)
+  if not self.campaign or not self.state.world then return {} end
+  local picked, blocked = {}, nil
+  for _, ground in ipairs(self.state.world:ground_items_at(x, y)) do
+    if ground.item.item_type == "resource_stack" then
+      local quantity, name = ground.item.quantity, ground.item.display_name
+      local result = self:_pickup_resource_stack(ground)
+      if result.applied then
+        picked[#picked + 1] = result
+      elseif not blocked then
+        blocked = { quantity = quantity, name = name }
+      end
+    end
+  end
+  if #picked > 0 then
+    for _, result in ipairs(picked) do
+      local definition = self.registry:get_resource(result.resource_id)
+      self:_log("+" .. result.quantity .. " " .. string.upper(definition.display_name) .. ".")
+    end
+    self:_sound("pickup")
+  end
+  if blocked then self:_log("INVENTORY FULL — " .. string.upper(blocked.name) .. " LEFT ON GROUND.") end
+  return picked
+end
+
+function Session:drop_inventory_item(physical_id)
+  local player, inventory, world = self.state.player, self.state.inventory, self.state.world
+  local entry = inventory and inventory:get(physical_id)
+  if not player or not world or not entry then
+    return { applied = false, code = "unknown_inventory_item", reason = "Inventory item is unavailable" }
+  end
+  -- World placement is checked before removal.  The only remaining mutation
+  -- can then be rolled back exactly if a future world rule rejects it.
+  if not Grid.in_bounds(player.x, player.y) or not world:terrain_is_passable(player.x, player.y) then
+    return { applied = false, code = "blocked_terrain", reason = "Cannot drop cargo here" }
+  end
+  if world:get_ground_item(physical_id) then
+    return { applied = false, code = "duplicate_id", reason = "Ground cargo identity is unavailable" }
+  end
+  local item, original = inventory:remove(physical_id)
+  assert(item == entry.item, "Inventory removal lost its physical item")
+  local ground, result = world:place_ground_item(item, player.x, player.y)
+  if not ground then
+    local restored, restore_reason = inventory:place(item, original.x, original.y, original.rotated)
+    assert(restored, restore_reason)
+    return { applied = false, code = result and result.code or "drop_failed", reason = result and result.reason or "Cannot drop cargo" }
+  end
+  self:validate_physical_ownership()
+  self:_log("DROPPED " .. string.upper(item.display_name) .. ".")
+  self:_sound("pickup")
+  return { applied = true, physical_id = physical_id, item = item, ground_item_id = ground.id }
 end
 
 function Session:salvage_corpse_component(corpse_id, slot_id)
@@ -4506,6 +4717,10 @@ function Session:_move_player(direction)
   local result = self:_move_actor(player, destination_x, destination_y)
   if result.applied then
     self:_log("Moved " .. delta[3] .. ".")
+    -- Supply collection is part of arriving on this successful movement
+    -- action. It never invokes Session:turn again, so enemy/world response
+    -- still occurs exactly once for the tile step.
+    result.auto_pickup = self:_auto_pickup_ground_supplies(player.x, player.y)
   elseif result.code == "blocked_terrain" then
     self:_log("A wall blocks your path.")
   elseif result.code == "crawl_cannot_move_diagonally" then
@@ -5319,6 +5534,19 @@ function Session:turn(input)
     if corpse then
       self.pending_salvage_corpse_id = corpse.id
       return "salvage"
+    end
+    -- Supplies are deliberately collected by entering their cell, never by
+    -- spending a separate use turn.  Loose components still continue through
+    -- the faced ground-item path below.
+    local cell = self:faced_cell()
+    if cell and #Interaction.available_at(self, self.state.player, cell.x, cell.y) == 0 then
+      local ground = self:faced_ground_item()
+      if ground and ground.item.item_type == "resource_stack" then
+        self.last_action_result = { applied = false, code = "walk_over_pickup", reason = "Walk over supplies to collect them" }
+        self:_log("WALK OVER SUPPLIES TO COLLECT THEM.")
+        self:refresh_visibility()
+        return "no_action"
+      end
     end
   end
   local blocked_movement = self:_campaign_movement_preflight(input)

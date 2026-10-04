@@ -214,6 +214,14 @@ function GameplayUI.context_action(session)
     end
     local ground = session.faced_ground_item and session:faced_ground_item() or nil
     if ground then
+      if ground.item.item_type == "resource_stack" then
+        return {
+          key = "MOVE",
+          label = "WALK OVER " .. string.upper(ground.item.display_name),
+          available = true,
+          priority = 4,
+        }
+      end
       return {
         key = "U",
         label = "PICK UP " .. string.upper(ground.item.display_name),
@@ -278,22 +286,39 @@ function GameplayUI.inventory_entry(session, entry, inventory)
   if entry.item.item_type == "resource_stack" then
     local definition = session.registry:get_resource(entry.item.resource_id)
     local width, height = inventory:footprint(entry.item, entry.rotated)
+    local ammo = entry.item.resource_id:match("^resource%.ammo%.") ~= nil
     return {
-      item_type = "resource",
+      item_type = ammo and "ammo" or "resource",
+      category = ammo and "AMMO" or "RESOURCE",
       name = definition.display_name,
       quantity = entry.item.quantity,
       mass = entry.item.mass,
       width = width,
       height = height,
       rotated = entry.rotated == true,
-      description = "CONSTRUCTION RESOURCE",
+      description = ammo and "PHYSICAL AMMUNITION" or "CONSTRUCTION RESOURCE",
     }
   end
   local model = GameplayUI.component(session, entry.item.object)
   model.item_type = "component"
+  model.category = "COMPONENT"
   local width, height = inventory:footprint(entry.item, entry.rotated)
   model.width, model.height = width, height
   model.rotated = entry.rotated == true
+  for _, ability_id in ipairs(session.registry:get_component(entry.item.object.definition_id).abilities or {}) do
+    local ability = session.registry:get_ability(ability_id)
+    if ability.ammo then
+      local key = ability.ammo.magazine_key or ability.id
+      local saved = entry.item.object.weapon_state and entry.item.object.weapon_state[key]
+      local loaded = saved and saved.loaded or ability.ammo.magazine_capacity
+      model.magazine = {
+        loaded = math.max(0, math.min(ability.ammo.magazine_capacity, math.floor(loaded or 0))),
+        capacity = ability.ammo.magazine_capacity,
+        family = ability.ammo.family,
+      }
+      break
+    end
+  end
   return model
 end
 

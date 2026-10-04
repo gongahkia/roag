@@ -2,6 +2,7 @@ local Grid = require("src.world.grid")
 local Component = require("src.body.component")
 local GameplayUI = require("src.presentation.gameplay_ui")
 local InventoryLayout = require("src.ui.inventory_layout")
+local SalvageLayout = require("src.ui.salvage_layout")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -782,17 +783,30 @@ function Renderer:_draw_inventory(app)
     local model = GameplayUI.inventory_entry(app.session, detail_entry, inventory)
     self:_text(model.name, detail_x, detail_y, 0.82, { 0.95, 0.85, 0.3 })
     self:_text("MASS " .. model.mass .. "   BOUNDS " .. model.width .. "×" .. model.height .. (model.rotated and " (ROTATED)" or ""), detail_x, detail_y + 17, 0.54)
-    if model.item_type == "resource" then
-      self:_text("RESOURCE ×" .. model.quantity, detail_x, detail_y + 33, 0.58, { 0.6, 0.9, 0.75 })
+    if model.item_type == "resource" or model.item_type == "ammo" then
+      self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, detail_x, detail_y + 33, 0.58,
+        model.item_type == "ammo" and { 0.95, 0.7, 0.35 } or { 0.6, 0.9, 0.75 })
     else
       self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, detail_y + 33, 0.58)
       self:_text(model.condition, detail_x, detail_y + 46, 0.58,
         model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+      if model.magazine then
+        self:_text("MAG " .. model.magazine.loaded .. "/" .. model.magazine.capacity, detail_x, detail_y + 59, 0.52,
+          { 0.95, 0.72, 0.35 })
+      end
     end
   else
     self:_text("EMPTY CELL", detail_x, detail_y, 0.72, { 0.65, 0.75, 0.9 })
   end
-  self:_text("DRAG TO REPACK  •  R ROTATE  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
+  local drop = app:inventory_drop_target_layout(width, height)
+  if drop then
+    self:_color({ 0.22, 0.11, 0.1 })
+    love.graphics.rectangle("fill", drop.x, drop.y, drop.width, drop.height)
+    self:_color({ 0.9, 0.38, 0.3 })
+    love.graphics.rectangle("line", drop.x, drop.y, drop.width, drop.height)
+    self:_text("DROP SELECTED", drop.x + 12, drop.y + 7, 0.55, { 1, 0.72, 0.66 })
+  end
+  self:_text("DRAG TO REPACK  •  R ROTATE  •  DEL DROP  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
   self:_text(app:is_campaign_mode() and "TAB LOADOUT     ENTER SELECT / PLACE     I / ESC CLOSE" or "ENTER SELECT / PLACE     I / ESC CLOSE",
     grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
   local body_y = grid_y + layout.height + 10
@@ -850,6 +864,108 @@ function Renderer:_draw_salvage(app)
   local corpse = session:find_corpse(app.salvage_corpse_id)
   local options = app:salvage_options()
   local width, height = love.graphics.getDimensions()
+  if session.campaign then
+    local projection = app:salvage_grid()
+    local layout = projection and app:salvage_layout(width, height) or nil
+    love.graphics.clear(0.025, 0.035, 0.055)
+    self:_text("CORPSE SALVAGE", 28, 24, 1.35, { 0.7, 0.9, 1 })
+    if not corpse or not projection or not layout then
+      self:_text("CORPSE NO LONGER AVAILABLE", 28, 74, 0.9, { 1, 0.4, 0.4 })
+      return
+    end
+    local source = corpse.source_kind and session.registry.enemies["enemy.legacy." .. corpse.source_kind]
+    local label = corpse.source_kind == "player" and "FALLEN BODY"
+      or (corpse.fallen_archive_id and "FALLEN SHELL")
+      or ((source and source.display_name or "ENEMY") .. " REMAINS")
+    self:_text(label, 28, 51, 0.64, { 0.95, 0.85, 0.3 })
+
+    local function draw_grid(title, inventory, geometry, base_color, focus, cursor, hide_id)
+      self:_text(title, geometry.grid_x, geometry.grid_y - 27, 0.72,
+        focus and { 0.95, 0.85, 0.3 } or { 0.65, 0.78, 0.92 })
+      for y = 1, inventory.height do
+        for x = 1, inventory.width do
+          local pixel_x = geometry.grid_x + (x - 1) * layout.cell
+          local pixel_y = geometry.grid_y + (y - 1) * layout.cell
+          self:_color({ 0.055, 0.08, 0.12 })
+          love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 2, layout.cell - 2)
+          self:_color({ 0.18, 0.28, 0.38 })
+          love.graphics.rectangle("line", pixel_x, pixel_y, layout.cell - 2, layout.cell - 2)
+        end
+      end
+      for _, entry in ipairs(inventory.entries) do
+        if entry.physical_id ~= hide_id then
+          local cells = inventory:footprint_cells(entry.item, entry.rotated)
+          local selected = app.salvage_selected_id == entry.physical_id
+          for _, shape_cell in ipairs(cells) do
+            local pixel_x = geometry.grid_x + (entry.x - 1 + shape_cell.x) * layout.cell + 2
+            local pixel_y = geometry.grid_y + (entry.y - 1 + shape_cell.y) * layout.cell + 2
+            self:_color(selected and { 0.92, 0.7, 0.2 } or base_color)
+            love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+            self:_color({ 0.8, 0.9, 1 })
+            love.graphics.rectangle("line", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+          end
+          self:_text(entry.item.display_name, geometry.grid_x + (entry.x - 1) * layout.cell + 3,
+            geometry.grid_y + (entry.y - 1) * layout.cell + 4, math.max(0.27, math.min(0.48, layout.cell / 75)),
+            { 0.95, 0.97, 1 })
+        end
+      end
+      if cursor then
+        local pixel_x = geometry.grid_x + (cursor.x - 1) * layout.cell
+        local pixel_y = geometry.grid_y + (cursor.y - 1) * layout.cell
+        self:_color(focus and { 1, 0.85, 0.2 } or { 0.4, 0.6, 0.78 })
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", pixel_x - 1, pixel_y - 1, layout.cell, layout.cell)
+        love.graphics.setLineWidth(1)
+      end
+    end
+
+    local cursors = app.salvage_cursor or { corpse = { x = 1, y = 1 }, player = { x = 1, y = 1 } }
+    local drag = app.salvage_drag
+    draw_grid("FALLEN CARGO", projection.inventory, layout.corpse, { 0.36, 0.43, 0.7 }, app.salvage_focus == "corpse",
+      cursors.corpse, drag and drag.physical_id)
+    draw_grid("YOUR INVENTORY", session.state.inventory, layout.player, { 0.18, 0.45, 0.58 }, app.salvage_focus == "player",
+      cursors.player, nil)
+    if drag and drag.x and drag.y then
+      local entry = projection.inventory:get(drag.physical_id)
+      if entry then
+        local color = drag.valid and { 0.45, 0.92, 0.74, 0.8 } or { 1, 0.28, 0.22, 0.7 }
+        for _, shape_cell in ipairs(session.state.inventory:footprint_cells(entry.item, drag.rotated)) do
+          local pixel_x = layout.player.grid_x + (drag.x - 1 + shape_cell.x) * layout.cell + 2
+          local pixel_y = layout.player.grid_y + (drag.y - 1 + shape_cell.y) * layout.cell + 2
+          self:_color(color)
+          love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+        end
+      end
+    end
+    local detail = drag and projection.inventory:get(drag.physical_id)
+      or (app.salvage_selected_id and projection.inventory:get(app.salvage_selected_id))
+      or projection.inventory:item_at(cursors.corpse.x, cursors.corpse.y)
+    if detail then
+      local model = GameplayUI.inventory_entry(session, { item = detail.item, rotated = drag and drag.rotated or detail.rotated }, projection.inventory)
+      local details_y = math.max(62, layout.corpse.grid_y - 50)
+      self:_text(string.upper(model.category or "COMPONENT") .. "  " .. string.upper(model.name), width * 0.47, details_y, 0.56,
+        { 0.95, 0.85, 0.3 })
+      self:_text("MASS " .. model.mass .. "  •  " .. model.width .. "×" .. model.height
+        .. (((drag and drag.rotated) or model.rotated) and " ROTATED" or ""), width * 0.47, details_y + 15, 0.45,
+        { 0.75, 0.82, 0.92 })
+      if model.item_type == "resource" or model.item_type == "ammo" then
+        self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, width * 0.47, details_y + 29, 0.45,
+          { 0.6, 0.9, 0.75 })
+      else
+        self:_text("CONDITION " .. model.condition .. "  " .. model.current_integrity .. "/" .. model.max_integrity,
+          width * 0.47, details_y + 29, 0.45, model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.35 })
+        if model.magazine then self:_text("MAG " .. model.magazine.loaded .. "/" .. model.magazine.capacity,
+          width * 0.47, details_y + 43, 0.45, { 0.95, 0.72, 0.35 }) end
+      end
+    else
+      self:_text("SELECT A CORPSE ITEM", width * 0.47, math.max(62, layout.corpse.grid_y - 50), 0.55, { 0.65, 0.75, 0.9 })
+    end
+    self:_text("DRAG CORPSE CARGO TO YOUR GRID  •  R ROTATE  •  TAB SWITCH GRID", 28, height - 52, 0.58,
+      { 0.75, 0.82, 0.92 })
+    self:_text("ENTER SELECT / PLACE  •  U / ESC CLOSE  •  SALVAGE PAUSES THE WORLD", 28, height - 31, 0.56,
+      { 0.75, 0.82, 0.92 })
+    return
+  end
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("CORPSE SALVAGE", width * 0.18, 58, 2, { 0.7, 0.9, 1 })
   if not corpse then

@@ -20,6 +20,7 @@ local PresentationFlow = require("src.presentation.presentation_flow")
 local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
+local SalvageLayout = require("src.ui.salvage_layout")
 
 local App = {}
 App.__index = App
@@ -580,9 +581,9 @@ end
 function App:help_sections()
   return {
     { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
-    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward. U uses exactly the faced tile. Q dashes; B arms a bomb; F primes a flare." },
+    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
     { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
-    { title = "SALVAGE + INVENTORY", text = "Campaign U opens a faced corpse. Parts need space in the grid; R rotates selected cargo. Legacy mode retains G for nearby salvage." },
+    { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
     { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
     { title = "SERVICES + ROUTE", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms; route choices are one way." },
     { title = "RESEARCH + DEATH", text = "RESEARCH DATA unlocks future runs. Death archives the body; a fallen shell can recur later." },
@@ -983,6 +984,10 @@ function App:close_overlay()
   self.inventory_panel = nil
   self.quick_ability_confirmation = nil
   self.salvage_corpse_id = nil
+  self.salvage_selected_id = nil
+  self.salvage_selected_rotated = nil
+  self.salvage_drag = nil
+  self.salvage_cursor = nil
   self.storage_object_id = nil
   if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
   self:clear_held_movement()
@@ -1102,6 +1107,38 @@ function App:open_inventory()
   self:clear_held_movement()
   self:play_sound("select")
   return true
+end
+
+function App:inventory_drop_target_layout(viewport_width, viewport_height)
+  local layout = self:inventory_layout(viewport_width, viewport_height)
+  if not layout then return nil end
+  return {
+    x = math.min((viewport_width or 0) - 168, layout.grid_x + layout.width + 12),
+    y = (viewport_height or 0) - 82,
+    width = 156,
+    height = 27,
+  }
+end
+
+function App:inventory_drop_selected()
+  if not self.session then return nil end
+  local inventory = self.session.state.inventory
+  local entry = self.inventory_selected_id and inventory:get(self.inventory_selected_id)
+    or inventory:item_at(self.inventory_cursor.x, self.inventory_cursor.y)
+  if not entry then
+    self.session:_log("No inventory item selected to drop.")
+    return nil
+  end
+  local result = self.session:drop_inventory_item(entry.physical_id)
+  if result.applied then
+    self.inventory_selected_id, self.inventory_drag = nil, nil
+    self:autosave("inventory_drop")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
 end
 
 -- Inventory is the deliberately-paused place where a player organises quick
@@ -1454,6 +1491,10 @@ end
 
 function App:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
   if self.screen ~= "inventory" or button ~= 1 then return nil end
+  local drop = self:inventory_drop_target_layout(viewport_width, viewport_height)
+  if drop and x >= drop.x and x <= drop.x + drop.width and y >= drop.y and y <= drop.y + drop.height then
+    return self:inventory_drop_selected()
+  end
   local layout = self:inventory_layout(viewport_width, viewport_height)
   if not layout then return nil end
   local cell_x, cell_y = InventoryLayout.cell_at(layout, x, y)
@@ -1589,8 +1630,158 @@ function App:open_salvage(corpse_id)
     return false
   end
   self.salvage_corpse_id = corpse.id
+  self.salvage_selected_id, self.salvage_selected_rotated, self.salvage_drag = nil, nil, nil
+  self.salvage_focus = "corpse"
+  self.salvage_cursor = { corpse = { x = 1, y = 1 }, player = { x = 1, y = 1 } }
   self.screen, self.menu = "salvage", 1
   self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:salvage_grid()
+  return self.session and self.session:corpse_loot_grid(self.salvage_corpse_id) or nil
+end
+
+function App:salvage_layout(viewport_width, viewport_height)
+  local grid = self:salvage_grid()
+  local inventory = self.session and self.session.state.inventory
+  if not grid or not inventory then return nil end
+  if type(viewport_width) ~= "number" or type(viewport_height) ~= "number" then
+    if not (love and love.graphics) then return nil end
+    viewport_width, viewport_height = love.graphics.getDimensions()
+  end
+  return SalvageLayout.for_viewport(grid.inventory, inventory, viewport_width, viewport_height)
+end
+
+function App:_salvage_drag_item()
+  local grid = self:salvage_grid()
+  local drag = self.salvage_drag
+  return grid and drag and grid.inventory:get(drag.physical_id) or nil
+end
+
+function App:_update_salvage_drag(pointer_x, pointer_y, layout)
+  local drag, entry = self.salvage_drag, self:_salvage_drag_item()
+  if not drag or not entry then self.salvage_drag, self.salvage_selected_id = nil, nil; return nil end
+  local cell_x, cell_y = SalvageLayout.cell_at(layout.player, layout.cell, pointer_x, pointer_y, true)
+  drag.x, drag.y = cell_x - drag.grab_x, cell_y - drag.grab_y
+  drag.valid, drag.reason = self.session.state.inventory:can_place(entry.item, drag.x, drag.y, drag.rotated)
+  return drag
+end
+
+function App:salvage_mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or not self:is_campaign_mode() or button ~= 1 then return nil end
+  local layout, grid = self:salvage_layout(viewport_width, viewport_height), self:salvage_grid()
+  if not layout or not grid then return nil end
+  local cell_x, cell_y = SalvageLayout.cell_at(layout.corpse, layout.cell, x, y)
+  if not cell_x then return nil end
+  self.salvage_focus = "corpse"
+  self.salvage_cursor.corpse.x, self.salvage_cursor.corpse.y = cell_x, cell_y
+  local entry = grid.inventory:item_at(cell_x, cell_y)
+  if not entry then self.salvage_selected_id = nil; return nil end
+  self.salvage_selected_id = entry.physical_id
+  self.salvage_drag = {
+    physical_id = entry.physical_id,
+    grab_x = cell_x - entry.x,
+    grab_y = cell_y - entry.y,
+    rotated = entry.rotated,
+    x = nil,
+    y = nil,
+    valid = false,
+  }
+  self:play_sound("select")
+  return self.salvage_drag
+end
+
+function App:salvage_mousemoved(x, y, _, _, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or not self.salvage_drag then return nil end
+  local layout = self:salvage_layout(viewport_width, viewport_height)
+  return layout and self:_update_salvage_drag(x, y, layout) or nil
+end
+
+function App:salvage_mousereleased(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or button ~= 1 or not self.salvage_drag then return nil end
+  local layout = self:salvage_layout(viewport_width, viewport_height)
+  if layout then self:_update_salvage_drag(x, y, layout) end
+  local drag, entry = self.salvage_drag, self:_salvage_drag_item()
+  self.salvage_drag = nil
+  if not drag or not entry or not drag.valid then
+    self:play_sound("select")
+    return nil, drag and drag.reason or "Item was not dropped on your inventory"
+  end
+  local result = self.session:salvage_corpse_to_inventory(self.salvage_corpse_id, drag.physical_id,
+    { x = drag.x, y = drag.y, rotated = drag.rotated })
+  if result.applied then
+    self.salvage_selected_id = nil
+    self.salvage_selected_rotated = nil
+    self.salvage_cursor.player.x, self.salvage_cursor.player.y = drag.x, drag.y
+    self:autosave("spatial_salvage")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
+end
+
+function App:move_salvage_cursor(delta_x, delta_y)
+  local grid = self:salvage_grid()
+  if not grid then return nil end
+  local focus = self.salvage_focus or "corpse"
+  local inventory = focus == "corpse" and grid.inventory or self.session.state.inventory
+  local cursor = self.salvage_cursor[focus]
+  cursor.x, cursor.y = clamp(cursor.x + delta_x, 1, inventory.width), clamp(cursor.y + delta_y, 1, inventory.height)
+  self:play_sound("select")
+  return cursor
+end
+
+function App:toggle_salvage_focus()
+  self.salvage_focus = self.salvage_focus == "corpse" and "player" or "corpse"
+  self:play_sound("select")
+end
+
+function App:salvage_select_or_place()
+  local grid = self:salvage_grid()
+  if not grid then return nil end
+  if self.salvage_focus == "corpse" then
+    local cursor, entry = self.salvage_cursor.corpse, grid.inventory:item_at(self.salvage_cursor.corpse.x, self.salvage_cursor.corpse.y)
+    if not entry then self.session:_log("No salvage at cursor."); return nil end
+    self.salvage_selected_id = entry.physical_id
+    self.salvage_selected_rotated = entry.rotated
+    self.session:_log("Selected " .. entry.item.display_name .. ".")
+    self:play_sound("select")
+    return entry
+  end
+  local selected = self.salvage_selected_id and grid.inventory:get(self.salvage_selected_id)
+  if not selected then self.session:_log("Select corpse cargo first."); return nil end
+  local cursor = self.salvage_cursor.player
+  local result = self.session:salvage_corpse_to_inventory(self.salvage_corpse_id, selected.physical_id,
+    { x = cursor.x, y = cursor.y, rotated = self.salvage_selected_rotated == true })
+  if result.applied then
+    self.salvage_selected_id = nil
+    self.salvage_selected_rotated = nil
+    self:autosave("spatial_salvage")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
+end
+
+function App:rotate_salvage_item()
+  local grid = self:salvage_grid()
+  local entry = self:_salvage_drag_item() or (grid and self.salvage_selected_id and grid.inventory:get(self.salvage_selected_id))
+  if not entry then self.session:_log("Select corpse cargo to rotate it."); return nil end
+  if not entry.item.footprint.rotatable then self.session:_log("That item cannot rotate."); return nil end
+  if self.salvage_drag then
+    self.salvage_drag.rotated = not self.salvage_drag.rotated
+    local layout = self:salvage_layout()
+    if layout and love and love.mouse then
+      local pointer_x, pointer_y = love.mouse.getPosition()
+      self:_update_salvage_drag(pointer_x, pointer_y, layout)
+    end
+  else
+    self.salvage_selected_rotated = not (self.salvage_selected_rotated == true)
+  end
   self:play_sound("select")
   return true
 end
@@ -1711,10 +1902,14 @@ function App:mousepressed(x, y, button, viewport_width, viewport_height)
     self.menu = index or self.menu
     return self:activate_title_choice()
   end
+  if self.screen == "salvage" then
+    return self:salvage_mousepressed(x, y, button, viewport_width, viewport_height)
+  end
   return self:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
 end
 
 function App:mousemoved(...)
+  if self.screen == "salvage" then return self:salvage_mousemoved(...) end
   return self:inventory_mousemoved(...)
 end
 
@@ -1730,6 +1925,9 @@ function App:mousereleased(x, y, button, viewport_width, viewport_height)
   if self.screen == "campaign_slots" and button == 1 then
     self.menu = self:campaign_slot_at(x, y, viewport_width, viewport_height) or self.menu
     return self:select_campaign_slot()
+  end
+  if self.screen == "salvage" then
+    return self:salvage_mousereleased(x, y, button, viewport_width, viewport_height)
   end
   return self:inventory_mousereleased(x, y, button, viewport_width, viewport_height)
 end
