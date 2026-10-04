@@ -1,5 +1,6 @@
 -- Atomic, headless transactions for the one run-wide SCRAP economy.
 local Component = require("src.body.component")
+local Tool = require("src.inventory.tool")
 local PhysicalItem = require("src.inventory.physical_item")
 local RunModifiers = require("src.simulation.run_modifiers")
 local Balance = require("content.balance.legacy")
@@ -33,7 +34,7 @@ end
 
 local function copy_offer(offer)
   return { key = offer.key, resource_id = offer.resource_id, quantity = offer.quantity,
-    label = offer.label, price = offer.price, remaining = offer.remaining }
+    tool_definition_id = offer.tool_definition_id, label = offer.label, price = offer.price, remaining = offer.remaining }
 end
 
 function Economy.create_stock(session, service_id, rng, final_hub)
@@ -91,6 +92,21 @@ function Economy.supply(session, stock, offer_index)
     offer.remaining = offer.remaining - 1
     return { applied = true, code = "purchased", resource_id = offer.resource_id, physical_id = item.physical_id, price = offer.price }
   end
+  if session.campaign and offer.tool_definition_id then
+    local item = session:create_tool(offer.tool_definition_id, "campaign")
+    local placement = session.state.inventory:find_first_fit(item)
+    if not placement then return fail("inventory_full", "Inventory has no room for that tool") end
+    local ok, failure = spend(session, offer.price)
+    if not ok then return failure end
+    local entry, reason = session.state.inventory:place(item, placement.x, placement.y, placement.rotated)
+    if not entry then
+      session.state.scrap = session.state.scrap + offer.price
+      return fail("inventory_full", reason)
+    end
+    offer.remaining = offer.remaining - 1
+    return { applied = true, code = "purchased", tool_definition_id = offer.tool_definition_id,
+      physical_id = item.physical_id, price = offer.price }
+  end
   -- Legacy route mode retains its historical abstract ammo wallet. The same
   -- authored supply entries therefore remain usable without making NPC/legacy
   -- systems depend on Campaign cargo.
@@ -133,6 +149,21 @@ function Economy.repair(session, stock, component_id)
     session:_log_capability_restoration(session.state.player, before_capabilities, session.state.player.body:list_capabilities())
   end
   return { applied = true, code = "repaired", component_id = component.id, price = price, integrity = component.current_integrity }
+end
+
+function Economy.repair_tool(session, stock, tool_id)
+  if not stock or stock.remaining <= 0 then return fail("out_of_stock", "No repair operations remain") end
+  local entry = session.state.inventory and session.state.inventory:get(tool_id)
+  if not entry or entry.item.item_type ~= "tool" then return fail("invalid_tool", "Tool is not carried by the player") end
+  local tool = entry.item.object
+  if tool.current_durability >= tool.maximum_durability then return fail("already_full_durability", "Tool is already at full durability") end
+  local price = stock.price or 2
+  local ok, failure = spend(session, price)
+  if not ok then return failure end
+  tool.current_durability = math.min(tool.maximum_durability, tool.current_durability + 1)
+  stock.remaining = stock.remaining - 1
+  return { applied = true, code = "repaired_tool", tool_id = tool.id, price = price,
+    durability = tool.current_durability, max_durability = tool.maximum_durability, condition = Tool.condition(tool) }
 end
 
 function Economy.buy_component(session, stock, offer_index)

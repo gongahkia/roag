@@ -40,7 +40,7 @@ $ love .
 | Key | Action |
 | --- | --- |
 | `W` / `A` / `S` / `D` | **Campaign:** cardinal movement only; the most recently pressed held direction wins. Movement sets facing. |
-| `E` | **Campaign:** attack with the active quick weapon in the facing direction. Empty ranged magazines reload instead of firing. |
+| `E` | **Campaign:** attack with the active quick weapon in the facing direction. A carried tool in that slot strikes enemies or the faced material; empty ranged magazines reload instead of firing. |
 | `R` | **Campaign:** swap quick weapon; a successful field swap costs one turn |
 | `Q` | **Campaign:** use the active quick ability (Dash is a default ability binding) |
 | `B` | Arm a bomb |
@@ -59,6 +59,8 @@ $ love .
 Campaign uses two identity-bound quick weapon slots and two quick ability slots; `E` and `Q` always use the active selections shown in the HUD. Ranged reserve ammunition is physical 1×1 cargo (bullets, shells, energy cells, or explosives), while a loaded magazine stays on its exact physical weapon component.
 
 Campaign supplies are deliberately physical but fast: walk onto TIMBER, MASONRY, METAL, or ammunition to collect the whole stack if it fits. Loose components and corpses are deliberate: face them with `U`; corpse salvage opens two spatial grids where rotation and placement matter. Inventory and salvage pause the world, and dropped cargo stays at your feet until you leave and walk back onto that cell.
+
+Tools are physical cargo, not body parts. Assign an Axe, Pickaxe, Cutter, or Drill from the paused Inventory loadout panel, then face a compatible tree, stone, metal, or industrial obstacle and press `E` repeatedly. Tools take durability from physical strikes, remain as repairable broken cargo at zero durability, and repair at Repair Kiosks. Material drops stay on the ground until walked over.
 
 Legacy/run-based mode retains its compatibility controls: diagonal held WASD movement, arrow-key firing, `G` for nearby corpse salvage, the generic ammo wallet, and the installed-body ability list.
 

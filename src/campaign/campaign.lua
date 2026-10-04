@@ -186,6 +186,24 @@ local function ensure_reconstruction_anchor(campaign, record, session)
   return anchor
 end
 
+-- A first Axe is deliberately campaign-start scaffolding, not a replacement
+-- for a real tool acquisition loop. The flag is durable so body succession
+-- cannot quietly mint replacement tools after a loss.
+local function ensure_starter_tool(campaign, session)
+  if campaign.state.starter_tool_granted then return true end
+  local item = session:create_tool("tool.axe", "campaign")
+  local placement = session.state.inventory:find_first_fit(item)
+  -- Historical campaigns can legitimately resume with every cell occupied.
+  -- Do not invalidate that save merely to grant the new starter scaffold.
+  if not placement then
+    campaign.state.starter_tool_granted = true
+    return false
+  end
+  assert(session.state.inventory:place(item, placement.x, placement.y, placement.rotated))
+  campaign.state.starter_tool_granted = true
+  return true
+end
+
 function Campaign.new(options)
   options = options or {}
   local seed = Rng.new(options.seed or 1).seed
@@ -212,6 +230,7 @@ function Campaign.new(options)
       reconstruction_anchor = parse_anchor(options.reconstruction_anchor),
     pending_successor = options.pending_successor,
       loadout = nil,
+      starter_tool_granted = options.starter_tool_granted == true,
       body_death_count = options.body_death_count or 0,
       world_content_plan = world_content_plan,
     },
@@ -237,6 +256,7 @@ function Campaign.new(options)
   install_zone_connections(session, record)
   session:apply_pending_campaign_world_content()
   self.session = session
+  ensure_starter_tool(self, session)
   ensure_reconstruction_anchor(self, record, session)
   self:sync_active_references()
   self:validate()
@@ -386,6 +406,7 @@ function Campaign:to_manifest_data()
     reconstruction_anchor = anchor_data(self.state.reconstruction_anchor),
     pending_successor = self.state.pending_successor,
     loadout = Loadout.to_data(self.state.loadout),
+    starter_tool_granted = self.state.starter_tool_granted == true,
     body_death_count = self.state.body_death_count or 0,
     world_content_plan = self.state.world_content_plan,
     zones = zones,
@@ -897,6 +918,7 @@ function Campaign.from_data(manifest, shard, options)
       reconstruction_anchor = parse_anchor(manifest.reconstruction_anchor),
       pending_successor = manifest.pending_successor,
       loadout = Loadout.from_data(manifest.loadout),
+      starter_tool_granted = manifest.starter_tool_granted == true,
       body_death_count = manifest.body_death_count or 0,
       world_content_plan = world_content_plan },
     active_zone = record, identity = identity,
@@ -922,6 +944,7 @@ function Campaign.from_data(manifest, shard, options)
     on_meta_reward = options.on_meta_reward, emit = options.emit,
   })
   self.session = session
+  ensure_starter_tool(self, session)
   -- Existing campaign v1 saves gain deterministic additive topology when a
   -- zone becomes active. Their immutable old shard is retained until normal
   -- save/transition creates the next revision.

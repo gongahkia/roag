@@ -669,6 +669,8 @@ function App:_handle_session_event(event)
     self.presentation:hit()
   elseif event.type == "bump" then
     self.presentation:bump(event.value and event.value.direction)
+  elseif event.type == "tool_impact" then
+    self.presentation:impact(event.value)
   end
 end
 

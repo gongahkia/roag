@@ -9,6 +9,7 @@ local BodyDamage = require("src.simulation.body_damage")
 local Locomotion = require("src.simulation.locomotion")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local Tool = require("src.inventory.tool")
 local CorpseLootGrid = require("src.inventory.corpse_loot_grid")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
@@ -584,6 +585,18 @@ function Session:create_resource_stack(resource_id, quantity, scope)
   return PhysicalItem.from_resource(resource_id, quantity, item_id, self.registry)
 end
 
+function Session:create_tool(tool_definition_id, scope)
+  local item_id
+  if self.identity_allocator then
+    item_id = self.identity_allocator:allocate_item_id(scope or "zone")
+  else
+    local sequence = self.state.next_item_sequence
+    self.state.next_item_sequence = sequence + 1
+    item_id = string.format("item:%06d", sequence)
+  end
+  return PhysicalItem.from_tool(Tool.new(self.registry:get_tool(tool_definition_id), item_id), self.registry)
+end
+
 -- Campaign loadout state is deliberately body-identity-bound. Zone travel
 -- retains it, while physical succession receives a fresh deterministic setup.
 function Session:ensure_campaign_loadout()
@@ -617,7 +630,7 @@ function Session:ensure_campaign_loadout()
     local selected
     for index = 1, Loadout.SLOT_COUNT do
       local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
-      if resolved and resolved.ability.ammo then selected = resolved; break end
+      if resolved and resolved.ability and resolved.ability.ammo then selected = resolved; break end
     end
     if selected then
       -- Historical reserve values were unbounded scalars. Convert them in
@@ -639,7 +652,7 @@ function Session:ensure_campaign_loadout()
   end
   for index = 1, Loadout.SLOT_COUNT do
     local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
-    if resolved and resolved.ability.ammo then self:weapon_magazine(resolved.provider, resolved.ability) end
+    if resolved and resolved.ability and resolved.ability.ammo then self:weapon_magazine(resolved.provider, resolved.ability) end
   end
   return loadout
 end
@@ -672,7 +685,8 @@ function Session:assign_campaign_loadout(kind, index, binding)
         and candidate.ability_id == binding.ability_id then valid = true; break end
     end
     if not valid then return { applied = false, code = "invalid_loadout_binding", reason = "That source cannot fill this quick slot" } end
-    binding = { source_kind = binding.source_kind, physical_id = binding.physical_id, ability_id = binding.ability_id }
+    binding = { source_kind = binding.source_kind, physical_id = binding.physical_id, ability_id = binding.ability_id,
+      attack_id = binding.attack_id, tool_definition_id = binding.tool_definition_id }
   end
   local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
   slots[index] = binding
@@ -725,6 +739,7 @@ function Session:attack_active_weapon()
     self:_log((failure and failure.reason) or "WEAPON SLOT UNAVAILABLE.")
     return self:_ability_failure("attack", failure and failure.code or "slot_unavailable", failure and failure.reason or "Weapon slot is unavailable")
   end
+  if resolved.source_kind == "tool" then return self:attack_tool(resolved.tool, resolved.tool_definition) end
   local ability = resolved.ability
   if ability.ammo then
     local magazine = self:weapon_magazine(resolved.provider, ability)
@@ -740,6 +755,123 @@ function Session:attack_active_weapon()
   return self:activate_actor_ability(player, ability.id, {
     direction = player.direction, provider_component_id = resolved.provider.id,
   })
+end
+
+-- A conventional tool is a carried weapon source.  It intentionally has no
+-- body ability/provider: the high-level ATTACK seam resolves it here and
+-- keeps normal actor, object, and terrain damage authoritative below it.
+function Session:_wear_tool(tool, definition)
+  if tool.current_durability <= 0 then return false end
+  tool.current_durability = math.max(0, tool.current_durability - 1)
+  if tool.current_durability == 0 then
+    self:_log(string.upper(definition.display_name) .. " BROKE.")
+  end
+  return true
+end
+
+function Session:_tool_target_protected(x, y, object)
+  local state = self.state
+  local cell_key = Grid.key(x, y)
+  if state.surface_connector_cells and state.surface_connector_cells[cell_key] then
+    return true, "Protected campaign connection"
+  end
+  if state.protected_content_cells and state.protected_content_cells[cell_key] then
+    return true, "Protected critical site"
+  end
+  if object and (object.zone_connection_id or object.interaction_role == "zone_connection"
+      or object.interaction_role == "traversal" or object.interaction_role == "reconstruction_station") then
+    return true, "Protected world infrastructure"
+  end
+  return false
+end
+
+function Session:_tool_impact(x, y, target_kind, material_id, result, definition)
+  self:_event("tool_impact", {
+    x = x, y = y, target_kind = target_kind, material_id = material_id,
+    applied = result and result.applied == true, destroyed = result and result.destroyed == true,
+    code = result and result.code, tool_family = definition.family,
+  })
+end
+
+function Session:_tool_modify_target(tool, definition, x, y, object)
+  local material_id = object and object.material_id or (self.state.world:get_cell(x, y) or {}).material_id
+  local material = material_id and self.registry:get_material(material_id) or nil
+  if not material then return { applied = false, code = "no_physical_target", reason = "Nothing physical is in reach" } end
+  local protected, protected_reason = self:_tool_target_protected(x, y, object)
+  local result
+  if protected then
+    result = { applied = false, code = "protected_target", reason = protected_reason, x = x, y = y, material_id = material.id }
+  else
+    local effectiveness = material.tool_effectiveness and material.tool_effectiveness[definition.family] or nil
+    if not effectiveness then
+      result = { applied = false, code = "tool_no_effect", reason = "The " .. definition.display_name .. " cannot affect " .. material.display_name,
+        x = x, y = y, material_id = material.id }
+    else
+      local amount = math.max(1, math.floor(definition.modification.damage * effectiveness + 0.0001))
+      local spec = { amount = amount, cause = "kinetic", source = "tool", source_actor = self.state.player,
+        source_actor_id = self.state.player and self.state.player.actor_id, source_tool_id = tool.id,
+        tool_family = definition.family }
+      result = object and self:damage_world_object(object, spec) or self:damage_terrain(x, y, spec)
+    end
+  end
+  self:_wear_tool(tool, definition)
+  self:_tool_impact(x, y, object and "world_object" or "terrain", material.id, result, definition)
+  self:_sound(result.applied and "hit" or "select")
+  if result.destroyed then
+    self:_log(string.upper(material.display_name) .. " BROKEN.")
+  elseif result.applied then
+    self:_log(string.upper(material.display_name) .. " DAMAGED.")
+  else
+    self:_log(result.reason or "CLANG — NO EFFECT.")
+  end
+  result.tool_id, result.tool_family = tool.id, definition.family
+  result.committed = true
+  return result
+end
+
+function Session:attack_tool(tool, definition)
+  definition = definition or (tool and self.registry:get_tool(tool.definition_id))
+  if not tool or not definition or not Tool.is_functional(tool) then
+    self:_log("BROKEN TOOL.")
+    return self:_ability_failure("tool.attack", "tool_broken", "Assigned tool is broken")
+  end
+  local player, cell = self.state.player, self:faced_cell(self.state.player)
+  if not player or not cell then
+    return self:_ability_failure("tool.attack", "invalid_direction", "A cardinal facing direction is required")
+  end
+  local actor = self:_actor_at(cell.x, cell.y, player)
+  if actor then
+    if not self:are_hostile(player, actor) then
+      self:_log("TOOL STRIKE HAS NO HOSTILE TARGET.")
+      return self:_ability_failure("tool.attack", "friendly_target", "That actor is not hostile")
+    end
+    local damage = self:_apply_world_actor_damage(actor, definition.combat.damage, nil, {
+      cause = "kinetic", source = "tool", source_actor = player, source_actor_id = player.actor_id,
+      source_tool_id = tool.id, tool_family = definition.family,
+    })
+    local force = nil
+    if not damage.dead and (definition.combat.force or 0) > 0 then
+      local delta = DIRECTIONS[player.direction]
+      force = self:apply_force(actor, { dx = delta[1], dy = delta[2], distance = definition.combat.force,
+        cause = "kinetic", source_actor = player, source_actor_id = player.actor_id, source_tool_id = tool.id })
+    end
+    self:_wear_tool(tool, definition)
+    self:_sound("hit")
+    self:_log(string.upper(definition.display_name) .. " STRIKE LANDED.")
+    return { applied = true, code = "tool_attack", tool_id = tool.id, target = actor, damage = damage, force = force,
+      durability = tool.current_durability }
+  end
+  local object = self.state.world:object_at(cell.x, cell.y)
+  if object and not object.destroyed then
+    return self:_tool_modify_target(tool, definition, cell.x, cell.y, object)
+  end
+  local terrain = self.state.world:get_cell(cell.x, cell.y)
+  local material = terrain and self.registry:get_material(terrain.material_id)
+  if material and (material.solid or material.destructible) then
+    return self:_tool_modify_target(tool, definition, cell.x, cell.y, nil)
+  end
+  self:_log("NOTHING PHYSICAL TO STRIKE.")
+  return self:_ability_failure("tool.attack", "no_physical_target", "Nothing physical is in reach")
 end
 
 function Session:activate_active_ability()
@@ -768,9 +900,10 @@ function Session:swap_campaign_loadout(kind)
     return { applied = false, code = failure and failure.code or "slot_unavailable", reason = failure and failure.reason or "Alternate slot is unavailable" }
   end
   loadout[active_key] = other
-  self:_log(string.upper(kind) .. " → " .. string.upper(resolved.ability.display_name) .. ".")
+  self:_log(string.upper(kind) .. " → " .. string.upper(resolved.display_name or resolved.ability.display_name) .. ".")
   self:_sound("select")
-  return { applied = true, kind = kind, active = other, ability_id = resolved.ability.id, component_id = resolved.provider and resolved.provider.id }
+  return { applied = true, kind = kind, active = other, ability_id = resolved.ability and resolved.ability.id,
+    component_id = resolved.provider and resolved.provider.id, tool_id = resolved.tool and resolved.tool.id }
 end
 
 function Session:campaign_loadout_swap_available(kind)
@@ -5085,8 +5218,15 @@ function Session:service_options(object_id)
   elseif service.role == "repair" then
     for _, component in ipairs(self.state.player.body:list_components()) do options[#options + 1] = { action = "repair", component_id = component.id, label = self.registry:get_component(component.definition_id).display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price } end
     for _, entry in ipairs(self.state.run.inventory.entries) do
-      local component = entry.item.object
-      options[#options + 1] = { action = "repair", component_id = component.id, label = entry.item.display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price }
+      if entry.item.item_type == "component" then
+        local component = entry.item.object
+        options[#options + 1] = { action = "repair", component_id = component.id, label = entry.item.display_name,
+          integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price }
+      elseif entry.item.item_type == "tool" then
+        local tool = entry.item.object
+        options[#options + 1] = { action = "repair_tool", tool_id = tool.id, label = entry.item.display_name,
+          durability = tool.current_durability, max_durability = tool.maximum_durability, price = stock.price }
+      end
     end
   elseif service.role == "salvager" then
     for index, offer in ipairs(stock.offers) do
@@ -5116,6 +5256,7 @@ function Session:service_execute(option, object_id)
   local result
   if option.action == "buy_supply" and service.role == "supply" then result = Economy.supply(self, stock, option.index)
   elseif option.action == "repair" and service.role == "repair" then result = Economy.repair(self, stock, option.component_id)
+  elseif option.action == "repair_tool" and service.role == "repair" then result = Economy.repair_tool(self, stock, option.tool_id)
   elseif option.action == "buy_component" and service.role == "salvager" then result = Economy.buy_component(self, stock, option.index)
   elseif option.action == "sell_component" and service.role == "salvager" then result = Economy.sell_component(self, option.component_id)
   elseif option.action == "buy_charm" and service.role == "charm_vendor" then result = Economy.buy_charm(self, stock, option.index)

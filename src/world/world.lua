@@ -4,6 +4,7 @@
 local Grid = require("src.world.grid")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local Tool = require("src.inventory.tool")
 
 local World = {}
 World.__index = World
@@ -1505,6 +1506,7 @@ function World:inspect_object(object_or_id)
     storage_item_count = object.storage_inventory and #object.storage_inventory.entries or nil,
     anchor_protected = object.anchor_protected == true,
     conductive = material.conductive,
+    tool_effectiveness = material.tool_effectiveness,
     fires = (function()
       local fires = {}
       for _, fire in ipairs(self:list_fires(true)) do
@@ -1537,8 +1539,16 @@ function World:inspect_cell(x, y)
   end
   local ground_items = {}
   for _, ground in ipairs(self:ground_items_at(x, y)) do
-    ground_items[#ground_items + 1] = { id = ground.id, item_type = ground.item.item_type,
+    local value = { id = ground.id, item_type = ground.item.item_type,
       display_name = ground.item.display_name, resource_id = ground.item.resource_id, quantity = ground.item.quantity }
+    if ground.item.item_type == "tool" then
+      local tool = ground.item.object
+      local definition = self.registry:get_tool(tool.definition_id)
+      value.tool_definition_id, value.tool_family = definition.id, definition.family
+      value.current_durability, value.maximum_durability, value.condition = tool.current_durability, tool.maximum_durability, Tool.condition(tool)
+      value.modification = definition.modification
+    end
+    ground_items[#ground_items + 1] = value
   end
   local liquid = self:liquid_at(x, y)
   local liquid_data
@@ -1577,6 +1587,7 @@ function World:inspect_cell(x, y)
     current_integrity = cell.current_integrity,
     max_integrity = material.max_integrity,
     destructible = material.destructible,
+    tool_effectiveness = material.tool_effectiveness,
     destroyed = cell.destroyed,
     destroyed_from_material_id = cell.destroyed_from_material_id,
     objects = objects,

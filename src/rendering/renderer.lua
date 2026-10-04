@@ -1,6 +1,7 @@
 local Grid = require("src.world.grid")
 local Component = require("src.body.component")
 local GameplayUI = require("src.presentation.gameplay_ui")
+local Loadout = require("src.simulation.loadout")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
 
@@ -161,6 +162,34 @@ function Renderer:_draw_forecast_outline(x, y, size, style, time)
   love.graphics.setLineWidth(1)
 end
 
+function Renderer:_integrity_severity(current, maximum)
+  if not current or not maximum or maximum <= 0 or current >= maximum or current <= 0 then return 0 end
+  local ratio = current / maximum
+  return ratio <= 1 / 3 and 2 or 1
+end
+
+-- Generic geometry, not a damaged-sprite requirement. One base sprite can
+-- therefore communicate persistent structural damage across every material.
+function Renderer:_draw_damage_overlay(x, y, size, severity)
+  if severity <= 0 then return end
+  self:_color({ 0.04, 0.025, 0.035, severity == 2 and 0.82 or 0.55 })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(x + size * 0.2, y + size * 0.16, x + size * 0.53, y + size * 0.48, x + size * 0.4, y + size * 0.78)
+  if severity == 2 then love.graphics.line(x + size * 0.64, y + size * 0.2, x + size * 0.49, y + size * 0.49, x + size * 0.78, y + size * 0.7) end
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_tool_impact(x, y, size, impact)
+  local pulse = math.max(0, math.min(1, (impact.time or 0) / 0.18))
+  local color = impact.applied and { 1, 0.78, 0.32, 0.35 + pulse * 0.58 } or { 0.75, 0.84, 0.95, 0.28 + pulse * 0.42 }
+  self:_color(color)
+  local inset = size * (0.18 + (1 - pulse) * 0.12)
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.1)))
+  love.graphics.line(x + inset, y + inset, x + size - inset, y + size - inset)
+  love.graphics.line(x + size - inset, y + inset, x + inset, y + size - inset)
+  love.graphics.setLineWidth(1)
+end
+
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
   local size, offset_x, offset_y, hud = self:_layout()
@@ -192,6 +221,7 @@ function Renderer:_draw_game(app)
       local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
       local passable = state.world and state.world:is_passable(x, y)
       if self:terrain_is_renderable(x, y) then
+        local terrain_cell = state.world and state.world:get_cell(x, y)
         if passable then
           local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
           self:_color(floor_tint)
@@ -210,6 +240,11 @@ function Renderer:_draw_game(app)
             self:_color({ wall_tint[1] * 1.4, wall_tint[2] * 1.4, wall_tint[3] * 1.4 })
             love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
           end
+        end
+        if terrain_cell then
+          local terrain_material = session.registry:get_material(terrain_cell.material_id)
+          self:_draw_damage_overlay(pixel_x, pixel_y, size,
+            self:_integrity_severity(terrain_cell.current_integrity, terrain_material.max_integrity))
         end
       end
     end
@@ -327,6 +362,8 @@ function Renderer:_draw_game(app)
           tint = { 1, 0.78, 0.28 }
         end
         self.assets:draw_sprite(definition.render_style, pixel_x, pixel_y, size, tint)
+        self:_draw_damage_overlay(pixel_x, pixel_y, size,
+          self:_integrity_severity(object.current_integrity, session.registry:get_material(object.material_id).max_integrity))
       end
     end
   end
@@ -341,6 +378,11 @@ function Renderer:_draw_game(app)
         self:_text("+", pixel_x + size * 0.32, pixel_y + size * 0.2, 0.7, tint)
       end
     end
+  end
+
+  for _, impact in ipairs(presentation.impacts or {}) do
+    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, impact.x, impact.y, size, offset_x, offset_y)
+    if pixel_x then self:_draw_tool_impact(pixel_x, pixel_y, size, impact) end
   end
 
   local forecasts = session:telegraphs()
@@ -786,6 +828,12 @@ function Renderer:_draw_inventory(app)
     if model.item_type == "resource" or model.item_type == "ammo" then
       self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, detail_x, detail_y + 33, 0.58,
         model.item_type == "ammo" and { 0.95, 0.7, 0.35 } or { 0.6, 0.9, 0.75 })
+    elseif model.item_type == "tool" then
+      self:_text("DURABILITY " .. model.current_durability .. " / " .. model.max_durability, detail_x, detail_y + 33, 0.58)
+      self:_text(model.condition .. "  •  " .. string.upper(model.family) .. " TOOL", detail_x, detail_y + 46, 0.52,
+        model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+      self:_text("COMBAT " .. model.combat_damage .. "  •  TERRAIN " .. model.modification_damage, detail_x, detail_y + 59, 0.48,
+        { 0.95, 0.72, 0.35 })
     else
       self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, detail_y + 33, 0.58)
       self:_text(model.condition, detail_x, detail_y + 46, 0.58,
@@ -832,12 +880,17 @@ function Renderer:_draw_inventory(app)
     self:_text("QUICK LOADOUT", panel_x, panel_y, 0.68, { 0.7, 0.9, 1 })
     for focus, slot in ipairs(slots) do
       local binding = slot.kind == "weapon" and loadout.weapon_slots[slot.index] or loadout.ability_slots[slot.index]
-      local ability = binding and app.session.registry.abilities[binding.ability_id] or nil
+      local resolved = binding and select(1, Loadout.resolve(app.session, app.session.state.player, binding, slot.kind)) or nil
+      local label = resolved and (resolved.display_name or (resolved.ability and resolved.ability.display_name))
+      if not label and binding and binding.source_kind == "tool" and binding.tool_definition_id
+        and app.session.registry.tools[binding.tool_definition_id] then
+        label = app.session.registry:get_tool(binding.tool_definition_id).display_name
+      end
       local active = slot.index == (slot.kind == "weapon" and loadout.active_weapon or loadout.active_ability)
       local selected = app.inventory_panel == "loadout" and focus == (app.loadout_focus or 1)
       local color = selected and { 0.95, 0.85, 0.3 } or active and { 0.6, 0.9, 0.75 } or { 0.72, 0.8, 0.92 }
       self:_text((selected and "> " or "  ") .. slot.label .. (active and " * " or "   ")
-        .. string.upper(ability and ability.display_name or "EMPTY"), panel_x, panel_y + focus * 15, 0.5, color)
+        .. string.upper(label or "EMPTY"), panel_x, panel_y + focus * 15, 0.5, color)
     end
     if app.inventory_panel == "loadout" then
       local target = app:loadout_target()
@@ -849,8 +902,9 @@ function Renderer:_draw_inventory(app)
           local selected = index == (app.loadout_selection or 1)
           local color = selected and { 0.95, 0.85, 0.3 }
             or option.available and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }
+          local durability = option.current_durability and (" " .. option.current_durability .. "/" .. option.max_durability) or ""
           self:_text((selected and "> " or "  ") .. string.upper(option.display_name) .. " — "
-            .. string.upper(option.provider_name) .. " " .. string.upper(option.condition),
+            .. string.upper(option.provider_name) .. " " .. string.upper(option.condition) .. durability,
             panel_x, option_y + index * 14, 0.44, color)
         end
       end
@@ -951,6 +1005,9 @@ function Renderer:_draw_salvage(app)
       if model.item_type == "resource" or model.item_type == "ammo" then
         self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, width * 0.47, details_y + 29, 0.45,
           { 0.6, 0.9, 0.75 })
+      elseif model.item_type == "tool" then
+        self:_text("DURABILITY " .. model.condition .. "  " .. model.current_durability .. "/" .. model.max_durability,
+          width * 0.47, details_y + 29, 0.45, model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.35 })
       else
         self:_text("CONDITION " .. model.condition .. "  " .. model.current_integrity .. "/" .. model.max_integrity,
           width * 0.47, details_y + 29, 0.45, model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.35 })

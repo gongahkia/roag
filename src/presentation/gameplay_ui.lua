@@ -3,6 +3,7 @@
 -- authority over rules and transactions while the renderer receives stable,
 -- readable labels instead of raw content or physical IDs.
 local Component = require("src.body.component")
+local Tool = require("src.inventory.tool")
 local Grid = require("src.world.grid")
 local PhysicalItem = require("src.inventory.physical_item")
 local Loadout = require("src.simulation.loadout")
@@ -19,6 +20,10 @@ local FAILURE_TEXT = {
   invalid_phase = "ACTION UNAVAILABLE HERE",
   inventory_full = "INVENTORY FULL",
   insufficient_material = "NOT ENOUGH MATERIAL",
+  tool_broken = "BROKEN TOOL",
+  tool_no_effect = "CLANG — NO EFFECT",
+  protected_target = "PROTECTED INFRASTRUCTURE",
+  already_full_durability = "ALREADY FULLY REPAIRED",
   blocks_travel_connection = "BLOCKS TRAVEL CONNECTION",
   blocks_reconstruction_anchor = "BLOCKS RECONSTRUCTION ANCHOR",
   campaign_only = "CAMPAIGN ONLY",
@@ -128,7 +133,12 @@ function GameplayUI.hud(session)
     local function slot_model(kind, index)
       local binding = loadout and (kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]) or nil
       local resolved, failure = Loadout.resolve(session, player, binding, kind)
-      local label = resolved and resolved.ability.display_name or "EMPTY"
+      local label = resolved and (resolved.display_name or (resolved.ability and resolved.ability.display_name)) or nil
+      if not label and binding and binding.source_kind == "tool" and binding.tool_definition_id
+        and session.registry.tools[binding.tool_definition_id] then
+        label = session.registry:get_tool(binding.tool_definition_id).display_name
+      end
+      label = label or "EMPTY"
       local model = {
         label = label,
         active = index == (kind == "weapon" and loadout.active_weapon or loadout.active_ability),
@@ -136,7 +146,7 @@ function GameplayUI.hud(session)
         reason = failure and failure.reason or nil,
         ability_id = binding and binding.ability_id or nil,
       }
-      if resolved and resolved.ability.ammo then
+      if resolved and resolved.ability and resolved.ability.ammo then
         local magazine = session:weapon_magazine(resolved.provider, resolved.ability)
         model.ammo = {
           loaded = magazine.loaded,
@@ -299,6 +309,20 @@ function GameplayUI.inventory_entry(session, entry, inventory)
       description = ammo and "PHYSICAL AMMUNITION" or "CONSTRUCTION RESOURCE",
     }
   end
+  if entry.item.item_type == "tool" then
+    local tool = entry.item.object
+    local definition = session.registry:get_tool(tool.definition_id)
+    local width, height = inventory:footprint(entry.item, entry.rotated)
+    return {
+      item_type = "tool", category = "TOOL", name = definition.display_name,
+      family = definition.family, mass = entry.item.mass, width = width, height = height,
+      rotated = entry.rotated == true, condition = string.upper(Tool.condition(tool)), functional = Tool.is_functional(tool),
+      current_durability = tool.current_durability, max_durability = tool.maximum_durability,
+      combat_damage = definition.combat.damage, combat_force = definition.combat.force,
+      modification_damage = definition.modification.damage,
+      description = "CARRIED " .. string.upper(definition.family) .. " TOOL",
+    }
+  end
   local model = GameplayUI.component(session, entry.item.object)
   model.item_type = "component"
   model.category = "COMPONENT"
@@ -333,6 +357,7 @@ function GameplayUI.service_option(session, option)
     description = option.description,
   }
   if option.integrity then value.description = "INTEGRITY " .. option.integrity .. " / " .. option.max_integrity end
+  if option.durability then value.description = "DURABILITY " .. option.durability .. " / " .. option.max_durability end
   if option.action == "buy_component" and option.component_id then
     -- The component ID is physical.  Service option labels are authoritative
     -- player copy, so it is deliberately not surfaced here.

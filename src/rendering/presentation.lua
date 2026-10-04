@@ -49,6 +49,7 @@ function Presentation.new()
     hit_shake = 0,
     bump_time = 0,
     bump_direction = nil,
+    impacts = {},
   }, Presentation)
 end
 
@@ -67,6 +68,7 @@ function Presentation:reset(session)
     self.camera_x, self.camera_y = player.x, player.y
   end
   self.bump_time, self.bump_direction = 0, nil
+  self.impacts = {}
 end
 
 function Presentation:hit()
@@ -79,6 +81,16 @@ function Presentation:bump(direction)
   if BUMP_DIRECTIONS[direction] then
     self.bump_time, self.bump_direction = BUMP_SECONDS, direction
   end
+end
+
+-- Terrain/object strikes are an event-driven visual pulse.  It is intentionally
+-- absent from saves and has no authority over integrity or harvest results.
+function Presentation:impact(value)
+  if not value or type(value.x) ~= "number" or type(value.y) ~= "number" then return end
+  self.impacts[#self.impacts + 1] = {
+    x = value.x, y = value.y, material_id = value.material_id,
+    applied = value.applied == true, destroyed = value.destroyed == true, time = 0.18,
+  }
 end
 
 function Presentation:player_bump_transform(tile_size)
@@ -173,6 +185,11 @@ function Presentation:update(session, dt)
   self.hit_shake = math.max(0, self.hit_shake - dt)
   self.bump_time = math.max(0, self.bump_time - dt)
   if self.bump_time == 0 then self.bump_direction = nil end
+  for index = #self.impacts, 1, -1 do
+    local impact = self.impacts[index]
+    impact.time = impact.time - dt
+    if impact.time <= 0 then table.remove(self.impacts, index) end
+  end
   local state, player = session.state, session.state.player
   if not player then
     return

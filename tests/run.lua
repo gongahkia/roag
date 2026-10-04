@@ -23,6 +23,7 @@ local suites = {
   "tests.test_inventory",
   "tests.test_corpse_salvage",
   "tests.test_spatial_salvage",
+  "tests.test_tools",
   "tests.test_reconstruction",
   "tests.test_app_inventory",
   "tests.test_session",

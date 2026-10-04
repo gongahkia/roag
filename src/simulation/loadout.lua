@@ -2,6 +2,7 @@
 -- records a stable physical provider plus an authored ability.  A future
 -- carried tool can use another source_kind without changing slot semantics.
 local Component = require("src.body.component")
+local Tool = require("src.inventory.tool")
 
 local Loadout = { SLOT_COUNT = 2 }
 
@@ -11,6 +12,8 @@ local function copy_binding(binding)
     source_kind = binding.source_kind,
     physical_id = binding.physical_id,
     ability_id = binding.ability_id,
+    attack_id = binding.attack_id,
+    tool_definition_id = binding.tool_definition_id,
   }
 end
 
@@ -94,8 +97,11 @@ function Loadout.from_data(data)
     if type(binding) ~= "table" or type(binding.source_kind) ~= "string" or type(binding.ability_id) ~= "string" then
       return nil
     end
-    if binding.source_kind == "component" and (type(binding.physical_id) ~= "string" or binding.physical_id == "") then return nil end
-    if binding.source_kind ~= "component" and binding.source_kind ~= "actor" then return nil end
+    if (binding.source_kind == "component" or binding.source_kind == "tool")
+      and (type(binding.physical_id) ~= "string" or binding.physical_id == "") then return nil end
+    if binding.source_kind ~= "component" and binding.source_kind ~= "actor" and binding.source_kind ~= "tool" then return nil end
+    if binding.source_kind == "tool" and type(binding.attack_id) ~= "string" then return nil end
+    if binding.source_kind == "tool" and binding.tool_definition_id ~= nil and type(binding.tool_definition_id) ~= "string" then return nil end
     return copy_binding(binding)
   end
   for index = 1, Loadout.SLOT_COUNT do
@@ -107,6 +113,22 @@ end
 
 function Loadout.resolve(session, actor, binding, kind)
   if not binding then return nil, { code = "slot_empty", reason = "Quick slot is empty" } end
+  if binding.source_kind == "tool" then
+    if kind ~= "weapon" then return nil, { code = "slot_unavailable", reason = "Tool is not an ability source" } end
+    local entry = session.state.inventory and session.state.inventory:get(binding.physical_id)
+    if not entry or entry.item.item_type ~= "tool" then
+      return nil, { code = "provider_missing", reason = "Assigned tool is not carried" }
+    end
+    local tool = entry.item.object
+    local definition = session.registry:get_tool(tool.definition_id)
+    if not Tool.is_functional(tool) then
+      return nil, { code = "tool_broken", reason = definition.display_name .. " is broken" }
+    end
+    return {
+      source_kind = "tool", binding = binding, tool = tool, tool_definition = definition,
+      display_name = definition.display_name, provider = nil,
+    }
+  end
   local ability = session.registry.abilities[binding.ability_id]
   if not ability or (kind == "weapon" and not Loadout.is_weapon(ability))
     or (kind == "ability" and not Loadout.is_ability(ability)) then
@@ -127,7 +149,8 @@ function Loadout.resolve(session, actor, binding, kind)
   end
   if not supplies then return nil, { code = "slot_unavailable", reason = "Assigned provider no longer supplies that action" } end
   if not Component.is_functional(component) then return nil, { code = "provider_broken", reason = "Assigned provider is broken" } end
-  return { ability = ability, binding = binding, provider = component, slot_id = installed.slot_id }
+  return { source_kind = "component", ability = ability, binding = binding, provider = component, slot_id = installed.slot_id,
+    display_name = ability.display_name }
 end
 
 function Loadout.candidates(session, actor, kind)
@@ -145,6 +168,19 @@ function Loadout.candidates(session, actor, kind)
             condition = Component.condition(installed.component),
           }
         end
+      end
+    end
+  end
+  if kind == "weapon" and session.state.inventory then
+    for _, entry in ipairs(session.state.inventory.entries) do
+      if entry.item.item_type == "tool" then
+        local tool, definition = entry.item.object, session.registry:get_tool(entry.item.object.definition_id)
+        result[#result + 1] = {
+          source_kind = "tool", physical_id = tool.id, ability_id = "tool.attack", attack_id = "tool.attack", tool_definition_id = definition.id,
+          display_name = definition.display_name, provider_name = "Carried tool",
+          available = Tool.is_functional(tool), condition = Tool.condition(tool),
+          current_durability = tool.current_durability, max_durability = tool.maximum_durability,
+        }
       end
     end
   end

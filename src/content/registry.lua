@@ -40,6 +40,7 @@ local KNOWN_DISCOVERY_ACCESS_PROFILES = {
 }
 
 local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
+local KNOWN_TOOL_FAMILIES = { axe = true, pickaxe = true, cutter = true, drill = true }
 local KNOWN_MODIFIERS = {
   max_health = true,
   dash_cooldown = true,
@@ -167,6 +168,7 @@ function Registry.new(sources)
     research = {},
     discoveries = {},
     resources = {},
+    tools = {},
     construction_recipes = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
@@ -194,6 +196,7 @@ function Registry.new(sources)
   -- tables. Keep that contract while construction content supplies its own
   -- stable base vocabulary unless a caller explicitly overrides it.
   self:_index("resource", sources.resources or require("content.resources.legacy"), self.resources)
+  self:_index("tool", sources.tools or require("content.tools.legacy"), self.tools)
   self:_index("construction", sources.construction_recipes or require("content.construction.legacy"), self.construction_recipes)
   self:validate()
   return self
@@ -223,6 +226,7 @@ function Registry.load()
     research = require("content.research.legacy"),
     discoveries = require("content.discoveries.legacy"),
     resources = require("content.resources.legacy"),
+    tools = require("content.tools.legacy"),
     construction_recipes = require("content.construction.legacy"),
   })
 end
@@ -350,6 +354,7 @@ function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
 function Registry:get_research(id) return self:_get(self.research, "research", id) end
 function Registry:get_discovery(id) return self:_get(self.discoveries, "discovery", id) end
 function Registry:get_resource(id) return self:_get(self.resources, "resource", id) end
+function Registry:get_tool(id) return self:_get(self.tools, "tool", id) end
 function Registry:get_construction_recipe(id) return self:_get(self.construction_recipes, "construction recipe", id) end
 
 function Registry:validate()
@@ -417,6 +422,17 @@ function Registry:validate()
       self:get_resource(material.harvest_yield.resource_id)
       require_positive_integer(material.harvest_yield.amount, "Material '" .. id .. "' harvest_yield.amount")
     end
+    if material.tool_effectiveness ~= nil then
+      if not material.destructible or type(material.tool_effectiveness) ~= "table" then
+        content_error("Material '" .. id .. "' tool_effectiveness requires a destructible material")
+      end
+      for family, effectiveness in pairs(material.tool_effectiveness) do
+        if not KNOWN_TOOL_FAMILIES[family] then
+          content_error("Material '" .. id .. "' references unknown tool family '" .. tostring(family) .. "'")
+        end
+        require_positive_number(effectiveness, "Material '" .. id .. "' tool effectiveness")
+      end
+    end
   end
 
   for _, id in ipairs(sorted_keys(self.resources)) do
@@ -433,6 +449,24 @@ function Registry:validate()
       content_error("Resource '" .. id .. "' inventory.rotatable must be a boolean")
     end
     validate_inventory_shape(resource.inventory, "Resource '" .. id .. "' inventory")
+  end
+
+  for _, id in ipairs(sorted_keys(self.tools)) do
+    local tool = self.tools[id]
+    require_string(tool.display_name, "Tool '" .. id .. "' display_name")
+    if not KNOWN_TOOL_FAMILIES[tool.family] then content_error("Tool '" .. id .. "' has unknown family") end
+    require_positive_number(tool.mass, "Tool '" .. id .. "' mass")
+    require_positive_integer(tool.max_durability, "Tool '" .. id .. "' max_durability")
+    if type(tool.inventory) ~= "table" then content_error("Tool '" .. id .. "' inventory must be a table") end
+    require_positive_integer(tool.inventory.width, "Tool '" .. id .. "' inventory.width")
+    require_positive_integer(tool.inventory.height, "Tool '" .. id .. "' inventory.height")
+    if type(tool.inventory.rotatable) ~= "boolean" then content_error("Tool '" .. id .. "' inventory.rotatable must be a boolean") end
+    validate_inventory_shape(tool.inventory, "Tool '" .. id .. "' inventory")
+    if type(tool.combat) ~= "table" then content_error("Tool '" .. id .. "' combat must be a table") end
+    require_positive_integer(tool.combat.damage, "Tool '" .. id .. "' combat.damage")
+    require_nonnegative_number(tool.combat.force, "Tool '" .. id .. "' combat.force")
+    if type(tool.modification) ~= "table" then content_error("Tool '" .. id .. "' modification must be a table") end
+    require_positive_number(tool.modification.damage, "Tool '" .. id .. "' modification.damage")
   end
 
   for _, id in ipairs(sorted_keys(self.liquids)) do
@@ -619,6 +653,9 @@ function Registry:validate()
             if offer.quantity > self.resources[offer.resource_id].max_stack then
               content_error("Supply service '" .. id .. "' offer " .. index .. " quantity exceeds resource stack limit")
             end
+          elseif offer.tool_definition_id ~= nil then
+            require_string(offer.tool_definition_id, "Supply service '" .. id .. "' offer " .. index .. " tool_definition_id")
+            self:get_tool(offer.tool_definition_id)
           else
             require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
           end
