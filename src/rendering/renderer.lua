@@ -5,6 +5,7 @@ local Loadout = require("src.simulation.loadout")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
 local Tuning = require("src.rendering.tuning")
+local ActorGlyphs = require("src.rendering.actor_glyphs")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -156,15 +157,15 @@ function Renderer:_draw_facing_marker(direction, x, y, size)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Renderer:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
-  if self.assets and self.assets.draw_actor_sprite then
-    return self.assets:draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+function Renderer:_draw_actor_visual(actor, state, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  if self.assets and self.assets.draw_optional_actor_asset
+    and self.assets:draw_optional_actor_asset(actor, state, animation_tag, elapsed_seconds, x, y, size, tint, transform) then
+    return true
   end
-  return self.assets and self.assets:draw_sprite(sprite_kind, x, y, size, tint, transform)
+  return ActorGlyphs.draw(actor, state, x, y, size, tint, transform)
 end
 
-function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, transform)
-  if not self.assets then return end
+function Renderer:_draw_actor_outline(actor, state, animation_tag, elapsed_seconds, x, y, size, color, transform)
   local thickness = math.max(1, math.floor(size * Tuning.outline_ratio))
   for _, offset in ipairs({ { -thickness, 0 }, { thickness, 0 }, { 0, -thickness }, { 0, thickness } }) do
     local outline_transform = {
@@ -172,8 +173,9 @@ function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, 
       offset_y = (transform and transform.offset_y or 0) + offset[2],
       scale_x = transform and transform.scale_x or 1,
       scale_y = transform and transform.scale_y or 1,
+      outline = true,
     }
-    self:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
+    self:_draw_actor_visual(actor, state, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
   end
 end
 
@@ -570,10 +572,6 @@ function Renderer:_draw_game(app)
     if presentation:reaction_flash(value) then
       tint = value == state.player and { 1, 0.42, 0.42 } or { 1, 0.93, 0.72 }
     end
-    -- Historical echoes intentionally share the player body silhouette; the
-    -- corrupt violet tint is presentation only and their actual capabilities
-    -- remain body-derived in the simulation.
-    local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
     local animation_tag = presentation.reactions[value] and "hurt"
       or presentation.attacks[value] and "attack"
       or (value.body and not presentation:is_settled(value)) and "move"
@@ -589,13 +587,13 @@ function Renderer:_draw_game(app)
     end
     local role = self:outline_role(value, state)
     if role == "player" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
     elseif role == "hostile" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
     elseif role == "projectile" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
     end
-    self:_draw_actor_sprite(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
+    self:_draw_actor_visual(value, state, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
     if value == state.player then
       if not app:is_build_stance() then self:_draw_weapon_orientation(session:player_attack_preview(), value, pixel_x, pixel_y, size) end
       self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size)

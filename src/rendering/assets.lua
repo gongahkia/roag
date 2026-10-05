@@ -1,7 +1,7 @@
 -- Rendering asset boundary. Art packs only choose presentation sprites; they
 -- cannot influence deterministic simulation, body ownership, or save data.
 local ArtPacks = require("src.rendering.art_packs")
-local AnimatedSprites = require("src.rendering.animated_sprites")
+local PresentationAssets = require("src.rendering.presentation_assets")
 
 local Assets = {}
 Assets.__index = Assets
@@ -112,7 +112,7 @@ function Assets.new(options)
     sheets = {},
     quads = {},
     sprite_cutouts = {},
-    animated_sprites = AnimatedSprites.new(),
+    presentation_assets = PresentationAssets.new(),
   }, Assets)
 end
 
@@ -269,11 +269,9 @@ function Assets:load()
   love.graphics.setFont(self.font)
   local loaded, error_data = self:_load_art_pack()
   if not loaded then return nil, error_data end
-  -- Runtime animation exports are optional while the game transitions from
-  -- placeholder sheets. A malformed/missing custom asset must never prevent a
-  -- normal fallback actor from rendering; the art validator catches it before
-  -- packaging once an asset is declared production.
-  self.animated_sprites:load()
+  -- Optional licensed-pack actor art is never required for a playable run.
+  -- The shape renderer remains the normal fallback when no pack is present.
+  self.presentation_assets:load()
   self.loaded = true
   return true
 end
@@ -356,16 +354,16 @@ function Assets:draw_sprite(kind, x, y, size, tint, transform)
     or self:_draw_mapping(self:_sprite_for(kind), x, y, size, tint, transform)
 end
 
--- Character identity comes from Expedition state and is bound by exported
--- runtime metadata. The renderer never contains class-specific sheet geometry
--- or frame constants, and Sandbox/other classes retain their existing roles.
-function Assets:draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+-- Optional actor art is bound through the small ROAG-owned presentation
+-- manifest, not a particular source-editor export.  It deliberately returns
+-- false in the current shape-first build so Renderer can draw its glyph.
+function Assets:draw_optional_actor_asset(actor, state, animation_tag, elapsed_seconds, x, y, size, tint, transform)
   local expedition = state and state.expedition
   local character_id = actor == (state and state.player) and expedition and expedition.character_id
-  if character_id and self.animated_sprites:draw_character(character_id, animation_tag, elapsed_seconds, x, y, size, tint, transform) then
+  if character_id and self.presentation_assets:draw_character(character_id, animation_tag, elapsed_seconds, x, y, size, tint, transform) then
     return true
   end
-  return self:draw_sprite(sprite_kind, x, y, size, tint, transform)
+  return false
 end
 
 function Assets:draw_terrain(kind, x, y, size, tint)

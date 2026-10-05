@@ -1,1 +1,0 @@
-{"assets":[{"id":"character.gunner","kind":"character","native_height":24,"native_width":24,"pivot":{"x":12,"y":21},"runtime_metadata":"assets/sprites/characters/gunner.json","runtime_sheet":"assets/sprites/characters/gunner.png"}],"character_bindings":{"expedition.gunner":"character.gunner"},"schema_version":1}
