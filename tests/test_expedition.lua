@@ -149,6 +149,7 @@ return {
       -- the kill reward even if a derived environmental effect reports it.
       session:_apply_world_actor_damage(first, 1, nil, { source_actor = player, cause = "explosive", source = "fixture" })
       assert(exp.kills == kills and exp.currency == cash)
+      assert((player.score or 0) == 0, "Expedition must not advance a legacy score field")
       assert(run:_open_level_reward() == "expedition_reward" and #run.pending_reward == 3)
     end,
   },

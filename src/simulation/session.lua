@@ -4733,10 +4733,12 @@ function Session:_destroy_enemy(index, context)
   local player_caused = context == nil or context.player_caused ~= false
   if player_caused then
     self.state.player.objective_progress = self.state.player.objective_progress + 1
-    self.state.player.score = self.state.player.objective_progress
     if self.expedition then
       self:_award_expedition_progress(enemy, context)
     else
+      -- Campaign keeps this legacy compatibility field. Expedition has no
+      -- score model: actual kill rewards are XP and run-local cash only.
+      self.state.player.score = self.state.player.objective_progress
       if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
       self:_reload(2, true)
     end
