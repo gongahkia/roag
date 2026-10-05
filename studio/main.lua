@@ -5,12 +5,12 @@ package.path = source .. "/?.lua;" .. source .. "/?/init.lua;" .. root .. "/?.lu
 
 local ScreenEditor = require("screen_editor")
 local ModifierEditor = require("modifier_editor")
-local CursorManager = require("sprite_editor.cursor_manager")
+local CursorManager = require("src.ui.cursor_manager")
 local mode, editor, fonts, cursor
 local cards = {
   { title = "SCREEN COMPOSER", subtitle = "Edit validated JSON copy, layout and palette tokens.", action = "screens" },
   { title = "MODIFIER WORKBENCH", subtitle = "Author serialized Expedition passives and inspect their resolution traces.", action = "modifiers" },
-  { title = "SPRITE WORKBENCH", subtitle = "Map ROAG roles to a sprite sheet with undoable assignments.", command = "love sprite_editor" },
+  { title = "VISUAL ATLAS", subtitle = "Loveable Rogue mapping is a validated fixed production contract; see its JSON and mapping guide.", command = "content/presentation/loveable_rogue_atlas.json" },
   { title = "ROOM WORKBENCH", subtitle = "Author Dungeon and Reactor room templates.", command = "love level_editor --room-editor" },
   { title = "GENERATION INSPECTOR", subtitle = "Inspect deterministic floors and environment overlays.", command = "love level_editor" },
 }
@@ -19,7 +19,7 @@ local function inside(x, y, r) return x >= r.x and y >= r.y and x <= r.x + r.wid
 local function txt(v, x, y, scale, tint, limit) love.graphics.setFont(scale >= 1.7 and fonts.title or scale >= 1.1 and fonts.large or fonts.normal); color(tint or { .84, .89, .96 }); if limit then love.graphics.printf(v, x, y, limit) else love.graphics.print(v, x, y) end end
 function love.load()
   fonts = { normal = love.graphics.newFont(14), large = love.graphics.newFont(19), title = love.graphics.newFont(30) }
-  cursor = CursorManager.new(); cursor:load(); cursor:set("default"); mode = "home"
+  cursor = CursorManager.new(root .. "/assets/cursors/kenney/PNG/Basic/Default/"); cursor:load(); cursor:set("default"); mode = "home"
 end
 function love.update()
   local x, y = love.mouse.getPosition()

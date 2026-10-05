@@ -32,9 +32,9 @@ function love.load(...)
     tool = require("generation_inspector").new()
     tool:fit(love.graphics.getDimensions())
   end
-  -- The standalone level tools have their own runtime mirror of the Kenney
-  -- cursor pack, so they stay launchable independently from ROAG itself.
-  cursor_manager = require("sprite_editor.cursor_manager").new()
+  -- The generic editor cursor is unrelated to world/actor rendering and lets
+  -- this retained authoring tool share the repository's single cursor source.
+  cursor_manager = require("src.ui.cursor_manager").new((repository_root or ".") .. "/assets/cursors/kenney/PNG/Basic/Default/")
   cursor_manager:load()
   cursor_manager:set("default")
 end

@@ -56,7 +56,6 @@ integrity-checks `roag.love` only after source changes are ready.
 ```console
 make play
 make studio
-make sprite-editor
 make generation-inspector
 make room-editor
 make graphics-doctor

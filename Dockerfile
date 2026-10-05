@@ -4,6 +4,7 @@ RUN apk add --no-cache \
         bash \
         ca-certificates \
         git \
+        ffmpeg \
         love \
         luajit \
         mesa-demos \
