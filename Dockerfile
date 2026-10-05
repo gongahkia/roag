@@ -1,18 +1,13 @@
-FROM ubuntu:24.04
+FROM alpine:3.20
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
         ca-certificates \
         love \
         luajit \
         unzip \
         zip \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN groupadd --gid 1000 roag \
-    && useradd --uid 1000 --gid roag --create-home --shell /bin/bash roag
+    && addgroup -g 1000 roag \
+    && adduser -D -u 1000 -G roag roag
 
 WORKDIR /workspace
 USER roag

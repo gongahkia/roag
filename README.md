@@ -37,7 +37,7 @@ $ love .
 
 ## Docker development
 
-The repository includes a pinned Ubuntu/LÖVE/LuaJIT development image so tests,
+The repository includes a pinned Alpine/LÖVE/LuaJIT development image so tests,
 packaging, and optional graphical runs can be isolated from the host:
 
 ```console
