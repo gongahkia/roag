@@ -1,0 +1,31 @@
+-- PLAY-01 presentation-only tuning. Keeping these values together makes the
+-- next human feel pass easy without coupling them to Session timing, save
+-- data, or game balance.
+return {
+  player_move_duration = 0.06,
+  actor_move_duration = 0.085,
+  max_visual_lag_cells = 1.15,
+  camera_follow_rate = 10.5,
+  facing_marker_ratio = 0.18,
+  outline_ratio = 0.065,
+  attack_preview_alpha = 0.72,
+  threat_preview_alpha = 0.70,
+  projectile_move_duration = 0.115,
+  tracer_lifetime = 0.12,
+  hit_stop_duration = 0.04,
+  hit_flash_duration = 0.16,
+  reaction_duration = 0.13,
+  attack_recoil_duration = 0.10,
+  melee_lunge = 0.13,
+  ranged_recoil = 0.09,
+  hit_recoil = 0.10,
+  squash = 0.075,
+  damage_number_lifetime = 0.58,
+  break_label_lifetime = 0.52,
+  particle_lifetime = 0.22,
+  impact_particle_count = 4,
+  shake_duration = 0.12,
+  shake_light = 0.18,
+  shake_heavy = 0.36,
+  shake_cap = 0.58,
+}

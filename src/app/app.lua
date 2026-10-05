@@ -695,6 +695,16 @@ function App:_handle_session_event(event)
     self:play_sound(event.value)
   elseif event.type == "hit" then
     self.presentation:hit()
+  elseif event.type == "actor_attack" then
+    self.presentation:attack(event.value)
+  elseif event.type == "actor_hit" then
+    self.presentation:actor_hit(event.value)
+  elseif event.type == "component_break" then
+    self.presentation:component_break(event.value)
+  elseif event.type == "actor_death" then
+    self.presentation:actor_death(event.value)
+  elseif event.type == "projectile_travel" then
+    self.presentation:projectile_travel(event.value)
   elseif event.type == "bump" then
     self.presentation:bump(event.value and event.value.direction)
   elseif event.type == "tool_impact" then
@@ -1923,6 +1933,10 @@ end
 
 function App:update(dt)
   if self.screen == "game" and self.session then
+    -- Presentation time continues during the tiny visual hit-stop; only
+    -- field-action dispatch pauses. Simulation has already resolved.
+    self.presentation:update(self.session, dt)
+    if self.presentation:is_hit_stopped() then return end
     if self.held_direction and not self.held_movement_blocked then
       self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then
@@ -1936,8 +1950,11 @@ function App:update(dt)
         end
       end
     end
-    self.presentation:update(self.session, dt)
   end
+end
+
+function App:is_gameplay_input_blocked()
+  return self.screen == "game" and self.presentation and self.presentation:is_hit_stopped()
 end
 
 function App:draw()

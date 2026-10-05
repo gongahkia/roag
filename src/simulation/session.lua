@@ -428,6 +428,150 @@ function Session:faced_interactions(actor)
   return Interaction.available_at(self, actor or self.state.player, cell.x, cell.y)
 end
 
+-- Presentation reads direct attack geometry through this same Session helper
+-- rather than duplicating weapon shapes in Renderer. It is deliberately
+-- read-only: no turns, RNG, effects, or serialization fields are touched.
+function Session:_preview_projectile_line(actor, direction, range, pierce)
+  local delta, cells = DIRECTIONS[direction], {}
+  if not delta or not self.state.world then return cells end
+  local x, y, remaining_pierce = actor.x, actor.y, pierce or 0
+  for _ = 1, range do
+    x, y = x + delta[1], y + delta[2]
+    if not Grid.in_bounds(x, y) then break end
+    cells[#cells + 1] = { x = x, y = y }
+    if self.state.world:blocks_projectile(x, y) then break end
+    local target = self:_actor_at(x, y, actor)
+    if target and self:are_hostile(actor, target) then
+      if remaining_pierce > 0 then remaining_pierce = remaining_pierce - 1 else break end
+    end
+  end
+  return cells
+end
+
+function Session:_preview_ability(actor, ability, direction)
+  if not actor or not ability or not DIRECTIONS[direction] then return {} end
+  local implementation = ability.implementation
+  if implementation == "projectile" or implementation == "piercing_projectile" then
+    return self:_preview_projectile_line(actor, direction, ability.range or actor.bullet_range or Grid.width, ability.pierce or 0)
+  elseif implementation == "scattershot" then
+    local center_index, cells, seen = 1, {}, {}
+    for index, candidate in ipairs(DIRECTION_RING) do if candidate == direction then center_index = index; break end end
+    local count, start = math.max(1, ability.pellets or 3), -math.floor(math.max(1, ability.pellets or 3) / 2)
+    for offset = start, start + count - 1 do
+      local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], ability.range or actor.bullet_range or Grid.width, 0)) do
+        local key = Grid.key(cell.x, cell.y)
+        if not seen[key] then seen[key], cells[#cells + 1] = true, cell end
+      end
+    end
+    return cells
+  elseif implementation == "melee" then
+    local delta = DIRECTIONS[direction]
+    local x, y = actor.x + delta[1], actor.y + delta[2]
+    return Grid.in_bounds(x, y) and { { x = x, y = y } } or {}
+  elseif implementation == "electrical_discharge" then
+    local delta = DIRECTIONS[direction]
+    local trace = Electricity.trace(self.state.world, { x = actor.x + delta[1], y = actor.y + delta[2] }, { max_cells = ability.max_cells })
+    return trace.reached_cells or {}
+  elseif implementation == "area_burst" then
+    local delta, cells = DIRECTIONS[direction], {}
+    local x, y, radius = actor.x + delta[1] * (ability.range or 1), actor.y + delta[2] * (ability.range or 1), ability.radius or 1
+    for cell_x = x - radius, x + radius do
+      for cell_y = y - radius, y + radius do if Grid.in_bounds(cell_x, cell_y) then cells[#cells + 1] = { x = cell_x, y = cell_y } end end
+    end
+    return cells
+  end
+  return {}
+end
+
+function Session:player_attack_preview()
+  if not self.campaign then return nil end
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout or not player then return nil end
+  local resolved = Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon")
+  if not resolved then return nil end
+  if resolved.source_kind == "tool" then
+    local cell = self:faced_cell(player)
+    return cell and { cells = { { x = cell.x, y = cell.y } }, direction = player.direction,
+      source_kind = "tool", implementation = "tool", tool_family = resolved.tool_definition.family } or nil
+  end
+  return {
+    cells = self:_preview_ability(player, resolved.ability, player.direction), direction = player.direction,
+    source_kind = "component", ability_id = resolved.ability.id, implementation = resolved.ability.implementation,
+  }
+end
+
+function Session:enemy_threat_preview(enemy)
+  if not enemy or not self.state.player then return nil end
+  if enemy == self.state.boss and enemy.pending_telegraph then
+    local cells = {}
+    for key in pairs(self:_boss_telegraph_cells(enemy)) do
+      local x, y = key:match("(%d+):(%d+)")
+      cells[#cells + 1] = { x = tonumber(x), y = tonumber(y) }
+    end
+    return { cells = cells, direction = enemy.pending_telegraph.direction, kind = "telegraph" }
+  end
+  if enemy.attack and enemy.attack > 0 then
+    local cells = {}
+    for key in pairs(self:_attack_cells(enemy)) do
+      local x, y = key:match("(%d+):(%d+)")
+      cells[#cells + 1] = { x = tonumber(x), y = tonumber(y) }
+    end
+    return { cells = cells, kind = "telegraph" }
+  end
+  local target, role = self.state.player, enemy.ai_role or self:_infer_ai_role(enemy)
+  local dx, dy = target.x - enemy.x, target.y - enemy.y
+  local nearby = math.max(math.abs(dx), math.abs(dy)) <= 1
+  if nearby and self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
+    return { cells = { { x = enemy.x, y = enemy.y } }, kind = "detonate" }
+  end
+  local melee_direction = self:_melee_direction_to(enemy, target)
+  local melee = self:actor_ability_by_implementation(enemy, "melee")
+  if melee and melee_direction then
+    local ability = self.registry:get_ability(melee)
+    return { cells = self:_preview_ability(enemy, ability, melee_direction), direction = melee_direction, ability_id = melee, kind = "melee" }
+  end
+  local electrical_direction = self:_electrical_direction_to(enemy, target)
+  if role == "controller" and electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+    local ability = self.registry:get_ability(ELECTRICAL_DISCHARGE_ABILITY)
+    return { cells = self:_preview_ability(enemy, ability, electrical_direction), direction = electrical_direction, ability_id = ability.id, kind = "electric" }
+  end
+  if role == "controller" and self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and math.max(math.abs(dx), math.abs(dy)) <= 4 then
+    local ability, cells = self.registry:get_ability(ARCANE_BURST_ABILITY), {}
+    for x = target.x - (ability.radius or 1), target.x + (ability.radius or 1) do
+      for y = target.y - (ability.radius or 1), target.y + (ability.radius or 1) do if Grid.in_bounds(x, y) then cells[#cells + 1] = { x = x, y = y } end end
+    end
+    return { cells = cells, kind = "area", ability_id = ability.id }
+  end
+  -- These AI roles retreat at close range instead of firing, so do not paint
+  -- a misleading immediate shot across the field.
+  if (role == "skirmisher" or role == "controller") and math.max(math.abs(dx), math.abs(dy)) <= 2 then return nil end
+  local projectile = self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" })
+  local direction = projectile and self:_projectile_direction_to(enemy, target) or nil
+  if projectile and direction then
+    local ability = self.registry:get_ability(projectile)
+    if (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0) then
+      return { cells = self:_preview_ability(enemy, ability, direction), direction = direction, ability_id = projectile, kind = "ranged" }
+    end
+  end
+  return nil
+end
+
+function Session:visible_enemy_threats()
+  local result = {}
+  for _, enemy in ipairs(self.state.enemies or {}) do
+    if self.state.visible[Grid.key(enemy.x, enemy.y)] then
+      local preview = self:enemy_threat_preview(enemy)
+      if preview and #preview.cells > 0 then result[#result + 1] = { actor = enemy, preview = preview } end
+    end
+  end
+  if self.state.boss and self.state.visible[Grid.key(self.state.boss.x, self.state.boss.y)] then
+    local preview = self:enemy_threat_preview(self.state.boss)
+    if preview and #preview.cells > 0 then result[#result + 1] = { actor = self.state.boss, preview = preview } end
+  end
+  return result
+end
+
 function Session:interact(actor, object_id, action_id)
   return Interaction.perform(self, actor or self.state.player, object_id, action_id)
 end
@@ -1033,6 +1177,8 @@ function Session:attack_tool(tool, definition)
     end
     self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
       source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool",
+      heavy = (definition.combat.damage or 0) >= 2 or (definition.combat.force or 0) >= 2 })
     local damage = self:_apply_world_actor_damage(actor, definition.combat.damage, nil, {
       cause = "kinetic", source = "tool", source_actor = player, source_actor_id = player.actor_id,
       source_tool_id = tool.id, tool_family = definition.family, attack_tags = BuildEffects.tags_for_tool(),
@@ -1054,6 +1200,7 @@ function Session:attack_tool(tool, definition)
   if object and not object.destroyed then
     self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
       source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool", heavy = false })
     return self:_tool_modify_target(tool, definition, cell.x, cell.y, object)
   end
   local terrain = self.state.world:get_cell(cell.x, cell.y)
@@ -1061,6 +1208,7 @@ function Session:attack_tool(tool, definition)
   if material and (material.solid or material.destructible) then
     self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
       source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool", heavy = false })
     return self:_tool_modify_target(tool, definition, cell.x, cell.y, nil)
   end
   self:_log("NOTHING PHYSICAL TO STRIKE.")
@@ -2024,6 +2172,11 @@ function Session:activate_actor_ability(actor, ability_id, params)
     if not consumed then return resource_failure end
   end
   local wear = self:wear_actor_component(actor, selected.slot_id, ability_id)
+  self:_event("actor_attack", {
+    actor = actor, direction = params and params.direction or actor.direction,
+    ability_id = ability.id, implementation = ability.implementation,
+    heavy = (ability.damage or 0) >= 2 or (ability.force or 0) >= 2,
+  })
   if ability.implementation == "self_destruct" then
     return self:_execute_self_destruct(actor, selected.component, wear)
   elseif ability.implementation == "projectile" or ability.implementation == "piercing_projectile" then
@@ -3205,6 +3358,17 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     dead = dead,
     provenance = provenance,
   }
+  -- Presentation callbacks are emitted after authoritative damage/death
+  -- resolution. They never enter saves or alter the deterministic outcome.
+  self:_event("actor_hit", {
+    target = actor, source_actor = provenance.source_actor, x = actor.x, y = actor.y,
+    amount = amount, cause = provenance.cause, direction = provenance.direction,
+    heavy = amount >= 2 or provenance.cause == "explosive" or provenance.cause == "kinetic",
+  })
+  if body_damage and body_damage.became_broken then
+    self:_event("component_break", { target = actor, x = actor.x, y = actor.y, component_id = body_damage.component_id })
+  end
+  if dead then self:_event("actor_death", { target = actor, x = actor.x, y = actor.y }) end
   -- Build triggers observe only completed authoritative damage.  This keeps
   -- kill and component-break events one-shot even when an explosion or a
   -- chained electrical discharge touches the same actor in one root action.
@@ -4484,8 +4648,13 @@ function Session:_update_bullets()
         bullet.expired = true
       else
         local direction = DIRECTIONS[bullet.direction]
+        local from_x, from_y = bullet.x, bullet.y
         self:_move_entity(bullet, bullet.x + direction[1], bullet.y + direction[2])
         bullet.travel = bullet.travel + 1
+        self:_event("projectile_travel", {
+          from_x = from_x, from_y = from_y, to_x = bullet.x, to_y = bullet.y,
+          piercing = (bullet.pierce_remaining or 0) > 0, ability_id = bullet.ability_id, source_actor = source_actor,
+        })
       end
     else
       bullet.active = true

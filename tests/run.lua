@@ -52,6 +52,7 @@ local suites = {
   "tests.test_bosses",
   "tests.test_art_packs",
   "tests.test_presentation",
+  "tests.test_play01_presentation",
   "tests.test_tooling_ui",
   "tests.test_ux_models",
 }

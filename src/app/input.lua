@@ -292,6 +292,12 @@ function Input.keypressed(app, key, _, is_repeat)
     end
     return
   end
+  -- A successful hit has already resolved in Session. This brief guard only
+  -- prevents another field action from being dispatched before its visual
+  -- confirmation is visible; menu/modal input above remains unaffected.
+  if app.screen == "game" and app.is_gameplay_input_blocked and app:is_gameplay_input_blocked() then
+    return
+  end
   if app.screen == "game" then
     local campaign = campaign_field(app)
     if campaign and app:is_build_stance() then

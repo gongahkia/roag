@@ -4,6 +4,7 @@ local GameplayUI = require("src.presentation.gameplay_ui")
 local Loadout = require("src.simulation.loadout")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
+local Tuning = require("src.rendering.tuning")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -22,6 +23,14 @@ end
 
 function Renderer.new(assets)
   return setmetatable({ assets = assets }, Renderer)
+end
+
+function Renderer:outline_role(value, state)
+  if value == (state and state.player) then return "player" end
+  if value == (state and state.boss) then return "hostile" end
+  for _, enemy in ipairs(state and state.enemies or {}) do if value == enemy then return "hostile" end end
+  if value and value.kind == "bullet" then return "projectile" end
+  return nil
 end
 
 function Renderer:_color(color)
@@ -133,16 +142,107 @@ end
 function Renderer:facing_marker_bounds(direction, x, y, size)
   local offset = FACING_MARKER_OFFSETS[direction]
   if not offset then return nil end
-  local marker = math.max(2, math.floor(size * 0.16))
+  local marker = math.max(2, math.floor(size * Tuning.facing_marker_ratio))
   return x + size * offset[1] - marker / 2, y + size * offset[2] - marker / 2, marker
 end
 
 function Renderer:_draw_facing_marker(direction, x, y, size)
   local marker_x, marker_y, marker = self:facing_marker_bounds(direction, x, y, size)
   if not marker_x then return end
+  self:_color({ 0.03, 0.05, 0.09, 0.9 })
+  love.graphics.rectangle("fill", marker_x - 1, marker_y - 1, marker + 2, marker + 2)
   self:_color({ 0.96, 0.84, 0.28, 0.9 })
   love.graphics.rectangle("fill", marker_x, marker_y, marker, marker)
   love.graphics.setColor(1, 1, 1)
+end
+
+function Renderer:_draw_outline(sprite_kind, x, y, size, color, transform)
+  if not self.assets or not self.assets.draw_sprite then return end
+  local thickness = math.max(1, math.floor(size * Tuning.outline_ratio))
+  for _, offset in ipairs({ { -thickness, 0 }, { thickness, 0 }, { 0, -thickness }, { 0, thickness } }) do
+    local outline_transform = {
+      offset_x = (transform and transform.offset_x or 0) + offset[1],
+      offset_y = (transform and transform.offset_y or 0) + offset[2],
+      scale_x = transform and transform.scale_x or 1,
+      scale_y = transform and transform.scale_y or 1,
+    }
+    self.assets:draw_sprite(sprite_kind, x, y, size, color, outline_transform)
+  end
+end
+
+function Renderer:_draw_footprint(x, y, size, style, time)
+  local danger = style == "threat"
+  local pulse = 0.55 + math.sin((time or 0) * (danger and 8 or 6)) * 0.12
+  local color = danger and { 1, 0.2, 0.18, Tuning.threat_preview_alpha * pulse }
+    or { 0.22, 0.86, 1, Tuning.attack_preview_alpha * pulse }
+  self:_color(color)
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.075)))
+  local inset = math.max(1, size * 0.13)
+  love.graphics.rectangle("line", x + inset, y + inset, size - inset * 2, size - inset * 2)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_weapon_orientation(preview, player, x, y, size)
+  if not preview or not preview.direction then return end
+  local delta = FACING_MARKER_OFFSETS[preview.direction]
+  if not delta then return end
+  local center_x, center_y = x + size * 0.5, y + size * 0.5
+  local dx, dy = delta[1] - 0.5, delta[2] - 0.5
+  local ranged = preview.implementation == "projectile" or preview.implementation == "piercing_projectile" or preview.implementation == "scattershot"
+  local length = size * (ranged and 0.44 or 0.3)
+  self:_color(ranged and { 1, 0.84, 0.3, 0.95 } or { 0.72, 0.94, 1, 0.95 })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(center_x + dx * size * 0.1, center_y + dy * size * 0.1, center_x + dx * length, center_y + dy * length)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_tracer(presentation, player, tracer, size, offset_x, offset_y)
+  local from_x, from_y = self:_screen_position(presentation, player, tracer.from_x, tracer.from_y, size, offset_x, offset_y)
+  local to_x, to_y = self:_screen_position(presentation, player, tracer.to_x, tracer.to_y, size, offset_x, offset_y)
+  if not from_x or not to_x then return end
+  local alpha = math.max(0, tracer.time / Tuning.tracer_lifetime)
+  self:_color(tracer.piercing and { 0.4, 0.95, 1, alpha } or { 1, 0.85, 0.25, alpha })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(from_x + size * 0.5, from_y + size * 0.5, to_x + size * 0.5, to_y + size * 0.5)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_presentation_effects(presentation, player, size, offset_x, offset_y)
+  for _, tracer in ipairs(presentation.tracers or {}) do self:_draw_tracer(presentation, player, tracer, size, offset_x, offset_y) end
+  for _, particle in ipairs(presentation.particles or {}) do
+    local x, y = self:_screen_position(presentation, player, particle.x, particle.y, size, offset_x, offset_y)
+    if x then
+      local alpha = math.max(0, particle.time / Tuning.particle_lifetime)
+      local color = particle.cause == "electrical" and { 0.3, 0.9, 1, alpha }
+        or particle.cause == "explosive" and { 1, 0.46, 0.16, alpha }
+        or { 1, 0.84, 0.42, alpha }
+      self:_color(color)
+      love.graphics.rectangle("fill", x + size * 0.44, y + size * 0.44, math.max(1, size * 0.12), math.max(1, size * 0.12))
+    end
+  end
+  for _, death in ipairs(presentation.deaths or {}) do
+    local x, y = self:_screen_position(presentation, player, death.x, death.y, size, offset_x, offset_y)
+    if x then
+      self:_color({ 1, 0.3, 0.24, math.max(0, death.time / Tuning.particle_lifetime) })
+      love.graphics.setLineWidth(math.max(1, math.floor(size * 0.08)))
+      love.graphics.rectangle("line", x + size * 0.17, y + size * 0.17, size * 0.66, size * 0.66)
+      love.graphics.setLineWidth(1)
+    end
+  end
+  for _, number in ipairs(presentation.damage_numbers or {}) do
+    local x, y = self:_screen_position(presentation, player, number.x, number.y, size, offset_x, offset_y)
+    if x then
+      local progress = 1 - number.time / Tuning.damage_number_lifetime
+      local color = number.cause == "electrical" and { 0.38, 0.92, 1, 1 - progress }
+        or number.cause == "explosive" and { 1, 0.58, 0.22, 1 - progress }
+        or { 1, 0.94, 0.76, 1 - progress }
+      self:_text(tostring(number.amount), x + size * 0.5 + number.lane * size * 0.12, y - size * (0.18 + progress * 0.5), 0.76, color)
+    end
+  end
+  for _, label in ipairs(presentation.break_labels or {}) do
+    local x, y = self:_screen_position(presentation, player, label.x, label.y, size, offset_x, offset_y)
+    if x then self:_text(label.text, x + size * 0.08, y - size * 0.32, 0.48, { 1, 0.34, 0.24, label.time / Tuning.break_label_lifetime }) end
+  end
 end
 
 function Renderer:_draw_forecast_fill(x, y, size, style, time)
@@ -194,10 +294,10 @@ function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
   local size, offset_x, offset_y, hud = self:_layout()
   love.graphics.clear(0.025, 0.035, 0.055)
-  local shake = (presentation.hit_shake or 0) / 0.24
+  local shake = presentation:screen_shake()
   local time = love.timer.getTime()
-  offset_x = offset_x + math.sin(time * 78) * 6 * shake
-  offset_y = offset_y + math.cos(time * 93) * 4 * shake
+  offset_x = offset_x + math.sin(time * 78) * size * 0.45 * shake
+  offset_y = offset_y + math.cos(time * 93) * size * 0.3 * shake
   self:_color({ 0.08, 0.1, 0.14 })
   love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, VIEW_WIDTH * size + 8, VIEW_HEIGHT * size + 8)
 
@@ -329,6 +429,23 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- Direct player intent and visible hostile intent share the same grounded
+  -- tile-outline grammar. Geometry comes from Session's authoritative attack
+  -- helpers, never duplicated renderer guesses.
+  if not app:is_build_stance() then
+    local preview = session:player_attack_preview()
+    for _, cell in ipairs(preview and preview.cells or {}) do
+      local x, y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
+      if x then self:_draw_footprint(x, y, size, "player", time) end
+    end
+  end
+  for _, threat in ipairs(session:visible_enemy_threats()) do
+    for _, cell in ipairs(threat.preview.cells or {}) do
+      local x, y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
+      if x then self:_draw_footprint(x, y, size, "threat", time) end
+    end
+  end
+
   -- Every physical world object is a named art-pack role.  State remains
   -- readable through a restrained tint, but landmarks and fixtures never fall
   -- back to renderer-made rectangles, lines, or polygons.
@@ -436,6 +553,9 @@ function Renderer:_draw_game(app)
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
+    if presentation:reaction_flash(value) then
+      tint = value == state.player and { 1, 0.42, 0.42 } or { 1, 0.93, 0.72 }
+    end
     -- Historical echoes intentionally share the player body silhouette; the
     -- corrupt violet tint is presentation only and their actual capabilities
     -- remain body-derived in the simulation.
@@ -443,11 +563,25 @@ function Renderer:_draw_game(app)
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
     local transform = value.body and (presentation:movement_transform(value)
       or presentation:idle_transform(session, value, time, size)) or nil
+    transform = presentation.merge_transforms(transform, presentation:reaction_transform(value, size))
+    transform = presentation.merge_transforms(transform, presentation:attack_transform(value, size))
     if value == state.player then
+      transform = presentation.merge_transforms(transform, presentation:facing_transform(value, size))
       transform = presentation.merge_transforms(transform, presentation:player_bump_transform(size))
     end
+    local role = self:outline_role(value, state)
+    if role == "player" then
+      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
+    elseif role == "hostile" then
+      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
+    elseif role == "projectile" then
+      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
+    end
     self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
-    if value == state.player then self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size) end
+    if value == state.player then
+      if not app:is_build_stance() then self:_draw_weapon_orientation(session:player_attack_preview(), value, pixel_x, pixel_y, size) end
+      self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size)
+    end
   end
 
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do
@@ -483,6 +617,7 @@ function Renderer:_draw_game(app)
     actor(state.boss)
   end
   actor(state.player, true)
+  self:_draw_presentation_effects(presentation, state.player, size, offset_x, offset_y)
   -- Draw the forecast border after actors so a target cell stays legible even
   -- when the player or another actor occupies it. The player selection box is
   -- still drawn last.
