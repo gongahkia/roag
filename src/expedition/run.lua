@@ -23,7 +23,9 @@ ExpeditionRun.THREAT_BUDGETS = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }
 -- without putting a modal after every chamber.
 ExpeditionRun.REWARD_ENCOUNTERS = { [2] = "random", [4] = "cache", [6] = "random", [8] = "cache", [10] = "random", [11] = "cache", [12] = "random" }
 ExpeditionRun.OWNED_PICK_WEIGHT = 2.7
-ExpeditionRun.OWNED_STACK_MOMENTUM = 0.18
+-- A soft reward-pool reinforcement bonus, not a player-facing momentum or
+-- score system.  It helps a run form a build without making repeats certain.
+ExpeditionRun.OWNED_STACK_REINFORCEMENT = 0.18
 ExpeditionRun.XP_THRESHOLDS = { 8, 11, 14, 17, 20, 23, 26, 29, 32, 36 }
 -- Every stage draws each of its four authored pressure models once.  The
 -- seed changes their ordering/topology, never collapses a run into a single
@@ -439,7 +441,7 @@ function ExpeditionRun:reward_options(count, purpose)
       local owned = stacks[passive.id] or 0
       local weight = passive.pool.weight
       if later and owned > 0 and intent ~= "discover" then
-        weight = weight * (ExpeditionRun.OWNED_PICK_WEIGHT + math.min(0.7, math.max(0, owned - 1) * ExpeditionRun.OWNED_STACK_MOMENTUM))
+        weight = weight * (ExpeditionRun.OWNED_PICK_WEIGHT + math.min(0.7, math.max(0, owned - 1) * ExpeditionRun.OWNED_STACK_REINFORCEMENT))
       end
       total = total + weight
     end
@@ -448,7 +450,7 @@ function ExpeditionRun:reward_options(count, purpose)
       local owned = stacks[passive.id] or 0
       local weight = passive.pool.weight
       if later and owned > 0 and intent ~= "discover" then
-        weight = weight * (ExpeditionRun.OWNED_PICK_WEIGHT + math.min(0.7, math.max(0, owned - 1) * ExpeditionRun.OWNED_STACK_MOMENTUM))
+        weight = weight * (ExpeditionRun.OWNED_PICK_WEIGHT + math.min(0.7, math.max(0, owned - 1) * ExpeditionRun.OWNED_STACK_REINFORCEMENT))
       end
       cumulative = cumulative + weight
       if roll < cumulative then return passive end
