@@ -1,0 +1,11 @@
+{
+  "format": "roag.expedition_modifier_manifest",
+  "version": 1,
+  "files": [
+    "ability_battery.json", "ammo_scavenger.json", "arc_relay.json", "ballistic_lens.json", "brutal_edge.json",
+    "conductive_payload.json", "demolition_kit.json", "edge_tuning.json", "field_repair.json", "iron_heart.json",
+    "kinetic_capacitor.json", "kinetic_feedback.json", "long_barrel.json", "overclocked_magazine.json", "piercing_rounds.json",
+    "quick_reload.json", "recycler.json", "rupture_core.json", "scatter_matrix.json", "shockwave_emitter.json",
+    "shrapnel_core.json", "siege_charge.json", "spark_igniter.json", "static_conduit.json", "windwalker.json"
+  ]
+}
