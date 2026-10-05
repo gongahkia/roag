@@ -1935,8 +1935,9 @@ function App:update(dt)
   if self.screen == "game" and self.session then
     -- Presentation time continues during the tiny visual hit-stop; only
     -- field-action dispatch pauses. Simulation has already resolved.
+    local was_hit_stopped = self.presentation:is_hit_stopped()
     self.presentation:update(self.session, dt)
-    if self.presentation:is_hit_stopped() then return end
+    if was_hit_stopped or self.presentation:is_hit_stopped() then return end
     if self.held_direction and not self.held_movement_blocked then
       self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then

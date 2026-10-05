@@ -1,4 +1,5 @@
 local Campaign = require("src.campaign.campaign")
+local App = require("src.app.app")
 local Grid = require("src.world.grid")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
@@ -70,6 +71,26 @@ return {
       assert(presentation:is_hit_stopped() and enemy.x == 11 and enemy.health == 3)
       presentation:update(session, first)
       assert(not presentation:is_hit_stopped())
+    end,
+  },
+  {
+    name = "PLAY-01 hit-stop blocks held field dispatch without changing the simulation",
+    run = function()
+      local session, player = { state = { enemies = {}, bullets = {}, boss = nil } }, { kind = "player", x = 10, y = 10 }
+      session.state.player = player
+      function session:can_move() return true end
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      presentation:request_hit_stop(Tuning.hit_stop_duration)
+      local dispatched = 0
+      local app = setmetatable({ screen = "game", session = session, presentation = presentation,
+        held_direction = "d", hold_timer = 0, held_movement_blocked = false }, App)
+      function app:movement_repeat_interval() return 0.09 end
+      function app:perform_turn() dispatched = dispatched + 1 end
+      app:update(Tuning.hit_stop_duration * 2)
+      assert(dispatched == 0 and player.x == 10)
+      app:update(0.01)
+      assert(dispatched == 1)
     end,
   },
   {
