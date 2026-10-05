@@ -1017,7 +1017,14 @@ function App:perform_turn(input)
     self.build_stance = false
     self:clear_held_movement()
     self.presentation:reset(self.session)
-    if result == "campaign_succession" then self:open_campaign_succession(source_zone) end
+    if result == "campaign_succession" then
+      -- A death at the current anchor can reuse this exact local Session for
+      -- the freshly reconstructed body. `ended = campaign_succession` was
+      -- needed only to finish the fatal turn; leaving it on the successor
+      -- makes the next movement input replay the death handoff forever.
+      self.session.state.ended = nil
+      self:open_campaign_succession(source_zone)
+    end
   end
   self:_handle_turn_result(result)
   self:autosave("turn")

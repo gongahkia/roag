@@ -132,6 +132,35 @@ return {
     end,
   },
   {
+    name = "Campaign successor at the active anchor clears the one-turn death flag before field input resumes",
+    run = function()
+      local app = new_campaign_app(880106)
+      assert(app:request_new_campaign())
+      local campaign, source, original_turn = app.campaign, app.session, app.session.turn
+      source.turn = function()
+        local result, failure = campaign:handle_player_death({ cause = "ux_anchor_death" })
+        assert(result, failure and failure.reason)
+        -- Mirror Session:_mark_player_dead after its durable campaign
+        -- transaction: source and successor are the same anchor Session.
+        source.state.ended = "campaign_succession"
+        return result.code
+      end
+      assert(app:perform_turn("ux_anchor_death") == "campaign_succession")
+      assert(app.session == source and app.session.state.player and app.session.state.ended == nil)
+      Input.keypressed(app, "escape", nil, false)
+      local moved = false
+      app.session.turn = function(self, input)
+        assert(self.state.ended == nil, "successor must not retain a terminal death state")
+        moved = input == "w"
+        return "no_action"
+      end
+      Input.keypressed(app, "w", nil, false)
+      Input.keyreleased(app, "w")
+      assert(app.screen == "game" and moved)
+      app.session.turn = original_turn
+    end,
+  },
+  {
     name = "generic menus retain every supported label field and layout bounds stay explicit",
     run = function()
       local renderer = Renderer.new({})
