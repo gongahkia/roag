@@ -61,7 +61,11 @@ $ make play
 On WSLg, the Docker wrapper automatically mounts the WSLg runtime, DirectX
 bridge, and Mesa libraries. If a graphical launch fails, run
 `make graphics-doctor` first; it reports the display socket and the renderer
-visible from inside the game container.
+visible from inside the game container. Graphical containers default to
+reliable Mesa software rendering and null audio so a missing host GPU/audio
+ABI never prevents play. Advanced local experiments can override
+`ROAG_LIBGL_ALWAYS_SOFTWARE`, `ROAG_GALLIUM_DRIVER`,
+`ROAG_MESA_LOADER_DRIVER_OVERRIDE`, or `ROAG_ALSOFT_DRIVERS`.
 
 The game service mounts only a named LÖVE save-data volume in addition to the
 checkout, keeping saves separate from repository files. On WSL, Docker Desktop

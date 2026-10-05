@@ -59,10 +59,14 @@ make studio
 make sprite-editor
 make generation-inspector
 make room-editor
+make graphics-doctor
 ```
 
 These require WSLg/X11 forwarding. A graphical observation is evidence for
 feel/readability; it does not replace the headless report or regression test.
+The container defaults to Mesa software rendering and null OpenAL audio for a
+portable, dependable launch path; `graphics-doctor` shows the actual renderer
+and display contract inside the container.
 
 ## Adding a repro
 

@@ -15,6 +15,17 @@ x-graphical: &graphical
     # The generic X11 path does not mount the host runtime directory.  WSLg
     # replaces this with its mounted runtime in compose.wslg.yaml.
     XDG_RUNTIME_DIR: "${ROAG_XDG_RUNTIME_DIR:-/tmp}"
+    # A deterministic software path is more reliable than attempting to share
+    # a host-specific GPU driver ABI with this small Alpine image.  ROAG is a
+    # 2D game; callers can override these variables to investigate hardware
+    # acceleration on a compatible host.
+    LIBGL_ALWAYS_SOFTWARE: "${ROAG_LIBGL_ALWAYS_SOFTWARE:-1}"
+    GALLIUM_DRIVER: "${ROAG_GALLIUM_DRIVER:-llvmpipe}"
+    MESA_LOADER_DRIVER_OVERRIDE: "${ROAG_MESA_LOADER_DRIVER_OVERRIDE:-llvmpipe}"
+    # Docker has no dependable audio-device contract.  Null OpenAL avoids a
+    # non-fatal but alarming device error; the host game path remains free to
+    # provide audio later.
+    ALSOFT_DRIVERS: "${ROAG_ALSOFT_DRIVERS:-null}"
   volumes:
     - .:/workspace
     # WSLg and Linux X11 expose this socket when graphical forwarding is set up.

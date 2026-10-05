@@ -1,13 +1,16 @@
 #!/usr/bin/env sh
-# Read-only graphics diagnostics for the Docker/L\303\226VE path.
+# Read-only graphics diagnostics for the Docker/LOVE path.
 set -eu
 
 printf '%s\n' 'ROAG graphics doctor'
-printf 'L\303\226VE: '; love --version
+printf 'LOVE: '; love --version
 printf 'DISPLAY: %s\n' "${DISPLAY:-<unset>}"
 printf 'XDG_RUNTIME_DIR: %s\n' "${XDG_RUNTIME_DIR:-<unset>}"
 printf 'WAYLAND_DISPLAY: %s\n' "${WAYLAND_DISPLAY:-<unset>}"
 printf 'LD_LIBRARY_PATH: %s\n' "${LD_LIBRARY_PATH:-<unset>}"
+printf 'LIBGL_ALWAYS_SOFTWARE: %s\n' "${LIBGL_ALWAYS_SOFTWARE:-<unset>}"
+printf 'GALLIUM_DRIVER: %s\n' "${GALLIUM_DRIVER:-<unset>}"
+printf 'ALSOFT_DRIVERS: %s\n' "${ALSOFT_DRIVERS:-<unset>}"
 
 if [ -n "${DISPLAY:-}" ]; then
   display_number=${DISPLAY#*:}
