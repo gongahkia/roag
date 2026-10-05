@@ -95,7 +95,14 @@ function Input.keypressed(app, key, _, is_repeat)
 
   if app.screen == "reconstruction" then
     if key == "escape" then
-      app:finish_reconstruction()
+      -- A live Campaign station may be left without changing the world. The
+      -- legacy route reconstruction phase has a real continuation behind F,
+      -- so Escape must never silently advance that route.
+      if campaign_field(app) and app.session and app.session.state.active_reconstruction_station_id then
+        app:finish_reconstruction()
+      else
+        app.session:_log("FINISH RECONSTRUCTION WITH F.")
+      end
     elseif key == "tab" then
       app:toggle_reconstruction_focus()
     elseif key == "w" or key == "up" then

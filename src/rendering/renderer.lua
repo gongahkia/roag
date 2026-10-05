@@ -769,7 +769,9 @@ function Renderer:_draw_reconstruction(app)
   self:_text(feedback.compatible and "COMPATIBLE" or "INCOMPATIBLE", body_x, height - 92, 1, feedback_color)
   self:_text(GameplayUI.failure_text(feedback), body_x + 145, height - 92, 0.78, feedback_color)
   self:_text("TAB FOCUS   W/S SELECT   ENTER INSTALL / UNINSTALL   R ROTATE INVENTORY", body_x, height - 62, 0.7, { 0.75, 0.82, 0.92 })
-  self:_text("F / ESC FINISH RECONSTRUCTION", body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
+  local finish_text = session.campaign and state.active_reconstruction_station_id
+    and "F / ESC FINISH RECONSTRUCTION" or "F FINISH RECONSTRUCTION"
+  self:_text(finish_text, body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
 end
 
 function Renderer:_draw_body_abilities(app)

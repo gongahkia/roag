@@ -3,9 +3,18 @@ local GameplayUI = require("src.presentation.gameplay_ui")
 local Input = require("src.app.input")
 local Renderer = require("src.rendering.renderer")
 local SaveStore = require("src.persistence.save_store")
+local ZoneKey = require("src.campaign.zone_key")
 
 local function new_app(seed)
   return App.new({ seed = seed, save_store = SaveStore.memory(), meta_store = SaveStore.memory(), archive_store = SaveStore.memory() })
+end
+
+local function new_campaign_app(seed)
+  return App.new({
+    seed = seed,
+    campaign_slot_stores = { SaveStore.memory_directory(), SaveStore.memory_directory(), SaveStore.memory_directory() },
+    meta_store = SaveStore.memory(), archive_store = SaveStore.memory(),
+  })
 end
 
 return {
@@ -91,9 +100,35 @@ return {
       assert(app:begin_new_run() and app.screen == "onboarding")
       Input.keypressed(app, "return", nil, false)
       assert(app.screen == "game")
-      assert(#app:onboarding_sections() == 4 and #app:help_sections() >= 6)
+      assert(#app:onboarding_sections() == 4 and #app:help_sections() >= 7)
       app:return_to_title()
       assert(not app:begin_new_run() and app.screen == "replace_save")
+    end,
+  },
+  {
+    name = "Campaign HUD and succession acknowledgement explain the active reconstruction anchor and corpse recovery",
+    run = function()
+      local app = new_campaign_app(880105)
+      assert(app:request_new_campaign())
+      local campaign, source = app.campaign, app.session
+      local source_zone = ZoneKey.to_data(campaign.active_zone.key)
+      local anchor = GameplayUI.campaign_anchor(source)
+      assert(anchor and anchor.current_zone and anchor.location:find("SURFACE 0, 0", 1, true))
+
+      -- Use the real durable death transaction behind the App boundary, then
+      -- make perform_turn observe its usual campaign_succession result.
+      source.turn = function()
+        local result, failure = campaign:handle_player_death({ cause = "ux_test" })
+        assert(result, failure and failure.reason)
+        return result.code
+      end
+      assert(app:perform_turn("ux_test") == "campaign_succession")
+      assert(app.screen == "campaign_succession" and app.campaign_succession_notice)
+      assert(app.campaign_succession_notice.death_location == GameplayUI.campaign_zone_label(campaign, source_zone))
+      assert(app.campaign_succession_notice.anchor_location == GameplayUI.campaign_zone_label(campaign, campaign.state.reconstruction_anchor.zone_key))
+      assert(app.session == campaign.session and app.session.state.player)
+      Input.keypressed(app, "escape", nil, false)
+      assert(app.screen == "game" and not app.campaign_succession_notice)
     end,
   },
   {
