@@ -5977,6 +5977,24 @@ function Session:turn(input)
       return "no_action"
     end
   end
+  -- Campaign construction previews the exact faced target before E commits.
+  -- Keep invalid placement a true no-action: no materials, cooldown tick,
+  -- enemy response, hazard tick, or hidden failed-build penalty.  The
+  -- authoritative Building.place transaction validates again immediately
+  -- before mutation, so direct callers retain the same safety guarantee.
+  if self.campaign and type(input) == "string" then
+    local recipe_id, x, y = input:match("^build:([%w%._]+):(%-?%d+):(%-?%d+)$")
+    if recipe_id then
+      local validation = Building.validate(self, recipe_id, tonumber(x), tonumber(y))
+      if not validation.applied then
+        self.last_action_result = validation
+        state.last_build_result = validation
+        self:_log(validation.reason or "BUILD FAILED.")
+        self:refresh_visibility()
+        return "no_action"
+      end
+    end
+  end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)

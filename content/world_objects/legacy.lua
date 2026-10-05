@@ -172,6 +172,32 @@ return {
     movable_by_force = false,
     render_style = "barricade",
   },
+  -- Floors are ordinary, non-blocking world objects.  This keeps their
+  -- material, fire, conductivity, destruction, ownership and zone-shard
+  -- persistence in the one proven world-object layer rather than creating a
+  -- parallel terrain engine solely for construction.
+  {
+    id = "world_object.build.timber_floor",
+    display_name = "Timber Floor",
+    material_id = "material.structure.wood",
+    blocks_movement = false,
+    blocks_vision = false,
+    blocks_projectiles = false,
+    blocks_gas = false,
+    movable_by_force = false,
+    render_style = "fallen_log",
+  },
+  {
+    id = "world_object.build.metal_floor",
+    display_name = "Metal Floor",
+    material_id = "material.structure.conductive_metal",
+    blocks_movement = false,
+    blocks_vision = false,
+    blocks_projectiles = false,
+    blocks_gas = false,
+    movable_by_force = false,
+    render_style = "cable_trunk",
+  },
   {
     id = "world_object.build.barricade",
     display_name = "Timber Barricade",

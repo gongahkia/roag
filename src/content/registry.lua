@@ -585,6 +585,10 @@ function Registry:validate()
   for _, id in ipairs(sorted_keys(self.construction_recipes)) do
     local recipe = self.construction_recipes[id]
     require_string(recipe.display_name, "Construction recipe '" .. id .. "' display_name")
+    if recipe.kind ~= "structural_piece" and recipe.kind ~= "functional_device" then
+      content_error("Construction recipe '" .. id .. "' kind must be structural_piece or functional_device")
+    end
+    require_string(recipe.description, "Construction recipe '" .. id .. "' description")
     require_string(recipe.world_object_id, "Construction recipe '" .. id .. "' world_object_id")
     self:get_world_object(recipe.world_object_id)
     if type(recipe.costs) ~= "table" or next(recipe.costs) == nil then

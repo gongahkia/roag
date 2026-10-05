@@ -9,37 +9,6 @@ local function campaign_field(app)
 end
 
 function Input.keypressed(app, key, _, is_repeat)
-  if app.screen == "build" then
-    local recipes = app:build_recipes()
-    if key == "escape" or key == "c" then
-      app:close_overlay()
-    elseif key == "w" or key == "up" then
-      app:move_menu(-1, math.max(1, #recipes))
-    elseif key == "s" or key == "down" then
-      app:move_menu(1, math.max(1, #recipes))
-    elseif key == "return" or key == "space" then
-      app:select_build_recipe()
-    end
-    return
-  end
-
-  if app.screen == "build_place" then
-    if key == "escape" or key == "c" then
-      app.screen = "build"
-    elseif key == "w" or key == "up" then
-      app:move_build_cursor(0, -1)
-    elseif key == "s" or key == "down" then
-      app:move_build_cursor(0, 1)
-    elseif key == "a" or key == "left" then
-      app:move_build_cursor(-1, 0)
-    elseif key == "d" or key == "right" then
-      app:move_build_cursor(1, 0)
-    elseif key == "return" or key == "space" then
-      app:confirm_build()
-    end
-    return
-  end
-
   if app.screen == "storage" then
     if key == "escape" or key == "u" then
       app:close_overlay()
@@ -153,6 +122,14 @@ function Input.keypressed(app, key, _, is_repeat)
     elseif key == "return" or key == "space" then
       app:confirm_body_ability()
     end
+    return
+  end
+
+  -- Build stance is a live Campaign field mode, not one of the paused menu
+  -- screens above.  Escape must leave it before the ordinary game-level
+  -- Escape handler considers quitting the application.
+  if app.screen == "game" and campaign_field(app) and app:is_build_stance() and key == "escape" then
+    app:exit_build_stance()
     return
   end
 
@@ -299,6 +276,38 @@ function Input.keypressed(app, key, _, is_repeat)
   end
   if app.screen == "game" then
     local campaign = campaign_field(app)
+    if campaign and app:is_build_stance() then
+      if MOVE_KEYS[key] then
+        if not is_repeat then
+          local direction = app:set_movement_key(key, true)
+          if direction then
+            app:start_held_move(direction)
+            app:perform_turn(direction)
+          end
+        end
+      elseif key == "e" and not is_repeat then
+        app:place_active_build()
+      elseif key == "r" and not is_repeat then
+        app:cycle_build_recipe(1)
+      elseif key == "x" and not is_repeat then
+        app:cycle_build_recipe(-1)
+      elseif key == "c" then
+        app:exit_build_stance()
+      elseif key == "i" then
+        app:open_inventory()
+      elseif key == "u" then
+        -- USE remains available in build stance: construction is a field
+        -- posture, not an interaction lockout.
+        app:perform_turn("interact")
+      elseif key == "q" and not is_repeat then
+        -- Retaining the active ability is useful for emergency movement or
+        -- control without making a second build-only verb.
+        app:activate_campaign_ability()
+      elseif key == "b" or key == "f" then
+        app:perform_turn(key)
+      end
+      return
+    end
     if MOVE_KEYS[key] then
       if not is_repeat then
         local direction = app:set_movement_key(key, true)

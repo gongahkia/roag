@@ -48,7 +48,7 @@ $ love .
 | `X` | **Campaign:** swap quick ability; a successful field swap costs one turn |
 | `I` | Open carried inventory; press `Tab` in Campaign to assign weapon/ability quick slots while the world is paused. `Delete`/`Backspace` or the explicit drop target drops selected cargo at your feet. |
 | Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview. In Campaign corpse salvage, drag body parts and cargo from the fallen grid into your inventory grid. |
-| `C` | Open the campaign construction menu |
+| `C` | **Campaign:** enter/exit live Build stance (no turn). In Build stance, `E` places the faced recipe for one turn; `R`/`X` cycle recipes for free. |
 | `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, loose cargo, or corpse salvage. Ordinary resource/ammo stacks are collected by walking over them. |
 | `Tab` / `W` / `S` / Enter / `R` / `F` in reconstruction | Switch body/inventory focus, select, install or uninstall, rotate cargo, and finish reconstruction |
 | `W` / `S` or arrow keys | Select a class, boon, curse, or shop item in a menu |
@@ -63,6 +63,8 @@ Equipped charms can also create deterministic reactive build effects with your w
 Campaign supplies are deliberately physical but fast: walk onto TIMBER, MASONRY, METAL, or ammunition to collect the whole stack if it fits. Loose components and corpses are deliberate: face them with `U`; corpse salvage opens two spatial grids where rotation and placement matter. Inventory and salvage pause the world, and dropped cargo stays at your feet until you leave and walk back onto that cell.
 
 Tools are physical cargo, not body parts. Assign an Axe, Pickaxe, Cutter, or Drill from the paused Inventory loadout panel, then face a compatible tree, stone, metal, or industrial obstacle and press `E` repeatedly. Tools take durability from physical strikes, remain as repairable broken cargo at zero durability, and repair at Repair Kiosks. Material drops stay on the ground until walked over.
+
+Campaign construction is a live stance rather than a paused editor: carry physical materials, press `C`, move into position, face one cell, and press `E` to place the selected wall, floor, barricade, or device. Each successful placement is one ordinary turn, so threats and environmental systems respond between pieces. `R`/`X` only choose the active recipe and cost no turn.
 
 Legacy/run-based mode retains its compatibility controls: diagonal held WASD movement, arrow-key firing, `G` for nearby corpse salvage, the generic ammo wallet, and the installed-body ability list.
 

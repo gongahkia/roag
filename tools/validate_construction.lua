@@ -9,7 +9,7 @@ local SaveStore = require("src.persistence.save_store")
 local Building = require("src.construction.building")
 local Grid = require("src.world.grid")
 
-local count, seed = 300, 970000
+local count, seed = 500, 970000
 for index = 1, #arg do
   if arg[index] == "--count" then count = assert(tonumber(arg[index + 1])) end
   if arg[index] == "--seed" then seed = assert(tonumber(arg[index + 1])) end
@@ -32,8 +32,14 @@ local function build(session, recipe_id)
   for _, location in ipairs(session:_reachable_floor_cells()) do
     session.state.player.x, session.state.player.y = location.x, location.y
     for _, point in ipairs(Grid.neighbours(location)) do
-      local result = Building.place(session, recipe_id, point.x, point.y)
-      if result.applied then return assert(session.state.world:get_object(result.object_id)) end
+      local preview = Building.validate(session, recipe_id, point.x, point.y)
+      if preview.applied then
+        -- Exercise the same authoritative action path used by the live
+        -- build stance: exactly one player turn, then ordinary world work.
+        session:turn(string.format("build:%s:%d:%d", recipe_id, point.x, point.y))
+        local result = session.last_action_result
+        if result and result.applied then return assert(session.state.world:get_object(result.object_id)) end
+      end
     end
   end
   error("No legal construction cell")
@@ -46,11 +52,17 @@ for index = 1, count do
   campaign:set_persistence_directory(directory)
   assert(CampaignPersistence.save(campaign, directory))
   local session = campaign.session
+  -- Most batch cases target transaction/persistence coverage.  The focused
+  -- tests cover hostile pressure; clearing generated enemies here avoids one
+  -- arbitrary spawn ending a long deterministic construction chain early.
+  session.state.enemies = {}
   add(session, "resource.material.timber", 12)
   add(session, "resource.material.masonry", 8)
   add(session, "resource.material.metal", 16)
   local ok, reason = xpcall(function()
     local wall = build(session, "construction.timber_wall")
+    local timber_floor = build(session, "construction.timber_floor")
+    local metal_floor = build(session, "construction.metal_floor")
     local storage = build(session, "construction.storage_crate")
     local generator = build(session, "construction.generator")
     local breaker = build(session, "construction.breaker")
@@ -61,6 +73,8 @@ for index = 1, count do
     local restored = assert(CampaignPersistence.load(directory))
     restored:validate()
     assert(restored.session.state.world:get_object(wall.id))
+    assert(restored.session.state.world:get_object(timber_floor.id))
+    assert(restored.session.state.world:get_object(metal_floor.id))
   end, debug.traceback)
   if not ok then
     failures = failures + 1

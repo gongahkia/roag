@@ -380,6 +380,26 @@ function Renderer:_draw_game(app)
     end
   end
 
+  -- Construction is a faced-cell field stance.  The ghost is entirely
+  -- presentation state; Building.validate remains authoritative and no map
+  -- discovery/shroud state is involved in deciding whether it is drawn.
+  if app:is_build_stance() then
+    local recipe, target = app:active_build_recipe(), app:build_target()
+    local preview = app:build_preview()
+    if recipe and target then
+      local preview_x, preview_y = self:_screen_position(presentation, state.player, target.x, target.y, size, offset_x, offset_y)
+      if preview_x then
+        local definition = session.registry:get_world_object(recipe.world_object_id)
+        local tint = preview.applied and { 0.35, 1, 0.62, 0.48 } or { 1, 0.26, 0.25, 0.48 }
+        self.assets:draw_sprite(definition.render_style, preview_x, preview_y, size, tint)
+        self:_color(preview.applied and { 0.35, 1, 0.62, 0.95 } or { 1, 0.3, 0.28, 0.95 })
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", preview_x + 2, preview_y + 2, size - 4, size - 4)
+        love.graphics.setLineWidth(1)
+      end
+    end
+  end
+
   for _, impact in ipairs(presentation.impacts or {}) do
     local pixel_x, pixel_y = self:_screen_position(presentation, state.player, impact.x, impact.y, size, offset_x, offset_y)
     if pixel_x then self:_draw_tool_impact(pixel_x, pixel_y, size, impact) end
@@ -586,13 +606,37 @@ function Renderer:_draw_game(app)
       hud, status_y, 0.68, context.available and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
     status_y = status_y + 18
   end
+  if app:is_build_stance() then
+    local recipe, preview = app:active_build_recipe(), app:build_preview()
+    if recipe then
+      self:_text("BUILD — " .. string.upper(recipe.display_name), hud, status_y, 0.72, { 0.95, 0.85, 0.3 })
+      status_y = status_y + 18
+      local costs = {}
+      local counts = state.inventory:resource_counts()
+      for _, cost in ipairs(recipe.costs) do
+        local resource = session.registry:get_resource(cost.resource_id)
+        costs[#costs + 1] = string.upper(resource.display_name) .. " " .. (counts[cost.resource_id] or 0) .. "/" .. cost.amount
+      end
+      self:_text(table.concat(costs, "  "), hud, status_y, 0.58, preview.applied and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
+      status_y = status_y + 17
+      if not preview.applied then
+        self:_text(GameplayUI.failure_text(preview), hud, status_y, 0.58, { 1, 0.48, 0.32 })
+        status_y = status_y + 17
+      end
+    end
+  end
   local controls_y = math.max(ui.quick and offset_y + 342 or offset_y + 278, status_y + 8)
   self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
-  self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
-  self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
-  self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
-    controls_y + 74, 0.68)
+  if session.campaign and app:is_build_stance() then
+    self:_text("E PLACE   R NEXT RECIPE   X PREVIOUS", hud, controls_y + 38, 0.75, { 0.95, 0.85, 0.3 })
+    self:_text("Q ABILITY   U USE   I INVENTORY   C / ESC EXIT", hud, controls_y + 56, 0.68)
+  else
+    self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
+    self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
+    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
+      controls_y + 74, 0.68)
+  end
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
   local shown_threats = 0
   for _, enemy in ipairs(state.enemies) do
@@ -1085,25 +1129,6 @@ function Renderer:_draw_salvage(app)
   self:_text("W/S SELECT     ENTER SALVAGE     G / ESC CLOSE", width * 0.18, height - 58, 0.85, { 0.75, 0.82, 0.92 })
 end
 
-function Renderer:_draw_build_place(app)
-  local width, height = love.graphics.getDimensions()
-  local preview = app:build_preview()
-  local recipe = app.session.registry:get_construction_recipe(app.build_recipe_id)
-  love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("PLACE " .. string.upper(recipe.display_name), width * 0.18, 58, 2, { 0.7, 0.9, 1 })
-  local cursor = app.build_cursor
-  self:_text("TARGET " .. cursor.x .. "," .. cursor.y, width * 0.18, 116, 1.05, { 0.95, 0.85, 0.3 })
-  self:_text(preview.applied and "VALID" or ("INVALID — " .. GameplayUI.failure_text(preview)), width * 0.18, 152, 0.92,
-    preview.applied and { 0.6, 0.9, 0.75 } or { 1, 0.42, 0.42 })
-  local counts = app.session.state.inventory:resource_counts()
-  local resources = { "resource.material.timber", "resource.material.masonry", "resource.material.metal" }
-  for index, id in ipairs(resources) do
-    local resource = app.session.registry:get_resource(id)
-    self:_text(string.upper(resource.display_name) .. "  " .. (counts[id] or 0), width * 0.18, 210 + (index - 1) * 28, 0.85, { 0.75, 0.82, 0.92 })
-  end
-  self:_text("WASD / ARROWS MOVE TARGET     ENTER BUILD     C / ESC BACK", width * 0.18, height - 58, 0.78, { 0.75, 0.82, 0.92 })
-end
-
 function Renderer:_draw_storage(app)
   local width, height = love.graphics.getDimensions()
   local player_entries = app.session.state.inventory.entries
@@ -1469,18 +1494,6 @@ function Renderer:draw(app)
     self:_draw_reconstruction(app)
   elseif app.screen == "body_abilities" then
     self:_draw_body_abilities(app)
-  elseif app.screen == "build" then
-    local items = {}
-    for _, recipe in ipairs(app:build_recipes()) do
-      local cost = {}
-      for _, value in ipairs(recipe.costs) do
-        cost[#cost + 1] = app.session.registry:get_resource(value.resource_id).display_name:upper() .. " " .. value.amount
-      end
-      items[#items + 1] = { name = recipe.display_name, description = table.concat(cost, "  •  ") }
-    end
-    self:_menu("BUILD", items, app.menu, "W/S SELECT     ENTER PLACE     C / ESC CLOSE")
-  elseif app.screen == "build_place" then
-    self:_draw_build_place(app)
   elseif app.screen == "storage" then
     self:_draw_storage(app)
   elseif app.screen == "gameover" then

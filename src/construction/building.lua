@@ -8,6 +8,27 @@ local Building = {
   RECOVERY_DENOMINATOR = 2,
 }
 
+-- This is deliberately a small presentation-facing ordering, rather than an
+-- accidental Lua-table traversal order.  Field build stance cycles through
+-- this list, so changing it is a visible control change.
+local RECIPE_GROUP_ORDER = {
+  structural_piece = 1,
+  functional_device = 2,
+}
+
+local RECIPE_ORDER = {
+  ["construction.timber_wall"] = 10,
+  ["construction.masonry_wall"] = 20,
+  ["construction.timber_floor"] = 30,
+  ["construction.metal_floor"] = 40,
+  ["construction.barricade"] = 50,
+  ["construction.door"] = 110,
+  ["construction.storage_crate"] = 120,
+  ["construction.generator"] = 130,
+  ["construction.breaker"] = 140,
+  ["construction.reconstruction_station"] = 150,
+}
+
 local function sorted_costs(costs)
   local values = {}
   for resource_id, amount in pairs(costs or {}) do values[#values + 1] = { resource_id = resource_id, amount = amount } end
@@ -19,10 +40,21 @@ function Building.recipes(registry)
   local values = {}
   for id, recipe in pairs(registry.construction_recipes) do
     values[#values + 1] = { id = id, display_name = recipe.display_name, world_object_id = recipe.world_object_id,
-      costs = sorted_costs(recipe.costs) }
+      kind = recipe.kind, description = recipe.description, costs = sorted_costs(recipe.costs) }
   end
-  table.sort(values, function(left, right) return left.id < right.id end)
+  table.sort(values, function(left, right)
+    local left_group = RECIPE_GROUP_ORDER[left.kind] or math.huge
+    local right_group = RECIPE_GROUP_ORDER[right.kind] or math.huge
+    if left_group ~= right_group then return left_group < right_group end
+    local left_order, right_order = RECIPE_ORDER[left.id] or math.huge, RECIPE_ORDER[right.id] or math.huge
+    if left_order ~= right_order then return left_order < right_order end
+    return left.id < right.id
+  end)
   return values
+end
+
+function Building.faced_target(session)
+  return session and session.faced_cell and session:faced_cell() or nil
 end
 
 function Building.recovery_yields(recipe)

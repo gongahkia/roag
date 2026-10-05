@@ -416,6 +416,7 @@ function App:request_new_campaign(slot_index)
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
   self.campaign, self.session = campaign, campaign.session
+  self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
   self.presentation:reset(self.session)
@@ -446,6 +447,7 @@ function App:continue_campaign(slot_index)
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
   self.campaign, self.session = campaign, campaign.session
+  self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
   self.presentation:reset(self.session)
@@ -574,7 +576,7 @@ function App:onboarding_sections()
     "YOUR BODY IS TEMPORARY.",
     "BREAK ENEMY BODIES. SALVAGE USEFUL PARTS. SURVIVE THE FLOOR.",
     "REBUILD BETWEEN FLOORS. DEATH ENDS THE RUN; RESEARCH SURVIVES.",
-    "WASD MOVE   ARROWS SHOOT   X BODY ABILITIES   G SALVAGE   I INVENTORY   U INTERACT",
+    "CAMPAIGN: WASD MOVE   E ATTACK   Q ABILITY   U USE   I INVENTORY   C BUILD",
   }
 end
 
@@ -582,11 +584,11 @@ function App:help_sections()
   return {
     { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
     { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
+    { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
     { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
     { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
     { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
-    { title = "SERVICES + ROUTE", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms; route choices are one way." },
-    { title = "RESEARCH + DEATH", text = "RESEARCH DATA unlocks future runs. Death archives the body; a fallen shell can recur later." },
+    { title = "SERVICES, RESEARCH + DEATH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future runs; death leaves a recoverable body." },
   }
 end
 
@@ -914,6 +916,7 @@ end
 function App:start_boss()
   self.session:start_boss()
   self.screen = "game"
+  self.build_stance = false
   self:clear_held_movement()
   self.presentation:reset(self.session)
   self:autosave("boss_transition")
@@ -922,6 +925,7 @@ end
 function App:return_to_title()
   self.screen, self.menu = "title", 1
   self.session = nil
+  self.build_stance = false
   self:clear_held_movement()
 end
 
@@ -970,6 +974,9 @@ function App:perform_turn(input)
     -- Campaign atomically swaps its active local simulator only after the
     -- zone shards and manifest commit. Presentation observes that new zone.
     self.session = self.campaign.session
+    -- Build stance is a field-control state, never a zone-local action
+    -- queue.  A fresh zone must not make the first E unexpectedly place.
+    self.build_stance = false
     self:clear_held_movement()
     self.presentation:reset(self.session)
   end
@@ -995,56 +1002,84 @@ function App:close_overlay()
   self:clear_held_movement()
 end
 
-function App:open_build()
-  if not self.session or not self.campaign then return false end
-  self.build_recipe_index = 1
-  self.build_recipe_id = nil
-  self.screen, self.menu = "build", 1
-  self:clear_held_movement()
-  self:play_sound("select")
-  return true
-end
-
 function App:build_recipes()
   if not self.session then return {} end
   return require("src.construction.building").recipes(self.session.registry)
 end
 
-function App:select_build_recipe()
-  local recipe = self:build_recipes()[self.menu]
-  if not recipe then return nil end
-  local player = self.session.state.player
-  local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[player.direction] or { 1, 0 }
-  self.build_recipe_id = recipe.id
-  self.build_cursor = { x = clamp(player.x + delta[1], 0, Grid.width - 1), y = clamp(player.y + delta[2], 0, Grid.height - 1) }
-  self.screen = "build_place"
+function App:is_build_stance()
+  return self.build_stance == true and self.screen == "game" and self:is_campaign_mode()
+end
+
+function App:active_build_recipe()
+  local recipes = self:build_recipes()
+  if #recipes == 0 then return nil end
+  self.build_recipe_index = clamp(self.build_recipe_index or 1, 1, #recipes)
+  return recipes[self.build_recipe_index]
+end
+
+function App:enter_build_stance()
+  if self.screen ~= "game" or not self:is_campaign_mode() then return false end
+  if not self:active_build_recipe() then return false end
+  self.build_stance = true
+  -- Build selection is free, but a key held before mode entry must never
+  -- become an unintentional movement or placement command after it.
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:exit_build_stance()
+  if not self.build_stance then return false end
+  self.build_stance = false
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:toggle_build_stance()
+  if self:is_build_stance() then return self:exit_build_stance() end
+  return self:enter_build_stance()
+end
+
+-- Retain this public entry point for integrations that previously opened the
+-- old construction menu.  Campaign construction is now a live field stance.
+function App:open_build()
+  return self:enter_build_stance()
+end
+
+function App:cycle_build_recipe(delta)
+  if not self:is_build_stance() then return nil end
+  local recipes = self:build_recipes()
+  if #recipes == 0 then return nil end
+  local current = self.build_recipe_index or 1
+  self.build_recipe_index = ((current - 1 + delta) % #recipes) + 1
+  local recipe = recipes[self.build_recipe_index]
   self:play_sound("select")
   return recipe
 end
 
-function App:move_build_cursor(dx, dy)
-  local cursor = self.build_cursor or { x = self.session.state.player.x, y = self.session.state.player.y }
-  cursor.x, cursor.y = clamp(cursor.x + dx, 0, Grid.width - 1), clamp(cursor.y + dy, 0, Grid.height - 1)
-  self.build_cursor = cursor
-  self:play_sound("select")
+function App:build_target()
+  if not self.session then return nil end
+  return require("src.construction.building").faced_target(self.session)
 end
 
 function App:build_preview()
-  if not self.session or not self.build_recipe_id or not self.build_cursor then
+  local recipe = self:active_build_recipe()
+  local target = self:build_target()
+  if not self.session or not recipe or not target then
     return { applied = false, code = "unknown_recipe", reason = "No construction recipe selected" }
   end
-  return require("src.construction.building").validate(self.session, self.build_recipe_id, self.build_cursor.x, self.build_cursor.y)
+  return require("src.construction.building").validate(self.session, recipe.id, target.x, target.y)
 end
 
-function App:confirm_build()
-  if not self.build_recipe_id or not self.build_cursor then return nil end
+function App:place_active_build()
+  if not self:is_build_stance() then return nil end
+  local recipe, target = self:active_build_recipe(), self:build_target()
+  if not recipe or not target then return nil end
   self.session.state.last_build_result = nil
-  self.screen = "game"
-  self:perform_turn(string.format("build:%s:%d:%d", self.build_recipe_id, self.build_cursor.x, self.build_cursor.y))
-  local result = self.session.state.last_build_result
-  if result and not result.applied then self.screen = "build_place" end
-  if result and result.applied then self.build_recipe_id = nil end
-  return result
+  self:perform_turn(string.format("build:%s:%d:%d", recipe.id, target.x, target.y))
+  return self.session.state.last_build_result
 end
 
 function App:open_storage(object_id)
