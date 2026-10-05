@@ -245,6 +245,9 @@ return {
       local app = App.new({ seed = 611010, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = campaign_store })
       assert(app:title_options()[1].id == "expedition")
+      for _, option in ipairs(app:title_options()) do
+        assert(option.id ~= "research" and option.id ~= "fallen", "Legacy systems must not distract from Expedition on the title screen")
+      end
       assert(app:activate_title_choice() and app.screen == "expedition_character_select")
       -- Sandbox remains an explicit separate title path rather than being
       -- deleted or folded into the disposable Expedition run.

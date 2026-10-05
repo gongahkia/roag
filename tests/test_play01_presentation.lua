@@ -73,6 +73,19 @@ return {
     end,
   },
   {
+    name = "FEEL-01 chamber layout gives the board most of the viewport and reserves a left HUD rail",
+    run = function()
+      local renderer = Renderer.new({})
+      local chamber = renderer:layout_for_dimensions(11, 9, 1920, 1080, true)
+      assert(chamber.size > 24 and chamber.size <= 104)
+      assert(chamber.hud_x < chamber.board_x and chamber.hud_width >= 240)
+      assert(chamber.board_x + 11 * chamber.size <= 1920 - 24)
+      assert(chamber.board_y >= 0 and chamber.board_y + 9 * chamber.size <= 1080)
+      local sandbox = renderer:layout_for_dimensions(39, 25, 1920, 1080, false)
+      assert(sandbox.size <= 24, "Sandbox keeps its legacy wide-world layout")
+    end,
+  },
+  {
     name = "FEEL-01 debug overlay is opt-in and never alters a simulation turn",
     run = function()
       local calls = 0

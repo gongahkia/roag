@@ -12,6 +12,8 @@ local Renderer = {}
 Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
+local EXPEDITION_HUD_WIDTH = 264
+local EXPEDITION_MAX_TILE_SIZE = 104
 local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
@@ -77,15 +79,45 @@ function Renderer:_view_dimensions(state)
   return VIEW_WIDTH, VIEW_HEIGHT
 end
 
-function Renderer:_layout(view_width, view_height)
-  view_width, view_height = view_width or self._view_width or VIEW_WIDTH, view_height or self._view_height or VIEW_HEIGHT
-  local width, height = love.graphics.getDimensions()
+-- Expedition chambers are intentionally small boards.  Give them the screen
+-- instead of preserving the old wide-world tile cap: the compact status rail
+-- lives on the left and the active board owns the remaining viewport.
+function Renderer:layout_for_dimensions(view_width, view_height, width, height, expedition)
+  view_width, view_height = view_width or VIEW_WIDTH, view_height or VIEW_HEIGHT
+  width, height = width or 1280, height or 720
+  if expedition then
+    local margin, gap = 24, 18
+    local hud_width = EXPEDITION_HUD_WIDTH
+    local board_left = margin + hud_width + gap
+    local available_width = math.max(1, width - board_left - margin)
+    local available_height = math.max(1, height - margin * 2)
+    local size = math.max(12, math.min(EXPEDITION_MAX_TILE_SIZE, math.floor(math.min(
+      available_width / view_width,
+      available_height / view_height
+    ))))
+    local board_width, board_height = view_width * size, view_height * size
+    return {
+      size = size,
+      board_x = board_left + math.floor((available_width - board_width) / 2),
+      board_y = math.floor((height - board_height) / 2),
+      hud_x = margin,
+      hud_y = margin,
+      hud_width = hud_width,
+    }
+  end
   local margin, sidebar, gap = 20, 270, 20
   local size = math.max(10, math.min(24, math.floor(math.min(
     (width - sidebar - gap - margin * 2) / view_width,
     (height - 130) / view_height
   ))))
-  return size, margin, margin, margin + view_width * size + gap
+  return { size = size, board_x = margin, board_y = margin, hud_x = margin + view_width * size + gap, hud_y = margin, hud_width = sidebar }
+end
+
+function Renderer:_layout(view_width, view_height, expedition)
+  view_width, view_height = view_width or self._view_width or VIEW_WIDTH, view_height or self._view_height or VIEW_HEIGHT
+  local width, height = love.graphics.getDimensions()
+  local layout = self:layout_for_dimensions(view_width, view_height, width, height, expedition)
+  return layout.size, layout.board_x, layout.board_y, layout.hud_x, layout.hud_y, layout.hud_width
 end
 
 function Renderer:_camera_position(presentation, player)
@@ -353,16 +385,81 @@ function Renderer:_draw_tool_impact(x, y, size, impact)
   love.graphics.setLineWidth(1)
 end
 
+-- Expedition deliberately has a short, fixed information rail.  It contains
+-- only combat decisions the player can act on immediately; sandbox-specific
+-- inventory, body, service, and salvage detail stays out of this view.
+function Renderer:_draw_expedition_hud(session, state, ui, presentation, x, y, width, height)
+  local expedition = assert(ui.expedition, "Expedition HUD requires Expedition state")
+  local panel_right = x + width
+  self:_color({ 0.018, 0.027, 0.045, 0.96 })
+  love.graphics.rectangle("fill", 0, 0, panel_right + 12, height)
+  self:_color({ 0.16, 0.27, 0.36, 0.9 })
+  love.graphics.rectangle("line", panel_right + 5, 0, 1, height)
+
+  local cursor = y
+  local function text(value, scale, tint, spacing)
+    self:_text(value, x, cursor, scale or 0.78, tint or { 0.78, 0.84, 0.94 })
+    cursor = cursor + (spacing or 18)
+  end
+  local character_id = (state.expedition.character_id or "expedition"):gsub("^expedition%.", "")
+  local quick = ui.quick or { weapons = {}, abilities = {} }
+  local weapon = quick.weapons[1] or { label = "OFFLINE" }
+  local ability = quick.abilities[1] or { label = "OFFLINE" }
+
+  text("EXPEDITION", 1.35, { 0.7, 0.9, 1 }, 24)
+  text(string.upper(character_id), 0.68, { 0.9, 0.78, 0.3 }, 18)
+  text("HP " .. ui.health .. " / " .. ui.max_health .. "  " .. string.rep("♥", ui.health),
+    0.92 + presentation.hit_flash * 0.55, { 1, 0.35, 0.35 }, 25)
+  text("WEAPON  " .. string.upper(weapon.label or "OFFLINE"), 0.67, { 0.92, 0.88, 0.56 })
+  if weapon.ammo then
+    text("MAG " .. weapon.ammo.loaded .. "/" .. weapon.ammo.capacity .. "  RESERVE " .. weapon.ammo.reserve,
+      0.64, { 0.6, 0.9, 0.75 })
+  else
+    text("MELEE / NO MAGAZINE", 0.61, { 0.72, 0.8, 0.92 })
+  end
+  text("ABILITY  " .. string.upper(ability.label or "OFFLINE"), 0.67,
+    ability.available == false and { 1, 0.42, 0.42 } or { 0.95, 0.65, 0.35 }, 24)
+
+  text("STAGE " .. expedition.stage .. "  CHAMBER " .. expedition.encounter, 0.76, { 0.95, 0.85, 0.25 })
+  text(string.upper((expedition.topology or "open"):gsub("_", " ")), 0.62, { 0.72, 0.82, 0.96 }, 22)
+  local xp_label = expedition.xp_to_next and (expedition.xp .. "/" .. expedition.xp_to_next) or "MAX"
+  text("LEVEL " .. (expedition.level or 1) .. "  XP " .. xp_label, 0.77, { 0.65, 0.9, 0.8 })
+  text("CASH " .. expedition.currency .. "  PASSIVES " .. expedition.passive_stacks, 0.72, { 0.65, 0.9, 0.8 }, 26)
+
+  if state.boss then
+    text("BOSS " .. string.upper(state.boss.display_name or state.boss.kind or "HOSTILE"), 0.62, { 1, 0.6, 0.35 })
+    text("HP " .. state.boss.health .. " / " .. state.boss.max_health, 0.7, { 1, 0.48, 0.32 }, 24)
+  end
+
+  text("CONTROLS", 0.88, { 0.6, 0.8, 1 })
+  text("WASD MOVE", 0.67)
+  text("E WEAPON    Q ABILITY", 0.67)
+  text("B BOMB      F FLARE", 0.67)
+  text("I RUN BUILD    F3 DEBUG", 0.62, { 0.72, 0.8, 0.92 }, 26)
+
+  local threats = 0
+  for _, enemy in ipairs(state.enemies or {}) do
+    if state.visible[Grid.key(enemy.x, enemy.y)] then threats = threats + 1 end
+  end
+  text("THREATS " .. threats, 0.72, threats > 0 and { 1, 0.58, 0.4 } or { 0.6, 0.9, 0.75 })
+  text("RED OUTLINES SHOW HOSTILES", 0.5, { 0.65, 0.72, 0.84 })
+end
+
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
   local view_width, view_height = self:_view_dimensions(state)
   self._view_width, self._view_height = view_width, view_height
-  local size, offset_x, offset_y, hud = self:_layout(view_width, view_height)
+  local is_expedition = state.expedition ~= nil
+  local size, offset_x, offset_y, hud, hud_y, hud_width = self:_layout(view_width, view_height, is_expedition)
   love.graphics.clear(0.025, 0.035, 0.055)
   local shake = presentation:screen_shake()
   local time = love.timer.getTime()
   offset_x = offset_x + math.sin(time * 78) * size * 0.45 * shake
   offset_y = offset_y + math.cos(time * 93) * size * 0.3 * shake
+  if is_expedition then
+    self:_color({ 0.018, 0.027, 0.045, 0.96 })
+    love.graphics.rectangle("fill", 0, 0, hud + (hud_width or EXPEDITION_HUD_WIDTH) + 12, love.graphics.getHeight())
+  end
   self:_color({ 0.08, 0.1, 0.14 })
   love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, view_width * size + 8, view_height * size + 8)
 
@@ -717,6 +814,9 @@ function Renderer:_draw_game(app)
   end
 
   local ui = GameplayUI.hud(session)
+  if ui.expedition then
+    self:_draw_expedition_hud(session, state, ui, presentation, hud, hud_y, hud_width, love.graphics.getHeight())
+  else
   self:_text(ui.expedition and "EXPEDITION" or "ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
   if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end
   if ui.reconstruction_anchor then
@@ -873,22 +973,32 @@ function Renderer:_draw_game(app)
         hud, controls_y + 124 + shown_threats * 17, 0.62)
     end
   end
+  end -- compact Expedition rail / full Sandbox HUD
   if app.debug_overlay and state.expedition then
     local exp, receipt = state.expedition, presentation.action_receipt or {}
     local chamber = exp.chamber and exp.chamber.bounds
     local camera_tiles = (self._view_width or VIEW_WIDTH) .. "×" .. (self._view_height or VIEW_HEIGHT)
+    local debug_x, debug_y = offset_x + 12, offset_y + 12
     self:_text("DEBUG  ROOM " .. tostring(exp.encounter_index) .. " " .. string.upper(exp.current_topology or "?")
-      .. "  VIEW " .. camera_tiles, 18, 18, 0.47, { 0.65, 0.95, 0.92 })
+      .. "  VIEW " .. camera_tiles, debug_x, debug_y, 0.47, { 0.65, 0.95, 0.92 })
     self:_text("XP " .. tostring(exp.xp or 0) .. "  L" .. tostring(exp.level or 1) .. "  CASH " .. tostring(exp.currency or 0)
       .. "  DAMAGE " .. tostring(receipt.damage or 0) .. "  KILLS " .. tostring(receipt.kills or 0)
-      .. "  CHAIN " .. tostring(receipt.chains or 0), 18, 33, 0.47, { 0.65, 0.95, 0.92 })
+      .. "  CHAIN " .. tostring(receipt.chains or 0), debug_x, debug_y + 15, 0.47, { 0.65, 0.95, 0.92 })
     if chamber then
       self:_text("BOARD " .. chamber.width .. "×" .. chamber.height .. "  BUDGET " .. tostring((app.expedition.plan[exp.encounter_index] or {}).budget or "?"),
-        18, 48, 0.47, { 0.65, 0.95, 0.92 })
+        debug_x, debug_y + 30, 0.47, { 0.65, 0.95, 0.92 })
     end
   end
-  for index, message in ipairs(state.log) do
-    self:_text(message, 20, offset_y + (self._view_height or VIEW_HEIGHT) * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
+  if state.expedition then
+    local message = state.log and state.log[#state.log]
+    if message then
+      local _, height = love.graphics.getDimensions()
+      self:_text(message, hud, height - 28, 0.58, { 0.72, 0.8, 0.92 })
+    end
+  else
+    for index, message in ipairs(state.log) do
+      self:_text(message, 20, offset_y + (self._view_height or VIEW_HEIGHT) * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
+    end
   end
   if presentation.hit_flash > 0 then
     local width, height = love.graphics.getDimensions()
@@ -1428,9 +1538,11 @@ function Renderer:_draw_title(app)
     self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
       1, index == app.menu and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
   end
-  local message = app.death_archive_error and "FALLEN ARCHIVE WRITE FAILED — DEAD RUN RETAINED"
-    or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
-    or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+  -- Legacy archive/profile failures remain recoverable compatibility concerns,
+  -- not advertised game modes on an Expedition-first title screen.
+  local message = app.death_archive_error and "LEGACY ARCHIVE WRITE FAILED — RUN RETAINED"
+    or (app.archive_error and "LEGACY ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+    or (app.meta_error and "PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.screen_definition_error and "SCREEN DEFINITIONS INVALID — USING SAFE FALLBACK")
     or (app.presentation_flow_error and "PRESENTATION FLOW INVALID — USING SAFE FALLBACK")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))

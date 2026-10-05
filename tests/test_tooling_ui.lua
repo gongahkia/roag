@@ -10,8 +10,13 @@ return {
       local payload = source:read("*a")
       source:close()
       local flow = assert(PresentationFlow.load({ payload = payload }))
-      assert(#flow:available({ continue_available = false }) == 5)
-      assert(#flow:available({ continue_available = true }) == 6)
+      -- The title is now Expedition-first: Sandbox is optional and the
+      -- preserved Research/Fallen compatibility surfaces are no longer modes.
+      assert(#flow:available({ continue_available = false }) == 3)
+      assert(#flow:available({ continue_available = true }) == 4)
+      for _, action in ipairs(flow:available({ continue_available = true })) do
+        assert(action.id ~= "research" and action.id ~= "fallen")
+      end
       local invalid, failure = PresentationFlow.decode('{"format":"roag.presentation_flow","version":1,"home":"title","title_actions":[{"id":"new_run","label":"NEW","description":"x","target":"game"}]}')
       assert(not invalid and failure.code == "invalid_presentation_transition")
       local restored = assert(PresentationFlow.decode(assert(PresentationFlow.encode(flow:to_data()))))

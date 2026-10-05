@@ -94,13 +94,14 @@ return {
     end,
   },
   {
-    name = "first run presents compact onboarding while later and direct starts retain existing flow",
+    name = "legacy first run keeps its onboarding while Expedition help leads the current flow",
     run = function()
       local app = new_app(880104)
       assert(app:begin_new_run() and app.screen == "onboarding")
       Input.keypressed(app, "return", nil, false)
       assert(app.screen == "game")
-      assert(#app:onboarding_sections() == 4 and #app:help_sections() >= 7)
+      assert(#app:onboarding_sections() == 4 and #app:help_sections() == 6)
+      assert(app:help_sections()[1].title == "EXPEDITION")
       app:return_to_title()
       assert(not app:begin_new_run() and app.screen == "replace_save")
     end,
