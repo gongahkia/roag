@@ -281,9 +281,9 @@ function App:title_options()
   for _, action in ipairs(actions) do
     local name, description = action.label, action.description
     if action.id == "continue" and self.campaign_continue_available then
-      name, description = "CONTINUE CAMPAIGN", "Resume the persistent one-zone campaign."
+      name, description = "CONTINUE SANDBOX", "Resume the persistent Sandbox world."
     elseif action.id == "continue" and self.continue_available then
-      name, description = "LEGACY RUN", "Resume a preserved pre-open-world run in compatibility mode."
+      name, description = "CONTINUE LEGACY RUN", "Resume a preserved compatibility run."
     end
     options[#options + 1] = { id = action.id, name = name, description = description, target = action.target }
   end
@@ -695,16 +695,12 @@ end
 
 function App:help_sections()
   return {
-    { title = "EXPEDITION", text = "Choose a character, clear compact combat arenas, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
-    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. I opens the paused run-build summary. Rewards pause for a 1-of-3 choice." },
-    { title = "CAMPAIGN CORE LOOP", text = "Explore a persistent world, salvage physical parts, build useful places, and choose when to press farther out." },
-    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
-    { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
-    { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
-    { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
-    { title = "RECONSTRUCTION", text = "Use a Reconstruction Station to install salvaged parts. It changes your body but does not repair damaged components." },
-    { title = "CAMPAIGN DEATH + ANCHORS", text = "Death leaves your old body and cargo where you fell. A fresh body appears at the active Reconstruction Anchor; face a station and use U to move that anchor." },
-    { title = "SERVICES + RESEARCH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future legacy runs." },
+    { title = "EXPEDITION", text = "Choose a character, clear compact chambers, gain XP and cash from real kills, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
+    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. B arms a bomb and F throws a flare. I opens the paused run-build summary. Level-ups pause for a 1-of-3 modifier choice." },
+    { title = "EXPEDITION REWARDS", text = "Kills grant XP and cash. XP levels offer passive choices; cash buys selected caches. There is no score, inventory grid, corpse recovery, or permanent power grind in an Expedition." },
+    { title = "OPEN WORLD SANDBOX", text = "This optional persistent-world mode keeps physical bodies, salvage, construction, storage, and recovery. It is separate from Expedition progression." },
+    { title = "SANDBOX CONTROLS", text = "WASD moves and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile. C enters build stance." },
+    { title = "SANDBOX BODY + INVENTORY", text = "Broken components lose capabilities. Faced corpses, physical cargo, reconstruction anchors, and building remain Sandbox-only systems." },
   }
 end
 

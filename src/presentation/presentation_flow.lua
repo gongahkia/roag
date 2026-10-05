@@ -26,10 +26,8 @@ local FALLBACK = {
   home = "title",
   title_actions = {
     { id = "expedition", label = "EXPEDITION", description = "Start a fast disposable combat run.", target = "expedition_character_select" },
-    { id = "sandbox", label = "OPEN WORLD SANDBOX", description = "Continue the persistent world, bodies and construction.", target = "campaign_slots" },
+    { id = "sandbox", label = "OPEN WORLD SANDBOX", description = "Optional persistent-world mode with bodies and construction.", target = "campaign_slots" },
     { id = "continue", label = "CONTINUE", description = "Resume the current active run.", target = "game" },
-    { id = "research", label = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs.", target = "research" },
-    { id = "fallen", label = "FALLEN", description = "Inspect bodies lost on earlier descents.", target = "fallen_archive" },
     { id = "help", label = "HOW TO PLAY", description = "Read the core loop and current controls.", target = "help" },
   },
 }

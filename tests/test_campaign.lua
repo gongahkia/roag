@@ -253,14 +253,14 @@ return {
       assert(app:select_campaign_slot() and app.campaign)
       local resumed = App.new({ seed = 611011, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = campaign_store })
-      assert(resumed:title_options()[3].name == "CONTINUE CAMPAIGN")
+      assert(resumed:title_options()[3].name == "CONTINUE SANDBOX")
 
       local legacy_store = SaveStore.memory()
       local legacy = Session.new({ seed = 611012 }); legacy:start_run(); assert(ActiveRun.save(legacy, legacy_store))
       local legacy_app = App.new({ seed = 611012, save_store = legacy_store, meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = SaveStore.memory_directory() })
       local options = legacy_app:title_options()
-      assert(options[1].name == "EXPEDITION" and options[3].name == "LEGACY RUN")
+      assert(options[1].name == "EXPEDITION" and options[3].name == "CONTINUE LEGACY RUN")
     end,
   },
 }
