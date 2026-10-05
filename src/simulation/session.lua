@@ -278,6 +278,9 @@ function Session.new(options)
   -- retain their established run-local counters and ID strings.
   self.identity_allocator = options.identity_allocator
   self.campaign = options.campaign
+  -- Expedition is deliberately a separate disposable run domain.  It uses
+  -- this combat simulator, but never Campaign succession/inventory saves.
+  self.expedition = options.expedition == true
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
   -- Presentation/combat-chain bookkeeping is intentionally outside state so
@@ -328,6 +331,7 @@ function Session.new(options)
     death_pending_archive = nil,
     generation_warnings = {},
     loadout = nil,
+    expedition = options.expedition_state,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -411,7 +415,7 @@ end
 
 function Session:faced_cell(actor)
   actor = actor or self.state.player
-  if not self.campaign or not actor then return nil end
+  if (not self.campaign and not self.expedition) or not actor then return nil end
   local delta = DIRECTIONS[actor.direction]
   -- Campaign facing is cardinal.  Treat a diagonal direction carried by an
   -- old save as unavailable rather than quietly making directional USE scan a
@@ -452,14 +456,33 @@ function Session:_preview_ability(actor, ability, direction)
   if not actor or not ability or not DIRECTIONS[direction] then return {} end
   local implementation = ability.implementation
   if implementation == "projectile" or implementation == "piercing_projectile" then
-    return self:_preview_projectile_line(actor, direction, ability.range or actor.bullet_range or Grid.width, ability.pierce or 0)
+    local range = (ability.range or actor.bullet_range or Grid.width)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0)
+    local pierce = (ability.pierce or 0)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_pierce") or 0)
+    local center_index, cells, seen = 1, {}, {}
+    for index, candidate in ipairs(DIRECTION_RING) do if candidate == direction then center_index = index; break end end
+    local count = 1 + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_count") or 0)
+    local start = -math.floor((count - 1) / 2)
+    for offset = start, start + count - 1 do
+      local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], range, pierce)) do
+        local key = Grid.key(cell.x, cell.y)
+        if not seen[key] then seen[key], cells[#cells + 1] = true, cell end
+      end
+    end
+    return cells
   elseif implementation == "scattershot" then
     local center_index, cells, seen = 1, {}, {}
     for index, candidate in ipairs(DIRECTION_RING) do if candidate == direction then center_index = index; break end end
-    local count, start = math.max(1, ability.pellets or 3), -math.floor(math.max(1, ability.pellets or 3) / 2)
+    local count = math.max(1, (ability.pellets or 3)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "scatter_pellets") or 0))
+    local start = -math.floor(count / 2)
     for offset = start, start + count - 1 do
       local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
-      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], ability.range or actor.bullet_range or Grid.width, 0)) do
+      local range = (ability.range or actor.bullet_range or Grid.width)
+        + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0)
+      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], range, 0)) do
         local key = Grid.key(cell.x, cell.y)
         if not seen[key] then seen[key], cells[#cells + 1] = true, cell end
       end
@@ -485,10 +508,11 @@ function Session:_preview_ability(actor, ability, direction)
 end
 
 function Session:player_attack_preview()
-  if not self.campaign then return nil end
+  if not self.campaign and not self.expedition then return nil end
   local loadout, player = self:ensure_campaign_loadout(), self.state.player
-  if not loadout or not player then return nil end
-  local resolved = Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon")
+  if not player then return nil end
+  local resolved = self.expedition and self:expedition_active_weapon()
+    or (loadout and Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon"))
   if not resolved then return nil end
   if resolved.source_kind == "tool" then
     local cell = self:faced_cell(player)
@@ -703,6 +727,11 @@ function Session:_mark_player_dead(provenance)
     self:_log("BODY LOST — SUCCESSION WILL RESUME FROM THE LAST COMMITTED CAMPAIGN.")
     return failure
   end
+  if self.expedition then
+    state.ended = "expedition_dead"
+    self:_log("EXPEDITION LOST.")
+    return { applied = true, code = "expedition_dead", provenance = provenance }
+  end
   state.ended = "gameover"
   if state.death_pending_archive or not state.player or not state.player.body
     or not tostring(state.run_id):match("^run:%d+$") then
@@ -848,6 +877,29 @@ function Session:assign_campaign_loadout(kind, index, binding)
   return { applied = true, kind = kind, index = index, binding = binding }
 end
 
+function Session:expedition_active_weapon()
+  local expedition, player = self.state.expedition, self.state.player
+  if not self.expedition or not expedition or not player or not player.body then return nil end
+  local provider = player.body:find_component(expedition.weapon_provider_id)
+  local ability = expedition.weapon_ability_id and self.registry.abilities[expedition.weapon_ability_id] or nil
+  if not provider or provider.current_integrity <= 0 or not ability then return nil end
+  return {
+    source_kind = "component", provider = provider, ability = ability,
+    display_name = ability.display_name,
+  }
+end
+
+function Session:expedition_active_ability()
+  local expedition, player = self.state.expedition, self.state.player
+  if not self.expedition or not expedition or not player or not player.body then return nil end
+  local ability = expedition.active_ability_id and self.registry.abilities[expedition.active_ability_id] or nil
+  if not ability then return nil end
+  if ability.implementation == "dash" then return { ability = ability, provider = nil, display_name = ability.display_name } end
+  local provider = player.body:find_component(expedition.ability_provider_id)
+  if not provider or provider.current_integrity <= 0 then return nil end
+  return { source_kind = "component", provider = provider, ability = ability, display_name = ability.display_name }
+end
+
 function Session:weapon_magazine(component, ability)
   local ammo = ability and ability.ammo
   if not ammo or not component then return nil end
@@ -858,7 +910,8 @@ function Session:weapon_magazine(component, ability)
     magazine = { loaded = ammo.magazine_capacity }
     component.weapon_state[key] = magazine
   end
-  magazine.loaded = math.max(0, math.min(ammo.magazine_capacity, math.floor(magazine.loaded or 0)))
+  local capacity = ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+  magazine.loaded = math.max(0, math.min(capacity, math.floor(magazine.loaded or 0)))
   return magazine, key
 end
 
@@ -869,21 +922,27 @@ end
 function Session:_reload_weapon(provider, ability)
   local ammo, inventory = ability.ammo, self.state.inventory
   local magazine = self:weapon_magazine(provider, ability)
-  local missing = ammo.magazine_capacity - magazine.loaded
-  local reserve = inventory:resource_quantity(ammo.family)
+  local capacity = ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+  local missing = capacity - magazine.loaded
+  local reserve = self.expedition and ((self.state.expedition.reserve_ammo or {})[ammo.family] or 0)
+    or inventory:resource_quantity(ammo.family)
   if missing <= 0 then return { applied = false, code = "magazine_full", reason = "Magazine is already full" } end
   if reserve <= 0 then
     return self:_ability_failure(ability.id, "no_compatible_ammo", "No compatible " .. self.registry:get_resource(ammo.family).display_name)
   end
   local amount = math.min(missing, reserve)
-  local consumed, reason = inventory:consume_resources({ [ammo.family] = amount })
-  if not consumed then return self:_ability_failure(ability.id, "no_compatible_ammo", reason) end
+  if self.expedition then
+    self.state.expedition.reserve_ammo[ammo.family] = reserve - amount
+  else
+    local consumed, reason = inventory:consume_resources({ [ammo.family] = amount })
+    if not consumed then return self:_ability_failure(ability.id, "no_compatible_ammo", reason) end
+  end
   magazine.loaded = magazine.loaded + amount
   local family = string.upper(self.registry:get_resource(ammo.family).display_name)
-  self:_log("RELOADED — " .. magazine.loaded .. "/" .. ammo.magazine_capacity .. " " .. family .. ".")
+  self:_log("RELOADED — " .. magazine.loaded .. "/" .. capacity .. " " .. family .. ".")
   self:_sound("pickup")
   local result = { applied = true, code = "reloaded", ability_id = ability.id, component_id = provider.id,
-    loaded = magazine.loaded, capacity = ammo.magazine_capacity, consumed = amount, family = ammo.family }
+    loaded = magazine.loaded, capacity = capacity, consumed = amount, family = ammo.family }
   self:_emit_build_event({
     type = "on_reload", source_actor = self.state.player, weapon_ability = ability,
     provider = provider, attack_tags = BuildEffects.tags_for_ability(ability),
@@ -1000,13 +1059,15 @@ function Session:_apply_build_effect(entry, event, chain)
     return origin and self:_build_small_explosion(origin, spec, provenance) or { applied = false, code = "no_origin" }
   elseif spec.kind == "magazine_refund" then
     local loadout = self:ensure_campaign_loadout()
-    local resolved = loadout and Loadout.resolve(self, self.state.player, loadout.weapon_slots[loadout.active_weapon], "weapon") or nil
+    local resolved = self.expedition and self:expedition_active_weapon()
+      or (loadout and Loadout.resolve(self, self.state.player, loadout.weapon_slots[loadout.active_weapon], "weapon") or nil)
     if not resolved or not resolved.ability or not resolved.ability.ammo then
       return { applied = false, code = "active_weapon_not_ranged" }
     end
     local magazine = self:weapon_magazine(resolved.provider, resolved.ability)
     local previous = magazine.loaded
-    magazine.loaded = math.min(resolved.ability.ammo.magazine_capacity, magazine.loaded + (spec.amount or 1))
+    local capacity = resolved.ability.ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+    magazine.loaded = math.min(capacity, magazine.loaded + (spec.amount or 1))
     if magazine.loaded > previous then self:_log("RECYCLER +" .. (magazine.loaded - previous) .. ".") end
     return { applied = magazine.loaded > previous, loaded = magazine.loaded, previous = previous }
   elseif spec.kind == "cooldown_reduction" then
@@ -1049,7 +1110,7 @@ function Session:_emit_build_event(event)
       self:_event("build_effect", { effect_id = entry.effect.id, charm_id = entry.charm_id,
         x = event.target_cell and event.target_cell.x, y = event.target_cell and event.target_cell.y })
       if event.target_cell then self.state.effects[Grid.key(event.target_cell.x, event.target_cell.y)] = true end
-      self:_log(string.upper(entry.charm.display_name) .. ".")
+      self:_log(string.upper(entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id) .. ".")
       applied[#applied + 1] = { entry = entry, result = self:_apply_build_effect(entry, event, derived) }
     end
   end
@@ -1065,6 +1126,37 @@ function Session:attack_active_weapon()
     return self:_ability_failure("attack", failure and failure.code or "slot_unavailable", failure and failure.reason or "Weapon slot is unavailable")
   end
   if resolved.source_kind == "tool" then return self:attack_tool(resolved.tool, resolved.tool_definition) end
+  local ability = resolved.ability
+  local attack_event = { type = "on_attack", source_actor = player, provider = resolved.provider,
+    weapon_ability = ability, ability_id = ability.id, source_component_id = resolved.provider.id,
+    attack_tags = BuildEffects.tags_for_ability(ability) }
+  if ability.ammo then
+    local magazine = self:weapon_magazine(resolved.provider, ability)
+    local cost = ability.ammo.ammo_per_attack
+    if magazine.loaded < cost then return self:_reload_weapon(resolved.provider, ability) end
+    self:_emit_build_event(attack_event)
+    magazine.loaded = magazine.loaded - cost
+    local result = self:activate_actor_ability(player, ability.id, {
+      direction = player.direction, provider_component_id = resolved.provider.id, skip_resource = true,
+    })
+    if not result.applied then magazine.loaded = magazine.loaded + cost end
+    return result
+  end
+  self:_emit_build_event(attack_event)
+  return self:activate_actor_ability(player, ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+-- Expedition deliberately has one ready class weapon instead of a spatial
+-- inventory loadout.  It still travels through the ordinary ability/projectile
+-- pipeline, so combat, body damage and build effects remain shared.
+function Session:attack_expedition_weapon()
+  local player, resolved = self.state.player, self:expedition_active_weapon()
+  if not resolved then
+    self:_log("CLASS WEAPON UNAVAILABLE.")
+    return self:_ability_failure("attack", "slot_unavailable", "Class weapon is unavailable")
+  end
   local ability = resolved.ability
   local attack_event = { type = "on_attack", source_actor = player, provider = resolved.provider,
     weapon_ability = ability, ability_id = ability.id, source_component_id = resolved.provider.id,
@@ -1226,6 +1318,18 @@ function Session:activate_active_ability()
   if resolved.ability.implementation == "dash" then return self:_dash() end
   return self:activate_actor_ability(player, resolved.ability.id, {
     direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+function Session:activate_expedition_ability()
+  local player, resolved = self.state.player, self:expedition_active_ability()
+  if not resolved then
+    self:_log("CLASS ABILITY UNAVAILABLE.")
+    return self:_ability_failure("ability", "slot_unavailable", "Class ability is unavailable")
+  end
+  if resolved.ability.implementation == "dash" then return self:_dash() end
+  return self:activate_actor_ability(player, resolved.ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider and resolved.provider.id,
   })
 end
 
@@ -1848,7 +1952,8 @@ function Session:_spawn_projectile(actor, provider, ability, direction)
     direction = direction,
     active = false,
     travel = 1,
-    max = ability.range or actor.bullet_range,
+    max = (ability.range or actor.bullet_range)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0),
     light = 2,
     source_actor = actor,
     source_actor_kind = actor.kind,
@@ -1856,7 +1961,8 @@ function Session:_spawn_projectile(actor, provider, ability, direction)
     source_component_id = provider.id,
     ability_id = ability.id,
     damage = math.max(1, (ability.damage or 1) + modifier),
-    pierce_remaining = ability.pierce or 0,
+    pierce_remaining = (ability.pierce or 0)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_pierce") or 0),
     attack_tags = BuildEffects.tags_for_ability(ability),
   })
   self.state.bullets[#self.state.bullets + 1] = bullet
@@ -1867,7 +1973,14 @@ function Session:_spawn_projectile(actor, provider, ability, direction)
 end
 
 function Session:_execute_projectile(actor, provider, wear, ability, request)
-  local bullet = self:_spawn_projectile(actor, provider, ability, request.direction)
+  local bullets, center_index = {}, 1
+  for index, direction in ipairs(DIRECTION_RING) do if direction == request.direction then center_index = index; break end end
+  local count = 1 + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_count") or 0)
+  local start = -math.floor((count - 1) / 2)
+  for offset = start, start + count - 1 do
+    local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+    bullets[#bullets + 1] = self:_spawn_projectile(actor, provider, ability, DIRECTION_RING[index])
+  end
   self:_sound("shoot")
   if actor == self.state.player then
     self:_log("Fired " .. DIRECTIONS[request.direction][3] .. ".")
@@ -1879,7 +1992,7 @@ function Session:_execute_projectile(actor, provider, wear, ability, request)
     actor = actor,
     component_id = provider.id,
     wear = wear,
-    projectile = bullet,
+    projectile = bullets[1], projectiles = bullets,
   }
 end
 
@@ -1888,7 +2001,8 @@ function Session:_execute_scattershot(actor, provider, wear, ability, request)
   for index, direction in ipairs(DIRECTION_RING) do
     if direction == request.direction then center_index = index; break end
   end
-  local pellets, count = {}, math.max(1, ability.pellets or 3)
+  local pellets, count = {}, math.max(1, (ability.pellets or 3)
+    + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "scatter_pellets") or 0))
   local offset_start = -math.floor(count / 2)
   for offset = offset_start, offset_start + count - 1 do
     local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1

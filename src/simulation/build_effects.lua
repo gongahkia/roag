@@ -6,6 +6,7 @@ local BuildEffects = {
   MAX_EXECUTIONS = 128,
 }
 local RunModifiers = require("src.simulation.run_modifiers")
+local ExpeditionContent = require("src.expedition.content")
 
 BuildEffects.TRIGGERS = {
   on_attack = true,
@@ -52,6 +53,28 @@ local function copy_set(values)
   local result = {}
   for key, value in pairs(values or {}) do result[key] = value end
   return result
+end
+
+local function scaled_effect(effect, count)
+  local copy = {}
+  for key, value in pairs(effect) do
+    if key == "effect" and type(value) == "table" then
+      copy.effect = {}
+      for field, field_value in pairs(value) do copy.effect[field] = field_value end
+    elseif key == "conditions" and type(value) == "table" then
+      copy.conditions = {}
+      for field, field_value in pairs(value) do copy.conditions[field] = field_value end
+    elseif key == "stack_scale" then
+      -- Stack scaling is compiled into effect fields below, rather than
+      -- exposed to the gameplay resolver as another runtime rule.
+    else
+      copy[key] = value
+    end
+  end
+  for field, per_stack in pairs(effect.stack_scale or {}) do
+    copy.effect[field] = (copy.effect[field] or 0) + per_stack * math.max(0, count - 1)
+  end
+  return copy
 end
 
 function BuildEffects.tags_for_ability(ability)
@@ -135,6 +158,30 @@ function BuildEffects.resolve(session, actor, event)
       end
     end
   end
+  local expedition = session.state.expedition
+  if expedition then
+    for passive_id, count in pairs(expedition.passive_stacks or {}) do
+      local passive = ExpeditionContent.passive(passive_id)
+      for effect_index, raw_effect in ipairs(passive and passive.reactive_effects or {}) do
+        if raw_effect.trigger == event.type and count > 0 then
+          local effect = scaled_effect(raw_effect, count)
+          local active, reason = BuildEffects.effect_status(session, actor, effect, event)
+          results[#results + 1] = {
+            charm_id = passive_id, -- backwards-compatible stable event field
+            source_id = passive_id,
+            source_name = passive.display_name,
+            passive_count = count,
+            slot_index = 0,
+            effect_index = effect_index,
+            effect = effect,
+            key = "expedition:" .. passive_id .. ":" .. effect.id,
+            active = active,
+            reason = reason,
+          }
+        end
+      end
+    end
+  end
   table.sort(results, function(left, right)
     if left.charm_id ~= right.charm_id then return left.charm_id < right.charm_id end
     if left.slot_index ~= right.slot_index then return left.slot_index < right.slot_index end
@@ -159,6 +206,25 @@ function BuildEffects.describe(session, actor)
         active = active,
         reason = reason,
       }
+    end
+  end
+  local expedition = session.state.expedition
+  if expedition then
+    for passive_id, count in pairs(expedition.passive_stacks or {}) do
+      local passive = ExpeditionContent.passive(passive_id)
+      for _, raw_effect in ipairs(passive and passive.reactive_effects or {}) do
+        local effect = scaled_effect(raw_effect, count)
+        local active, reason = BuildEffects.effect_status(session, actor, effect, nil)
+        result[#result + 1] = {
+          charm_id = passive_id,
+          charm_name = passive.display_name,
+          effect_id = effect.id,
+          description = passive.description,
+          active = active,
+          reason = reason,
+          stack_count = count,
+        }
+      end
     end
   end
   table.sort(result, function(left, right)
