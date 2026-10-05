@@ -1,4 +1,4 @@
-.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor \
+.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor art-validate art-export \
 	debug doctor debug-content debug-scenario debug-expedition debug-modifier debug-determinism debug-bundle debug-test
 
 COMPOSE ?= ./tools/docker-compose.sh
@@ -11,6 +11,12 @@ test:
 
 package:
 	$(COMPOSE) run --rm package
+
+art-validate:
+	$(COMPOSE) run --rm --entrypoint luajit test tools/validate_art.lua
+
+art-export:
+	ASEPRITE_BIN="$(ASEPRITE_BIN)" ./tools/export_art.sh
 
 play:
 	$(COMPOSE) run --rm game

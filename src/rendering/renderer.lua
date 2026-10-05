@@ -156,8 +156,15 @@ function Renderer:_draw_facing_marker(direction, x, y, size)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Renderer:_draw_outline(sprite_kind, x, y, size, color, transform)
-  if not self.assets or not self.assets.draw_sprite then return end
+function Renderer:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  if self.assets and self.assets.draw_actor_sprite then
+    return self.assets:draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  end
+  return self.assets and self.assets:draw_sprite(sprite_kind, x, y, size, tint, transform)
+end
+
+function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, transform)
+  if not self.assets then return end
   local thickness = math.max(1, math.floor(size * Tuning.outline_ratio))
   for _, offset in ipairs({ { -thickness, 0 }, { thickness, 0 }, { 0, -thickness }, { 0, thickness } }) do
     local outline_transform = {
@@ -166,7 +173,7 @@ function Renderer:_draw_outline(sprite_kind, x, y, size, color, transform)
       scale_x = transform and transform.scale_x or 1,
       scale_y = transform and transform.scale_y or 1,
     }
-    self.assets:draw_sprite(sprite_kind, x, y, size, color, outline_transform)
+    self:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
   end
 end
 
@@ -567,6 +574,10 @@ function Renderer:_draw_game(app)
     -- corrupt violet tint is presentation only and their actual capabilities
     -- remain body-derived in the simulation.
     local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
+    local animation_tag = presentation.reactions[value] and "hurt"
+      or presentation.attacks[value] and "attack"
+      or (value.body and not presentation:is_settled(value)) and "move"
+      or "idle"
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
     local transform = value.body and (presentation:movement_transform(value)
       or presentation:idle_transform(session, value, time, size)) or nil
@@ -578,13 +589,13 @@ function Renderer:_draw_game(app)
     end
     local role = self:outline_role(value, state)
     if role == "player" then
-      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
     elseif role == "hostile" then
-      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
     elseif role == "projectile" then
-      self:_draw_outline(sprite_kind, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
     end
-    self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
+    self:_draw_actor_sprite(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
     if value == state.player then
       if not app:is_build_stance() then self:_draw_weapon_orientation(session:player_attack_preview(), value, pixel_x, pixel_y, size) end
       self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size)

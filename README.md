@@ -91,6 +91,10 @@ Start with `make doctor`, use `make debug-bundle LABEL=issue-name` to capture
 an isolated reproducible report, and use `make debug-test TEST="..."` to run
 a narrowed test selection.
 
+Pixel-art authoring is documented separately in [the Aseprite art pipeline](tools/ART_PIPELINE.md).
+Runtime sprite exports live under `assets/sprites/`; editable Aseprite sources,
+references, and previews under `art/` are deliberately excluded from `roag.love`.
+
 ## Controls
 
 | Key | Action |

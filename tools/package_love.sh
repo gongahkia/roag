@@ -14,7 +14,9 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 cd "$workspace"
+luajit tools/validate_art.lua --package
 zip -q -r "$archive" . \
+  -x 'art/*' \
   -x '.git/*' \
   -x '.docker/*' \
   -x '.roag-debug/*' \
