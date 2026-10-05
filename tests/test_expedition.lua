@@ -18,6 +18,16 @@ end
 
 return {
   {
+    name = "MOD-02 reward cadence provides fourteen acquisitions including elite bonuses",
+    run = function()
+      local total, elites = 0, 0
+      for _, plan in ipairs(Run.plan(80177)) do total = total + 1; if plan.elite then total, elites = total + 1, elites + 1 end end
+      assert(total >= 14 and elites >= 2)
+      assert(Run.REWARD_ENCOUNTERS[1] == "choice" and Run.REWARD_ENCOUNTERS[2] == "random")
+      assert(Run.OWNED_PICK_WEIGHT > 1)
+    end,
+  },
+  {
     name = "Expedition content defines four classes twenty stackable passives and six encounter grammars",
     run = function()
       local registry = Registry.load()

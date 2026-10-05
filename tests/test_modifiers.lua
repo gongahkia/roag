@@ -14,10 +14,25 @@ end
 
 return {
   {
+    name = "MOD-02 serialized pool has sixty-five definitions and valid high stack expressions",
+    run = function()
+      local registry = assert(Definitions.load({ registry = Registry.load() }))
+      local reactive = 0
+      assert(#registry.ordered >= 65)
+      for _, definition in ipairs(registry.ordered) do
+        if #(definition.hooks or {}) > 0 then reactive = reactive + 1 end
+        for _, effect in ipairs(definition.static_effects or {}) do for _, count in ipairs({ 1, 3, 5, 10, 20 }) do assert(Definitions.evaluate_expression(effect.value, count)) end end
+      end
+      assert(reactive >= 20)
+      local breach = registry:get("expedition.passive.breach_driver").static_effects[1].value
+      assert(Definitions.evaluate_expression(breach, 1) == 1 and Definitions.evaluate_expression(breach, 3) == 3 and Definitions.evaluate_expression(breach, 10) == 12)
+    end,
+  },
+  {
     name = "serialized Expedition modifier corpus loads canonically with stable IDs",
     run = function()
       local registry = assert(Definitions.load({ registry = Registry.load() }))
-      assert(#registry.ordered == 25 and registry:get("expedition.passive.arc_relay"))
+      assert(#registry.ordered == 65 and registry:get("expedition.passive.arc_relay"))
       for _, definition in ipairs(registry.ordered) do
         local round_tripped = assert(Definitions.round_trip(definition, { registry = Registry.load() }))
         assert(round_tripped.id == definition.id)
@@ -84,12 +99,12 @@ return {
     run = function()
       local files = production_files()
       local editor = Editor.new({ store = Store.memory(files, true), registry = Registry.load() })
-      assert(#editor:list() == 25)
+      assert(#editor:list() == 65)
       local draft = assert(editor:create("expedition.passive.fixture_damage"))
       draft.name, draft.description = "FIXTURE DAMAGE", "Adds projectile damage."
       editor:add_static_stat("projectile_damage")
       assert(editor:save())
-      assert(#editor:list() == 26)
+      assert(#editor:list() == 66)
       assert(editor:duplicate("expedition.passive.fixture_damage", "expedition.passive.fixture_damage_copy"))
       assert(editor:save())
       local pending = assert(editor:request_delete("expedition.passive.fixture_damage_copy"))

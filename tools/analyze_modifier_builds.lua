@@ -29,6 +29,7 @@ local function analyze_rewards(count)
   local registry = assert(Definitions.load({ registry = Registry.load() }))
   for seed = 1, count do
     local stacks = {}
+    local acquired = 0
     -- This is the reward generator's deterministic weighted shape without a
     -- full arena construction: each sequence validates 12 legal reward
     -- selections and applies the same post-encounter duplicate bias.
@@ -42,11 +43,11 @@ local function analyze_rewards(count)
         local roll, item = cursor % total, registry.ordered[#registry.ordered]
         local sum = 0
         for _, candidate in ipairs(registry.ordered) do sum = sum + candidate.pool.weight * (encounter >= 4 and (stacks[candidate.id] or 0) > 0 and Run.OWNED_PICK_WEIGHT or 1); if roll < sum then item = candidate; break end end
-        stacks[item.id] = (stacks[item.id] or 0) + 1; stats.pickups = stats.pickups + 1
+        stacks[item.id] = (stacks[item.id] or 0) + 1; stats.pickups, acquired = stats.pickups + 1, acquired + 1
       end
     end
     local unique, top = 0, 0; for _, value in pairs(stacks) do unique, top = unique + 1, math.max(top, value) end
-    stats.unique, stats.duplicates, stats.top_stack = stats.unique + unique, stats.duplicates + (12 - unique), math.max(stats.top_stack, top)
+    stats.unique, stats.duplicates, stats.top_stack = stats.unique + unique, stats.duplicates + (acquired - unique), math.max(stats.top_stack, top)
   end
   return stats
 end
