@@ -32,8 +32,9 @@ App.CAMPAIGN_SLOT_COUNT = 3
 -- only how quickly a physically held key asks for another command.
 App.HOLD_INITIAL_DELAY = 0.22
 App.HOLD_REPEAT_DELAY = 0.09
-App.EXPEDITION_HOLD_INITIAL_DELAY = 0.135
-App.EXPEDITION_HOLD_REPEAT_DELAY = 0.072
+App.EXPEDITION_HOLD_INITIAL_DELAY = 0.118
+App.EXPEDITION_HOLD_REPEAT_DELAY = 0.060
+App.MAX_PENDING_MOVEMENT_INPUTS = 4
 App.ENCUMBRANCE_REPEAT_MULTIPLIERS = {
   LIGHT = 1.00,
   BURDENED = 1.20,
@@ -98,6 +99,7 @@ function App.new(options)
   self.movement_key_order = {}
   self.movement_key_sequence = 0
   self.held_movement_blocked = false
+  self.pending_movement_inputs = {}
   self.debug_overlay = options.debug_overlay == true
   self:_reconcile_pending_death()
   self:refresh_continue()
@@ -1135,7 +1137,16 @@ function App:perform_turn(input)
     return
   end
   local source_zone = self.campaign and self.campaign.active_zone and ZoneKey.to_data(self.campaign.active_zone.key) or nil
-  local result = self:is_expedition_mode() and self.expedition:turn(input) or self.session:turn(input)
+  -- A normal Expedition turn intentionally returns nil.  Do not use Lua's
+  -- `a and b or c` selection idiom here: a nil Expedition result used to
+  -- evaluate the fallback as well, advancing the simulator twice for one
+  -- input.
+  local result
+  if self:is_expedition_mode() then
+    result = self.expedition:turn(input)
+  else
+    result = self.session:turn(input)
+  end
   local action_result = self.session.last_action_result
   if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
     -- Keep held-key state for release bookkeeping, but never issue another
@@ -1161,6 +1172,9 @@ function App:perform_turn(input)
     end
   end
   self:_handle_turn_result(result)
+  if self.screen == "game" and self.session and self:is_expedition_mode() then
+    self.presentation:begin_board_turn(self.session)
+  end
   self:autosave("turn")
   return result
 end
@@ -2042,8 +2056,83 @@ function App:start_held_move(direction)
   self.held_movement_blocked = false
 end
 
+function App:_remove_pending_held_movement()
+  local kept = {}
+  for _, entry in ipairs(self.pending_movement_inputs or {}) do
+    if entry.source ~= "held" then kept[#kept + 1] = entry end
+  end
+  self.pending_movement_inputs = kept
+end
+
+function App:clear_held_move_intent()
+  self.held_direction, self.hold_timer = nil, nil
+  self:_remove_pending_held_movement()
+end
+
+function App:movement_presentation_ready()
+  return not self.presentation or self.presentation:is_board_turn_settled()
+end
+
+-- Direct taps may retain a tiny ordered sequence (RIGHT, RIGHT, UP, LEFT),
+-- while a held direction occupies only one replaceable slot. That preserves
+-- deliberate cornering without ever building a stale held-input backlog.
+function App:_queue_movement(direction, source)
+  local queue = self.pending_movement_inputs or {}
+  self.pending_movement_inputs = queue
+  if source == "held" then
+    for _, entry in ipairs(queue) do
+      if entry.source == "held" then entry.direction = direction; return end
+    end
+  end
+  if #queue >= App.MAX_PENDING_MOVEMENT_INPUTS then
+    if source == "held" then return end
+    queue[#queue] = { direction = direction, source = source }
+    return
+  end
+  queue[#queue + 1] = { direction = direction, source = source }
+end
+
+function App:_dispatch_pending_movement()
+  if self.screen ~= "game" or not self.session or not self:movement_presentation_ready() then return false end
+  local queue = self.pending_movement_inputs or {}
+  while #queue > 0 do
+    local entry = table.remove(queue, 1)
+    if entry.source ~= "held" or (self.held_direction == entry.direction and not self.held_movement_blocked) then
+      if entry.source == "held" then
+        local movable = self.session:can_move(entry.direction)
+        if not movable then
+          self.held_direction, self.hold_timer = nil, nil
+          self.held_movement_blocked = true
+          return false
+        end
+      end
+      self:perform_turn(entry.direction)
+      return true
+    end
+  end
+  return false
+end
+
+function App:request_movement(direction, source)
+  source = source or "direct"
+  if self.screen ~= "game" or not self.session then return false end
+  -- FEEL-02 changes Expedition's compact chamber presentation only. Preserve
+  -- legacy/Sandbox field cadence and its existing diagonal compatibility.
+  if not self:is_expedition_mode() then
+    self:perform_turn(direction)
+    return true
+  end
+  if self:movement_presentation_ready() and #(self.pending_movement_inputs or {}) == 0 then
+    self:perform_turn(direction)
+    return true
+  end
+  self:_queue_movement(direction, source)
+  return false
+end
+
 function App:clear_held_movement()
   self.held_direction, self.hold_timer = nil, nil
+  self.pending_movement_inputs = {}
   self.movement_keys = {}
   self.movement_key_order = {}
   self.held_movement_blocked = false
@@ -2085,11 +2174,15 @@ function App:update(dt)
     local was_hit_stopped = self.presentation:is_hit_stopped()
     self.presentation:update(self.session, dt)
     if was_hit_stopped or self.presentation:is_hit_stopped() then return end
+    if self:is_expedition_mode() and self:_dispatch_pending_movement() then return end
     if self.held_direction and not self.held_movement_blocked then
       self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then
         self.hold_timer = self:movement_repeat_interval()
-        if self.session:can_move(self.held_direction) then
+        if self:is_expedition_mode() then
+          self:_queue_movement(self.held_direction, "held")
+          self:_dispatch_pending_movement()
+        elseif self.session:can_move(self.held_direction) then
           self:perform_turn(self.held_direction)
         else
           -- A wall/invalid terrain is not a turn; it simply ends this held

@@ -247,7 +247,9 @@ function Chambers.contains(bounds, x, y)
 end
 
 function Chambers.visible_tiles(bounds, boss)
-  return boss and 13 or 11
+  -- FEEL-02 frames the whole compact chamber as a board. Bosses use the same
+  -- 16-wide useful view because the current boss room is also 14x10.
+  return 16
 end
 
 return Chambers

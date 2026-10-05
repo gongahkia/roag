@@ -360,7 +360,7 @@ function Input.keypressed(app, key, _, is_repeat)
           local direction = app:set_movement_key(key, true)
           if direction then
             app:start_held_move(direction)
-            app:perform_turn(direction)
+            app:request_movement(direction, "direct")
           end
         end
       elseif key == "e" and not is_repeat then
@@ -391,7 +391,7 @@ function Input.keypressed(app, key, _, is_repeat)
         local direction = app:set_movement_key(key, true)
         if direction then
           app:start_held_move(direction)
-          app:perform_turn(direction)
+          app:request_movement(direction, "direct")
         end
       end
     elseif SHOT_KEYS[key] and not campaign and not expedition then
@@ -434,7 +434,7 @@ function Input.keyreleased(app, key)
     if direction then
       app:start_held_move(direction)
     else
-      app.held_direction, app.hold_timer = nil, nil
+      app:clear_held_move_intent()
     end
   end
 end

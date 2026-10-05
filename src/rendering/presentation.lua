@@ -39,6 +39,11 @@ local function ease_axis(current, target, dt, rate)
   return current + (target - current) * blend
 end
 
+local function smoothstep(value)
+  value = math.max(0, math.min(1, value))
+  return value * value * (3 - 2 * value)
+end
+
 local function direction_vector(direction)
   return BUMP_DIRECTIONS[direction] or { 0, 0 }
 end
@@ -51,8 +56,10 @@ local function chamber_camera_target(state, player)
   local chamber = state and state.expedition and state.expedition.chamber
   if not chamber or not chamber.bounds then return player.x, player.y end
   local bounds = chamber.bounds
-  local boss = state.boss ~= nil or state.expedition.current_topology == "boss"
-  local view_width, view_height = boss and 13 or 11, boss and 11 or 9
+  -- Expedition rooms fit their stable board camera. The target is the room
+  -- centre whenever it fits, so walking across a 10x8–14x10 chamber does not
+  -- make the camera chase the player around its own board.
+  local view_width, view_height = 16, 12
   local half_width, half_height = (view_width - 1) / 2, (view_height - 1) / 2
   local center_x, center_y = (bounds.min_x + bounds.max_x) / 2, (bounds.min_y + bounds.max_y) / 2
   local min_x, max_x = bounds.min_x + half_width, bounds.max_x - half_width
@@ -63,15 +70,17 @@ end
 
 function Presentation.new()
   return setmetatable({
-    positions = weak_map(), reactions = weak_map(), attacks = weak_map(),
+    positions = weak_map(), movement_tweens = weak_map(), reactions = weak_map(), attacks = weak_map(),
     hit_flash = 0, hit_shake = 0, shake_amount = 0, hit_stop_remaining = 0,
     bump_time = 0, bump_direction = nil,
     impacts = {}, tracers = {}, particles = {}, damage_numbers = {}, break_labels = {}, deaths = {}, explosions = {}, modifier_chain = {}, action_receipt = nil,
+    board_turn_remaining = 0, board_turn_index = 0, last_board_segments = {},
   }, Presentation)
 end
 
 function Presentation:reset(session)
   self.positions = weak_map()
+  self.movement_tweens = weak_map()
   local state, player = session.state, session.state.player
   local function seed(entity)
     if entity then self.positions[entity] = { x = entity.x, y = entity.y } end
@@ -88,6 +97,74 @@ function Presentation:reset(session)
   self.impacts, self.tracers, self.particles = {}, {}, {}
   self.damage_numbers, self.break_labels, self.deaths, self.explosions, self.modifier_chain, self.action_receipt = {}, {}, {}, {}, {}, nil
   self.hit_stop_remaining, self.shake_amount, self.hit_flash, self.hit_shake = 0, 0, 0, 0
+  self.board_turn_remaining, self.board_turn_index, self.last_board_segments = 0, 0, {}
+end
+
+local function board_entities(state)
+  local values, seen = {}, {}
+  local function add(entity)
+    if entity and not seen[entity] then values[#values + 1], seen[entity] = entity, true end
+  end
+  add(state.player)
+  for _, enemy in ipairs(state.enemies or {}) do add(enemy) end
+  add(state.boss)
+  return values
+end
+
+-- A turn can include forced displacement in addition to its ordinary
+-- one-cell moves. Keep even that exceptional movement as a sequence of board
+-- edges rather than making an actor appear to glide from A straight to C.
+-- Normal player/enemy moves produce exactly one entry.
+local function board_edges(from_x, from_y, to_x, to_y)
+  local edges, x, y = {}, from_x, from_y
+  while x ~= to_x do
+    local next_x = x + (to_x > x and 1 or -1)
+    edges[#edges + 1] = { from_x = x, from_y = y, to_x = next_x, to_y = y, distance = 1 }
+    x = next_x
+  end
+  while y ~= to_y do
+    local next_y = y + (to_y > y and 1 or -1)
+    edges[#edges + 1] = { from_x = x, from_y = y, to_x = x, to_y = next_y, distance = 1 }
+    y = next_y
+  end
+  return edges
+end
+
+-- Session resolves a whole turn immediately. Capture its authoritative board
+-- deltas as one shared visual beat before the next held movement command is
+-- permitted. This is deliberately not simulation state.
+function Presentation:begin_board_turn(session)
+  if not session or not session.state then return { index = self.board_turn_index or 0, segments = {} } end
+  self.board_turn_index = (self.board_turn_index or 0) + 1
+  local segments, moved, longest_path = {}, false, 0
+  for _, entity in ipairs(board_entities(session.state)) do
+    local position = self.positions[entity]
+    if not position then
+      self.positions[entity] = { x = entity.x, y = entity.y }
+    else
+      local dx, dy = entity.x - position.x, entity.y - position.y
+      if dx ~= 0 or dy ~= 0 then
+        local duration = entity == self._player and Tuning.player_move_duration or Tuning.actor_move_duration
+        local edges = board_edges(position.x, position.y, entity.x, entity.y)
+        self.movement_tweens[entity] = { edges = edges, edge_index = 1, elapsed = 0, duration = duration }
+        for _, edge in ipairs(edges) do
+          edge.entity = entity
+          segments[#segments + 1] = edge
+        end
+        longest_path = math.max(longest_path, #edges)
+        moved = true
+      end
+    end
+  end
+  self.last_board_segments = segments
+  self.board_turn_remaining = moved and (longest_path * math.max(Tuning.player_move_duration, Tuning.actor_move_duration) + Tuning.board_settle_duration) or 0
+  return { index = self.board_turn_index, segments = segments }
+end
+
+function Presentation:is_board_turn_settled()
+  -- Fractional frame deltas can leave a tiny positive IEEE remainder after
+  -- the exact settle duration. It is not a real pending beat.
+  return (self.board_turn_remaining or 0) <= 0.000001
 end
 
 function Presentation:request_hit_stop(duration)
@@ -283,6 +360,29 @@ end
 function Presentation:_animate(entity, dt)
   local position = self.positions[entity]
   if not position then position = { x = entity.x, y = entity.y }; self.positions[entity] = position end
+  local tween = self.movement_tweens[entity]
+  if tween then
+    local remaining = dt
+    while tween and remaining > 0 do
+      local edge = tween.edges[tween.edge_index]
+      local available = tween.duration - tween.elapsed
+      local consumed = math.min(remaining, available)
+      tween.elapsed = tween.elapsed + consumed
+      remaining = remaining - consumed
+      local progress = smoothstep(tween.elapsed / tween.duration)
+      position.x = edge.from_x + (edge.to_x - edge.from_x) * progress
+      position.y = edge.from_y + (edge.to_y - edge.from_y) * progress
+      if tween.elapsed >= tween.duration then
+        -- Exact grid snap at every edge, not only at the final destination.
+        position.x, position.y = edge.to_x, edge.to_y
+        tween.edge_index, tween.elapsed = tween.edge_index + 1, 0
+        if tween.edge_index > #tween.edges then
+          self.movement_tweens[entity], tween = nil, nil
+        end
+      end
+    end
+    return position
+  end
   local lag_x, lag_y = entity.x - position.x, entity.y - position.y
   -- A dash or a rapid action sequence stays at most one visual cell behind;
   -- no obsolete tween queue can play after input stops.
@@ -396,6 +496,7 @@ function Presentation:update(session, dt)
   self.hit_stop_remaining = math.max(0, self.hit_stop_remaining - dt)
   if self.hit_shake == 0 then self.shake_amount = 0 end
   self.bump_time = math.max(0, self.bump_time - dt)
+  self.board_turn_remaining = math.max(0, (self.board_turn_remaining or 0) - dt)
   if self.bump_time == 0 then self.bump_direction = nil end
   local function decay(values)
     for index = #values, 1, -1 do values[index].time = values[index].time - dt; if values[index].time <= 0 then table.remove(values, index) end end

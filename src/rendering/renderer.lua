@@ -13,7 +13,8 @@ Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
 local EXPEDITION_HUD_WIDTH = 264
-local EXPEDITION_MAX_TILE_SIZE = 104
+local EXPEDITION_PROGRESS_WIDTH = 180
+local EXPEDITION_MAX_TILE_SIZE = 96
 local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
@@ -73,8 +74,10 @@ function Renderer:_view_dimensions(state)
   local expedition = state and state.expedition
   local chamber = expedition and expedition.chamber
   if chamber and chamber.bounds then
-    local boss = state.boss ~= nil or expedition.current_topology == "boss"
-    return boss and 13 or 11, boss and 11 or 9
+    -- A normal chamber is a complete board, not a tiny window chased by the
+    -- player. 16x12 contains the largest 14x10 production chamber plus a
+    -- readable border, including the current compact boss board.
+    return 16, 12
   end
   return VIEW_WIDTH, VIEW_HEIGHT
 end
@@ -89,7 +92,8 @@ function Renderer:layout_for_dimensions(view_width, view_height, width, height, 
     local margin, gap = 24, 18
     local hud_width = EXPEDITION_HUD_WIDTH
     local board_left = margin + hud_width + gap
-    local available_width = math.max(1, width - board_left - margin)
+    local progress_width = EXPEDITION_PROGRESS_WIDTH
+    local available_width = math.max(1, width - board_left - gap - progress_width - margin)
     local available_height = math.max(1, height - margin * 2)
     local size = math.max(12, math.min(EXPEDITION_MAX_TILE_SIZE, math.floor(math.min(
       available_width / view_width,
@@ -103,6 +107,9 @@ function Renderer:layout_for_dimensions(view_width, view_height, width, height, 
       hud_x = margin,
       hud_y = margin,
       hud_width = hud_width,
+      progress_x = width - margin - progress_width,
+      progress_y = margin,
+      progress_width = progress_width,
     }
   end
   local margin, sidebar, gap = 20, 270, 20
@@ -422,9 +429,7 @@ function Renderer:_draw_expedition_hud(session, state, ui, presentation, x, y, w
 
   text("STAGE " .. expedition.stage .. "  CHAMBER " .. expedition.encounter, 0.76, { 0.95, 0.85, 0.25 })
   text(string.upper((expedition.topology or "open"):gsub("_", " ")), 0.62, { 0.72, 0.82, 0.96 }, 22)
-  local xp_label = expedition.xp_to_next and (expedition.xp .. "/" .. expedition.xp_to_next) or "MAX"
-  text("LEVEL " .. (expedition.level or 1) .. "  XP " .. xp_label, 0.77, { 0.65, 0.9, 0.8 })
-  text("CASH " .. expedition.currency .. "  PASSIVES " .. expedition.passive_stacks, 0.72, { 0.65, 0.9, 0.8 }, 26)
+  text("PASSIVES " .. expedition.passive_stacks, 0.72, { 0.65, 0.9, 0.8 }, 26)
 
   if state.boss then
     text("BOSS " .. string.upper(state.boss.display_name or state.boss.kind or "HOSTILE"), 0.62, { 1, 0.6, 0.35 })
@@ -445,12 +450,50 @@ function Renderer:_draw_expedition_hud(session, state, ui, presentation, x, y, w
   text("RED OUTLINES SHOW HOSTILES", 0.5, { 0.65, 0.72, 0.84 })
 end
 
+-- XP and cash are deliberately not sidebar metadata. They are the only
+-- progression/economy numbers in Expedition, so their dedicated right block
+-- stays readable while the board remains uncluttered.
+function Renderer:expedition_progress_model(ui, presentation)
+  local expedition = assert(ui.expedition, "Expedition progress requires Expedition state")
+  local receipt = presentation.action_receipt
+  return {
+    level = expedition.level or 1,
+    xp = expedition.xp_to_next and (expedition.xp .. " / " .. expedition.xp_to_next) or "MAX",
+    cash = tostring(expedition.currency or 0),
+    xp_gain = receipt and receipt.xp or 0,
+    cash_gain = receipt and receipt.cash or 0,
+    pulse = receipt and receipt.time and math.min(1, receipt.time / Tuning.action_receipt_lifetime) or 0,
+  }
+end
+
+function Renderer:_draw_expedition_progress(ui, presentation, x, y, width)
+  local model = self:expedition_progress_model(ui, presentation)
+  local pulse, gain_xp, gain_cash = model.pulse, model.xp_gain, model.cash_gain
+  local function centered(value, at_y, scale, tint)
+    local estimate = #tostring(value) * 7 * scale
+    self:_text(value, x + math.max(0, math.floor((width - estimate) / 2)), at_y, scale, tint)
+  end
+  self:_color({ 0.018, 0.027, 0.045, 0.94 })
+  love.graphics.rectangle("fill", x - 8, 0, width + 8, 280)
+  self:_color({ 0.16, 0.27, 0.36, 0.9 })
+  love.graphics.rectangle("line", x - 8, 0, 1, 280)
+  centered("LV " .. tostring(model.level), y, 1.25 + pulse * 0.12, { 0.7, 0.9, 1 })
+  centered("XP", y + 42, 0.74, { 0.65, 0.9, 0.8 })
+  centered(model.xp, y + 61, 1.72 + pulse * 0.18, { 0.74, 1, 0.84 })
+  if gain_xp > 0 then centered("+" .. gain_xp .. " XP", y + 91, 0.72 + pulse * 0.08, { 0.95, 0.86, 0.32, pulse }) end
+  centered("CASH", y + 137, 0.74, { 0.95, 0.83, 0.38 })
+  centered(model.cash, y + 157, 2.15 + pulse * 0.18, { 1, 0.86, 0.38 })
+  if gain_cash > 0 then centered("+$" .. gain_cash, y + 194, 0.72 + pulse * 0.08, { 0.95, 0.86, 0.32, pulse }) end
+end
+
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
   local view_width, view_height = self:_view_dimensions(state)
   self._view_width, self._view_height = view_width, view_height
   local is_expedition = state.expedition ~= nil
   local size, offset_x, offset_y, hud, hud_y, hud_width = self:_layout(view_width, view_height, is_expedition)
+  local screen_width, screen_height = love.graphics.getDimensions()
+  local layout = self:layout_for_dimensions(view_width, view_height, screen_width, screen_height, is_expedition)
   love.graphics.clear(0.025, 0.035, 0.055)
   local shake = presentation:screen_shake()
   local time = love.timer.getTime()
@@ -816,6 +859,7 @@ function Renderer:_draw_game(app)
   local ui = GameplayUI.hud(session)
   if ui.expedition then
     self:_draw_expedition_hud(session, state, ui, presentation, hud, hud_y, hud_width, love.graphics.getHeight())
+    self:_draw_expedition_progress(ui, presentation, layout.progress_x, layout.progress_y, layout.progress_width)
   else
   self:_text(ui.expedition and "EXPEDITION" or "ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
   if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end

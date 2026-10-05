@@ -2,10 +2,14 @@
 -- next human feel pass easy without coupling them to Session timing, save
 -- data, or game balance.
 return {
-  player_move_duration = 0.04,
-  actor_move_duration = 0.085,
-  max_visual_lag_cells = 1.15,
-  camera_follow_rate = 72,
+  -- One Expedition turn is a shared board beat: every ordinary piece that
+  -- moved during that turn slides over one edge together, then settles before
+  -- held input may issue another move. These values are presentation-only.
+  player_move_duration = 0.036,
+  actor_move_duration = 0.036,
+  board_settle_duration = 0.012,
+  max_visual_lag_cells = 1.0,
+  camera_follow_rate = 96,
   facing_marker_ratio = 0.18,
   outline_ratio = 0.065,
   attack_preview_alpha = 0.72,
