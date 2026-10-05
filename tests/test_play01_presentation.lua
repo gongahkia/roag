@@ -74,6 +74,26 @@ return {
     end,
   },
   {
+    name = "PLAY-01 environmental hit provenance never crashes the presentation recoil",
+    run = function()
+      local session = { state = { enemies = {}, bullets = {}, boss = nil } }
+      local target = { kind = "ripper", x = 11, y = 10, health = 3 }
+      session.state.enemies = { target }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      presentation:actor_hit({
+        target = target,
+        -- A self-owned bomb has no source-to-target vector, so the visual
+        -- reaction must use the supplied cardinal impact direction instead.
+        source_actor = target,
+        x = 11, y = 10, amount = 2, cause = "explosive", direction = "d",
+      })
+      local reaction = assert(presentation.reactions[target])
+      assert(reaction.dx == 1 and reaction.dy == 0)
+      assert(#presentation.damage_numbers == 1 and presentation.damage_numbers[1].amount == 2)
+    end,
+  },
+  {
     name = "PLAY-01 hit-stop blocks held field dispatch without changing the simulation",
     run = function()
       local session, player = { state = { enemies = {}, bullets = {}, boss = nil } }, { kind = "player", x = 10, y = 10 }

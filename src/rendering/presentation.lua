@@ -137,8 +137,16 @@ end
 function Presentation:actor_hit(value)
   if not value or not value.target then return end
   local target, source = value.target, value.source_actor
-  local dx, dy = target.x - (source and source.x or target.x), target.y - (source and source.y or target.y)
-  if dx == 0 and dy == 0 then dx, dy = direction_vector(value.direction) end
+  -- Environmental effects such as bombs can carry provenance whose x/y fields
+  -- are nested data rather than actor coordinates. Recoil is presentation only,
+  -- so fall back to the impact direction when no numeric source position exists.
+  local source_x = source and type(source.x) == "number" and source.x or target.x
+  local source_y = source and type(source.y) == "number" and source.y or target.y
+  local dx, dy = target.x - source_x, target.y - source_y
+  if dx == 0 and dy == 0 then
+    local vector = direction_vector(value.direction)
+    dx, dy = vector[1], vector[2]
+  end
   local length = math.max(1, math.sqrt(dx * dx + dy * dy))
   self.reactions[target] = { time = Tuning.reaction_duration, flash = Tuning.hit_flash_duration, dx = dx / length, dy = dy / length }
   self.damage_numbers[#self.damage_numbers + 1] = {

@@ -35,6 +35,32 @@ $ git clone https://github.com/gongahkia/roag && cd roag
 $ love .
 ```
 
+## Docker development
+
+The repository includes a pinned Ubuntu/LÖVE/LuaJIT development image so tests,
+packaging, and optional graphical runs can be isolated from the host:
+
+```console
+$ docker compose build
+$ docker compose run --rm test
+$ docker compose run --rm package
+```
+
+`make build`, `make test`, and `make package` are equivalent shortcuts. The
+packager validates the generated `roag.love` archive before replacing it.
+
+To run the game through the container, configure graphical forwarding first
+(WSLg or an X11 server on the host), then run:
+
+```console
+$ docker compose run --rm game
+```
+
+The game service mounts only a named LÖVE save-data volume in addition to the
+checkout, keeping saves separate from repository files. On WSL, Docker Desktop
+must have WSL integration enabled for this distro before any `docker compose`
+command will work.
+
 ## Controls
 
 | Key | Action |

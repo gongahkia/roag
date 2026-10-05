@@ -1,0 +1,41 @@
+name: roag
+
+x-roag: &roag
+  build:
+    context: .
+  working_dir: /workspace
+  user: "${ROAG_UID:-1000}:${ROAG_GID:-1000}"
+  volumes:
+    - .:/workspace
+
+services:
+  test:
+    <<: *roag
+    command: ["luajit", "tests/run.lua"]
+
+  shell:
+    <<: *roag
+    entrypoint: ["/bin/bash"]
+    stdin_open: true
+    tty: true
+
+  package:
+    <<: *roag
+    command: ["sh", "tools/package_love.sh"]
+
+  game:
+    <<: *roag
+    command: ["love", "."]
+    environment:
+      DISPLAY: "${DISPLAY:-}"
+      XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/tmp}"
+    volumes:
+      - .:/workspace
+      - roag_love_data:/home/roag/.local/share/love
+      # WSLg and Linux X11 expose this socket when graphical forwarding is set up.
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    stdin_open: true
+    tty: true
+
+volumes:
+  roag_love_data:
