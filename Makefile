@@ -1,6 +1,6 @@
 .PHONY: build test package play shell
 
-COMPOSE ?= docker compose
+COMPOSE ?= ./tools/docker-compose.sh
 
 build:
 	$(COMPOSE) build

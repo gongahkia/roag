@@ -41,19 +41,21 @@ The repository includes a pinned Alpine/LÖVE/LuaJIT development image so tests,
 packaging, and optional graphical runs can be isolated from the host:
 
 ```console
-$ docker compose build
-$ docker compose run --rm test
-$ docker compose run --rm package
+$ make build
+$ make test
+$ make package
 ```
 
-`make build`, `make test`, and `make package` are equivalent shortcuts. The
-packager validates the generated `roag.love` archive before replacing it.
+The Make targets use an isolated Docker client configuration under the user
+cache so WSL never needs to execute a Windows-only credential helper. Set
+`DOCKER_CONFIG` yourself if a private registry is required. The packager
+validates the generated `roag.love` archive before replacing it.
 
 To run the game through the container, configure graphical forwarding first
 (WSLg or an X11 server on the host), then run:
 
 ```console
-$ docker compose run --rm game
+$ make play
 ```
 
 The game service mounts only a named LÖVE save-data volume in addition to the
