@@ -243,6 +243,13 @@ function Renderer:_draw_presentation_effects(presentation, player, size, offset_
     local x, y = self:_screen_position(presentation, player, label.x, label.y, size, offset_x, offset_y)
     if x then self:_text(label.text, x + size * 0.08, y - size * 0.32, 0.48, { 1, 0.34, 0.24, label.time / Tuning.break_label_lifetime }) end
   end
+  for index, chain in ipairs(presentation.modifier_chain or {}) do
+    local progress = 1 - chain.time / require("src.rendering.tuning").modifier_chain_lifetime
+    local label = chain.name .. (chain.stacks and " ×" .. chain.stacks or "")
+      .. (chain.count > 1 and " TRIGGERS ×" .. chain.count or "")
+    self:_text(label, 18, 106 + (index - 1) * 26 + progress * 6, 0.62, { 0.95, 0.79, 0.3, 1 - progress * 0.45 })
+    self:_text("→ " .. chain.summary, 28, 121 + (index - 1) * 26 + progress * 6, 0.47, { 0.73, 0.87, 1, 1 - progress * 0.45 })
+  end
 end
 
 function Renderer:_draw_forecast_fill(x, y, size, style, time)
@@ -1368,7 +1375,7 @@ function Renderer:_draw_expedition_reward(app)
   for _, passive in ipairs(app.expedition and app.expedition.pending_reward or {}) do
     local current = app.session.state.expedition.passive_stacks[passive.id] or 0
     items[#items + 1] = {
-      name = passive.display_name .. "  ×" .. current .. " → ×" .. (current + 1),
+      name = passive.name .. "  ×" .. current .. " → ×" .. (current + 1),
       description = passive.description,
     }
   end
@@ -1379,7 +1386,7 @@ function Renderer:_draw_expedition_chest(app)
   local chest = app.expedition and app.expedition.pending_chest or {}
   local reward = chest.options and chest.options[1]
   local currency = app.session and app.session.state.expedition and app.session.state.expedition.currency or 0
-  local description = reward and (reward.display_name .. " — " .. reward.description) or "Random passive item"
+  local description = reward and (reward.name .. " — " .. reward.description) or "Random passive item"
   self:_menu("PAID CACHE — " .. tostring(chest.cost or "?") .. " SCRAP", {
     { name = "OPEN CACHE", description = description .. "  •  HAVE " .. currency .. " SCRAP" },
     { name = "LEAVE CACHE", description = "Keep your SCRAP and enter the next encounter." },

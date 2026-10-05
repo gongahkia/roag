@@ -48,7 +48,7 @@ function Presentation.new()
     positions = weak_map(), reactions = weak_map(), attacks = weak_map(),
     hit_flash = 0, hit_shake = 0, shake_amount = 0, hit_stop_remaining = 0,
     bump_time = 0, bump_direction = nil,
-    impacts = {}, tracers = {}, particles = {}, damage_numbers = {}, break_labels = {}, deaths = {},
+    impacts = {}, tracers = {}, particles = {}, damage_numbers = {}, break_labels = {}, deaths = {}, modifier_chain = {},
   }, Presentation)
 end
 
@@ -68,7 +68,7 @@ function Presentation:reset(session)
   self.bump_time, self.bump_direction = 0, nil
   self.reactions, self.attacks = weak_map(), weak_map()
   self.impacts, self.tracers, self.particles = {}, {}, {}
-  self.damage_numbers, self.break_labels, self.deaths = {}, {}, {}
+  self.damage_numbers, self.break_labels, self.deaths, self.modifier_chain = {}, {}, {}, {}
   self.hit_stop_remaining, self.shake_amount, self.hit_flash, self.hit_shake = 0, 0, 0, 0
 end
 
@@ -168,6 +168,22 @@ function Presentation:projectile_travel(value)
   self.tracers[#self.tracers + 1] = {
     from_x = value.from_x, from_y = value.from_y, to_x = value.to_x, to_y = value.to_y,
     piercing = value.piercing == true, time = Tuning.tracer_lifetime,
+  }
+end
+
+-- Presentation consumes a deliberately compact view model. It never reads
+-- resolver internals or affects the already-completed simulation chain.
+function Presentation:modifier_effect(value)
+  if not value or not value.source_name then return end
+  local summary = value.summary or value.effect_id or "EFFECT"
+  local previous = self.modifier_chain[#self.modifier_chain]
+  if previous and previous.name == value.source_name and previous.summary == summary and previous.time > Tuning.modifier_chain_lifetime * 0.45 then
+    previous.count, previous.time = previous.count + 1, Tuning.modifier_chain_lifetime
+    return
+  end
+  self.modifier_chain[#self.modifier_chain + 1] = {
+    name = value.source_name, stacks = value.stacks, summary = summary, count = 1,
+    time = Tuning.modifier_chain_lifetime,
   }
 end
 
@@ -295,7 +311,7 @@ function Presentation:update(session, dt)
   local function decay(values)
     for index = #values, 1, -1 do values[index].time = values[index].time - dt; if values[index].time <= 0 then table.remove(values, index) end end
   end
-  decay(self.impacts); decay(self.tracers); decay(self.damage_numbers); decay(self.break_labels); decay(self.deaths)
+  decay(self.impacts); decay(self.tracers); decay(self.damage_numbers); decay(self.break_labels); decay(self.deaths); decay(self.modifier_chain)
   for index = #self.particles, 1, -1 do
     local particle = self.particles[index]
     particle.x, particle.y, particle.time = particle.x + particle.vx * dt, particle.y + particle.vy * dt, particle.time - dt

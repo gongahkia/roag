@@ -1,7 +1,7 @@
 -- Derived run modifiers compose the secondary charm layer with the temporary
 -- curse layer.  They never mutate base player statistics permanently.
 local Modifiers = {}
-local ExpeditionContent = require("src.expedition.content")
+local ExpeditionModifiers = require("src.expedition.modifiers")
 
 Modifiers.BASE_CHARM_SLOTS = 3
 
@@ -34,14 +34,7 @@ function Modifiers.values(state, registry)
   local expedition = state.expedition
   if expedition then
     add_all(result, expedition.base_modifiers)
-    for passive_id, count in pairs(expedition.passive_stacks or {}) do
-      local passive = ExpeditionContent.passive(passive_id)
-      if passive and count > 0 then
-        for key, value in pairs(passive.modifiers or {}) do
-          result[key] = (result[key] or 0) + value * count
-        end
-      end
-    end
+    add_all(result, ExpeditionModifiers.static_values(expedition.passive_stacks, expedition.modifier_registry))
   end
   return result
 end

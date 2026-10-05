@@ -2,6 +2,7 @@
 -- small class/item/encounter vocabulary without taking ownership of Sandbox
 -- world content or saves.
 local Content = {}
+local ModifierDefinitions = require("src.expedition.modifiers")
 
 local VALID_MODIFIER_KEYS = {
     max_health = true, dash_cooldown = true, bomb_radius = true,
@@ -310,10 +311,7 @@ function Content.character(id)
 end
 
 function Content.passive(id)
-    for _, definition in ipairs(Content.PASSIVES) do
-        if definition.id == id then return definition end
-    end
-    return nil
+    return Content.modifier_registry and Content.modifier_registry:get(id) or nil
 end
 
 function Content.encounter(id)
@@ -324,31 +322,21 @@ function Content.encounter(id)
 end
 
 function Content.sorted_passives()
-    local copy = {}
-    for _, passive in ipairs(Content.PASSIVES) do copy[#copy + 1] = passive end
-    table.sort(copy, function(a, b) return a.id < b.id end)
-    return copy
+    return Content.modifier_registry:list()
 end
 
 function Content.validate(registry)
-    assert(#Content.PASSIVES >= 20, "Expedition requires a meaningful passive pool")
+    local loaded, failure = ModifierDefinitions.load({ registry = registry })
+    assert(loaded, failure and failure.message or "Unable to load Expedition modifiers")
+    Content.modifier_registry = loaded
+    assert(#loaded.ordered >= 20, "Expedition requires a meaningful passive pool")
     local behavior_count, seen = 0, {}
-    for _, passive in ipairs(Content.PASSIVES) do
+    for _, passive in ipairs(loaded.ordered) do
         assert(type(passive.id) == "string" and not seen[passive.id], "invalid/duplicate Expedition passive")
-        assert(type(passive.display_name) == "string" and passive.display_name ~= "", "passive needs display name")
-        assert(passive.modifiers or passive.reactive_effects, "passive needs behavior")
-        for key, value in pairs(passive.modifiers or {}) do
-            assert(VALID_MODIFIER_KEYS[key] and type(value) == "number", "invalid Expedition passive modifier: " .. tostring(key))
-        end
-        for _, effect in ipairs(passive.reactive_effects or {}) do
-            assert(VALID_TRIGGERS[effect.trigger], "invalid Expedition passive trigger")
-            assert(effect.effect and VALID_EFFECT_KINDS[effect.effect.kind], "invalid Expedition passive effect")
-            for field, value in pairs(effect.stack_scale or {}) do
-                assert(type(field) == "string" and type(value) == "number", "invalid Expedition stack scale")
-            end
-        end
+        assert(type(passive.name) == "string" and passive.name ~= "", "passive needs display name")
+        assert(#(passive.static_effects or {}) + #(passive.hooks or {}) > 0, "passive needs behavior")
         seen[passive.id] = true
-        if passive.behavior_changing then behavior_count = behavior_count + 1 end
+        if #(passive.hooks or {}) > 0 then behavior_count = behavior_count + 1 end
     end
     assert(behavior_count >= 8, "Expedition requires eight behavior-changing passives")
     assert(#Content.ENCOUNTERS >= 6, "Expedition requires six encounter archetypes")
@@ -380,5 +368,10 @@ function Content.validate(registry)
     end
     return true
 end
+
+-- Load the serialized registry once for ordinary callers. `validate` reloads
+-- against the active content registry so capability references stay checked.
+Content.modifier_registry = assert(ModifierDefinitions.load())
+Content.PASSIVES = Content.modifier_registry.ordered -- compatibility read-only alias; JSON is authority.
 
 return Content

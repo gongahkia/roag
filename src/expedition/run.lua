@@ -191,6 +191,7 @@ function ExpeditionRun.new(options)
     run_id = "expedition:" .. tostring(seed),
     expedition = true,
     expedition_state = expedition_state,
+    modifier_registry = Content.modifier_registry,
     emit = function(event) self.on_event(event) end,
   })
   self:_begin_encounter(1)
@@ -329,14 +330,7 @@ function ExpeditionRun:_begin_boss()
 end
 
 function ExpeditionRun:available_passives()
-  local result = {}
-  local MetaProfile = require("src.persistence.meta_profile")
-  for _, passive in ipairs(Content.PASSIVES) do
-    if not passive.unlock or MetaProfile.has_expedition_unlock(self.profile, passive.unlock) then
-      result[#result + 1] = passive
-    end
-  end
-  return result
+  return Content.modifier_registry:enabled(self.profile)
 end
 
 local function character_uses_projectiles(character)
@@ -354,16 +348,9 @@ end
 function ExpeditionRun:compatible_passives()
   local all, compatible = self:available_passives(), {}
   for _, passive in ipairs(all) do
-    local modifiers, effects = passive.modifiers or {}, passive.reactive_effects or {}
-    local needs_projectile = modifiers.projectile_damage or modifiers.projectile_count
-      or modifiers.projectile_pierce or modifiers.projectile_range or modifiers.scatter_pellets
-      or modifiers.magazine_capacity or modifiers.ammo_on_kill
-    local needs_melee = modifiers.melee_damage or modifiers.melee_force
-    for _, effect in ipairs(effects) do
-      local tags = effect.conditions and effect.conditions.attack_tag
-      needs_projectile = needs_projectile or tags == "projectile"
-      needs_melee = needs_melee or tags == "melee"
-    end
+    local tags = {}; for _, tag in ipairs(passive.tags or {}) do tags[tag] = true end
+    local needs_projectile = tags.projectile or tags.ranged or tags.ammo or tags.magazine
+    local needs_melee = tags.melee
     if (not needs_projectile or character_uses_projectiles(self.character))
       and (not needs_melee or character_uses_melee(self.character)) then
       compatible[#compatible + 1] = passive
@@ -390,7 +377,7 @@ function ExpeditionRun:add_passive(passive_id)
   local stacks = self.session.state.expedition.passive_stacks
   stacks[passive.id] = (stacks[passive.id] or 0) + 1
   self.session:refresh_derived_player_stats()
-  self.session:_log(passive.display_name:upper() .. " ×" .. stacks[passive.id] .. ".")
+  self.session:_log(passive.name:upper() .. " ×" .. stacks[passive.id] .. ".")
   self.on_event({ type = "expedition_pickup", value = { passive = passive, count = stacks[passive.id] } })
   return { applied = true, passive = passive, count = stacks[passive.id] }
 end
@@ -472,7 +459,7 @@ function ExpeditionRun:_finish(victory)
   local stacks = {}
   for id, count in sorted_pairs(self.session.state.expedition.passive_stacks) do
     local passive = Content.passive(id)
-    stacks[#stacks + 1] = { id = id, display_name = passive.display_name, count = count }
+    stacks[#stacks + 1] = { id = id, display_name = passive.name, count = count }
   end
   table.sort(stacks, function(a, b) return a.count == b.count and a.id < b.id or a.count > b.count end)
   self.summary_data = {
@@ -494,7 +481,8 @@ function ExpeditionRun:build_summary()
   local entries = {}
   for id, count in sorted_pairs(exp.passive_stacks) do
     local passive = Content.passive(id)
-    entries[#entries + 1] = { id = id, display_name = passive.display_name, count = count, description = passive.description }
+    local preview = require("src.expedition.modifiers").stack_preview(passive, count)
+    entries[#entries + 1] = { id = id, display_name = passive.name, count = count, description = passive.description, current_effect = preview.current, next_effect = preview.next }
   end
   table.sort(entries, function(a, b) return a.display_name < b.display_name end)
   return {

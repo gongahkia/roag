@@ -28,4 +28,6 @@ return {
   shake_light = 0.18,
   shake_heavy = 0.36,
   shake_cap = 0.58,
+  modifier_chain_lifetime = 0.72,
+  modifier_chain_step = 0.055,
 }

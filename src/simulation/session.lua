@@ -281,6 +281,7 @@ function Session.new(options)
   -- Expedition is deliberately a separate disposable run domain.  It uses
   -- this combat simulator, but never Campaign succession/inventory saves.
   self.expedition = options.expedition == true
+  self.modifier_registry = options.modifier_registry
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
   -- Presentation/combat-chain bookkeeping is intentionally outside state so
@@ -961,10 +962,18 @@ end
 
 function Session:_build_event_trace(chain, kind, data)
   if not chain or not chain.budget then return end
-  local entry = { kind = kind, depth = chain.depth }
+  chain.budget.trace_sequence = (chain.budget.trace_sequence or 0) + 1
+  local entry = {
+    id = chain.budget.trace_sequence,
+    parent_id = chain.trace_parent_id,
+    kind = kind,
+    depth = chain.depth,
+    root_action_id = chain.root_label,
+  }
   for key, value in pairs(data or {}) do entry[key] = value end
   chain.budget.trace[#chain.budget.trace + 1] = entry
   self._last_build_trace = chain.budget.trace
+  return entry
 end
 
 function Session:build_effect_trace()
@@ -1089,7 +1098,8 @@ function Session:_emit_build_event(event)
   if not event or not event.type or event.source_actor ~= self.state.player then return { applied = false, code = "not_player_build" } end
   local chain = event.build_chain or BuildEffects.new_chain(event.type)
   event.build_chain = chain
-  self:_build_event_trace(chain, event.type, {
+  local trigger_node = self:_build_event_trace(chain, "trigger", {
+    event = event.type,
     source = self:_electrical_actor_id(event.source_actor),
     target = event.target and self:_electrical_actor_id(event.target) or nil,
   })
@@ -1107,9 +1117,20 @@ function Session:_emit_build_event(event)
         break
       end
       chain.budget.executions = chain.budget.executions + 1
-      local derived = BuildEffects.derive_chain(chain, entry.key)
-      self:_build_event_trace(derived, "effect", { effect_id = entry.effect.id, charm_id = entry.charm_id })
+      local modifier_node = self:_build_event_trace(chain, "modifier", {
+        modifier_id = entry.source_id or entry.charm_id,
+        modifier_name = entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id,
+        stacks = entry.passive_count,
+      })
+      modifier_node.parent_id = trigger_node and trigger_node.id or modifier_node.parent_id
+      local derived = BuildEffects.derive_chain(chain, entry.key, modifier_node.id)
+      local effect_node = self:_build_event_trace(derived, "effect", {
+        effect_id = entry.effect.id, charm_id = entry.charm_id, values = entry.effect.effect,
+      })
+      derived.trace_parent_id = effect_node and effect_node.id or derived.trace_parent_id
       self:_event("build_effect", { effect_id = entry.effect.id, charm_id = entry.charm_id,
+        source_name = entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id,
+        stacks = entry.passive_count, summary = entry.effect.id:gsub("_", " "):upper(),
         x = event.target_cell and event.target_cell.x, y = event.target_cell and event.target_cell.y })
       if event.target_cell then self.state.effects[Grid.key(event.target_cell.x, event.target_cell.y)] = true end
       self:_log(string.upper(entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id) .. ".")

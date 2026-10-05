@@ -6,7 +6,7 @@ local BuildEffects = {
   MAX_EXECUTIONS = 128,
 }
 local RunModifiers = require("src.simulation.run_modifiers")
-local ExpeditionContent = require("src.expedition.content")
+local ExpeditionModifiers = require("src.expedition.modifiers")
 
 BuildEffects.TRIGGERS = {
   on_attack = true,
@@ -55,28 +55,6 @@ local function copy_set(values)
   return result
 end
 
-local function scaled_effect(effect, count)
-  local copy = {}
-  for key, value in pairs(effect) do
-    if key == "effect" and type(value) == "table" then
-      copy.effect = {}
-      for field, field_value in pairs(value) do copy.effect[field] = field_value end
-    elseif key == "conditions" and type(value) == "table" then
-      copy.conditions = {}
-      for field, field_value in pairs(value) do copy.conditions[field] = field_value end
-    elseif key == "stack_scale" then
-      -- Stack scaling is compiled into effect fields below, rather than
-      -- exposed to the gameplay resolver as another runtime rule.
-    else
-      copy[key] = value
-    end
-  end
-  for field, per_stack in pairs(effect.stack_scale or {}) do
-    copy.effect[field] = (copy.effect[field] or 0) + per_stack * math.max(0, count - 1)
-  end
-  return copy
-end
-
 function BuildEffects.tags_for_ability(ability)
   local tags = {}
   for _, tag in ipairs((ability and ability.attack_tags) or IMPLEMENTATION_TAGS[ability and ability.implementation] or {}) do
@@ -94,16 +72,18 @@ function BuildEffects.new_chain(root_label)
     root_label = root_label or "action",
     depth = 0,
     ancestry = {},
-    budget = { executions = 0, trace = {}, truncated = false },
+    trace_parent_id = nil,
+    budget = { executions = 0, trace = {}, trace_sequence = 0, truncated = false },
   }
 end
 
-function BuildEffects.derive_chain(chain, effect_key)
+function BuildEffects.derive_chain(chain, effect_key, trace_parent_id)
   local next_chain = {
     root_label = chain.root_label,
     depth = chain.depth + 1,
     ancestry = copy_set(chain.ancestry),
     budget = chain.budget,
+    trace_parent_id = trace_parent_id or chain.trace_parent_id,
   }
   next_chain.ancestry[effect_key] = true
   return next_chain
@@ -160,27 +140,7 @@ function BuildEffects.resolve(session, actor, event)
   end
   local expedition = session.state.expedition
   if expedition then
-    for passive_id, count in pairs(expedition.passive_stacks or {}) do
-      local passive = ExpeditionContent.passive(passive_id)
-      for effect_index, raw_effect in ipairs(passive and passive.reactive_effects or {}) do
-        if raw_effect.trigger == event.type and count > 0 then
-          local effect = scaled_effect(raw_effect, count)
-          local active, reason = BuildEffects.effect_status(session, actor, effect, event)
-          results[#results + 1] = {
-            charm_id = passive_id, -- backwards-compatible stable event field
-            source_id = passive_id,
-            source_name = passive.display_name,
-            passive_count = count,
-            slot_index = 0,
-            effect_index = effect_index,
-            effect = effect,
-            key = "expedition:" .. passive_id .. ":" .. effect.id,
-            active = active,
-            reason = reason,
-          }
-        end
-      end
-    end
+    for _, entry in ipairs(ExpeditionModifiers.resolve_hooks(session, actor, event, session.modifier_registry)) do results[#results + 1] = entry end
   end
   table.sort(results, function(left, right)
     if left.charm_id ~= right.charm_id then return left.charm_id < right.charm_id end
@@ -210,20 +170,16 @@ function BuildEffects.describe(session, actor)
   end
   local expedition = session.state.expedition
   if expedition then
-    for passive_id, count in pairs(expedition.passive_stacks or {}) do
-      local passive = ExpeditionContent.passive(passive_id)
-      for _, raw_effect in ipairs(passive and passive.reactive_effects or {}) do
-        local effect = scaled_effect(raw_effect, count)
-        local active, reason = BuildEffects.effect_status(session, actor, effect, nil)
-        result[#result + 1] = {
-          charm_id = passive_id,
-          charm_name = passive.display_name,
-          effect_id = effect.id,
-          description = passive.description,
-          active = active,
-          reason = reason,
-          stack_count = count,
-        }
+    local registry = session.modifier_registry or ExpeditionModifiers.default({ registry = session.registry })
+    for _, definition in ipairs(registry.ordered) do
+      local count = expedition.passive_stacks[definition.id] or 0
+      if count > 0 then
+        for hook_index, hook in ipairs(definition.hooks or {}) do
+          result[#result + 1] = {
+            charm_id = definition.id, charm_name = definition.name, effect_id = hook.trigger .. ":" .. hook_index,
+            description = definition.description, active = true, reason = "ACTIVE", stack_count = count,
+          }
+        end
       end
     end
   end

@@ -4,10 +4,12 @@ local root = source:match("^(.*)/studio$") or "."
 package.path = source .. "/?.lua;" .. source .. "/?/init.lua;" .. root .. "/?.lua;" .. root .. "/?/init.lua;" .. package.path
 
 local ScreenEditor = require("screen_editor")
+local ModifierEditor = require("modifier_editor")
 local CursorManager = require("sprite_editor.cursor_manager")
 local mode, editor, fonts, cursor
 local cards = {
   { title = "SCREEN COMPOSER", subtitle = "Edit validated JSON copy, layout and palette tokens.", action = "screens" },
+  { title = "MODIFIER WORKBENCH", subtitle = "Author serialized Expedition passives and inspect their resolution traces.", action = "modifiers" },
   { title = "SPRITE WORKBENCH", subtitle = "Map ROAG roles to a sprite sheet with undoable assignments.", command = "love sprite_editor" },
   { title = "ROOM WORKBENCH", subtitle = "Author Dungeon and Reactor room templates.", command = "love level_editor --room-editor" },
   { title = "GENERATION INSPECTOR", subtitle = "Inspect deterministic floors and environment overlays.", command = "love level_editor" },
@@ -21,7 +23,7 @@ function love.load()
 end
 function love.update()
   local x, y = love.mouse.getPosition()
-  if mode == "screens" then
+  if mode == "screens" or mode == "modifiers" then
     cursor:set("action")
   else
     local active = false
@@ -30,7 +32,7 @@ function love.update()
   end
 end
 function love.draw()
-  if mode == "screens" then editor:draw(); return end
+  if mode == "screens" or mode == "modifiers" then editor:draw(); return end
   local w, h = love.graphics.getDimensions(); love.graphics.clear(.025, .035, .055)
   txt("ROAG STUDIO", 24, 24, 1.8, { .42, .84, 1 }); txt("A focused 2D authoring workspace — content tools stay isolated from active runs.", 24, 62, .8, { .52, .61, .72 })
   for i, card in ipairs(cards) do
@@ -40,6 +42,6 @@ function love.draw()
   end
   txt("Studio currently focuses on ROAG's own deterministic content format; it is not a replacement for a general-purpose engine.", 28, h - 40, .7, { .52, .61, .72 })
 end
-function love.mousepressed(x, y, button) if mode == "screens" then if editor:mousepressed(x, y, button) == "back" then mode = "home" end; return end; if button == 1 then for _, card in ipairs(cards) do if card.action and inside(x, y, card.rect) then editor, mode = ScreenEditor.new(), "screens"; return end end end end
-function love.keypressed(key) if mode == "screens" then if editor:keypressed(key) == "back" then mode = "home" end elseif key == "escape" then love.event.quit() end end
-function love.textinput(value) if mode == "screens" then editor:textinput(value) end end
+function love.mousepressed(x, y, button) if mode == "screens" or mode == "modifiers" then if editor:mousepressed(x, y, button) == "back" then mode = "home" end; return end; if button == 1 then for _, card in ipairs(cards) do if card.action and inside(x, y, card.rect) then editor, mode = card.action == "screens" and ScreenEditor.new() or ModifierEditor.new(), card.action; return end end end end
+function love.keypressed(key) if mode == "screens" or mode == "modifiers" then if editor:keypressed(key) == "back" then mode = "home" end elseif key == "escape" then love.event.quit() end end
+function love.textinput(value) if mode == "screens" or mode == "modifiers" then editor:textinput(value) end end

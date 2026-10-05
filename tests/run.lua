@@ -25,6 +25,7 @@ local suites = {
   "tests.test_spatial_salvage",
   "tests.test_tools",
   "tests.test_expedition",
+  "tests.test_modifiers",
   "tests.test_synergies",
   "tests.test_reconstruction",
   "tests.test_app_inventory",
