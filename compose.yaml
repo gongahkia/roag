@@ -8,6 +8,18 @@ x-roag: &roag
   volumes:
     - .:/workspace
 
+x-graphical: &graphical
+  <<: *roag
+  environment:
+    DISPLAY: "${DISPLAY:-}"
+    XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/tmp}"
+  volumes:
+    - .:/workspace
+    # WSLg and Linux X11 expose this socket when graphical forwarding is set up.
+    - /tmp/.X11-unix:/tmp/.X11-unix
+  stdin_open: true
+  tty: true
+
 services:
   test:
     <<: *roag
@@ -24,18 +36,29 @@ services:
     command: ["sh", "tools/package_love.sh"]
 
   game:
-    <<: *roag
+    <<: *graphical
     command: ["love", "."]
-    environment:
-      DISPLAY: "${DISPLAY:-}"
-      XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/tmp}"
     volumes:
       - .:/workspace
       - roag_love_data:/home/roag/.local/share/love
       # WSLg and Linux X11 expose this socket when graphical forwarding is set up.
       - /tmp/.X11-unix:/tmp/.X11-unix
-    stdin_open: true
-    tty: true
+
+  studio:
+    <<: *graphical
+    command: ["love", "studio"]
+
+  sprite-editor:
+    <<: *graphical
+    command: ["love", "sprite_editor"]
+
+  generation-inspector:
+    <<: *graphical
+    command: ["love", "level_editor"]
+
+  room-editor:
+    <<: *graphical
+    command: ["love", "level_editor", "--room-editor"]
 
 volumes:
   roag_love_data:

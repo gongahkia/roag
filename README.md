@@ -63,6 +63,20 @@ checkout, keeping saves separate from repository files. On WSL, Docker Desktop
 must have WSL integration enabled for this distro before any `docker compose`
 command will work.
 
+The repository's graphical authoring tools use the same container and display
+forwarding setup:
+
+```console
+$ make studio                # Screen Composer and Modifier Workbench
+$ make sprite-editor         # Sprite Workbench
+$ make generation-inspector  # Read-only deterministic floor inspector
+$ make room-editor           # Writable Dungeon/Reactor room templates
+```
+
+The editors intentionally write only their declared repository content files;
+they never open or alter an active game run. Their source-local files remain
+visible on the host through the checkout mount.
+
 ## Controls
 
 | Key | Action |

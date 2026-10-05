@@ -1,4 +1,4 @@
-.PHONY: build test package play shell
+.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor
 
 COMPOSE ?= ./tools/docker-compose.sh
 
@@ -16,3 +16,15 @@ play:
 
 shell:
 	$(COMPOSE) run --rm shell
+
+studio:
+	$(COMPOSE) run --rm studio
+
+sprite-editor:
+	$(COMPOSE) run --rm sprite-editor
+
+generation-inspector:
+	$(COMPOSE) run --rm generation-inspector
+
+room-editor:
+	$(COMPOSE) run --rm room-editor
