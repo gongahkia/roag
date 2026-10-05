@@ -17,6 +17,8 @@ local Registry = require("src.content.registry")
 local ScreenManager = require("src.ui.screen_manager")
 local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
+local GameplayUI = require("src.presentation.gameplay_ui")
+local ZoneKey = require("src.campaign.zone_key")
 local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
@@ -575,21 +577,45 @@ function App:onboarding_sections()
   return {
     "YOUR BODY IS TEMPORARY.",
     "BREAK ENEMY BODIES. SALVAGE USEFUL PARTS. SURVIVE THE FLOOR.",
-    "REBUILD BETWEEN FLOORS. DEATH ENDS THE RUN; RESEARCH SURVIVES.",
-    "CAMPAIGN: WASD MOVE   E ATTACK   Q ABILITY   U USE   I INVENTORY   C BUILD",
+    "THIS IS A LEGACY RUN: DEATH ENDS IT, BUT RESEARCH SURVIVES.",
+    "CAMPAIGN IS A SEPARATE PERSISTENT MODE: BODIES RECONSTRUCT AT ANCHORS.",
   }
 end
 
 function App:help_sections()
   return {
-    { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
+    { title = "CAMPAIGN CORE LOOP", text = "Explore a persistent world, salvage physical parts, build useful places, and choose when to press farther out." },
     { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
     { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
     { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
     { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
-    { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
-    { title = "SERVICES, RESEARCH + DEATH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future runs; death leaves a recoverable body." },
+    { title = "RECONSTRUCTION", text = "Use a Reconstruction Station to install salvaged parts. It changes your body but does not repair damaged components." },
+    { title = "CAMPAIGN DEATH + ANCHORS", text = "Death leaves your old body and cargo where you fell. A fresh body appears at the active Reconstruction Anchor; face a station and use U to move that anchor." },
+    { title = "SERVICES + RESEARCH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future legacy runs." },
   }
+end
+
+function App:open_campaign_succession(source_zone)
+  if not self.campaign then return false end
+  local anchor = self.campaign.state.reconstruction_anchor
+  self.campaign_succession_notice = GameplayUI.campaign_succession(
+    GameplayUI.campaign_zone_label(self.campaign, source_zone),
+    GameplayUI.campaign_zone_label(self.campaign, anchor and anchor.zone_key)
+  )
+  self.screen, self.menu = "campaign_succession", 1
+  self.build_stance = false
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:continue_campaign_succession()
+  if self.screen ~= "campaign_succession" then return false end
+  self.campaign_succession_notice = nil
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
 end
 
 function App:open_help()
@@ -925,6 +951,7 @@ end
 function App:return_to_title()
   self.screen, self.menu = "title", 1
   self.session = nil
+  self.campaign_succession_notice = nil
   self.build_stance = false
   self:clear_held_movement()
 end
@@ -963,6 +990,7 @@ function App:perform_turn(input)
   if self.screen ~= "game" then
     return
   end
+  local source_zone = self.campaign and self.campaign.active_zone and ZoneKey.to_data(self.campaign.active_zone.key) or nil
   local result = self.session:turn(input)
   local action_result = self.session.last_action_result
   if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
@@ -979,6 +1007,7 @@ function App:perform_turn(input)
     self.build_stance = false
     self:clear_held_movement()
     self.presentation:reset(self.session)
+    if result == "campaign_succession" then self:open_campaign_succession(source_zone) end
   end
   self:_handle_turn_result(result)
   self:autosave("turn")

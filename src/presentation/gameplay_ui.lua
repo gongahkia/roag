@@ -7,6 +7,8 @@ local Tool = require("src.inventory.tool")
 local Grid = require("src.world.grid")
 local PhysicalItem = require("src.inventory.physical_item")
 local Loadout = require("src.simulation.loadout")
+local ZoneKey = require("src.campaign.zone_key")
+local WorldContent = require("src.campaign.world_content")
 
 local GameplayUI = {}
 
@@ -128,6 +130,41 @@ function GameplayUI.body(session, actor)
   return slots
 end
 
+-- Campaign zones deliberately have no abstract map-screen identity. This
+-- compact label gives lifecycle UI enough context to explain a transition or
+-- body recovery without exposing raw persistence IDs to the player.
+function GameplayUI.campaign_zone_label(campaign, zone_key)
+  if not campaign or not zone_key then return "UNKNOWN LOCATION" end
+  local key = ZoneKey.from_data(zone_key)
+  local record = campaign:zone_record(key)
+  local name = record and WorldContent.location_name(campaign.state.world_content_plan, record.key, record.profile_id)
+    or "UNKNOWN LOCATION"
+  local depth = key.z == 0 and "SURFACE" or (key.z < 0 and ("DEPTH " .. math.abs(key.z)) or ("HEIGHT " .. key.z))
+  return string.format("%s — %s %d, %d", name, depth, key.world_x, key.world_y)
+end
+
+function GameplayUI.campaign_anchor(session)
+  local campaign = session and session.campaign
+  local anchor = campaign and campaign.state and campaign.state.reconstruction_anchor
+  if not campaign or not anchor or not anchor.zone_key then return nil end
+  local current = campaign.active_zone and campaign.active_zone.key
+  return {
+    current_zone = ZoneKey.equal(current, anchor.zone_key),
+    location = GameplayUI.campaign_zone_label(campaign, anchor.zone_key),
+  }
+end
+
+function GameplayUI.campaign_succession(death_location, anchor_location)
+  return {
+    death_location = death_location or "UNKNOWN DEATH SITE",
+    anchor_location = anchor_location or "UNKNOWN RECONSTRUCTION ANCHOR",
+    summary = "A FRESH BODY WAS RECONSTRUCTED AT YOUR ACTIVE ANCHOR.",
+    recovery = "YOUR LOST BODY, CARGO, AND LOADED WEAPONS REMAIN AT THE DEATH SITE.",
+    loss = "CHARMS ON THE LOST BODY ARE GONE. BASES, STORAGE, SCRAP, AND WORLD CHANGES PERSIST.",
+    guidance = "FACE A RECONSTRUCTION STATION AND USE U TO SET A DIFFERENT FUTURE ANCHOR.",
+  }
+end
+
 function GameplayUI.hud(session)
   local state, player, inventory = session.state, session.state.player, session.state.inventory
   local charm_slots = session:modifier_value("charm_slots") or 0
@@ -183,6 +220,7 @@ function GameplayUI.hud(session)
     objective_progress = session.campaign and nil or (player.objective_progress or 0),
     objective_required = session.campaign and nil or state.settings.objective_required,
     location = session.campaign and state.settings.location_name or nil,
+    reconstruction_anchor = GameplayUI.campaign_anchor(session),
     scrap = state.scrap or 0,
     charm_count = charm_count,
     charm_slots = charm_slots,
