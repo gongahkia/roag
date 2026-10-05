@@ -77,6 +77,11 @@ The editors intentionally write only their declared repository content files;
 they never open or alter an active game run. Their source-local files remain
 visible on the host through the checkout mount.
 
+For Docker-first developer triage, see [the Codex debug workflow](tools/CODEX_DEBUG_WORKFLOW.md).
+Start with `make doctor`, use `make debug-bundle LABEL=issue-name` to capture
+an isolated reproducible report, and use `make debug-test TEST="..."` to run
+a narrowed test selection.
+
 ## Controls
 
 | Key | Action |

@@ -17,6 +17,7 @@ cd "$workspace"
 zip -q -r "$archive" . \
   -x '.git/*' \
   -x '.docker/*' \
+  -x '.roag-debug/*' \
   -x '__pycache__/*' \
   -x 'roag.love'
 unzip -tqq "$archive"

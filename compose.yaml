@@ -35,6 +35,11 @@ services:
     <<: *roag
     command: ["sh", "tools/package_love.sh"]
 
+  debug:
+    <<: *roag
+    entrypoint: ["sh", "tools/roag_debug.sh"]
+    command: ["help"]
+
   game:
     <<: *graphical
     command: ["love", "."]
