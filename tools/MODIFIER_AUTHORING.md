@@ -84,3 +84,7 @@ The Workbench gets triggers, conditions, effect fields and expression fields fro
 4. author any number of JSON modifiers with it.
 
 Do not put Lua callbacks or source snippets in modifier JSON.
+
+## High-stack content guidelines
+
+Make stacks visible at 1, 3, 5, 10 and 20. Prefer deterministic real-world effects, use `every_n` and `thresholds` for exciting breakpoints, and let high stacks become powerful. Do not hide weak percentage chances, hard-cap ordinary stacks, or create one-off effect primitives for a single item. Keep recursive chains within the shared resolver safeguards.

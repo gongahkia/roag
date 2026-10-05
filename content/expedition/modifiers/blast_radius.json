@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"expedition.passive.blast_radius","name":"BLAST RADIUS","description":"Increase blast radius every 2 stacks.","category":"explosive","tags":["explosive","terrain"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"bomb_radius","value":{"kind":"every_n","base":1,"per_step":1,"n":2}}],"hooks":[]}

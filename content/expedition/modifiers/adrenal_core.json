@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"expedition.passive.adrenal_core","name":"ADRENAL CORE","description":"Reduce Dash cooldown. Every 2 stacks reduce it by 1.","category":"mobility","tags":["dash","cooldown"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"dash_cooldown","value":{"kind":"every_n","base":-1,"per_step":-1,"n":2,"min":-3}}],"hooks":[]}

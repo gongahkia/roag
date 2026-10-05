@@ -1374,9 +1374,10 @@ function Renderer:_draw_expedition_reward(app)
   local items = {}
   for _, passive in ipairs(app.expedition and app.expedition.pending_reward or {}) do
     local current = app.session.state.expedition.passive_stacks[passive.id] or 0
+    local preview = require("src.expedition.modifiers").stack_preview(passive, current + 1)
     items[#items + 1] = {
       name = passive.name .. "  ×" .. current .. " → ×" .. (current + 1),
-      description = passive.description,
+      description = passive.description .. "  •  NOW " .. preview.current .. "  •  NEXT " .. preview.next,
     }
   end
   self:_menu("CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")

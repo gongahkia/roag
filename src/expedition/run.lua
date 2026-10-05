@@ -17,7 +17,11 @@ ExpeditionRun.REGULAR_ENCOUNTERS = 12
 -- Escalation comes chiefly from composition and arena pressure rather than
 -- turning the initial encounters into one-enemy chores.
 ExpeditionRun.THREAT_BUDGETS = { 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }
-ExpeditionRun.REWARD_ENCOUNTERS = { [1] = "choice", [3] = "choice", [4] = "choice", [5] = "chest", [6] = "choice", [8] = "choice", [9] = "choice", [10] = "chest", [12] = "choice" }
+-- Four deliberate decisions, two paid caches and six instant acquisitions.
+-- Elite rooms grant an additional immediate item, so a successful 12-room
+-- run naturally reaches the intended 14–18-pickup high-stack space.
+ExpeditionRun.REWARD_ENCOUNTERS = { [1] = "choice", [2] = "random", [3] = "random", [4] = "choice", [5] = "chest", [6] = "random", [7] = "random", [8] = "choice", [9] = "random", [10] = "chest", [11] = "random", [12] = "choice" }
+ExpeditionRun.OWNED_PICK_WEIGHT = 1.6
 ExpeditionRun.ARCHETYPE_ORDER = {
   "expedition.encounter.swarm",
   "expedition.encounter.crossfire",
@@ -366,9 +370,26 @@ end
 function ExpeditionRun:reward_options(count)
   local pool = self:compatible_passives()
   local rng = self:_reward_rng("choice." .. self.session.state.expedition.encounter_index)
-  -- Duplicates are deliberately allowed both inside choices and across a run.
+  local stacks, later = self.session.state.expedition.passive_stacks, self.session.state.expedition.encounter_index >= 4
+  local total, weights = 0, {}
+  for index, passive in ipairs(pool) do
+    local weight = passive.pool.weight
+    if later and (stacks[passive.id] or 0) > 0 then weight = weight * ExpeditionRun.OWNED_PICK_WEIGHT end
+    weights[index], total = weight, total + weight
+  end
+  local function weighted_pick()
+    local roll, cumulative = rng:float() * total, 0
+    for index, passive in ipairs(pool) do
+      cumulative = cumulative + weights[index]
+      if roll < cumulative then return passive end
+    end
+    return pool[#pool]
+  end
+  -- Duplicates remain legal both inside choices and across a run. The modest
+  -- later owned-item weight rewards deliberately leaning into a build without
+  -- suppressing new discovery.
   local result = {}
-  for index = 1, count or 3 do result[#result + 1] = pool[rng:int(#pool)] end
+  for index = 1, count or 3 do result[#result + 1] = weighted_pick() end
   return result
 end
 
@@ -410,6 +431,9 @@ function ExpeditionRun:_complete_encounter()
   end
   self:_check_unlocks()
   self.session:_log("ENCOUNTER CLEAR — " .. string.upper(plan.kind) .. ".")
+  -- Elite value is immediate even when its scheduled reward is a paused
+  -- choice/cache. This creates two earned spikes without adding more menus.
+  if plan.elite then self:add_passive(self:reward_options(1)[1].id) end
   local reward_kind = plan.reward_kind
   if reward_kind == "choice" then
     self.pending_reward = self:reward_options(3)
@@ -418,8 +442,9 @@ function ExpeditionRun:_complete_encounter()
     self.pending_chest = { cost = self:_chest_cost(), options = self:reward_options(1) }
     return "expedition_chest"
   end
+  local pickup = self:add_passive(self:reward_options(1)[1].id)
   self:_begin_encounter(index + 1)
-  return "expedition_next_encounter"
+  return { code = "expedition_next_encounter", pickup = pickup }
 end
 
 function ExpeditionRun:choose_reward(index)
