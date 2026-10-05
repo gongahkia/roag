@@ -36,21 +36,21 @@ return {
     end,
   },
   {
-    name = "clicking a title option activates the same new-run flow as Enter",
+    name = "clicking the primary title option opens Expedition character selection",
     run = function()
       local app = App.new({ seed = 9015 })
       local width, height = 900, 700
       local new_run_y = height / 2 + 26 + 29
       assert(app:mousepressed(width / 2, new_run_y, 1, width, height))
-      assert(app.screen == "onboarding" or app.screen == "game")
+      assert(app.screen == "expedition_character_select")
     end,
   },
   {
-    name = "a title background click confirms the highlighted New Run option",
+    name = "a title background click confirms the highlighted Expedition option",
     run = function()
       local app = App.new({ seed = 9018 })
       assert(app:mousepressed(1, 1, 1, 900, 700))
-      assert(app.screen == "onboarding" or app.screen == "game")
+      assert(app.screen == "expedition_character_select")
     end,
   },
   {

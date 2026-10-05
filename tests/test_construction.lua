@@ -6,6 +6,7 @@ local PhysicalItem = require("src.inventory.physical_item")
 local Inventory = require("src.inventory.inventory")
 local ZoneKey = require("src.campaign.zone_key")
 local Grid = require("src.world.grid")
+local Electricity = require("src.simulation.electricity")
 
 local function campaign(seed)
   local value = Campaign.new({ seed = seed, campaign_id = "campaign:" .. seed })
@@ -62,7 +63,7 @@ end
 local function descend(campaign_value)
   local connection = assert(campaign_value.active_zone.connections.down)
   local object = assert(campaign_value.session.state.world:object_at(connection.cell.x, connection.cell.y))
-  campaign_value.session.state.player.x, campaign_value.session.state.player.y = object.x + 1, object.y
+  campaign_value.session.state.player.x, campaign_value.session.state.player.y, campaign_value.session.state.player.direction = object.x + 1, object.y, "a"
   assert(campaign_value.session:turn("interact") == "zone_transition")
 end
 
@@ -138,6 +139,40 @@ return {
       assert(door.interaction_role == "door" and door.circuit_id == nil)
       assert(world:set_door_state(door, "open").applied and world:is_passable(door.x, door.y))
       assert(world:set_door_state(door, "closed").applied and not world:is_passable(door.x, door.y))
+    end,
+  },
+  {
+    name = "constructed floors are persistent nonblocking material objects with real fire and conductivity",
+    run = function()
+      local value, directory = campaign(905031)
+      local session, world = value.session, value.session.state.world
+      add_resource(session, "resource.material.timber", 1)
+      add_resource(session, "resource.material.metal", 1)
+      local timber_floor, timber_point = build(session, "construction.timber_floor")
+      local metal_floor, metal_point = build(session, "construction.metal_floor")
+      assert(world:is_passable(timber_point.x, timber_point.y) and world:is_passable(metal_point.x, metal_point.y))
+      assert(session:ignite_world_object(timber_floor, { source = "construction_test" }).applied)
+      assert(world:is_conductive_at(metal_point.x, metal_point.y))
+      local trace = Electricity.trace(world, metal_point, { max_cells = 8 })
+      assert(trace.applied and trace.network_size >= 1)
+      assert(CampaignPersistence.save(value, directory))
+      local restored = assert(CampaignPersistence.load(directory))
+      assert(restored.session.state.world:get_object(timber_floor.id).definition_id == "world_object.build.timber_floor")
+      assert(restored.session.state.world:get_object(metal_floor.id).definition_id == "world_object.build.metal_floor")
+    end,
+  },
+  {
+    name = "constructed recovery is reduced and uses ordinary physical destruction",
+    run = function()
+      local value = campaign(905032)
+      local session, world = value.session, value.session.state.world
+      add_resource(session, "resource.material.timber", 2)
+      local wall = build(session, "construction.timber_wall")
+      local result = session:damage_world_object(wall, { amount = wall.current_integrity, cause = "kinetic", source = "tool" })
+      assert(result.destroyed and #result.harvest_drops == 1)
+      local recovered = result.harvest_drops[1].item
+      assert(recovered.resource_id == "resource.material.timber" and recovered.quantity == 1)
+      assert(not world:object_at(wall.x, wall.y))
     end,
   },
   {

@@ -34,7 +34,7 @@ end
 local function use(campaign, direction)
   local object = vertical_object(campaign, direction)
   local player = campaign.session.state.player
-  player.x, player.y = object.x + 1, object.y
+  player.x, player.y, player.direction = object.x + 1, object.y, "a"
   return campaign.session:turn("interact")
 end
 

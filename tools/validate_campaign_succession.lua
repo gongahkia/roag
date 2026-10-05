@@ -29,7 +29,7 @@ local function descend(campaign)
   local object = campaign.session.state.world:object_at(connection.cell.x, connection.cell.y)
   if not object then return false end
   local player = campaign.session.state.player
-  player.x, player.y = object.x + 1, object.y
+  player.x, player.y, player.direction = object.x + 1, object.y, "a"
   return campaign.session:turn("interact") == "zone_transition"
 end
 

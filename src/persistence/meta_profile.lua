@@ -7,6 +7,14 @@ local MetaProfile = {
   VERSION = 1,
 }
 
+-- Account-level Expedition unlocks deliberately unlock possibilities rather
+-- than permanent numerical power.  Keep their additive data separate from
+-- Campaign research and normalize it into old profiles on load.
+MetaProfile.DEFAULT_EXPEDITION_UNLOCK_IDS = {
+  "expedition.unlock.character.bruiser",
+  "expedition.unlock.character.gunner",
+}
+
 local function failure(code, reason)
   return nil, { code = code, reason = reason }
 end
@@ -31,7 +39,12 @@ end
 
 function MetaProfile.new()
   return { research_data = 0, unlocked_research_ids = {}, next_run_sequence = 1, next_campaign_sequence = 1,
-    claimed_reward_ids = {}, discovered_discovery_ids = {} }
+    claimed_reward_ids = {}, discovered_discovery_ids = {},
+    expedition_unlock_ids = copy_map((function()
+      local values = {}
+      for _, id in ipairs(MetaProfile.DEFAULT_EXPEDITION_UNLOCK_IDS) do values[#values + 1] = id end
+      return values
+    end)()) }
 end
 
 function MetaProfile.copy(profile)
@@ -42,6 +55,8 @@ function MetaProfile.copy(profile)
     next_campaign_sequence = profile.next_campaign_sequence or 1,
     claimed_reward_ids = sorted_unique(profile.claimed_reward_ids, "claimed_reward_ids"),
     discovered_discovery_ids = sorted_unique(profile.discovered_discovery_ids, "discovered_discovery_ids"),
+    expedition_unlock_ids = sorted_unique(profile.expedition_unlock_ids or MetaProfile.DEFAULT_EXPEDITION_UNLOCK_IDS,
+      "expedition_unlock_ids"),
   }
 end
 
@@ -62,6 +77,19 @@ function MetaProfile.validate(profile, registry)
   -- in current content. Account history is more valuable than a strict
   -- content prune, and future content can safely reintroduce an ID.
   local discoveries = sorted_unique(profile.discovered_discovery_ids, "Meta profile discovered discovery IDs")
+  local expedition_unlocks = sorted_unique(profile.expedition_unlock_ids or MetaProfile.DEFAULT_EXPEDITION_UNLOCK_IDS,
+    "Meta profile Expedition unlock IDs")
+  local expedition_set = {}
+  for _, id in ipairs(expedition_unlocks) do
+    assert(id:match("^expedition%.unlock%.[a-z0-9_%.%-]+$"), "Meta profile has malformed Expedition unlock ID '" .. id .. "'")
+    expedition_set[id] = true
+  end
+  -- A profile predating Expedition always starts with the two prototype
+  -- characters. Do not make historic accounts earn their basic controls.
+  for _, id in ipairs(MetaProfile.DEFAULT_EXPEDITION_UNLOCK_IDS) do
+    if not expedition_set[id] then expedition_unlocks[#expedition_unlocks + 1] = id end
+  end
+  table.sort(expedition_unlocks)
   for _, id in ipairs(unlocked) do
     assert(registry.research[id], "Meta profile references unknown research ID '" .. id .. "'")
     for _, prerequisite in ipairs(registry:get_research(id).prerequisites or {}) do
@@ -75,6 +103,7 @@ function MetaProfile.validate(profile, registry)
     assert(id:match("^discovery%.[a-z0-9_%.]+$"), "Meta profile has malformed discovery ID '" .. id .. "'")
   end
   profile.unlocked_research_ids, profile.claimed_reward_ids, profile.discovered_discovery_ids = unlocked, claims, discoveries
+  profile.expedition_unlock_ids = expedition_unlocks
   return true
 end
 
@@ -158,6 +187,25 @@ end
 function MetaProfile.has_unlock(snapshot, unlock_id)
   for _, id in ipairs(snapshot and snapshot.unlock_ids or {}) do if id == unlock_id then return true end end
   return false
+end
+
+function MetaProfile.has_expedition_unlock(profile, unlock_id)
+  for _, id in ipairs(profile.expedition_unlock_ids or {}) do
+    if id == unlock_id then return true end
+  end
+  return false
+end
+
+function MetaProfile.unlock_expedition(profile, unlock_id)
+  assert(type(unlock_id) == "string" and unlock_id:match("^expedition%.unlock%.[a-z0-9_%.%-]+$"),
+    "Expedition unlock ID is invalid")
+  profile.expedition_unlock_ids = profile.expedition_unlock_ids or {}
+  if MetaProfile.has_expedition_unlock(profile, unlock_id) then
+    return { applied = false, unlock_id = unlock_id, code = "already_unlocked" }
+  end
+  profile.expedition_unlock_ids[#profile.expedition_unlock_ids + 1] = unlock_id
+  table.sort(profile.expedition_unlock_ids)
+  return { applied = true, unlock_id = unlock_id }
 end
 
 function MetaProfile.purchase(profile, registry, research_id)

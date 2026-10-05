@@ -23,6 +23,10 @@ local function in_range(actor, object)
     and not (actor.x == object.x and actor.y == object.y)
 end
 
+local function on_cell(object, x, y)
+  return object and object.x == x and object.y == y
+end
+
 local function action(id, label, available, reason)
   return {
     id = id,
@@ -98,6 +102,45 @@ function Interaction.available(session, actor)
   local available = {}
   for order, object in ipairs(world:list_objects()) do
     if object.interaction_role and in_range(actor, object) then
+      available[#available + 1] = {
+        object_id = object.id,
+        display_name = session.registry:get_world_object(object.definition_id).display_name,
+        interaction_role = object.interaction_role,
+        x = object.x,
+        y = object.y,
+        circuit_id = object.circuit_id,
+        powered = world:is_circuit_powered(object.circuit_id),
+        actions = Interaction.actions_for(world, object, session),
+        _order = order,
+      }
+    end
+  end
+  table.sort(available, function(left, right)
+    local left_priority = ROLE_PRIORITY[left.interaction_role] or 99
+    local right_priority = ROLE_PRIORITY[right.interaction_role] or 99
+    if left_priority ~= right_priority then
+      return left_priority < right_priority
+    end
+    return left._order < right._order
+  end)
+  for _, entry in ipairs(available) do
+    entry._order = nil
+  end
+  return available
+end
+
+-- Campaign context use is deliberately narrower than the legacy adjacent
+-- interaction query.  The input layer supplies no target selection: the
+-- current facing direction selects exactly one cell, and this helper gives
+-- that cell the same stable object/action ordering as the older query.
+function Interaction.available_at(session, actor, x, y)
+  local world = session and session.state and session.state.world
+  if not world or not actor or x == nil or y == nil then
+    return {}
+  end
+  local available = {}
+  for order, object in ipairs(world:list_objects()) do
+    if object.interaction_role and on_cell(object, x, y) then
       available[#available + 1] = {
         object_id = object.id,
         display_name = session.registry:get_world_object(object.definition_id).display_name,
@@ -204,6 +247,19 @@ function Interaction.primary(session, actor)
     return result(false, "not_interactable", "No adjacent interactable object")
   end
   local target = nearby[1]
+  local selected = target.actions[1]
+  if not selected then
+    return result(false, "not_interactable", "Object has no available interaction", { object_id = target.object_id })
+  end
+  return Interaction.perform(session, actor, target.object_id, selected.id)
+end
+
+function Interaction.primary_at(session, actor, x, y)
+  local targets = Interaction.available_at(session, actor, x, y)
+  if #targets == 0 then
+    return result(false, "not_interactable", "Nothing to interact with")
+  end
+  local target = targets[1]
   local selected = target.actions[1]
   if not selected then
     return result(false, "not_interactable", "Object has no available interaction", { object_id = target.object_id })

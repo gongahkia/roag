@@ -10,12 +10,12 @@ return {
       local payload = source:read("*a")
       source:close()
       local flow = assert(PresentationFlow.load({ payload = payload }))
-      assert(#flow:available({ continue_available = false }) == 4)
-      assert(#flow:available({ continue_available = true }) == 5)
+      assert(#flow:available({ continue_available = false }) == 5)
+      assert(#flow:available({ continue_available = true }) == 6)
       local invalid, failure = PresentationFlow.decode('{"format":"roag.presentation_flow","version":1,"home":"title","title_actions":[{"id":"new_run","label":"NEW","description":"x","target":"game"}]}')
       assert(not invalid and failure.code == "invalid_presentation_transition")
       local restored = assert(PresentationFlow.decode(assert(PresentationFlow.encode(flow:to_data()))))
-      assert(restored.title_actions[1].id == "new_run")
+      assert(restored.title_actions[1].id == "expedition")
     end,
   },
   {

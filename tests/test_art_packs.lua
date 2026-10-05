@@ -20,7 +20,7 @@ return {
       for _, option in ipairs(app:title_options()) do
         assert(option.id ~= "art_packs" and option.name ~= "ART PACKS")
       end
-      assert(app:title_options()[1].id == "new_run")
+      assert(app:title_options()[1].id == "expedition")
     end,
   },
   {

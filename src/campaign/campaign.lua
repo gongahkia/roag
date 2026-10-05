@@ -13,6 +13,7 @@ local Grid = require("src.world.grid")
 local Corpse = require("src.world.corpse")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local Loadout = require("src.simulation.loadout")
 
 local Campaign = {}
 Campaign.__index = Campaign
@@ -185,6 +186,24 @@ local function ensure_reconstruction_anchor(campaign, record, session)
   return anchor
 end
 
+-- A first Axe is deliberately campaign-start scaffolding, not a replacement
+-- for a real tool acquisition loop. The flag is durable so body succession
+-- cannot quietly mint replacement tools after a loss.
+local function ensure_starter_tool(campaign, session)
+  if campaign.state.starter_tool_granted then return true end
+  local item = session:create_tool("tool.axe", "campaign")
+  local placement = session.state.inventory:find_first_fit(item)
+  -- Historical campaigns can legitimately resume with every cell occupied.
+  -- Do not invalidate that save merely to grant the new starter scaffold.
+  if not placement then
+    campaign.state.starter_tool_granted = true
+    return false
+  end
+  assert(session.state.inventory:place(item, placement.x, placement.y, placement.rotated))
+  campaign.state.starter_tool_granted = true
+  return true
+end
+
 function Campaign.new(options)
   options = options or {}
   local seed = Rng.new(options.seed or 1).seed
@@ -209,7 +228,9 @@ function Campaign.new(options)
       zone_records = record_map({ record }),
       legacy_progression = nil, legacy_route = nil,
       reconstruction_anchor = parse_anchor(options.reconstruction_anchor),
-      pending_successor = options.pending_successor,
+    pending_successor = options.pending_successor,
+      loadout = nil,
+      starter_tool_granted = options.starter_tool_granted == true,
       body_death_count = options.body_death_count or 0,
       world_content_plan = world_content_plan,
     },
@@ -235,6 +256,7 @@ function Campaign.new(options)
   install_zone_connections(session, record)
   session:apply_pending_campaign_world_content()
   self.session = session
+  ensure_starter_tool(self, session)
   ensure_reconstruction_anchor(self, record, session)
   self:sync_active_references()
   self:validate()
@@ -383,6 +405,8 @@ function Campaign:to_manifest_data()
     legacy_progression = session_data.progression, legacy_route = session_data.route,
     reconstruction_anchor = anchor_data(self.state.reconstruction_anchor),
     pending_successor = self.state.pending_successor,
+    loadout = Loadout.to_data(self.state.loadout),
+    starter_tool_granted = self.state.starter_tool_granted == true,
     body_death_count = self.state.body_death_count or 0,
     world_content_plan = self.state.world_content_plan,
     zones = zones,
@@ -740,6 +764,10 @@ function Campaign:_complete_pending_successor(pending, directory)
   local arrival, arrival_error = self:_resolve_anchor_arrival(destination_session, station)
   if not arrival then return nil, arrival_error end
   successor.x, successor.y, successor.direction = arrival.x, arrival.y, "w"
+  -- A successor receives a new body and therefore a new deterministic quick
+  -- loadout. The corpse retains its old physical providers and magazines;
+  -- its references must never become the successor's controls.
+  destination_session:ensure_campaign_loadout()
   destination_session:refresh_visibility()
   destination_session:validate_physical_ownership()
 
@@ -889,6 +917,8 @@ function Campaign.from_data(manifest, shard, options)
       legacy_progression = manifest.legacy_progression, legacy_route = manifest.legacy_route,
       reconstruction_anchor = parse_anchor(manifest.reconstruction_anchor),
       pending_successor = manifest.pending_successor,
+      loadout = Loadout.from_data(manifest.loadout),
+      starter_tool_granted = manifest.starter_tool_granted == true,
       body_death_count = manifest.body_death_count or 0,
       world_content_plan = world_content_plan },
     active_zone = record, identity = identity,
@@ -914,6 +944,7 @@ function Campaign.from_data(manifest, shard, options)
     on_meta_reward = options.on_meta_reward, emit = options.emit,
   })
   self.session = session
+  ensure_starter_tool(self, session)
   -- Existing campaign v1 saves gain deterministic additive topology when a
   -- zone becomes active. Their immutable old shard is retained until normal
   -- save/transition creates the next revision.

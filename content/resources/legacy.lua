@@ -23,4 +23,32 @@ return {
     max_stack = 16,
     inventory = { width = 1, height = 1, rotatable = false },
   },
+  {
+    id = "resource.ammo.bullets",
+    display_name = "Bullets",
+    mass_per_unit = 0.05,
+    max_stack = 32,
+    inventory = { width = 1, height = 1, rotatable = false },
+  },
+  {
+    id = "resource.ammo.shells",
+    display_name = "Shells",
+    mass_per_unit = 0.12,
+    max_stack = 20,
+    inventory = { width = 1, height = 1, rotatable = false },
+  },
+  {
+    id = "resource.ammo.energy_cells",
+    display_name = "Energy Cells",
+    mass_per_unit = 0.08,
+    max_stack = 24,
+    inventory = { width = 1, height = 1, rotatable = false },
+  },
+  {
+    id = "resource.ammo.explosives",
+    display_name = "Explosives",
+    mass_per_unit = 0.30,
+    max_stack = 12,
+    inventory = { width = 1, height = 1, rotatable = false },
+  },
 }

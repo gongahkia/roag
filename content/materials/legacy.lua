@@ -23,6 +23,7 @@ return {
     flammable = true,
     burn_rate = 1,
     conductive = false,
+    tool_effectiveness = { axe = 1 },
   },
   {
     -- Used for naturally worn clearings and the interior of a Forest stone
@@ -49,6 +50,7 @@ return {
     flammable = true,
     burn_rate = 1,
     conductive = false,
+    tool_effectiveness = { axe = 1 },
   },
   {
     id = "material.terrain.stone",
@@ -61,6 +63,8 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = false,
+    tool_effectiveness = { pickaxe = 1, drill = 1 },
+    harvest_yield = { resource_id = "resource.material.masonry", amount = 1 },
   },
   {
     id = "material.terrain.granite",
@@ -73,6 +77,8 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = false,
+    tool_effectiveness = { pickaxe = 1, drill = 1 },
+    harvest_yield = { resource_id = "resource.material.masonry", amount = 2 },
   },
   {
     id = "material.terrain.heartwood",
@@ -86,6 +92,8 @@ return {
     flammable = true,
     burn_rate = 1,
     conductive = false,
+    tool_effectiveness = { axe = 1, drill = 0.5 },
+    harvest_yield = { resource_id = "resource.material.timber", amount = 3 },
   },
   {
     id = "material.structure.masonry",
@@ -98,6 +106,8 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = false,
+    tool_effectiveness = { pickaxe = 1, drill = 1 },
+    harvest_yield = { resource_id = "resource.material.masonry", amount = 1 },
   },
   {
     id = "material.structure.wood",
@@ -111,6 +121,8 @@ return {
     flammable = true,
     burn_rate = 1,
     conductive = false,
+    tool_effectiveness = { axe = 1, drill = 0.5 },
+    harvest_yield = { resource_id = "resource.material.timber", amount = 2 },
   },
   {
     id = "material.structure.conductive_metal",
@@ -123,6 +135,8 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = true,
+    tool_effectiveness = { cutter = 1, drill = 1 },
+    harvest_yield = { resource_id = "resource.material.metal", amount = 2 },
   },
   {
     id = "material.floor.conductive_metal",
@@ -145,6 +159,8 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = false,
+    tool_effectiveness = { cutter = 1, drill = 1 },
+    harvest_yield = { resource_id = "resource.material.metal", amount = 2 },
   },
   {
     id = "material.structure.reinforced",
@@ -157,6 +173,20 @@ return {
     conductive = false,
   },
   {
+    id = "material.structure.reinforced_panel",
+    display_name = "Reinforced Industrial Panel",
+    solid = true,
+    blocks_movement = true,
+    blocks_vision = true,
+    destructible = true,
+    max_integrity = 8,
+    destruction_material_id = "material.terrain.air",
+    flammable = false,
+    conductive = false,
+    tool_effectiveness = { drill = 1 },
+    harvest_yield = { resource_id = "resource.material.metal", amount = 2 },
+  },
+  {
     id = "material.structure.reinforced_breachable",
     display_name = "Reinforced Traverse Alloy",
     solid = true,
@@ -167,5 +197,6 @@ return {
     destruction_material_id = "material.terrain.air",
     flammable = false,
     conductive = false,
+    tool_effectiveness = { drill = 1 },
   },
 }

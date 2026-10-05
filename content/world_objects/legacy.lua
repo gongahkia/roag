@@ -86,6 +86,20 @@ return {
     render_style = "machine_bank",
   },
   {
+    -- Deliberately distinct from traversal barriers: this is optional Reactor
+    -- salvage/shortcut material and remains a safe first drill target.
+    id = "world_object.feature.reinforced_access_panel",
+    display_name = "Reinforced Access Panel",
+    material_id = "material.structure.reinforced_panel",
+    blocks_movement = true,
+    blocks_vision = true,
+    blocks_projectiles = true,
+    blocks_gas = true,
+    movable_by_force = false,
+    harvest_yield = { resource_id = "resource.material.metal", amount = 2 },
+    render_style = "reinforced_barrier",
+  },
+  {
     -- This is a small, destroyable dry conductor.  It does not power logical
     -- circuits; it only participates in the existing physical conductivity
     -- query just like conductive metal flooring and water.
@@ -157,6 +171,32 @@ return {
     blocks_gas = true,
     movable_by_force = false,
     render_style = "barricade",
+  },
+  -- Floors are ordinary, non-blocking world objects.  This keeps their
+  -- material, fire, conductivity, destruction, ownership and zone-shard
+  -- persistence in the one proven world-object layer rather than creating a
+  -- parallel terrain engine solely for construction.
+  {
+    id = "world_object.build.timber_floor",
+    display_name = "Timber Floor",
+    material_id = "material.structure.wood",
+    blocks_movement = false,
+    blocks_vision = false,
+    blocks_projectiles = false,
+    blocks_gas = false,
+    movable_by_force = false,
+    render_style = "fallen_log",
+  },
+  {
+    id = "world_object.build.metal_floor",
+    display_name = "Metal Floor",
+    material_id = "material.structure.conductive_metal",
+    blocks_movement = false,
+    blocks_vision = false,
+    blocks_projectiles = false,
+    blocks_gas = false,
+    movable_by_force = false,
+    render_style = "cable_trunk",
   },
   {
     id = "world_object.build.barricade",

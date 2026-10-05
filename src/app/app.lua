@@ -17,15 +17,28 @@ local Registry = require("src.content.registry")
 local ScreenManager = require("src.ui.screen_manager")
 local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
+local GameplayUI = require("src.presentation.gameplay_ui")
+local ZoneKey = require("src.campaign.zone_key")
 local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
+local SalvageLayout = require("src.ui.salvage_layout")
+local ExpeditionRun = require("src.expedition.run")
 
 local App = {}
 App.__index = App
 App.CAMPAIGN_SLOT_COUNT = 3
-
-local HOLD_INITIAL_DELAY, HOLD_REPEAT_DELAY = 0.28, 0.11
+-- Input cadence lives at the application boundary.  Each command still
+-- advances exactly one deterministic simulation turn; these values govern
+-- only how quickly a physically held key asks for another command.
+App.HOLD_INITIAL_DELAY = 0.22
+App.HOLD_REPEAT_DELAY = 0.09
+App.ENCUMBRANCE_REPEAT_MULTIPLIERS = {
+  LIGHT = 1.00,
+  BURDENED = 1.20,
+  HEAVY = 1.50,
+  OVERLOADED = 2.00,
+}
 
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
@@ -83,10 +96,32 @@ function App.new(options)
   self.renderer = Renderer.new(self.assets)
   self.cursors = CursorManager.new()
   self.movement_keys = {}
+  self.movement_key_order = {}
+  self.movement_key_sequence = 0
+  self.held_movement_blocked = false
   self:_reconcile_pending_death()
   self:refresh_continue()
   self:refresh_campaign_continue()
   return self
+end
+
+function App:is_campaign_mode()
+  return self.campaign ~= nil and self.session ~= nil and self.session == self.campaign.session
+end
+
+function App:is_expedition_mode()
+  return self.expedition ~= nil and self.session ~= nil and self.session == self.expedition.session
+end
+
+function App.movement_repeat_interval_for_encumbrance(encumbrance)
+  local multiplier = App.ENCUMBRANCE_REPEAT_MULTIPLIERS[encumbrance] or App.ENCUMBRANCE_REPEAT_MULTIPLIERS.LIGHT
+  return App.HOLD_REPEAT_DELAY * multiplier
+end
+
+function App:movement_repeat_interval()
+  local inventory = self.session and self.session.state and self.session.state.inventory
+  local encumbrance = inventory and inventory:encumbrance() or "LIGHT"
+  return App.movement_repeat_interval_for_encumbrance(encumbrance)
 end
 
 function App:load()
@@ -261,6 +296,107 @@ function App:title_options()
   return options
 end
 
+function App:_unlock_expedition(unlock_id)
+  if self.meta_error then return { applied = false, code = "meta_unavailable", reason = self.meta_error.reason } end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local result = MetaProfile.unlock_expedition(candidate, unlock_id)
+  if result.applied then
+    local saved, error_data = self:_save_meta(candidate)
+    if not saved then return { applied = false, code = "write_failed", reason = error_data.reason } end
+  end
+  return result
+end
+
+function App:open_expedition_character_select()
+  self.expedition_character_options = ExpeditionRun.available_characters(self.meta_profile)
+  self.screen, self.menu = "expedition_character_select", 1
+  for index, option in ipairs(self.expedition_character_options) do
+    if option.unlocked then self.menu = index; break end
+  end
+  return true
+end
+
+function App:expedition_character_options_list()
+  self.expedition_character_options = ExpeditionRun.available_characters(self.meta_profile)
+  return self.expedition_character_options
+end
+
+function App:start_expedition_character(character_id)
+  local character = require("src.expedition.content").character(character_id)
+  if not character or not ExpeditionRun.character_unlocked(self.meta_profile, character) then
+    return nil, { code = "character_locked", reason = "That Expedition character is locked" }
+  end
+  local run = ExpeditionRun.new({
+    seed = self.seed_stream:next(), character_id = character_id, meta_profile = self.meta_profile,
+    registry = self.registry, content = self.content,
+    on_unlock = function(id) return self:_unlock_expedition(id) end,
+    on_event = function(event) self:_handle_session_event(event) end,
+  })
+  self.campaign, self.expedition, self.session = nil, run, run.session
+  self.build_stance = false
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self:play_sound("select")
+  return run
+end
+
+function App:select_expedition_character()
+  local option = self:expedition_character_options_list()[self.menu]
+  if not option then return nil, { code = "missing_character", reason = "No character is selected" } end
+  if not option.unlocked then
+    return nil, { code = "character_locked", reason = "Character is locked: " .. (option.definition.unlock_description or "keep exploring") }
+  end
+  return self:start_expedition_character(option.definition.id)
+end
+
+function App:open_expedition_build()
+  if not self:is_expedition_mode() then return false end
+  self.screen, self.menu = "expedition_build", 1
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:expedition_build_summary()
+  return self.expedition and self.expedition:build_summary() or nil
+end
+
+function App:choose_expedition_reward(index)
+  if not self.expedition then return nil end
+  local result = self.expedition:choose_reward(index or self.menu)
+  if result.applied then
+    self.screen, self.menu = "game", 1
+    self.presentation:reset(self.session)
+    self:play_sound("pickup")
+  end
+  return result
+end
+
+function App:open_expedition_chest()
+  if not self.expedition then return nil end
+  local result = self.expedition:open_chest()
+  if result.applied then
+    self.screen, self.menu = "game", 1
+    self.presentation:reset(self.session)
+    self:play_sound("pickup")
+  end
+  return result
+end
+
+function App:skip_expedition_chest()
+  if not self.expedition then return nil end
+  local result = self.expedition:skip_chest()
+  if result.applied then self.screen, self.menu = "game", 1; self.presentation:reset(self.session) end
+  return result
+end
+
+function App:open_expedition_summary()
+  self.screen, self.menu = "expedition_summary", 1
+  self:clear_held_movement()
+  return true
+end
+
 function App:_save_meta(candidate)
   if self.meta_error then return nil, self.meta_error end
   local saved, error_data = MetaProfile.save(candidate, self.meta_store, self.registry)
@@ -387,7 +523,8 @@ function App:request_new_campaign(slot_index)
   })
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
-  self.campaign, self.session = campaign, campaign.session
+  self.expedition, self.campaign, self.session = nil, campaign, campaign.session
+  self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
   self.presentation:reset(self.session)
@@ -417,7 +554,8 @@ function App:continue_campaign(slot_index)
   end
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
-  self.campaign, self.session = campaign, campaign.session
+  self.expedition, self.campaign, self.session = nil, campaign, campaign.session
+  self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
   self.presentation:reset(self.session)
@@ -446,6 +584,9 @@ function App:autosave_campaign(_boundary)
 end
 
 function App:autosave(_boundary)
+  -- Expedition is a disposable prototype run. It must never overwrite the
+  -- legacy active-run slot or a persistent Sandbox Campaign save.
+  if self:is_expedition_mode() then return true end
   if self.campaign and self.session == self.campaign.session then
     return self:autosave_campaign(_boundary)
   end
@@ -545,21 +686,47 @@ function App:onboarding_sections()
   return {
     "YOUR BODY IS TEMPORARY.",
     "BREAK ENEMY BODIES. SALVAGE USEFUL PARTS. SURVIVE THE FLOOR.",
-    "REBUILD BETWEEN FLOORS. DEATH ENDS THE RUN; RESEARCH SURVIVES.",
-    "WASD MOVE   ARROWS SHOOT   X BODY ABILITIES   G SALVAGE   I INVENTORY   U INTERACT",
+    "THIS IS A LEGACY RUN: DEATH ENDS IT, BUT RESEARCH SURVIVES.",
+    "CAMPAIGN IS A SEPARATE PERSISTENT MODE: BODIES RECONSTRUCT AT ANCHORS.",
   }
 end
 
 function App:help_sections()
   return {
-    { title = "CORE LOOP", text = "Survive a floor, salvage physical parts, then reconstruct your body before the next descent." },
-    { title = "MOVEMENT + COMBAT", text = "WASD moves. Arrow keys shoot. Q dashes. B throws a bomb. F places a flare." },
+    { title = "EXPEDITION", text = "Choose a character, clear compact combat arenas, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
+    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. I opens the paused run-build summary. Rewards pause for a 1-of-3 choice." },
+    { title = "CAMPAIGN CORE LOOP", text = "Explore a persistent world, salvage physical parts, build useful places, and choose when to press farther out." },
+    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
+    { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
     { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
-    { title = "SALVAGE + INVENTORY", text = "G opens a nearby corpse. Parts need space in the grid; R rotates selected cargo." },
-    { title = "RECONSTRUCTION", text = "Install salvaged parts only between floors. Reconstruction never repairs a damaged component." },
-    { title = "SERVICES + ROUTE", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms; route choices are one way." },
-    { title = "RESEARCH + DEATH", text = "RESEARCH DATA unlocks future runs. Death archives the body; a fallen shell can recur later." },
+    { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
+    { title = "RECONSTRUCTION", text = "Use a Reconstruction Station to install salvaged parts. It changes your body but does not repair damaged components." },
+    { title = "CAMPAIGN DEATH + ANCHORS", text = "Death leaves your old body and cargo where you fell. A fresh body appears at the active Reconstruction Anchor; face a station and use U to move that anchor." },
+    { title = "SERVICES + RESEARCH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future legacy runs." },
   }
+end
+
+function App:open_campaign_succession(source_zone)
+  if not self.campaign then return false end
+  local anchor = self.campaign.state.reconstruction_anchor
+  self.campaign_succession_notice = GameplayUI.campaign_succession(
+    GameplayUI.campaign_zone_label(self.campaign, source_zone),
+    GameplayUI.campaign_zone_label(self.campaign, anchor and anchor.zone_key)
+  )
+  self.screen, self.menu = "campaign_succession", 1
+  self.build_stance = false
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:continue_campaign_succession()
+  if self.screen ~= "campaign_succession" then return false end
+  self.campaign_succession_notice = nil
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
 end
 
 function App:open_help()
@@ -614,6 +781,8 @@ end
 
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
+  if selected and selected.id == "expedition" then return self:open_expedition_character_select() end
+  if selected and selected.id == "sandbox" then return self:open_campaign_slots("new") end
   if selected and selected.id == "continue" then
     if not self.campaign_continue_available then return self:continue_run() end
     self:refresh_campaign_continue()
@@ -639,6 +808,22 @@ function App:_handle_session_event(event)
     self:play_sound(event.value)
   elseif event.type == "hit" then
     self.presentation:hit()
+  elseif event.type == "actor_attack" then
+    self.presentation:attack(event.value)
+  elseif event.type == "actor_hit" then
+    self.presentation:actor_hit(event.value)
+  elseif event.type == "component_break" then
+    self.presentation:component_break(event.value)
+  elseif event.type == "actor_death" then
+    self.presentation:actor_death(event.value)
+  elseif event.type == "projectile_travel" then
+    self.presentation:projectile_travel(event.value)
+  elseif event.type == "bump" then
+    self.presentation:bump(event.value and event.value.direction)
+  elseif event.type == "tool_impact" then
+    self.presentation:impact(event.value)
+  elseif event.type == "build_effect" then
+    self.presentation:modifier_effect(event.value)
   end
 end
 
@@ -882,6 +1067,7 @@ end
 function App:start_boss()
   self.session:start_boss()
   self.screen = "game"
+  self.build_stance = false
   self:clear_held_movement()
   self.presentation:reset(self.session)
   self:autosave("boss_transition")
@@ -890,10 +1076,28 @@ end
 function App:return_to_title()
   self.screen, self.menu = "title", 1
   self.session = nil
+  self.expedition = nil
+  self.campaign_succession_notice = nil
+  self.build_stance = false
   self:clear_held_movement()
 end
 
 function App:_handle_turn_result(result)
+  if result == "expedition_reward" then
+    self.screen, self.menu = "expedition_reward", 1
+    self:clear_held_movement()
+    return
+  elseif result == "expedition_chest" then
+    self.screen, self.menu = "expedition_chest", 1
+    self:clear_held_movement()
+    return
+  elseif result == "expedition_dead" or result == "expedition_victory" then
+    self:open_expedition_summary()
+    return
+  elseif result == "expedition_next_encounter" then
+    self.presentation:reset(self.session)
+    return
+  end
   if result == "reconstruction" then
     self:open_reconstruction()
   elseif result == "curse" then
@@ -910,6 +1114,10 @@ function App:_handle_turn_result(result)
     self.screen, self.menu = result, 1
     self:clear_held_movement()
   end
+  if result == "salvage" then
+    self:open_salvage(self.session and self.session.pending_salvage_corpse_id)
+    if self.session then self.session.pending_salvage_corpse_id = nil end
+  end
   if result == "service" then
     self.service_object_id = self.session.state.active_service_object_id
     self.screen, self.menu = "service", 1
@@ -923,13 +1131,31 @@ function App:perform_turn(input)
   if self.screen ~= "game" then
     return
   end
-  local result = self.session:turn(input)
+  local source_zone = self.campaign and self.campaign.active_zone and ZoneKey.to_data(self.campaign.active_zone.key) or nil
+  local result = self:is_expedition_mode() and self.expedition:turn(input) or self.session:turn(input)
+  local action_result = self.session.last_action_result
+  if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
+    -- Keep held-key state for release bookkeeping, but never issue another
+    -- turn into the same physical blocker until a fresh directional intent.
+    self.held_direction, self.hold_timer, self.held_movement_blocked = nil, nil, true
+  end
   if (result == "zone_transition" or result == "campaign_succession") and self.campaign then
     -- Campaign atomically swaps its active local simulator only after the
     -- zone shards and manifest commit. Presentation observes that new zone.
     self.session = self.campaign.session
+    -- Build stance is a field-control state, never a zone-local action
+    -- queue.  A fresh zone must not make the first E unexpectedly place.
+    self.build_stance = false
     self:clear_held_movement()
     self.presentation:reset(self.session)
+    if result == "campaign_succession" then
+      -- A death at the current anchor can reuse this exact local Session for
+      -- the freshly reconstructed body. `ended = campaign_succession` was
+      -- needed only to finish the fatal turn; leaving it on the successor
+      -- makes the next movement input replay the death handoff forever.
+      self.session.state.ended = nil
+      self:open_campaign_succession(source_zone)
+    end
   end
   self:_handle_turn_result(result)
   self:autosave("turn")
@@ -941,18 +1167,16 @@ function App:close_overlay()
   self.menu = 1
   self.inventory_selected_id = nil
   self.inventory_drag = nil
+  self.inventory_panel = nil
+  self.quick_ability_confirmation = nil
   self.salvage_corpse_id = nil
+  self.salvage_selected_id = nil
+  self.salvage_selected_rotated = nil
+  self.salvage_drag = nil
+  self.salvage_cursor = nil
   self.storage_object_id = nil
   if self.session and self.session.state then self.session.state.active_storage_object_id = nil end
-end
-
-function App:open_build()
-  if not self.session or not self.campaign then return false end
-  self.build_recipe_index = 1
-  self.build_recipe_id = nil
-  self.screen, self.menu = "build", 1
-  self:play_sound("select")
-  return true
+  self:clear_held_movement()
 end
 
 function App:build_recipes()
@@ -960,41 +1184,79 @@ function App:build_recipes()
   return require("src.construction.building").recipes(self.session.registry)
 end
 
-function App:select_build_recipe()
-  local recipe = self:build_recipes()[self.menu]
-  if not recipe then return nil end
-  local player = self.session.state.player
-  local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[player.direction] or { 1, 0 }
-  self.build_recipe_id = recipe.id
-  self.build_cursor = { x = clamp(player.x + delta[1], 0, Grid.width - 1), y = clamp(player.y + delta[2], 0, Grid.height - 1) }
-  self.screen = "build_place"
+function App:is_build_stance()
+  return self.build_stance == true and self.screen == "game" and self:is_campaign_mode()
+end
+
+function App:active_build_recipe()
+  local recipes = self:build_recipes()
+  if #recipes == 0 then return nil end
+  self.build_recipe_index = clamp(self.build_recipe_index or 1, 1, #recipes)
+  return recipes[self.build_recipe_index]
+end
+
+function App:enter_build_stance()
+  if self.screen ~= "game" or not self:is_campaign_mode() then return false end
+  if not self:active_build_recipe() then return false end
+  self.build_stance = true
+  -- Build selection is free, but a key held before mode entry must never
+  -- become an unintentional movement or placement command after it.
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:exit_build_stance()
+  if not self.build_stance then return false end
+  self.build_stance = false
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:toggle_build_stance()
+  if self:is_build_stance() then return self:exit_build_stance() end
+  return self:enter_build_stance()
+end
+
+-- Retain this public entry point for integrations that previously opened the
+-- old construction menu.  Campaign construction is now a live field stance.
+function App:open_build()
+  return self:enter_build_stance()
+end
+
+function App:cycle_build_recipe(delta)
+  if not self:is_build_stance() then return nil end
+  local recipes = self:build_recipes()
+  if #recipes == 0 then return nil end
+  local current = self.build_recipe_index or 1
+  self.build_recipe_index = ((current - 1 + delta) % #recipes) + 1
+  local recipe = recipes[self.build_recipe_index]
   self:play_sound("select")
   return recipe
 end
 
-function App:move_build_cursor(dx, dy)
-  local cursor = self.build_cursor or { x = self.session.state.player.x, y = self.session.state.player.y }
-  cursor.x, cursor.y = clamp(cursor.x + dx, 0, Grid.width - 1), clamp(cursor.y + dy, 0, Grid.height - 1)
-  self.build_cursor = cursor
-  self:play_sound("select")
+function App:build_target()
+  if not self.session then return nil end
+  return require("src.construction.building").faced_target(self.session)
 end
 
 function App:build_preview()
-  if not self.session or not self.build_recipe_id or not self.build_cursor then
+  local recipe = self:active_build_recipe()
+  local target = self:build_target()
+  if not self.session or not recipe or not target then
     return { applied = false, code = "unknown_recipe", reason = "No construction recipe selected" }
   end
-  return require("src.construction.building").validate(self.session, self.build_recipe_id, self.build_cursor.x, self.build_cursor.y)
+  return require("src.construction.building").validate(self.session, recipe.id, target.x, target.y)
 end
 
-function App:confirm_build()
-  if not self.build_recipe_id or not self.build_cursor then return nil end
+function App:place_active_build()
+  if not self:is_build_stance() then return nil end
+  local recipe, target = self:active_build_recipe(), self:build_target()
+  if not recipe or not target then return nil end
   self.session.state.last_build_result = nil
-  self.screen = "game"
-  self:perform_turn(string.format("build:%s:%d:%d", self.build_recipe_id, self.build_cursor.x, self.build_cursor.y))
-  local result = self.session.state.last_build_result
-  if result and not result.applied then self.screen = "build_place" end
-  if result and result.applied then self.build_recipe_id = nil end
-  return result
+  self:perform_turn(string.format("build:%s:%d:%d", recipe.id, target.x, target.y))
+  return self.session.state.last_build_result
 end
 
 function App:open_storage(object_id)
@@ -1046,15 +1308,126 @@ function App:storage_transfer_selected()
 end
 
 function App:open_inventory()
+  if self:is_expedition_mode() then return self:open_expedition_build() end
   if not self.session or not self.session.state.inventory then
     return false
   end
   self.inventory_cursor = self.inventory_cursor or { x = 1, y = 1 }
   self.inventory_selected_id = nil
   self.inventory_drag = nil
+  self.inventory_panel = nil
+  self.loadout_focus = self.loadout_focus or 1
+  self.loadout_selection = self.loadout_selection or 1
   self.screen = "inventory"
+  self:clear_held_movement()
   self:play_sound("select")
   return true
+end
+
+function App:inventory_drop_target_layout(viewport_width, viewport_height)
+  local layout = self:inventory_layout(viewport_width, viewport_height)
+  if not layout then return nil end
+  return {
+    x = math.min((viewport_width or 0) - 168, layout.grid_x + layout.width + 12),
+    y = (viewport_height or 0) - 82,
+    width = 156,
+    height = 27,
+  }
+end
+
+function App:inventory_drop_selected()
+  if not self.session then return nil end
+  local inventory = self.session.state.inventory
+  local entry = self.inventory_selected_id and inventory:get(self.inventory_selected_id)
+    or inventory:item_at(self.inventory_cursor.x, self.inventory_cursor.y)
+  if not entry then
+    self.session:_log("No inventory item selected to drop.")
+    return nil
+  end
+  local result = self.session:drop_inventory_item(entry.physical_id)
+  if result.applied then
+    self.inventory_selected_id, self.inventory_drag = nil, nil
+    self:autosave("inventory_drop")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
+end
+
+-- Inventory is the deliberately-paused place where a player organises quick
+-- bindings. Field R/X are still turn-consuming tactical choices.
+function App:loadout_target()
+  local index = self.loadout_focus or 1
+  local targets = {
+    { kind = "weapon", index = 1, label = "WEAPON A" },
+    { kind = "weapon", index = 2, label = "WEAPON B" },
+    { kind = "ability", index = 1, label = "ABILITY A" },
+    { kind = "ability", index = 2, label = "ABILITY B" },
+  }
+  return targets[math.max(1, math.min(#targets, index))]
+end
+
+function App:loadout_options()
+  local target = self:loadout_target()
+  return target and self.session:loadout_candidates(target.kind) or {}
+end
+
+function App:toggle_inventory_loadout_panel()
+  if not self:is_campaign_mode() then
+    self.session:_log("Quick loadouts are available in Campaign.")
+    return false
+  end
+  self.inventory_panel = self.inventory_panel == "loadout" and nil or "loadout"
+  self.loadout_focus, self.loadout_selection = self.loadout_focus or 1, 1
+  self:play_sound("select")
+  return true
+end
+
+function App:move_loadout_focus(amount)
+  self.loadout_focus = math.max(1, math.min(4, (self.loadout_focus or 1) + amount))
+  self.loadout_selection = 1
+  self:play_sound("select")
+end
+
+function App:move_loadout_selection(amount)
+  local count = #self:loadout_options()
+  self.loadout_selection = math.max(1, math.min(math.max(1, count), (self.loadout_selection or 1) + amount))
+  self:play_sound("select")
+end
+
+function App:assign_selected_loadout()
+  local target = self:loadout_target()
+  local binding = self:loadout_options()[self.loadout_selection or 1]
+  if not target or not binding then
+    self.session:_log("No compatible quick action selected.")
+    return nil
+  end
+  local result = self.session:assign_campaign_loadout(target.kind, target.index, binding)
+  if result.applied then
+    self.session:_log(target.label .. " → " .. string.upper(binding.display_name) .. ".")
+    self:autosave("loadout_assignment")
+    self:play_sound("pickup")
+  else
+    self.session:_log(result.reason)
+  end
+  return result
+end
+
+function App:activate_campaign_ability()
+  if not self:is_campaign_mode() then return nil end
+  local loadout = self.session:campaign_loadout()
+  local binding = loadout and self.session:quick_slot("ability", loadout.active_ability) or nil
+  local ability = binding and self.session.registry.abilities[binding.ability_id] or nil
+  if ability and ability.implementation == "self_destruct" and not self.quick_ability_confirmation then
+    self.quick_ability_confirmation = binding.ability_id
+    self.session:_log("CONFIRM SELF-DESTRUCT — PRESS Q AGAIN.")
+    self:play_sound("select")
+    return { applied = false, code = "confirmation_required", reason = "Confirm self-destruct" }
+  end
+  self.quick_ability_confirmation = nil
+  return self:perform_turn("q")
 end
 
 function App:open_reconstruction()
@@ -1333,6 +1706,10 @@ end
 
 function App:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
   if self.screen ~= "inventory" or button ~= 1 then return nil end
+  local drop = self:inventory_drop_target_layout(viewport_width, viewport_height)
+  if drop and x >= drop.x and x <= drop.x + drop.width and y >= drop.y and y <= drop.y + drop.height then
+    return self:inventory_drop_selected()
+  end
   local layout = self:inventory_layout(viewport_width, viewport_height)
   if not layout then return nil end
   local cell_x, cell_y = InventoryLayout.cell_at(layout, x, y)
@@ -1458,8 +1835,13 @@ function App:rotate_inventory_item()
   return rotated
 end
 
-function App:open_salvage()
-  local corpse = self.session and self.session:nearby_corpse()
+function App:open_salvage(corpse_id)
+  if self:is_expedition_mode() then
+    self.session:_log("EXPEDITION HAS NO CORPSE SALVAGE.")
+    return false
+  end
+  local corpse = corpse_id and self.session and self.session:find_corpse(corpse_id)
+    or (self.session and (self:is_campaign_mode() and self.session:faced_corpse() or self.session:nearby_corpse()))
   if not corpse then
     if self.session then
       self.session:_log("No corpse within salvage range.")
@@ -1467,7 +1849,158 @@ function App:open_salvage()
     return false
   end
   self.salvage_corpse_id = corpse.id
+  self.salvage_selected_id, self.salvage_selected_rotated, self.salvage_drag = nil, nil, nil
+  self.salvage_focus = "corpse"
+  self.salvage_cursor = { corpse = { x = 1, y = 1 }, player = { x = 1, y = 1 } }
   self.screen, self.menu = "salvage", 1
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:salvage_grid()
+  return self.session and self.session:corpse_loot_grid(self.salvage_corpse_id) or nil
+end
+
+function App:salvage_layout(viewport_width, viewport_height)
+  local grid = self:salvage_grid()
+  local inventory = self.session and self.session.state.inventory
+  if not grid or not inventory then return nil end
+  if type(viewport_width) ~= "number" or type(viewport_height) ~= "number" then
+    if not (love and love.graphics) then return nil end
+    viewport_width, viewport_height = love.graphics.getDimensions()
+  end
+  return SalvageLayout.for_viewport(grid.inventory, inventory, viewport_width, viewport_height)
+end
+
+function App:_salvage_drag_item()
+  local grid = self:salvage_grid()
+  local drag = self.salvage_drag
+  return grid and drag and grid.inventory:get(drag.physical_id) or nil
+end
+
+function App:_update_salvage_drag(pointer_x, pointer_y, layout)
+  local drag, entry = self.salvage_drag, self:_salvage_drag_item()
+  if not drag or not entry then self.salvage_drag, self.salvage_selected_id = nil, nil; return nil end
+  local cell_x, cell_y = SalvageLayout.cell_at(layout.player, layout.cell, pointer_x, pointer_y, true)
+  drag.x, drag.y = cell_x - drag.grab_x, cell_y - drag.grab_y
+  drag.valid, drag.reason = self.session.state.inventory:can_place(entry.item, drag.x, drag.y, drag.rotated)
+  return drag
+end
+
+function App:salvage_mousepressed(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or not self:is_campaign_mode() or button ~= 1 then return nil end
+  local layout, grid = self:salvage_layout(viewport_width, viewport_height), self:salvage_grid()
+  if not layout or not grid then return nil end
+  local cell_x, cell_y = SalvageLayout.cell_at(layout.corpse, layout.cell, x, y)
+  if not cell_x then return nil end
+  self.salvage_focus = "corpse"
+  self.salvage_cursor.corpse.x, self.salvage_cursor.corpse.y = cell_x, cell_y
+  local entry = grid.inventory:item_at(cell_x, cell_y)
+  if not entry then self.salvage_selected_id = nil; return nil end
+  self.salvage_selected_id = entry.physical_id
+  self.salvage_drag = {
+    physical_id = entry.physical_id,
+    grab_x = cell_x - entry.x,
+    grab_y = cell_y - entry.y,
+    rotated = entry.rotated,
+    x = nil,
+    y = nil,
+    valid = false,
+  }
+  self:play_sound("select")
+  return self.salvage_drag
+end
+
+function App:salvage_mousemoved(x, y, _, _, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or not self.salvage_drag then return nil end
+  local layout = self:salvage_layout(viewport_width, viewport_height)
+  return layout and self:_update_salvage_drag(x, y, layout) or nil
+end
+
+function App:salvage_mousereleased(x, y, button, viewport_width, viewport_height)
+  if self.screen ~= "salvage" or button ~= 1 or not self.salvage_drag then return nil end
+  local layout = self:salvage_layout(viewport_width, viewport_height)
+  if layout then self:_update_salvage_drag(x, y, layout) end
+  local drag, entry = self.salvage_drag, self:_salvage_drag_item()
+  self.salvage_drag = nil
+  if not drag or not entry or not drag.valid then
+    self:play_sound("select")
+    return nil, drag and drag.reason or "Item was not dropped on your inventory"
+  end
+  local result = self.session:salvage_corpse_to_inventory(self.salvage_corpse_id, drag.physical_id,
+    { x = drag.x, y = drag.y, rotated = drag.rotated })
+  if result.applied then
+    self.salvage_selected_id = nil
+    self.salvage_selected_rotated = nil
+    self.salvage_cursor.player.x, self.salvage_cursor.player.y = drag.x, drag.y
+    self:autosave("spatial_salvage")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
+end
+
+function App:move_salvage_cursor(delta_x, delta_y)
+  local grid = self:salvage_grid()
+  if not grid then return nil end
+  local focus = self.salvage_focus or "corpse"
+  local inventory = focus == "corpse" and grid.inventory or self.session.state.inventory
+  local cursor = self.salvage_cursor[focus]
+  cursor.x, cursor.y = clamp(cursor.x + delta_x, 1, inventory.width), clamp(cursor.y + delta_y, 1, inventory.height)
+  self:play_sound("select")
+  return cursor
+end
+
+function App:toggle_salvage_focus()
+  self.salvage_focus = self.salvage_focus == "corpse" and "player" or "corpse"
+  self:play_sound("select")
+end
+
+function App:salvage_select_or_place()
+  local grid = self:salvage_grid()
+  if not grid then return nil end
+  if self.salvage_focus == "corpse" then
+    local cursor, entry = self.salvage_cursor.corpse, grid.inventory:item_at(self.salvage_cursor.corpse.x, self.salvage_cursor.corpse.y)
+    if not entry then self.session:_log("No salvage at cursor."); return nil end
+    self.salvage_selected_id = entry.physical_id
+    self.salvage_selected_rotated = entry.rotated
+    self.session:_log("Selected " .. entry.item.display_name .. ".")
+    self:play_sound("select")
+    return entry
+  end
+  local selected = self.salvage_selected_id and grid.inventory:get(self.salvage_selected_id)
+  if not selected then self.session:_log("Select corpse cargo first."); return nil end
+  local cursor = self.salvage_cursor.player
+  local result = self.session:salvage_corpse_to_inventory(self.salvage_corpse_id, selected.physical_id,
+    { x = cursor.x, y = cursor.y, rotated = self.salvage_selected_rotated == true })
+  if result.applied then
+    self.salvage_selected_id = nil
+    self.salvage_selected_rotated = nil
+    self:autosave("spatial_salvage")
+  else
+    self.session:_log(result.reason)
+    self:play_sound("select")
+  end
+  return result
+end
+
+function App:rotate_salvage_item()
+  local grid = self:salvage_grid()
+  local entry = self:_salvage_drag_item() or (grid and self.salvage_selected_id and grid.inventory:get(self.salvage_selected_id))
+  if not entry then self.session:_log("Select corpse cargo to rotate it."); return nil end
+  if not entry.item.footprint.rotatable then self.session:_log("That item cannot rotate."); return nil end
+  if self.salvage_drag then
+    self.salvage_drag.rotated = not self.salvage_drag.rotated
+    local layout = self:salvage_layout()
+    if layout and love and love.mouse then
+      local pointer_x, pointer_y = love.mouse.getPosition()
+      self:_update_salvage_drag(pointer_x, pointer_y, layout)
+    end
+  else
+    self.salvage_selected_rotated = not (self.salvage_selected_rotated == true)
+  end
   self:play_sound("select")
   return true
 end
@@ -1501,18 +2034,38 @@ function App:salvage_selected()
 end
 
 function App:start_held_move(direction)
-  self.held_direction, self.hold_timer = direction, HOLD_INITIAL_DELAY
+  self.held_direction, self.hold_timer = direction, App.HOLD_INITIAL_DELAY
+  self.held_movement_blocked = false
 end
 
 function App:clear_held_movement()
   self.held_direction, self.hold_timer = nil, nil
   self.movement_keys = {}
+  self.movement_key_order = {}
+  self.held_movement_blocked = false
 end
 
 function App:set_movement_key(key, held)
   self.movement_keys = self.movement_keys or {}
-  self.movement_keys[key] = held or nil
+  self.movement_key_order = self.movement_key_order or {}
+  if held then
+    self.movement_key_sequence = (self.movement_key_sequence or 0) + 1
+    self.movement_keys[key] = true
+    self.movement_key_order[key] = self.movement_key_sequence
+  else
+    self.movement_keys[key], self.movement_key_order[key] = nil, nil
+  end
   local keys = self.movement_keys
+  if self:is_campaign_mode() or self:is_expedition_mode() then
+    local selected, newest = nil, -1
+    for _, candidate in ipairs({ "w", "a", "s", "d" }) do
+      local order = self.movement_key_order[candidate]
+      if keys[candidate] and order and order > newest then
+        selected, newest = candidate, order
+      end
+    end
+    return selected
+  end
   local vertical = keys.w and "w" or keys.s and "s" or nil
   local horizontal = keys.a and "a" or keys.d and "d" or nil
   if vertical and horizontal then
@@ -1523,18 +2076,29 @@ end
 
 function App:update(dt)
   if self.screen == "game" and self.session then
-    if self.held_direction then
-      self.hold_timer = (self.hold_timer or HOLD_INITIAL_DELAY) - dt
+    -- Presentation time continues during the tiny visual hit-stop; only
+    -- field-action dispatch pauses. Simulation has already resolved.
+    local was_hit_stopped = self.presentation:is_hit_stopped()
+    self.presentation:update(self.session, dt)
+    if was_hit_stopped or self.presentation:is_hit_stopped() then return end
+    if self.held_direction and not self.held_movement_blocked then
+      self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then
-        self.hold_timer = HOLD_REPEAT_DELAY
-        local player = self.session.state.player
-        if player.direction == self.held_direction and self.session:can_move(self.held_direction) then
+        self.hold_timer = self:movement_repeat_interval()
+        if self.session:can_move(self.held_direction) then
           self:perform_turn(self.held_direction)
+        else
+          -- A wall/invalid terrain is not a turn; it simply ends this held
+          -- sequence until the player supplies a new movement intent.
+          self.held_direction, self.hold_timer = nil, nil
         end
       end
     end
-    self.presentation:update(self.session, dt)
   end
+end
+
+function App:is_gameplay_input_blocked()
+  return self.screen == "game" and self.presentation and self.presentation:is_hit_stopped()
 end
 
 function App:draw()
@@ -1565,10 +2129,14 @@ function App:mousepressed(x, y, button, viewport_width, viewport_height)
     self.menu = index or self.menu
     return self:activate_title_choice()
   end
+  if self.screen == "salvage" then
+    return self:salvage_mousepressed(x, y, button, viewport_width, viewport_height)
+  end
   return self:inventory_mousepressed(x, y, button, viewport_width, viewport_height)
 end
 
 function App:mousemoved(...)
+  if self.screen == "salvage" then return self:salvage_mousemoved(...) end
   return self:inventory_mousemoved(...)
 end
 
@@ -1584,6 +2152,9 @@ function App:mousereleased(x, y, button, viewport_width, viewport_height)
   if self.screen == "campaign_slots" and button == 1 then
     self.menu = self:campaign_slot_at(x, y, viewport_width, viewport_height) or self.menu
     return self:select_campaign_slot()
+  end
+  if self.screen == "salvage" then
+    return self:salvage_mousereleased(x, y, button, viewport_width, viewport_height)
   end
   return self:inventory_mousereleased(x, y, button, viewport_width, viewport_height)
 end

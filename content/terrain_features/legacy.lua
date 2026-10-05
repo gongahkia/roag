@@ -20,6 +20,7 @@ return {
   },
   reactor = {
     { id = "landmark.reactor.machine_bay", kind = "ridge", definition_id = "world_object.feature.machine_bank", count = 3 },
+    { id = "landmark.reactor.reinforced_panel", kind = "scatter", definition_id = "world_object.feature.reinforced_access_panel", count = 1 },
     { id = "landmark.reactor.coolant_channel", kind = "stream", liquid_id = "liquid.water.legacy", count = 8 },
     { id = "landmark.reactor.exposed_conduit", kind = "stream_object", definition_id = "world_object.feature.cable_trunk", count = 6 },
   },

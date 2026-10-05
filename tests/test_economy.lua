@@ -37,7 +37,7 @@ return {
       local supply = Economy.create_stock(value, "service.supply.legacy", value.rng:derive("supply"))
       local ammo = value.state.player.ammo
       assert(Economy.supply(value, supply, 1).applied)
-      assert(value.state.player.ammo == ammo + 1 and supply.offers[1].remaining == 1)
+      assert(value.state.player.ammo == ammo + supply.offers[1].quantity and supply.offers[1].remaining == 1)
       local component = value.state.player.body:list_components()[1]
       component.current_integrity = component.current_integrity - 1
       local repair = Economy.create_stock(value, "service.repair.legacy", value.rng:derive("repair"))

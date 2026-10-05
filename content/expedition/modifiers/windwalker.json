@@ -1,0 +1,1 @@
+{"schema_version":1,"id":"expedition.passive.windwalker","name":"WINDWALKER","description":"Dash cooldown is reduced by 1 per stack, to its safe floor.","category":"mobility","tags":["dash","cooldown"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"dash_cooldown","value":{"kind":"linear","base":-1,"per_stack":-1,"max":0}}],"hooks":[]}

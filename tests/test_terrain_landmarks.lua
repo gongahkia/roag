@@ -93,8 +93,9 @@ return {
 
       local reactor = floor("biome.legacy.reactor", "tier.legacy.3", 94012)
       local report = report_for(reactor)
-      assert(report.valid and report.metrics.landmarks == 3)
+      assert(report.valid and report.metrics.landmarks == 4)
       assert(object_count(reactor.world, "world_object.feature.machine_bank") == 3)
+      assert(object_count(reactor.world, "world_object.feature.reinforced_access_panel") == 1)
       assert(object_count(reactor.world, "world_object.feature.cable_trunk") == 6)
       assert(reactor.world:total_liquid_amount("liquid.water.legacy") >= 30)
     end,

@@ -10,6 +10,24 @@ end
 
 return {
   {
+    name = "terrain remains renderable outside tactical line of sight",
+    run = function()
+      local renderer = Renderer.new({})
+      assert(renderer:terrain_is_renderable(20, 10))
+      assert(not renderer:terrain_is_renderable(-1, 10))
+    end,
+  },
+  {
+    name = "facing marker remains a small cardinal presentation affordance",
+    run = function()
+      local renderer = Renderer.new({})
+      local north_x, north_y, marker = assert(renderer:facing_marker_bounds("w", 10, 20, 20))
+      local east_x, east_y = assert(renderer:facing_marker_bounds("d", 10, 20, 20))
+      assert(marker >= 2 and north_y < east_y and east_x > north_x)
+      assert(renderer:facing_marker_bounds("ne", 10, 20, 20) == nil)
+    end,
+  },
+  {
     name = "idle sprite transforms are stable, bounded, and never mutate authoritative actor state",
     run = function()
       local session, player = idle_session()
@@ -65,6 +83,21 @@ return {
       local transform = assert(presentation:movement_transform(player))
       assert(transform.scale_x > 1 and transform.scale_y < 1)
       assert(player.x == 11, "Presentation transforms must not mutate simulation state")
+    end,
+  },
+  {
+    name = "enemy bump presentation recoils without changing authoritative player position",
+    run = function()
+      local session, player = idle_session()
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      presentation:bump("d")
+      presentation:update(session, 0.04)
+      local transform = assert(presentation:player_bump_transform(20))
+      assert(transform.offset_x ~= 0 and transform.offset_y == 0)
+      assert(player.x == 10 and player.y == 10)
+      presentation:update(session, 1)
+      assert(presentation:player_bump_transform(20) == nil)
     end,
   },
   {

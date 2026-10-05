@@ -9,6 +9,8 @@ local BodyDamage = require("src.simulation.body_damage")
 local Locomotion = require("src.simulation.locomotion")
 local Inventory = require("src.inventory.inventory")
 local PhysicalItem = require("src.inventory.physical_item")
+local Tool = require("src.inventory.tool")
+local CorpseLootGrid = require("src.inventory.corpse_loot_grid")
 local Corpse = require("src.world.corpse")
 local Salvage = require("src.simulation.salvage")
 local Reconstruction = require("src.simulation.reconstruction")
@@ -43,6 +45,8 @@ local RouteDefinitions = require("src.routes.definitions")
 local RouteGraph = require("src.routes.graph")
 local WorldTopology = require("src.campaign.world_topology")
 local Building = require("src.construction.building")
+local Loadout = require("src.simulation.loadout")
+local BuildEffects = require("src.simulation.build_effects")
 
 local Session = {}
 Session.__index = Session
@@ -58,6 +62,7 @@ local CAMPAIGN_STATE_FIELDS = {
   run_id = true, meta_snapshot = true, meta_reward_events = true,
   fallen_recurrence = true, death_pending_archive = true,
   discovery_state = true, reinforcement_state = true,
+  loadout = true,
 }
 
 local function attach_campaign_state(state, campaign_state)
@@ -92,6 +97,9 @@ local DIRECTIONS = {
   sw = { -1, -1, "SW" },
   se = { 1, -1, "SE" },
 }
+-- Clockwise order gives the scatter weapon a predictable, symmetric fan
+-- without consuming run RNG or making save/replay outcomes drift.
+local DIRECTION_RING = { "w", "ne", "d", "se", "s", "sw", "a", "nw" }
 local SELF_DESTRUCT_ABILITY = "ability.explosive.self_destruct"
 local BASIC_PROJECTILE_ABILITY = "ability.weapon.projectile.basic"
 local ARCANE_BURST_ABILITY = "ability.arcane.burst"
@@ -151,16 +159,6 @@ local function copy_plain(value)
     assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
       "Active-run entity state must be plain scalar data")
     result[name] = field
-  end
-  return result
-end
-
-local function copy_explored_cells(cells)
-  local result = {}
-  for location_key, explored in pairs(cells or {}) do
-    assert(type(location_key) == "string" and location_key:match("^%-?%d+:%-?%d+$") and explored == true,
-      "Explored-cell data is invalid")
-    result[location_key] = true
   end
   return result
 end
@@ -280,8 +278,16 @@ function Session.new(options)
   -- retain their established run-local counters and ID strings.
   self.identity_allocator = options.identity_allocator
   self.campaign = options.campaign
+  -- Expedition is deliberately a separate disposable run domain.  It uses
+  -- this combat simulator, but never Campaign succession/inventory saves.
+  self.expedition = options.expedition == true
+  self.modifier_registry = options.modifier_registry
   self.emit = options.emit or function() end
   self.meta_reward_handler = options.on_meta_reward
+  -- Presentation/combat-chain bookkeeping is intentionally outside state so
+  -- a Campaign never serializes a half-resolved reactive queue. A restored
+  -- in-flight projectile simply starts a fresh bounded root on its next hit.
+  self._build_chains_by_entity = setmetatable({}, { __mode = "k" })
   local meta_snapshot = copy_meta_snapshot(options.meta_snapshot)
   local inventory = Inventory.new()
   self.state = {
@@ -294,7 +300,6 @@ function Session.new(options)
     curse_id = nil,
     log = {},
     curse_bag = {},
-    explored = {},
     effects = {},
     electrical_effects = {},
     next_component_sequence = 1,
@@ -326,6 +331,8 @@ function Session.new(options)
     fallen_recurrence = FallenRecurrence.copy_spec(options.fallen_recurrence),
     death_pending_archive = nil,
     generation_warnings = {},
+    loadout = nil,
+    expedition = options.expedition_state,
     corpses = {},
     -- A run owns the long-lived player and cargo. Floor construction is only
     -- allowed to reposition this actor and create floor-local world state.
@@ -380,7 +387,13 @@ function Session:damage_terrain(x, y, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", x = x, y = y, reason = "No active world" }
   end
-  return EnvironmentDamage.apply_to_terrain(self.state.world, x, y, spec)
+  local result = EnvironmentDamage.apply_to_terrain(self.state.world, x, y, spec)
+  if result.destroyed and spec and spec.source_actor == self.state.player then
+    self:_emit_build_event({ type = "on_terrain_break", source_actor = self.state.player,
+      target_cell = { x = x, y = y }, ability_id = spec.ability_id, source_component_id = spec.source_component_id,
+      attack_tags = spec.attack_tags or {}, build_chain = spec.build_chain })
+  end
+  return result
 end
 
 function Session:inspect_world_object(object_id)
@@ -399,6 +412,189 @@ end
 
 function Session:available_interactions(actor)
   return Interaction.available(self, actor or self.state.player)
+end
+
+function Session:faced_cell(actor)
+  actor = actor or self.state.player
+  if (not self.campaign and not self.expedition) or not actor then return nil end
+  local delta = DIRECTIONS[actor.direction]
+  -- Campaign facing is cardinal.  Treat a diagonal direction carried by an
+  -- old save as unavailable rather than quietly making directional USE scan a
+  -- diagonal cell.
+  if not delta or math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then return nil end
+  local x, y = actor.x + delta[1], actor.y + delta[2]
+  if not Grid.in_bounds(x, y) then return nil end
+  return { x = x, y = y, direction = actor.direction }
+end
+
+function Session:faced_interactions(actor)
+  local cell = self:faced_cell(actor)
+  if not cell then return {} end
+  return Interaction.available_at(self, actor or self.state.player, cell.x, cell.y)
+end
+
+-- Presentation reads direct attack geometry through this same Session helper
+-- rather than duplicating weapon shapes in Renderer. It is deliberately
+-- read-only: no turns, RNG, effects, or serialization fields are touched.
+function Session:_preview_projectile_line(actor, direction, range, pierce)
+  local delta, cells = DIRECTIONS[direction], {}
+  if not delta or not self.state.world then return cells end
+  local x, y, remaining_pierce = actor.x, actor.y, pierce or 0
+  for _ = 1, range do
+    x, y = x + delta[1], y + delta[2]
+    if not Grid.in_bounds(x, y) then break end
+    cells[#cells + 1] = { x = x, y = y }
+    if self.state.world:blocks_projectile(x, y) then break end
+    local target = self:_actor_at(x, y, actor)
+    if target and self:are_hostile(actor, target) then
+      if remaining_pierce > 0 then remaining_pierce = remaining_pierce - 1 else break end
+    end
+  end
+  return cells
+end
+
+function Session:_preview_ability(actor, ability, direction)
+  if not actor or not ability or not DIRECTIONS[direction] then return {} end
+  local implementation = ability.implementation
+  if implementation == "projectile" or implementation == "piercing_projectile" then
+    local range = (ability.range or actor.bullet_range or Grid.width)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0)
+    local pierce = (ability.pierce or 0)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_pierce") or 0)
+    local center_index, cells, seen = 1, {}, {}
+    for index, candidate in ipairs(DIRECTION_RING) do if candidate == direction then center_index = index; break end end
+    local count = 1 + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_count") or 0)
+    local start = -math.floor((count - 1) / 2)
+    for offset = start, start + count - 1 do
+      local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], range, pierce)) do
+        local key = Grid.key(cell.x, cell.y)
+        if not seen[key] then seen[key], cells[#cells + 1] = true, cell end
+      end
+    end
+    return cells
+  elseif implementation == "scattershot" then
+    local center_index, cells, seen = 1, {}, {}
+    for index, candidate in ipairs(DIRECTION_RING) do if candidate == direction then center_index = index; break end end
+    local count = math.max(1, (ability.pellets or 3)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "scatter_pellets") or 0))
+    local start = -math.floor(count / 2)
+    for offset = start, start + count - 1 do
+      local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+      local range = (ability.range or actor.bullet_range or Grid.width)
+        + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0)
+      for _, cell in ipairs(self:_preview_projectile_line(actor, DIRECTION_RING[index], range, 0)) do
+        local key = Grid.key(cell.x, cell.y)
+        if not seen[key] then seen[key], cells[#cells + 1] = true, cell end
+      end
+    end
+    return cells
+  elseif implementation == "melee" then
+    local delta = DIRECTIONS[direction]
+    local x, y = actor.x + delta[1], actor.y + delta[2]
+    return Grid.in_bounds(x, y) and { { x = x, y = y } } or {}
+  elseif implementation == "electrical_discharge" then
+    local delta = DIRECTIONS[direction]
+    local trace = Electricity.trace(self.state.world, { x = actor.x + delta[1], y = actor.y + delta[2] }, { max_cells = ability.max_cells })
+    return trace.reached_cells or {}
+  elseif implementation == "area_burst" then
+    local delta, cells = DIRECTIONS[direction], {}
+    local x, y, radius = actor.x + delta[1] * (ability.range or 1), actor.y + delta[2] * (ability.range or 1), ability.radius or 1
+    for cell_x = x - radius, x + radius do
+      for cell_y = y - radius, y + radius do if Grid.in_bounds(cell_x, cell_y) then cells[#cells + 1] = { x = cell_x, y = cell_y } end end
+    end
+    return cells
+  end
+  return {}
+end
+
+function Session:player_attack_preview()
+  if not self.campaign and not self.expedition then return nil end
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not player then return nil end
+  local resolved = self.expedition and self:expedition_active_weapon()
+    or (loadout and Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon"))
+  if not resolved then return nil end
+  if resolved.source_kind == "tool" then
+    local cell = self:faced_cell(player)
+    return cell and { cells = { { x = cell.x, y = cell.y } }, direction = player.direction,
+      source_kind = "tool", implementation = "tool", tool_family = resolved.tool_definition.family } or nil
+  end
+  return {
+    cells = self:_preview_ability(player, resolved.ability, player.direction), direction = player.direction,
+    source_kind = "component", ability_id = resolved.ability.id, implementation = resolved.ability.implementation,
+  }
+end
+
+function Session:enemy_threat_preview(enemy)
+  if not enemy or not self.state.player then return nil end
+  if enemy == self.state.boss and enemy.pending_telegraph then
+    local cells = {}
+    for key in pairs(self:_boss_telegraph_cells(enemy)) do
+      local x, y = key:match("(%d+):(%d+)")
+      cells[#cells + 1] = { x = tonumber(x), y = tonumber(y) }
+    end
+    return { cells = cells, direction = enemy.pending_telegraph.direction, kind = "telegraph" }
+  end
+  if enemy.attack and enemy.attack > 0 then
+    local cells = {}
+    for key in pairs(self:_attack_cells(enemy)) do
+      local x, y = key:match("(%d+):(%d+)")
+      cells[#cells + 1] = { x = tonumber(x), y = tonumber(y) }
+    end
+    return { cells = cells, kind = "telegraph" }
+  end
+  local target, role = self.state.player, enemy.ai_role or self:_infer_ai_role(enemy)
+  local dx, dy = target.x - enemy.x, target.y - enemy.y
+  local nearby = math.max(math.abs(dx), math.abs(dy)) <= 1
+  if nearby and self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
+    return { cells = { { x = enemy.x, y = enemy.y } }, kind = "detonate" }
+  end
+  local melee_direction = self:_melee_direction_to(enemy, target)
+  local melee = self:actor_ability_by_implementation(enemy, "melee")
+  if melee and melee_direction then
+    local ability = self.registry:get_ability(melee)
+    return { cells = self:_preview_ability(enemy, ability, melee_direction), direction = melee_direction, ability_id = melee, kind = "melee" }
+  end
+  local electrical_direction = self:_electrical_direction_to(enemy, target)
+  if role == "controller" and electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+    local ability = self.registry:get_ability(ELECTRICAL_DISCHARGE_ABILITY)
+    return { cells = self:_preview_ability(enemy, ability, electrical_direction), direction = electrical_direction, ability_id = ability.id, kind = "electric" }
+  end
+  if role == "controller" and self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and math.max(math.abs(dx), math.abs(dy)) <= 4 then
+    local ability, cells = self.registry:get_ability(ARCANE_BURST_ABILITY), {}
+    for x = target.x - (ability.radius or 1), target.x + (ability.radius or 1) do
+      for y = target.y - (ability.radius or 1), target.y + (ability.radius or 1) do if Grid.in_bounds(x, y) then cells[#cells + 1] = { x = x, y = y } end end
+    end
+    return { cells = cells, kind = "area", ability_id = ability.id }
+  end
+  -- These AI roles retreat at close range instead of firing, so do not paint
+  -- a misleading immediate shot across the field.
+  if (role == "skirmisher" or role == "controller") and math.max(math.abs(dx), math.abs(dy)) <= 2 then return nil end
+  local projectile = self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" })
+  local direction = projectile and self:_projectile_direction_to(enemy, target) or nil
+  if projectile and direction then
+    local ability = self.registry:get_ability(projectile)
+    if (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0) then
+      return { cells = self:_preview_ability(enemy, ability, direction), direction = direction, ability_id = projectile, kind = "ranged" }
+    end
+  end
+  return nil
+end
+
+function Session:visible_enemy_threats()
+  local result = {}
+  for _, enemy in ipairs(self.state.enemies or {}) do
+    if self.state.visible[Grid.key(enemy.x, enemy.y)] then
+      local preview = self:enemy_threat_preview(enemy)
+      if preview and #preview.cells > 0 then result[#result + 1] = { actor = enemy, preview = preview } end
+    end
+  end
+  if self.state.boss and self.state.visible[Grid.key(self.state.boss.x, self.state.boss.y)] then
+    local preview = self:enemy_threat_preview(self.state.boss)
+    if preview and #preview.cells > 0 then result[#result + 1] = { actor = self.state.boss, preview = preview } end
+  end
+  return result
 end
 
 function Session:interact(actor, object_id, action_id)
@@ -532,6 +728,11 @@ function Session:_mark_player_dead(provenance)
     self:_log("BODY LOST — SUCCESSION WILL RESUME FROM THE LAST COMMITTED CAMPAIGN.")
     return failure
   end
+  if self.expedition then
+    state.ended = "expedition_dead"
+    self:_log("EXPEDITION LOST.")
+    return { applied = true, code = "expedition_dead", provenance = provenance }
+  end
   state.ended = "gameover"
   if state.death_pending_archive or not state.player or not state.player.body
     or not tostring(state.run_id):match("^run:%d+$") then
@@ -569,11 +770,641 @@ function Session:create_resource_stack(resource_id, quantity, scope)
   return PhysicalItem.from_resource(resource_id, quantity, item_id, self.registry)
 end
 
+function Session:create_tool(tool_definition_id, scope)
+  local item_id
+  if self.identity_allocator then
+    item_id = self.identity_allocator:allocate_item_id(scope or "zone")
+  else
+    local sequence = self.state.next_item_sequence
+    self.state.next_item_sequence = sequence + 1
+    item_id = string.format("item:%06d", sequence)
+  end
+  return PhysicalItem.from_tool(Tool.new(self.registry:get_tool(tool_definition_id), item_id), self.registry)
+end
+
+-- Campaign loadout state is deliberately body-identity-bound. Zone travel
+-- retains it, while physical succession receives a fresh deterministic setup.
+function Session:ensure_campaign_loadout()
+  if not self.campaign then return nil end
+  local state, player = self.state, self.state.player
+  if not player or not player.body then return nil end
+  local loadout = Loadout.from_data(state.loadout)
+  if not loadout or loadout.body_actor_id ~= player.actor_id then
+    loadout = Loadout.new_for(self, player)
+    state.loadout = loadout
+  else
+    state.loadout = loadout
+  end
+  -- Keep an uninstalled owned part bound so a reconstruction can restore the
+  -- same physical provider, but never leave a dangling reference once that
+  -- part has actually left player ownership (for example through sale).
+  for _, kind in ipairs({ "weapon", "ability" }) do
+    local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+    for index = 1, Loadout.SLOT_COUNT do
+      local binding = slots[index]
+      if binding and binding.source_kind == "component"
+        and not player.body:find_component(binding.physical_id)
+        and not state.inventory:get(binding.physical_id) then
+        slots[index] = nil
+      end
+    end
+  end
+  -- A historical Campaign's scalar reserve is converted once per physical
+  -- player body. No ranged provider means no fabricated arbitrary ammo.
+  if loadout.ammo_migration_actor_id ~= player.actor_id and (player.ammo or 0) > 0 then
+    local selected
+    for index = 1, Loadout.SLOT_COUNT do
+      local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
+      if resolved and resolved.ability and resolved.ability.ammo then selected = resolved; break end
+    end
+    if selected then
+      -- Historical reserve values were unbounded scalars. Convert them in
+      -- physical stack-sized chunks so a large legacy save never creates an
+      -- invalid stack or loses reserve when cargo is partly full.
+      local definition = self.registry:get_resource(selected.ability.ammo.family)
+      while player.ammo > 0 do
+        local quantity = math.min(player.ammo, definition.max_stack)
+        local item = self:create_resource_stack(selected.ability.ammo.family, quantity, "campaign")
+        if not state.inventory:auto_place(item) then break end
+        player.ammo = player.ammo - quantity
+      end
+      if player.ammo == 0 then
+        loadout.ammo_migration_actor_id = player.actor_id
+      end
+    end
+  elseif loadout.ammo_migration_actor_id == nil and (player.ammo or 0) == 0 then
+    loadout.ammo_migration_actor_id = player.actor_id
+  end
+  for index = 1, Loadout.SLOT_COUNT do
+    local resolved = Loadout.resolve(self, player, loadout.weapon_slots[index], "weapon")
+    if resolved and resolved.ability and resolved.ability.ammo then self:weapon_magazine(resolved.provider, resolved.ability) end
+  end
+  return loadout
+end
+
+function Session:campaign_loadout()
+  return self:ensure_campaign_loadout()
+end
+
+function Session:quick_slot(kind, index)
+  local loadout = self:ensure_campaign_loadout()
+  if not loadout then return nil end
+  index = tonumber(index) or (kind == "weapon" and loadout.active_weapon or loadout.active_ability)
+  if index ~= 1 and index ~= 2 then return nil end
+  return kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]
+end
+
+function Session:loadout_candidates(kind)
+  return Loadout.candidates(self, self.state.player, kind)
+end
+
+function Session:assign_campaign_loadout(kind, index, binding)
+  local loadout = self:ensure_campaign_loadout()
+  if not loadout or (kind ~= "weapon" and kind ~= "ability") or (index ~= 1 and index ~= 2) then
+    return { applied = false, code = "invalid_loadout_slot", reason = "Loadout slot is unavailable" }
+  end
+  if binding ~= nil then
+    local valid = false
+    for _, candidate in ipairs(self:loadout_candidates(kind)) do
+      if candidate.source_kind == binding.source_kind and candidate.physical_id == binding.physical_id
+        and candidate.ability_id == binding.ability_id then valid = true; break end
+    end
+    if not valid then return { applied = false, code = "invalid_loadout_binding", reason = "That source cannot fill this quick slot" } end
+    binding = { source_kind = binding.source_kind, physical_id = binding.physical_id, ability_id = binding.ability_id,
+      attack_id = binding.attack_id, tool_definition_id = binding.tool_definition_id }
+  end
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  slots[index] = binding
+  return { applied = true, kind = kind, index = index, binding = binding }
+end
+
+function Session:expedition_active_weapon()
+  local expedition, player = self.state.expedition, self.state.player
+  if not self.expedition or not expedition or not player or not player.body then return nil end
+  local installed = player.body:find_component(expedition.weapon_provider_id)
+  local provider = installed and installed.component or nil
+  local ability = expedition.weapon_ability_id and self.registry.abilities[expedition.weapon_ability_id] or nil
+  if not provider or provider.current_integrity <= 0 or not ability then return nil end
+  return {
+    source_kind = "component", provider = provider, ability = ability,
+    display_name = ability.display_name,
+  }
+end
+
+function Session:expedition_active_ability()
+  local expedition, player = self.state.expedition, self.state.player
+  if not self.expedition or not expedition or not player or not player.body then return nil end
+  local ability = expedition.active_ability_id and self.registry.abilities[expedition.active_ability_id] or nil
+  if not ability then return nil end
+  if ability.implementation == "dash" then return { ability = ability, provider = nil, display_name = ability.display_name } end
+  local installed = player.body:find_component(expedition.ability_provider_id)
+  local provider = installed and installed.component or nil
+  if not provider or provider.current_integrity <= 0 then return nil end
+  return { source_kind = "component", provider = provider, ability = ability, display_name = ability.display_name }
+end
+
+function Session:weapon_magazine(component, ability)
+  local ammo = ability and ability.ammo
+  if not ammo or not component then return nil end
+  component.weapon_state = component.weapon_state or {}
+  local key = ammo.magazine_key or ability.id
+  local magazine = component.weapon_state[key]
+  if not magazine then
+    magazine = { loaded = ammo.magazine_capacity }
+    component.weapon_state[key] = magazine
+  end
+  local capacity = ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+  magazine.loaded = math.max(0, math.min(capacity, math.floor(magazine.loaded or 0)))
+  return magazine, key
+end
+
+function Session:ammo_reserve(resource_id)
+  return self.state.inventory and self.state.inventory:resource_quantity(resource_id) or 0
+end
+
+function Session:_reload_weapon(provider, ability)
+  local ammo, inventory = ability.ammo, self.state.inventory
+  local magazine = self:weapon_magazine(provider, ability)
+  local capacity = ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+  local missing = capacity - magazine.loaded
+  local reserve = self.expedition and ((self.state.expedition.reserve_ammo or {})[ammo.family] or 0)
+    or inventory:resource_quantity(ammo.family)
+  if missing <= 0 then return { applied = false, code = "magazine_full", reason = "Magazine is already full" } end
+  if reserve <= 0 then
+    return self:_ability_failure(ability.id, "no_compatible_ammo", "No compatible " .. self.registry:get_resource(ammo.family).display_name)
+  end
+  local amount = math.min(missing, reserve)
+  if self.expedition then
+    self.state.expedition.reserve_ammo[ammo.family] = reserve - amount
+  else
+    local consumed, reason = inventory:consume_resources({ [ammo.family] = amount })
+    if not consumed then return self:_ability_failure(ability.id, "no_compatible_ammo", reason) end
+  end
+  magazine.loaded = magazine.loaded + amount
+  local family = string.upper(self.registry:get_resource(ammo.family).display_name)
+  self:_log("RELOADED — " .. magazine.loaded .. "/" .. capacity .. " " .. family .. ".")
+  self:_sound("pickup")
+  local result = { applied = true, code = "reloaded", ability_id = ability.id, component_id = provider.id,
+    loaded = magazine.loaded, capacity = capacity, consumed = amount, family = ammo.family }
+  self:_emit_build_event({
+    type = "on_reload", source_actor = self.state.player, weapon_ability = ability,
+    provider = provider, attack_tags = BuildEffects.tags_for_ability(ability),
+  })
+  return result
+end
+
+-- The resolver is intentionally scoped to player charms and immediate combat
+-- consequences.  Session remains the authority for all damage, Force, fire,
+-- ammunition and persistence mutations.
+function Session:build_effects()
+  return BuildEffects.describe(self, self.state.player)
+end
+
+function Session:_build_event_trace(chain, kind, data)
+  if not chain or not chain.budget then return end
+  chain.budget.trace_sequence = (chain.budget.trace_sequence or 0) + 1
+  local entry = {
+    id = chain.budget.trace_sequence,
+    parent_id = chain.trace_parent_id,
+    kind = kind,
+    depth = chain.depth,
+    root_action_id = chain.root_label,
+  }
+  for key, value in pairs(data or {}) do entry[key] = value end
+  chain.budget.trace[#chain.budget.trace + 1] = entry
+  self._last_build_trace = chain.budget.trace
+  return entry
+end
+
+function Session:build_effect_trace()
+  return self._last_build_trace or {}
+end
+
+function Session:_build_small_explosion(origin, spec, provenance)
+  local radius = spec.radius or 1
+  local cells = self:_blast(origin, radius)
+  self:_damage_environment_radius(origin, radius, {
+    amount = spec.damage or 1, cause = "explosive", source = "build_effect",
+    source_actor = provenance.source_actor, source_actor_id = provenance.source_actor_id,
+    source_component_id = provenance.source_component_id, ability_id = provenance.ability_id,
+    attack_tags = provenance.attack_tags, build_chain = provenance.build_chain,
+  })
+  for location_key in pairs(cells) do self.state.effects[location_key] = true end
+  for _, actor in ipairs(self:_living_actors()) do
+    if cells[Grid.key(actor.x, actor.y)] then
+      self:_apply_world_actor_damage(actor, spec.damage or 1,
+        actor == self.state.player and "A volatile rupture catches you." or nil, {
+          cause = "explosive", source = "build_effect", source_actor = provenance.source_actor,
+          source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+          ability_id = provenance.ability_id, attack_tags = provenance.attack_tags,
+          build_chain = provenance.build_chain, skip_body_damage = true,
+        })
+    end
+  end
+  self:_apply_explosion_force(origin, radius, cells, {
+    distance = spec.force or 1, cause = "explosive", source_actor = provenance.source_actor,
+    source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+    ability_id = provenance.ability_id, attack_tags = provenance.attack_tags,
+    build_chain = provenance.build_chain,
+  })
+  if spec.ignite then self:_ignite_flammable_radius(origin, radius, provenance) end
+  self:_sound("boom")
+  return { cells = cells, radius = radius }
+end
+
+function Session:_apply_build_effect(entry, event, chain)
+  local effect, spec = entry.effect, entry.effect.effect
+  local source = event.source_actor
+  local provenance = {
+    source_actor = source,
+    source_actor_id = source and (source.actor_id or source.content_id or source.kind),
+    source_component_id = event.source_component_id or (event.provider and event.provider.id),
+    ability_id = event.ability_id or (event.weapon_ability and event.weapon_ability.id),
+    attack_tags = event.attack_tags,
+    build_chain = chain,
+  }
+  if spec.kind == "chain_electricity" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    if not origin then return { applied = false, code = "no_origin" } end
+    local discharge = Electricity.discharge(self.state.world, origin, {
+      max_cells = spec.max_cells or 12, damage = spec.damage or 1,
+      source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+      ability_id = provenance.ability_id, cause = "electrical",
+    }, {
+      actors_at = function(x, y) return self:_actors_at(x, y) end,
+      actor_id = function(actor) return self:_electrical_actor_id(actor) end,
+      on_actor_reached = function(actor, cell)
+        return self:_apply_world_actor_damage(actor, spec.damage or 1,
+          actor == self.state.player and "ARC RELAY ELECTRICITY RIPS THROUGH YOU." or nil, {
+            cause = "electrical", source = "build_effect", source_actor = source,
+            source_actor_id = provenance.source_actor_id, source_component_id = provenance.source_component_id,
+            ability_id = provenance.ability_id, attack_tags = event.attack_tags,
+            build_chain = chain, x = cell.x, y = cell.y,
+          })
+      end,
+    })
+    self.state.electrical_effects = discharge.reached_cells
+    self:_event("electricity", discharge)
+    return discharge
+  elseif spec.kind == "kinetic_burst" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    if not origin then return { applied = false, code = "no_origin" } end
+    local results = {}
+    for _, target in ipairs(self:_living_actors()) do
+      if target ~= source and Grid.distance(origin, target) <= (spec.radius or 1) then
+        local dx, dy = target.x - origin.x, target.y - origin.y
+        if dx == 0 and dy == 0 then dx, dy = event.force_dx or 1, event.force_dy or 0 end
+        results[#results + 1] = self:apply_force(target, {
+          dx = dx, dy = dy, distance = spec.force or 1, cause = "kinetic",
+          source_actor = source, source_actor_id = provenance.source_actor_id,
+          source_component_id = provenance.source_component_id, ability_id = provenance.ability_id,
+          attack_tags = event.attack_tags, build_chain = chain,
+        })
+      end
+    end
+    self.state.effects[Grid.key(origin.x, origin.y)] = true
+    self:_sound("hit")
+    return { applied = #results > 0, results = results }
+  elseif spec.kind == "small_explosion" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    return origin and self:_build_small_explosion(origin, spec, provenance) or { applied = false, code = "no_origin" }
+  elseif spec.kind == "magazine_refund" then
+    local loadout = self:ensure_campaign_loadout()
+    local resolved = self.expedition and self:expedition_active_weapon()
+      or (loadout and Loadout.resolve(self, self.state.player, loadout.weapon_slots[loadout.active_weapon], "weapon") or nil)
+    if not resolved or not resolved.ability or not resolved.ability.ammo then
+      return { applied = false, code = "active_weapon_not_ranged" }
+    end
+    local magazine = self:weapon_magazine(resolved.provider, resolved.ability)
+    local previous = magazine.loaded
+    local capacity = resolved.ability.ammo.magazine_capacity + RunModifiers.value(self.state, self.registry, "magazine_capacity")
+    magazine.loaded = math.min(capacity, magazine.loaded + (spec.amount or 1))
+    if magazine.loaded > previous then self:_log("RECYCLER +" .. (magazine.loaded - previous) .. ".") end
+    return { applied = magazine.loaded > previous, loaded = magazine.loaded, previous = previous }
+  elseif spec.kind == "cooldown_reduction" then
+    local player = self.state.player
+    local previous = player.dash or 0
+    player.dash = math.max(0, previous - (spec.amount or 1))
+    if player.dash < previous then self:_log("QUICK RELOAD — DASH CHARGED.") end
+    return { applied = player.dash < previous, previous = previous, cooldown = player.dash }
+  elseif spec.kind == "ignite" then
+    local origin = event.target_cell or (event.target and { x = event.target.x, y = event.target.y })
+    return origin and self:_ignite_flammable_radius(origin, spec.radius or 0, provenance) or { applied = false, code = "no_origin" }
+  end
+  return { applied = false, code = "unknown_build_effect" }
+end
+
+function Session:_emit_build_event(event)
+  if not event or not event.type or event.source_actor ~= self.state.player then return { applied = false, code = "not_player_build" } end
+  local chain = event.build_chain or BuildEffects.new_chain(event.type)
+  event.build_chain = chain
+  local trigger_node = self:_build_event_trace(chain, "trigger", {
+    event = event.type,
+    source = self:_electrical_actor_id(event.source_actor),
+    target = event.target and self:_electrical_actor_id(event.target) or nil,
+  })
+  if chain.depth >= BuildEffects.MAX_CHAIN_DEPTH then
+    chain.budget.truncated = true
+    self:_build_event_trace(chain, "truncated", { reason = "depth" })
+    return { applied = false, code = "chain_depth_limit", chain = chain }
+  end
+  local applied = {}
+  for _, entry in ipairs(BuildEffects.resolve(self, self.state.player, event)) do
+    if entry.active and not chain.ancestry[entry.key] then
+      if chain.budget.executions >= BuildEffects.MAX_EXECUTIONS then
+        chain.budget.truncated = true
+        self:_build_event_trace(chain, "truncated", { reason = "execution_budget" })
+        break
+      end
+      chain.budget.executions = chain.budget.executions + 1
+      local modifier_node = self:_build_event_trace(chain, "modifier", {
+        modifier_id = entry.source_id or entry.charm_id,
+        modifier_name = entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id,
+        stacks = entry.passive_count,
+      })
+      modifier_node.parent_id = trigger_node and trigger_node.id or modifier_node.parent_id
+      local derived = BuildEffects.derive_chain(chain, entry.key, modifier_node.id)
+      local effect_node = self:_build_event_trace(derived, "effect", {
+        effect_id = entry.effect.id, charm_id = entry.charm_id, values = entry.effect.effect,
+      })
+      derived.trace_parent_id = effect_node and effect_node.id or derived.trace_parent_id
+      self:_event("build_effect", { effect_id = entry.effect.id, charm_id = entry.charm_id,
+        source_name = entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id,
+        stacks = entry.passive_count, summary = entry.effect.id:gsub("_", " "):upper(),
+        x = event.target_cell and event.target_cell.x, y = event.target_cell and event.target_cell.y })
+      if event.target_cell then self.state.effects[Grid.key(event.target_cell.x, event.target_cell.y)] = true end
+      self:_log(string.upper(entry.source_name or (entry.charm and entry.charm.display_name) or entry.charm_id) .. ".")
+      applied[#applied + 1] = { entry = entry, result = self:_apply_build_effect(entry, event, derived) }
+    end
+  end
+  return { applied = #applied > 0, effects = applied, chain = chain }
+end
+
+function Session:attack_active_weapon()
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return self:_ability_failure("attack", "missing_loadout", "No Campaign loadout is available") end
+  local resolved, failure = Loadout.resolve(self, player, loadout.weapon_slots[loadout.active_weapon], "weapon")
+  if not resolved then
+    self:_log((failure and failure.reason) or "WEAPON SLOT UNAVAILABLE.")
+    return self:_ability_failure("attack", failure and failure.code or "slot_unavailable", failure and failure.reason or "Weapon slot is unavailable")
+  end
+  if resolved.source_kind == "tool" then return self:attack_tool(resolved.tool, resolved.tool_definition) end
+  local ability = resolved.ability
+  local attack_event = { type = "on_attack", source_actor = player, provider = resolved.provider,
+    weapon_ability = ability, ability_id = ability.id, source_component_id = resolved.provider.id,
+    attack_tags = BuildEffects.tags_for_ability(ability) }
+  if ability.ammo then
+    local magazine = self:weapon_magazine(resolved.provider, ability)
+    local cost = ability.ammo.ammo_per_attack
+    if magazine.loaded < cost then return self:_reload_weapon(resolved.provider, ability) end
+    self:_emit_build_event(attack_event)
+    magazine.loaded = magazine.loaded - cost
+    local result = self:activate_actor_ability(player, ability.id, {
+      direction = player.direction, provider_component_id = resolved.provider.id, skip_resource = true,
+    })
+    if not result.applied then magazine.loaded = magazine.loaded + cost end
+    return result
+  end
+  self:_emit_build_event(attack_event)
+  return self:activate_actor_ability(player, ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+-- Expedition deliberately has one ready class weapon instead of a spatial
+-- inventory loadout.  It still travels through the ordinary ability/projectile
+-- pipeline, so combat, body damage and build effects remain shared.
+function Session:attack_expedition_weapon()
+  local player, resolved = self.state.player, self:expedition_active_weapon()
+  if not resolved then
+    self:_log("CLASS WEAPON UNAVAILABLE.")
+    return self:_ability_failure("attack", "slot_unavailable", "Class weapon is unavailable")
+  end
+  local ability = resolved.ability
+  local attack_event = { type = "on_attack", source_actor = player, provider = resolved.provider,
+    weapon_ability = ability, ability_id = ability.id, source_component_id = resolved.provider.id,
+    attack_tags = BuildEffects.tags_for_ability(ability) }
+  if ability.ammo then
+    local magazine = self:weapon_magazine(resolved.provider, ability)
+    local cost = ability.ammo.ammo_per_attack
+    if magazine.loaded < cost then return self:_reload_weapon(resolved.provider, ability) end
+    self:_emit_build_event(attack_event)
+    magazine.loaded = magazine.loaded - cost
+    local result = self:activate_actor_ability(player, ability.id, {
+      direction = player.direction, provider_component_id = resolved.provider.id, skip_resource = true,
+    })
+    if not result.applied then magazine.loaded = magazine.loaded + cost end
+    return result
+  end
+  self:_emit_build_event(attack_event)
+  return self:activate_actor_ability(player, ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+-- A conventional tool is a carried weapon source.  It intentionally has no
+-- body ability/provider: the high-level ATTACK seam resolves it here and
+-- keeps normal actor, object, and terrain damage authoritative below it.
+function Session:_wear_tool(tool, definition)
+  if tool.current_durability <= 0 then return false end
+  tool.current_durability = math.max(0, tool.current_durability - 1)
+  if tool.current_durability == 0 then
+    self:_log(string.upper(definition.display_name) .. " BROKE.")
+  end
+  return true
+end
+
+function Session:_tool_target_protected(x, y, object)
+  local state = self.state
+  local cell_key = Grid.key(x, y)
+  if state.surface_connector_cells and state.surface_connector_cells[cell_key] then
+    return true, "Protected campaign connection"
+  end
+  if state.protected_content_cells and state.protected_content_cells[cell_key] then
+    return true, "Protected critical site"
+  end
+  if object and (object.zone_connection_id or object.interaction_role == "zone_connection"
+      or object.interaction_role == "traversal" or object.interaction_role == "reconstruction_station") then
+    return true, "Protected world infrastructure"
+  end
+  return false
+end
+
+function Session:_tool_impact(x, y, target_kind, material_id, result, definition)
+  self:_event("tool_impact", {
+    x = x, y = y, target_kind = target_kind, material_id = material_id,
+    applied = result and result.applied == true, destroyed = result and result.destroyed == true,
+    code = result and result.code, tool_family = definition.family,
+  })
+end
+
+function Session:_tool_modify_target(tool, definition, x, y, object)
+  local material_id = object and object.material_id or (self.state.world:get_cell(x, y) or {}).material_id
+  local material = material_id and self.registry:get_material(material_id) or nil
+  if not material then return { applied = false, code = "no_physical_target", reason = "Nothing physical is in reach" } end
+  local protected, protected_reason = self:_tool_target_protected(x, y, object)
+  local result
+  if protected then
+    result = { applied = false, code = "protected_target", reason = protected_reason, x = x, y = y, material_id = material.id }
+  else
+    local effectiveness = material.tool_effectiveness and material.tool_effectiveness[definition.family] or nil
+    if not effectiveness then
+      result = { applied = false, code = "tool_no_effect", reason = "The " .. definition.display_name .. " cannot affect " .. material.display_name,
+        x = x, y = y, material_id = material.id }
+    else
+      local amount = math.max(1, math.floor(definition.modification.damage * effectiveness + 0.0001))
+      local spec = { amount = amount, cause = "kinetic", source = "tool", source_actor = self.state.player,
+        source_actor_id = self.state.player and self.state.player.actor_id, source_tool_id = tool.id,
+        tool_family = definition.family, attack_tags = BuildEffects.tags_for_tool() }
+      result = object and self:damage_world_object(object, spec) or self:damage_terrain(x, y, spec)
+    end
+  end
+  self:_wear_tool(tool, definition)
+  self:_tool_impact(x, y, object and "world_object" or "terrain", material.id, result, definition)
+  self:_sound(result.applied and "hit" or "select")
+  if result.destroyed then
+    self:_log(string.upper(material.display_name) .. " BROKEN.")
+  elseif result.applied then
+    self:_log(string.upper(material.display_name) .. " DAMAGED.")
+  else
+    self:_log(result.reason or "CLANG — NO EFFECT.")
+  end
+  result.tool_id, result.tool_family = tool.id, definition.family
+  result.committed = true
+  return result
+end
+
+function Session:attack_tool(tool, definition)
+  definition = definition or (tool and self.registry:get_tool(tool.definition_id))
+  if not tool or not definition or not Tool.is_functional(tool) then
+    self:_log("BROKEN TOOL.")
+    return self:_ability_failure("tool.attack", "tool_broken", "Assigned tool is broken")
+  end
+  local player, cell = self.state.player, self:faced_cell(self.state.player)
+  if not player or not cell then
+    return self:_ability_failure("tool.attack", "invalid_direction", "A cardinal facing direction is required")
+  end
+  local actor = self:_actor_at(cell.x, cell.y, player)
+  if actor then
+    if not self:are_hostile(player, actor) then
+      self:_log("TOOL STRIKE HAS NO HOSTILE TARGET.")
+      return self:_ability_failure("tool.attack", "friendly_target", "That actor is not hostile")
+    end
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool",
+      heavy = (definition.combat.damage or 0) >= 2 or (definition.combat.force or 0) >= 2 })
+    local damage = self:_apply_world_actor_damage(actor, definition.combat.damage, nil, {
+      cause = "kinetic", source = "tool", source_actor = player, source_actor_id = player.actor_id,
+      source_tool_id = tool.id, tool_family = definition.family, attack_tags = BuildEffects.tags_for_tool(),
+    })
+    local force = nil
+    if not damage.dead and (definition.combat.force or 0) > 0 then
+      local delta = DIRECTIONS[player.direction]
+      force = self:apply_force(actor, { dx = delta[1], dy = delta[2], distance = definition.combat.force,
+        cause = "kinetic", source_actor = player, source_actor_id = player.actor_id, source_tool_id = tool.id,
+        attack_tags = BuildEffects.tags_for_tool() })
+    end
+    self:_wear_tool(tool, definition)
+    self:_sound("hit")
+    self:_log(string.upper(definition.display_name) .. " STRIKE LANDED.")
+    return { applied = true, code = "tool_attack", tool_id = tool.id, target = actor, damage = damage, force = force,
+      durability = tool.current_durability }
+  end
+  local object = self.state.world:object_at(cell.x, cell.y)
+  if object and not object.destroyed then
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool", heavy = false })
+    return self:_tool_modify_target(tool, definition, cell.x, cell.y, object)
+  end
+  local terrain = self.state.world:get_cell(cell.x, cell.y)
+  local material = terrain and self.registry:get_material(terrain.material_id)
+  if material and (material.solid or material.destructible) then
+    self:_emit_build_event({ type = "on_attack", source_actor = player, provider = tool,
+      source_component_id = tool.id, attack_tags = BuildEffects.tags_for_tool() })
+    self:_event("actor_attack", { actor = player, direction = player.direction, implementation = "tool", heavy = false })
+    return self:_tool_modify_target(tool, definition, cell.x, cell.y, nil)
+  end
+  self:_log("NOTHING PHYSICAL TO STRIKE.")
+  return self:_ability_failure("tool.attack", "no_physical_target", "Nothing physical is in reach")
+end
+
+function Session:activate_active_ability()
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return self:_ability_failure("ability", "missing_loadout", "No Campaign loadout is available") end
+  local resolved, failure = Loadout.resolve(self, player, loadout.ability_slots[loadout.active_ability], "ability")
+  if not resolved then
+    self:_log((failure and failure.reason) or "ABILITY SLOT UNAVAILABLE.")
+    return self:_ability_failure("ability", failure and failure.code or "slot_unavailable", failure and failure.reason or "Ability slot is unavailable")
+  end
+  if resolved.ability.implementation == "dash" then return self:_dash() end
+  return self:activate_actor_ability(player, resolved.ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider.id,
+  })
+end
+
+function Session:activate_expedition_ability()
+  local player, resolved = self.state.player, self:expedition_active_ability()
+  if not resolved then
+    self:_log("CLASS ABILITY UNAVAILABLE.")
+    return self:_ability_failure("ability", "slot_unavailable", "Class ability is unavailable")
+  end
+  if resolved.ability.implementation == "dash" then return self:_dash() end
+  return self:activate_actor_ability(player, resolved.ability.id, {
+    direction = player.direction, provider_component_id = resolved.provider and resolved.provider.id,
+  })
+end
+
+function Session:swap_campaign_loadout(kind)
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then return { applied = false, code = "missing_loadout", reason = "No Campaign loadout is available" } end
+  local active_key = kind == "weapon" and "active_weapon" or "active_ability"
+  local other = loadout[active_key] == 1 and 2 or 1
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  local resolved, failure = Loadout.resolve(self, player, slots[other], kind)
+  if not resolved then
+    self:_log((failure and failure.reason) or "ALTERNATE SLOT UNAVAILABLE.")
+    return { applied = false, code = failure and failure.code or "slot_unavailable", reason = failure and failure.reason or "Alternate slot is unavailable" }
+  end
+  loadout[active_key] = other
+  self:_log(string.upper(kind) .. " → " .. string.upper(resolved.display_name or resolved.ability.display_name) .. ".")
+  self:_sound("select")
+  return { applied = true, kind = kind, active = other, ability_id = resolved.ability and resolved.ability.id,
+    component_id = resolved.provider and resolved.provider.id, tool_id = resolved.tool and resolved.tool.id }
+end
+
+function Session:campaign_loadout_swap_available(kind)
+  local loadout, player = self:ensure_campaign_loadout(), self.state.player
+  if not loadout then
+    return nil, { applied = false, code = "missing_loadout", reason = "No Campaign loadout is available" }
+  end
+  local active_key = kind == "weapon" and "active_weapon" or kind == "ability" and "active_ability" or nil
+  if not active_key then
+    return nil, { applied = false, code = "invalid_loadout_slot", reason = "Loadout slot is unavailable" }
+  end
+  local other = loadout[active_key] == 1 and 2 or 1
+  local slots = kind == "weapon" and loadout.weapon_slots or loadout.ability_slots
+  local resolved, failure = Loadout.resolve(self, player, slots[other], kind)
+  if not resolved then
+    return nil, { applied = false, code = failure and failure.code or "slot_unavailable",
+      reason = failure and failure.reason or "Alternate slot is unavailable" }
+  end
+  return resolved
+end
+
 function Session:damage_world_object(object_or_id, spec)
   if not self.state.world then
     return { applied = false, code = "no_world", reason = "No active world" }
   end
-  return EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
+  local object = type(object_or_id) == "table" and object_or_id or self.state.world:get_object(object_or_id)
+  local result = EnvironmentDamage.apply_to_object(self.state.world, object_or_id, spec)
+  if result.destroyed and spec and spec.source_actor == self.state.player and object then
+    self:_emit_build_event({ type = "on_terrain_break", source_actor = self.state.player,
+      target_cell = { x = object.x, y = object.y }, ability_id = spec.ability_id,
+      source_component_id = spec.source_component_id, attack_tags = spec.attack_tags or {}, build_chain = spec.build_chain })
+  end
+  return result
 end
 
 function Session:actor_faction_id(actor)
@@ -635,10 +1466,158 @@ function Session:_actor_stable_id(actor)
   return "actor:" .. tostring(component and component.id or actor.content_id or actor.kind or "unknown")
 end
 
+function Session:_navigation_begin()
+  self._navigation = {
+    hostile_fields = {},
+    route_fields = {},
+    reserved = {},
+    stats = { hostile_fields = 0, route_fields = 0, fallbacks = 0 },
+  }
+end
+
+function Session:_navigation_finish()
+  if self._navigation then
+    self._last_navigation_stats = self._navigation.stats
+    self._navigation = nil
+  end
+end
+
+function Session:navigation_stats()
+  local stats = (self._navigation and self._navigation.stats) or self._last_navigation_stats or {}
+  return {
+    hostile_fields = stats.hostile_fields or 0,
+    route_fields = stats.route_fields or 0,
+    fallbacks = stats.fallbacks or 0,
+  }
+end
+
+function Session:_navigation_is_dangerous(x, y)
+  return self.state.world:is_hazardous(x, y)
+    or #self.state.world:fires_at(x, y) > 0
+    or self.state.world:is_harmful_gas_at(x, y)
+    or self:is_flare_controlled(x, y)
+end
+
+-- A multi-source reverse BFS is shared by every enemy of a faction during a
+-- turn. The old per-enemy search walked most of the 80x50 map repeatedly;
+-- this keeps the same nearest-reachable-hostile rule while doing that terrain
+-- work once per faction instead.
+function Session:_navigation_hostile_field(actor)
+  local navigation = self._navigation
+  if not navigation then return nil end
+  local faction_id = self:actor_faction_id(actor)
+  if navigation.hostile_fields[faction_id] then return navigation.hostile_fields[faction_id] end
+  local sources = {}
+  for _, target in ipairs(self:_living_actors()) do
+    if target ~= actor and self:are_hostile(actor, target) then sources[#sources + 1] = target end
+  end
+  table.sort(sources, function(first, second)
+    local first_id, second_id = self:_actor_stable_id(first), self:_actor_stable_id(second)
+    if first_id ~= second_id then return first_id < second_id end
+    if first.y ~= second.y then return first.y < second.y end
+    return first.x < second.x
+  end)
+  local field, queue, head = {}, {}, 1
+  for _, target in ipairs(sources) do
+    local key = Grid.key(target.x, target.y)
+    if not field[key] then
+      field[key] = { distance = 0, target = target }
+      queue[#queue + 1] = { x = target.x, y = target.y, target = target }
+    end
+  end
+  while queue[head] do
+    local point = queue[head]
+    head = head + 1
+    local here = field[Grid.key(point.x, point.y)]
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y) and not field[key] then
+        field[key] = { distance = here.distance + 1, target = here.target }
+        queue[#queue + 1] = { x = neighbour.x, y = neighbour.y, target = here.target }
+      end
+    end
+  end
+  navigation.hostile_fields[faction_id] = field
+  navigation.stats.hostile_fields = navigation.stats.hostile_fields + 1
+  return field
+end
+
+function Session:_navigation_route_field(finish, avoid_hazards)
+  local navigation = self._navigation
+  if not navigation then return nil end
+  local key = Grid.key(finish.x, finish.y) .. ":" .. (avoid_hazards and "safe" or "unsafe")
+  if navigation.route_fields[key] then return navigation.route_fields[key] end
+  local field, queue, head = { [Grid.key(finish.x, finish.y)] = 0 }, { Grid.cell(finish.x, finish.y) }, 1
+  while queue[head] do
+    local point = queue[head]
+    head = head + 1
+    local distance = field[Grid.key(point.x, point.y)]
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local neighbour_key = Grid.key(neighbour.x, neighbour.y)
+      if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y) and field[neighbour_key] == nil
+        and (not avoid_hazards or not self:_navigation_is_dangerous(neighbour.x, neighbour.y)) then
+        field[neighbour_key] = distance + 1
+        queue[#queue + 1] = neighbour
+      end
+    end
+  end
+  navigation.route_fields[key] = field
+  navigation.stats.route_fields = navigation.stats.route_fields + 1
+  return field
+end
+
+function Session:_navigation_route(actor, finish, blocked, avoid_hazards)
+  local field = self:_navigation_route_field(finish, avoid_hazards)
+  if not field then return nil end
+  local route, point = { Grid.cell(actor.x, actor.y) }, Grid.cell(actor.x, actor.y)
+  local maximum_steps = Grid.width * Grid.height
+  while point.x ~= finish.x or point.y ~= finish.y do
+    local distance = field[Grid.key(point.x, point.y)]
+    if distance == nil or distance <= 0 or #route > maximum_steps then return nil end
+    local options = {}
+    for _, neighbour in ipairs(Grid.neighbours(point)) do
+      local key = Grid.key(neighbour.x, neighbour.y)
+      if field[key] == distance - 1 and not blocked[key] and not self._navigation.reserved[key] then
+        options[#options + 1] = neighbour
+      end
+    end
+    if #options == 0 then return nil end
+    -- Flankers rotate otherwise-equal gradients. It creates a readable side
+    -- approach without random number consumption or diagonal clipping.
+    local choice = 1
+    if actor.ai_role == "flanker" and #options > 1 then
+      choice = ((actor.ai_phase or 0) + (actor.ai_cycle or 0)) % #options + 1
+    end
+    point = options[choice]
+    route[#route + 1] = Grid.cell(point.x, point.y)
+  end
+  return route
+end
+
+function Session:_navigation_hazard_aware_path(actor, finish, blocked)
+  local route = self:_navigation_route(actor, finish, blocked, true)
+  if route then return route, true end
+  route = self:_navigation_route(actor, finish, blocked, false)
+  if route then return route, false end
+  self._navigation.stats.fallbacks = self._navigation.stats.fallbacks + 1
+  return self:_hazard_aware_path(actor, finish, blocked)
+end
+
 -- Nearest reachable hostile target with a semantic/physical stable tie-break.
 -- The player receives no hidden universal priority: a nearby rival is a valid
 -- ecology target, while a reachable player remains an equally ordinary foe.
 function Session:_nearest_hostile_target(actor)
+  if self._navigation then
+    local field = self:_navigation_hostile_field(actor)
+    local entry = field and field[Grid.key(actor.x, actor.y)]
+    local chosen = entry and entry.target
+    if not chosen or chosen.health == 0 then return nil, {} end
+    local blocked = {}
+    for _, other in ipairs(self:_living_actors()) do
+      if other ~= actor and other ~= chosen then blocked[Grid.key(other.x, other.y)] = true end
+    end
+    return chosen, self:_navigation_hazard_aware_path(actor, chosen, blocked)
+  end
   -- One terrain BFS finds the nearest reachable hostile layer.  We then run
   -- the existing hazard-aware path only for the winner, avoiding an expensive
   -- full-map path solve for every actor pair each ordinary turn.
@@ -738,6 +1717,15 @@ function Session:apply_force(target, force_spec)
   local result = Force.apply(world, target, spec)
   if not is_object and result.code ~= "target_destroyed" then
     result.impact = self:_resolve_force_impact(target, result, force_spec or {})
+    if result.impact and result.impact.applied and force_spec and force_spec.source_actor == self.state.player then
+      self:_emit_build_event({
+        type = "on_push_collision", source_actor = self.state.player, target = target,
+        target_cell = { x = result.impact.x, y = result.impact.y }, ability_id = force_spec.ability_id,
+        source_component_id = force_spec.source_component_id, attack_tags = force_spec.attack_tags or {},
+        force_dx = result.direction and result.direction.dx, force_dy = result.direction and result.direction.dy,
+        build_chain = force_spec.build_chain,
+      })
+    end
   end
   return result
 end
@@ -868,6 +1856,16 @@ function Session:actor_ability_by_implementation(actor, implementation)
   return nil
 end
 
+function Session:actor_ability_by_implementations(actor, implementations)
+  if not actor or not actor.body then return nil end
+  local wanted = {}
+  for _, implementation in ipairs(implementations or {}) do wanted[implementation] = true end
+  for _, ability_id in ipairs(actor.body:list_capabilities()) do
+    if wanted[self.registry:get_ability(ability_id).implementation] then return ability_id end
+  end
+  return nil
+end
+
 function Session:actor_known_ability_by_implementation(actor, implementation)
   if not actor or not actor.body then return nil end
   for _, component in ipairs(actor.body:list_components()) do
@@ -908,6 +1906,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
+    attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
   })
   local cells = self:_blast(actor, radius)
   for location_key in pairs(cells) do
@@ -927,6 +1926,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
           source_actor_id = actor.content_id or actor.kind,
           source_component_id = provider and provider.id or nil,
           ability_id = SELF_DESTRUCT_ABILITY,
+          attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
           skip_body_damage = true,
         })
     end
@@ -939,6 +1939,7 @@ function Session:_execute_self_destruct(actor, provider, wear)
     source_actor_id = actor.content_id or actor.kind,
     source_component_id = provider and provider.id or nil,
     ability_id = SELF_DESTRUCT_ABILITY,
+    attack_tags = BuildEffects.tags_for_ability(self.registry:get_ability(SELF_DESTRUCT_ABILITY)),
   })
 
   if actor == state.player then
@@ -968,14 +1969,14 @@ function Session:_actor_side(actor)
   return actor == self.state.player and "player" or "enemy"
 end
 
-function Session:_execute_projectile(actor, provider, wear, ability, request)
+function Session:_spawn_projectile(actor, provider, ability, direction)
   local modifier = actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_damage") or 0
-  local direction = request.direction
   local bullet = entity("bullet", actor.x, actor.y, {
     direction = direction,
     active = false,
     travel = 1,
-    max = actor.bullet_range or ability.range,
+    max = (ability.range or actor.bullet_range or Grid.width)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0),
     light = 2,
     source_actor = actor,
     source_actor_kind = actor.kind,
@@ -983,20 +1984,65 @@ function Session:_execute_projectile(actor, provider, wear, ability, request)
     source_component_id = provider.id,
     ability_id = ability.id,
     damage = math.max(1, (ability.damage or 1) + modifier),
+    pierce_remaining = (ability.pierce or 0)
+      + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_pierce") or 0),
+    attack_tags = BuildEffects.tags_for_ability(ability),
   })
   self.state.bullets[#self.state.bullets + 1] = bullet
+  if actor == self.state.player then
+    self._build_chains_by_entity[bullet] = BuildEffects.new_chain("projectile:" .. ability.id)
+  end
+  return bullet
+end
+
+function Session:_execute_projectile(actor, provider, wear, ability, request)
+  local bullets, center_index = {}, 1
+  for index, direction in ipairs(DIRECTION_RING) do if direction == request.direction then center_index = index; break end end
+  local count = 1 + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_count") or 0)
+  local start = -math.floor((count - 1) / 2)
+  for offset = start, start + count - 1 do
+    local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+    bullets[#bullets + 1] = self:_spawn_projectile(actor, provider, ability, DIRECTION_RING[index])
+  end
   self:_sound("shoot")
   if actor == self.state.player then
-    self:_log("Fired " .. DIRECTIONS[direction][3] .. ".")
+    self:_log("Fired " .. DIRECTIONS[request.direction][3] .. ".")
   end
   return {
     applied = true,
     ability_id = ability.id,
-    implementation = "projectile",
+    implementation = ability.implementation,
     actor = actor,
     component_id = provider.id,
     wear = wear,
-    projectile = bullet,
+    projectile = bullets[1], projectiles = bullets,
+  }
+end
+
+function Session:_execute_scattershot(actor, provider, wear, ability, request)
+  local center_index = 1
+  for index, direction in ipairs(DIRECTION_RING) do
+    if direction == request.direction then center_index = index; break end
+  end
+  local pellets, count = {}, math.max(1, (ability.pellets or 3)
+    + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "scatter_pellets") or 0))
+  local offset_start = -math.floor(count / 2)
+  for offset = offset_start, offset_start + count - 1 do
+    local index = ((center_index - 1 + offset) % #DIRECTION_RING) + 1
+    pellets[#pellets + 1] = self:_spawn_projectile(actor, provider, ability, DIRECTION_RING[index])
+  end
+  self:_sound("shoot")
+  if actor == self.state.player then
+    self:_log("Scatter fired " .. DIRECTIONS[request.direction][3] .. ".")
+  end
+  return {
+    applied = true,
+    ability_id = ability.id,
+    implementation = "scattershot",
+    actor = actor,
+    component_id = provider.id,
+    wear = wear,
+    projectiles = pellets,
   }
 end
 
@@ -1017,6 +2063,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
+      attack_tags = BuildEffects.tags_for_ability(ability),
     })
   local force = nil
   if not target_damage.dead then
@@ -1029,6 +2076,7 @@ function Session:_execute_melee(actor, provider, wear, ability, request)
       source_actor_id = actor.content_id or actor.kind,
       source_component_id = provider.id,
       ability_id = ability.id,
+      attack_tags = BuildEffects.tags_for_ability(ability),
     })
   end
   if actor == self.state.player then self:_log("Impact strike landed.") end
@@ -1117,6 +2165,7 @@ function Session:_execute_electrical_discharge(actor, provider, wear, ability, r
           source_actor_id = self:_electrical_actor_id(actor),
           source_component_id = provider.id,
           ability_id = ability.id,
+          attack_tags = BuildEffects.tags_for_ability(ability),
           x = cell.x,
           y = cell.y,
         })
@@ -1143,7 +2192,8 @@ function Session:_ability_failure(ability_id, code, reason)
 end
 
 function Session:_validate_ability_request(actor, ability, params)
-  if ability.implementation == "projectile" then
+  if ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile" then
     if not params or not DIRECTIONS[params.direction] then
       return nil, self:_ability_failure(ability.id, "invalid_direction", "A valid firing direction is required")
     end
@@ -1254,15 +2304,22 @@ function Session:activate_actor_ability(actor, ability_id, params)
   if not request then
     return failure
   end
-  local consumed, resource_failure = self:_consume_ability_resource(actor, ability)
-  if not consumed then
-    return resource_failure
+  if not (params and params.skip_resource) then
+    local consumed, resource_failure = self:_consume_ability_resource(actor, ability)
+    if not consumed then return resource_failure end
   end
   local wear = self:wear_actor_component(actor, selected.slot_id, ability_id)
+  self:_event("actor_attack", {
+    actor = actor, direction = params and params.direction or actor.direction,
+    ability_id = ability.id, implementation = ability.implementation,
+    heavy = (ability.damage or 0) >= 2 or (ability.force or 0) >= 2,
+  })
   if ability.implementation == "self_destruct" then
     return self:_execute_self_destruct(actor, selected.component, wear)
-  elseif ability.implementation == "projectile" then
+  elseif ability.implementation == "projectile" or ability.implementation == "piercing_projectile" then
     return self:_execute_projectile(actor, selected.component, wear, ability, request)
+  elseif ability.implementation == "scattershot" then
+    return self:_execute_scattershot(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "area_burst" then
     return self:_execute_area_burst(actor, selected.component, wear, ability, request)
   elseif ability.implementation == "electrical_discharge" then
@@ -1421,7 +2478,11 @@ function Session:_actor_to_data(actor)
   if not actor then return nil end
   local data = {}
   for name, field in pairs(actor) do
-    if name ~= "body" and name ~= "source_actor" and name ~= "pending_telegraph" then
+    if name == "attack_tags" then
+      data.attack_tags = {}
+      for tag, enabled in pairs(field or {}) do if enabled then data.attack_tags[#data.attack_tags + 1] = tag end end
+      table.sort(data.attack_tags)
+    elseif name ~= "body" and name ~= "source_actor" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Active-run entity state must be plain scalar data")
@@ -1442,7 +2503,11 @@ function Session:_actor_from_data(data)
   assert(type(data) == "table" and type(data.kind) == "string", "Actor data is invalid")
   local actor = {}
   for name, field in pairs(data) do
-    if name ~= "body" and name ~= "source_actor_ref" and name ~= "pending_telegraph" then
+    if name == "attack_tags" then
+      assert(type(field) == "table", "Saved attack tags must be a list")
+      actor.attack_tags = {}
+      for _, tag in ipairs(field) do assert(type(tag) == "string", "Saved attack tag must be a string"); actor.attack_tags[tag] = true end
+    elseif name ~= "body" and name ~= "source_actor_ref" and name ~= "pending_telegraph" then
       local kind = type(field)
       assert(kind == "string" or kind == "number" or kind == "boolean" or field == nil,
         "Saved entity state must be plain scalar data")
@@ -1453,6 +2518,9 @@ function Session:_actor_from_data(data)
   actor.pending_telegraph = copy_pending_telegraph(data.pending_telegraph)
   actor.source_actor = nil
   actor.source_actor_ref = data.source_actor_ref
+  if actor.kind == "bullet" and not actor.attack_tags then
+    actor.attack_tags = BuildEffects.tags_for_ability(self.registry.abilities[actor.ability_id])
+  end
   return actor
 end
 
@@ -1578,9 +2646,6 @@ function Session:to_data()
       death_pending_archive = copy_death_pending(state.death_pending_archive, self.registry),
     },
     settings = copy_plain(state.settings or {}),
-    -- Visibility is transient, but discovered terrain is player knowledge and
-    -- must survive a save/load just like the generated world does.
-    explored = copy_explored_cells(state.explored),
     log = {},
     player = self:_actor_to_data(state.player),
     inventory = state.run.inventory:to_data(),
@@ -1722,7 +2787,6 @@ function Session.from_data(data, options)
   local route_node = state.route:node(state.route_node_id)
   state.floor_seed = route_node and (route_node.floor_seed or route_node.encounter_seed) or nil
   state.settings = copy_plain(data.settings or {})
-  state.explored = copy_explored_cells(data.explored)
   state.surface_connector_cells = copy_plain(data.surface_connector_cells or {})
   state.protected_content_cells = copy_plain(data.protected_content_cells or {})
   state.log = {}
@@ -1791,9 +2855,10 @@ function Session.from_data(data, options)
   -- Presentation maps/effects are intentionally rebuilt cleanly after load.
   state.effects, state.electrical_effects = {}, {}
   session:refresh_derived_player_stats()
-  -- Saved discovery is authoritative. Rebuild the transient visible layer
-  -- without expanding exploration merely because loading re-evaluates lights.
-  session:refresh_visibility(true)
+  session:ensure_campaign_loadout()
+  -- Tactical perception is transient and is rebuilt after loading. Terrain
+  -- itself is never hidden or remembered as an exploration layer.
+  session:refresh_visibility()
   session:validate_world()
   session:validate_physical_ownership()
   session:reconcile_meta_rewards()
@@ -1919,6 +2984,15 @@ function Session:find_corpse(corpse_id)
   return nil
 end
 
+function Session:faced_corpse()
+  local cell = self:faced_cell()
+  if not cell then return nil end
+  for _, corpse in ipairs(self.state.corpses or {}) do
+    if corpse.x == cell.x and corpse.y == cell.y then return corpse end
+  end
+  return nil
+end
+
 function Session:nearby_corpse()
   local player = self.state.player
   if not player then
@@ -1952,6 +3026,21 @@ function Session:nearby_ground_item()
   return candidates[1]
 end
 
+function Session:faced_ground_item()
+  local cell, world = self:faced_cell(), self.state.world
+  if not cell or not world then return nil end
+  local items = world:ground_items_at(cell.x, cell.y)
+  table.sort(items, function(left, right)
+    -- Campaign supplies are automatic on arrival, so a deliberate physical
+    -- component wins the faced-use target when both happen to share a cell.
+    local left_supply = left.item.item_type == "resource_stack"
+    local right_supply = right.item.item_type == "resource_stack"
+    if left_supply ~= right_supply then return not left_supply end
+    return left.id < right.id
+  end)
+  return items[1]
+end
+
 function Session:pickup_ground_item(ground_item_id)
   local ground = self.state.world and self.state.world:get_ground_item(ground_item_id)
   if not ground then return { applied = false, code = "unknown_ground_item", reason = "Ground item is unavailable" } end
@@ -1970,6 +3059,209 @@ function Session:pickup_ground_item(ground_item_id)
   end
   self:validate_physical_ownership()
   return { applied = true, code = "picked_up", ground_item_id = ground.id, physical_id = item.physical_id, entry = entry }
+end
+
+-- Projecting a corpse is intentionally read-only.  The dual-grid UI can be
+-- rebuilt at any time from the current Body/cargo owners, so no modal layout
+-- state is serialized and no item gains a second owner merely for display.
+function Session:corpse_loot_grid(corpse_id)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return nil, "Unknown corpse" end
+  return CorpseLootGrid.project(corpse, self.registry)
+end
+
+local function salvage_distance_allowed(session, corpse)
+  return session.state.player and Grid.distance(session.state.player, corpse) <= 1
+end
+
+function Session:salvage_corpse_to_inventory(corpse_id, physical_id, placement)
+  local corpse = self:find_corpse(corpse_id)
+  if not corpse then return { applied = false, code = "unknown_corpse", reason = "Unknown corpse" } end
+  if not salvage_distance_allowed(self, corpse) then
+    return { applied = false, code = "out_of_range", reason = "Corpse is not within salvage range" }
+  end
+  if type(placement) ~= "table" then
+    return { applied = false, code = "invalid_placement", reason = "Salvage placement is invalid" }
+  end
+  local projection = CorpseLootGrid.project(corpse, self.registry)
+  local source, projected = projection:source(physical_id), projection.inventory:get(physical_id)
+  if not source or not projected then
+    return { applied = false, code = "unknown_salvage", reason = "Corpse item is unavailable" }
+  end
+  local item
+  if source.source_kind == "body" then
+    local component = corpse.body:get_component(source.slot_id)
+    if not component or component.id ~= physical_id then
+      return { applied = false, code = "unknown_salvage", reason = "Corpse component is unavailable" }
+    end
+    item = PhysicalItem.from_component(component, self.registry)
+  else
+    local entry = corpse.carried_inventory and corpse.carried_inventory:get(physical_id)
+    if not entry then return { applied = false, code = "unknown_salvage", reason = "Corpse cargo is unavailable" } end
+    item = entry.item
+  end
+  local allowed, reason = self.state.inventory:can_place(item, placement.x, placement.y, placement.rotated == true)
+  if not allowed then return { applied = false, code = "inventory_full", reason = reason } end
+
+  local placed
+  if source.source_kind == "body" then
+    -- Placement has already been authoritatively validated.  Only now is the
+    -- installed part detached, so an invalid UI drop cannot strip a corpse.
+    local detached, detach_reason = corpse.body:detach(source.slot_id)
+    if not detached then return { applied = false, code = "detach_failed", reason = detach_reason } end
+    assert(detached.id == physical_id, "Corpse detached a different physical component")
+    placed, reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated == true)
+    if not placed then
+      local restored, restore_reason = corpse.body:install(source.slot_id, detached)
+      assert(restored, restore_reason)
+      return { applied = false, code = "inventory_full", reason = reason }
+    end
+  else
+    local entry = assert(corpse.carried_inventory:get(physical_id), "Corpse cargo changed during salvage")
+    local removed = corpse.carried_inventory:remove(physical_id)
+    assert(removed == item, "Corpse cargo removal lost its physical item")
+    placed, reason = self.state.inventory:place(item, placement.x, placement.y, placement.rotated == true)
+    if not placed then
+      local restored, restore_reason = corpse.carried_inventory:place(item, entry.x, entry.y, entry.rotated)
+      assert(restored, restore_reason)
+      return { applied = false, code = "inventory_full", reason = reason }
+    end
+  end
+  local definition = item.item_type == "component" and self.registry:get_component(item.object.definition_id) or nil
+  self:_log((source.source_kind == "body" and "SALVAGED " or "RECOVERED ")
+    .. string.upper(definition and definition.display_name or item.display_name) .. ".")
+  self:_sound("pickup")
+  local recurrence = self.state.fallen_recurrence
+  if corpse.fallen_archive_id and recurrence and recurrence.archive_id == corpse.fallen_archive_id
+    and #corpse:list_components() == 0 then recurrence.resolved = true end
+  self:validate_physical_ownership()
+  return {
+    applied = true, corpse_id = corpse_id, physical_id = physical_id,
+    source_kind = source.source_kind, slot_id = source.slot_id, entry = placed,
+  }
+end
+
+local function copy_inventory_for_pickup(inventory)
+  local preview = Inventory.new({ width = inventory.width, height = inventory.height, thresholds = inventory.thresholds })
+  for _, entry in ipairs(inventory.entries) do
+    local placed, reason = preview:place(entry.item, entry.x, entry.y, entry.rotated)
+    assert(placed, reason)
+  end
+  return preview
+end
+
+local function resource_entries_in_order(inventory, resource_id)
+  local values = {}
+  for _, entry in ipairs(inventory.entries) do
+    if entry.item.item_type == "resource_stack" and entry.item.resource_id == resource_id then values[#values + 1] = entry end
+  end
+  table.sort(values, function(left, right)
+    if left.y ~= right.y then return left.y < right.y end
+    if left.x ~= right.x then return left.x < right.x end
+    return left.physical_id < right.physical_id
+  end)
+  return values
+end
+
+-- A walk-over resource pickup is planned in full before either owner mutates.
+-- Existing matching stacks are filled first, then deterministic empty cells
+-- are considered.  A source stack is never partially taken from the ground.
+function Session:_plan_resource_pickup(item)
+  if not item or item.item_type ~= "resource_stack" then return nil, "Ground item is not an auto-pickup supply" end
+  local inventory, remaining, merge = self.state.inventory, item.quantity, {}
+  for _, entry in ipairs(resource_entries_in_order(inventory, item.resource_id)) do
+    if remaining <= 0 then break end
+    local amount = math.min(remaining, entry.item.max_stack - entry.item.quantity)
+    if amount > 0 then
+      merge[#merge + 1] = { entry = entry, amount = amount }
+      remaining = remaining - amount
+    end
+  end
+  local preview, placements, preview_index = copy_inventory_for_pickup(inventory), {}, 0
+  while remaining > 0 do
+    local quantity = math.min(remaining, item.max_stack)
+    preview_index = preview_index + 1
+    local ghost = PhysicalItem.from_resource(item.resource_id, quantity, "pickup-preview:" .. preview_index, self.registry)
+    local placement = preview:find_first_fit(ghost)
+    if not placement then return nil, "No space for the full supply stack" end
+    local placed, reason = preview:place(ghost, placement.x, placement.y, placement.rotated)
+    assert(placed, reason)
+    placements[#placements + 1] = { quantity = quantity, placement = placement }
+    remaining = remaining - quantity
+  end
+  return { merge = merge, placements = placements }
+end
+
+function Session:_pickup_resource_stack(ground)
+  local plan, reason = self:_plan_resource_pickup(ground.item)
+  if not plan then return { applied = false, code = "inventory_full", reason = reason } end
+  local world, source, original_quantity = self.state.world, ground.item, ground.item.quantity
+  local removed, remove_result = world:remove_ground_item(ground)
+  assert(removed == source and remove_result.applied, "Ground resource removal failed")
+  for _, change in ipairs(plan.merge) do change.entry.item:set_quantity(change.entry.item.quantity + change.amount) end
+  for index, allocation in ipairs(plan.placements) do
+    local item = index == 1 and source or self:create_resource_stack(source.resource_id, allocation.quantity, "zone")
+    item:set_quantity(allocation.quantity)
+    local placed, place_reason = self.state.inventory:place(item, allocation.placement.x, allocation.placement.y,
+      allocation.placement.rotated)
+    assert(placed, place_reason)
+  end
+  self:validate_physical_ownership()
+  return { applied = true, code = "auto_picked_up", quantity = original_quantity, resource_id = source.resource_id,
+    physical_id = source.physical_id }
+end
+
+function Session:_auto_pickup_ground_supplies(x, y)
+  if not self.campaign or not self.state.world then return {} end
+  local picked, blocked = {}, nil
+  for _, ground in ipairs(self.state.world:ground_items_at(x, y)) do
+    if ground.item.item_type == "resource_stack" then
+      local quantity, name = ground.item.quantity, ground.item.display_name
+      local result = self:_pickup_resource_stack(ground)
+      if result.applied then
+        picked[#picked + 1] = result
+      elseif not blocked then
+        blocked = { quantity = quantity, name = name }
+      end
+    end
+  end
+  if #picked > 0 then
+    for _, result in ipairs(picked) do
+      local definition = self.registry:get_resource(result.resource_id)
+      self:_log("+" .. result.quantity .. " " .. string.upper(definition.display_name) .. ".")
+    end
+    self:_sound("pickup")
+  end
+  if blocked then self:_log("INVENTORY FULL — " .. string.upper(blocked.name) .. " LEFT ON GROUND.") end
+  return picked
+end
+
+function Session:drop_inventory_item(physical_id)
+  local player, inventory, world = self.state.player, self.state.inventory, self.state.world
+  local entry = inventory and inventory:get(physical_id)
+  if not player or not world or not entry then
+    return { applied = false, code = "unknown_inventory_item", reason = "Inventory item is unavailable" }
+  end
+  -- World placement is checked before removal.  The only remaining mutation
+  -- can then be rolled back exactly if a future world rule rejects it.
+  if not Grid.in_bounds(player.x, player.y) or not world:terrain_is_passable(player.x, player.y) then
+    return { applied = false, code = "blocked_terrain", reason = "Cannot drop cargo here" }
+  end
+  if world:get_ground_item(physical_id) then
+    return { applied = false, code = "duplicate_id", reason = "Ground cargo identity is unavailable" }
+  end
+  local item, original = inventory:remove(physical_id)
+  assert(item == entry.item, "Inventory removal lost its physical item")
+  local ground, result = world:place_ground_item(item, player.x, player.y)
+  if not ground then
+    local restored, restore_reason = inventory:place(item, original.x, original.y, original.rotated)
+    assert(restored, restore_reason)
+    return { applied = false, code = result and result.code or "drop_failed", reason = result and result.reason or "Cannot drop cargo" }
+  end
+  self:validate_physical_ownership()
+  self:_log("DROPPED " .. string.upper(item.display_name) .. ".")
+  self:_sound("pickup")
+  return { applied = true, physical_id = physical_id, item = item, ground_item_id = ground.id }
 end
 
 function Session:salvage_corpse_component(corpse_id, slot_id)
@@ -2130,6 +3422,7 @@ end
 -- the current staged HP model while also using localized body damage.
 function Session:_apply_world_actor_damage(actor, amount, message, provenance)
   provenance = provenance or {}
+  local was_alive = actor and (actor.health == nil or actor.health > 0)
   if provenance.source_actor and provenance.source_actor ~= actor then
     self:_notify_combat(provenance.source_actor, actor)
   end
@@ -2202,6 +3495,37 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     dead = dead,
     provenance = provenance,
   }
+  -- Presentation callbacks are emitted after authoritative damage/death
+  -- resolution. They never enter saves or alter the deterministic outcome.
+  self:_event("actor_hit", {
+    target = actor, source_actor = provenance.source_actor, x = actor.x, y = actor.y,
+    amount = amount, cause = provenance.cause, direction = provenance.direction,
+    heavy = amount >= 2 or provenance.cause == "explosive" or provenance.cause == "kinetic",
+  })
+  if body_damage and body_damage.became_broken then
+    if self.expedition and provenance.source_actor == state.player then
+      state.expedition.component_breaks = (state.expedition.component_breaks or 0) + 1
+    end
+    self:_event("component_break", { target = actor, x = actor.x, y = actor.y, component_id = body_damage.component_id })
+  end
+  if dead then self:_event("actor_death", { target = actor, x = actor.x, y = actor.y }) end
+  -- Build triggers observe only completed authoritative damage.  This keeps
+  -- kill and component-break events one-shot even when an explosion or a
+  -- chained electrical discharge touches the same actor in one root action.
+  if provenance.source_actor == state.player and was_alive then
+    local event_base = {
+      source_actor = state.player, target = actor, target_cell = { x = actor.x, y = actor.y },
+      ability_id = provenance.ability_id, source_component_id = provenance.source_component_id,
+      attack_tags = provenance.attack_tags or {}, build_chain = provenance.build_chain,
+    }
+    self:_emit_build_event(setmetatable({ type = "on_hit" }, { __index = event_base }))
+    if body_damage and body_damage.became_broken then
+      self:_emit_build_event(setmetatable({ type = "on_component_break", component_id = body_damage.component_id }, { __index = event_base }))
+    end
+    if dead then
+      self:_emit_build_event(setmetatable({ type = "on_kill" }, { __index = event_base }))
+    end
+  end
   return data
 end
 
@@ -2218,6 +3542,8 @@ function Session:_apply_hazard_effect(actor, hazard, definition, context)
       source_actor_id = context and context.force and context.force.source_actor_id or nil,
       source_component_id = context and context.force and context.force.source_component_id or nil,
       ability_id = context and context.force and context.force.ability_id or nil,
+      attack_tags = context and context.force and context.force.attack_tags or nil,
+      build_chain = context and context.force and context.force.build_chain or nil,
       x = hazard.x,
       y = hazard.y,
       context = context,
@@ -2352,6 +3678,8 @@ function Session:_resolve_force_impact(actor, force_result, force_spec)
       blocker_code = impact.blocker_code,
       x = impact.x,
       y = impact.y,
+      attack_tags = force_spec and force_spec.attack_tags,
+      build_chain = force_spec and force_spec.build_chain,
     })
   impact.damage = damage
   impact.dead = damage.dead
@@ -2655,6 +3983,27 @@ function Session:_enemy_type(index, rng)
   error("Encounter pool weight selection fell through")
 end
 
+function Session:_infer_ai_role(enemy)
+  if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then return "rusher" end
+  if self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY)
+    or self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) then return "controller" end
+  if self:actor_ability_by_implementation(enemy, "melee")
+    and self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then
+    return "flanker"
+  end
+  if self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then
+    return "skirmisher"
+  end
+  if self:actor_ability_by_implementation(enemy, "melee") then return "heavy" end
+  return "rusher"
+end
+
+local function ai_phase_for(actor_id)
+  local total = 0
+  for index = 1, #tostring(actor_id) do total = total + string.byte(tostring(actor_id), index) end
+  return total % 8
+end
+
 function Session:_make_enemy(kind_or_id, point, options)
   local enemy_id = self.registry.enemies[kind_or_id] and kind_or_id or ENEMY_CONTENT_IDS[kind_or_id]
   local definition = enemy_id and self.registry:get_enemy(enemy_id) or nil
@@ -2678,7 +4027,12 @@ function Session:_make_enemy(kind_or_id, point, options)
     enemy.body = self:_build_body(definition, "zone")
     enemy.ammo = definition.ammo
     enemy.elite = definition.elite
+    enemy.ai_role = definition.ai_role or self:_infer_ai_role(enemy)
+  else
+    enemy.ai_role = self:_infer_ai_role(enemy)
   end
+  enemy.ai_phase = ai_phase_for(enemy.actor_id)
+  enemy.ai_cycle = 0
   return enemy
 end
 
@@ -2700,7 +4054,14 @@ function Session:_spawn_entities(rng)
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(index, enemy_rng), point, { scrap_award = true })
   end
   local point = self:_open_location(self:_occupied(), nil, nil, rng)
-  state.ammo = entity("ammo", point.x, point.y)
+  if self.campaign then
+    local item = self:create_resource_stack("resource.ammo.bullets", 4, "zone")
+    local ground, result = state.world:place_ground_item(item, point.x, point.y)
+    assert(ground, result and result.reason)
+    state.ammo = nil
+  else
+    state.ammo = entity("ammo", point.x, point.y)
+  end
 end
 
 function Session:_refill_entities()
@@ -2713,7 +4074,7 @@ function Session:_refill_entities()
     local point = self:_open_location(self:_occupied())
     state.enemies[#state.enemies + 1] = self:_make_enemy(self:_enemy_type(#state.enemies + 1, self.rng), point, { scrap_award = false })
   end
-  if not state.ammo then
+  if not self.campaign and not state.ammo then
     local point = self:_open_location(self:_occupied())
     state.ammo = entity("ammo", point.x, point.y)
   end
@@ -2872,6 +4233,7 @@ function Session:start_campaign_zone(zone_key, zone_seed, profile_id, class, boo
   state.zone_profile_id = profile_id
   state.discovery_state = { enabled = false, assigned_discovery_ids = state.discovery_state.assigned_discovery_ids or {} }
   self:_start_floor(settings, Rng.new(zone_seed), "campaign." .. tostring(zone_key))
+  self:ensure_campaign_loadout()
   if options.boss_site then
     self:_start_campaign_boss_lair(options.boss_site, zone_seed)
   else
@@ -2979,7 +4341,7 @@ function Session:_start_floor(settings, floor_rng, stream_prefix)
   local state = self.state
   state.settings = settings
   self:_prepare_run_player_for_stage(settings)
-  state.explored, state.effects, state.electrical_effects, state.corpses = {}, {}, {}, {}
+  state.effects, state.electrical_effects, state.corpses = {}, {}, {}
   state.exit, state.boss = nil, nil
   state.log = {}
   state.transition_next = nil
@@ -3213,8 +4575,22 @@ function Session:_destroy_enemy(index, context)
   if player_caused then
     self.state.player.objective_progress = self.state.player.objective_progress + 1
     self.state.player.score = self.state.player.objective_progress
-    if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
-    self:_reload(2, true)
+    if self.expedition then
+      local expedition = self.state.expedition
+      local reward = enemy.elite and 4 or 1
+      expedition.currency = (expedition.currency or 0) + reward
+      expedition.kills = (expedition.kills or 0) + 1
+      self.state.scrap = expedition.currency -- shared HUD compatibility only.
+      local active = self:expedition_active_weapon()
+      if active and active.ability.ammo then
+        local family = active.ability.ammo.family
+        local bonus = RunModifiers.value(self.state, self.registry, "ammo_on_kill")
+        expedition.reserve_ammo[family] = (expedition.reserve_ammo[family] or 0) + bonus
+      end
+    else
+      if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
+      self:_reload(2, true)
+    end
     self:_sound("hit")
     self:_log("Defeated an enemy.")
   else
@@ -3381,6 +4757,8 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
+        attack_tags = force_spec.attack_tags,
+        build_chain = force_spec.build_chain,
       })
       results.actors[#results.actors + 1] = { target = actor, result = result }
     end
@@ -3398,6 +4776,8 @@ function Session:_apply_explosion_force(origin, radius, blast_cells, force_spec)
         source_actor_id = force_spec.source_actor_id,
         source_component_id = force_spec.source_component_id,
         ability_id = force_spec.ability_id,
+        attack_tags = force_spec.attack_tags,
+        build_chain = force_spec.build_chain,
       })
       results.objects[#results.objects + 1] = { target = object, result = result }
     end
@@ -3422,8 +4802,13 @@ function Session:_update_bullets()
         bullet.expired = true
       else
         local direction = DIRECTIONS[bullet.direction]
+        local from_x, from_y = bullet.x, bullet.y
         self:_move_entity(bullet, bullet.x + direction[1], bullet.y + direction[2])
         bullet.travel = bullet.travel + 1
+        self:_event("projectile_travel", {
+          from_x = from_x, from_y = from_y, to_x = bullet.x, to_y = bullet.y,
+          piercing = (bullet.pierce_remaining or 0) > 0, ability_id = bullet.ability_id, source_actor = source_actor,
+        })
       end
     else
       bullet.active = true
@@ -3466,6 +4851,9 @@ function Session:_update_bullets()
     end
     local target = not hit and self:_actor_at(bullet.x, bullet.y, source_actor) or nil
     if target and source_actor and self:are_hostile(source_actor, target) then
+      local build_chain = source_actor == state.player and (self._build_chains_by_entity[bullet]
+        or BuildEffects.new_chain("projectile:" .. tostring(bullet.ability_id))) or nil
+      if build_chain then self._build_chains_by_entity[bullet] = build_chain end
       self:_apply_world_actor_damage(target, bullet.damage or 1,
         target == state.player and "An enemy projectile struck you." or nil, {
           cause = "kinetic",
@@ -3474,11 +4862,28 @@ function Session:_update_bullets()
           source_actor_id = source_actor.content_id or source_actor.kind,
           source_component_id = bullet.source_component_id,
           ability_id = bullet.ability_id,
+          attack_tags = bullet.attack_tags or {},
+          build_chain = build_chain,
         })
-      hit = true
+      -- A piercing lance crosses one damaged body, but intact terrain and
+      -- projectile-blocking cover above always terminate it immediately.
+      -- The projectile advances on later turns, so this cannot hit the same
+      -- actor a second time while remaining in its cell.
+      if (bullet.pierce_remaining or 0) > 0 then
+        bullet.pierce_remaining = bullet.pierce_remaining - 1
+        if source_actor == state.player then
+          self:_emit_build_event({ type = "on_pierce", source_actor = state.player, target = target,
+            target_cell = { x = target.x, y = target.y }, ability_id = bullet.ability_id,
+            source_component_id = bullet.source_component_id, attack_tags = bullet.attack_tags or {}, build_chain = build_chain })
+        end
+      else
+        hit = true
+      end
     end
     if not hit then
       remaining[#remaining + 1] = bullet
+    else
+      self._build_chains_by_entity[bullet] = nil
     end
   end
   state.bullets = remaining
@@ -3742,41 +5147,83 @@ end
 -- One capability-driven policy covers authored enemies and fallen echoes.
 -- Content changes body configuration; a broken provider therefore removes the
 -- corresponding decision without a new enemy-kind branch.
+function Session:_move_enemy_route(enemy, route)
+  if not route or #route <= 1 then return { applied = false, code = "no_route" } end
+  local destination = route[2]
+  local destination_key = Grid.key(destination.x, destination.y)
+  if self:_actor_at(destination.x, destination.y, enemy)
+    or (self._navigation and self._navigation.reserved[destination_key]) then
+    return { applied = false, code = "blocked_actor" }
+  end
+  local result = self:_move_actor(enemy, destination.x, destination.y)
+  if result.applied and self._navigation then self._navigation.reserved[destination_key] = true end
+  return result
+end
+
+function Session:_retreat_enemy(enemy, target)
+  local options, current_distance = {}, Grid.distance(enemy, target)
+  for _, neighbour in ipairs(Grid.neighbours(enemy)) do
+    local key = Grid.key(neighbour.x, neighbour.y)
+    if Grid.in_bounds(neighbour.x, neighbour.y) and self:_open(neighbour.x, neighbour.y)
+      and not self:_navigation_is_dangerous(neighbour.x, neighbour.y)
+      and not self:_actor_at(neighbour.x, neighbour.y, enemy)
+      and not (self._navigation and self._navigation.reserved[key])
+      and Grid.distance(neighbour, target) > current_distance then
+      options[#options + 1] = neighbour
+    end
+  end
+  if #options == 0 then return { applied = false, code = "no_retreat" } end
+  local index = ((enemy.ai_phase or 0) + (enemy.ai_cycle or 0)) % #options + 1
+  local destination = options[index]
+  local result = self:_move_actor(enemy, destination.x, destination.y)
+  if result.applied and self._navigation then self._navigation.reserved[Grid.key(destination.x, destination.y)] = true end
+  return result
+end
+
 function Session:_body_enemy_turn(enemy, target, route, electrical_direction)
   local projectile_direction = self:_projectile_direction_to(enemy, target)
-  local projectile_ability = self:actor_ability_by_implementation(enemy, "projectile")
+  local projectile_ability = self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" })
   local melee_ability = self:actor_ability_by_implementation(enemy, "melee")
   local melee_direction = self:_melee_direction_to(enemy, target)
+  local role = enemy.ai_role or self:_infer_ai_role(enemy)
+  local distance = math.max(0, #route - 1)
+  local can_fire = projectile_ability and projectile_direction
+  if can_fire then
+    local ability = self.registry:get_ability(projectile_ability)
+    can_fire = (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0)
+  end
+  local function fire()
+    return self:activate_actor_ability(enemy, projectile_ability, { direction = projectile_direction })
+  end
   if self:_actor_has_pending_area_attack(enemy) then
     return
-  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and #route <= 2 then
+  elseif self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) and distance <= 1 then
     self:_begin_enemy_attack(enemy, "detonate", target, 0, 1)
-  elseif electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
+  elseif role == "controller" and electrical_direction and self:actor_has_capability(enemy, ELECTRICAL_DISCHARGE_ABILITY) then
     self:activate_actor_ability(enemy, ELECTRICAL_DISCHARGE_ABILITY, { direction = electrical_direction })
-  elseif self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and #route > 0 and #route - 1 <= 4 then
+  elseif role == "controller" and self:actor_has_capability(enemy, ARCANE_BURST_ABILITY) and distance <= 4 then
     self:activate_actor_ability(enemy, ARCANE_BURST_ABILITY, { target = target })
-  elseif projectile_ability and projectile_direction then
-    local ability = self.registry:get_ability(projectile_ability)
-    if (enemy.ammo or 0) >= (ability.resource and ability.resource.amount or 0) then
-      self:activate_actor_ability(enemy, projectile_ability, { direction = projectile_direction })
-    elseif melee_ability and melee_direction then
-      self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
-    elseif #route > 1 then
-      self:_move_actor(enemy, route[2].x, route[2].y)
-    end
   elseif melee_ability and melee_direction then
     self:activate_actor_ability(enemy, melee_ability, { direction = melee_direction })
-  elseif #route > 1 then
-    self:_move_actor(enemy, route[2].x, route[2].y)
+  elseif (role == "skirmisher" or role == "controller") and distance <= 2 then
+    self:_retreat_enemy(enemy, target)
+  elseif role == "flanker" and (enemy.ai_cycle or 0) % 3 ~= 0 then
+    self:_move_enemy_route(enemy, route)
+  elseif can_fire then
+    fire()
+  else
+    self:_move_enemy_route(enemy, route)
   end
 end
 
 function Session:_enemy_turn()
+  self:_navigation_begin()
   for index = #self.state.enemies, 1, -1 do
     local enemy = self.state.enemies[index]
     if enemy.stun > 0 then
       enemy.stun = enemy.stun - 1
     elseif enemy.attack == 0 then
+      enemy.ai_cycle = (enemy.ai_cycle or 0) + 1
       local target, route = self:_nearest_hostile_target(enemy)
       if target and enemy.body then
         self:_body_enemy_turn(enemy, target, route, self:_electrical_direction_to(enemy, target))
@@ -3784,7 +5231,7 @@ function Session:_enemy_turn()
       elseif target and #route > 0 and #route - 1 <= 4 then
         self:_begin_enemy_attack(enemy, "spell", target, 1, 3)
       elseif target and #route > 1 then
-        self:_move_actor(enemy, route[2].x, route[2].y)
+        self:_move_enemy_route(enemy, route)
       end
     else
       enemy.attack = enemy.attack + 1
@@ -3793,6 +5240,7 @@ function Session:_enemy_turn()
       end
     end
   end
+  self:_navigation_finish()
 end
 
 local ELECTRICAL_AIM_ORDER = { "w", "d", "s", "a", "ne", "se", "sw", "nw" }
@@ -3839,7 +5287,8 @@ function Session:_boss_telegraph_cells(boss)
     local delta = DIRECTIONS[pending.direction]
     local trace = Electricity.trace(self.state.world, { x = boss.x + delta[1], y = boss.y + delta[2] }, { max_cells = ability.max_cells })
     for _, cell in ipairs(trace.reached_cells or {}) do cells[Grid.key(cell.x, cell.y)] = true end
-  elseif ability.implementation == "projectile" and pending.direction then
+  elseif (ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile") and pending.direction then
     local delta = DIRECTIONS[pending.direction]
     local x, y = boss.x, boss.y
     for _ = 1, ability.range or Grid.width do
@@ -3895,7 +5344,8 @@ end
 function Session:_boss_telegraph_request(boss, ability_id)
   local ability = self.registry:get_ability(ability_id)
   local target = self.state.player
-  if ability.implementation == "projectile" then
+  if ability.implementation == "projectile" or ability.implementation == "scattershot"
+    or ability.implementation == "piercing_projectile" then
     local direction = self:_projectile_direction_to(boss, target)
     if direction then return { direction = direction } end
   elseif ability.implementation == "electrical_discharge" then
@@ -3934,7 +5384,19 @@ end
 
 function Session:_collect_ammo()
   local state = self.state
+  if self.campaign then return end
   if state.ammo and state.player.x == state.ammo.x and state.player.y == state.ammo.y then
+    if self.expedition then
+      local active = self:expedition_active_weapon()
+      if active and active.ability.ammo then
+        local family = active.ability.ammo.family
+        state.expedition.reserve_ammo[family] = (state.expedition.reserve_ammo[family] or 0) + 2
+        self:_log("COLLECTED AMMO.")
+      end
+      state.ammo = nil
+      self:_sound("pickup")
+      return
+    end
     self:_reload(1, false)
     state.ammo = nil
     self:_sound("pickup")
@@ -3947,10 +5409,53 @@ function Session:_move_player(direction)
   if not delta then
     return { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
   end
+  if (self.campaign or self.expedition) and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
+  end
+
+  local destination_x, destination_y = player.x + delta[1], player.y + delta[2]
+  -- Terrain failure is deliberately checked before facing changes.  Walking
+  -- into a wall is not a turn-in-place action in the Campaign control model.
+  local movement = self:validate_actor_movement(player, delta[1], delta[2])
+  if not movement.applied then
+    if movement.code == "blocked_terrain" then
+      self:_log("A wall blocks your path.")
+    elseif movement.code == "crawl_cannot_move_diagonally" then
+      self:_log("CRAWLING: cardinal movement only.")
+    else
+      self:_log(movement.reason)
+    end
+    return movement
+  end
+
+  local occupant = self:_actor_at(destination_x, destination_y, player)
+  if occupant and (occupant.health == nil or occupant.health > 0) then
+    -- Occupancy is physical rather than an implicit attack.  The action is
+    -- still consumed by Session:turn, giving the existing enemy response
+    -- pipeline its ordinary opportunity to act.
+    player.direction = direction
+    local hostile = self:are_hostile(player, occupant)
+    self:_event("bump", { direction = direction, hostile = hostile, actor = occupant })
+    self:_sound("select")
+    self:_log(hostile and "BLOCKED BY HOSTILE." or "BLOCKED BY ACTOR.")
+    return {
+      applied = false,
+      consumed = true,
+      code = hostile and "enemy_bump" or "actor_blocked",
+      reason = hostile and "A hostile blocks the path" or "An actor blocks the path",
+      actor = occupant,
+      direction = direction,
+    }
+  end
+
   player.direction = direction
-  local result = self:_move_actor(player, player.x + delta[1], player.y + delta[2])
+  local result = self:_move_actor(player, destination_x, destination_y)
   if result.applied then
     self:_log("Moved " .. delta[3] .. ".")
+    -- Supply collection is part of arriving on this successful movement
+    -- action. It never invokes Session:turn again, so enemy/world response
+    -- still occurs exactly once for the tile step.
+    result.auto_pickup = self:_auto_pickup_ground_supplies(player.x, player.y)
   elseif result.code == "blocked_terrain" then
     self:_log("A wall blocks your path.")
   elseif result.code == "crawl_cannot_move_diagonally" then
@@ -4045,12 +5550,11 @@ end
 
 function Session:_nearby_vertical_connection()
   if not self.campaign then return nil end
-  local player, world = self.state.player, self.state.world
-  if not player or not world then return nil end
+  local cell, world = self:faced_cell(), self.state.world
+  if not cell or not world then return nil end
   for _, object in ipairs(world:list_objects()) do
     if object.interaction_role == "zone_connection" and object.zone_connection_id
-      and math.abs(player.x - object.x) <= 1 and math.abs(player.y - object.y) <= 1
-      and not (player.x == object.x and player.y == object.y) then
+      and object.x == cell.x and object.y == cell.y then
       return object
     end
   end
@@ -4088,10 +5592,29 @@ function Session:_try_surface_transition(input)
   return true, failure or { applied = false, code = "no_zone_connection", reason = "Travel failed" }
 end
 
+-- A solid tile is not an action in the Campaign control model.  Run this
+-- before turn bookkeeping so a wall bump neither advances the world nor
+-- changes facing.  Living actors are intentionally excluded here: attempting
+-- their occupied cell is the meaningful enemy-bump action handled by
+-- _move_player during the normal turn.
+function Session:_campaign_movement_preflight(direction)
+  if not self.campaign or not DIRECTIONS[direction] then return nil end
+  local player, delta = self.state.player, DIRECTIONS[direction]
+  if math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
+  end
+  local movement = self:validate_actor_movement(player, delta[1], delta[2])
+  if not movement.applied then return movement end
+  return nil
+end
+
 function Session:can_move(direction)
   local player, delta = self.state.player, DIRECTIONS[direction]
   if not player or not delta then
     return false, { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
+  end
+  if self.campaign and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+    return false, { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
   end
   if self.campaign and SURFACE_DIRECTION_BY_INPUT[direction] and not Grid.in_bounds(player.x + delta[1], player.y + delta[2]) then
     local connection = self.campaign.active_zone.connections and self.campaign.active_zone.connections[SURFACE_DIRECTION_BY_INPUT[direction]]
@@ -4139,9 +5662,23 @@ end
 
 function Session:_shoot(direction)
   local player = self.state.player
+  if self.expedition then
+    if direction then player.direction = direction end
+    return self:attack_expedition_weapon()
+  end
+  if self.campaign then
+    if direction then player.direction = direction end
+    return self:attack_active_weapon()
+  end
   player.direction = direction or player.direction
-  local ability_id = self:actor_ability_by_implementation(player, "projectile")
-    or self:actor_known_ability_by_implementation(player, "projectile")
+  local ranged_implementations = { "projectile", "scattershot", "piercing_projectile" }
+  local ability_id = self:actor_ability_by_implementations(player, ranged_implementations)
+  if not ability_id then
+    for _, implementation in ipairs(ranged_implementations) do
+      ability_id = self:actor_known_ability_by_implementation(player, implementation)
+      if ability_id then break end
+    end
+  end
   if not ability_id then
     self:_log("No functional ranged weapon.")
     return self:_ability_failure(BASIC_PROJECTILE_ABILITY, "missing_capability", "No functional ranged weapon")
@@ -4163,7 +5700,29 @@ function Session:_shoot(direction)
 end
 
 function Session:_interact_player()
-  local ground = self:nearby_ground_item()
+  -- Expedition deliberately has no field-inventory/corpse-loot loop. Rewards,
+  -- caches and encounter completion own run progression; allowing a legacy
+  -- nearby-ground pickup here would silently reintroduce Tetris cargo.
+  if self.expedition then
+    self:_log("NO FIELD INVENTORY IN EXPEDITION.")
+    return { applied = false, code = "expedition_no_field_interaction", reason = "Expedition rewards replace field inventory" }
+  end
+  local ground, result
+  if self.campaign then
+    local cell = self:faced_cell()
+    if not cell then
+      result = { applied = false, code = "not_interactable", reason = "Nothing to interact with" }
+    else
+      local interactions = Interaction.available_at(self, self.state.player, cell.x, cell.y)
+      if #interactions > 0 then
+        result = Interaction.primary_at(self, self.state.player, cell.x, cell.y)
+      else
+        ground = self:faced_ground_item()
+      end
+    end
+  else
+    ground = self:nearby_ground_item()
+  end
   if ground then
     local pickup = self:pickup_ground_item(ground.id)
     if pickup.applied then
@@ -4174,7 +5733,7 @@ function Session:_interact_player()
     end
     return pickup
   end
-  local result = Interaction.primary(self, self.state.player)
+  result = result or Interaction.primary(self, self.state.player)
   if result.applied then
     local object = self.state.world:get_object(result.object_id)
     if result.action_id == "door.open" then
@@ -4272,8 +5831,15 @@ function Session:service_options(object_id)
   elseif service.role == "repair" then
     for _, component in ipairs(self.state.player.body:list_components()) do options[#options + 1] = { action = "repair", component_id = component.id, label = self.registry:get_component(component.definition_id).display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price } end
     for _, entry in ipairs(self.state.run.inventory.entries) do
-      local component = entry.item.object
-      options[#options + 1] = { action = "repair", component_id = component.id, label = entry.item.display_name, integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price }
+      if entry.item.item_type == "component" then
+        local component = entry.item.object
+        options[#options + 1] = { action = "repair", component_id = component.id, label = entry.item.display_name,
+          integrity = component.current_integrity, max_integrity = component.max_integrity, price = stock.price }
+      elseif entry.item.item_type == "tool" then
+        local tool = entry.item.object
+        options[#options + 1] = { action = "repair_tool", tool_id = tool.id, label = entry.item.display_name,
+          durability = tool.current_durability, max_durability = tool.maximum_durability, price = stock.price }
+      end
     end
   elseif service.role == "salvager" then
     for index, offer in ipairs(stock.offers) do
@@ -4303,6 +5869,7 @@ function Session:service_execute(option, object_id)
   local result
   if option.action == "buy_supply" and service.role == "supply" then result = Economy.supply(self, stock, option.index)
   elseif option.action == "repair" and service.role == "repair" then result = Economy.repair(self, stock, option.component_id)
+  elseif option.action == "repair_tool" and service.role == "repair" then result = Economy.repair_tool(self, stock, option.tool_id)
   elseif option.action == "buy_component" and service.role == "salvager" then result = Economy.buy_component(self, stock, option.index)
   elseif option.action == "sell_component" and service.role == "salvager" then result = Economy.sell_component(self, option.component_id)
   elseif option.action == "buy_charm" and service.role == "charm_vendor" then result = Economy.buy_charm(self, stock, option.index)
@@ -4315,22 +5882,32 @@ end
 function Session:_action(input)
   local player = self.state.player
   if DIRECTIONS[input] then
-    self:_move_player(input)
-    self:_sound("step")
-    return
+    local result = self:_move_player(input)
+    if result.applied then self:_sound("step") end
+    return result
   end
   if player.impact > 0 then
     self:_log("You are recovering from the hit.")
-    return
+    return { applied = false, code = "recovering", reason = "You are recovering from the hit" }
   end
   if input == "q" then
-    self:_dash()
+    if self.expedition then return self:activate_expedition_ability() end
+    return self.campaign and self:activate_active_ability() or self:_dash()
+  elseif input == "swap_weapon" then
+    if self.expedition then return { applied = false, code = "single_class_weapon", reason = "This class has one ready weapon" } end
+    return self.campaign and self:swap_campaign_loadout("weapon")
+      or { applied = false, code = "campaign_only", reason = "Weapon swapping is available in Campaign" }
+  elseif input == "swap_ability" then
+    if self.expedition then return { applied = false, code = "single_class_ability", reason = "This class has one ready ability" } end
+    return self.campaign and self:swap_campaign_loadout("ability")
+      or { applied = false, code = "campaign_only", reason = "Ability swapping is available in Campaign" }
   elseif input == "interact" then
-    self:_interact_player()
-  elseif input == "e" then
-    self:_shoot()
+    return self:_interact_player()
+  elseif input == "e" or input == "attack" then
+    if self.expedition then return self:attack_expedition_weapon() end
+    return self:_shoot()
   elseif input:match("^shoot_[wasd]$") then
-    self:_shoot(input:sub(-1))
+    return self:_shoot(input:sub(-1))
   elseif input == "b" then
     if player.bombs <= 0 then
       self:_log("No bombs left. Buy bombs in the shop.")
@@ -4345,6 +5922,7 @@ function Session:_action(input)
       })
       self:_sound("select")
       self:_log("Bomb armed. Move away before it explodes.")
+      return { applied = true, code = "bomb_armed" }
     end
   elseif input == "f" then
     if player.flares <= 0 then
@@ -4363,9 +5941,10 @@ function Session:_action(input)
         source_actor_id = player.content_id or PLAYER_ACTOR_ID,
       })
       self:_log("Flare primed — immediate flash and afterglow.")
+      return { applied = true, code = "flare_primed" }
     end
   elseif input:match("^activate_ability:") then
-    self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
+    return self:activate_actor_ability(player, input:sub(#"activate_ability:" + 1), {
       direction = player.direction,
     })
   else
@@ -4379,8 +5958,10 @@ function Session:_action(input)
       else
         self:_log(result.reason or "BUILD FAILED.")
       end
+      return result
     end
   end
+  return { applied = false, code = "unknown_action", reason = "Unknown action" }
 end
 
 function Session:_begin_exit()
@@ -4589,6 +6170,16 @@ function Session:_defeat_boss(boss)
   local definition = self:_boss_definition(boss)
   boss.pending_telegraph = nil
   self:_cancel_area_attacks_from(boss)
+  if self.expedition then
+    self:_create_corpse(boss)
+    state.boss = nil
+    state.boss_completed = definition.id
+    state.ended = "expedition_victory"
+    self:_sound("door")
+    self:_log("EXPEDITION COMPLETE.")
+    self:validate_physical_ownership()
+    return true
+  end
   -- A campaign boss is an ordinary persistent zone resident.  Its defeat
   -- leaves the physical corpse in place, records a one-time semantic reward,
   -- and returns the zone to normal exploration without touching the route.
@@ -4692,6 +6283,7 @@ end
 function Session:turn(input)
   local state = self.state
   assert(state.player, "A run must be started before it can advance")
+  self.last_action_result = nil
   if state.ended then
     return state.ended
   end
@@ -4703,6 +6295,65 @@ function Session:turn(input)
   if vertical_transitioned then
     return vertical_result and vertical_result.applied and "zone_transition" or "zone_transition_failed"
   end
+  -- Salvage opens the existing modal without advancing simulation.  It is a
+  -- Campaign-only faced-tile action; the legacy G/nearby flow remains intact.
+  if self.campaign and input == "interact" then
+    local corpse = self:faced_corpse()
+    if corpse then
+      self.pending_salvage_corpse_id = corpse.id
+      return "salvage"
+    end
+    -- Supplies are deliberately collected by entering their cell, never by
+    -- spending a separate use turn.  Loose components still continue through
+    -- the faced ground-item path below.
+    local cell = self:faced_cell()
+    if cell and #Interaction.available_at(self, self.state.player, cell.x, cell.y) == 0 then
+      local ground = self:faced_ground_item()
+      if ground and ground.item.item_type == "resource_stack" then
+        self.last_action_result = { applied = false, code = "walk_over_pickup", reason = "Walk over supplies to collect them" }
+        self:_log("WALK OVER SUPPLIES TO COLLECT THEM.")
+        self:refresh_visibility()
+        return "no_action"
+      end
+    end
+  end
+  local blocked_movement = self:_campaign_movement_preflight(input)
+  if blocked_movement then
+    self.last_action_result = self:_move_player(input)
+    self:refresh_visibility()
+    return "no_action"
+  end
+  -- A field quick-slot swap is an ordinary turn only when it actually has a
+  -- valid alternate source. Empty/broken alternates are a readable no-op,
+  -- matching the responsive Campaign input contract.
+  if self.campaign and (input == "swap_weapon" or input == "swap_ability") then
+    local kind = input == "swap_weapon" and "weapon" or "ability"
+    local _, failure = self:campaign_loadout_swap_available(kind)
+    if failure then
+      self.last_action_result = failure
+      self:_log(failure.reason)
+      self:refresh_visibility()
+      return "no_action"
+    end
+  end
+  -- Campaign construction previews the exact faced target before E commits.
+  -- Keep invalid placement a true no-action: no materials, cooldown tick,
+  -- enemy response, hazard tick, or hidden failed-build penalty.  The
+  -- authoritative Building.place transaction validates again immediately
+  -- before mutation, so direct callers retain the same safety guarantee.
+  if self.campaign and type(input) == "string" then
+    local recipe_id, x, y = input:match("^build:([%w%._]+):(%-?%d+):(%-?%d+)$")
+    if recipe_id then
+      local validation = Building.validate(self, recipe_id, tonumber(x), tonumber(y))
+      if not validation.applied then
+        self.last_action_result = validation
+        state.last_build_result = validation
+        self:_log(validation.reason or "BUILD FAILED.")
+        self:refresh_visibility()
+        return "no_action"
+      end
+    end
+  end
   state.effects, state.electrical_effects = {}, {}
   state.player.dash = math.max(0, state.player.dash - 1)
   state.player.impact = math.max(0, state.player.impact - 1)
@@ -4713,9 +6364,9 @@ function Session:turn(input)
 
   if state.phase == "exit" or state.phase == "boss_exit" then
     if DIRECTIONS[input] then
-      self:_move_player(input)
+      self.last_action_result = self:_move_player(input)
     elseif input == "q" then
-      self:_dash()
+      self.last_action_result = self:_dash()
     end
     if not state.ended then ReinforcementSimulation.tick(self) end
     self:_update_liquids()
@@ -4736,7 +6387,7 @@ function Session:turn(input)
     return nil
   end
 
-  self:_action(input)
+  self.last_action_result = self:_action(input)
   -- Station reconstruction opens before enemy/environment updates. Browsing
   -- the modal thereafter runs no simulation ticks.
   if state.pending_reconstruction_station_id and not state.ended then
@@ -4781,13 +6432,13 @@ function Session:turn(input)
       end
     end
     result = state.ended
-  elseif not self.campaign and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
+  elseif not self.campaign and not self.expedition and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
     self:_enemy_turn()
     -- Finite campaign zones stay cleared. The legacy run retains the old
     -- floor-refill pressure as a compatibility behaviour.
-    if not self.campaign then self:_refill_entities() end
+    if not self.campaign and not self.expedition then self:_refill_entities() end
   end
   if not state.ended then ReinforcementSimulation.tick(self) end
   -- World processes run after immediate actions and enemy response. Liquid
@@ -4851,7 +6502,7 @@ function Session:_light_area(source, radius, visible)
   end
 end
 
-function Session:refresh_visibility(preserve_explored)
+function Session:refresh_visibility()
   local state = self.state
   if not state.player or not state.settings then
     return
@@ -4873,11 +6524,8 @@ function Session:refresh_visibility(preserve_explored)
     local x, y = state.world:fire_position(fire)
     if x then self:_light_area({ x = x, y = y }, 2, visible) end
   end
-  local explored = state.explored or {}
-  if not preserve_explored then
-    for location_key in pairs(visible) do explored[location_key] = true end
-  end
-  state.explored = explored
+  -- This is tactical line-of-sight only. Renderer terrain is deliberately
+  -- independent from it: ROAG has no exploration/discovery fog-of-war.
   state.visible = visible
 end
 
@@ -4919,7 +6567,7 @@ function Session:enemy_intent(enemy)
   if self:actor_has_capability(enemy, SELF_DESTRUCT_ABILITY) then
     return "DETONATE"
   end
-  if self:actor_ability_by_implementation(enemy, "projectile") then return "RANGED" end
+  if self:actor_ability_by_implementations(enemy, { "projectile", "scattershot", "piercing_projectile" }) then return "RANGED" end
   if self:actor_ability_by_implementation(enemy, "melee") then return "MELEE" end
   return "ADVANCE"
 end

@@ -52,23 +52,24 @@ return {
     end,
   },
   {
-    name = "fog of war keeps explored terrain while lights reveal the current area",
+    name = "tactical visibility hides unperceived information without map discovery state",
     run = function()
       local session = new_run(900)
       local state = session.state
       state.player.x, state.player.y = 10, 10
       state.settings.vision = 2
-      state.torches, state.bombs, state.flares, state.explored = {}, {}, {}, {}
+      state.torches, state.bombs, state.flares = {}, {}, {}
       session:refresh_visibility()
       assert(state.visible[Grid.key(10, 10)])
-      assert(not state.visible[Grid.key(20, 10)] and not state.explored[Grid.key(20, 10)])
+      assert(not state.visible[Grid.key(20, 10)])
+      assert(state.explored == nil and session:to_data().explored == nil)
 
       state.torches = { { kind = "torch", x = 20, y = 10, light = 3 } }
       session:refresh_visibility()
-      assert(state.visible[Grid.key(20, 10)] and state.explored[Grid.key(20, 10)])
+      assert(state.visible[Grid.key(20, 10)])
       state.torches = {}
       session:refresh_visibility()
-      assert(not state.visible[Grid.key(20, 10)] and state.explored[Grid.key(20, 10)])
+      assert(not state.visible[Grid.key(20, 10)] and state.explored == nil)
     end,
   },
   {

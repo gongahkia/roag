@@ -2,6 +2,7 @@
 -- only relies on this small data contract, so conventional items can join it
 -- later without making inventory component-specific.
 local Component = require("src.body.component")
+local Tool = require("src.inventory.tool")
 
 local PhysicalItem = {}
 
@@ -75,6 +76,32 @@ function PhysicalItem.from_resource(resource_id, quantity, physical_id, registry
   return item
 end
 
+function PhysicalItem.from_tool(tool, registry)
+  local definition = registry:get_tool(tool.definition_id)
+  local item = {
+    item_type = "tool",
+    physical_id = tool.id,
+    tool_definition_id = definition.id,
+    display_name = definition.display_name,
+    footprint = {
+      width = definition.inventory.width,
+      height = definition.inventory.height,
+      rotatable = definition.inventory.rotatable,
+      shape = definition.inventory.shape,
+    },
+    mass = definition.mass,
+    object = tool,
+  }
+  item.to_data = function(value)
+    return {
+      item_type = value.item_type,
+      physical_id = value.physical_id,
+      tool = Tool.to_data(value.object),
+    }
+  end
+  return item
+end
+
 function PhysicalItem.is_resource(item)
   return type(item) == "table" and item.item_type == "resource_stack"
 end
@@ -87,6 +114,10 @@ function PhysicalItem.from_data(data, registry)
     return PhysicalItem.from_component(component, registry)
   elseif data.item_type == "resource_stack" then
     return PhysicalItem.from_resource(data.resource_id, data.quantity, data.physical_id, registry)
+  elseif data.item_type == "tool" then
+    local tool = Tool.from_data(registry:get_tool(data.tool.definition_id), data.tool)
+    assert(tool.id == data.physical_id, "Physical item ID does not match tool ID")
+    return PhysicalItem.from_tool(tool, registry)
   end
   error("Unsupported physical item data")
 end

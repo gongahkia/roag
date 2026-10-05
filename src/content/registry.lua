@@ -6,10 +6,13 @@ Registry.__index = Registry
 local KNOWN_ABILITY_IMPLEMENTATIONS = {
   self_destruct = true,
   projectile = true,
+  scattershot = true,
+  piercing_projectile = true,
   area_burst = true,
   locomotion = true,
   electrical_discharge = true,
   melee = true,
+  dash = true,
 }
 
 local KNOWN_INTERACTION_ROLES = {
@@ -27,6 +30,7 @@ local KNOWN_INTERACTION_ROLES = {
 }
 
 local KNOWN_REINFORCEMENT_SOURCE_TYPES = { nest = true, lift = true }
+local KNOWN_AI_ROLES = { rusher = true, flanker = true, skirmisher = true, controller = true, heavy = true }
 
 local KNOWN_DISCOVERY_ACCESS_PROFILES = {
   ["access_profile.discovery.open"] = true,
@@ -36,6 +40,19 @@ local KNOWN_DISCOVERY_ACCESS_PROFILES = {
 }
 
 local KNOWN_SERVICE_ROLES = { supply = true, repair = true, salvager = true, charm_vendor = true }
+local KNOWN_TOOL_FAMILIES = { axe = true, pickaxe = true, cutter = true, drill = true }
+local KNOWN_ATTACK_TAGS = {
+  melee = true, projectile = true, scatter = true, piercing = true,
+  electric = true, explosive = true, fire = true, forceful = true, tool = true,
+}
+local KNOWN_BUILD_EFFECT_TRIGGERS = {
+  on_attack = true, on_hit = true, on_kill = true, on_component_break = true,
+  on_pierce = true, on_push_collision = true, on_reload = true, on_terrain_break = true,
+}
+local KNOWN_BUILD_EFFECT_KINDS = {
+  chain_electricity = true, kinetic_burst = true, small_explosion = true,
+  magazine_refund = true, cooldown_reduction = true, ignite = true,
+}
 local KNOWN_MODIFIERS = {
   max_health = true,
   dash_cooldown = true,
@@ -163,6 +180,7 @@ function Registry.new(sources)
     research = {},
     discoveries = {},
     resources = {},
+    tools = {},
     construction_recipes = {},
   }, Registry)
   self:_index("ability", sources.abilities, self.abilities)
@@ -190,6 +208,7 @@ function Registry.new(sources)
   -- tables. Keep that contract while construction content supplies its own
   -- stable base vocabulary unless a caller explicitly overrides it.
   self:_index("resource", sources.resources or require("content.resources.legacy"), self.resources)
+  self:_index("tool", sources.tools or require("content.tools.legacy"), self.tools)
   self:_index("construction", sources.construction_recipes or require("content.construction.legacy"), self.construction_recipes)
   self:validate()
   return self
@@ -219,6 +238,7 @@ function Registry.load()
     research = require("content.research.legacy"),
     discoveries = require("content.discoveries.legacy"),
     resources = require("content.resources.legacy"),
+    tools = require("content.tools.legacy"),
     construction_recipes = require("content.construction.legacy"),
   })
 end
@@ -346,6 +366,7 @@ function Registry:get_curse(id) return self:_get(self.curses, "curse", id) end
 function Registry:get_research(id) return self:_get(self.research, "research", id) end
 function Registry:get_discovery(id) return self:_get(self.discoveries, "discovery", id) end
 function Registry:get_resource(id) return self:_get(self.resources, "resource", id) end
+function Registry:get_tool(id) return self:_get(self.tools, "tool", id) end
 function Registry:get_construction_recipe(id) return self:_get(self.construction_recipes, "construction recipe", id) end
 
 function Registry:validate()
@@ -413,6 +434,17 @@ function Registry:validate()
       self:get_resource(material.harvest_yield.resource_id)
       require_positive_integer(material.harvest_yield.amount, "Material '" .. id .. "' harvest_yield.amount")
     end
+    if material.tool_effectiveness ~= nil then
+      if not material.destructible or type(material.tool_effectiveness) ~= "table" then
+        content_error("Material '" .. id .. "' tool_effectiveness requires a destructible material")
+      end
+      for family, effectiveness in pairs(material.tool_effectiveness) do
+        if not KNOWN_TOOL_FAMILIES[family] then
+          content_error("Material '" .. id .. "' references unknown tool family '" .. tostring(family) .. "'")
+        end
+        require_positive_number(effectiveness, "Material '" .. id .. "' tool effectiveness")
+      end
+    end
   end
 
   for _, id in ipairs(sorted_keys(self.resources)) do
@@ -429,6 +461,24 @@ function Registry:validate()
       content_error("Resource '" .. id .. "' inventory.rotatable must be a boolean")
     end
     validate_inventory_shape(resource.inventory, "Resource '" .. id .. "' inventory")
+  end
+
+  for _, id in ipairs(sorted_keys(self.tools)) do
+    local tool = self.tools[id]
+    require_string(tool.display_name, "Tool '" .. id .. "' display_name")
+    if not KNOWN_TOOL_FAMILIES[tool.family] then content_error("Tool '" .. id .. "' has unknown family") end
+    require_positive_number(tool.mass, "Tool '" .. id .. "' mass")
+    require_positive_integer(tool.max_durability, "Tool '" .. id .. "' max_durability")
+    if type(tool.inventory) ~= "table" then content_error("Tool '" .. id .. "' inventory must be a table") end
+    require_positive_integer(tool.inventory.width, "Tool '" .. id .. "' inventory.width")
+    require_positive_integer(tool.inventory.height, "Tool '" .. id .. "' inventory.height")
+    if type(tool.inventory.rotatable) ~= "boolean" then content_error("Tool '" .. id .. "' inventory.rotatable must be a boolean") end
+    validate_inventory_shape(tool.inventory, "Tool '" .. id .. "' inventory")
+    if type(tool.combat) ~= "table" then content_error("Tool '" .. id .. "' combat must be a table") end
+    require_positive_integer(tool.combat.damage, "Tool '" .. id .. "' combat.damage")
+    require_nonnegative_number(tool.combat.force, "Tool '" .. id .. "' combat.force")
+    if type(tool.modification) ~= "table" then content_error("Tool '" .. id .. "' modification must be a table") end
+    require_positive_number(tool.modification.damage, "Tool '" .. id .. "' modification.damage")
   end
 
   for _, id in ipairs(sorted_keys(self.liquids)) do
@@ -535,6 +585,10 @@ function Registry:validate()
   for _, id in ipairs(sorted_keys(self.construction_recipes)) do
     local recipe = self.construction_recipes[id]
     require_string(recipe.display_name, "Construction recipe '" .. id .. "' display_name")
+    if recipe.kind ~= "structural_piece" and recipe.kind ~= "functional_device" then
+      content_error("Construction recipe '" .. id .. "' kind must be structural_piece or functional_device")
+    end
+    require_string(recipe.description, "Construction recipe '" .. id .. "' description")
     require_string(recipe.world_object_id, "Construction recipe '" .. id .. "' world_object_id")
     self:get_world_object(recipe.world_object_id)
     if type(recipe.costs) ~= "table" or next(recipe.costs) == nil then
@@ -606,7 +660,21 @@ function Registry:validate()
           content_error("Supply service '" .. id .. "' stock." .. profile_id .. ".offers must be a non-empty list")
         end
         for index, offer in ipairs(stock.offers) do
-          require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
+          if offer.resource_id ~= nil then
+            require_string(offer.resource_id, "Supply service '" .. id .. "' offer " .. index .. " resource_id")
+            if not self.resources[offer.resource_id] then
+              content_error("Supply service '" .. id .. "' offer " .. index .. " references unknown resource '" .. offer.resource_id .. "'")
+            end
+            require_positive_integer(offer.quantity, "Supply service '" .. id .. "' offer " .. index .. " quantity")
+            if offer.quantity > self.resources[offer.resource_id].max_stack then
+              content_error("Supply service '" .. id .. "' offer " .. index .. " quantity exceeds resource stack limit")
+            end
+          elseif offer.tool_definition_id ~= nil then
+            require_string(offer.tool_definition_id, "Supply service '" .. id .. "' offer " .. index .. " tool_definition_id")
+            self:get_tool(offer.tool_definition_id)
+          else
+            require_string(offer.key, "Supply service '" .. id .. "' offer " .. index .. " key")
+          end
           require_string(offer.label, "Supply service '" .. id .. "' offer " .. index .. " label")
           require_positive_integer(offer.price, "Supply service '" .. id .. "' offer " .. index .. " price")
           require_positive_integer(offer.remaining, "Supply service '" .. id .. "' offer " .. index .. " remaining")
@@ -645,10 +713,46 @@ function Registry:validate()
     require_string(charm.description, "Charm '" .. id .. "' description")
     require_positive_number(charm.price, "Charm '" .. id .. "' price")
     require_string(charm.render_style, "Charm '" .. id .. "' render_style")
-    if type(charm.granted_boon_ids) ~= "table" or #charm.granted_boon_ids == 0 then
-      content_error("Charm '" .. id .. "' granted_boon_ids must be a non-empty list")
+    if type(charm.granted_boon_ids) ~= "table" then
+      content_error("Charm '" .. id .. "' granted_boon_ids must be a list")
     end
     for _, boon_id in ipairs(charm.granted_boon_ids) do self:get_boon(boon_id) end
+    local reactive = charm.reactive_effects or {}
+    if type(reactive) ~= "table" then content_error("Charm '" .. id .. "' reactive_effects must be a list") end
+    if #charm.granted_boon_ids == 0 and #reactive == 0 then
+      content_error("Charm '" .. id .. "' must grant a boon or reactive effect")
+    end
+    local seen_effects = {}
+    for index, effect in ipairs(reactive) do
+      if type(effect) ~= "table" then content_error("Charm '" .. id .. "' reactive effect " .. index .. " must be a table") end
+      require_string(effect.id, "Charm '" .. id .. "' reactive effect " .. index .. " id")
+      if seen_effects[effect.id] then content_error("Charm '" .. id .. "' duplicates reactive effect '" .. effect.id .. "'") end
+      seen_effects[effect.id] = true
+      if not KNOWN_BUILD_EFFECT_TRIGGERS[effect.trigger] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown trigger")
+      end
+      require_string(effect.description, "Charm '" .. id .. "' reactive effect '" .. effect.id .. "' description")
+      if type(effect.effect) ~= "table" or not KNOWN_BUILD_EFFECT_KINDS[effect.effect.kind] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown effect kind")
+      end
+      local conditions = effect.conditions or {}
+      if type(conditions) ~= "table" then content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' conditions must be a table") end
+      if conditions.attack_tag ~= nil and not KNOWN_ATTACK_TAGS[conditions.attack_tag] then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' has unknown attack tag")
+      end
+      if conditions.requires_capability ~= nil then self:get_ability(conditions.requires_capability) end
+      if conditions.requires_ranged ~= nil and type(conditions.requires_ranged) ~= "boolean" then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' requires_ranged must be a boolean")
+      end
+      for _, field in ipairs({ "amount", "max_cells", "damage", "radius", "force" }) do
+        if effect.effect[field] ~= nil then
+          require_positive_integer(effect.effect[field], "Charm '" .. id .. "' reactive effect '" .. effect.id .. "' " .. field)
+        end
+      end
+      if effect.effect.ignite ~= nil and type(effect.effect.ignite) ~= "boolean" then
+        content_error("Charm '" .. id .. "' reactive effect '" .. effect.id .. "' ignite must be a boolean")
+      end
+    end
   end
   for _, id in ipairs(sorted_keys(self.curses)) do
     local curse = self.curses[id]
@@ -774,6 +878,21 @@ function Registry:validate()
     if ability.activation_type ~= nil and ability.activation_type ~= "direct" and ability.activation_type ~= "body" then
       content_error("Ability '" .. id .. "' activation_type must be 'direct' or 'body'")
     end
+    if ability.loadout_kind ~= nil and ability.loadout_kind ~= "weapon" and ability.loadout_kind ~= "ability" then
+      content_error("Ability '" .. id .. "' loadout_kind must be 'weapon' or 'ability'")
+    end
+    if ability.attack_tags ~= nil then
+      if type(ability.attack_tags) ~= "table" or #ability.attack_tags == 0 then
+        content_error("Ability '" .. id .. "' attack_tags must be a non-empty list")
+      end
+      local seen_tags = {}
+      for _, tag in ipairs(ability.attack_tags) do
+        if not KNOWN_ATTACK_TAGS[tag] or seen_tags[tag] then
+          content_error("Ability '" .. id .. "' has invalid attack tag '" .. tostring(tag) .. "'")
+        end
+        seen_tags[tag] = true
+      end
+    end
     if ability.resource ~= nil then
       if type(ability.resource) ~= "table" then
         content_error("Ability '" .. id .. "' resource must be a table")
@@ -781,7 +900,7 @@ function Registry:validate()
       require_string(ability.resource.name, "Ability '" .. id .. "' resource.name")
       require_positive_integer(ability.resource.amount, "Ability '" .. id .. "' resource.amount")
     end
-    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage", "force" }) do
+    for _, field in ipairs({ "range", "radius", "delay", "max_cells", "damage", "force", "pellets", "pierce" }) do
       if ability[field] ~= nil then
         require_positive_integer(ability[field], "Ability '" .. id .. "' " .. field)
       end
@@ -796,6 +915,30 @@ function Registry:validate()
       if ability.activation_type ~= "body" then
         content_error("Melee ability '" .. id .. "' activation_type must be 'body'")
       end
+    end
+    if ability.implementation == "scattershot" then
+      require_positive_integer(ability.range, "Ability '" .. id .. "' range")
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
+      require_positive_integer(ability.pellets, "Ability '" .. id .. "' pellets")
+    end
+    if ability.implementation == "piercing_projectile" then
+      require_positive_integer(ability.range, "Ability '" .. id .. "' range")
+      require_positive_integer(ability.damage, "Ability '" .. id .. "' damage")
+      require_positive_integer(ability.pierce, "Ability '" .. id .. "' pierce")
+    end
+    local ranged = ability.implementation == "projectile" or ability.implementation == "scattershot"
+      or ability.implementation == "piercing_projectile"
+    if ranged and ability.loadout_kind == "weapon" then
+      if type(ability.ammo) ~= "table" then
+        content_error("Ranged weapon ability '" .. id .. "' must declare ammo")
+      end
+      require_string(ability.ammo.family, "Ability '" .. id .. "' ammo.family")
+      self:get_resource(ability.ammo.family)
+      require_positive_integer(ability.ammo.magazine_capacity, "Ability '" .. id .. "' ammo.magazine_capacity")
+      require_positive_integer(ability.ammo.ammo_per_attack, "Ability '" .. id .. "' ammo.ammo_per_attack")
+      if ability.ammo.magazine_key ~= nil then require_string(ability.ammo.magazine_key, "Ability '" .. id .. "' ammo.magazine_key") end
+    elseif ability.ammo ~= nil and not ranged then
+      content_error("Non-ranged ability '" .. id .. "' cannot declare weapon ammo")
     end
   end
 
@@ -1026,6 +1169,9 @@ function Registry:_validate_actor_collection(kind, definitions)
       if kind == "Enemy" then
         require_string(definition.faction_id, "Enemy '" .. id .. "' faction_id")
         self:get_faction(definition.faction_id)
+        if definition.ai_role ~= nil and not KNOWN_AI_ROLES[definition.ai_role] then
+          content_error("Enemy '" .. id .. "' has unknown ai_role '" .. tostring(definition.ai_role) .. "'")
+        end
       end
       require_nonnegative_number(definition.ammo, kind .. " '" .. id .. "' ammo")
       if definition.ammo % 1 ~= 0 then

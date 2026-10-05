@@ -7,6 +7,10 @@ function Component.new(definition, instance_id)
     definition_id = definition.id,
     max_integrity = definition.max_integrity,
     current_integrity = definition.max_integrity,
+    -- Magazine values live with the physical component. Keys are declarative
+    -- weapon channels and are initialized lazily by the combat loadout so
+    -- old serialized components remain compatible.
+    weapon_state = {},
   }
 end
 
@@ -29,12 +33,20 @@ function Component.from_data(definition, data)
       source_component_id = data.origin.source_component_id,
     }
   end
+  local weapon_state = {}
+  for key, value in pairs(data.weapon_state or {}) do
+    assert(type(key) == "string" and key ~= "" and type(value) == "table"
+      and type(value.loaded) == "number" and value.loaded >= 0 and value.loaded % 1 == 0,
+      "Component weapon state is invalid")
+    weapon_state[key] = { loaded = value.loaded }
+  end
   return {
     id = data.id,
     definition_id = definition.id,
     max_integrity = definition.max_integrity,
     current_integrity = math.max(0, math.min(definition.max_integrity, data.current_integrity)),
     origin = origin,
+    weapon_state = weapon_state,
   }
 end
 
@@ -69,6 +81,12 @@ function Component.to_data(instance)
       source_run_id = instance.origin.source_run_id,
       source_component_id = instance.origin.source_component_id,
     }
+  end
+  if instance.weapon_state and next(instance.weapon_state) then
+    data.weapon_state = {}
+    for key, value in pairs(instance.weapon_state) do
+      data.weapon_state[key] = { loaded = value.loaded }
+    end
   end
   return data
 end

@@ -1,6 +1,7 @@
 -- Derived run modifiers compose the secondary charm layer with the temporary
 -- curse layer.  They never mutate base player statistics permanently.
 local Modifiers = {}
+local ExpeditionModifiers = require("src.expedition.modifiers")
 
 Modifiers.BASE_CHARM_SLOTS = 3
 
@@ -27,6 +28,13 @@ function Modifiers.values(state, registry)
     -- Pre-8B saves retain their legacy curse record for the remainder of the
     -- saved floor rather than being silently stripped on restoration.
     add_all(result, state.curse.modifiers)
+  end
+  -- Expedition passives are a separate run-local stack map.  They are
+  -- intentionally not charm-slot limited and never touch Sandbox inventory.
+  local expedition = state.expedition
+  if expedition then
+    add_all(result, expedition.base_modifiers)
+    add_all(result, ExpeditionModifiers.static_values(expedition.passive_stacks, expedition.modifier_registry))
   end
   return result
 end

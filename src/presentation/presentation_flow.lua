@@ -11,6 +11,8 @@ Flow.VERSION = 1
 Flow.DEFAULT_PATH = "content/presentation/flow.json"
 
 local ACTIONS = {
+  expedition = { target = "expedition_character_select" },
+  sandbox = { target = "campaign_slots" },
   new_run = { target = "replace_save" },
   continue = { target = "game", conditional = "continue_available" },
   research = { target = "research" },
@@ -23,7 +25,8 @@ local FALLBACK = {
   version = Flow.VERSION,
   home = "title",
   title_actions = {
-    { id = "new_run", label = "NEW RUN", description = "Begin a new descent.", target = "replace_save" },
+    { id = "expedition", label = "EXPEDITION", description = "Start a fast disposable combat run.", target = "expedition_character_select" },
+    { id = "sandbox", label = "OPEN WORLD SANDBOX", description = "Continue the persistent world, bodies and construction.", target = "campaign_slots" },
     { id = "continue", label = "CONTINUE", description = "Resume the current active run.", target = "game" },
     { id = "research", label = "RESEARCH", description = "Spend persistent RESEARCH DATA on future runs.", target = "research" },
     { id = "fallen", label = "FALLEN", description = "Inspect bodies lost on earlier descents.", target = "fallen_archive" },
@@ -74,7 +77,9 @@ function Flow.validate(data)
     seen[action.id] = true
     actions[#actions + 1] = { id = action.id, label = action.label, description = action.description, target = action.target }
   end
-  if not seen.new_run then return failure("missing_presentation_action", "NEW RUN must remain available") end
+  if not seen.expedition and not seen.new_run then
+    return failure("missing_presentation_action", "EXPEDITION or NEW RUN must remain available")
+  end
   return actions
 end
 

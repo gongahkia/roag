@@ -3,8 +3,12 @@
 -- authority over rules and transactions while the renderer receives stable,
 -- readable labels instead of raw content or physical IDs.
 local Component = require("src.body.component")
+local Tool = require("src.inventory.tool")
 local Grid = require("src.world.grid")
 local PhysicalItem = require("src.inventory.physical_item")
+local Loadout = require("src.simulation.loadout")
+local ZoneKey = require("src.campaign.zone_key")
+local WorldContent = require("src.campaign.world_content")
 
 local GameplayUI = {}
 
@@ -18,8 +22,19 @@ local FAILURE_TEXT = {
   invalid_phase = "ACTION UNAVAILABLE HERE",
   inventory_full = "INVENTORY FULL",
   insufficient_material = "NOT ENOUGH MATERIAL",
+  tool_broken = "BROKEN TOOL",
+  tool_no_effect = "CLANG — NO EFFECT",
+  protected_target = "PROTECTED INFRASTRUCTURE",
+  already_full_durability = "ALREADY FULLY REPAIRED",
   blocks_travel_connection = "BLOCKS TRAVEL CONNECTION",
+  blocks_world_content = "PROTECTED — WORLD ACCESS",
   blocks_reconstruction_anchor = "BLOCKS RECONSTRUCTION ANCHOR",
+  blocked_terrain = "INVALID TERRAIN",
+  occupied = "OCCUPIED",
+  occupied_actor = "OCCUPIED",
+  occupied_corpse = "OCCUPIED",
+  occupied_ground_item = "OCCUPIED",
+  occupied_hazard = "BLOCKED",
   campaign_only = "CAMPAIGN ONLY",
   no_ammo = "NOT ENOUGH AMMO",
   no_choice = "NO ROUTE SELECTED",
@@ -115,12 +130,107 @@ function GameplayUI.body(session, actor)
   return slots
 end
 
+-- Campaign zones deliberately have no abstract map-screen identity. This
+-- compact label gives lifecycle UI enough context to explain a transition or
+-- body recovery without exposing raw persistence IDs to the player.
+function GameplayUI.campaign_zone_label(campaign, zone_key)
+  if not campaign or not zone_key then return "UNKNOWN LOCATION" end
+  local key = ZoneKey.from_data(zone_key)
+  local record = campaign:zone_record(key)
+  local name = record and WorldContent.location_name(campaign.state.world_content_plan, record.key, record.profile_id)
+    or "UNKNOWN LOCATION"
+  local depth = key.z == 0 and "SURFACE" or (key.z < 0 and ("DEPTH " .. math.abs(key.z)) or ("HEIGHT " .. key.z))
+  return string.format("%s — %s %d, %d", name, depth, key.world_x, key.world_y)
+end
+
+function GameplayUI.campaign_anchor(session)
+  local campaign = session and session.campaign
+  local anchor = campaign and campaign.state and campaign.state.reconstruction_anchor
+  if not campaign or not anchor or not anchor.zone_key then return nil end
+  local current = campaign.active_zone and campaign.active_zone.key
+  return {
+    current_zone = ZoneKey.equal(current, anchor.zone_key),
+    location = GameplayUI.campaign_zone_label(campaign, anchor.zone_key),
+  }
+end
+
+function GameplayUI.campaign_succession(death_location, anchor_location)
+  return {
+    death_location = death_location or "UNKNOWN DEATH SITE",
+    anchor_location = anchor_location or "UNKNOWN RECONSTRUCTION ANCHOR",
+    summary = "A FRESH BODY WAS RECONSTRUCTED AT YOUR ACTIVE ANCHOR.",
+    recovery = "YOUR LOST BODY, CARGO, AND LOADED WEAPONS REMAIN AT THE DEATH SITE.",
+    loss = "CHARMS ON THE LOST BODY ARE GONE. BASES, STORAGE, SCRAP, AND WORLD CHANGES PERSIST.",
+    guidance = "FACE A RECONSTRUCTION STATION AND USE U TO SET A DIFFERENT FUTURE ANCHOR.",
+  }
+end
+
 function GameplayUI.hud(session)
   local state, player, inventory = session.state, session.state.player, session.state.inventory
   local charm_slots = session:modifier_value("charm_slots") or 0
   local charm_count = 0
   for index = 1, charm_slots do if state.charms and state.charms.slots[index] then charm_count = charm_count + 1 end end
   local locomotion = session:locomotion_state(player)
+  local quick = nil
+  local expedition_model = nil
+  if session.expedition then
+    local weapon, ability = session:expedition_active_weapon(), session:expedition_active_ability()
+    local function slot_model(resolved, active)
+      local model = { label = resolved and resolved.display_name or "OFFLINE", active = active, available = resolved ~= nil,
+        ability_id = resolved and resolved.ability.id or nil }
+      if resolved and resolved.ability.ammo then
+        local magazine = session:weapon_magazine(resolved.provider, resolved.ability)
+        model.ammo = {
+          loaded = magazine.loaded,
+          capacity = resolved.ability.ammo.magazine_capacity + session:modifier_value("magazine_capacity"),
+          family = resolved.ability.ammo.family,
+          reserve = (state.expedition.reserve_ammo or {})[resolved.ability.ammo.family] or 0,
+        }
+      end
+      return model
+    end
+    quick = {
+      weapons = { slot_model(weapon, true), { label = "CLASS", active = false, available = false } },
+      abilities = { slot_model(ability, true), { label = "CLASS", active = false, available = false } },
+    }
+    local stacks = 0
+    for _, count in pairs(state.expedition.passive_stacks or {}) do stacks = stacks + count end
+    expedition_model = { stage = state.expedition.stage, encounter = state.expedition.encounter_index,
+      currency = state.expedition.currency, passive_stacks = stacks }
+  elseif session.campaign then
+    local loadout = session:campaign_loadout()
+    local function slot_model(kind, index)
+      local binding = loadout and (kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]) or nil
+      local resolved, failure = Loadout.resolve(session, player, binding, kind)
+      local label = resolved and (resolved.display_name or (resolved.ability and resolved.ability.display_name)) or nil
+      if not label and binding and binding.source_kind == "tool" and binding.tool_definition_id
+        and session.registry.tools[binding.tool_definition_id] then
+        label = session.registry:get_tool(binding.tool_definition_id).display_name
+      end
+      label = label or "EMPTY"
+      local model = {
+        label = label,
+        active = index == (kind == "weapon" and loadout.active_weapon or loadout.active_ability),
+        available = resolved ~= nil,
+        reason = failure and failure.reason or nil,
+        ability_id = binding and binding.ability_id or nil,
+      }
+      if resolved and resolved.ability and resolved.ability.ammo then
+        local magazine = session:weapon_magazine(resolved.provider, resolved.ability)
+        model.ammo = {
+          loaded = magazine.loaded,
+          capacity = resolved.ability.ammo.magazine_capacity,
+          family = resolved.ability.ammo.family,
+          reserve = session:ammo_reserve(resolved.ability.ammo.family),
+        }
+      end
+      return model
+    end
+    quick = {
+      weapons = { slot_model("weapon", 1), slot_model("weapon", 2) },
+      abilities = { slot_model("ability", 1), slot_model("ability", 2) },
+    }
+  end
   return {
     health = player.health,
     max_health = player.max_health,
@@ -135,6 +245,7 @@ function GameplayUI.hud(session)
     objective_progress = session.campaign and nil or (player.objective_progress or 0),
     objective_required = session.campaign and nil or state.settings.objective_required,
     location = session.campaign and state.settings.location_name or nil,
+    reconstruction_anchor = GameplayUI.campaign_anchor(session),
     scrap = state.scrap or 0,
     charm_count = charm_count,
     charm_slots = charm_slots,
@@ -142,7 +253,18 @@ function GameplayUI.hud(session)
     locomotion = locomotion.state,
     cargo_mass = inventory:total_mass(),
     encumbrance = inventory:encumbrance(),
+    quick = quick,
+    expedition = expedition_model,
   }
+end
+
+-- Read-only build vocabulary for the paused Inventory/loadout screen.  The
+-- simulation resolves conditions live, so a broken Shock Coil immediately
+-- changes an Arc Relay from active to informative rather than leaving stale
+-- UI state behind.
+function GameplayUI.build_effects(session)
+  if not session or not session.campaign or not session.build_effects then return {} end
+  return session:build_effects()
 end
 
 -- This mirrors Interaction.primary's stable ordering.  It only decides which
@@ -151,6 +273,54 @@ function GameplayUI.context_action(session)
   local state, player = session.state, session.state.player
   if state.exit and Grid.distance(player, state.exit) <= 1 then
     return { key = "MOVE", label = "EXIT READY — STEP ONTO EXIT", available = true, priority = 1 }
+  end
+  -- Campaign context is intentionally physical and directional. A corpse is
+  -- selected before ordinary objects on the faced cell; Session handles a
+  -- faced vertical connection before this UI helper is consulted.
+  if session.campaign then
+    local corpse = session.faced_corpse and session:faced_corpse() or nil
+    if corpse then
+      local count = #corpse:list_components() + #corpse:list_carried_items()
+      return {
+        key = "U",
+        label = corpse.source_kind == "player" and "SALVAGE FALLEN BODY"
+          or (corpse.fallen_archive_id and "SALVAGE FALLEN SHELL" or "SALVAGE REMAINS"),
+        available = count > 0,
+        reason = count > 0 and nil or "NO SALVAGE REMAINS",
+        priority = 2,
+      }
+    end
+    local interactions = session.faced_interactions and session:faced_interactions(player) or {}
+    if interactions[1] and interactions[1].actions[1] then
+      local action = interactions[1].actions[1]
+      return {
+        key = "U",
+        label = action.label,
+        available = action.available,
+        reason = action.available and nil or GameplayUI.failure_text(action),
+        object_name = interactions[1].display_name,
+        priority = 3,
+      }
+    end
+    local ground = session.faced_ground_item and session:faced_ground_item() or nil
+    if ground then
+      if ground.item.item_type == "resource_stack" then
+        return {
+          key = "MOVE",
+          label = "WALK OVER " .. string.upper(ground.item.display_name),
+          available = true,
+          priority = 4,
+        }
+      end
+      return {
+        key = "U",
+        label = "PICK UP " .. string.upper(ground.item.display_name),
+        available = session.state.inventory:find_first_fit(ground.item) ~= nil,
+        reason = "INVENTORY FULL",
+        priority = 4,
+      }
+    end
+    return nil
   end
   local ground = session.nearby_ground_item and session:nearby_ground_item() or nil
   if ground then
@@ -206,22 +376,53 @@ function GameplayUI.inventory_entry(session, entry, inventory)
   if entry.item.item_type == "resource_stack" then
     local definition = session.registry:get_resource(entry.item.resource_id)
     local width, height = inventory:footprint(entry.item, entry.rotated)
+    local ammo = entry.item.resource_id:match("^resource%.ammo%.") ~= nil
     return {
-      item_type = "resource",
+      item_type = ammo and "ammo" or "resource",
+      category = ammo and "AMMO" or "RESOURCE",
       name = definition.display_name,
       quantity = entry.item.quantity,
       mass = entry.item.mass,
       width = width,
       height = height,
       rotated = entry.rotated == true,
-      description = "CONSTRUCTION RESOURCE",
+      description = ammo and "PHYSICAL AMMUNITION" or "CONSTRUCTION RESOURCE",
+    }
+  end
+  if entry.item.item_type == "tool" then
+    local tool = entry.item.object
+    local definition = session.registry:get_tool(tool.definition_id)
+    local width, height = inventory:footprint(entry.item, entry.rotated)
+    return {
+      item_type = "tool", category = "TOOL", name = definition.display_name,
+      family = definition.family, mass = entry.item.mass, width = width, height = height,
+      rotated = entry.rotated == true, condition = string.upper(Tool.condition(tool)), functional = Tool.is_functional(tool),
+      current_durability = tool.current_durability, max_durability = tool.maximum_durability,
+      combat_damage = definition.combat.damage, combat_force = definition.combat.force,
+      modification_damage = definition.modification.damage,
+      description = "CARRIED " .. string.upper(definition.family) .. " TOOL",
     }
   end
   local model = GameplayUI.component(session, entry.item.object)
   model.item_type = "component"
+  model.category = "COMPONENT"
   local width, height = inventory:footprint(entry.item, entry.rotated)
   model.width, model.height = width, height
   model.rotated = entry.rotated == true
+  for _, ability_id in ipairs(session.registry:get_component(entry.item.object.definition_id).abilities or {}) do
+    local ability = session.registry:get_ability(ability_id)
+    if ability.ammo then
+      local key = ability.ammo.magazine_key or ability.id
+      local saved = entry.item.object.weapon_state and entry.item.object.weapon_state[key]
+      local loaded = saved and saved.loaded or ability.ammo.magazine_capacity
+      model.magazine = {
+        loaded = math.max(0, math.min(ability.ammo.magazine_capacity, math.floor(loaded or 0))),
+        capacity = ability.ammo.magazine_capacity,
+        family = ability.ammo.family,
+      }
+      break
+    end
+  end
   return model
 end
 
@@ -236,6 +437,7 @@ function GameplayUI.service_option(session, option)
     description = option.description,
   }
   if option.integrity then value.description = "INTEGRITY " .. option.integrity .. " / " .. option.max_integrity end
+  if option.durability then value.description = "DURABILITY " .. option.durability .. " / " .. option.max_durability end
   if option.action == "buy_component" and option.component_id then
     -- The component ID is physical.  Service option labels are authoritative
     -- player copy, so it is deliberately not surfaced here.
@@ -257,6 +459,15 @@ function GameplayUI.enemy(session, actor)
       abilities[#abilities + 1] = session.registry:get_ability(ability_id).display_name
     end
   end
+  local weapon = nil
+  for _, ability_id in ipairs(actor.body and actor.body:list_capabilities() or {}) do
+    local ability = session.registry:get_ability(ability_id)
+    if ability.implementation == "projectile" or ability.implementation == "scattershot"
+      or ability.implementation == "piercing_projectile" or ability.implementation == "melee" then
+      weapon = ability.display_name
+      break
+    end
+  end
   return {
     name = definition and definition.display_name or string.upper(actor.kind or "UNKNOWN"),
     faction = faction and faction.display_name or nil,
@@ -264,6 +475,8 @@ function GameplayUI.enemy(session, actor)
     max_health = actor.max_health,
     locomotion = session:locomotion_state(actor).state,
     abilities = abilities,
+    role = uppercase_words(actor.ai_role or "rusher"),
+    weapon = weapon,
     intent = session:enemy_intent(actor),
   }
 end

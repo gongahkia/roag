@@ -1,7 +1,10 @@
 local Grid = require("src.world.grid")
 local Component = require("src.body.component")
 local GameplayUI = require("src.presentation.gameplay_ui")
+local Loadout = require("src.simulation.loadout")
 local InventoryLayout = require("src.ui.inventory_layout")
+local SalvageLayout = require("src.ui.salvage_layout")
+local Tuning = require("src.rendering.tuning")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -11,12 +14,23 @@ local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
 }
+local FACING_MARKER_OFFSETS = {
+  w = { 0.5, 0.10 }, a = { 0.10, 0.5 }, s = { 0.5, 0.90 }, d = { 0.90, 0.5 },
+}
 local function clamp(value, minimum, maximum)
   return math.max(minimum, math.min(maximum, value))
 end
 
 function Renderer.new(assets)
   return setmetatable({ assets = assets }, Renderer)
+end
+
+function Renderer:outline_role(value, state)
+  if value == (state and state.player) then return "player" end
+  if value == (state and state.boss) then return "hostile" end
+  for _, enemy in ipairs(state and state.enemies or {}) do if value == enemy then return "hostile" end end
+  if value and value.kind == "bullet" then return "projectile" end
+  return nil
 end
 
 function Renderer:_color(color)
@@ -107,6 +121,12 @@ function Renderer:terrain_tint(world, x, y, fallback, passable)
   return fallback
 end
 
+-- Terrain is always readable inside the world bounds. Tactical line-of-sight
+-- controls information such as enemies and telegraphs, never map discovery.
+function Renderer:terrain_is_renderable(x, y)
+  return Grid.in_bounds(x, y)
+end
+
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
   local camera_x, camera_y = self:_camera_position(presentation, player)
   local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
@@ -115,6 +135,128 @@ function Renderer:_screen_position(presentation, player, x, y, size, offset_x, o
     return nil
   end
   return offset_x + screen_x * size, offset_y + (VIEW_HEIGHT - 1 - screen_y) * size
+end
+
+-- A small art-independent pip makes the movement-derived facing readable for
+-- both ATTACK and directional USE without turning it into a large HUD arrow.
+function Renderer:facing_marker_bounds(direction, x, y, size)
+  local offset = FACING_MARKER_OFFSETS[direction]
+  if not offset then return nil end
+  local marker = math.max(2, math.floor(size * Tuning.facing_marker_ratio))
+  return x + size * offset[1] - marker / 2, y + size * offset[2] - marker / 2, marker
+end
+
+function Renderer:_draw_facing_marker(direction, x, y, size)
+  local marker_x, marker_y, marker = self:facing_marker_bounds(direction, x, y, size)
+  if not marker_x then return end
+  self:_color({ 0.03, 0.05, 0.09, 0.9 })
+  love.graphics.rectangle("fill", marker_x - 1, marker_y - 1, marker + 2, marker + 2)
+  self:_color({ 0.96, 0.84, 0.28, 0.9 })
+  love.graphics.rectangle("fill", marker_x, marker_y, marker, marker)
+  love.graphics.setColor(1, 1, 1)
+end
+
+function Renderer:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  if self.assets and self.assets.draw_actor_sprite then
+    return self.assets:draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  end
+  return self.assets and self.assets:draw_sprite(sprite_kind, x, y, size, tint, transform)
+end
+
+function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, transform)
+  if not self.assets then return end
+  local thickness = math.max(1, math.floor(size * Tuning.outline_ratio))
+  for _, offset in ipairs({ { -thickness, 0 }, { thickness, 0 }, { 0, -thickness }, { 0, thickness } }) do
+    local outline_transform = {
+      offset_x = (transform and transform.offset_x or 0) + offset[1],
+      offset_y = (transform and transform.offset_y or 0) + offset[2],
+      scale_x = transform and transform.scale_x or 1,
+      scale_y = transform and transform.scale_y or 1,
+    }
+    self:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
+  end
+end
+
+function Renderer:_draw_footprint(x, y, size, style, time)
+  local danger = style == "threat"
+  local pulse = 0.55 + math.sin((time or 0) * (danger and 8 or 6)) * 0.12
+  local color = danger and { 1, 0.2, 0.18, Tuning.threat_preview_alpha * pulse }
+    or { 0.22, 0.86, 1, Tuning.attack_preview_alpha * pulse }
+  self:_color(color)
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.075)))
+  local inset = math.max(1, size * 0.13)
+  love.graphics.rectangle("line", x + inset, y + inset, size - inset * 2, size - inset * 2)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_weapon_orientation(preview, player, x, y, size)
+  if not preview or not preview.direction then return end
+  local delta = FACING_MARKER_OFFSETS[preview.direction]
+  if not delta then return end
+  local center_x, center_y = x + size * 0.5, y + size * 0.5
+  local dx, dy = delta[1] - 0.5, delta[2] - 0.5
+  local ranged = preview.implementation == "projectile" or preview.implementation == "piercing_projectile" or preview.implementation == "scattershot"
+  local length = size * (ranged and 0.44 or 0.3)
+  self:_color(ranged and { 1, 0.84, 0.3, 0.95 } or { 0.72, 0.94, 1, 0.95 })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(center_x + dx * size * 0.1, center_y + dy * size * 0.1, center_x + dx * length, center_y + dy * length)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_tracer(presentation, player, tracer, size, offset_x, offset_y)
+  local from_x, from_y = self:_screen_position(presentation, player, tracer.from_x, tracer.from_y, size, offset_x, offset_y)
+  local to_x, to_y = self:_screen_position(presentation, player, tracer.to_x, tracer.to_y, size, offset_x, offset_y)
+  if not from_x or not to_x then return end
+  local alpha = math.max(0, tracer.time / Tuning.tracer_lifetime)
+  self:_color(tracer.piercing and { 0.4, 0.95, 1, alpha } or { 1, 0.85, 0.25, alpha })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(from_x + size * 0.5, from_y + size * 0.5, to_x + size * 0.5, to_y + size * 0.5)
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_presentation_effects(presentation, player, size, offset_x, offset_y)
+  for _, tracer in ipairs(presentation.tracers or {}) do self:_draw_tracer(presentation, player, tracer, size, offset_x, offset_y) end
+  for _, particle in ipairs(presentation.particles or {}) do
+    local x, y = self:_screen_position(presentation, player, particle.x, particle.y, size, offset_x, offset_y)
+    if x then
+      local alpha = math.max(0, particle.time / Tuning.particle_lifetime)
+      local color = particle.cause == "electrical" and { 0.3, 0.9, 1, alpha }
+        or particle.cause == "explosive" and { 1, 0.46, 0.16, alpha }
+        or { 1, 0.84, 0.42, alpha }
+      self:_color(color)
+      love.graphics.rectangle("fill", x + size * 0.44, y + size * 0.44, math.max(1, size * 0.12), math.max(1, size * 0.12))
+    end
+  end
+  for _, death in ipairs(presentation.deaths or {}) do
+    local x, y = self:_screen_position(presentation, player, death.x, death.y, size, offset_x, offset_y)
+    if x then
+      self:_color({ 1, 0.3, 0.24, math.max(0, death.time / Tuning.particle_lifetime) })
+      love.graphics.setLineWidth(math.max(1, math.floor(size * 0.08)))
+      love.graphics.rectangle("line", x + size * 0.17, y + size * 0.17, size * 0.66, size * 0.66)
+      love.graphics.setLineWidth(1)
+    end
+  end
+  for _, number in ipairs(presentation.damage_numbers or {}) do
+    local x, y = self:_screen_position(presentation, player, number.x, number.y, size, offset_x, offset_y)
+    if x then
+      local progress = 1 - number.time / Tuning.damage_number_lifetime
+      local color = number.cause == "electrical" and { 0.38, 0.92, 1, 1 - progress }
+        or number.cause == "explosive" and { 1, 0.58, 0.22, 1 - progress }
+        or { 1, 0.94, 0.76, 1 - progress }
+      self:_text(tostring(number.amount), x + size * 0.5 + number.lane * size * 0.12, y - size * (0.18 + progress * 0.5), 0.76, color)
+    end
+  end
+  for _, label in ipairs(presentation.break_labels or {}) do
+    local x, y = self:_screen_position(presentation, player, label.x, label.y, size, offset_x, offset_y)
+    if x then self:_text(label.text, x + size * 0.08, y - size * 0.32, 0.48, { 1, 0.34, 0.24, label.time / Tuning.break_label_lifetime }) end
+  end
+  for index, chain in ipairs(presentation.modifier_chain or {}) do
+    local progress = 1 - chain.time / require("src.rendering.tuning").modifier_chain_lifetime
+    local label = chain.name .. (chain.stacks and " ×" .. chain.stacks or "")
+      .. (chain.count > 1 and " TRIGGERS ×" .. chain.count or "")
+    self:_text(label, 18, 106 + (index - 1) * 26 + progress * 6, 0.62, { 0.95, 0.79, 0.3, 1 - progress * 0.45 })
+    self:_text("→ " .. chain.summary, 28, 121 + (index - 1) * 26 + progress * 6, 0.47, { 0.73, 0.87, 1, 1 - progress * 0.45 })
+  end
 end
 
 function Renderer:_draw_forecast_fill(x, y, size, style, time)
@@ -134,14 +276,42 @@ function Renderer:_draw_forecast_outline(x, y, size, style, time)
   love.graphics.setLineWidth(1)
 end
 
+function Renderer:_integrity_severity(current, maximum)
+  if not current or not maximum or maximum <= 0 or current >= maximum or current <= 0 then return 0 end
+  local ratio = current / maximum
+  return ratio <= 1 / 3 and 2 or 1
+end
+
+-- Generic geometry, not a damaged-sprite requirement. One base sprite can
+-- therefore communicate persistent structural damage across every material.
+function Renderer:_draw_damage_overlay(x, y, size, severity)
+  if severity <= 0 then return end
+  self:_color({ 0.04, 0.025, 0.035, severity == 2 and 0.82 or 0.55 })
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+  love.graphics.line(x + size * 0.2, y + size * 0.16, x + size * 0.53, y + size * 0.48, x + size * 0.4, y + size * 0.78)
+  if severity == 2 then love.graphics.line(x + size * 0.64, y + size * 0.2, x + size * 0.49, y + size * 0.49, x + size * 0.78, y + size * 0.7) end
+  love.graphics.setLineWidth(1)
+end
+
+function Renderer:_draw_tool_impact(x, y, size, impact)
+  local pulse = math.max(0, math.min(1, (impact.time or 0) / 0.18))
+  local color = impact.applied and { 1, 0.78, 0.32, 0.35 + pulse * 0.58 } or { 0.75, 0.84, 0.95, 0.28 + pulse * 0.42 }
+  self:_color(color)
+  local inset = size * (0.18 + (1 - pulse) * 0.12)
+  love.graphics.setLineWidth(math.max(1, math.floor(size * 0.1)))
+  love.graphics.line(x + inset, y + inset, x + size - inset, y + size - inset)
+  love.graphics.line(x + size - inset, y + inset, x + inset, y + size - inset)
+  love.graphics.setLineWidth(1)
+end
+
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
   local size, offset_x, offset_y, hud = self:_layout()
   love.graphics.clear(0.025, 0.035, 0.055)
-  local shake = (presentation.hit_shake or 0) / 0.24
+  local shake = presentation:screen_shake()
   local time = love.timer.getTime()
-  offset_x = offset_x + math.sin(time * 78) * 6 * shake
-  offset_y = offset_y + math.cos(time * 93) * 4 * shake
+  offset_x = offset_x + math.sin(time * 78) * size * 0.45 * shake
+  offset_y = offset_y + math.cos(time * 93) * size * 0.3 * shake
   self:_color({ 0.08, 0.1, 0.14 })
   love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, VIEW_WIDTH * size + 8, VIEW_HEIGHT * size + 8)
 
@@ -163,9 +333,9 @@ function Renderer:_draw_game(app)
       local x, y = base_x + view_x, base_y + view_y
       local pixel_x = offset_x + (view_x - camera_offset_x) * size
       local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
-      local location_key = Grid.key(x, y)
       local passable = state.world and state.world:is_passable(x, y)
-      if Grid.in_bounds(x, y) and state.visible[location_key] then
+      if self:terrain_is_renderable(x, y) then
+        local terrain_cell = state.world and state.world:get_cell(x, y)
         if passable then
           local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
           self:_color(floor_tint)
@@ -185,13 +355,11 @@ function Renderer:_draw_game(app)
             love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
           end
         end
-      elseif Grid.in_bounds(x, y) and state.explored[location_key] then
-        local explored_tint = self:terrain_tint(state.world, x, y, floor, passable)
-        self:_color(passable and { explored_tint[1] * 0.28, explored_tint[2] * 0.28, explored_tint[3] * 0.28 } or { 0.035, 0.025, 0.04 })
-        love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-      else
-        self:_color({ 0.008, 0.011, 0.017 })
-        love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
+        if terrain_cell then
+          local terrain_material = session.registry:get_material(terrain_cell.material_id)
+          self:_draw_damage_overlay(pixel_x, pixel_y, size,
+            self:_integrity_severity(terrain_cell.current_integrity, terrain_material.max_integrity))
+        end
       end
     end
   end
@@ -254,8 +422,8 @@ function Renderer:_draw_game(app)
   end
 
   -- A detonated flare remains a short control zone. Its low-key amber field
-  -- makes the mechanical enemy-avoidance radius readable without revealing
-  -- unexplored terrain beyond the light it supplies.
+  -- makes the mechanical enemy-avoidance radius readable without exposing
+  -- tactical information outside the player's current perception.
   for _, flare in ipairs(state.flares or {}) do
     if flare.detonated and (flare.light_remaining or 0) > 0 then
       local pulse = 0.08 + math.sin(time * 8 + flare.x * 3 + flare.y) * 0.025
@@ -272,6 +440,23 @@ function Renderer:_draw_game(app)
           end
         end
       end
+    end
+  end
+
+  -- Direct player intent and visible hostile intent share the same grounded
+  -- tile-outline grammar. Geometry comes from Session's authoritative attack
+  -- helpers, never duplicated renderer guesses.
+  if not app:is_build_stance() then
+    local preview = session:player_attack_preview()
+    for _, cell in ipairs(preview and preview.cells or {}) do
+      local x, y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
+      if x then self:_draw_footprint(x, y, size, "player", time) end
+    end
+  end
+  for _, threat in ipairs(session:visible_enemy_threats()) do
+    for _, cell in ipairs(threat.preview.cells or {}) do
+      local x, y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
+      if x then self:_draw_footprint(x, y, size, "threat", time) end
     end
   end
 
@@ -308,6 +493,8 @@ function Renderer:_draw_game(app)
           tint = { 1, 0.78, 0.28 }
         end
         self.assets:draw_sprite(definition.render_style, pixel_x, pixel_y, size, tint)
+        self:_draw_damage_overlay(pixel_x, pixel_y, size,
+          self:_integrity_severity(object.current_integrity, session.registry:get_material(object.material_id).max_integrity))
       end
     end
   end
@@ -322,6 +509,31 @@ function Renderer:_draw_game(app)
         self:_text("+", pixel_x + size * 0.32, pixel_y + size * 0.2, 0.7, tint)
       end
     end
+  end
+
+  -- Construction is a faced-cell field stance.  The ghost is entirely
+  -- presentation state; Building.validate remains authoritative and no map
+  -- discovery/shroud state is involved in deciding whether it is drawn.
+  if app:is_build_stance() then
+    local recipe, target = app:active_build_recipe(), app:build_target()
+    local preview = app:build_preview()
+    if recipe and target then
+      local preview_x, preview_y = self:_screen_position(presentation, state.player, target.x, target.y, size, offset_x, offset_y)
+      if preview_x then
+        local definition = session.registry:get_world_object(recipe.world_object_id)
+        local tint = preview.applied and { 0.35, 1, 0.62, 0.48 } or { 1, 0.26, 0.25, 0.48 }
+        self.assets:draw_sprite(definition.render_style, preview_x, preview_y, size, tint)
+        self:_color(preview.applied and { 0.35, 1, 0.62, 0.95 } or { 1, 0.3, 0.28, 0.95 })
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", preview_x + 2, preview_y + 2, size - 4, size - 4)
+        love.graphics.setLineWidth(1)
+      end
+    end
+  end
+
+  for _, impact in ipairs(presentation.impacts or {}) do
+    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, impact.x, impact.y, size, offset_x, offset_y)
+    if pixel_x then self:_draw_tool_impact(pixel_x, pixel_y, size, impact) end
   end
 
   local forecasts = session:telegraphs()
@@ -355,14 +567,39 @@ function Renderer:_draw_game(app)
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
+    if presentation:reaction_flash(value) then
+      tint = value == state.player and { 1, 0.42, 0.42 } or { 1, 0.93, 0.72 }
+    end
     -- Historical echoes intentionally share the player body silhouette; the
     -- corrupt violet tint is presentation only and their actual capabilities
     -- remain body-derived in the simulation.
     local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
+    local animation_tag = presentation.reactions[value] and "hurt"
+      or presentation.attacks[value] and "attack"
+      or (value.body and not presentation:is_settled(value)) and "move"
+      or "idle"
     if value.kind == "fallen_echo" and not tint then tint = { 0.76, 0.34, 0.88 } end
     local transform = value.body and (presentation:movement_transform(value)
       or presentation:idle_transform(session, value, time, size)) or nil
-    self.assets:draw_sprite(sprite_kind, pixel_x, pixel_y, size, tint, transform)
+    transform = presentation.merge_transforms(transform, presentation:reaction_transform(value, size))
+    transform = presentation.merge_transforms(transform, presentation:attack_transform(value, size))
+    if value == state.player then
+      transform = presentation.merge_transforms(transform, presentation:facing_transform(value, size))
+      transform = presentation.merge_transforms(transform, presentation:player_bump_transform(size))
+    end
+    local role = self:outline_role(value, state)
+    if role == "player" then
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
+    elseif role == "hostile" then
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
+    elseif role == "projectile" then
+      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
+    end
+    self:_draw_actor_sprite(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
+    if value == state.player then
+      if not app:is_build_stance() then self:_draw_weapon_orientation(session:player_attack_preview(), value, pixel_x, pixel_y, size) end
+      self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size)
+    end
   end
 
   for _, values in ipairs({ state.torches, state.targets, state.enemies, state.bullets, state.bombs, state.flares }) do
@@ -398,13 +635,17 @@ function Renderer:_draw_game(app)
     actor(state.boss)
   end
   actor(state.player, true)
+  self:_draw_presentation_effects(presentation, state.player, size, offset_x, offset_y)
   -- Draw the forecast border after actors so a target cell stays legible even
   -- when the player or another actor occupies it. The player selection box is
   -- still drawn last.
   for location_key, style in pairs(forecasts) do
     local x, y = location_key:match("(%d+):(%d+)")
-    local pixel_x, pixel_y = self:_screen_position(presentation, state.player, tonumber(x), tonumber(y), size, offset_x, offset_y)
-    if pixel_x then self:_draw_forecast_outline(pixel_x, pixel_y, size, style, time) end
+    local forecast_x, forecast_y = tonumber(x), tonumber(y)
+    if state.visible[Grid.key(forecast_x, forecast_y)] then
+      local pixel_x, pixel_y = self:_screen_position(presentation, state.player, forecast_x, forecast_y, size, offset_x, offset_y)
+      if pixel_x then self:_draw_forecast_outline(pixel_x, pixel_y, size, style, time) end
+    end
   end
   local player_x, player_y = presentation:position(state.player)
   local pixel_x, pixel_y = self:_screen_position(presentation, state.player, player_x, player_y, size, offset_x, offset_y)
@@ -420,38 +661,78 @@ function Renderer:_draw_game(app)
   end
 
   local ui = GameplayUI.hud(session)
-  self:_text("ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
-  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.66, { 0.78, 0.78, 0.6 }) end
+  self:_text(ui.expedition and "EXPEDITION" or "ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
+  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end
+  if ui.reconstruction_anchor then
+    self:_text(ui.reconstruction_anchor.current_zone and "RESPAWN ANCHOR: THIS ZONE" or "RESPAWN ANCHOR: REMOTE ZONE",
+      hud, offset_y + 34, 0.46, ui.reconstruction_anchor.current_zone and { 0.58, 0.88, 0.78 } or { 0.95, 0.72, 0.35 })
+  end
   self:_text("HP " .. ui.health .. " / " .. ui.max_health .. "   " .. string.rep("♥", ui.health), hud, offset_y + 42,
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
-  self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
-  self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
+  if ui.quick then
+    local active_weapon = ui.quick.weapons[1].active and ui.quick.weapons[1] or ui.quick.weapons[2]
+    local active_ability = ui.quick.abilities[1].active and ui.quick.abilities[1] or ui.quick.abilities[2]
+    local function quick_label(prefix, slot, index)
+      return prefix .. " " .. string.char(string.byte("A") + index - 1) .. (slot.active and " * " or "   ") .. string.upper(slot.label)
+    end
+    self:_text(quick_label("W", ui.quick.weapons[1], 1), hud, offset_y + 64, 0.66,
+      ui.quick.weapons[1].active and { 0.95, 0.85, 0.3 } or { 0.72, 0.8, 0.92 })
+    self:_text(quick_label("W", ui.quick.weapons[2], 2), hud, offset_y + 80, 0.66,
+      ui.quick.weapons[2].active and { 0.95, 0.85, 0.3 } or { 0.72, 0.8, 0.92 })
+    if active_weapon and active_weapon.ammo then
+      local ammo = active_weapon.ammo
+      self:_text("MAG " .. ammo.loaded .. "/" .. ammo.capacity .. " " .. string.upper(session.registry:get_resource(ammo.family).display_name)
+        .. " · " .. ammo.reserve .. " RESERVE", hud, offset_y + 96, 0.62, { 0.6, 0.9, 0.75 })
+    else
+      self:_text("MELEE / NO MAGAZINE", hud, offset_y + 96, 0.62, { 0.72, 0.8, 0.92 })
+    end
+    self:_text(quick_label("A", ui.quick.abilities[1], 1), hud, offset_y + 112, 0.64,
+      ui.quick.abilities[1].active and { 0.95, 0.65, 0.35 } or { 0.72, 0.8, 0.92 })
+    self:_text(quick_label("A", ui.quick.abilities[2], 2), hud, offset_y + 128, 0.64,
+      ui.quick.abilities[2].active and { 0.95, 0.65, 0.35 } or { 0.72, 0.8, 0.92 })
+    if active_ability and not active_ability.available then
+      self:_text("ABILITY OFFLINE", hud, offset_y + 144, 0.6, { 1, 0.42, 0.42 })
+    end
+  else
+    self:_text("AMMO " .. ui.ammo .. "   BOMBS " .. ui.bombs .. " (" .. ui.armed_bombs .. " ARMED)", hud, offset_y + 64)
+    self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
+  end
   local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
+    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   ENCOUNTER " .. ui.expedition.encounter))
     or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
   if primary_status then
     self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
   end
-  self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, offset_y + 134, 0.82, { 0.65, 0.9, 0.8 })
-  self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, offset_y + 154, 0.8,
-    ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
-  if ui.curse then
-    self:_text("CURSE " .. ui.curse, hud, offset_y + 174, 0.76, { 0.9, 0.4, 0.8 })
+  local economy_y = ui.quick and offset_y + 162 or offset_y + 134
+  if ui.expedition then
+    self:_text("SCRAP " .. ui.expedition.currency .. "   PASSIVE STACKS " .. ui.expedition.passive_stacks,
+      hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
+    self:_text("I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
+  else
+    self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
+    self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
+      ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
   end
-  local status_y = offset_y + 198
+  if ui.curse then
+    self:_text("CURSE " .. ui.curse, hud, economy_y + 40, 0.76, { 0.9, 0.4, 0.8 })
+  end
+  local status_y = ui.quick and economy_y + 64 or offset_y + 198
   if ui.locomotion ~= "NORMAL" then
     local locomotion_color = ui.locomotion == "IMPAIRED" and { 1, 0.72, 0.3 } or { 1, 0.42, 0.42 }
     self:_text("LOCOMOTION " .. ui.locomotion, hud, status_y, 0.8, locomotion_color)
     status_y = status_y + 18
   end
-  local ranged_ability = session:actor_ability_by_implementation(state.player, "projectile")
-  local ranged = ranged_ability and session:actor_ability_provider(state.player, ranged_ability) or nil
-  if ranged then
-    local definition = session.registry:get_component(ranged.component.definition_id)
-    self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
-  else
-    self:_text("WEAPON OFFLINE", hud, status_y, 0.72, { 1, 0.42, 0.42 })
+  if not ui.quick then
+    local ranged_ability = session:actor_ability_by_implementation(state.player, "projectile")
+    local ranged = ranged_ability and session:actor_ability_provider(state.player, ranged_ability) or nil
+    if ranged then
+      local definition = session.registry:get_component(ranged.component.definition_id)
+      self:_text("WEAPON " .. string.upper(definition.display_name), hud, status_y, 0.68, { 0.65, 0.9, 0.8 })
+    else
+      self:_text("WEAPON OFFLINE", hud, status_y, 0.72, { 1, 0.42, 0.42 })
+    end
+    status_y = status_y + 18
   end
-  status_y = status_y + 18
   if state.boss then
     local boss = state.boss
     local boss_model = GameplayUI.boss(session, boss)
@@ -478,7 +759,7 @@ function Renderer:_draw_game(app)
     status_y = status_y + 15
   end
   local abilities = session:available_actor_abilities(state.player, "body")
-  if #abilities > 0 then
+  if not ui.quick and #abilities > 0 then
     local ability = session.registry:get_ability(abilities[1])
     self:_text("BODY X: " .. string.upper(ability.display_name), hud, status_y, 0.72, { 0.95, 0.65, 0.35 })
     status_y = status_y + 18
@@ -489,20 +770,50 @@ function Renderer:_draw_game(app)
       hud, status_y, 0.68, context.available and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
     status_y = status_y + 18
   end
-  local controls_y = math.max(offset_y + 278, status_y + 8)
+  if app:is_build_stance() then
+    local recipe, preview = app:active_build_recipe(), app:build_preview()
+    if recipe then
+      self:_text("BUILD — " .. string.upper(recipe.display_name), hud, status_y, 0.72, { 0.95, 0.85, 0.3 })
+      status_y = status_y + 18
+      local costs = {}
+      local counts = state.inventory:resource_counts()
+      for _, cost in ipairs(recipe.costs) do
+        local resource = session.registry:get_resource(cost.resource_id)
+        costs[#costs + 1] = string.upper(resource.display_name) .. " " .. (counts[cost.resource_id] or 0) .. "/" .. cost.amount
+      end
+      self:_text(table.concat(costs, "  "), hud, status_y, 0.58, preview.applied and { 0.6, 0.9, 0.75 } or { 1, 0.48, 0.32 })
+      status_y = status_y + 17
+      if not preview.applied then
+        self:_text(GameplayUI.failure_text(preview), hud, status_y, 0.58, { 1, 0.48, 0.32 })
+        status_y = status_y + 17
+      end
+    end
+  end
+  local controls_y = math.max(ui.quick and offset_y + 342 or offset_y + 278, status_y + 8)
   self:_text("CONTROLS", hud, controls_y, 1, { 0.6, 0.8, 1 })
   self:_text("WASD MOVE / HOLD", hud, controls_y + 20, 0.85)
-  self:_text("ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
-  self:_text("Q dash   B bomb   F flare", hud, controls_y + 56, 0.75)
-  self:_text("G salvage   I inventory   U interact", hud, controls_y + 74, 0.68)
+  if session.campaign and app:is_build_stance() then
+    self:_text("E PLACE   R NEXT RECIPE   X PREVIOUS", hud, controls_y + 38, 0.75, { 0.95, 0.85, 0.3 })
+    self:_text("Q ABILITY   U USE   I INVENTORY   C / ESC EXIT", hud, controls_y + 56, 0.68)
+  else
+    self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
+    self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
+    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
+      controls_y + 74, 0.68)
+  end
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
-  for index, enemy in ipairs(state.enemies) do
-    if index > 5 then
-      break
+  local shown_threats = 0
+  for _, enemy in ipairs(state.enemies) do
+    if state.visible[Grid.key(enemy.x, enemy.y)] then
+      shown_threats = shown_threats + 1
+      if shown_threats > 5 then break end
+      local enemy_model = GameplayUI.enemy(session, enemy)
+      local faction = enemy_model.faction and (" — " .. string.upper(enemy_model.faction)) or ""
+      local loadout = enemy_model.weapon and (" [" .. enemy_model.role .. " / " .. string.upper(enemy_model.weapon) .. "]")
+        or (" [" .. enemy_model.role .. "]")
+      self:_text(enemy_model.name .. faction .. loadout .. ": " .. enemy_model.intent,
+        hud, controls_y + 124 + shown_threats * 17, 0.62)
     end
-    local enemy_model = GameplayUI.enemy(session, enemy)
-    local faction = enemy_model.faction and (" — " .. string.upper(enemy_model.faction)) or ""
-    self:_text(enemy_model.name .. faction .. ": " .. enemy_model.intent, hud, controls_y + 124 + index * 17, 0.67)
   end
   for index, message in ipairs(state.log) do
     self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
@@ -556,6 +867,7 @@ function Renderer:_draw_reconstruction(app)
 
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("RECONSTRUCTION", body_x, 28, 2, { 0.7, 0.9, 1 })
+  self:_text("PAUSED — BODY CHANGES ARE FREE UNTIL YOU FINISH", body_x, 51, 0.58, { 0.68, 0.78, 0.9 })
   self:_text("Installed mass " .. body:installed_mass() .. "   •   Cargo " .. inventory:total_mass() .. " " .. inventory:encumbrance(), body_x, 68, 0.88, { 0.95, 0.85, 0.3 })
   local locomotion = session:locomotion_state(state.player)
   local locomotion_color = locomotion.state == "NORMAL" and { 0.65, 0.9, 0.8 }
@@ -617,7 +929,9 @@ function Renderer:_draw_reconstruction(app)
   self:_text(feedback.compatible and "COMPATIBLE" or "INCOMPATIBLE", body_x, height - 92, 1, feedback_color)
   self:_text(GameplayUI.failure_text(feedback), body_x + 145, height - 92, 0.78, feedback_color)
   self:_text("TAB FOCUS   W/S SELECT   ENTER INSTALL / UNINSTALL   R ROTATE INVENTORY", body_x, height - 62, 0.7, { 0.75, 0.82, 0.92 })
-  self:_text("F FINISH RECONSTRUCTION", body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
+  local finish_text = session.campaign and state.active_reconstruction_station_id
+    and "F / ESC FINISH RECONSTRUCTION" or "F FINISH RECONSTRUCTION"
+  self:_text(finish_text, body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
 end
 
 function Renderer:_draw_body_abilities(app)
@@ -675,7 +989,7 @@ function Renderer:_draw_inventory(app)
   end
 
   love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("CARRIED INVENTORY", grid_x, math.max(18, grid_y - 58), 1.35, { 0.7, 0.9, 1 })
+  self:_text("CARRIED INVENTORY — PAUSED", grid_x, math.max(18, grid_y - 58), 1.35, { 0.7, 0.9, 1 })
   self:_text(inventory:total_mass() .. " MASS  •  " .. inventory:encumbrance(), grid_x, math.max(38, grid_y - 31), 0.72, { 0.95, 0.85, 0.3 })
   for y = 1, inventory.height do
     for x = 1, inventory.width do
@@ -722,18 +1036,38 @@ function Renderer:_draw_inventory(app)
     local model = GameplayUI.inventory_entry(app.session, detail_entry, inventory)
     self:_text(model.name, detail_x, detail_y, 0.82, { 0.95, 0.85, 0.3 })
     self:_text("MASS " .. model.mass .. "   BOUNDS " .. model.width .. "×" .. model.height .. (model.rotated and " (ROTATED)" or ""), detail_x, detail_y + 17, 0.54)
-    if model.item_type == "resource" then
-      self:_text("RESOURCE ×" .. model.quantity, detail_x, detail_y + 33, 0.58, { 0.6, 0.9, 0.75 })
+    if model.item_type == "resource" or model.item_type == "ammo" then
+      self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, detail_x, detail_y + 33, 0.58,
+        model.item_type == "ammo" and { 0.95, 0.7, 0.35 } or { 0.6, 0.9, 0.75 })
+    elseif model.item_type == "tool" then
+      self:_text("DURABILITY " .. model.current_durability .. " / " .. model.max_durability, detail_x, detail_y + 33, 0.58)
+      self:_text(model.condition .. "  •  " .. string.upper(model.family) .. " TOOL", detail_x, detail_y + 46, 0.52,
+        model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+      self:_text("COMBAT " .. model.combat_damage .. "  •  TERRAIN " .. model.modification_damage, detail_x, detail_y + 59, 0.48,
+        { 0.95, 0.72, 0.35 })
     else
       self:_text("INTEGRITY " .. model.current_integrity .. " / " .. model.max_integrity, detail_x, detail_y + 33, 0.58)
       self:_text(model.condition, detail_x, detail_y + 46, 0.58,
         model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.35, 0.35 })
+      if model.magazine then
+        self:_text("MAG " .. model.magazine.loaded .. "/" .. model.magazine.capacity, detail_x, detail_y + 59, 0.52,
+          { 0.95, 0.72, 0.35 })
+      end
     end
   else
     self:_text("EMPTY CELL", detail_x, detail_y, 0.72, { 0.65, 0.75, 0.9 })
   end
-  self:_text("DRAG TO REPACK  •  R ROTATE  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
-  self:_text("ENTER SELECT / PLACE     I / ESC CLOSE", grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
+  local drop = app:inventory_drop_target_layout(width, height)
+  if drop then
+    self:_color({ 0.22, 0.11, 0.1 })
+    love.graphics.rectangle("fill", drop.x, drop.y, drop.width, drop.height)
+    self:_color({ 0.9, 0.38, 0.3 })
+    love.graphics.rectangle("line", drop.x, drop.y, drop.width, drop.height)
+    self:_text("DROP SELECTED", drop.x + 12, drop.y + 7, 0.55, { 1, 0.72, 0.66 })
+  end
+  self:_text("DRAG TO REPACK  •  R ROTATE  •  DEL DROP  •  WASD / ARROWS MOVE CURSOR", grid_x, height - 58, 0.68, { 0.75, 0.82, 0.92 })
+  self:_text(app:is_campaign_mode() and "TAB LOADOUT     ENTER SELECT / PLACE     I / ESC CLOSE" or "ENTER SELECT / PLACE     I / ESC CLOSE",
+    grid_x, height - 36, 0.68, { 0.75, 0.82, 0.92 })
   local body_y = grid_y + layout.height + 10
   local body_x = grid_x
   self:_text("EQUIPPED BODY", body_x, body_y, 0.68, { 0.7, 0.9, 1 })
@@ -744,6 +1078,67 @@ function Renderer:_draw_inventory(app)
           or (component.functional and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }))
     end
   end
+  if app:is_campaign_mode() then
+    local loadout = app.session:campaign_loadout()
+    local panel_x = grid_x + math.floor(layout.width * 0.55)
+    local panel_y = body_y + 8
+    local slots = {
+      { kind = "weapon", index = 1, label = "WEAPON A" },
+      { kind = "weapon", index = 2, label = "WEAPON B" },
+      { kind = "ability", index = 1, label = "ABILITY A" },
+      { kind = "ability", index = 2, label = "ABILITY B" },
+    }
+    self:_text("QUICK LOADOUT", panel_x, panel_y, 0.68, { 0.7, 0.9, 1 })
+    for focus, slot in ipairs(slots) do
+      local binding = slot.kind == "weapon" and loadout.weapon_slots[slot.index] or loadout.ability_slots[slot.index]
+      local resolved = binding and select(1, Loadout.resolve(app.session, app.session.state.player, binding, slot.kind)) or nil
+      local label = resolved and (resolved.display_name or (resolved.ability and resolved.ability.display_name))
+      if not label and binding and binding.source_kind == "tool" and binding.tool_definition_id
+        and app.session.registry.tools[binding.tool_definition_id] then
+        label = app.session.registry:get_tool(binding.tool_definition_id).display_name
+      end
+      local active = slot.index == (slot.kind == "weapon" and loadout.active_weapon or loadout.active_ability)
+      local selected = app.inventory_panel == "loadout" and focus == (app.loadout_focus or 1)
+      local color = selected and { 0.95, 0.85, 0.3 } or active and { 0.6, 0.9, 0.75 } or { 0.72, 0.8, 0.92 }
+      self:_text((selected and "> " or "  ") .. slot.label .. (active and " * " or "   ")
+        .. string.upper(label or "EMPTY"), panel_x, panel_y + focus * 15, 0.5, color)
+    end
+    if app.inventory_panel == "loadout" then
+      local target = app:loadout_target()
+      local options = app:loadout_options()
+      local option_y = panel_y + 82
+      self:_text("ASSIGN " .. target.label, panel_x, option_y, 0.56, { 0.95, 0.85, 0.3 })
+      for index, option in ipairs(options) do
+        if option_y + index * 14 < height - 34 then
+          local selected = index == (app.loadout_selection or 1)
+          local color = selected and { 0.95, 0.85, 0.3 }
+            or option.available and { 0.75, 0.84, 0.94 } or { 1, 0.42, 0.35 }
+          local durability = option.current_durability and (" " .. option.current_durability .. "/" .. option.max_durability) or ""
+          self:_text((selected and "> " or "  ") .. string.upper(option.display_name) .. " — "
+            .. string.upper(option.provider_name) .. " " .. string.upper(option.condition) .. durability,
+            panel_x, option_y + index * 14, 0.44, color)
+        end
+      end
+      self:_text("A/D SLOT  W/S ACTION  ENTER ASSIGN  TAB CLOSE", panel_x, height - 20, 0.44, { 0.75, 0.82, 0.92 })
+    end
+    -- The assignment list may be taller than the panel on smaller windows.
+    -- Keep build readability on the normal paused Inventory surface instead
+    -- of drawing it on top of a selectable loadout option.
+    local effects = app.inventory_panel ~= "loadout" and GameplayUI.build_effects(app.session) or {}
+    local effects_y = panel_y + 86
+    if effects_y < height - 56 then
+      self:_text("BUILD EFFECTS", panel_x, effects_y, 0.62, { 0.7, 0.9, 1 })
+      for index, effect in ipairs(effects) do
+        if effects_y + index * 23 < height - 34 then
+          local color = effect.active and { 0.6, 0.9, 0.75 } or { 1, 0.55, 0.34 }
+          self:_text((effect.active and "ACTIVE " or "INACTIVE ") .. string.upper(effect.charm_name),
+            panel_x, effects_y + index * 23, 0.43, color)
+          self:_text(effect.active and effect.description or effect.reason,
+            panel_x, effects_y + index * 23 + 9, 0.34, { 0.72, 0.8, 0.9 })
+        end
+      end
+    end
+  end
 end
 
 function Renderer:_draw_salvage(app)
@@ -751,6 +1146,112 @@ function Renderer:_draw_salvage(app)
   local corpse = session:find_corpse(app.salvage_corpse_id)
   local options = app:salvage_options()
   local width, height = love.graphics.getDimensions()
+  if session.campaign then
+    local projection = app:salvage_grid()
+    local layout = projection and app:salvage_layout(width, height) or nil
+    love.graphics.clear(0.025, 0.035, 0.055)
+    self:_text("CORPSE SALVAGE", 28, 24, 1.35, { 0.7, 0.9, 1 })
+    self:_text("PAUSED — TRANSFERS DO NOT ADVANCE TIME", 28, 43, 0.46, { 0.68, 0.78, 0.9 })
+    if not corpse or not projection or not layout then
+      self:_text("CORPSE NO LONGER AVAILABLE", 28, 74, 0.9, { 1, 0.4, 0.4 })
+      return
+    end
+    local source = corpse.source_kind and session.registry.enemies["enemy.legacy." .. corpse.source_kind]
+    local label = corpse.source_kind == "player" and "FALLEN BODY"
+      or (corpse.fallen_archive_id and "FALLEN SHELL")
+      or ((source and source.display_name or "ENEMY") .. " REMAINS")
+    self:_text(label, 28, 51, 0.64, { 0.95, 0.85, 0.3 })
+
+    local function draw_grid(title, inventory, geometry, base_color, focus, cursor, hide_id)
+      self:_text(title, geometry.grid_x, geometry.grid_y - 27, 0.72,
+        focus and { 0.95, 0.85, 0.3 } or { 0.65, 0.78, 0.92 })
+      for y = 1, inventory.height do
+        for x = 1, inventory.width do
+          local pixel_x = geometry.grid_x + (x - 1) * layout.cell
+          local pixel_y = geometry.grid_y + (y - 1) * layout.cell
+          self:_color({ 0.055, 0.08, 0.12 })
+          love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 2, layout.cell - 2)
+          self:_color({ 0.18, 0.28, 0.38 })
+          love.graphics.rectangle("line", pixel_x, pixel_y, layout.cell - 2, layout.cell - 2)
+        end
+      end
+      for _, entry in ipairs(inventory.entries) do
+        if entry.physical_id ~= hide_id then
+          local cells = inventory:footprint_cells(entry.item, entry.rotated)
+          local selected = app.salvage_selected_id == entry.physical_id
+          for _, shape_cell in ipairs(cells) do
+            local pixel_x = geometry.grid_x + (entry.x - 1 + shape_cell.x) * layout.cell + 2
+            local pixel_y = geometry.grid_y + (entry.y - 1 + shape_cell.y) * layout.cell + 2
+            self:_color(selected and { 0.92, 0.7, 0.2 } or base_color)
+            love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+            self:_color({ 0.8, 0.9, 1 })
+            love.graphics.rectangle("line", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+          end
+          self:_text(entry.item.display_name, geometry.grid_x + (entry.x - 1) * layout.cell + 3,
+            geometry.grid_y + (entry.y - 1) * layout.cell + 4, math.max(0.27, math.min(0.48, layout.cell / 75)),
+            { 0.95, 0.97, 1 })
+        end
+      end
+      if cursor then
+        local pixel_x = geometry.grid_x + (cursor.x - 1) * layout.cell
+        local pixel_y = geometry.grid_y + (cursor.y - 1) * layout.cell
+        self:_color(focus and { 1, 0.85, 0.2 } or { 0.4, 0.6, 0.78 })
+        love.graphics.setLineWidth(2)
+        love.graphics.rectangle("line", pixel_x - 1, pixel_y - 1, layout.cell, layout.cell)
+        love.graphics.setLineWidth(1)
+      end
+    end
+
+    local cursors = app.salvage_cursor or { corpse = { x = 1, y = 1 }, player = { x = 1, y = 1 } }
+    local drag = app.salvage_drag
+    draw_grid("FALLEN CARGO", projection.inventory, layout.corpse, { 0.36, 0.43, 0.7 }, app.salvage_focus == "corpse",
+      cursors.corpse, drag and drag.physical_id)
+    draw_grid("YOUR INVENTORY", session.state.inventory, layout.player, { 0.18, 0.45, 0.58 }, app.salvage_focus == "player",
+      cursors.player, nil)
+    if drag and drag.x and drag.y then
+      local entry = projection.inventory:get(drag.physical_id)
+      if entry then
+        local color = drag.valid and { 0.45, 0.92, 0.74, 0.8 } or { 1, 0.28, 0.22, 0.7 }
+        for _, shape_cell in ipairs(session.state.inventory:footprint_cells(entry.item, drag.rotated)) do
+          local pixel_x = layout.player.grid_x + (drag.x - 1 + shape_cell.x) * layout.cell + 2
+          local pixel_y = layout.player.grid_y + (drag.y - 1 + shape_cell.y) * layout.cell + 2
+          self:_color(color)
+          love.graphics.rectangle("fill", pixel_x, pixel_y, layout.cell - 6, layout.cell - 6)
+        end
+      end
+    end
+    local detail = drag and projection.inventory:get(drag.physical_id)
+      or (app.salvage_selected_id and projection.inventory:get(app.salvage_selected_id))
+      or projection.inventory:item_at(cursors.corpse.x, cursors.corpse.y)
+    if detail then
+      local model = GameplayUI.inventory_entry(session, { item = detail.item, rotated = drag and drag.rotated or detail.rotated }, projection.inventory)
+      local details_y = math.max(62, layout.corpse.grid_y - 50)
+      self:_text(string.upper(model.category or "COMPONENT") .. "  " .. string.upper(model.name), width * 0.47, details_y, 0.56,
+        { 0.95, 0.85, 0.3 })
+      self:_text("MASS " .. model.mass .. "  •  " .. model.width .. "×" .. model.height
+        .. (((drag and drag.rotated) or model.rotated) and " ROTATED" or ""), width * 0.47, details_y + 15, 0.45,
+        { 0.75, 0.82, 0.92 })
+      if model.item_type == "resource" or model.item_type == "ammo" then
+        self:_text((model.category or "RESOURCE") .. " ×" .. model.quantity, width * 0.47, details_y + 29, 0.45,
+          { 0.6, 0.9, 0.75 })
+      elseif model.item_type == "tool" then
+        self:_text("DURABILITY " .. model.condition .. "  " .. model.current_durability .. "/" .. model.max_durability,
+          width * 0.47, details_y + 29, 0.45, model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.35 })
+      else
+        self:_text("CONDITION " .. model.condition .. "  " .. model.current_integrity .. "/" .. model.max_integrity,
+          width * 0.47, details_y + 29, 0.45, model.functional and { 0.6, 0.9, 0.75 } or { 1, 0.4, 0.35 })
+        if model.magazine then self:_text("MAG " .. model.magazine.loaded .. "/" .. model.magazine.capacity,
+          width * 0.47, details_y + 43, 0.45, { 0.95, 0.72, 0.35 }) end
+      end
+    else
+      self:_text("SELECT A CORPSE ITEM", width * 0.47, math.max(62, layout.corpse.grid_y - 50), 0.55, { 0.65, 0.75, 0.9 })
+    end
+    self:_text("DRAG CORPSE CARGO TO YOUR GRID  •  R ROTATE  •  TAB SWITCH GRID", 28, height - 52, 0.58,
+      { 0.75, 0.82, 0.92 })
+    self:_text("ENTER SELECT / PLACE  •  U / ESC CLOSE  •  SALVAGE PAUSES THE WORLD", 28, height - 31, 0.56,
+      { 0.75, 0.82, 0.92 })
+    return
+  end
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("CORPSE SALVAGE", width * 0.18, 58, 2, { 0.7, 0.9, 1 })
   if not corpse then
@@ -796,31 +1297,13 @@ function Renderer:_draw_salvage(app)
   self:_text("W/S SELECT     ENTER SALVAGE     G / ESC CLOSE", width * 0.18, height - 58, 0.85, { 0.75, 0.82, 0.92 })
 end
 
-function Renderer:_draw_build_place(app)
-  local width, height = love.graphics.getDimensions()
-  local preview = app:build_preview()
-  local recipe = app.session.registry:get_construction_recipe(app.build_recipe_id)
-  love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("PLACE " .. string.upper(recipe.display_name), width * 0.18, 58, 2, { 0.7, 0.9, 1 })
-  local cursor = app.build_cursor
-  self:_text("TARGET " .. cursor.x .. "," .. cursor.y, width * 0.18, 116, 1.05, { 0.95, 0.85, 0.3 })
-  self:_text(preview.applied and "VALID" or ("INVALID — " .. GameplayUI.failure_text(preview)), width * 0.18, 152, 0.92,
-    preview.applied and { 0.6, 0.9, 0.75 } or { 1, 0.42, 0.42 })
-  local counts = app.session.state.inventory:resource_counts()
-  local resources = { "resource.material.timber", "resource.material.masonry", "resource.material.metal" }
-  for index, id in ipairs(resources) do
-    local resource = app.session.registry:get_resource(id)
-    self:_text(string.upper(resource.display_name) .. "  " .. (counts[id] or 0), width * 0.18, 210 + (index - 1) * 28, 0.85, { 0.75, 0.82, 0.92 })
-  end
-  self:_text("WASD / ARROWS MOVE TARGET     ENTER BUILD     C / ESC BACK", width * 0.18, height - 58, 0.78, { 0.75, 0.82, 0.92 })
-end
-
 function Renderer:_draw_storage(app)
   local width, height = love.graphics.getDimensions()
   local player_entries = app.session.state.inventory.entries
   local storage = app:storage_inventory()
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("STORAGE", width * 0.15, 48, 2, { 0.7, 0.9, 1 })
+  self:_text("PAUSED — TRANSFERS DO NOT ADVANCE TIME", width * 0.15, 78, 0.58, { 0.68, 0.78, 0.9 })
   local function column(title, entries, x, selected)
     self:_text(title, x, 108, 1.15, selected and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
     if #entries == 0 then self:_text("EMPTY", x, 145, 0.8, { 0.48, 0.55, 0.65 }) end
@@ -885,6 +1368,86 @@ function Renderer:_draw_title(app)
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
 end
 
+function Renderer:_draw_expedition_character_select(app)
+  local items = {}
+  for _, option in ipairs(app:expedition_character_options_list()) do
+    local definition = option.definition
+    local state = option.unlocked and "READY" or ("LOCKED — " .. (definition.unlock_description or "KEEP EXPLORING"))
+    items[#items + 1] = {
+      name = definition.display_name .. "  [" .. state .. "]",
+      description = "HP " .. definition.base_hp .. "  •  " .. definition.description,
+    }
+  end
+  self:_menu("CHOOSE EXPEDITION CHARACTER", items, app.menu, "W/S SELECT     ENTER START     ESC TITLE")
+end
+
+function Renderer:_draw_expedition_reward(app)
+  local items = {}
+  for _, passive in ipairs(app.expedition and app.expedition.pending_reward or {}) do
+    local current = app.session.state.expedition.passive_stacks[passive.id] or 0
+    local preview = require("src.expedition.modifiers").stack_preview(passive, current + 1)
+    items[#items + 1] = {
+      name = passive.name .. "  ×" .. current .. " → ×" .. (current + 1),
+      description = passive.description .. "  •  NOW " .. preview.current .. "  •  NEXT " .. preview.next,
+    }
+  end
+  self:_menu("CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
+end
+
+function Renderer:_draw_expedition_chest(app)
+  local chest = app.expedition and app.expedition.pending_chest or {}
+  local reward = chest.options and chest.options[1]
+  local currency = app.session and app.session.state.expedition and app.session.state.expedition.currency or 0
+  local description = reward and (reward.name .. " — " .. reward.description) or "Random passive item"
+  self:_menu("PAID CACHE — " .. tostring(chest.cost or "?") .. " SCRAP", {
+    { name = "OPEN CACHE", description = description .. "  •  HAVE " .. currency .. " SCRAP" },
+    { name = "LEAVE CACHE", description = "Keep your SCRAP and enter the next encounter." },
+  }, 1, "ENTER OPEN     ESC / X LEAVE")
+end
+
+function Renderer:_draw_expedition_build(app)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local width, height = love.graphics.getDimensions()
+  local summary = app:expedition_build_summary() or {}
+  self:_text("RUN BUILD", 42, 34, 2, { 0.7, 0.9, 1 })
+  self:_text((summary.character and summary.character.display_name or "UNKNOWN") .. "  •  STAGE " .. tostring(summary.stage or 1)
+    .. "  •  ENCOUNTER " .. tostring(summary.encounter or 0), 42, 68, 0.76, { 0.72, 0.8, 0.92 })
+  self:_text("SCRAP " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
+  self:_text("WEAPON: " .. string.upper(summary.weapon and summary.weapon.display_name or "OFFLINE"), 42, 126, 0.8, { 0.95, 0.85, 0.3 })
+  self:_text("ABILITY: " .. string.upper(summary.ability and summary.ability.display_name or "OFFLINE"), 42, 148, 0.8, { 0.95, 0.65, 0.35 })
+  self:_text("PASSIVES", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
+  local y = 216
+  for _, passive in ipairs(summary.passives or {}) do
+    self:_text(passive.display_name .. " ×" .. passive.count, 58, y, 0.78, { 0.82, 0.88, 0.98 })
+    self:_text(passive.description, 58, y + 15, 0.56, { 0.62, 0.72, 0.84 })
+    y = y + 42
+    if y > height - 68 then break end
+  end
+  if #(summary.passives or {}) == 0 then self:_text("NO PASSIVES YET — CLEAR ENCOUNTERS.", 58, y, 0.72, { 0.62, 0.72, 0.84 }) end
+  self:_text("I / ENTER / ESC RETURN TO COMBAT", 42, height - 42, 0.78, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_expedition_summary(app)
+  local summary = app.expedition and app.expedition.summary_data or {}
+  local title = summary.victory and "EXPEDITION COMPLETE" or "EXPEDITION LOST"
+  local items = {
+    { name = summary.character or "UNKNOWN", description = "STAGE " .. tostring(summary.stage or 1) .. " • ENCOUNTER " .. tostring(summary.encounter or 0) },
+    { name = "KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0),
+      description = "TOP PASSIVES: " .. table.concat((function()
+        local labels = {}
+        for index = 1, math.min(3, #(summary.passive_stacks or {})) do
+          local entry = summary.passive_stacks[index]
+          labels[#labels + 1] = entry.display_name .. " ×" .. entry.count
+        end
+        return labels
+      end)(), ", ") },
+  }
+  if #(summary.new_unlocks or {}) > 0 then
+    items[#items + 1] = { name = "NEW UNLOCKS", description = table.concat(summary.new_unlocks, ", ") }
+  end
+  self:_menu(title, items, 1, "ENTER RETURN TO TITLE")
+end
+
 function Renderer:_draw_help(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
@@ -914,6 +1477,37 @@ function Renderer:_draw_onboarding(app)
       index == 1 and { 0.95, 0.85, 0.3 } or { 0.76, 0.84, 0.94 })
   end
   self:_text(self:_screen_text(app, "onboarding", "footer", "ENTER BEGIN DESCENT     ESC TITLE"), width * 0.18, height - 68, 0.82, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_campaign_succession(app)
+  local width, height = love.graphics.getDimensions()
+  local notice = app.campaign_succession_notice or {}
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local screen, accent = self:_screen_definition(app, "campaign_succession")
+  self:_text(self:_screen_text(app, "campaign_succession", "title", "BODY LOST"), width * 0.16, 54, 2.25, accent)
+  self:_text(self:_screen_text(app, "campaign_succession", "subtitle", "SUCCESSOR RECONSTRUCTED AT THE ACTIVE ANCHOR"),
+    width * 0.16, 91, 0.78, { 0.68, 0.78, 0.9 })
+
+  local cards = {
+    { title = "DEATH SITE", text = notice.death_location or "UNKNOWN LOCATION", color = { 1, 0.48, 0.4 } },
+    { title = "CURRENT RECONSTRUCTION ANCHOR", text = notice.anchor_location or "UNKNOWN LOCATION", color = { 0.48, 0.92, 1 } },
+  }
+  for index, card in ipairs(cards) do
+    local y = 142 + (index - 1) * 74
+    self:_color({ 0.06, 0.1, 0.15 })
+    love.graphics.rectangle("fill", width * 0.16, y, width * 0.68, 58)
+    self:_color(card.color)
+    love.graphics.rectangle("line", width * 0.16, y, width * 0.68, 58)
+    self:_text(card.title, width * 0.18, y + 8, 0.64, card.color)
+    self:_text(card.text, width * 0.18, y + 29, 0.75, { 0.9, 0.94, 1 })
+  end
+  self:_text(notice.summary or "A FRESH BODY WAS RECONSTRUCTED AT YOUR ACTIVE ANCHOR.", width * 0.16, 310, 0.78, { 0.95, 0.85, 0.3 })
+  self:_text(notice.recovery or "YOUR LOST BODY AND CARGO REMAIN AT THE DEATH SITE.", width * 0.16, 346, 0.68, { 0.78, 0.85, 0.94 })
+  self:_text(notice.loss or "BASES, STORAGE, SCRAP, AND WORLD CHANGES PERSIST.", width * 0.16, 374, 0.68, { 0.78, 0.85, 0.94 })
+  self:_text(notice.guidance or "FACE A RECONSTRUCTION STATION AND USE U TO SET A DIFFERENT FUTURE ANCHOR.",
+    width * 0.16, 426, 0.68, { 0.6, 0.9, 0.75 })
+  self:_text(self:_screen_text(app, "campaign_succession", "footer", "ENTER / ESC CONTINUE"),
+    width * 0.16, height - 58, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_fallen_archive(app)
@@ -1131,10 +1725,22 @@ function Renderer:draw(app)
     self:_draw_game(app)
   elseif app.screen == "title" then
     self:_draw_title(app)
+  elseif app.screen == "expedition_character_select" then
+    self:_draw_expedition_character_select(app)
+  elseif app.screen == "expedition_reward" then
+    self:_draw_expedition_reward(app)
+  elseif app.screen == "expedition_chest" then
+    self:_draw_expedition_chest(app)
+  elseif app.screen == "expedition_build" then
+    self:_draw_expedition_build(app)
+  elseif app.screen == "expedition_summary" then
+    self:_draw_expedition_summary(app)
   elseif app.screen == "help" then
     self:_draw_help(app)
   elseif app.screen == "onboarding" then
     self:_draw_onboarding(app)
+  elseif app.screen == "campaign_succession" then
+    self:_draw_campaign_succession(app)
   elseif app.screen == "replace_save" then
     self:_menu(self:_screen_text(app, "replace_save", "title", "REPLACE ACTIVE RUN?"), { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
       self:_screen_text(app, "replace_save", "footer", "ENTER CONFIRM     ESC CANCEL"))
@@ -1180,18 +1786,6 @@ function Renderer:draw(app)
     self:_draw_reconstruction(app)
   elseif app.screen == "body_abilities" then
     self:_draw_body_abilities(app)
-  elseif app.screen == "build" then
-    local items = {}
-    for _, recipe in ipairs(app:build_recipes()) do
-      local cost = {}
-      for _, value in ipairs(recipe.costs) do
-        cost[#cost + 1] = app.session.registry:get_resource(value.resource_id).display_name:upper() .. " " .. value.amount
-      end
-      items[#items + 1] = { name = recipe.display_name, description = table.concat(cost, "  •  ") }
-    end
-    self:_menu("BUILD", items, app.menu, "W/S SELECT     ENTER PLACE     C / ESC CLOSE")
-  elseif app.screen == "build_place" then
-    self:_draw_build_place(app)
   elseif app.screen == "storage" then
     self:_draw_storage(app)
   elseif app.screen == "gameover" then
