@@ -1,4 +1,4 @@
-.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor \
+.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor \
 	debug doctor debug-content debug-scenario debug-expedition debug-modifier debug-determinism debug-bundle debug-test
 
 COMPOSE ?= ./tools/docker-compose.sh
@@ -14,6 +14,9 @@ package:
 
 play:
 	$(COMPOSE) run --rm game
+
+graphics-doctor:
+	$(COMPOSE) run --rm graphics-doctor
 
 shell:
 	$(COMPOSE) run --rm shell

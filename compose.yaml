@@ -12,7 +12,9 @@ x-graphical: &graphical
   <<: *roag
   environment:
     DISPLAY: "${DISPLAY:-}"
-    XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/tmp}"
+    # The generic X11 path does not mount the host runtime directory.  WSLg
+    # replaces this with its mounted runtime in compose.wslg.yaml.
+    XDG_RUNTIME_DIR: "${ROAG_XDG_RUNTIME_DIR:-/tmp}"
   volumes:
     - .:/workspace
     # WSLg and Linux X11 expose this socket when graphical forwarding is set up.
@@ -39,6 +41,10 @@ services:
     <<: *roag
     entrypoint: ["sh", "tools/roag_debug.sh"]
     command: ["help"]
+
+  graphics-doctor:
+    <<: *graphical
+    entrypoint: ["sh", "tools/graphics_doctor.sh"]
 
   game:
     <<: *graphical

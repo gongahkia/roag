@@ -58,6 +58,11 @@ To run the game through the container, configure graphical forwarding first
 $ make play
 ```
 
+On WSLg, the Docker wrapper automatically mounts the WSLg runtime, DirectX
+bridge, and Mesa libraries. If a graphical launch fails, run
+`make graphics-doctor` first; it reports the display socket and the renderer
+visible from inside the game container.
+
 The game service mounts only a named LÖVE save-data volume in addition to the
 checkout, keeping saves separate from repository files. On WSL, Docker Desktop
 must have WSL integration enabled for this distro before any `docker compose`

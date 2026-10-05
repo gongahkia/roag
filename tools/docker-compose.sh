@@ -14,4 +14,15 @@ if [ -z "${DOCKER_CONFIG:-}" ]; then
   fi
 fi
 
+# WSLg presents GPU acceleration through /dev/dxg plus host Mesa's D3D12
+# bridge.  The base Compose file remains portable for ordinary Linux/X11; use
+# this narrow overlay only when every required WSLg path exists.  Set
+# ROAG_DISABLE_WSLG=1 to diagnose the generic X11 path explicitly.
+if [ -z "${ROAG_DISABLE_WSLG:-}" ] \
+  && [ -d /mnt/wslg ] \
+  && [ -d /usr/lib/wsl/lib ] \
+  && [ -c /dev/dxg ]; then
+  exec docker compose -f compose.yaml -f compose.wslg.yaml "$@"
+fi
+
 exec docker compose "$@"

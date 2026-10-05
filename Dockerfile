@@ -6,6 +6,10 @@ RUN apk add --no-cache \
         git \
         love \
         luajit \
+        mesa-demos \
+        mesa-dri-gallium \
+        mesa-egl \
+        mesa-gl \
         unzip \
         zip \
     && addgroup -g 1000 roag \
