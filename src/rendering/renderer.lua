@@ -1028,9 +1028,13 @@ function Renderer:_draw_game(app)
     self:_text("XP " .. tostring(exp.xp or 0) .. "  L" .. tostring(exp.level or 1) .. "  CASH " .. tostring(exp.currency or 0)
       .. "  DAMAGE " .. tostring(receipt.damage or 0) .. "  KILLS " .. tostring(receipt.kills or 0)
       .. "  CHAIN " .. tostring(receipt.chains or 0), debug_x, debug_y + 15, 0.47, { 0.65, 0.95, 0.92 })
+    self:_text("TURN " .. tostring(presentation.board_turn_index or 0) .. " "
+      .. (presentation:is_board_turn_settled() and "READY" or "SLIDING")
+      .. "  INPUTS " .. tostring(#(app.pending_movement_inputs or {})),
+      debug_x, debug_y + 30, 0.47, { 0.65, 0.95, 0.92 })
     if chamber then
       self:_text("BOARD " .. chamber.width .. "×" .. chamber.height .. "  BUDGET " .. tostring((app.expedition.plan[exp.encounter_index] or {}).budget or "?"),
-        debug_x, debug_y + 30, 0.47, { 0.65, 0.95, 0.92 })
+        debug_x, debug_y + 45, 0.47, { 0.65, 0.95, 0.92 })
     end
   end
   if state.expedition then
