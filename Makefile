@@ -1,4 +1,4 @@
-.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor \
+.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor feel-analyze \
 	debug doctor debug-content debug-scenario debug-expedition debug-modifier debug-determinism debug-bundle debug-test
 
 COMPOSE ?= ./tools/docker-compose.sh
@@ -60,3 +60,6 @@ debug-bundle:
 debug-test:
 	@test -n "$(TEST)" || (echo 'Usage: make debug-test TEST="text in test name"' >&2; exit 2)
 	$(COMPOSE) run --rm -e ROAG_TEST_MATCH="$(TEST)" test
+
+feel-analyze:
+	$(COMPOSE) run --rm test luajit tools/analyze_feel01.lua

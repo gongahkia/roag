@@ -32,6 +32,8 @@ App.CAMPAIGN_SLOT_COUNT = 3
 -- only how quickly a physically held key asks for another command.
 App.HOLD_INITIAL_DELAY = 0.22
 App.HOLD_REPEAT_DELAY = 0.09
+App.EXPEDITION_HOLD_INITIAL_DELAY = 0.135
+App.EXPEDITION_HOLD_REPEAT_DELAY = 0.072
 App.ENCUMBRANCE_REPEAT_MULTIPLIERS = {
   LIGHT = 1.00,
   BURDENED = 1.20,
@@ -96,6 +98,7 @@ function App.new(options)
   self.movement_key_order = {}
   self.movement_key_sequence = 0
   self.held_movement_blocked = false
+  self.debug_overlay = options.debug_overlay == true
   self:_reconcile_pending_death()
   self:refresh_continue()
   self:refresh_campaign_continue()
@@ -116,6 +119,7 @@ function App.movement_repeat_interval_for_encumbrance(encumbrance)
 end
 
 function App:movement_repeat_interval()
+  if self:is_expedition_mode() then return App.EXPEDITION_HOLD_REPEAT_DELAY end
   local inventory = self.session and self.session.state and self.session.state.inventory
   local encumbrance = inventory and inventory:encumbrance() or "LIGHT"
   return App.movement_repeat_interval_for_encumbrance(encumbrance)
@@ -356,8 +360,16 @@ function App:choose_expedition_reward(index)
   if not self.expedition then return nil end
   local result = self.expedition:choose_reward(index or self.menu)
   if result.applied then
-    self.screen, self.menu = "game", 1
-    self.presentation:reset(self.session)
+    if result.next_reward then
+      self.screen, self.menu = "expedition_reward", 1
+    else
+      self.screen, self.menu = "game", 1
+      -- Choosing a level-up during an active chamber should not erase the
+      -- receipt/chain that earned it. A true chamber transition already
+      -- resets presentation through its normal result path.
+      if result.code == "reward_chosen" then self.presentation:reset(self.session) end
+      if result.transition then self:_handle_turn_result(result.transition) end
+    end
     self:play_sound("pickup")
   end
   return result
@@ -814,6 +826,10 @@ function App:_handle_session_event(event)
     self.presentation:impact(event.value)
   elseif event.type == "build_effect" then
     self.presentation:modifier_effect(event.value)
+  elseif event.type == "expedition_progress" then
+    self.presentation:expedition_progress(event.value)
+  elseif event.type == "electricity" then
+    self.presentation:electricity(event.value)
   end
 end
 
@@ -1073,18 +1089,19 @@ function App:return_to_title()
 end
 
 function App:_handle_turn_result(result)
-  if result == "expedition_reward" then
+  local result_code = type(result) == "table" and result.code or result
+  if result_code == "expedition_reward" then
     self.screen, self.menu = "expedition_reward", 1
     self:clear_held_movement()
     return
-  elseif result == "expedition_chest" then
+  elseif result_code == "expedition_chest" then
     self.screen, self.menu = "expedition_chest", 1
     self:clear_held_movement()
     return
-  elseif result == "expedition_dead" or result == "expedition_victory" then
+  elseif result_code == "expedition_dead" or result_code == "expedition_victory" then
     self:open_expedition_summary()
     return
-  elseif result == "expedition_next_encounter" then
+  elseif result_code == "expedition_next_encounter" then
     self.presentation:reset(self.session)
     return
   end
@@ -2024,7 +2041,8 @@ function App:salvage_selected()
 end
 
 function App:start_held_move(direction)
-  self.held_direction, self.hold_timer = direction, App.HOLD_INITIAL_DELAY
+  local initial = self:is_expedition_mode() and App.EXPEDITION_HOLD_INITIAL_DELAY or App.HOLD_INITIAL_DELAY
+  self.held_direction, self.hold_timer = direction, initial
   self.held_movement_blocked = false
 end
 

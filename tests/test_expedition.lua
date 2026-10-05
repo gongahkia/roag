@@ -6,6 +6,8 @@ local Registry = require("src.content.registry")
 local App = require("src.app.app")
 local Input = require("src.app.input")
 local SaveStore = require("src.persistence.save_store")
+local Grid = require("src.world.grid")
+local Chambers = require("src.expedition.chambers")
 
 local function unlocked_profile()
   local profile = MetaProfile.new()
@@ -18,21 +20,24 @@ end
 
 return {
   {
-    name = "MOD-02 reward cadence provides fourteen acquisitions including elite bonuses",
+    name = "FEEL-01 reward cadence moves primary choices to XP levels while keeping fast drops and paid caches",
     run = function()
-      local total, elites = 0, 0
-      for _, plan in ipairs(Run.plan(80177)) do total = total + 1; if plan.elite then total, elites = total + 1, elites + 1 end end
-      assert(total >= 14 and elites >= 2)
-      assert(Run.REWARD_ENCOUNTERS[1] == "choice" and Run.REWARD_ENCOUNTERS[2] == "random")
-      assert(Run.OWNED_PICK_WEIGHT > 1)
+      local randoms, caches, elites = 0, 0, 0
+      for _, plan in ipairs(Run.plan(80177)) do
+        if plan.reward_kind == "random" then randoms = randoms + 1 end
+        if plan.reward_kind == "cache" then caches = caches + 1 end
+        if plan.elite then elites = elites + 1 end
+      end
+      assert(randoms >= 3 and caches >= 2 and elites >= 1)
+      assert(Run.XP_THRESHOLDS[1] > 0 and Run.OWNED_PICK_WEIGHT >= 2.5)
     end,
   },
   {
-    name = "Expedition content defines four classes twenty stackable passives and six encounter grammars",
+    name = "Expedition content defines four classes, stackable passives, and twelve chamber encounter grammars",
     run = function()
       local registry = Registry.load()
       assert(Content.validate(registry))
-      assert(#Content.CHARACTERS == 4 and #Content.PASSIVES >= 20 and #Content.ENCOUNTERS >= 6)
+      assert(#Content.CHARACTERS == 4 and #Content.PASSIVES >= 20 and #Content.ENCOUNTERS >= 12)
       local changing = 0
       for _, passive in ipairs(Content.PASSIVES) do if passive.behavior_changing then changing = changing + 1 end end
       assert(changing >= 8)
@@ -54,13 +59,13 @@ return {
     end,
   },
   {
-    name = "Expedition plans are seed deterministic contain all grammar families and avoid repetition streaks",
+    name = "Expedition chamber plans are seed deterministic, staged, and use every pressure model once",
     run = function()
       local left, right = Run.plan(70401), Run.plan(70401)
       assert(#left == Run.REGULAR_ENCOUNTERS and #right == #left)
       local seen, streak, prior = {}, 0, nil
       for index, plan in ipairs(left) do
-        assert(plan.id == right[index].id and plan.budget == right[index].budget and plan.profile_id == right[index].profile_id)
+        assert(plan.id == right[index].id and plan.budget == right[index].budget and plan.profile_id == right[index].profile_id and plan.topology == right[index].topology)
         assert(plan.actual_budget <= plan.budget and #plan.enemies > 0)
         for role, required in pairs(plan.template.minimum_roles) do
           local found = 0
@@ -74,8 +79,9 @@ return {
       end
       local count = 0
       for _ in pairs(seen) do count = count + 1 end
-      assert(count == 6)
-      assert(left[1].reward_kind == "choice")
+      assert(count == 12)
+      assert(left[1].stage == 1 and left[5].stage == 2 and left[9].stage == 3)
+      assert(left[1].reward_kind == "none" and left[2].reward_kind == "random")
     end,
   },
   {
@@ -98,6 +104,25 @@ return {
     end,
   },
   {
+    name = "FEEL-01 chambers are compact connected boards with no passable traversal outside their bounds",
+    run = function()
+      local run = Run.new({ seed = 80109, character_id = "expedition.gunner", meta_profile = unlocked_profile() })
+      for index, plan in ipairs(run.plan) do
+        run:_begin_encounter(index)
+        local chamber, world = run.session.state.expedition.chamber, run.session.state.world
+        assert(chamber.bounds.width >= 8 and chamber.bounds.width <= 16)
+        assert(chamber.bounds.height >= 7 and chamber.bounds.height <= 12)
+        assert(world:is_passable(chamber.player_spawn.x, chamber.player_spawn.y))
+        for x = 0, Grid.width - 1 do
+          for y = 0, Grid.height - 1 do
+            if world:is_passable(x, y) then assert(Chambers.contains(chamber.bounds, x, y)) end
+          end
+        end
+        assert(plan.topology == chamber.topology)
+      end
+    end,
+  },
+  {
     name = "Expedition passive stacks scale the existing deterministic build-effect pipeline",
     run = function()
       local run = Run.new({ seed = 80106, character_id = "expedition.conductor", meta_profile = unlocked_profile() })
@@ -107,6 +132,24 @@ return {
       local effects = BuildEffects.resolve(run.session, run.session.state.player, { type = "on_pierce", source_actor = run.session.state.player,
         attack_tags = { projectile = true } })
       assert(#effects == 1 and effects[1].effect.effect.max_cells == 7)
+    end,
+  },
+  {
+    name = "FEEL-01 direct and derived player kills award XP and cash exactly once and queue levels",
+    run = function()
+      local run = Run.new({ seed = 80110, character_id = "expedition.gunner", meta_profile = unlocked_profile() })
+      local session, exp, player = run.session, run.session.state.expedition, run.session.state.player
+      local first = session.state.enemies[1]
+      first.health = 1
+      exp.xp = exp.xp_thresholds[1] - 2
+      session:_apply_world_actor_damage(first, 1, nil, { source_actor = player, cause = "electrical", source = "fixture" })
+      local kills, cash, pending = exp.kills, exp.currency, exp.pending_level_ups
+      assert(kills == 1 and cash > 0 and pending == 1 and exp.level == 2)
+      -- A second hit against the already removed/dead actor cannot duplicate
+      -- the kill reward even if a derived environmental effect reports it.
+      session:_apply_world_actor_damage(first, 1, nil, { source_actor = player, cause = "explosive", source = "fixture" })
+      assert(exp.kills == kills and exp.currency == cash)
+      assert(run:_open_level_reward() == "expedition_reward" and #run.pending_reward == 3)
     end,
   },
   {
@@ -125,14 +168,15 @@ return {
     end,
   },
   {
-    name = "Expedition reward choice chest economy and clear cadence are run local",
+    name = "Expedition level choices and paid cache economy remain run local",
     run = function()
       local run = Run.new({ seed = 80102, character_id = "expedition.gunner", meta_profile = unlocked_profile() })
-      assert(run:_complete_encounter() == "expedition_reward")
+      run.session.state.expedition.pending_level_ups = 1
+      assert(run:_open_level_reward() == "expedition_reward")
       assert(#run.pending_reward == 3)
       assert(run:choose_reward(1).applied)
-      -- Encounter five is the first paid cache in the fixed prototype cadence.
-      run.session.state.expedition.encounter_index = 5
+      -- Chamber four is the first paid cache in the FEEL-01 cadence.
+      run.session.state.expedition.encounter_index = 4
       run.session.state.expedition.currency = 99
       run.pending_chest = { cost = run:_chest_cost(), options = { Content.PASSIVES[1] } }
       local before = run.session.state.expedition.currency
@@ -172,6 +216,15 @@ return {
       assert(not app:open_salvage())
       assert(app.session:_interact_player().code == "expedition_no_field_interaction")
       assert(not app.save_store:exists())
+    end,
+  },
+  {
+    name = "FEEL-01 analyzer validates compact boards, no offscreen spawn pressure, and XP/cash progression",
+    run = function()
+      local report = require("tools.analyze_feel01").analyze(24)
+      assert(report.structural_failures == 0 and report.offscreen_threat_failures == 0)
+      assert(report.levels / report.seeds >= 7 and report.levels / report.seeds <= 10)
+      assert(report.pickups / report.seeds >= 12 and report.pickups / report.seeds <= 16)
     end,
   },
 }

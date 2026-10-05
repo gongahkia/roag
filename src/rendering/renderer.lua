@@ -67,14 +67,25 @@ function Renderer:menu_item_label(item)
   return item.name or item.display_name or item.label or item.id or "UNNAMED OPTION"
 end
 
-function Renderer:_layout()
+function Renderer:_view_dimensions(state)
+  local expedition = state and state.expedition
+  local chamber = expedition and expedition.chamber
+  if chamber and chamber.bounds then
+    local boss = state.boss ~= nil or expedition.current_topology == "boss"
+    return boss and 13 or 11, boss and 11 or 9
+  end
+  return VIEW_WIDTH, VIEW_HEIGHT
+end
+
+function Renderer:_layout(view_width, view_height)
+  view_width, view_height = view_width or self._view_width or VIEW_WIDTH, view_height or self._view_height or VIEW_HEIGHT
   local width, height = love.graphics.getDimensions()
   local margin, sidebar, gap = 20, 270, 20
   local size = math.max(10, math.min(24, math.floor(math.min(
-    (width - sidebar - gap - margin * 2) / VIEW_WIDTH,
-    (height - 130) / VIEW_HEIGHT
+    (width - sidebar - gap - margin * 2) / view_width,
+    (height - 130) / view_height
   ))))
-  return size, margin, margin, margin + VIEW_WIDTH * size + gap
+  return size, margin, margin, margin + view_width * size + gap
 end
 
 function Renderer:_camera_position(presentation, player)
@@ -130,13 +141,14 @@ function Renderer:terrain_is_renderable(x, y)
 end
 
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
+  local view_width, view_height = self._view_width or VIEW_WIDTH, self._view_height or VIEW_HEIGHT
   local camera_x, camera_y = self:_camera_position(presentation, player)
-  local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
-  local screen_y = y - camera_y + math.floor((VIEW_HEIGHT - 1) / 2)
-  if screen_x < -1 or screen_x >= VIEW_WIDTH + 1 or screen_y < -1 or screen_y >= VIEW_HEIGHT + 1 then
+  local screen_x = x - camera_x + math.floor((view_width - 1) / 2)
+  local screen_y = y - camera_y + math.floor((view_height - 1) / 2)
+  if screen_x < -1 or screen_x >= view_width + 1 or screen_y < -1 or screen_y >= view_height + 1 then
     return nil
   end
-  return offset_x + screen_x * size, offset_y + (VIEW_HEIGHT - 1 - screen_y) * size
+  return offset_x + screen_x * size, offset_y + (view_height - 1 - screen_y) * size
 end
 
 -- A small art-independent pip makes the movement-derived facing readable for
@@ -247,6 +259,17 @@ function Renderer:_draw_presentation_effects(presentation, player, size, offset_
       love.graphics.setLineWidth(1)
     end
   end
+  for _, explosion in ipairs(presentation.explosions or {}) do
+    local x, y = self:_screen_position(presentation, player, explosion.x, explosion.y, size, offset_x, offset_y)
+    if x then
+      local progress = 1 - explosion.time / Tuning.explosion_pulse_lifetime
+      local inset = math.max(1, size * (0.12 + progress * 0.42))
+      self:_color({ 1, 0.48, 0.15, math.max(0, 0.75 - progress * 0.62) })
+      love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+      love.graphics.circle("line", x + size * 0.5, y + size * 0.5, math.max(1, size * 0.5 - inset * 0.3))
+      love.graphics.setLineWidth(1)
+    end
+  end
   for _, number in ipairs(presentation.damage_numbers or {}) do
     local x, y = self:_screen_position(presentation, player, number.x, number.y, size, offset_x, offset_y)
     if x then
@@ -267,6 +290,21 @@ function Renderer:_draw_presentation_effects(presentation, player, size, offset_
       .. (chain.count > 1 and " TRIGGERS ×" .. chain.count or "")
     self:_text(label, 18, 106 + (index - 1) * 26 + progress * 6, 0.62, { 0.95, 0.79, 0.3, 1 - progress * 0.45 })
     self:_text("→ " .. chain.summary, 28, 121 + (index - 1) * 26 + progress * 6, 0.47, { 0.73, 0.87, 1, 1 - progress * 0.45 })
+  end
+  local receipt = presentation.action_receipt
+  if receipt and receipt.time > 0 then
+    local alpha = math.min(1, receipt.time / Tuning.action_receipt_lifetime * 1.8)
+    local labels = {}
+    if receipt.damage > 0 then labels[#labels + 1] = "DAMAGE " .. receipt.damage end
+    if receipt.kills > 0 then labels[#labels + 1] = "KILLS " .. receipt.kills end
+    if receipt.xp > 0 then labels[#labels + 1] = "XP +" .. receipt.xp end
+    if receipt.cash > 0 then labels[#labels + 1] = "CASH +" .. receipt.cash end
+    if receipt.ammo > 0 then labels[#labels + 1] = "AMMO +" .. receipt.ammo end
+    if receipt.chains >= 2 then labels[#labels + 1] = "CHAIN " .. receipt.chains end
+    if #labels > 0 then
+      local y = 28 + math.max(0, #(presentation.modifier_chain or {})) * 26
+      self:_text(table.concat(labels, "   "), 18, y, 0.58, { 0.7, 0.96, 0.82, alpha })
+    end
   end
 end
 
@@ -317,14 +355,16 @@ end
 
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
-  local size, offset_x, offset_y, hud = self:_layout()
+  local view_width, view_height = self:_view_dimensions(state)
+  self._view_width, self._view_height = view_width, view_height
+  local size, offset_x, offset_y, hud = self:_layout(view_width, view_height)
   love.graphics.clear(0.025, 0.035, 0.055)
   local shake = presentation:screen_shake()
   local time = love.timer.getTime()
   offset_x = offset_x + math.sin(time * 78) * size * 0.45 * shake
   offset_y = offset_y + math.cos(time * 93) * size * 0.3 * shake
   self:_color({ 0.08, 0.1, 0.14 })
-  love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, VIEW_WIDTH * size + 8, VIEW_HEIGHT * size + 8)
+  love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, view_width * size + 8, view_height * size + 8)
 
   local floor = {
     forest = { 0.09, 0.19, 0.13 },
@@ -336,14 +376,14 @@ function Renderer:_draw_game(app)
   floor = floor[state.settings.terrain]
 
   local camera_x, camera_y = self:_camera_position(presentation, state.player)
-  local base_x = math.floor(camera_x) - math.floor((VIEW_WIDTH - 1) / 2)
-  local base_y = math.floor(camera_y) - math.floor((VIEW_HEIGHT - 1) / 2)
+  local base_x = math.floor(camera_x) - math.floor((view_width - 1) / 2)
+  local base_y = math.floor(camera_y) - math.floor((view_height - 1) / 2)
   local camera_offset_x, camera_offset_y = camera_x - math.floor(camera_x), camera_y - math.floor(camera_y)
-  for view_x = -1, VIEW_WIDTH do
-    for view_y = -1, VIEW_HEIGHT do
+  for view_x = -1, view_width do
+    for view_y = -1, view_height do
       local x, y = base_x + view_x, base_y + view_y
       local pixel_x = offset_x + (view_x - camera_offset_x) * size
-      local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
+      local pixel_y = offset_y + (view_height - 1 - view_y + camera_offset_y) * size
       local passable = state.world and state.world:is_passable(x, y)
       if self:terrain_is_renderable(x, y) then
         local terrain_cell = state.world and state.world:get_cell(x, y)
@@ -714,16 +754,18 @@ function Renderer:_draw_game(app)
     self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
   end
   local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
-    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   ENCOUNTER " .. ui.expedition.encounter))
+    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   CHAMBER " .. ui.expedition.encounter
+      .. (ui.expedition.topology and "   " .. string.upper(ui.expedition.topology:gsub("_", " ")) or "")))
     or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
   if primary_status then
     self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
   end
   local economy_y = ui.quick and offset_y + 162 or offset_y + 134
   if ui.expedition then
-    self:_text("SCRAP " .. ui.expedition.currency .. "   PASSIVE STACKS " .. ui.expedition.passive_stacks,
+    local xp_label = ui.expedition.xp_to_next and ("XP " .. ui.expedition.xp .. "/" .. ui.expedition.xp_to_next) or "XP MAX"
+    self:_text("LEVEL " .. tostring(ui.expedition.level or 1) .. "   " .. xp_label .. "   CASH " .. ui.expedition.currency,
       hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
-    self:_text("I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
+    self:_text("PASSIVE STACKS " .. ui.expedition.passive_stacks .. "   I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
   else
     self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
     self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
@@ -814,7 +856,7 @@ function Renderer:_draw_game(app)
   else
     self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
     self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
-    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
+    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "I RUN BUILD   U interact   F3 debug", hud,
       controls_y + 74, 0.68)
   end
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
@@ -831,8 +873,22 @@ function Renderer:_draw_game(app)
         hud, controls_y + 124 + shown_threats * 17, 0.62)
     end
   end
+  if app.debug_overlay and state.expedition then
+    local exp, receipt = state.expedition, presentation.action_receipt or {}
+    local chamber = exp.chamber and exp.chamber.bounds
+    local camera_tiles = (self._view_width or VIEW_WIDTH) .. "×" .. (self._view_height or VIEW_HEIGHT)
+    self:_text("DEBUG  ROOM " .. tostring(exp.encounter_index) .. " " .. string.upper(exp.current_topology or "?")
+      .. "  VIEW " .. camera_tiles, 18, 18, 0.47, { 0.65, 0.95, 0.92 })
+    self:_text("XP " .. tostring(exp.xp or 0) .. "  L" .. tostring(exp.level or 1) .. "  CASH " .. tostring(exp.currency or 0)
+      .. "  DAMAGE " .. tostring(receipt.damage or 0) .. "  KILLS " .. tostring(receipt.kills or 0)
+      .. "  CHAIN " .. tostring(receipt.chains or 0), 18, 33, 0.47, { 0.65, 0.95, 0.92 })
+    if chamber then
+      self:_text("BOARD " .. chamber.width .. "×" .. chamber.height .. "  BUDGET " .. tostring((app.expedition.plan[exp.encounter_index] or {}).budget or "?"),
+        18, 48, 0.47, { 0.65, 0.95, 0.92 })
+    end
+  end
   for index, message in ipairs(state.log) do
-    self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
+    self:_text(message, 20, offset_y + (self._view_height or VIEW_HEIGHT) * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
   end
   if presentation.hit_flash > 0 then
     local width, height = love.graphics.getDimensions()
@@ -1406,7 +1462,9 @@ function Renderer:_draw_expedition_reward(app)
       description = passive.description .. "  •  NOW " .. preview.current .. "  •  NEXT " .. preview.next,
     }
   end
-  self:_menu("CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
+  local level = app.expedition and app.expedition.pending_reward_context == "level"
+    and app.session.state.expedition.level or nil
+  self:_menu(level and ("LEVEL " .. tostring(level) .. " — CHOOSE A PASSIVE") or "CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
 end
 
 function Renderer:_draw_expedition_chest(app)
@@ -1427,10 +1485,11 @@ function Renderer:_draw_expedition_build(app)
   self:_text("RUN BUILD", 42, 34, 2, { 0.7, 0.9, 1 })
   self:_text((summary.character and summary.character.display_name or "UNKNOWN") .. "  •  STAGE " .. tostring(summary.stage or 1)
     .. "  •  ENCOUNTER " .. tostring(summary.encounter or 0), 42, 68, 0.76, { 0.72, 0.8, 0.92 })
-  self:_text("SCRAP " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
+  local xp_text = summary.xp_to_next and ("XP " .. tostring(summary.xp or 0) .. "/" .. tostring(summary.xp_to_next)) or "XP MAX"
+  self:_text("LEVEL " .. tostring(summary.level or 1) .. "   " .. xp_text .. "   CASH " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
   self:_text("WEAPON: " .. string.upper(summary.weapon and summary.weapon.display_name or "OFFLINE"), 42, 126, 0.8, { 0.95, 0.85, 0.3 })
   self:_text("ABILITY: " .. string.upper(summary.ability and summary.ability.display_name or "OFFLINE"), 42, 148, 0.8, { 0.95, 0.65, 0.35 })
-  self:_text("PASSIVES", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
+  self:_text("PASSIVES — ACTUAL STACKED EFFECTS", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
   local y = 216
   for _, passive in ipairs(summary.passives or {}) do
     self:_text(passive.display_name .. " ×" .. passive.count, 58, y, 0.78, { 0.82, 0.88, 0.98 })
@@ -1447,7 +1506,9 @@ function Renderer:_draw_expedition_summary(app)
   local title = summary.victory and "EXPEDITION COMPLETE" or "EXPEDITION LOST"
   local items = {
     { name = summary.character or "UNKNOWN", description = "STAGE " .. tostring(summary.stage or 1) .. " • ENCOUNTER " .. tostring(summary.encounter or 0) },
-    { name = "KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0),
+    { name = "LEVEL " .. tostring(summary.level or 1) .. "   XP " .. tostring(summary.total_xp or 0),
+      description = "CASH " .. tostring(summary.currency or 0) .. "   KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0) },
+    { name = "BUILD RESULT",
       description = "TOP PASSIVES: " .. table.concat((function()
         local labels = {}
         for index = 1, math.min(3, #(summary.passive_stacks or {})) do

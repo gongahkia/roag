@@ -4,6 +4,7 @@ local Grid = require("src.world.grid")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
 local Tuning = require("src.rendering.tuning")
+local Input = require("src.app.input")
 
 local function new_campaign(seed)
   return Campaign.new({ seed = seed, campaign_id = "campaign:" .. seed })
@@ -23,7 +24,7 @@ end
 
 return {
   {
-    name = "PLAY-01 movement presentation uses a 60ms player target and bounds visual backlog",
+    name = "FEEL-01 movement presentation uses a 40ms player target and bounds visual backlog",
     run = function()
       local session, player = { state = { enemies = {}, bullets = {}, boss = nil } }, { kind = "player", x = 10, y = 10 }
       session.state.player = player
@@ -53,6 +54,34 @@ return {
       local one = follow(1, 0.1)
       local many = follow(10, 0.01)
       assert(math.abs(one - many) < 0.0001)
+    end,
+  },
+  {
+    name = "FEEL-01 Expedition camera clamps to a compact chamber and has near-immediate follow",
+    run = function()
+      local player = { kind = "player", x = 12, y = 12 }
+      local session = { state = { player = player, enemies = {}, bullets = {}, boss = nil,
+        expedition = { current_topology = "open", chamber = { bounds = { min_x = 8, max_x = 17, min_y = 9, max_y = 16 } } } } }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      -- The board is smaller than the 11×9 Expedition view, so it centers
+      -- immediately instead of revealing unused world space while following.
+      assert(math.abs(presentation.camera_x - 12.5) < 0.001 and math.abs(presentation.camera_y - 12.5) < 0.001)
+      player.x, player.y = 17, 16
+      presentation:update(session, 0.12)
+      assert(math.abs(presentation.camera_x - 12.5) < 0.01 and math.abs(presentation.camera_y - 12.5) < 0.01)
+    end,
+  },
+  {
+    name = "FEEL-01 debug overlay is opt-in and never alters a simulation turn",
+    run = function()
+      local calls = 0
+      local app = { screen = "game", debug_overlay = false }
+      function app:perform_turn() calls = calls + 1 end
+      Input.keypressed(app, "f3", nil, false)
+      assert(app.debug_overlay and calls == 0)
+      Input.keypressed(app, "f3", nil, false)
+      assert(not app.debug_overlay and calls == 0)
     end,
   },
   {

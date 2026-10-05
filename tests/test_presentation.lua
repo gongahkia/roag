@@ -101,6 +101,24 @@ return {
     end,
   },
   {
+    name = "FEEL-01 action receipts aggregate authoritative damage and Expedition rewards without a score",
+    run = function()
+      local session, player = idle_session()
+      local enemy = { kind = "ripper", x = 11, y = 10, health = 2 }
+      session.state.enemies = { enemy }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      presentation:attack({ actor = player, direction = "d", implementation = "projectile" })
+      presentation:actor_hit({ target = enemy, source_actor = player, amount = 3, x = 11, y = 10, player_caused = true, cause = "electrical" })
+      presentation:expedition_progress({ kind = "kill", xp = 4, cash = 2, ammo = 1 })
+      local receipt = assert(presentation.action_receipt)
+      assert(receipt.damage == 3 and receipt.kills == 1 and receipt.xp == 4 and receipt.cash == 2 and receipt.ammo == 1)
+      assert(receipt.score == nil and receipt.multiplier == nil)
+      presentation:update(session, 2)
+      assert(presentation.action_receipt == nil)
+    end,
+  },
+  {
     name = "forecast rendering draws an underlay and visible danger outline without changing telegraph authority",
     run = function()
       local prior_love, calls = love, {}

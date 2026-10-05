@@ -13,6 +13,10 @@ local function expedition_field(app)
 end
 
 function Input.keypressed(app, key, _, is_repeat)
+  if key == "f3" and not is_repeat and app.screen == "game" then
+    app.debug_overlay = not app.debug_overlay
+    return
+  end
   if app.screen == "expedition_character_select" then
     local options = app:expedition_character_options_list()
     if key == "escape" then

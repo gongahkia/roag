@@ -2,10 +2,10 @@
 -- next human feel pass easy without coupling them to Session timing, save
 -- data, or game balance.
 return {
-  player_move_duration = 0.06,
+  player_move_duration = 0.04,
   actor_move_duration = 0.085,
   max_visual_lag_cells = 1.15,
-  camera_follow_rate = 10.5,
+  camera_follow_rate = 72,
   facing_marker_ratio = 0.18,
   outline_ratio = 0.065,
   attack_preview_alpha = 0.72,
@@ -30,4 +30,8 @@ return {
   shake_cap = 0.58,
   modifier_chain_lifetime = 0.72,
   modifier_chain_step = 0.055,
+  action_receipt_lifetime = 0.82,
+  explosion_pulse_lifetime = 0.16,
+  electric_reaction_duration = 0.10,
+  electric_jitter = 0.024,
 }
