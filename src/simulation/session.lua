@@ -880,7 +880,8 @@ end
 function Session:expedition_active_weapon()
   local expedition, player = self.state.expedition, self.state.player
   if not self.expedition or not expedition or not player or not player.body then return nil end
-  local provider = player.body:find_component(expedition.weapon_provider_id)
+  local installed = player.body:find_component(expedition.weapon_provider_id)
+  local provider = installed and installed.component or nil
   local ability = expedition.weapon_ability_id and self.registry.abilities[expedition.weapon_ability_id] or nil
   if not provider or provider.current_integrity <= 0 or not ability then return nil end
   return {
@@ -895,7 +896,8 @@ function Session:expedition_active_ability()
   local ability = expedition.active_ability_id and self.registry.abilities[expedition.active_ability_id] or nil
   if not ability then return nil end
   if ability.implementation == "dash" then return { ability = ability, provider = nil, display_name = ability.display_name } end
-  local provider = player.body:find_component(expedition.ability_provider_id)
+  local installed = player.body:find_component(expedition.ability_provider_id)
+  local provider = installed and installed.component or nil
   if not provider or provider.current_integrity <= 0 then return nil end
   return { source_kind = "component", provider = provider, ability = ability, display_name = ability.display_name }
 end
@@ -1952,7 +1954,7 @@ function Session:_spawn_projectile(actor, provider, ability, direction)
     direction = direction,
     active = false,
     travel = 1,
-    max = (ability.range or actor.bullet_range)
+    max = (ability.range or actor.bullet_range or Grid.width)
       + (actor == self.state.player and RunModifiers.value(self.state, self.registry, "projectile_range") or 0),
     light = 2,
     source_actor = actor,
@@ -3480,6 +3482,9 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     heavy = amount >= 2 or provenance.cause == "explosive" or provenance.cause == "kinetic",
   })
   if body_damage and body_damage.became_broken then
+    if self.expedition and provenance.source_actor == state.player then
+      state.expedition.component_breaks = (state.expedition.component_breaks or 0) + 1
+    end
     self:_event("component_break", { target = actor, x = actor.x, y = actor.y, component_id = body_damage.component_id })
   end
   if dead then self:_event("actor_death", { target = actor, x = actor.x, y = actor.y }) end
@@ -4549,8 +4554,22 @@ function Session:_destroy_enemy(index, context)
   if player_caused then
     self.state.player.objective_progress = self.state.player.objective_progress + 1
     self.state.player.score = self.state.player.objective_progress
-    if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
-    self:_reload(2, true)
+    if self.expedition then
+      local expedition = self.state.expedition
+      local reward = enemy.elite and 4 or 1
+      expedition.currency = (expedition.currency or 0) + reward
+      expedition.kills = (expedition.kills or 0) + 1
+      self.state.scrap = expedition.currency -- shared HUD compatibility only.
+      local active = self:expedition_active_weapon()
+      if active and active.ability.ammo then
+        local family = active.ability.ammo.family
+        local bonus = RunModifiers.value(self.state, self.registry, "ammo_on_kill")
+        expedition.reserve_ammo[family] = (expedition.reserve_ammo[family] or 0) + bonus
+      end
+    else
+      if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
+      self:_reload(2, true)
+    end
     self:_sound("hit")
     self:_log("Defeated an enemy.")
   else
@@ -5346,6 +5365,17 @@ function Session:_collect_ammo()
   local state = self.state
   if self.campaign then return end
   if state.ammo and state.player.x == state.ammo.x and state.player.y == state.ammo.y then
+    if self.expedition then
+      local active = self:expedition_active_weapon()
+      if active and active.ability.ammo then
+        local family = active.ability.ammo.family
+        state.expedition.reserve_ammo[family] = (state.expedition.reserve_ammo[family] or 0) + 2
+        self:_log("COLLECTED AMMO.")
+      end
+      state.ammo = nil
+      self:_sound("pickup")
+      return
+    end
     self:_reload(1, false)
     state.ammo = nil
     self:_sound("pickup")
@@ -5358,7 +5388,7 @@ function Session:_move_player(direction)
   if not delta then
     return { applied = false, code = "invalid_direction", reason = "Unknown movement direction" }
   end
-  if self.campaign and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
+  if (self.campaign or self.expedition) and math.abs(delta[1]) + math.abs(delta[2]) ~= 1 then
     return { applied = false, code = "invalid_player_direction", reason = "Campaign movement is cardinal only" }
   end
 
@@ -5611,6 +5641,10 @@ end
 
 function Session:_shoot(direction)
   local player = self.state.player
+  if self.expedition then
+    if direction then player.direction = direction end
+    return self:attack_expedition_weapon()
+  end
   if self.campaign then
     if direction then player.direction = direction end
     return self:attack_active_weapon()
@@ -5645,6 +5679,13 @@ function Session:_shoot(direction)
 end
 
 function Session:_interact_player()
+  -- Expedition deliberately has no field-inventory/corpse-loot loop. Rewards,
+  -- caches and encounter completion own run progression; allowing a legacy
+  -- nearby-ground pickup here would silently reintroduce Tetris cargo.
+  if self.expedition then
+    self:_log("NO FIELD INVENTORY IN EXPEDITION.")
+    return { applied = false, code = "expedition_no_field_interaction", reason = "Expedition rewards replace field inventory" }
+  end
   local ground, result
   if self.campaign then
     local cell = self:faced_cell()
@@ -5829,16 +5870,20 @@ function Session:_action(input)
     return { applied = false, code = "recovering", reason = "You are recovering from the hit" }
   end
   if input == "q" then
+    if self.expedition then return self:activate_expedition_ability() end
     return self.campaign and self:activate_active_ability() or self:_dash()
   elseif input == "swap_weapon" then
+    if self.expedition then return { applied = false, code = "single_class_weapon", reason = "This class has one ready weapon" } end
     return self.campaign and self:swap_campaign_loadout("weapon")
       or { applied = false, code = "campaign_only", reason = "Weapon swapping is available in Campaign" }
   elseif input == "swap_ability" then
+    if self.expedition then return { applied = false, code = "single_class_ability", reason = "This class has one ready ability" } end
     return self.campaign and self:swap_campaign_loadout("ability")
       or { applied = false, code = "campaign_only", reason = "Ability swapping is available in Campaign" }
   elseif input == "interact" then
     return self:_interact_player()
   elseif input == "e" or input == "attack" then
+    if self.expedition then return self:attack_expedition_weapon() end
     return self:_shoot()
   elseif input:match("^shoot_[wasd]$") then
     return self:_shoot(input:sub(-1))
@@ -6104,6 +6149,16 @@ function Session:_defeat_boss(boss)
   local definition = self:_boss_definition(boss)
   boss.pending_telegraph = nil
   self:_cancel_area_attacks_from(boss)
+  if self.expedition then
+    self:_create_corpse(boss)
+    state.boss = nil
+    state.boss_completed = definition.id
+    state.ended = "expedition_victory"
+    self:_sound("door")
+    self:_log("EXPEDITION COMPLETE.")
+    self:validate_physical_ownership()
+    return true
+  end
   -- A campaign boss is an ordinary persistent zone resident.  Its defeat
   -- leaves the physical corpse in place, records a one-time semantic reward,
   -- and returns the zone to normal exploration without touching the route.
@@ -6356,13 +6411,13 @@ function Session:turn(input)
       end
     end
     result = state.ended
-  elseif not self.campaign and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
+  elseif not self.campaign and not self.expedition and state.player.objective_progress >= (state.settings.score or state.settings.objective_required) then
     self:_begin_exit()
   else
     self:_enemy_turn()
     -- Finite campaign zones stay cleared. The legacy run retains the old
     -- floor-refill pressure as a compatibility behaviour.
-    if not self.campaign then self:_refill_entities() end
+    if not self.campaign and not self.expedition then self:_refill_entities() end
   end
   if not state.ended then ReinforcementSimulation.tick(self) end
   -- World processes run after immediate actions and enemy response. Liquid

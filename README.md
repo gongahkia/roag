@@ -39,14 +39,14 @@ $ love .
 
 | Key | Action |
 | --- | --- |
-| `W` / `A` / `S` / `D` | **Campaign:** cardinal movement only; the most recently pressed held direction wins. Movement sets facing. |
-| `E` | **Campaign:** attack with the active quick weapon in the facing direction. A carried tool in that slot strikes enemies or the faced material; empty ranged magazines reload instead of firing. |
+| `W` / `A` / `S` / `D` | **Expedition:** cardinal movement; **Campaign:** cardinal movement only; the most recently pressed held direction wins. Movement sets facing. |
+| `E` | **Expedition:** class weapon in the facing direction. **Campaign:** attack with the active quick weapon; tools strike enemies or faced material and empty magazines reload. |
 | `R` | **Campaign:** swap quick weapon; a successful field swap costs one turn |
-| `Q` | **Campaign:** use the active quick ability (Dash is a default ability binding) |
+| `Q` | **Expedition:** class ability. **Campaign:** active quick ability (Dash is a default ability binding) |
 | `B` | Arm a bomb |
 | `F` | Light a flare; it stuns enemies in its blast |
 | `X` | **Campaign:** swap quick ability; a successful field swap costs one turn |
-| `I` | Open carried inventory; press `Tab` in Campaign to assign weapon/ability quick slots while the world is paused. `Delete`/`Backspace` or the explicit drop target drops selected cargo at your feet. |
+| `I` | **Expedition:** paused Run Build summary. **Campaign:** carried inventory; `Tab` assigns quick slots while paused. `Delete`/`Backspace` or the explicit drop target drops selected cargo at your feet. |
 | Mouse drag in inventory | Repack cargo with a live valid/invalid placement preview. In Campaign corpse salvage, drag body parts and cargo from the fallen grid into your inventory grid. |
 | `C` | **Campaign:** enter/exit live Build stance (no turn). In Build stance, `E` places the faced recipe for one turn; `R`/`X` cycle recipes for free. |
 | `U` | **Campaign:** use exactly the faced tile: doors, storage, services, stations, connections, loose cargo, or corpse salvage. Ordinary resource/ammo stacks are collected by walking over them. |
@@ -57,6 +57,8 @@ $ love .
 | Escape | Quit the game |
 
 Campaign uses two identity-bound quick weapon slots and two quick ability slots; `E` and `Q` always use the active selections shown in the HUD. Ranged reserve ammunition is physical 1×1 cargo (bullets, shells, energy cells, or explosives), while a loaded magazine stays on its exact physical weapon component.
+
+**Expedition** is a separate disposable combat run: choose a character, clear compact encounters, and stack passive items without inventory capacity. Its magazine/reload behavior remains, but reserve ammo and SCRAP are run-local abstractions; death ends that run and preserves only character/item unlocks. **Open World Sandbox** remains the persistent body/salvage/construction mode.
 
 Campaign continuously shows your active weapon's direct facing footprint and visible hostile current-threat footprints. These are intent previews, not extra turns: move to rotate your facing and read the outlined cells before committing an attack.
 

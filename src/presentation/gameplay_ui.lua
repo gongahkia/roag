@@ -172,7 +172,32 @@ function GameplayUI.hud(session)
   for index = 1, charm_slots do if state.charms and state.charms.slots[index] then charm_count = charm_count + 1 end end
   local locomotion = session:locomotion_state(player)
   local quick = nil
-  if session.campaign then
+  local expedition_model = nil
+  if session.expedition then
+    local weapon, ability = session:expedition_active_weapon(), session:expedition_active_ability()
+    local function slot_model(resolved, active)
+      local model = { label = resolved and resolved.display_name or "OFFLINE", active = active, available = resolved ~= nil,
+        ability_id = resolved and resolved.ability.id or nil }
+      if resolved and resolved.ability.ammo then
+        local magazine = session:weapon_magazine(resolved.provider, resolved.ability)
+        model.ammo = {
+          loaded = magazine.loaded,
+          capacity = resolved.ability.ammo.magazine_capacity + session:modifier_value("magazine_capacity"),
+          family = resolved.ability.ammo.family,
+          reserve = (state.expedition.reserve_ammo or {})[resolved.ability.ammo.family] or 0,
+        }
+      end
+      return model
+    end
+    quick = {
+      weapons = { slot_model(weapon, true), { label = "CLASS", active = false, available = false } },
+      abilities = { slot_model(ability, true), { label = "CLASS", active = false, available = false } },
+    }
+    local stacks = 0
+    for _, count in pairs(state.expedition.passive_stacks or {}) do stacks = stacks + count end
+    expedition_model = { stage = state.expedition.stage, encounter = state.expedition.encounter_index,
+      currency = state.expedition.currency, passive_stacks = stacks }
+  elseif session.campaign then
     local loadout = session:campaign_loadout()
     local function slot_model(kind, index)
       local binding = loadout and (kind == "weapon" and loadout.weapon_slots[index] or loadout.ability_slots[index]) or nil
@@ -229,6 +254,7 @@ function GameplayUI.hud(session)
     cargo_mass = inventory:total_mass(),
     encumbrance = inventory:encumbrance(),
     quick = quick,
+    expedition = expedition_model,
   }
 end
 

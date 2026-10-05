@@ -3,6 +3,22 @@
 -- world content or saves.
 local Content = {}
 
+local VALID_MODIFIER_KEYS = {
+    max_health = true, dash_cooldown = true, bomb_radius = true,
+    melee_damage = true, melee_force = true, projectile_damage = true,
+    projectile_count = true, scatter_pellets = true, projectile_pierce = true,
+    projectile_range = true, magazine_capacity = true, ammo_on_kill = true,
+    clear_heal = true,
+}
+local VALID_TRIGGERS = {
+    on_attack = true, on_hit = true, on_kill = true, on_component_break = true,
+    on_pierce = true, on_push_collision = true, on_reload = true, on_terrain_break = true,
+}
+local VALID_EFFECT_KINDS = {
+    chain_electricity = true, kinetic_burst = true, small_explosion = true,
+    magazine_refund = true, cooldown_reduction = true, ignite = true,
+}
+
 Content.DEFAULT_CHARACTER_IDS = {
     "expedition.gunner",
     "expedition.bruiser",
@@ -50,6 +66,7 @@ Content.CHARACTERS = {
         starting_reserve = 14,
         base_modifiers = { projectile_pierce = 1 },
         unlock = "expedition.unlock.character.conductor",
+        unlock_description = "REACH STAGE 2 IN AN EXPEDITION",
     },
     {
         id = "expedition.demolitionist",
@@ -62,8 +79,10 @@ Content.CHARACTERS = {
         active_ability = "ability.mobility.dash",
         ammo_family = "shells",
         starting_reserve = 12,
-        base_modifiers = { explosive_radius = 1 },
+        base_modifiers = { projectile_damage = 1 },
+        starting_passives = { "expedition.passive.demolition_kit" },
         unlock = "expedition.unlock.character.demolitionist",
+        unlock_description = "COMPLETE AN EXPEDITION",
     },
 }
 
@@ -82,8 +101,12 @@ Content.PASSIVES = {
     },
     {
         id = "expedition.passive.demolition_kit", display_name = "DEMOLITION KIT",
-        description = "+1 explosion radius per stack.", category = "damage",
-        modifiers = { bomb_radius = 1, explosive_radius = 1 }, behavior_changing = false,
+        description = "Explosive projectile hits burst outward. Each stack adds 1 blast damage.", category = "damage",
+        behavior_changing = true,
+        reactive_effects = {
+            { id = "demolition_kit", trigger = "on_hit", conditions = { attack_tag = "explosive" },
+              effect = { kind = "small_explosion", radius = 1, damage = 1 }, stack_scale = { damage = 1 } },
+        },
     },
     {
         id = "expedition.passive.kinetic_capacitor", display_name = "KINETIC CAPACITOR",
@@ -98,7 +121,7 @@ Content.PASSIVES = {
     {
         id = "expedition.passive.windwalker", display_name = "WINDWALKER",
         description = "Dash cooldown is reduced by 1 per stack, to its safe floor.", category = "mobility",
-        modifiers = { dash_cooldown = 1 }, behavior_changing = false,
+        modifiers = { dash_cooldown = -1 }, behavior_changing = false,
     },
     {
         id = "expedition.passive.quick_reload", display_name = "QUICK RELOAD",
@@ -212,8 +235,8 @@ Content.PASSIVES = {
     },
     {
         id = "expedition.passive.ability_battery", display_name = "ABILITY BATTERY",
-        description = "Ability cooldowns are reduced by 1 per stack, to their safe floor.", category = "mobility",
-        modifiers = { ability_cooldown = 1 }, behavior_changing = false,
+        description = "Dash cooldown is reduced by 1 per stack, to its safe floor.", category = "mobility",
+        modifiers = { dash_cooldown = -1 }, behavior_changing = false,
     },
     {
         id = "expedition.passive.brutal_edge", display_name = "BRUTAL EDGE",
@@ -314,6 +337,16 @@ function Content.validate(registry)
         assert(type(passive.id) == "string" and not seen[passive.id], "invalid/duplicate Expedition passive")
         assert(type(passive.display_name) == "string" and passive.display_name ~= "", "passive needs display name")
         assert(passive.modifiers or passive.reactive_effects, "passive needs behavior")
+        for key, value in pairs(passive.modifiers or {}) do
+            assert(VALID_MODIFIER_KEYS[key] and type(value) == "number", "invalid Expedition passive modifier: " .. tostring(key))
+        end
+        for _, effect in ipairs(passive.reactive_effects or {}) do
+            assert(VALID_TRIGGERS[effect.trigger], "invalid Expedition passive trigger")
+            assert(effect.effect and VALID_EFFECT_KINDS[effect.effect.kind], "invalid Expedition passive effect")
+            for field, value in pairs(effect.stack_scale or {}) do
+                assert(type(field) == "string" and type(value) == "number", "invalid Expedition stack scale")
+            end
+        end
         seen[passive.id] = true
         if passive.behavior_changing then behavior_count = behavior_count + 1 end
     end
@@ -325,12 +358,25 @@ function Content.validate(registry)
         assert(registry.components[character.ability_component], "missing Expedition ability component: " .. character.ability_component)
         assert(registry.abilities[character.active_ability], "missing Expedition active ability: " .. character.active_ability)
         assert(character.base_hp > 0, "invalid Expedition HP")
+        for key, value in pairs(character.base_modifiers or {}) do
+            assert(VALID_MODIFIER_KEYS[key] and type(value) == "number", "invalid Expedition character modifier: " .. tostring(key))
+        end
+        for _, passive_id in ipairs(character.starting_passives or {}) do
+            assert(Content.passive(passive_id), "missing Expedition starting passive: " .. passive_id)
+        end
     end
     for _, encounter in ipairs(Content.ENCOUNTERS) do
         assert(encounter.minimum_roles and next(encounter.minimum_roles), "encounter requires composition constraint")
         for role in pairs(encounter.minimum_roles) do
             assert(Content.ENEMY_COSTS[role], "unknown Expedition role: " .. role)
         end
+        for _, role in ipairs(encounter.roles or {}) do
+            assert(Content.ENEMY_COSTS[role], "unknown Expedition encounter role: " .. role)
+        end
+    end
+    for role, enemy_ids in pairs(Content.ENEMY_BY_ROLE) do
+        assert(Content.ENEMY_COSTS[role], "enemy roster has unknown role: " .. role)
+        for _, enemy_id in ipairs(enemy_ids) do assert(registry.enemies[enemy_id], "missing Expedition enemy: " .. enemy_id) end
     end
     return true
 end

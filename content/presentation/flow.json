@@ -3,7 +3,8 @@
   "version": 1,
   "home": "title",
   "title_actions": [
-    {"id":"new_run","label":"NEW RUN","description":"Begin a new descent.","target":"replace_save"},
+    {"id":"expedition","label":"EXPEDITION","description":"Start a fast combat-first run.","target":"expedition_character_select"},
+    {"id":"sandbox","label":"OPEN WORLD SANDBOX","description":"Persistent world, bodies, construction and recovery.","target":"campaign_slots"},
     {"id":"continue","label":"CONTINUE","description":"Resume the current active run.","target":"game"},
     {"id":"research","label":"RESEARCH","description":"Spend persistent RESEARCH DATA on future runs.","target":"research"},
     {"id":"fallen","label":"FALLEN","description":"Inspect bodies lost on earlier descents.","target":"fallen_archive"},

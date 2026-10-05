@@ -239,23 +239,28 @@ return {
     end,
   },
   {
-    name = "title starts campaigns by default and labels preserved active runs as legacy",
+    name = "title starts Expeditions by default while Sandbox campaigns and legacy runs remain accessible",
     run = function()
       local campaign_store = SaveStore.memory_directory()
       local app = App.new({ seed = 611010, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = campaign_store })
-      assert(app:title_options()[1].id == "new_run")
-      assert(app:activate_title_choice() and app.campaign)
+      assert(app:title_options()[1].id == "expedition")
+      assert(app:activate_title_choice() and app.screen == "expedition_character_select")
+      -- Sandbox remains an explicit separate title path rather than being
+      -- deleted or folded into the disposable Expedition run.
+      app.screen, app.menu = "title", 2
+      assert(app:activate_title_choice() and app.screen == "campaign_slots")
+      assert(app:select_campaign_slot() and app.campaign)
       local resumed = App.new({ seed = 611011, save_store = SaveStore.memory(), meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = campaign_store })
-      assert(resumed:title_options()[2].name == "CONTINUE CAMPAIGN")
+      assert(resumed:title_options()[3].name == "CONTINUE CAMPAIGN")
 
       local legacy_store = SaveStore.memory()
       local legacy = Session.new({ seed = 611012 }); legacy:start_run(); assert(ActiveRun.save(legacy, legacy_store))
       local legacy_app = App.new({ seed = 611012, save_store = legacy_store, meta_store = SaveStore.memory(),
         archive_store = SaveStore.memory(), campaign_store = SaveStore.memory_directory() })
       local options = legacy_app:title_options()
-      assert(options[1].name == "NEW RUN" and options[2].name == "LEGACY RUN")
+      assert(options[1].name == "EXPEDITION" and options[3].name == "LEGACY RUN")
     end,
   },
 }

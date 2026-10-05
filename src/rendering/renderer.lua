@@ -643,7 +643,7 @@ function Renderer:_draw_game(app)
   end
 
   local ui = GameplayUI.hud(session)
-  self:_text("ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
+  self:_text(ui.expedition and "EXPEDITION" or "ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
   if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end
   if ui.reconstruction_anchor then
     self:_text(ui.reconstruction_anchor.current_zone and "RESPAWN ANCHOR: THIS ZONE" or "RESPAWN ANCHOR: REMOTE ZONE",
@@ -680,14 +680,21 @@ function Renderer:_draw_game(app)
     self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
   end
   local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
+    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   ENCOUNTER " .. ui.expedition.encounter))
     or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
   if primary_status then
     self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
   end
   local economy_y = ui.quick and offset_y + 162 or offset_y + 134
-  self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
-  self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
-    ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
+  if ui.expedition then
+    self:_text("SCRAP " .. ui.expedition.currency .. "   PASSIVE STACKS " .. ui.expedition.passive_stacks,
+      hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
+    self:_text("I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
+  else
+    self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
+    self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
+      ui.encumbrance == "LIGHT" and { 0.65, 0.9, 0.8 } or { 0.95, 0.72, 0.35 })
+  end
   if ui.curse then
     self:_text("CURSE " .. ui.curse, hud, economy_y + 40, 0.76, { 0.9, 0.4, 0.8 })
   end
@@ -1343,6 +1350,85 @@ function Renderer:_draw_title(app)
   self:_text(message, width / 2 - #message * 4, height - 72, 0.78, { 0.75, 0.82, 0.92 })
 end
 
+function Renderer:_draw_expedition_character_select(app)
+  local items = {}
+  for _, option in ipairs(app:expedition_character_options_list()) do
+    local definition = option.definition
+    local state = option.unlocked and "READY" or ("LOCKED — " .. (definition.unlock_description or "KEEP EXPLORING"))
+    items[#items + 1] = {
+      name = definition.display_name .. "  [" .. state .. "]",
+      description = "HP " .. definition.base_hp .. "  •  " .. definition.description,
+    }
+  end
+  self:_menu("CHOOSE EXPEDITION CHARACTER", items, app.menu, "W/S SELECT     ENTER START     ESC TITLE")
+end
+
+function Renderer:_draw_expedition_reward(app)
+  local items = {}
+  for _, passive in ipairs(app.expedition and app.expedition.pending_reward or {}) do
+    local current = app.session.state.expedition.passive_stacks[passive.id] or 0
+    items[#items + 1] = {
+      name = passive.display_name .. "  ×" .. current .. " → ×" .. (current + 1),
+      description = passive.description,
+    }
+  end
+  self:_menu("CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
+end
+
+function Renderer:_draw_expedition_chest(app)
+  local chest = app.expedition and app.expedition.pending_chest or {}
+  local reward = chest.options and chest.options[1]
+  local currency = app.session and app.session.state.expedition and app.session.state.expedition.currency or 0
+  local description = reward and (reward.display_name .. " — " .. reward.description) or "Random passive item"
+  self:_menu("PAID CACHE — " .. tostring(chest.cost or "?") .. " SCRAP", {
+    { name = "OPEN CACHE", description = description .. "  •  HAVE " .. currency .. " SCRAP" },
+    { name = "LEAVE CACHE", description = "Keep your SCRAP and enter the next encounter." },
+  }, 1, "ENTER OPEN     ESC / X LEAVE")
+end
+
+function Renderer:_draw_expedition_build(app)
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local width, height = love.graphics.getDimensions()
+  local summary = app:expedition_build_summary() or {}
+  self:_text("RUN BUILD", 42, 34, 2, { 0.7, 0.9, 1 })
+  self:_text((summary.character and summary.character.display_name or "UNKNOWN") .. "  •  STAGE " .. tostring(summary.stage or 1)
+    .. "  •  ENCOUNTER " .. tostring(summary.encounter or 0), 42, 68, 0.76, { 0.72, 0.8, 0.92 })
+  self:_text("SCRAP " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
+  self:_text("WEAPON: " .. string.upper(summary.weapon and summary.weapon.display_name or "OFFLINE"), 42, 126, 0.8, { 0.95, 0.85, 0.3 })
+  self:_text("ABILITY: " .. string.upper(summary.ability and summary.ability.display_name or "OFFLINE"), 42, 148, 0.8, { 0.95, 0.65, 0.35 })
+  self:_text("PASSIVES", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
+  local y = 216
+  for _, passive in ipairs(summary.passives or {}) do
+    self:_text(passive.display_name .. " ×" .. passive.count, 58, y, 0.78, { 0.82, 0.88, 0.98 })
+    self:_text(passive.description, 58, y + 15, 0.56, { 0.62, 0.72, 0.84 })
+    y = y + 42
+    if y > height - 68 then break end
+  end
+  if #(summary.passives or {}) == 0 then self:_text("NO PASSIVES YET — CLEAR ENCOUNTERS.", 58, y, 0.72, { 0.62, 0.72, 0.84 }) end
+  self:_text("I / ENTER / ESC RETURN TO COMBAT", 42, height - 42, 0.78, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_expedition_summary(app)
+  local summary = app.expedition and app.expedition.summary_data or {}
+  local title = summary.victory and "EXPEDITION COMPLETE" or "EXPEDITION LOST"
+  local items = {
+    { name = summary.character or "UNKNOWN", description = "STAGE " .. tostring(summary.stage or 1) .. " • ENCOUNTER " .. tostring(summary.encounter or 0) },
+    { name = "KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0),
+      description = "TOP PASSIVES: " .. table.concat((function()
+        local labels = {}
+        for index = 1, math.min(3, #(summary.passive_stacks or {})) do
+          local entry = summary.passive_stacks[index]
+          labels[#labels + 1] = entry.display_name .. " ×" .. entry.count
+        end
+        return labels
+      end)(), ", ") },
+  }
+  if #(summary.new_unlocks or {}) > 0 then
+    items[#items + 1] = { name = "NEW UNLOCKS", description = table.concat(summary.new_unlocks, ", ") }
+  end
+  self:_menu(title, items, 1, "ENTER RETURN TO TITLE")
+end
+
 function Renderer:_draw_help(app)
   love.graphics.clear(0.025, 0.035, 0.055)
   local width, height = love.graphics.getDimensions()
@@ -1620,6 +1706,16 @@ function Renderer:draw(app)
     self:_draw_game(app)
   elseif app.screen == "title" then
     self:_draw_title(app)
+  elseif app.screen == "expedition_character_select" then
+    self:_draw_expedition_character_select(app)
+  elseif app.screen == "expedition_reward" then
+    self:_draw_expedition_reward(app)
+  elseif app.screen == "expedition_chest" then
+    self:_draw_expedition_chest(app)
+  elseif app.screen == "expedition_build" then
+    self:_draw_expedition_build(app)
+  elseif app.screen == "expedition_summary" then
+    self:_draw_expedition_summary(app)
   elseif app.screen == "help" then
     self:_draw_help(app)
   elseif app.screen == "onboarding" then

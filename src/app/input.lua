@@ -8,7 +8,56 @@ local function campaign_field(app)
   return app.is_campaign_mode and app:is_campaign_mode()
 end
 
+local function expedition_field(app)
+  return app.is_expedition_mode and app:is_expedition_mode()
+end
+
 function Input.keypressed(app, key, _, is_repeat)
+  if app.screen == "expedition_character_select" then
+    local options = app:expedition_character_options_list()
+    if key == "escape" then
+      app.screen, app.menu = "title", 1
+    elseif key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #options))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #options))
+    elseif key == "return" or key == "space" or key == "e" then
+      app:select_expedition_character()
+    end
+    return
+  end
+
+  if app.screen == "expedition_reward" then
+    local choices = app.expedition and app.expedition.pending_reward or {}
+    if key == "w" or key == "up" then
+      app:move_menu(-1, math.max(1, #choices))
+    elseif key == "s" or key == "down" then
+      app:move_menu(1, math.max(1, #choices))
+    elseif key == "return" or key == "space" or key == "e" then
+      app:choose_expedition_reward()
+    end
+    return
+  end
+
+  if app.screen == "expedition_chest" then
+    if key == "return" or key == "space" or key == "e" then
+      app:open_expedition_chest()
+    elseif key == "escape" or key == "x" then
+      app:skip_expedition_chest()
+    end
+    return
+  end
+
+  if app.screen == "expedition_build" then
+    if key == "escape" or key == "i" or key == "return" then app:close_overlay() end
+    return
+  end
+
+  if app.screen == "expedition_summary" then
+    if key == "return" or key == "space" or key == "escape" or key == "e" then app:return_to_title() end
+    return
+  end
+
   if app.screen == "storage" then
     if key == "escape" or key == "u" then
       app:close_overlay()
@@ -300,6 +349,7 @@ function Input.keypressed(app, key, _, is_repeat)
   end
   if app.screen == "game" then
     local campaign = campaign_field(app)
+    local expedition = expedition_field(app)
     if campaign and app:is_build_stance() then
       if MOVE_KEYS[key] then
         if not is_repeat then
@@ -340,29 +390,35 @@ function Input.keypressed(app, key, _, is_repeat)
           app:perform_turn(direction)
         end
       end
-    elseif SHOT_KEYS[key] and not campaign then
+    elseif SHOT_KEYS[key] and not campaign and not expedition then
       if not is_repeat then
         app:perform_turn("shoot_" .. SHOT_KEYS[key])
       end
     elseif key == "i" then
       app:open_inventory()
-    elseif key == "g" and not campaign then
+    elseif key == "g" and not campaign and not expedition then
       app:open_salvage()
     elseif key == "u" then
       app:perform_turn("interact")
-    elseif key == "e" and campaign then
+    elseif key == "e" and (campaign or expedition) then
       app:perform_turn("attack")
     elseif key == "r" and campaign and not is_repeat then
       app:perform_turn("swap_weapon")
     elseif key == "q" and campaign and not is_repeat then
       app:activate_campaign_ability()
+    elseif key == "q" and expedition and not is_repeat then
+      app:perform_turn("q")
+    elseif key == "r" and expedition and not is_repeat then
+      app:perform_turn("swap_weapon")
     elseif key == "x" and campaign and not is_repeat then
+      app:perform_turn("swap_ability")
+    elseif key == "x" and expedition and not is_repeat then
       app:perform_turn("swap_ability")
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
       app:perform_turn(key)
-    elseif key == "x" and not campaign then
+    elseif key == "x" and not campaign and not expedition then
       app:open_body_abilities()
-    elseif key == "c" then
+    elseif key == "c" and not expedition then
       app:open_build()
     end
   end

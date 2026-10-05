@@ -23,6 +23,7 @@ local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
+local ExpeditionRun = require("src.expedition.run")
 
 local App = {}
 App.__index = App
@@ -106,6 +107,10 @@ end
 
 function App:is_campaign_mode()
   return self.campaign ~= nil and self.session ~= nil and self.session == self.campaign.session
+end
+
+function App:is_expedition_mode()
+  return self.expedition ~= nil and self.session ~= nil and self.session == self.expedition.session
 end
 
 function App.movement_repeat_interval_for_encumbrance(encumbrance)
@@ -291,6 +296,107 @@ function App:title_options()
   return options
 end
 
+function App:_unlock_expedition(unlock_id)
+  if self.meta_error then return { applied = false, code = "meta_unavailable", reason = self.meta_error.reason } end
+  local candidate = MetaProfile.copy(self.meta_profile)
+  local result = MetaProfile.unlock_expedition(candidate, unlock_id)
+  if result.applied then
+    local saved, error_data = self:_save_meta(candidate)
+    if not saved then return { applied = false, code = "write_failed", reason = error_data.reason } end
+  end
+  return result
+end
+
+function App:open_expedition_character_select()
+  self.expedition_character_options = ExpeditionRun.available_characters(self.meta_profile)
+  self.screen, self.menu = "expedition_character_select", 1
+  for index, option in ipairs(self.expedition_character_options) do
+    if option.unlocked then self.menu = index; break end
+  end
+  return true
+end
+
+function App:expedition_character_options_list()
+  self.expedition_character_options = ExpeditionRun.available_characters(self.meta_profile)
+  return self.expedition_character_options
+end
+
+function App:start_expedition_character(character_id)
+  local character = require("src.expedition.content").character(character_id)
+  if not character or not ExpeditionRun.character_unlocked(self.meta_profile, character) then
+    return nil, { code = "character_locked", reason = "That Expedition character is locked" }
+  end
+  local run = ExpeditionRun.new({
+    seed = self.seed_stream:next(), character_id = character_id, meta_profile = self.meta_profile,
+    registry = self.registry, content = self.content,
+    on_unlock = function(id) return self:_unlock_expedition(id) end,
+    on_event = function(event) self:_handle_session_event(event) end,
+  })
+  self.campaign, self.expedition, self.session = nil, run, run.session
+  self.build_stance = false
+  self.screen, self.menu = "game", 1
+  self:clear_held_movement()
+  self.presentation:reset(self.session)
+  self:play_sound("select")
+  return run
+end
+
+function App:select_expedition_character()
+  local option = self:expedition_character_options_list()[self.menu]
+  if not option then return nil, { code = "missing_character", reason = "No character is selected" } end
+  if not option.unlocked then
+    return nil, { code = "character_locked", reason = "Character is locked: " .. (option.definition.unlock_description or "keep exploring") }
+  end
+  return self:start_expedition_character(option.definition.id)
+end
+
+function App:open_expedition_build()
+  if not self:is_expedition_mode() then return false end
+  self.screen, self.menu = "expedition_build", 1
+  self:clear_held_movement()
+  self:play_sound("select")
+  return true
+end
+
+function App:expedition_build_summary()
+  return self.expedition and self.expedition:build_summary() or nil
+end
+
+function App:choose_expedition_reward(index)
+  if not self.expedition then return nil end
+  local result = self.expedition:choose_reward(index or self.menu)
+  if result.applied then
+    self.screen, self.menu = "game", 1
+    self.presentation:reset(self.session)
+    self:play_sound("pickup")
+  end
+  return result
+end
+
+function App:open_expedition_chest()
+  if not self.expedition then return nil end
+  local result = self.expedition:open_chest()
+  if result.applied then
+    self.screen, self.menu = "game", 1
+    self.presentation:reset(self.session)
+    self:play_sound("pickup")
+  end
+  return result
+end
+
+function App:skip_expedition_chest()
+  if not self.expedition then return nil end
+  local result = self.expedition:skip_chest()
+  if result.applied then self.screen, self.menu = "game", 1; self.presentation:reset(self.session) end
+  return result
+end
+
+function App:open_expedition_summary()
+  self.screen, self.menu = "expedition_summary", 1
+  self:clear_held_movement()
+  return true
+end
+
 function App:_save_meta(candidate)
   if self.meta_error then return nil, self.meta_error end
   local saved, error_data = MetaProfile.save(candidate, self.meta_store, self.registry)
@@ -417,7 +523,7 @@ function App:request_new_campaign(slot_index)
   })
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
-  self.campaign, self.session = campaign, campaign.session
+  self.expedition, self.campaign, self.session = nil, campaign, campaign.session
   self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -448,7 +554,7 @@ function App:continue_campaign(slot_index)
   end
   self.active_campaign_slot, self.campaign_store = slot_index, store
   campaign:set_persistence_directory(store)
-  self.campaign, self.session = campaign, campaign.session
+  self.expedition, self.campaign, self.session = nil, campaign, campaign.session
   self.build_stance = false
   self.screen, self.menu = "game", 1
   self:clear_held_movement()
@@ -478,6 +584,9 @@ function App:autosave_campaign(_boundary)
 end
 
 function App:autosave(_boundary)
+  -- Expedition is a disposable prototype run. It must never overwrite the
+  -- legacy active-run slot or a persistent Sandbox Campaign save.
+  if self:is_expedition_mode() then return true end
   if self.campaign and self.session == self.campaign.session then
     return self:autosave_campaign(_boundary)
   end
@@ -584,6 +693,8 @@ end
 
 function App:help_sections()
   return {
+    { title = "EXPEDITION", text = "Choose a character, clear compact combat arenas, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
+    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. I opens the paused run-build summary. Rewards pause for a 1-of-3 choice." },
     { title = "CAMPAIGN CORE LOOP", text = "Explore a persistent world, salvage physical parts, build useful places, and choose when to press farther out." },
     { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
     { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
@@ -670,6 +781,8 @@ end
 
 function App:activate_title_choice()
   local selected = self:title_options()[self.menu]
+  if selected and selected.id == "expedition" then return self:open_expedition_character_select() end
+  if selected and selected.id == "sandbox" then return self:open_campaign_slots("new") end
   if selected and selected.id == "continue" then
     if not self.campaign_continue_available then return self:continue_run() end
     self:refresh_campaign_continue()
@@ -961,12 +1074,28 @@ end
 function App:return_to_title()
   self.screen, self.menu = "title", 1
   self.session = nil
+  self.expedition = nil
   self.campaign_succession_notice = nil
   self.build_stance = false
   self:clear_held_movement()
 end
 
 function App:_handle_turn_result(result)
+  if result == "expedition_reward" then
+    self.screen, self.menu = "expedition_reward", 1
+    self:clear_held_movement()
+    return
+  elseif result == "expedition_chest" then
+    self.screen, self.menu = "expedition_chest", 1
+    self:clear_held_movement()
+    return
+  elseif result == "expedition_dead" or result == "expedition_victory" then
+    self:open_expedition_summary()
+    return
+  elseif result == "expedition_next_encounter" then
+    self.presentation:reset(self.session)
+    return
+  end
   if result == "reconstruction" then
     self:open_reconstruction()
   elseif result == "curse" then
@@ -1001,7 +1130,7 @@ function App:perform_turn(input)
     return
   end
   local source_zone = self.campaign and self.campaign.active_zone and ZoneKey.to_data(self.campaign.active_zone.key) or nil
-  local result = self.session:turn(input)
+  local result = self:is_expedition_mode() and self.expedition:turn(input) or self.session:turn(input)
   local action_result = self.session.last_action_result
   if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
     -- Keep held-key state for release bookkeeping, but never issue another
@@ -1177,6 +1306,7 @@ function App:storage_transfer_selected()
 end
 
 function App:open_inventory()
+  if self:is_expedition_mode() then return self:open_expedition_build() end
   if not self.session or not self.session.state.inventory then
     return false
   end
@@ -1704,6 +1834,10 @@ function App:rotate_inventory_item()
 end
 
 function App:open_salvage(corpse_id)
+  if self:is_expedition_mode() then
+    self.session:_log("EXPEDITION HAS NO CORPSE SALVAGE.")
+    return false
+  end
   local corpse = corpse_id and self.session and self.session:find_corpse(corpse_id)
     or (self.session and (self:is_campaign_mode() and self.session:faced_corpse() or self.session:nearby_corpse()))
   if not corpse then
@@ -1920,7 +2054,7 @@ function App:set_movement_key(key, held)
     self.movement_keys[key], self.movement_key_order[key] = nil, nil
   end
   local keys = self.movement_keys
-  if self:is_campaign_mode() then
+  if self:is_campaign_mode() or self:is_expedition_mode() then
     local selected, newest = nil, -1
     for _, candidate in ipairs({ "w", "a", "s", "d" }) do
       local order = self.movement_key_order[candidate]
