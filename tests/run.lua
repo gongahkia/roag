@@ -54,6 +54,7 @@ local suites = {
   "tests.test_bosses",
   "tests.test_art_packs",
   "tests.test_actor_glyphs",
+  "tests.test_world_glyphs",
   "tests.test_presentation",
   "tests.test_play01_presentation",
   "tests.test_debug_cockpit",

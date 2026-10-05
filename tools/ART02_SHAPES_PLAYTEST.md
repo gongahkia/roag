@@ -3,6 +3,11 @@
 ROAG intentionally uses procedural shapes for actors. Do not evaluate this as
 final art; evaluate whether the shapes make combat easier to read right now.
 
+The whole arena is shape-first too: floors use sparse grid marks, walls use
+edge-lit blocks, and liquids, gas, spikes, fire, world objects, construction
+ghosts, and electrical effects use role-aware glyphs. No legacy terrain or
+object sheet should appear in a normal run.
+
 Run an Expedition and compare all four classes:
 
 1. Gunner — compact circle with a forward barrel.
@@ -18,6 +23,10 @@ Record concise notes with these prompts:
 
 - Can I identify a class and its facing without HUD text?
 - Can I identify what an enemy does from its shape before it acts?
+- Can I distinguish passable floor, solid wall edges, water, gas, fire,
+  hazards, doors, generators, and reinforcement sources at a glance?
+- Does the arena remain readable when object glyphs overlap footprints and
+  effects, without needing decorative textures?
 - Do hostile outlines, threat footprints, and the player attack preview remain
   readable over the glyphs?
 - Does the elite double treatment and boss compound shape stand out?

@@ -19,7 +19,6 @@ local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local GameplayUI = require("src.presentation.gameplay_ui")
 local ZoneKey = require("src.campaign.zone_key")
-local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
@@ -82,15 +81,13 @@ function App.new(options)
   self.archive_error = nil
   if not self.fallen_archive then self.archive_error = self.archive_status end
   if not self.fallen_archive then self.fallen_archive = FallenArchive.new() end
-  self.art_pack_config, self.art_pack_config_status = ArtPackConfig.load()
-  self.art_pack_config_error = self.art_pack_config_status and self.art_pack_config_status.fresh and nil or self.art_pack_config_status
   self.screens, self.screen_definition_error = ScreenManager.load()
   if not self.screens then self.screens = ScreenManager.fallback() end
   self.presentation_flow, self.presentation_flow_error = PresentationFlow.load()
   if not self.presentation_flow then self.presentation_flow = PresentationFlow.fallback() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
-  self.assets = Assets.new({ art_pack_id = self.art_pack_config.art_pack_id })
+  self.assets = Assets.new()
   self.sounds = SoundBank.new()
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
@@ -133,7 +130,6 @@ end
 
 function App:focus(focused)
   if focused then
-    self.assets:refresh_sprite_mappings()
     -- Screen copy/layout data is development-authored presentation only. A
     -- refocus picks up a saved Studio edit without altering any run state.
     local screens, failure = ScreenManager.load()
@@ -147,12 +143,6 @@ function App:focus(focused)
       self.presentation_flow, self.presentation_flow_error = flow, nil
     else
       self.presentation_flow_error = flow_failure
-    end
-    local art_pack, art_pack_status = ArtPackConfig.load()
-    self.art_pack_config, self.art_pack_config_error = art_pack,
-      (art_pack_status and art_pack_status.fresh and nil or art_pack_status)
-    if art_pack.art_pack_id ~= self.assets.art_pack_id then
-      self.assets:select_art_pack(art_pack.art_pack_id)
     end
   end
 end

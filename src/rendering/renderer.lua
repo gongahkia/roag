@@ -6,6 +6,7 @@ local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
 local Tuning = require("src.rendering.tuning")
 local ActorGlyphs = require("src.rendering.actor_glyphs")
+local WorldGlyphs = require("src.rendering.world_glyphs")
 
 local Renderer = {}
 Renderer.__index = Renderer
@@ -163,6 +164,14 @@ function Renderer:_draw_actor_visual(actor, state, animation_tag, elapsed_second
     return true
   end
   return ActorGlyphs.draw(actor, state, x, y, size, tint, transform)
+end
+
+function Renderer:_draw_role_visual(role_id, x, y, size, tint, transform, fallback)
+  if self.assets and self.assets.draw_optional_role_asset
+    and self.assets:draw_optional_role_asset(role_id, x, y, size, tint, transform) then
+    return true
+  end
+  return fallback()
 end
 
 function Renderer:_draw_actor_outline(actor, state, animation_tag, elapsed_seconds, x, y, size, color, transform)
@@ -342,20 +351,17 @@ function Renderer:_draw_game(app)
           local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
           self:_color(floor_tint)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain("floor", pixel_x, pixel_y, size, floor_tint)
-          if not terrain_drawn and (x * 7 + y * 11) % 5 == 0 then
-            self:_color({ floor_tint[1] * 1.55, floor_tint[2] * 1.55, floor_tint[3] * 1.55 })
-            love.graphics.rectangle("fill", pixel_x + size * 0.35, pixel_y + size * 0.35, math.max(1, size * 0.12), math.max(1, size * 0.12))
-          end
+          self:_draw_role_visual("terrain.floor", pixel_x, pixel_y, size, floor_tint, nil, function()
+            return WorldGlyphs.draw_floor(pixel_x, pixel_y, size, floor_tint, x, y)
+          end)
         else
           local wall_tint = self:terrain_tint(state.world, x, y, { 0.11, 0.075, 0.13 }, false)
           self:_color(wall_tint)
           love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain(self:wall_terrain_kind(state.world, x, y), pixel_x, pixel_y, size, wall_tint)
-          if not terrain_drawn then
-            self:_color({ wall_tint[1] * 1.4, wall_tint[2] * 1.4, wall_tint[3] * 1.4 })
-            love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
-          end
+          local wall_kind = self:wall_terrain_kind(state.world, x, y)
+          self:_draw_role_visual("terrain." .. wall_kind, pixel_x, pixel_y, size, wall_tint, nil, function()
+            return WorldGlyphs.draw_wall(wall_kind, pixel_x, pixel_y, size, wall_tint)
+          end)
         end
         if terrain_cell then
           local terrain_material = session.registry:get_material(terrain_cell.material_id)
@@ -366,22 +372,24 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Liquid is a simulation-owned layer over passable terrain. Its sprite role
-  -- and depth tint are presentation only; they never affect the flow.
+  -- Liquid is a simulation-owned layer over passable terrain. Its procedural
+  -- depth glyph is presentation only; it never affects the flow.
   for _, liquid in ipairs(state.world and state.world:list_liquids() or {}) do
     if state.visible[Grid.key(liquid.x, liquid.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, liquid.x, liquid.y, size, offset_x, offset_y)
       if pixel_x then
         local definition = session.registry:get_liquid(liquid.liquid_id)
         local depth = liquid.amount / definition.max_depth
-        self.assets:draw_sprite(depth >= 0.66 and "water_deep" or "water_shallow", pixel_x, pixel_y, size,
-          { 0.32, 0.78, 1, 0.42 + depth * 0.28 })
+        local tint = { 0.32, 0.78, 1, 0.42 + depth * 0.28 }
+        self:_draw_role_visual("effect.liquid", pixel_x, pixel_y, size, tint, nil, function()
+          return WorldGlyphs.draw_liquid(pixel_x, pixel_y, size, depth, tint)
+        end)
       end
     end
   end
 
   -- Gas is an authoritative coordinate layer, rendered after liquid so both
-  -- can coexist visibly. Its sprite drift depends only on wall-clock time and
+  -- can coexist visibly. Its procedural drift depends only on wall-clock time and
   -- coordinates; it neither uses simulation RNG nor affects no-fog LOS.
   for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
     if state.visible[Grid.key(gas.x, gas.y)] then
@@ -389,26 +397,29 @@ function Renderer:_draw_game(app)
       if pixel_x then
         local definition = session.registry:get_gas(gas.gas_id)
         local density = gas.concentration / definition.max_concentration
-        local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * size * 0.06
-        self.assets:draw_sprite("gas", pixel_x, pixel_y, size, { 0.56, 1, 0.4, 0.16 + density * 0.38 }, {
-          offset_x = drift, offset_y = -drift * 0.35, scale_x = 0.92 + density * 0.12, scale_y = 0.92 + density * 0.12,
-        })
+        local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * 0.06
+        self:_draw_role_visual("effect.gas", pixel_x, pixel_y, size, { 0.56, 1, 0.4, 0.16 + density * 0.38 }, nil, function()
+          return WorldGlyphs.draw_gas(pixel_x, pixel_y, size, density, drift)
+        end)
       end
     end
   end
 
-  -- Hazards are a passable, simulation-owned floor layer. Their silhouette is
-  -- an editable art-pack role rather than renderer-authored line geometry.
+  -- Hazards are a passable, simulation-owned floor layer with a deliberately
+  -- compact procedural silhouette.
   for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do
     if state.visible[Grid.key(hazard.x, hazard.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, hazard.x, hazard.y, size, offset_x, offset_y)
       if pixel_x then
-        self.assets:draw_sprite("spikes", pixel_x, pixel_y, size, { 1, 0.35, 0.25, 0.92 })
+        local tint = { 1, 0.35, 0.25, 0.92 }
+        self:_draw_role_visual("effect.spikes", pixel_x, pixel_y, size, tint, nil, function()
+          return WorldGlyphs.draw_spikes(pixel_x, pixel_y, size, tint)
+        end)
       end
     end
   end
 
-  -- Fire is authoritative world state. Its sprite flicker is presentation-only
+  -- Fire is authoritative world state. Its glyph flicker is presentation-only
   -- and uses wall-clock time, never the deterministic simulation RNG.
   for _, fire in ipairs(state.world and state.world:list_fires() or {}) do
     local fire_x, fire_y = state.world:fire_position(fire)
@@ -416,9 +427,9 @@ function Renderer:_draw_game(app)
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, fire_x, fire_y, size, offset_x, offset_y)
       if pixel_x then
         local flicker = 0.06 + math.sin(time * 11 + fire_x * 3 + fire_y * 5) * 0.035
-        self.assets:draw_sprite("fire", pixel_x, pixel_y, size, { 1, 0.42 + flicker, 0.12, 0.94 }, {
-          offset_y = -size * flicker, scale_x = 0.94, scale_y = 1.02 + flicker,
-        })
+        self:_draw_role_visual("effect.fire", pixel_x, pixel_y, size, { 1, 0.42 + flicker, 0.12, 0.94 }, nil, function()
+          return WorldGlyphs.draw_fire(pixel_x, pixel_y, size, flicker)
+        end)
       end
     end
   end
@@ -462,9 +473,8 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Every physical world object is a named art-pack role.  State remains
-  -- readable through a restrained tint, but landmarks and fixtures never fall
-  -- back to renderer-made rectangles, lines, or polygons.
+  -- World objects use a small role-aware glyph grammar. State remains readable
+  -- through restrained tint without requiring a texture pack.
   for _, object in ipairs(state.world and state.world:list_objects() or {}) do
     if state.visible[Grid.key(object.x, object.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, object.x, object.y, size, offset_x, offset_y)
@@ -494,7 +504,10 @@ function Renderer:_draw_game(app)
         elseif object.interaction_role == "clue" then
           tint = { 1, 0.78, 0.28 }
         end
-        self.assets:draw_sprite(definition.render_style, pixel_x, pixel_y, size, tint)
+        local role_id = "object." .. WorldGlyphs.object_kind(definition, object)
+        self:_draw_role_visual(role_id, pixel_x, pixel_y, size, tint, nil, function()
+          return WorldGlyphs.draw_object(definition, object, pixel_x, pixel_y, size, tint)
+        end)
         self:_draw_damage_overlay(pixel_x, pixel_y, size,
           self:_integrity_severity(object.current_integrity, session.registry:get_material(object.material_id).max_integrity))
       end
@@ -524,7 +537,10 @@ function Renderer:_draw_game(app)
       if preview_x then
         local definition = session.registry:get_world_object(recipe.world_object_id)
         local tint = preview.applied and { 0.35, 1, 0.62, 0.48 } or { 1, 0.26, 0.25, 0.48 }
-        self.assets:draw_sprite(definition.render_style, preview_x, preview_y, size, tint)
+        local role_id = "object." .. WorldGlyphs.object_kind(definition, nil)
+        self:_draw_role_visual(role_id, preview_x, preview_y, size, tint, nil, function()
+          return WorldGlyphs.draw_object(definition, nil, preview_x, preview_y, size, tint)
+        end)
         self:_color(preview.applied and { 0.35, 1, 0.62, 0.95 } or { 1, 0.3, 0.28, 0.95 })
         love.graphics.setLineWidth(2)
         love.graphics.rectangle("line", preview_x + 2, preview_y + 2, size - 4, size - 4)
@@ -626,7 +642,9 @@ function Renderer:_draw_game(app)
     local effect_x, effect_y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
     if effect_x then
       local pulse = 0.48 + math.sin(time * 21 + cell.x * 5 + cell.y * 7) * 0.18
-      self.assets:draw_sprite("electric_arc", effect_x, effect_y, size, { 0.35, 0.85, 1, pulse })
+      self:_draw_role_visual("effect.electric_arc", effect_x, effect_y, size, { 0.35, 0.85, 1, pulse }, nil, function()
+        return WorldGlyphs.draw_electric_arc(effect_x, effect_y, size, pulse)
+      end)
     end
   end
   if state.boss then
@@ -1359,7 +1377,6 @@ function Renderer:_draw_title(app)
     or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.screen_definition_error and "SCREEN DEFINITIONS INVALID — USING SAFE FALLBACK")
     or (app.presentation_flow_error and "PRESENTATION FLOW INVALID — USING SAFE FALLBACK")
-    or (app.art_pack_config_error and "PRESENTATION ART PACK INVALID — USING DEFAULT")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))
   -- Keep title feedback below the longest normal menu so valid title states
   -- remain screenshot-readable as presentation options are added.

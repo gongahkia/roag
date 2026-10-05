@@ -20,8 +20,10 @@ function PresentationAssets.validate_manifest(manifest)
   if type(manifest) ~= "table" then return nil, { { path = "manifest", reason = "must be an object" } } end
   if manifest.schema_version ~= 1 then issue(errors, "schema_version", "must equal supported version 1") end
   if type(manifest.assets) ~= "table" then issue(errors, "assets", "must be an array") end
-  if manifest.character_bindings ~= nil and type(manifest.character_bindings) ~= "table" then
-    issue(errors, "character_bindings", "must be an object")
+  for _, binding_name in ipairs({ "character_bindings", "role_bindings" }) do
+    if manifest[binding_name] ~= nil and type(manifest[binding_name]) ~= "table" then
+      issue(errors, binding_name, "must be an object")
+    end
   end
   for index, asset in ipairs(manifest.assets or {}) do
     local prefix = "assets[" .. index .. "]"
@@ -64,9 +66,11 @@ function PresentationAssets.validate_manifest(manifest)
       end
     end
   end
-  for character_id, asset_id in pairs(manifest.character_bindings or {}) do
-    if type(character_id) ~= "string" or type(asset_id) ~= "string" then issue(errors, "character_bindings", "keys and values must be strings")
-    elseif not ids[asset_id] then issue(errors, "character_bindings." .. character_id, "references missing asset '" .. asset_id .. "'") end
+  for _, binding_name in ipairs({ "character_bindings", "role_bindings" }) do
+    for binding_id, asset_id in pairs(manifest[binding_name] or {}) do
+      if type(binding_id) ~= "string" or type(asset_id) ~= "string" then issue(errors, binding_name, "keys and values must be strings")
+      elseif not ids[asset_id] then issue(errors, binding_name .. "." .. binding_id, "references missing asset '" .. asset_id .. "'") end
+    end
   end
   if #errors > 0 then return nil, errors end
   return true, errors
@@ -87,7 +91,7 @@ end
 
 function PresentationAssets.new(options)
   options = options or {}
-  return setmetatable({ manifest_path = options.manifest_path or "assets/presentation/manifest.json", assets = {}, character_bindings = {}, warnings = {} }, PresentationAssets)
+  return setmetatable({ manifest_path = options.manifest_path or "assets/presentation/manifest.json", assets = {}, character_bindings = {}, role_bindings = {}, warnings = {} }, PresentationAssets)
 end
 
 function PresentationAssets:load()
@@ -101,6 +105,7 @@ function PresentationAssets:load()
     return false
   end
   self.character_bindings = manifest.character_bindings or {}
+  self.role_bindings = manifest.role_bindings or {}
   for _, definition in ipairs(manifest.assets) do
     local ok, image = pcall(love.graphics.newImage, definition.image)
     if ok then
@@ -121,8 +126,8 @@ function PresentationAssets:load()
   return true
 end
 
-function PresentationAssets:draw_character(character_id, tag, elapsed_seconds, x, y, size, tint, transform)
-  local asset = self.assets[self.character_bindings[character_id]]
+function PresentationAssets:draw_asset(asset_id, tag, elapsed_seconds, x, y, size, tint, transform)
+  local asset = self.assets[asset_id]
   if not asset then return false end
   local animation = asset.definition.animations[tag] or asset.definition.animations.idle
   local frame = PresentationAssets.frame_for_elapsed(animation, elapsed_seconds)
@@ -138,6 +143,14 @@ function PresentationAssets:draw_character(character_id, tag, elapsed_seconds, x
   love.graphics.draw(asset.image, quad, x + size * 0.5 - pivot_x * scale_x + (transform.offset_x or 0), y + size - pivot_y * scale_y + (transform.offset_y or 0), 0, scale_x, scale_y)
   love.graphics.setColor(1, 1, 1)
   return true
+end
+
+function PresentationAssets:draw_character(character_id, tag, elapsed_seconds, x, y, size, tint, transform)
+  return self:draw_asset(self.character_bindings[character_id], tag, elapsed_seconds, x, y, size, tint, transform)
+end
+
+function PresentationAssets:draw_role(role_id, x, y, size, tint, transform)
+  return self:draw_asset(self.role_bindings[role_id], "idle", 0, x, y, size, tint, transform)
 end
 
 return PresentationAssets

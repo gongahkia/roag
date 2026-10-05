@@ -12,11 +12,10 @@ local Bosses = require("content.bosses.legacy")
 
 return {
   {
-    name = "ROAG reads externalized presentation data while title no longer exposes art authoring",
+    name = "shape-first runtime initializes without loading any legacy art-pack sheet",
     run = function()
-      local configured = assert(ArtPackConfig.load())
       local app = App.new({ seed = 450001, save_store = SaveStore.memory(), meta_store = SaveStore.memory(), archive_store = SaveStore.memory() })
-      assert(app.assets.art_pack_id == configured.art_pack_id)
+      assert(app.assets.presentation_assets and app.assets.loaded == false)
       for _, option in ipairs(app:title_options()) do
         assert(option.id ~= "art_packs" and option.name ~= "ART PACKS")
       end
@@ -203,7 +202,7 @@ return {
     end,
   },
   {
-    name = "every art pack builds its declared sheets and terrain mappings through the shared renderer boundary",
+    name = "legacy art-pack tooling remains explicitly offline and opt-in",
     run = function()
       local prior_love = love
       local loaded_paths, draws = {}, {}
@@ -227,6 +226,7 @@ return {
         for _, pack in ipairs(ArtPacks.list()) do
           local assets = Assets.new({ art_pack_id = pack.id })
           assert(assets:load())
+          assert(assets:_load_art_pack())
           for _, role in ipairs(ArtPacks.roles()) do
             assert(assets:draw_sprite(role, 0, 0, 16), "required sprite role must draw directly: " .. role)
           end

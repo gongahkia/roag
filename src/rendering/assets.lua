@@ -1,5 +1,5 @@
--- Rendering asset boundary. Art packs only choose presentation sprites; they
--- cannot influence deterministic simulation, body ownership, or save data.
+-- Rendering asset boundary. Optional packs are kept as an offline/import
+-- surface, but the active game is procedural and never requires a sheet.
 local ArtPacks = require("src.rendering.art_packs")
 local PresentationAssets = require("src.rendering.presentation_assets")
 
@@ -267,10 +267,9 @@ function Assets:load()
   love.graphics.setDefaultFilter("nearest", "nearest")
   self.font = love.graphics.newFont("assets/fonts/BigBlueTermPlusNerdFontMono-Regular.ttf", 16)
   love.graphics.setFont(self.font)
-  local loaded, error_data = self:_load_art_pack()
-  if not loaded then return nil, error_data end
-  -- Optional licensed-pack actor art is never required for a playable run.
-  -- The shape renderer remains the normal fallback when no pack is present.
+  -- Do not load any legacy sheet here. The current renderer uses procedural
+  -- terrain, objects, effects, and actor glyphs, so a clean install remains
+  -- playable even when every optional texture pack is absent.
   self.presentation_assets:load()
   self.loaded = true
   return true
@@ -364,6 +363,13 @@ function Assets:draw_optional_actor_asset(actor, state, animation_tag, elapsed_s
     return true
   end
   return false
+end
+
+-- Static terrain/object/effect bindings share the same optional manifest as
+-- characters. The current manifest is intentionally absent, so callers use
+-- their procedural glyph fallback without ever opening a legacy sheet.
+function Assets:draw_optional_role_asset(role_id, x, y, size, tint, transform)
+  return self.presentation_assets:draw_role(role_id, x, y, size, tint, transform)
 end
 
 function Assets:draw_terrain(kind, x, y, size, tint)

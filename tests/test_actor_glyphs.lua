@@ -15,6 +15,7 @@ local function optional_manifest()
       },
     },
     character_bindings = { ["expedition.gunner"] = "character.fixture" },
+    role_bindings = { ["terrain.floor"] = "character.fixture" },
   }
 end
 
@@ -62,8 +63,9 @@ return {
       assert(PresentationAssets.frame_for_elapsed(animation, 0.30) == 0)
       manifest.assets[1].animations.idle.durations_ms[2] = 0
       manifest.character_bindings["expedition.bruiser"] = "missing"
+      manifest.role_bindings["object.door"] = "missing"
       local valid, errors = PresentationAssets.validate_manifest(manifest)
-      assert(not valid and #errors >= 2)
+      assert(not valid and #errors >= 3)
     end,
   },
   {
