@@ -2130,6 +2130,24 @@ function App:request_movement(direction, source)
   return false
 end
 
+-- Attacks, abilities, swaps, and contextual Expedition actions advance the
+-- same authoritative board as movement.  They must therefore wait for the
+-- previous beat too; otherwise an E/Q press could make turn N+1 resolve while
+-- the enemy response from turn N was still visibly sliding into place.
+function App:request_expedition_turn(input)
+  if self.screen ~= "game" or not self.session then return false end
+  if not self:is_expedition_mode() then
+    self:perform_turn(input)
+    return true
+  end
+  if self:movement_presentation_ready() and #(self.pending_movement_inputs or {}) == 0 then
+    self:perform_turn(input)
+    return true
+  end
+  self:_queue_movement(input, "action")
+  return false
+end
+
 function App:clear_held_movement()
   self.held_direction, self.hold_timer = nil, nil
   self.pending_movement_inputs = {}

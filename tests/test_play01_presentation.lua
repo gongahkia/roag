@@ -200,6 +200,28 @@ return {
     end,
   },
   {
+    name = "FEEL-02 Expedition attacks wait for the preceding board beat",
+    run = function()
+      local player, enemy = { kind = "player", x = 4, y = 4 }, { kind = "ripper", x = 8, y = 4 }
+      local session = { state = { player = player, enemies = { enemy }, bullets = {}, boss = nil }, last_action_result = nil }
+      local turns, enemy_opportunities, inputs = 0, 0, {}
+      function session:turn(input)
+        turns, enemy_opportunities = turns + 1, enemy_opportunities + 1
+        inputs[#inputs + 1] = input
+        if input == "d" then player.x, enemy.x = player.x + 1, enemy.x - 1 end
+      end
+      local run = { session = session, turn = function(_, input) return session:turn(input) end }
+      local app = setmetatable({ screen = "game", session = session, expedition = run, presentation = Presentation.new(),
+        held_movement_blocked = false, pending_movement_inputs = {} }, App)
+      app.presentation:reset(session)
+      assert(app:request_movement("d", "direct") and turns == 1 and enemy_opportunities == 1)
+      assert(not app:request_expedition_turn("attack") and turns == 1)
+      assert(#app.pending_movement_inputs == 1)
+      app:update(Tuning.player_move_duration + Tuning.board_settle_duration)
+      assert(turns == 2 and enemy_opportunities == 2 and inputs[2] == "attack")
+    end,
+  },
+  {
     name = "FEEL-01 debug overlay is opt-in and never alters a simulation turn",
     run = function()
       local calls = 0
