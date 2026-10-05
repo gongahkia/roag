@@ -94,7 +94,9 @@ function Input.keypressed(app, key, _, is_repeat)
   end
 
   if app.screen == "reconstruction" then
-    if key == "tab" then
+    if key == "escape" then
+      app:finish_reconstruction()
+    elseif key == "tab" then
       app:toggle_reconstruction_focus()
     elseif key == "w" or key == "up" then
       app:move_reconstruction_selection(-1)
@@ -121,6 +123,15 @@ function Input.keypressed(app, key, _, is_repeat)
       app.body_ability_confirming = false
     elseif key == "return" or key == "space" then
       app:confirm_body_ability()
+    end
+    return
+  end
+
+  -- Death is a Campaign handoff, not an unexplained zone transition. This
+  -- acknowledgement has no simulation cost, and Escape must not quit from it.
+  if app.screen == "campaign_succession" then
+    if key == "escape" or key == "return" or key == "space" or key == "e" then
+      app:continue_campaign_succession()
     end
     return
   end

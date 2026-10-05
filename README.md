@@ -58,6 +58,8 @@ $ love .
 
 Campaign uses two identity-bound quick weapon slots and two quick ability slots; `E` and `Q` always use the active selections shown in the HUD. Ranged reserve ammunition is physical 1×1 cargo (bullets, shells, energy cells, or explosives), while a loaded magazine stays on its exact physical weapon component.
 
+Campaign death is succession, not a reset: your old body, carried cargo, and loaded weapons remain at the death site, while a fresh body reconstructs beside the active Reconstruction Anchor. The succession screen names both places. Face a Reconstruction Station and use `U` to set it as the future anchor; the HUD indicates whether that anchor is in the current zone.
+
 Equipped charms can also create deterministic reactive build effects with your weapons, body capabilities, collisions, reloads, and the environment. Inspect the paused Inventory's **BUILD EFFECTS** section to see active combinations and any missing requirement.
 
 Campaign supplies are deliberately physical but fast: walk onto TIMBER, MASONRY, METAL, or ammunition to collect the whole stack if it fits. Loose components and corpses are deliberate: face them with `U`; corpse salvage opens two spatial grids where rotation and placement matter. Inventory and salvage pause the world, and dropped cargo stays at your feet until you leave and walk back onto that cell.

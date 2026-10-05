@@ -509,7 +509,11 @@ function Renderer:_draw_game(app)
 
   local ui = GameplayUI.hud(session)
   self:_text("ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
-  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.66, { 0.78, 0.78, 0.6 }) end
+  if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end
+  if ui.reconstruction_anchor then
+    self:_text(ui.reconstruction_anchor.current_zone and "RESPAWN ANCHOR: THIS ZONE" or "RESPAWN ANCHOR: REMOTE ZONE",
+      hud, offset_y + 34, 0.46, ui.reconstruction_anchor.current_zone and { 0.58, 0.88, 0.78 } or { 0.95, 0.72, 0.35 })
+  end
   self:_text("HP " .. ui.health .. " / " .. ui.max_health .. "   " .. string.rep("♥", ui.health), hud, offset_y + 42,
     1 + presentation.hit_flash * 0.8, { 1, 0.35, 0.35 })
   if ui.quick then
@@ -703,6 +707,7 @@ function Renderer:_draw_reconstruction(app)
 
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("RECONSTRUCTION", body_x, 28, 2, { 0.7, 0.9, 1 })
+  self:_text("PAUSED — BODY CHANGES ARE FREE UNTIL YOU FINISH", body_x, 51, 0.58, { 0.68, 0.78, 0.9 })
   self:_text("Installed mass " .. body:installed_mass() .. "   •   Cargo " .. inventory:total_mass() .. " " .. inventory:encumbrance(), body_x, 68, 0.88, { 0.95, 0.85, 0.3 })
   local locomotion = session:locomotion_state(state.player)
   local locomotion_color = locomotion.state == "NORMAL" and { 0.65, 0.9, 0.8 }
@@ -764,7 +769,7 @@ function Renderer:_draw_reconstruction(app)
   self:_text(feedback.compatible and "COMPATIBLE" or "INCOMPATIBLE", body_x, height - 92, 1, feedback_color)
   self:_text(GameplayUI.failure_text(feedback), body_x + 145, height - 92, 0.78, feedback_color)
   self:_text("TAB FOCUS   W/S SELECT   ENTER INSTALL / UNINSTALL   R ROTATE INVENTORY", body_x, height - 62, 0.7, { 0.75, 0.82, 0.92 })
-  self:_text("F FINISH RECONSTRUCTION", body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
+  self:_text("F / ESC FINISH RECONSTRUCTION", body_x, height - 38, 0.76, { 0.95, 0.85, 0.3 })
 end
 
 function Renderer:_draw_body_abilities(app)
@@ -822,7 +827,7 @@ function Renderer:_draw_inventory(app)
   end
 
   love.graphics.clear(0.025, 0.035, 0.055)
-  self:_text("CARRIED INVENTORY", grid_x, math.max(18, grid_y - 58), 1.35, { 0.7, 0.9, 1 })
+  self:_text("CARRIED INVENTORY — PAUSED", grid_x, math.max(18, grid_y - 58), 1.35, { 0.7, 0.9, 1 })
   self:_text(inventory:total_mass() .. " MASS  •  " .. inventory:encumbrance(), grid_x, math.max(38, grid_y - 31), 0.72, { 0.95, 0.85, 0.3 })
   for y = 1, inventory.height do
     for x = 1, inventory.width do
@@ -984,6 +989,7 @@ function Renderer:_draw_salvage(app)
     local layout = projection and app:salvage_layout(width, height) or nil
     love.graphics.clear(0.025, 0.035, 0.055)
     self:_text("CORPSE SALVAGE", 28, 24, 1.35, { 0.7, 0.9, 1 })
+    self:_text("PAUSED — TRANSFERS DO NOT ADVANCE TIME", 28, 43, 0.46, { 0.68, 0.78, 0.9 })
     if not corpse or not projection or not layout then
       self:_text("CORPSE NO LONGER AVAILABLE", 28, 74, 0.9, { 1, 0.4, 0.4 })
       return
@@ -1135,6 +1141,7 @@ function Renderer:_draw_storage(app)
   local storage = app:storage_inventory()
   love.graphics.clear(0.025, 0.035, 0.055)
   self:_text("STORAGE", width * 0.15, 48, 2, { 0.7, 0.9, 1 })
+  self:_text("PAUSED — TRANSFERS DO NOT ADVANCE TIME", width * 0.15, 78, 0.58, { 0.68, 0.78, 0.9 })
   local function column(title, entries, x, selected)
     self:_text(title, x, 108, 1.15, selected and { 0.95, 0.85, 0.3 } or { 0.65, 0.75, 0.9 })
     if #entries == 0 then self:_text("EMPTY", x, 145, 0.8, { 0.48, 0.55, 0.65 }) end
@@ -1228,6 +1235,37 @@ function Renderer:_draw_onboarding(app)
       index == 1 and { 0.95, 0.85, 0.3 } or { 0.76, 0.84, 0.94 })
   end
   self:_text(self:_screen_text(app, "onboarding", "footer", "ENTER BEGIN DESCENT     ESC TITLE"), width * 0.18, height - 68, 0.82, { 0.75, 0.82, 0.92 })
+end
+
+function Renderer:_draw_campaign_succession(app)
+  local width, height = love.graphics.getDimensions()
+  local notice = app.campaign_succession_notice or {}
+  love.graphics.clear(0.025, 0.035, 0.055)
+  local screen, accent = self:_screen_definition(app, "campaign_succession")
+  self:_text(self:_screen_text(app, "campaign_succession", "title", "BODY LOST"), width * 0.16, 54, 2.25, accent)
+  self:_text(self:_screen_text(app, "campaign_succession", "subtitle", "SUCCESSOR RECONSTRUCTED AT THE ACTIVE ANCHOR"),
+    width * 0.16, 91, 0.78, { 0.68, 0.78, 0.9 })
+
+  local cards = {
+    { title = "DEATH SITE", text = notice.death_location or "UNKNOWN LOCATION", color = { 1, 0.48, 0.4 } },
+    { title = "CURRENT RECONSTRUCTION ANCHOR", text = notice.anchor_location or "UNKNOWN LOCATION", color = { 0.48, 0.92, 1 } },
+  }
+  for index, card in ipairs(cards) do
+    local y = 142 + (index - 1) * 74
+    self:_color({ 0.06, 0.1, 0.15 })
+    love.graphics.rectangle("fill", width * 0.16, y, width * 0.68, 58)
+    self:_color(card.color)
+    love.graphics.rectangle("line", width * 0.16, y, width * 0.68, 58)
+    self:_text(card.title, width * 0.18, y + 8, 0.64, card.color)
+    self:_text(card.text, width * 0.18, y + 29, 0.75, { 0.9, 0.94, 1 })
+  end
+  self:_text(notice.summary or "A FRESH BODY WAS RECONSTRUCTED AT YOUR ACTIVE ANCHOR.", width * 0.16, 310, 0.78, { 0.95, 0.85, 0.3 })
+  self:_text(notice.recovery or "YOUR LOST BODY AND CARGO REMAIN AT THE DEATH SITE.", width * 0.16, 346, 0.68, { 0.78, 0.85, 0.94 })
+  self:_text(notice.loss or "BASES, STORAGE, SCRAP, AND WORLD CHANGES PERSIST.", width * 0.16, 374, 0.68, { 0.78, 0.85, 0.94 })
+  self:_text(notice.guidance or "FACE A RECONSTRUCTION STATION AND USE U TO SET A DIFFERENT FUTURE ANCHOR.",
+    width * 0.16, 426, 0.68, { 0.6, 0.9, 0.75 })
+  self:_text(self:_screen_text(app, "campaign_succession", "footer", "ENTER / ESC CONTINUE"),
+    width * 0.16, height - 58, 0.82, { 0.75, 0.82, 0.92 })
 end
 
 function Renderer:_draw_fallen_archive(app)
@@ -1449,6 +1487,8 @@ function Renderer:draw(app)
     self:_draw_help(app)
   elseif app.screen == "onboarding" then
     self:_draw_onboarding(app)
+  elseif app.screen == "campaign_succession" then
+    self:_draw_campaign_succession(app)
   elseif app.screen == "replace_save" then
     self:_menu(self:_screen_text(app, "replace_save", "title", "REPLACE ACTIVE RUN?"), { { name = "START NEW RUN", description = "The current active run will be replaced after setup." } }, app.menu,
       self:_screen_text(app, "replace_save", "footer", "ENTER CONFIRM     ESC CANCEL"))
