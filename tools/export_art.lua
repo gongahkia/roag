@@ -58,11 +58,14 @@ for _, asset in ipairs(manifest.assets) do
   local tags = table.concat(asset.required_tags, ",")
   local colours = table.concat(palette.colors, ",")
   run(table.concat({
-    quote(aseprite), "-b", quote(asset.source), "--script", quote("tools/aseprite_validate.lua"),
+    quote(aseprite), "-b", quote(asset.source),
     "--script-param", quote("width=" .. asset.native_width),
     "--script-param", quote("height=" .. asset.native_height),
     "--script-param", quote("required_tags=" .. tags),
     "--script-param", quote("palette=" .. colours),
+    -- Aseprite associates script parameters with the following --script
+    -- argument. Put all params first; otherwise app.params is empty.
+    "--script", quote("tools/aseprite_validate.lua"),
   }, " "))
   run(table.concat({
     quote(aseprite), "-b", quote(asset.source),

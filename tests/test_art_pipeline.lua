@@ -27,13 +27,16 @@ end
 
 return {
   {
-    name = "ART-01 manifest validates planned assets without pretending blocked source art exists",
+    name = "ART-01 production Gunner manifest source exports and palette validate together",
     run = function()
       local definition = require("src.persistence.json").decode(assert(io.open("art/assets.json", "rb")):read("*a"))
       local valid, errors, warnings = Manifest.validate(definition)
-      assert(valid and #errors == 0 and #warnings == 1)
+      assert(valid and #errors == 0 and #warnings == 0)
+      assert(#definition.assets == 1 and definition.assets[1].id == "character.gunner")
       local palette = require("src.persistence.json").decode(assert(io.open("art/palettes/roag-base.json", "rb")):read("*a"))
       assert(Manifest.validate_palette(palette))
+      local metadata = require("src.persistence.json").decode(assert(io.open("assets/sprites/characters/gunner.json", "rb")):read("*a"))
+      assert(Manifest.validate_metadata(definition.assets[1], metadata))
     end,
   },
   {

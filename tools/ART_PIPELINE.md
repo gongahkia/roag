@@ -6,12 +6,10 @@ sprite sheet.
 
 ## Current ART-01 state
 
-`character.gunner` is deliberately recorded as a **planned blocked asset** in
-`art/assets.json`. The licensed Steam Aseprite installation discovered for this
-checkout cannot run from the current WSL session because Windows interop is
-disabled. Do not fabricate a `.aseprite` file with another editor or a binary
-writer. Once interop is repaired, complete the create → inspect → edit loop
-below and move the Gunner entry from `planned_assets` to `assets`.
+`character.gunner` is the first production asset in `art/assets.json`. Its
+editable Aseprite source, deterministic runtime sheet/metadata, and contact
+sheet preview demonstrate the full pipeline. Other actors deliberately remain
+on placeholder presentation until a later human review approves this workflow.
 
 ## Layout
 
@@ -36,7 +34,7 @@ assets/sprites/          packaged PNG/JSON runtime exports only
    body/feet stable; let PLAY-01 own movement and recoil.
 5. Inspect a nearest-neighbour 8× render, correct pixels, and repeat. Do at
    least three inspect → edit iterations before declaring an asset ready.
-6. Move the manifest entry into `assets`, then export and validate:
+6. Add or update the production manifest entry, then export and validate:
 
 ```console
 ASEPRITE_BIN=/path/to/aseprite ./tools/export_art.sh
@@ -81,8 +79,6 @@ codex mcp get aseprite-mcp --json
 
 Then run a disposable 8 × 8 create → draw → render → pixel-edit → save → export
 smoke test through MCP before changing production art. Delete every smoke file.
-The current WSL interop failure prevents this final connection test; fixing the
-host Aseprite execution path is required first.
 
 ## Adding the next character
 

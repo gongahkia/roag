@@ -1,12 +1,10 @@
 {
   "schema_version": 1,
   "palette": "art/palettes/roag-base.json",
-  "assets": [],
-  "planned_assets": [
+  "assets": [
     {
       "id": "character.gunner",
       "kind": "character",
-      "status": "blocked_aseprite_interop",
       "source": "art/source/characters/gunner.aseprite",
       "runtime_sheet": "assets/sprites/characters/gunner.png",
       "runtime_metadata": "assets/sprites/characters/gunner.json",
@@ -25,8 +23,8 @@
         "move",
         "attack",
         "hurt"
-      ],
-      "block_reason": "A licensed Steam Aseprite exists, but this WSL distribution has Windows interop disabled and cannot execute aseprite.exe. Do not create a substitute source; move this entry into assets only after an Aseprite-authored source and deterministic export exist."
+      ]
     }
-  ]
+  ],
+  "planned_assets": []
 }
