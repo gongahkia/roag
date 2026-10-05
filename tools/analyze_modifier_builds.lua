@@ -30,7 +30,7 @@ local function analyze_rewards(count)
   local stats = { sequences = count, pickups = 0, unique = 0, duplicates = 0, top_stack = 0, failures = 0 }
   for seed = 1, count do
     local run = Run.new({ seed = 1200000 + seed, character_id = "expedition.gunner", meta_profile = profile() })
-    local exp, acquired, caches_bought = run.session.state.expedition, 0, 0
+    local exp, acquired, caches_bought, level_choices = run.session.state.expedition, 0, 0, 0
     for _, plan in ipairs(run.plan) do
       for _, enemy in ipairs(plan.enemies) do
         exp.xp = exp.xp + (XP_BY_ROLE[enemy.role] or 2) + (enemy.elite and 7 or 0)
@@ -38,7 +38,10 @@ local function analyze_rewards(count)
       while exp.xp_thresholds[exp.level_threshold_index] and exp.xp >= exp.xp_thresholds[exp.level_threshold_index] do
         exp.xp = exp.xp - exp.xp_thresholds[exp.level_threshold_index]
         exp.level, exp.level_threshold_index = exp.level + 1, exp.level_threshold_index + 1
-        local pick = run:reward_options(3, "level")[1]
+        level_choices = level_choices + 1
+        local options = run:reward_options(3, "level")
+        local discovery = level_choices <= 3 or level_choices % 3 == 0
+        local pick = options[discovery and 2 or 1]
         run:add_passive(pick.id)
         acquired = acquired + 1
       end
@@ -71,7 +74,7 @@ local function random_builds(count)
 end
 local result = { catalog = catalog(), rewards = analyze_rewards(1000), builds = random_builds(2000), stress = { scenarios = 500, failures = 0 } }
 print("MOD02 modifier_count=" .. result.catalog.total .. " reactive=" .. result.catalog.reactive)
-print("MOD02 rewards sequences=" .. result.rewards.sequences .. " pickups=" .. result.rewards.pickups .. " unique_total=" .. result.rewards.unique .. " duplicate_total=" .. result.rewards.duplicates .. " max_top_stack=" .. result.rewards.top_stack)
+print("MOD02 rewards sequences=" .. result.rewards.sequences .. " pickups=" .. result.rewards.pickups .. " unique_total=" .. result.rewards.unique .. " duplicate_total=" .. result.rewards.duplicates .. " max_top_stack=" .. result.rewards.top_stack .. " policy=discover_first_then_two_reinforce")
 print("MOD02 random_builds=" .. result.builds.builds .. " failures=" .. result.builds.failures .. " chain_stress=" .. result.stress.scenarios .. " stress_failures=" .. result.stress.failures)
 for category, count in pairs(result.catalog.categories) do print("category_" .. category .. "=" .. count) end
 if result.builds.failures > 0 then os.exit(1) end

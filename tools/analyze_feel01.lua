@@ -56,7 +56,7 @@ end
 
 local function reward_shape(seed, plan, run_profile)
   local run = Run.new({ seed = 2100000 + seed, character_id = "expedition.gunner", meta_profile = run_profile })
-  local exp, acquired = run.session.state.expedition, 0
+  local exp, acquired, level_choices = run.session.state.expedition, 0, 0
   -- Feed expected chamber XP directly through the same threshold state, then
   -- consume the same real reward generator (not a parallel weighting model).
   for _, encounter in ipairs(plan) do
@@ -66,7 +66,14 @@ local function reward_shape(seed, plan, run_profile)
     while (exp.xp_thresholds or {})[exp.level_threshold_index] and exp.xp >= exp.xp_thresholds[exp.level_threshold_index] do
       exp.xp = exp.xp - exp.xp_thresholds[exp.level_threshold_index]
       exp.level, exp.level_threshold_index, acquired = exp.level + 1, exp.level_threshold_index + 1, acquired + 1
-      local option = run:reward_options(3, "level")[1]
+      level_choices = level_choices + 1
+      -- Model a deliberate player: establish ingredients first, then take
+      -- two reinforcement choices for every later discovery.  The game still
+      -- presents all three choices; this is only a reproducible analyzer
+      -- policy, rather than silently assuming every player always chooses A.
+      local options = run:reward_options(3, "level")
+      local discovery = level_choices <= 3 or level_choices % 3 == 0
+      local option = options[discovery and 2 or 1]
       run:add_passive(option.id)
     end
     if encounter.reward_kind == "random" then
@@ -161,6 +168,7 @@ function Analyzer.report(result)
     .. " avg_cash=" .. (result.cash / result.seeds) .. " avg_affordable_caches=" .. (result.affordable_caches / result.seeds))
   print("FEEL01 avg_pickups=" .. (result.pickups / result.seeds) .. " avg_unique=" .. (result.unique / result.seeds)
     .. " avg_duplicates=" .. (result.duplicates / result.seeds) .. " max_top_stack=" .. result.top_stack)
+  print("FEEL01 reward_choice_policy=discover_first_then_two_reinforce")
   print("FEEL01 stage_elites=" .. table.concat(result.elites_by_stage, ",")
     .. " stage_hazards=" .. table.concat(result.hazards_by_stage, ","))
   for _, label in ipairs(Chambers.TOPOLOGIES) do print("topology_" .. label .. "=" .. (result.topologies[label] or 0)) end
