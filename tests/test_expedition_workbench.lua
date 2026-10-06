@@ -11,7 +11,8 @@ end
 local function temporary_store()
   local root = "/tmp/roag_tool01_workbench"
   os.execute("rm -rf " .. root)
-  assert(os.execute("mkdir -p " .. root .. "/chambers " .. root .. "/encounters") == 0)
+  local made = os.execute("mkdir -p " .. root .. "/chambers " .. root .. "/encounters")
+  assert(made == true or made == 0)
   for _, kind in ipairs({ "chambers", "encounters" }) do
     local source = Store.new(); local files = assert(source:list(kind)); copy_file("content/expedition/" .. kind .. "/manifest.json", root .. "/" .. kind .. "/manifest.json")
     for _, filename in ipairs(files) do copy_file("content/expedition/" .. kind .. "/" .. filename, root .. "/" .. kind .. "/" .. filename) end
