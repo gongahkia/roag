@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "chamber.volatile_basic",
+  "name": "Volatile Ring",
+  "enabled": true,
+  "weight": 1,
+  "width": 10,
+  "height": 8,
+  "topology_tags": ["volatile"],
+  "tile_legend": { ".": "floor", "v": "volatile" },
+  "tiles": ["..........", "..........", ".....v....", "...v...v..", ".....v....", "..........", "..........", ".........."],
+  "markers": {
+    "player_spawn": [{ "x": 3, "y": 4 }],
+    "enemy_spawns": [{ "x": 9, "y": 4, "group": "east" }, { "x": 6, "y": 7, "group": "north" }, { "x": 6, "y": 2, "group": "south" }, { "x": 2, "y": 4, "group": "west" }],
+    "exits": [{ "x": 9, "y": 2 }], "caches": [{ "x": 2, "y": 2 }], "reinforcements": [], "boss_spawns": []
+  }
+}

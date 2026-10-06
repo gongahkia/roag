@@ -1,4 +1,4 @@
-.PHONY: build test package visual-validate play shell studio generation-inspector room-editor graphics-doctor feel-analyze \
+.PHONY: build test package visual-validate expedition-validate play shell studio generation-inspector room-editor graphics-doctor feel-analyze \
 	debug doctor debug-content debug-scenario debug-expedition debug-modifier debug-determinism debug-bundle debug-test
 
 COMPOSE ?= ./tools/docker-compose.sh
@@ -9,11 +9,14 @@ build:
 test:
 	$(COMPOSE) run --rm test
 
-package: visual-validate
+package: visual-validate expedition-validate
 	$(COMPOSE) run --rm package
 
 visual-validate:
 	$(COMPOSE) run --rm test luajit tools/validate_loveable_rogue.lua
+
+expedition-validate:
+	$(COMPOSE) run --rm test luajit tools/validate_expedition_content.lua
 
 play:
 	$(COMPOSE) run --rm game

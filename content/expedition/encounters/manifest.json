@@ -1,0 +1,7 @@
+{
+  "files": [
+    "swarm.json", "crossfire.json", "pincer.json", "duel.json",
+    "hazard.json", "breach.json", "encirclement.json", "hunter_kite.json",
+    "elite_hunt.json", "reinforcement_pressure.json", "volatile_arena.json", "breakpoint.json"
+  ]
+}

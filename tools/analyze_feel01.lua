@@ -110,18 +110,20 @@ function Analyzer.analyze(seed_count)
     local cumulative_xp, cumulative_cash, first_level = 0, 0, nil
     local topology_streak, prior_topology = 0, nil
     for index, encounter in ipairs(plan) do
-      local chamber = Chambers.generate({ topology = encounter.topology, index = index })
+      -- Analyze the exact authored board selected by the production planner;
+      -- do not regenerate a second topology in the analyzer.
+      local chamber = Chambers.instantiate(encounter.chamber)
       if not chamber_ok(chamber) then result.structural_failures = result.structural_failures + 1 end
       add(result.topologies, encounter.topology)
       add(result.dimensions, chamber.bounds.width .. "x" .. chamber.bounds.height)
       add(result.archetypes, encounter.kind)
-      if encounter.hazard then add(result.hazards, encounter.topology) end
+      if encounter.topology == "conductive" or encounter.topology == "volatile" then add(result.hazards, encounter.topology) end
       local roles = {}
       for _, enemy in ipairs(encounter.enemies) do roles[enemy.role] = true end
       local diversity = 0; for _ in pairs(roles) do diversity = diversity + 1 end
       result.role_diversity[index] = (result.role_diversity[index] or 0) + diversity
       if encounter.elite then result.elites_by_stage[encounter.stage] = result.elites_by_stage[encounter.stage] + 1 end
-      if encounter.hazard then result.hazards_by_stage[encounter.stage] = result.hazards_by_stage[encounter.stage] + 1 end
+      if encounter.topology == "conductive" or encounter.topology == "volatile" then result.hazards_by_stage[encounter.stage] = result.hazards_by_stage[encounter.stage] + 1 end
       topology_streak = encounter.topology == prior_topology and topology_streak + 1 or 1
       if topology_streak > 2 then result.structural_failures = result.structural_failures + 1 end
       prior_topology = encounter.topology

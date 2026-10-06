@@ -4513,7 +4513,7 @@ function Session:start_expedition_chamber(biome_id, tier_id, floor_seed, chamber
   state.settings = settings
   self:_prepare_run_player_for_stage(settings)
 
-  local chamber = Chambers.generate(chamber_spec)
+  local chamber = Chambers.generate({ definition = assert(chamber_spec and chamber_spec.definition, "Expedition chamber definition is required") })
   state.player.x, state.player.y = chamber.player_spawn.x, chamber.player_spawn.y
   state.world = World.new(self.registry, settings.terrain, chamber.layout, self.identity_allocator or state, chamber.material_layout)
   for _, liquid in ipairs(chamber.features.liquids or {}) do
@@ -4523,6 +4523,18 @@ function Session:start_expedition_chamber(biome_id, tier_id, floor_seed, chamber
   for _, hazard in ipairs(chamber.features.hazards or {}) do
     local placed, result = state.world:place_hazard(hazard.definition_id, hazard.x, hazard.y)
     assert(placed or (result and result.code == "occupied_hazard"), "Expedition chamber could not place hazard")
+  end
+  for _, gas in ipairs(chamber.features.gases or {}) do
+    local result = state.world:set_gas(gas.x, gas.y, gas.gas_id, gas.concentration)
+    assert(result.applied or result.code == "unchanged", "Expedition chamber could not place gas")
+  end
+  for _, door in ipairs(chamber.features.doors or {}) do
+    local placed = state.world:place_object(door.definition_id, door.x, door.y)
+    assert(placed, "Expedition chamber could not place authored door")
+  end
+  for _, fire in ipairs(chamber.features.fires or {}) do
+    local ignited = self:ignite_terrain(fire.x, fire.y, { source = "authored_expedition_chamber" })
+    assert(ignited and ignited.applied, "Expedition chamber could not ignite authored fire tile")
   end
   state.effects, state.electrical_effects, state.corpses = {}, {}, {}
   state.exit, state.boss, state.transition_next = nil, nil, nil
@@ -4557,7 +4569,7 @@ function Session:start_expedition_boss_chamber(floor_seed, options)
   state.legacy_stage_generation = false
   state.stage, state.settings = tier.number, settings
   self:_prepare_run_player_for_stage(settings)
-  local chamber = Chambers.generate({ topology = "boss", index = 1 })
+  local chamber = Chambers.generate({ definition = assert(options.chamber_definition, "Expedition boss chamber definition is required") })
   local bounds = chamber.bounds
   chamber.player_spawn = Chambers.spawn_point(chamber, "west", 1, nil)
   state.player.x, state.player.y = chamber.player_spawn.x, chamber.player_spawn.y

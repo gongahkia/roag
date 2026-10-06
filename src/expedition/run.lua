@@ -27,24 +27,6 @@ ExpeditionRun.OWNED_PICK_WEIGHT = 2.7
 -- helps a run form a build without making repeats certain.
 ExpeditionRun.OWNED_STACK_REINFORCEMENT = 0.18
 ExpeditionRun.XP_THRESHOLDS = { 8, 11, 14, 17, 20, 23, 26, 29, 32, 36 }
--- Every stage draws each of its four authored pressure models once.  The
--- seed changes their ordering/topology, never collapses a run into a single
--- encounter type.
-ExpeditionRun.ARCHETYPE_STAGES = {
-  {
-    "expedition.encounter.swarm", "expedition.encounter.crossfire",
-    "expedition.encounter.pincer", "expedition.encounter.duel",
-  },
-  {
-    "expedition.encounter.hazard", "expedition.encounter.breach",
-    "expedition.encounter.encirclement", "expedition.encounter.hunter_kite",
-  },
-  {
-    "expedition.encounter.elite_hunt", "expedition.encounter.reinforcement_pressure",
-    "expedition.encounter.volatile_arena", "expedition.encounter.breakpoint",
-  },
-}
-
 local STAGE_TIER = { "tier.legacy.1", "tier.legacy.2", "tier.legacy.3" }
 
 local function copy_map(values)
@@ -86,53 +68,65 @@ local function profile_for(template, stage, rng)
 end
 
 local function role_sequence(template, budget, rng)
-  local roles, spent = {}, 0
-  local available = {}
-  for _, role in ipairs(template.roles) do available[#available + 1] = role end
-  for role, required in sorted_pairs(template.minimum_roles) do
-    for _ = 1, required do
-      roles[#roles + 1], spent = role, spent + Content.ENEMY_COSTS[role]
+  local roles, counts, spent = {}, {}, 0
+  for _, row in ipairs(template.roles) do
+    counts[row.role] = 0
+    for _ = 1, row.min do
+      roles[#roles + 1], counts[row.role], spent = row.role, counts[row.role] + 1, spent + Content.ENEMY_COSTS[row.role]
     end
   end
-  local cursor = 1
   while spent < budget and #roles < template.max_enemies do
-    local role = available[((rng:int(#available) + cursor - 2) % #available) + 1]
-    local cost = Content.ENEMY_COSTS[role]
-    if spent + cost > budget then
-      role, cost = "rusher", Content.ENEMY_COSTS.rusher
-      if spent + cost > budget then break end
+    local candidates = {}
+    for _, row in ipairs(template.roles) do
+      local cost = Content.ENEMY_COSTS[row.role]
+      if counts[row.role] < row.max and spent + cost <= budget then candidates[#candidates + 1] = row end
     end
-    roles[#roles + 1], spent = role, spent + cost
-    cursor = cursor + 1
+    if #candidates == 0 then break end
+    local row = candidates[rng:int(#candidates)]
+    roles[#roles + 1], counts[row.role], spent = row.role, counts[row.role] + 1, spent + Content.ENEMY_COSTS[row.role]
   end
   return roles, spent
 end
 
-local function stage_template_id(seed, stage, slot)
-  local ids = ExpeditionRun.ARCHETYPE_STAGES[stage]
-  local offset = Rng.new(seed):derive("expedition.archetype.stage." .. stage):int(#ids)
-  return ids[((slot - 1 + offset - 1) % #ids) + 1]
+local function templates_for_stage(definitions, stage)
+  local result = {}
+  for _, template in ipairs(definitions.encounters) do if template.enabled ~= false and template.stage == stage then result[#result + 1] = template end end
+  table.sort(result, function(a, b) return a.id < b.id end)
+  assert(#result > 0, "Expedition stage has no enabled authored encounters")
+  return result
 end
 
-local function encounter_plan(seed, index, prior_topology)
+local function stage_template(seed, definitions, stage, slot)
+  local templates = templates_for_stage(definitions, stage)
+  local offset = Rng.new(seed):derive("expedition.archetype.stage." .. stage):int(#templates)
+  return templates[((slot - 1 + offset - 1) % #templates) + 1]
+end
+
+local function chamber_for(definitions, template, rng, prior_chamber_id)
+  local compatible = require("src.expedition.content_definitions").compatible_chambers(definitions, template)
+  assert(#compatible > 0, "authored encounter has no compatible chamber")
+  table.sort(compatible, function(a, b) return a.id < b.id end)
+  local choice = compatible[rng:int(#compatible)]
+  if #compatible > 1 and choice.id == prior_chamber_id then
+    choice = compatible[(rng:derive("different_chamber"):int(#compatible - 1) % #compatible) + 1]
+    if choice.id == prior_chamber_id then choice = compatible[1] == choice and compatible[2] or compatible[1] end
+  end
+  return choice
+end
+
+local function encounter_plan(seed, index, prior_chamber_id, definitions, explicit)
   local stage = stage_for(index)
   local rng = Rng.new(seed):derive("expedition.encounter." .. index)
-  local template_id = stage_template_id(seed, stage, ((index - 1) % 4) + 1)
-  local template = assert(Content.encounter(template_id))
+  local template = explicit and explicit.encounter or stage_template(seed, definitions, stage, ((index - 1) % 4) + 1)
   local roles, spent = role_sequence(template, ExpeditionRun.THREAT_BUDGETS[index], rng:derive("roles"))
-  local topology_choices = template.topologies
-  local topology = topology_choices[rng:derive("topology"):int(#topology_choices)]
-  if #topology_choices > 1 and topology == prior_topology then
-    topology = topology_choices[(rng:derive("topology.fallback"):int(#topology_choices - 1) % #topology_choices) + 1]
-    if topology == prior_topology then topology = topology_choices[1] == prior_topology and topology_choices[2] or topology_choices[1] end
-  end
+  local chamber = explicit and explicit.chamber or chamber_for(definitions, template, rng:derive("chamber"), prior_chamber_id)
+  local topology = chamber.topology_tags[1]
   local enemies = {}
   local function spawn_group_for(enemy_index)
-    if template.kind == "pincer" then return enemy_index % 2 == 0 and "east" or "west" end
-    if template.kind == "crossfire" then return enemy_index % 2 == 0 and "north" or "south" end
-    if template.kind == "breach" or template.kind == "duel" then return "east" end
-    if template.kind == "hunter_kite" then return enemy_index % 2 == 0 and "north" or "east" end
-    if template.kind == "encirclement" or template.kind == "breakpoint" then return "ring" end
+    if template.spawn_intent == "pincer" then return enemy_index % 2 == 0 and "east" or "west" end
+    if template.spawn_intent == "crossfire" then return enemy_index % 2 == 0 and "north" or "south" end
+    if template.spawn_intent == "east" then return "east" end
+    if template.spawn_intent == "hunter" then return enemy_index % 2 == 0 and "north" or "east" end
     return "ring"
   end
   for enemy_index, role in ipairs(roles) do
@@ -141,15 +135,17 @@ local function encounter_plan(seed, index, prior_topology)
       role = role,
       enemy_id = choices[rng:derive("enemy." .. enemy_index):int(#choices)],
       spawn_group = spawn_group_for(enemy_index),
-      elite = template.elite and enemy_index == 1,
+      elite = template.elite.allowed and enemy_index == 1,
     }
   end
   return {
     index = index,
     stage = stage,
     id = template.id,
-    kind = template.kind,
+    kind = template.archetype,
     topology = topology,
+    chamber_id = chamber.id,
+    chamber = chamber,
     template = template,
     profile_id = profile_for(template, stage, rng:derive("profile")),
     tier_id = STAGE_TIER[stage],
@@ -159,24 +155,34 @@ local function encounter_plan(seed, index, prior_topology)
       threat_budget = ExpeditionRun.THREAT_BUDGETS[index],
       max_simultaneous_enemies = template.max_enemies,
       role_complexity = #template.roles,
-      hazard_complexity = template.hazard and 1 or 0,
+      hazard_complexity = (topology == "conductive" or topology == "volatile") and 1 or 0,
       spawn_pressure = stage,
     },
     enemies = enemies,
-    reward_kind = ExpeditionRun.REWARD_ENCOUNTERS[index] or "none",
-    elite = template.elite,
-    hazard = template.hazard,
-    reinforcement = template.reinforcement,
+    reward_kind = template.reward_intent == "scheduled" and (ExpeditionRun.REWARD_ENCOUNTERS[index] or "none") or template.reward_intent,
+    elite = template.elite.allowed,
+    reinforcement = template.reinforcement.enabled,
   }
 end
 
-function ExpeditionRun.plan(seed)
-  local result, prior_topology = {}, nil
+function ExpeditionRun.plan(seed, options)
+  options = options or {}
+  local definitions = options.definition_registry or Content.definition_registry
+  local result, prior_chamber_id = {}, nil
   for index = 1, ExpeditionRun.REGULAR_ENCOUNTERS do
-    result[index] = encounter_plan(seed, index, prior_topology)
-    prior_topology = result[index].topology
+    result[index] = encounter_plan(seed, index, prior_chamber_id, definitions)
+    prior_chamber_id = result[index].chamber_id
   end
   return result
+end
+
+function ExpeditionRun.preview_plan(seed, encounter_id, chamber_id, stage, definition_registry)
+  local definitions = definition_registry or Content.definition_registry
+  local encounter, chamber = assert(definitions.encounter_by_id[encounter_id], "unknown encounter"), assert(definitions.chamber_by_id[chamber_id], "unknown chamber")
+  local compatible, reason = require("src.expedition.content_definitions").compatibility(chamber, encounter)
+  assert(compatible, reason)
+  local index = (math.max(1, math.min(3, stage or encounter.stage)) - 1) * 4 + 1
+  return encounter_plan(seed, index, nil, definitions, { encounter = encounter, chamber = chamber })
 end
 
 function ExpeditionRun.character_unlocked(profile, character)
@@ -201,20 +207,23 @@ function ExpeditionRun.new(options)
   local profile = assert(options.meta_profile, "Expedition requires meta profile")
   assert(ExpeditionRun.character_unlocked(profile, character), "Character is locked")
   local seed = Rng.new(options.seed or 1).seed
+  Content.validate(options.registry or require("src.content.registry").load(), options.definition_options)
+  local definition_registry = options.definition_registry or Content.definition_registry
+  local plan = options.plan_override or ExpeditionRun.plan(seed, { definition_registry = definition_registry })
   local self = setmetatable({
     seed = seed,
+    definition_registry = definition_registry,
     character = character,
     profile = profile,
     on_unlock = options.on_unlock or function() end,
     on_event = options.on_event or function() end,
-    plan = ExpeditionRun.plan(seed),
+    plan = plan,
     pending_reward = nil,
     pending_chest = nil,
     completed = false,
     summary_data = nil,
     newly_unlocked = {},
   }, ExpeditionRun)
-  Content.validate(options.registry or require("src.content.registry").load())
   local expedition_state = {
     seed = seed,
     character_id = character.id,
@@ -308,25 +317,15 @@ function ExpeditionRun:_open_near(group, ordinal)
   return self.session:_open_location(occupied, 3, true, Rng.new(self.seed):derive("fallback." .. ordinal))
 end
 
-function ExpeditionRun:_place_hazard(plan)
-  if not plan.hazard then return end
-  local world, player = self.session.state.world, self.session.state.player
-  -- A small controlled water patch makes the existing conductivity system a
-  -- tactical choice rather than a decorative arena label.
-  for index = 1, 3 do
-    local x, y = player.x + 3 + index, player.y - 1
-    if world:is_passable(x, y) then world:set_liquid(x, y, "liquid.water.legacy", 1) end
-  end
-end
-
 function ExpeditionRun:_place_reinforcement(plan)
   if not plan.reinforcement then return end
   local state = self.session.state
   state.reinforcement_state = { enabled = true }
   local placed
+  local marker = Chambers.marker(state.expedition.chamber, "reinforcements", 1)
   for attempt = 1, 12 do
     local rng = Rng.new(self.seed):derive("reinforcement." .. plan.index .. "." .. attempt)
-    placed = ReinforcementGeneration.place(self.session, rng, "expedition." .. plan.index)
+    placed = ReinforcementGeneration.place(self.session, rng, "expedition." .. plan.index, marker and { point = marker, force = true } or nil)
     if placed then break end
   end
   local source = placed and state.world:get_object(placed.source_object_id) or nil
@@ -344,15 +343,13 @@ function ExpeditionRun:_begin_encounter(index)
   if not plan then return self:_begin_boss() end
   local session, state = self.session, self.session.state
   session:start_expedition_chamber(plan.profile_id, plan.tier_id, Rng.new(self.seed):derive("chamber." .. index).seed, {
-    topology = plan.topology,
-    index = index,
+    definition = plan.chamber,
   })
   if index == 1 then self:_configure_player() end
   state.expedition.encounter_index = index
   state.expedition.stage = plan.stage
   state.stage = plan.stage
   state.reinforcement_state = { enabled = false }
-  self:_place_hazard(plan)
   for enemy_index, spec in ipairs(plan.enemies) do
     local point = self:_open_near(spec.spawn_group, enemy_index)
     local enemy = session:_make_enemy(spec.enemy_id, point, { scrap_award = true })
@@ -376,7 +373,9 @@ end
 function ExpeditionRun:_begin_boss()
   local state = self.session.state
   state.reinforcement_state = { enabled = false }
-  self.session:start_expedition_boss_chamber(Rng.new(self.seed):derive("boss.chamber").seed)
+  local boss_chamber
+  for _, chamber in ipairs(self.definition_registry.chambers) do if chamber.enabled ~= false and chamber.boss_compatible then boss_chamber = chamber; break end end
+  self.session:start_expedition_boss_chamber(Rng.new(self.seed):derive("boss.chamber").seed, { chamber_definition = assert(boss_chamber, "No authored boss chamber") })
   -- Existing boss bodies remain authoritative. A small stage-local health
   -- bump keeps the finale from evaporating without globally changing bosses.
   if state.boss then state.boss.health = (state.boss.health or 1) + 3 end
