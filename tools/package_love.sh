@@ -19,7 +19,7 @@ zip -q -r "$archive" . \
   -x '.git/*' \
   -x '.docker/*' \
   -x '.roag-debug/*' \
-  -x 'assets/art_packs/loveable_rogue.png' \
+  -x 'assets/art_packs/*' \
   -x 'assets/fonts/*' \
   -x 'art/*' \
   -x 'tools/*' \
