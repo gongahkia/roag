@@ -78,6 +78,7 @@ return {
       local renderer = Renderer.new({})
       local chamber = renderer:layout_for_dimensions(16, 12, 1920, 1080, true)
       assert(chamber.size > 24 and chamber.size <= 96)
+      assert(chamber.size % 16 == 0, "Loveable Rogue atlas cells must render at an integer scale")
       assert(chamber.hud_x < chamber.board_x and chamber.hud_width >= 240)
       assert(chamber.board_x + 16 * chamber.size < chamber.progress_x)
       assert(chamber.progress_x > 1920 / 2 and chamber.progress_width >= 160)

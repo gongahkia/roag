@@ -14,6 +14,9 @@
 
 The extractor is deterministic. The runtime atlas SHA-256 after VIS-01 is
 `63635a2a3688c2d0b39eaab50f6d5689340381e480cb7f2326f4ffc73f98e731`.
+Runtime filtering is `nearest` and Expedition board cells are selected only at
+whole 16 px atlas multiples, so source pixels are never bilinearly sampled or
+fractionally scaled.
 
 ## Provenance note
 

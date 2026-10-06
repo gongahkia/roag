@@ -13,6 +13,7 @@ local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
 local EXPEDITION_HUD_WIDTH = 264
 local EXPEDITION_PROGRESS_WIDTH = 180
 local EXPEDITION_MAX_TILE_SIZE = 96
+local LOVEABLE_ROGUE_NATIVE_TILE = 16
 local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
@@ -91,10 +92,14 @@ function Renderer:layout_for_dimensions(view_width, view_height, width, height, 
     local progress_width = EXPEDITION_PROGRESS_WIDTH
     local available_width = math.max(1, width - board_left - gap - progress_width - margin)
     local available_height = math.max(1, height - margin * 2)
-    local size = math.max(12, math.min(EXPEDITION_MAX_TILE_SIZE, math.floor(math.min(
+    local maximum_size = math.min(EXPEDITION_MAX_TILE_SIZE, math.floor(math.min(
       available_width / view_width,
       available_height / view_height
-    ))))
+    )))
+    -- The authored atlas is 16px cells.  Nearest filtering is necessary but
+    -- insufficient at a fractional scale, so Expedition boards deliberately
+    -- use whole source-pixel multiples (16, 32, 48 …) as well.
+    local size = LOVEABLE_ROGUE_NATIVE_TILE * math.max(1, math.floor(maximum_size / LOVEABLE_ROGUE_NATIVE_TILE))
     local board_width, board_height = view_width * size, view_height * size
     return {
       size = size,
