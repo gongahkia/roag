@@ -13,7 +13,7 @@ local MARKER_COLOR = { player_spawn=C.mint, enemy_spawns=C.coral, exits=C.gold, 
 
 function Editor.new()
   local model = assert(Model.new())
-  local self = setmetatable({model=model, fonts={normal=love.graphics.newFont(14),small=love.graphics.newFont(12),title=love.graphics.newFont(26)}, tab="chambers", tool=".", controls={}, rows={}, selected_chamber="chamber.open_basic", selected_encounter="expedition.encounter.swarm", preview=nil, play_preview=false},Editor)
+  local self = setmetatable({model=model, fonts={normal=love.graphics.newFont(14),small=love.graphics.newFont(12),title=love.graphics.newFont(26)}, tab="chambers", tool=".", controls={}, rows={}, selected_chamber="chamber.open_basic", selected_encounter="expedition.encounter.swarm", preview=nil, preview_seed=1, preview_stage=1, preview_character="expedition.gunner", play_preview=false},Editor)
   self.assets=Assets.new(); self.assets:load(); model:open("chambers",self.selected_chamber); return self
 end
 function Editor:text(value,x,y,scale,tint,limit)
@@ -69,10 +69,11 @@ function Editor:draw_encounter(w,h)
 end
 function Editor:draw_preview(w,h)
   local chamber=self.model.registry.chamber_by_id[self.selected_chamber]; local encounter=self.model.registry.encounter_by_id[self.selected_encounter]
-  self:text("PREVIEW / REAL EXPEDITION RUNTIME",304,84,1.02,C.cyan); self:text("CHAMBER "..chamber.name.."   +   "..encounter.name.."   SEED "..(self.preview and self.preview.seed or 1),304,109,.68,C.muted)
+  self:text("PREVIEW / REAL EXPEDITION RUNTIME",304,84,1.02,C.cyan); self:text("CHAMBER "..chamber.name.."   +   "..encounter.name.."   SEED "..self.preview_seed.."   STAGE "..self.preview_stage.."   "..self.preview_character:upper(),304,109,.68,C.muted)
   local data=self.preview
   if data then self.board=self:draw_board(chamber,304,140,w-320,h-250,data); self:text(self.play_preview and "PLAY PREVIEW — WASD MOVE, F ATTACK, Q ABILITY, R RESET" or "STATIC PREVIEW — Press PLAY PREVIEW to use this isolated real runtime.",304,h-80,.69,self.play_preview and C.mint or C.gold)
   else self:text("Select a chamber and encounter, then press PREVIEW. This creates an isolated real ExpeditionRun.",304,165,.78,C.text) end
+  self:button("RESET",304,h-128,56,"preview"); self:button("NEW SEED",364,h-128,73,"new_seed"); self:button("STAGE",441,h-128,55,"preview_stage"); self:button("CHAR",500,h-128,50,"preview_character")
 end
 function Editor:draw()
   local w,h=love.graphics.getDimensions(); self.controls={}; self.rows={}; love.graphics.clear(C.bg); self:text("ROAG STUDIO / EXPEDITION WORKBENCH",14,16,1.55,C.cyan); self:text("AUTHORED CHAMBERS + ENCOUNTERS — runtime validation and preview share production code.",14,48,.69,C.muted)
@@ -87,7 +88,7 @@ function Editor:select(kind,id)
   if kind=="chambers" then self.selected_chamber=id; self.tab="chambers" else self.selected_encounter=id; self.tab="encounters" end
 end
 function Editor:run_preview(play)
-  local data,err=self.model:preview({chamber_id=self.selected_chamber,encounter_id=self.selected_encounter,seed=self.preview and self.preview.seed or 1}); if not data then self.model.message=err.reason; return end
+  local data,err=self.model:preview({chamber_id=self.selected_chamber,encounter_id=self.selected_encounter,seed=self.preview_seed,stage=self.preview_stage,character_id=self.preview_character}); if not data then self.model.message=err.reason; return end
   self.preview,self.play_preview,self.tab=data,play or false,"preview"; self.model.message="Preview is isolated: no save/profile state is used."
 end
 function Editor:mousepressed(x,y,button)
@@ -96,6 +97,9 @@ function Editor:mousepressed(x,y,button)
     if a=="tab_chambers" then self.tab="chambers"; self:select("chambers",self.selected_chamber)
     elseif a=="tab_encounters" then self.tab="encounters"; self:select("encounters",self.selected_encounter)
     elseif a=="tab_preview" or a=="preview" then self:run_preview(false)
+    elseif a=="new_seed" then self.preview_seed=self.preview_seed+1; self:run_preview(false)
+    elseif a=="preview_stage" then self.preview_stage=self.preview_stage%3+1; self:run_preview(false)
+    elseif a=="preview_character" then local values={"expedition.gunner","expedition.bruiser","expedition.conductor","expedition.demolitionist"}; local index=1; for i,v in ipairs(values) do if v==self.preview_character then index=i end end; self.preview_character=values[index%#values+1]; self:run_preview(false)
     elseif a=="play" then self:run_preview(true)
     elseif a=="new" then local kind=self.tab=="encounters" and "encounters" or "chambers"; self.model:new_definition(kind,kind=="chambers" and "chamber.new_board" or "expedition.encounter.new_board"); self.tab=kind
     elseif a=="dup" then local kind=self.model.current_kind; local id=self.model.current_definition() and self.model.current_definition().id; if id then self.model:duplicate(kind,id,id.."_copy") end
