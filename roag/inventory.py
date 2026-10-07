@@ -183,12 +183,20 @@ def item_spec(kind: str) -> ItemSpec:
         from .quest_presentation import evidence_presentation_for_engine_id
 
         evidence = evidence_presentation_for_engine_id(name)
-        if evidence is None or evidence.evidence_name is None or evidence.evidence_description is None:
-            raise KeyError(f"uncontracted current consumable identity {name!r}")
+        if evidence is not None and evidence.evidence_name is not None and evidence.evidence_description is not None:
+            return ItemSpec(
+                evidence.evidence_name,
+                name[:2].upper(), 1, 1, 1, "consumable",
+                evidence.evidence_description,
+                stack_limit=4,
+            )
+        # Format-3 saves can contain consumable names from before the current
+        # content contract. Keep them as inert physical items rather than
+        # rejecting an otherwise recoverable save; no current gameplay path
+        # creates an uncontracted consumable.
         return ItemSpec(
-            evidence.evidence_name,
-            name[:2].upper(), 1, 1, 1, "consumable",
-            evidence.evidence_description,
+            name.replace("-", " ").title(), "LG", 1, 1, 1, "consumable",
+            "A legacy consumable retained from an earlier Roag save.",
             stack_limit=4,
         )
     if kind.startswith("relic:"):

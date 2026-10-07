@@ -131,7 +131,7 @@ class SpatialInventoryTests(unittest.TestCase):
             for x in range(state.pack_width):
                 if x == 0:
                     continue
-                blocker = create_item(state, "consumable:packing block", "test", owner_id=owner)
+                blocker = create_item(state, "consumable:willow dressing", "test", owner_id=owner)
                 blocker.location, blocker.x, blocker.y = "pack", x, y
         longbow.location = "locker"
         before = copy.deepcopy(state.to_dict())
