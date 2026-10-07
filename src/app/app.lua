@@ -19,7 +19,6 @@ local CursorManager = require("src.ui.cursor_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
 local GameplayUI = require("src.presentation.gameplay_ui")
 local ZoneKey = require("src.campaign.zone_key")
-local ArtPackConfig = require("src.presentation.art_pack_config")
 local Grid = require("src.world.grid")
 local InventoryLayout = require("src.ui.inventory_layout")
 local SalvageLayout = require("src.ui.salvage_layout")
@@ -33,6 +32,9 @@ App.CAMPAIGN_SLOT_COUNT = 3
 -- only how quickly a physically held key asks for another command.
 App.HOLD_INITIAL_DELAY = 0.22
 App.HOLD_REPEAT_DELAY = 0.09
+App.EXPEDITION_HOLD_INITIAL_DELAY = 0.118
+App.EXPEDITION_HOLD_REPEAT_DELAY = 0.060
+App.MAX_PENDING_MOVEMENT_INPUTS = 4
 App.ENCUMBRANCE_REPEAT_MULTIPLIERS = {
   LIGHT = 1.00,
   BURDENED = 1.20,
@@ -82,15 +84,13 @@ function App.new(options)
   self.archive_error = nil
   if not self.fallen_archive then self.archive_error = self.archive_status end
   if not self.fallen_archive then self.fallen_archive = FallenArchive.new() end
-  self.art_pack_config, self.art_pack_config_status = ArtPackConfig.load()
-  self.art_pack_config_error = self.art_pack_config_status and self.art_pack_config_status.fresh and nil or self.art_pack_config_status
   self.screens, self.screen_definition_error = ScreenManager.load()
   if not self.screens then self.screens = ScreenManager.fallback() end
   self.presentation_flow, self.presentation_flow_error = PresentationFlow.load()
   if not self.presentation_flow then self.presentation_flow = PresentationFlow.fallback() end
   self.seed_stream = Rng.new(options.seed or clock_seed())
   self.screen, self.menu = "title", 1
-  self.assets = Assets.new({ art_pack_id = self.art_pack_config.art_pack_id })
+  self.assets = Assets.new()
   self.sounds = SoundBank.new()
   self.presentation = Presentation.new()
   self.renderer = Renderer.new(self.assets)
@@ -99,6 +99,8 @@ function App.new(options)
   self.movement_key_order = {}
   self.movement_key_sequence = 0
   self.held_movement_blocked = false
+  self.pending_movement_inputs = {}
+  self.debug_overlay = options.debug_overlay == true
   self:_reconcile_pending_death()
   self:refresh_continue()
   self:refresh_campaign_continue()
@@ -119,6 +121,7 @@ function App.movement_repeat_interval_for_encumbrance(encumbrance)
 end
 
 function App:movement_repeat_interval()
+  if self:is_expedition_mode() then return App.EXPEDITION_HOLD_REPEAT_DELAY end
   local inventory = self.session and self.session.state and self.session.state.inventory
   local encumbrance = inventory and inventory:encumbrance() or "LIGHT"
   return App.movement_repeat_interval_for_encumbrance(encumbrance)
@@ -133,7 +136,6 @@ end
 
 function App:focus(focused)
   if focused then
-    self.assets:refresh_sprite_mappings()
     -- Screen copy/layout data is development-authored presentation only. A
     -- refocus picks up a saved Studio edit without altering any run state.
     local screens, failure = ScreenManager.load()
@@ -147,12 +149,6 @@ function App:focus(focused)
       self.presentation_flow, self.presentation_flow_error = flow, nil
     else
       self.presentation_flow_error = flow_failure
-    end
-    local art_pack, art_pack_status = ArtPackConfig.load()
-    self.art_pack_config, self.art_pack_config_error = art_pack,
-      (art_pack_status and art_pack_status.fresh and nil or art_pack_status)
-    if art_pack.art_pack_id ~= self.assets.art_pack_id then
-      self.assets:select_art_pack(art_pack.art_pack_id)
     end
   end
 end
@@ -287,9 +283,9 @@ function App:title_options()
   for _, action in ipairs(actions) do
     local name, description = action.label, action.description
     if action.id == "continue" and self.campaign_continue_available then
-      name, description = "CONTINUE CAMPAIGN", "Resume the persistent one-zone campaign."
+      name, description = "CONTINUE SANDBOX", "Resume the persistent Sandbox world."
     elseif action.id == "continue" and self.continue_available then
-      name, description = "LEGACY RUN", "Resume a preserved pre-open-world run in compatibility mode."
+      name, description = "CONTINUE LEGACY RUN", "Resume a preserved compatibility run."
     end
     options[#options + 1] = { id = action.id, name = name, description = description, target = action.target }
   end
@@ -366,8 +362,16 @@ function App:choose_expedition_reward(index)
   if not self.expedition then return nil end
   local result = self.expedition:choose_reward(index or self.menu)
   if result.applied then
-    self.screen, self.menu = "game", 1
-    self.presentation:reset(self.session)
+    if result.next_reward then
+      self.screen, self.menu = "expedition_reward", 1
+    else
+      self.screen, self.menu = "game", 1
+      -- Choosing a level-up during an active chamber should not erase the
+      -- receipt/chain that earned it. A true chamber transition already
+      -- resets presentation through its normal result path.
+      if result.code == "reward_chosen" then self.presentation:reset(self.session) end
+      if result.transition then self:_handle_turn_result(result.transition) end
+    end
     self:play_sound("pickup")
   end
   return result
@@ -693,16 +697,12 @@ end
 
 function App:help_sections()
   return {
-    { title = "EXPEDITION", text = "Choose a character, clear compact combat arenas, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
-    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. I opens the paused run-build summary. Rewards pause for a 1-of-3 choice." },
-    { title = "CAMPAIGN CORE LOOP", text = "Explore a persistent world, salvage physical parts, build useful places, and choose when to press farther out." },
-    { title = "CAMPAIGN CONTROLS", text = "WASD moves cardinally and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile." },
-    { title = "BUILD STANCE", text = "C enters a live build stance without a turn. Face a cell and press E to place one piece for one turn; R/X change recipes for free. C or Escape exits." },
-    { title = "BODY DAMAGE", text = "Broken components lose their granted capabilities. IMPAIRED or CRAWLING means locomotion parts were damaged." },
-    { title = "SALVAGE + INVENTORY", text = "Walk over supplies. Campaign U opens a faced corpse; drag parts into the grid and rotate them with R. Legacy mode retains G for nearby salvage." },
-    { title = "RECONSTRUCTION", text = "Use a Reconstruction Station to install salvaged parts. It changes your body but does not repair damaged components." },
-    { title = "CAMPAIGN DEATH + ANCHORS", text = "Death leaves your old body and cargo where you fell. A fresh body appears at the active Reconstruction Anchor; face a station and use U to move that anchor." },
-    { title = "SERVICES + RESEARCH", text = "U accesses nearby services. Spend SCRAP on supplies, repairs, parts, or charms. RESEARCH DATA unlocks future legacy runs." },
+    { title = "EXPEDITION", text = "Choose a character, clear compact chambers, gain XP and cash from real kills, and stack unlimited passive pickups. Death ends the run; characters and item unlocks persist." },
+    { title = "EXPEDITION CONTROLS", text = "WASD moves cardinally. E uses your class weapon; Q uses your class ability. B arms a bomb and F throws a flare. I opens the paused run-build summary. Level-ups pause for a 1-of-3 modifier choice." },
+    { title = "EXPEDITION REWARDS", text = "Kills grant XP and cash. XP levels offer passive choices; cash buys selected caches. There is no score, inventory grid, corpse recovery, or permanent power grind in an Expedition." },
+    { title = "OPEN WORLD SANDBOX", text = "This optional persistent-world mode keeps physical bodies, salvage, construction, storage, and recovery. It is separate from Expedition progression." },
+    { title = "SANDBOX CONTROLS", text = "WASD moves and sets facing. E attacks forward, R swaps weapons; Q uses the active ability, X swaps it. U uses exactly the faced tile. C enters build stance." },
+    { title = "SANDBOX BODY + INVENTORY", text = "Broken components lose capabilities. Faced corpses, physical cargo, reconstruction anchors, and building remain Sandbox-only systems." },
   }
 end
 
@@ -824,6 +824,10 @@ function App:_handle_session_event(event)
     self.presentation:impact(event.value)
   elseif event.type == "build_effect" then
     self.presentation:modifier_effect(event.value)
+  elseif event.type == "expedition_progress" then
+    self.presentation:expedition_progress(event.value)
+  elseif event.type == "electricity" then
+    self.presentation:electricity(event.value)
   end
 end
 
@@ -1083,18 +1087,19 @@ function App:return_to_title()
 end
 
 function App:_handle_turn_result(result)
-  if result == "expedition_reward" then
+  local result_code = type(result) == "table" and result.code or result
+  if result_code == "expedition_reward" then
     self.screen, self.menu = "expedition_reward", 1
     self:clear_held_movement()
     return
-  elseif result == "expedition_chest" then
+  elseif result_code == "expedition_chest" then
     self.screen, self.menu = "expedition_chest", 1
     self:clear_held_movement()
     return
-  elseif result == "expedition_dead" or result == "expedition_victory" then
+  elseif result_code == "expedition_dead" or result_code == "expedition_victory" then
     self:open_expedition_summary()
     return
-  elseif result == "expedition_next_encounter" then
+  elseif result_code == "expedition_next_encounter" then
     self.presentation:reset(self.session)
     return
   end
@@ -1132,7 +1137,16 @@ function App:perform_turn(input)
     return
   end
   local source_zone = self.campaign and self.campaign.active_zone and ZoneKey.to_data(self.campaign.active_zone.key) or nil
-  local result = self:is_expedition_mode() and self.expedition:turn(input) or self.session:turn(input)
+  -- A normal Expedition turn intentionally returns nil.  Do not use Lua's
+  -- `a and b or c` selection idiom here: a nil Expedition result used to
+  -- evaluate the fallback as well, advancing the simulator twice for one
+  -- input.
+  local result
+  if self:is_expedition_mode() then
+    result = self.expedition:turn(input)
+  else
+    result = self.session:turn(input)
+  end
   local action_result = self.session.last_action_result
   if action_result and (action_result.code == "enemy_bump" or action_result.code == "actor_blocked") then
     -- Keep held-key state for release bookkeeping, but never issue another
@@ -1158,6 +1172,9 @@ function App:perform_turn(input)
     end
   end
   self:_handle_turn_result(result)
+  if self.screen == "game" and self.session and self:is_expedition_mode() then
+    self.presentation:begin_board_turn(self.session)
+  end
   self:autosave("turn")
   return result
 end
@@ -2034,12 +2051,106 @@ function App:salvage_selected()
 end
 
 function App:start_held_move(direction)
-  self.held_direction, self.hold_timer = direction, App.HOLD_INITIAL_DELAY
+  local initial = self:is_expedition_mode() and App.EXPEDITION_HOLD_INITIAL_DELAY or App.HOLD_INITIAL_DELAY
+  self.held_direction, self.hold_timer = direction, initial
   self.held_movement_blocked = false
+end
+
+function App:_remove_pending_held_movement()
+  local kept = {}
+  for _, entry in ipairs(self.pending_movement_inputs or {}) do
+    if entry.source ~= "held" then kept[#kept + 1] = entry end
+  end
+  self.pending_movement_inputs = kept
+end
+
+function App:clear_held_move_intent()
+  self.held_direction, self.hold_timer = nil, nil
+  self:_remove_pending_held_movement()
+end
+
+function App:movement_presentation_ready()
+  return not self.presentation or self.presentation:is_board_turn_settled()
+end
+
+-- Direct taps may retain a tiny ordered sequence (RIGHT, RIGHT, UP, LEFT),
+-- while a held direction occupies only one replaceable slot. That preserves
+-- deliberate cornering without ever building a stale held-input backlog.
+function App:_queue_movement(direction, source)
+  local queue = self.pending_movement_inputs or {}
+  self.pending_movement_inputs = queue
+  if source == "held" then
+    for _, entry in ipairs(queue) do
+      if entry.source == "held" then entry.direction = direction; return end
+    end
+  end
+  if #queue >= App.MAX_PENDING_MOVEMENT_INPUTS then
+    if source == "held" then return end
+    queue[#queue] = { direction = direction, source = source }
+    return
+  end
+  queue[#queue + 1] = { direction = direction, source = source }
+end
+
+function App:_dispatch_pending_movement()
+  if self.screen ~= "game" or not self.session or not self:movement_presentation_ready() then return false end
+  local queue = self.pending_movement_inputs or {}
+  while #queue > 0 do
+    local entry = table.remove(queue, 1)
+    if entry.source ~= "held" or (self.held_direction == entry.direction and not self.held_movement_blocked) then
+      if entry.source == "held" then
+        local movable = self.session:can_move(entry.direction)
+        if not movable then
+          self.held_direction, self.hold_timer = nil, nil
+          self.held_movement_blocked = true
+          return false
+        end
+      end
+      self:perform_turn(entry.direction)
+      return true
+    end
+  end
+  return false
+end
+
+function App:request_movement(direction, source)
+  source = source or "direct"
+  if self.screen ~= "game" or not self.session then return false end
+  -- FEEL-02 changes Expedition's compact chamber presentation only. Preserve
+  -- legacy/Sandbox field cadence and its existing diagonal compatibility.
+  if not self:is_expedition_mode() then
+    self:perform_turn(direction)
+    return true
+  end
+  if self:movement_presentation_ready() and #(self.pending_movement_inputs or {}) == 0 then
+    self:perform_turn(direction)
+    return true
+  end
+  self:_queue_movement(direction, source)
+  return false
+end
+
+-- Attacks, abilities, swaps, and contextual Expedition actions advance the
+-- same authoritative board as movement.  They must therefore wait for the
+-- previous beat too; otherwise an E/Q press could make turn N+1 resolve while
+-- the enemy response from turn N was still visibly sliding into place.
+function App:request_expedition_turn(input)
+  if self.screen ~= "game" or not self.session then return false end
+  if not self:is_expedition_mode() then
+    self:perform_turn(input)
+    return true
+  end
+  if self:movement_presentation_ready() and #(self.pending_movement_inputs or {}) == 0 then
+    self:perform_turn(input)
+    return true
+  end
+  self:_queue_movement(input, "action")
+  return false
 end
 
 function App:clear_held_movement()
   self.held_direction, self.hold_timer = nil, nil
+  self.pending_movement_inputs = {}
   self.movement_keys = {}
   self.movement_key_order = {}
   self.held_movement_blocked = false
@@ -2081,11 +2192,15 @@ function App:update(dt)
     local was_hit_stopped = self.presentation:is_hit_stopped()
     self.presentation:update(self.session, dt)
     if was_hit_stopped or self.presentation:is_hit_stopped() then return end
+    if self:is_expedition_mode() and self:_dispatch_pending_movement() then return end
     if self.held_direction and not self.held_movement_blocked then
       self.hold_timer = (self.hold_timer or App.HOLD_INITIAL_DELAY) - dt
       if self.hold_timer <= 0 then
         self.hold_timer = self:movement_repeat_interval()
-        if self.session:can_move(self.held_direction) then
+        if self:is_expedition_mode() then
+          self:_queue_movement(self.held_direction, "held")
+          self:_dispatch_pending_movement()
+        elseif self.session:can_move(self.held_direction) then
           self:perform_turn(self.held_direction)
         else
           -- A wall/invalid terrain is not a turn; it simply ends this held

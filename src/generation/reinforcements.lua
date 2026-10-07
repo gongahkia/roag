@@ -20,13 +20,13 @@ local function contains(values, expected)
   return false
 end
 
-local function sorted_profiles(session)
+local function sorted_profiles(session, allow_unmatched_faction)
   local state, available_factions, result = session.state, {}, {}
   for _, enemy in ipairs(state.enemies or {}) do
     available_factions[session:actor_faction_id(enemy)] = true
   end
   for _, profile in pairs(session.registry.reinforcement_profiles) do
-    if available_factions[profile.faction_id]
+    if (allow_unmatched_faction or available_factions[profile.faction_id])
       and contains(profile.allowed_biome_ids, state.settings.biome_id)
       and contains(profile.allowed_tier_ids, state.settings.tier_id) then
       result[#result + 1] = profile
@@ -149,14 +149,15 @@ local function choose_wave(profile, rng)
   return wave
 end
 
-function Reinforcements.place(session, rng, provenance)
+function Reinforcements.place(session, rng, provenance, options)
+  options = options or {}
   local state = session.state
   if not state.reinforcement_state or state.reinforcement_state.enabled ~= true then return nil, "disabled" end
   for _, object in ipairs(state.world:list_objects()) do
     if object.interaction_role == "reinforcement" then return nil, "source_already_placed" end
   end
-  if rng:int(1, 100) > Reinforcements.PLACEMENT_PERCENT then return nil, "not_selected" end
-  local profiles = sorted_profiles(session)
+  if not options.force and rng:int(1, 100) > Reinforcements.PLACEMENT_PERCENT then return nil, "not_selected" end
+  local profiles = sorted_profiles(session, options.force)
   if #profiles == 0 then return nil, "no_eligible_profile" end
   local profile = rng:choice(profiles)
   local wave = choose_wave(profile, rng:derive(profile.id .. ".wave"))
@@ -167,15 +168,22 @@ function Reinforcements.place(session, rng, provenance)
       candidates[#candidates + 1] = point
     end
   end
-  if #candidates == 0 then return nil, "no_safe_source_site" end
+  if #candidates == 0 and not options.point then return nil, "no_safe_source_site" end
   -- Articulation checks are intentionally bounded.  Every candidate remains
   -- safe and reachable; inspecting a small deterministic sample is enough to
   -- reject a route-blocking placement without turning a batch into thousands
   -- of full-grid flood fills.
   local point
-  local shuffled = rng:derive(profile.id .. ".placement"):shuffle(candidates)
-  for index = 1, math.min(#shuffled, 16) do
-    if preserves_critical_access(session, shuffled[index]) then point = shuffled[index]; break end
+  if options.point then
+    local candidate = options.point
+    if state.world:is_passable(candidate.x, candidate.y) and not occupied[Grid.key(candidate.x, candidate.y)]
+      and not state.world:is_hazardous(candidate.x, candidate.y) and not state.world:is_harmful_gas_at(candidate.x, candidate.y)
+      and #state.world:fires_at(candidate.x, candidate.y) == 0 then point = candidate end
+  else
+    local shuffled = rng:derive(profile.id .. ".placement"):shuffle(candidates)
+    for index = 1, math.min(#shuffled, 16) do
+      if preserves_critical_access(session, shuffled[index]) then point = shuffled[index]; break end
+    end
   end
   if not point then return nil, "no_noncritical_source_site" end
   local definition_id = assert(SOURCE_DEFINITION_BY_TYPE[profile.source_type], "Unknown reinforcement source type")

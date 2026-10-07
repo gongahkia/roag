@@ -4,6 +4,7 @@ local Grid = require("src.world.grid")
 local Presentation = require("src.rendering.presentation")
 local Renderer = require("src.rendering.renderer")
 local Tuning = require("src.rendering.tuning")
+local Input = require("src.app.input")
 
 local function new_campaign(seed)
   return Campaign.new({ seed = seed, campaign_id = "campaign:" .. seed })
@@ -23,7 +24,7 @@ end
 
 return {
   {
-    name = "PLAY-01 movement presentation uses a 60ms player target and bounds visual backlog",
+    name = "FEEL-02 movement presentation uses a 36ms player target and bounds visual backlog",
     run = function()
       local session, player = { state = { enemies = {}, bullets = {}, boss = nil } }, { kind = "player", x = 10, y = 10 }
       session.state.player = player
@@ -53,6 +54,184 @@ return {
       local one = follow(1, 0.1)
       local many = follow(10, 0.01)
       assert(math.abs(one - many) < 0.0001)
+    end,
+  },
+  {
+    name = "FEEL-02 Expedition camera frames an entire normal chamber as a stable board",
+    run = function()
+      local player = { kind = "player", x = 14, y = 14 }
+      local session = { state = { player = player, enemies = {}, bullets = {}, boss = nil,
+        expedition = { current_topology = "open", chamber = { bounds = { min_x = 8, max_x = 21, min_y = 9, max_y = 18 } } } } }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      -- A 14x10 maximum normal chamber fits inside the 16x12 useful board
+      -- view, so piece movement never drags the camera across the room.
+      assert(math.abs(presentation.camera_x - 14.5) < 0.001 and math.abs(presentation.camera_y - 13.5) < 0.001)
+      player.x, player.y = 21, 18
+      presentation:update(session, 0.12)
+      assert(math.abs(presentation.camera_x - 14.5) < 0.01 and math.abs(presentation.camera_y - 13.5) < 0.01)
+    end,
+  },
+  {
+    name = "FEEL-02 chamber layout frames a 16 by 12 board between left status and right progression HUDs",
+    run = function()
+      local renderer = Renderer.new({})
+      local chamber = renderer:layout_for_dimensions(16, 12, 1920, 1080, true)
+      assert(chamber.size > 24 and chamber.size <= 96)
+      assert(chamber.size % 16 == 0, "Loveable Rogue atlas cells must render at an integer scale")
+      assert(chamber.hud_x < chamber.board_x and chamber.hud_width >= 240)
+      assert(chamber.board_x + 16 * chamber.size < chamber.progress_x)
+      assert(chamber.progress_x > 1920 / 2 and chamber.progress_width >= 160)
+      assert(chamber.board_y >= 0 and chamber.board_y + 12 * chamber.size <= 1080)
+      local sandbox = renderer:layout_for_dimensions(39, 25, 1920, 1080, false)
+      assert(sandbox.size <= 24, "Sandbox keeps its legacy wide-world layout")
+    end,
+  },
+  {
+    name = "FEEL-02 progress model keeps large XP and cash data on the dedicated right HUD",
+    run = function()
+      local renderer = Renderer.new({})
+      local model = renderer:expedition_progress_model({ expedition = {
+        level = 6, xp = 43, xp_to_next = 58, currency = 72,
+      } }, { action_receipt = { time = Tuning.action_receipt_lifetime, xp = 12, cash = 7 } })
+      assert(model.level == 6 and model.xp == "43 / 58" and model.cash == "72")
+      assert(model.xp_gain == 12 and model.cash_gain == 7 and model.pulse == 1)
+    end,
+  },
+  {
+    name = "FEEL-02 board movement uses one-cell shared segments and exact destination snaps",
+    run = function()
+      local player, enemy = { kind = "player", x = 5, y = 4 }, { kind = "ripper", x = 8, y = 4 }
+      local session = { state = { player = player, enemies = { enemy }, bullets = {}, boss = nil } }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      player.x, enemy.x = 6, 7
+      local beat = presentation:begin_board_turn(session)
+      assert(#beat.segments == 2 and beat.segments[1].distance == 1 and beat.segments[2].distance == 1)
+      presentation:update(session, Tuning.player_move_duration / 2)
+      local player_x, enemy_x = presentation:position(player), presentation:position(enemy)
+      assert(player_x > 5 and player_x < 6 and enemy_x < 8 and enemy_x > 7)
+      presentation:update(session, Tuning.player_move_duration / 2)
+      player_x, enemy_x = presentation:position(player), presentation:position(enemy)
+      assert(player_x == 6 and enemy_x == 7 and not presentation:is_board_turn_settled())
+      presentation:update(session, Tuning.board_settle_duration)
+      assert(presentation:is_board_turn_settled())
+    end,
+  },
+  {
+    name = "FEEL-02 forced displacement is also rendered as discrete board edges",
+    run = function()
+      local player = { kind = "player", x = 5, y = 4 }
+      local session = { state = { player = player, enemies = {}, bullets = {}, boss = nil } }
+      local presentation = Presentation.new()
+      presentation:reset(session)
+      player.x = 8
+      local beat = presentation:begin_board_turn(session)
+      assert(#beat.segments == 3)
+      for index, segment in ipairs(beat.segments) do
+        assert(segment.distance == 1 and segment.from_x == 4 + index and segment.to_x == 5 + index)
+      end
+      presentation:update(session, Tuning.player_move_duration / 2)
+      assert(select(1, presentation:position(player)) > 5 and select(1, presentation:position(player)) < 6)
+      presentation:update(session, Tuning.player_move_duration / 2)
+      assert(select(1, presentation:position(player)) == 6)
+      presentation:update(session, Tuning.player_move_duration / 2)
+      assert(select(1, presentation:position(player)) > 6 and select(1, presentation:position(player)) < 7)
+    end,
+  },
+  {
+    name = "FEEL-02 held movement dispatches one turn per visible board beat without stale backlog",
+    run = function()
+      local player, enemy = { kind = "player", x = 5, y = 5 }, { kind = "ripper", x = 9, y = 5 }
+      local session = { state = { player = player, enemies = { enemy }, bullets = {}, boss = nil }, last_action_result = nil }
+      local turns, enemy_opportunities, inputs = 0, 0, {}
+      function session:can_move(direction) return direction ~= "x" end
+      function session:turn(input)
+        turns, enemy_opportunities = turns + 1, enemy_opportunities + 1
+        inputs[#inputs + 1] = input
+        local delta = ({ w = { 0, 1 }, a = { -1, 0 }, s = { 0, -1 }, d = { 1, 0 } })[input]
+        if input == "x" then self.last_action_result = { code = "blocked_terrain" }
+        elseif input == "z" then self.last_action_result = { code = "enemy_bump" }
+        elseif input == "attack" then self.last_action_result = nil
+        else
+          self.last_action_result = nil
+          player.x, player.y = player.x + delta[1], player.y + delta[2]
+          enemy.x = enemy.x - 1
+        end
+      end
+      local run = { session = session, turn = function(_, input) return session:turn(input) end }
+      local app = setmetatable({ screen = "game", session = session, expedition = run, presentation = Presentation.new(),
+        held_direction = nil, held_movement_blocked = false, pending_movement_inputs = {} }, App)
+      app.presentation:reset(session)
+      local observed_segments, begin_board_turn = {}, app.presentation.begin_board_turn
+      function app.presentation:begin_board_turn(value)
+        local beat = begin_board_turn(self, value)
+        for _, segment in ipairs(beat.segments) do observed_segments[#observed_segments + 1] = segment end
+        return beat
+      end
+      app:start_held_move("d")
+      assert(app:request_movement("d", "direct") and turns == 1 and enemy_opportunities == 1)
+      -- A held repeat cannot pass the active player/enemy board segment.
+      app:update(Tuning.player_move_duration / 2)
+      assert(turns == 1)
+      for target = 2, 5 do
+        for _ = 1, 8 do app:update(0.02); if turns >= target then break end end
+        assert(turns == target and enemy_opportunities == target)
+      end
+      -- Rapid direct directions keep distinct, bounded segments rather than
+      -- collapsing an A→C visual jump into one tween.
+      app:clear_held_move_intent()
+      app:request_movement("d", "direct")
+      app:request_movement("w", "direct")
+      app:request_movement("a", "direct")
+      assert(#app.pending_movement_inputs <= App.MAX_PENDING_MOVEMENT_INPUTS)
+      for _ = 1, 24 do app:update(0.02) end
+      assert(turns == 8 and enemy_opportunities == 8)
+      assert(inputs[6] == "d" and inputs[7] == "w" and inputs[8] == "a")
+      for _, segment in ipairs(observed_segments) do assert(segment.distance == 1) end
+      app:request_movement("x", "direct") -- wall bump consumes one direct Expedition turn
+      assert(turns == 9 and enemy_opportunities == 9)
+      app:start_held_move("z")
+      app:request_movement("z", "direct") -- hostile bump is also exactly one turn
+      assert(turns == 10 and enemy_opportunities == 10 and app.held_movement_blocked)
+      app:clear_held_move_intent()
+      assert(#app.pending_movement_inputs == 0)
+      app:perform_turn("attack")
+      assert(turns == 11 and enemy_opportunities == 11 and inputs[11] == "attack")
+    end,
+  },
+  {
+    name = "FEEL-02 Expedition attacks wait for the preceding board beat",
+    run = function()
+      local player, enemy = { kind = "player", x = 4, y = 4 }, { kind = "ripper", x = 8, y = 4 }
+      local session = { state = { player = player, enemies = { enemy }, bullets = {}, boss = nil }, last_action_result = nil }
+      local turns, enemy_opportunities, inputs = 0, 0, {}
+      function session:turn(input)
+        turns, enemy_opportunities = turns + 1, enemy_opportunities + 1
+        inputs[#inputs + 1] = input
+        if input == "d" then player.x, enemy.x = player.x + 1, enemy.x - 1 end
+      end
+      local run = { session = session, turn = function(_, input) return session:turn(input) end }
+      local app = setmetatable({ screen = "game", session = session, expedition = run, presentation = Presentation.new(),
+        held_movement_blocked = false, pending_movement_inputs = {} }, App)
+      app.presentation:reset(session)
+      assert(app:request_movement("d", "direct") and turns == 1 and enemy_opportunities == 1)
+      assert(not app:request_expedition_turn("attack") and turns == 1)
+      assert(#app.pending_movement_inputs == 1)
+      app:update(Tuning.player_move_duration + Tuning.board_settle_duration)
+      assert(turns == 2 and enemy_opportunities == 2 and inputs[2] == "attack")
+    end,
+  },
+  {
+    name = "FEEL-01 debug overlay is opt-in and never alters a simulation turn",
+    run = function()
+      local calls = 0
+      local app = { screen = "game", debug_overlay = false }
+      function app:perform_turn() calls = calls + 1 end
+      Input.keypressed(app, "f3", nil, false)
+      assert(app.debug_overlay and calls == 0)
+      Input.keypressed(app, "f3", nil, false)
+      assert(not app.debug_overlay and calls == 0)
     end,
   },
   {

@@ -10,6 +10,10 @@ local Renderer = {}
 Renderer.__index = Renderer
 
 local VIEW_WIDTH, VIEW_HEIGHT = 39, 25
+local EXPEDITION_HUD_WIDTH = 264
+local EXPEDITION_PROGRESS_WIDTH = 180
+local EXPEDITION_MAX_TILE_SIZE = 96
+local LOVEABLE_ROGUE_NATIVE_TILE = 16
 local SCREEN_ACCENTS = {
   cyan = { 0.7, 0.9, 1 }, amber = { 0.95, 0.85, 0.3 }, mint = { 0.58, 0.9, 0.76 },
   coral = { 1, 0.48, 0.32 }, violet = { 0.84, 0.58, 0.95 },
@@ -52,9 +56,7 @@ function Renderer:_text(value, x, y, scale, color)
   if type(scale) == "table" then
     color, scale = scale, 1
   end
-  self:_color(color or { 1, 1, 1 })
-  love.graphics.print(value, x, y, 0, scale or 1)
-  love.graphics.setColor(1, 1, 1)
+  return self.assets:draw_text(value, math.floor(x), math.floor(y), scale or 1, color or { 1, 1, 1 })
 end
 
 -- Menu callers span lightweight UI models (`name`), declarative content
@@ -65,14 +67,65 @@ function Renderer:menu_item_label(item)
   return item.name or item.display_name or item.label or item.id or "UNNAMED OPTION"
 end
 
-function Renderer:_layout()
-  local width, height = love.graphics.getDimensions()
+function Renderer:_view_dimensions(state)
+  local expedition = state and state.expedition
+  local chamber = expedition and expedition.chamber
+  if chamber and chamber.bounds then
+    -- A normal chamber is a complete board, not a tiny window chased by the
+    -- player. 16x12 contains the largest 14x10 production chamber plus a
+    -- readable border, including the current compact boss board.
+    return 16, 12
+  end
+  return VIEW_WIDTH, VIEW_HEIGHT
+end
+
+-- Expedition chambers are intentionally small boards.  Give them the screen
+-- instead of preserving the old wide-world tile cap: the compact status rail
+-- lives on the left and the active board owns the remaining viewport.
+function Renderer:layout_for_dimensions(view_width, view_height, width, height, expedition)
+  view_width, view_height = view_width or VIEW_WIDTH, view_height or VIEW_HEIGHT
+  width, height = width or 1280, height or 720
+  if expedition then
+    local margin, gap = 24, 18
+    local hud_width = EXPEDITION_HUD_WIDTH
+    local board_left = margin + hud_width + gap
+    local progress_width = EXPEDITION_PROGRESS_WIDTH
+    local available_width = math.max(1, width - board_left - gap - progress_width - margin)
+    local available_height = math.max(1, height - margin * 2)
+    local maximum_size = math.min(EXPEDITION_MAX_TILE_SIZE, math.floor(math.min(
+      available_width / view_width,
+      available_height / view_height
+    )))
+    -- The authored atlas is 16px cells.  Nearest filtering is necessary but
+    -- insufficient at a fractional scale, so Expedition boards deliberately
+    -- use whole source-pixel multiples (16, 32, 48 …) as well.
+    local size = LOVEABLE_ROGUE_NATIVE_TILE * math.max(1, math.floor(maximum_size / LOVEABLE_ROGUE_NATIVE_TILE))
+    local board_width, board_height = view_width * size, view_height * size
+    return {
+      size = size,
+      board_x = board_left + math.floor((available_width - board_width) / 2),
+      board_y = math.floor((height - board_height) / 2),
+      hud_x = margin,
+      hud_y = margin,
+      hud_width = hud_width,
+      progress_x = width - margin - progress_width,
+      progress_y = margin,
+      progress_width = progress_width,
+    }
+  end
   local margin, sidebar, gap = 20, 270, 20
   local size = math.max(10, math.min(24, math.floor(math.min(
-    (width - sidebar - gap - margin * 2) / VIEW_WIDTH,
-    (height - 130) / VIEW_HEIGHT
+    (width - sidebar - gap - margin * 2) / view_width,
+    (height - 130) / view_height
   ))))
-  return size, margin, margin, margin + VIEW_WIDTH * size + gap
+  return { size = size, board_x = margin, board_y = margin, hud_x = margin + view_width * size + gap, hud_y = margin, hud_width = sidebar }
+end
+
+function Renderer:_layout(view_width, view_height, expedition)
+  view_width, view_height = view_width or self._view_width or VIEW_WIDTH, view_height or self._view_height or VIEW_HEIGHT
+  local width, height = love.graphics.getDimensions()
+  local layout = self:layout_for_dimensions(view_width, view_height, width, height, expedition)
+  return layout.size, layout.board_x, layout.board_y, layout.hud_x, layout.hud_y, layout.hud_width
 end
 
 function Renderer:_camera_position(presentation, player)
@@ -100,27 +153,6 @@ function Renderer:wall_terrain_kind(world, x, y)
   return "wall_center"
 end
 
--- Material identity remains authoritative in World, but the palette below
--- gives the new natural/industrial landmarks readable silhouettes even when
--- an art pack has only a generic floor and wall assignment.  It is purely
--- presentational: sprite packs may still replace the underlying tile art.
-function Renderer:terrain_tint(world, x, y, fallback, passable)
-  local material = world and world:get_material(x, y)
-  local id = material and material.id or ""
-  if passable then
-    if id == "material.terrain.forest_soil" then return { 0.23, 0.18, 0.1 } end
-    if id == "material.floor.conductive_metal" then return { 0.09, 0.28, 0.31 } end
-    if id == "material.terrain.air" then return fallback end
-  else
-    if id == "material.terrain.brush" then return { 0.055, 0.22, 0.095 } end
-    if id == "material.terrain.granite" then return { 0.18, 0.2, 0.25 } end
-    if id == "material.terrain.stone" then return { 0.17, 0.18, 0.22 } end
-    if id == "material.structure.industrial_bulkhead" then return { 0.08, 0.2, 0.25 } end
-    if id == "material.structure.masonry" then return { 0.18, 0.13, 0.16 } end
-  end
-  return fallback
-end
-
 -- Terrain is always readable inside the world bounds. Tactical line-of-sight
 -- controls information such as enemies and telegraphs, never map discovery.
 function Renderer:terrain_is_renderable(x, y)
@@ -128,13 +160,14 @@ function Renderer:terrain_is_renderable(x, y)
 end
 
 function Renderer:_screen_position(presentation, player, x, y, size, offset_x, offset_y)
+  local view_width, view_height = self._view_width or VIEW_WIDTH, self._view_height or VIEW_HEIGHT
   local camera_x, camera_y = self:_camera_position(presentation, player)
-  local screen_x = x - camera_x + math.floor((VIEW_WIDTH - 1) / 2)
-  local screen_y = y - camera_y + math.floor((VIEW_HEIGHT - 1) / 2)
-  if screen_x < -1 or screen_x >= VIEW_WIDTH + 1 or screen_y < -1 or screen_y >= VIEW_HEIGHT + 1 then
+  local screen_x = x - camera_x + math.floor((view_width - 1) / 2)
+  local screen_y = y - camera_y + math.floor((view_height - 1) / 2)
+  if screen_x < -1 or screen_x >= view_width + 1 or screen_y < -1 or screen_y >= view_height + 1 then
     return nil
   end
-  return offset_x + screen_x * size, offset_y + (VIEW_HEIGHT - 1 - screen_y) * size
+  return offset_x + screen_x * size, offset_y + (view_height - 1 - screen_y) * size
 end
 
 -- A small art-independent pip makes the movement-derived facing readable for
@@ -156,15 +189,38 @@ function Renderer:_draw_facing_marker(direction, x, y, size)
   love.graphics.setColor(1, 1, 1)
 end
 
-function Renderer:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
-  if self.assets and self.assets.draw_actor_sprite then
-    return self.assets:draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, tint, transform)
-  end
-  return self.assets and self.assets:draw_sprite(sprite_kind, x, y, size, tint, transform)
+function Renderer:_draw_actor_visual(actor, state, animation_tag, elapsed_seconds, x, y, size, tint, transform)
+  self.assets:draw_actor(actor, state, x, y, size, tint, transform)
+  return true
 end
 
-function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, transform)
-  if not self.assets then return end
+function Renderer:_draw_role_visual(role_id, x, y, size, tint, transform)
+  self.assets:draw_sprite(role_id, x, y, size, tint, transform)
+  return true
+end
+
+-- Normal UI keeps the source's black/teal field while its visible border is
+-- assembled from real atlas wall pixels. UI art uses integer native tiles.
+function Renderer:_draw_atlas_panel(x, y, width, height)
+  self:_color({ 0.02, 0.055, 0.065, 0.96 })
+  love.graphics.rectangle("fill", x, y, width, height)
+  local tile = 16
+  if width < tile * 2 or height < tile * 2 then return end
+  for current_x = x + tile, x + width - tile * 2, tile do
+    self.assets:draw_sprite("terrain.wall_up", current_x, y, tile)
+    self.assets:draw_sprite("terrain.wall_down", current_x, y + height - tile, tile)
+  end
+  for current_y = y + tile, y + height - tile * 2, tile do
+    self.assets:draw_sprite("terrain.wall_left", x, current_y, tile)
+    self.assets:draw_sprite("terrain.wall_right", x + width - tile, current_y, tile)
+  end
+  self.assets:draw_sprite("terrain.wall_top_left", x, y, tile)
+  self.assets:draw_sprite("terrain.wall_top_right", x + width - tile, y, tile)
+  self.assets:draw_sprite("terrain.wall_bottom_left", x, y + height - tile, tile)
+  self.assets:draw_sprite("terrain.wall_bottom_right", x + width - tile, y + height - tile, tile)
+end
+
+function Renderer:_draw_actor_outline(actor, state, animation_tag, elapsed_seconds, x, y, size, color, transform)
   local thickness = math.max(1, math.floor(size * Tuning.outline_ratio))
   for _, offset in ipairs({ { -thickness, 0 }, { thickness, 0 }, { 0, -thickness }, { 0, thickness } }) do
     local outline_transform = {
@@ -172,8 +228,9 @@ function Renderer:_draw_actor_outline(actor, state, sprite_kind, animation_tag, 
       offset_y = (transform and transform.offset_y or 0) + offset[2],
       scale_x = transform and transform.scale_x or 1,
       scale_y = transform and transform.scale_y or 1,
+      outline = true,
     }
-    self:_draw_actor_sprite(actor, state, sprite_kind, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
+    self:_draw_actor_visual(actor, state, animation_tag, elapsed_seconds, x, y, size, color, outline_transform)
   end
 end
 
@@ -236,6 +293,17 @@ function Renderer:_draw_presentation_effects(presentation, player, size, offset_
       love.graphics.setLineWidth(1)
     end
   end
+  for _, explosion in ipairs(presentation.explosions or {}) do
+    local x, y = self:_screen_position(presentation, player, explosion.x, explosion.y, size, offset_x, offset_y)
+    if x then
+      local progress = 1 - explosion.time / Tuning.explosion_pulse_lifetime
+      local inset = math.max(1, size * (0.12 + progress * 0.42))
+      self:_color({ 1, 0.48, 0.15, math.max(0, 0.75 - progress * 0.62) })
+      love.graphics.setLineWidth(math.max(1, math.floor(size * 0.09)))
+      love.graphics.circle("line", x + size * 0.5, y + size * 0.5, math.max(1, size * 0.5 - inset * 0.3))
+      love.graphics.setLineWidth(1)
+    end
+  end
   for _, number in ipairs(presentation.damage_numbers or {}) do
     local x, y = self:_screen_position(presentation, player, number.x, number.y, size, offset_x, offset_y)
     if x then
@@ -256,6 +324,21 @@ function Renderer:_draw_presentation_effects(presentation, player, size, offset_
       .. (chain.count > 1 and " TRIGGERS ×" .. chain.count or "")
     self:_text(label, 18, 106 + (index - 1) * 26 + progress * 6, 0.62, { 0.95, 0.79, 0.3, 1 - progress * 0.45 })
     self:_text("→ " .. chain.summary, 28, 121 + (index - 1) * 26 + progress * 6, 0.47, { 0.73, 0.87, 1, 1 - progress * 0.45 })
+  end
+  local receipt = presentation.action_receipt
+  if receipt and receipt.time > 0 then
+    local alpha = math.min(1, receipt.time / Tuning.action_receipt_lifetime * 1.8)
+    local labels = {}
+    if receipt.damage > 0 then labels[#labels + 1] = "DAMAGE " .. receipt.damage end
+    if receipt.kills > 0 then labels[#labels + 1] = "KILLS " .. receipt.kills end
+    if receipt.xp > 0 then labels[#labels + 1] = "XP +" .. receipt.xp end
+    if receipt.cash > 0 then labels[#labels + 1] = "CASH +" .. receipt.cash end
+    if receipt.ammo > 0 then labels[#labels + 1] = "AMMO +" .. receipt.ammo end
+    if receipt.chains >= 2 then labels[#labels + 1] = "CHAIN " .. receipt.chains end
+    if #labels > 0 then
+      local y = 28 + math.max(0, #(presentation.modifier_chain or {})) * 26
+      self:_text(table.concat(labels, "   "), 18, y, 0.58, { 0.7, 0.96, 0.82, alpha })
+    end
   end
 end
 
@@ -304,56 +387,132 @@ function Renderer:_draw_tool_impact(x, y, size, impact)
   love.graphics.setLineWidth(1)
 end
 
+-- Expedition deliberately has a short, fixed information rail.  It contains
+-- only combat decisions the player can act on immediately; sandbox-specific
+-- inventory, body, service, and salvage detail stays out of this view.
+function Renderer:_draw_expedition_hud(session, state, ui, presentation, x, y, width, height)
+  local expedition = assert(ui.expedition, "Expedition HUD requires Expedition state")
+  local panel_right = x + width
+  self:_draw_atlas_panel(0, 0, panel_right + 12, height)
+
+  local cursor = y
+  local function text(value, scale, tint, spacing)
+    self:_text(value, x, cursor, scale or 0.78, tint or { 0.78, 0.84, 0.94 })
+    cursor = cursor + (spacing or 18)
+  end
+  local character_id = (state.expedition.character_id or "expedition"):gsub("^expedition%.", "")
+  local quick = ui.quick or { weapons = {}, abilities = {} }
+  local weapon = quick.weapons[1] or { label = "OFFLINE" }
+  local ability = quick.abilities[1] or { label = "OFFLINE" }
+
+  text("EXPEDITION", 1.35, { 0.7, 0.9, 1 }, 24)
+  text(string.upper(character_id), 0.68, { 0.9, 0.78, 0.3 }, 18)
+  text("HP " .. ui.health .. " / " .. ui.max_health .. "  " .. string.rep("♥", ui.health),
+    0.92 + presentation.hit_flash * 0.55, { 1, 0.35, 0.35 }, 25)
+  text("WEAPON  " .. string.upper(weapon.label or "OFFLINE"), 0.67, { 0.92, 0.88, 0.56 })
+  if weapon.ammo then
+    text("MAG " .. weapon.ammo.loaded .. "/" .. weapon.ammo.capacity .. "  RESERVE " .. weapon.ammo.reserve,
+      0.64, { 0.6, 0.9, 0.75 })
+  else
+    text("MELEE / NO MAGAZINE", 0.61, { 0.72, 0.8, 0.92 })
+  end
+  text("ABILITY  " .. string.upper(ability.label or "OFFLINE"), 0.67,
+    ability.available == false and { 1, 0.42, 0.42 } or { 0.95, 0.65, 0.35 }, 24)
+
+  text("STAGE " .. expedition.stage .. "  CHAMBER " .. expedition.encounter, 0.76, { 0.95, 0.85, 0.25 })
+  text(string.upper((expedition.topology or "open"):gsub("_", " ")), 0.62, { 0.72, 0.82, 0.96 }, 22)
+  text("PASSIVES " .. expedition.passive_stacks, 0.72, { 0.65, 0.9, 0.8 }, 26)
+
+  if state.boss then
+    text("BOSS " .. string.upper(state.boss.display_name or state.boss.kind or "HOSTILE"), 0.62, { 1, 0.6, 0.35 })
+    text("HP " .. state.boss.health .. " / " .. state.boss.max_health, 0.7, { 1, 0.48, 0.32 }, 24)
+  end
+
+  text("CONTROLS", 0.88, { 0.6, 0.8, 1 })
+  text("WASD MOVE", 0.67)
+  text("E WEAPON    Q ABILITY", 0.67)
+  text("B BOMB      F FLARE", 0.67)
+  text("I RUN BUILD    F3 DEBUG", 0.62, { 0.72, 0.8, 0.92 }, 26)
+
+  local threats = 0
+  for _, enemy in ipairs(state.enemies or {}) do
+    if state.visible[Grid.key(enemy.x, enemy.y)] then threats = threats + 1 end
+  end
+  text("THREATS " .. threats, 0.72, threats > 0 and { 1, 0.58, 0.4 } or { 0.6, 0.9, 0.75 })
+  text("RED OUTLINES SHOW HOSTILES", 0.5, { 0.65, 0.72, 0.84 })
+end
+
+-- XP and cash are deliberately not sidebar metadata. They are the only
+-- progression/economy numbers in Expedition, so their dedicated right block
+-- stays readable while the board remains uncluttered.
+function Renderer:expedition_progress_model(ui, presentation)
+  local expedition = assert(ui.expedition, "Expedition progress requires Expedition state")
+  local receipt = presentation.action_receipt
+  return {
+    level = expedition.level or 1,
+    xp = expedition.xp_to_next and (expedition.xp .. " / " .. expedition.xp_to_next) or "MAX",
+    cash = tostring(expedition.currency or 0),
+    xp_gain = receipt and receipt.xp or 0,
+    cash_gain = receipt and receipt.cash or 0,
+    pulse = receipt and receipt.time and math.min(1, receipt.time / Tuning.action_receipt_lifetime) or 0,
+  }
+end
+
+function Renderer:_draw_expedition_progress(ui, presentation, x, y, width)
+  local model = self:expedition_progress_model(ui, presentation)
+  local pulse, gain_xp, gain_cash = model.pulse, model.xp_gain, model.cash_gain
+  local function centered(value, at_y, scale, tint)
+    local estimate = #tostring(value) * 7 * scale
+    self:_text(value, x + math.max(0, math.floor((width - estimate) / 2)), at_y, scale, tint)
+  end
+  self:_draw_atlas_panel(x - 8, 0, width + 8, 280)
+  centered("LV " .. tostring(model.level), y, 1.25 + pulse * 0.12, { 0.7, 0.9, 1 })
+  centered("XP", y + 42, 0.74, { 0.65, 0.9, 0.8 })
+  centered(model.xp, y + 61, 1.72 + pulse * 0.18, { 0.74, 1, 0.84 })
+  if gain_xp > 0 then centered("+" .. gain_xp .. " XP", y + 91, 0.72 + pulse * 0.08, { 0.95, 0.86, 0.32, pulse }) end
+  centered("CASH", y + 137, 0.74, { 0.95, 0.83, 0.38 })
+  centered(model.cash, y + 157, 2.15 + pulse * 0.18, { 1, 0.86, 0.38 })
+  if gain_cash > 0 then centered("+$" .. gain_cash, y + 194, 0.72 + pulse * 0.08, { 0.95, 0.86, 0.32, pulse }) end
+end
+
 function Renderer:_draw_game(app)
   local session, state, presentation = app.session, app.session.state, app.presentation
-  local size, offset_x, offset_y, hud = self:_layout()
+  local view_width, view_height = self:_view_dimensions(state)
+  self._view_width, self._view_height = view_width, view_height
+  local is_expedition = state.expedition ~= nil
+  local size, offset_x, offset_y, hud, hud_y, hud_width = self:_layout(view_width, view_height, is_expedition)
+  local screen_width, screen_height = love.graphics.getDimensions()
+  local layout = self:layout_for_dimensions(view_width, view_height, screen_width, screen_height, is_expedition)
   love.graphics.clear(0.025, 0.035, 0.055)
   local shake = presentation:screen_shake()
   local time = love.timer.getTime()
   offset_x = offset_x + math.sin(time * 78) * size * 0.45 * shake
   offset_y = offset_y + math.cos(time * 93) * size * 0.3 * shake
+  if is_expedition then
+    self:_color({ 0.018, 0.027, 0.045, 0.96 })
+    love.graphics.rectangle("fill", 0, 0, hud + (hud_width or EXPEDITION_HUD_WIDTH) + 12, love.graphics.getHeight())
+  end
   self:_color({ 0.08, 0.1, 0.14 })
-  love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, VIEW_WIDTH * size + 8, VIEW_HEIGHT * size + 8)
-
-  local floor = {
-    forest = { 0.09, 0.19, 0.13 },
-    cave = { 0.12, 0.14, 0.18 },
-    dungeon = { 0.16, 0.12, 0.18 },
-    reactor = { 0.08, 0.18, 0.22 },
-    arena = { 0.14, 0.12, 0.17 },
-  }
-  floor = floor[state.settings.terrain]
+  love.graphics.rectangle("fill", offset_x - 4, offset_y - 4, view_width * size + 8, view_height * size + 8)
 
   local camera_x, camera_y = self:_camera_position(presentation, state.player)
-  local base_x = math.floor(camera_x) - math.floor((VIEW_WIDTH - 1) / 2)
-  local base_y = math.floor(camera_y) - math.floor((VIEW_HEIGHT - 1) / 2)
+  local base_x = math.floor(camera_x) - math.floor((view_width - 1) / 2)
+  local base_y = math.floor(camera_y) - math.floor((view_height - 1) / 2)
   local camera_offset_x, camera_offset_y = camera_x - math.floor(camera_x), camera_y - math.floor(camera_y)
-  for view_x = -1, VIEW_WIDTH do
-    for view_y = -1, VIEW_HEIGHT do
+  for view_x = -1, view_width do
+    for view_y = -1, view_height do
       local x, y = base_x + view_x, base_y + view_y
       local pixel_x = offset_x + (view_x - camera_offset_x) * size
-      local pixel_y = offset_y + (VIEW_HEIGHT - 1 - view_y + camera_offset_y) * size
+      local pixel_y = offset_y + (view_height - 1 - view_y + camera_offset_y) * size
       local passable = state.world and state.world:is_passable(x, y)
       if self:terrain_is_renderable(x, y) then
         local terrain_cell = state.world and state.world:get_cell(x, y)
         if passable then
-          local floor_tint = self:terrain_tint(state.world, x, y, floor, true)
-          self:_color(floor_tint)
-          love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain("floor", pixel_x, pixel_y, size, floor_tint)
-          if not terrain_drawn and (x * 7 + y * 11) % 5 == 0 then
-            self:_color({ floor_tint[1] * 1.55, floor_tint[2] * 1.55, floor_tint[3] * 1.55 })
-            love.graphics.rectangle("fill", pixel_x + size * 0.35, pixel_y + size * 0.35, math.max(1, size * 0.12), math.max(1, size * 0.12))
-          end
+          local floor_id = ((x + y) % 3 == 0) and "terrain.floor_alt" or "terrain.floor"
+          self:_draw_role_visual(floor_id, pixel_x, pixel_y, size, nil, nil)
         else
-          local wall_tint = self:terrain_tint(state.world, x, y, { 0.11, 0.075, 0.13 }, false)
-          self:_color(wall_tint)
-          love.graphics.rectangle("fill", pixel_x, pixel_y, size, size)
-          local terrain_drawn = self.assets:draw_terrain(self:wall_terrain_kind(state.world, x, y), pixel_x, pixel_y, size, wall_tint)
-          if not terrain_drawn then
-            self:_color({ wall_tint[1] * 1.4, wall_tint[2] * 1.4, wall_tint[3] * 1.4 })
-            love.graphics.rectangle("line", pixel_x, pixel_y, size, size)
-          end
+          local wall_kind = self:wall_terrain_kind(state.world, x, y)
+          self:_draw_role_visual("terrain." .. wall_kind, pixel_x, pixel_y, size, nil, nil)
         end
         if terrain_cell then
           local terrain_material = session.registry:get_material(terrain_cell.material_id)
@@ -364,59 +523,43 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Liquid is a simulation-owned layer over passable terrain. Its sprite role
-  -- and depth tint are presentation only; they never affect the flow.
+  -- Liquid is simulation-owned. Its selected atlas tile is cosmetic only.
   for _, liquid in ipairs(state.world and state.world:list_liquids() or {}) do
     if state.visible[Grid.key(liquid.x, liquid.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, liquid.x, liquid.y, size, offset_x, offset_y)
       if pixel_x then
-        local definition = session.registry:get_liquid(liquid.liquid_id)
-        local depth = liquid.amount / definition.max_depth
-        self.assets:draw_sprite(depth >= 0.66 and "water_deep" or "water_shallow", pixel_x, pixel_y, size,
-          { 0.32, 0.78, 1, 0.42 + depth * 0.28 })
+        self:_draw_role_visual("effect.liquid", pixel_x, pixel_y, size, nil, nil)
       end
     end
   end
 
-  -- Gas is an authoritative coordinate layer, rendered after liquid so both
-  -- can coexist visibly. Its sprite drift depends only on wall-clock time and
-  -- coordinates; it neither uses simulation RNG nor affects no-fog LOS.
+  -- Gas is authoritative coordinate state; its atlas overlay is cosmetic.
   for _, gas in ipairs(state.world and state.world:list_gases() or {}) do
     if state.visible[Grid.key(gas.x, gas.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, gas.x, gas.y, size, offset_x, offset_y)
       if pixel_x then
-        local definition = session.registry:get_gas(gas.gas_id)
-        local density = gas.concentration / definition.max_concentration
-        local drift = math.sin(time * 2.7 + gas.x * 1.9 + gas.y * 3.1) * size * 0.06
-        self.assets:draw_sprite("gas", pixel_x, pixel_y, size, { 0.56, 1, 0.4, 0.16 + density * 0.38 }, {
-          offset_x = drift, offset_y = -drift * 0.35, scale_x = 0.92 + density * 0.12, scale_y = 0.92 + density * 0.12,
-        })
+        self:_draw_role_visual("effect.gas", pixel_x, pixel_y, size, nil, nil)
       end
     end
   end
 
-  -- Hazards are a passable, simulation-owned floor layer. Their silhouette is
-  -- an editable art-pack role rather than renderer-authored line geometry.
+  -- Hazards are a passable, simulation-owned floor layer.
   for _, hazard in ipairs(state.world and state.world:list_hazards() or {}) do
     if state.visible[Grid.key(hazard.x, hazard.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, hazard.x, hazard.y, size, offset_x, offset_y)
       if pixel_x then
-        self.assets:draw_sprite("spikes", pixel_x, pixel_y, size, { 1, 0.35, 0.25, 0.92 })
+        self:_draw_role_visual("effect.spikes", pixel_x, pixel_y, size, nil, nil)
       end
     end
   end
 
-  -- Fire is authoritative world state. Its sprite flicker is presentation-only
-  -- and uses wall-clock time, never the deterministic simulation RNG.
+  -- Fire is authoritative world state; the source flame sprite remains crisp.
   for _, fire in ipairs(state.world and state.world:list_fires() or {}) do
     local fire_x, fire_y = state.world:fire_position(fire)
     if fire_x and state.visible[Grid.key(fire_x, fire_y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, fire_x, fire_y, size, offset_x, offset_y)
       if pixel_x then
-        local flicker = 0.06 + math.sin(time * 11 + fire_x * 3 + fire_y * 5) * 0.035
-        self.assets:draw_sprite("fire", pixel_x, pixel_y, size, { 1, 0.42 + flicker, 0.12, 0.94 }, {
-          offset_y = -size * flicker, scale_x = 0.94, scale_y = 1.02 + flicker,
-        })
+        self:_draw_role_visual("effect.fire", pixel_x, pixel_y, size, nil, nil)
       end
     end
   end
@@ -460,9 +603,8 @@ function Renderer:_draw_game(app)
     end
   end
 
-  -- Every physical world object is a named art-pack role.  State remains
-  -- readable through a restrained tint, but landmarks and fixtures never fall
-  -- back to renderer-made rectangles, lines, or polygons.
+  -- World objects use declared Loveable Rogue atlas bindings. State cues are
+  -- kept as restrained source-palette tint, never a shape fallback.
   for _, object in ipairs(state.world and state.world:list_objects() or {}) do
     if state.visible[Grid.key(object.x, object.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, object.x, object.y, size, offset_x, offset_y)
@@ -492,21 +634,21 @@ function Renderer:_draw_game(app)
         elseif object.interaction_role == "clue" then
           tint = { 1, 0.78, 0.28 }
         end
-        self.assets:draw_sprite(definition.render_style, pixel_x, pixel_y, size, tint)
+        local role_id = self.assets:sprite_for_object(definition, object)
+        self:_draw_role_visual(role_id, pixel_x, pixel_y, size, tint, nil)
         self:_draw_damage_overlay(pixel_x, pixel_y, size,
           self:_integrity_severity(object.current_integrity, session.registry:get_material(object.material_id).max_integrity))
       end
     end
   end
 
-  -- Ground cargo is authoritative zone state. A compact glyph keeps stacks
-  -- visible without inventing a second object/physics layer or new art role.
+  -- Ground cargo is authoritative zone state and has an atlas item binding.
   for _, ground in ipairs(state.world and state.world:list_ground_items() or {}) do
     if state.visible[Grid.key(ground.x, ground.y)] then
       local pixel_x, pixel_y = self:_screen_position(presentation, state.player, ground.x, ground.y, size, offset_x, offset_y)
       if pixel_x then
-        local tint = ground.item.item_type == "resource_stack" and { 0.95, 0.82, 0.32 } or { 0.7, 0.9, 1 }
-        self:_text("+", pixel_x + size * 0.32, pixel_y + size * 0.2, 0.7, tint)
+        local role_id = ground.item.item_type == "resource_stack" and "item.cash" or "item.pickup"
+        self:_draw_role_visual(role_id, pixel_x, pixel_y, size, nil, nil)
       end
     end
   end
@@ -522,7 +664,8 @@ function Renderer:_draw_game(app)
       if preview_x then
         local definition = session.registry:get_world_object(recipe.world_object_id)
         local tint = preview.applied and { 0.35, 1, 0.62, 0.48 } or { 1, 0.26, 0.25, 0.48 }
-        self.assets:draw_sprite(definition.render_style, preview_x, preview_y, size, tint)
+        local role_id = self.assets:sprite_for_object(definition, nil)
+        self:_draw_role_visual(role_id, preview_x, preview_y, size, tint, nil)
         self:_color(preview.applied and { 0.35, 1, 0.62, 0.95 } or { 1, 0.3, 0.28, 0.95 })
         love.graphics.setLineWidth(2)
         love.graphics.rectangle("line", preview_x + 2, preview_y + 2, size - 4, size - 4)
@@ -558,22 +701,12 @@ function Renderer:_draw_game(app)
       return
     end
     local tint = override_tint or (value.stun and value.stun > 0 and { 1, 0.85, 0.2 } or nil)
-    if not tint and value ~= state.player then
-      tint = value.faction_id == "faction.machine" and { 0.52, 0.82, 0.96 }
-        or value.faction_id == "faction.cult" and { 0.82, 0.5, 0.96 }
-        or value.faction_id == "faction.feral" and { 0.96, 0.58, 0.32 }
-        or nil
-    end
     if value == state.player and presentation.hit_flash > 0 then
       tint = { 1, 0.35, 0.35 }
     end
     if presentation:reaction_flash(value) then
       tint = value == state.player and { 1, 0.42, 0.42 } or { 1, 0.93, 0.72 }
     end
-    -- Historical echoes intentionally share the player body silhouette; the
-    -- corrupt violet tint is presentation only and their actual capabilities
-    -- remain body-derived in the simulation.
-    local sprite_kind = value.kind == "fallen_echo" and "player" or value.kind
     local animation_tag = presentation.reactions[value] and "hurt"
       or presentation.attacks[value] and "attack"
       or (value.body and not presentation:is_settled(value)) and "move"
@@ -589,13 +722,13 @@ function Renderer:_draw_game(app)
     end
     local role = self:outline_role(value, state)
     if role == "player" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 0.9, 0.98, 1, 0.82 }, transform)
     elseif role == "hostile" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.22, 0.18, 0.78 }, transform)
     elseif role == "projectile" then
-      self:_draw_actor_outline(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
+      self:_draw_actor_outline(value, state, animation_tag, time, pixel_x, pixel_y, size, { 1, 0.86, 0.25, 0.9 }, transform)
     end
-    self:_draw_actor_sprite(value, state, sprite_kind, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
+    self:_draw_actor_visual(value, state, animation_tag, time, pixel_x, pixel_y, size, tint, transform)
     if value == state.player then
       if not app:is_build_stance() then self:_draw_weapon_orientation(session:player_attack_preview(), value, pixel_x, pixel_y, size) end
       self:_draw_facing_marker(value.direction, pixel_x, pixel_y, size)
@@ -628,7 +761,7 @@ function Renderer:_draw_game(app)
     local effect_x, effect_y = self:_screen_position(presentation, state.player, cell.x, cell.y, size, offset_x, offset_y)
     if effect_x then
       local pulse = 0.48 + math.sin(time * 21 + cell.x * 5 + cell.y * 7) * 0.18
-      self.assets:draw_sprite("electric_arc", effect_x, effect_y, size, { 0.35, 0.85, 1, pulse })
+      self:_draw_role_visual("effect.electricity", effect_x, effect_y, size, { 1, 1, 1, pulse }, nil)
     end
   end
   if state.boss then
@@ -661,6 +794,10 @@ function Renderer:_draw_game(app)
   end
 
   local ui = GameplayUI.hud(session)
+  if ui.expedition then
+    self:_draw_expedition_hud(session, state, ui, presentation, hud, hud_y, hud_width, love.graphics.getHeight())
+    self:_draw_expedition_progress(ui, presentation, layout.progress_x, layout.progress_y, layout.progress_width)
+  else
   self:_text(ui.expedition and "EXPEDITION" or "ROAG", hud, offset_y, 2, { 0.7, 0.9, 1 })
   if ui.location then self:_text(ui.location, hud, offset_y + 23, 0.62, { 0.78, 0.78, 0.6 }) end
   if ui.reconstruction_anchor then
@@ -698,16 +835,18 @@ function Renderer:_draw_game(app)
     self:_text("FLARES " .. ui.flares .. " (" .. ui.lit_flares .. " LIT)   DASH " .. ui.dash, hud, offset_y + 84, 0.84)
   end
   local primary_status = state.boss and ("BOSS HP " .. state.boss.health .. " / " .. state.boss.max_health)
-    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   ENCOUNTER " .. ui.expedition.encounter))
+    or (ui.expedition and ("STAGE " .. ui.expedition.stage .. "   CHAMBER " .. ui.expedition.encounter
+      .. (ui.expedition.topology and "   " .. string.upper(ui.expedition.topology:gsub("_", " ")) or "")))
     or (ui.objective_required and ("OBJECTIVE " .. ui.objective_progress .. " / " .. ui.objective_required))
   if primary_status then
     self:_text(primary_status, hud, offset_y + 112, 0.88, { 0.95, 0.85, 0.25 })
   end
   local economy_y = ui.quick and offset_y + 162 or offset_y + 134
   if ui.expedition then
-    self:_text("SCRAP " .. ui.expedition.currency .. "   PASSIVE STACKS " .. ui.expedition.passive_stacks,
+    local xp_label = ui.expedition.xp_to_next and ("XP " .. ui.expedition.xp .. "/" .. ui.expedition.xp_to_next) or "XP MAX"
+    self:_text("LEVEL " .. tostring(ui.expedition.level or 1) .. "   " .. xp_label .. "   CASH " .. ui.expedition.currency,
       hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
-    self:_text("I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
+    self:_text("PASSIVE STACKS " .. ui.expedition.passive_stacks .. "   I RUN BUILD   E WEAPON   Q ABILITY", hud, economy_y + 20, 0.66, { 0.72, 0.8, 0.92 })
   else
     self:_text("SCRAP " .. ui.scrap .. "   CHARMS " .. ui.charm_count .. "/" .. ui.charm_slots, hud, economy_y, 0.82, { 0.65, 0.9, 0.8 })
     self:_text("CARGO " .. ui.cargo_mass .. "  " .. ui.encumbrance, hud, economy_y + 20, 0.8,
@@ -798,7 +937,7 @@ function Renderer:_draw_game(app)
   else
     self:_text(session.campaign and "E ATTACK   R SWAP WEAPON" or "ARROWS SHOOT   E FORWARD", hud, controls_y + 38, 0.75)
     self:_text(session.campaign and "Q ABILITY   X SWAP ABILITY   B bomb   F flare" or "Q dash   B bomb   F flare", hud, controls_y + 56, 0.68)
-    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "G salvage   I inventory   U interact", hud,
+    self:_text(session.campaign and "U USE / SALVAGE   I inventory   C build" or "I RUN BUILD   U interact   F3 debug", hud,
       controls_y + 74, 0.68)
   end
   self:_text("NEARBY THREATS", hud, controls_y + 106, 0.88, { 0.9, 0.7, 0.4 })
@@ -815,8 +954,36 @@ function Renderer:_draw_game(app)
         hud, controls_y + 124 + shown_threats * 17, 0.62)
     end
   end
-  for index, message in ipairs(state.log) do
-    self:_text(message, 20, offset_y + VIEW_HEIGHT * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
+  end -- compact Expedition rail / full Sandbox HUD
+  if app.debug_overlay and state.expedition then
+    local exp, receipt = state.expedition, presentation.action_receipt or {}
+    local chamber = exp.chamber and exp.chamber.bounds
+    local camera_tiles = (self._view_width or VIEW_WIDTH) .. "×" .. (self._view_height or VIEW_HEIGHT)
+    local debug_x, debug_y = offset_x + 12, offset_y + 12
+    self:_text("DEBUG  ROOM " .. tostring(exp.encounter_index) .. " " .. string.upper(exp.current_topology or "?")
+      .. "  VIEW " .. camera_tiles, debug_x, debug_y, 0.47, { 0.65, 0.95, 0.92 })
+    self:_text("XP " .. tostring(exp.xp or 0) .. "  L" .. tostring(exp.level or 1) .. "  CASH " .. tostring(exp.currency or 0)
+      .. "  DAMAGE " .. tostring(receipt.damage or 0) .. "  KILLS " .. tostring(receipt.kills or 0)
+      .. "  CHAIN " .. tostring(receipt.chains or 0), debug_x, debug_y + 15, 0.47, { 0.65, 0.95, 0.92 })
+    self:_text("TURN " .. tostring(presentation.board_turn_index or 0) .. " "
+      .. (presentation:is_board_turn_settled() and "READY" or "SLIDING")
+      .. "  INPUTS " .. tostring(#(app.pending_movement_inputs or {})),
+      debug_x, debug_y + 30, 0.47, { 0.65, 0.95, 0.92 })
+    if chamber then
+      self:_text("BOARD " .. chamber.width .. "×" .. chamber.height .. "  BUDGET " .. tostring((app.expedition.plan[exp.encounter_index] or {}).budget or "?"),
+        debug_x, debug_y + 45, 0.47, { 0.65, 0.95, 0.92 })
+    end
+  end
+  if state.expedition then
+    local message = state.log and state.log[#state.log]
+    if message then
+      local _, height = love.graphics.getDimensions()
+      self:_text(message, hud, height - 28, 0.58, { 0.72, 0.8, 0.92 })
+    end
+  else
+    for index, message in ipairs(state.log) do
+      self:_text(message, 20, offset_y + (self._view_height or VIEW_HEIGHT) * size + 16 + (index - 1) * 17, 0.78, { 0.8, 0.85, 0.9 })
+    end
   end
   if presentation.hit_flash > 0 then
     local width, height = love.graphics.getDimensions()
@@ -1331,8 +1498,7 @@ function Renderer:_menu(title, items, selected, footer)
     local item = items[index]
     local y = first_y + (index - first) * (card_height + gap)
     local is_selected = index == selected
-    self:_color(is_selected and { 0.13, 0.22, 0.3 } or { 0.06, 0.08, 0.12 })
-    love.graphics.rectangle("fill", width * 0.18, y, width * 0.64, card_height)
+    self:_draw_atlas_panel(width * 0.18, y, width * 0.64, card_height)
     self:_text((is_selected and "> " or "  ") .. self:menu_item_label(item), width * 0.21, y + 7, 1.05,
       is_selected and { 0.95, 0.85, 0.3 } or { 1, 1, 1 })
     local description = item.description or ""
@@ -1352,16 +1518,19 @@ function Renderer:_draw_title(app)
   self:_text(title, width / 2 - #title * 13, height / 2 - 100, 4, accent)
   self:_text(subtitle, width / 2 - #subtitle * 4.5, height / 2 - 34, 1.2, { 0.7, 0.75, 0.85 })
   local options = app:title_options()
+  local option_height = #options * 29 + 22
+  self:_draw_atlas_panel(width / 2 - 96, height / 2 + 36, 192, option_height)
   for index, option in ipairs(options) do
     self:_text((index == app.menu and "> " or "  ") .. option.name, width / 2 - 68, height / 2 + 26 + index * 29,
       1, index == app.menu and { 0.95, 0.85, 0.3 } or { 0.78, 0.83, 0.9 })
   end
-  local message = app.death_archive_error and "FALLEN ARCHIVE WRITE FAILED — DEAD RUN RETAINED"
-    or (app.archive_error and "FALLEN ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
-    or (app.meta_error and "RESEARCH PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+  -- Legacy archive/profile failures remain recoverable compatibility concerns,
+  -- not advertised game modes on an Expedition-first title screen.
+  local message = app.death_archive_error and "LEGACY ARCHIVE WRITE FAILED — RUN RETAINED"
+    or (app.archive_error and "LEGACY ARCHIVE UNAVAILABLE — RUN SAVES REMAIN SAFE")
+    or (app.meta_error and "PROFILE UNAVAILABLE — RUN SAVES REMAIN SAFE")
     or (app.screen_definition_error and "SCREEN DEFINITIONS INVALID — USING SAFE FALLBACK")
     or (app.presentation_flow_error and "PRESENTATION FLOW INVALID — USING SAFE FALLBACK")
-    or (app.art_pack_config_error and "PRESENTATION ART PACK INVALID — USING DEFAULT")
     or (app.title_error and "SAVE UNAVAILABLE — START A NEW RUN" or (screen and screen.footer or "W/S SELECT     ENTER CONFIRM"))
   -- Keep title feedback below the longest normal menu so valid title states
   -- remain screenshot-readable as presentation options are added.
@@ -1391,7 +1560,9 @@ function Renderer:_draw_expedition_reward(app)
       description = passive.description .. "  •  NOW " .. preview.current .. "  •  NEXT " .. preview.next,
     }
   end
-  self:_menu("CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
+  local level = app.expedition and app.expedition.pending_reward_context == "level"
+    and app.session.state.expedition.level or nil
+  self:_menu(level and ("LEVEL " .. tostring(level) .. " — CHOOSE A PASSIVE") or "CHOOSE A PASSIVE", items, app.menu, "W/S SELECT     ENTER TAKE")
 end
 
 function Renderer:_draw_expedition_chest(app)
@@ -1412,10 +1583,11 @@ function Renderer:_draw_expedition_build(app)
   self:_text("RUN BUILD", 42, 34, 2, { 0.7, 0.9, 1 })
   self:_text((summary.character and summary.character.display_name or "UNKNOWN") .. "  •  STAGE " .. tostring(summary.stage or 1)
     .. "  •  ENCOUNTER " .. tostring(summary.encounter or 0), 42, 68, 0.76, { 0.72, 0.8, 0.92 })
-  self:_text("SCRAP " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
+  local xp_text = summary.xp_to_next and ("XP " .. tostring(summary.xp or 0) .. "/" .. tostring(summary.xp_to_next)) or "XP MAX"
+  self:_text("LEVEL " .. tostring(summary.level or 1) .. "   " .. xp_text .. "   CASH " .. tostring(summary.currency or 0), 42, 92, 0.9, { 0.65, 0.9, 0.8 })
   self:_text("WEAPON: " .. string.upper(summary.weapon and summary.weapon.display_name or "OFFLINE"), 42, 126, 0.8, { 0.95, 0.85, 0.3 })
   self:_text("ABILITY: " .. string.upper(summary.ability and summary.ability.display_name or "OFFLINE"), 42, 148, 0.8, { 0.95, 0.65, 0.35 })
-  self:_text("PASSIVES", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
+  self:_text("PASSIVES — ACTUAL STACKED EFFECTS", 42, 190, 0.95, { 0.95, 0.85, 0.3 })
   local y = 216
   for _, passive in ipairs(summary.passives or {}) do
     self:_text(passive.display_name .. " ×" .. passive.count, 58, y, 0.78, { 0.82, 0.88, 0.98 })
@@ -1432,7 +1604,9 @@ function Renderer:_draw_expedition_summary(app)
   local title = summary.victory and "EXPEDITION COMPLETE" or "EXPEDITION LOST"
   local items = {
     { name = summary.character or "UNKNOWN", description = "STAGE " .. tostring(summary.stage or 1) .. " • ENCOUNTER " .. tostring(summary.encounter or 0) },
-    { name = "KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0),
+    { name = "LEVEL " .. tostring(summary.level or 1) .. "   XP " .. tostring(summary.total_xp or 0),
+      description = "CASH " .. tostring(summary.currency or 0) .. "   KILLS " .. tostring(summary.kills or 0) .. "   COMPONENT BREAKS " .. tostring(summary.component_breaks or 0) },
+    { name = "BUILD RESULT",
       description = "TOP PASSIVES: " .. table.concat((function()
         local labels = {}
         for index = 1, math.min(3, #(summary.passive_stacks or {})) do

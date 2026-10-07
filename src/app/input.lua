@@ -13,6 +13,10 @@ local function expedition_field(app)
 end
 
 function Input.keypressed(app, key, _, is_repeat)
+  if key == "f3" and not is_repeat and app.screen == "game" then
+    app.debug_overlay = not app.debug_overlay
+    return
+  end
   if app.screen == "expedition_character_select" then
     local options = app:expedition_character_options_list()
     if key == "escape" then
@@ -356,7 +360,7 @@ function Input.keypressed(app, key, _, is_repeat)
           local direction = app:set_movement_key(key, true)
           if direction then
             app:start_held_move(direction)
-            app:perform_turn(direction)
+            app:request_movement(direction, "direct")
           end
         end
       elseif key == "e" and not is_repeat then
@@ -387,7 +391,7 @@ function Input.keypressed(app, key, _, is_repeat)
         local direction = app:set_movement_key(key, true)
         if direction then
           app:start_held_move(direction)
-          app:perform_turn(direction)
+          app:request_movement(direction, "direct")
         end
       end
     elseif SHOT_KEYS[key] and not campaign and not expedition then
@@ -399,23 +403,23 @@ function Input.keypressed(app, key, _, is_repeat)
     elseif key == "g" and not campaign and not expedition then
       app:open_salvage()
     elseif key == "u" then
-      app:perform_turn("interact")
+      if expedition then app:request_expedition_turn("interact") else app:perform_turn("interact") end
     elseif key == "e" and (campaign or expedition) then
-      app:perform_turn("attack")
+      if expedition then app:request_expedition_turn("attack") else app:perform_turn("attack") end
     elseif key == "r" and campaign and not is_repeat then
       app:perform_turn("swap_weapon")
     elseif key == "q" and campaign and not is_repeat then
       app:activate_campaign_ability()
     elseif key == "q" and expedition and not is_repeat then
-      app:perform_turn("q")
+      app:request_expedition_turn("q")
     elseif key == "r" and expedition and not is_repeat then
-      app:perform_turn("swap_weapon")
+      app:request_expedition_turn("swap_weapon")
     elseif key == "x" and campaign and not is_repeat then
       app:perform_turn("swap_ability")
     elseif key == "x" and expedition and not is_repeat then
-      app:perform_turn("swap_ability")
+      app:request_expedition_turn("swap_ability")
     elseif key == "q" or key == "e" or key == "b" or key == "f" then
-      app:perform_turn(key)
+      if expedition then app:request_expedition_turn(key) else app:perform_turn(key) end
     elseif key == "x" and not campaign and not expedition then
       app:open_body_abilities()
     elseif key == "c" and not expedition then
@@ -430,7 +434,7 @@ function Input.keyreleased(app, key)
     if direction then
       app:start_held_move(direction)
     else
-      app.held_direction, app.hold_timer = nil, nil
+      app:clear_held_move_intent()
     end
   end
 end

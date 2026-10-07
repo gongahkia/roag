@@ -195,8 +195,10 @@ function GameplayUI.hud(session)
     }
     local stacks = 0
     for _, count in pairs(state.expedition.passive_stacks or {}) do stacks = stacks + count end
+    local threshold = (state.expedition.xp_thresholds or {})[state.expedition.level_threshold_index or 1]
     expedition_model = { stage = state.expedition.stage, encounter = state.expedition.encounter_index,
-      currency = state.expedition.currency, passive_stacks = stacks }
+      currency = state.expedition.currency, passive_stacks = stacks, level = state.expedition.level or 1,
+      xp = state.expedition.xp or 0, xp_to_next = threshold, topology = state.expedition.current_topology }
   elseif session.campaign then
     local loadout = session:campaign_loadout()
     local function slot_model(kind, index)

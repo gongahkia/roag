@@ -70,10 +70,6 @@ services:
     <<: *graphical
     command: ["love", "studio"]
 
-  sprite-editor:
-    <<: *graphical
-    command: ["love", "sprite_editor"]
-
   generation-inspector:
     <<: *graphical
     command: ["love", "level_editor"]

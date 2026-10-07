@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "chamber.pockets_basic",
+  "name": "Pocket Lanes",
+  "enabled": true,
+  "weight": 1,
+  "width": 12,
+  "height": 9,
+  "topology_tags": ["pockets"],
+  "tile_legend": { ".": "floor", "#": "wall" },
+  "tiles": ["............", "......#.....", "......#.....", "............", "..###.#####.", "......#.....", "......#.....", "............", "............"],
+  "markers": {
+    "player_spawn": [{ "x": 3, "y": 4 }],
+    "enemy_spawns": [{ "x": 11, "y": 4, "group": "east" }, { "x": 9, "y": 8, "group": "north" }, { "x": 9, "y": 2, "group": "south" }, { "x": 2, "y": 6, "group": "west" }],
+    "exits": [{ "x": 11, "y": 2 }], "caches": [{ "x": 2, "y": 2 }], "reinforcements": [], "boss_spawns": []
+  }
+}

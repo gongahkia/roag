@@ -1,4 +1,4 @@
-.PHONY: build test package play shell studio sprite-editor generation-inspector room-editor graphics-doctor art-validate art-export \
+.PHONY: build test package visual-validate expedition-validate play shell studio generation-inspector room-editor graphics-doctor feel-analyze \
 	debug doctor debug-content debug-scenario debug-expedition debug-modifier debug-determinism debug-bundle debug-test
 
 COMPOSE ?= ./tools/docker-compose.sh
@@ -9,14 +9,14 @@ build:
 test:
 	$(COMPOSE) run --rm test
 
-package:
+package: visual-validate expedition-validate
 	$(COMPOSE) run --rm package
 
-art-validate:
-	$(COMPOSE) run --rm --entrypoint luajit test tools/validate_art.lua
+visual-validate:
+	$(COMPOSE) run --rm test luajit tools/validate_loveable_rogue.lua
 
-art-export:
-	ASEPRITE_BIN="$(ASEPRITE_BIN)" ./tools/export_art.sh
+expedition-validate:
+	$(COMPOSE) run --rm test luajit tools/validate_expedition_content.lua
 
 play:
 	$(COMPOSE) run --rm game
@@ -29,9 +29,6 @@ shell:
 
 studio:
 	$(COMPOSE) run --rm studio
-
-sprite-editor:
-	$(COMPOSE) run --rm sprite-editor
 
 generation-inspector:
 	$(COMPOSE) run --rm generation-inspector
@@ -66,3 +63,6 @@ debug-bundle:
 debug-test:
 	@test -n "$(TEST)" || (echo 'Usage: make debug-test TEST="text in test name"' >&2; exit 2)
 	$(COMPOSE) run --rm -e ROAG_TEST_MATCH="$(TEST)" test
+
+feel-analyze:
+	$(COMPOSE) run --rm test luajit tools/analyze_feel01.lua

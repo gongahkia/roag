@@ -236,9 +236,10 @@ return {
       assert(FallenArchive.append(app.fallen_archive, record_from(later, "fallen:000002")).applied)
       assert(Json.encode(app.session.state.fallen_recurrence) == frozen)
       assert(#app:fallen_archive_entries() == 2)
-      local title_has_fallen = false
-      for _, option in ipairs(app:title_options()) do if option.name == "FALLEN" then title_has_fallen = true end end
-      assert(title_has_fallen and app:open_fallen_archive() and app.screen == "fallen_archive")
+      -- Fallen archives remain a compatibility/persistence system, but are no
+      -- longer promoted as a primary Expedition title action.
+      for _, option in ipairs(app:title_options()) do assert(option.id ~= "fallen") end
+      assert(app:open_fallen_archive() and app.screen == "fallen_archive")
       assert(active:exists())
       local archive_before = assert(archive_store:read())
       local preview_spec = Recurrence.copy_spec(app.session.state.fallen_recurrence)

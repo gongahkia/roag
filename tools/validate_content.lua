@@ -7,8 +7,7 @@ local Corpora = require("src.rooms.corpora")
 local RouteDefinitions = require("src.routes.definitions")
 local ScreenManager = require("src.ui.screen_manager")
 local PresentationFlow = require("src.presentation.presentation_flow")
-local ArtPackConfig = require("src.presentation.art_pack_config")
-local ArtPackCatalog = require("src.presentation.art_pack_catalog")
+local LoveableRogueAssets = require("src.rendering.loveable_rogue_assets")
 local BalanceReport = require("src.balance.report")
 
 local ok, registry_or_error = xpcall(Registry.load, debug.traceback)
@@ -33,8 +32,7 @@ end
 local presentation_checks = {
   { label = "screen definitions", loader = ScreenManager.load },
   { label = "presentation flow", loader = PresentationFlow.load },
-  { label = "art-pack config", loader = function() return ArtPackConfig.load({ strict = true }) end },
-  { label = "art-pack catalog", loader = ArtPackCatalog.load },
+  { label = "Loveable Rogue visual atlas", loader = LoveableRogueAssets.load_metadata },
 }
 for _, check in ipairs(presentation_checks) do
   local value, failure = check.loader()

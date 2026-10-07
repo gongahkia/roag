@@ -38,6 +38,7 @@ local DiscoveryGeneration = require("src.generation.discoveries")
 local ReinforcementGeneration = require("src.generation.reinforcements")
 local LandmarkGeneration = require("src.generation.landmarks")
 local Generator = require("src.generation.map")
+local Chambers = require("src.expedition.chambers")
 local Grid = require("src.world.grid")
 local World = require("src.world.world")
 local Rng = require("src.rng")
@@ -50,6 +51,26 @@ local BuildEffects = require("src.simulation.build_effects")
 
 local Session = {}
 Session.__index = Session
+
+-- Run-local Expedition progression values.  They are deliberately based on
+-- existing mechanical role/elite data rather than a score formula.  The
+-- values feed XP level-up choices and the one SCRAP cash economy only.
+local EXPEDITION_XP_BY_ROLE = {
+  rusher = 2,
+  skirmisher = 3,
+  flanker = 3,
+  ranged = 3,
+  controller = 4,
+  heavy = 5,
+}
+local EXPEDITION_CASH_BY_ROLE = {
+  rusher = 1,
+  skirmisher = 1,
+  flanker = 1,
+  ranged = 1,
+  controller = 2,
+  heavy = 2,
+}
 
 -- These values describe the enduring body/cargo/progression layer. In a
 -- legacy standalone Session they remain ordinary fields. Campaign supplies a
@@ -3478,11 +3499,15 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     actor.health = math.max(0, (actor.health or 0) - amount)
     if actor.health == 0 then
       if actor == state.boss then
-        self:_defeat_boss(actor)
+        self:_defeat_boss(actor, { source_actor = provenance.source_actor, root_action_id = provenance.build_chain and provenance.build_chain.root_action_id })
       else
         local index = self:_enemy_index(actor)
         if index then
-          self:_destroy_enemy(index, { player_caused = provenance.source_actor == state.player })
+          self:_destroy_enemy(index, {
+            player_caused = provenance.source_actor == state.player,
+            source_actor = provenance.source_actor,
+            root_action_id = provenance.build_chain and provenance.build_chain.root_action_id,
+          })
         end
       end
       dead = true
@@ -3501,6 +3526,8 @@ function Session:_apply_world_actor_damage(actor, amount, message, provenance)
     target = actor, source_actor = provenance.source_actor, x = actor.x, y = actor.y,
     amount = amount, cause = provenance.cause, direction = provenance.direction,
     heavy = amount >= 2 or provenance.cause == "explosive" or provenance.cause == "kinetic",
+    player_caused = provenance.source_actor == state.player,
+    root_action_id = provenance.build_chain and provenance.build_chain.root_action_id,
   })
   if body_damage and body_damage.became_broken then
     if self.expedition and provenance.source_actor == state.player then
@@ -4465,6 +4492,106 @@ function Session:start_biome_tier(biome_id, tier_id, floor_seed, service_id, opt
   return { biome = biome, tier = tier, floor_seed = state.floor_seed }
 end
 
+-- Expedition rooms intentionally do not go through the large biome-floor
+-- generator.  They still construct an ordinary World, with ordinary material
+-- cells, liquids, hazards, Force collisions, fire and electricity; the small
+-- chamber is simply the only passable island inside that World.  Keeping this
+-- here avoids a second combat simulator while ensuring Sandbox floor
+-- construction is completely untouched.
+function Session:start_expedition_chamber(biome_id, tier_id, floor_seed, chamber_spec)
+  assert(self.expedition, "Expedition chamber construction requires Expedition mode")
+  local state = self.state
+  local biome = self.route_definitions:get_biome(biome_id)
+  local tier = self.route_definitions:get_tier(tier_id)
+  local settings = self:_settings_for_floor(biome, tier)
+  floor_seed = Rng.new(floor_seed or self.seed).seed
+  state.route, state.route_node_id, state.floor_seed = nil, nil, floor_seed
+  state.discovery_state = copy_discovery_state({ enabled = false }, false)
+  state.reinforcement_state = copy_reinforcement_state({ enabled = false }, false)
+  state.legacy_stage_generation = false
+  state.stage = tier.number
+  state.settings = settings
+  self:_prepare_run_player_for_stage(settings)
+
+  local chamber = Chambers.generate({ definition = assert(chamber_spec and chamber_spec.definition, "Expedition chamber definition is required") })
+  state.player.x, state.player.y = chamber.player_spawn.x, chamber.player_spawn.y
+  state.world = World.new(self.registry, settings.terrain, chamber.layout, self.identity_allocator or state, chamber.material_layout)
+  for _, liquid in ipairs(chamber.features.liquids or {}) do
+    local result = state.world:set_liquid(liquid.x, liquid.y, "liquid.water.legacy", 1)
+    assert(result.applied or result.code == "unchanged", "Expedition chamber could not place conductive water")
+  end
+  for _, hazard in ipairs(chamber.features.hazards or {}) do
+    local placed, result = state.world:place_hazard(hazard.definition_id, hazard.x, hazard.y)
+    assert(placed or (result and result.code == "occupied_hazard"), "Expedition chamber could not place hazard")
+  end
+  for _, gas in ipairs(chamber.features.gases or {}) do
+    local result = state.world:set_gas(gas.x, gas.y, gas.gas_id, gas.concentration)
+    assert(result.applied or result.code == "unchanged", "Expedition chamber could not place gas")
+  end
+  for _, door in ipairs(chamber.features.doors or {}) do
+    local placed = state.world:place_object(door.definition_id, door.x, door.y)
+    assert(placed, "Expedition chamber could not place authored door")
+  end
+  for _, fire in ipairs(chamber.features.fires or {}) do
+    local ignited = self:ignite_terrain(fire.x, fire.y, { source = "authored_expedition_chamber" })
+    assert(ignited and ignited.applied, "Expedition chamber could not ignite authored fire tile")
+  end
+  state.effects, state.electrical_effects, state.corpses = {}, {}, {}
+  state.exit, state.boss, state.transition_next = nil, nil, nil
+  state.targets, state.enemies, state.bullets, state.area_attacks = {}, {}, {}, {}
+  state.bombs, state.flares, state.torches, state.ammo = {}, {}, {}, nil
+  state.generation_metadata = {
+    chamber = {
+      topology = chamber.topology,
+      bounds = chamber.bounds,
+      cell_count = chamber.cell_count,
+    },
+  }
+  state.phase, state.ended = "combat", nil
+  state.expedition.chamber = chamber
+  self:validate_world()
+  self:refresh_visibility()
+  self:validate_physical_ownership()
+  return chamber
+end
+
+function Session:start_expedition_boss_chamber(floor_seed, options)
+  assert(self.expedition, "Expedition boss chamber construction requires Expedition mode")
+  options = options or {}
+  local state = self.state
+  local biome = self.route_definitions:get_biome(options.biome_id or "biome.legacy.reactor")
+  local tier = self.route_definitions:get_tier(options.tier_id or "tier.legacy.3")
+  local settings = self:_settings_for_floor(biome, tier)
+  settings.terrain = "arena"
+  state.route, state.route_node_id, state.floor_seed = nil, nil, Rng.new(floor_seed or self.seed).seed
+  state.discovery_state = copy_discovery_state({ enabled = false }, false)
+  state.reinforcement_state = copy_reinforcement_state({ enabled = false }, false)
+  state.legacy_stage_generation = false
+  state.stage, state.settings = tier.number, settings
+  self:_prepare_run_player_for_stage(settings)
+  local chamber = Chambers.generate({ definition = assert(options.chamber_definition, "Expedition boss chamber definition is required") })
+  local bounds = chamber.bounds
+  chamber.player_spawn = Chambers.spawn_point(chamber, "west", 1, nil)
+  state.player.x, state.player.y = chamber.player_spawn.x, chamber.player_spawn.y
+  state.world = World.new(self.registry, settings.terrain, chamber.layout, self.identity_allocator or state, chamber.material_layout)
+  state.effects, state.electrical_effects, state.corpses = {}, {}, {}
+  state.exit, state.targets, state.enemies, state.bullets, state.area_attacks = nil, {}, {}, {}, {}
+  state.bombs, state.flares, state.torches, state.ammo = {}, {}, {}, nil
+  local boss_id = options.boss_id or "boss.legacy.final"
+  local boss_spawn = Chambers.spawn_point(chamber, "east", 1, { [Grid.key(state.player.x, state.player.y)] = true })
+  state.boss = self:_make_boss(boss_id, boss_spawn)
+  state.boss_completed = nil
+  state.phase, state.ended = "boss", nil
+  state.generation_metadata = {
+    chamber = { topology = "boss", bounds = bounds, cell_count = chamber.cell_count },
+  }
+  state.expedition.chamber = chamber
+  self:validate_world()
+  self:refresh_visibility()
+  self:validate_physical_ownership()
+  return chamber
+end
+
 function Session:choose_boons(count)
   local options = self.rng:shuffle(self.content.boons)
   local result = {}
@@ -4565,6 +4692,50 @@ function Session:_destroy_target(index)
   self:_log("Destroyed a target.")
 end
 
+function Session:_award_expedition_progress(enemy, context)
+  local expedition = self.state.expedition
+  if not expedition or not enemy then return nil end
+  local role = enemy.ai_role or "rusher"
+  local xp = EXPEDITION_XP_BY_ROLE[role] or 2
+  local cash = EXPEDITION_CASH_BY_ROLE[role] or 1
+  if enemy.elite then xp, cash = xp + 7, cash + 3 end
+  expedition.xp = (expedition.xp or 0) + xp
+  expedition.total_xp = (expedition.total_xp or 0) + xp
+  expedition.currency = (expedition.currency or 0) + cash
+  expedition.kills = (expedition.kills or 0) + 1
+  self.state.scrap = expedition.currency -- shared HUD compatibility only.
+  local thresholds = expedition.xp_thresholds or {}
+  local gained_levels = 0
+  while thresholds[(expedition.level_threshold_index or 1)]
+    and expedition.xp >= thresholds[expedition.level_threshold_index] do
+    expedition.xp = expedition.xp - thresholds[expedition.level_threshold_index]
+    expedition.level = (expedition.level or 1) + 1
+    expedition.level_threshold_index = expedition.level_threshold_index + 1
+    expedition.pending_level_ups = (expedition.pending_level_ups or 0) + 1
+    gained_levels = gained_levels + 1
+  end
+  local active = self:expedition_active_weapon()
+  local ammo = 0
+  if active and active.ability.ammo then
+    local family = active.ability.ammo.family
+    ammo = RunModifiers.value(self.state, self.registry, "ammo_on_kill")
+    expedition.reserve_ammo[family] = (expedition.reserve_ammo[family] or 0) + ammo
+  end
+  self:_event("expedition_progress", {
+    kind = "kill",
+    source_actor = context and context.source_actor,
+    root_action_id = context and context.root_action_id,
+    enemy = enemy,
+    role = role,
+    elite = enemy.elite == true,
+    xp = xp,
+    cash = cash,
+    ammo = ammo,
+    levels = gained_levels,
+  })
+  return { xp = xp, cash = cash, ammo = ammo, levels = gained_levels }
+end
+
 function Session:_destroy_enemy(index, context)
   local enemy = remove(self.state.enemies, index)
   self:_create_corpse(enemy)
@@ -4574,20 +4745,12 @@ function Session:_destroy_enemy(index, context)
   local player_caused = context == nil or context.player_caused ~= false
   if player_caused then
     self.state.player.objective_progress = self.state.player.objective_progress + 1
-    self.state.player.score = self.state.player.objective_progress
     if self.expedition then
-      local expedition = self.state.expedition
-      local reward = enemy.elite and 4 or 1
-      expedition.currency = (expedition.currency or 0) + reward
-      expedition.kills = (expedition.kills or 0) + 1
-      self.state.scrap = expedition.currency -- shared HUD compatibility only.
-      local active = self:expedition_active_weapon()
-      if active and active.ability.ammo then
-        local family = active.ability.ammo.family
-        local bonus = RunModifiers.value(self.state, self.registry, "ammo_on_kill")
-        expedition.reserve_ammo[family] = (expedition.reserve_ammo[family] or 0) + bonus
-      end
+      self:_award_expedition_progress(enemy, context)
     else
+      -- Campaign keeps this legacy compatibility field. Expedition has no
+      -- score model: actual kill rewards are XP and run-local cash only.
+      self.state.player.score = self.state.player.objective_progress
       if enemy.scrap_award then self.state.scrap = self.state.scrap + 1 end
       self:_reload(2, true)
     end
@@ -6164,13 +6327,33 @@ function Session:start_boss()
   self:validate_physical_ownership()
 end
 
-function Session:_defeat_boss(boss)
+function Session:_defeat_boss(boss, context)
   local state = self.state
   if state.boss ~= boss then return false end
   local definition = self:_boss_definition(boss)
   boss.pending_telegraph = nil
   self:_cancel_area_attacks_from(boss)
   if self.expedition then
+    local expedition = state.expedition
+    local xp, cash = 24, 10
+    expedition.xp = (expedition.xp or 0) + xp
+    expedition.total_xp = (expedition.total_xp or 0) + xp
+    expedition.currency = (expedition.currency or 0) + cash
+    self.state.scrap = expedition.currency
+    local gained_levels, thresholds = 0, expedition.xp_thresholds or {}
+    while thresholds[(expedition.level_threshold_index or 1)]
+      and expedition.xp >= thresholds[expedition.level_threshold_index] do
+      expedition.xp = expedition.xp - thresholds[expedition.level_threshold_index]
+      expedition.level = (expedition.level or 1) + 1
+      expedition.level_threshold_index = expedition.level_threshold_index + 1
+      expedition.pending_level_ups = (expedition.pending_level_ups or 0) + 1
+      gained_levels = gained_levels + 1
+    end
+    self:_event("expedition_progress", {
+      kind = "boss", source_actor = context and context.source_actor,
+      root_action_id = context and context.root_action_id,
+      xp = xp, cash = cash, levels = gained_levels, boss = true,
+    })
     self:_create_corpse(boss)
     state.boss = nil
     state.boss_completed = definition.id

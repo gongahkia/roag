@@ -13,7 +13,7 @@ Audit date: 2026-10-05. Scope: every runtime screen reachable through `src/app/a
 
 | Surface | Player question | Current clarity / action |
 | --- | --- | --- |
-| Title | Which game am I resuming or starting? | `CONTINUE CAMPAIGN` and `LEGACY RUN` already distinguish persistent Campaign from compatibility mode. Keep this distinction in title copy. |
+| Title | Which game am I starting or resuming? | Lead with `EXPEDITION`; keep `OPEN WORLD SANDBOX` and contextual Sandbox/legacy continuation clearly labeled as separate compatibility paths. Do not advertise Research/Fallen as primary modes. |
 | Campaign slots / replacement | Which save will change? | Good: slot selection and replacement are explicit. No modal action needed. |
 | Legacy onboarding | Is this the same as Campaign? | Corrected copy: it now identifies itself as a legacy run and points out that Campaign has anchor-based succession. |
 | Help | What are Campaign's essential rules? | Corrected stale floor-only reconstruction/death copy; added an explicit Campaign death-and-anchor section. |

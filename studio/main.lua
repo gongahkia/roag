@@ -5,13 +5,15 @@ package.path = source .. "/?.lua;" .. source .. "/?/init.lua;" .. root .. "/?.lu
 
 local ScreenEditor = require("screen_editor")
 local ModifierEditor = require("modifier_editor")
-local CursorManager = require("sprite_editor.cursor_manager")
+local ExpeditionWorkbench = require("expedition_workbench")
+local CursorManager = require("src.ui.cursor_manager")
 local mode, editor, fonts, cursor
 local cards = {
   { title = "SCREEN COMPOSER", subtitle = "Edit validated JSON copy, layout and palette tokens.", action = "screens" },
   { title = "MODIFIER WORKBENCH", subtitle = "Author serialized Expedition passives and inspect their resolution traces.", action = "modifiers" },
-  { title = "SPRITE WORKBENCH", subtitle = "Map ROAG roles to a sprite sheet with undoable assignments.", command = "love sprite_editor" },
-  { title = "ROOM WORKBENCH", subtitle = "Author Dungeon and Reactor room templates.", command = "love level_editor --room-editor" },
+  { title = "EXPEDITION WORKBENCH", subtitle = "Author validated chambers and encounters, then preview the real Expedition runtime.", action = "expedition" },
+  { title = "VISUAL ATLAS", subtitle = "Loveable Rogue mapping is a validated fixed production contract; see its JSON and mapping guide.", command = "content/presentation/loveable_rogue_atlas.json" },
+  { title = "SANDBOX ROOM TEMPLATES", subtitle = "Legacy Dungeon and Reactor room templates; this does not author Expedition chambers.", command = "love level_editor --room-editor" },
   { title = "GENERATION INSPECTOR", subtitle = "Inspect deterministic floors and environment overlays.", command = "love level_editor" },
 }
 local function color(v) love.graphics.setColor(v[1], v[2], v[3], v[4] or 1) end
@@ -19,11 +21,11 @@ local function inside(x, y, r) return x >= r.x and y >= r.y and x <= r.x + r.wid
 local function txt(v, x, y, scale, tint, limit) love.graphics.setFont(scale >= 1.7 and fonts.title or scale >= 1.1 and fonts.large or fonts.normal); color(tint or { .84, .89, .96 }); if limit then love.graphics.printf(v, x, y, limit) else love.graphics.print(v, x, y) end end
 function love.load()
   fonts = { normal = love.graphics.newFont(14), large = love.graphics.newFont(19), title = love.graphics.newFont(30) }
-  cursor = CursorManager.new(); cursor:load(); cursor:set("default"); mode = "home"
+  cursor = CursorManager.new(root .. "/assets/cursors/kenney/PNG/Basic/Default/"); cursor:load(); cursor:set("default"); mode = "home"
 end
 function love.update()
   local x, y = love.mouse.getPosition()
-  if mode == "screens" or mode == "modifiers" then
+  if mode == "screens" or mode == "modifiers" or mode == "expedition" then
     cursor:set("action")
   else
     local active = false
@@ -32,7 +34,7 @@ function love.update()
   end
 end
 function love.draw()
-  if mode == "screens" or mode == "modifiers" then editor:draw(); return end
+  if mode == "screens" or mode == "modifiers" or mode == "expedition" then editor:draw(); return end
   local w, h = love.graphics.getDimensions(); love.graphics.clear(.025, .035, .055)
   txt("ROAG STUDIO", 24, 24, 1.8, { .42, .84, 1 }); txt("A focused 2D authoring workspace — content tools stay isolated from active runs.", 24, 62, .8, { .52, .61, .72 })
   for i, card in ipairs(cards) do
@@ -42,6 +44,6 @@ function love.draw()
   end
   txt("Studio currently focuses on ROAG's own deterministic content format; it is not a replacement for a general-purpose engine.", 28, h - 40, .7, { .52, .61, .72 })
 end
-function love.mousepressed(x, y, button) if mode == "screens" or mode == "modifiers" then if editor:mousepressed(x, y, button) == "back" then mode = "home" end; return end; if button == 1 then for _, card in ipairs(cards) do if card.action and inside(x, y, card.rect) then editor, mode = card.action == "screens" and ScreenEditor.new() or ModifierEditor.new(), card.action; return end end end end
-function love.keypressed(key) if mode == "screens" or mode == "modifiers" then if editor:keypressed(key) == "back" then mode = "home" end elseif key == "escape" then love.event.quit() end end
-function love.textinput(value) if mode == "screens" or mode == "modifiers" then editor:textinput(value) end end
+function love.mousepressed(x, y, button) if mode == "screens" or mode == "modifiers" or mode == "expedition" then if editor:mousepressed(x, y, button) == "back" then mode = "home" end; return end; if button == 1 then for _, card in ipairs(cards) do if card.action and inside(x, y, card.rect) then editor, mode = card.action == "screens" and ScreenEditor.new() or card.action == "modifiers" and ModifierEditor.new() or ExpeditionWorkbench.new(), card.action; return end end end end
+function love.keypressed(key) if mode == "screens" or mode == "modifiers" or mode == "expedition" then if editor:keypressed(key) == "back" then mode = "home" end elseif key == "escape" then love.event.quit() end end
+function love.textinput(value) if mode == "screens" or mode == "modifiers" or mode == "expedition" then editor:textinput(value) end end

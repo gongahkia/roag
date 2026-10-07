@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "chamber.pinball_basic",
+  "name": "Pinball Basic",
+  "enabled": true,
+  "weight": 1,
+  "width": 11,
+  "height": 9,
+  "topology_tags": ["pinball"],
+  "tile_legend": { ".": "floor", "#": "wall" },
+  "tiles": ["...........", "...........", ".......#...", "...#.......", "...........", "...........", ".....#.....", "...........", "..........."],
+  "markers": {
+    "player_spawn": [{ "x": 4, "y": 5 }],
+    "enemy_spawns": [{ "x": 10, "y": 5, "group": "east" }, { "x": 6, "y": 8, "group": "north" }, { "x": 6, "y": 2, "group": "south" }, { "x": 2, "y": 5, "group": "west" }],
+    "exits": [{ "x": 10, "y": 2 }], "caches": [{ "x": 2, "y": 2 }], "reinforcements": [], "boss_spawns": []
+  }
+}

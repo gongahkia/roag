@@ -1,9 +1,14 @@
-# Asset credits
+# Runtime visual assets
 
-The playable LÖVE port uses the **[Kenney 1-Bit Pack](https://kenney.nl/assets/1-bit-pack)** for its tile and entity sprites. It is CC0; the supplied `assets/kenney/License.txt` is retained.
+ROAG has one active game-art source: the committed local Loveable Rogue collage
+at `assets/art_packs/loveable_rogue.png`. `tools/extract_loveable_rogue_atlas.sh`
+mechanically crops its documented native-pixel 256×256 source panel into the
+runtime atlas at `assets/visual/loveable_rogue_atlas.png`.
 
-Sound effects are selected from Kenney's **[50 RPG Sound Effects on OpenGameArt](https://opengameart.org/content/50-rpg-sound-effects)**: footsteps, knife draw/slice, chop, coin handling, metal impact, doors, and UI book flip. This pack is CC0; its original `assets/sounds/license.txt` is retained.
+The semantic mapping and bitmap-font rows are explicit in
+`content/presentation/loveable_rogue_atlas.json`. Runtime validation rejects
+missing mappings rather than substituting procedural shapes or another pack.
 
-The UI uses **[BigBlue Terminal](https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.5.1)** (`BigBlueTermPlusNerdFontMono-Regular.ttf`) at native pixel-friendly sizing. It is retained with its upstream `assets/fonts/LICENSE.TXT`; the upstream BigBlue Terminal license is CC BY-SA 4.0.
-
-The live game uses verified tiles from the supplied Kenney sheet. The player is the adventurer at column 25, row 1; targets, ammo, light sources, doors, projectiles, explosives, enemy variants, and the boss are likewise mapped explicitly in the `sprite` table in `main.lua`. The mapping was checked against a labelled rendering of the 49 × 22 sheet, avoiding the earlier grave-marker mismatch.
+The repository's former alternative art packs and TTF runtime font were
+removed in VIS-01. The normal game archive contains only the extracted runtime
+atlas and its metadata, not the collage or authoring/import tooling.
