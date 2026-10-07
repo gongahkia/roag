@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.field_repair","name":"FIELD REPAIR","description":"Restore 1 HP after each cleared encounter per stack.","category":"sustain","tags":["heal","clear"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"clear_heal","value":{"kind":"linear","base":1,"per_stack":1}}],"hooks":[]}

@@ -1,0 +1,448 @@
+{
+  "regions": {
+    "hearthford": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "m"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "t"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "w"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall",
+            "elite"
+          ],
+          [
+            "traveller",
+            "raider",
+            "stonefall",
+            "elite"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "greywash": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": ":"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "w"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "q"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "stonefall"
+          ],
+          [
+            "traveller",
+            "raider",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "traveller",
+          "elite"
+        ],
+        "lower": [
+          "beast",
+          "traveller",
+          "stonefall"
+        ]
+      }
+    },
+    "greenwold": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "t"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "s"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "m"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "stonefall",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "whitecairn": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "_"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "q"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "_"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "stonefall",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "elite"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "dunmire": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "m"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "w"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "t"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "t"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "stonefall"
+          ],
+          [
+            "traveller",
+            "raider",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "rillscar": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "q"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "m"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "r"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "stonefall",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "elite"
+          ],
+          [
+            "traveller",
+            "raider",
+            "stonefall",
+            "elite"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "marlbank": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "m"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "r"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "t"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "m"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "stonefall",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    },
+    "frostmere": {
+      "pockets": [
+        {
+          "id": "landform_0",
+          "glyph": "_"
+        },
+        {
+          "id": "landform_1",
+          "glyph": "q"
+        },
+        {
+          "id": "landform_2",
+          "glyph": "w"
+        },
+        {
+          "id": "landform_3",
+          "glyph": "r"
+        }
+      ],
+      "encounters": {
+        "pockets": [
+          [
+            "traveller",
+            "beast",
+            "raider"
+          ],
+          [
+            "traveller",
+            "beast",
+            "stonefall"
+          ],
+          [
+            "traveller",
+            "raider",
+            "elite"
+          ],
+          [
+            "traveller",
+            "beast",
+            "raider",
+            "stonefall"
+          ]
+        ],
+        "upper": [
+          "raider",
+          "elite",
+          "traveller"
+        ],
+        "lower": [
+          "beast",
+          "stonefall",
+          "traveller"
+        ]
+      }
+    }
+  }
+}

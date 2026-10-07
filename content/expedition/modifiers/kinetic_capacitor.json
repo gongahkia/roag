@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.kinetic_capacitor","name":"KINETIC CAPACITOR","description":"+1 Force on melee hits per stack.","category":"kinetic","tags":["melee","force"],"pool":{"enabled":true,"weight":2,"affinity_tags":["melee"]},"static_effects":[{"kind":"modify_stat","stat":"melee_force","value":{"kind":"linear","base":1,"per_stack":1}}],"hooks":[]}

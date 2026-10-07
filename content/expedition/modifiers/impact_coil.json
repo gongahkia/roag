@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.impact_coil","name":"IMPACT COIL","description":"Gain melee Force every 2 stacks.","category":"kinetic","tags":["melee","force"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"melee_force","value":{"kind":"every_n","base":1,"per_step":1,"n":2}}],"hooks":[]}

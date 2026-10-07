@@ -1,0 +1,267 @@
+{
+  "quests": {
+    "hearthford": {
+      "title": "The Mill Race Compact",
+      "cache": "reed",
+      "lead": "Mara's flood marks point to the Flood-islet cache south of the road loop.",
+      "final": [
+        [
+          "l",
+          "Bind the mill labour and sluice as a public compact",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "r",
+          "Recognise the reeve's faster private repair claim",
+          "danger",
+          true,
+          ""
+        ]
+      ]
+    },
+    "greywash": {
+      "title": "The Ledger Beneath the Ebb",
+      "cache": "greywash-wreck",
+      "lead": "Edda names the Distinctive wreck locker on the low road before the tide covers it.",
+      "final": [
+        [
+          "s",
+          "Wait for the safer delayed salt road",
+          "ordinary",
+          true,
+          ""
+        ],
+        [
+          "e",
+          "Take the ebb salvage while the chain route is exposed",
+          "danger",
+          false,
+          "open the wreck locker or dog the tide chain"
+        ]
+      ]
+    },
+    "greenwold": {
+      "title": "A Fire Kept to Its Bounds",
+      "cache": "greenwold-watch",
+      "lead": "Nera's bird counts mark a Canopy cache above the western clearing.",
+      "final": [
+        [
+          "m",
+          "Save the medicine coppice and narrow the burn",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "c",
+          "Feed the charcoal contract and accept a wider managed burn",
+          "danger",
+          true,
+          ""
+        ]
+      ]
+    },
+    "whitecairn": {
+      "title": "The Honest Bell",
+      "cache": "whitecairn-bridge",
+      "lead": "Pera's load marks identify the Ridge bridge coffer above the quarry hoist.",
+      "final": [
+        [
+          "w",
+          "Ring an honest warning and close the unstable face",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "x",
+          "Expose the false toll with recovered quarry evidence",
+          "danger",
+          false,
+          "recover the bridge coffer or brace the quarry"
+        ]
+      ]
+    },
+    "dunmire": {
+      "title": "The Ground Owed to Water",
+      "cache": "dunmire-deep",
+      "lead": "Deren's drain marks lead from the store cellar to the buried peat strongbox.",
+      "final": [
+        [
+          "b",
+          "Breach the drying bank; save the islands, lose this fuel yield",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "h",
+          "Hold the drying bank and honour the winter fuel obligation",
+          "danger",
+          false,
+          "brace the drying control or recover the drain record"
+        ]
+      ]
+    },
+    "rillscar": {
+      "title": "A Bridge with Two Owners",
+      "cache": "rillscar-crown",
+      "lead": "Vessa kept the bridge load account in the Weatherward roof coffer, above the cutworks.",
+      "final": [
+        [
+          "o",
+          "Open the tailrace and retire the private bridge guard",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "b",
+          "Bind the two bridge claims with the recovered load account",
+          "danger",
+          false,
+          "secure the upper coffer or brace the tailrace control"
+        ]
+      ]
+    },
+    "marlbank": {
+      "title": "The Kiln and the Seed Bed",
+      "cache": "marlbank-ledger",
+      "lead": "Odrin's Witnessed market coffer records which kiln water also feeds the seed terraces.",
+      "final": [
+        [
+          "f",
+          "Give the release to the fields; cool the working kilns",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "k",
+          "Preserve the kiln firing and ration the seed terraces",
+          "danger",
+          false,
+          "read the water account or operate the release"
+        ]
+      ]
+    },
+    "frostmere": {
+      "title": "The Last Marked Channel",
+      "cache": "frostmere-loft",
+      "lead": "Brenna's sounding board rests in the Loft survey cabinet, above the winter nets.",
+      "final": [
+        [
+          "l",
+          "Mark the long lee channel; shelter the nets and delay trade",
+          "commitment",
+          true,
+          ""
+        ],
+        [
+          "c",
+          "Open the direct ice cut under a witnessed pilot obligation",
+          "danger",
+          false,
+          "recover the sounding board or secure the ice control"
+        ]
+      ]
+    }
+  },
+  "rewards": {
+    "hearthford": "witness token",
+    "greywash": "storm vane",
+    "greenwold": "ember cloth",
+    "whitecairn": "high tread",
+    "dunmire": "cork float",
+    "rillscar": "quarry brace",
+    "marlbank": "ember cloth",
+    "frostmere": "storm vane"
+  },
+  "arc_regions": {
+    "1": "greywash",
+    "2": "greenwold",
+    "3": "whitecairn",
+    "4": "hearthford"
+  },
+  "arc_title": "The Four Working Marks",
+  "additional_arcs": {
+    "banks": {
+      "title": "Banks That Hold",
+      "start": "hearthford",
+      "regions": {
+        "1": "dunmire",
+        "2": "marlbank",
+        "3": "hearthford"
+      },
+      "requires": [
+        "hearthford",
+        "dunmire",
+        "marlbank"
+      ],
+      "evidence": "bound bank roll"
+    },
+    "soundings": {
+      "title": "Soundings and Spans",
+      "start": "greywash",
+      "regions": {
+        "1": "frostmere",
+        "2": "rillscar",
+        "3": "greywash"
+      },
+      "requires": [
+        "greywash",
+        "frostmere",
+        "rillscar"
+      ],
+      "evidence": "sounding chain account"
+    },
+    "repairs": {
+      "title": "Scars Kept in Use",
+      "start": "greenwold",
+      "regions": {
+        "1": "hearthford",
+        "2": "rillscar",
+        "3": "greenwold"
+      },
+      "requires": [
+        "greenwold",
+        "hearthford",
+        "rillscar"
+      ],
+      "requires_aftermath": true,
+      "evidence": "scar repair folio",
+      "public_openings": [
+        "p"
+      ],
+      "environment_choices": [
+        "r",
+        "s"
+      ]
+    },
+    "refuges": {
+      "title": "Refuges at Low Water",
+      "start": "greywash",
+      "regions": {
+        "1": "dunmire",
+        "2": "frostmere",
+        "3": "greywash"
+      },
+      "requires": [
+        "greywash",
+        "dunmire",
+        "frostmere"
+      ],
+      "requires_aftermath": true,
+      "evidence": "ebb refuge chart",
+      "public_openings": [
+        "l"
+      ],
+      "environment_choices": [
+        "i",
+        "w"
+      ]
+    }
+  }
+}

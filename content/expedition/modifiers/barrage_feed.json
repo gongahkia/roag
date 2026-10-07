@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.barrage_feed","name":"BARRAGE FEED","description":"Gain 1 projectile every 2 stacks.","category":"geometry","tags":["projectile","scatter"],"pool":{"enabled":true,"weight":1},"static_effects":[{"kind":"modify_stat","stat":"projectile_count","value":{"kind":"every_n","base":1,"per_step":1,"n":2}}],"hooks":[]}

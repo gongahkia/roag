@@ -1,0 +1,155 @@
+{
+  "encounters": {
+    "sheltered": [
+      "quiet_witnesses",
+      "dropped_parcel",
+      "unstable_stone",
+      "stray_claimant",
+      "travelling_witness",
+      "wandering_beast"
+    ],
+    "contested": [
+      "stray_claimant",
+      "unstable_stone",
+      "dropped_parcel",
+      "stray_claimant",
+      "wandering_beast",
+      "elite_surveyor"
+    ],
+    "network": [
+      "travelling_witness",
+      "quiet_witnesses",
+      "dropped_parcel",
+      "wandering_beast",
+      "travelling_witness"
+    ],
+    "open": [
+      "travelling_witness",
+      "dropped_parcel",
+      "wandering_beast",
+      "stray_claimant",
+      "quiet_witnesses"
+    ],
+    "disputed": [
+      "elite_surveyor",
+      "stray_claimant",
+      "unstable_stone",
+      "wandering_beast",
+      "stray_claimant"
+    ]
+  },
+  "sanctums": {
+    "hearthford": {
+      "network": "network:bank-measures",
+      "boss": {
+        "profile": "reach",
+        "role": "protector",
+        "goal": "guard the measured seal",
+        "duty": "drain",
+        "health": 12,
+        "glyph": "A",
+        "capability_id": "sanctum.hearthford.boss.capability",
+        "counterplay_id": "sanctum.hearthford.boss.counterplay",
+        "capability": "drains a flooded lane before pressing with a spear"
+      }
+    },
+    "greywash": {
+      "network": "network:wreck-and-span",
+      "boss": {
+        "profile": "ranged",
+        "role": "shooter",
+        "goal": "hold distance",
+        "duty": "rally",
+        "health": 11,
+        "glyph": "B",
+        "capability_id": "sanctum.greywash.boss.capability",
+        "counterplay_id": "sanctum.greywash.boss.counterplay",
+        "capability": "signals a roof escort before firing across an open lane"
+      }
+    },
+    "greenwold": {
+      "network": "network:burn-shelter",
+      "boss": {
+        "profile": "pursuer",
+        "role": "flanker",
+        "goal": "flank courier",
+        "duty": "kindle",
+        "health": 11,
+        "glyph": "D",
+        "capability_id": "sanctum.greenwold.boss.capability",
+        "counterplay_id": "sanctum.greenwold.boss.counterplay",
+        "capability": "kindles carried roof fuel while circling the stalls"
+      }
+    },
+    "whitecairn": {
+      "network": "network:cold-road",
+      "boss": {
+        "profile": "reach",
+        "role": "controller",
+        "goal": "deny route",
+        "duty": "cut support",
+        "health": 13,
+        "glyph": "E",
+        "capability_id": "sanctum.whitecairn.boss.capability",
+        "counterplay_id": "sanctum.whitecairn.boss.counterplay",
+        "capability": "marks a weakened roof support and denies the stair with a net"
+      }
+    },
+    "dunmire": {
+      "network": "network:burn-shelter",
+      "boss": {
+        "profile": "ranged",
+        "role": "shooter",
+        "goal": "hold distance",
+        "duty": "drain",
+        "health": 10,
+        "glyph": "F",
+        "capability_id": "sanctum.dunmire.boss.capability",
+        "counterplay_id": "sanctum.dunmire.boss.counterplay",
+        "capability": "drains its own flooded gallery before firing"
+      }
+    },
+    "rillscar": {
+      "network": "network:wreck-and-span",
+      "boss": {
+        "profile": "reach",
+        "role": "protector",
+        "goal": "protect ally",
+        "duty": "brace",
+        "health": 13,
+        "glyph": "G",
+        "capability_id": "sanctum.rillscar.boss.capability",
+        "counterplay_id": "sanctum.rillscar.boss.counterplay",
+        "capability": "braces a failing crossing while sheltering its guard"
+      }
+    },
+    "marlbank": {
+      "network": "network:bank-measures",
+      "boss": {
+        "profile": "pursuer",
+        "role": "interceptor",
+        "goal": "intercept courier",
+        "duty": "kindle",
+        "health": 12,
+        "glyph": "H",
+        "capability_id": "sanctum.marlbank.boss.capability",
+        "counterplay_id": "sanctum.marlbank.boss.counterplay",
+        "capability": "lights stored kiln fuel before closing the aisle"
+      }
+    },
+    "frostmere": {
+      "network": "network:cold-road",
+      "boss": {
+        "profile": "ranged",
+        "role": "shooter",
+        "goal": "hold distance",
+        "duty": "heal",
+        "health": 11,
+        "glyph": "J",
+        "capability_id": "sanctum.frostmere.boss.capability",
+        "counterplay_id": "sanctum.frostmere.boss.counterplay",
+        "capability": "spends carried dressings on a roof escort while sighting the channel"
+      }
+    }
+  }
+}

@@ -1,0 +1,229 @@
+"""Typed persistent-effect operands and strictly validated integer stack rules."""
+
+from dataclasses import dataclass
+from enum import StrEnum
+from fractions import Fraction
+from functools import lru_cache
+
+from .stacks import StackMode, StackRule
+
+
+class EffectKey(StrEnum):
+    ADRENAL_BLOCK = "adrenal_block"
+    BOON_OFFER_CHOICES = "boon_offer_choices"
+    COMBAT_VICTORY_HEAL = "combat_victory_heal"
+    COUNTERCURRENT_DRAW = "countercurrent_draw"
+    CURSE_DEAD_DRAW = "curse_dead_draw"
+    CURSE_DRAW_ENERGY = "curse_draw_energy"
+    CURSE_DRAW_MOVE = "curse_draw_move"
+    CURSE_DRAW_STRESS = "curse_draw_stress"
+    CURSE_DRAW_WOUND = "curse_draw_wound"
+    CURSE_HELD_STRESS = "curse_held_stress"
+    CURSE_DEATHS_DOOR_BLOCK = "curse_deaths_door_block"
+    CURSE_LOW_LIGHT_DAMAGE_BONUS = "curse_low_light_damage_bonus"
+    CURSE_MARKED_DAMAGE_BONUS = "curse_marked_damage_bonus"
+    CURSE_PRESSURE_DAMAGE_BONUS = "curse_pressure_damage_bonus"
+    CURSE_STRESSED_DAMAGE_BONUS = "curse_stressed_damage_bonus"
+    CURSE_WOUNDED_DAMAGE_BONUS = "curse_wounded_damage_bonus"
+    DAMAGE_DISCARD = "damage_discard"
+    DAMAGE_DRAW = "damage_draw"
+    DEATH_CHANCE_REDUCTION = "death_chance_reduction"
+    DEFLECTION = "deflection"
+    FIRST_BLOCK_COST_INCREASE = "first_block_cost_increase"
+    FIRST_CARD_COST_INCREASE = "first_card_cost_increase"
+    FIRST_ROUND_ENERGY = "first_round_energy"
+    FOCUS_DRAW = "focus_draw"
+    FORCED_MOVE_BONUS = "forced_move_bonus"
+    FORCED_MOVE_REDUCTION = "forced_move_reduction"
+    HEALING_BONUS = "healing_bonus"
+    HEALING_REDUCTION = "healing_reduction"
+    INCOMING_DAMAGE_BONUS = "incoming_damage_bonus"
+    INCOMING_DAMAGE_REDUCTION = "incoming_damage_reduction"
+    LEAKING_LIGHT = "leaking_light"
+    MARKED_DAMAGE_BONUS = "marked_damage_bonus"
+    MERCY_BLOCK = "mercy_block"
+    NIGHT_TERROR_STRESS = "night_terror_stress"
+    OPENING_HAND = "opening_hand"
+    PATROL_AGGRESSION_REDUCTION = "patrol_aggression_reduction"
+    QUICK_HANDS = "quick_hands"
+    RESERVE_ENERGY = "reserve_energy"
+    RESONANT_ENERGY = "resonant_energy"
+    REWARD_CHOICES = "reward_choices"
+    SALVAGE_COPIES = "salvage_copies"
+    SCAVENGER_STRESS = "scavenger_stress"
+    SECOND_WIND = "second_wind"
+    STACKED_START_BLOCK = "stacked_start_block"
+    START_BLOCK = "start_block"
+    START_DODGE = "start_dodge"
+    START_FOCUS = "start_focus"
+    START_MARKED = "start_marked"
+    START_STRESS_RELIEF = "start_stress_relief"
+    START_VULNERABLE = "start_vulnerable"
+    STRESS_BONUS = "stress_bonus"
+    STRESS_REDUCTION = "stress_reduction"
+    STRESSED_DAMAGE_BONUS = "stressed_damage_bonus"
+    SUPPLY_HEAL_BONUS = "supply_heal_bonus"
+    SUPPLY_LIGHT_BONUS = "supply_light_bonus"
+    SURVEY_REACH = "survey_reach"
+    WOUND_REDUCTION = "wound_reduction"
+
+
+class Unit(StrEnum):
+    COUNT = "count"
+    BASIS_POINTS = "basis_points"
+
+
+@dataclass(frozen=True)
+class TriggerDisclosure:
+    timing: str
+    limit: str
+    descendants: str
+
+    def text(self) -> str:
+        return f"{self.timing}; {self.limit}; descendants {self.descendants}"
+
+
+FRACTIONAL_KEYS = frozenset({"death_chance_reduction", "healing_bonus", "healing_reduction",
+                           "incoming_damage_bonus", "incoming_damage_reduction", "marked_damage_bonus",
+                           "stress_bonus", "stress_reduction", "stressed_damage_bonus",
+                           "curse_low_light_damage_bonus", "curse_marked_damage_bonus",
+                           "curse_pressure_damage_bonus", "curse_stressed_damage_bonus",
+                           "curse_wounded_damage_bonus"})
+
+
+def _disclosures() -> dict[EffectKey, TriggerDisclosure]:
+    result: dict[EffectKey, TriggerDisclosure] = {}
+
+    def assign(keys, timing: str, limit: str, descendants: str = "cannot retrigger it") -> None:
+        for key in keys:
+            if key in result:
+                raise RuntimeError(f"duplicate persistent trigger disclosure: {key.value}")
+            result[key] = TriggerDisclosure(timing, limit, descendants)
+
+    assign((EffectKey.START_BLOCK, EffectKey.STACKED_START_BLOCK, EffectKey.START_DODGE,
+            EffectKey.START_FOCUS, EffectKey.START_MARKED, EffectKey.START_STRESS_RELIEF,
+            EffectKey.START_VULNERABLE, EffectKey.FIRST_ROUND_ENERGY, EffectKey.OPENING_HAND),
+           "combat start", "once per combat")
+    assign((EffectKey.SUPPLY_HEAL_BONUS, EffectKey.SUPPLY_LIGHT_BONUS),
+           "manual supply use", "once per spent supply", "do not apply")
+    assign((EffectKey.COMBAT_VICTORY_HEAL,), "combat victory", "once per victory")
+    assign((EffectKey.FOCUS_DRAW,), "focus-granting technique", "first authored count each round")
+    assign((EffectKey.RESERVE_ENERGY,), "played card leaves zero energy", "once per combat")
+    assign((EffectKey.DAMAGE_DRAW,), "damage technique", "first authored count each round")
+    assign((EffectKey.COUNTERCURRENT_DRAW,), "movement technique", "once per round")
+    assign((EffectKey.RESONANT_ENERGY,), "every third owned card play", "once per card play")
+    assign((EffectKey.MERCY_BLOCK,), "healing response", "once per triggering heal")
+    assign((EffectKey.ADRENAL_BLOCK,), "first health injury in an enemy phase", "once per enemy phase")
+    assign((EffectKey.DAMAGE_DISCARD,), "damage technique", "first authored count each round")
+    assign((EffectKey.CURSE_DRAW_ENERGY, EffectKey.CURSE_DRAW_MOVE,
+            EffectKey.CURSE_DRAW_STRESS, EffectKey.CURSE_DRAW_WOUND),
+           "bound curse drawn", "once per drawn copy")
+    assign((EffectKey.CURSE_HELD_STRESS,), "bound curse held at turn end", "once per held copy")
+    assign((EffectKey.CURSE_DEAD_DRAW,), "bound curse occupies the shared deck", "no scalar activation",
+           "do not apply")
+    assign((EffectKey.CURSE_STRESSED_DAMAGE_BONUS, EffectKey.CURSE_WOUNDED_DAMAGE_BONUS,
+            EffectKey.CURSE_MARKED_DAMAGE_BONUS, EffectKey.CURSE_LOW_LIGHT_DAMAGE_BONUS,
+            EffectKey.CURSE_PRESSURE_DAMAGE_BONUS),
+           "matching owner's resolved damage", "continuous while its disclosed condition holds",
+           "do not apply")
+    assign((EffectKey.CURSE_DEATHS_DOOR_BLOCK,), "manual block card owned at Death's Door",
+           "continuous while at Death's Door", "do not apply")
+    assign((EffectKey.DEFLECTION,), "first unblocked hostile hit on each hero", "once per hero per combat")
+    assign((EffectKey.SECOND_WIND,), "first lethal Death's Door entry", "once per hero per combat")
+    assign((EffectKey.FIRST_BLOCK_COST_INCREASE,), "block technique", "first authored count each round",
+           "do not apply")
+    assign((EffectKey.FIRST_CARD_COST_INCREASE,), "owned card play", "first card each combat",
+           "do not apply")
+    assign((EffectKey.QUICK_HANDS,), "owned card play", "first authored count each round",
+           "do not apply")
+    assign((EffectKey.LEAKING_LIGHT,), "each ten exploration steps", "once per interval",
+           "do not apply")
+    assign((EffectKey.NIGHT_TERROR_STRESS,), "each eight exploration steps", "once per interval",
+           "do not apply")
+    assign((EffectKey.SCAVENGER_STRESS,), "item acquisition", "once per acquisition",
+           "do not apply")
+    assign((EffectKey.SALVAGE_COPIES,), "item acquisition", "once using the pre-pickup stack",
+           "cannot multiply its own award")
+    assign((EffectKey.REWARD_CHOICES,), "combat technique offer", "once per offer",
+           "do not apply")
+    assign((EffectKey.BOON_OFFER_CHOICES,), "boon beacon offer", "once per offer",
+           "do not apply")
+    assign((EffectKey.PATROL_AGGRESSION_REDUCTION, EffectKey.SURVEY_REACH),
+           "expedition routing", "continuous while owned", "do not apply")
+    assign((EffectKey.DEATH_CHANCE_REDUCTION, EffectKey.FORCED_MOVE_BONUS,
+            EffectKey.FORCED_MOVE_REDUCTION, EffectKey.HEALING_BONUS,
+            EffectKey.HEALING_REDUCTION, EffectKey.INCOMING_DAMAGE_BONUS,
+            EffectKey.INCOMING_DAMAGE_REDUCTION, EffectKey.MARKED_DAMAGE_BONUS,
+            EffectKey.STRESS_BONUS, EffectKey.STRESS_REDUCTION,
+            EffectKey.STRESSED_DAMAGE_BONUS, EffectKey.WOUND_REDUCTION),
+           "matching resolved effect", "continuous while owned", "do not apply")
+    missing = set(EffectKey) - result.keys()
+    if missing:
+        raise RuntimeError("missing persistent trigger disclosures: " + ", ".join(sorted(key.value for key in missing)))
+    return result
+
+
+TRIGGER_DISCLOSURES = _disclosures()
+
+
+def trigger_disclosure(key: EffectKey | str) -> TriggerDisclosure:
+    return TRIGGER_DISCLOSURES[EffectKey(key)]
+
+
+@dataclass(frozen=True)
+class PersistentEffectContract:
+    key: EffectKey
+    unit: Unit
+    stack: StackRule
+
+    def value(self, count: int) -> int | Fraction:
+        value = self.stack.value(count)
+        if self.stack.mode == StackMode.MULTIPLICATIVE and count:
+            value -= 10000
+        return Fraction(value, 10000) if self.unit == Unit.BASIS_POINTS else value
+
+    def display(self, value: int) -> str:
+        if self.unit == Unit.COUNT:
+            return str(value)
+        if self.stack.mode == StackMode.MULTIPLICATIVE:
+            return f"{value // 10000}.{value % 10000:04d}x"
+        whole, fraction = divmod(value, 100)
+        return f"{whole}.{fraction:02d}%"
+
+
+@lru_cache(maxsize=512)
+def _compiled(key, unit, mode, amount, cap, every, table, bound, monotonic, converted_from):
+    return PersistentEffectContract(EffectKey(key), Unit(unit),
+                                    StackRule(StackMode(mode), amount, cap, every, table, bound, monotonic, converted_from))
+
+
+def persistent_effect(raw: dict) -> PersistentEffectContract:
+    if not isinstance(raw, dict) or set(raw) != {"key", "unit", "stack"}:
+        raise ValueError("persistent effects require exactly key, unit and stack")
+    key, unit = EffectKey(raw["key"]), Unit(raw["unit"])
+    if (unit == Unit.BASIS_POINTS) != (key.value in FRACTIONAL_KEYS):
+        raise ValueError("persistent effect unit contradicts its registered opcode")
+    rule = raw["stack"]
+    if not isinstance(rule, dict) or set(rule) - set(StackRule.__dataclass_fields__) or not {"mode", "amount"} <= rule.keys():
+        raise ValueError("unknown or missing stack policy fields")
+    mode = StackMode(rule["mode"])
+    if mode in {StackMode.MULTIPLICATIVE, StackMode.INDEPENDENT_CHANCE} and unit != Unit.BASIS_POINTS:
+        raise ValueError("ratio and chance policies require basis points")
+    if "every" in rule and mode != StackMode.THRESHOLD:
+        raise ValueError("only threshold policies accept every")
+    if mode == StackMode.TABLE and rule["amount"] != 0:
+        raise ValueError("table amounts belong in the table, not an unused scalar")
+    for field in ("amount", "cap"):
+        value = rule.get(field)
+        if value is not None and (type(value) is not int or not 0 <= value <= 1_000_000_000):
+            raise ValueError("authored stack magnitudes must be integers in 0..1000000000")
+    table = rule.get("table", [])
+    if not isinstance(table, (list, tuple)) or len(table) > 65:
+        raise ValueError("authored stack tables support at most 65 entries")
+    if any(type(value) is not int or not 0 <= value <= 1_000_000_000 for value in table):
+        raise ValueError("authored table values must be integers in 0..1000000000")
+    result = _compiled(key, unit, mode, rule["amount"], rule.get("cap"), rule.get("every", 1), tuple(table),
+                       rule.get("max_effective_stacks"), rule.get("monotonic", True), rule.get("converted_from"))
+    if mode == StackMode.MULTIPLICATIVE and result.stack.cap is not None and result.stack.cap < 10000 + result.stack.amount:
+        raise ValueError("multiplicative cap cannot contradict the first-stack factor")
+    return result

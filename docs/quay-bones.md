@@ -1,0 +1,9 @@
+# Quay Bones
+
+Sena's right-hand `Q` table is a physical 11×5 tavern table. One courier invites three named adults currently in the room; their schedules move them to actual chairs. The contest is a visible two-dice push-your-luck game, not a lottery machine or text-only prompt.
+
+The table follows the central [two-dice Pig rules](https://www.loodens.com/games/pig-with-two-dice/): roll repeatedly, keep a running turn total, a roll showing exactly one `1` loses that turn's unbanked points, and doubles require another roll. Jomon's house format is three rounds per seat, at most six rolls per turn, with the highest cumulative score winning. The six-roll cap overrides a final forced double. A tie is recorded but pays no prize.
+
+There is no entry fee. Sena sets aside a counted 24-credit purse per new world; a unique winner receives up to two credit from what remains. A courier receives it in Jomon trade credit, while an NPC receives it in their persistent personal bankroll shared with Tavern Draw. The purse never refills automatically, so there is no unlimited free-credit loop. After it empties, the same contest remains playable for no payout. Starting one contest costs one Jomon action; rolls and decisions are tabletop time only. A paused contest and its dice, scores, NPC decisions, purse, and short history survive saving. Only one of the three tavern games may be active at a time.
+
+At the lobby, `J/K` chooses a currently present adult, `Space` invites or removes them, and `Enter` begins after three invitations. At the table, `R` or `Enter` rolls two visibly animated dice, `H` banks after a non-double roll, and `Q` pauses. NPCs use the same bust and double rules, bank reasonably, and sometimes push farther when trailing. Their rolls, score tracks, and the winner's labelled credit outcome are shown on screen. Colour emphasizes danger and payout but never substitutes for the dice, numbers, and text.

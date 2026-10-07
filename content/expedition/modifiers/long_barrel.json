@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.long_barrel","name":"LONG BARREL","description":"+1 projectile range per stack.","category":"geometry","tags":["projectile","range"],"pool":{"enabled":true,"weight":1,"affinity_tags":["projectile"]},"static_effects":[{"kind":"modify_stat","stat":"projectile_range","value":{"kind":"linear","base":1,"per_stack":1}}],"hooks":[]}

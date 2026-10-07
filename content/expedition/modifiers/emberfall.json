@@ -1,1 +1,0 @@
-{"schema_version":1,"id":"expedition.passive.emberfall","name":"EMBERFALL","description":"Kills ignite the death cell. Each stack expands the fire.","category":"explosive","tags":["fire","kill"],"pool":{"enabled":true,"weight":1},"static_effects":[],"hooks":[{"trigger":"on_kill","conditions":[],"effects":[{"kind":"ignite","radius":{"kind":"linear","base":0,"per_stack":1}}]}]}
