@@ -1,10 +1,10 @@
 # Small-vehicle navigation
 
-The vessel chart remains Jomon's long-distance, crew-scale travel system. A
+The vessel chart remains Roag's long-distance, crew-scale travel system. A
 small craft now gives the active courier a separate, steerable local journey.
 At the working-deck gangplank, `E` still walks ashore immediately, while `Tab`
 opens a shore-or-tug choice. The tug launches
-at `J` on a seeded 78×28 water map; `L` marks the shore of Jomon's current
+at `J` on a seeded 78×28 water map; `L` marks the shore of Roag's current
 region. The central sounded lane is connected for every seed, while islands
 and shoals vary the surrounding route. Arrows or `HJKL` steer the tug up to
 three cells per action; `E` at `L` starts the ordinary regional expedition.
@@ -43,7 +43,7 @@ anywhere three-action jury-rig restores one point when no paid repair is
 available. Invalid or blocked commands spend neither charge nor world time.
 
 Vehicle positions, charge, wear, and the tug's outward/return leg were added in
-Jomon format 11 and remain in format 12. Format-10 saves gain parked vehicles without changing the
+Roag format 11 and remain in format 12. Format-10 saves gain parked vehicles without changing the
 courier's existing location or progress. The vehicle catalogue and deck
-floorplans are in `jomon/data/vehicles.json`; traversal and validation live in
-`jomon/vehicles.py`. No Dullest Dungeon or tavern-game rules are changed.
+floorplans are in `roag/data/vehicles.json`; traversal and validation live in
+`roag/vehicles.py`. No Dullest Dungeon or tavern-game rules are changed.

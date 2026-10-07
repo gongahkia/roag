@@ -3,22 +3,22 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import _threat_action, attack, depart
-from jomon.enemy_equipment import (
+from roag.actions import _threat_action, attack, depart
+from roag.enemy_equipment import (
     actor_items,
     harm_enemy,
     readied_weapon,
 )
-from jomon.inventory import create_item
-from jomon.materials import _expose
-from jomon.state import Position, create_world, game_state_from_dict, validate_state
-from jomon.terminal import observed_life_lines
-from jomon.world import JOMON_GANGPLANK
+from roag.inventory import create_item
+from roag.materials import _expose
+from roag.state import Position, create_world, game_state_from_dict, validate_state
+from roag.terminal import observed_life_lines
+from roag.world import ROAG_GANGPLANK
 
 
 def expedition(seed: str):
     state = create_world(seed)
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     return state
 

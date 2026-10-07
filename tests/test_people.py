@@ -4,14 +4,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import choose_courier, depart, guard, move, recruit_person, return_to_jomon
-from jomon.inventory import basic_courier_kit, equipped_item, weight_capacity
-from jomon.vessel import VESSEL_LEVELS
-from jomon.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
-from jomon.save import load_game, save_game
-from jomon.state import Position, create_world
-from jomon.terminal import _overlay_lines
-from jomon.world import JOMON_GANGPLANK
+from roag.actions import choose_courier, depart, guard, move, recruit_person, return_to_roag
+from roag.inventory import basic_courier_kit, equipped_item, weight_capacity
+from roag.vessel import VESSEL_LEVELS
+from roag.people import RECRUIT_REQUIREMENTS, adjacent_person, person_at
+from roag.save import load_game, save_game
+from roag.state import Position, create_world
+from roag.terminal import _overlay_lines
+from roag.world import ROAG_GANGPLANK
 
 
 class PhysicalTavernTests(unittest.TestCase):
@@ -44,7 +44,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_off_duty_household_adults_have_distinct_physical_seats(self):
         state = create_world("seated household")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         off_duty = [person for person in state.household if person.id != state.active_courier_id]
         seats = [state.tavern_positions[person.id] for person in off_duty]
         self.assertEqual(len(seats), 5)
@@ -53,7 +53,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_aboard_movement_and_conversation_are_zero_time(self):
         state = create_world("zero time tavern")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         person = state.household[1]
         seat = state.tavern_positions[person.id]
         state.position = Position(seat.x - 2, seat.y)
@@ -66,7 +66,7 @@ class PhysicalTavernTests(unittest.TestCase):
 
     def test_switching_couriers_physically_exchanges_places(self):
         state = create_world("physical exchange")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         first, second = state.household[:2]
         state.position = Position(state.tavern_positions[second.id].x - 1, state.tavern_positions[second.id].y)
         old_position = state.position
@@ -118,7 +118,7 @@ class PhysicalTavernTests(unittest.TestCase):
         for _ in range(2):
             self.assertTrue(depart(state).changed)
             state.position = state.region.landmarks["landing"]
-            result = return_to_jomon(state)
+            result = return_to_roag(state)
             self.assertTrue(result.changed)
         self.assertIn(f"practice.personal:{courier.role}", courier.learned_techniques)
         self.assertNotIn(f"seasoned {other.role}", other.learned_techniques)
@@ -156,9 +156,9 @@ class PhysicalTavernTests(unittest.TestCase):
         state.regions[region_id].changes[markers[0]] = True
         self.assertTrue(recruit_person(state, recruit.id).changed)
         self.assertTrue(choose_courier(state, recruit.id).changed)
-        state.jomon_space, state.position = "vessel", JOMON_GANGPLANK
+        state.roag_space, state.position = "vessel", ROAG_GANGPLANK
         for _ in range(2):
             self.assertTrue(depart(state).changed)
             state.position = state.region.landmarks["landing"]
-            self.assertTrue(return_to_jomon(state).changed)
+            self.assertTrue(return_to_roag(state).changed)
         self.assertIn(f"practice.personal:{recruit.role}", recruit.learned_techniques)

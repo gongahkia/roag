@@ -1,9 +1,9 @@
 import copy
 import unittest
 
-from jomon.regions import region_reachable
-from jomon.state import Position
-from jomon.systemic_audit import expanded_world, inspect_world, systemic_audit
+from roag.regions import region_reachable
+from roag.state import Position
+from roag.systemic_audit import expanded_world, inspect_world, systemic_audit
 
 
 class SystemicAuditTests(unittest.TestCase):

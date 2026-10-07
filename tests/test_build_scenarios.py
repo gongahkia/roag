@@ -1,11 +1,11 @@
 import copy
 import unittest
 
-from jomon.build_scenarios import BUILD_SCENARIOS, validate_build_scenarios
-from jomon.frontiers import ensure_frontier
-from jomon.inventory import auto_place, create_item, load_state, sync_legacy_load
-from jomon.state import Position, create_world, game_state_from_dict
-from jomon.world import build_combinations
+from roag.build_scenarios import BUILD_SCENARIOS, validate_build_scenarios
+from roag.frontiers import ensure_frontier
+from roag.inventory import auto_place, create_item, load_state, sync_legacy_load
+from roag.state import Position, create_world, game_state_from_dict
+from roag.world import build_combinations
 
 
 class BuildScenarioTests(unittest.TestCase):

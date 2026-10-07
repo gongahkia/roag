@@ -1,17 +1,17 @@
 import copy
 import unittest
 
-from jomon.actions import _advance_world, _threat_action, attack
-from jomon.content import FRONTIER_ACTORS
-from jomon.ecology import ACTOR_BUDGET, active_actors, opposed
-from jomon.encounters import frontier_population, threat_from_archetype
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.inventory import create_item, release_enemy_possession
-from jomon.materials import affect_body
-from jomon.regions import activate_region, region_reachable
-from jomon.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
-from jomon.terminal import observed_life_lines
-from jomon.world import position_key
+from roag.actions import _advance_world, _threat_action, attack
+from roag.content import FRONTIER_ACTORS
+from roag.ecology import ACTOR_BUDGET, active_actors, opposed
+from roag.encounters import frontier_population, threat_from_archetype
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.inventory import create_item, release_enemy_possession
+from roag.materials import affect_body
+from roag.regions import activate_region, region_reachable
+from roag.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
+from roag.terminal import observed_life_lines
+from roag.world import position_key
 
 
 class EcologyTests(unittest.TestCase):
@@ -138,7 +138,7 @@ class EcologyTests(unittest.TestCase):
         self.assertFalse(opposed(ward, raider))
 
     def test_group_alerts_do_not_transmit_across_the_whole_region(self):
-        from jomon.enemy_ai import perceive, raise_group_alert
+        from roag.enemy_ai import perceive, raise_group_alert
 
         caller = self.actor("gorge-caller")
         distant = self.actor("gorge-escort", Position(70, 40))
@@ -158,7 +158,7 @@ class EcologyTests(unittest.TestCase):
         self.assertLess(prey.health, prey.max_health)
 
     def test_quest_assigns_an_adult_guard_not_a_grazing_animal(self):
-        from jomon.actions import decide_objective
+        from roag.actions import decide_objective
 
         state = create_world("working fen")
         activate_region(state, "dunmire")

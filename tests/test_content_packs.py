@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import (
+from roag.catalog import (
     ContentPackError,
     WORLD_TEXT_SECTIONS,
     bundled_default_pack,
@@ -24,8 +24,8 @@ from jomon.catalog import (
 
 
 ROOT = Path(__file__).parents[1]
-DATA_ROOT = ROOT / "jomon" / "data"
-DEFAULT_PACK_ROOT = ROOT / "jomon" / "content_packs" / "default"
+DATA_ROOT = ROOT / "roag" / "data"
+DEFAULT_PACK_ROOT = ROOT / "roag" / "content_packs" / "default"
 
 
 def write_manifest(root: Path, document: str) -> None:
@@ -465,11 +465,11 @@ def world_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
         [
             sys.executable,
             "-c",
-            "import json; from jomon.state import create_world; "
-            "from jomon.terminal import RouteChartView, route_detail_lines, _status_lines; "
+            "import json; from roag.state import create_world; "
+            "from roag.terminal import RouteChartView, route_detail_lines, _status_lines; "
             "state = create_world('regional-pack-proof'); node = state.route_nodes['hearthford']; "
             "state.location = 'region'; state.position = state.region.landmarks['landing']; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'region': [state.region.id, state.region.name], "
             "'route': [node.id, node.name, node.description], "
             "'route_detail': route_detail_lines(state, RouteChartView('hearthford'), 80), "
@@ -494,9 +494,9 @@ def character_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
         [
             sys.executable,
             "-c",
-            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, _status_lines; "
+            "import json; from roag.state import create_world; from roag.terminal import _overlay_lines, _status_lines; "
             "state = create_world('character-pack-proof'); bartender = state.bartender; merchant = state.merchant; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'bartender': [bartender.id, bartender.name, bartender.role, bartender.equipment, bartender.technique, bartender.background, bartender.memories, bartender.build_tendency], "
             "'merchant': [merchant.id, merchant.name, merchant.role, merchant.equipment, merchant.technique, merchant.background, merchant.memories, merchant.build_tendency], "
             "'second_contact': [(contact.id, contact.name, contact.role, contact.disposition, contact.interest) for contact in state.contacts['hearthford'] if contact.id == 'hearthford-contact-2'][0], "
@@ -522,16 +522,16 @@ def item_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]
         [
             sys.executable,
             "-c",
-            "import copy, json; from jomon.actions import choose_weapon, move, purchase_merchant_item; "
-            "from jomon.inventory import create_item, item_spec; "
-            "from jomon.state import Position, create_world, game_state_from_dict; from jomon.terminal import _overlay_lines; from jomon.world import base_tile, is_walkable; "
-            "state = create_world('item-pack-proof'); initial_items = sorted((item.kind, item.quantity, item.location, item.owner_id, item.x, item.y) for item in state.items); initial_stock = list(state.merchant_stock); state.location = 'jomon'; state.jomon_space = 'vessel'; "
+            "import copy, json; from roag.actions import choose_weapon, move, purchase_merchant_item; "
+            "from roag.inventory import create_item, item_spec; "
+            "from roag.state import Position, create_world, game_state_from_dict; from roag.terminal import _overlay_lines; from roag.world import base_tile, is_walkable; "
+            "state = create_world('item-pack-proof'); initial_items = sorted((item.kind, item.quantity, item.location, item.owner_id, item.x, item.y) for item in state.items); initial_stock = list(state.merchant_stock); state.location = 'roag'; state.roag_space = 'vessel'; "
             "state.trade_credit = 10; state.merchant_present = True; state.merchant_stock = ['willow dressing']; merchant = _overlay_lines(state, 'merchant')[1]; "
             "rain = create_item(state, 'passive:rain cape', 'item pack proof'); chosen = choose_weapon(state, 'spear'); purchased = purchase_merchant_item(state, 'willow dressing'); "
             "state.location = 'region'; state.weather = 'hard rain'; start, dx, dy = next((Position(x, y, 0), dx, dy) for y in range(state.region.height) for x in range(state.region.width) for dx, dy in ((1, 0), (0, 1)) if is_walkable(state, Position(x, y, 0)) and is_walkable(state, Position(x + dx, y + dy, 0)) and base_tile(state, Position(x + dx, y + dy, 0)) not in {'m', 'r', 'q', 't', 'w', ','}); "
             "cape, bare = copy.deepcopy(state), copy.deepcopy(state); cape.position = bare.position = start; cape.carried_passives = {'rain cape': 1}; bare.carried_passives = {}; cape_before, bare_before = cape.world_time, bare.world_time; move(cape, dx, dy); move(bare, dx, dy); "
-            "saved = game_state_from_dict(state.to_dict()); state.location = 'jomon'; state.jomon_space = 'vessel'; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "saved = game_state_from_dict(state.to_dict()); state.location = 'roag'; state.roag_space = 'vessel'; "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'names': [item_spec('spear').name, item_spec('marsh waders').name, item_spec('consumable:willow dressing').name, item_spec('passive:rain cape').name], "
             "'kinds': [next(item.kind for item in state.items if item.kind == 'spear'), rain.kind, next(item.kind for item in state.items if item.kind == 'consumable:willow dressing')], 'initial_items': initial_items, 'initial_stock': initial_stock, "
             "'equip': [chosen.changed, state.weapon], 'purchase': [purchased.changed, state.merchant_stock], "
@@ -554,14 +554,14 @@ def workline_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item, sync_legacy_load; "
-            "from jomon.regions import activate_region; from jomon.state import create_world; "
-            "from jomon.worklines import carried_evidence, field_site, lines, options, resolve, survey_site; "
+            "import json; from roag.inventory import auto_place, create_item, sync_legacy_load; "
+            "from roag.regions import activate_region; from roag.state import create_world; "
+            "from roag.worklines import carried_evidence, field_site, lines, options, resolve, survey_site; "
             "state = create_world('workline-pack-proof'); activate_region(state, 'hearthford'); state.location = 'region'; state.threats.clear(); state.world_time = 8; state.trade_credit = 12; "
             "contact = state.contacts['hearthford'][1]; state.position = state.actor_schedules[contact.id].position; opening = resolve(state, 'h'); opening_options = options(state); opening_lines = lines(state); state.position = survey_site(state); survey = resolve(state, 'e'); survey_lines = lines(state); "
             "item = create_item(state, 'commodity:timber', 'workline pack proof'); auto_place(state, item.id, 'pack', owner_id=state.active_courier_id); sync_legacy_load(state); state.position = field_site(state); work = resolve(state, 'f'); "
             "state.position = state.actor_schedules[contact.id].position; settlement = resolve(state, 'p'); quest = state.worklines['hearthford']; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'opening': opening.message, 'survey': survey.message, 'work': work.message, 'settlement': settlement.message, 'lines': lines(state), 'opening_lines': opening_lines, 'survey_lines': survey_lines, "
             "'opening_options': [(row[0], row[2], row[3]) for row in opening_options], "
             "'mechanics': [quest.stage, quest.status, quest.branch, state.region.changes.get('raised_watch_approach'), state.trade_credit, state.market['grain'].stock, state.items[-1].kind, state.items[-1].location, bool(carried_evidence(state))]}))",
@@ -577,12 +577,12 @@ def interference_presentation_snapshot(environment: dict[str, str]) -> dict[str,
         [
             sys.executable,
             "-c",
-            "import json; from jomon.frontiers import ensure_frontier; from jomon.interference import INTERFERENCES, lines_for_region; "
-            "from jomon.regions import activate_region; from jomon.situations import BY_REGION_BAND; from jomon.state import create_world; "
+            "import json; from roag.frontiers import ensure_frontier; from roag.interference import INTERFERENCES, lines_for_region; "
+            "from roag.regions import activate_region; from roag.situations import BY_REGION_BAND; from roag.state import create_world; "
             "state = create_world('interference-pack-proof'); ensure_frontier(state, 'marlbank'); row = next(row for row in INTERFERENCES if row.id == 'measured-grain-release'); "
             "situation = BY_REGION_BAND[row.origin, 'steady']; state.regions[row.origin].changes['micro-site:resolved:' + situation.id] = True; "
             "source = state.regional_markets[row.origin][row.cargo]; destination = state.regional_markets[row.destination][row.cargo]; before = [source.stock, destination.stock, destination.demand]; activate_region(state, row.destination); "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'notice': state.messages[-1], 'chronicle': state.chronicle[-1], 'ledger': lines_for_region(state, row.destination), "
             "'mechanics': [row.id, row.kind, row.origin, row.destination, row.cargo, before, source.stock, destination.stock, destination.demand, state.vessel_changes['interference:' + row.id], state.institutions['work:' + row.destination].confidence, sorted(key for key in state.regions[row.origin].changes if key.startswith('interference-out:')), sorted(key for key in state.regions[row.destination].changes if key.startswith('interference-in:'))]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
@@ -597,14 +597,14 @@ def legendary_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
         [
             sys.executable,
             "-c",
-            "import json; from jomon.arc_relics import use_arc_relic; from jomon.frontiers import FRONTIERS; from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load; "
-            "from jomon.materials import fields; from jomon.regions import activate_region; from jomon.state import MaterialCell, Position, create_world; "
+            "import json; from roag.arc_relics import use_arc_relic; from roag.frontiers import FRONTIERS; from roag.inventory import auto_place, create_item, item_spec, sync_legacy_load; "
+            "from roag.materials import fields; from roag.regions import activate_region; from roag.state import MaterialCell, Position, create_world; "
             "state = create_world('legendary-pack-proof'); [activate_region(state, region) for region in FRONTIERS]; "
             "legends = sorted((legend.id, legend.region_id, legend.base_kind, legend.institution_id, legend.historical_event_id, legend.tags, legend.range_bonus, legend.material_verbs) for legend in state.legendary_objects.values()); "
             "presented = sorted((legend.id, legend.name, legend.provenance, legend.clue) for legend in state.legendary_objects.values()); "
             "state.location = 'region'; state.position = Position(40, 24); item = create_item(state, 'relic:common-work rivet', 'legendary fixture'); auto_place(state, item.id, 'pack', owner_id=state.active_courier_id); state.relics['common-work rivet'] = 1; state.carried_relic = 'common-work rivet'; sync_legacy_load(state); state.carried_relic = 'common-work rivet'; "
             "worn = next(item for item in state.items if item.location == 'readied' and item.owner_id == state.active_courier_id); worn.condition = 50; fields(state)['41,24,0'] = MaterialCell(material='timber', support=1, collapse_due=10); used = use_arc_relic(state, 'common-work rivet'); "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'legends': legends, 'presented': presented, 'relic': [item_spec('relic:common-work rivet').name, item_spec('relic:common-work rivet').description, used[1]], 'mechanics': [used[0], worn.condition, fields(state)['41,24,0'].support, fields(state)['41,24,0'].collapse_due, state.relics, state.carried_relic, state.legendary_objects['legend:hearthford'].base_kind]}))",
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'legends': legends, 'presented': presented, 'relic': [item_spec('relic:common-work rivet').name, item_spec('relic:common-work rivet').description, used[1]], 'mechanics': [used[0], worn.condition, fields(state)['41,24,0'].support, fields(state)['41,24,0'].collapse_due, state.relics, state.carried_relic, state.legendary_objects['legend:hearthford'].base_kind]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -617,11 +617,11 @@ def topology_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
         [
             sys.executable,
             "-c",
-            "import json; from jomon.navigation import navigation_targets; from jomon.state import create_world; "
+            "import json; from roag.navigation import navigation_targets; from roag.state import create_world; "
             "state=create_world('topology-pack-proof'); region=state.region; state.location='region'; state.position=region.landmarks['landing']; "
             "state.region.seen=[f'{point.x},{point.y},{point.z}' for point in region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in region.containers] + [f'{point.x},{point.y},{point.z}' for link in region.vertical_links for point in (link.first, link.second)]; "
             "targets=navigation_targets(state); "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'mechanics': [region.id, region.width, region.height, region.levels, sorted((key, point.x, point.y, point.z) for key, point in region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in region.containers), region.geography_signature], "
             "'presentation': [list(region.zones), [(link.id, link.name) for link in region.vertical_links], [(box.id, box.name) for box in region.containers], [(target.id, target.label) for target in targets if target.id.startswith(('landmark:mill', 'link:hearthford:mill_ladder', 'container:cellar'))]]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
@@ -636,10 +636,10 @@ def regional_generator_presentation_snapshot(environment: dict[str, str]) -> dic
         [
             sys.executable,
             "-c",
-            "import json; from jomon.navigation import navigation_targets; from jomon.regions import activate_region; from jomon.state import create_world; "
+            "import json; from roag.navigation import navigation_targets; from roag.regions import activate_region; from roag.state import create_world; "
             "state=create_world('regional-generator-pack-proof'); mechanics={}; presentation={}; "
             "[(activate_region(state, region_id), setattr(state, 'location', 'region'), setattr(state, 'position', state.region.landmarks['landing']), setattr(state.region, 'seen', [f'{point.x},{point.y},{point.z}' for point in state.region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in state.region.containers] + [f'{point.x},{point.y},{point.z}' for link in state.region.vertical_links for point in (link.first, link.second)]), mechanics.update({region_id: [state.region.id, state.region.width, state.region.height, state.region.levels, sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in state.region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in state.region.containers), sorted((contact.id, contact.disposition, contact.interest, contact.position.x, contact.position.y, contact.position.z) for contact in state.contacts[region_id]), sorted((threat.id, threat.profile, threat.position.x, threat.position.y, threat.position.z, threat.health, threat.elite, threat.group) for threat in state.region_threats[region_id]), state.region.geography_signature]}), presentation.update({region_id: [[state.region.condition, state.region.work, state.region.pressure, state.region.objective_text, state.region.hazard, state.region.process_name], list(state.region.zones), [(link.id, link.name) for link in state.region.vertical_links if link.id.startswith(region_id + ':')], [(box.id, box.name) for box in state.region.containers], [(contact.id, contact.name, contact.role) for contact in state.contacts[region_id]], [(target.id, target.label) for target in navigation_targets(state) if target.id.startswith('landmark:')] ]})) for region_id in ('greywash', 'greenwold', 'whitecairn')]; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -652,10 +652,10 @@ def frontier_generator_presentation_snapshot(environment: dict[str, str]) -> dic
         [
             sys.executable,
             "-c",
-            "import json; from jomon.frontiers import ensure_frontier; from jomon.navigation import navigation_targets; from jomon.regions import activate_region; from jomon.state import create_world; "
+            "import json; from roag.frontiers import ensure_frontier; from roag.navigation import navigation_targets; from roag.regions import activate_region; from roag.state import create_world; "
             "state=create_world('frontier-generator-pack-proof'); mechanics={}; presentation={}; "
             "[(ensure_frontier(state, region_id), activate_region(state, region_id), setattr(state, 'location', 'region'), setattr(state, 'position', state.region.landmarks['landing']), setattr(state.region, 'seen', [f'{point.x},{point.y},{point.z}' for point in state.region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in state.region.containers] + [f'{point.x},{point.y},{point.z}' for link in state.region.vertical_links for point in (link.first, link.second)]), mechanics.update({region_id: [state.region.id, state.region.width, state.region.height, state.region.levels, sorted((key, point.x, point.y, point.z) for key, point in state.region.landmarks.items()), sorted((link.id, link.first.x, link.first.y, link.first.z, link.second.x, link.second.y, link.second.z) for link in state.region.vertical_links), sorted((box.id, box.position.x, box.position.y, box.position.z, box.reward, box.requirement, tuple(box.extra_rewards)) for box in state.region.containers), sorted((contact.id, contact.disposition, contact.interest, contact.position.x, contact.position.y, contact.position.z) for contact in state.contacts[region_id]), sorted((threat.id, threat.profile, threat.position.x, threat.position.y, threat.position.z, threat.health, threat.elite, threat.group) for threat in state.region_threats[region_id]), state.region.geography_signature]}), presentation.update({region_id: [[state.region.condition, state.region.work, state.region.pressure, state.region.objective_text, state.region.hazard, state.region.process_name], list(state.region.zones), [(link.id, link.name) for link in state.region.vertical_links if link.id.startswith(region_id + ':')], [(box.id, box.name) for box in state.region.containers], [(contact.id, contact.name, contact.role, contact.memories) for contact in state.contacts[region_id]], [(target.id, target.label) for target in navigation_targets(state) if target.id.startswith('landmark:')] ]})) for region_id in ('dunmire', 'rillscar', 'marlbank', 'frostmere')]; "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': mechanics, 'presentation': presentation}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -668,8 +668,8 @@ def ui_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
         [
             sys.executable,
             "-c",
-            "import json; from jomon.state import create_world; from jomon.terminal import _overlay_lines, event_feed_lines, information_colour_role; from jomon.ui_presentation import notice_kind, render_notice, ui_text; "
-            "state = create_world('ui-pack-proof'); print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "import json; from roag.state import create_world; from roag.terminal import _overlay_lines, event_feed_lines, information_colour_role; from roag.ui_presentation import notice_kind, render_notice, ui_text; "
+            "state = create_world('ui-pack-proof'); print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'title': ui_text('ui.title.game'), 'inventory': _overlay_lines(state, 'inventory')[0], 'help': ui_text('ui.help.general.01'), "
             "'notices': event_feed_lines(['RUMOUR: old save claim', 'WARNING: old save risk'], 80, 4), "
             "'kinds': [notice_kind('RUMOUR: old save claim'), notice_kind('WARNING: old save risk')], "
@@ -687,11 +687,11 @@ def quest_presentation_snapshot(environment: dict[str, str]) -> dict[str, object
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import item_spec; from jomon.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options, arc_options, resolve_arc_choice; "
-            "from jomon.quest_presentation import regional_quest_lead, regional_quest_title, arc_title, evidence_display_name; "
-            "from jomon.state import create_world; from jomon.frontiers import ensure_frontier; from jomon.terminal import _overlay_lines; "
+            "import json; from roag.inventory import item_spec; from roag.quests import QUESTS, ADDITIONAL_ARCS, regional_resolution_options, arc_options, resolve_arc_choice; "
+            "from roag.quest_presentation import regional_quest_lead, regional_quest_title, arc_title, evidence_display_name; "
+            "from roag.state import create_world; from roag.frontiers import ensure_frontier; from roag.terminal import _overlay_lines; "
             "state=create_world('quest-pack-proof'); ensure_frontier(state, 'dunmire'); state.location='region'; state.cross_region_arcs['banks'].status='available'; bank_options=arc_options(state); bank_result=resolve_arc_choice(state, 'p'); "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'title': regional_quest_title('hearthford'), 'lead': regional_quest_lead('hearthford'), "
             "'arc': arc_title('banks'), 'evidence': [evidence_display_name('banks'), item_spec('consumable:bound bank roll').name], "
             "'engine': [QUESTS['hearthford']['cache'], ADDITIONAL_ARCS['banks']['evidence']], 'choices': regional_resolution_options(state), "
@@ -708,11 +708,11 @@ def social_presentation_snapshot(environment: dict[str, str]) -> dict[str, objec
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import choose_courier, decide_objective, intervene_socially, negotiate, recruit_person; from jomon.state import Position, SocialIncident, Threat, create_world; "
-            "state=create_world('social-pack-proof'); courier=next(p for p in state.household if p.role == 'factor'); choose_courier(state,courier.id); visitor=next(p for p in state.visitors if state.visitor_status[p.id]=='visiting'); region,markers,_=__import__('jomon.people',fromlist=['RECRUIT_REQUIREMENTS']).RECRUIT_REQUIREMENTS[visitor.id]; state.regions[region].changes[markers[0]]=True; recruit=recruit_person(state,visitor.id); "
+            "import json; from roag.actions import choose_courier, decide_objective, intervene_socially, negotiate, recruit_person; from roag.state import Position, SocialIncident, Threat, create_world; "
+            "state=create_world('social-pack-proof'); courier=next(p for p in state.household if p.role == 'factor'); choose_courier(state,courier.id); visitor=next(p for p in state.visitors if state.visitor_status[p.id]=='visiting'); region,markers,_=__import__('roag.people',fromlist=['RECRUIT_REQUIREMENTS']).RECRUIT_REQUIREMENTS[visitor.id]; state.regions[region].changes[markers[0]]=True; recruit=recruit_person(state,visitor.id); "
             "state.location='region'; state.position=state.region.landmarks['contact']; refused=decide_objective(state,'refuse'); state.objective_status='unoffered'; state.position=Position(40,25); threat=Threat('terms','toll runner','pursuer',Position(41,25),4,4,status='engaged'); state.threats=[threat]; negotiated=negotiate(state); "
-            "state.location='jomon'; state.jomon_space='tavern'; first,second=state.household[:2]; state.pending_incident=SocialIncident('fixture-incident','argument',[first.id,second.id],'fixture cause','pending',0); mediated=intervene_socially(state,'mediate'); "
-            "print(json.dumps({'pack': __import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': {'recruit':[visitor.id,state.visitor_status[visitor.id]], 'objective':state.objective_status, 'negotiation':[threat.id,threat.status,threat.intent_id,state.courier.speech], 'incident':[first.relationships.get(second.id,0),second.relationships.get(first.id,0),state.pending_incident]}, 'messages':[recruit.message,refused.message,negotiated.message,mediated.message], 'intent':threat.intent}))",
+            "state.location='roag'; state.roag_space='tavern'; first,second=state.household[:2]; state.pending_incident=SocialIncident('fixture-incident','argument',[first.id,second.id],'fixture cause','pending',0); mediated=intervene_socially(state,'mediate'); "
+            "print(json.dumps({'pack': __import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'mechanics': {'recruit':[visitor.id,state.visitor_status[visitor.id]], 'objective':state.objective_status, 'negotiation':[threat.id,threat.status,threat.intent_id,state.courier.speech], 'incident':[first.relationships.get(second.id,0),second.relationships.get(first.id,0),state.pending_incident]}, 'messages':[recruit.message,refused.message,negotiated.message,mediated.message], 'intent':threat.intent}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -725,9 +725,9 @@ def remaining_action_presentation_snapshot(environment: dict[str, str]) -> dict[
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import choose_courier, choose_support, use_gear, _control_interaction, use_route_stop; from jomon.state import Position, Threat, create_world; "
-            "state=create_world('remaining-action-pack-proof'); courier=state.household[0]; choose_courier(state,courier.id); prepared=choose_support(state,'porter watch'); state.location='region'; state.position=Position(42,25); state.threats=[Threat('fixture','fixture threat','pursuer',Position(43,25),4,4,status='engaged')]; state.courier.injury='wounded foot'; state.consumables['willow dressing']=1; dressed=use_gear(state); control=_control_interaction(state); state.location='jomon'; state.route_current_node='jomon'; routes=use_route_stop(state,'sound'); "
-            "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[prepared.message,dressed.message,control.message,routes.message], 'mechanics':{'support':state.support,'health':state.courier.health,'injury':state.courier.injury,'flood':state.flood_control,'routes':list(state.route_known),'consumables':dict(state.consumables),'time':state.world_time}}))",
+            "import json; from roag.actions import choose_courier, choose_support, use_gear, _control_interaction, use_route_stop; from roag.state import Position, Threat, create_world; "
+            "state=create_world('remaining-action-pack-proof'); courier=state.household[0]; choose_courier(state,courier.id); prepared=choose_support(state,'porter watch'); state.location='region'; state.position=Position(42,25); state.threats=[Threat('fixture','fixture threat','pursuer',Position(43,25),4,4,status='engaged')]; state.courier.injury='wounded foot'; state.consumables['willow dressing']=1; dressed=use_gear(state); control=_control_interaction(state); state.location='roag'; state.route_current_node='roag'; routes=use_route_stop(state,'sound'); "
+            "print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[prepared.message,dressed.message,control.message,routes.message], 'mechanics':{'support':state.support,'health':state.courier.health,'injury':state.courier.injury,'flood':state.flood_control,'routes':list(state.route_known),'consumables':dict(state.consumables),'time':state.world_time}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -740,12 +740,12 @@ def combat_presentation_snapshot(environment: dict[str, str]) -> dict[str, objec
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import _threat_action; from jomon.state import Position, Threat, create_world; "
+            "import json; from roag.actions import _threat_action; from roag.state import Position, Threat, create_world; "
             "state=create_world('combat-pack-proof'); state.location='region'; state.position=Position(42,25); "
             "flood=Threat('floodgate-claimant','floodgate claimant','reach',Position(45,25),8,8,status='engaged',elite=True); state.threats=[flood]; flood_warning=_threat_action(state,flood,False); state.position=Position(42,26); flood_result=_threat_action(state,flood,False); flood_mechanics=[flood.id,flood.intent_id,flood.turn,sorted(state.water.items())]; "
             "machine=Threat('wheel','runaway crown wheel','machinery',Position(45,22),7,7,status='engaged',elite=True,morale=99); state.threats=[machine]; state.position=Position(42,22); machine_warning=_threat_action(state,machine,False); state.position=Position(42,23); machine_result=_threat_action(state,machine,False); machine_mechanics=[machine.id,machine.intent_id,machine.turn,machine.health,machine.status]; "
             "net=Threat('net','mudflat netter','reach',Position(45,25),5,5,status='engaged',role='controller'); state.threats=[net]; state.position=Position(42,25); net_warning=_threat_action(state,net,False); state.position=Position(42,26); net_result=_threat_action(state,net,False); net_mechanics=[net.id,net.intent_id,net.turn,net.aimed_at,sorted(state.terrain_statuses)]; "
-            "print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[flood_warning,flood_result,machine_warning,machine_result,net_warning,net_result],'mechanics':[flood_mechanics,machine_mechanics,net_mechanics]}))",
+            "print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[flood_warning,flood_result,machine_warning,machine_result,net_warning,net_result],'mechanics':[flood_mechanics,machine_mechanics,net_mechanics]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -758,11 +758,11 @@ def production_presentation_snapshot(environment: dict[str, str]) -> dict[str, o
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item, item_spec; from jomon.production import advance_craft_economy, delegate, gather, make, site_position; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
+            "import json; from roag.inventory import auto_place, create_item, item_spec; from roag.production import advance_craft_economy, delegate, gather, make, site_position; from roag.state import create_world; from roag.terminal import _overlay_lines; "
             "state=create_world('production-pack-proof'); state.courier.skill_nodes.append('masterwork'); state.location='region'; state.position=site_position(state); first=gather(state, 0); "
             "[auto_place(state, create_item(state, kind, 'fixture input', quantity=quantity).id, 'pack', owner_id=state.active_courier_id) for kind, quantity in (('ingredient:healing herb', 1), ('ingredient:clay', 2), ('commodity:wool', 3))]; "
             "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=_overlay_lines(state, 'craft-catalog:0'); "
-            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0]], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
+            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0]], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -775,13 +775,13 @@ def chemistry_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
         [
             sys.executable,
             "-c",
-            "import json; from jomon.chemistry import drink_flask, fill_flask, predicted_reactions; "
-            "from jomon.inventory import auto_place, create_item, item_spec; from jomon.state import create_world; "
+            "import json; from roag.chemistry import drink_flask, fill_flask, predicted_reactions; "
+            "from roag.inventory import auto_place, create_item, item_spec; from roag.state import create_world; "
             "state=create_world('chemistry-pack-proof'); flask=create_item(state, 'field flask', 'fixture flask'); "
             "herb=create_item(state, 'ingredient:healing herb', 'fixture herb'); water=create_item(state, 'ingredient:spring water', 'fixture water'); "
             "[auto_place(state, item.id, 'pack', owner_id=state.active_courier_id) for item in (flask, herb, water)]; "
             "first=fill_flask(state, flask.id, herb.id); second=fill_flask(state, flask.id, water.id); reaction=predicted_reactions(flask.contents); before=state.courier.health; drank=drink_flask(state, flask.id); "
-            "print(json.dumps({'pack': __import__('jomon.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
+            "print(json.dumps({'pack': __import__('roag.catalog', fromlist=['selected_content_pack']).selected_content_pack().id, "
             "'messages': [first[1], second[1], drank[1]], 'mechanics': [reaction, state.courier.known_formulas, before, state.courier.health, flask.contents, herb.location, water.location, state.world_time, flask.kind, herb.kind, water.kind]}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
@@ -795,8 +795,8 @@ def progression_presentation_snapshot(environment: dict[str, str]) -> dict[str, 
         [
             sys.executable,
             "-c",
-            "import json; from jomon.manoeuvres import BY_ID, known; from jomon.practices import practice_display_name; from jomon.progression_presentation import progression_format, progression_text, technique_display_name; from jomon.skill_tree import buy_node, record_milestone; from jomon.state import create_world; from jomon.terminal import _overlay_lines; "
-            "state=create_world('progression-pack-proof'); record_milestone(state,'return:hearthford'); bought=buy_node(state,'edge-measure'); state.courier.learned_techniques.extend(('practice.bank_water_cadence','practice.personal:bargemaster')); manoeuvres=known(state); overlay=_overlay_lines(state,'skill-tree'); mastery=_overlay_lines(state,'mastery'); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[bought[1], practice_display_name('practice.bank_water_cadence'), BY_ID['braced-advance'].name, overlay[0], overlay[1], mastery[0], progression_format('progression.journal.write.result',courier=state.courier.name,node='Edge measure',journal='journal-1'), progression_format('progression.skill.teach.result',teacher='Arel',node='Edge measure',recipient='Bryn'), progression_text('progression.choice.journal.write.requirement'), technique_display_name('practice.personal:bargemaster')], 'mechanics':{'nodes':state.courier.skill_nodes,'practices':state.courier.learned_techniques,'manoeuvres':[row.id for row in manoeuvres],'effects':[row.practice for row in manoeuvres],'points':state.courier.skill_points,'milestones':state.courier.skill_milestones,'personal_id':'practice.personal:bargemaster'}}))",
+            "import json; from roag.manoeuvres import BY_ID, known; from roag.practices import practice_display_name; from roag.progression_presentation import progression_format, progression_text, technique_display_name; from roag.skill_tree import buy_node, record_milestone; from roag.state import create_world; from roag.terminal import _overlay_lines; "
+            "state=create_world('progression-pack-proof'); record_milestone(state,'return:hearthford'); bought=buy_node(state,'edge-measure'); state.courier.learned_techniques.extend(('practice.bank_water_cadence','practice.personal:bargemaster')); manoeuvres=known(state); overlay=_overlay_lines(state,'skill-tree'); mastery=_overlay_lines(state,'mastery'); print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[bought[1], practice_display_name('practice.bank_water_cadence'), BY_ID['braced-advance'].name, overlay[0], overlay[1], mastery[0], progression_format('progression.journal.write.result',courier=state.courier.name,node='Edge measure',journal='journal-1'), progression_format('progression.skill.teach.result',teacher='Arel',node='Edge measure',recipient='Bryn'), progression_text('progression.choice.journal.write.requirement'), technique_display_name('practice.personal:bargemaster')], 'mechanics':{'nodes':state.courier.skill_nodes,'practices':state.courier.learned_techniques,'manoeuvres':[row.id for row in manoeuvres],'effects':[row.practice for row in manoeuvres],'points':state.courier.skill_points,'milestones':state.courier.skill_milestones,'personal_id':'practice.personal:bargemaster'}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -965,8 +965,8 @@ class ContentPackTests(unittest.TestCase):
                     load_content_pack(root)
 
     def test_default_item_presentation_matches_legacy_base_catalog_text(self):
-        from jomon.content import SUPPORTS
-        from jomon.inventory import item_spec
+        from roag.content import SUPPORTS
+        from roag.inventory import item_spec
 
         goods = json.loads((DATA_ROOT / "goods.json").read_text(encoding="utf-8"))
         equipment = json.loads((DATA_ROOT / "equipment.json").read_text(encoding="utf-8"))
@@ -996,7 +996,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = ui_presentation_snapshot(environment)
         self.assertEqual(default["pack"], "default")
         self.assertEqual(alternate["pack"], "fixture-alternate")
@@ -1015,7 +1015,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = quest_presentation_snapshot(environment)
         self.assertEqual(default["pack"], "default")
         self.assertEqual(alternate["pack"], "fixture-alternate")
@@ -1089,7 +1089,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = workline_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1132,7 +1132,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = interference_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1172,7 +1172,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = legendary_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1209,8 +1209,8 @@ class ContentPackTests(unittest.TestCase):
                     load_content_pack(root)
 
     def test_default_legendary_presentation_preserves_existing_text(self):
-        from jomon.arc_relics import ARC_RELIC_DESCRIPTIONS
-        from jomon.legendary_presentation import legendary_format, legendary_text
+        from roag.arc_relics import ARC_RELIC_DESCRIPTIONS
+        from roag.legendary_presentation import legendary_format, legendary_text
 
         self.assertEqual(legendary_format("legendary.object.name", maker="Asha", noun="Measure"), "Asha's Measure")
         self.assertEqual(
@@ -1231,7 +1231,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = topology_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1244,7 +1244,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("Hearthford millworks", default["presentation"][0])
 
     def test_default_regional_generator_presentation_preserves_existing_text(self):
-        from jomon.state import create_world
+        from roag.state import create_world
 
         state = create_world("regional-generator-default-text")
         expected = {
@@ -1275,7 +1275,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = regional_generator_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1290,8 +1290,8 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("fixture signal tower", " ".join(label for _id, label in alternate["presentation"]["whitecairn"][5]))
 
     def test_default_frontier_generator_presentation_preserves_existing_text(self):
-        from jomon.frontiers import ensure_frontier
-        from jomon.state import create_world
+        from roag.frontiers import ensure_frontier
+        from roag.state import create_world
 
         state = create_world("frontier-generator-default-text")
         expected = {
@@ -1314,7 +1314,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = frontier_generator_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1372,7 +1372,7 @@ class ContentPackTests(unittest.TestCase):
                     load_content_pack(root)
 
     def test_default_topology_presentation_preserves_existing_text(self):
-        from jomon.topology_presentation import topology_text
+        from roag.topology_presentation import topology_text
 
         self.assertEqual(topology_text("topology.hearthford.zone.millworks"), "Hearthford millworks")
         self.assertEqual(topology_text("topology.hearthford.link.mill_ladder"), "mill ladder")
@@ -1383,18 +1383,18 @@ class ContentPackTests(unittest.TestCase):
         self.assertEqual(topology_text("topology.greywash.contact.1.name"), "Edda Marr")
 
     def test_default_social_action_presentation_preserves_existing_text(self):
-        from jomon.action_presentation import action_format, action_text
+        from roag.action_presentation import action_format, action_text
 
         self.assertEqual(action_text("social.negotiate.no_terms"), "You lack witnessed seals, material surety, paper, or valuable leverage.")
         self.assertEqual(action_format("social.objective.refused", courier="Iris", region="Hearthford"), "Iris refuses Hearthford's difficult request.")
-        self.assertEqual(action_format("social.recruit.accepted", visitor="Mara"), "Mara accepts a berth aboard Jomon.")
+        self.assertEqual(action_format("social.recruit.accepted", visitor="Mara"), "Mara accepts a berth aboard Roag.")
 
     def test_alternate_pack_changes_social_presentation_not_mechanics(self):
         default = social_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = social_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1407,7 +1407,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("FIXTURE mediation", alternate["messages"][3])
 
     def test_default_action_presentation_preserves_specialized_combat_text(self):
-        from jomon.action_presentation import action_format, action_text
+        from roag.action_presentation import action_format, action_text
 
         self.assertEqual(
             action_format("intent.elite.floodgate.sluice_telegraph", x=42, y=25),
@@ -1464,7 +1464,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = combat_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1476,7 +1476,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("FIXTURE NET", alternate["messages"][5])
 
     def test_default_remaining_action_presentation_preserves_existing_text(self):
-        from jomon.action_presentation import action_format
+        from roag.action_presentation import action_format
 
         self.assertEqual(action_format("action.item.lamp_wick.used"), "A dry wick restores two measures of sheltered light.")
         self.assertEqual(action_format("action.environment.hearthford.control", control="lowered"), "The sluice is lowered; water crosses culvert and ground openings, changing route safety.")
@@ -1486,7 +1486,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = remaining_action_presentation_snapshot(environment)
 
         self.assertEqual(default["mechanics"], alternate["mechanics"])
@@ -1496,7 +1496,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("FIXTURE ROUTE SERVICE", alternate["messages"][3])
 
     def test_default_quest_presentation_matches_existing_catalog_copy(self):
-        from jomon.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title
+        from roag.quest_presentation import regional_choice_presentation, regional_quest_lead, regional_quest_title
 
         catalog = json.loads((DATA_ROOT / "quests.json").read_text(encoding="utf-8"))
         for region_id, row in catalog["quests"].items():
@@ -1506,7 +1506,7 @@ class ContentPackTests(unittest.TestCase):
                 self.assertEqual(regional_choice_presentation(region_id, choice), (label, requirement))
 
     def test_ui_formatter_accepts_only_the_engine_placeholder_contract(self):
-        from jomon.ui_presentation import ui_format
+        from roag.ui_presentation import ui_format
 
         self.assertEqual(ui_format("ui.start.save_path", path="save.json"), "Save: save.json")
         with self.assertRaises(ValueError):
@@ -1622,13 +1622,13 @@ class ContentPackTests(unittest.TestCase):
             self.assertEqual(load_content_pack(root).catalog_root, root / "data")
 
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             result = subprocess.run(
                 [
                     sys.executable,
                     "-c",
-                    "import jomon.main; from jomon.catalog import selected_content_pack; "
-                    "print(selected_content_pack().id); print(jomon.main.SEED_WORDS[0])",
+                    "import roag.main; from roag.catalog import selected_content_pack; "
+                    "print(selected_content_pack().id); print(roag.main.SEED_WORDS[0])",
                 ],
                 cwd=ROOT,
                 env=environment,
@@ -1641,14 +1641,14 @@ class ContentPackTests(unittest.TestCase):
 
         # The subprocess owns selection state, so the fixture cannot leak into
         # the test process or another test module.
-        self.assertNotEqual(os.environ.get("JOMON_CONTENT_PACK"), str(root))
+        self.assertNotEqual(os.environ.get("ROAG_CONTENT_PACK"), str(root))
 
     def test_alternate_pack_changes_regional_presentation_not_generation_or_ids(self):
         default = world_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = world_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1669,7 +1669,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = character_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1702,7 +1702,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = item_presentation_snapshot(environment)
 
         self.assertEqual(default["pack"], "default")
@@ -1727,9 +1727,9 @@ class ContentPackTests(unittest.TestCase):
 
     def test_old_item_save_keeps_kind_and_renders_through_selected_pack(self):
         environment = dict(os.environ)
-        environment.pop("JOMON_CONTENT_PACK", None)
+        environment.pop("ROAG_CONTENT_PACK", None)
         generated = subprocess.run(
-            [sys.executable, "-c", "import json; from jomon.state import create_world; print(json.dumps(create_world('legacy item save').to_dict()))"],
+            [sys.executable, "-c", "import json; from roag.state import create_world; print(json.dumps(create_world('legacy item save').to_dict()))"],
             cwd=ROOT,
             env=environment,
             text=True,
@@ -1741,12 +1741,12 @@ class ContentPackTests(unittest.TestCase):
             root = alternate_pack(Path(directory) / "fixture")
             save = Path(directory) / "legacy.json"
             save.write_text(generated.stdout, encoding="utf-8")
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             loaded = subprocess.run(
                 [
                     sys.executable,
                     "-c",
-                    "import json, sys; from jomon.inventory import item_spec; from jomon.state import game_state_from_dict; "
+                    "import json, sys; from roag.inventory import item_spec; from roag.state import game_state_from_dict; "
                     "state = game_state_from_dict(json.load(open(sys.argv[1], encoding='utf-8'))); "
                     "item = next(item for item in state.items if item.kind == 'spear'); print(json.dumps([item.kind, item_spec(item.kind).name]))",
                     str(save),
@@ -1762,9 +1762,9 @@ class ContentPackTests(unittest.TestCase):
 
     def test_alternate_pack_loads_legacy_saved_region_names_without_rewriting_them(self):
         default_environment = dict(os.environ)
-        default_environment.pop("JOMON_CONTENT_PACK", None)
+        default_environment.pop("ROAG_CONTENT_PACK", None)
         generated = subprocess.run(
-            [sys.executable, "-c", "import json; from jomon.state import create_world; print(json.dumps(create_world('legacy region save').to_dict()))"],
+            [sys.executable, "-c", "import json; from roag.state import create_world; print(json.dumps(create_world('legacy region save').to_dict()))"],
             cwd=ROOT,
             env=default_environment,
             text=True,
@@ -1779,12 +1779,12 @@ class ContentPackTests(unittest.TestCase):
             legacy["merchant"]["role"] = "itinerant deck factor"
             save.write_text(json.dumps(legacy), encoding="utf-8")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             loaded = subprocess.run(
                 [
                     sys.executable,
                     "-c",
-                    "import json, sys; from jomon.state import game_state_from_dict; "
+                    "import json, sys; from roag.state import game_state_from_dict; "
                     "state = game_state_from_dict(json.load(open(sys.argv[1], encoding='utf-8'))); "
                     "print(json.dumps([state.region.name, state.route_nodes['hearthford'].name, "
                     "state.bartender.name, state.merchant.name, state.merchant.role]))",
@@ -1807,9 +1807,9 @@ class ContentPackTests(unittest.TestCase):
             root = alternate_pack(Path(directory) / "fixture")
             (root / "data" / "world_text.json").write_text("{}\n", encoding="utf-8")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             result = subprocess.run(
-                [sys.executable, "-c", "import jomon.main"],
+                [sys.executable, "-c", "import roag.main"],
                 cwd=ROOT,
                 env=environment,
                 text=True,
@@ -1822,7 +1822,7 @@ class ContentPackTests(unittest.TestCase):
 
 
     def test_default_production_presentation_preserves_existing_text(self):
-        from jomon.production_presentation import production_format, production_recipe_name, production_station_name
+        from roag.production_presentation import production_format, production_recipe_name, production_station_name
 
         self.assertEqual(production_recipe_name("field-dressing"), "Prepare a field dressing")
         self.assertEqual(production_station_name("forge"), "forge")
@@ -1834,7 +1834,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = production_presentation_snapshot(environment)
 
         self.assertEqual(default["mechanics"], alternate["mechanics"])
@@ -1876,7 +1876,7 @@ class ContentPackTests(unittest.TestCase):
                     load_content_pack(root)
 
     def test_default_chemistry_presentation_preserves_existing_text(self):
-        from jomon.chemistry_presentation import chemistry_format, chemistry_text, reaction_display_name
+        from roag.chemistry_presentation import chemistry_format, chemistry_text, reaction_display_name
 
         self.assertEqual(chemistry_text("chemistry.reagent.healing_herb.name"), "healing herb")
         self.assertEqual(reaction_display_name("healing draft"), "healing draft")
@@ -1890,7 +1890,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = chemistry_presentation_snapshot(environment)
 
         self.assertEqual(default["mechanics"], alternate["mechanics"])
@@ -1929,7 +1929,7 @@ class ContentPackTests(unittest.TestCase):
 
 
     def test_default_progression_presentation_preserves_existing_text(self):
-        from jomon.progression_presentation import manoeuvre_display, practice_display_name, progression_format
+        from roag.progression_presentation import manoeuvre_display, practice_display_name, progression_format
 
         self.assertEqual(practice_display_name("practice.bank_water_cadence"), "bank-water cadence")
         self.assertEqual(manoeuvre_display("braced-advance", "name"), "Braced advance")
@@ -1943,7 +1943,7 @@ class ContentPackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = progression_presentation_snapshot(environment)
 
         self.assertEqual(default["mechanics"], alternate["mechanics"])
@@ -1999,8 +1999,8 @@ def equipment_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import attack; from jomon.inventory import create_item, item_spec, sync_legacy_load; from jomon.state import Position, Threat, create_world; from jomon.work_weapons import WORK_WEAPONS; from jomon.expanded_weapons import ARSENAL; from jomon.workshop import FITTINGS, WORKBENCH, install; "
-            "state=create_world('equipment-pack-proof'); state.location='region'; state.position=Position(40,25); state.world_time=8; state.weather='clear'; state.threats=[]; state.region_threats['hearthford']=state.threats; [state.region.tile_changes.__setitem__(f'{x},{y},{z}', '.') for z in (-1,0,1) for y in range(20,31) for x in range(34,51)]; [setattr(item,'location','lost') for item in state.items if item.owner_id==state.active_courier_id and item.location in {'pack','readied','secondary'}]; item=create_item(state,'forked pike','fixture weapon',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); target=Threat('equipment-proof','proof target','reach',Position(42,25),20,20,status='engaged',morale=10,home_position=Position(42,25)); state.threats.append(target); result=attack(state,target.id); mechanics={'weapon_kind':state.weapon,'target_id':target.id,'intent_id':target.intent_id,'health':target.health,'morale':target.morale,'time':state.world_time,'position':[target.position.x,target.position.y,target.position.z]}; state.location='jomon'; state.jomon_space='vessel'; state.position=WORKBENCH; state.trade_credit=10; parent=create_item(state,'longbow','fixture parent',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); before=state.trade_credit; changed,message=install(state,parent.id,'quiet binding'); mechanics.update({'fitting_kind':next(part.kind for part in state.items if part.location=='fitted' and part.fitted_to==parent.id),'installed':changed,'credit_spent':before-state.trade_credit,'parent':parent.kind,'fitting_stock':state.vessel_changes['fitting_stock:quiet binding']}); print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[WORK_WEAPONS['forked pike'].name, WORK_WEAPONS['forked pike'].description, ARSENAL['river sabre'].display_name, FITTINGS['quiet binding'].name, FITTINGS['quiet binding'].effect, result.message, message], 'mechanics':mechanics}))",
+            "import json; from roag.actions import attack; from roag.inventory import create_item, item_spec, sync_legacy_load; from roag.state import Position, Threat, create_world; from roag.work_weapons import WORK_WEAPONS; from roag.expanded_weapons import ARSENAL; from roag.workshop import FITTINGS, WORKBENCH, install; "
+            "state=create_world('equipment-pack-proof'); state.location='region'; state.position=Position(40,25); state.world_time=8; state.weather='clear'; state.threats=[]; state.region_threats['hearthford']=state.threats; [state.region.tile_changes.__setitem__(f'{x},{y},{z}', '.') for z in (-1,0,1) for y in range(20,31) for x in range(34,51)]; [setattr(item,'location','lost') for item in state.items if item.owner_id==state.active_courier_id and item.location in {'pack','readied','secondary'}]; item=create_item(state,'forked pike','fixture weapon',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); target=Threat('equipment-proof','proof target','reach',Position(42,25),20,20,status='engaged',morale=10,home_position=Position(42,25)); state.threats.append(target); result=attack(state,target.id); mechanics={'weapon_kind':state.weapon,'target_id':target.id,'intent_id':target.intent_id,'health':target.health,'morale':target.morale,'time':state.world_time,'position':[target.position.x,target.position.y,target.position.z]}; state.location='roag'; state.roag_space='vessel'; state.position=WORKBENCH; state.trade_credit=10; parent=create_item(state,'longbow','fixture parent',location='readied',owner_id=state.active_courier_id); sync_legacy_load(state); before=state.trade_credit; changed,message=install(state,parent.id,'quiet binding'); mechanics.update({'fitting_kind':next(part.kind for part in state.items if part.location=='fitted' and part.fitted_to==parent.id),'installed':changed,'credit_spent':before-state.trade_credit,'parent':parent.kind,'fitting_stock':state.vessel_changes['fitting_stock:quiet binding']}); print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'messages':[WORK_WEAPONS['forked pike'].name, WORK_WEAPONS['forked pike'].description, ARSENAL['river sabre'].display_name, FITTINGS['quiet binding'].name, FITTINGS['quiet binding'].effect, result.message, message], 'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -2010,7 +2010,7 @@ def equipment_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
 
 class EquipmentPresentationTests(unittest.TestCase):
     def test_default_equipment_presentation_preserves_existing_text(self):
-        from jomon.equipment_presentation import equipment_text, fitting_name, work_weapon_description, work_weapon_name
+        from roag.equipment_presentation import equipment_text, fitting_name, work_weapon_description, work_weapon_name
         self.assertEqual(work_weapon_name("forked pike"), "Forked ward pike")
         self.assertEqual(work_weapon_description("forked pike"), "Pins the target and one neighbour across its forward line, buying one turn against a pair. Adjacent foes are inside the forks.")
         self.assertEqual(fitting_name("quiet binding"), "Quiet binding")
@@ -2021,7 +2021,7 @@ class EquipmentPresentationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = equipment_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         self.assertEqual(alternate["messages"][0], "Fixture fork pike")
@@ -2068,8 +2068,8 @@ def preparation_presentation_snapshot(environment: dict[str, str]) -> dict[str, 
         [
             sys.executable,
             "-c",
-            "import json; from jomon.inventory import auto_place, create_item, sync_legacy_load; from jomon.preparations import apply_preparation, carried_preparations, preparation_status; from jomon.state import MaterialCell, Position, create_world; from jomon.terminal import _overlay_lines; "
-            "state=create_world('preparation-pack-proof'); state.location='region'; state.position=Position(40,24); state.region.materials.clear(); item=create_item(state,'consumable:preparation.waterline','fixture preparation'); auto_place(state,item.id,'pack',owner_id=state.active_courier_id); sync_legacy_load(state); carried=carried_preparations(state); ready=preparation_status(state,'preparation.waterline'); overlay=_overlay_lines(state,'field-use'); state.region.materials['40,24,0']=MaterialCell(water=3); changed,message=apply_preparation(state,'preparation.waterline'); mechanics={'preparation_id':'preparation.waterline','item_kind':item.kind,'carried_before':carried, 'ready_before':ready[0], 'changed':changed, 'water':state.region.materials['40,24,0'].water, 'marker':state.region.changes['preparation-used:preparation.waterline'], 'consumables':dict(state.consumables), 'time':state.world_time}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[overlay[1][0], overlay[1][-1], message], 'mechanics':mechanics}))",
+            "import json; from roag.inventory import auto_place, create_item, sync_legacy_load; from roag.preparations import apply_preparation, carried_preparations, preparation_status; from roag.state import MaterialCell, Position, create_world; from roag.terminal import _overlay_lines; "
+            "state=create_world('preparation-pack-proof'); state.location='region'; state.position=Position(40,24); state.region.materials.clear(); item=create_item(state,'consumable:preparation.waterline','fixture preparation'); auto_place(state,item.id,'pack',owner_id=state.active_courier_id); sync_legacy_load(state); carried=carried_preparations(state); ready=preparation_status(state,'preparation.waterline'); overlay=_overlay_lines(state,'field-use'); state.region.materials['40,24,0']=MaterialCell(water=3); changed,message=apply_preparation(state,'preparation.waterline'); mechanics={'preparation_id':'preparation.waterline','item_kind':item.kind,'carried_before':carried, 'ready_before':ready[0], 'changed':changed, 'water':state.region.materials['40,24,0'].water, 'marker':state.region.changes['preparation-used:preparation.waterline'], 'consumables':dict(state.consumables), 'time':state.world_time}; print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[overlay[1][0], overlay[1][-1], message], 'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -2079,7 +2079,7 @@ def preparation_presentation_snapshot(environment: dict[str, str]) -> dict[str, 
 
 class PreparationPresentationTests(unittest.TestCase):
     def test_default_preparation_presentation_preserves_existing_text(self):
-        from jomon.preparation_presentation import preparation_display_name, preparation_text
+        from roag.preparation_presentation import preparation_display_name, preparation_text
 
         self.assertEqual(preparation_display_name("preparation.waterline"), "Race-Gate Chalk")
         self.assertEqual(preparation_text("preparation.waterline.condition"), "nearby released or material water")
@@ -2089,7 +2089,7 @@ class PreparationPresentationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = preparation_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         self.assertIn("Fixture Tide Chalk", alternate["messages"][0])
@@ -2135,7 +2135,7 @@ def material_presentation_snapshot(environment: dict[str, str]) -> dict[str, obj
         [
             sys.executable,
             "-c",
-            "import json; from jomon.materials import advance_materials, handle_material, inspect_material, key; from jomon.state import MaterialCell, Position, create_world; "
+            "import json; from roag.materials import advance_materials, handle_material, inspect_material, key; from roag.state import MaterialCell, Position, create_world; "
             "state=create_world('material-pack-proof'); state.location='region'; state.position=Position(40,25); state.weather='clear'; state.world_time=0; state.region.materials.clear(); point=Position(41,25); state.weapon='billhook'; cell=MaterialCell(material='timber', support=1, reagents={'tree resin':1, 'lime dust':1}); collapse=MaterialCell(material='timber', support=0); state.region.materials[key(point)]=cell; state.region.materials['42,25,0']=collapse; inspection=inspect_material(state,point); processed=advance_materials(state); changed,message=handle_material(state,'brace',point); mechanics={'material_id':cell.material,'reagents':dict(cell.reagents),'support':cell.support,'collapse_due':collapse.collapse_due,'processed':processed,'changed':changed,'time':state.world_time,'cell':vars(cell).copy(),'collapse':vars(collapse).copy()}; print(json.dumps({'messages':[inspection[0],inspection[3],*state.messages,message], 'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
@@ -2148,8 +2148,8 @@ def sanctum_presentation_snapshot(environment: dict[str, str]) -> dict[str, obje
         [
             sys.executable,
             "-c",
-            "import json; from jomon.actions import interact; from jomon.inventory import auto_place, create_item, item_spec; from jomon.sanctums import inspect_lines, shrine_choice; from jomon.state import create_world; "
-            "state=create_world('sanctum-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['sanctum_shrine']; account=state.institutions[__import__('jomon.sanctums',fromlist=['SITES']).SITES[state.active_region_id]['network']]; lot=create_item(state, f'commodity:{account.dependency}', 'sanctum fixture offering'); auto_place(state,lot.id,'pack',owner_id=state.active_courier_id); before=[account.trust,account.obligation]; lines=inspect_lines(state); offered=shrine_choice(state,'o'); state.position=region.landmarks['sanctum_entry']; entered=interact(state); boss=next(actor for actor in state.threats if actor.id=='sanctum:hearthford:boss'); mechanics={'site':region.id,'network':account.id,'entry':[region.landmarks['sanctum_entry'].x,region.landmarks['sanctum_entry'].y], 'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('sanctum:')), 'caches':sorted((box.id,box.reward,box.requirement,tuple(box.extra_rewards)) for box in region.containers if '-sanctum-' in box.id), 'offered':[offered[0],offered[2],before,account.trust,account.obligation,region.changes['sanctum:opened_by']], 'boss':[boss.id,boss.profile,boss.role,boss.goal,boss.duty,boss.health,boss.glyph,boss.archetype_id,tuple(boss.capabilities)], 'inhabited':region.changes['sanctum:inhabited'], 'time':state.world_time}; print(json.dumps({'presentation':[lines,offered[1],entered.message,boss.name,[(link.id,link.name) for link in region.vertical_links if link.id.startswith('sanctum:')],[(box.id,box.name) for box in region.containers if '-sanctum-' in box.id]],'mechanics':mechanics}))",
+            "import json; from roag.actions import interact; from roag.inventory import auto_place, create_item, item_spec; from roag.sanctums import inspect_lines, shrine_choice; from roag.state import create_world; "
+            "state=create_world('sanctum-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['sanctum_shrine']; account=state.institutions[__import__('roag.sanctums',fromlist=['SITES']).SITES[state.active_region_id]['network']]; lot=create_item(state, f'commodity:{account.dependency}', 'sanctum fixture offering'); auto_place(state,lot.id,'pack',owner_id=state.active_courier_id); before=[account.trust,account.obligation]; lines=inspect_lines(state); offered=shrine_choice(state,'o'); state.position=region.landmarks['sanctum_entry']; entered=interact(state); boss=next(actor for actor in state.threats if actor.id=='sanctum:hearthford:boss'); mechanics={'site':region.id,'network':account.id,'entry':[region.landmarks['sanctum_entry'].x,region.landmarks['sanctum_entry'].y], 'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('sanctum:')), 'caches':sorted((box.id,box.reward,box.requirement,tuple(box.extra_rewards)) for box in region.containers if '-sanctum-' in box.id), 'offered':[offered[0],offered[2],before,account.trust,account.obligation,region.changes['sanctum:opened_by']], 'boss':[boss.id,boss.profile,boss.role,boss.goal,boss.duty,boss.health,boss.glyph,boss.archetype_id,tuple(boss.capabilities)], 'inhabited':region.changes['sanctum:inhabited'], 'time':state.world_time}; print(json.dumps({'presentation':[lines,offered[1],entered.message,boss.name,[(link.id,link.name) for link in region.vertical_links if link.id.startswith('sanctum:')],[(box.id,box.name) for box in region.containers if '-sanctum-' in box.id]],'mechanics':mechanics}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -2159,7 +2159,7 @@ def sanctum_presentation_snapshot(environment: dict[str, str]) -> dict[str, obje
 
 class SanctumPresentationTests(unittest.TestCase):
     def test_default_sanctum_presentation_preserves_existing_text(self):
-        from jomon.sanctum_presentation import sanctum_display_name, sanctum_text
+        from roag.sanctum_presentation import sanctum_display_name, sanctum_text
         self.assertEqual(sanctum_display_name("hearthford"), "The Silt-Chancel")
         self.assertEqual(sanctum_text("sanctum.link.gallery"), "side gallery stair")
 
@@ -2167,7 +2167,7 @@ class SanctumPresentationTests(unittest.TestCase):
         default = sanctum_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            environment = dict(os.environ); environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = sanctum_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         rendered = "\n".join(map(str, alternate["presentation"]))
@@ -2207,7 +2207,7 @@ class SanctumPresentationTests(unittest.TestCase):
 
 class MaterialPresentationTests(unittest.TestCase):
     def test_default_material_presentation_preserves_existing_text(self):
-        from jomon.material_presentation import material_display_name, material_text
+        from roag.material_presentation import material_display_name, material_text
 
         self.assertEqual(material_display_name("timber"), "timber")
         self.assertEqual(material_text("material.handle.ignite_requirement"), "Ignition needs dry fuel and one measure of lamp oil.")
@@ -2217,7 +2217,7 @@ class MaterialPresentationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = material_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         rendered = "\n".join(alternate["messages"])
@@ -2270,8 +2270,8 @@ def landform_discovery_presentation_snapshot(environment: dict[str, str]) -> dic
         [
             sys.executable,
             "-c",
-            "import json; from jomon.discoveries import discovery_clue, discovery_name; from jomon.landscape_variation import _spawn_traveller, link_name, pocket_name, structure_name, traveller_name; from jomon.navigation import navigation_targets; from jomon.state import create_world; "
-            "state=create_world('landform-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['landing']; region.seen=[f'{point.x},{point.y},{point.z}' for point in region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in region.containers] + [f'{point.x},{point.y},{point.z}' for link in region.vertical_links for point in (link.first,link.second)]; traveller=_spawn_traveller(state,region.landmarks['landform_0']); caches=[box for box in region.containers if box.id.startswith(region.id+'-') and box.hidden]; mechanics={'region':region.id,'signature':region.geography_signature,'landmarks':sorted((key,point.x,point.y,point.z) for key,point in region.landmarks.items() if key.startswith('landform_') or key in ('field_upper','field_lower')),'facts':sorted((key,value) for key,value in region.generation_facts.items() if key.startswith('landform:') or key in ('field_upper','field_lower')),'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('landform:')),'caches':sorted((box.id,box.position.x,box.position.y,box.position.z,box.reward,box.requirement) for box in caches),'contacts':sorted((person.id,person.position.x,person.position.y,person.position.z,person.interest) for person in state.contacts[region.id] if person.id.startswith('landform:'))}; presentation={'pockets':[pocket_name(region.id,index) for index in range(4)],'structures':[structure_name(region.id,'field_upper'),structure_name(region.id,'field_lower')],'traveller':traveller_name(region.id),'links':[(link.id,link_name(region.id,link)) for link in region.vertical_links if link.id.startswith('landform:')],'caches':[(box.id,discovery_name(region.id,box),discovery_clue(region.id,box)) for box in caches],'targets':[(target.id,target.label) for target in navigation_targets(state) if target.id.startswith(('landmark:landform_','link:landform:','container:hearthford-'))],'arrival':traveller}; print(json.dumps({'pack':__import__('jomon.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'mechanics':mechanics,'presentation':presentation}))",
+            "import json; from roag.discoveries import discovery_clue, discovery_name; from roag.landscape_variation import _spawn_traveller, link_name, pocket_name, structure_name, traveller_name; from roag.navigation import navigation_targets; from roag.state import create_world; "
+            "state=create_world('landform-pack-proof'); state.location='region'; region=state.region; state.position=region.landmarks['landing']; region.seen=[f'{point.x},{point.y},{point.z}' for point in region.landmarks.values()] + [f'{box.position.x},{box.position.y},{box.position.z}' for box in region.containers] + [f'{point.x},{point.y},{point.z}' for link in region.vertical_links for point in (link.first,link.second)]; traveller=_spawn_traveller(state,region.landmarks['landform_0']); caches=[box for box in region.containers if box.id.startswith(region.id+'-') and box.hidden]; mechanics={'region':region.id,'signature':region.geography_signature,'landmarks':sorted((key,point.x,point.y,point.z) for key,point in region.landmarks.items() if key.startswith('landform_') or key in ('field_upper','field_lower')),'facts':sorted((key,value) for key,value in region.generation_facts.items() if key.startswith('landform:') or key in ('field_upper','field_lower')),'links':sorted((link.id,link.first.x,link.first.y,link.first.z,link.second.x,link.second.y,link.second.z) for link in region.vertical_links if link.id.startswith('landform:')),'caches':sorted((box.id,box.position.x,box.position.y,box.position.z,box.reward,box.requirement) for box in caches),'contacts':sorted((person.id,person.position.x,person.position.y,person.position.z,person.interest) for person in state.contacts[region.id] if person.id.startswith('landform:'))}; presentation={'pockets':[pocket_name(region.id,index) for index in range(4)],'structures':[structure_name(region.id,'field_upper'),structure_name(region.id,'field_lower')],'traveller':traveller_name(region.id),'links':[(link.id,link_name(region.id,link)) for link in region.vertical_links if link.id.startswith('landform:')],'caches':[(box.id,discovery_name(region.id,box),discovery_clue(region.id,box)) for box in caches],'targets':[(target.id,target.label) for target in navigation_targets(state) if target.id.startswith(('landmark:landform_','link:landform:','container:hearthford-'))],'arrival':traveller}; print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id,'mechanics':mechanics,'presentation':presentation}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -2281,9 +2281,9 @@ def landform_discovery_presentation_snapshot(environment: dict[str, str]) -> dic
 
 class LandformDiscoveryPresentationTests(unittest.TestCase):
     def test_default_landform_discovery_presentation_preserves_existing_text(self):
-        from jomon.discoveries import discovery_clue, discovery_name
-        from jomon.landscape_variation import pocket_name, structure_name, traveller_name
-        from jomon.state import create_world
+        from roag.discoveries import discovery_clue, discovery_name
+        from roag.landscape_variation import pocket_name, structure_name, traveller_name
+        from roag.state import create_world
 
         state = create_world("landform-default-text")
         cache = next(box for box in state.region.containers if box.id == "hearthford-reed-silt")
@@ -2297,7 +2297,7 @@ class LandformDiscoveryPresentationTests(unittest.TestCase):
         default = landform_discovery_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            environment = dict(os.environ); environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = landform_discovery_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         rendered = str(alternate["presentation"])
@@ -2329,7 +2329,7 @@ class LandformDiscoveryPresentationTests(unittest.TestCase):
 def situation_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
     result = subprocess.run([
         sys.executable, "-c",
-        "import json; from jomon.actions import depart; from jomon.quests import use_secondary_service; from jomon.situations import BY_REGION_BAND, choices, inspect_lines, resolve; from jomon.state import create_world; "
+        "import json; from roag.actions import depart; from roag.quests import use_secondary_service; from roag.situations import BY_REGION_BAND, choices, inspect_lines, resolve; from roag.state import create_world; "
         "state=create_world('situation-pack-proof'); state.weapon='billhook';state.gear='repair tools';depart(state);row=BY_REGION_BAND['hearthford','steady'];before=[state.rope_uses,state.market[state.region.objective_commodity].demand];labels=choices(state,row.id);changed,message,steps=resolve(state,row.id,'t');inspection=inspect_lines(state,row.id);reported,report=use_secondary_service(state,'p'); mechanics={'id':row.id,'region':row.region_id,'band':row.band,'anchor':row.anchor,'effects':row.material_effects,'choices':[key for key,*_ in labels],'outcome_id':state.region.changes['micro-site:outcome_id:'+row.id],'resolved':state.region.changes['micro-site:resolved:'+row.id],'report_id':state.region.changes['micro-site:report:'+row.id],'reported':reported,'rope':state.rope_uses,'demand':state.market[state.region.objective_commodity].demand,'before':before,'point':state.region.changes['micro-site:point:'+row.id],'time':state.world_time}; print(json.dumps({'presentation':[row.name,row.groups,row.duty,labels,message,inspection,report,state.contact.memories[-1]],'mechanics':mechanics}))"
     ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
     if result.returncode: raise AssertionError(result.stderr)
@@ -2338,7 +2338,7 @@ def situation_presentation_snapshot(environment: dict[str, str]) -> dict[str, ob
 
 class SituationPresentationTests(unittest.TestCase):
     def test_default_situation_presentation_preserves_existing_text(self):
-        from jomon.situations import BY_REGION_BAND
+        from roag.situations import BY_REGION_BAND
         row=BY_REGION_BAND['hearthford','steady']
         self.assertEqual(row.name, 'The reed-bank tally')
         self.assertEqual(row.answers[0], 'lay a tool-marked dry path')
@@ -2346,7 +2346,7 @@ class SituationPresentationTests(unittest.TestCase):
     def test_alternate_situation_presentation_changes_text_not_mechanics(self):
         default=situation_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
-            root=alternate_pack(Path(directory)/'fixture'); environment=dict(os.environ);environment['JOMON_CONTENT_PACK']=str(root)
+            root=alternate_pack(Path(directory)/'fixture'); environment=dict(os.environ);environment['ROAG_CONTENT_PACK']=str(root)
             alternate=situation_presentation_snapshot(environment)
         self.assertEqual(default['mechanics'],alternate['mechanics'])
         rendered=str(alternate['presentation'])
@@ -2382,7 +2382,7 @@ class SituationPresentationTests(unittest.TestCase):
 def circuit_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
     result = subprocess.run([
         sys.executable, "-c",
-        "import json; from jomon.circuits import advance_circuits, cell_key, diagnostic_lines, place; from jomon.circuit_presentation import circuit_format; from jomon.inventory import auto_place, create_item, item_spec; from jomon.state import CircuitCell, Position, create_world; "
+        "import json; from roag.circuits import advance_circuits, cell_key, diagnostic_lines, place; from roag.circuit_presentation import circuit_format; from roag.inventory import auto_place, create_item, item_spec; from roag.state import CircuitCell, Position, create_world; "
         "state=create_world('circuit-pack-proof');state.location='region';state.position=Position(20,20,0);state.circuits={};[state.region.tile_changes.__setitem__(f'{x},{y},0','.') for y in range(18,23) for x in range(18,27)];item=create_item(state,'circuit:trace','proof stock');auto_place(state,item.id,'pack',owner_id=state.active_courier_id);placed,message=place(state,Position(21,20,0),'buried','trace');rack=CircuitCell('region:hearthford',Position(20,20,0),'surface','rack',charge=1);trace=CircuitCell('region:hearthford',Position(21,20,0),'surface','trace');drain=CircuitCell('region:hearthford',Position(22,20,0),'surface','drain');state.circuits[cell_key(rack.space,rack.position,rack.layer)]=rack;state.circuits[cell_key(trace.space,trace.position,trace.layer)]=trace;state.circuits[cell_key(drain.space,drain.position,drain.layer)]=drain;state.water['22,20,0']=2;state.world_time=5;advance_circuits(state);state.world_time+=1;advance_circuits(state);state.world_time+=1;advance_circuits(state);state.world_time+=1;advance_circuits(state);mechanics={'placed':placed,'kind':state.circuits[cell_key('region:hearthford',Position(21,20,0),'buried')].kind,'position':state.circuits[cell_key('region:hearthford',Position(21,20,0),'buried')].position.__dict__,'layer':'buried','items':sum(item.quantity for item in state.items if item.kind=='circuit:trace'),'rack_charge':rack.charge,'drain_active_until':drain.active_until,'water':state.water.get('22,20,0',0),'time':state.world_time,'keys':sorted(state.circuits)};presentation={'place':message,'diagnostics':diagnostic_lines(state,drain),'event':drain.last_event,'item_name':item_spec('circuit:trace').name,'heading':circuit_format('circuit.terminal.heading',layer='BURIED',x=21,y=20,z=0,description='trace')};print(json.dumps({'mechanics':mechanics,'presentation':presentation}))"
     ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
     if result.returncode:
@@ -2392,7 +2392,7 @@ def circuit_presentation_snapshot(environment: dict[str, str]) -> dict[str, obje
 
 class CircuitPresentationTests(unittest.TestCase):
     def test_default_circuit_presentation_preserves_part_text(self):
-        from jomon.circuit_presentation import circuit_part_description, circuit_part_name
+        from roag.circuit_presentation import circuit_part_description, circuit_part_name
         self.assertEqual(circuit_part_name("trace"), "Lacquered conductor")
         self.assertEqual(circuit_part_description("trace"), "An insulated iron trace for a surface or buried circuit run.")
 
@@ -2400,7 +2400,7 @@ class CircuitPresentationTests(unittest.TestCase):
         default = circuit_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            environment = dict(os.environ); environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = circuit_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         rendered = str(alternate["presentation"])
@@ -2438,7 +2438,7 @@ class CircuitPresentationTests(unittest.TestCase):
 def ecology_presentation_snapshot(environment: dict[str, str]) -> dict[str, object]:
     result = subprocess.run([
         sys.executable, "-c",
-        "import json; from jomon.combat_forecast import forecast_lines, observed_forecasts; from jomon.ecology import resolve_world_action; from jomon.encounters import threat_from_archetype; from jomon.frontier_elites import elite_action; from jomon.state import MaterialCell, Position, Threat, create_world; from jomon.enemy_ai import select_goal; state=create_world('ecology-pack-proof');state.location='region';state.position=Position(30,24);state.threats=[];[state.region.tile_changes.__setitem__(f'{x},{y},0','.') for y in range(20,29) for x in range(26,38)];elite=threat_from_archetype('fen-marshal',Position(35,24),encounter_id='frontier-elite',group='proof');elite.status='engaged';elite.morale=10;elite.home_position=elite.position;state.threats=[elite];state.region.materials['35,24,0']=MaterialCell(material='timber',support=2);first=elite_action(state,elite,False);forecast=observed_forecasts(state);second=elite_action(state,elite,False);hunter=threat_from_archetype('fen-lynx',Position(31,24),encounter_id='ecology',group='proof');prey=Threat('prey','proof hare','animal',Position(32,24),4,4,status='engaged',ecology='prey');hunter.status='engaged';state.threats=[hunter,prey];decision=select_goal(state,hunter);ecology=resolve_world_action(state,hunter,decision);mechanics={'decision_action':decision.action,'decision_goal_id':decision.goal_id,'elite_archetype':elite.archetype_id,'elite_intent_id':elite.intent_id,'water':[state.region.materials[f'{x},24,0'].water for x in (29,30,31)],'supplies':elite.supplies,'forecast_target':forecast[0].target.__dict__ if forecast else None,'forecast_intent_id':forecast[0].intent_id if forecast else '', 'hunter_archetype':hunter.archetype_id,'hunter_intent_id':hunter.intent_id,'hunter_goal_id':hunter.goal_id,'prey_health':prey.health};presentation={'first':first,'forecast':forecast_lines(forecast[0]) if forecast else [],'second':second,'hunter':hunter.name,'ecology':ecology};print(json.dumps({'mechanics':mechanics,'presentation':presentation}))"
+        "import json; from roag.combat_forecast import forecast_lines, observed_forecasts; from roag.ecology import resolve_world_action; from roag.encounters import threat_from_archetype; from roag.frontier_elites import elite_action; from roag.state import MaterialCell, Position, Threat, create_world; from roag.enemy_ai import select_goal; state=create_world('ecology-pack-proof');state.location='region';state.position=Position(30,24);state.threats=[];[state.region.tile_changes.__setitem__(f'{x},{y},0','.') for y in range(20,29) for x in range(26,38)];elite=threat_from_archetype('fen-marshal',Position(35,24),encounter_id='frontier-elite',group='proof');elite.status='engaged';elite.morale=10;elite.home_position=elite.position;state.threats=[elite];state.region.materials['35,24,0']=MaterialCell(material='timber',support=2);first=elite_action(state,elite,False);forecast=observed_forecasts(state);second=elite_action(state,elite,False);hunter=threat_from_archetype('fen-lynx',Position(31,24),encounter_id='ecology',group='proof');prey=Threat('prey','proof hare','animal',Position(32,24),4,4,status='engaged',ecology='prey');hunter.status='engaged';state.threats=[hunter,prey];decision=select_goal(state,hunter);ecology=resolve_world_action(state,hunter,decision);mechanics={'decision_action':decision.action,'decision_goal_id':decision.goal_id,'elite_archetype':elite.archetype_id,'elite_intent_id':elite.intent_id,'water':[state.region.materials[f'{x},24,0'].water for x in (29,30,31)],'supplies':elite.supplies,'forecast_target':forecast[0].target.__dict__ if forecast else None,'forecast_intent_id':forecast[0].intent_id if forecast else '', 'hunter_archetype':hunter.archetype_id,'hunter_intent_id':hunter.intent_id,'hunter_goal_id':hunter.goal_id,'prey_health':prey.health};presentation={'first':first,'forecast':forecast_lines(forecast[0]) if forecast else [],'second':second,'hunter':hunter.name,'ecology':ecology};print(json.dumps({'mechanics':mechanics,'presentation':presentation}))"
     ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
     if result.returncode:
         raise AssertionError(result.stderr)
@@ -2450,7 +2450,7 @@ class EcologyPresentationTests(unittest.TestCase):
         default = ecology_presentation_snapshot(dict(os.environ))
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            environment = dict(os.environ); environment["JOMON_CONTENT_PACK"] = str(root)
+            environment = dict(os.environ); environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = ecology_presentation_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         rendered = str(alternate["presentation"])
@@ -2527,19 +2527,19 @@ class DullestDungeonPresentationTests(unittest.TestCase):
                 load_content_pack(root)
 
     def test_dd_runtime_catalog_view_uses_selected_presentation(self):
-        script = "from jomon.dumbest_dungeon.content import load_catalog; print(load_catalog().cards['bone_saw']['name'])"
+        script = "from roag.dumbest_dungeon.content import load_catalog; print(load_catalog().cards['bone_saw']['name'])"
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            env = dict(os.environ); env["ROAG_CONTENT_PACK"] = str(root)
             alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
         self.assertEqual(default.stdout.strip(), "Bone Saw")
         self.assertEqual(alternate.stdout.strip(), "Fixture Paper Saw")
 
     def test_dd_alternate_fiction_keeps_active_match_mechanics(self):
         script = (
-            "import json; from jomon.dumbest_dungeon.expedition import new_match, pending_choice_labels; "
-            "from jomon.dumbest_dungeon.content import load_catalog; c=load_catalog(); roles=list(c.heroes); "
+            "import json; from roag.dumbest_dungeon.expedition import new_match, pending_choice_labels; "
+            "from roag.dumbest_dungeon.content import load_catalog; c=load_catalog(); roles=list(c.heroes); "
             "m=new_match('dd-pack-proof','crew-a','crew-b',roles[:4],roles[4:8]); "
             "camp=next(row for row in m['stations'] if row['kind']=='camp'); m['pending']={'side':0,'kind':'camp','station':camp['id'],'choices':['recover','treat']}; "
             "print(json.dumps({'mechanics':{'world':m['world_id'],'rng':m['rng'],'board':m['board'],'teams':m['teams'],'files':m['files'],'patrols':m['patrols'],'pending':m['pending']},'log':m['log'],'labels':pending_choice_labels(m,m['pending'])}))"
@@ -2547,7 +2547,7 @@ class DullestDungeonPresentationTests(unittest.TestCase):
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            env = dict(os.environ); env["ROAG_CONTENT_PACK"] = str(root)
             alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["mechanics"], second["mechanics"])
@@ -2556,8 +2556,8 @@ class DullestDungeonPresentationTests(unittest.TestCase):
 
     def test_dd_runtime_templates_and_catalog_overlay_change_without_rules(self):
         script = (
-            "import json; from jomon.dumbest_dungeon.content import load_catalog; "
-            "from jomon.dumbest_dungeon.presentation import dd_text; c=load_catalog(); "
+            "import json; from roag.dumbest_dungeon.content import load_catalog; "
+            "from roag.dumbest_dungeon.presentation import dd_text; c=load_catalog(); "
             "print(json.dumps({'rules':c.manifest.fingerprint,'name':c.cards['bone_saw']['name'],"
             "'engine':dd_text('engine.card_play', actor='A', card='B'),"
             "'ui':dd_text('ui.map_title', game='G', world='W')}))"
@@ -2565,7 +2565,7 @@ class DullestDungeonPresentationTests(unittest.TestCase):
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            env = dict(os.environ); env["ROAG_CONTENT_PACK"] = str(root)
             alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["rules"], second["rules"])
@@ -2576,15 +2576,15 @@ class DullestDungeonPresentationTests(unittest.TestCase):
 
     def test_dd_fiction_changes_keep_independent_rules_fingerprint(self):
         script = (
-            "import json; from jomon.dumbest_dungeon.content import load_catalog; "
-            "from jomon.dumbest_dungeon.presentation import card_name, role_name, office_sprites; "
-            "from jomon.catalog import content_pack_presentation_fingerprint; "
+            "import json; from roag.dumbest_dungeon.content import load_catalog; "
+            "from roag.dumbest_dungeon.presentation import card_name, role_name, office_sprites; "
+            "from roag.catalog import content_pack_presentation_fingerprint; "
             "c=load_catalog(); print(json.dumps({'rules':c.manifest.fingerprint,'card':card_name('bone_saw'),'role':role_name('warden'),'sprite':office_sprites()['warden'][0],'pack':content_pack_presentation_fingerprint()}))"
         )
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            env = dict(os.environ); env["JOMON_CONTENT_PACK"] = str(root)
+            env = dict(os.environ); env["ROAG_CONTENT_PACK"] = str(root)
             alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=env, text=True, capture_output=True, check=True)
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["rules"], second["rules"])

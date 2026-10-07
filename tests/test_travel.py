@@ -2,10 +2,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import choose_weapon
-from jomon.save import load_game, save_game
-from jomon.state import create_world
-from jomon.travel import choose_destination, resolve_voyage, voyage_for
+from roag.actions import choose_weapon
+from roag.save import load_game, save_game
+from roag.state import create_world
+from roag.travel import choose_destination, resolve_voyage, voyage_for
 
 
 class RegionalTravelTests(unittest.TestCase):

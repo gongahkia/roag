@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-from jomon.mechanical_compatibility import (
+from roag.mechanical_compatibility import (
     MECHANICAL_COMPATIBILITY_VERSION,
     MECHANICAL_PROJECTION_FORMAT,
     MechanicalProjectionError,
@@ -19,8 +19,8 @@ from jomon.mechanical_compatibility import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PACK = ROOT / "jomon" / "content_packs" / "default"
-DATA = ROOT / "jomon" / "data"
+DEFAULT_PACK = ROOT / "roag" / "content_packs" / "default"
+DATA = ROOT / "roag" / "data"
 
 
 class MechanicalCompatibilityTests(unittest.TestCase):
@@ -32,9 +32,9 @@ class MechanicalCompatibilityTests(unittest.TestCase):
         return pack
 
     def _fingerprint(self, pack: Path) -> str:
-        environment = dict(os.environ, JOMON_CONTENT_PACK=str(pack))
+        environment = dict(os.environ, ROAG_CONTENT_PACK=str(pack))
         result = subprocess.run(
-            [sys.executable, "-c", "from jomon.mechanical_compatibility import main_world_mechanical_fingerprint; print(main_world_mechanical_fingerprint())"],
+            [sys.executable, "-c", "from roag.mechanical_compatibility import main_world_mechanical_fingerprint; print(main_world_mechanical_fingerprint())"],
             cwd=ROOT, env=environment, text=True, capture_output=True, check=True,
         )
         return result.stdout.strip()
@@ -109,9 +109,9 @@ class MechanicalCompatibilityTests(unittest.TestCase):
             equipment = self._json(pack.parent.parent / "data" / "equipment.json")
             equipment["item_specs"]["billhook"]["future_mechanic"] = 1
             self._write(pack.parent.parent / "data" / "equipment.json", equipment)
-            environment = dict(os.environ, JOMON_CONTENT_PACK=str(pack))
+            environment = dict(os.environ, ROAG_CONTENT_PACK=str(pack))
             result = subprocess.run(
-                [sys.executable, "-c", "from jomon.mechanical_compatibility import main_world_mechanical_fingerprint; main_world_mechanical_fingerprint()"],
+                [sys.executable, "-c", "from roag.mechanical_compatibility import main_world_mechanical_fingerprint; main_world_mechanical_fingerprint()"],
                 cwd=ROOT, env=environment, text=True, capture_output=True,
             )
             self.assertNotEqual(result.returncode, 0)

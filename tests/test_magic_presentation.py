@@ -8,19 +8,19 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
-from jomon.magic import SPELLS, cast, spell_status
-from jomon.state import Position, create_world, game_state_from_dict
+from roag.catalog import ContentPackError, bundled_default_pack, load_content_pack
+from roag.magic import SPELLS, cast, spell_status
+from roag.state import Position, create_world, game_state_from_dict
 from tests.test_content_packs import ROOT, alternate_pack
 
 
 def magic_snapshot(environment: dict[str, str]) -> dict[str, object]:
     script = '''
 import json
-import jomon.actions
-from jomon.magic import cast, spell_status
-from jomon.state import Position, Threat, create_world
-jomon.actions._advance_world = lambda *args, **kwargs: None
+import roag.actions
+from roag.magic import cast, spell_status
+from roag.state import Position, Threat, create_world
+roag.actions._advance_world = lambda *args, **kwargs: None
 state = create_world("magic-presentation-proof")
 state.location = "region"
 state.position = Position(30, 23)
@@ -48,7 +48,7 @@ print(json.dumps({"message": message, "ash_message": ash_message, "status": stat
 
 class MagicPresentationTests(unittest.TestCase):
     def test_default_pack_preserves_spell_and_cast_text(self):
-        from jomon.magic_presentation import spell_description, spell_display_name
+        from roag.magic_presentation import spell_description, spell_display_name
 
         self.assertEqual(spell_display_name("ember-spark"), "Ember spark")
         self.assertEqual(spell_description(SPELLS["ember-spark"]), "fire 1; radius 0; 1 mana, reach 5")
@@ -62,7 +62,7 @@ class MagicPresentationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
             environment = dict(os.environ)
-            environment["JOMON_CONTENT_PACK"] = str(root)
+            environment["ROAG_CONTENT_PACK"] = str(root)
             alternate = magic_snapshot(environment)
         self.assertEqual(default["mechanics"], alternate["mechanics"])
         self.assertIn("FIXTURE", alternate["message"])
@@ -71,11 +71,11 @@ class MagicPresentationTests(unittest.TestCase):
         self.assertEqual(alternate["mechanics"]["intent_id"], "intent.magic.push")
 
     def test_magic_defeat_uses_a_stable_intent_identity(self):
-        import jomon.actions
-        from jomon.state import Threat
+        import roag.actions
+        from roag.state import Threat
 
-        original = jomon.actions._advance_world
-        jomon.actions._advance_world = lambda *args, **kwargs: None
+        original = roag.actions._advance_world
+        roag.actions._advance_world = lambda *args, **kwargs: None
         try:
             state = create_world("magic-presentation-proof")
             state.location = "region"
@@ -88,7 +88,7 @@ class MagicPresentationTests(unittest.TestCase):
             self.assertEqual(target.intent_id, "intent.magic.defeated")
             self.assertEqual(target.status, "defeated")
         finally:
-            jomon.actions._advance_world = original
+            roag.actions._advance_world = original
 
     def test_magic_presentation_contract_rejects_invalid_authoring(self):
         with tempfile.TemporaryDirectory() as directory:

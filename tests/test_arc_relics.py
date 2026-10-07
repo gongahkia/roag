@@ -3,12 +3,12 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import attack, move, use_gear
-from jomon.arc_relics import ARC_RELICS, ARC_RELIC_DESCRIPTIONS, lee_sheltered, validate_arc_relics
-from jomon.enemy_equipment import issue_enemy_equipment, readied_weapon
-from jomon.inventory import auto_place, create_item, sync_legacy_load
-from jomon.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
-from jomon.world import sight_radius
+from roag.actions import attack, move, use_gear
+from roag.arc_relics import ARC_RELICS, ARC_RELIC_DESCRIPTIONS, lee_sheltered, validate_arc_relics
+from roag.enemy_equipment import issue_enemy_equipment, readied_weapon
+from roag.inventory import auto_place, create_item, sync_legacy_load
+from roag.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
+from roag.world import sight_radius
 
 
 class AftermathArcRelicTests(unittest.TestCase):

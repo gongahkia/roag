@@ -1,7 +1,7 @@
 # Regional content packs
 
-`jomon/content_packs/contract.json` is engine-owned. It fixes the ordered mapping
-between `region.family_1` through `region.family_8` and Jomon's legacy engine
+`roag/content_packs/contract.json` is engine-owned. It fixes the ordered mapping
+between `region.family_1` through `region.family_8` and Roag's legacy engine
 region IDs. Content packs cannot redefine that mapping.
 
 Each pack supplies `regions.json` with one entry for every semantic region slot.

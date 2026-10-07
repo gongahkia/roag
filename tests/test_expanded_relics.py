@@ -1,14 +1,14 @@
 import copy
 import unittest
 
-from jomon.actions import use_gear
-from jomon.calendar import ACTIONS_PER_DAY, DAYS_PER_SEASON
-from jomon.content import RELICS
-from jomon.frontiers import FRONTIER_RELICS, FRONTIERS, build_frontier
-from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load
-from jomon.materials import ensure_cell, key
-from jomon.regional_history import account_for
-from jomon.state import Position, Threat, create_world
+from roag.actions import use_gear
+from roag.calendar import ACTIONS_PER_DAY, DAYS_PER_SEASON
+from roag.content import RELICS
+from roag.frontiers import FRONTIER_RELICS, FRONTIERS, build_frontier
+from roag.inventory import auto_place, create_item, item_spec, sync_legacy_load
+from roag.materials import ensure_cell, key
+from roag.regional_history import account_for
+from roag.state import Position, Threat, create_world
 
 
 NEW_RELICS = {

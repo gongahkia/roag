@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import (
+from roag.actions import (
     _add_goods,
     apply_damage,
     decide_objective,
@@ -14,7 +14,7 @@ from jomon.actions import (
     resolve_regional_quest_choice,
     use_contact_service,
 )
-from jomon.quests import (
+from roag.quests import (
     ADDITIONAL_ARCS,
     QUESTS,
     mark_elevated_lead,
@@ -22,11 +22,11 @@ from jomon.quests import (
     quest_reachability_audit,
     record_container_opened,
 )
-from jomon.quest_presentation import regional_quest_title
-from jomon.regions import activate_region, region_reachable
-from jomon.save import load_game, save_game
-from jomon.state import Position, create_world, game_state_from_dict
-from jomon.world import remembered
+from roag.quest_presentation import regional_quest_title
+from roag.regions import activate_region, region_reachable
+from roag.save import load_game, save_game
+from roag.state import Position, create_world, game_state_from_dict
+from roag.world import remembered
 
 
 def at_primary(state, region_id: str) -> None:

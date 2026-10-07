@@ -4,20 +4,20 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from jomon.actions import depart
-from jomon.frontiers import ensure_frontier
-from jomon.regions import activate_region
-from jomon.quests import FIELD_REPORT_RESPONSES, secondary_service_options, use_secondary_service
-from jomon.save import load_game, save_game
-from jomon.situations import (
+from roag.actions import depart
+from roag.frontiers import ensure_frontier
+from roag.regions import activate_region
+from roag.quests import FIELD_REPORT_RESPONSES, secondary_service_options, use_secondary_service
+from roag.save import load_game, save_game
+from roag.situations import (
     BY_REGION_BAND, SITUATIONS, activate_for_band, audit_situations,
     choices, inspect_lines, resolve, site_glyph, site_point,
     validate_situations,
 )
-from jomon.state import StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import _overlay_lines, dialogue_choices
-from jomon.world import is_walkable
-from jomon.materials import fields, key
+from roag.state import StateError, create_world, game_state_from_dict, validate_state
+from roag.terminal import _overlay_lines, dialogue_choices
+from roag.world import is_walkable
+from roag.materials import fields, key
 
 
 class MixedSituationTests(unittest.TestCase):
@@ -123,7 +123,7 @@ class MixedSituationTests(unittest.TestCase):
         sampled = self.ready()
         self.assertTrue(resolve(sampled, row.id, "t")[0])
         before = copy.deepcopy(sampled.to_dict())
-        with patch("jomon.inventory.auto_place", return_value=False):
+        with patch("roag.inventory.auto_place", return_value=False):
             changed, _, steps = resolve(sampled, row.id, "m")
         self.assertFalse(changed)
         self.assertEqual(steps, 0)

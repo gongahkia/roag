@@ -3,15 +3,15 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import depart
-from jomon.inventory import auto_place, create_item
-from jomon.manoeuvres import (
+from roag.actions import depart
+from roag.inventory import auto_place, create_item
+from roag.manoeuvres import (
     BY_ID, MANOEUVRES, choices, known, lines, perform, validate_manoeuvres,
 )
-from jomon.materials import ensure_cell
-from jomon.save import load_game, save_game
-from jomon.state import Position, create_world
-from jomon.terminal import TargetView, _handle_targeting, targeting_lines
+from roag.materials import ensure_cell
+from roag.save import load_game, save_game
+from roag.state import Position, create_world
+from roag.terminal import TargetView, _handle_targeting, targeting_lines
 
 
 class ActiveMasteryTests(unittest.TestCase):

@@ -1,6 +1,6 @@
-[![](https://img.shields.io/badge/jomon_1.0.0-passing-light_green)](https://github.com/gongahkia/jomon/releases/tag/1.0.0) 
+[![](https://img.shields.io/badge/roag_1.0.0-passing-light_green)](https://github.com/gongahkia/roag/releases/tag/1.0.0)
 
-# `Jomon` 🛖
+# `Roag` 🛖
 
 A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival mailman](https://en.wikipedia.org/wiki/Jōmon_people), played entirely in the [CLI](https://dwarffortresswiki.org/index.php/Command_line).
 
@@ -19,29 +19,29 @@ A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival m
 ## Usage
 
 > [!NOTE]  
-> `Jomon` minimally requires a 80-column by 24-row terminal.
+> `Roag` minimally requires a 80-column by 24-row terminal.
 
-The below instructions are for locally running `Jomon`.
+The below instructions are for locally running `Roag`.
 
 1. First clone the repository.
 
 ```console
-$ git clone https://github.com/gongahkia/jomon && cd jomon
+$ git clone https://github.com/gongahkia/roag && cd roag
 ```
 
 2. Then run the below from repo root.
 
 ```console
-$ python -m jomon
+$ python -m roag
 ```
 
 3. Optionally run the below commands for verification.
 
 ```console
-$ python -m jomon.checks fast
+$ python -m roag.checks fast
 $ python -m unittest discover -s tests -v
-$ python -m compileall -q jomon tests
-$ python -m jomon.verification content
+$ python -m compileall -q roag tests
+$ python -m roag.verification content
 $ git diff --check
 ```
 
@@ -58,11 +58,11 @@ $ git diff --check
 | `P` / `D` / `W` | Skill tree / spellbook and shrine vigil / crafting and flasks |
 | `\\` / `Z` | Circuit work / regional ledger |
 | `C` / `O` / `;` | Character sheet / observe visible life / inspect without spending time |
-| Tab | Choose the tug at Jomon's gangplank or open a vehicle interior |
-| `?` / `S` / `Q` / Escape | Help / save aboard Jomon / quit / close or cancel |
+| Tab | Choose the tug at Roag's gangplank or open a vehicle interior |
+| `?` / `S` / `Q` / Escape | Help / save aboard Roag / quit / close or cancel |
 
 ## Reference
 
-`Jomon` is thoroughly inspired by [Bob Nystrom](https://github.com/munificent)'s [Hauberk](https://github.com/munificent/hauberk).
+`Roag` is thoroughly inspired by [Bob Nystrom](https://github.com/munificent)'s [Hauberk](https://github.com/munificent/hauberk).
 
 ![](./asset/logo/hauberk.png)

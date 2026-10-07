@@ -1,8 +1,8 @@
 import unittest
 
-from jomon.echoes import ECHOES, apply_later_echoes, lines, validate_echoes
-from jomon.state import create_world
-from jomon.voyage_variants import VARIANTS
+from roag.echoes import ECHOES, apply_later_echoes, lines, validate_echoes
+from roag.state import create_world
+from roag.voyage_variants import VARIANTS
 
 
 class VoyageEchoTests(unittest.TestCase):

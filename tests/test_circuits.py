@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.circuits import (
+from roag.circuits import (
     CELL_CHARGE, SIGNAL_SPAN, advance_circuits, cell_at, cell_key, glyph, item_count,
     diagnostic_lines, next_phase, operate, piston_head_at, place, reclaim,
     sensor_active, validate_circuits,
 )
-from jomon.inventory import auto_place, create_item, item_spec
-from jomon.production import RECIPES, make, recipe_status
-from jomon.state import CircuitCell, CommodityStack, MaterialCell, Position, StateError, VerticalLink, create_world, game_state_from_dict
-from jomon.terminal import CircuitView, InputEvent, _draw_circuit, _handle_circuit
-from jomon.world import displayed_tile, is_walkable, sight_radius
+from roag.inventory import auto_place, create_item, item_spec
+from roag.production import RECIPES, make, recipe_status
+from roag.state import CircuitCell, CommodityStack, MaterialCell, Position, StateError, VerticalLink, create_world, game_state_from_dict
+from roag.terminal import CircuitView, InputEvent, _draw_circuit, _handle_circuit
+from roag.world import displayed_tile, is_walkable, sight_radius
 
 
 class CircuitTests(unittest.TestCase):
@@ -53,8 +53,8 @@ class CircuitTests(unittest.TestCase):
 
     def test_workshop_recipe_consumes_real_stock_and_yields_four_traces(self):
         state = self.state
-        state.location = "jomon"
-        state.jomon_space = "vessel"
+        state.location = "roag"
+        state.roag_space = "vessel"
         state.position = Position(39, 5, -1)
         state.vessel_cargo["ironwork"] = CommodityStack(1, "dry")
         state.vessel_cargo["wool"] = CommodityStack(1, "dry")
@@ -208,8 +208,8 @@ class CircuitTests(unittest.TestCase):
         self.assertLess(lamp.last_pulse, state.world_time - 7)
 
     def test_bilge_watch_waits_dry_then_pumps_a_real_flooded_hold(self):
-        from jomon.actions import _advance_world
-        from jomon.ship_crises import begin_deck, crisis_lines
+        from roag.actions import _advance_world
+        from roag.ship_crises import begin_deck, crisis_lines
 
         state = self.state
         rack = state.circuits[cell_key("vessel", Position(5, 15, -1), "surface")]
@@ -220,7 +220,7 @@ class CircuitTests(unittest.TestCase):
         self.tick(30)
         self.assertEqual(rack.charge, CELL_CHARGE)
         self.assertIn("Water sensor at 9,15,z-1 is clear", " ".join(diagnostic_lines(state, rack)))
-        state.location, state.jomon_space = "jomon", "vessel"
+        state.location, state.roag_space = "roag", "vessel"
         state.position = Position(8, 14, -1)
         state.voyage_kind, state.voyage_status = "flooded-hold", "active"
         self.assertTrue(begin_deck(state)[0])
@@ -235,11 +235,11 @@ class CircuitTests(unittest.TestCase):
         self.assertLessEqual(sum(cell.water for cell in state.vessel_materials.values()), 1)
 
     def test_bilge_switch_reserves_charge_and_surge_has_same_physical_counterplay(self):
-        from jomon.actions import _advance_world
-        from jomon.ship_crises import begin_deck
+        from roag.actions import _advance_world
+        from roag.ship_crises import begin_deck
 
         state = self.state
-        state.location, state.jomon_space = "jomon", "vessel"
+        state.location, state.roag_space = "roag", "vessel"
         state.position = Position(7, 15, -1)
         state.voyage_kind, state.voyage_status = "flooded-hold", "active"
         state.vessel_changes["active_voyage_variant"] = "thaw-surge"

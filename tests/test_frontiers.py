@@ -1,12 +1,12 @@
 import copy
 import unittest
 
-from jomon.actions import _weather_and_deadline, decide_objective, interact
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.quests import QUESTS, resolve_regional_quest
-from jomon.regions import activate_region, region_reachable
-from jomon.route_chart import neighbours
-from jomon.state import Position, create_world, game_state_from_dict
+from roag.actions import _weather_and_deadline, decide_objective, interact
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.quests import QUESTS, resolve_regional_quest
+from roag.regions import activate_region, region_reachable
+from roag.route_chart import neighbours
+from roag.state import Position, create_world, game_state_from_dict
 
 
 class FrontierTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class FrontierTests(unittest.TestCase):
         self.assertEqual(state.objective_status, "completed")
 
     def test_chart_labels_do_not_enter_details_panel_at_supported_sizes(self):
-        from jomon.terminal import _chart_screen_point, chart_label_position
+        from roag.terminal import _chart_screen_point, chart_label_position
 
         for width, height in ((80, 24), (100, 32)):
             map_width = width - max(27, min(36, width // 3))

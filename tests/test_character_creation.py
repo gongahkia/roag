@@ -5,18 +5,18 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from jomon.actions import interact
-from jomon.character import (
+from roag.actions import interact
+from roag.character import (
     ANCESTRIES, ORIGINS, TRAITS, apply_character_spec, character_sheet,
     clean_name, default_allocation, effective_competency,
 )
-from jomon.character_ui import _draw, _read_name, run_character_creation
-from jomon.inventory import weight_capacity
-from jomon.save import load_game, save_game
-from jomon.state import StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import _overlay_lines, dialogue_choices
-from jomon.vessel import JOMON_GANGPLANK
-from jomon.world import sight_radius
+from roag.character_ui import _draw, _read_name, run_character_creation
+from roag.inventory import weight_capacity
+from roag.save import load_game, save_game
+from roag.state import StateError, create_world, game_state_from_dict, validate_state
+from roag.terminal import _overlay_lines, dialogue_choices
+from roag.vessel import ROAG_GANGPLANK
+from roag.world import sight_radius
 
 
 class CharacterCreationTests(unittest.TestCase):
@@ -56,9 +56,9 @@ class CharacterCreationTests(unittest.TestCase):
                                       attributes=attributes, competencies=skills)
         self.assertIs(person, chosen)
         self.assertEqual((person.name, person.role, person.relationships), ("Mira Vale", "pilot", original_bonds))
-        self.assertEqual((self.state.position, self.state.world_time, self.state.expedition_count), (JOMON_GANGPLANK, 0, 0))
+        self.assertEqual((self.state.position, self.state.world_time, self.state.expedition_count), (ROAG_GANGPLANK, 0, 0))
         self.assertIn("Mira Vale", self.state.messages[-1])
-        self.assertEqual(self.state.actor_schedules[person.id].position, JOMON_GANGPLANK)
+        self.assertEqual(self.state.actor_schedules[person.id].position, ROAG_GANGPLANK)
         self.assertTrue(person.character_specified)
         self.assertEqual(person.max_health, 12)
         validate_state(self.state)
@@ -76,7 +76,7 @@ class CharacterCreationTests(unittest.TestCase):
         self.assertEqual(weight_capacity(self.state), plain_capacity + 2)
         self.assertGreater(effective_competency(person, "fieldcraft"), person.fieldcraft)
         self.state.location = "region"
-        from jomon.state import Position
+        from roag.state import Position
 
         self.state.position = Position(40, 25)
         radius = sight_radius(self.state)
@@ -97,7 +97,7 @@ class CharacterCreationTests(unittest.TestCase):
         self.assertEqual(rows, sheet)
         self.assertTrue(any(option.key == "C" for option in dialogue_choices(self.state, f"person:{self.state.household[1].id}")))
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             loaded = load_game(path)
         self.assertEqual(loaded.courier.name, "Nera Reed")

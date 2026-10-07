@@ -5,8 +5,8 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.people import normalize_personal_return_state, record_personal_return
-from jomon.state import combat_seed_identity, create_world, game_state_from_dict
+from roag.people import normalize_personal_return_state, record_personal_return
+from roag.state import combat_seed_identity, create_world, game_state_from_dict
 
 
 class ContentIdentity14ETests(unittest.TestCase):
@@ -53,7 +53,7 @@ class ContentIdentity14ETests(unittest.TestCase):
             root = alternate_pack(Path(directory) / "alternate")
             # The fixture helper deliberately changes a seed word for unrelated
             # presentation tests; restore it to keep this switch mechanical-only.
-            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "jomon" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
+            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "roag" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
             characters = json.loads((root / "characters.json").read_text(encoding="utf-8"))
             characters["people"]["first_names"]["first_0"] = "Alternate"
             characters["people"]["contact_names"]["contact_0"] = "Alternate Contact"
@@ -64,18 +64,18 @@ class ContentIdentity14ETests(unittest.TestCase):
             source = '''
 import json
 from pathlib import Path
-from jomon.save import save_game
-from jomon.state import create_world
+from roag.save import save_game
+from roag.state import create_world
 s=create_world("14e-pack-switch")
 save_game(s, Path(r"%s"))
 print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slot,sorted(p.relationships.items())) for p in s.household], "visitor": [(p.id,p.people_presentation_id) for p in s.visitors], "contact": (s.contact.id,s.contact.name_slot,s.contact.role_slot), "context": s.region.people_context_slot}))
 ''' % save
             before = json.loads(subprocess.check_output(["python", "-c", source], text=True))
-            environment = dict(os.environ, JOMON_CONTENT_PACK=str(root))
+            environment = dict(os.environ, ROAG_CONTENT_PACK=str(root))
             target = '''
 import json
 from pathlib import Path
-from jomon.save import load_game, save_game
+from roag.save import load_game, save_game
 s=load_game(Path(r"%s"))
 print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slot,sorted(p.relationships.items())) for p in s.household], "visitor": [(p.id,p.people_presentation_id) for p in s.visitors], "contact": (s.contact.id,s.contact.name_slot,s.contact.role_slot), "context": s.region.people_context_slot, "rendered": [s.household[0].name,s.contact.name,s.region.condition,s.visitors[0].name]}))
 ''' % save
@@ -87,7 +87,7 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
         self.assertTrue(any("Alternate" in value for value in after["rendered"]))
 
     def test_combat_seed_keeps_default_damage_locations_for_each_path(self):
-        from jomon.actions import _hit_location, legacy_combat_damage_seed
+        from roag.actions import _hit_location, legacy_combat_damage_seed
         state = create_world("14e combat continuity")
         by_archetype = {threat.archetype_id: threat for threat in state.threats}
         cases = (
@@ -106,7 +106,7 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
                 # The same source token produces the same actual damage state,
                 # not merely a matching helper return value.
                 from copy import deepcopy
-                from jomon.actions import apply_damage
+                from roag.actions import apply_damage
                 old_state, new_state = deepcopy(state), deepcopy(state)
                 apply_damage(old_state, 2, "historical", damage_kind="pierce", source_seed=old_seed)
                 apply_damage(new_state, 2, "historical", damage_kind="pierce", source_seed=new_seed)
@@ -122,14 +122,14 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
         from tests.test_content_packs import alternate_pack
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "alternate")
-            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "jomon" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
+            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "roag" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
             characters = json.loads((root / "characters.json").read_text(encoding="utf-8"))
             characters["people"]["first_names"]["first_0"] = "Different"
             characters["people"]["recruits"]["recruit-maelin"]["background"] = "Different current fiction."
             (root / "characters.json").write_text(json.dumps(characters), encoding="utf-8")
-            command = ["python", "-c", "from jomon.mechanical_compatibility import main_world_mechanical_fingerprint; print(main_world_mechanical_fingerprint())"]
+            command = ["python", "-c", "from roag.mechanical_compatibility import main_world_mechanical_fingerprint; print(main_world_mechanical_fingerprint())"]
             default = subprocess.check_output(command, text=True).strip()
-            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, JOMON_CONTENT_PACK=str(root))).strip()
+            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, ROAG_CONTENT_PACK=str(root))).strip()
         self.assertEqual(default, alternate)
 
     def test_current_item_descriptions_are_pack_authoritative(self):
@@ -138,14 +138,14 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
         from tests.test_content_packs import alternate_pack
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "alternate")
-            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "jomon" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
+            (root / "data" / "world_text.json").write_text((Path(__file__).parents[1] / "roag" / "data" / "world_text.json").read_text(encoding="utf-8"), encoding="utf-8")
             items = json.loads((root / "items.json").read_text(encoding="utf-8"))
             slot = "item.goods_050"
             items["items"][slot]["description"] = "Alternate passive description."
             (root / "items.json").write_text(json.dumps(items), encoding="utf-8")
-            command = ["python", "-c", "from jomon.inventory import item_spec; print(item_spec('passive:rain cape').description)"]
+            command = ["python", "-c", "from roag.inventory import item_spec; print(item_spec('passive:rain cape').description)"]
             default = subprocess.check_output(command, text=True).strip()
-            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, JOMON_CONTENT_PACK=str(root))).strip()
+            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, ROAG_CONTENT_PACK=str(root))).strip()
         self.assertNotEqual(default, alternate)
         self.assertEqual(alternate, "Alternate passive description.")
 
@@ -157,7 +157,7 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "alternate")
             (root / "data" / "world_text.json").write_text(
-                (Path(__file__).parents[1] / "jomon" / "data" / "world_text.json").read_text(encoding="utf-8"),
+                (Path(__file__).parents[1] / "roag" / "data" / "world_text.json").read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             ecology = json.loads((root / "ecology_text.json").read_text(encoding="utf-8"))
@@ -170,7 +170,7 @@ print(json.dumps({"household": [(p.id,p.role,p.given_name_slot,p.family_name_slo
             seed = "14e special hearthford threat"
             command = '''
 import json
-from jomon.state import create_world
+from roag.state import create_world
 s=create_world(%r)
 t=next(x for x in s.threats if x.id in {"wheel-train", "floodgate-claimant"})
 print(json.dumps({"mechanics": [t.id,t.archetype_id,t.profile,t.health,t.max_health,t.goal_id,t.morale,t.status], "display": [t.name,t.goal,t.capabilities]}))
@@ -178,7 +178,7 @@ print(json.dumps({"mechanics": [t.id,t.archetype_id,t.profile,t.health,t.max_hea
             before = json.loads(subprocess.check_output(["python", "-c", command], text=True))
             after = json.loads(subprocess.check_output(
                 ["python", "-c", command], text=True,
-                env=dict(os.environ, JOMON_CONTENT_PACK=str(root)),
+                env=dict(os.environ, ROAG_CONTENT_PACK=str(root)),
             ))
         self.assertEqual(before["mechanics"], after["mechanics"])
         self.assertNotEqual(before["display"], after["display"])
@@ -191,21 +191,21 @@ print(json.dumps({"mechanics": [t.id,t.archetype_id,t.profile,t.health,t.max_hea
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "alternate")
             (root / "data" / "world_text.json").write_text(
-                (Path(__file__).parents[1] / "jomon" / "data" / "world_text.json").read_text(encoding="utf-8"),
+                (Path(__file__).parents[1] / "roag" / "data" / "world_text.json").read_text(encoding="utf-8"),
                 encoding="utf-8",
             )
             equipment = json.loads((root / "equipment_text.json").read_text(encoding="utf-8"))
             equipment["text"]["equipment.ammunition.bolts.description"] = "Alternate bolt account."
             (root / "equipment_text.json").write_text(json.dumps(equipment), encoding="utf-8")
-            command = ["python", "-c", "from jomon.inventory import item_spec; print(item_spec('consumable:crossbow bolts').description)"]
+            command = ["python", "-c", "from roag.inventory import item_spec; print(item_spec('consumable:crossbow bolts').description)"]
             default = subprocess.check_output(command, text=True).strip()
-            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, JOMON_CONTENT_PACK=str(root))).strip()
+            alternate = subprocess.check_output(command, text=True, env=dict(os.environ, ROAG_CONTENT_PACK=str(root))).strip()
         self.assertNotEqual(default, alternate)
         self.assertEqual(alternate, "Alternate bolt account.")
 
     def test_history_catalog_prose_is_not_current_ledger_authority(self):
-        from jomon import regional_history
-        from jomon.regional_history import ledger_lines, reconcile_network
+        from roag import regional_history
+        from roag.regional_history import ledger_lines, reconcile_network
 
         state = create_world("14e history presentation authority")
         reconcile_network(state)

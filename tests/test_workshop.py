@@ -1,17 +1,17 @@
 import copy
 import unittest
 
-from jomon.actions import apply_damage, attack, effective_weapon_range, interact
-from jomon.inventory import (
+from roag.actions import apply_damage, attack, effective_weapon_range, interact
+from roag.inventory import (
     InventoryTransaction, armour_mobility, armour_noise, auto_place, create_item,
     drop_item, equipped_item, pack_weight, physical_ammunition, placement_preview,
     protection_at, sync_legacy_load, terrain_status_for,
 )
-from jomon.materials import affect_body, handle_material
-from jomon.state import MaterialCell, Position, StateError, TerrainStatus, Threat, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices
+from roag.materials import affect_body, handle_material
+from roag.state import MaterialCell, Position, StateError, TerrainStatus, Threat, create_world, game_state_from_dict
+from roag.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices
 from test_information_panels import PanelSink
-from jomon.workshop import FITTINGS, WORKBENCH, active_part, attached, buy_kit, install, remove, repair
+from roag.workshop import FITTINGS, WORKBENCH, active_part, attached, buy_kit, install, remove, repair
 
 
 class WorkshopTests(unittest.TestCase):
@@ -227,7 +227,7 @@ class WorkshopTests(unittest.TestCase):
         state.terrain_statuses["smoke-inhalation"] = TerrainStatus("smoke", 4, "shortened range")
         self.assertEqual(effective_weapon_range(state), 12)
         state.region.tile_changes["29,20,0"] = "#"
-        from jomon.world import line_of_sight
+        from roag.world import line_of_sight
         self.assertFalse(line_of_sight(state, state.position, target.position))
         before = state.to_dict()
         self.assertFalse(attack(state, target.id).time_advanced)

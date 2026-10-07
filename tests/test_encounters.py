@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import _threat_action
-from jomon.content import ENEMY_ARCHETYPES
-from jomon.encounters import (
+from roag.actions import _threat_action
+from roag.content import ENEMY_ARCHETYPES
+from roag.encounters import (
     REGION_IDS,
     compose_encounter,
     encounter_audit,
     production_encounter_groups,
 )
-from jomon.regions import activate_region
-from jomon.state import Position, create_world
+from roag.regions import activate_region
+from roag.state import Position, create_world
 
 
 class EncounterCompositionTests(unittest.TestCase):

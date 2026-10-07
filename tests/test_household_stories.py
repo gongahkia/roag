@@ -2,14 +2,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.frontiers import ensure_frontier
-from jomon.household_stories import (
+from roag.frontiers import ensure_frontier
+from roag.household_stories import (
     STORIES, eligibility, outcome_regions, resolve, station_choices,
     story_lines, validate_stories,
 )
-from jomon.save import load_game, save_game
-from jomon.situations import BY_REGION_BAND
-from jomon.state import CommodityStack, create_world
+from roag.save import load_game, save_game
+from roag.situations import BY_REGION_BAND
+from roag.state import CommodityStack, create_world
 
 
 class HouseholdStoryTests(unittest.TestCase):

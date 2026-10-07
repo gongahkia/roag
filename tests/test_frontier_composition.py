@@ -1,12 +1,12 @@
 import unittest
 from collections import Counter
 
-from jomon.actions import _threat_action
-from jomon.content import ENEMY_ARCHETYPES
-from jomon.encounters import frontier_population, production_encounter_groups
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.regions import region_reachable
-from jomon.state import Position, Threat, create_world
+from roag.actions import _threat_action
+from roag.content import ENEMY_ARCHETYPES
+from roag.encounters import frontier_population, production_encounter_groups
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.regions import region_reachable
+from roag.state import Position, Threat, create_world
 
 
 class FrontierCompositionTests(unittest.TestCase):

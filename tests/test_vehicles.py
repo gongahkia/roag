@@ -4,13 +4,13 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from jomon.actions import interact, move
-from jomon.regions import activate_region
-from jomon.save import load_game, save_game
-from jomon.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
-from jomon.terminal import InputEvent, OverlayView, _draw_map, _draw_vehicle_interior, _handle_overlay, _handle_overlay_view, _overlay_lines, dialogue_choices
-from jomon.vehicles import (
-    JOMON_DOCK,
+from roag.actions import interact, move
+from roag.regions import activate_region
+from roag.save import load_game, save_game
+from roag.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
+from roag.terminal import InputEvent, OverlayView, _draw_map, _draw_vehicle_interior, _handle_overlay, _handle_overlay_view, _overlay_lines, dialogue_choices
+from roag.vehicles import (
+    ROAG_DOCK,
     SHORE_DOCK,
     SPECS,
     board_tug,
@@ -20,9 +20,9 @@ from jomon.vehicles import (
     interior_step,
     service,
 )
-from jomon.vessel import JOMON_GANGPLANK
-from jomon.world import area_name, map_rows
-from jomon.world import position_key
+from roag.vessel import ROAG_GANGPLANK
+from roag.world import area_name, map_rows
+from roag.world import position_key
 
 
 class VehicleNavigationTests(unittest.TestCase):
@@ -43,12 +43,12 @@ class VehicleNavigationTests(unittest.TestCase):
         state = create_world("tug round trip")
         self.assertEqual([option.key for option in dialogue_choices(state, "gangplank")], ["1", "2"])
         self.assertEqual(_handle_overlay(state, "gangplank", ord("2")), (None, False))
-        self.assertEqual((state.jomon_space, state.position, state.active_vehicle_id), ("harbour", JOMON_DOCK, "tug"))
+        self.assertEqual((state.roag_space, state.position, state.active_vehicle_id), ("harbour", ROAG_DOCK, "tug"))
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "on-water.json"
             save_game(state, path)
             state = load_game(path)
-        self.assertEqual((state.jomon_space, state.active_vehicle_id), ("harbour", "tug"))
+        self.assertEqual((state.roag_space, state.active_vehicle_id), ("harbour", "tug"))
         self.assertIn("open-water", area_name(state))
         self.assertEqual(map_rows(state)[SHORE_DOCK.y][SHORE_DOCK.x], "L")
         self.assertEqual(harbour_rows(state.seed), harbour_rows(state.seed))
@@ -72,17 +72,17 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertEqual(state.location, "region")
         self.assertTrue(state.expedition_by_tug)
         self.assertTrue(interact(state).changed)
-        self.assertEqual((state.location, state.jomon_space, state.position), ("jomon", "harbour", SHORE_DOCK))
+        self.assertEqual((state.location, state.roag_space, state.position), ("roag", "harbour", SHORE_DOCK))
         self.assertTrue(state.returning_by_tug)
         state = game_state_from_dict(state.to_dict())
         self.assertTrue(state.returning_by_tug)
         for _ in range(25):
-            if state.position == JOMON_DOCK:
+            if state.position == ROAG_DOCK:
                 break
             self.assertTrue(move(state, -1, 0).changed)
-        self.assertEqual(state.position, JOMON_DOCK)
+        self.assertEqual(state.position, ROAG_DOCK)
         self.assertTrue(interact(state).changed)
-        self.assertEqual((state.jomon_space, state.position, state.active_vehicle_id), ("vessel", JOMON_GANGPLANK, None))
+        self.assertEqual((state.roag_space, state.position, state.active_vehicle_id), ("vessel", ROAG_GANGPLANK, None))
         self.assertEqual(state.returned_expeditions, 1)
         validate_state(state)
 
@@ -121,7 +121,7 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertGreater(tug.fuel, 0)
         self.assertGreater(state.world_time, before)
         self.assertTrue(_handle_overlay_view(state, view, InputEvent("key", 9))[0])
-        self.assertEqual((state.active_vehicle_id, state.position), ("tug", JOMON_DOCK))
+        self.assertEqual((state.active_vehicle_id, state.position), ("tug", ROAG_DOCK))
 
     def test_water_tug_has_shoals_fuel_and_a_nonlocking_oar_fallback(self):
         state = create_world("tug oars")
@@ -130,7 +130,7 @@ class VehicleNavigationTests(unittest.TestCase):
         before = state.world_time
         tug.fuel = 0
         self.assertTrue(move(state, 1, 0).changed)
-        self.assertEqual(state.position, Position(JOMON_DOCK.x + 1, JOMON_DOCK.y))
+        self.assertEqual(state.position, Position(ROAG_DOCK.x + 1, ROAG_DOCK.y))
         self.assertEqual(state.world_time, before + 2)
         self.assertEqual(tug.fuel, 0)
         self.assertEqual(_overlay_lines(state, "vehicle-interior")[0], SPECS["tug"]["name"].upper())

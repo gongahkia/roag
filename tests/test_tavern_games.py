@@ -5,20 +5,20 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.dumbest_dungeon.expedition import start_match as start_dullest_match
-from jomon.dumbest_dungeon.tabletop import patrons
-from jomon.actions import interact
-from jomon.state import StateError, create_world, game_state_from_dict, validate_state
-from jomon.tavern_dice import ROUNDS, close_match, hold, start_match
-from jomon.tavern_draw import start_hand
-from jomon.tavern_games import active_games, available_opponents, invited_opponents, npc_credit, seated_game_opponents
-from jomon.vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, DRAW_PLAYER_SEAT, TABLE_PLAYER_SEAT
+from roag.dumbest_dungeon.expedition import start_match as start_dullest_match
+from roag.dumbest_dungeon.tabletop import patrons
+from roag.actions import interact
+from roag.state import StateError, create_world, game_state_from_dict, validate_state
+from roag.tavern_dice import ROUNDS, close_match, hold, start_match
+from roag.tavern_draw import start_hand
+from roag.tavern_games import active_games, available_opponents, invited_opponents, npc_credit, seated_game_opponents
+from roag.vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, DRAW_PLAYER_SEAT, TABLE_PLAYER_SEAT
 
 
 class TavernGameBoundaryTests(unittest.TestCase):
     def setUp(self):
         self.state = create_world("shared tavern tables")
-        self.state.jomon_space = "tavern"
+        self.state.roag_space = "tavern"
         self.opponents = [person.id for person in available_opponents(self.state)[:3]]
 
     def test_one_game_blocks_other_tables_and_corrupt_overlap_on_load(self):
@@ -31,7 +31,7 @@ class TavernGameBoundaryTests(unittest.TestCase):
             start_match(self.state, self.opponents)
 
         separate = create_world("shared tavern tables")
-        separate.jomon_space = "tavern"
+        separate.roag_space = "tavern"
         separate.position = DICE_PLAYER_SEAT
         start_match(separate, self.opponents)
         self.state.tavern_dice = copy.deepcopy(separate.tavern_dice)
@@ -63,7 +63,7 @@ class TavernGameBoundaryTests(unittest.TestCase):
         self.state.position = DRAW_PLAYER_SEAT
         start_hand(self.state, self.opponents, wagering=False)
         separate = create_world("shared tavern tables")
-        separate.jomon_space = "tavern"
+        separate.roag_space = "tavern"
         separate.position = TABLE_PLAYER_SEAT
         start_dullest_match(separate, patrons(separate)[0].id)
         self.state.tabletop = copy.deepcopy(separate.tabletop)

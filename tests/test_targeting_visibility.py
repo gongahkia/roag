@@ -2,15 +2,15 @@ import copy
 import curses
 import unittest
 
-from jomon.actions import attack, attack_target_legality
-from jomon.content import ENEMY_ARCHETYPES
-from jomon.inventory import auto_place, create_item
-from jomon.state import Position, Threat, create_world
-from jomon.terminal import (
+from roag.actions import attack, attack_target_legality
+from roag.content import ENEMY_ARCHETYPES
+from roag.inventory import auto_place, create_item
+from roag.state import Position, Threat, create_world
+from roag.terminal import (
     InputEvent, TargetView, _cursor_screen_position, _draw_targeting, _handle_targeting,
     _status_lines, observed_life_lines, targeting_detail, targeting_lines, visible_danger_marks,
 )
-from jomon.world import courier_sees, field_of_view
+from roag.world import courier_sees, field_of_view
 from test_information_panels import PanelSink
 
 

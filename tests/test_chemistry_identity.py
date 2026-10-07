@@ -3,9 +3,9 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.chemistry import UNKNOWN_REAGENT_ID, predicted_reactions
-from jomon.inventory import auto_place, create_item
-from jomon.state import create_world, game_state_from_dict
+from roag.chemistry import UNKNOWN_REAGENT_ID, predicted_reactions
+from roag.inventory import auto_place, create_item
+from roag.state import create_world, game_state_from_dict
 
 
 class ChemistryIdentityTests(unittest.TestCase):

@@ -1,14 +1,14 @@
 import copy
 import unittest
 
-from jomon.actions import effective_weapon_range, interact
-from jomon.frontiers import FRONTIERS
-from jomon.inventory import item_spec, terrain_status_for
-from jomon.legendary import active_legend, validate_legends
-from jomon.materials import handle_material
-from jomon.regions import activate_region
-from jomon.state import MaterialCell, Position, create_world, game_state_from_dict
-from jomon.workshop import effective_spec
+from roag.actions import effective_weapon_range, interact
+from roag.frontiers import FRONTIERS
+from roag.inventory import item_spec, terrain_status_for
+from roag.legendary import active_legend, validate_legends
+from roag.materials import handle_material
+from roag.regions import activate_region
+from roag.state import MaterialCell, Position, create_world, game_state_from_dict
+from roag.workshop import effective_spec
 
 
 class LegendaryObjectTests(unittest.TestCase):

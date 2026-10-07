@@ -9,16 +9,16 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-from jomon.actions import advance_world, attack, choose_relic, interact, move
-from jomon.commands import (
+from roag.actions import advance_world, attack, choose_relic, interact, move
+from roag.commands import (
     AdvanceWorldCommand, AttackCommand, InteractCommand, MoveCommand,
     SelectCarriedRelicCommand, SetAutoPlaceCommand,
 )
-from jomon.session import GameSession
-from jomon.state import Position, Threat, create_world
-from jomon.inventory import create_item
-from jomon.terminal import InputEvent, InventoryView, OverlayView, _handle_inventory, _handle_overlay_view
-from jomon.world import is_walkable
+from roag.session import GameSession
+from roag.state import Position, Threat, create_world
+from roag.inventory import create_item
+from roag.terminal import InputEvent, InventoryView, OverlayView, _handle_inventory, _handle_overlay_view
+from roag.world import is_walkable
 
 
 def mechanical_payload(state):
@@ -47,7 +47,7 @@ def armed_state(seed: str):
 class GameSessionTests(unittest.TestCase):
     def test_modules_are_headless(self):
         code = (
-            "import sys; import jomon.commands, jomon.session, jomon.views; "
+            "import sys; import roag.commands, roag.session, roag.views; "
             "assert 'curses' not in sys.modules"
         )
         result = subprocess.run([sys.executable, "-c", code], check=False, capture_output=True, text=True)
@@ -166,7 +166,7 @@ class GameSessionTests(unittest.TestCase):
         self.assertEqual(restored.revision, 1)
 
     def test_terminal_no_longer_reaches_known_private_or_raw_mutation_paths(self):
-        source = Path("jomon/terminal.py").read_text(encoding="utf-8")
+        source = Path("roag/terminal.py").read_text(encoding="utf-8")
         self.assertNotIn("_advance_world", source)
         self.assertNotRegex(source, r"state\.carried_relic\s*=(?!=)")
         self.assertNotRegex(source, r"state\.auto_place_enabled\s*=(?!=)")

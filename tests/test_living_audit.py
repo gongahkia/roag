@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.living_audit import living_audit
+from roag.living_audit import living_audit
 
 
 class LivingAuditTests(unittest.TestCase):

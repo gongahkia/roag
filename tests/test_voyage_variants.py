@@ -3,10 +3,10 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.ship_crises import HAZARD_STATIONS, begin_deck, choices, crisis_lines, work
-from jomon.state import CommodityStack, create_world, game_state_from_dict
-from jomon.travel import choose_destination, resolve_voyage
-from jomon.voyage_variants import VARIANTS, active_variant, validate_variants
+from roag.ship_crises import HAZARD_STATIONS, begin_deck, choices, crisis_lines, work
+from roag.state import CommodityStack, create_world, game_state_from_dict
+from roag.travel import choose_destination, resolve_voyage
+from roag.voyage_variants import VARIANTS, active_variant, validate_variants
 
 
 class StatefulVoyageVariantTests(unittest.TestCase):
@@ -134,7 +134,7 @@ class StatefulVoyageVariantTests(unittest.TestCase):
         thieves = self.variant_state("hold-thieves")
         fish_before = thieves.vessel_cargo["salt fish"].quantity
         self.assertTrue(begin_deck(thieves)[0])
-        shipment = next(item for item in thieves.items if item.provenance.startswith("unsecured Jomon shipment"))
+        shipment = next(item for item in thieves.items if item.provenance.startswith("unsecured Roag shipment"))
         self.assertEqual(shipment.kind, "commodity:salt fish")
         self.assertEqual(thieves.vessel_cargo["salt fish"].quantity, fish_before - 1)
 

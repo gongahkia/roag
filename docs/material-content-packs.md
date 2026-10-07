@@ -2,7 +2,7 @@
 
 `content_packs/<pack>/material_text.json` owns material display names, hazard and
 status wording, material-event narration, field-inspection text, and material
-handling feedback. The engine-owned contract in `jomon/content_packs/contract.json`
+handling feedback. The engine-owned contract in `roag/content_packs/contract.json`
 lists each semantic slot and its allowed template values.
 
 A writing-focused editor may change the wording in this file and its validated

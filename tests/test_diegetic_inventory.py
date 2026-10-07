@@ -5,8 +5,8 @@ import curses
 import unittest
 from dataclasses import replace
 
-from jomon.actions import choose_courier
-from jomon.inventory import (
+from roag.actions import choose_courier
+from roag.inventory import (
     ITEM_SPECS,
     auto_pack,
     auto_place,
@@ -18,8 +18,8 @@ from jomon.inventory import (
     placement_preview,
     transfer_to_grid,
 )
-from jomon.state import create_world
-from jomon.terminal import (
+from roag.state import create_world
+from roag.terminal import (
     InputEvent,
     InventoryView,
     _handle_inventory,
@@ -31,7 +31,7 @@ from jomon.terminal import (
 
 def prepared_state(seed: str = "inventory usability"):
     state = create_world(seed)
-    state.jomon_space = "tavern"
+    state.roag_space = "tavern"
     choose_courier(state, state.household[0].id)
     item = next(item for item in state.items if item.location == "locker" and item.kind == "billhook")
     assert transfer_to_grid(state, item.id, "pack", owner_id=state.active_courier_id)
@@ -72,7 +72,7 @@ class PreviewAndMouseTests(unittest.TestCase):
     def test_mouse_click_matches_keyboard_lift_and_unsupported_is_safe(self):
         state, item = prepared_state("mouse inventory")
         mouse = create_world("mouse inventory")
-        mouse.jomon_space = "tavern"
+        mouse.roag_space = "tavern"
         choose_courier(mouse, mouse.household[0].id)
         same = next(candidate for candidate in mouse.items if candidate.id == item.id)
         transfer_to_grid(mouse, same.id, "pack", owner_id=mouse.active_courier_id)

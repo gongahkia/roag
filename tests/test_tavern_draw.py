@@ -5,16 +5,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import interact
-from jomon.save import load_game, save_game
-from jomon.state import Position, StateError, create_world, game_state_from_dict, validate_state
-from jomon.tavern_draw import (
+from roag.actions import interact
+from roag.save import load_game, save_game
+from roag.state import Position, StateError, create_world, game_state_from_dict, validate_state
+from roag.tavern_draw import (
     MAX_EXPOSURE, _npc_bet, _npc_discards, _settle, available_opponents, bet_action,
     close_hand, draw_cards, drive_npcs, evaluate, start_hand,
 )
-from jomon.tavern_draw_ui import _draw_hand, card_frame, card_name, run_tavern_draw
-from jomon.vessel import DRAW_NPC_SEATS, DRAW_PLAYER_SEAT, DRAW_SURFACE, TABLE_PLAYER_SEAT, TAVERN_MAP, _walkable, normalise_schedule_work_positions
-from jomon.world import is_walkable
+from roag.tavern_draw_ui import _draw_hand, card_frame, card_name, run_tavern_draw
+from roag.vessel import DRAW_NPC_SEATS, DRAW_PLAYER_SEAT, DRAW_SURFACE, TABLE_PLAYER_SEAT, TAVERN_MAP, _walkable, normalise_schedule_work_positions
+from roag.world import is_walkable
 
 
 def card(rank, suit):
@@ -24,7 +24,7 @@ def card(rank, suit):
 class TavernDrawTests(unittest.TestCase):
     def setUp(self):
         self.state = create_world("four-seat draw")
-        self.state.jomon_space = "tavern"
+        self.state.roag_space = "tavern"
         self.state.position = DRAW_PLAYER_SEAT
         self.opponents = [person.id for person in available_opponents(self.state)[:3]]
 
@@ -167,7 +167,7 @@ class TavernDrawTests(unittest.TestCase):
         self.state.trade_credit = 10
         start_hand(self.state, self.opponents, wagering=True)
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             loaded = load_game(path)
         self.assertEqual(loaded.tavern_draw, self.state.tavern_draw)

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import _advance_world, _threat_action, attack, choose_courier, choose_gear, choose_support, choose_weapon, depart, guard
-from jomon.content import WEAPONS
-from jomon.enemy_ai import select_goal
-from jomon.state import Position, Threat, create_world
-from jomon.terminal import (
+from roag.actions import _advance_world, _threat_action, attack, choose_courier, choose_gear, choose_support, choose_weapon, depart, guard
+from roag.content import WEAPONS
+from roag.enemy_ai import select_goal
+from roag.state import Position, Threat, create_world
+from roag.terminal import (
     TARGET_HELP_LINE,
     InputEvent,
     TargetView,
@@ -15,7 +15,7 @@ from jomon.terminal import (
     targeting_detail,
     targeting_lines,
 )
-from jomon.world import JOMON_GANGPLANK, cover_at, line_of_sight, projectile_path
+from roag.world import ROAG_GANGPLANK, cover_at, line_of_sight, projectile_path
 
 
 def armed(weapon: str):
@@ -26,7 +26,7 @@ def armed(weapon: str):
     choose_weapon(state, weapon)
     choose_gear(state, "rope")
     choose_support(state, "route survey")
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     state.position = Position(40, 25)
     for y in range(15, 36):
@@ -57,7 +57,7 @@ class PlayerRangeTests(unittest.TestCase):
 
     def test_arsenal_has_fourteen_physical_families(self):
         self.assertGreaterEqual(len(WEAPONS), 12)
-        from jomon.inventory import ITEM_SPECS
+        from roag.inventory import ITEM_SPECS
 
         self.assertTrue(set(WEAPONS) <= set(ITEM_SPECS))
 
@@ -196,7 +196,7 @@ class PlayerRangeTests(unittest.TestCase):
         target.intent = "holds the measured crossing"
         before = state.courier.health
 
-        from jomon.actions import _threat_action
+        from roag.actions import _threat_action
 
         warning = _threat_action(state, target, False)
         self.assertIn("thrusts next turn", warning)

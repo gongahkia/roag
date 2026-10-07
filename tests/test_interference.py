@@ -1,10 +1,10 @@
 import unittest
 
-from jomon.frontiers import ensure_frontier
-from jomon.interference import INTERFERENCES, apply_arrival, audit_interference
-from jomon.regions import activate_region
-from jomon.situations import BY_REGION_BAND
-from jomon.state import create_world
+from roag.frontiers import ensure_frontier
+from roag.interference import INTERFERENCES, apply_arrival, audit_interference
+from roag.regions import activate_region
+from roag.situations import BY_REGION_BAND
+from roag.state import create_world
 
 
 class CrossRegionInterferenceTests(unittest.TestCase):

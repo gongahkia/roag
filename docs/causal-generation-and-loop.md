@@ -1,6 +1,6 @@
 # Causal generation and playable loop
 
-Jomon derives a bounded set of consequential facts from named SHA-256 seed
+Roag derives a bounded set of consequential facts from named SHA-256 seed
 stages:
 
 ```text
@@ -121,7 +121,7 @@ setup before severe harm. Nothing advances while the terminal waits.
 
 ## Playable loop
 
-Walk through Jomon's physical tavern, speak beside a visible adult to switch or
+Walk through Roag's physical tavern, speak beside a visible adult to switch or
 recruit, arrange shaped equipment between the locker, 10×6 pack, readied slot,
 and six armour locations, select one crew support at the bar, and choose a
 destination at the chart. Travel costs six action-clock measures and can

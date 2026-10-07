@@ -2,12 +2,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import _advance_world, interact
-from jomon.inventory import create_item
-from jomon.regions import activate_region, region_reachable, store_active_region
-from jomon.save import load_game, save_game
-from jomon.state import Position, create_world
-from jomon.world import build_combinations
+from roag.actions import _advance_world, interact
+from roag.inventory import create_item
+from roag.regions import activate_region, region_reachable, store_active_region
+from roag.save import load_game, save_game
+from roag.state import Position, create_world
+from roag.world import build_combinations
 
 
 class FourRegionGenerationTests(unittest.TestCase):

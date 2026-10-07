@@ -7,17 +7,17 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from jomon.dumbest_dungeon.content import load_catalog
-from jomon.dumbest_dungeon.engine import GameEngine
-import jomon.dumbest_dungeon.expedition as expedition
-from jomon.dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
-from jomon.dumbest_dungeon.office_art import OFFICE_SPRITES, office_card_glyph, rival_costumes
-from jomon.dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, office_catalog
-from jomon.dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
-from jomon.actions import interact
-from jomon.save import SaveError, load_game, save_game
-from jomon.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
-from jomon.world import is_walkable
+from roag.dumbest_dungeon.content import load_catalog
+from roag.dumbest_dungeon.engine import GameEngine
+import roag.dumbest_dungeon.expedition as expedition
+from roag.dumbest_dungeon.expedition_ui import ExpeditionUI, run_expedition
+from roag.dumbest_dungeon.office_art import OFFICE_SPRITES, office_card_glyph, rival_costumes
+from roag.dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, office_catalog
+from roag.dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
+from roag.actions import interact
+from roag.save import SaveError, load_game, save_game
+from roag.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
+from roag.world import is_walkable
 
 
 class ExpeditionRulesTests(unittest.TestCase):
@@ -233,22 +233,22 @@ class ExpeditionRulesTests(unittest.TestCase):
         render.assert_called_once_with(rival_moving=(18, 7))
         delay.assert_called_once_with(ui.MOVE_FRAME_MS)
 
-    def test_neutral_battle_can_resume_from_jomon_save(self):
+    def test_neutral_battle_can_resume_from_roag_save(self):
         state = create_world("neutral save")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         match = expedition.start_match(state, patrons(state)[0].id)
         patrol = next(item for item in match["patrols"] if item["kind"] == "fight")
         match["teams"][0]["position"] = patrol["position"][:]
         self.assertTrue(expedition.engage_neutral_if_touching(match))
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], match)
 
     def test_boss_phase_overflow_survives_save(self):
         state = create_world("boss save")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         match = expedition.start_match(state, patrons(state)[0].id)
         boss = next(item for item in match["patrols"] if item["kind"] == "boss")
         match["teams"][0]["position"] = boss["position"][:]
@@ -257,7 +257,7 @@ class ExpeditionRulesTests(unittest.TestCase):
         expedition._damage(match, match["teams"][0]["actors"][0], core, core["max_hp"])
         self.assertGreater(core["overflow"], 0)
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], match)
@@ -639,10 +639,10 @@ class ExpeditionRulesTests(unittest.TestCase):
 class TavernIntegrationTests(unittest.TestCase):
     def setUp(self):
         self.state = create_world("expedition-integration")
-        self.state.jomon_space = "tavern"
+        self.state.roag_space = "tavern"
         self.state.position = Position(31, 14)
 
-    def test_table_is_physical_and_match_freezes_jomon_time(self):
+    def test_table_is_physical_and_match_freezes_roag_time(self):
         self.assertTrue(is_walkable(self.state, self.state.position))
         self.assertEqual(interact(self.state).overlay, "tabletop")
         before = self.state.world_time
@@ -653,7 +653,7 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertEqual(self.state.world_time, before + 1)
 
     def test_chosen_bartender_joins_a_physical_chair_for_the_match(self):
-        from jomon.vessel import TABLE_PATRON_SEATS
+        from roag.vessel import TABLE_PATRON_SEATS
 
         bartender_id = self.state.bartender.id
         self.assertIn(bartender_id, {person.id for person in patrons(self.state)})
@@ -664,13 +664,13 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertEqual(schedule.activity, "playing Dullest Dungeon")
         self.assertNotIn(bartender_id, self.state.tavern_positions)
 
-    def test_atomic_jomon_save_resumes_generated_match(self):
+    def test_atomic_roag_save_resumes_generated_match(self):
         match = expedition.start_match(self.state, patrons(self.state)[0].id)
         leg = expedition._ai_destination(match, tuple(match["files"][1]["home"]))
         self.assertIsNotNone(leg)
         expedition.move_to(match, leg)
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], self.state.tabletop["active_match"])
@@ -686,7 +686,7 @@ class TavernIntegrationTests(unittest.TestCase):
         expedition._facility_effect(match, 0, station, {"op": "stabilize_terrain", "amount": 4})
         self.assertTrue(match["stabilized"])
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], match)
@@ -696,7 +696,7 @@ class TavernIntegrationTests(unittest.TestCase):
         expedition._facility_effect(match, 0, match["facilities"][0], {"op": "remove_random", "amount": 1})
         self.assertEqual(len(match["teams"][0]["deck"]), 19)
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             resumed = load_game(path)
         self.assertEqual(resumed.tabletop["active_match"], match)
@@ -749,7 +749,7 @@ class TavernIntegrationTests(unittest.TestCase):
         match = expedition.start_match(self.state, patrons(self.state)[0].id)
         match["board"][17] = " " * 117
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             with self.assertRaisesRegex(SaveError, "generated seed"):
                 load_game(path)

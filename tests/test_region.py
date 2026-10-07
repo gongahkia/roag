@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import (
+from roag.actions import (
     attack,
     choose_courier,
     choose_gear,
@@ -12,9 +12,9 @@ from jomon.actions import (
     interact,
     use_gear,
 )
-from jomon.state import Position, create_world
-from jomon.geography import layout_point
-from jomon.world import (
+from roag.state import Position, create_world
+from roag.geography import layout_point
+from roag.world import (
     camera_origin,
     connected_required_map,
     field_of_view,

@@ -8,15 +8,15 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
+from roag.catalog import ContentPackError, bundled_default_pack, load_content_pack
 from tests.test_content_packs import ROOT, alternate_pack
 
 
 class VehiclePresentationTests(unittest.TestCase):
     def test_default_pack_preserves_vehicle_words(self):
         pack = bundled_default_pack()
-        self.assertEqual(pack.vehicle_presentation("vehicle.tug.name").text, "Jomon's steam tug")
-        self.assertEqual(pack.vehicle_presentation("vehicle.board.tug.success").text, "You board the steam tug; Jomon lies at J and the regional shore at L.")
+        self.assertEqual(pack.vehicle_presentation("vehicle.tug.name").text, "Roag's steam tug")
+        self.assertEqual(pack.vehicle_presentation("vehicle.board.tug.success").text, "You board the steam tug; Roag lies at J and the regional shore at L.")
         self.assertEqual(pack.vehicle_presentation("vehicle.navigate.result").text, "{vehicle} travels {travelled} tile{suffix}; {fuel}/{capacity} {resource} remains.")
 
     def test_invalid_vehicle_text_is_rejected(self):
@@ -42,8 +42,8 @@ class VehiclePresentationTests(unittest.TestCase):
     def test_alternate_pack_changes_vehicle_words_not_mechanics(self):
         script = '''
 import json
-from jomon.state import create_world
-from jomon.vehicles import SPECS, board_tug, navigate
+from roag.state import create_world
+from roag.vehicles import SPECS, board_tug, navigate
 state = create_world("vehicle-pack-proof")
 board = board_tug(state)
 tug = state.vehicles["tug"]
@@ -53,7 +53,7 @@ print(json.dumps({"mechanics": [tug.id, tug.region_id, tug.position.x, tug.posit
         def snapshot(path: str | None):
             environment = dict(os.environ)
             if path:
-                environment["JOMON_CONTENT_PACK"] = path
+                environment["ROAG_CONTENT_PACK"] = path
             result = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
             return json.loads(result.stdout)

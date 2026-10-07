@@ -3,7 +3,7 @@
 `content_packs/<pack>/sanctum_text.json` owns the player-facing sanctum fiction:
 site themes and names, witness and boss wording, cache and link labels, shrine
 choices, records, and inspection text. Each `text` key is declared in
-`jomon/content_packs/contract.json`; templates may use only their declared
+`roag/content_packs/contract.json`; templates may use only their declared
 placeholders.
 
 The engine owns `sanctums.json`, site/region/network IDs, boss profile and

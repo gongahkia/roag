@@ -8,8 +8,8 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, load_content_pack
-from jomon.vessel_presentation import drink_benefit, drink_display_name, drink_drawback, schedule_display_name, vessel_format
+from roag.catalog import ContentPackError, load_content_pack
+from roag.vessel_presentation import drink_benefit, drink_display_name, drink_drawback, schedule_display_name, vessel_format
 from tests.test_content_packs import ROOT, alternate_pack
 
 
@@ -49,9 +49,9 @@ class VesselPresentationTests(unittest.TestCase):
 
     def test_alternate_pack_rewrites_bar_presentation_not_mechanics(self):
         script = (
-            "import json; from jomon.actions import purchase_bar_drink; from jomon.state import create_world; "
-            "from jomon.terminal import _overlay_lines; "
-            "state=create_world('vessel-presentation-proof'); state.location='jomon'; state.jomon_space='tavern'; state.trade_credit=10; "
+            "import json; from roag.actions import purchase_bar_drink; from roag.state import create_world; "
+            "from roag.terminal import _overlay_lines; "
+            "state=create_world('vessel-presentation-proof'); state.location='roag'; state.roag_space='tavern'; state.trade_credit=10; "
             "state.bartender_stock['hearth-ale']=1; before=(state.trade_credit,state.bartender_stock['hearth-ale'],state.world_time); "
             "result=purchase_bar_drink(state,'hearth-ale',bottle=False); schedule=state.actor_schedules[state.bartender.id]; "
             "print(json.dumps({'id':'hearth-ale','result':result.message,'effect':list(state.drink_effects),'mechanics':[before,state.trade_credit,state.bartender_stock['hearth-ale'],state.world_time,schedule.activity], 'overlay':_overlay_lines(state,'bartender:drinks'), 'bartender_overlay':_overlay_lines(state,'bartender')}))"
@@ -59,7 +59,7 @@ class VesselPresentationTests(unittest.TestCase):
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            environment = dict(os.environ, JOMON_CONTENT_PACK=str(root))
+            environment = dict(os.environ, ROAG_CONTENT_PACK=str(root))
             alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=environment, text=True, capture_output=True, check=True)
         default_data, alternate_data = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(default_data["id"], alternate_data["id"])

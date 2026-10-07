@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import (
+from roag.actions import (
     _threat_action,
     apply_damage,
     attack,
@@ -15,24 +15,24 @@ from jomon.actions import (
     interact,
     use_gear,
 )
-from jomon.inventory import (
+from roag.inventory import (
     InventoryTransaction,
     auto_place,
     create_item,
     physical_ammunition,
     record_acquisition,
 )
-from jomon.regions import activate_region, reconstruct_regional_process
-from jomon.state import Position, SAVE_FORMAT, Threat, create_world, game_state_from_dict
-from jomon.geography import layout_point
-from jomon.world import JOMON_GANGPLANK
+from roag.regions import activate_region, reconstruct_regional_process
+from roag.state import Position, SAVE_FORMAT, Threat, create_world, game_state_from_dict
+from roag.geography import layout_point
+from roag.world import ROAG_GANGPLANK
 
 
 def expedition(seed: str = "format six integrity"):
     state = create_world(seed)
     choose_gear(state, "rope")
     choose_support(state, "route survey")
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     return state
 
@@ -164,7 +164,7 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         state.owned_weapons.append("longbow")
         self.assertTrue(choose_weapon(state, "longbow").changed)
         choose_gear(state, "rope")
-        state.position = JOMON_GANGPLANK
+        state.position = ROAG_GANGPLANK
         depart(state)
         state.position = Position(40, 25)
         for x in range(40, 51):

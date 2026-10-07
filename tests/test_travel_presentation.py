@@ -8,14 +8,14 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, load_content_pack
-from jomon.travel_presentation import travel_format
+from roag.catalog import ContentPackError, load_content_pack
+from roag.travel_presentation import travel_format
 from tests.test_content_packs import ROOT, alternate_pack
 
 
 class TravelPresentationTests(unittest.TestCase):
     def test_default_text_remains_exact(self):
-        self.assertEqual(travel_format("travel.destination.arrival", destination="Reed Anchor", duration=4), "Jomon reaches Reed Anchor after 4 measures of travel.")
+        self.assertEqual(travel_format("travel.destination.arrival", destination="Reed Anchor", duration=4), "Roag reaches Reed Anchor after 4 measures of travel.")
         self.assertEqual(travel_format("travel.result.raiders.repel"), "readied reach drives the cargo thieves back before they can disengage")
 
     def test_invalid_travel_entries_are_rejected(self):
@@ -36,8 +36,8 @@ class TravelPresentationTests(unittest.TestCase):
 
     def test_alternate_pack_changes_text_not_raider_mechanics(self):
         script = (
-            "import json; from jomon.actions import choose_weapon; from jomon.state import create_world; "
-            "from jomon.travel import choose_destination, resolve_voyage, travel_animation_frames; "
+            "import json; from roag.actions import choose_weapon; from roag.state import create_world; "
+            "from roag.travel import choose_destination, resolve_voyage, travel_animation_frames; "
             "state=create_world('travel-presentation-proof'); state.weapon='pike'; "
             "frames=travel_animation_frames(state,'hearthford','reed-anchor'); before=(state.travel_count,state.world_time,state.route_current_node); "
             "opened=choose_destination(state,'reed-anchor',forced_voyage='raiders'); result=resolve_voyage(state,'repel'); "
@@ -46,7 +46,7 @@ class TravelPresentationTests(unittest.TestCase):
         default = subprocess.run([sys.executable, "-c", script], cwd=ROOT, text=True, capture_output=True, check=True)
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / "fixture")
-            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=dict(os.environ, JOMON_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=dict(os.environ, ROAG_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True)
         first, second = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(first["mechanics"], second["mechanics"])
         self.assertNotEqual(first["frames"], second["frames"])

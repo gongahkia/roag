@@ -1,6 +1,6 @@
 # UI presentation content packs
 
-`jomon/content_packs/default/ui_text.json` contains wording for contracted
+`roag/content_packs/default/ui_text.json` contains wording for contracted
 terminal chrome: titles, headings, help lines, notice labels, and selected
 tavern and character-creation shell text. Its semantic keys and permitted
 format placeholders are engine-owned in `content_packs/contract.json`.

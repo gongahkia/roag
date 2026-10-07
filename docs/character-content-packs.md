@@ -1,9 +1,9 @@
 # Character presentation content packs
 
-`characters.json` is the author-editable presentation for Jomon's fixed
+`characters.json` is the author-editable presentation for Roag's fixed
 shipboard people, the fixed starting second contact, and selected
 household/service role labels. It is validated
-against the engine-owned `jomon/content_packs/contract.json` file.
+against the engine-owned `roag/content_packs/contract.json` file.
 
 Authors may edit the non-empty string values in this shape. `build_tendency`
 is the short descriptive line shown on a person's detailed record.
@@ -13,14 +13,14 @@ is the short descriptive line shown on a person's detailed record.
   "characters": {
     "npc.ship_bartender": {
       "display_name": "Sena Quill",
-      "short_description": "Keeps Jomon's common room and knows which regional casks travel safely.",
+      "short_description": "Keeps Roag's common room and knows which regional casks travel safely.",
       "initial_memory": "Sena took the bar on witnessed household shares.",
       "build_tendency": "material hospitality and firm limits"
     },
     "npc.ship_merchant": {
       "display_name": "Veyra Bale",
-      "short_description": "A coast-and-river factor who visits Jomon only when a recorded route cycle and regional stock justify the mooring.",
-      "initial_memory": "Veyra first heard Jomon's name in four working markets.",
+      "short_description": "A coast-and-river factor who visits Roag only when a recorded route cycle and regional stock justify the mooring.",
+      "initial_memory": "Veyra first heard Roag's name in four working markets.",
       "build_tendency": "bounded tools, witnessed exchange, and regional shortages"
     },
     "npc.hearthford_second_contact": {
@@ -32,7 +32,7 @@ is the short descriptive line shown on a person's detailed record.
     "role.household_bargemaster": {"display_label": "bargemaster"}
   },
   "household": {
-    "character_creation_background": "A {ancestry} adult raised in {origin}; now Jomon's {role_label}."
+    "character_creation_background": "A {ancestry} adult raised in {origin}; now Roag's {role_label}."
   }
 }
 ```

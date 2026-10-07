@@ -42,7 +42,7 @@ rule and counters before commitment.
 |---|---|---|
 | Shortage skiffs | a real market shortage plus carried cargo | third lot-caller; concession can expose a second lot |
 | Displaced breeding pair | completed regional aftermath work | two physical animals; bait costs two fish lots |
-| Returning resonance | earlier lure outcome or fitted signal shutter | signal navigation takes two actions and records Jomon |
+| Returning resonance | earlier lure outcome or fitted signal shutter | signal navigation takes two actions and records Roag |
 | Obligation claim | a positive institutional obligation | fourth boarder plus a finite pre-boarding settlement |
 | Marked shortage lot | at least five physical cargo lots | thief selects the carried good under greatest demand |
 | Crosswind stay | storm/gale or a weather-exposure-three route | second warned support; one more exposed work action |
@@ -72,7 +72,7 @@ exposure remains nonfatal. There is no hidden off-screen crew death rule.
 R accepts withdrawal losses: one counted cargo lot and two integrity, retaining
 fire/water already present. Finished events record a bounded outcome and route
 arrival. Materials, opened doors, deck actors and dropped items save separately
-from ashore geography/populations. A deck defeat leaves possessions on Jomon,
+from ashore geography/populations. A deck defeat leaves possessions on Roag,
 not in the last region. Existing regional quests are not reset by boarding.
 
 Generation is seeded by route, recorded voyage number, weather, cargo and

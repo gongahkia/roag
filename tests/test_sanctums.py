@@ -1,13 +1,13 @@
 import unittest
 
-from jomon.actions import interact
-from jomon.enemy_equipment import harm_enemy
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.inventory import auto_place, create_item
-from jomon.regions import region_reachable, validate_region
-from jomon.sanctums import SITES, _site_encounter, _witness, approach, shrine_choice
-from jomon.state import create_world, game_state_from_dict
-from jomon.world import area_name
+from roag.actions import interact
+from roag.enemy_equipment import harm_enemy
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.inventory import auto_place, create_item
+from roag.regions import region_reachable, validate_region
+from roag.sanctums import SITES, _site_encounter, _witness, approach, shrine_choice
+from roag.state import create_world, game_state_from_dict
+from roag.world import area_name
 
 
 class SanctumTests(unittest.TestCase):
@@ -83,8 +83,8 @@ class SanctumTests(unittest.TestCase):
         self.assertEqual(sum(actor.id == boss.id for actor in loaded.threats), 1)
 
     def test_site_choice_changes_paired_faction_and_boss_uses_material_duty(self):
-        from jomon.ecology import world_options
-        from jomon.regions import activate_region
+        from roag.ecology import world_options
+        from roag.regions import activate_region
 
         state = create_world("sanctum paired account")
         state.location = "region"
@@ -138,7 +138,7 @@ class SanctumTests(unittest.TestCase):
         self.assertLessEqual(state.region.changes.get("sanctum:parcels", 0), 2)
         self.assertEqual(game_state_from_dict(state.to_dict()).to_dict(), state.to_dict())
 
-        from jomon.topology import build_region
+        from roag.topology import build_region
 
         old = create_world("sanctum retrofit")
         parked = old.region.landmarks["landform_0"]

@@ -3,16 +3,16 @@
 import unittest
 from unittest.mock import patch
 
-from jomon.dumbest_dungeon.expedition import finish_match, start_match
-from jomon.dumbest_dungeon.tabletop import patrons
-from jomon.actions import negotiate
-from jomon.inventory import equipped_item
-from jomon.route_chart import route_preview
-from jomon.state import Position, SocialIncident, StateError, Threat, create_world, game_state_from_dict, validate_state
-from jomon.travel import choose_destination
-from jomon.vessel import resolve_social_incident
-from jomon.workshop import WORKBENCH, repair
-from jomon.world import _remember_visible, sight_radius
+from roag.dumbest_dungeon.expedition import finish_match, start_match
+from roag.dumbest_dungeon.tabletop import patrons
+from roag.actions import negotiate
+from roag.inventory import equipped_item
+from roag.route_chart import route_preview
+from roag.state import Position, SocialIncident, StateError, Threat, create_world, game_state_from_dict, validate_state
+from roag.travel import choose_destination
+from roag.vessel import resolve_social_incident
+from roag.workshop import WORKBENCH, repair
+from roag.world import _remember_visible, sight_radius
 
 
 class CompetencyTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class CompetencyTests(unittest.TestCase):
 
     def test_both_table_winners_gain_strategy_and_threshold_supplies(self):
         state = create_world("competency table")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         patron = patrons(state)[0]
         state.courier.strategy = 5
         match = start_match(state, patron.id)
@@ -76,7 +76,7 @@ class CompetencyTests(unittest.TestCase):
         state.courier.wayfinding = 5
         self.assertTrue(any("3 actions" in line for line in route_preview(state, "reed-anchor")))
         before = state.world_time
-        with patch("jomon.travel.voyage_for", return_value=None):
+        with patch("roag.travel.voyage_for", return_value=None):
             changed, message = choose_destination(state, "reed-anchor")
         self.assertTrue(changed)
         self.assertEqual(state.world_time - before, 3)

@@ -3,20 +3,20 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import depart, interact, move
-from jomon.navigation import (
+from roag.actions import depart, interact, move
+from roag.navigation import (
     RouteUnavailable,
     advance_route,
     navigation_targets,
     plan_route,
 )
-from jomon.state import Position, create_world
-from jomon.world import JOMON_GANGPLANK, field_of_view, position_key
+from roag.state import Position, create_world
+from roag.world import ROAG_GANGPLANK, field_of_view, position_key
 
 
 def regional_state(seed: str):
     state = create_world(seed)
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     for threat in state.threats:
         threat.status = "defeated"

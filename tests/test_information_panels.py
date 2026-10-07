@@ -2,11 +2,11 @@ import copy
 import curses
 import unittest
 
-from jomon.actions import interact
-from jomon.inventory import auto_place, create_item
-from jomon.regional_history import account_for, ledger_lines, network_institution_for_contact
-from jomon.state import Position, create_world
-from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _overlay, _overlay_lines, information_lines
+from roag.actions import interact
+from roag.inventory import auto_place, create_item
+from roag.regional_history import account_for, ledger_lines, network_institution_for_contact
+from roag.state import Position, create_world
+from roag.terminal import InputEvent, OverlayView, _handle_overlay_view, _overlay, _overlay_lines, information_lines
 
 
 class PanelSink:
@@ -113,7 +113,7 @@ class InformationPanelTests(unittest.TestCase):
         self.assertTrue(any(
             option.key == "C"
             for option in __import__(
-                "jomon.terminal", fromlist=["dialogue_choices"]
+                "roag.terminal", fromlist=["dialogue_choices"]
             ).dialogue_choices(state, result.overlay)
         ))
 

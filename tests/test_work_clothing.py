@@ -1,18 +1,18 @@
 import copy
 import unittest
 
-from jomon.actions import apply_damage, effective_weapon_range, guard, merchant_stock_for, move, purchase_merchant_item
-from jomon.content import MERCHANT_ITEMS
-from jomon.frontiers import build_frontier
-from jomon.inventory import (
+from roag.actions import apply_damage, effective_weapon_range, guard, merchant_stock_for, move, purchase_merchant_item
+from roag.content import MERCHANT_ITEMS
+from roag.frontiers import build_frontier
+from roag.inventory import (
     BODY_SLOTS, ITEM_SPECS, REGIONAL_ARMOUR, InventoryTransaction, armour_mobility,
     armour_noise, auto_place, create_item, equipped_item, load_state, pack_weight,
     protection_at, terrain_status_for, worn_tags,
 )
-from jomon.materials import advance_materials, affect_body
-from jomon.state import MaterialCell, Position, SAVE_FORMAT, TerrainStatus, Threat, create_world, game_state_from_dict
-from jomon.terminal import OverlayView, _draw_dialogue_overlay
-from jomon.world import sight_radius
+from roag.materials import advance_materials, affect_body
+from roag.state import MaterialCell, Position, SAVE_FORMAT, TerrainStatus, Threat, create_world, game_state_from_dict
+from roag.terminal import OverlayView, _draw_dialogue_overlay
+from roag.world import sight_radius
 from test_information_panels import PanelSink
 
 
@@ -80,7 +80,7 @@ class WorkingClothingTests(unittest.TestCase):
 
     def test_merchant_spare_is_seeded_region_specific_and_physically_purchased(self):
         state = self.state
-        state.location, state.trade_credit, state.merchant_present = "jomon", 20, True
+        state.location, state.trade_credit, state.merchant_present = "roag", 20, True
         seen = set()
         for region_id, choices in REGIONAL_ARMOUR.items():
             state.active_region_id = region_id
@@ -96,12 +96,12 @@ class WorkingClothingTests(unittest.TestCase):
         for kind in sorted(seen):
             self.setUp()
             state = self.state
-            state.location, state.trade_credit, state.merchant_present = "jomon", 20, True
+            state.location, state.trade_credit, state.merchant_present = "roag", 20, True
             state.merchant_stock = [kind]
             self.assertTrue(purchase_merchant_item(state, kind).changed)
             bought = next(
                 i for i in state.items
-                if i.kind == kind and i.provenance == "visiting Jomon merchant"
+                if i.kind == kind and i.provenance == "visiting Roag merchant"
             )
             self.assertEqual(bought.location, "locker")
             self.assertEqual(state.trade_credit, 20 - MERCHANT_ITEMS[kind][0])

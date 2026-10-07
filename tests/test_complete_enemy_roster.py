@@ -1,12 +1,12 @@
 import copy
 import unittest
 
-from jomon.actions import _threat_action
-from jomon.content import EXPANDED_STANDARD_ACTORS, FRONTIER_ACTORS
-from jomon.encounters import compose_encounter
-from jomon.encounters import roster_audit, validate_roster
-from jomon.inventory import auto_place, create_item, record_acquisition
-from jomon.state import Position, create_world
+from roag.actions import _threat_action
+from roag.content import EXPANDED_STANDARD_ACTORS, FRONTIER_ACTORS
+from roag.encounters import compose_encounter
+from roag.encounters import roster_audit, validate_roster
+from roag.inventory import auto_place, create_item, record_acquisition
+from roag.state import Position, create_world
 
 
 class CompleteEnemyRosterTests(unittest.TestCase):
@@ -129,7 +129,7 @@ class CompleteEnemyRosterTests(unittest.TestCase):
         self.assertIn("takes", message)
         self.assertEqual((item.location, reaver.carrying_item_id), ("enemy", item.id))
         reaver.health = 0
-        from jomon.inventory import release_enemy_possession
+        from roag.inventory import release_enemy_possession
 
         self.assertIn("falls", release_enemy_possession(state, reaver))
         self.assertEqual(item.location, "ground")

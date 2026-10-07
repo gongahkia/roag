@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import _threat_action, choose_courier, choose_gear, choose_support, choose_weapon, depart, emit_sound
-from jomon.enemy_ai import next_path_step, perceive, select_goal
-from jomon.inventory import auto_place, create_item, record_acquisition
-from jomon.state import Position, Threat, create_world
-from jomon.world import JOMON_GANGPLANK
+from roag.actions import _threat_action, choose_courier, choose_gear, choose_support, choose_weapon, depart, emit_sound
+from roag.enemy_ai import next_path_step, perceive, select_goal
+from roag.inventory import auto_place, create_item, record_acquisition
+from roag.state import Position, Threat, create_world
+from roag.world import ROAG_GANGPLANK
 
 
 def active_region(seed: str = "bounded enemy decisions"):
@@ -15,7 +15,7 @@ def active_region(seed: str = "bounded enemy decisions"):
     choose_weapon(state, "spear")
     choose_gear(state, "rope")
     choose_support(state, "route survey")
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     state.position = Position(40, 25)
     for y in range(5, 46):
@@ -248,7 +248,7 @@ class ThreatIntentIdentityTests(unittest.TestCase):
         self.assertEqual(threat.intent_id, "combat.intent.circles_before_another_charge")
 
     def test_old_rendered_intent_save_gets_legacy_identity(self):
-        from jomon.state import game_state_from_dict
+        from roag.state import game_state_from_dict
         state = active_region("legacy intent")
         threat = state.threats[0]
         threat.intent, threat.intent_id = "lowers its head and charges next turn", ""

@@ -104,7 +104,7 @@ are reduced together on success.
 
 ## Twenty-four executable build demonstrations
 
-`jomon.build_scenarios.BUILD_SCENARIOS` is the inspectable source for these
+`roag.build_scenarios.BUILD_SCENARIOS` is the inspectable source for these
 rows. The automated scenario test assembles every load from physical weapon,
 secondary and passive items, verifies its distinct production combination,
 round-trips the state, and re-verifies the effect after load. Focused reducer
@@ -139,7 +139,7 @@ automated demonstrations, not claims of 24 manually completed expeditions.
 | Verified market factor | knife, seals and market weights | convert one dependency lot into extra stock/confidence | `deliver_dependency` |
 # Pressure-family balance audit
 
-The executable `python -m jomon.build_balance --json` audit runs all 24 named
+The executable `python -m roag.build_balance --json` audit runs all 24 named
 build demonstrations against six recurring pressure families: steady,
 strained, critical, elite, voyage and environmental. Answers are derived from
 the actual weapon description and range/minimum-range data, secondary gear,

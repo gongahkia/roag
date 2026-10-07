@@ -8,8 +8,9 @@ htmlcov/
 .ruff_cache/
 .venv/
 venv/
-.jomon-data/
-jomon-save.json
-.jomon-save.json.tmp
+.roag-data/
+roag-save.json
+.roag-save.json.tmp
+.roag-debug/
 test-results/
 AGENTS.md

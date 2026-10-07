@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import (
+from roag.actions import (
     _advance_world,
     apply_damage,
     attack,
@@ -23,13 +23,13 @@ from jomon.actions import (
     move,
     negotiate,
     purchase_merchant_item,
-    return_to_jomon,
+    return_to_roag,
 )
-from jomon.content import COMMODITIES, GEAR, PASSIVES, SUPPORTS, WEAPONS
-from jomon.save import SaveError, load_game, save_game
-from jomon.state import CommodityStack, Position, Threat, create_world
-from jomon.geography import layout_point
-from jomon.world import JOMON_GANGPLANK, build_combinations, pressure
+from roag.content import COMMODITIES, GEAR, PASSIVES, SUPPORTS, WEAPONS
+from roag.save import SaveError, load_game, save_game
+from roag.state import CommodityStack, Position, Threat, create_world
+from roag.geography import layout_point
+from roag.world import ROAG_GANGPLANK, build_combinations, pressure
 
 
 def prepared(
@@ -50,7 +50,7 @@ def prepared(
     choose_weapon(state, weapon)
     choose_gear(state, gear)
     choose_support(state, support)
-    state.position = JOMON_GANGPLANK
+    state.position = ROAG_GANGPLANK
     depart(state)
     return state
 
@@ -63,7 +63,7 @@ def quiet(state):
 class TimeAndBuildTests(unittest.TestCase):
     def test_new_world_starts_at_gangplank_ready_to_depart(self):
         state = create_world("first expedition ready")
-        self.assertEqual(state.position, JOMON_GANGPLANK)
+        self.assertEqual(state.position, ROAG_GANGPLANK)
         self.assertIsNotNone(state.courier)
         self.assertIsNotNone(state.weapon)
         self.assertIsNotNone(state.gear)
@@ -284,7 +284,7 @@ class WeaponAndThreatTests(unittest.TestCase):
         self.assertNotEqual(patrol.position, before)
         self.assertEqual(patrol.status, "watching")
         state.position = Position(patrol.position.x, patrol.position.y + 4, 0)
-        from jomon.actions import emit_sound
+        from roag.actions import emit_sound
         emit_sound(state, 3)
         self.assertEqual(patrol.status, "engaged")
 
@@ -394,7 +394,7 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         self.assertTrue(chest.opened)
         self.assertEqual(state.carried_passives["reed sole wraps"], 1)
         state.position = state.region.landmarks["landing"]
-        return_to_jomon(state)
+        return_to_roag(state)
         self.assertEqual(state.owned_passives["reed sole wraps"], 1)
         self.assertTrue(chest.opened)
 
@@ -404,7 +404,7 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         state.carried_passives["echo bead"] = 1
         state.courier.health = 2
         result = apply_damage(state, 8, "The bolt")
-        self.assertEqual(state.location, "jomon")
+        self.assertEqual(state.location, "roag")
         self.assertEqual(state.courier.injury, "deep cut")
         self.assertFalse(state.carried_passives)
         self.assertIn("deep cut", result)
@@ -452,13 +452,13 @@ class PersistenceAndDefeatTests(unittest.TestCase):
         self.assertEqual(state.objective_status, "completed")
         changed_demand = state.market[state.region.objective_commodity].demand
         state.position = state.region.landmarks["landing"]
-        return_to_jomon(state)
+        return_to_roag(state)
         with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / "jomon.json"
+            target = Path(directory) / "roag.json"
             save_game(state, target)
             restored = load_game(target)
         self.assertEqual(restored, state)
-        restored.position = JOMON_GANGPLANK
+        restored.position = ROAG_GANGPLANK
         depart(restored)
         self.assertEqual(restored.expedition_count, 2)
         self.assertTrue(restored.region.changes["mill_stabilised"])
@@ -469,7 +469,7 @@ class PersistenceAndDefeatTests(unittest.TestCase):
 
     def test_corrupt_and_incompatible_save_rejection(self):
         with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / "jomon.json"
+            target = Path(directory) / "roag.json"
             target.write_text("{bad", encoding="utf-8")
             with self.assertRaisesRegex(SaveError, "corrupt JSON"):
                 load_game(target)

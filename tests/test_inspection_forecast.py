@@ -5,13 +5,13 @@ import curses
 import unittest
 from unittest.mock import patch
 
-from jomon.combat_forecast import _definition_for, danger_cells, forecast_lines, observed_forecasts
-from jomon.encounters import threat_from_archetype
-from jomon.inspection import contextual_hints, inspect_lines, movement_preview
-from jomon.actions import move
-from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, LookView, _draw_base, _handle_look, _status_lines
-from jomon.world import field_of_view
+from roag.combat_forecast import _definition_for, danger_cells, forecast_lines, observed_forecasts
+from roag.encounters import threat_from_archetype
+from roag.inspection import contextual_hints, inspect_lines, movement_preview
+from roag.actions import move
+from roag.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
+from roag.terminal import InputEvent, LookView, _draw_base, _handle_look, _status_lines
+from roag.world import field_of_view
 
 
 class InspectionAndForecastTests(unittest.TestCase):
@@ -128,7 +128,7 @@ class InspectionAndForecastTests(unittest.TestCase):
     def test_minimal_status_does_not_scan_every_navigation_target(self):
         state = self.state
         with patch(
-            "jomon.navigation.navigation_targets",
+            "roag.navigation.navigation_targets",
             side_effect=AssertionError("route enumeration entered render path"),
         ):
             lines = _status_lines(state, 14)
@@ -143,7 +143,7 @@ class InspectionAndForecastTests(unittest.TestCase):
         state.threats.append(actor)
         visible = field_of_view(state, remember=False)
         with patch(
-            "jomon.world.field_of_view",
+            "roag.world.field_of_view",
             side_effect=AssertionError("visibility was recomputed"),
         ):
             rows = observed_forecasts(state, visible)

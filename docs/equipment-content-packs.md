@@ -3,7 +3,7 @@
 `content_packs/<pack>/equipment_text.json` owns the visible wording for work
 weapons, arsenal weapons, fittings, fitting results, workshop messages, and
 advanced-equipment target/overlay text. Its semantic slots and exact allowed
-template values are declared in `jomon/content_packs/contract.json`.
+template values are declared in `roag/content_packs/contract.json`.
 
 A writing-focused editor may change weapon and fitting display names,
 descriptions, effect and drawback explanations, specialised strike narration,

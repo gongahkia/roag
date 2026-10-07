@@ -4,19 +4,19 @@ from importlib.resources import files
 import string
 import unittest
 
-from jomon.dumbest_dungeon.content import load_catalog as load_dungeon_catalog
-from jomon.dumbest_dungeon.json_data import loads
-from jomon.dumbest_dungeon.office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph
-from jomon.catalog import TOPOLOGY_SECTIONS, VISUAL_SECTIONS, load_catalog
-from jomon.tavern_draw_ui import card_frame
-from jomon.tavern_games_ui import dice_face
-from jomon.terminal import semantic_role
-from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
-from jomon.visuals import SEMANTIC_GLYPH_ROLES
+from roag.dumbest_dungeon.content import load_catalog as load_dungeon_catalog
+from roag.dumbest_dungeon.json_data import loads
+from roag.dumbest_dungeon.office_art import EXPEDITION_MAP_SYMBOLS, OFFICE_SPRITES, office_card_glyph
+from roag.catalog import TOPOLOGY_SECTIONS, VISUAL_SECTIONS, load_catalog
+from roag.tavern_draw_ui import card_frame
+from roag.tavern_games_ui import dice_face
+from roag.terminal import semantic_role
+from roag.vessel import TAVERN_MAP, VESSEL_LEVELS
+from roag.visuals import SEMANTIC_GLYPH_ROLES
 
 
 class VisualCatalogTests(unittest.TestCase):
-    def test_jomon_maps_roles_cards_and_dice_are_packaged_visuals(self):
+    def test_roag_maps_roles_cards_and_dice_are_packaged_visuals(self):
         visual = load_catalog("visuals.json", VISUAL_SECTIONS)
         topology = load_catalog("topology.json", TOPOLOGY_SECTIONS)
         self.assertEqual(
@@ -42,7 +42,7 @@ class VisualCatalogTests(unittest.TestCase):
         self.assertEqual(card_frame(0, selected=True)[0], frame["selected_edge"])
 
     def test_dungeon_office_portraits_and_map_symbols_are_packaged(self):
-        data = loads(files("jomon.dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
+        data = loads(files("roag.dumbest_dungeon").joinpath("data", "office_visuals.json").read_text(encoding="utf-8"))
         self.assertEqual(data["office_sprites"], {role: list(rows) for role, rows in OFFICE_SPRITES.items()})
         self.assertEqual(data["expedition_map_symbols"], EXPEDITION_MAP_SYMBOLS)
         self.assertEqual(set(OFFICE_SPRITES), set(load_dungeon_catalog().heroes))

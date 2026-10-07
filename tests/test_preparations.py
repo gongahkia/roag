@@ -3,10 +3,10 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import use_gear
-from jomon.aftermath import AFTERMATH_TOPOLOGIES
-from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load
-from jomon.preparations import (
+from roag.actions import use_gear
+from roag.aftermath import AFTERMATH_TOPOLOGIES
+from roag.inventory import auto_place, create_item, item_spec, sync_legacy_load
+from roag.preparations import (
     PREPARATIONS,
     TOPOLOGY_PREPARATION,
     apply_preparation,
@@ -16,8 +16,8 @@ from jomon.preparations import (
     stable_preparation_id,
     validate_preparations,
 )
-from jomon.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
-from jomon.terminal import _handle_overlay, _overlay_lines, dialogue_choices
+from roag.state import MaterialCell, Position, TerrainStatus, Threat, create_world, game_state_from_dict
+from roag.terminal import _handle_overlay, _overlay_lines, dialogue_choices
 
 
 class FinitePreparationTests(unittest.TestCase):

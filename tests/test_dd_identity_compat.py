@@ -8,15 +8,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.dumbest_dungeon.content import ContentError, _load_catalog, load_catalog
-from jomon.dumbest_dungeon.engine import Actor, GameEngine
-from jomon.dumbest_dungeon.expedition import new_match, normalize_active_match
-from jomon.dumbest_dungeon.manifest import mechanical_rules_projection
-from jomon.dumbest_dungeon.migrations import MigrationError, migrate_run
-from jomon.dumbest_dungeon.tabletop import normalize_tabletop_records
+from roag.dumbest_dungeon.content import ContentError, _load_catalog, load_catalog
+from roag.dumbest_dungeon.engine import Actor, GameEngine
+from roag.dumbest_dungeon.expedition import new_match, normalize_active_match
+from roag.dumbest_dungeon.manifest import mechanical_rules_projection
+from roag.dumbest_dungeon.migrations import MigrationError, migrate_run
+from roag.dumbest_dungeon.tabletop import normalize_tabletop_records
 
 
-DATA = Path("jomon/dumbest_dungeon/data/game.json")
+DATA = Path("roag/dumbest_dungeon/data/game.json")
 
 
 class DullestDungeonIdentityTests(unittest.TestCase):
@@ -37,8 +37,8 @@ class DullestDungeonIdentityTests(unittest.TestCase):
     def test_presentation_art_does_not_change_rules_fingerprint(self):
         base = load_catalog()
         game = DATA.read_text(encoding="utf-8")
-        art_path = Path("jomon/dumbest_dungeon/data/art.json")
-        metadata_path = Path("jomon/dumbest_dungeon/data/card_metadata.json")
+        art_path = Path("roag/dumbest_dungeon/data/art.json")
+        metadata_path = Path("roag/dumbest_dungeon/data/card_metadata.json")
         art = json.loads(art_path.read_text(encoding="utf-8"))
         art["title"][0] = "X" + art["title"][0][1:]
         with tempfile.TemporaryDirectory() as directory:

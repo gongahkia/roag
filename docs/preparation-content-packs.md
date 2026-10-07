@@ -2,7 +2,7 @@
 
 `content_packs/<pack>/preparation_text.json` owns the displayed names,
 descriptions, conditions, use results, records, and field-kit wording for
-preparations. The engine-owned contract in `jomon/content_packs/contract.json`
+preparations. The engine-owned contract in `roag/content_packs/contract.json`
 lists every semantic slot and its allowed template values.
 
 A writing-focused editor may change only the wording in this file and its

@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
+from roag.catalog import ContentPackError, bundled_default_pack, load_content_pack
 from tests.test_content_packs import ROOT, alternate_pack
 
 
@@ -44,9 +44,9 @@ class ShipCrisisPresentationTests(unittest.TestCase):
                     load_content_pack(root)
 
     def test_old_rendered_crisis_intent_loads_to_its_stable_identity(self):
-        from jomon.ship_crises import begin_deck
-        from jomon.state import create_world, game_state_from_dict
-        from jomon.travel import choose_destination
+        from roag.ship_crises import begin_deck
+        from roag.state import create_world, game_state_from_dict
+        from roag.travel import choose_destination
 
         state = create_world("crisis-intent-save")
         self.assertTrue(choose_destination(state, "reed-anchor", forced_voyage="raiders")[0])
@@ -62,9 +62,9 @@ class ShipCrisisPresentationTests(unittest.TestCase):
             alternate = alternate_pack(Path(directory) / "fixture")
             script = '''
 import json
-from jomon.state import create_world
-from jomon.travel import choose_destination
-from jomon.ship_crises import begin_deck, choices, abandon_deck
+from roag.state import create_world
+from roag.travel import choose_destination
+from roag.ship_crises import begin_deck, choices, abandon_deck
 state = create_world("crisis-pack-proof")
 choose_destination(state, "reed-anchor", forced_voyage="raiders")
 pre = choices(state)
@@ -76,7 +76,7 @@ print(json.dumps({"opened": opened, "choices": pre, "actors": actors, "integrity
             def snapshot(path: str | None):
                 environment = dict(os.environ)
                 if path:
-                    environment["JOMON_CONTENT_PACK"] = path
+                    environment["ROAG_CONTENT_PACK"] = path
                 result = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=environment, text=True, capture_output=True, check=False)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 return json.loads(result.stdout)

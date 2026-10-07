@@ -6,23 +6,23 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from jomon.actions import interact
-from jomon.save import load_game, save_game
-from jomon.state import StateError, create_world, game_state_from_dict, validate_state
-from jomon.tavern_dice import (
+from roag.actions import interact
+from roag.save import load_game, save_game
+from roag.state import StateError, create_world, game_state_from_dict, validate_state
+from roag.tavern_dice import (
     MAX_ROLLS, ROUNDS, available_dice_opponents, close_match, drive_npcs,
     hold, roll, start_match,
 )
-from jomon.tavern_dice_ui import _draw_match, run_tavern_dice
-from jomon.tavern_games_ui import dice_face
-from jomon.vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, DICE_SURFACE, DRAW_PLAYER_SEAT, TABLE_PLAYER_SEAT, TAVERN_MAP
-from jomon.world import is_walkable
+from roag.tavern_dice_ui import _draw_match, run_tavern_dice
+from roag.tavern_games_ui import dice_face
+from roag.vessel import DICE_NPC_SEATS, DICE_PLAYER_SEAT, DICE_SURFACE, DRAW_PLAYER_SEAT, TABLE_PLAYER_SEAT, TAVERN_MAP
+from roag.world import is_walkable
 
 
 class QuayBonesTests(unittest.TestCase):
     def setUp(self):
         self.state = create_world("quay bones test")
-        self.state.jomon_space = "tavern"
+        self.state.roag_space = "tavern"
         self.state.position = DICE_PLAYER_SEAT
         self.opponents = [person.id for person in available_dice_opponents(self.state)[:3]]
 
@@ -41,20 +41,20 @@ class QuayBonesTests(unittest.TestCase):
         self.assertTrue(all(self.state.actor_schedules[identity].position in DICE_NPC_SEATS for identity in self.opponents))
         validate_state(self.state)
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "jomon.json"
+            path = Path(directory) / "roag.json"
             save_game(self.state, path)
             loaded = load_game(path)
         self.assertEqual(loaded.tavern_dice, self.state.tavern_dice)
 
     def test_one_busts_and_double_forces_another_roll(self):
         match = start_match(self.state, self.opponents)
-        with patch("jomon.tavern_dice._random", side_effect=(2, 2)):
+        with patch("roag.tavern_dice._random", side_effect=(2, 2)):
             self.assertEqual(roll(self.state), (3, 3))
         self.assertEqual(match["turn_total"], 6)
         self.assertTrue(match["forced"])
         with self.assertRaisesRegex(ValueError, "double"):
             hold(self.state)
-        with patch("jomon.tavern_dice._random", side_effect=(0, 3)):
+        with patch("roag.tavern_dice._random", side_effect=(0, 3)):
             self.assertEqual(roll(self.state), (1, 4))
         self.assertEqual(match["scores"][0], 0)
         self.assertEqual(match["busts"][0], 1)

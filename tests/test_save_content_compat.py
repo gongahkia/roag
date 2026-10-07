@@ -9,9 +9,9 @@ import sys
 import tempfile
 import unittest
 
-from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
-from jomon.save import save_game
-from jomon.state import (
+from roag.mechanical_compatibility import main_world_mechanical_fingerprint
+from roag.save import save_game
+from roag.state import (
     NARRATIVE_RECORD_LIMIT, SAVE_FORMAT, StateError, append_narrative_record, create_world,
     game_state_from_dict,
 )
@@ -127,9 +127,9 @@ class SaveContentCompatibilityTests(unittest.TestCase):
     def test_pack_switch_preserves_frozen_records_and_uses_new_pack_for_new_records(self):
         create_under_default = (
             "import json,sys; "
-            "from jomon.actions import depart; "
-            "from jomon.situations import BY_REGION_BAND,resolve; "
-            "from jomon.state import create_world; "
+            "from roag.actions import depart; "
+            "from roag.situations import BY_REGION_BAND,resolve; "
+            "from roag.state import create_world; "
             "state=create_world('narrative-pack-switch'); state.weapon='billhook'; state.gear='repair tools'; "
             "depart(state); row=BY_REGION_BAND['hearthford','steady']; resolve(state,row.id,'t'); "
             "state.travel_count=2; state.vessel_changes['voyage_variant:1']='shortage-skiffs'; "
@@ -137,8 +137,8 @@ class SaveContentCompatibilityTests(unittest.TestCase):
         )
         continue_under_alternate = (
             "import json,sys; "
-            "from jomon.echoes import apply_later_echoes; "
-            "from jomon.state import game_state_from_dict; "
+            "from roag.echoes import apply_later_echoes; "
+            "from roag.state import game_state_from_dict; "
             "state=game_state_from_dict(json.load(open(sys.argv[1],encoding='utf-8'))); "
             "echo=apply_later_echoes(state)[0]; "
             "mechanics={'variant':echo.variant_id,'kind':echo.kind,'travel_count':state.travel_count,'world_time':state.world_time,'integrity':state.vessel_integrity,'route_risk':state.route_nodes[state.route_current_node].risk,'accounts':sorted((key,value.confidence,value.obligation) for key,value in state.institutions.items())}; "
@@ -155,7 +155,7 @@ class SaveContentCompatibilityTests(unittest.TestCase):
             # The generic fixture deliberately changes a catalog seed word;
             # restore it so this is a mechanically compatible Pack B.
             (alternate / "data" / "world_text.json").write_bytes(
-                (ROOT / "jomon" / "data" / "world_text.json").read_bytes()
+                (ROOT / "roag" / "data" / "world_text.json").read_bytes()
             )
             source = alternate / "travel_text.json"
             document = json.loads(source.read_text(encoding="utf-8"))
@@ -172,7 +172,7 @@ class SaveContentCompatibilityTests(unittest.TestCase):
             self.assertEqual(default_continued.returncode, 0, default_continued.stderr)
             continued = subprocess.run(
                 [sys.executable, "-c", continue_under_alternate, str(path)], cwd=ROOT,
-                env=dict(os.environ, JOMON_CONTENT_PACK=str(alternate)),
+                env=dict(os.environ, ROAG_CONTENT_PACK=str(alternate)),
                 text=True, capture_output=True,
             )
             self.assertEqual(continued.returncode, 0, continued.stderr)

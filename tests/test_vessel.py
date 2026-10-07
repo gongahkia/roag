@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import (
+from roag.actions import (
     _advance_world,
     can_alter_objective,
     choose_courier,
@@ -13,9 +13,9 @@ from jomon.actions import (
     move,
     purchase_bar_drink,
 )
-from jomon.save import load_game, save_game
-from jomon.state import Position, SocialIncident, create_world
-from jomon.vessel import (
+from roag.save import load_game, save_game
+from roag.state import Position, SocialIncident, create_world
+from roag.vessel import (
     BARTENDER_POSITION,
     DRINKS,
     LOWER_HATCH,
@@ -35,13 +35,13 @@ from jomon.vessel import (
     _walkable,
     vessel_vertical_destination,
 )
-from jomon.world import displayed_tile, is_walkable, sight_radius
+from roag.world import displayed_tile, is_walkable, sight_radius
 
 
 class VesselMapAndScheduleTests(unittest.TestCase):
     def test_gaming_table_has_a_walkable_player_chair_and_blocking_surface(self):
         state = create_world("gaming furniture")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         state.position = TABLE_PLAYER_SEAT
         self.assertEqual(len(TABLE_SURFACE), 75)
         self.assertEqual(TAVERN_MAP[TABLE_PLAYER_SEAT.y][TABLE_PLAYER_SEAT.x], "D")
@@ -56,7 +56,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
 
     def test_off_duty_patron_walks_to_the_gaming_table_chair(self):
         state = create_world("game table walk")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         state.position = TABLE_PLAYER_SEAT
         schedule = state.actor_schedules[state.household[1].id]
         schedule.position = Position(31, 4)
@@ -69,7 +69,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
 
     def test_saved_people_inside_new_furniture_are_reseated_without_time(self):
         state = create_world("old furniture save")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         state.position = Position(32, 11)
         schedule = state.actor_schedules[state.household[1].id]
         schedule.position = schedule.destination = Position(31, 11)
@@ -84,7 +84,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
 
     def test_switching_courier_from_game_chair_leaves_it_available(self):
         state = create_world("switch at table")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         state.position = TABLE_PLAYER_SEAT
         former = state.active_courier_id
         selected = state.household[1]
@@ -124,7 +124,7 @@ class VesselMapAndScheduleTests(unittest.TestCase):
         second = create_world("schedule")
         actor_id = first.household[0].id
         for state in (first, second):
-            state.jomon_space = "vessel"
+            state.roag_space = "vessel"
             state.position = Position(13, 10, 0)
             schedule = state.actor_schedules[actor_id]
             schedule.area = "vessel:0"
@@ -160,14 +160,14 @@ class VesselMapAndScheduleTests(unittest.TestCase):
         repaired = loaded.actor_schedules[actor_id]
         self.assertNotEqual(repaired.position, Position(28, 10, 1))
         self.assertNotEqual(repaired.destination, Position(28, 10, 1))
-        loaded.location = "jomon"
-        loaded.jomon_space = "vessel"
+        loaded.location = "roag"
+        loaded.roag_space = "vessel"
         loaded.position = Position(28, 10, 1)
         self.assertEqual(interact(loaded).overlay, "route-chart")
 
     def test_offscreen_catch_up_is_bounded_and_no_load_time_passes(self):
         state = create_world("offscreen")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         actor = state.household[0]
         schedule = state.actor_schedules[actor.id]
         schedule.area = "vessel:-1"
@@ -192,8 +192,8 @@ class BartenderAndIncidentTests(unittest.TestCase):
 
     def test_drink_is_time_bearing_and_duration_clears(self):
         state = create_world("bar drink")
-        state.location = "jomon"
-        state.jomon_space = "tavern"
+        state.location = "roag"
+        state.roag_space = "tavern"
         state.trade_credit = 10
         drink_id = next(drink_id for drink_id, amount in state.bartender_stock.items() if amount)
         before = state.world_time
@@ -205,7 +205,7 @@ class BartenderAndIncidentTests(unittest.TestCase):
         self.assertNotIn(drink_id, state.drink_effects)
 
     def test_drinks_change_movement_guard_awareness_and_material_leverage(self):
-        from jomon.state import TerrainStatus
+        from roag.state import TerrainStatus
 
         state = create_world("drink interactions")
         state.location = "region"
@@ -236,7 +236,7 @@ class BartenderAndIncidentTests(unittest.TestCase):
 
     def test_causal_argument_and_fight_cannot_kill_offscreen(self):
         state = create_world("causal argument")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         first, second = state.household[:2]
         state.pending_incident = SocialIncident(
             "test-incident", "argument", [first.id, second.id],

@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.aftermath import (
+from roag.aftermath import (
     AFTERMATH_LINES,
     AFTERMATH_TOPOLOGIES,
     accept_contract,
@@ -16,13 +16,13 @@ from jomon.aftermath import (
     validate_aftermath,
     work_contract,
 )
-from jomon.frontiers import FRONTIERS, ensure_frontier
-from jomon.inventory import auto_place, create_item, sync_legacy_load
-from jomon.materials import ensure_cell
-from jomon.quests import QUESTS
-from jomon.regions import activate_region, region_reachable
-from jomon.state import create_world, game_state_from_dict, validate_state
-from jomon.terminal import _handle_overlay, _overlay_lines, dialogue_choices
+from roag.frontiers import FRONTIERS, ensure_frontier
+from roag.inventory import auto_place, create_item, sync_legacy_load
+from roag.materials import ensure_cell
+from roag.quests import QUESTS
+from roag.regions import activate_region, region_reachable
+from roag.state import create_world, game_state_from_dict, validate_state
+from roag.terminal import _handle_overlay, _overlay_lines, dialogue_choices
 
 
 def completed_revisit(seed: str, region_id: str, ending_index: int):

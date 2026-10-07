@@ -5,9 +5,9 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.actions import apply_damage, choose_courier, choose_weapon, move
-from jomon.content import PASSIVES
-from jomon.inventory import (
+from roag.actions import apply_damage, choose_courier, choose_weapon, move
+from roag.content import PASSIVES
+from roag.inventory import (
     BODY_SLOTS,
     ITEM_SPECS,
     apply_terrain_status,
@@ -25,10 +25,10 @@ from jomon.inventory import (
     transfer_to_grid,
     unequip_item,
 )
-from jomon.save import load_game, save_game
-from jomon.state import SAVE_FORMAT, Position, game_state_from_dict, create_world
-from jomon.terminal import InventoryView, _handle_inventory
-from jomon.world import JOMON_GANGPLANK
+from roag.save import load_game, save_game
+from roag.state import SAVE_FORMAT, Position, game_state_from_dict, create_world
+from roag.terminal import InventoryView, _handle_inventory
+from roag.world import ROAG_GANGPLANK
 
 
 def active_state(seed: str = "spatial inventory"):
@@ -42,7 +42,7 @@ class SpatialInventoryTests(unittest.TestCase):
         state = create_world("ready household")
         self.assertEqual(state.active_courier_id, state.household[0].id)
         self.assertEqual(state.support, "route survey")
-        self.assertEqual(state.position, JOMON_GANGPLANK)
+        self.assertEqual(state.position, ROAG_GANGPLANK)
         before = len(state.items)
         for person in state.household:
             expected = basic_courier_kit(person)
@@ -70,12 +70,12 @@ class SpatialInventoryTests(unittest.TestCase):
         }
         data["items"] = [
             item for item in data["items"]
-            if not item["provenance"].startswith("Jomon working issue")
+            if not item["provenance"].startswith("Roag working issue")
         ]
         kept_ids = {item["id"] for item in data["items"]}
         loaded = game_state_from_dict(data)
         self.assertEqual(loaded.active_courier_id, loaded.household[0].id)
-        self.assertEqual(loaded.position, JOMON_GANGPLANK)
+        self.assertEqual(loaded.position, ROAG_GANGPLANK)
         self.assertEqual(loaded.support, "route survey")
         self.assertTrue(kept_ids.issubset({item.id for item in loaded.items}))
         self.assertIsNotNone(equipped_item(loaded, "readied"))

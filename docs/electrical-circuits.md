@@ -1,6 +1,6 @@
 # Working circuits
 
-Couriers can lay finite, persistent electrical fittings on Jomon's working decks
+Couriers can lay finite, persistent electrical fittings on Roag's working decks
 and in regional maps. The tavern and the water approach are not construction
 sites. Use `W` at a physical workshop or forge to fabricate parts from counted
 goods; the cell recipe also needs gathered Greywash brine. Finished parts take
@@ -34,7 +34,7 @@ and records the reason.
 
 The pulse phase follows [Wireworld's four-state automaton](https://mathworld.wolfram.com/WireWorld.html):
 an electron head becomes a tail, a tail becomes a conductor, and a conductor
-becomes a head only when one or two neighboring heads are present. Jomon adds
+becomes a head only when one or two neighboring heads are present. Roag adds
 the layer-via rule and powered devices. This is one unified system: the visible
 pulse is both the control signal and the energy that works a device. There is
 no second power wire, wattage budget, or per-device charge cost. A loaded rack
@@ -64,7 +64,7 @@ pulse arrives runs the pump and lights the mill. It can be inspected, altered,
 reclaimed, and recharged like a player-built circuit. Older saves keep their
 existing circuits without receiving a new installation mid-expedition.
 
-Jomon's lower-deck bilge has a second authored circuit near the `U` station at
+Roag's lower-deck bilge has a second authored circuit near the `U` station at
 8,15,-1. Its rack at 5,15,-1 feeds a knife switch, a paired via, a trace buried
 beneath the work station, and a water sensor at 9,15,-1. When that sensor sees
 one measure of water, pulses reach the sump pump and lamp. The rack saves its
@@ -87,7 +87,7 @@ The design borrows the physical push and obstruction limits of
 the single source-to-device language of [Minecraft redstone](https://www.minecraft.net/fr-ca/article/redstone-dust),
 the observable state of [Factorio's circuit interface](https://www.factorio.com/blog/post/fff-384),
 and the tangible sensor-to-machine response shown in [Infinifactory](https://www.zachtronics.com/infiniupdate-2/).
-Jomon remains a discrete pulse game, not an analog voltage simulator or a full
+Roag remains a discrete pulse game, not an analog voltage simulator or a full
 numeric factory network. Pistons do not move world terrain, vehicles, or actors;
 circuits do not yet automate regional production orders or ship navigation.
 

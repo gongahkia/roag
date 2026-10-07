@@ -3,11 +3,11 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from jomon.actions import interact
-from jomon.actions import depart, guard
-from jomon.vessel import BARTENDER_POSITION
-from jomon.state import MaterialCell, Position, create_world
-from jomon.terminal import (
+from roag.actions import interact
+from roag.actions import depart, guard
+from roag.vessel import BARTENDER_POSITION
+from roag.state import MaterialCell, Position, create_world
+from roag.terminal import (
     INVENTORY_HELP_LINES,
     BASE_HELP_LINES,
     ChoiceOption,
@@ -32,8 +32,8 @@ from jomon.terminal import (
     terrain_colour_role,
     visible_threats,
 )
-from jomon.main import _centered_x, _set_cursor_visibility, landing_notice_layout, run
-from jomon.world import field_of_view
+from roag.main import _centered_x, _set_cursor_visibility, landing_notice_layout, run
+from roag.world import field_of_view
 
 
 class MinimumSizeNoticeTests(unittest.TestCase):
@@ -64,7 +64,7 @@ class MinimumSizeNoticeTests(unittest.TestCase):
             screen = self.Screen(height, width)
             _draw_minimum_size_notice(screen)
             self.assertTrue(screen.writes)
-            self.assertTrue(any("Jomon's chart needs" in line for _, _, line in screen.writes))
+            self.assertTrue(any("Roag's chart needs" in line for _, _, line in screen.writes))
             self.assertTrue(any("Present frame" in line for _, _, line in screen.writes))
             first, last = screen.writes[0][0], screen.writes[-1][0]
             self.assertLessEqual(abs(first + last - (height - 1)), 1)
@@ -77,7 +77,7 @@ class MinimumSizeNoticeTests(unittest.TestCase):
 
     def test_startup_and_in_game_notices_share_the_centered_layout(self):
         startup = self.Screen(48, 79)
-        with patch("jomon.main._set_cursor_visibility"), patch("jomon.main._init_colours"):
+        with patch("roag.main._set_cursor_visibility"), patch("roag.main._init_colours"):
             run(startup)
         in_game = self.Screen(48, 79)
         _draw_base(in_game, create_world("small screen layout"))
@@ -214,7 +214,7 @@ class SemanticColourTests(unittest.TestCase):
         self.assertEqual(terrain_colour_role("@", "dunmire"), "player")
 
     def test_every_generated_regional_glyph_has_a_palette_role(self):
-        from jomon.frontiers import FRONTIERS, build_frontier
+        from roag.frontiers import FRONTIERS, build_frontier
 
         state = create_world("regional-colour-coverage")
         regions = dict(state.regions)
@@ -287,13 +287,13 @@ class SemanticColourTests(unittest.TestCase):
 
 class LandingLayoutTests(unittest.TestCase):
     def test_unsupported_cursor_visibility_is_a_safe_fallback(self):
-        with patch("jomon.main.curses.curs_set", side_effect=__import__("curses").error):
+        with patch("roag.main.curses.curs_set", side_effect=__import__("curses").error):
             self.assertFalse(_set_cursor_visibility(0))
 
     def test_long_incompatible_save_warning_wraps_and_centres(self):
         warning = "Existing development save unavailable: incompatible format with preserved consequences that cannot be loaded safely"
         for width, height in ((80, 24), (100, 32)):
-            layout = landing_notice_layout(width, height, warning, "/a/deliberately/long/save/location/jomon-save.json")
+            layout = landing_notice_layout(width, height, warning, "/a/deliberately/long/save/location/roag-save.json")
             self.assertGreaterEqual(layout.left, 1)
             self.assertLessEqual(layout.left + layout.width, width - 1)
             self.assertGreaterEqual(layout.top, 7)
@@ -323,7 +323,7 @@ class LandingLayoutTests(unittest.TestCase):
 
         screen = Screen()
         stopped = []
-        with patch("jomon.terminal.curses.def_prog_mode"), patch("jomon.terminal.curses.endwin"), patch("jomon.terminal.curses.reset_prog_mode"):
+        with patch("roag.terminal.curses.def_prog_mode"), patch("roag.terminal.curses.endwin"), patch("roag.terminal.curses.reset_prog_mode"):
             supported = suspend_terminal(screen, stop=lambda: stopped.append(True))
         if hasattr(__import__("signal"), "SIGTSTP"):
             self.assertTrue(supported)
@@ -343,12 +343,12 @@ class LandingLayoutTests(unittest.TestCase):
         screen = Screen()
         state = create_world("injected-terminal-failure")
         with (
-            patch("jomon.terminal.curses.curs_set"),
-            patch("jomon.terminal.curses.set_escdelay"),
-            patch("jomon.terminal._init_colours"),
-            patch("jomon.terminal._enable_mouse"),
-            patch("jomon.terminal.curses.mousemask") as mousemask,
-            patch("jomon.terminal._play_loop", side_effect=RuntimeError("injected")),
+            patch("roag.terminal.curses.curs_set"),
+            patch("roag.terminal.curses.set_escdelay"),
+            patch("roag.terminal._init_colours"),
+            patch("roag.terminal._enable_mouse"),
+            patch("roag.terminal.curses.mousemask") as mousemask,
+            patch("roag.terminal._play_loop", side_effect=RuntimeError("injected")),
         ):
             with self.assertRaisesRegex(RuntimeError, "injected"):
                 play(screen, state)
@@ -359,7 +359,7 @@ class LandingLayoutTests(unittest.TestCase):
 class TavernMenuTests(unittest.TestCase):
     def test_physical_person_selection_is_zero_time(self):
         state = create_world("physical tavern")
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         person = state.household[1]
         seat = state.tavern_positions[person.id]
         state.position = Position(seat.x - 1, seat.y)
@@ -463,7 +463,7 @@ class DialogueChoiceTests(unittest.TestCase):
         state = create_world("tavern support")
         courier, weapon, gear = state.courier, state.weapon, state.gear
         state.support = None
-        state.jomon_space = "tavern"
+        state.roag_space = "tavern"
         state.position = Position(BARTENDER_POSITION.x - 1, BARTENDER_POSITION.y)
         started = state.world_time
         self.assertEqual(interact(state).overlay, "bartender")

@@ -2,16 +2,16 @@ import copy
 import unittest
 from dataclasses import asdict
 
-from jomon.actions import _advance_world, _threat_action, apply_damage, attack, emit_sound, interact, move
-from jomon.ecology import resolve_world_action, world_options
-from jomon.enemy_ai import next_path_step, sees_courier
-from jomon.inventory import auto_place, create_item, equipped_item, release_enemy_possession
-from jomon.materials import _expose, advance_materials
-from jomon.ship_crises import HAZARD_STATIONS, TACTICAL, VOYAGES, abandon_deck, begin_deck, work
-from jomon.state import CommodityStack, MaterialCell, Position, StateError, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices, visible_threats
-from jomon.travel import choose_destination, resolve_voyage, voyage_for
-from jomon.world import field_of_view, line_of_sight
+from roag.actions import _advance_world, _threat_action, apply_damage, attack, emit_sound, interact, move
+from roag.ecology import resolve_world_action, world_options
+from roag.enemy_ai import next_path_step, sees_courier
+from roag.inventory import auto_place, create_item, equipped_item, release_enemy_possession
+from roag.materials import _expose, advance_materials
+from roag.ship_crises import HAZARD_STATIONS, TACTICAL, VOYAGES, abandon_deck, begin_deck, work
+from roag.state import CommodityStack, MaterialCell, Position, StateError, create_world, game_state_from_dict
+from roag.terminal import InputEvent, OverlayView, _draw_dialogue_overlay, _handle_overlay_view, dialogue_choices, visible_threats
+from roag.travel import choose_destination, resolve_voyage, voyage_for
+from roag.world import field_of_view, line_of_sight
 from test_information_panels import PanelSink
 
 
@@ -76,14 +76,14 @@ class DeckCrisisTests(unittest.TestCase):
         self.assertEqual(state.courier.health, health)
 
     def test_unresolved_passage_cannot_be_bypassed_at_the_gangplank(self):
-        from jomon.vessel import JOMON_GANGPLANK
+        from roag.vessel import ROAG_GANGPLANK
         state = self.state
         choose_destination(state, "reed-anchor", forced_voyage="inspection")
-        state.position = JOMON_GANGPLANK
+        state.position = ROAG_GANGPLANK
         before = state.world_time
         result = interact(state)
         self.assertEqual(result.overlay, "voyage")
-        self.assertEqual(state.location, "jomon")
+        self.assertEqual(state.location, "roag")
         self.assertEqual(state.world_time, before)
 
     def test_ashore_populations_are_not_replaced_by_boarding_or_save(self):
@@ -153,7 +153,7 @@ class DeckCrisisTests(unittest.TestCase):
         self.assertNotIn("_fov_cache", state.to_dict())
 
     def test_deck_thief_can_take_a_visible_adjacent_couriers_physical_load(self):
-        from jomon.inventory import record_acquisition
+        from roag.inventory import record_acquisition
         self.begin("raiders")
         state = self.state
         item = create_item(state, "passive:witness token", "deck theft regression", location="ground")
@@ -173,7 +173,7 @@ class DeckCrisisTests(unittest.TestCase):
         actor.position, state.position = Position(14, 10), Position(14, 10, -1)
         origin = Position(14, 9, -1)
         emit_sound(state, 3, origin)
-        from jomon.enemy_ai import heard_position
+        from roag.enemy_ai import heard_position
         self.assertEqual(heard_position(state, actor), origin)
         self.assertNotEqual(heard_position(state, actor), state.position)
 
@@ -182,7 +182,7 @@ class DeckCrisisTests(unittest.TestCase):
         cargo_before = sum(stack.quantity for stack in state.vessel_cargo.values())
         self.begin("hold-thieves")
         self.assertEqual(sum(stack.quantity for stack in state.vessel_cargo.values()), cargo_before - 1)
-        item = next(item for item in state.items if item.region_id == "jomon" and item.location == "ground")
+        item = next(item for item in state.items if item.region_id == "roag" and item.location == "ground")
         thief = state.vessel_threats[0]
         thief.position = Position(item.ground_position.x - 1, item.ground_position.y, -1)
         state.position = Position(22, 11, -1)
@@ -192,12 +192,12 @@ class DeckCrisisTests(unittest.TestCase):
         self.assertEqual(item.location, "enemy")
         thief.status = "defeated"
         release_enemy_possession(state, thief)
-        self.assertEqual(item.region_id, "jomon")
+        self.assertEqual(item.region_id, "roag")
         self.assertEqual(item.ground_position, thief.position)
         self.assertEqual(sum(candidate.id == item.id for candidate in state.items), 1)
 
     def test_material_verbs_can_end_a_hazard_without_its_station_reducer(self):
-        from jomon.materials import handle_material
+        from roag.materials import handle_material
         self.begin("galley-fire")
         state = self.state
         state.position = HAZARD_STATIONS["galley-fire"]
@@ -270,7 +270,7 @@ class DeckCrisisTests(unittest.TestCase):
         self.assertTrue(any("Billhook" in message or "billhook" in message for message in state.messages))
 
     def test_player_deck_shot_consumes_physical_ammunition_and_requires_reload(self):
-        from jomon.inventory import equip_item, physical_ammunition, sync_legacy_load
+        from roag.inventory import equip_item, physical_ammunition, sync_legacy_load
         self.begin("raiders")
         state = self.state
         weapon = create_item(state, "crossbow", "deck test", location="ground")
@@ -289,8 +289,8 @@ class DeckCrisisTests(unittest.TestCase):
         self.assertFalse(attack(state, actor.id).time_advanced)
 
     def test_local_relics_do_not_mutate_an_unvisited_ashore_process(self):
-        from jomon.actions import use_gear
-        from jomon.inventory import record_acquisition
+        from roag.actions import use_gear
+        from roag.inventory import record_acquisition
         self.begin("flooded-hold")
         state = self.state
         spindle = create_item(state, "relic:ebbglass spindle", "deck test", location="ground")
@@ -356,7 +356,7 @@ class DeckCrisisTests(unittest.TestCase):
         state.position = Position(8, 15, -1)
         state.vessel_materials["9,15,-1"] = MaterialCell(material="timber", water=3)
         item = create_item(state, "passive:cork float", "bilge survival", location="ground")
-        item.region_id, item.ground_position = "jomon", Position(9, 15, -1)
+        item.region_id, item.ground_position = "roag", Position(9, 15, -1)
         self.assertTrue(work(state, "pump")[0])
         self.assertEqual(state.vessel_materials["9,15,-1"].water, 0)
         self.assertEqual(item.location, "ground")
@@ -371,7 +371,7 @@ class DeckCrisisTests(unittest.TestCase):
         state.courier.health, state.courier.injury = 1, "deep cut"
         apply_damage(state, 5, "A declared boarding strike", location="torso")
         self.assertNotEqual(state.active_courier_id, previous)
-        self.assertEqual(parent.region_id, "jomon")
+        self.assertEqual(parent.region_id, "roag")
         self.assertEqual(parent.ground_position, Position(35, 11))
         self.assertEqual(state.questlines, quest)
         self.assertEqual(game_state_from_dict(state.to_dict()).world_ended, False)
@@ -387,7 +387,7 @@ class DeckCrisisTests(unittest.TestCase):
 
     def test_smoke_on_deck_uses_hazard_colour_not_merchant_colour(self):
         from unittest.mock import patch
-        from jomon.terminal import _COLOUR_ATTRIBUTES, _draw_map
+        from roag.terminal import _COLOUR_ATTRIBUTES, _draw_map
         state = self.state
         state.position = Position(8, 6)
         state.vessel_materials["9,5,0"] = MaterialCell(smoke=3)

@@ -1,9 +1,9 @@
 # Base item presentation content packs
 
-`jomon/content_packs/default/items.json` is the writing-only presentation layer
+`roag/content_packs/default/items.json` is the writing-only presentation layer
 for the ordinary base goods and equipment covered by the engine contract. Each
 record is named by an engine-owned semantic slot and contains only the fields
-listed for that slot in `jomon/content_packs/contract.json`.
+listed for that slot in `roag/content_packs/contract.json`.
 
 ```json
 {

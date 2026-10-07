@@ -1,17 +1,17 @@
 import copy
 import unittest
 
-from jomon.actions import _return_after_defeat, choose_courier, negotiate
-from jomon.inventory import auto_place, create_item, item_spec, sync_legacy_load
-from jomon.materials import advance_materials, fields, key
-from jomon.regions import activate_region, region_reachable
-from jomon.state import Position, StateError, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, OverlayView, _handle_overlay_view, _draw_dialogue_overlay, dialogue_choices
-from jomon.worklines import (
+from roag.actions import _return_after_defeat, choose_courier, negotiate
+from roag.inventory import auto_place, create_item, item_spec, sync_legacy_load
+from roag.materials import advance_materials, fields, key
+from roag.regions import activate_region, region_reachable
+from roag.state import Position, StateError, create_world, game_state_from_dict
+from roag.terminal import InputEvent, OverlayView, _handle_overlay_view, _draw_dialogue_overlay, dialogue_choices
+from roag.worklines import (
     WORKLINES, at_witness, carried_evidence, field_site,
     options, resolve, survey_site,
 )
-from jomon.world import sight_radius
+from roag.world import sight_radius
 from test_information_panels import PanelSink
 
 
@@ -175,7 +175,7 @@ class UndertakingTests(unittest.TestCase):
         self.assertTrue(any("collapsed" in text for text in self.state.history))
 
     def test_saturated_field_does_not_consume_material_or_advance_stage(self):
-        from jomon.state import MaterialCell
+        from roag.state import MaterialCell
         self.open("hearthford", "h")
         self.survey()
         timber = self.supply("commodity:timber")
@@ -236,9 +236,9 @@ class UndertakingTests(unittest.TestCase):
         self.assertEqual((reward.kind, reward.location, reward.ground_position), ("passive:roof nail", "ground", self.state.position))
 
     def test_public_light_consumes_stock_at_work_boundaries_and_darkens_in_shortage(self):
-        from jomon.calendar import ACTIONS_PER_DAY
-        from jomon.regional_history import advance_production, account_for
-        from jomon.worklines import beacon_active
+        from roag.calendar import ACTIONS_PER_DAY
+        from roag.regional_history import advance_production, account_for
+        from roag.worklines import beacon_active
         self.open("greywash", "l")
         self.survey()
         self.field("greywash", "l")

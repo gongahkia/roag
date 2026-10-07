@@ -3,13 +3,13 @@ import random
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from jomon.inventory import (
+from roag.inventory import (
     _largest_free_area, best_fit, grid_items, grid_size, item_spec,
     occupied_cells, placement_preview,
 )
-from jomon.state import Item, Position, Threat, VerticalLink, create_world
+from roag.state import Item, Position, Threat, VerticalLink, create_world
 
-from jomon.benchmark import benchmark, distribution
+from roag.benchmark import benchmark, distribution
 
 
 class MeasurementTests(unittest.TestCase):
@@ -97,7 +97,7 @@ class SpatialCacheTests(unittest.TestCase):
                 self.state.region.tile_changes[f"{x},{y},0"] = "."
 
     def test_sight_cache_invalidates_on_smoke_terrain_and_remains_unsaved(self):
-        from jomon.world import field_of_view
+        from roag.world import field_of_view
         state = self.state
         target = Position(34, 20)
         self.assertIn(target, field_of_view(state, remember=False))
@@ -110,7 +110,7 @@ class SpatialCacheTests(unittest.TestCase):
         self.assertNotIn("_fov_cache", state.to_dict())
 
     def test_cached_path_matches_reconstruction_and_respects_changed_obstacles(self):
-        from jomon.enemy_ai import next_path_step
+        from roag.enemy_ai import next_path_step
         state = self.state
         actor = Threat("cache-patrol", "patrol", "pursuer", Position(23, 20), 4, 4)
         state.threats = [actor]
@@ -126,18 +126,18 @@ class SpatialCacheTests(unittest.TestCase):
         self.assertNotIn("_path_cache", state.to_dict())
 
     def test_regional_path_queries_skip_display_only_actor_and_item_scans(self):
-        from jomon.world import is_walkable
+        from roag.world import is_walkable
 
         point = Position(31, 20)
-        with patch("jomon.world.displayed_tile", side_effect=AssertionError("display scan")):
+        with patch("roag.world.displayed_tile", side_effect=AssertionError("display scan")):
             self.assertTrue(is_walkable(self.state, point, ignore_threat=True))
         self.state.region.tile_changes["31,20,0"] = "#"
-        with patch("jomon.world.displayed_tile", side_effect=AssertionError("display scan")):
+        with patch("roag.world.displayed_tile", side_effect=AssertionError("display scan")):
             self.assertFalse(is_walkable(self.state, point, ignore_threat=True))
 
     def test_bitset_reachability_matches_independent_queue_across_levels(self):
         from collections import deque
-        from jomon.regions import region_reachable
+        from roag.regions import region_reachable
         rng = random.Random(17)
         for _ in range(30):
             width, height = 9, 7
@@ -165,7 +165,7 @@ class SpatialCacheTests(unittest.TestCase):
             self.assertEqual(region_reachable(region), expected)
 
     def test_reachability_cache_is_bounded_and_invalidates_sparse_changes(self):
-        from jomon.regions import (
+        from roag.regions import (
             _REACHABLE_CACHE, _REACHABLE_CACHE_LIMIT, region_reachable,
         )
         region = self.state.region

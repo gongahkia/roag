@@ -3,7 +3,7 @@
 `content_packs/<pack>/production_text.json` contains the player-facing text for
 physical gathering, fabrication, witnessed work orders, regional stock notices,
 and the craft catalog. Its keys are fixed engine-owned semantic slots declared in
-`jomon/content_packs/contract.json`.
+`roag/content_packs/contract.json`.
 
 A writing-focused editor may change recipe labels, station labels, gathering and
 fabrication narration, delegation and completion records, status explanations,

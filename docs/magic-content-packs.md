@@ -3,7 +3,7 @@
 `content_packs/<pack>/magic_text.json` supplies player-facing spell names,
 descriptions, targeting and casting results, restoration wording, and magic
 intent text. Its semantic keys and exact template variables are fixed by
-`jomon/content_packs/contract.json`.
+`roag/content_packs/contract.json`.
 
 A writing-focused editor may rewrite this wording and the validated templates.
 Values such as `{spell}`, `{target}`, `{cost}`, `{range}`, `{amount}`, and

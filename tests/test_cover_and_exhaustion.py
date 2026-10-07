@@ -1,9 +1,9 @@
 import copy
 import unittest
 
-from jomon.quests import mark_secondary_lead, use_secondary_service
-from jomon.state import Position, Threat, create_world
-from jomon.world import cover_at, is_walkable
+from roag.quests import mark_secondary_lead, use_secondary_service
+from roag.state import Position, Threat, create_world
+from roag.world import cover_at, is_walkable
 
 
 class CoverAndExhaustionTests(unittest.TestCase):
@@ -41,8 +41,8 @@ class CoverAndExhaustionTests(unittest.TestCase):
         self.assertIn("no unopened", text.lower())
 
     def test_actual_arrows_and_stones_share_loose_cover(self):
-        from jomon.actions import _threat_action, attack
-        from jomon.inventory import auto_place, create_item
+        from roag.actions import _threat_action, attack
+        from roag.inventory import auto_place, create_item
 
         state = self.state
         state.world_time, state.weather, state.weapon = 8, "clear", "sling"

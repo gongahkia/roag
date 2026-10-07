@@ -10,14 +10,14 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from jomon.assets import action_assets, asset_resource, curses_glyph, terrain_assets
-from jomon.catalog import ContentPackError, bundled_default_pack, load_content_pack
-from jomon.mechanical_compatibility import main_world_mechanical_fingerprint
-from jomon.semantic_topology import TAVERN_TOPOLOGY, VESSEL_TOPOLOGY, CELLS, legacy_rows, tavern_cell, vessel_cell
-from jomon.state import Position, create_world
-from jomon.vessel import TAVERN_MAP, VESSEL_LEVELS
-from jomon.views import world_view
-from jomon.world import base_tile, blocks_sight, is_walkable, semantic_cell
+from roag.assets import action_assets, asset_resource, curses_glyph, terrain_assets
+from roag.catalog import ContentPackError, bundled_default_pack, load_content_pack
+from roag.mechanical_compatibility import main_world_mechanical_fingerprint
+from roag.semantic_topology import TAVERN_TOPOLOGY, VESSEL_TOPOLOGY, CELLS, legacy_rows, tavern_cell, vessel_cell
+from roag.state import Position, create_world
+from roag.vessel import TAVERN_MAP, VESSEL_LEVELS
+from roag.views import world_view
+from roag.world import base_tile, blocks_sight, is_walkable, semantic_cell
 from tests.test_content_packs import alternate_pack
 
 
@@ -102,9 +102,9 @@ class AssetManifestTests(unittest.TestCase):
 
     def test_alternate_glyphs_leave_headless_mechanics_and_events_unchanged(self):
         script = (
-            "import json; from jomon.commands import MoveCommand; from jomon.session import GameSession; "
-            "from jomon.world import is_walkable, curses_tile; from jomon.state import Position; "
-            "from jomon.mechanical_compatibility import main_world_mechanical_fingerprint; "
+            "import json; from roag.commands import MoveCommand; from roag.session import GameSession; "
+            "from roag.world import is_walkable, curses_tile; from roag.state import Position; "
+            "from roag.mechanical_compatibility import main_world_mechanical_fingerprint; "
             "s=GameSession.create('asset-topology-proof'); p=s._state.position; "
             "dx,dy=next((dx,dy) for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)) if is_walkable(s._state,Position(p.x+dx,p.y+dy,p.z))); "
             "o=s.submit(MoveCommand(dx,dy)); print(json.dumps({'glyph':curses_tile(s._state,s._state.position),'fp':main_world_mechanical_fingerprint(),'events':[e.event_id for e in o.events],'position':[s._state.position.x,s._state.position.y,s._state.position.z]}))"
@@ -113,12 +113,12 @@ class AssetManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = alternate_pack(Path(directory) / 'fixture')
             # The shared fixture deliberately mutates seed words; restore mechanics for this asset-only proof.
-            (root / 'data' / 'world_text.json').write_text((Path(__file__).resolve().parents[1] / 'jomon' / 'data' / 'world_text.json').read_text(encoding='utf-8'), encoding='utf-8')
+            (root / 'data' / 'world_text.json').write_text((Path(__file__).resolve().parents[1] / 'roag' / 'data' / 'world_text.json').read_text(encoding='utf-8'), encoding='utf-8')
             source = root / 'assets.json'; data = json.loads(source.read_text(encoding='utf-8'))
             data['glyphs']['cell.vessel.floor'] = ':'
             data['bindings']['events']['combat.damage.applied']['audio'] = 'audio.action.attack'
             source.write_text(json.dumps(data, sort_keys=True, indent=2) + '\n', encoding='utf-8')
-            env = {**os.environ, 'JOMON_CONTENT_PACK': str(root)}
+            env = {**os.environ, 'ROAG_CONTENT_PACK': str(root)}
             changed = subprocess.run([sys.executable, '-c', script], text=True, capture_output=True, check=True, env=env).stdout
         first, second = json.loads(base), json.loads(changed)
         self.assertEqual(first['fp'], second['fp'])

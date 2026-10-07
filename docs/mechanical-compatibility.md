@@ -1,6 +1,6 @@
 # Main-world mechanical compatibility
 
-`jomon.mechanical_compatibility` identifies the effective main-world mechanics
+`roag.mechanical_compatibility` identifies the effective main-world mechanics
 provided by the selected content pack. It does not hash raw JSON files: raw
 bytes would treat formatting, path changes, and retained fiction as mechanics.
 

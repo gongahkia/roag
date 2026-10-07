@@ -1,19 +1,19 @@
 import copy
 import unittest
 
-from jomon.actions import _activate, _advance_world, _threat_action, attack, depart
-from jomon.encounters import frontier_population, threat_from_archetype
-from jomon.frontier_elites import (
+from roag.actions import _activate, _advance_world, _threat_action, attack, depart
+from roag.encounters import frontier_population, threat_from_archetype
+from roag.frontier_elites import (
     AFTERMATH_ELITES, ELITE_DEFINITIONS, definition, guard_interception,
     install_aftermath_elite, install_elite, record_outcomes,
     revisit_claimants, settle_claimant,
 )
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.inventory import create_item
-from jomon.materials import advance_materials
-from jomon.regions import activate_region, region_reachable
-from jomon.state import MaterialCell, Position, StateError, Threat, VerticalLink, create_world, game_state_from_dict
-from jomon.terminal import OverlayView, _draw_dialogue_overlay, _handle_overlay, observed_life_lines, visible_danger_marks
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.inventory import create_item
+from roag.materials import advance_materials
+from roag.regions import activate_region, region_reachable
+from roag.state import MaterialCell, Position, StateError, Threat, VerticalLink, create_world, game_state_from_dict
+from roag.terminal import OverlayView, _draw_dialogue_overlay, _handle_overlay, observed_life_lines, visible_danger_marks
 from test_information_panels import PanelSink
 
 
@@ -359,14 +359,14 @@ class FrontierEliteTests(unittest.TestCase):
         self.assertIn(actor.name, message)
 
     def test_returning_from_same_gangplank_triggers_one_provisioned_rival(self):
-        from jomon.vessel import JOMON_GANGPLANK
+        from roag.vessel import ROAG_GANGPLANK
 
         state = self.state
         actor = self.actor("fen-marshal")
         actor.status, actor.health = "retreated", 2
         record_outcomes(state)
         state.returned_expeditions += 1
-        state.location, state.position = "jomon", JOMON_GANGPLANK
+        state.location, state.position = "roag", ROAG_GANGPLANK
         state.support = "route survey"
         state.market[state.region.objective_commodity].stock = 2
         self.assertTrue(depart(state).changed)

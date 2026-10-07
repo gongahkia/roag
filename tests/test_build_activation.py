@@ -3,12 +3,12 @@ from __future__ import annotations
 import inspect
 import unittest
 
-import jomon.actions as action_module
-import jomon.inventory as inventory_module
-import jomon.world as world_module
-from jomon.actions import attack, merchant_stock_for, move, use_gear
-from jomon.content import PASSIVES
-from jomon.inventory import (
+import roag.actions as action_module
+import roag.inventory as inventory_module
+import roag.world as world_module
+from roag.actions import attack, merchant_stock_for, move, use_gear
+from roag.content import PASSIVES
+from roag.inventory import (
     armour_mobility,
     armour_noise,
     auto_place,
@@ -17,9 +17,9 @@ from jomon.inventory import (
     sync_legacy_load,
     terrain_status_for,
 )
-from jomon.regions import activate_region
-from jomon.state import Position, Threat, create_world
-from jomon.world import position_key, sight_radius
+from roag.regions import activate_region
+from roag.state import Position, Threat, create_world
+from roag.world import position_key, sight_radius
 
 
 def expedition_state(seed: str = "activated build content"):

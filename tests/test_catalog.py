@@ -6,66 +6,66 @@ import re
 import unittest
 from pathlib import Path
 
-from jomon.catalog import (
+from roag.catalog import (
     ACTOR_SECTIONS, ARC_RELIC_SECTIONS, AFTERMATH_SECTIONS, CHARACTER_SECTIONS,
     EQUIPMENT_SECTIONS, GEOGRAPHY_SECTIONS, HISTORY_SECTIONS, PRACTICE_SECTIONS,
     RECRUITMENT_SECTIONS, VESSEL_SECTIONS, WORLD_TEXT_SECTIONS,
     CatalogError, decode_catalog, load_catalog,
     ui_contract,
 )
-from jomon.aftermath import (
+from roag.aftermath import (
     AFTERMATH_LINES, AFTERMATH_TOPOLOGIES, DRAINAGE_TOPOLOGIES,
     FIRE_TOPOLOGIES, RECOVERY_TOPOLOGIES, SUPPORT_TOPOLOGIES,
 )
-from jomon.arc_relics import ARC_RELIC_DESCRIPTIONS, ARC_RELICS
-from jomon.character import (
+from roag.arc_relics import ARC_RELIC_DESCRIPTIONS, ARC_RELICS
+from roag.character import (
     ANCESTRIES, ATTRIBUTE_FOR_COMPETENCY, ATTRIBUTE_POINTS, COMPETENCIES,
     COMPETENCY_POINTS, ORIGINS, ORIGIN_PRACTICE, PEOPLE_COMPETENCIES,
     PEOPLE_EFFECTS, ROLE_ATTRIBUTES, ROLE_COMPETENCIES, TRAITS,
 )
-from jomon.chemistry import ENVIRONMENT_REACTIONS, REACTIONS, REAGENTS
-from jomon.content import (
+from roag.chemistry import ENVIRONMENT_REACTIONS, REACTIONS, REAGENTS
+from roag.content import (
     COMMODITIES, ENEMY_ARCHETYPES, INTERFACE_LABELS, INTERFACE_LEDGERS, RECRUIT_TEMPLATES,
     validate_commodity_content,
 )
-from jomon.echoes import ECHOES
-from jomon.enemy_equipment import REGIONAL_ARMOUR as ENEMY_REGIONAL_ARMOUR
-from jomon.expanded_weapons import ARSENAL, BOMB_AMMUNITION
-from jomon.frontier_elites import AFTERMATH_ELITES, ELITE_ROWS, NAMED_RIVALS
-from jomon.frontiers import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
-from jomon.geography import FIELD_SECRETS
-from jomon.household_stories import STORIES
-from jomon.inspection import TERRAIN_NAMES
-from jomon.interference import INTERFERENCES
-from jomon.inventory import (
+from roag.echoes import ECHOES
+from roag.enemy_equipment import REGIONAL_ARMOUR as ENEMY_REGIONAL_ARMOUR
+from roag.expanded_weapons import ARSENAL, BOMB_AMMUNITION
+from roag.frontier_elites import AFTERMATH_ELITES, ELITE_ROWS, NAMED_RIVALS
+from roag.frontiers import FRONTIER_DISCOVERIES, FRONTIER_RELICS, FRONTIERS
+from roag.geography import FIELD_SECRETS
+from roag.household_stories import STORIES
+from roag.inspection import TERRAIN_NAMES
+from roag.interference import INTERFERENCES
+from roag.inventory import (
     AMMUNITION_ITEMS, BASIC_COURIER_ARMOUR, BASIC_COURIER_LOADOUTS,
     ITEM_SPECS, REGIONAL_ARMOUR, WEAPON_AMMUNITION, item_spec,
 )
-from jomon.magic import SPELL_ROWS
-from jomon.main import SEED_WORDS
-from jomon.ui_presentation import ui_text
-from jomon.navigation import LANDMARK_LABELS
-from jomon.preparations import PREPARATIONS
-from jomon.practices import AFTERMATH_REGION_PRACTICE, NETWORK_CONTACT_PRACTICE, PRACTICES
-from jomon.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
-from jomon.quests import ADDITIONAL_ARCS, ARC_REGIONS, ARC_TITLE, FIELD_REPORT_RESPONSES, QUESTS, QUEST_REWARDS
-from jomon.route_chart import REGION_NODES, build_route_graph
-from jomon.ship_crises import HAZARD_STATIONS, VOYAGES
-from jomon.situations import AFTERWORK_SAMPLES, SITUATIONS, validate_situations
-from jomon.skill_tree import BRANCHES, NODES, ROLE_ROOTS
-from jomon.legendary import CRISIS_TAG, LEGEND_BASES
-from jomon.people import RECRUIT_REQUIREMENTS
-from jomon.regional_history import (
+from roag.magic import SPELL_ROWS
+from roag.main import SEED_WORDS
+from roag.ui_presentation import ui_text
+from roag.navigation import LANDMARK_LABELS
+from roag.preparations import PREPARATIONS
+from roag.practices import AFTERMATH_REGION_PRACTICE, NETWORK_CONTACT_PRACTICE, PRACTICES
+from roag.production import RECIPES, SHORE_STATIONS, SITE_KEYS, SOURCES
+from roag.quests import ADDITIONAL_ARCS, ARC_REGIONS, ARC_TITLE, FIELD_REPORT_RESPONSES, QUESTS, QUEST_REWARDS
+from roag.route_chart import REGION_NODES, build_route_graph
+from roag.ship_crises import HAZARD_STATIONS, VOYAGES
+from roag.situations import AFTERWORK_SAMPLES, SITUATIONS, validate_situations
+from roag.skill_tree import BRANCHES, NODES, ROLE_ROOTS
+from roag.legendary import CRISIS_TAG, LEGEND_BASES
+from roag.people import RECRUIT_REQUIREMENTS
+from roag.regional_history import (
     INSTITUTION_SERVICES, INSTITUTION_TIES, NETWORK_ACCOUNTS, NETWORK_CONTACTS,
     WORKING_ACCOUNTS,
 )
-from jomon.vessel_refits import REFITS
-from jomon.vessel import DRINKS
-from jomon.vehicles import SPECS as VEHICLE_SPECS, VEHICLE_REGIONS
-from jomon.voyage_variants import VARIANTS
-from jomon.work_weapons import POT_AMMUNITION, WORK_WEAPONS
-from jomon.workshop import FITTINGS
-from jomon.worklines import WORKLINES
+from roag.vessel_refits import REFITS
+from roag.vessel import DRINKS
+from roag.vehicles import SPECS as VEHICLE_SPECS, VEHICLE_REGIONS
+from roag.voyage_variants import VARIANTS
+from roag.work_weapons import POT_AMMUNITION, WORK_WEAPONS
+from roag.workshop import FITTINGS
+from roag.worklines import WORKLINES
 
 
 class CatalogTests(unittest.TestCase):
@@ -144,7 +144,7 @@ class CatalogTests(unittest.TestCase):
                 for index, nested in enumerate(value):
                     yield from strings(nested, (*path, str(index)))
 
-        data_directory = Path(__file__).parents[1] / "jomon" / "data"
+        data_directory = Path(__file__).parents[1] / "roag" / "data"
         matches = [
             f"{source.name}:{'.'.join(path)}: {value}"
             for source in sorted(data_directory.glob("*.json"))

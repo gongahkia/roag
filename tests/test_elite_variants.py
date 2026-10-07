@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import _threat_action
-from jomon.regions import activate_region, region_reachable
-from jomon.state import Position, create_world
-from jomon.world import position_key
+from roag.actions import _threat_action
+from roag.regions import activate_region, region_reachable
+from roag.state import Position, create_world
+from roag.world import position_key
 
 
 class AlternativeEliteTests(unittest.TestCase):

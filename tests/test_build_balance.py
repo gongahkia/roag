@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.build_balance import (
+from roag.build_balance import (
     CHALLENGES,
     build_balance_audit,
     build_capabilities,
     validate_build_balance,
     weapon_tactical_roles,
 )
-from jomon.build_scenarios import BUILD_SCENARIOS
-from jomon.content import WEAPONS
+from roag.build_scenarios import BUILD_SCENARIOS
+from roag.content import WEAPONS
 
 
 class BuildBalanceTests(unittest.TestCase):

@@ -8,8 +8,8 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, load_content_pack
-from jomon.vessel_presentation import household_story_display_name, refit_display_name
+from roag.catalog import ContentPackError, load_content_pack
+from roag.vessel_presentation import household_story_display_name, refit_display_name
 from tests.test_content_packs import ROOT, alternate_pack
 
 
@@ -52,9 +52,9 @@ class VesselResidualPresentationTests(unittest.TestCase):
 
     def test_alternate_pack_changes_refit_and_story_presentation_not_mechanics(self):
         script = (
-            "import json; from jomon.household_stories import resolve, story_choices, story_lines; "
-            "from jomon.state import CommodityStack, Position, create_world; "
-            "from jomon.vessel_refits import REFITS, install_refit, installation_status; "
+            "import json; from roag.household_stories import resolve, story_choices, story_lines; "
+            "from roag.state import CommodityStack, Position, create_world; "
+            "from roag.vessel_refits import REFITS, install_refit, installation_status; "
             "refit=create_world('vessel-residual-refit'); refit.position=Position(15,10,1); refit.vessel_cargo['wool']=CommodityStack(1,'dry'); refit.trade_credit=20; "
             "before=(refit.trade_credit,refit.world_time); available=installation_status(refit,'cargo-rail-netting'); installed=install_refit(refit,'cargo-rail-netting'); "
             "story=create_world('vessel-residual-story'); story.returned_expeditions=4; opened=resolve(story,'empty-watch','o'); choices=story_choices(story,'empty-watch'); finished=resolve(story,'empty-watch','w'); "
@@ -83,7 +83,7 @@ class VesselResidualPresentationTests(unittest.TestCase):
             source.write_text(json.dumps(document), encoding="utf-8")
             alternate = subprocess.run(
                 [sys.executable, "-c", script], cwd=ROOT,
-                env=dict(os.environ, JOMON_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True,
+                env=dict(os.environ, ROAG_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True,
             )
         default_data, alternate_data = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(default_data["mechanics"], alternate_data["mechanics"])

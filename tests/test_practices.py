@@ -3,22 +3,22 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import attack, choose_weapon, effective_weapon_range, guard, interact, move
-from jomon.frontiers import FRONTIERS, ensure_frontier
-from jomon.inventory import BODY_SLOTS, auto_place, create_item, load_state, terrain_status_for
-from jomon.materials import handle_material
-from jomon.practices import (
+from roag.actions import attack, choose_weapon, effective_weapon_range, guard, interact, move
+from roag.frontiers import FRONTIERS, ensure_frontier
+from roag.inventory import BODY_SLOTS, auto_place, create_item, load_state, terrain_status_for
+from roag.materials import handle_material
+from roag.practices import (
     AFTERMATH_REGION_PRACTICE,
     NETWORK_CONTACT_PRACTICE,
     PRACTICES,
     learned_practice_ids,
     validate_practices,
 )
-from jomon.quests import secondary_service_options, use_secondary_service
-from jomon.regional_history import network_institution_for_contact
-from jomon.regions import activate_region
-from jomon.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
-from jomon.world import position_key, sight_radius
+from roag.quests import secondary_service_options, use_secondary_service
+from roag.regional_history import network_institution_for_contact
+from roag.regions import activate_region
+from roag.state import MaterialCell, Position, Threat, create_world, game_state_from_dict
+from roag.world import position_key, sight_radius
 
 
 class LearnedPracticeTests(unittest.TestCase):
@@ -62,7 +62,7 @@ class LearnedPracticeTests(unittest.TestCase):
             self.assertTrue(option[3])
             changed, message = use_secondary_service(self.state, "t", contact_id)
             self.assertTrue(changed)
-            from jomon.progression_presentation import practice_display_name
+            from roag.progression_presentation import practice_display_name
             self.assertIn(practice_display_name(practice), message)
             self.assertFalse(use_secondary_service(self.state, "t", contact_id)[0])
             learned.add(practice)
@@ -206,7 +206,7 @@ class LearnedPracticeTests(unittest.TestCase):
 
         net = copy.deepcopy(self.state)
         net.owned_weapons.append("weighted net")
-        net.location = "jomon"
+        net.location = "roag"
         self.assertTrue(choose_weapon(net, "weighted net").changed)
         net.location = "region"
         net.position = Position(40, 24)
@@ -259,12 +259,12 @@ class LearnedPracticeTests(unittest.TestCase):
         loaded = game_state_from_dict(raw)
         self.assertEqual(loaded.courier.learned_techniques, ["arbitrary old prose"])
         self.assertEqual(learned_practice_ids(loaded.courier), {"arbitrary old prose"})
-        from jomon.manoeuvres import known
+        from roag.manoeuvres import known
         self.assertFalse(known(loaded))
         self.assertEqual(game_state_from_dict(loaded.to_dict()).courier.learned_techniques, ["arbitrary old prose"])
 
     def test_new_personal_practice_id_round_trips_without_role_presentation(self):
-        from jomon.people import personal_practice
+        from roag.people import personal_practice
         practice = personal_practice(self.state.courier)
         self.state.courier.learned_techniques = [practice]
         loaded = game_state_from_dict(self.state.to_dict())

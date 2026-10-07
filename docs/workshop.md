@@ -13,7 +13,7 @@ confirms; Escape returns without charging. Mouse selection and double-click
 use the same choices when reported by the terminal.
 
 A new kit costs three credit; fitting adds one credit of work. A kit already
-in the courier pack or Jomon locker costs only that one credit to fit.
+in the courier pack or Roag locker costs only that one credit to fit.
 Every confirmed purchase, fit, removal or repair takes two action-clock steps.
 An unfittable purchase or removal leaves layout, item identity, stock, credit
 and clock unchanged. Removing a fitting needs one credit and pack space;

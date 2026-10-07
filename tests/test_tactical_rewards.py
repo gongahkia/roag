@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from jomon.actions import _control_interaction, attack, guard, move, use_gear
-from jomon.content import PASSIVES, RELICS, WEAPONS
-from jomon.inventory import (
+from roag.actions import _control_interaction, attack, guard, move, use_gear
+from roag.content import PASSIVES, RELICS, WEAPONS
+from roag.inventory import (
     AMMUNITION_ITEMS,
     auto_place,
     create_item,
@@ -12,8 +12,8 @@ from jomon.inventory import (
     sync_legacy_load,
     weight_capacity,
 )
-from jomon.state import Position, Threat, create_world
-from jomon.world import build_combinations, capacity, position_key
+from roag.state import Position, Threat, create_world
+from roag.world import build_combinations, capacity, position_key
 
 
 def armed_state(weapon: str, ammunition: str | None = None):

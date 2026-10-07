@@ -3,14 +3,14 @@ from __future__ import annotations
 import copy
 import unittest
 
-from jomon.actions import _advance_world
-from jomon.calendar import (
+from roag.actions import _advance_world
+from roag.calendar import (
     ACTIONS_PER_DAY,
     DAYS_PER_SEASON,
     calendar_at,
     seasonal_stock_modifier,
 )
-from jomon.route_chart import (
+from roag.route_chart import (
     build_route_graph,
     chart_move,
     connected_nodes,
@@ -18,9 +18,9 @@ from jomon.route_chart import (
     route_availability,
     route_preview,
 )
-from jomon.state import SAVE_FORMAT, create_world, game_state_from_dict
-from jomon.travel import choose_destination, travel_animation_frames
-from jomon.terminal import (
+from roag.state import SAVE_FORMAT, create_world, game_state_from_dict
+from roag.travel import choose_destination, travel_animation_frames
+from roag.terminal import (
     ROUTE_HELP_LINES,
     InputEvent,
     RouteChartView,
@@ -43,7 +43,7 @@ class RouteGraphTests(unittest.TestCase):
 
     def test_cursor_follows_edges_and_unconnected_confirmation_fails(self):
         state = create_world("route cursor")
-        self.assertIn("Jomon is moored here", route_preview(state, "hearthford")[1])
+        self.assertIn("Roag is moored here", route_preview(state, "hearthford")[1])
         moved = chart_move(state, "hearthford", 1, 0)
         self.assertIn(moved, neighbours(state, "hearthford"))
         changed, message = choose_destination(state, "whitecairn")
@@ -155,7 +155,7 @@ class CalendarAndMigrationTests(unittest.TestCase):
     def test_save_round_trip_preserves_route_schedule_and_calendar_exactly(self):
         import tempfile
         from pathlib import Path
-        from jomon.save import load_game, save_game
+        from roag.save import load_game, save_game
 
         state = create_world("living persistence")
         _advance_world(state, steps=19)
@@ -172,7 +172,7 @@ class CalendarAndMigrationTests(unittest.TestCase):
         raw = state.to_dict()
         raw["save_format"] = 4
         for key in (
-            "jomon_space", "vessel_integrity", "vessel_changes", "route_nodes",
+            "roag_space", "vessel_integrity", "vessel_changes", "route_nodes",
             "route_edges", "route_current_node", "route_known",
             "traversed_route_edges", "auto_place_enabled", "actor_schedules",
             "bartender", "bartender_stock", "drink_effects", "calendar_origin_day",

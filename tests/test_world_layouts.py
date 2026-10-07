@@ -2,16 +2,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from jomon.actions import interact
-from jomon.content import PASSIVES, RELICS
-from jomon.discoveries import reveal_nearby
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.geography import FIELD_SECRETS, LAYOUTS, layout_point
-from jomon.inventory import item_spec
-from jomon.regions import region_reachable, validate_region
-from jomon.save import load_game, save_game
-from jomon.state import Position, create_world
-from jomon.world import displayed_tile
+from roag.actions import interact
+from roag.content import PASSIVES, RELICS
+from roag.discoveries import reveal_nearby
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.geography import FIELD_SECRETS, LAYOUTS, layout_point
+from roag.inventory import item_spec
+from roag.regions import region_reachable, validate_region
+from roag.save import load_game, save_game
+from roag.state import Position, create_world
+from roag.world import displayed_tile
 
 
 class WorldLayoutTests(unittest.TestCase):

@@ -1,17 +1,17 @@
 import copy
 import unittest
 
-from jomon.actions import _open_container, _threat_action, attack, merchant_stock_for, move
-from jomon.content import WEAPONS
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.inventory import (
+from roag.actions import _open_container, _threat_action, attack, merchant_stock_for, move
+from roag.content import WEAPONS
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.inventory import (
     AMMUNITION_ITEMS, auto_place, create_item, equip_item, equipped_item,
     item_preview, physical_ammunition, prepare_kind, sync_legacy_load,
 )
-from jomon.materials import ensure_cell, handle_material, key
-from jomon.state import Position, Threat, create_world, game_state_from_dict
-from jomon.terminal import InputEvent, TargetView, _cursor_screen_position, _handle_targeting, targeting_lines
-from jomon.work_weapons import POT_AMMUNITION, WORK_WEAPONS
+from roag.materials import ensure_cell, handle_material, key
+from roag.state import Position, Threat, create_world, game_state_from_dict
+from roag.terminal import InputEvent, TargetView, _cursor_screen_position, _handle_targeting, targeting_lines
+from roag.work_weapons import POT_AMMUNITION, WORK_WEAPONS
 
 
 class WorkingWeaponTests(unittest.TestCase):
@@ -273,7 +273,7 @@ class WorkingWeaponTests(unittest.TestCase):
         self.assertEqual(len(WEAPONS), 72)
 
     def test_normal_opening_preserves_weapon_when_auto_place_is_disabled(self):
-        from jomon.regions import activate_region
+        from roag.regions import activate_region
         activate_region(self.state, "dunmire")
         self.state.location = "region"
         self.state.threats.clear()

@@ -4,18 +4,18 @@ import copy
 import unittest
 from unittest.mock import patch
 
-from jomon.actions import attack, merchant_stock_for, purchase_merchant_item, return_to_jomon
-from jomon.chemistry import fill_flask, pour_flask, predicted_reactions, react_cell
-from jomon.content import WEAPONS
-from jomon.expanded_weapons import ARSENAL, ammunition_for
-from jomon.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item, equipped_item, item_spec
-from jomon.magic import SPELLS, cast, restore_at_shrine
-from jomon.materials import ensure_cell, fields, key, material_glyph
-from jomon.production import RECIPES, SHORE_STATIONS, SOURCES, advance_craft_economy, delegate, gather, make, site_position
-from jomon.skill_tree import NODES, apply_weapon_skills, buy_node, record_milestone, study_journal, write_journal
-from jomon.state import MaterialCell, Position, create_world, game_state_from_dict, validate_state
-from jomon.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
-from jomon.world import sight_radius
+from roag.actions import attack, merchant_stock_for, purchase_merchant_item, return_to_roag
+from roag.chemistry import fill_flask, pour_flask, predicted_reactions, react_cell
+from roag.content import WEAPONS
+from roag.expanded_weapons import ARSENAL, ammunition_for
+from roag.inventory import AMMUNITION_ITEMS, ITEM_SPECS, auto_place, create_item, equipped_item, item_spec
+from roag.magic import SPELLS, cast, restore_at_shrine
+from roag.materials import ensure_cell, fields, key, material_glyph
+from roag.production import RECIPES, SHORE_STATIONS, SOURCES, advance_craft_economy, delegate, gather, make, site_position
+from roag.skill_tree import NODES, apply_weapon_skills, buy_node, record_milestone, study_journal, write_journal
+from roag.state import MaterialCell, Position, create_world, game_state_from_dict, validate_state
+from roag.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
+from roag.world import sight_radius
 
 
 class ProgressionProductionTests(unittest.TestCase):
@@ -61,7 +61,7 @@ class ProgressionProductionTests(unittest.TestCase):
         base.weather = "clear"
         base.position = Position(30, 23)
         for name, weapon in ARSENAL.items():
-            with self.subTest(weapon=name), patch("jomon.actions._advance_world"):
+            with self.subTest(weapon=name), patch("roag.actions._advance_world"):
                 state = copy.deepcopy(base)
                 state.weapon = name
                 target = state.threats[0]
@@ -155,7 +155,7 @@ class ProgressionProductionTests(unittest.TestCase):
             self.assertTrue(any(kind == f"ingredient:{source}" for kind, _ in recipe.inputs
                                 for source in SOURCES[region]))
         for recipe_id in ids:
-            with self.subTest(recipe=recipe_id), patch("jomon.actions._advance_world"):
+            with self.subTest(recipe=recipe_id), patch("roag.actions._advance_world"):
                 state = copy.deepcopy(self.state)
                 recipe = RECIPES[recipe_id]
                 item_spec(recipe.output)
@@ -163,7 +163,7 @@ class ProgressionProductionTests(unittest.TestCase):
                     item_spec(kind)
                     ingredient = create_item(state, kind, "content recipe test", quantity=quantity)
                     self.assertTrue(auto_place(state, ingredient.id, "locker"))
-                with patch("jomon.production.stations_here", return_value={recipe.station}):
+                with patch("roag.production.stations_here", return_value={recipe.station}):
                     changed, message = make(state, recipe_id)
                 self.assertTrue(changed, message)
                 self.assertTrue(any(item.kind == recipe.output and item.quantity == recipe.quantity
@@ -225,7 +225,7 @@ class ProgressionProductionTests(unittest.TestCase):
         item.provenance = "masterwork: historical display prefix"
         self.assertEqual(apply_weapon_skills(state, target, 2)[0], 2)
 
-    def test_format_nine_migration_keeps_jomon_progress(self):
+    def test_format_nine_migration_keeps_roag_progress(self):
         state = self.state
         state.trade_credit = 13
         raw = copy.deepcopy(state.to_dict())
@@ -248,7 +248,7 @@ class ProgressionProductionTests(unittest.TestCase):
         base.courier.max_mana = base.courier.mana = 40
         base.courier.known_spells = list(SPELLS)
         for spell_id, spell in SPELLS.items():
-            with self.subTest(spell=spell_id), patch("jomon.actions._advance_world"):
+            with self.subTest(spell=spell_id), patch("roag.actions._advance_world"):
                 state = copy.deepcopy(base)
                 target = state.threats[0]
                 target.position = Position(32, 23)
@@ -286,7 +286,7 @@ class ProgressionProductionTests(unittest.TestCase):
         for threat in state.threats:
             threat.status = "retreated"
         state.courier.mana = 1
-        with patch("jomon.actions._advance_world"):
+        with patch("roag.actions._advance_world"):
             changed, message = restore_at_shrine(state)
             self.assertTrue(changed, message)
             self.assertEqual(state.courier.mana, 4)
@@ -310,7 +310,7 @@ class ProgressionProductionTests(unittest.TestCase):
         self.assertIn("luminous seal", state.courier.known_formulas)
         self.assertIn("breath tonic", state.courier.known_formulas)
         state.position = state.region.landmarks["landing"]
-        self.assertTrue(return_to_jomon(state).time_advanced)
+        self.assertTrue(return_to_roag(state).time_advanced)
         self.assertIn("luminous seal", state.household_formulas)
         validate_state(state)
 

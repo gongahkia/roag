@@ -1,15 +1,15 @@
 import unittest
 
-from jomon.actions import interact
-from jomon.frontiers import FRONTIERS, build_frontier
-from jomon.landscape_variation import (
+from roag.actions import interact
+from roag.frontiers import FRONTIERS, build_frontier
+from roag.landscape_variation import (
     VARIANTS, _spawn_traveller, approach, enter_structure, link_id, pocket_name,
     structure_name, traveller_choice,
 )
-from jomon.navigation import navigation_targets
-from jomon.regions import region_reachable, validate_region
-from jomon.state import Position, create_world, game_state_from_dict
-from jomon.world import area_name, position_key
+from roag.navigation import navigation_targets
+from roag.regions import region_reachable, validate_region
+from roag.state import Position, create_world, game_state_from_dict
+from roag.world import area_name, position_key
 
 
 class LandscapeVariationTests(unittest.TestCase):

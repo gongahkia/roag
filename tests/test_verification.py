@@ -1,6 +1,6 @@
 import unittest
 
-from jomon.verification import (
+from roag.verification import (
     content_audit, encounter_verification, memory_soak, persistence_audit,
     quest_verification, replay_audit,
 )

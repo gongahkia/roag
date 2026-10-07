@@ -10,18 +10,18 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-from jomon.actions import attack
-from jomon.commands import (
+from roag.actions import attack
+from roag.commands import (
     AttackCommand, InteractCommand, MoveCommand, RetreatCommand,
     SelectCarriedRelicCommand,
 )
-from jomon.runtime_events import (
+from roag.runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, CarriedRelicSelectionChanged,
     DamageApplied, InteractionResolved, RetreatResolved, StatusChanged,
 )
-from jomon.session import GameSession
-from jomon.state import Position, SoundEvent, Threat, create_world
-from jomon.world import is_walkable
+from roag.session import GameSession
+from roag.state import Position, SoundEvent, Threat, create_world
+from roag.world import is_walkable
 from test_content_packs import alternate_pack
 
 
@@ -41,7 +41,7 @@ def armed_state(seed: str, health: int = 20):
 
 class RuntimeEventTests(unittest.TestCase):
     def test_runtime_event_module_is_headless(self):
-        code = "import sys; import jomon.runtime_events; assert 'curses' not in sys.modules"
+        code = "import sys; import roag.runtime_events; assert 'curses' not in sys.modules"
         result = subprocess.run([sys.executable, "-c", code], check=False, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -154,9 +154,9 @@ class RuntimeEventTests(unittest.TestCase):
         code = '''
 import json
 from dataclasses import asdict
-from jomon.commands import AttackCommand
-from jomon.session import GameSession
-from jomon.state import Position, Threat, create_world
+from roag.commands import AttackCommand
+from roag.session import GameSession
+from roag.state import Position, Threat, create_world
 state=create_world("runtime-pack")
 state.location,state.position,state.world_time="region",Position(40,25),8
 state.weather,state.weapon="clear","billhook"
@@ -169,7 +169,7 @@ outcome=GameSession(state).submit(AttackCommand(target.id))
 print(json.dumps({"events":[(type(event).__name__,asdict(event)) for event in outcome.events], "message":state.messages[-1]}, sort_keys=True))
 '''
         default_env = dict(os.environ)
-        default_env.pop("JOMON_CONTENT_PACK", None)
+        default_env.pop("ROAG_CONTENT_PACK", None)
         default = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=default_env, check=False)
         self.assertEqual(default.returncode, 0, default.stderr)
         with tempfile.TemporaryDirectory() as directory:
@@ -179,7 +179,7 @@ print(json.dumps({"events":[(type(event).__name__,asdict(event)) for event in ou
             action_text["text"]["combat.attack.hit"] = "Fixture impact {weapon} {damage}{armour}{injury}; {threat} {health}/{maximum}."
             action_text["text"]["combat.attack.weapon.billhook"] = "fixture hook"
             action_text_path.write_text(json.dumps(action_text, indent=2) + "\n", encoding="utf-8")
-            alternate_env = dict(default_env, JOMON_CONTENT_PACK=str(root))
+            alternate_env = dict(default_env, ROAG_CONTENT_PACK=str(root))
             alternate = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=alternate_env, check=False)
         self.assertEqual(alternate.returncode, 0, alternate.stderr)
         default_result, alternate_result = json.loads(default.stdout), json.loads(alternate.stdout)

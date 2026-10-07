@@ -1,6 +1,6 @@
 # Historical working objects
 
-Jomon generates one finite named object for each major region. This is not an
+Roag generates one finite named object for each major region. This is not an
 adjective-chain loot system: a short name is selected deterministically, while
 the object records a real maker/contact, working institution, crisis event,
 repair account, disputed claim and the existing cache in which it rests.

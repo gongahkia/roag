@@ -8,10 +8,10 @@ import sys
 import tempfile
 import unittest
 
-from jomon.catalog import ContentPackError, load_content_pack
-from jomon.calendar import calendar_at
-from jomon.state import create_world
-from jomon.travel_presentation import echo_title, route_edge_hazard, variant_display_name
+from roag.catalog import ContentPackError, load_content_pack
+from roag.calendar import calendar_at
+from roag.state import create_world
+from roag.travel_presentation import echo_title, route_edge_hazard, variant_display_name
 from tests.test_content_packs import ROOT, alternate_pack
 
 
@@ -64,12 +64,12 @@ class TravelResidualPresentationTests(unittest.TestCase):
     def test_alternate_pack_changes_residual_words_not_travel_mechanics(self):
         script = (
             "import json; "
-            "from jomon.calendar import calendar_at, seasonal_stock_modifier; "
-            "from jomon.echoes import apply_later_echoes; "
-            "from jomon.route_chart import edge_between, neighbours, route_availability, route_preview; "
-            "from jomon.state import CommodityStack, create_world; "
-            "from jomon.travel import choose_destination, resolve_voyage; "
-            "from jomon.voyage_variants import active_variant, select_variant; "
+            "from roag.calendar import calendar_at, seasonal_stock_modifier; "
+            "from roag.echoes import apply_later_echoes; "
+            "from roag.route_chart import edge_between, neighbours, route_availability, route_preview; "
+            "from roag.state import CommodityStack, create_world; "
+            "from roag.travel import choose_destination, resolve_voyage; "
+            "from roag.voyage_variants import active_variant, select_variant; "
             "variant=create_world('travel-residual-variant'); variant.weapon='pike'; variant.vessel_cargo['grain']=CommodityStack(3,'dry'); "
             "entry=next(iter(next(iter(variant.regional_markets.values())).values())); entry.stock=0; entry.demand=4; "
             "selected=select_variant(variant,'raiders','reed-anchor'); opened=choose_destination(variant,'reed-anchor',forced_voyage='raiders'); resolved=resolve_voyage(variant,'repel'); "
@@ -109,7 +109,7 @@ class TravelResidualPresentationTests(unittest.TestCase):
                 "travel.calendar.date": "Fixture year {year} / {season} / {day} / {time}",
             })
             source.write_text(json.dumps(document), encoding="utf-8")
-            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=dict(os.environ, JOMON_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True)
+            alternate = subprocess.run([sys.executable, "-c", script], cwd=ROOT, env=dict(os.environ, ROAG_CONTENT_PACK=str(root)), text=True, capture_output=True, check=True)
         default_data, alternate_data = json.loads(default.stdout), json.loads(alternate.stdout)
         self.assertEqual(default_data["mechanics"], alternate_data["mechanics"])
         self.assertNotEqual(default_data["presentation"], alternate_data["presentation"])
