@@ -67,6 +67,7 @@ def _techniques() -> set[str]:
 
 def content_audit(seed: str = "content-verification") -> dict[str, object]:
     from .sanctums import SITES
+    from .sanctum_presentation import sanctum_boss_name
 
     state = expanded_world(seed)
     validate_commodity_content()
@@ -87,6 +88,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
     roster = roster_audit()
     armour = {kind for kind, spec in ITEM_SPECS.items() if spec.category == "armour"}
     techniques = _techniques()
+    boss_names = {sanctum_boss_name(region_id) for region_id in SITES}
     counts = {
         "regions": len(state.regions),
         "standard_enemies": roster["standard_archetypes"],
@@ -110,7 +112,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
         "stateful_voyage_variants": len(VARIANTS),
         "mixed_situations": len(SITUATIONS),
         "sanctum_sites": len(SITES),
-        "sanctum_bosses": len({row["boss"]["name"] for row in SITES.values()}),
+        "sanctum_bosses": len(boss_names),
         "sanctum_boss_duties": len({row["boss"]["duty"] for row in SITES.values()}),
         "mutable_micro_sites": len(SITUATIONS),
         "active_manoeuvres": len(MANOEUVRES),
@@ -170,7 +172,7 @@ def content_audit(seed: str = "content-verification") -> dict[str, object]:
             "voyage_variants": sorted(variant.id for variant in VARIANTS.values()),
             "situations": sorted(row.id for row in SITUATIONS),
             "sanctums": sorted(SITES),
-            "sanctum_bosses": sorted(row["boss"]["name"] for row in SITES.values()),
+            "sanctum_bosses": sorted(boss_names),
             "manoeuvres": sorted(row.id for row in MANOEUVRES),
             "interferences": sorted(row.id for row in INTERFERENCES),
             "voyage_echoes": sorted(row.variant_id for row in ECHOES),

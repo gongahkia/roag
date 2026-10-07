@@ -301,7 +301,7 @@ class LandingLayoutTests(unittest.TestCase):
             self.assertTrue(all(len(line) <= layout.width - 4 for line in layout.lines))
             self.assertEqual(" ".join(layout.lines), warning)
             self.assertTrue(all(len(line) <= layout.width - 8 for line in layout.path_lines))
-            self.assertEqual(_centered_x(width, "J O M O N"), (width - len("J O M O N")) // 2)
+            self.assertEqual(_centered_x(width, "R O A G"), (width - len("R O A G")) // 2)
 
     def test_landing_layout_reflows_after_resize(self):
         warning = "Existing development save unavailable: a deliberately long deterministic migration explanation remains complete"

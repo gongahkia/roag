@@ -1000,7 +1000,7 @@ class ContentPackTests(unittest.TestCase):
             alternate = ui_presentation_snapshot(environment)
         self.assertEqual(default["pack"], "default")
         self.assertEqual(alternate["pack"], "fixture-alternate")
-        self.assertEqual(default["title"], "J O M O N")
+        self.assertEqual(default["title"], "R O A G")
         self.assertEqual(alternate["title"], "F I X T U R E")
         self.assertEqual(alternate["inventory"], "FIXTURE PACK")
         self.assertIn("Fixture help", alternate["help"])

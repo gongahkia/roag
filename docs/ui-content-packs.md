@@ -8,7 +8,7 @@ format placeholders are engine-owned in `content_packs/contract.json`.
 ```json
 {
   "text": {
-    "ui.title.game": "J O M O N",
+    "ui.title.game": "R O A G",
     "ui.start.save_path": "Save: {path}"
   }
 }
