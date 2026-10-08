@@ -8,6 +8,7 @@ import hashlib
 from .catalog import CatalogError, load_catalog
 from .sanctum_presentation import sanctum_boss_name, sanctum_display_name, sanctum_format, sanctum_text, sanctum_theme
 from .state import Container, GameState, MaterialCell, Position, Region, Threat, VerticalLink, stage_rng
+from .terrain import replace_terrain
 
 
 _catalog = load_catalog("sanctums.json", ("encounters", "sanctums"))
@@ -243,15 +244,15 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
         marker, door = secret
         region.landmarks["sanctum_secret"] = marker
         region.changes["sanctum:secret_door"] = f"{door.x},{door.y},{door.z}"
-    region.tile_changes[f"{x},{y},0"] = ">"
-    region.tile_changes[f"{x + 1},{y},0"] = "*"
-    region.tile_changes[f"{lower.x},{lower.y},-1"] = "*"
-    region.tile_changes[f"{x},{y},1"] = "<"
-    region.tile_changes[f"{upper_stair.x},{upper_stair.y},1"] = ">"
-    region.tile_changes[f"{upper_stair.x},{upper_stair.y},2"] = "<"
-    region.tile_changes[f"{side_stair.x},{side_stair.y},1"] = ">"
-    region.tile_changes[f"{side_stair.x},{side_stair.y},2"] = "<"
-    region.tile_changes[f"{hoard.x},{hoard.y},2"] = "C"
+    replace_terrain(region, Position(x, y, 0), ">")
+    replace_terrain(region, Position(x + 1, y, 0), "*")
+    replace_terrain(region, lower, "*")
+    replace_terrain(region, Position(x, y, 1), "<")
+    replace_terrain(region, upper_stair, ">")
+    replace_terrain(region, Position(upper_stair.x, upper_stair.y, 2), "<")
+    replace_terrain(region, side_stair, ">")
+    replace_terrain(region, Position(side_stair.x, side_stair.y, 2), "<")
+    replace_terrain(region, hoard, "C")
     region.vertical_links.extend((
         VerticalLink(entry, Position(x, y, 1), sanctum_text("sanctum.link.entry"), _link_id(region.id, "entry")),
         VerticalLink(upper_stair, Position(upper_stair.x, upper_stair.y, 2), sanctum_text("sanctum.link.reliquary"), _link_id(region.id, "reliquary")),
@@ -276,7 +277,7 @@ def install(region: Region, seed: str, *, occupied: tuple[Position, ...] = ()) -
                   hoard, rewards[1], "light",
                   extra_rewards=[rng.choice(arms), "sealed tally"]),
     ))
-    region.tile_changes[f"{x + 1},{y + 3},1"] = "C"
+    replace_terrain(region, Position(x + 1, y + 3, 1), "C")
     region.geography_signature = hashlib.sha256(
         f"{region.geography_signature}:sanctum:{entry.x},{entry.y}".encode()
     ).hexdigest()[:16]
@@ -422,7 +423,8 @@ def open_secret(state: GameState) -> tuple[bool, str]:
     marker = state.region.landmarks.get("sanctum_secret"); door = state.region.changes.get("sanctum:secret_door")
     if state.position != marker or not isinstance(door, str): return False, sanctum_text("sanctum.secret.none")
     if state.region.changes.get("sanctum:secret_open"): return False, sanctum_text("sanctum.secret.open")
-    state.region.tile_changes[door] = "+"; state.region.changes["sanctum:secret_open"] = True
+    replace_terrain(state.region, Position(*map(int, door.split(","))), "+")
+    state.region.changes["sanctum:secret_open"] = True
     return True, sanctum_text("sanctum.secret.opened")
 
 

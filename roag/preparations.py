@@ -279,9 +279,10 @@ def apply_preparation(state: GameState, value: str) -> tuple[bool, str]:
         state.sound_events = [event for event in state.sound_events if _distance(state.position, event.position) > 4]
         detail = preparation_format("preparation.result.aim-break", targets=len(targets), before=before, noise=state.noise)
     elif mode == "drain-tile":
+        from .terrain import replace_terrain
         from .world import base_tile
         point = next(point for point in _nearby_points(state, 1) if base_tile(state, point) == "m")
-        state.region.tile_changes[key(point)] = "."
+        replace_terrain(state.region, point, ".")
         cell = ensure_cell(state, point)
         cell.water, cell.coating = 0, "ash"
         detail = preparation_format("preparation.result.drain-tile", coordinate=key(point))

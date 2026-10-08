@@ -10,7 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import GameState, Position
-from .terrain import TerrainDefinition, terrain_at
+from .terrain import TerrainDefinition, replace_terrain, terrain_at
+
+
+PHYSICAL_TERRAIN_ACTIONS = frozenset({"break", "cut", "dig"})
 
 
 @dataclass(frozen=True)
@@ -38,6 +41,17 @@ def supports_terrain_action(
         return False
     definition = terrain_at(state.region, position)
     return definition.destructible and action_id in definition.tool_actions
+
+
+def routes_terrain_action(
+    state: GameState, action_id: str, position: Position,
+) -> bool:
+    """Whether the material UI should delegate a physical verb to this seam."""
+    return (
+        state.location == "region"
+        and action_id in PHYSICAL_TERRAIN_ACTIONS
+        and terrain_at(state.region, position).destructible
+    )
 
 
 def _protected(state: GameState, position: Position, definition: TerrainDefinition) -> bool:
@@ -105,9 +119,11 @@ def resolve_terrain_action(
     destroyed = total >= definition.hardness
     replacement = None
     if destroyed:
-        state.region.terrain_damage.pop(coordinate, None)
-        state.region.tile_changes[coordinate] = definition.replacement_glyph
-        replacement = terrain_at(state.region, position)
+        if definition.replacement_glyph is None:
+            raise RuntimeError(f"destructible terrain {definition.id!r} has no replacement")
+        replacement = replace_terrain(
+            state.region, position, definition.replacement_glyph,
+        )
     else:
         state.region.terrain_damage[coordinate] = total
     return TerrainActionResolution(

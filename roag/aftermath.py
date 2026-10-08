@@ -5,6 +5,7 @@ from __future__ import annotations
 from .catalog import AFTERMATH_SECTIONS, load_catalog
 from .aftermath_presentation import aftermath_action_text, aftermath_result_text, aftermath_contract_cause, aftermath_contract_title, aftermath_opening, aftermath_opening_format
 from .state import GameState, Position, QuestProgress, RegionalContract
+from .terrain import replace_terrain
 
 
 _AFTERMATH = load_catalog("aftermath.json", AFTERMATH_SECTIONS)
@@ -94,7 +95,7 @@ def _configure_sites(state: GameState, branch: str) -> tuple[Position, Position,
     evidence_cell = ensure_cell(state, evidence)
     if branch == "shared":
         if base_tile(state, route) not in {"#", " ", "~"}:
-            state.region.tile_changes[key(route)] = "="
+            replace_terrain(state.region, route, "=")
         if route_cell:
             route_cell.material, route_cell.water, route_cell.support = "timber", 0, 3
         if works_cell:
@@ -104,7 +105,7 @@ def _configure_sites(state: GameState, branch: str) -> tuple[Position, Position,
             evidence_cell.coating = "ash" if state.region.generation_facts.get("crisis") == "fire" else "wet"
     else:
         if base_tile(state, route) not in {"#", " ", "~"}:
-            state.region.tile_changes[key(route)] = "%"
+            replace_terrain(state.region, route, "%")
         if route_cell:
             route_cell.material, route_cell.support = "timber", 1
         if works_cell:

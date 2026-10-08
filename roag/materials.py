@@ -6,6 +6,7 @@ import copy
 import heapq
 
 from .state import GameState, Item, MaterialCell, Person, Position, Threat
+from .terrain import replace_terrain
 from .material_presentation import (
     coating_display_name,
     fluid_display_name,
@@ -317,7 +318,7 @@ def advance_materials(state: GameState) -> int:
                 cell.fire, cell.smoke = 0, min(4, cell.smoke + 1)
                 state.add_message(material_format("material.water.quench", coordinate=coordinate), priority=3)
             if cell.material == "soil" and state.location == "region" and base_tile(state, point) in {".", ";", ",", "m"}:
-                state.region.tile_changes[coordinate] = "m"
+                replace_terrain(state.region, point, "m")
             if cell.material == "lime":
                 cell.smoke = max(2, cell.smoke)
                 cell.coating = "lime"
@@ -361,7 +362,7 @@ def advance_materials(state: GameState) -> int:
                 if not cell.fuel:
                     cell.fire, cell.material, cell.coating = 0, "ash", "ash"
                     if state.location == "region" and base_tile(state, point) in {"T", '"', ";"}:
-                        state.region.tile_changes[coordinate] = "."
+                        replace_terrain(state.region, point, ".")
         if cell.smoke:
             if cell.smoke >= 2:
                 _expose(state, point, "smoke", 1)
@@ -400,7 +401,7 @@ def advance_materials(state: GameState) -> int:
             protected = set(state.region.landmarks.values()) | {c.position for c in state.region.containers}
             protected |= {p for link in state.region.vertical_links for p in (link.first, link.second)}
             if point not in protected:
-                state.region.tile_changes[coordinate] = "O" if point.z > 0 else "%"
+                replace_terrain(state.region, point, "O" if point.z > 0 else "%")
             if point == state.position and point.z > 0:
                 from .actions import _fall
                 state.add_message(_fall(state), priority=3)
@@ -412,9 +413,9 @@ def advance_materials(state: GameState) -> int:
 
 
 def handle_material(state: GameState, verb: str, point: Position) -> tuple[bool, str]:
-    from .terrain_actions import supports_terrain_action
+    from .terrain_actions import routes_terrain_action
 
-    if supports_terrain_action(state, verb, point):
+    if routes_terrain_action(state, verb, point):
         # Ordinary physical terrain has one canonical reducer. Authored
         # material reactions and non-terrain cells retain the legacy path.
         from .actions import terrain_action
@@ -526,7 +527,7 @@ def _handle_material(state: GameState, verb: str, point: Position) -> tuple[bool
         cell.coating = "ash"
         cell.fire = 0
         if state.location == "region" and base_tile(state, point) in {";", "m", '"'}:
-            state.region.tile_changes[key(point)] = "."
+            replace_terrain(state.region, point, ".")
     elif verb in {"push", "pull"}:
         container.position = destination
         emit_sound(state, 2, point)

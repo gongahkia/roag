@@ -12,7 +12,7 @@ from roag.runtime_events import TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
 from roag.session import GameSession
 from roag.state import Position, StateError, create_world, game_state_from_dict
-from roag.terrain import terrain_at
+from roag.terrain import replace_terrain, terrain_at
 
 
 class TerrainActionTests(unittest.TestCase):
@@ -39,6 +39,7 @@ class TerrainActionTests(unittest.TestCase):
         self.assertEqual(terrain_at(self.state.region, self.target).glyph, '"')
         self.assertEqual([type(event) for event in first.events], [TerrainDamaged])
         self.assertEqual(first.events[0].remaining, 1)
+        self.assertIn("1 resistance remains", self.state.messages[-1])
         self.assertEqual(len(first.event_batch.steps), 1)
         self.assertEqual(first.event_batch.steps[0].events, ())
         self.assertEqual(self.state.noise, 2)
@@ -55,6 +56,7 @@ class TerrainActionTests(unittest.TestCase):
         )
         self.assertEqual(second.events[-1].previous_terrain_id, "terrain.region.dense_reeds")
         self.assertEqual(second.events[-1].terrain_id, "terrain.region.hearthford.ground")
+        self.assertIn("terrain gives way", self.state.messages[-1])
         yielded = self.state.region.materials[self.coordinate]
         self.assertEqual((yielded.material, yielded.fuel), ("reeds", 2))
 
@@ -105,6 +107,16 @@ class TerrainActionTests(unittest.TestCase):
             self.state.sound_events,
         ), before)
 
+        changed, _ = handle_material(self.state, "break", self.target)
+        self.assertFalse(changed)
+        self.assertEqual((
+            self.state.world_time,
+            self.state.noise,
+            self.state.region.tile_changes,
+            self.state.region.terrain_damage,
+            self.state.sound_events,
+        ), before)
+
         landing = self.state.region.landmarks["landing"]
         self.state.position = Position(landing.x - 1, landing.y, landing.z)
         landing_key = key(landing)
@@ -125,6 +137,17 @@ class TerrainActionTests(unittest.TestCase):
             self.state.region.terrain_damage,
             self.state.sound_events,
         ), protected_before)
+
+    def test_other_terrain_replacement_discards_damage_to_previous_identity(self):
+        session = GameSession(self.state)
+        session.submit(TerrainActionCommand("cut", self.target))
+        self.assertEqual(self.state.region.terrain_damage[self.coordinate], 1)
+
+        replacement = replace_terrain(self.state.region, self.target, "m")
+
+        self.assertEqual(replacement.id, "terrain.region.mud")
+        self.assertEqual(terrain_at(self.state.region, self.target).glyph, "m")
+        self.assertNotIn(self.coordinate, self.state.region.terrain_damage)
 
     def test_partial_damage_round_trips_and_old_format_fifteen_defaults_empty(self):
         session = GameSession(self.state)

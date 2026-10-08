@@ -17171,6 +17171,23 @@
       ]
     },
     {
+      "id": "material.handle.terrain_damaged",
+      "placeholders": [
+        "verb",
+        "material",
+        "coordinate",
+        "remaining"
+      ]
+    },
+    {
+      "id": "material.handle.terrain_destroyed",
+      "placeholders": [
+        "verb",
+        "material",
+        "coordinate"
+      ]
+    },
+    {
       "id": "material.handle.heel",
       "placeholders": []
     },

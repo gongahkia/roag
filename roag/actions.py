@@ -40,6 +40,7 @@ from .runtime_events import (
     RuntimeEventBatch, RuntimeEventCollector, StatusChanged, TerrainChanged,
     TerrainDamaged,
 )
+from .terrain import replace_terrain
 from .state import (
     CommodityStack, GameState, Person, Position, SoundEvent, Threat,
     legacy_combat_damage_seed, combat_seed_identity, legacy_threat_intent_id, stage_rng,
@@ -746,7 +747,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             marked, threat.aimed_at = threat.aimed_at, None
             cover = Position(marked.x - 1, marked.y, marked.z)
             if is_walkable(state, cover, ignore_threat=True):
-                state.region.tile_changes[position_key(cover)] = "."
+                replace_terrain(state.region, cover, ".")
             if state.position == marked and not guarded:
                 return apply_damage(
                     state, 2, action_format("combat.elite.reeve.sling_source"),
@@ -829,7 +830,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
                 return action_format("combat.elite.bellward.telegraph", threat=threat.name, intent=threat.intent)
             marked, threat.aimed_at = threat.aimed_at, None
             if base_tile(state, marked) not in {"#", " ", "~"}:
-                state.region.tile_changes[position_key(marked)] = "O"
+                replace_terrain(state.region, marked, "O")
             if state.position == marked:
                 fall = _fall(state)
                 return action_format("combat.elite.bellward.floor_break", fall=fall)
@@ -848,7 +849,7 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
             )
             return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
         marked, threat.aimed_at = threat.aimed_at, None
-        state.region.tile_changes[position_key(marked)] = "%"
+        replace_terrain(state.region, marked, "%")
         if state.position == marked and not guarded:
             return apply_damage(
                 state, 3, action_format("combat.elite.false_bell.rockfall_source"),
@@ -1265,7 +1266,7 @@ def _weather_and_deadline(state: GameState) -> list[str]:
                     from .geography import layout_point
 
                     for point in (layout_point(state.region, point) for point in (Position(55, 36), Position(56, 36), Position(57, 36))):
-                        state.region.tile_changes[position_key(point)] = "%"
+                        replace_terrain(state.region, point, "%")
                     messages.append(action_format("action.process.whitecairn.2"))
                 else:
                     messages.append(action_format("action.process.whitecairn.2_safe"))
@@ -1605,7 +1606,7 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
             return _time_result(state, "", steps=2 if load_state(state) == "overloaded" else 1)
         return _plain(state, "", changed=True)
     if state.location == "region" and tile == "+":
-        state.region.tile_changes[position_key(target)] = "/"
+        replace_terrain(state.region, target, "/")
         messages.append(action_format("action.movement.open_door"))
     quiet = state.courier and (
         state.courier.technique == "quiet passage"
@@ -2067,7 +2068,7 @@ def _destroy_floor(state: GameState) -> ActionResult:
         return _plain(
             state, action_format("action.environment.floor.requirement")
         )
-    state.region.tile_changes[position_key(state.position)] = "O"
+    replace_terrain(state.region, state.position, "O")
     sounds = emit_sound(state, 4)
     braced = (
         "quarry brace" in state.carried_passives
@@ -2119,11 +2120,16 @@ def terrain_action(
                 cell.coating, cell.fire = "ash", 0
     sounds = emit_sound(state, resolution.sound, target)
     material_id = resolution.material_id or "soil"
+    message_values = {
+        "verb": material_verb_display_name(action_id),
+        "material": material_display_name(material_id),
+        "coordinate": position_key(target),
+    }
     message = material_format(
-        "material.handle.result",
-        verb=material_verb_display_name(action_id),
-        material=material_display_name(material_id),
-        coordinate=position_key(target),
+        "material.handle.terrain_destroyed"
+        if resolution.destroyed else "material.handle.terrain_damaged",
+        **message_values,
+        **({} if resolution.destroyed else {"remaining": resolution.remaining}),
     )
     events: tuple[RuntimeEvent, ...] = (
         TerrainDamaged(

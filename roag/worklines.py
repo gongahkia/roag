@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from .catalog import CatalogError, HISTORY_SECTIONS, load_catalog
 from .state import GameState, Position, QuestProgress
+from .terrain import replace_terrain
 from .workline_presentation import (
     workline_branch_label, workline_evidence_name, workline_format,
     workline_reward_name, workline_text, workline_title,
@@ -223,7 +224,7 @@ def _field_work(state):
             for dx, dy in ((-2, 0), (-1, 0), (0, 1), (1, 1), (2, 1)):
                 point = Position(site.x + dx, site.y + dy, site.z)
                 if base_tile(state, point) in {"m", ",", ";", ".", "=", "%"}:
-                    state.region.tile_changes[key(point)] = "="
+                    replace_terrain(state.region, point, "=")
                     cell = ensure_cell(state, point)
                     if cell:
                         cell.material, cell.water, cell.support, cell.fuel = "timber", 0, 3, 3
@@ -257,7 +258,7 @@ def _field_work(state):
             for dx in range(-6, 7):
                 point = Position(site.x + dx, site.y, 0)
                 if base_tile(state, point) in {"T", "t", ";", ".", "="}:
-                    state.region.tile_changes[key(point)] = "."
+                    replace_terrain(state.region, point, ".")
                     cell = ensure_cell(state, point)
                     if cell:
                         cell.material, cell.fuel, cell.fire = "soil", 0, 0

@@ -5,7 +5,8 @@ from __future__ import annotations
 from .catalog import CatalogError, load_catalog
 from .inventory import auto_place, create_item, record_acquisition
 from .quest_presentation import arc_choice_presentation, arc_result_text, arc_title as presented_arc_title, regional_choice_presentation, regional_quest_lead, regional_quest_title, regional_result_text, secondary_service_effect, secondary_service_response, secondary_service_text
-from .state import GameState, QuestProgress
+from .state import GameState, Position, QuestProgress
+from .terrain import replace_terrain
 from .ui_presentation import ui_format, ui_text
 
 REGION_IDS = ("hearthford", "greywash", "greenwold", "whitecairn")
@@ -288,7 +289,7 @@ def resolve_regional_quest(state: GameState, choice: str) -> tuple[bool, str]:
     market = state.market[region.objective_commodity]
     if region_id == "hearthford" and choice == "l":
         region.changes["mill_public_compact"] = True
-        region.tile_changes["68,24,0"] = "/"
+        replace_terrain(region, Position(68, 24, 0), "/")
         market.stock += 2
         market.demand = max(0, market.demand - 2)
         _contact_changes(state, 1, 2)

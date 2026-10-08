@@ -22,8 +22,8 @@ source of truth.
 | WORLD-01 | Complete | Shared zero-time `begin_region(...)`; new-character flow enters Hearthford directly. |
 | FOUNDATION-02 | Complete | Independent 100 ms presentation clock, UI-owned effects, and ambient water glyph cycling. |
 | WORLD-02 | Complete | Read-only semantic regional terrain catalog with strict legacy glyph parity. |
-| WORLD-03 | Next | Generic terrain action and first ordinary destructible terrain. |
-| DANGER-01 | Planned | Existing pressure policy behind a deterministic director boundary. |
+| WORLD-03 | Complete | Generic physical terrain actions, sparse damage, and destructible reeds/mud. |
+| DANGER-01 | Next | Existing pressure policy behind a deterministic director boundary. |
 | DANGER-02 | Planned | Fair deterministic persistent reinforcements. |
 | ENGINE-01 | Planned | Transient simulation facts and bounded effects. |
 | ENGINE-02 | Planned | First reusable cross-system component vertical slice. |
@@ -49,6 +49,14 @@ source of truth.
 - `roag.terrain.terrain_at` resolves sparse `tile_changes` before base rows;
   regional movement, reachability, FOV, cover, and `WorldView` terrain identity
   now consume that seam while retaining legacy mechanics.
+- `roag.terrain_actions.resolve_terrain_action` owns deterministic ordinary
+  terrain legality, tool power, sparse damage, replacement, sound, and yields;
+  authored doors, floors, controls, landmarks, and transitions remain delegated.
+- `TerrainActionCommand` routes physical material-menu work through
+  `GameSession`, producing `TerrainDamaged` and `TerrainChanged` runtime events
+  before exactly one existing authoritative world step.
+- `roag.terrain.replace_terrain` is the shared runtime mutation seam and clears
+  damage belonging to the displaced terrain identity.
 
 ## Compatibility and migrations
 
@@ -63,6 +71,9 @@ source of truth.
   content-fingerprint change. Unknown one-character historical glyphs retain
   the prior permissive movement/sight/cover behavior through deterministic
   fallback definitions.
+- WORLD-03 added default-empty `Region.terrain_damage`; format-15 saves without
+  it load unchanged, partial damage round-trips sparsely, and no save-format
+  bump was required. Runtime terrain events remain transient.
 
 ## Known deviations and baseline issues
 
@@ -74,7 +85,7 @@ source of truth.
 - Nearby content-pack validation also exposes existing stale UI-contract count
   and terminal legacy-overlay failures; the redesign tranches do not currently
   depend on either path.
-- WORLD-02 intentionally leaves movement penalties, material inference,
-  destruction rules, and circuit-placement glyph checks on their existing
-  paths. Those consumers need richer properties and migrate only with concrete
-  WORLD-03 or later behavior.
+- WORLD-03 deliberately limits generic destruction to ordinary reeds, dense
+  reeds, and mud. Walls, timber, fragile floors, circuit placement, collapse,
+  authored features, inventory harvesting, and broader tool balance remain
+  later work rather than being silently generalized.

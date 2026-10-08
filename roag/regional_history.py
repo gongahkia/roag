@@ -10,6 +10,7 @@ from .state import (
     ActorSchedule, Contact, GameState, Institution, MaterialCell, Position,
     RegionalEvent, stage_rng,
 )
+from .terrain import replace_terrain
 
 _HISTORY = load_catalog("history.json", HISTORY_SECTIONS)
 _working = _HISTORY["working_accounts"]
@@ -280,10 +281,10 @@ def initialise_account(state: GameState, region_id: str, *, new_geography: bool)
     if scar not in protected:
         if crisis == "flood":
             region.materials[coordinate] = MaterialCell(material="soil", water=water, coating="wet")
-            region.tile_changes[coordinate] = "m"
+            replace_terrain(region, point, "m")
         elif crisis == "fire":
             region.materials[coordinate] = MaterialCell(material="timber", coating="ash", support=2)
-            region.tile_changes[coordinate] = ";"
+            replace_terrain(region, point, ";")
         else:
             region.materials[coordinate] = MaterialCell(material="timber", support=1)
     region.process_thresholds = [threshold + water * 3 - exposure * 2 for threshold in region.process_thresholds]

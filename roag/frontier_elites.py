@@ -187,6 +187,8 @@ def guard_interception(state, target, damage):
 
 def elite_action(state, actor, guarded):
     """Return None for ordinary actors; no unseen courier coordinate is targeted."""
+    from .terrain import replace_terrain
+
     data = definition(actor)
     if data is None:
         return None
@@ -312,7 +314,10 @@ def elite_action(state, actor, guarded):
         for target in _line(state, point):
             if not _protected(state, target):
                 coordinate = key(target)
-                state.region.tile_changes[coordinate] = "." if state.region.tile_changes.get(coordinate) == "%" else "%"
+                replace_terrain(
+                    state.region, target,
+                    "." if state.region.tile_changes.get(coordinate) == "%" else "%",
+                )
         message = ecology_text("frontier.result.shutters")
         if state.position == point and not guarded:
             from .actions import apply_damage
@@ -362,7 +367,7 @@ def elite_action(state, actor, guarded):
         message = ecology_format("frontier.result.firebreak", broken=broken)
     elif mode == "counterfall":
         if not _protected(state, point):
-            state.region.tile_changes[key(point)] = "%"
+            replace_terrain(state.region, point, "%")
             cell.material, cell.support, cell.coating = "stone", 0, "ash"
         if state.position == point and not guarded and not _protected(state, point):
             from .actions import apply_damage
@@ -389,7 +394,7 @@ def elite_action(state, actor, guarded):
         message = ecology_format("frontier.result.siphon", moved=moved)
     elif mode == "lever":
         if not _protected(state, point):
-            state.region.tile_changes[key(point)] = "%"
+            replace_terrain(state.region, point, "%")
             cell.material, cell.support = "timber", 1
         message = ecology_text("frontier.result.lever")
     elif mode == "slip":
@@ -413,7 +418,7 @@ def elite_action(state, actor, guarded):
                 patch.water, patch.ice = 1, True
                 frozen += 1
             elif patch and not _protected(state, target):
-                state.region.tile_changes[key(target)] = "%"
+                replace_terrain(state.region, target, "%")
                 patch.material, patch.support = "timber", 1
                 cover += 1
         message = ecology_format("frontier.result.boom", frozen=frozen, cover=cover)

@@ -65,6 +65,8 @@
     "material.handle.water_spent": "The accessible measure has already been drawn.",
     "material.handle.structure_requirement": "There is no firm structure to work here.",
     "material.handle.result": "You {verb} {material} at {coordinate}; the work takes one action.",
+    "material.handle.terrain_damaged": "You {verb} {material} at {coordinate}; {remaining} resistance remains. The work takes one action.",
+    "material.handle.terrain_destroyed": "You {verb} {material} at {coordinate}; the terrain gives way. The work takes one action.",
     "material.handle.heel": "The iron heel bears the work, wears, and rings against the structure.",
     "material.inspection.blocked.stone": "A stone wall blocks that step.",
     "material.inspection.remedy.stone": "Use another lane; marked weak structure can be inspected with F.",

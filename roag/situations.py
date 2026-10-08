@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from .catalog import CatalogError, load_catalog
 from .state import GameState, Position, Region
+from .terrain import replace_terrain
 from .visuals import SITE_SYMBOLS
 from .situation_presentation import situation_format, situation_slot, situation_text
 
@@ -73,8 +74,7 @@ def _site_point_for_region(region:Region,row:Situation)->Position:
         if len(seen)>256: break
     if not candidates: raise RuntimeError(f"{row.id} has no safe local site near {row.anchor}")
     point=min(candidates,key=lambda p:(abs(p.x-anchor.x)+abs(p.y-anchor.y),(p.x*17+p.y*31+len(row.id))%11,p.y,p.x)); region.changes[_key(row,"point")]=f"{point.x},{point.y},{point.z}"
-    from .world import position_key
-    region.tile_changes[position_key(point)]="?"; return point
+    replace_terrain(region,point,"?"); return point
 def site_point(state:GameState,row:Situation)->Position:return _site_point_for_region(state.region,row)
 def initialise_region_sites(region:Region)->None:
     for row in SITUATIONS:
@@ -112,11 +112,9 @@ def activate_for_band(state:GameState,band:str)->Situation|None:
     if state.region.changes.get(_key(row,"resolved")):return row
     previous_id=state.region.changes.get("situation:active")
     if isinstance(previous_id,str) and previous_id in BY_ID and previous_id!=row.id:
-        from .world import position_key
-        previous=BY_ID[previous_id];state.region.tile_changes[position_key(site_point(state,previous))]="*" if state.region.changes.get(_key(previous,"resolved")) else "?"
+        previous=BY_ID[previous_id];previous_point=site_point(state,previous);replace_terrain(state.region,previous_point,"*" if state.region.changes.get(_key(previous,"resolved")) else "?")
     state.region.changes["situation:active"]=row.id
-    from .world import position_key
-    state.region.tile_changes[position_key(point)]="!";_prepare_material(state,row,point);state.region.changes.setdefault(_key(row,"condition"),_condition(state))
+    replace_terrain(state.region,point,"!");_prepare_material(state,row,point);state.region.changes.setdefault(_key(row,"condition"),_condition(state))
     candidates=sorted((a for a in state.combatants if a.status in {"watching","dormant"}),key=lambda a:(a.group,a.id));chosen=[]
     for actor in candidates:
         if not chosen or actor.group!=chosen[0].group:chosen.append(actor)
@@ -189,8 +187,7 @@ def resolve(state:GameState,situation_id:str,method:str)->tuple[bool,str,int]:
         if cell:cell.fire,cell.smoke,cell.water,cell.support=0,0,min(1,cell.water),max(2,cell.support)
         outcome_id,steps="account",1
     outcome=_outcome_text(row,outcome_id);state.region.changes[_key(row,"resolved")]=True;state.region.changes[_key(row,"outcome_id")]=outcome_id;state.region.changes[_key(row,"outcome")]=outcome;state.region.changes[_key(row,"revisit")]=row.consequence;state.region.changes.pop("situation:active",None)
-    from .world import position_key
-    state.region.tile_changes[position_key(point)]="*";record=situation_format("situation.record.resolved",title=row.name,outcome=outcome,consequence=row.consequence);state.remember(record);state.contact.memories.append(record);del state.contact.memories[:-8]
+    replace_terrain(state.region,point,"*");record=situation_format("situation.record.resolved",title=row.name,outcome=outcome,consequence=row.consequence);state.remember(record);state.contact.memories.append(record);del state.contact.memories[:-8]
     from .state import append_narrative_record
     append_narrative_record(state,event_id="situation.resolved",refs={"situation_id":row.id,"region_id":row.region_id,"outcome_id":outcome_id},params={"world_time":state.world_time,"steps":steps},rendered=record)
     return True,record,steps

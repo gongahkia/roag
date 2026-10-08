@@ -184,3 +184,19 @@ def terrain_at(region: Region, position: Position) -> TerrainDefinition:
     coordinate = f"{position.x},{position.y},{position.z}"
     glyph = region.tile_changes.get(coordinate, rows[position.y][position.x])
     return terrain_from_glyph(glyph, region.id)
+
+
+def replace_terrain(
+    region: Region, position: Position, glyph: str,
+) -> TerrainDefinition:
+    """Persist a glyph replacement and discard damage to the old terrain.
+
+    Sparse damage belongs to the terrain identity currently occupying a cell.
+    All runtime replacement paths should use this seam so damage cannot survive
+    fire, collapse, authored changes, or another replacement of that identity.
+    """
+    replacement = terrain_from_glyph(glyph, region.id)
+    coordinate = f"{position.x},{position.y},{position.z}"
+    region.tile_changes[coordinate] = glyph
+    region.terrain_damage.pop(coordinate, None)
+    return replacement

@@ -3485,9 +3485,9 @@ def _handle_overlay(
 
         verb = VERBS[key - ord("a")]
         point = point_at(kind.split(":", 1)[1])
-        from .terrain_actions import supports_terrain_action
+        from .terrain_actions import routes_terrain_action
 
-        if session is not None and supports_terrain_action(state, verb, point):
+        if session is not None and routes_terrain_action(state, verb, point):
             outcome = session.submit(TerrainActionCommand(verb, point))
             changed = outcome.changed
         else:
