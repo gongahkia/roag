@@ -254,6 +254,11 @@ def gather(state: GameState, choice: int) -> tuple[bool, str]:
     site["stock"] -= 1
     site["draws"] += 1
     record_milestone(state, f"production:{state.active_region_id}")
+    from .engine_components import resolve_resource_gained
+
+    resolve_resource_gained(
+        state, item.id, item.kind, item.quantity, state.position,
+    )
     _advance_world(state)
     from .chemistry_presentation import reagent_display_name
 

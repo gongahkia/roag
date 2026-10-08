@@ -7,10 +7,14 @@ from dataclasses import dataclass
 from .circuit_presentation import circuit_format
 from .circuits import nearest_connected_rack
 from .simulation_effects import (
+    ACTOR_DEFEATED,
+    RESOURCE_GAINED,
+    TERRAIN_ACTION,
     ActorDefeatedFact,
     ComponentRef,
     GainCharge,
     ReactionRule,
+    ResourceGainedFact,
     SimulationFact,
     SimulationResolution,
     SpendCharge,
@@ -38,7 +42,10 @@ class TerrainAssistance:
     outcome: EngineOutcome
 
 
-def registered_reaction_rules(state: GameState) -> tuple[ReactionRule, ...]:
+def registered_reaction_rules(
+    state: GameState,
+    trigger_ids: frozenset[str] | None = None,
+) -> tuple[ReactionRule, ...]:
     """Discover finite reactions from the currently fitted physical world."""
     active_space = (
         f"region:{state.active_region_id}"
@@ -61,23 +68,33 @@ def registered_reaction_rules(state: GameState) -> tuple[ReactionRule, ...]:
         source = ComponentRef("circuit", sensor_key)
         target = ComponentRef("circuit", rack_key)
         if sensor.mode == "threat":
-            rules.append(ReactionRule(
-                rule_id=f"engine.threat_sensor.kill_charge:{sensor_key}",
-                source=source,
-                trigger_id="actor.defeated",
-                effect=GainCharge(1, target),
-                condition=WithinRange(
-                    sensor.space, sensor.position, sensor.threshold,
-                ),
-            ))
+            if trigger_ids is None or ACTOR_DEFEATED in trigger_ids:
+                rules.append(ReactionRule(
+                    rule_id=f"engine.threat_sensor.kill_charge:{sensor_key}",
+                    source=source,
+                    trigger_id=ACTOR_DEFEATED,
+                    effect=GainCharge(1, target),
+                    condition=WithinRange(
+                        sensor.space, sensor.position, sensor.threshold,
+                    ),
+                ))
         elif sensor.mode == "mass":
-            rules.append(ReactionRule(
-                rule_id=f"engine.mass_sensor.terrain_power:{sensor_key}",
-                source=source,
-                trigger_id="terrain.action",
-                effect=SpendCharge(1, target),
-                condition=WithinRange(sensor.space, sensor.position, 1),
-            ))
+            if trigger_ids is None or TERRAIN_ACTION in trigger_ids:
+                rules.append(ReactionRule(
+                    rule_id=f"engine.mass_sensor.terrain_power:{sensor_key}",
+                    source=source,
+                    trigger_id=TERRAIN_ACTION,
+                    effect=SpendCharge(1, target),
+                    condition=WithinRange(sensor.space, sensor.position, 1),
+                ))
+            if trigger_ids is None or RESOURCE_GAINED in trigger_ids:
+                rules.append(ReactionRule(
+                    rule_id=f"engine.mass_sensor.resource_charge:{sensor_key}",
+                    source=source,
+                    trigger_id=RESOURCE_GAINED,
+                    effect=GainCharge(1, target),
+                    condition=WithinRange(sensor.space, sensor.position, 1),
+                ))
     return tuple(rules)
 
 
@@ -91,7 +108,9 @@ def resolve_engine_facts(
     resolution = resolve_component_reactions(
         state,
         facts,
-        registered_reaction_rules(state) if rules is None else rules,
+        registered_reaction_rules(
+            state, frozenset(fact.fact_id for fact in facts),
+        ) if rules is None else rules,
     )
     messages: list[str] = []
     for application in resolution.applications:
@@ -101,11 +120,13 @@ def resolve_engine_facts(
         target = state.circuits.get(application.target.instance_id)
         if source is None or target is None:
             continue
-        message_id = (
-            "circuit.event.kill_charge"
-            if application.effect_id == "gain_charge"
-            else "circuit.event.terrain_assist"
-        )
+        message_id = {
+            ("gain_charge", ACTOR_DEFEATED): "circuit.event.kill_charge",
+            ("gain_charge", RESOURCE_GAINED): "circuit.event.resource_charge",
+            ("spend_charge", TERRAIN_ACTION): "circuit.event.terrain_assist",
+        }.get((application.effect_id, application.fact_id))
+        if message_id is None:
+            continue
         message = circuit_format(
             message_id,
             amount=application.applied_amount,
@@ -129,6 +150,26 @@ def resolve_actor_defeat(
     return resolve_engine_facts(state, (fact,))
 
 
+def resolve_resource_gained(
+    state: GameState,
+    item_id: str,
+    item_kind: str,
+    quantity: int,
+    position: Position,
+) -> EngineOutcome:
+    """React after a physical item has successfully entered the active pack."""
+    space = f"region:{state.active_region_id}" if state.location == "region" else "vessel"
+    fact = ResourceGainedFact(
+        state.active_courier_id or "courier",
+        item_id,
+        item_kind,
+        quantity,
+        space,
+        position,
+    )
+    return resolve_engine_facts(state, (fact,))
+
+
 def resolve_terrain_assistance(
     state: GameState,
     actor_id: str,
@@ -144,7 +185,7 @@ def resolve_terrain_assistance(
     fact = TerrainActionFact(actor_id, action_id, terrain_id, space, position)
     available_rules = tuple(
         rule
-        for rule in registered_reaction_rules(state)
+        for rule in registered_reaction_rules(state, frozenset({fact.fact_id}))
         if (
             rule.trigger_id == fact.fact_id
             and isinstance(rule.effect, SpendCharge)

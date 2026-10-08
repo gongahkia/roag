@@ -10,6 +10,7 @@ from roag.simulation_effects import (
     ComponentRef,
     GainCharge,
     ReactionRule,
+    ResourceGainedFact,
     SimulationFactCollector,
     SpendCharge,
     TerrainActionFact,
@@ -55,6 +56,25 @@ class SimulationEffectTests(unittest.TestCase):
             collector.freeze()
         with self.assertRaises(FrozenInstanceError):
             first.actor_id = "changed"
+
+    def test_resource_fact_preserves_physical_item_identity_and_quantity(self):
+        fact = ResourceGainedFact(
+            "courier:test", "item-00042", "ingredient:clay", 2,
+            self.space, self.position,
+        )
+        collector = SimulationFactCollector()
+        collector.emit(fact)
+
+        self.assertEqual(collector.freeze(), (fact,))
+        self.assertEqual(fact.fact_id, "resource.gained")
+        self.assertEqual((fact.item_id, fact.item_kind, fact.quantity), (
+            "item-00042", "ingredient:clay", 2,
+        ))
+        with self.assertRaises(ValueError):
+            ResourceGainedFact(
+                "courier:test", "item-00042", "ingredient:clay", 0,
+                self.space, self.position,
+            )
 
     def test_registered_rule_applies_one_bounded_circuit_effect(self):
         result = resolve_component_reactions(self.state, (self.fact(),), (self.rule(),))

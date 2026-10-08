@@ -17,7 +17,10 @@ from .state import GameState, Position
 ACTOR_DEFEATED = "actor.defeated"
 THREAT_DETECTED = "threat.detected"
 TERRAIN_ACTION = "terrain.action"
-TRIGGER_IDS = frozenset({ACTOR_DEFEATED, THREAT_DETECTED, TERRAIN_ACTION})
+RESOURCE_GAINED = "resource.gained"
+TRIGGER_IDS = frozenset({
+    ACTOR_DEFEATED, THREAT_DETECTED, TERRAIN_ACTION, RESOURCE_GAINED,
+})
 SOURCE_KINDS = frozenset({"circuit"})
 MAX_FACTS = 128
 MAX_RULES = 128
@@ -78,7 +81,35 @@ class TerrainActionFact:
             raise ValueError("invalid terrain-action fact")
 
 
-SimulationFact = ActorDefeatedFact | ThreatDetectedFact | TerrainActionFact
+@dataclass(frozen=True)
+class ResourceGainedFact:
+    """A physical item entered an actor's available inventory."""
+
+    actor_id: str
+    item_id: str
+    item_kind: str
+    quantity: int
+    space_id: str
+    position: Position
+    fact_id: str = field(init=False, default=RESOURCE_GAINED)
+
+    def __post_init__(self) -> None:
+        if (
+            not self.actor_id
+            or not self.item_id
+            or not self.item_kind
+            or type(self.quantity) is not int
+            or self.quantity <= 0
+            or not self.space_id
+            or not isinstance(self.position, Position)
+        ):
+            raise ValueError("invalid resource-gained fact")
+
+
+SimulationFact = (
+    ActorDefeatedFact | ThreatDetectedFact | TerrainActionFact
+    | ResourceGainedFact
+)
 
 
 @dataclass(frozen=True)
@@ -197,7 +228,10 @@ class SimulationFactCollector:
     def emit(self, fact: SimulationFact) -> None:
         if self._frozen:
             raise RuntimeError("simulation fact collector is frozen")
-        if not isinstance(fact, (ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact)):
+        if not isinstance(fact, (
+            ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact,
+            ResourceGainedFact,
+        )):
             raise TypeError("invalid simulation fact")
         if len(self._facts) >= MAX_FACTS:
             raise RuntimeError("simulation fact limit exceeded")
@@ -227,7 +261,10 @@ def resolve_component_reactions(
     if len(facts) * len(rules) > MAX_MATCH_CHECKS:
         raise ValueError("simulation reaction match budget exceeded")
     if any(not isinstance(
-        fact, (ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact),
+        fact, (
+            ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact,
+            ResourceGainedFact,
+        ),
     ) for fact in facts):
         raise TypeError("invalid simulation fact")
     if any(not isinstance(rule, ReactionRule) for rule in rules):

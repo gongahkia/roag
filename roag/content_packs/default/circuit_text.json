@@ -111,6 +111,7 @@
     "circuit.event.powered": "powered",
     "circuit.event.counter": "passed its {threshold}th input pulse",
     "circuit.event.kill_charge": "Threat sensor at {x},{y} recovers {amount} rack charge from the nearby defeat.",
+    "circuit.event.resource_charge": "Mass sensor at {x},{y} recovers {amount} rack charge from the nearby physical acquisition.",
     "circuit.event.terrain_assist": "Mass sensor at {x},{y} spends {amount} rack charge to drive the terrain strike.",
     "circuit.phase.wire": "idle",
     "circuit.phase.head": "arriving",

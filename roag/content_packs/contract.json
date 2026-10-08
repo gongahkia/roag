@@ -20041,6 +20041,14 @@
       "placeholders": []
     },
     {
+      "id": "circuit.event.resource_charge",
+      "placeholders": [
+        "amount",
+        "x",
+        "y"
+      ]
+    },
+    {
       "id": "circuit.event.terrain_assist",
       "placeholders": [
         "amount",

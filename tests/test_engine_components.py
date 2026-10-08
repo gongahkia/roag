@@ -9,7 +9,7 @@ from roag.circuits import cell_key, item_count, operate, place
 from roag.commands import AttackCommand, TerrainActionCommand
 from roag.engine_components import registered_reaction_rules, resolve_actor_defeat
 from roag.inventory import auto_place, create_item
-from roag.production import RECIPES, make
+from roag.production import RECIPES, gather, input_count, make, site_position
 from roag.regions import begin_region
 from roag.runtime_events import ActorDefeated, TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
@@ -208,6 +208,98 @@ class EngineComponentTests(unittest.TestCase):
         )
         self.assertEqual(outcome.events[0].amount, 2)
         self.assertIn("spends 1 rack charge", self.state.circuits[mass_key].last_event)
+
+    def test_physical_gather_charges_mass_engine_and_resource_remains_recipe_input(self):
+        self.state.circuits.clear()
+        self.state.position = site_position(self.state)
+        sensor_position = self.state.position
+        rack_position = Position(sensor_position.x - 1, sensor_position.y, sensor_position.z)
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        self.state.circuits[rack_key] = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+        )
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor",
+            mode="mass", threshold=2,
+        )
+        self.assertEqual(
+            {rule.trigger_id for rule in registered_reaction_rules(self.state)},
+            {"resource.gained", "terrain.action"},
+        )
+        time_before = self.state.world_time
+
+        changed, message = gather(self.state, 0)
+
+        self.assertTrue(changed, message)
+        self.assertEqual(self.state.world_time, time_before + 1)
+        self.assertEqual(input_count(self.state, "ingredient:iron filings"), 1)
+        self.assertEqual(self.state.circuits[rack_key].charge, 1)
+        self.assertIn(
+            "nearby physical acquisition",
+            self.state.circuits[sensor_key].last_event,
+        )
+
+        spark_salt = create_item(
+            self.state, "ingredient:spark salt", "engine test stock",
+        )
+        self.assertTrue(auto_place(
+            self.state, spark_salt.id, "pack", owner_id=self.state.active_courier_id,
+        ))
+        self.assertTrue(make(self.state, "thunder-bombs")[0])
+        self.assertEqual(input_count(self.state, "ingredient:iron filings"), 0)
+        self.assertTrue(any(
+            item.kind == "consumable:thunder bombs"
+            and item.location == "pack"
+            and item.owner_id == self.state.active_courier_id
+            for item in self.state.items
+        ))
+
+    def test_failed_gather_does_not_trigger_resource_reaction(self):
+        from roag.production import initialise_production
+
+        self.state.circuits.clear()
+        self.state.position = site_position(self.state)
+        sensor_position = self.state.position
+        rack_position = Position(sensor_position.x - 1, sensor_position.y, sensor_position.z)
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        rack = CircuitCell("region:hearthford", rack_position, "surface", "rack")
+        self.state.circuits[rack_key] = rack
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor", mode="mass",
+        )
+        initialise_production(self.state)
+        self.state.production["sites"]["hearthford"]["stock"] = 0
+
+        changed, _ = gather(self.state, 0)
+
+        self.assertFalse(changed)
+        self.assertEqual(rack.charge, 0)
+
+    def test_resource_reaction_is_deterministic_and_only_existing_charge_persists(self):
+        self.state.circuits.clear()
+        self.state.position = site_position(self.state)
+        sensor_position = self.state.position
+        rack_position = Position(sensor_position.x - 1, sensor_position.y, sensor_position.z)
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        self.state.circuits[rack_key] = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+        )
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor", mode="mass",
+        )
+        first, second = copy.deepcopy(self.state), copy.deepcopy(self.state)
+
+        self.assertEqual(gather(first, 0), gather(second, 0))
+        self.assertEqual(first.to_dict(), second.to_dict())
+        with tempfile.TemporaryDirectory() as directory:
+            restored = load_game(save_game(first, Path(directory) / "resource-engine.json"))
+        self.assertEqual(restored.circuits[rack_key].charge, 1)
+        payload = restored.to_dict()
+        self.assertNotIn("simulation_facts", payload)
+        self.assertNotIn("resource_gained", payload)
 
     def test_terrain_assistance_requires_range_charge_and_a_valid_base_tool(self):
         rack, _ = self.fit_engine(mode="mass")

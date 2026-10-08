@@ -1330,6 +1330,7 @@ _ECOLOGY_TEMPLATE_CONTRACT = {'ecology.actor.fen-pail.name': (), 'ecology.actor.
 _CIRCUIT_TEMPLATE_CONTRACT["circuit.terminal.cells"] = ("count",)
 
 _CIRCUIT_TEMPLATE_CONTRACT.update({
+    "circuit.event.resource_charge": ("amount", "x", "y"),
     "circuit.event.terrain_assist": ("amount", "x", "y"),
 })
 
