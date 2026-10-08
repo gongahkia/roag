@@ -43,7 +43,8 @@ from .actions import (
 )
 from .commands import (
     AttackCommand, GuardCommand, InteractCommand, MoveCommand,
-    RetreatCommand, SelectCarriedRelicCommand, SetAutoPlaceCommand, UseGearCommand,
+    RetreatCommand, SelectCarriedRelicCommand, SetAutoPlaceCommand,
+    TerrainActionCommand, UseGearCommand,
 )
 from .session import GameSession
 from .views import WorldView
@@ -3482,8 +3483,16 @@ def _handle_overlay(
     if kind.startswith("material:") and ord("a") <= key <= ord("k"):
         from .materials import VERBS, handle_material, point_at
 
-        changed, message = handle_material(state, VERBS[key - ord("a")], point_at(kind.split(":", 1)[1]))
-        state.add_message(message, priority=3)
+        verb = VERBS[key - ord("a")]
+        point = point_at(kind.split(":", 1)[1])
+        from .terrain_actions import supports_terrain_action
+
+        if session is not None and supports_terrain_action(state, verb, point):
+            outcome = session.submit(TerrainActionCommand(verb, point))
+            changed = outcome.changed
+        else:
+            changed, message = handle_material(state, verb, point)
+            state.add_message(message, priority=3)
         return (None if changed else kind), False
     if kind.startswith("material:") and char in {"l", "m"}:
         return ("flask-pour:" if char == "l" else "flask-drink:") + kind.split(":", 1)[1], False

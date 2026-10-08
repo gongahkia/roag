@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .state import GameState, Position
+from .terrain import terrain_at
 from .world import base_tile, field_of_view, position_key, semantic_cell
 
 
@@ -89,7 +90,12 @@ def world_view(state: GameState) -> WorldView:
         for x in range(len(row)):
             point = Position(x, y, state.position.z)
             semantic = semantic_cell(state, point)
-            terrain_id = semantic.terrain_id if semantic is not None else f"terrain.region.token.{ord(base_tile(state, point)):02x}"
+            terrain_id = (
+                terrain_at(state.region, point).id
+                if state.location == "region"
+                else semantic.terrain_id if semantic is not None
+                else f"terrain.roag.token.{ord(base_tile(state, point)):02x}"
+            )
             features: list[str] = ([semantic.feature_id] if semantic is not None and semantic.feature_id else [])
             if position_key(point) in state.smoke:
                 features.append("field.smoke")

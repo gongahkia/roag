@@ -10,6 +10,7 @@ import weakref
 from .content import COMMODITIES, ENEMY_ARCHETYPES
 from .encounters import production_encounter_groups, threat_from_archetype
 from .state import Contact, Container, GameState, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
+from .terrain import terrain_at, terrain_from_glyph
 from .topology_presentation import (
     regional_contact_name, regional_contact_role, regional_container_name,
     regional_generator_text, regional_link_name, regional_zone_name,
@@ -122,11 +123,19 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
     # Integer frontiers avoid constructing four Position objects per visited
     # cell. Each shift is masked at row and level edges; links remain explicit.
     tiles = "".join(row for z in levels for row in region.levels[str(z)])
-    allowed = sum(1 << cell for cell, tile in enumerate(tiles) if tile not in {" ", "#", "~", "T"})
+    region_id = getattr(region, "id", None)
+    allowed = sum(
+        1 << cell for cell, tile in enumerate(tiles)
+        if terrain_from_glyph(tile, region_id).walkable
+    )
     for key, tile in region.tile_changes.items():
         point = Position(*map(int, key.split(",")))
         bit = 1 << index(point)
-        allowed = allowed & ~bit if tile in {" ", "#", "~", "T"} else allowed | bit
+        allowed = (
+            allowed | bit
+            if terrain_from_glyph(tile, region_id).walkable
+            else allowed & ~bit
+        )
     left = sum(1 << row for row in range(0, len(tiles), width))
     right = left << (width - 1)
     top = sum(((1 << width) - 1) << (i * stride) for i in range(len(levels)))
@@ -168,6 +177,21 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
 def validate_region(region: Region) -> None:
     if set(region.levels) != {"-1", "0", "1", "2"}:
         raise RuntimeError(f"{region.name} lacks aligned levels")
+    if not isinstance(region.terrain_damage, dict):
+        raise RuntimeError(f"{region.name} has invalid terrain damage")
+    for coordinate, damage in region.terrain_damage.items():
+        try:
+            point = Position(*map(int, coordinate.split(",")))
+        except (TypeError, ValueError):
+            raise RuntimeError(f"{region.name} has invalid terrain damage coordinate") from None
+        definition = terrain_at(region, point)
+        if (
+            coordinate != f"{point.x},{point.y},{point.z}"
+            or type(damage) is not int
+            or not 0 < damage < definition.hardness
+            or not definition.destructible
+        ):
+            raise RuntimeError(f"{region.name} has invalid terrain damage")
     reachable = region_reachable(region)
     required_keys = ("landing", "contact", "objective", "cave_entrance")
     required = {region.landmarks[key] for key in required_keys}

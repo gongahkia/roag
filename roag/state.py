@@ -368,6 +368,7 @@ class Region:
     local_objective_status: str = "unoffered"
     local_objective_changed: bool = False
     materials: dict[str, MaterialCell] = field(default_factory=dict)
+    terrain_damage: dict[str, int] = field(default_factory=dict)
     material_cursor: int = 0
     generation_facts: dict[str, str | int] = field(default_factory=dict)
     regional_history: list[RegionalEvent] = field(default_factory=list)

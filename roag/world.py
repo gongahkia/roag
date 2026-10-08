@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .content import COMMODITIES, PASSIVES
 from .state import GameState, Position
+from .terrain import terrain_at as regional_terrain_at
 from .visuals import ENTITY_GLYPHS
 from .semantic_topology import TopologyCell, tavern_cell, vessel_cell, cell_from_legacy
 from .vessel import (
@@ -174,27 +175,32 @@ def is_walkable(state: GameState, position: Position, *, ignore_threat: bool = F
     material = fields(state).get(key(position))
     semantic = semantic_cell(state, position)
     terrain = base_tile(state, position)
-    blocked = {" ", "#", "~", "T"}
-    if semantic is not None and not semantic.walkable:
-        return False
-    if material and terrain in blocked:
-        if not (material.ice and terrain == "~"):
+    if state.location == "region":
+        definition = regional_terrain_at(state.region, position)
+        if not definition.walkable and not (
+            material and material.ice and definition.glyph == "~"
+        ):
             return False
-        terrain = "_"
+        tile = "_" if material and material.ice and definition.glyph == "~" else definition.glyph
+    else:
+        blocked = {" ", "#", "~", "T", "=", "t", "F", "f"}
+        if semantic is not None and not semantic.walkable:
+            return False
+        if material and terrain in blocked:
+            if not (material.ice and terrain == "~"):
+                return False
+            terrain = "_"
+        tile = displayed_tile(state, position)
     # Regional overlays, containers and scheduled witnesses are passable.  A
     # path query only needs their underlying terrain; resolving their display
     # glyph for every breadth-first-search cell needlessly rescans those
     # collections.  Vessel actors and furniture have additional collision
     # rules, so ship movement still uses the complete displayed tile.
-    tile = terrain if state.location == "region" else displayed_tile(state, position)
     if state.location == "roag":
-        blocked |= {"=", "t", "F", "f"}
         if state.roag_space == "tavern" and position in TABLE_SURFACE | DRAW_SURFACE | DICE_SURFACE:
             return False
-    if tile in blocked:
-        return False
-    if state.location == "roag" and tile in {"a", "v", "B"}:
-        return False
+        if tile in blocked or tile in {"a", "v", "B"}:
+            return False
     if state.combat_active and not ignore_threat:
         if any(threat.position == position and threat.status in {"watching", "engaged"} for threat in state.combatants):
             return False
@@ -252,7 +258,12 @@ def _line(start: Position, end: Position) -> list[Position]:
 
 
 def blocks_sight(state: GameState, position: Position) -> bool:
-    return (semantic_cell(state, position).blocks_sight if semantic_cell(state, position) is not None else base_tile(state, position) in {"#", "T", "+"}) or position_key(position) in state.smoke
+    if state.location == "region":
+        terrain_blocks = regional_terrain_at(state.region, position).blocks_sight
+    else:
+        semantic = semantic_cell(state, position)
+        terrain_blocks = semantic.blocks_sight if semantic is not None else base_tile(state, position) in {"#", "T", "+"}
+    return terrain_blocks or position_key(position) in state.smoke
 
 
 def line_of_sight(state: GameState, start: Position, end: Position) -> bool:
@@ -295,6 +306,16 @@ def cover_at(state: GameState, shooter: Position, target: Position) -> str:
         Position(target.x + 1, target.y, target.z), Position(target.x - 1, target.y, target.z),
         Position(target.x, target.y + 1, target.z), Position(target.x, target.y - 1, target.z),
     )
+    if state.location == "region":
+        target_terrain = regional_terrain_at(state.region, target)
+        adjacent_terrain = tuple(regional_terrain_at(state.region, point) for point in adjacent)
+        if any(terrain.cover == "partial" for terrain in adjacent_terrain):
+            return "partial"
+        if shooter.z <= target.z and any(
+            terrain.cover == "low" for terrain in (target_terrain, *adjacent_terrain)
+        ):
+            return "partial"
+        return "open"
     if any(base_tile(state, point) in {"#", "T", "+"} for point in adjacent):
         return "partial"
     if shooter.z <= target.z and any(base_tile(state, point) == "%" for point in (target, *adjacent)):
@@ -680,7 +701,7 @@ def reachable_positions(state: GameState, start: Position | None = None) -> set[
         if region_tile(state, current) == "O" and current.z > -1:
             candidates.append(Position(current.x, current.y, current.z - 1))
         for candidate in candidates:
-            walkable = region_tile(state, candidate) not in {" ", "#", "~", "T"}
+            walkable = regional_terrain_at(state.region, candidate).walkable
             if candidate not in seen and walkable:
                 seen.add(candidate)
                 queue.append(candidate)

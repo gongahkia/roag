@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .state import Position
+
 
 @dataclass(frozen=True)
 class MoveCommand:
@@ -61,8 +63,15 @@ class AdvanceWorldCommand:
     guarded: bool = False
 
 
+@dataclass(frozen=True)
+class TerrainActionCommand:
+    """Apply a physical verb to one adjacent regional terrain cell."""
+    action_id: str
+    target: Position
+
+
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
-    | AdvanceWorldCommand
+    | AdvanceWorldCommand | TerrainActionCommand
 )

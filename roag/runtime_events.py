@@ -93,10 +93,31 @@ class RetreatResolved:
     event_id: str = field(init=False, default="combat.retreat.resolved")
 
 
+@dataclass(frozen=True)
+class TerrainDamaged:
+    actor_id: str
+    position: Position
+    terrain_id: str
+    action_id: str
+    amount: int
+    remaining: int
+    event_id: str = field(init=False, default="terrain.damaged")
+
+
+@dataclass(frozen=True)
+class TerrainChanged:
+    actor_id: str
+    position: Position
+    previous_terrain_id: str
+    terrain_id: str
+    action_id: str
+    event_id: str = field(init=False, default="terrain.changed")
+
+
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
-    | GuardResolved | RetreatResolved
+    | GuardResolved | RetreatResolved | TerrainDamaged | TerrainChanged
 )
 
 

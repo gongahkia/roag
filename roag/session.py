@@ -7,20 +7,20 @@ from pathlib import Path
 
 from .actions import (
     ActionResult, advance_world, attack, choose_relic, guard, interact, move,
-    retreat, set_auto_place_enabled, use_gear,
+    retreat, set_auto_place_enabled, terrain_action, use_gear,
 )
 from .commands import (
     AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
     InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
-    SetAutoPlaceCommand, UseGearCommand,
+    SetAutoPlaceCommand, TerrainActionCommand, UseGearCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
     ItemUsed, RetreatResolved, RuntimeEvent, RuntimeEventBatch,
-    RuntimeEventCollector,
+    RuntimeEventCollector, TerrainChanged,
 )
 from .save import load_game, save_game
-from .state import GameState, create_world
+from .state import GameState, Position, create_world
 from .views import ActorView, InteractionView, WorldView, actor_views, interaction_view, world_view
 
 
@@ -196,6 +196,35 @@ class GameSession:
             if result.changed:
                 self._auto_place_enabled = command.enabled
             return self._outcome(result, "auto_place.set" if result.changed else "auto_place.rejected", collector=collector, world_time_before=world_time_before)
+        if isinstance(command, TerrainActionCommand):
+            if (
+                command.action_id not in {"cut", "dig", "break"}
+                or not isinstance(command.target, Position)
+                or any(type(value) is not int for value in (
+                    command.target.x, command.target.y, command.target.z,
+                ))
+            ):
+                return self._reject("terrain.invalid", collector=collector)
+            result = terrain_action(
+                self._state,
+                command.action_id,
+                command.target,
+                collector=collector,
+            )
+            result_id = (
+                "terrain.destroyed"
+                if any(isinstance(event, TerrainChanged) for event in result.events)
+                else "terrain.damaged" if result.changed
+                else "terrain.rejected"
+            )
+            target_id = f"{command.target.x},{command.target.y},{command.target.z}"
+            return self._outcome(
+                result,
+                result_id,
+                target_id,
+                collector=collector,
+                world_time_before=world_time_before,
+            )
         if isinstance(command, AdvanceWorldCommand):
             if type(command.steps) is not int or not 1 <= command.steps <= 100 or type(command.guarded) is not bool:
                 return self._reject("world.advance.invalid", collector=collector)

@@ -412,6 +412,15 @@ def advance_materials(state: GameState) -> int:
 
 
 def handle_material(state: GameState, verb: str, point: Position) -> tuple[bool, str]:
+    from .terrain_actions import supports_terrain_action
+
+    if supports_terrain_action(state, verb, point):
+        # Ordinary physical terrain has one canonical reducer. Authored
+        # material reactions and non-terrain cells retain the legacy path.
+        from .actions import terrain_action
+
+        result = terrain_action(state, verb, point)
+        return result.changed, result.message
     cells = fields(state)
     before = copy.deepcopy(cells)
     result = _handle_material(state, verb, point)

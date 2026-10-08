@@ -37,7 +37,8 @@ from .inventory import (
 )
 from .runtime_events import (
     ActorDefeated, AttackResolved, DamageApplied, RuntimeEvent,
-    RuntimeEventBatch, RuntimeEventCollector, StatusChanged,
+    RuntimeEventBatch, RuntimeEventCollector, StatusChanged, TerrainChanged,
+    TerrainDamaged,
 )
 from .state import (
     CommodityStack, GameState, Person, Position, SoundEvent, Threat,
@@ -2080,6 +2081,76 @@ def _destroy_floor(state: GameState) -> ActionResult:
         state,
         action_format("action.environment.floor.broken", fall=fall, sounds=(" " + " ".join(sounds)) if sounds else ""),
         priority=3,
+    )
+
+
+def terrain_action(
+    state: GameState,
+    action_id: str,
+    target: Position,
+    *,
+    collector: RuntimeEventCollector | None = None,
+) -> ActionResult:
+    """Resolve ordinary physical terrain through the semantic terrain seam."""
+    from .material_presentation import (
+        material_display_name,
+        material_format,
+        material_text,
+        material_verb_display_name,
+    )
+    from .terrain_actions import resolve_terrain_action
+
+    resolution = resolve_terrain_action(state, action_id, target)
+    if not resolution.accepted:
+        message_id = {
+            "terrain.invalid_target": "material.handle.invalid_target",
+            "terrain.tool_required": "material.handle.tool_requirement",
+        }.get(resolution.result_id, "material.handle.structure_requirement")
+        return _plain(state, material_text(message_id))
+
+    if resolution.yield_material is not None:
+        from .materials import ensure_cell
+
+        cell = ensure_cell(state, target)
+        if cell is not None:
+            cell.material = resolution.yield_material
+            cell.fuel = max(cell.fuel, resolution.yield_fuel)
+            if resolution.yield_material == "soil":
+                cell.coating, cell.fire = "ash", 0
+    sounds = emit_sound(state, resolution.sound, target)
+    material_id = resolution.material_id or "soil"
+    message = material_format(
+        "material.handle.result",
+        verb=material_verb_display_name(action_id),
+        material=material_display_name(material_id),
+        coordinate=position_key(target),
+    )
+    events: tuple[RuntimeEvent, ...] = (
+        TerrainDamaged(
+            state.active_courier_id or "courier",
+            target,
+            resolution.terrain_id or "terrain.region.unknown",
+            action_id,
+            resolution.damage,
+            resolution.remaining,
+        ),
+    )
+    if resolution.destroyed:
+        events += (
+            TerrainChanged(
+                state.active_courier_id or "courier",
+                target,
+                resolution.terrain_id or "terrain.region.unknown",
+                resolution.replacement_terrain_id or "terrain.region.unknown",
+                action_id,
+            ),
+        )
+    return _time_result(
+        state,
+        " ".join([message, *sounds]),
+        priority=3,
+        events=events,
+        collector=collector,
     )
 
 
