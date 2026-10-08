@@ -9,8 +9,9 @@ from dataclasses import dataclass
 
 from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .character_ui import run_character_creation
+from .regions import begin_region
 from .save import SaveError, load_game, save_path
-from .state import create_world
+from .state import GameState, create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
 from .ui_presentation import ui_format, ui_text
 
@@ -122,6 +123,15 @@ def _read_seed(screen: curses.window) -> str:
     return seed or _generated_seed()
 
 
+def _start_new_world(screen: curses.window, state: GameState) -> bool:
+    """Finish character creation and enter the initial region without time."""
+    if not run_character_creation(screen, state):
+        return False
+    begin_region(state, state.active_region_id)
+    play(screen, state)
+    return True
+
+
 def run(screen: curses.window) -> None:
     _set_cursor_visibility(0)
     screen.keypad(True)
@@ -153,8 +163,7 @@ def run(screen: curses.window) -> None:
                 return
             if char == "n":
                 state = create_world(_read_seed(screen))
-                if run_character_creation(screen, state):
-                    play(screen, state)
+                if _start_new_world(screen, state):
                     return
             continue
         title = ui_text("ui.title.game")
@@ -183,6 +192,5 @@ def run(screen: curses.window) -> None:
                 notice = str(exc)
         if char == "n":
             state = create_world(_read_seed(screen))
-            if run_character_creation(screen, state):
-                play(screen, state)
+            if _start_new_world(screen, state):
                 return

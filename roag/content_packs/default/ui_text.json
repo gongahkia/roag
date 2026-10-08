@@ -80,7 +80,7 @@
     "ui.minimum_size.need": "Roag's chart needs at least {width}x{height} terminal marks.",
     "ui.minimum_size.present": "Present frame: {width}x{height}. Widen it, or Q signs the leave book.",
     "ui.world_start.arrival": "Roag reaches {region}. {condition}.",
-    "ui.world_start.courier": "{courier} has the courier watch with a basic working kit. Press E at the gangplank to walk ashore; Tab offers the steam tug.",
+    "ui.world_start.courier": "{courier} has the courier watch with a basic working kit.",
     "ui.world_start.relic": "A finite river-glass ward rests in the household stores.",
     "ui.quest.treasure.memory": "Treasure lead in {region}: {clue}",
     "ui.quest.treasure.notice": "Treasure lead marked: {clue}",

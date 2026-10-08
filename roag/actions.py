@@ -1466,31 +1466,9 @@ def depart(state: GameState) -> ActionResult:
     state.expedition_by_tug = by_tug
     if by_tug:
         state.active_vehicle_id = None
-    state.location, state.current_room = "region", state.active_region_id
-    state.position = state.region.landmarks["landing"]
-    state.expedition_count += 1
-    state.pressure_elapsed = state.noise = 0
-    state.support_spent = state.guarded_step = False
-    state.crossbow_loaded, state.aimed_target = True, None
-    state.weather, state.smoke, state.water = "clear", {}, {}
-    from .regions import reconstruct_regional_process
+    from .regions import begin_region
 
-    reconstruct_regional_process(state)
-    from .frontier_elites import revisit_claimants
-    revisit_claimants(state)
-    from .aftermath import prepare_aftermath
-
-    prepare_aftermath(state)
-    state.merchant_present, state.merchant_stock = False, []
-    state.merchant.available = False
-    merchant_schedule = state.actor_schedules.get(state.merchant.id)
-    if merchant_schedule:
-        merchant_schedule.available = False
-        merchant_schedule.activity = "away on a regional circuit"
-    field_of_view(state)
-    from .situations import activate_for_band
-
-    activate_for_band(state, "steady")
+    begin_region(state, state.active_region_id)
     state.remember(
         action_format("action.depart.memory", count=state.expedition_count, courier=state.courier.name, region=state.region.name)
     )

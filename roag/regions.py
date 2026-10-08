@@ -9,7 +9,7 @@ import weakref
 
 from .content import COMMODITIES, ENEMY_ARCHETYPES
 from .encounters import production_encounter_groups, threat_from_archetype
-from .state import Contact, Container, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
+from .state import Contact, Container, GameState, MarketEntry, Position, Region, Threat, VerticalLink, stage_rng
 from .topology_presentation import (
     regional_contact_name, regional_contact_role, regional_container_name,
     regional_generator_text, regional_link_name, regional_zone_name,
@@ -819,3 +819,53 @@ def activate_region(state, region_id: str) -> None:
     from .interference import apply_arrival
 
     apply_arrival(state, region_id)
+
+
+def begin_region(
+    state: GameState,
+    region_id: str,
+    position: Position | None = None,
+) -> None:
+    """Enter regional play without vessel departure policy or world time.
+
+    Callers remain responsible for deciding whether entry is permitted and for
+    charging any action-clock cost. This function owns only the shared regional
+    bootstrap needed by both a fresh run and an ordinary vessel departure.
+    """
+    if region_id not in state.regions:
+        from .frontiers import ensure_frontier
+
+        ensure_frontier(state, region_id)
+    region = state.regions[region_id]
+    entry = position or region.landmarks["landing"]
+    if not isinstance(entry, Position) or entry not in region_reachable(region):
+        raise ValueError("regional entry position must be reachable")
+    if state.active_region_id != region_id or state.region is not region:
+        activate_region(state, region_id)
+
+    state.location, state.current_room = "region", region_id
+    state.position = entry
+    state.expedition_count += 1
+    state.pressure_elapsed = state.noise = 0
+    state.support_spent = state.guarded_step = False
+    state.crossbow_loaded, state.aimed_target = True, None
+    state.weather, state.smoke, state.water = "clear", {}, {}
+    reconstruct_regional_process(state)
+    from .frontier_elites import revisit_claimants
+
+    revisit_claimants(state)
+    from .aftermath import prepare_aftermath
+
+    prepare_aftermath(state)
+    state.merchant_present, state.merchant_stock = False, []
+    state.merchant.available = False
+    merchant_schedule = state.actor_schedules.get(state.merchant.id)
+    if merchant_schedule:
+        merchant_schedule.available = False
+        merchant_schedule.activity = "away on a regional circuit"
+    from .world import field_of_view
+
+    field_of_view(state)
+    from .situations import activate_for_band
+
+    activate_for_band(state, "steady")

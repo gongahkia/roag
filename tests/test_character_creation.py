@@ -12,6 +12,7 @@ from roag.character import (
 )
 from roag.character_ui import _draw, _read_name, run_character_creation
 from roag.inventory import weight_capacity
+from roag.main import _start_new_world
 from roag.save import load_game, save_game
 from roag.state import StateError, create_world, game_state_from_dict, validate_state
 from roag.terminal import _overlay_lines, dialogue_choices
@@ -182,11 +183,17 @@ class CharacterCreationTests(unittest.TestCase):
             def getstr(self, row, col, count):
                 return b"Mira Vale"
 
-        with patch("curses.echo"), patch("curses.noecho"), patch("curses.curs_set"):
-            self.assertTrue(run_character_creation(Screen(), self.state))
+        screen = Screen()
+        with patch("curses.echo"), patch("curses.noecho"), patch("curses.curs_set"), \
+                patch("roag.main.play") as play:
+            self.assertTrue(_start_new_world(screen, self.state))
         self.assertEqual(self.state.courier.name, "Mira Vale")
         self.assertEqual(self.state.courier.role, "pilot")
         self.assertEqual(self.state.courier.ancestry, "Reedfolk")
+        self.assertEqual(self.state.location, "region")
+        self.assertEqual(self.state.position, self.state.region.landmarks["landing"])
+        self.assertEqual((self.state.world_time, self.state.expedition_count), (0, 1))
+        play.assert_called_once_with(screen, self.state)
         validate_state(self.state)
 
     def test_creation_panel_and_name_prompt_center_without_losing_fields(self):

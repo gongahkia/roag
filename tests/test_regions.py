@@ -2,15 +2,40 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from roag.actions import _advance_world, interact
+from roag.actions import _advance_world, interact, move
 from roag.inventory import create_item
-from roag.regions import activate_region, region_reachable, store_active_region
+from roag.regions import activate_region, begin_region, region_reachable, store_active_region
 from roag.save import load_game, save_game
-from roag.state import Position, create_world
-from roag.world import build_combinations
+from roag.state import Position, create_world, validate_state
+from roag.world import build_combinations, is_walkable
 
 
 class FourRegionGenerationTests(unittest.TestCase):
+    def test_begin_region_is_zero_time_and_immediately_playable(self):
+        state = create_world("direct regional beginning")
+        begin_region(state, "hearthford")
+        self.assertEqual(state.location, "region")
+        self.assertEqual(state.current_room, "hearthford")
+        self.assertEqual(state.position, state.region.landmarks["landing"])
+        self.assertEqual((state.world_time, state.expedition_count), (0, 1))
+        self.assertEqual((state.pressure_elapsed, state.noise), (0, 0))
+        self.assertTrue(state.region.seen)
+        validate_state(state)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "direct-start.json"
+            save_game(state, path)
+            restored = load_game(path)
+        self.assertEqual(restored.location, "region")
+        self.assertEqual(restored.position, state.region.landmarks["landing"])
+        self.assertEqual((restored.world_time, restored.expedition_count), (0, 1))
+
+        dx, dy = next(
+            (dx, dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+            if is_walkable(state, Position(state.position.x + dx, state.position.y + dy, state.position.z))
+        )
+        self.assertTrue(move(state, dx, dy).time_advanced)
+        self.assertEqual(state.world_time, 1)
+
     def test_whitecairn_shared_hoist_operates_control_before_climbing(self):
         state = create_world("shared quarry hoist")
         activate_region(state, "whitecairn")
