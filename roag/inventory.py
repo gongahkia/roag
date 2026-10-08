@@ -795,6 +795,52 @@ def consume_carried(state: GameState, kind: str, quantity: int = 1) -> bool:
     return True
 
 
+def consume_pack_items(
+    state: GameState,
+    owner_id: str,
+    kind: str,
+    quantity: int = 1,
+) -> int:
+    """Consume an exact physical pack quantity in stable item-ID order.
+
+    Engine effects use this narrower seam so a component cannot silently
+    consume readied or equipped items. The operation is all-or-nothing and
+    returns the amount actually consumed.
+    """
+    if (
+        not isinstance(owner_id, str)
+        or not owner_id
+        or not isinstance(kind, str)
+        or not kind
+        or type(quantity) is not int
+        or quantity <= 0
+    ):
+        raise ValueError("pack item consumption requires valid identity and quantity")
+    candidates = sorted(
+        (
+            item for item in state.items
+            if item.owner_id == owner_id
+            and item.location == "pack"
+            and item.kind == kind
+            and item.quantity > 0
+        ),
+        key=lambda item: item.id,
+    )
+    if sum(item.quantity for item in candidates) < quantity:
+        return 0
+    remaining = quantity
+    for item in candidates:
+        taken = min(remaining, item.quantity)
+        item.quantity -= taken
+        remaining -= taken
+        if item.quantity == 0:
+            item.location, item.owner_id = "destroyed", None
+        if remaining == 0:
+            break
+    sync_legacy_load(state)
+    return quantity
+
+
 def physical_ammunition(state: GameState, ammunition: str) -> int:
     physical_kind = AMMUNITION_ITEMS.get(ammunition)
     if physical_kind is None:

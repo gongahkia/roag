@@ -5,10 +5,14 @@ from dataclasses import FrozenInstanceError
 import unittest
 
 from roag.circuits import CELL_CHARGE, cell_key
+from roag.inventory import auto_place, create_item
 from roag.simulation_effects import (
+    ActorRef,
     ActorDefeatedFact,
     ComponentRef,
+    ConsumeResource,
     GainCharge,
+    LoadRack,
     ReactionRule,
     ResourceGainedFact,
     SimulationFactCollector,
@@ -18,7 +22,7 @@ from roag.simulation_effects import (
     WithinRange,
     resolve_component_reactions,
 )
-from roag.state import CircuitCell, Position, create_world
+from roag.state import CircuitCell, Position, create_world, game_state_from_dict
 
 
 class SimulationEffectTests(unittest.TestCase):
@@ -119,6 +123,164 @@ class SimulationEffectTests(unittest.TestCase):
         empty = resolve_component_reactions(self.state, (fact,), (rule,))
         self.assertEqual(empty.applications, ())
 
+    def test_resource_effect_consumes_exact_physical_pack_stock_and_audits_kind(self):
+        self.state.location = "region"
+        owner = self.state.active_courier_id
+        resource = create_item(
+            self.state, "ingredient:clay", "engine resource", quantity=2,
+        )
+        self.assertTrue(auto_place(
+            self.state, resource.id, "pack", owner_id=owner,
+        ))
+        fact = ResourceGainedFact(
+            owner, resource.id, resource.kind, resource.quantity,
+            self.space, self.position,
+        )
+        rule = ReactionRule(
+            "test.consume-clay",
+            ComponentRef("circuit", self.key),
+            "resource.gained",
+            ConsumeResource(resource.kind, 2, ActorRef(owner)),
+        )
+
+        result = resolve_component_reactions(self.state, (fact,), (rule,))
+
+        self.assertEqual((resource.location, resource.owner_id), ("destroyed", None))
+        self.assertEqual(len(result.applications), 1)
+        application = result.applications[0]
+        self.assertEqual(application.target, ActorRef(owner))
+        self.assertEqual(application.effect_id, "consume_resource")
+        self.assertEqual(application.resource_kind, "ingredient:clay")
+        self.assertEqual(application.resource_spent, 2)
+        self.assertEqual(
+            (application.requested_amount, application.applied_amount), (2, 2),
+        )
+        payload = self.state.to_dict()
+        restored = game_state_from_dict(payload)
+        restored_resource = next(
+            item for item in restored.items if item.id == resource.id
+        )
+        self.assertEqual(restored_resource.location, "destroyed")
+        self.assertNotIn("simulation_facts", payload)
+        self.assertNotIn("effect_applications", payload)
+
+    def test_resource_effect_is_all_or_nothing_and_cannot_consume_another_actor(self):
+        self.state.location = "region"
+        owner = self.state.active_courier_id
+        resource = create_item(self.state, "ingredient:clay", "single resource")
+        self.assertTrue(auto_place(
+            self.state, resource.id, "pack", owner_id=owner,
+        ))
+        fact = ResourceGainedFact(
+            owner, resource.id, resource.kind, resource.quantity,
+            self.space, self.position,
+        )
+        insufficient = ReactionRule(
+            "test.insufficient",
+            ComponentRef("circuit", self.key),
+            "resource.gained",
+            ConsumeResource(resource.kind, 2, ActorRef(owner)),
+        )
+        wrong_actor = ReactionRule(
+            "test.wrong-actor",
+            ComponentRef("circuit", self.key),
+            "resource.gained",
+            ConsumeResource(resource.kind, 1, ActorRef("courier:other")),
+        )
+
+        result = resolve_component_reactions(
+            self.state, (fact,), (insufficient, wrong_actor),
+        )
+
+        self.assertEqual(result.applications, ())
+        self.assertEqual(
+            (resource.location, resource.owner_id, resource.quantity),
+            ("pack", owner, 1),
+        )
+
+        remote_space = "region:greywash"
+        remote_key = cell_key(remote_space, self.position, "surface")
+        self.state.circuits[remote_key] = CircuitCell(
+            remote_space, self.position, "surface", "rack",
+        )
+        remote_fact = ResourceGainedFact(
+            owner, resource.id, resource.kind, resource.quantity,
+            remote_space, self.position,
+        )
+        remote_rule = ReactionRule(
+            "test.inactive-space",
+            ComponentRef("circuit", remote_key),
+            "resource.gained",
+            ConsumeResource(resource.kind, 1, ActorRef(owner)),
+        )
+        remote = resolve_component_reactions(
+            self.state, (remote_fact,), (remote_rule,),
+        )
+        self.assertEqual(remote.applications, ())
+        self.assertEqual((resource.location, resource.quantity), ("pack", 1))
+
+    def test_rack_load_atomically_converts_one_physical_cell_into_full_charge(self):
+        self.state.location = "region"
+        owner = self.state.active_courier_id
+        cell = create_item(self.state, "circuit:cell", "engine fuel")
+        self.assertTrue(auto_place(
+            self.state, cell.id, "pack", owner_id=owner,
+        ))
+        fact = ResourceGainedFact(
+            owner, cell.id, cell.kind, cell.quantity,
+            self.space, self.position,
+        )
+        rule = ReactionRule(
+            "test.load-rack",
+            ComponentRef("circuit", self.key),
+            "resource.gained",
+            LoadRack(ComponentRef("circuit", self.key), ActorRef(owner)),
+        )
+
+        result = resolve_component_reactions(self.state, (fact,), (rule,))
+
+        self.assertEqual(self.state.circuits[self.key].charge, CELL_CHARGE)
+        self.assertEqual((cell.location, cell.owner_id), ("destroyed", None))
+        self.assertEqual(len(result.applications), 1)
+        application = result.applications[0]
+        self.assertEqual(application.effect_id, "load_rack")
+        self.assertEqual(application.target, ComponentRef("circuit", self.key))
+        self.assertEqual(
+            (application.requested_amount, application.applied_amount),
+            (CELL_CHARGE, CELL_CHARGE),
+        )
+        self.assertEqual(
+            (application.resource_kind, application.resource_spent),
+            ("circuit:cell", 1),
+        )
+
+    def test_rack_load_does_not_spend_a_cell_for_partial_benefit(self):
+        self.state.location = "region"
+        owner = self.state.active_courier_id
+        self.state.circuits[self.key].charge = CELL_CHARGE + 1
+        cell = create_item(self.state, "circuit:cell", "engine fuel")
+        self.assertTrue(auto_place(
+            self.state, cell.id, "pack", owner_id=owner,
+        ))
+        fact = ResourceGainedFact(
+            owner, cell.id, cell.kind, cell.quantity,
+            self.space, self.position,
+        )
+        rule = ReactionRule(
+            "test.full-rack",
+            ComponentRef("circuit", self.key),
+            "resource.gained",
+            LoadRack(ComponentRef("circuit", self.key), ActorRef(owner)),
+        )
+
+        result = resolve_component_reactions(self.state, (fact,), (rule,))
+
+        self.assertEqual(result.applications, ())
+        self.assertEqual(self.state.circuits[self.key].charge, CELL_CHARGE + 1)
+        self.assertEqual(
+            (cell.location, cell.owner_id, cell.quantity), ("pack", owner, 1),
+        )
+
     def test_fact_trigger_and_physical_space_must_match(self):
         detected = ThreatDetectedFact("threat:test", "sensor:test", self.space, self.position)
         wrong_trigger = resolve_component_reactions(self.state, (detected,), (self.rule(),))
@@ -189,6 +351,10 @@ class SimulationEffectTests(unittest.TestCase):
             GainCharge(0)
         with self.assertRaises(ValueError):
             SpendCharge(0, ComponentRef("circuit", self.key))
+        with self.assertRaises(ValueError):
+            ConsumeResource("ingredient:clay", 0, ActorRef("courier:test"))
+        with self.assertRaises(ValueError):
+            ActorRef("")
         duplicate = (self.rule(), self.rule())
         with self.assertRaises(ValueError):
             resolve_component_reactions(self.state, (self.fact(),), duplicate)

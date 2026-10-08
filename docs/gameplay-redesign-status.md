@@ -28,11 +28,14 @@ source of truth.
 | ENGINE-01 | Complete | Transient simulation facts and bounded component effects. |
 | ENGINE-02 | Complete | A crafted, placed threat sensor converts nearby courier defeats into bounded charge in a physically connected rack. |
 | ENGINE-03 | Complete | A connected mass sensor spends rack charge for useful terrain power, producing additional noise and danger pressure. |
+| ENGINE-04 | Complete | Successful physical gathering emits a resource fact; a nearby connected mass sensor converts it into bounded rack charge while the item remains an ordinary recipe input. |
+| ENGINE-05 | Complete | The bounded effect resolver can consume an exact quantity of real pack inventory through an explicit actor target, without touching equipped items or adding another resource model. |
+| ENGINE-06 | Complete | An opt-in supply sensor atomically converts a newly fabricated physical galvanic cell into its connected rack's full 24-pulse yield. |
 
-The published foundation roadmap through ENGINE-02 is complete. ENGINE-03 is
-the first post-roadmap tranche, scoped from the integrated systems already in
-the repository. Further tranches should continue to be chosen from playtesting
-and the still-open product decisions rather than assumed here.
+The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
+through ENGINE-06 are post-roadmap tranches scoped from the integrated systems
+already in the repository. Further tranches should continue to be chosen from
+playtesting and the still-open product decisions rather than assumed here.
 
 ## Implemented seams
 
@@ -113,6 +116,41 @@ and the still-open product decisions rather than assumed here.
   existing semantic sound. The ordinary sound, alert, pressure, and danger
   paths therefore receive the machinery cost without an engine-specific
   danger branch.
+- `ResourceGainedFact` carries the existing physical item ID, item kind, and
+  quantity rather than introducing a second abstract resource inventory.
+  Successful shore-site gathering emits it only after the item has entered the
+  courier's pack; rejected or exhausted gathers emit nothing.
+- A connected mass sensor within one cell can react to that acquisition and
+  add one bounded charge to its rack. The acquired ingredient remains normal
+  inventory and can be consumed by the existing recipe system.
+- Engine rule discovery can filter registrations by the fact triggers being
+  resolved. A mass sensor may therefore expose both acquisition and terrain
+  reactions without irrelevant rules consuming the resolver's finite budget.
+- `roag.inventory.consume_pack_items` is the authoritative all-or-nothing seam
+  for engine resource spending. It consumes physical stacks in stable item-ID
+  order and deliberately excludes readied, secondary, and other equipped
+  locations.
+- `ActorRef` lets a bounded effect target the active courier without treating
+  the courier as a component source. `ConsumeResource` delegates exact pack
+  mutation to inventory and records the physical item kind in the immutable
+  `EffectApplication` audit result.
+- Resource consumption requires the source circuit, fact, and active courier
+  to share the active simulation space. Missing stock, a different actor, an
+  inactive region, or an insufficient quantity is a deterministic no-op.
+- `roag.circuits.load_rack_from_pack` owns the atomic physical conversion used
+  by both manual rack operation and engine effects. It consumes a galvanic cell
+  only when the target rack can accept the cell's entire 24-pulse yield.
+- The finite `LoadRack` effect binds that conversion to one actor and one
+  connected rack and records both delivered charge and physical resource spend
+  in its transient application audit. It cannot partially spend a cell.
+- Field sensors now have an explicit `supply` mode. A supply sensor connected
+  to a rack reacts only to a nearby `resource.gained` fact for a physical
+  `circuit:cell`; configuring this mode is the player's opt-in to automatic
+  loading rather than a global inventory side effect.
+- Successful recipe outputs placed in the active courier's pack now emit the
+  same authoritative physical-acquisition fact as gathered resources. Outputs
+  diverted to vessel storage, rejected crafts, and flask-content recipes do
+  not emit that fact.
 
 ## Compatibility and migrations
 
@@ -148,6 +186,19 @@ and the still-open product decisions rather than assumed here.
   content identity. It persists only existing authoritative outcomes: rack
   charge, terrain mutation/damage, material yield, noise consequences, and
   world time. Its new circuit feedback is presentation-only.
+- ENGINE-04 adds no persistent field or migration. Resource facts and reaction
+  results remain transient; only the already-persistent gathered item, site
+  stock, rack charge, and world time survive save/load. The added circuit text
+  is presentation content, and format 15 remains current.
+- ENGINE-05 adds no persistent field, catalog row, or migration. Actor/effect
+  references and application audits are transient. Successful consumption
+  persists solely through the existing physical `Item` quantity/location
+  fields and their established format-15 serialization.
+- ENGINE-06 adds no persistent field or migration. The `supply` sensor mode is
+  a newly accepted value in the existing serialized `CircuitCell.mode` field;
+  old mode values and old saves remain valid. Only existing rack charge and
+  physical item state persist, while the resource fact and effect audit remain
+  transient. New circuit wording is presentation content only.
 
 ## Known deviations and baseline issues
 
@@ -170,9 +221,25 @@ and the still-open product decisions rather than assumed here.
   remain balance work rather than being generalized prematurely.
 - ENGINE-03 closes one bounded engine loop rather than adding a full component
   roster: defeat -> charge -> terrain power -> additional noise/pressure. It
-  does not yet add inventory-resource triggers, charge-consuming combat
-  effects, equipment-hosted components, production that runs over time, or
-  arbitrary content scripting.
+  does not add charge-consuming combat effects, equipment-hosted components,
+  production that runs over time, or arbitrary content scripting.
+- ENGINE-04 initially limited `resource.gained` to the existing shore-site
+  gather producer. ENGINE-06 deliberately opted successful pack-placed recipe
+  outputs into the same fact. Container loot, rewards, and terrain material
+  exposure still require explicit producer semantics; item construction itself
+  is not a global event bus.
+- Terrain yields remain environmental `MaterialCell` state (`reeds`, `soil`),
+  not physical recipe items. Converting those identities requires an explicit
+  material-to-item policy rather than silently duplicating resources.
+- ENGINE-05 intentionally registers no live component rule. The repository has
+  no existing component whose honest benefit warrants consuming a particular
+  carried resource, so the tranche establishes the safe mutation boundary
+  without adding a wasteful proof mechanic. A later vertical slice must pair
+  consumption and benefit atomically rather than using two independent rules.
+- ENGINE-06 closes that atomic vertical slice specifically for the already
+  established galvanic-cell/rack conversion. It does not introduce arbitrary
+  resource-to-resource recipes, background production, equipment-hosted
+  triggers, or automatic reactions to container loot and rewards.
 - The DANGER-01 starting commit also reproduces the ecology water-interruption
   assertion failure (`fire` remains 1 instead of 0); it is unrelated to the
   director extraction.

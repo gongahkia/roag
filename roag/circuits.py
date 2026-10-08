@@ -36,7 +36,7 @@ if (None in BUILD_KEYS or len(BUILD_KEYS) != len(PLACED_PARTS)
     raise CatalogError("circuits.json has duplicate or missing build keys")
 DIRECTIONS = {"north": (0, -1), "east": (1, 0), "south": (0, 1), "west": (-1, 0)}
 FACING_GLYPHS = {"north": "^", "east": ">", "south": "v", "west": "<"}
-SENSOR_MODES = ("mass", "water", "threat")
+SENSOR_MODES = ("mass", "water", "threat", "supply")
 PULSE_INTERVAL = 6
 CELL_CHARGE = 24
 SIGNAL_SPAN = 64
@@ -138,6 +138,33 @@ def spend_charge(state: GameState, key: str, amount: int) -> int:
     return spent
 
 
+def load_rack_from_pack(
+    state: GameState, key: str, actor_id: str, cells: int = 1,
+) -> int:
+    """Atomically convert carried galvanic cells into full rack charge.
+
+    A cell is physical inventory and is consumed only when the target rack can
+    accept its entire 24-pulse yield.  This is shared by manual operation and
+    bounded engine effects so those paths cannot disagree about conversion.
+    """
+    if type(cells) is not int or cells <= 0:
+        raise ValueError("rack load must use a positive cell count")
+    rack = state.circuits.get(key)
+    charge = cells * CELL_CHARGE
+    if (
+        rack is None
+        or rack.kind != "rack"
+        or rack.charge + charge > 2 * CELL_CHARGE
+    ):
+        return 0
+    from .inventory import consume_pack_items
+
+    if consume_pack_items(state, actor_id, "circuit:cell", cells) != cells:
+        return 0
+    rack.charge += charge
+    return charge
+
+
 def offset(position: Position, facing: str, steps: int = 1) -> Position:
     dx, dy = DIRECTIONS[facing]
     return Position(position.x + dx * steps, position.y + dy * steps, position.z)
@@ -159,6 +186,16 @@ def _threats_in_space(state: GameState, space: str):
 
 def sensor_active(state: GameState, cell: CircuitCell) -> bool:
     point = cell.position
+    if cell.mode == "supply":
+        return (
+            cell.space == space_id(state)
+            and state.position.z == point.z
+            and max(
+                abs(state.position.x - point.x),
+                abs(state.position.y - point.y),
+            ) <= cell.threshold
+            and _available_item(state, "cell") is not None
+        )
     if cell.mode == "water":
         key = f"{point.x},{point.y},{point.z}"
         if cell.space == space_id(state) and state.water.get(key, 0) >= cell.threshold:
@@ -341,8 +378,10 @@ def operate(state: GameState, position: Position, layer: str, action: str = "pri
             return False, circuit_text("circuit.operate.rack_full")
         if _available_item(state, "cell") is None:
             return False, circuit_text("circuit.operate.rack_need_cell")
-        _spend_item(state, "cell")
-        cell.charge += CELL_CHARGE
+        load_rack_from_pack(
+            state, cell_key(cell.space, cell.position, cell.layer),
+            state.active_courier_id,
+        )
         message = circuit_format("circuit.operate.rack_load", charge=cell.charge)
     elif cell.kind in {"piston", "relay"}:
         if cell.kind == "piston" and active(state, cell):

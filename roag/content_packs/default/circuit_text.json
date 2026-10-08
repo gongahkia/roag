@@ -17,7 +17,7 @@
     "circuit.part.drain.name": "Sump pump",
     "circuit.part.drain.description": "A pulsed pump that drains nearby standing water and temporary floods.",
     "circuit.part.sensor.name": "Field sensor",
-    "circuit.part.sensor.description": "Passes pulses while it detects mass, water, or a nearby threat. A threat sensor recovers rack charge from nearby quarry; a mass sensor spends it to amplify nearby terrain work.",
+    "circuit.part.sensor.description": "Passes pulses while it detects mass, water, nearby threats, or carried supply cells. Threat and mass modes recover charge from field events; supply mode loads a newly fabricated galvanic cell into its rack.",
     "circuit.part.relay.name": "One-way relay",
     "circuit.part.relay.description": "Receives a pulse from behind and sends it only toward its facing.",
     "circuit.part.counter.name": "Counted relay",
@@ -113,6 +113,7 @@
     "circuit.event.kill_charge": "Threat sensor at {x},{y} recovers {amount} rack charge from the nearby defeat.",
     "circuit.event.resource_charge": "Mass sensor at {x},{y} recovers {amount} rack charge from the nearby physical acquisition.",
     "circuit.event.terrain_assist": "Mass sensor at {x},{y} spends {amount} rack charge to drive the terrain strike.",
+    "circuit.event.supply_load": "Supply sensor at {x},{y} loads a galvanic cell into its rack, adding {amount} pulses.",
     "circuit.phase.wire": "idle",
     "circuit.phase.head": "arriving",
     "circuit.phase.tail": "fading",
@@ -141,6 +142,7 @@
     "circuit.mode.mass": "mass",
     "circuit.mode.water": "water",
     "circuit.mode.threat": "threat",
+    "circuit.mode.supply": "supply",
     "circuit.facing.north": "north",
     "circuit.facing.east": "east",
     "circuit.facing.south": "south",
@@ -149,6 +151,7 @@
     "circuit.layer.buried": "buried",
     "circuit.mode_title.mass": "Mass",
     "circuit.mode_title.water": "Water",
-    "circuit.mode_title.threat": "Threat"
+    "circuit.mode_title.threat": "Threat",
+    "circuit.mode_title.supply": "Supply"
   }
 }

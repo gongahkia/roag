@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from roag.circuits import cell_key, item_count, operate, place
+from roag.circuits import CELL_CHARGE, cell_key, item_count, operate, place
 from roag.commands import AttackCommand, TerrainActionCommand
 from roag.engine_components import registered_reaction_rules, resolve_actor_defeat
 from roag.inventory import auto_place, create_item
@@ -300,6 +300,95 @@ class EngineComponentTests(unittest.TestCase):
         payload = restored.to_dict()
         self.assertNotIn("simulation_facts", payload)
         self.assertNotIn("resource_gained", payload)
+
+    def test_supply_sensor_atomically_loads_a_newly_crafted_galvanic_cell(self):
+        self.state.circuits.clear()
+        self.state.position = site_position(self.state)
+        sensor_position = self.state.position
+        rack_position = Position(
+            sensor_position.x - 1, sensor_position.y, sensor_position.z,
+        )
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        self.state.circuits[rack_key] = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+        )
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor",
+            mode="supply", threshold=2,
+        )
+        for kind, quantity in RECIPES["circuit-cell"].inputs:
+            item = create_item(
+                self.state, kind, "supply sensor test stock", quantity=quantity,
+            )
+            self.assertTrue(auto_place(
+                self.state, item.id, "pack",
+                owner_id=self.state.active_courier_id,
+            ))
+        mirror = copy.deepcopy(self.state)
+        time_before = self.state.world_time
+
+        changed, message = make(self.state, "circuit-cell")
+        mirror_result = make(mirror, "circuit-cell")
+
+        self.assertTrue(changed, message)
+        self.assertEqual((changed, message), mirror_result)
+        self.assertEqual(self.state.to_dict(), mirror.to_dict())
+        self.assertEqual(self.state.world_time, time_before + 2)
+        self.assertEqual(item_count(self.state, "cell"), 0)
+        self.assertEqual(self.state.circuits[rack_key].charge, CELL_CHARGE)
+        self.assertIn(
+            "loads a galvanic cell",
+            self.state.circuits[sensor_key].last_event,
+        )
+        self.assertIn(
+            self.state.circuits[sensor_key].last_event, self.state.messages,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            restored = load_game(save_game(
+                self.state, Path(directory) / "supply-engine.json",
+            ))
+        self.assertEqual(restored.circuits[rack_key].charge, CELL_CHARGE)
+        self.assertEqual(item_count(restored, "cell"), 0)
+        payload = restored.to_dict()
+        self.assertNotIn("simulation_facts", payload)
+        self.assertNotIn("effect_applications", payload)
+
+    def test_supply_sensor_preserves_cell_when_rack_cannot_accept_full_yield(self):
+        self.state.circuits.clear()
+        self.state.position = site_position(self.state)
+        sensor_position = self.state.position
+        rack_position = Position(
+            sensor_position.x - 1, sensor_position.y, sensor_position.z,
+        )
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        rack = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+            charge=CELL_CHARGE + 1,
+        )
+        self.state.circuits[rack_key] = rack
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor",
+            mode="supply", threshold=2,
+        )
+        for kind, quantity in RECIPES["circuit-cell"].inputs:
+            item = create_item(
+                self.state, kind, "supply sensor test stock", quantity=quantity,
+            )
+            self.assertTrue(auto_place(
+                self.state, item.id, "pack",
+                owner_id=self.state.active_courier_id,
+            ))
+
+        changed, message = make(self.state, "circuit-cell")
+
+        self.assertTrue(changed, message)
+        self.assertEqual(rack.charge, CELL_CHARGE + 1)
+        self.assertEqual(item_count(self.state, "cell"), 1)
+        self.assertFalse(any(
+            "loads a galvanic cell" in entry for entry in self.state.messages
+        ))
 
     def test_terrain_assistance_requires_range_charge_and_a_valid_base_tool(self):
         rack, _ = self.fit_engine(mode="mass")

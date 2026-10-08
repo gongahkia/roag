@@ -426,6 +426,8 @@ class CircuitTests(unittest.TestCase):
         self.assertTrue(sensor_active(state, sensor))
         self.assertTrue(operate(state, sensor.position, "buried")[0])
         self.assertEqual(sensor.mode, "threat")
+        self.assertTrue(operate(state, sensor.position, "buried")[0])
+        self.assertEqual(sensor.mode, "supply")
         self.assertTrue(operate(state, sensor.position, "buried", "secondary")[0])
         self.assertEqual(sensor.threshold, 3)
         relay = self.fit("relay", 24)

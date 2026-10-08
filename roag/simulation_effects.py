@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .circuits import gain_charge, spend_charge
+from .circuits import (
+    CELL_CHARGE, gain_charge, load_rack_from_pack,
+    space_id as active_space_id, spend_charge,
+)
 from .state import GameState, Position
 
 
@@ -143,7 +146,35 @@ class SpendCharge:
             raise ValueError("charge effect amount must be a positive integer")
 
 
-SimulationEffect = GainCharge | SpendCharge
+@dataclass(frozen=True)
+class ActorRef:
+    """Reference an authoritative actor without making it a component source."""
+
+    actor_id: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.actor_id, str) or not self.actor_id:
+            raise ValueError("invalid actor reference")
+
+
+@dataclass(frozen=True)
+class ConsumeResource:
+    """Request all-or-nothing consumption from one actor's physical pack."""
+
+    item_kind: str
+    amount: int
+    target: ActorRef
+    effect_id: str = field(init=False, default="consume_resource")
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.item_kind, str)
+            or not self.item_kind
+            or type(self.amount) is not int
+            or self.amount <= 0
+            or not isinstance(self.target, ActorRef)
+        ):
+            raise ValueError("resource effect requires valid identity and quantity")
 
 
 @dataclass(frozen=True)
@@ -156,6 +187,28 @@ class ComponentRef:
     def __post_init__(self) -> None:
         if self.kind not in SOURCE_KINDS or not isinstance(self.instance_id, str) or not self.instance_id:
             raise ValueError("invalid component reference")
+
+
+@dataclass(frozen=True)
+class LoadRack:
+    """Atomically turn one physical galvanic cell into its full rack yield."""
+
+    target: ComponentRef
+    actor: ActorRef
+    amount: int = field(init=False, default=CELL_CHARGE)
+    resource_kind: str = field(init=False, default="circuit:cell")
+    resource_amount: int = field(init=False, default=1)
+    effect_id: str = field(init=False, default="load_rack")
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.target, ComponentRef) or not isinstance(self.actor, ActorRef):
+            raise ValueError("rack load requires circuit and actor targets")
+
+
+SimulationEffect = GainCharge | SpendCharge | ConsumeResource | LoadRack
+
+
+SimulationTarget = ComponentRef | ActorRef
 
 
 @dataclass(frozen=True)
@@ -189,7 +242,9 @@ class ReactionRule:
     def __post_init__(self) -> None:
         if (not isinstance(self.rule_id, str) or not self.rule_id
                 or self.trigger_id not in TRIGGER_IDS
-                or not isinstance(self.effect, (GainCharge, SpendCharge))
+                or not isinstance(self.effect, (
+                    GainCharge, SpendCharge, ConsumeResource, LoadRack,
+                ))
                 or self.condition is not None and not isinstance(self.condition, WithinRange)):
             raise ValueError("invalid component reaction rule")
         if type(self.priority) is not int:
@@ -204,10 +259,12 @@ class EffectApplication:
     fact_id: str
     rule_id: str
     source: ComponentRef
-    target: ComponentRef
+    target: SimulationTarget
     effect_id: str
     requested_amount: int
     applied_amount: int
+    resource_kind: str | None = None
+    resource_spent: int = 0
 
 
 @dataclass(frozen=True)
@@ -280,6 +337,14 @@ def resolve_component_reactions(
                 continue
             target, applied = _apply_effect(state, fact, rule)
             if applied:
+                resource_kind = None
+                resource_spent = 0
+                if isinstance(rule.effect, ConsumeResource):
+                    resource_kind = rule.effect.item_kind
+                    resource_spent = applied
+                elif isinstance(rule.effect, LoadRack):
+                    resource_kind = rule.effect.resource_kind
+                    resource_spent = rule.effect.resource_amount
                 applications.append(EffectApplication(
                     fact_index=fact_index,
                     fact_id=fact.fact_id,
@@ -289,6 +354,8 @@ def resolve_component_reactions(
                     effect_id=rule.effect.effect_id,
                     requested_amount=rule.effect.amount,
                     applied_amount=applied,
+                    resource_kind=resource_kind,
+                    resource_spent=resource_spent,
                 ))
     return SimulationResolution(facts, tuple(applications))
 
@@ -310,7 +377,7 @@ def _matches(fact: SimulationFact, rule: ReactionRule) -> bool:
 
 def _apply_effect(
     state: GameState, fact: SimulationFact, rule: ReactionRule,
-) -> tuple[ComponentRef, int]:
+) -> tuple[SimulationTarget, int]:
     """Delegate a finite effect to the domain that owns its state mutation."""
     if isinstance(rule.effect, (GainCharge, SpendCharge)) and rule.source.kind == "circuit":
         source = state.circuits.get(rule.source.instance_id)
@@ -327,4 +394,39 @@ def _apply_effect(
         if isinstance(rule.effect, GainCharge):
             return target, gain_charge(state, target.instance_id, rule.effect.amount)
         return target, spend_charge(state, target.instance_id, rule.effect.amount)
+    if isinstance(rule.effect, ConsumeResource) and rule.source.kind == "circuit":
+        source = state.circuits.get(rule.source.instance_id)
+        target = rule.effect.target
+        if (
+            source is None
+            or source.space != fact.space_id
+            or fact.space_id != active_space_id(state)
+            or target.actor_id != state.active_courier_id
+        ):
+            return target, 0
+        from .inventory import consume_pack_items
+
+        return target, consume_pack_items(
+            state, target.actor_id, rule.effect.item_kind, rule.effect.amount,
+        )
+    if isinstance(rule.effect, LoadRack) and rule.source.kind == "circuit":
+        source = state.circuits.get(rule.source.instance_id)
+        target = rule.effect.target
+        target_cell = state.circuits.get(target.instance_id)
+        if (
+            not isinstance(fact, ResourceGainedFact)
+            or fact.item_kind != rule.effect.resource_kind
+            or fact.actor_id != rule.effect.actor.actor_id
+            or source is None
+            or source.space != fact.space_id
+            or fact.space_id != active_space_id(state)
+            or rule.effect.actor.actor_id != state.active_courier_id
+            or target.kind != "circuit"
+            or target_cell is None
+            or target_cell.space != fact.space_id
+        ):
+            return target, 0
+        return target, load_rack_from_pack(
+            state, target.instance_id, rule.effect.actor.actor_id,
+        )
     return rule.source, 0

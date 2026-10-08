@@ -20055,6 +20055,22 @@
         "x",
         "y"
       ]
+    },
+    {
+      "id": "circuit.event.supply_load",
+      "placeholders": [
+        "amount",
+        "x",
+        "y"
+      ]
+    },
+    {
+      "id": "circuit.mode.supply",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.mode_title.supply",
+      "placeholders": []
     }
   ],
   "ecology": [

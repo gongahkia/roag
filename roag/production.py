@@ -202,6 +202,7 @@ def make(state: GameState, recipe_id: str) -> tuple[bool, str]:
         if recipe.id == "iron-billet" and kind == "commodity:charcoal" and has_node(state.courier, "fuel-husbandry"):
             continue
         _consume_input(state, kind, quantity)
+    output = None
     if recipe.contents:
         flask = next(item for item in state.items if item.kind == "field flask" and item.location == "pack"
                      and item.owner_id == state.active_courier_id and not item.contents)
@@ -220,6 +221,16 @@ def make(state: GameState, recipe_id: str) -> tuple[bool, str]:
                 return False, production_text("production.make.space")
         record_acquisition(state, output)
     sync_legacy_load(state)
+    if (
+        output is not None
+        and output.location == "pack"
+        and output.owner_id == state.active_courier_id
+    ):
+        from .engine_components import resolve_resource_gained
+
+        resolve_resource_gained(
+            state, output.id, output.kind, output.quantity, state.position,
+        )
     domain = "brewing" if recipe.contents else "smelting" if recipe.station == "smelter" else "smithing" if recipe.station in {"forge", "gunworks", "workshop"} else "portable"
     record_milestone(state, f"craft:{domain}")
     _advance_world(state, steps=3 if recipe.station in {"forge", "gunworks", "smelter"} else 2)

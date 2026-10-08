@@ -10,9 +10,11 @@ from .simulation_effects import (
     ACTOR_DEFEATED,
     RESOURCE_GAINED,
     TERRAIN_ACTION,
+    ActorRef,
     ActorDefeatedFact,
     ComponentRef,
     GainCharge,
+    LoadRack,
     ReactionRule,
     ResourceGainedFact,
     SimulationFact,
@@ -58,7 +60,7 @@ def registered_reaction_rules(
             sensor.space == active_space
             and sensor.kind == "sensor"
             and sensor.enabled
-            and sensor.mode in {"mass", "threat"}
+            and sensor.mode in {"mass", "threat", "supply"}
         ):
             continue
         linked = nearest_connected_rack(state, sensor)
@@ -95,6 +97,20 @@ def registered_reaction_rules(
                     effect=GainCharge(1, target),
                     condition=WithinRange(sensor.space, sensor.position, 1),
                 ))
+        elif sensor.mode == "supply":
+            if trigger_ids is None or RESOURCE_GAINED in trigger_ids:
+                rules.append(ReactionRule(
+                    rule_id=f"engine.supply_sensor.load_rack:{sensor_key}",
+                    source=source,
+                    trigger_id=RESOURCE_GAINED,
+                    effect=LoadRack(
+                        target, ActorRef(state.active_courier_id or "courier"),
+                    ),
+                    priority=-10,
+                    condition=WithinRange(
+                        sensor.space, sensor.position, sensor.threshold,
+                    ),
+                ))
     return tuple(rules)
 
 
@@ -114,7 +130,9 @@ def resolve_engine_facts(
     )
     messages: list[str] = []
     for application in resolution.applications:
-        if application.effect_id not in {"gain_charge", "spend_charge"}:
+        if application.effect_id not in {
+            "gain_charge", "spend_charge", "load_rack",
+        }:
             continue
         source = state.circuits.get(application.source.instance_id)
         target = state.circuits.get(application.target.instance_id)
@@ -124,6 +142,7 @@ def resolve_engine_facts(
             ("gain_charge", ACTOR_DEFEATED): "circuit.event.kill_charge",
             ("gain_charge", RESOURCE_GAINED): "circuit.event.resource_charge",
             ("spend_charge", TERRAIN_ACTION): "circuit.event.terrain_assist",
+            ("load_rack", RESOURCE_GAINED): "circuit.event.supply_load",
         }.get((application.effect_id, application.fact_id))
         if message_id is None:
             continue

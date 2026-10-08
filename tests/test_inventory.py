@@ -13,6 +13,7 @@ from roag.inventory import (
     apply_terrain_status,
     auto_place,
     can_place,
+    consume_pack_items,
     create_item,
     basic_courier_kit,
     ensure_courier_basics,
@@ -38,6 +39,29 @@ def active_state(seed: str = "spatial inventory"):
 
 
 class SpatialInventoryTests(unittest.TestCase):
+    def test_engine_resource_consumption_is_pack_only_atomic_and_stable(self):
+        state = active_state("bounded pack resource consumption")
+        owner = state.active_courier_id
+        first = create_item(state, "ingredient:clay", "first stack")
+        second = create_item(state, "ingredient:clay", "second stack", quantity=2)
+        self.assertTrue(auto_place(state, first.id, "pack", owner_id=owner))
+        self.assertTrue(auto_place(state, second.id, "pack", owner_id=owner))
+
+        self.assertEqual(consume_pack_items(state, owner, "ingredient:clay", 2), 2)
+        self.assertEqual((first.location, first.owner_id), ("destroyed", None))
+        self.assertEqual((second.location, second.quantity), ("pack", 1))
+
+        before = copy.deepcopy(state.to_dict())
+        self.assertEqual(consume_pack_items(state, owner, "ingredient:clay", 2), 0)
+        self.assertEqual(state.to_dict(), before)
+
+        equipped = create_item(
+            state, "ingredient:clay", "not an engine resource",
+            location="secondary", owner_id=owner,
+        )
+        self.assertEqual(consume_pack_items(state, owner, "ingredient:clay", 2), 0)
+        self.assertEqual((equipped.location, equipped.quantity), ("secondary", 1))
+
     def test_every_initial_courier_has_one_physical_basic_working_kit(self):
         state = create_world("ready household")
         self.assertEqual(state.active_courier_id, state.household[0].id)
