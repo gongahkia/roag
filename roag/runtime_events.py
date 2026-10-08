@@ -114,10 +114,20 @@ class TerrainChanged:
     event_id: str = field(init=False, default="terrain.changed")
 
 
+@dataclass(frozen=True)
+class ThreatSpawned:
+    actor_id: str
+    archetype_id: str
+    position: Position
+    pressure_band: str
+    event_id: str = field(init=False, default="threat.spawned")
+
+
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | TerrainDamaged | TerrainChanged
+    | ThreatSpawned
 )
 
 

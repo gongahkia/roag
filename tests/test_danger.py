@@ -7,6 +7,7 @@ from roag.actions import _advance_world
 from roag.danger import (
     DangerAction,
     Pressure,
+    REINFORCEMENT_LAST_TURN_KEY,
     apply_danger_actions,
     evaluate_band_transition,
     evaluate_danger_step,
@@ -30,6 +31,10 @@ class DangerDirectorTests(unittest.TestCase):
         self.state.carried_goods.clear()
         self.state.noise = 0
 
+    @staticmethod
+    def suppress_reinforcements(state):
+        state.region.changes[REINFORCEMENT_LAST_TURN_KEY] = state.world_time
+
     def test_pressure_profile_keeps_exact_legacy_formula_and_adapter(self):
         landing = self.state.region.landmarks["landing"]
         self.state.position = Position(landing.x + 28, landing.y, 1)
@@ -50,6 +55,7 @@ class DangerDirectorTests(unittest.TestCase):
         first, second = copy.deepcopy(self.state), copy.deepcopy(self.state)
         for state in (first, second):
             state.pressure_elapsed = 324
+            self.suppress_reinforcements(state)
         first_before, second_before = first.to_dict(), second.to_dict()
 
         first_actions = evaluate_danger_step(first)
@@ -78,6 +84,7 @@ class DangerDirectorTests(unittest.TestCase):
 
     def test_critical_escalation_remains_consumed_without_a_dormant_actor(self):
         self.state.pressure_elapsed = 324
+        self.suppress_reinforcements(self.state)
         for actor in self.state.threats:
             actor.status = "defeated"
         actions = evaluate_danger_step(self.state)
@@ -133,6 +140,7 @@ class DangerDirectorTests(unittest.TestCase):
 
     def test_world_step_preserves_wake_before_final_band_announcement(self):
         self.state.pressure_elapsed = 323
+        self.suppress_reinforcements(self.state)
         dormant = next(actor for actor in self.state.threats if actor.status == "dormant")
         for actor in self.state.threats:
             if actor is not dormant:
@@ -173,10 +181,11 @@ class DangerDirectorTests(unittest.TestCase):
         self.assertEqual(len(announcements), 1)
         self.assertIn("strained", announcements[0])
 
-    def test_director_adds_no_persistent_state_or_population_policy(self):
+    def test_legacy_escalation_adds_no_population_when_reinforcement_deferred(self):
         before_keys = set(self.state.to_dict())
         before_ids = [actor.id for actor in self.state.threats]
         self.state.pressure_elapsed = 324
+        self.suppress_reinforcements(self.state)
 
         outcome = resolve_danger_step(self.state)
 

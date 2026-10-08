@@ -14,6 +14,7 @@ from .world import base_tile, distance, line_of_sight, position_key
 
 ACTIVE_RADIUS = 24
 ACTOR_BUDGET = 24
+REGIONAL_ACTOR_LIMIT = 48
 DUTIES = {"", "quench", "kindle", "brace", "drain", "heal", "scavenge", "hunt", "rally", "cut support", "escort"}
 ECOLOGIES = {"", "prey", "predator", "scavenger", "worker", "warden", "raider", "territorial"}
 
@@ -261,7 +262,7 @@ def validate_ecology(state: GameState) -> None:
     from .frontier_elites import definition
 
     for region_id, actors in state.region_threats.items():
-        if len(actors) > 48:
+        if len(actors) > REGIONAL_ACTOR_LIMIT:
             raise ValueError("regional actor budget exceeded")
         for actor in actors:
             if actor.duty not in DUTIES or actor.ecology not in ECOLOGIES or not 0 <= actor.supplies <= 8:

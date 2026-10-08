@@ -24,8 +24,8 @@ source of truth.
 | WORLD-02 | Complete | Read-only semantic regional terrain catalog with strict legacy glyph parity. |
 | WORLD-03 | Complete | Generic physical terrain actions, sparse damage, and destructible reeds/mud. |
 | DANGER-01 | Complete | Existing pressure policy behind deterministic evaluated danger actions. |
-| DANGER-02 | Next | Fair deterministic persistent reinforcements. |
-| ENGINE-01 | Planned | Transient simulation facts and bounded effects. |
+| DANGER-02 | Complete | Fair deterministic persistent regional reinforcements. |
+| ENGINE-01 | Next | Transient simulation facts and bounded effects. |
 | ENGINE-02 | Planned | First reusable cross-system component vertical slice. |
 
 ## Implemented seams
@@ -64,6 +64,15 @@ source of truth.
 - Danger evaluation is pure and deterministic; application remains synchronous
   inside the action clock. Region entry retains its historical steady situation
   regardless of initially carried valuables.
+- Strained and critical pressure can now evaluate one deterministic regional
+  reinforcement directive. Standard hostile archetypes arrive on reachable,
+  dynamically walkable cells outside FOV and line of sight, 12--24 steps away.
+- Reinforcements use stable sequence-derived IDs, ordinary `Threat` and item
+  persistence, the existing 24-active/48-regional actor limits, and a 36-turn
+  strained or 18-turn critical cadence. Arrivals retain the courier's last
+  known position but receive no AI decision on their creation step.
+- `ThreatSpawned` is a renderer-neutral, step-scoped runtime event; it is not
+  persisted or used as simulation input.
 
 ## Compatibility and migrations
 
@@ -83,6 +92,10 @@ source of truth.
   bump was required. Runtime terrain events remain transient.
 - DANGER-01 added no persistent state or migration. `roag.world.pressure`
   remains a compatibility export of the new danger-domain implementation.
+- DANGER-02 adds only sparse keys to existing `Region.changes` for each
+  region's sequence and last-arrival turn. Existing format-15 saves default to
+  no prior arrival, and spawned threats/equipment use existing serialization.
+  No save-format or content-fingerprint change was required.
 
 ## Known deviations and baseline issues
 
@@ -98,8 +111,11 @@ source of truth.
   reeds, and mud. Walls, timber, fragile floors, circuit placement, collapse,
   authored features, inventory harvesting, and broader tool balance remain
   later work rather than being silently generalized.
-- DANGER-01 deliberately adds no actors, RNG draws, population caps, spawn
-  placement, or balance changes. Those remain DANGER-02 responsibilities.
+- DANGER-01 deliberately added no actors, RNG draws, population caps, spawn
+  placement, or balance changes; those arrived through the DANGER-02 boundary.
+- DANGER-02 initially admits one actor per reinforcement directive and no new
+  elites. Exact cadence, group composition, and longer-term population policy
+  remain balance work rather than being generalized prematurely.
 - The DANGER-01 starting commit also reproduces the ecology water-interruption
   assertion failure (`fire` remains 1 instead of 0); it is unrelated to the
   director extraction.

@@ -1357,10 +1357,17 @@ def _advance_world(
                 state.pressure_elapsed += 1
                 state.region.local_elapsed = state.pressure_elapsed
             previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
+            arrived_this_step: set[str] = set()
             messages = []
             if state.location == "region":
                 messages.extend(_weather_and_deadline(state))
-                messages.extend(resolve_danger_step(state).messages)
+                danger = resolve_danger_step(state, collector=collector)
+                messages.extend(danger.messages)
+                arrived_this_step.update(
+                    action.target_id for action in danger.actions
+                    if action.action_id == "danger.spawn_reinforcement"
+                    and action.target_id is not None
+                )
                 messages.extend(_patrols(state))
             from .worklines import apply_local_work
             apply_local_work(state)
@@ -1370,6 +1377,8 @@ def _advance_world(
             for threat in active_actors(state):
                 if not state.combat_active:
                     break
+                if threat.id in arrived_this_step:
+                    continue
                 if threat.status == "watching" and not threat.patrol:
                     seen = sees_courier(state, threat)
                     heard = heard_position(state, threat)
