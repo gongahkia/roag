@@ -69,6 +69,8 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertIsInstance(event, ActorMoved)
         self.assertEqual((event.from_position, event.to_position), (before, session.world_view().courier_position))
         self.assertEqual(event.movement_kind_id, "movement.step")
+        self.assertEqual(outcome.event_batch.events, outcome.events)
+        self.assertEqual(outcome.event_batch.steps, ())
         with self.assertRaises(FrozenInstanceError):
             event.actor_id = "changed"
 
@@ -164,6 +166,10 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(
             [step.events for step in outcome.event_batch.steps], [(), (), ()]
         )
+        with self.assertRaises(FrozenInstanceError):
+            outcome.event_batch.steps = ()
+        with self.assertRaises(FrozenInstanceError):
+            outcome.event_batch.steps[0].step_index = 99
 
     def test_events_are_not_persisted_and_views_do_not_accumulate_them(self):
         state, target_id = armed_state("runtime save")
