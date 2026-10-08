@@ -36,7 +36,8 @@ from .inventory import (
     worn_tags,
 )
 from .runtime_events import (
-    ActorDefeated, AttackResolved, DamageApplied, RuntimeEvent, StatusChanged,
+    ActorDefeated, AttackResolved, DamageApplied, RuntimeEvent,
+    RuntimeEventBatch, RuntimeEventCollector, StatusChanged,
 )
 from .state import (
     CommodityStack, GameState, Person, Position, SoundEvent, Threat,
@@ -89,6 +90,7 @@ class ActionResult:
     message: str
     overlay: str | None = None
     events: tuple[RuntimeEvent, ...] = ()
+    event_batch: RuntimeEventBatch | None = None
 
 
 def _remember_contact(state: GameState, text: str) -> None:
@@ -1322,73 +1324,80 @@ def _patrols(state: GameState) -> list[str]:
 
 
 def _advance_world(
-    state: GameState, *, guarded: bool = False, steps: int = 1
+    state: GameState, *, guarded: bool = False, steps: int = 1,
+    collector: RuntimeEventCollector | None = None,
 ) -> None:
     old_band = pressure(state).band
     for tick in range(steps):
-        previous_time = state.world_time
-        state.world_time += 1
-        record_calendar_crossings(state, previous_time)
-        advance_living_world(state)
-        from .materials import advance_materials
-        from .regional_history import advance_production
+        if collector is not None:
+            collector.begin_step()
+        try:
+            previous_time = state.world_time
+            state.world_time += 1
+            record_calendar_crossings(state, previous_time)
+            advance_living_world(state)
+            from .materials import advance_materials
+            from .regional_history import advance_production
 
-        advance_production(state)
-        advance_materials(state)
-        from .circuits import advance_circuits
+            advance_production(state)
+            advance_materials(state)
+            from .circuits import advance_circuits
 
-        advance_circuits(state)
-        if state.location == "roag":
-            from .ship_crises import advance_deck
-            advance_deck(state)
-        for sound in state.sound_events:
-            sound.age += 1
-        state.sound_events = [sound for sound in state.sound_events if sound.age <= 3]
-        for ended in tick_statuses(state):
-            state.add_message(ended, priority=0)
-        for key in list(state.smoke):
-            state.smoke[key] -= 1
-            if state.smoke[key] <= 0:
-                del state.smoke[key]
-        if not state.combat_active:
-            continue
-        if state.location == "region":
-            state.pressure_elapsed += 1
-            state.region.local_elapsed = state.pressure_elapsed
-        previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
-        messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
-        from .worklines import apply_local_work
-        apply_local_work(state)
-        from .ecology import active_actors
-        from .enemy_ai import sees_courier, heard_position
-
-        for threat in active_actors(state):
+            advance_circuits(state)
+            if state.location == "roag":
+                from .ship_crises import advance_deck
+                advance_deck(state)
+            for sound in state.sound_events:
+                sound.age += 1
+            state.sound_events = [sound for sound in state.sound_events if sound.age <= 3]
+            for ended in tick_statuses(state):
+                state.add_message(ended, priority=0)
+            for key in list(state.smoke):
+                state.smoke[key] -= 1
+                if state.smoke[key] <= 0:
+                    del state.smoke[key]
             if not state.combat_active:
-                break
-            if threat.status == "watching" and not threat.patrol:
-                seen = sees_courier(state, threat)
-                heard = heard_position(state, threat)
-                if seen or heard:
-                    threat.last_known_position = state.position if seen else heard
-                    messages.append(_activate(threat))
-                elif threat.ecology or threat.duty:
-                    result = _threat_action(state, threat, False)
-                    if threat.position in field_of_view(state, remember=False):
-                        messages.append(result)
-            elif threat.status == "engaged":
-                if threat.id in previously_watching:
-                    continue
-                result = _threat_action(state, threat, guarded and tick == 0)
-                if threat.position in field_of_view(state, remember=False) or distance(state.position, threat.position) <= 6:
-                    messages.append(result)
-        from .enemy_equipment import tick_enemy_conditions
+                continue
+            if state.location == "region":
+                state.pressure_elapsed += 1
+                state.region.local_elapsed = state.pressure_elapsed
+            previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
+            messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
+            from .worklines import apply_local_work
+            apply_local_work(state)
+            from .ecology import active_actors
+            from .enemy_ai import sees_courier, heard_position
 
-        tick_enemy_conditions(state)
-        for message in messages:
-            if message:
-                state.add_message(message, priority=3)
-        from .frontier_elites import record_outcomes
-        record_outcomes(state)
+            for threat in active_actors(state):
+                if not state.combat_active:
+                    break
+                if threat.status == "watching" and not threat.patrol:
+                    seen = sees_courier(state, threat)
+                    heard = heard_position(state, threat)
+                    if seen or heard:
+                        threat.last_known_position = state.position if seen else heard
+                        messages.append(_activate(threat))
+                    elif threat.ecology or threat.duty:
+                        result = _threat_action(state, threat, False)
+                        if threat.position in field_of_view(state, remember=False):
+                            messages.append(result)
+                elif threat.status == "engaged":
+                    if threat.id in previously_watching:
+                        continue
+                    result = _threat_action(state, threat, guarded and tick == 0)
+                    if threat.position in field_of_view(state, remember=False) or distance(state.position, threat.position) <= 6:
+                        messages.append(result)
+            from .enemy_equipment import tick_enemy_conditions
+
+            tick_enemy_conditions(state)
+            for message in messages:
+                if message:
+                    state.add_message(message, priority=3)
+            from .frontier_elites import record_outcomes
+            record_outcomes(state)
+        finally:
+            if collector is not None:
+                collector.end_step()
     if state.active_vehicle_id and state.vehicles[state.active_vehicle_id].position != state.position:
         state.active_vehicle_id = None
         state.add_message(action_format("action.vehicle.separated"), priority=3)
@@ -1407,11 +1416,12 @@ def _advance_world(
 
 def advance_world(
     state: GameState, *, guarded: bool = False, steps: int = 1,
+    collector: RuntimeEventCollector | None = None,
 ) -> ActionResult:
     """Public deterministic clock advancement for application/frontends."""
     if type(steps) is not int or steps < 1:
         return _plain(state, action_format("action.movement.unavailable"))
-    _advance_world(state, guarded=guarded, steps=steps)
+    _advance_world(state, guarded=guarded, steps=steps, collector=collector)
     return ActionResult(True, True, "")
 
 
@@ -1423,8 +1433,9 @@ def _time_result(
     steps: int = 1,
     priority: int = 2,
     events: tuple[RuntimeEvent, ...] = (),
+    collector: RuntimeEventCollector | None = None,
 ) -> ActionResult:
-    _advance_world(state, guarded=guarded, steps=steps)
+    _advance_world(state, guarded=guarded, steps=steps, collector=collector)
     # Keep the player's material consequence visible after same-turn intents.
     if message:
         state.add_message(message, priority=priority)

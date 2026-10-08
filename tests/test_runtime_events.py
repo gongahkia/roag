@@ -12,12 +12,13 @@ from pathlib import Path
 
 from roag.actions import attack
 from roag.commands import (
-    AttackCommand, InteractCommand, MoveCommand, RetreatCommand,
+    AdvanceWorldCommand, AttackCommand, InteractCommand, MoveCommand, RetreatCommand,
     SelectCarriedRelicCommand,
 )
 from roag.runtime_events import (
     ActorDefeated, ActorMoved, AttackResolved, CarriedRelicSelectionChanged,
-    DamageApplied, InteractionResolved, RetreatResolved, StatusChanged,
+    DamageApplied, InteractionResolved, RetreatResolved, RuntimeEventBatch,
+    StatusChanged,
 )
 from roag.session import GameSession
 from roag.state import Position, SoundEvent, Threat, create_world
@@ -42,6 +43,15 @@ def armed_state(seed: str, health: int = 20):
 class RuntimeEventTests(unittest.TestCase):
     def test_runtime_event_module_is_headless(self):
         code = "import sys; import roag.runtime_events; assert 'curses' not in sys.modules"
+        result = subprocess.run([sys.executable, "-c", code], check=False, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_session_event_batch_is_headless(self):
+        code = (
+            "import sys; import roag.runtime_events, roag.session; "
+            "assert 'curses' not in sys.modules; "
+            "assert 'roag.terminal' not in sys.modules"
+        )
         result = subprocess.run([sys.executable, "-c", code], check=False, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
 
@@ -91,6 +101,12 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(damage_event.target_actor_id, target_id)
         after = session.actor_view(target_id)
         self.assertEqual(before.health - after.health, damage_event.amount)
+        self.assertEqual(outcome.event_batch.events, outcome.events)
+        self.assertEqual([type(event) for event in outcome.event_batch.command_events], [AttackResolved, DamageApplied])
+        self.assertEqual(len(outcome.event_batch.steps), 1)
+        self.assertEqual(outcome.event_batch.steps[0].events, ())
+        self.assertEqual(outcome.events.count(attack_event), 1)
+        self.assertEqual(outcome.events.count(damage_event), 1)
 
     def test_defeat_event_follows_attack_damage_and_status_change(self):
         state, target_id = armed_state("runtime defeat", health=1)
@@ -108,6 +124,7 @@ class RuntimeEventTests(unittest.TestCase):
         first_outcome = first.submit(AttackCommand(target_id))
         second_outcome = second.submit(AttackCommand(target_id))
         self.assertEqual(first_outcome.events, second_outcome.events)
+        self.assertEqual(first_outcome.event_batch, second_outcome.event_batch)
         self.assertEqual(first_state.to_dict(), second_state.to_dict())
 
         legacy_state, event_state = copy.deepcopy(source), copy.deepcopy(source)
@@ -133,6 +150,20 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(len(outcome.events), 1)
         self.assertIsInstance(outcome.events[0], CarriedRelicSelectionChanged)
         self.assertEqual(outcome.events[0].relic_id, "river-glass ward")
+        self.assertIsInstance(outcome.event_batch, RuntimeEventBatch)
+        self.assertEqual(outcome.event_batch.steps, ())
+
+    def test_advance_world_preserves_each_clock_step_in_order(self):
+        outcome = GameSession(create_world("runtime batch steps")).submit(
+            AdvanceWorldCommand(steps=3)
+        )
+        self.assertEqual(outcome.events, ())
+        self.assertEqual(
+            [step.step_index for step in outcome.event_batch.steps], [1, 2, 3]
+        )
+        self.assertEqual(
+            [step.events for step in outcome.event_batch.steps], [(), (), ()]
+        )
 
     def test_events_are_not_persisted_and_views_do_not_accumulate_them(self):
         state, target_id = armed_state("runtime save")
@@ -147,6 +178,8 @@ class RuntimeEventTests(unittest.TestCase):
             payload = json.loads(serialized)
             self.assertNotIn("events", payload)
             self.assertNotIn('"events"', serialized)
+            self.assertNotIn("event_batch", serialized)
+            self.assertNotIn("RuntimeEventBatch", serialized)
             restored = GameSession.load(path)
         self.assertEqual(restored.submit(MoveCommand(0, 0)).events, ())
 

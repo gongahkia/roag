@@ -98,3 +98,98 @@ RuntimeEvent = (
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved
 )
+
+
+@dataclass(frozen=True)
+class RuntimeEventStep:
+    """The renderer-neutral events emitted during one world-clock step."""
+
+    step_index: int
+    events: tuple[RuntimeEvent, ...] = ()
+
+
+@dataclass(frozen=True)
+class RuntimeEventBatch:
+    """Transient semantic output for one submitted command.
+
+    ``command_events`` preserve command-resolution order. ``steps`` preserve
+    authoritative clock order, including clock steps that emitted no runtime
+    events. Nothing in this record is simulation input or persisted state.
+    """
+
+    command_events: tuple[RuntimeEvent, ...] = ()
+    steps: tuple[RuntimeEventStep, ...] = ()
+
+    @property
+    def events(self) -> tuple[RuntimeEvent, ...]:
+        """Compatibility order: command events followed by world-step events."""
+        return self.command_events + tuple(
+            event for step in self.steps for event in step.events
+        )
+
+
+@dataclass
+class RuntimeEventCollector:
+    """Mutable command-scoped builder for one :class:`RuntimeEventBatch`.
+
+    Runtime-event producers retain their existing ownership. Callers record
+    each event exactly once here, then use the frozen batch for both new and
+    compatibility consumers. This is deliberately not a global event bus.
+    """
+
+    _command_events: list[RuntimeEvent] = field(default_factory=list)
+    _steps: list[RuntimeEventStep] = field(default_factory=list)
+    _current_step_events: list[RuntimeEvent] | None = None
+    _frozen: bool = False
+
+    @property
+    def step_count(self) -> int:
+        return len(self._steps)
+
+    def record_command_event(self, event: RuntimeEvent) -> None:
+        self._require_open()
+        self._command_events.append(event)
+
+    def record_command_events(self, events: tuple[RuntimeEvent, ...]) -> None:
+        self._require_open()
+        self._command_events.extend(events)
+
+    def begin_step(self) -> None:
+        self._require_open()
+        if self._current_step_events is not None:
+            raise RuntimeError("runtime event step is already open")
+        self._current_step_events = []
+
+    def record_step_event(self, event: RuntimeEvent) -> None:
+        self._require_open()
+        if self._current_step_events is None:
+            raise RuntimeError("runtime event step is not open")
+        self._current_step_events.append(event)
+
+    def end_step(self) -> None:
+        self._require_open()
+        if self._current_step_events is None:
+            raise RuntimeError("runtime event step is not open")
+        self._steps.append(
+            RuntimeEventStep(len(self._steps) + 1, tuple(self._current_step_events))
+        )
+        self._current_step_events = None
+
+    def record_empty_steps(self, count: int) -> None:
+        """Record already-resolved legacy clock steps that emitted no events."""
+        if count < 0:
+            raise ValueError("runtime event step count cannot be negative")
+        for _ in range(count):
+            self.begin_step()
+            self.end_step()
+
+    def freeze(self) -> RuntimeEventBatch:
+        self._require_open()
+        if self._current_step_events is not None:
+            raise RuntimeError("cannot freeze a runtime event batch with an open step")
+        self._frozen = True
+        return RuntimeEventBatch(tuple(self._command_events), tuple(self._steps))
+
+    def _require_open(self) -> None:
+        if self._frozen:
+            raise RuntimeError("runtime event collector is frozen")
