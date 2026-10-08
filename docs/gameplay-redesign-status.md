@@ -26,7 +26,13 @@ source of truth.
 | DANGER-01 | Complete | Existing pressure policy behind deterministic evaluated danger actions. |
 | DANGER-02 | Complete | Fair deterministic persistent regional reinforcements. |
 | ENGINE-01 | Complete | Transient simulation facts and bounded component effects. |
-| ENGINE-02 | Next | First reusable cross-system component vertical slice. |
+| ENGINE-02 | Complete | A crafted, placed threat sensor converts nearby courier defeats into bounded charge in a physically connected rack. |
+| ENGINE-03 | Complete | A connected mass sensor spends rack charge for useful terrain power, producing additional noise and danger pressure. |
+
+The published foundation roadmap through ENGINE-02 is complete. ENGINE-03 is
+the first post-roadmap tranche, scoped from the integrated systems already in
+the repository. Further tranches should continue to be chosen from playtesting
+and the still-open product decisions rather than assumed here.
 
 ## Implemented seams
 
@@ -79,7 +85,34 @@ source of truth.
 - The initial finite effect vocabulary contains only `gain_charge`, delegated
   through `roag.circuits.gain_charge` to an existing physical rack. Rules are
   explicit inputs, space-scoped, non-recursive, deterministically ordered, and
-  capped per resolution; no gameplay component rules are registered yet.
+  capped per resolution.
+- `roag.engine_components` discovers active-space reaction rules from physical
+  circuits. An enabled threat-mode sensor connected to a rack reacts to an
+  authoritative nearby courier defeat on the same level and grants one rack
+  charge through the ENGINE-01 resolver.
+- Reaction discovery is deterministic, ignores circuits in inactive spaces,
+  and uses the sensor's existing threshold plus physical circuit topology.
+  Multiple matching sensors may stack, while the rack's existing charge cap
+  remains authoritative.
+- Enemy defeat facts originate in `roag.enemy_equipment.harm_enemy`, where the
+  authoritative transition to zero health occurs. Courier weapons, spells,
+  manoeuvres, and their secondary strikes identify that cause; environmental
+  damage does not synthesize a courier defeat.
+- The vertical slice reuses existing rack/sensor recipes, physical inventory,
+  placement, circuit persistence, combat, and selected-pack feedback instead
+  of adding a parallel component representation.
+- `TerrainActionFact` describes one validated physical terrain action without
+  entering runtime presentation events or persistent state. A finite
+  `spend_charge` effect delegates charge removal to `roag.circuits`, mirroring
+  the existing bounded charge-gain seam.
+- An active-space mass sensor connected to a charged rack can contribute one
+  power to terrain work within one cell. The resolver requests only power the
+  equipped tool is missing, so multiple sensors are deterministic but never
+  consume charge that cannot improve the result.
+- Every charge used for terrain assistance adds one unit to the action's
+  existing semantic sound. The ordinary sound, alert, pressure, and danger
+  paths therefore receive the machinery cost without an engine-specific
+  danger branch.
 
 ## Compatibility and migrations
 
@@ -107,6 +140,14 @@ source of truth.
   fingerprint changes. Simulation facts, collectors, rules, and resolution
   records are transient; an applied effect mutates only existing authoritative
   circuit charge through the circuit domain's bounded API.
+- ENGINE-02 adds no persistent fields or migration. Sensor and rack identities,
+  recipes, placement, and rack charge already serialize in format 15. The new
+  circuit feedback row changes presentation content only; facts, rules, and
+  resolution records remain transient and absent from saves.
+- ENGINE-03 likewise adds no persistent field, migration, or mechanical
+  content identity. It persists only existing authoritative outcomes: rack
+  charge, terrain mutation/damage, material yield, noise consequences, and
+  world time. Its new circuit feedback is presentation-only.
 
 ## Known deviations and baseline issues
 
@@ -127,10 +168,11 @@ source of truth.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
   elites. Exact cadence, group composition, and longer-term population policy
   remain balance work rather than being generalized prematurely.
-- ENGINE-01 deliberately registers no production component reactions and emits
-  no facts from current actions. ENGINE-02 must choose a concrete vertical
-  slice, discover its physical/equipment/production sources, and connect facts
-  at the authoritative producer without treating RuntimeEvents as input.
+- ENGINE-03 closes one bounded engine loop rather than adding a full component
+  roster: defeat -> charge -> terrain power -> additional noise/pressure. It
+  does not yet add inventory-resource triggers, charge-consuming combat
+  effects, equipment-hosted components, production that runs over time, or
+  arbitrary content scripting.
 - The DANGER-01 starting commit also reproduces the ecology water-interruption
   assertion failure (`fire` remains 1 instead of 0); it is unrelated to the
   director extraction.

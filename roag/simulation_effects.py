@@ -10,13 +10,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .circuits import gain_charge
+from .circuits import gain_charge, spend_charge
 from .state import GameState, Position
 
 
 ACTOR_DEFEATED = "actor.defeated"
 THREAT_DETECTED = "threat.detected"
-TRIGGER_IDS = frozenset({ACTOR_DEFEATED, THREAT_DETECTED})
+TERRAIN_ACTION = "terrain.action"
+TRIGGER_IDS = frozenset({ACTOR_DEFEATED, THREAT_DETECTED, TERRAIN_ACTION})
 SOURCE_KINDS = frozenset({"circuit"})
 MAX_FACTS = 128
 MAX_RULES = 128
@@ -55,7 +56,29 @@ class ThreatDetectedFact:
             raise ValueError("invalid threat-detected fact")
 
 
-SimulationFact = ActorDefeatedFact | ThreatDetectedFact
+@dataclass(frozen=True)
+class TerrainActionFact:
+    """A courier began one validated physical action against regional terrain."""
+
+    actor_id: str
+    action_id: str
+    terrain_id: str
+    space_id: str
+    position: Position
+    fact_id: str = field(init=False, default=TERRAIN_ACTION)
+
+    def __post_init__(self) -> None:
+        if (
+            not self.actor_id
+            or self.action_id not in {"break", "cut", "dig"}
+            or not self.terrain_id
+            or not self.space_id
+            or not isinstance(self.position, Position)
+        ):
+            raise ValueError("invalid terrain-action fact")
+
+
+SimulationFact = ActorDefeatedFact | ThreatDetectedFact | TerrainActionFact
 
 
 @dataclass(frozen=True)
@@ -72,7 +95,24 @@ class GainCharge:
             raise ValueError("charge effect amount must be a positive integer")
 
 
-SimulationEffect = GainCharge
+@dataclass(frozen=True)
+class SpendCharge:
+    """Request bounded charge consumption from a physical component."""
+
+    amount: int
+    target: ComponentRef
+    effect_id: str = field(init=False, default="spend_charge")
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.amount) is not int
+            or self.amount <= 0
+            or not isinstance(self.target, ComponentRef)
+        ):
+            raise ValueError("charge effect amount must be a positive integer")
+
+
+SimulationEffect = GainCharge | SpendCharge
 
 
 @dataclass(frozen=True)
@@ -118,7 +158,7 @@ class ReactionRule:
     def __post_init__(self) -> None:
         if (not isinstance(self.rule_id, str) or not self.rule_id
                 or self.trigger_id not in TRIGGER_IDS
-                or not isinstance(self.effect, GainCharge)
+                or not isinstance(self.effect, (GainCharge, SpendCharge))
                 or self.condition is not None and not isinstance(self.condition, WithinRange)):
             raise ValueError("invalid component reaction rule")
         if type(self.priority) is not int:
@@ -157,7 +197,7 @@ class SimulationFactCollector:
     def emit(self, fact: SimulationFact) -> None:
         if self._frozen:
             raise RuntimeError("simulation fact collector is frozen")
-        if not isinstance(fact, (ActorDefeatedFact, ThreatDetectedFact)):
+        if not isinstance(fact, (ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact)):
             raise TypeError("invalid simulation fact")
         if len(self._facts) >= MAX_FACTS:
             raise RuntimeError("simulation fact limit exceeded")
@@ -186,7 +226,9 @@ def resolve_component_reactions(
         raise ValueError("simulation reaction input exceeds bounded limits")
     if len(facts) * len(rules) > MAX_MATCH_CHECKS:
         raise ValueError("simulation reaction match budget exceeded")
-    if any(not isinstance(fact, (ActorDefeatedFact, ThreatDetectedFact)) for fact in facts):
+    if any(not isinstance(
+        fact, (ActorDefeatedFact, ThreatDetectedFact, TerrainActionFact),
+    ) for fact in facts):
         raise TypeError("invalid simulation fact")
     if any(not isinstance(rule, ReactionRule) for rule in rules):
         raise TypeError("invalid simulation reaction rule")
@@ -233,13 +275,19 @@ def _apply_effect(
     state: GameState, fact: SimulationFact, rule: ReactionRule,
 ) -> tuple[ComponentRef, int]:
     """Delegate a finite effect to the domain that owns its state mutation."""
-    if isinstance(rule.effect, GainCharge) and rule.source.kind == "circuit":
+    if isinstance(rule.effect, (GainCharge, SpendCharge)) and rule.source.kind == "circuit":
         source = state.circuits.get(rule.source.instance_id)
-        target = rule.effect.target or rule.source
+        target = (
+            rule.effect.target
+            if isinstance(rule.effect, SpendCharge)
+            else rule.effect.target or rule.source
+        )
         target_cell = state.circuits.get(target.instance_id)
         if (source is None or source.space != fact.space_id
                 or target.kind != "circuit" or target_cell is None
                 or target_cell.space != fact.space_id):
             return target, 0
-        return target, gain_charge(state, target.instance_id, rule.effect.amount)
+        if isinstance(rule.effect, GainCharge):
+            return target, gain_charge(state, target.instance_id, rule.effect.amount)
+        return target, spend_charge(state, target.instance_id, rule.effect.amount)
     return rule.source, 0

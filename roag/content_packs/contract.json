@@ -19873,6 +19873,14 @@
       ]
     },
     {
+      "id": "circuit.event.kill_charge",
+      "placeholders": [
+        "amount",
+        "x",
+        "y"
+      ]
+    },
+    {
       "id": "circuit.phase.wire",
       "placeholders": []
     },
@@ -20031,6 +20039,14 @@
     {
       "id": "circuit.mode_title.threat",
       "placeholders": []
+    },
+    {
+      "id": "circuit.event.terrain_assist",
+      "placeholders": [
+        "amount",
+        "x",
+        "y"
+      ]
     }
   ],
   "ecology": [

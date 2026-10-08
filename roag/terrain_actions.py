@@ -32,6 +32,8 @@ class TerrainActionResolution:
     sound: int = 0
     yield_material: str | None = None
     yield_fuel: int = 0
+    assistance_power: int = 0
+    assistance_sound: int = 0
 
 
 def supports_terrain_action(
@@ -114,6 +116,17 @@ def resolve_terrain_action(
 
     coordinate = position_key(position)
     previous_damage = state.region.terrain_damage.get(coordinate, 0)
+    from .engine_components import resolve_terrain_assistance
+
+    assistance = resolve_terrain_assistance(
+        state,
+        state.active_courier_id or "courier",
+        action_id,
+        definition.id,
+        position,
+        max(0, definition.hardness - previous_damage - power),
+    )
+    power += assistance.power
     applied = min(power, definition.hardness - previous_damage)
     total = previous_damage + applied
     destroyed = total >= definition.hardness
@@ -138,7 +151,9 @@ def resolve_terrain_action(
         definition.material,
         applied,
         max(0, definition.hardness - total),
-        definition.action_sound,
+        definition.action_sound + assistance.sound,
         definition.yield_material if destroyed else None,
         definition.yield_fuel if destroyed else 0,
+        assistance.power,
+        assistance.sound,
     )

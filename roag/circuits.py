@@ -122,6 +122,22 @@ def gain_charge(state: GameState, key: str, amount: int) -> int:
     return accepted
 
 
+def spend_charge(state: GameState, key: str, amount: int) -> int:
+    """Remove bounded charge from a physical rack and return the amount spent.
+
+    External deterministic effects use this seam instead of mutating circuit
+    cells directly. Missing, non-rack, or empty targets spend no charge.
+    """
+    if type(amount) is not int or amount <= 0:
+        raise ValueError("circuit charge spend must be a positive integer")
+    cell = state.circuits.get(key)
+    if cell is None or cell.kind != "rack":
+        return 0
+    spent = min(amount, max(0, cell.charge))
+    cell.charge -= spent
+    return spent
+
+
 def offset(position: Position, facing: str, steps: int = 1) -> Position:
     dx, dy = DIRECTIONS[facing]
     return Position(position.x + dx * steps, position.y + dy * steps, position.z)

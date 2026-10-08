@@ -11,6 +11,8 @@ from roag.simulation_effects import (
     GainCharge,
     ReactionRule,
     SimulationFactCollector,
+    SpendCharge,
+    TerrainActionFact,
     ThreatDetectedFact,
     WithinRange,
     resolve_component_reactions,
@@ -73,6 +75,29 @@ class SimulationEffectTests(unittest.TestCase):
         self.assertEqual(result.applications[0].applied_amount, 1)
         second = resolve_component_reactions(self.state, (self.fact(),), (self.rule(amount=5),))
         self.assertEqual(second.applications, ())
+
+    def test_spend_charge_effect_is_bounded_and_reports_consumption(self):
+        self.state.circuits[self.key].charge = 1
+        fact = TerrainActionFact(
+            "courier:test", "cut", "terrain.region.dense_reeds",
+            self.space, self.position,
+        )
+        rule = ReactionRule(
+            "test.terrain-power",
+            ComponentRef("circuit", self.key),
+            "terrain.action",
+            SpendCharge(2, ComponentRef("circuit", self.key)),
+        )
+
+        result = resolve_component_reactions(self.state, (fact,), (rule,))
+
+        self.assertEqual(self.state.circuits[self.key].charge, 0)
+        self.assertEqual(len(result.applications), 1)
+        self.assertEqual(result.applications[0].effect_id, "spend_charge")
+        self.assertEqual(result.applications[0].requested_amount, 2)
+        self.assertEqual(result.applications[0].applied_amount, 1)
+        empty = resolve_component_reactions(self.state, (fact,), (rule,))
+        self.assertEqual(empty.applications, ())
 
     def test_fact_trigger_and_physical_space_must_match(self):
         detected = ThreatDetectedFact("threat:test", "sensor:test", self.space, self.position)
@@ -142,6 +167,8 @@ class SimulationEffectTests(unittest.TestCase):
     def test_invalid_or_duplicate_rules_are_rejected_before_mutation(self):
         with self.assertRaises(ValueError):
             GainCharge(0)
+        with self.assertRaises(ValueError):
+            SpendCharge(0, ComponentRef("circuit", self.key))
         duplicate = (self.rule(), self.rule())
         with self.assertRaises(ValueError):
             resolve_component_reactions(self.state, (self.fact(),), duplicate)

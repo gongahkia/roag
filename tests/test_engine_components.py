@@ -5,13 +5,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from roag.circuits import cell_key, operate, place
-from roag.commands import AttackCommand
+from roag.circuits import cell_key, item_count, operate, place
+from roag.commands import AttackCommand, TerrainActionCommand
 from roag.engine_components import registered_reaction_rules, resolve_actor_defeat
-from roag.inventory import auto_place, create_item, item_count
+from roag.inventory import auto_place, create_item
 from roag.production import RECIPES, make
 from roag.regions import begin_region
-from roag.runtime_events import ActorDefeated
+from roag.runtime_events import ActorDefeated, TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
 from roag.session import GameSession
 from roag.state import CircuitCell, Position, Threat, create_world
@@ -97,7 +97,7 @@ class EngineComponentTests(unittest.TestCase):
             self.state.messages,
         )
 
-    def test_registration_requires_threat_mode_and_physical_rack_connection(self):
+    def test_defeat_charge_requires_threat_mode_and_physical_rack_connection(self):
         rack, _ = self.fit_engine(mode="mass")
         target = self.target()
         resolve_actor_defeat(
@@ -112,6 +112,27 @@ class EngineComponentTests(unittest.TestCase):
             self.state, target.id, self.state.active_courier_id, target.position,
         )
         self.assertEqual(rack.charge, 0)
+
+    def test_registration_ignores_fitted_engines_in_inactive_spaces(self):
+        self.fit_engine()
+        remote_sensor = CircuitCell(
+            "region:greywash", self.sensor_position, "surface", "sensor",
+            mode="threat", threshold=2,
+        )
+        remote_rack = CircuitCell(
+            "region:greywash", self.rack_position, "surface", "rack",
+        )
+        self.state.circuits[
+            cell_key(remote_sensor.space, remote_sensor.position, remote_sensor.layer)
+        ] = remote_sensor
+        self.state.circuits[
+            cell_key(remote_rack.space, remote_rack.position, remote_rack.layer)
+        ] = remote_rack
+
+        rules = registered_reaction_rules(self.state)
+
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(rules[0].source.instance_id, self.sensor_key)
 
     def test_defeat_must_be_in_sensor_range_and_on_its_level(self):
         rack, _ = self.fit_engine()
@@ -157,6 +178,85 @@ class EngineComponentTests(unittest.TestCase):
         self.assertTrue(target.health == 0)
         self.assertEqual(rack.charge, 0)
 
+    def test_kill_charge_powers_one_noisier_terrain_action(self):
+        rack, _ = self.fit_engine()
+        mass_position = Position(40, 25, 0)
+        mass_key = cell_key("region:hearthford", mass_position, "surface")
+        self.state.circuits[mass_key] = CircuitCell(
+            "region:hearthford", mass_position, "surface", "sensor",
+            mode="mass", threshold=2,
+        )
+        target = self.target()
+        self.state.weapon = "hand axe"
+        session = GameSession(self.state)
+
+        session.submit(AttackCommand(target.id))
+        self.assertEqual(rack.charge, 1)
+
+        terrain_target = Position(41, 25, 0)
+        terrain_key = f"{terrain_target.x},{terrain_target.y},{terrain_target.z}"
+        self.state.region.tile_changes[terrain_key] = '"'
+        noise_before = self.state.noise
+        outcome = session.submit(TerrainActionCommand("cut", terrain_target))
+
+        self.assertEqual(outcome.result_id, "terrain.destroyed")
+        self.assertEqual(rack.charge, 0)
+        self.assertEqual(self.state.noise, noise_before + 3)
+        self.assertEqual(
+            [type(event) for event in outcome.events],
+            [TerrainDamaged, TerrainChanged],
+        )
+        self.assertEqual(outcome.events[0].amount, 2)
+        self.assertIn("spends 1 rack charge", self.state.circuits[mass_key].last_event)
+
+    def test_terrain_assistance_requires_range_charge_and_a_valid_base_tool(self):
+        rack, _ = self.fit_engine(mode="mass")
+        rack.charge = 2
+        self.state.position = Position(41, 25, 0)
+        terrain_target = Position(42, 25, 0)
+        terrain_key = f"{terrain_target.x},{terrain_target.y},{terrain_target.z}"
+        self.state.region.tile_changes[terrain_key] = '"'
+        session = GameSession(self.state)
+
+        self.state.weapon = "longbow"
+        rejected = session.submit(TerrainActionCommand("cut", terrain_target))
+        self.assertEqual(rejected.result_id, "terrain.rejected")
+        self.assertEqual(rack.charge, 2)
+
+        self.state.weapon = "hand axe"
+        self.state.circuits[self.sensor_key].threshold = 1
+        accepted = session.submit(TerrainActionCommand("cut", terrain_target))
+        self.assertEqual(accepted.result_id, "terrain.damaged")
+        self.assertEqual(rack.charge, 2)
+        self.assertEqual(accepted.events[0].amount, 1)
+
+    def test_terrain_assistance_spends_only_charge_that_changes_the_result(self):
+        rack, _ = self.fit_engine(mode="mass")
+        second_position = Position(40, 25, 0)
+        second_key = cell_key("region:hearthford", second_position, "surface")
+        self.state.circuits[second_key] = CircuitCell(
+            "region:hearthford", second_position, "surface", "sensor",
+            mode="mass", threshold=2,
+        )
+        rack.charge = 2
+        terrain_target = Position(41, 25, 0)
+        terrain_key = f"{terrain_target.x},{terrain_target.y},{terrain_target.z}"
+        self.state.region.tile_changes[terrain_key] = '"'
+        self.state.weapon = "hand axe"
+        session = GameSession(self.state)
+
+        powered = session.submit(TerrainActionCommand("cut", terrain_target))
+
+        self.assertEqual(powered.result_id, "terrain.destroyed")
+        self.assertEqual(powered.events[0].amount, 2)
+        self.assertEqual(rack.charge, 1)
+
+        self.state.region.tile_changes[terrain_key] = ";"
+        unneeded = session.submit(TerrainActionCommand("cut", terrain_target))
+        self.assertEqual(unneeded.result_id, "terrain.destroyed")
+        self.assertEqual(unneeded.events[0].amount, 1)
+        self.assertEqual(rack.charge, 1)
+
     def test_same_state_and_attack_are_deterministic_and_charge_round_trips(self):
         self.fit_engine()
         target = self.target()
@@ -172,6 +272,34 @@ class EngineComponentTests(unittest.TestCase):
             path = save_game(first, Path(directory) / "engine.json")
             restored = load_game(path)
         self.assertEqual(restored.circuits[self.rack_key].charge, 1)
+        payload = restored.to_dict()
+        self.assertNotIn("simulation_facts", payload)
+        self.assertNotIn("reaction_rules", payload)
+
+    def test_charged_terrain_action_is_deterministic_and_persists_only_state(self):
+        rack, _ = self.fit_engine(mode="mass")
+        rack.charge = 1
+        terrain_target = Position(41, 25, 0)
+        terrain_key = f"{terrain_target.x},{terrain_target.y},{terrain_target.z}"
+        self.state.region.tile_changes[terrain_key] = '"'
+        self.state.weapon = "hand axe"
+        first, second = copy.deepcopy(self.state), copy.deepcopy(self.state)
+
+        first_outcome = GameSession(first).submit(
+            TerrainActionCommand("cut", terrain_target),
+        )
+        second_outcome = GameSession(second).submit(
+            TerrainActionCommand("cut", terrain_target),
+        )
+
+        self.assertEqual(first_outcome, second_outcome)
+        self.assertEqual(first.to_dict(), second.to_dict())
+        self.assertEqual(first.circuits[self.rack_key].charge, 0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = save_game(first, Path(directory) / "terrain-engine.json")
+            restored = load_game(path)
+        self.assertEqual(restored.circuits[self.rack_key].charge, 0)
+        self.assertEqual(restored.region.tile_changes[terrain_key], ".")
         payload = restored.to_dict()
         self.assertNotIn("simulation_facts", payload)
         self.assertNotIn("reaction_rules", payload)
