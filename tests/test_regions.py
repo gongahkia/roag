@@ -14,6 +14,9 @@ class FourRegionGenerationTests(unittest.TestCase):
     def test_begin_region_is_zero_time_and_immediately_playable(self):
         state = create_world("direct regional beginning")
         begin_region(state, "hearthford")
+        equivalent = create_world("direct regional beginning")
+        begin_region(equivalent, "hearthford")
+        self.assertEqual(state.to_dict(), equivalent.to_dict())
         self.assertEqual(state.location, "region")
         self.assertEqual(state.current_room, "hearthford")
         self.assertEqual(state.position, state.region.landmarks["landing"])

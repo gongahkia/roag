@@ -89,6 +89,7 @@ from .content import (
     WEAPONS,
 )
 from .save import SaveError, save_game
+from .presentation import EffectState, PRESENTATION_FRAME_MS, presentation_enabled
 from .navigation import (
     RoutePlan,
     RouteUnavailable,
@@ -770,6 +771,7 @@ def visible_danger_marks(state: GameState, visible: set[Position]) -> set[Positi
 def _draw_map(
     screen: curses.window, state: GameState, top: int, left: int, height: int, width: int,
     semantic_view: WorldView | None = None,
+    effects: EffectState | None = None,
 ) -> None:
     from .materials import fields, key
     from .circuits import active as circuit_active, space_id
@@ -843,7 +845,8 @@ def _draw_map(
                 attr |= curses.A_UNDERLINE
             if state.combat_active and position not in visible:
                 attr = curses.A_DIM
-            _put(screen, top + 1 + sy, left + 1 + sx, char, attr)
+            presented = effects.glyph(char, position) if effects is not None else char
+            _put(screen, top + 1 + sy, left + 1 + sx, presented, attr)
 
 
 def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
@@ -883,7 +886,12 @@ def _draw_minimum_size_notice(screen: curses.window) -> None:
         _put(screen, top + offset, max(0, (width - len(line)) // 2), line, curses.A_BOLD if heading else 0)
 
 
-def _draw_base(screen: curses.window, state: GameState, semantic_view: WorldView | None = None) -> None:
+def _draw_base(
+    screen: curses.window,
+    state: GameState,
+    semantic_view: WorldView | None = None,
+    effects: EffectState | None = None,
+) -> None:
     screen.erase()
     height, width = screen.getmaxyx()
     if height < MIN_HEIGHT or width < MIN_WIDTH:
@@ -894,7 +902,7 @@ def _draw_base(screen: curses.window, state: GameState, semantic_view: WorldView
     main_height, map_width = height - event_height - command_height, width - status_width
     _frame(screen, 0, 0, main_height, map_width, area_name(state).upper())
     _frame(screen, 0, map_width, main_height, status_width, INTERFACE_LABELS["watch_log"])
-    _draw_map(screen, state, 0, 0, main_height, map_width, semantic_view)
+    _draw_map(screen, state, 0, 0, main_height, map_width, semantic_view, effects)
     for index, line in enumerate(_status_lines(state, main_height - 2)):
         role = status_colour_role(line)
         if line.startswith("COURIER") or index == 1:
@@ -3766,14 +3774,28 @@ def play(screen: curses.window, state: GameState) -> GameState:
         _disable_mouse()
         try:
             screen.timeout(-1)
-        except curses.error:
+        except (curses.error, AttributeError):
             pass
 
 
-def _play_loop(screen: curses.window, state: GameState) -> GameState:
+def _screen_timeout(screen: curses.window, milliseconds: int) -> bool:
+    """Set input timing, returning false for terminals without timeout support."""
+    try:
+        screen.timeout(milliseconds)
+    except (curses.error, AttributeError):
+        return False
+    return True
+
+
+def _play_loop(
+    screen: curses.window,
+    state: GameState,
+    effects: EffectState | None = None,
+) -> GameState:
     from .vessel import ROAG_GANGPLANK
 
     session = GameSession(state)
+    effects = effects or EffectState.for_seed(state.seed, enabled=presentation_enabled())
     overlay: OverlayView | None = None
     inventory_view: InventoryView | None = None
     route_view: RouteChartView | None = None
@@ -3782,8 +3804,11 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
     circuit_view: CircuitView | None = None
     local_route: RoutePlan | None = None
     local_route_index = 0
+    semantic_view: WorldView | None = None
     while True:
-        _draw_base(screen, state, session.world_view())
+        if semantic_view is None:
+            semantic_view = session.world_view()
+        _draw_base(screen, state, semantic_view, effects)
         height, width = screen.getmaxyx()
         if inventory_view and height >= MIN_HEIGHT and width >= MIN_WIDTH:
             _draw_inventory(screen, state, inventory_view)
@@ -3820,12 +3845,30 @@ def _play_loop(screen: curses.window, state: GameState) -> GameState:
                 local_route = None
                 continue
             progress = advance_route(state, local_route, local_route_index)
+            semantic_view = None
             local_route_index = progress.next_index
             if progress.stop_reason or progress.finished:
                 state.add_message(progress.stop_reason or ui_format("ui.terminal.route.destination"), priority=2)
                 local_route = None
             continue
-        event = normalise_input(screen.getch())
+        modal_open = any((inventory_view, route_view, target_view, look_view, circuit_view, overlay))
+        timed_frame = effects.enabled and not modal_open
+        if not _screen_timeout(screen, PRESENTATION_FRAME_MS if timed_frame else -1):
+            effects.enabled = False
+            timed_frame = False
+        try:
+            raw_key = screen.getch()
+        except curses.error:
+            raw_key = -1
+        if raw_key == -1:
+            if timed_frame:
+                effects.advance()
+            continue
+        # Any real input may change authoritative state through either the
+        # session command path or a legacy modal reducer. Idle frames reuse the
+        # immutable view instead of rebuilding FOV and cells ten times a second.
+        semantic_view = None
+        event = normalise_input(raw_key)
         key = event.key
         if key == curses.KEY_RESIZE:
             continue

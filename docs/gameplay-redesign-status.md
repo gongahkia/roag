@@ -20,8 +20,8 @@ source of truth.
 |---|---|---|
 | FOUNDATION-01 | Complete | One transient `RuntimeEventBatch` per submitted command, with ordered world-step groups. |
 | WORLD-01 | Complete | Shared zero-time `begin_region(...)`; new-character flow enters Hearthford directly. |
-| FOUNDATION-02 | Next | Independent presentation clock and UI-owned effects without simulation advancement. |
-| WORLD-02 | Planned | Semantic regional terrain catalog with legacy glyph parity. |
+| FOUNDATION-02 | Complete | Independent 100 ms presentation clock, UI-owned effects, and ambient water glyph cycling. |
+| WORLD-02 | Next | Semantic regional terrain catalog with legacy glyph parity. |
 | WORLD-03 | Planned | Generic terrain action and first ordinary destructible terrain. |
 | DANGER-01 | Planned | Existing pressure policy behind a deterministic director boundary. |
 | DANGER-02 | Planned | Fair deterministic persistent reinforcements. |
@@ -38,12 +38,19 @@ source of truth.
   regional initialization to `begin_region` before charging its existing tick.
 - `roag.main._start_new_world` completes character creation, enters the active
   Region, and starts play.
+- `roag.presentation.EffectState` owns transient presentation time and ambient
+  glyph composition without retaining or mutating `GameState`.
+- `roag.terminal._play_loop` uses 100 ms input timeouts only for the unobscured
+  main view. Modal views remain blocking, and `ROAG_PRESENTATION=off` restores
+  static blocking input for the whole play loop.
 
 ## Compatibility and migrations
 
 - Current save format: 15.
 - Redesign migrations introduced: none.
 - Runtime event batches and presentation state are not serialized.
+- Presentation timeout frames submit no command and consume no world time or
+  deterministic RNG.
 - Regional maps remain glyph-backed through `Region.levels` and
   `Region.tile_changes`.
 
@@ -54,3 +61,6 @@ source of truth.
 - Before WORLD-01 changes, focused validation already had two unrelated
   failures: character save round-trip courier selection and elite-machinery
   damage expectation. They are not part of WORLD-01.
+- Nearby content-pack validation also exposes existing stale UI-contract count
+  and terminal legacy-overlay failures; the redesign tranches do not currently
+  depend on either path.
