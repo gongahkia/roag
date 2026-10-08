@@ -25,8 +25,8 @@ source of truth.
 | WORLD-03 | Complete | Generic physical terrain actions, sparse damage, and destructible reeds/mud. |
 | DANGER-01 | Complete | Existing pressure policy behind deterministic evaluated danger actions. |
 | DANGER-02 | Complete | Fair deterministic persistent regional reinforcements. |
-| ENGINE-01 | Next | Transient simulation facts and bounded effects. |
-| ENGINE-02 | Planned | First reusable cross-system component vertical slice. |
+| ENGINE-01 | Complete | Transient simulation facts and bounded component effects. |
+| ENGINE-02 | Next | First reusable cross-system component vertical slice. |
 
 ## Implemented seams
 
@@ -73,6 +73,13 @@ source of truth.
   known position but receive no AI decision on their creation step.
 - `ThreatSpawned` is a renderer-neutral, step-scoped runtime event; it is not
   persisted or used as simulation input.
+- `roag.simulation_effects` defines immutable authoritative facts, explicit
+  registered reaction rules, a command-scoped fact collector, and a bounded
+  deterministic resolver distinct from renderer-facing runtime events.
+- The initial finite effect vocabulary contains only `gain_charge`, delegated
+  through `roag.circuits.gain_charge` to an existing physical rack. Rules are
+  explicit inputs, space-scoped, non-recursive, deterministically ordered, and
+  capped per resolution; no gameplay component rules are registered yet.
 
 ## Compatibility and migrations
 
@@ -96,6 +103,10 @@ source of truth.
   region's sequence and last-arrival turn. Existing format-15 saves default to
   no prior arrival, and spawned threats/equipment use existing serialization.
   No save-format or content-fingerprint change was required.
+- ENGINE-01 adds no persistent fields, migration, catalog rows, or content
+  fingerprint changes. Simulation facts, collectors, rules, and resolution
+  records are transient; an applied effect mutates only existing authoritative
+  circuit charge through the circuit domain's bounded API.
 
 ## Known deviations and baseline issues
 
@@ -116,6 +127,10 @@ source of truth.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
   elites. Exact cadence, group composition, and longer-term population policy
   remain balance work rather than being generalized prematurely.
+- ENGINE-01 deliberately registers no production component reactions and emits
+  no facts from current actions. ENGINE-02 must choose a concrete vertical
+  slice, discover its physical/equipment/production sources, and connect facts
+  at the authoritative producer without treating RuntimeEvents as input.
 - The DANGER-01 starting commit also reproduces the ecology water-interruption
   assertion failure (`fire` remains 1 instead of 0); it is unrelated to the
   director extraction.

@@ -106,6 +106,22 @@ def cell_at(state: GameState, position: Position, layer: str = "surface") -> Cir
     return state.circuits.get(cell_key(space, position, layer)) if space else None
 
 
+def gain_charge(state: GameState, key: str, amount: int) -> int:
+    """Add bounded charge to a physical rack and return the amount accepted.
+
+    This is the circuit domain's mutation seam for external deterministic
+    effects. Missing, non-rack, or already-full targets accept no charge.
+    """
+    if type(amount) is not int or amount <= 0:
+        raise ValueError("circuit charge gain must be a positive integer")
+    cell = state.circuits.get(key)
+    if cell is None or cell.kind != "rack":
+        return 0
+    accepted = min(amount, max(0, 2 * CELL_CHARGE - cell.charge))
+    cell.charge += accepted
+    return accepted
+
+
 def offset(position: Position, facing: str, steps: int = 1) -> Position:
     dx, dy = DIRECTIONS[facing]
     return Position(position.x + dx * steps, position.y + dy * steps, position.z)
