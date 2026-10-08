@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .content import COMMODITIES, GEAR, MERCHANT_ITEMS, PASSIVES, RELICS, SUPPORTS, WEAPONS
+from .danger import pressure, resolve_band_transition, resolve_danger_step
 from .enemy_ai import next_path_step, raise_group_alert, retreat_step, select_goal
 from .expanded_weapons import ARSENAL
 from .item_presentation import item_display_name, item_display_name_or_legacy
@@ -63,7 +64,6 @@ from .world import (
     passive_bulk,
     passive_capacity,
     position_key,
-    pressure,
     vertical_destination,
     vertical_open,
 )
@@ -1289,13 +1289,6 @@ def _weather_and_deadline(state: GameState) -> list[str]:
         state.region.changes["late_objective"] = True
         state.market[state.region.objective_commodity].demand += 1
         messages.append(action_format("action.process.objective_changed", process=state.region.process_name.title()))
-    if pressure(state).band == "critical" and not state.escalation_spawned:
-        state.escalation_spawned = True
-        state.region.changes["escalation_spawned"] = True
-        escalation = next((t for t in state.combatants if t.status == "dormant"), None)
-        if escalation:
-            escalation.status = "watching"
-            messages.append(action_format("action.process.escalation", threat=escalation.name))
     return messages
 
 
@@ -1364,7 +1357,11 @@ def _advance_world(
                 state.pressure_elapsed += 1
                 state.region.local_elapsed = state.pressure_elapsed
             previously_watching = {actor.id for actor in state.combatants if actor.status == "watching"}
-            messages = _weather_and_deadline(state) + _patrols(state) if state.location == "region" else []
+            messages = []
+            if state.location == "region":
+                messages.extend(_weather_and_deadline(state))
+                messages.extend(resolve_danger_step(state).messages)
+                messages.extend(_patrols(state))
             from .worklines import apply_local_work
             apply_local_work(state)
             from .ecology import active_actors
@@ -1405,15 +1402,8 @@ def _advance_world(
         state.add_message(action_format("action.vehicle.separated"), priority=3)
     if state.location == "region":
         field_of_view(state)
-        new_band = pressure(state).band
-        if old_band != new_band and new_band in {"strained", "critical"}:
-            from .situations import activate_for_band
-
-            activate_for_band(state, new_band)
-            state.add_message(
-                action_format("action.pressure.increased", band=new_band),
-                priority=3,
-            )
+        for message in resolve_band_transition(state, old_band).messages:
+            state.add_message(message, priority=3)
 
 
 def advance_world(

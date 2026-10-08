@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
 
 from .content import COMMODITIES, PASSIVES
+from .danger import Pressure, pressure
 from .state import GameState, Position
 from .terrain import terrain_at as regional_terrain_at
 from .visuals import ENTITY_GLYPHS
@@ -25,37 +25,8 @@ from .vessel import (
 __all__ = ("ROAG_GANGPLANK", "TAVERN_MAP", "VESSEL_LEVELS")
 
 
-@dataclass(frozen=True)
-class Pressure:
-    elapsed: int
-    depth: int
-    noise: int
-    valuables: int
-    score: int
-    band: str
-    alert_range: int
-    pursuit_steps: int
-
-
 def position_key(position: Position) -> str:
     return f"{position.x},{position.y},{position.z}"
-
-
-def pressure(state: GameState) -> Pressure:
-    if state.location != "region":
-        return Pressure(0, 0, 0, 0, 0, "safe", 0, 0)
-    landing = state.region.landmarks["landing"]
-    distance = abs(state.position.x - landing.x) + abs(state.position.y - landing.y)
-    depth = distance // 14 + abs(state.position.z) * 2
-    valuables = sum(state.carried_passives.values()) + sum(stack.quantity for stack in state.carried_goods.values())
-    score = state.pressure_elapsed // 18 + depth + state.noise // 2 + valuables
-    if score >= 18:
-        band, alert, pursuit = "critical", 12, 2
-    elif score >= 10:
-        band, alert, pursuit = "strained", 9, 1
-    else:
-        band, alert, pursuit = "steady", 6, 1
-    return Pressure(state.pressure_elapsed, depth, state.noise, valuables, score, band, alert, pursuit)
 
 
 def map_rows(state: GameState, z: int | None = None) -> list[str] | tuple[str, ...]:

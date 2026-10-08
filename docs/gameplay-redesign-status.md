@@ -23,8 +23,8 @@ source of truth.
 | FOUNDATION-02 | Complete | Independent 100 ms presentation clock, UI-owned effects, and ambient water glyph cycling. |
 | WORLD-02 | Complete | Read-only semantic regional terrain catalog with strict legacy glyph parity. |
 | WORLD-03 | Complete | Generic physical terrain actions, sparse damage, and destructible reeds/mud. |
-| DANGER-01 | Next | Existing pressure policy behind a deterministic director boundary. |
-| DANGER-02 | Planned | Fair deterministic persistent reinforcements. |
+| DANGER-01 | Complete | Existing pressure policy behind deterministic evaluated danger actions. |
+| DANGER-02 | Next | Fair deterministic persistent reinforcements. |
 | ENGINE-01 | Planned | Transient simulation facts and bounded effects. |
 | ENGINE-02 | Planned | First reusable cross-system component vertical slice. |
 
@@ -57,6 +57,13 @@ source of truth.
   before exactly one existing authoritative world step.
 - `roag.terrain.replace_terrain` is the shared runtime mutation seam and clears
   damage belonging to the displaced terrain identity.
+- `roag.danger` owns the unchanged pressure formula and immutable
+  `DangerAction`/`DangerOutcome` boundary. Per-step critical escalation,
+  post-command band transitions, pursuit/alert values, and authored situation
+  activation now enter regional simulation through this policy seam.
+- Danger evaluation is pure and deterministic; application remains synchronous
+  inside the action clock. Region entry retains its historical steady situation
+  regardless of initially carried valuables.
 
 ## Compatibility and migrations
 
@@ -74,6 +81,8 @@ source of truth.
 - WORLD-03 added default-empty `Region.terrain_damage`; format-15 saves without
   it load unchanged, partial damage round-trips sparsely, and no save-format
   bump was required. Runtime terrain events remain transient.
+- DANGER-01 added no persistent state or migration. `roag.world.pressure`
+  remains a compatibility export of the new danger-domain implementation.
 
 ## Known deviations and baseline issues
 
@@ -89,3 +98,8 @@ source of truth.
   reeds, and mud. Walls, timber, fragile floors, circuit placement, collapse,
   authored features, inventory harvesting, and broader tool balance remain
   later work rather than being silently generalized.
+- DANGER-01 deliberately adds no actors, RNG draws, population caps, spawn
+  placement, or balance changes. Those remain DANGER-02 responsibilities.
+- The DANGER-01 starting commit also reproduces the ecology water-interruption
+  assertion failure (`fire` remains 1 instead of 0); it is unrelated to the
+  director extraction.

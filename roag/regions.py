@@ -890,6 +890,6 @@ def begin_region(
     from .world import field_of_view
 
     field_of_view(state)
-    from .situations import activate_for_band
+    from .danger import resolve_region_entry
 
-    activate_for_band(state, "steady")
+    resolve_region_entry(state)
