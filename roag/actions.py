@@ -630,6 +630,7 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
     harm = harm_enemy(
         state, threat, damage, f"{state.courier.name}'s prepared {item_display_name_or_legacy(state.weapon)}",
         damage_kind="cut" if state.weapon == "glaive" else "pierce",
+        defeated_by_actor_id=state.active_courier_id or "courier",
     )
     threat.morale -= 2 if threat.profile == "animal" else 1
     if not harm.defeated and threat.morale <= 0 and threat.profile != "machinery":
@@ -2839,7 +2840,10 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         from .enemy_equipment import harm_enemy
 
         for other in adjacent[1:]:
-            harm_enemy(state, other, 1, "river staff sweep", damage_kind="blunt")
+            harm_enemy(
+                state, other, 1, "river staff sweep", damage_kind="blunt",
+                defeated_by_actor_id=state.active_courier_id or "courier",
+            )
         state.guarded_step = True
         weapon_text += action_format("combat.attack.effect.staff")
     elif state.weapon == "hand axe":
@@ -2971,6 +2975,7 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     harm = harm_enemy(
         state, target, damage, f"{state.courier.name}'s {item_display_name_or_legacy(state.weapon)}",
         damage_kind=damage_kind,
+        defeated_by_actor_id=state.active_courier_id or "courier",
     )
     if harm.defeated or (
         target.morale <= 0 and target.profile != "machinery"

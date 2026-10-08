@@ -181,6 +181,7 @@ def guard_interception(state, target, damage):
     harm = harm_enemy(
         state, helper, intercepted, "convoy guard interception",
         damage_kind="blunt",
+        defeated_by_actor_id=state.active_courier_id or "courier",
     )
     return damage - intercepted, ecology_format("frontier.result.guard_intercept", helper=helper.name, amount=harm.amount)
 

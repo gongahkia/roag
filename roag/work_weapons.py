@@ -121,7 +121,10 @@ def strike_effects(state, target, candidates):
         for actor in candidates:
             if actor.id == target.id or distance(state.position, actor.position) > 2 or not line_of_sight(state, state.position, actor.position):
                 continue
-            harm_enemy(state, actor, 2, "war flail sweep", damage_kind="blunt")
+            harm_enemy(
+                state, actor, 2, "war flail sweep", damage_kind="blunt",
+                defeated_by_actor_id=state.active_courier_id or "courier",
+            )
             count += 1
         return WorkingStrike(equipment_format("equipment.strike.war_flail", count=count))
     if state.weapon == "spade":
@@ -152,7 +155,10 @@ def strike_effects(state, target, candidates):
             None,
         )
         if adjacent:
-            harm_enemy(state, adjacent, 1, "glaive follow-through", damage_kind="cut")
+            harm_enemy(
+                state, adjacent, 1, "glaive follow-through", damage_kind="cut",
+                defeated_by_actor_id=state.active_courier_id or "courier",
+            )
         return WorkingStrike(equipment_format("equipment.strike.glaive.clip", target=adjacent.name) if adjacent else equipment_format("equipment.strike.glaive.none"))
     if state.weapon == "pollaxe":
         cell = ensure_cell(state, target.position)

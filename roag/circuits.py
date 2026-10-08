@@ -409,6 +409,28 @@ def _route(state: GameState, start: CircuitCell, goal: set[str], *, open_only: b
     return None
 
 
+def nearest_connected_rack(
+    state: GameState, cell: CircuitCell,
+) -> tuple[str, CircuitCell] | None:
+    """Return the nearest rack in the same physical circuit topology.
+
+    Open switches and current sensor state do not erase a fitted connection.
+    Path length and stable cell key make selection independent of insertion
+    order when a network contains multiple racks.
+    """
+    candidates: list[tuple[int, str, CircuitCell]] = []
+    for key, rack in state.circuits.items():
+        if rack.space != cell.space or rack.kind != "rack":
+            continue
+        route = _route(state, cell, {key}, open_only=False)
+        if route is not None and len(route) - 1 <= SIGNAL_SPAN:
+            candidates.append((len(route), key, rack))
+    if not candidates:
+        return None
+    _, key, rack = min(candidates, key=lambda row: (row[0], row[1]))
+    return key, rack
+
+
 def _receivers(state: GameState, space: str) -> set[str]:
     return {key for key, cell in state.circuits.items()
             if cell.space == space and cell.kind in {"lamp", "gate", "drain", "piston", "counter"}}

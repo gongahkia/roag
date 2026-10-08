@@ -166,10 +166,12 @@ def harm_enemy(
     *,
     damage_kind: str = "blunt",
     location: str | None = None,
+    defeated_by_actor_id: str | None = None,
 ) -> EnemyHarm:
     """Apply the same physical protection/injury reducer from any damage source."""
     from .workshop import effective_spec
 
+    was_active = actor.health > 0
     location = location or hit_location(state, actor, damage_kind, source)
     armour = armour_item(state, actor, location)
     protection = 0
@@ -215,6 +217,12 @@ def harm_enemy(
             from .sanctums import record_site_defeat
 
             record_site_defeat(state, actor)
+        if was_active and defeated_by_actor_id:
+            from .engine_components import resolve_actor_defeat
+
+            resolve_actor_defeat(
+                state, actor.id, defeated_by_actor_id, actor.position,
+            )
     return EnemyHarm(dealt, location, protection_name, injury, actor.health == 0, dropped)
 
 

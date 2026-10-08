@@ -63,10 +63,12 @@ class GainCharge:
     """Request bounded charge for the physical component owning a rule."""
 
     amount: int
+    target: ComponentRef | None = None
     effect_id: str = field(init=False, default="gain_charge")
 
     def __post_init__(self) -> None:
-        if type(self.amount) is not int or self.amount <= 0:
+        if (type(self.amount) is not int or self.amount <= 0
+                or self.target is not None and not isinstance(self.target, ComponentRef)):
             raise ValueError("charge effect amount must be a positive integer")
 
 
@@ -86,6 +88,23 @@ class ComponentRef:
 
 
 @dataclass(frozen=True)
+class WithinRange:
+    """Match facts on one level within a component's Chebyshev range."""
+
+    space_id: str
+    origin: Position
+    maximum: int
+
+    def __post_init__(self) -> None:
+        if (not self.space_id or not isinstance(self.origin, Position)
+                or type(self.maximum) is not int or not 1 <= self.maximum <= 12):
+            raise ValueError("invalid simulation fact range condition")
+
+
+SimulationCondition = WithinRange
+
+
+@dataclass(frozen=True)
 class ReactionRule:
     """One registered component reaction using the finite trigger/effect set."""
 
@@ -94,11 +113,13 @@ class ReactionRule:
     trigger_id: str
     effect: SimulationEffect
     priority: int = 0
+    condition: SimulationCondition | None = None
 
     def __post_init__(self) -> None:
         if (not isinstance(self.rule_id, str) or not self.rule_id
                 or self.trigger_id not in TRIGGER_IDS
-                or not isinstance(self.effect, GainCharge)):
+                or not isinstance(self.effect, GainCharge)
+                or self.condition is not None and not isinstance(self.condition, WithinRange)):
             raise ValueError("invalid component reaction rule")
         if type(self.priority) is not int:
             raise ValueError("reaction priority must be an integer")
@@ -112,6 +133,7 @@ class EffectApplication:
     fact_id: str
     rule_id: str
     source: ComponentRef
+    target: ComponentRef
     effect_id: str
     requested_amount: int
     applied_amount: int
@@ -175,15 +197,16 @@ def resolve_component_reactions(
     applications: list[EffectApplication] = []
     for fact_index, fact in enumerate(facts):
         for rule in ordered_rules:
-            if rule.trigger_id != fact.fact_id:
+            if not _matches(fact, rule):
                 continue
-            applied = _apply_effect(state, fact, rule)
+            target, applied = _apply_effect(state, fact, rule)
             if applied:
                 applications.append(EffectApplication(
                     fact_index=fact_index,
                     fact_id=fact.fact_id,
                     rule_id=rule.rule_id,
                     source=rule.source,
+                    target=target,
                     effect_id=rule.effect.effect_id,
                     requested_amount=rule.effect.amount,
                     applied_amount=applied,
@@ -191,11 +214,32 @@ def resolve_component_reactions(
     return SimulationResolution(facts, tuple(applications))
 
 
-def _apply_effect(state: GameState, fact: SimulationFact, rule: ReactionRule) -> int:
+def _matches(fact: SimulationFact, rule: ReactionRule) -> bool:
+    if rule.trigger_id != fact.fact_id:
+        return False
+    if isinstance(rule.condition, WithinRange):
+        return (
+            fact.space_id == rule.condition.space_id
+            and fact.position.z == rule.condition.origin.z
+            and max(
+                abs(fact.position.x - rule.condition.origin.x),
+                abs(fact.position.y - rule.condition.origin.y),
+            ) <= rule.condition.maximum
+        )
+    return True
+
+
+def _apply_effect(
+    state: GameState, fact: SimulationFact, rule: ReactionRule,
+) -> tuple[ComponentRef, int]:
     """Delegate a finite effect to the domain that owns its state mutation."""
     if isinstance(rule.effect, GainCharge) and rule.source.kind == "circuit":
-        cell = state.circuits.get(rule.source.instance_id)
-        if cell is None or cell.space != fact.space_id:
-            return 0
-        return gain_charge(state, rule.source.instance_id, rule.effect.amount)
-    return 0
+        source = state.circuits.get(rule.source.instance_id)
+        target = rule.effect.target or rule.source
+        target_cell = state.circuits.get(target.instance_id)
+        if (source is None or source.space != fact.space_id
+                or target.kind != "circuit" or target_cell is None
+                or target_cell.space != fact.space_id):
+            return target, 0
+        return target, gain_charge(state, target.instance_id, rule.effect.amount)
+    return rule.source, 0

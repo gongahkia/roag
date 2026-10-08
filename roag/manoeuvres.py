@@ -175,7 +175,10 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         state.guarded_step = True
     elif row.id == "smoke-takedown":
         from .skill_tree import manoeuvre_damage_source
-        harm_enemy(state, target, 2, manoeuvre_damage_source(row.id), damage_kind="blunt")
+        harm_enemy(
+            state, target, 2, manoeuvre_damage_source(row.id), damage_kind="blunt",
+            defeated_by_actor_id=state.active_courier_id or "courier",
+        )
         target.morale -= 1
         state.noise = max(0, state.noise-1)
     elif row.id == "porter-shove":
@@ -190,7 +193,10 @@ def perform(state: GameState, manoeuvre_id: str, target_id: str | None = None) -
         if ammunition:
             consume_ammunition(state, ammunition)
         from .skill_tree import manoeuvre_damage_source
-        harm_enemy(state, target, 2, manoeuvre_damage_source(row.id), damage_kind="pierce")
+        harm_enemy(
+            state, target, 2, manoeuvre_damage_source(row.id), damage_kind="pierce",
+            defeated_by_actor_id=state.active_courier_id or "courier",
+        )
         target.aimed_at = None
         state.noise += 1
     elif row.id == "ice-feint":

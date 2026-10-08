@@ -114,7 +114,10 @@ def strike(state, target_id=None, *, target_position=None):
         for actor in affected:
             actor.status = "engaged"
             if effect == "thunder" and not delayed:
-                harm_enemy(state, actor, 1, "warned thunder bomb", damage_kind="blunt")
+                harm_enemy(
+                    state, actor, 1, "warned thunder bomb", damage_kind="blunt",
+                    defeated_by_actor_id=state.active_courier_id or "courier",
+                )
                 actor.morale -= 1 + int(has_node(state.courier, "controlled-chain"))
             elif effect == "thunder" and has_node(state.courier, "controlled-chain"):
                 actor.morale -= 1
@@ -182,7 +185,10 @@ def strike(state, target_id=None, *, target_position=None):
     if "sweep" in weapon.effects:
         for other in state.combatants:
             if other.id != target.id and other.status in {"watching", "engaged"} and distance(other.position, target.position) <= 1:
-                harm_enemy(state, other, 1, f"{state.weapon} sweep", damage_kind="cut")
+                harm_enemy(
+                    state, other, 1, f"{state.weapon} sweep", damage_kind="cut",
+                    defeated_by_actor_id=state.active_courier_id or "courier",
+                )
     if "timber" in weapon.effects and material_at(state, target.position) == "timber":
         cell = ensure_cell(state, target.position)
         if cell:
@@ -199,7 +205,11 @@ def strike(state, target_id=None, *, target_position=None):
     kind = "pierce" if "pierce" in weapon.effects else "cut" if "cut" in weapon.effects else "blunt"
     sound = emit_sound(state, weapon.noise)
     damage, skill_text, skill_guard = apply_weapon_skills(state, target, damage)
-    harm = harm_enemy(state, target, damage, f"{state.courier.name}'s {state.weapon}", damage_kind=kind)
+    harm = harm_enemy(
+        state, target, damage, f"{state.courier.name}'s {state.weapon}",
+        damage_kind=kind,
+        defeated_by_actor_id=state.active_courier_id or "courier",
+    )
     if harm.defeated or (target.morale <= 0 and target.profile != "machinery"):
         target.status = "defeated" if harm.defeated else "retreated"
         _set_equipment_intent(target, "intent.defeated.removed")

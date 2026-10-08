@@ -12,6 +12,7 @@ from roag.simulation_effects import (
     ReactionRule,
     SimulationFactCollector,
     ThreatDetectedFact,
+    WithinRange,
     resolve_component_reactions,
 )
 from roag.state import CircuitCell, Position, create_world
@@ -61,6 +62,7 @@ class SimulationEffectTests(unittest.TestCase):
         self.assertEqual(application.fact_index, 0)
         self.assertEqual(application.fact_id, "actor.defeated")
         self.assertEqual(application.rule_id, "test.kill-charge")
+        self.assertEqual(application.target, ComponentRef("circuit", self.key))
         self.assertEqual(application.effect_id, "gain_charge")
         self.assertEqual((application.requested_amount, application.applied_amount), (3, 3))
 
@@ -80,6 +82,26 @@ class SimulationEffectTests(unittest.TestCase):
         wrong_space = resolve_component_reactions(self.state, (remote,), (self.rule(),))
         self.assertEqual(wrong_space.applications, ())
         self.assertEqual(self.state.circuits[self.key].charge, 0)
+
+    def test_finite_range_condition_uses_same_level_chebyshev_distance(self):
+        rule = ReactionRule(
+            "ranged", ComponentRef("circuit", self.key), "actor.defeated",
+            GainCharge(1), condition=WithinRange(self.space, Position(20, 20), 2),
+        )
+        edge = ActorDefeatedFact(
+            "threat:edge", "courier:test", self.space, Position(22, 22),
+        )
+        outside = ActorDefeatedFact(
+            "threat:outside", "courier:test", self.space, Position(23, 20),
+        )
+        different_level = ActorDefeatedFact(
+            "threat:level", "courier:test", self.space, Position(20, 20, 1),
+        )
+        result = resolve_component_reactions(
+            self.state, (outside, different_level, edge), (rule,),
+        )
+        self.assertEqual(self.state.circuits[self.key].charge, 1)
+        self.assertEqual([item.fact_index for item in result.applications], [2])
 
     def test_rule_order_is_deterministic_and_not_registration_order(self):
         first = copy.deepcopy(self.state)

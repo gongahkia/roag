@@ -142,7 +142,11 @@ def cast(state: GameState, spell_id: str, point: Position) -> tuple[bool, str]:
             _set_intent(target, "intent.magic.bind")
         else:
             kind = "pierce" if spell.effect == "pierce" else "blunt"
-            harm = harm_enemy(state, target, spell.power, _damage_source(spell.id), damage_kind=kind)
+            harm = harm_enemy(
+                state, target, spell.power, _damage_source(spell.id),
+                damage_kind=kind,
+                defeated_by_actor_id=state.active_courier_id or "courier",
+            )
             if spell.effect == "ice":
                 target.conditions["chilled"] = max(3, target.conditions.get("chilled", 0))
             if spell.effect == "thunder":
