@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
 from .character_ui import run_character_creation
-from .regions import begin_region
 from .save import SaveError, load_game, save_path
 from .state import GameState, create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
@@ -130,9 +129,42 @@ def _start_new_world(screen: curses.window, state: GameState) -> bool:
     from .inventory import ensure_initial_field_tool
 
     ensure_initial_field_tool(state)
-    begin_region(state, state.active_region_id)
+    from .profile import load_profile
+    from .run_progression import start_run
+
+    profile = load_profile()
+    challenge_tier = _read_challenge(screen, profile.unlocked_challenge_tier)
+    start_run(state, challenge_tier=challenge_tier, profile=profile)
     play(screen, state)
     return True
+
+
+def _read_challenge(screen: curses.window, unlocked: int) -> int:
+    """Choose among unlocked disclosed rule tiers without changing the seed."""
+    from .run_progression import CHALLENGE_TIERS
+
+    selected = 0
+    while True:
+        screen.erase()
+        height, width = screen.getmaxyx()
+        title = "CHOOSE RUN CHALLENGE"
+        _put(screen, max(1, height // 2 - 5), _centered_x(width, title), title,
+             colour_attribute("ui_heading") | curses.A_BOLD)
+        for tier in range(unlocked + 1):
+            name, description = CHALLENGE_TIERS[tier]
+            marker = ">" if tier == selected else " "
+            line = f"{marker} {tier}. {name} — {description}"
+            _put(screen, max(2, height // 2 - 3 + tier), max(1, (width - min(76, len(line))) // 2), line[:max(1, width - 2)])
+        screen.refresh()
+        key = screen.getch()
+        if key in {curses.KEY_UP, ord("k")}:
+            selected = (selected - 1) % (unlocked + 1)
+        elif key in {curses.KEY_DOWN, ord("j")}:
+            selected = (selected + 1) % (unlocked + 1)
+        elif key in {10, 13}:
+            return selected
+        elif ord("0") <= key <= ord(str(min(5, unlocked))):
+            return key - ord("0")
 
 
 def run(screen: curses.window) -> None:

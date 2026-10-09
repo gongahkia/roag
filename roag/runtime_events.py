@@ -173,13 +173,30 @@ class ThreatSpawned:
     event_id: str = field(init=False, default="threat.spawned")
 
 
+@dataclass(frozen=True)
+class RunItemCollected:
+    actor_id: str
+    item_id: str
+    stacks: int
+    position: Position
+    event_id: str = field(init=False, default="run.item.collected")
+
+
+@dataclass(frozen=True)
+class RunStageChanged:
+    stage_index: int
+    region_id: str
+    position: Position
+    event_id: str = field(init=False, default="run.stage.changed")
+
+
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | AttackTelegraphed
     | ProjectileResolved | AreaTelegraphed | AreaResolved | CollapseResolved
     | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | TerrainDamaged | TerrainChanged
-    | ThreatSpawned
+    | ThreatSpawned | RunItemCollected | RunStageChanged
 )
 
 

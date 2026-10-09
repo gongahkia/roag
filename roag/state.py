@@ -26,7 +26,7 @@ from .content import (
     ROLES,
 )
 
-SAVE_FORMAT = 15
+SAVE_FORMAT = 16
 HISTORY_LIMIT = 40
 MESSAGE_LIMIT = 8
 NARRATIVE_RECORD_LIMIT = 64
@@ -737,6 +737,47 @@ class CircuitCell:
 
 
 @dataclass
+class RunProgress:
+    """Persistent authority for one five-stage roguelike run.
+
+    Presentation effects and command-scoped facts deliberately live elsewhere;
+    this record contains only information needed to resume the run exactly.
+    """
+
+    run_id: str
+    status: str = "active"
+    challenge_tier: int = 0
+    stage_index: int = 1
+    region_path: list[str] = field(default_factory=lambda: ["hearthford"])
+    offered_regions: list[str] = field(default_factory=list)
+    run_actions: int = 0
+    stage_actions: int = 0
+    stage_salvage: int = 0
+    item_stacks: dict[str, int] = field(default_factory=dict)
+    ordinary_kills: int = 0
+    elite_kills: int = 0
+    boss_kills: list[str] = field(default_factory=list)
+    opened_loot_ids: list[str] = field(default_factory=list)
+    failure_reason: str | None = None
+    threshold_level: int | None = None
+    threshold_entry: Position | None = None
+    branch_positions: dict[str, Position] = field(default_factory=dict)
+    allowed_regions: list[str] = field(default_factory=lambda: [
+        "dunmire", "greenwold", "greywash", "hearthford", "marlbank",
+        "whitecairn",
+    ])
+    dropped_items: dict[str, tuple[str, Position]] = field(default_factory=dict)
+    profile_recorded: bool = False
+
+
+def new_run_progress(seed: str, challenge_tier: int = 0) -> RunProgress:
+    if type(challenge_tier) is not int or not 0 <= challenge_tier <= 5:
+        raise ValueError("challenge tier must be between zero and five")
+    digest = hashlib.sha256(f"roag-run:{normalize_seed(seed)}".encode()).hexdigest()
+    return RunProgress(digest[:16], challenge_tier=challenge_tier)
+
+
+@dataclass
 class GameState:
     save_format: int
     seed: str
@@ -861,6 +902,7 @@ class GameState:
     circuits: dict[str, CircuitCell] = field(default_factory=dict)
     content_compat: dict[str, Any] = field(default_factory=_active_content_compat)
     narrative_records: list[dict[str, Any]] = field(default_factory=list)
+    run: RunProgress | None = None
 
     @property
     def combat_active(self) -> bool:
@@ -1188,6 +1230,7 @@ def create_world(seed: str) -> GameState:
         calendar_events=[], chronicle=[], pending_incident=None,
         last_schedule_turn=0,
         aftermath_quests={}, regional_contracts={},
+        run=new_run_progress(seed),
     )
     from .inventory import ensure_household_basics, initialise_inventory, sync_legacy_load
     from .people import initialise_tavern
@@ -1507,38 +1550,9 @@ def _migrate_v14(data: dict[str, Any]) -> dict[str, Any]:
 def game_state_from_dict(data: Any) -> GameState:
     if not isinstance(data, dict):
         raise StateError("save root must be an object")
-    migrated_v3 = data.get("save_format") == 3
-    if migrated_v3:
-        data = _migrate_v3(data)
-    migrated_v4 = data.get("save_format") == 4
-    if migrated_v4:
-        data = _migrate_v4(data)
-    migrated_v5 = data.get("save_format") == 5
-    if migrated_v5:
-        data = _migrate_v5(data)
-    if data.get("save_format") == 6:
-        data = _migrate_v6(data)
-    if data.get("save_format") == 7:
-        data = _migrate_v7(data)
-    if data.get("save_format") == 8:
-        data = _migrate_v8(data)
-    migrated_v9 = data.get("save_format") == 9
-    if migrated_v9:
-        data = _migrate_v9(data)
-    migrated_v10 = data.get("save_format") == 10
-    if migrated_v10:
-        data = _migrate_v10(data)
-    if data.get("save_format") == 11:
-        data = _migrate_v11(data)
-    if data.get("save_format") == 12:
-        data = _migrate_v12(data)
-    if data.get("save_format") == 13:
-        data = _migrate_v13(data)
-    migrated_v14 = data.get("save_format") == 14
-    if migrated_v14:
-        data = _migrate_v14(data)
     if data.get("save_format") != SAVE_FORMAT:
         raise StateError(f"incompatible save format; expected {SAVE_FORMAT}")
+    migrated_v3 = migrated_v4 = migrated_v5 = migrated_v9 = migrated_v10 = False
     content_compat = _validate_content_compat(data.get("content_compat"))
     _enforce_content_compat(content_compat)
     narrative_records = _validate_narrative_records(data.get("narrative_records"))
@@ -1700,6 +1714,23 @@ def game_state_from_dict(data: Any) -> GameState:
             values = dict(raw)
             values["position"] = _position(values["position"], "circuit position")
             circuits[key] = CircuitCell(**values)
+        raw_run = data.get("run")
+        run = None
+        if raw_run is not None:
+            values = dict(raw_run)
+            if values.get("threshold_entry") is not None:
+                values["threshold_entry"] = _position(
+                    values["threshold_entry"], "run threshold entry",
+                )
+            values["branch_positions"] = {
+                key: _position(value, "run branch")
+                for key, value in values.get("branch_positions", {}).items()
+            }
+            values["dropped_items"] = {
+                key: (value[0], _position(value[1], "run item drop"))
+                for key, value in values.get("dropped_items", {}).items()
+            }
+            run = RunProgress(**values)
         state = GameState(
             save_format=data["save_format"], seed=data["seed"], world_time=data["world_time"],
             household=household, active_courier_id=data["active_courier_id"], active_region_id=active_region_id, contact=contact,
@@ -1795,6 +1826,7 @@ def game_state_from_dict(data: Any) -> GameState:
             circuits=circuits,
             content_compat=content_compat,
             narrative_records=narrative_records,
+            run=run,
         )
         from .preparations import normalize_preparation_state
         if normalize_preparation_state(state):
@@ -2145,12 +2177,44 @@ def validate_state(state: GameState) -> None:
         raise StateError(f"invalid possibility state: {exc}") from exc
     if len(state.history) > HISTORY_LIMIT or len(state.messages) > MESSAGE_LIMIT:
         raise StateError("bounded history exceeded")
-    if set(state.region.levels) != {"-1", "0", "1", "2"}:
-        raise StateError("region must contain four aligned levels")
+    expected_levels = {"-1", "0", "1", "2"}
+    if state.run and state.run.threshold_level is not None:
+        expected_levels.add(str(state.run.threshold_level))
+    if set(state.region.levels) != expected_levels:
+        raise StateError("region must contain its aligned authored and threshold levels")
     if any(len(rows) != state.region.height or any(len(row) != state.region.width for row in rows) for rows in state.region.levels.values()):
         raise StateError("regional level dimensions are invalid")
     if any(count < 0 for count in (*state.owned_passives.values(), *state.carried_passives.values())):
         raise StateError("negative passive count")
+    if state.run is not None:
+        run = state.run
+        if (
+            not isinstance(run.run_id, str) or not run.run_id
+            or run.status not in {"active", "victory", "defeat", "abandoned"}
+            or type(run.challenge_tier) is not int or not 0 <= run.challenge_tier <= 5
+            or type(run.stage_index) is not int or not 1 <= run.stage_index <= 5
+            or not run.region_path or run.region_path[0] != "hearthford"
+            or any(region_id not in state.regions for region_id in run.region_path)
+            or any(region_id not in run.allowed_regions for region_id in run.offered_regions)
+            or any(type(value) is not int or value < 0 for value in (
+                run.run_actions, run.stage_actions, run.stage_salvage,
+                run.ordinary_kills, run.elite_kills,
+            ))
+            or any(not isinstance(key, str) or type(value) is not int or value < 1
+                   for key, value in run.item_stacks.items())
+            or len(run.boss_kills) > 5
+            or len(run.opened_loot_ids) != len(set(run.opened_loot_ids))
+            or set(run.branch_positions) != set(run.offered_regions)
+            or not set(run.region_path) <= set(run.allowed_regions)
+            or any(
+                not isinstance(drop_id, str) or not drop_id
+                or not isinstance(item_id, str) or not item_id
+                or not isinstance(position, Position)
+                for drop_id, (item_id, position) in run.dropped_items.items()
+            )
+            or type(run.profile_recorded) is not bool
+        ):
+            raise StateError("invalid roguelike run progress")
     try:
         from .inventory import validate_inventory
 

@@ -1058,7 +1058,7 @@ REQUIRED_CATALOGS = (
     "actors.json", "aftermath.json", "arc_relics.json", "character_profiles.json",
     "chemistry.json", "circuits.json", "equipment.json", "field_reports.json",
     "geography.json", "goods.json", "history.json", "people.json", "practices.json",
-    "production.json", "quests.json", "recruitment.json", "sanctums.json",
+    "production.json", "quests.json", "recruitment.json", "run_items.json", "sanctums.json",
     "situations.json", "skills.json", "spells.json", "terrain_variation.json",
     "vehicles.json", "vessel.json", "visuals.json", "topology.json", "world_text.json",
 )

@@ -509,6 +509,11 @@ def record_boss_defeat(state: GameState, actor: Threat) -> None:
     state.add_message(sanctum_format("sanctum.record.cleared",sanctum=sanctum_display_name(state.active_region_id),strategy=strategy_note),priority=3)
     from .state import append_narrative_record
     append_narrative_record(state,event_id="sanctum.resolved",refs={"region_id":state.active_region_id,"boss_id":actor.id,"control_id":str(state.region.changes["sanctum:control"])},params={"world_time":state.world_time,"credit":4},rendered=record)
+    from .run_progression import record_boss_defeat as record_run_boss_defeat
+
+    run_result = record_run_boss_defeat(state, actor.id)
+    if run_result.changed and run_result.message:
+        state.add_message(run_result.message, priority=3)
 
 
 def record_site_defeat(state: GameState, actor: Threat) -> None:

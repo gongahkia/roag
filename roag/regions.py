@@ -175,8 +175,15 @@ def region_reachable(region: Region, start: Position | None = None) -> frozenset
 
 
 def validate_region(region: Region) -> None:
-    if set(region.levels) != {"-1", "0", "1", "2"}:
+    if not {"-1", "0", "1", "2"} <= set(region.levels):
         raise RuntimeError(f"{region.name} lacks aligned levels")
+    if any(
+        not level.lstrip("-").isdigit()
+        or len(rows) != region.height
+        or any(len(row) != region.width for row in rows)
+        for level, rows in region.levels.items()
+    ):
+        raise RuntimeError(f"{region.name} has invalid aligned levels")
     if not isinstance(region.terrain_damage, dict):
         raise RuntimeError(f"{region.name} has invalid terrain damage")
     for coordinate, damage in region.terrain_damage.items():

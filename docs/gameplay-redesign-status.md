@@ -516,6 +516,11 @@ product decisions rather than assumed here.
 - Nearby content-pack validation also exposes an existing stale UI-contract
   count. GAMEPLAY-05 fixed the separate craft-catalog closure failure because
   it directly blocked the fresh-field commissioning path.
+- `tests.test_navigation.NavigationTests.test_route_stops_after_newly_perceived_danger`
+  currently places its fixture actor on a route cell already visible to the
+  courier, so the safety gate rejects replanning before the asserted later
+  interruption. The same failure reproduces from the clean starting `HEAD`;
+  GAMEPLAY-08 does not weaken visible-danger route rejection to mask it.
 - WORLD-03 and WORLD-04 deliberately began with ordinary reeds, dense reeds,
   and mud. WORLD-06 and WORLD-07 add only ordinary standing timber plus its
   existing support/collapse consequence; walls, worked timber, fragile floors,

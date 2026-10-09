@@ -97,6 +97,11 @@ def world_view(state: GameState) -> WorldView:
                 else f"terrain.roag.token.{ord(base_tile(state, point)):02x}"
             )
             features: list[str] = ([semantic.feature_id] if semantic is not None and semantic.feature_id else [])
+            if state.run is not None and any(
+                drop_position == point
+                for _, drop_position in state.run.dropped_items.values()
+            ):
+                features.append("run.item")
             if position_key(point) in state.smoke:
                 features.append("field.smoke")
             if position_key(point) in state.water:

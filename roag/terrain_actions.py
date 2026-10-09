@@ -60,13 +60,10 @@ def routes_terrain_action(
 
 
 def _protected(state: GameState, position: Position, definition: TerrainDefinition) -> bool:
-    if "protected" in definition.tags:
-        return True
-    if position in state.region.landmarks.values():
-        return True
-    if any(position in {link.first, link.second} for link in state.region.vertical_links):
-        return True
-    return any(container.position == position for container in state.region.containers)
+    # Physical definitions decide destructibility.  Authored cells no longer
+    # receive blanket immunity; destroying a required run link is handled as
+    # an explicit causal loss by run_progression after the action resolves.
+    return "protected" in definition.tags
 
 
 def terrain_action_power(state: GameState, action_id: str) -> int:
@@ -102,6 +99,10 @@ def terrain_action_power(state: GameState, action_id: str) -> int:
         power = max(power, 1)
     if "repair tools" in carried_kinds or state.courier.technique == "lever craft":
         power = max(power, 1)
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        power += effect_value(state, "terrain_power")
     if power:
         return power
     from .legendary import permits_material
@@ -148,6 +149,11 @@ def resolve_terrain_action(
         position,
         max(0, definition.hardness - previous_damage - power),
     )
+    sound_reduction = 0
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        sound_reduction = effect_value(state, "sound_reduction")
     power += assistance.power
     applied = min(power, definition.hardness - previous_damage)
     total = previous_damage + applied
@@ -173,7 +179,7 @@ def resolve_terrain_action(
         definition.material,
         applied,
         max(0, definition.hardness - total),
-        definition.action_sound + assistance.sound,
+        max(0, definition.action_sound + assistance.sound - sound_reduction),
         definition.yield_material if destroyed else None,
         definition.yield_fuel if destroyed else 0,
         assistance.power,

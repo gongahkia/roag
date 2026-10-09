@@ -40,7 +40,7 @@ from .runtime_events import (
     ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
     AttackTelegraphed, DamageApplied, ProjectileResolved, RuntimeEvent,
     RuntimeEventBatch, RuntimeEventCollector, StatusChanged, TerrainChanged,
-    TerrainDamaged,
+    TerrainDamaged, RunItemCollected, RunStageChanged,
 )
 from .terrain import replace_terrain
 from .state import (
@@ -448,6 +448,11 @@ def _return_after_defeat(state: GameState, text: str, permanent: bool) -> str:
     courier = state.courier
     if courier is None:
         return text
+    if state.run is not None and state.run.status == "active":
+        from .run_progression import finish_run
+
+        result = finish_run(state, "defeat", text)
+        return result.message
     defeated_at = state.position
     carried_locations = {
         "pack", "readied", "secondary", "head", "torso", "arms", "hands",
@@ -561,6 +566,15 @@ def apply_damage(
     source_seed = source if source_seed is None else source_seed
     location = location or _hit_location(state, damage_kind, source_seed)
     protection, armour_name = protection_at(state, location, damage_kind)
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        run_armour = effect_value(state, "armour")
+        if courier.health <= courier.max_health // 2:
+            run_armour += effect_value(state, "low_health_armour")
+        if state.run.challenge_tier >= 3:
+            amount += 1
+        protection += run_armour
     absorbed = min(max(0, amount - 1), protection)
     if absorbed:
         amount -= absorbed
@@ -582,7 +596,11 @@ def apply_damage(
                 courier.injury = injury
         protection_text = action_format("combat.damage.absorbed", armour=armour_name, absorbed=absorbed) if absorbed else action_format("combat.damage.exposed", location=location)
         return action_format("combat.damage.hit", source=source, location=location, damage=amount, protection=protection_text)
-    fatal = already_hurt or pressure(state).band == "critical" or "crown wheel" in source_seed
+    fatal = (
+        state.run is not None and state.run.status == "active"
+        or already_hurt or pressure(state).band == "critical"
+        or "crown wheel" in source_seed
+    )
     return _return_after_defeat(state, action_format("combat.damage.defeated", source=source, courier=courier.name), fatal)
 
 
@@ -1529,6 +1547,9 @@ def _advance_world(
         try:
             previous_time = state.world_time
             state.world_time += 1
+            from .run_progression import record_world_step
+
+            record_world_step(state)
             record_calendar_crossings(state, previous_time)
             advance_living_world(state)
             from .materials import advance_materials
@@ -2382,13 +2403,43 @@ def terrain_action(
                 action_id,
             ),
         )
-    return _time_result(
+    result = _time_result(
         state,
         " ".join([message, *sounds]),
         priority=3,
         events=events,
         collector=collector,
     )
+    if resolution.destroyed:
+        destroyed_containers = [
+            container for container in state.region.containers
+            if container.position == target
+        ]
+        for container in destroyed_containers:
+            container.opened = True
+            for item in state.items:
+                if item.container_id == container.id:
+                    item.location, item.container_id = "destroyed", None
+            container.item_ids.clear()
+        state.region.vertical_links[:] = [
+            link for link in state.region.vertical_links
+            if target not in {link.first, link.second}
+        ]
+        for landmark_id, position in state.region.landmarks.items():
+            if position == target:
+                state.region.changes[f"destroyed:{landmark_id}"] = True
+        from .run_progression import critical_structure_destroyed
+
+        consequence = critical_structure_destroyed(
+            state, target, resolution.terrain_id or "terrain.region.unknown",
+        )
+        if consequence is not None:
+            return ActionResult(
+                result.changed, result.time_advanced,
+                f"{result.message} {consequence.message}", result.overlay,
+                result.events, result.event_batch,
+            )
+    return result
 
 
 def interact(state: GameState) -> ActionResult:
@@ -2411,6 +2462,38 @@ def interact(state: GameState) -> ActionResult:
             return _plain(state, action_format("action.interact.tug_mooring"))
     if state.location == "region" and vehicle_at(state, state.position):
         return board_region_vehicle(state)
+    if state.location == "region" and state.run is not None and state.run.status == "active":
+        from .run_loot import collect_at, loot_at
+
+        drops = loot_at(state)
+        if drops:
+            drop_id, item_id = drops[0]
+            result = collect_at(state, drop_id)
+            if result.changed:
+                return ActionResult(
+                    True,
+                    False,
+                    state.messages[-1],
+                    events=(RunItemCollected(
+                        state.active_courier_id or "courier",
+                        item_id,
+                        state.run.item_stacks[item_id],
+                        state.position,
+                    ),),
+                )
+        from .run_progression import branch_at, choose_branch
+
+        branch = branch_at(state, state.position)
+        if branch is not None:
+            result = choose_branch(state, branch)
+            return ActionResult(
+                result.changed,
+                False,
+                result.message,
+                events=(RunStageChanged(
+                    state.run.stage_index, state.active_region_id, state.position,
+                ),) if result.changed else (),
+            )
     tile = base_tile(state, state.position)
     if state.location == "roag":
         from .people import adjacent_person

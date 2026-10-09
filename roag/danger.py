@@ -16,7 +16,7 @@ from .runtime_events import RuntimeEventCollector, ThreatSpawned
 from .state import GameState, Position, stage_rng
 
 
-REINFORCEMENT_INTERVAL = {"strained": 36, "critical": 18}
+REINFORCEMENT_INTERVAL = {"strained": 30, "critical": 15}
 REINFORCEMENT_MIN_DISTANCE = 12
 REINFORCEMENT_COUNT_KEY = "danger:reinforcement_count"
 REINFORCEMENT_LAST_TURN_KEY = "danger:last_reinforcement_turn"
@@ -76,7 +76,22 @@ def pressure(state: GameState) -> Pressure:
     valuables = sum(state.carried_passives.values()) + sum(
         stack.quantity for stack in state.carried_goods.values()
     )
-    score = state.pressure_elapsed // 18 + depth + state.noise // 2 + valuables
+    run_pressure = 0
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+        from .run_progression import run_intensity
+
+        run_pressure = (
+            run_intensity(state)
+            + state.run.stage_salvage // 6
+            + effect_value(state, "drop_chance") // 4
+            + effect_value(state, "pressure_loot") // 4
+            + (state.run.challenge_tier if state.run.challenge_tier >= 4 else 0)
+        )
+    score = (
+        state.pressure_elapsed // 18 + depth + state.noise // 2
+        + valuables + run_pressure
+    )
     if score >= PRESSURE_THRESHOLDS["critical"]:
         band, alert, pursuit = "critical", 12, 2
     elif score >= PRESSURE_THRESHOLDS["strained"]:
@@ -105,6 +120,8 @@ def danger_forecast(state: GameState) -> DangerForecast:
         if next_band is not None else None
     )
     interval = REINFORCEMENT_INTERVAL.get(profile.band)
+    if interval is not None and state.run is not None and state.run.challenge_tier >= 1:
+        interval = max(8, interval - 6)
     due_in: int | None = None
     if interval is not None:
         last_turn = state.region.changes.get(REINFORCEMENT_LAST_TURN_KEY)
@@ -131,7 +148,11 @@ def _reinforcement_archetypes(region_id: str) -> tuple[str, ...]:
     ))
 
 
-def _reinforcement_position(state: GameState, sequence: int) -> Position | None:
+def _reinforcement_position(
+    state: GameState,
+    sequence: int,
+    reserved: frozenset[Position] = frozenset(),
+) -> Position | None:
     """Choose a fair, reachable arrival cell from current authoritative state."""
     from .ecology import ACTIVE_RADIUS
     from .materials import fields
@@ -164,7 +185,7 @@ def _reinforcement_position(state: GameState, sequence: int) -> Position | None:
         separation = distance(state.position, point)
         material = materials.get(position_key(point))
         if (
-            point in occupied
+            point in occupied or point in reserved
             or abs(point.z - state.position.z) > 1
             or not REINFORCEMENT_MIN_DISTANCE <= separation <= ACTIVE_RADIUS
             or point in visible
@@ -186,7 +207,13 @@ def _reinforcement_position(state: GameState, sequence: int) -> Position | None:
     ).choice(candidates)
 
 
-def _reinforcement_action(state: GameState, profile: Pressure) -> DangerAction | None:
+def _reinforcement_action(
+    state: GameState,
+    profile: Pressure,
+    *,
+    sequence: int | None = None,
+    reserved: frozenset[Position] = frozenset(),
+) -> DangerAction | None:
     if profile.band not in REINFORCEMENT_INTERVAL:
         return None
     from .ecology import ACTOR_BUDGET, REGIONAL_ACTOR_LIMIT, active_actors
@@ -202,7 +229,7 @@ def _reinforcement_action(state: GameState, profile: Pressure) -> DangerAction |
     if not archetypes:
         return None
     existing_ids = {actor.id for actor in state.threats}
-    sequence = _reinforcement_sequence(state)
+    sequence = _reinforcement_sequence(state) if sequence is None else sequence
     while sequence < REGIONAL_ACTOR_LIMIT:
         archetype = stage_rng(
             state.seed,
@@ -214,7 +241,7 @@ def _reinforcement_action(state: GameState, profile: Pressure) -> DangerAction |
         sequence += 1
     else:
         return None
-    position = _reinforcement_position(state, sequence)
+    position = _reinforcement_position(state, sequence, reserved)
     if position is None:
         return None
     return DangerAction(
@@ -267,10 +294,29 @@ def evaluate_danger_step(state: GameState) -> tuple[DangerAction, ...]:
             profile.band,
             dormant.id if dormant is not None else None,
         ))
-    reinforcement = _reinforcement_action(state, profile)
-    if reinforcement is not None:
+    group_size = 3 if profile.band == "critical" else 2
+    from .ecology import ACTOR_BUDGET, REGIONAL_ACTOR_LIMIT, active_actors
+
+    group_size = min(
+        group_size,
+        max(0, ACTOR_BUDGET - len(active_actors(state))),
+        max(0, REGIONAL_ACTOR_LIMIT - len(state.threats)),
+    )
+    sequence = _reinforcement_sequence(state)
+    reserved: set[Position] = set()
+    for offset in range(group_size):
+        reinforcement = _reinforcement_action(
+            state,
+            profile,
+            sequence=sequence + offset,
+            reserved=frozenset(reserved),
+        )
+        if reinforcement is None:
+            break
         actions.append(reinforcement)
-    elif not actions:
+        if reinforcement.position is not None:
+            reserved.add(reinforcement.position)
+    if not actions:
         activation = _activation_fallback_action(state, profile)
         if activation is not None:
             actions.append(activation)
@@ -357,7 +403,10 @@ def apply_danger_actions(
             state.region_threats[state.active_region_id] = state.threats
             issue_enemy_equipment(state, actor, state.active_region_id)
             state.region.changes[f"enemy_kit:{actor.id}"] = 1
-            state.region.changes[REINFORCEMENT_COUNT_KEY] = action.sequence + 1
+            state.region.changes[REINFORCEMENT_COUNT_KEY] = max(
+                int(state.region.changes.get(REINFORCEMENT_COUNT_KEY, 0)),
+                action.sequence + 1,
+            )
             state.region.changes[REINFORCEMENT_LAST_TURN_KEY] = state.world_time
             if collector is not None:
                 collector.record_step_event(ThreatSpawned(

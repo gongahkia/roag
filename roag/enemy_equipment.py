@@ -172,6 +172,17 @@ def harm_enemy(
     from .workshop import effective_spec
 
     was_active = actor.health > 0
+    if (
+        defeated_by_actor_id is not None
+        and defeated_by_actor_id == state.active_courier_id
+        and state.run is not None
+        and state.run.status == "active"
+    ):
+        from .run_items import effect_value
+
+        amount += effect_value(state, "damage")
+        if actor.elite or actor.id.startswith("sanctum:"):
+            amount += effect_value(state, "elite_damage")
     location = location or hit_location(state, actor, damage_kind, source)
     armour = armour_item(state, actor, location)
     protection = 0
@@ -223,6 +234,17 @@ def harm_enemy(
             resolve_actor_defeat(
                 state, actor.id, defeated_by_actor_id, actor.position,
             )
+            if defeated_by_actor_id == state.active_courier_id:
+                from .run_loot import record_enemy_defeat
+                from .run_items import effect_value
+
+                record_enemy_defeat(state, actor.id, elite=actor.elite)
+                if state.courier:
+                    healing = effect_value(state, "heal")
+                    state.courier.health = min(
+                        state.courier.max_health,
+                        state.courier.health + healing,
+                    )
     return EnemyHarm(dealt, location, protection_name, injury, actor.health == 0, dropped)
 
 

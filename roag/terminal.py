@@ -800,6 +800,10 @@ def _draw_map(
     circuit_marks = {cell.position: cell for cell in state.circuits.values()
                      if cell.space == space_id(state) and cell.layer == "surface" and cell.position.z == state.position.z}
     danger_marks = visible_danger_marks(state, visible)
+    run_item_marks = {
+        position for _, position in state.run.dropped_items.values()
+        if state.run is not None and position.z == state.position.z
+    } if state.run is not None else set()
     known = ({position_key(cell.position) for cell in semantic_view.cells if cell.remembered}
              if semantic_view is not None else set(state.region.seen))
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -830,6 +834,8 @@ def _draw_map(
                 char = SPECS[vehicle.id]["glyph"]
             elif position in danger_marks:
                 char = ENTITY_GLYPHS["danger"]
+            elif position in run_item_marks and position in visible:
+                char = "*"
             else:
                 char = curses_tile(state, position)
             physical_cell = material_cells.get(key(position))
@@ -843,6 +849,8 @@ def _draw_map(
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
             elif vehicle:
                 role = "player" if state.active_vehicle_id == vehicle.id and position == state.position else "interactable"
+            elif position in run_item_marks:
+                role = "ui_accent"
             elif position in circuit_marks and position != state.position and position not in danger_marks:
                 cell = circuit_marks[position]
                 role = "ui_accent" if cell.phase == "head" else "warning" if cell.phase == "tail" else "success" if circuit_active(state, cell) else "interactable"
@@ -929,6 +937,11 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
                 "Response: ready" if forecast.response_due_in == 0
                 else f"Response: {forecast.response_due_in} turns"
             )
+        if state.run is not None:
+            lines.extend((
+                f"RUN  Stage {state.run.stage_index}/5",
+                f"Salvage {state.run.stage_salvage}  Build {sum(state.run.item_stacks.values())}",
+            ))
         from .production import production_site_lead
 
         lead = production_site_lead(state)
@@ -1729,7 +1742,11 @@ def dialogue_choices(state: GameState, kind: str) -> list[ChoiceOption]:
             ChoiceOption("M", "Drink a carried flask", "commitment", bool(carried_flasks(state)), "a filled carried field flask"),
         ]
     if kind == "quit":
-        return [ChoiceOption("Y", "Sign the leave book", "danger"), ChoiceOption("N", "Return to the vessel")]
+        rows = [ChoiceOption("Y", "Save and leave", "commitment")]
+        if state.run is not None and state.run.status == "active":
+            rows.append(ChoiceOption("A", "Abandon this run and leave", "danger"))
+        rows.append(ChoiceOption("N", "Return to the run"))
+        return rows
     if kind == "tavern":
         return [ChoiceOption("S", "Choose crew support"), ChoiceOption("Enter", "Close preparation")]
     if kind == "tavern:support":
@@ -3361,7 +3378,10 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             lines.append("V. Inspect optional refits at this physical station; preview costs no time.")
         return "COUNTED VESSEL WORK", lines
     if kind == "quit":
-        return INTERFACE_LABELS["leave_book"], ["Y signs departure. N or Escape returns to Roag."]
+        lines = ["Y saves the current run and leaves. N or Escape returns."]
+        if state.run is not None and state.run.status == "active":
+            lines.append("A permanently abandons this run before leaving.")
+        return INTERFACE_LABELS["leave_book"], lines
     if kind.startswith("character-sheet:"):
         from .character import character_sheet
         from .people import person_by_id
@@ -3720,6 +3740,11 @@ def _handle_overlay(
     if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life", "navigation"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
+        if char == "a" and state.run is not None and state.run.status == "active":
+            from .run_progression import abandon_run
+
+            abandon_run(state)
+            return None, True
         if char == "y":
             return None, True
         if char == "n":
@@ -4118,6 +4143,15 @@ def _play_loop(
                 state, overlay, event, session=session, effects=effects,
             )
             if should_quit:
+                try:
+                    from .profile import persist_run_profile
+
+                    persist_run_profile(state)
+                    save_game(state)
+                except (SaveError, ValueError) as exc:
+                    state.add_message(str(exc), priority=3)
+                    overlay = None
+                    continue
                 return state
             if closed:
                 selected_route = overlay.result

@@ -1,0 +1,264 @@
+"""Persistent five-stage roguelike run flow over named Regions."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from .profile import INITIAL_REGIONS, PlayerProfile
+from .state import GameState, Position, RunProgress, VerticalLink, new_run_progress, stage_rng
+
+
+MAX_STAGE = 5
+CHALLENGE_TIERS = {
+    0: ("Ordinary", "The disclosed baseline run."),
+    1: ("Hunted", "Danger responses arrive sooner."),
+    2: ("Scarce", "Danger arrives sooner and loot costs more salvage."),
+    3: ("Brittle", "As Scarce; incoming exposed damage is increased."),
+    4: ("Relentless", "As Brittle; each stage begins under more pressure."),
+    5: ("Last Light", "All challenge rules and the narrowest recovery margin."),
+}
+
+
+@dataclass(frozen=True)
+class RunResult:
+    changed: bool
+    result_id: str
+    message: str
+
+
+def start_run(
+    state: GameState,
+    *,
+    challenge_tier: int = 0,
+    profile: PlayerProfile | None = None,
+) -> None:
+    """Reset only run authority and enter the fixed opening Region."""
+    if challenge_tier not in CHALLENGE_TIERS:
+        raise ValueError("unknown challenge tier")
+    if profile is not None and challenge_tier > profile.unlocked_challenge_tier:
+        raise ValueError("challenge tier is not unlocked")
+    run = new_run_progress(state.seed, challenge_tier)
+    run.allowed_regions = sorted(
+        profile.unlocked_regions if profile is not None else INITIAL_REGIONS
+    )
+    state.run = run
+    state.world_ended = False
+    from .regions import begin_region
+
+    begin_region(state, "hearthford")
+    prepare_stage(state)
+
+
+def run_intensity(state: GameState) -> int:
+    run = state.run
+    if run is None or run.status != "active":
+        return 0
+    cadence = 150 if run.challenge_tier >= 1 else 180
+    return (run.stage_index - 1) * 2 + run.run_actions // cadence
+
+
+def record_world_step(state: GameState) -> None:
+    run = state.run
+    if run is None or run.status != "active" or state.location != "region":
+        return
+    run.run_actions += 1
+    run.stage_actions += 1
+
+
+def finish_run(state: GameState, status: str, reason: str) -> RunResult:
+    run = state.run
+    if run is None or run.status != "active" or status not in {
+        "victory", "defeat", "abandoned",
+    }:
+        return RunResult(False, "run.finish.rejected", "The run is already settled.")
+    run.status = status
+    run.failure_reason = reason
+    state.world_ended = True
+    if status == "defeat" and state.courier:
+        state.courier.health = 0
+        state.courier.alive = False
+        state.courier.injury = "dead"
+    message = {
+        "victory": "The fifth threshold yields. This run is complete.",
+        "defeat": f"The run ends: {reason}.",
+        "abandoned": f"The run is abandoned: {reason}.",
+    }[status]
+    state.add_message(message, priority=3)
+    state.remember(message)
+    return RunResult(True, f"run.{status}", message)
+
+
+def abandon_run(state: GameState) -> RunResult:
+    return finish_run(state, "abandoned", "the courier withdrew from the field")
+
+
+def _route_pool(state: GameState) -> list[str]:
+    run = state.run
+    if run is None:
+        return []
+    allowed = set(run.allowed_regions or INITIAL_REGIONS)
+    visited = set(run.region_path)
+    candidates = sorted((allowed & set(state.regions)) - visited)
+    if len(candidates) < 2:
+        candidates.extend(sorted(allowed - visited - set(candidates)))
+    return candidates
+
+
+def route_offers(state: GameState) -> tuple[str, ...]:
+    """Return two stable branches without encoding one permanent route graph."""
+    run = state.run
+    if run is None or run.stage_index >= MAX_STAGE:
+        return ()
+    candidates = _route_pool(state)
+    if not candidates:
+        candidates = sorted(set(run.allowed_regions or INITIAL_REGIONS) - {state.active_region_id})
+    rng = stage_rng(
+        state.seed,
+        f"run-route:{run.run_id}:{run.stage_index}:{state.active_region_id}",
+    )
+    candidates = list(dict.fromkeys(candidates))
+    rng.shuffle(candidates)
+    return tuple(candidates[:2])
+
+
+def _blank_level(state: GameState) -> list[str]:
+    return [" " * state.region.width for _ in range(state.region.height)]
+
+
+def _place(rows: list[list[str]], point: Position, glyph: str) -> None:
+    rows[point.y][point.x] = glyph
+
+
+def install_threshold(state: GameState) -> None:
+    """Attach a small physical branch room to the defeated boss's Region."""
+    run = state.run
+    if run is None or run.status != "active" or run.stage_index >= MAX_STAGE:
+        return
+    offers = route_offers(state)
+    if not offers:
+        finish_run(state, "victory", "the final regional claimant was defeated")
+        return
+    boss = state.region.landmarks.get("sanctum_boss")
+    if boss is None:
+        raise RuntimeError("stage Region has no boss threshold anchor")
+    level = max(int(key) for key in state.region.levels) + 1
+    entry = Position(boss.x, boss.y, level)
+    rows = [list(row) for row in _blank_level(state)]
+    for y in range(max(1, entry.y - 3), min(state.region.height - 1, entry.y + 4)):
+        for x in range(max(1, entry.x - 7), min(state.region.width - 1, entry.x + 8)):
+            rows[y][x] = "."
+    left = Position(max(1, entry.x - 5), entry.y, level)
+    right = Position(min(state.region.width - 2, entry.x + 5), entry.y, level)
+    _place(rows, entry, "<")
+    _place(rows, left, ">")
+    if len(offers) > 1:
+        _place(rows, right, ">")
+    state.region.levels[str(level)] = ["".join(row) for row in rows]
+    link_id = f"run:{run.run_id}:stage:{run.stage_index}:threshold"
+    if not any(link.id == link_id for link in state.region.vertical_links):
+        state.region.vertical_links.append(VerticalLink(
+            boss, entry, "the run threshold", link_id,
+        ))
+    run.threshold_level = level
+    run.threshold_entry = entry
+    run.offered_regions = list(offers)
+    run.branch_positions = {
+        offers[0]: left,
+        **({offers[1]: right} if len(offers) > 1 else {}),
+    }
+    state.add_message("A threshold rises beyond the defeated claimant.", priority=3)
+
+
+def prepare_stage(state: GameState) -> None:
+    run = state.run
+    if run is None or run.status != "active":
+        return
+    run.stage_actions = 0
+    run.stage_salvage = 0
+    run.offered_regions.clear()
+    run.threshold_level = None
+    run.threshold_entry = None
+    run.branch_positions.clear()
+    # The first cache is deliberately close enough to make the opening build
+    # decision precede the first sustained danger response.
+    from .run_loot import seed_stage_loot
+
+    seed_stage_loot(state)
+
+
+def record_boss_defeat(state: GameState, actor_id: str) -> RunResult:
+    run = state.run
+    if run is None or run.status != "active":
+        return RunResult(False, "run.boss.ignored", "")
+    expected = f"sanctum:{state.active_region_id}:boss"
+    if actor_id != expected or state.active_region_id in run.boss_kills:
+        return RunResult(False, "run.boss.ignored", "")
+    run.boss_kills.append(state.active_region_id)
+    from .run_items import RUN_ITEMS, collect_run_item
+
+    boss_item = next(
+        item for item in RUN_ITEMS.values()
+        if item.tier == "boss" and item.region == state.active_region_id
+    )
+    collect_run_item(state, boss_item.id)
+    if run.stage_index >= MAX_STAGE:
+        return finish_run(state, "victory", "five regional claimants were defeated")
+    install_threshold(state)
+    return RunResult(
+        True, "run.boss.defeated",
+        f"{boss_item.name} joins the run. Choose the next threshold.",
+    )
+
+
+def branch_at(state: GameState, position: Position) -> str | None:
+    run = state.run
+    if run is None or run.status != "active":
+        return None
+    return next(
+        (region_id for region_id, point in run.branch_positions.items() if point == position),
+        None,
+    )
+
+
+def choose_branch(state: GameState, region_id: str) -> RunResult:
+    run = state.run
+    if (
+        run is None or run.status != "active"
+        or region_id not in run.offered_regions
+        or run.branch_positions.get(region_id) != state.position
+    ):
+        return RunResult(False, "run.branch.rejected", "No run threshold answers here.")
+    from .regions import begin_region, store_active_region
+
+    store_active_region(state)
+    run.stage_index += 1
+    run.region_path.append(region_id)
+    begin_region(state, region_id)
+    prepare_stage(state)
+    return RunResult(
+        True, "run.branch.chosen",
+        f"Stage {run.stage_index}: {state.region.name}.",
+    )
+
+
+def critical_structure_destroyed(
+    state: GameState, position: Position, terrain_id: str,
+) -> RunResult | None:
+    """Resolve the disclosed causal loss for destroying a required run link."""
+    if state.run is None or state.run.status != "active":
+        return None
+    critical = any(
+        position in {link.first, link.second}
+        for link in state.region.vertical_links
+    ) or position == state.run.threshold_entry or position in state.run.branch_positions.values() or any(
+        state.region.landmarks.get(name) == position
+        for name in ("landing", "sanctum_entry", "sanctum_boss")
+    )
+    if not critical:
+        return None
+    return finish_run(
+        state,
+        "defeat",
+        f"the courier destroyed the required route at {position.x},{position.y},{position.z}",
+    )
+
