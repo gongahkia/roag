@@ -57,13 +57,11 @@ def materialize_terrain_yield(
         item.container_id = None
     sync_legacy_load(state)
     if packed:
-        from .engine_components import resolve_resource_gained
+        from .acquisition import publish_packed_acquisition
 
-        resolve_resource_gained(
+        publish_packed_acquisition(
             state,
-            item.id,
-            item.kind,
-            item.quantity,
+            item,
             resolution.position,
         )
     return TerrainYieldOutcome(item.id, item.kind, item.quantity, packed)

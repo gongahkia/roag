@@ -2,17 +2,127 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 
+from roag.commands import MoveCommand
 from roag.presentation import (
-    EffectState, PRESENTATION_FRAME_MS, WATER_GLYPHS, presentation_enabled,
+    EffectState, MapEffect, PRESENTATION_FRAME_MS, WATER_GLYPHS,
+    presentation_enabled,
 )
+from roag.runtime_events import (
+    ActorDefeated, AttackResolved, DamageApplied, RuntimeEventBatch,
+    RuntimeEventStep, TerrainChanged, TerrainDamaged, ThreatSpawned,
+)
+from roag.session import GameSession
 from roag.state import Position, create_world
-from roag.terminal import _draw_base, _play_loop
+from roag.terminal import _consume_outcome_effects, _draw_base, _play_loop
+from roag.world import is_walkable
 
 
 class PresentationStateTests(unittest.TestCase):
+    def test_event_batch_schedules_causal_command_then_world_step_effects(self):
+        attacker = Position(10, 10, 0)
+        target = Position(11, 10, 0)
+        arrival = Position(15, 10, 0)
+        batch = RuntimeEventBatch(
+            command_events=(
+                AttackResolved("courier", "target", "attack", "hit"),
+                DamageApplied("courier", "target", 3, "cut", "torso"),
+                ActorDefeated("target", "courier"),
+            ),
+            steps=(RuntimeEventStep(
+                1,
+                (ThreatSpawned("arrival", "raider", arrival, "strained"),),
+            ),),
+        )
+        effects = EffectState.for_seed("presentation-event-order")
+
+        effects.consume(batch, {"courier": attacker, "target": target})
+
+        self.assertEqual(effects.glyph("@", attacker), ">")
+        self.assertEqual(effects.glyph("e", target), "e")
+        effects.advance()
+        self.assertEqual(effects.glyph("e", target), "*")
+        effects.advance()
+        self.assertEqual(effects.glyph("e", target), "X")
+        effects.advance()
+        self.assertEqual(effects.glyph(".", arrival), "!")
+        self.assertEqual(effects.glyph(".", arrival, visible=False), ".")
+        effects.advance(3 * PRESENTATION_FRAME_MS)
+        self.assertEqual(effects.effects, [])
+
+    def test_session_outcome_enters_effect_state_without_mutating_again(self):
+        state = create_world("presentation-command-boundary")
+        session = GameSession(state)
+        before_position = state.position
+        dx, dy = next(
+            (dx, dy)
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))
+            if is_walkable(state, Position(
+                before_position.x + dx,
+                before_position.y + dy,
+                before_position.z,
+            ))
+        )
+        outcome = session.submit(MoveCommand(dx, dy))
+        after_command = state.to_dict()
+        effects = EffectState.for_seed(state.seed)
+
+        _consume_outcome_effects(effects, state, session, outcome)
+
+        self.assertEqual(effects.glyph(".", before_position), ".")
+        self.assertEqual(effects.effect_at(before_position).effect_id, "movement.trail")
+        self.assertEqual(state.to_dict(), after_command)
+
+    def test_terrain_damage_precedes_replacement_debris(self):
+        point = Position(8, 9, 0)
+        batch = RuntimeEventBatch(command_events=(
+            TerrainDamaged(
+                "courier", point, "terrain.region.reeds", "cut", 1, 0,
+            ),
+            TerrainChanged(
+                "courier", point, "terrain.region.reeds",
+                "terrain.region.ground", "cut",
+            ),
+        ))
+        effects = EffectState.for_seed("presentation-terrain-order")
+
+        effects.consume(batch)
+
+        self.assertEqual(effects.glyph(".", point), "'")
+        effects.advance()
+        self.assertEqual(effects.glyph(".", point), "*")
+        self.assertEqual(effects.effect_at(point).effect_id, "terrain.change")
+
+    def test_disabled_effects_ignore_batches_and_map_effects_are_immutable(self):
+        effects = EffectState.for_seed("disabled-event-effects", enabled=False)
+        event = ThreatSpawned(
+            "arrival", "raider", Position(5, 5, 0), "strained",
+        )
+        effects.consume(RuntimeEventBatch(command_events=(event,)))
+        self.assertEqual(effects.effects, [])
+        self.assertEqual(effects.glyph(".", event.position), ".")
+        with self.assertRaises(ValueError):
+            MapEffect(
+                "invalid", event.position, ("too wide",), "flash", 0, 1, 0,
+            )
+
+    def test_presentation_domain_remains_headless(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; import roag.presentation; assert 'curses' not in sys.modules",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_ambient_glyphs_are_stable_and_non_authoritative(self):
         state = create_world("presentation-only-water")
         before = state.to_dict()

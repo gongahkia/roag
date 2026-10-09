@@ -47,7 +47,7 @@ def armed_state(seed: str):
 class GameSessionTests(unittest.TestCase):
     def test_modules_are_headless(self):
         code = (
-            "import sys; import roag.commands, roag.session, roag.views; "
+            "import sys; import roag.acquisition, roag.commands, roag.session, roag.views; "
             "assert 'curses' not in sys.modules"
         )
         result = subprocess.run([sys.executable, "-c", code], check=False, capture_output=True, text=True)

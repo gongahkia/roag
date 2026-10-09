@@ -42,11 +42,11 @@ from .actions import (
     use_route_stop,
 )
 from .commands import (
-    AttackCommand, GuardCommand, InteractCommand, MoveCommand,
-    RetreatCommand, SelectCarriedRelicCommand, SetAutoPlaceCommand,
-    TerrainActionCommand, UseGearCommand,
+    AcquireGroundItemsCommand, AttackCommand, GuardCommand, InteractCommand,
+    MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
+    SetAutoPlaceCommand, TerrainActionCommand, UseGearCommand,
 )
-from .session import GameSession
+from .session import CommandOutcome, GameSession
 from .views import WorldView
 from .character_presentation import role_display_name
 from .item_presentation import item_display_name, item_display_name_or_legacy
@@ -846,7 +846,21 @@ def _draw_map(
                 attr |= curses.A_UNDERLINE
             if state.combat_active and position not in visible:
                 attr = curses.A_DIM
-            presented = effects.glyph(char, position) if effects is not None else char
+            effect = effects.effect_at(
+                position, visible=position in visible,
+            ) if effects is not None else None
+            presented = effects.ambient_glyph(char, position) if effects is not None else char
+            if effect is not None and effects is not None:
+                presented = effect.glyph_at(effects.elapsed_ms) or presented
+            if effect is not None:
+                if effect.emphasis_id == "flash":
+                    attr |= curses.A_BOLD | curses.A_REVERSE
+                elif effect.emphasis_id == "warning":
+                    attr = _COLOUR_ATTRIBUTES["warning"] | curses.A_BOLD | curses.A_REVERSE
+                elif effect.emphasis_id in {"motion", "debris", "guard"}:
+                    attr |= curses.A_BOLD
+                elif effect.emphasis_id == "trail":
+                    attr |= curses.A_DIM
             _put(screen, top + 1 + sy, left + 1 + sx, presented, attr)
 
 
@@ -1303,6 +1317,7 @@ def _handle_targeting(
     *,
     screen_size: tuple[int, int] = (24, 80),
     session: GameSession | None = None,
+    effects: EffectState | None = None,
 ) -> tuple[bool, bool]:
     if isinstance(event, int):
         event = InputEvent("key", key=event)
@@ -1362,6 +1377,8 @@ def _handle_targeting(
             state.add_message("No visible engaged actor occupies the selected lane.")
             return False, False
         outcome = (session or GameSession(state)).submit(GuardCommand(target.id))
+        if session is not None:
+            _consume_outcome_effects(effects, state, session, outcome)
         return outcome.time_advanced, outcome.time_advanced
     movement = {
         curses.KEY_LEFT: (-1, 0), curses.KEY_RIGHT: (1, 0),
@@ -1415,6 +1432,8 @@ def _handle_targeting(
             state.add_message("No visible hostile stands at the marked place.", priority=2)
             return False, False
         outcome = (session or GameSession(state)).submit(AttackCommand(target.id))
+        if session is not None:
+            _consume_outcome_effects(effects, state, session, outcome)
         return outcome.time_advanced, outcome.time_advanced
     return False, False
 
@@ -1806,6 +1825,7 @@ def _draw_dialogue_overlay(screen: curses.window, state: GameState, view: Overla
 def _handle_overlay_view(
     state: GameState, view: OverlayView, event: InputEvent,
     session: GameSession | None = None,
+    effects: EffectState | None = None,
 ) -> tuple[bool, bool]:
     if view.kind == "vehicle-interior":
         from .vehicles import active_vehicle, interior_entry, interior_fixture, interior_step, service
@@ -1907,7 +1927,9 @@ def _handle_overlay_view(
                 index = options.index(direct)
                 view.result = navigation_targets(state)[index].id
                 return True, False
-    next_kind, should_quit = _handle_overlay(state, view.kind, key, session=session)
+    next_kind, should_quit = _handle_overlay(
+        state, view.kind, key, session=session, effects=effects,
+    )
     if next_kind is None:
         return True, should_quit
     if next_kind != view.kind:
@@ -2328,7 +2350,18 @@ def _clamp_inventory_cursor(state: GameState, view: InventoryView) -> None:
         view.cursor_y = max(0, min(max(0, len(_inventory_items(state, view)) - 1), view.cursor_y))
 
 
-def _transfer_inventory_items(state: GameState, view: InventoryView, items: list) -> bool:
+def _transfer_inventory_items(
+    state: GameState,
+    view: InventoryView,
+    items: list,
+    session: GameSession | None = None,
+) -> bool:
+    if items and all(item.location == "ground" for item in items):
+        session = session or GameSession(state)
+        outcome = session.submit(AcquireGroundItemsCommand(tuple(
+            item.id for item in items
+        )))
+        return outcome.changed
     operation = InventoryTransaction.begin(state)
     for item in items:
         source_container_id = item.container_id
@@ -2555,7 +2588,7 @@ def _handle_inventory(
         targets = [other for other in state.items if other.id in (view.selected_ids or set())]
         if not targets and item:
             targets = [item]
-        moved = _transfer_inventory_items(state, view, targets)
+        moved = _transfer_inventory_items(state, view, targets, session)
         if moved:
             view.transaction.changed = True
             view.selected_ids.clear()
@@ -3257,6 +3290,7 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
 
 def _handle_overlay(
     state: GameState, kind: str, key: int, session: GameSession | None = None,
+    effects: EffectState | None = None,
 ) -> tuple[str | None, bool]:
     char = chr(key).lower() if 0 <= key < 256 else ""
     if kind == "field-traveller" and char in {"a", "b"}:
@@ -3489,6 +3523,7 @@ def _handle_overlay(
 
         if session is not None and routes_terrain_action(state, verb, point):
             outcome = session.submit(TerrainActionCommand(verb, point))
+            _consume_outcome_effects(effects, state, session, outcome)
             changed = outcome.changed
         else:
             changed, message = handle_material(state, verb, point)
@@ -3659,6 +3694,8 @@ def _handle_overlay(
         index = int(char) - 1
         if 0 <= index < len(rows):
             outcome = (session or GameSession(state)).submit(SelectCarriedRelicCommand(rows[index]))
+            if session is not None:
+                _consume_outcome_effects(effects, state, session, outcome)
             if not outcome.accepted:
                 return kind, False
             return None, False
@@ -3796,6 +3833,25 @@ def _screen_timeout(screen: curses.window, milliseconds: int) -> bool:
     return True
 
 
+def _consume_outcome_effects(
+    effects: EffectState | None,
+    state: GameState,
+    session: GameSession,
+    outcome: CommandOutcome,
+) -> None:
+    """Give transient command output to presentation without retaining state."""
+    if effects is None or not effects.enabled:
+        return
+    actor_positions = {
+        actor.id: actor.position
+        for actor in session.actor_views()
+        if actor.position is not None
+    }
+    if state.active_courier_id:
+        actor_positions[state.active_courier_id] = state.position
+    effects.consume(outcome.event_batch, actor_positions)
+
+
 def _play_loop(
     screen: curses.window,
     state: GameState,
@@ -3910,7 +3966,8 @@ def _play_loop(
             continue
         if target_view:
             closed, _ = _handle_targeting(
-                state, target_view, event, screen_size=(height, width), session=session,
+                state, target_view, event, screen_size=(height, width),
+                session=session, effects=effects,
             )
             if closed:
                 target_view = None
@@ -3924,7 +3981,9 @@ def _play_loop(
                 circuit_view = None
             continue
         if overlay:
-            closed, should_quit = _handle_overlay_view(state, overlay, event, session=session)
+            closed, should_quit = _handle_overlay_view(
+                state, overlay, event, session=session, effects=effects,
+            )
             if should_quit:
                 return state
             if closed:
@@ -3960,7 +4019,8 @@ def _play_loop(
                     state.position.z,
                 ))
         elif normalized in MOVES:
-            session.submit(MoveCommand(*MOVES[normalized]))
+            outcome = session.submit(MoveCommand(*MOVES[normalized]))
+            _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord(";"):
             look_view = LookView.begin(state)
         elif key == ord("\\"):
@@ -3974,6 +4034,7 @@ def _play_loop(
         elif normalized in {10, 13, ord("e")}:
             interaction = session.interaction_view().options[0]
             outcome = session.submit(InteractCommand(interaction.target_id, interaction.interaction_id))
+            _consume_outcome_effects(effects, state, session, outcome)
             if outcome.overlay_id and outcome.overlay_id.startswith("inventory:container:"):
                 source = outcome.overlay_id.split("inventory:", 1)[1]
                 inventory_view = InventoryView.begin(state, source)
@@ -3997,9 +4058,11 @@ def _play_loop(
             if state.combat_active and state.weapon:
                 target_view = TargetView.begin(state)
             else:
-                session.submit(AttackCommand())
+                outcome = session.submit(AttackCommand())
+                _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord("g"):
-            session.submit(GuardCommand())
+            outcome = session.submit(GuardCommand())
+            _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord("t"):
             if state.active_vehicle_id:
                 state.add_message(ui_format("ui.terminal.navigation.disembark"))
@@ -4023,11 +4086,13 @@ def _play_loop(
             elif len(carried_relics) > 1:
                 overlay = OverlayView("relic:select")
             else:
-                session.submit(UseGearCommand())
+                outcome = session.submit(UseGearCommand())
+                _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord("v"):
             negotiate(state)
         elif normalized == ord("r"):
-            session.submit(RetreatCommand())
+            outcome = session.submit(RetreatCommand())
+            _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord("i"):
             inventory_view = InventoryView.begin(state)
         elif normalized == ord("f"):

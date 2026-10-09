@@ -10,9 +10,10 @@ from .actions import (
     retreat, set_auto_place_enabled, terrain_action, use_gear,
 )
 from .commands import (
-    AdvanceWorldCommand, AttackCommand, GameCommand, GuardCommand,
-    InteractCommand, MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
-    SetAutoPlaceCommand, TerrainActionCommand, UseGearCommand,
+    AcquireGroundItemsCommand, AdvanceWorldCommand, AttackCommand, GameCommand,
+    GuardCommand, InteractCommand, MoveCommand, RetreatCommand,
+    SelectCarriedRelicCommand, SetAutoPlaceCommand, TerrainActionCommand,
+    UseGearCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
@@ -222,6 +223,33 @@ class GameSession:
                 result,
                 result_id,
                 target_id,
+                collector=collector,
+                world_time_before=world_time_before,
+            )
+        if isinstance(command, AcquireGroundItemsCommand):
+            if (
+                type(command.item_ids) is not tuple
+                or not command.item_ids
+                or len(command.item_ids) > 100
+                or any(
+                    not isinstance(item_id, str) or not item_id
+                    for item_id in command.item_ids
+                )
+                or len(set(command.item_ids)) != len(command.item_ids)
+            ):
+                return self._reject("inventory.acquire.invalid", collector=collector)
+            from .acquisition import acquire_ground_items
+
+            acquisition = acquire_ground_items(self._state, command.item_ids)
+            result = ActionResult(
+                acquisition.accepted,
+                False,
+                acquisition.result_id,
+            )
+            return self._outcome(
+                result,
+                acquisition.result_id,
+                ",".join(acquisition.item_ids) or None,
                 collector=collector,
                 world_time_before=world_time_before,
             )

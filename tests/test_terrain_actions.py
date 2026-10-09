@@ -73,6 +73,7 @@ class TerrainActionTests(unittest.TestCase):
             (physical.owner_id, physical.quantity),
             (self.state.active_courier_id, 2),
         )
+        self.assertTrue(self.state.vessel_changes[f"acquired:{physical.id}"])
         self.assertEqual(item_spec(physical.kind).name, "reeds")
         self.assertIn("Recovered 2 x reeds into the pack", self.state.messages[-1])
 

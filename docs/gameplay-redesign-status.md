@@ -32,12 +32,14 @@ source of truth.
 | ENGINE-05 | Complete | The bounded effect resolver can consume an exact quantity of real pack inventory through an explicit actor target, without touching equipped items or adding another resource model. |
 | ENGINE-06 | Complete | An opt-in supply sensor atomically converts a newly fabricated physical galvanic cell into its connected rack's full 24-pulse yield. |
 | WORLD-04 | Complete | Destroyed ordinary reeds and mud create persistent physical inventory yields, with deterministic ground fallback and acquisition reactions only after successful packing. |
+| WORLD-05 | Complete | Atomic zero-time ground pickup is a typed command; first-time pack acquisition consistently publishes one resource fact without drop/pick reaction loops. |
+| PRESENTATION-01 | Complete | Existing runtime-event batches drive ordered transient movement, combat, terrain, and visible threat-arrival glyph effects without affecting simulation. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
-through ENGINE-06 and WORLD-04 are post-roadmap tranches scoped from the
-integrated systems already in the repository. Further tranches should continue
-to be chosen from playtesting and the still-open product decisions rather than
-assumed here.
+through ENGINE-06, WORLD-04 through WORLD-05, and PRESENTATION-01 are
+post-roadmap tranches scoped from the integrated systems already in the
+repository. Further tranches should continue to be chosen from playtesting and
+the still-open product decisions rather than assumed here.
 
 ## Implemented seams
 
@@ -165,6 +167,41 @@ assumed here.
 - A packed terrain yield enters the established `resource.gained` reaction
   path, so nearby mass machinery can respond. A ground yield remains inert
   until a later, explicit acquisition producer moves it into a pack.
+- `AcquireGroundItemsCommand` gives `GameSession` a headless, stable-ID command
+  for one or more items at the courier's feet. `roag.acquisition` validates the
+  active spatial cell, transfers all requested items in stable ID order, and
+  rolls the complete state back if any item cannot fit.
+- `publish_packed_acquisition` is the shared explicit producer used by ground
+  pickup, terrain harvesting, site gathering, and physical recipe output. It
+  records the existing persistent acquisition marker before publishing
+  `ResourceGainedFact`; re-picking a previously acquired item moves it but does
+  not repeat the mechanical reaction.
+- Ground pickup remains zero-time to preserve existing inventory behavior. It
+  emits no fabricated world-step or presentation event. The terminal ground
+  transfer path now submits the typed command, while container/locker repacking
+  retains its existing modal implementation.
+- Inventory-modal cancellation restores the item, acquisition marker, engine
+  reaction, and messages together through the existing full-state inventory
+  transaction.
+- `roag.presentation.MapEffect` is an immutable renderer-neutral description
+  of one transient glyph sequence, emphasis role, world position, start time,
+  and deterministic priority. `EffectState` schedules these from
+  `RuntimeEventBatch` without retaining a `GameState` reference.
+- Command events are scheduled in causal order at the existing 100 ms
+  presentation cadence. World-step events follow command events and retain
+  their authoritative step grouping, including delayed effects after empty
+  steps.
+- Existing events now produce movement/retreat trails, attack motion, damage
+  flashes, status and guard cues, defeat debris, item/relic pulses, terrain
+  damage/change debris, and threat-arrival warnings. Overlapping effects use
+  deterministic priority and production order, and the queue is bounded.
+- `_draw_map` composes transient glyph and emphasis over the authoritative map
+  after visibility has been resolved. All semantic event effects are
+  visibility-gated, so an off-screen reinforcement event never reveals its
+  spawn location through remembered terrain.
+- The terminal passes outcomes from its existing typed movement, interaction,
+  combat, guard, gear, retreat, terrain, and relic command paths into the same
+  UI-owned `EffectState`. Effects never delay input or submit another command.
 
 ## Compatibility and migrations
 
@@ -219,6 +256,17 @@ assumed here.
   materials catalog, while mud reuses `ingredient:clay`. Four new material
   presentation rows affect text only, and the mechanical fingerprint remains
   unchanged.
+- WORLD-05 adds no persistent field, migration, catalog row, or save-format
+  change. It reuses the existing `acquired:<item-id>` entries in
+  `GameState.vessel_changes` as first-acquisition identity and existing `Item`
+  locations for transfer. Commands, outcomes, and resource facts remain
+  transient; only ordinary pack placement, acquisition history, and bounded
+  component effects persist.
+- PRESENTATION-01 adds no persistent state, migration, catalog content, or
+  runtime-event schema. `MapEffect`, the effect queue, presentation sequence,
+  and elapsed clock remain UI-owned and absent from saves and deterministic
+  state hashes. `ROAG_PRESENTATION=off` continues to disable both timed frames
+  and event effects.
 
 ## Known deviations and baseline issues
 
@@ -245,9 +293,10 @@ assumed here.
   production that runs over time, or arbitrary content scripting.
 - ENGINE-04 initially limited `resource.gained` to the existing shore-site
   gather producer. ENGINE-06 deliberately opted successful pack-placed recipe
-  outputs into the same fact. Container loot, rewards, and terrain material
-  exposure still require explicit producer semantics; item construction itself
-  is not a global event bus.
+  outputs into the same fact, WORLD-04 added terrain harvest, and WORLD-05 added
+  first-time ground pickup. Container loot and other reward transfers still
+  require explicit producer semantics; item construction itself is not a
+  global event bus.
 - WORLD-04 intentionally retains the environmental `MaterialCell` residue
   (`reeds` or `soil`) alongside its physical yield because fire, fuel, water,
   and collapse consume that local environmental state. The physical item is
@@ -260,6 +309,18 @@ assumed here.
   by finite terrain and emits the machinery's extra noise, but its net-zero
   charge economy is an explicit later balance decision rather than hidden by
   WORLD-04.
+- WORLD-05 deliberately preserves zero-time inventory pickup and does not add a
+  renderer-facing item-acquired event. Whether field pickup should eventually
+  spend exposure is a balance decision; presentation vocabulary should be
+  added only with a concrete effect consumer.
+- PRESENTATION-01 consumes only runtime events already emitted by typed command
+  paths. Legacy spell, manoeuvre, thrown-device, enemy-action, and other direct
+  reducer paths do not receive inferred animation from messages. Camera shake,
+  projectile traces, actor displacement, large world events, and new semantic
+  event vocabulary remain later vertical slices.
+- Presentation frames do not gate authoritative input. Rapid commands can
+  overlap or supersede transient effects; this preserves the action-clock
+  contract rather than turning animation duration into a gameplay cooldown.
 - ENGINE-05 intentionally registers no live component rule. The repository has
   no existing component whose honest benefit warrants consuming a particular
   carried resource, so the tranche establishes the safe mutation boundary

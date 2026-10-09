@@ -219,18 +219,17 @@ def make(state: GameState, recipe_id: str) -> tuple[bool, str]:
             if state.location != "roag" or not auto_place(state, output.id, "locker"):
                 transaction.cancel(state)
                 return False, production_text("production.make.space")
-        record_acquisition(state, output)
+        if output.location != "pack":
+            record_acquisition(state, output)
     sync_legacy_load(state)
     if (
         output is not None
         and output.location == "pack"
         and output.owner_id == state.active_courier_id
     ):
-        from .engine_components import resolve_resource_gained
+        from .acquisition import publish_packed_acquisition
 
-        resolve_resource_gained(
-            state, output.id, output.kind, output.quantity, state.position,
-        )
+        publish_packed_acquisition(state, output, state.position)
     domain = "brewing" if recipe.contents else "smelting" if recipe.station == "smelter" else "smithing" if recipe.station in {"forge", "gunworks", "workshop"} else "portable"
     record_milestone(state, f"craft:{domain}")
     _advance_world(state, steps=3 if recipe.station in {"forge", "gunworks", "smelter"} else 2)
@@ -265,11 +264,9 @@ def gather(state: GameState, choice: int) -> tuple[bool, str]:
     site["stock"] -= 1
     site["draws"] += 1
     record_milestone(state, f"production:{state.active_region_id}")
-    from .engine_components import resolve_resource_gained
+    from .acquisition import publish_packed_acquisition
 
-    resolve_resource_gained(
-        state, item.id, item.kind, item.quantity, state.position,
-    )
+    publish_packed_acquisition(state, item, state.position)
     _advance_world(state)
     from .chemistry_presentation import reagent_display_name
 

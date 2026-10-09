@@ -70,8 +70,14 @@ class TerrainActionCommand:
     target: Position
 
 
+@dataclass(frozen=True)
+class AcquireGroundItemsCommand:
+    """Move a stable set of items at the courier's feet into their pack."""
+    item_ids: tuple[str, ...]
+
+
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
-    | AdvanceWorldCommand | TerrainActionCommand
+    | AdvanceWorldCommand | TerrainActionCommand | AcquireGroundItemsCommand
 )
