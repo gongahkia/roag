@@ -6,9 +6,11 @@ import unittest
 from roag.actions import _advance_world
 from roag.danger import (
     DangerAction,
+    DangerForecast,
     Pressure,
     REINFORCEMENT_LAST_TURN_KEY,
     apply_danger_actions,
+    danger_forecast,
     evaluate_band_transition,
     evaluate_danger_step,
     evaluate_region_entry,
@@ -50,6 +52,22 @@ class DangerDirectorTests(unittest.TestCase):
         )
         self.assertIs(Pressure, LegacyPressure)
         self.assertIs(pressure, legacy_pressure)
+
+    def test_forecast_exposes_only_pressure_drivers_threshold_and_cadence(self):
+        steady = danger_forecast(self.state)
+        self.assertEqual(
+            steady,
+            DangerForecast(pressure(self.state), "strained", 10, None),
+        )
+
+        self.state.noise = 20
+        strained = danger_forecast(self.state)
+        self.assertEqual(strained.next_band, "critical")
+        self.assertEqual(strained.points_to_next_band, 8)
+        self.assertEqual(strained.response_due_in, 0)
+
+        self.state.region.changes[REINFORCEMENT_LAST_TURN_KEY] = self.state.world_time
+        self.assertEqual(danger_forecast(self.state).response_due_in, 36)
 
     def test_step_evaluation_is_pure_deterministic_and_wakes_one_existing_actor(self):
         first, second = copy.deepcopy(self.state), copy.deepcopy(self.state)

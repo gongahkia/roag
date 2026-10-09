@@ -25,6 +25,7 @@ source of truth.
 | WORLD-03 | Complete | Generic physical terrain actions, sparse damage, and destructible reeds/mud. |
 | DANGER-01 | Complete | Existing pressure policy behind deterministic evaluated danger actions. |
 | DANGER-02 | Complete | Fair deterministic persistent regional reinforcements. |
+| DANGER-03 | Complete | Legible pressure forecasting and cadence-bound reuse of dormant ordinary threats when reinforcement placement is blocked. |
 | ENGINE-01 | Complete | Transient simulation facts and bounded component effects. |
 | ENGINE-02 | Complete | A crafted, placed threat sensor converts nearby courier defeats into bounded charge in a physically connected rack. |
 | ENGINE-03 | Complete | A connected mass sensor spends rack charge for useful terrain power, producing additional noise and danger pressure. |
@@ -34,12 +35,14 @@ source of truth.
 | WORLD-04 | Complete | Destroyed ordinary reeds and mud create persistent physical inventory yields, with deterministic ground fallback and acquisition reactions only after successful packing. |
 | WORLD-05 | Complete | Atomic zero-time ground pickup is a typed command; first-time pack acquisition consistently publishes one resource fact without drop/pick reaction loops. |
 | PRESENTATION-01 | Complete | Existing runtime-event batches drive ordered transient movement, combat, terrain, and visible threat-arrival glyph effects without affecting simulation. |
+| PRESENTATION-02 | Complete | Enemy movement, positional attack warnings, and committed impacts now produce ordered world-step effects without changing AI resolution. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
-through ENGINE-06, WORLD-04 through WORLD-05, and PRESENTATION-01 are
-post-roadmap tranches scoped from the integrated systems already in the
-repository. Further tranches should continue to be chosen from playtesting and
-the still-open product decisions rather than assumed here.
+through ENGINE-06, WORLD-04 through WORLD-05, DANGER-03, and PRESENTATION-01
+through PRESENTATION-02 are post-roadmap tranches scoped from the integrated
+systems already in the repository. Further tranches should continue to be
+chosen from playtesting and the still-open product decisions rather than
+assumed here.
 
 ## Implemented seams
 
@@ -86,6 +89,15 @@ the still-open product decisions rather than assumed here.
   known position but receive no AI decision on their creation step.
 - `ThreatSpawned` is a renderer-neutral, step-scoped runtime event; it is not
   persisted or used as simulation input.
+- `roag.danger.danger_forecast` exposes only the current pressure inputs,
+  thresholds, and shared response cadence. The regional status rail now makes
+  exposure, depth, noise, carried value, current score, next threshold, and an
+  active response window legible without exposing hidden actors or positions.
+- A due response that cannot place a new reinforcement may deterministically
+  reuse the nearest ordinary non-elite dormant threat, provided the active
+  actor budget has room. Reactivation shares the existing regional cadence,
+  preserves the 24-active/48-regional caps, and receives no AI decision on its
+  activation step.
 - `roag.simulation_effects` defines immutable authoritative facts, explicit
   registered reaction rules, a command-scoped fact collector, and a bounded
   deterministic resolver distinct from renderer-facing runtime events.
@@ -202,6 +214,15 @@ the still-open product decisions rather than assumed here.
 - The terminal passes outcomes from its existing typed movement, interaction,
   combat, guard, gear, retreat, terrain, and relic command paths into the same
   UI-owned `EffectState`. Effects never delay input or submit another command.
+- Enemy AI resolution now passes the open command collector through its
+  existing reducer without changing decisions. Committed enemy and patrol
+  movement emits positional `ActorMoved` facts; exact single-cell warnings
+  emit `AttackTelegraphed`; warning resolution reuses `AttackResolved` with
+  optional authoritative origin and target positions.
+- The presenter renders visible warning cells with a short `!` pulse, then
+  distinguishes hit/neutral resolution from a quieter blocked or missed `x`.
+  Attacker recoil and target impact can be composed from one semantic event.
+  Existing map danger marks and chronicle text remain the durable static cues.
 
 ## Compatibility and migrations
 
@@ -225,6 +246,10 @@ the still-open product decisions rather than assumed here.
   region's sequence and last-arrival turn. Existing format-15 saves default to
   no prior arrival, and spawned threats/equipment use existing serialization.
   No save-format or content-fingerprint change was required.
+- DANGER-03 adds no persistent field or migration. Reactivation deliberately
+  reuses the existing `danger:last_reinforcement_turn` cadence key and ordinary
+  persisted threat status/last-known-position fields. `DangerForecast` is a
+  read-only transient projection and format 15 remains current.
 - ENGINE-01 adds no persistent fields, migration, catalog rows, or content
   fingerprint changes. Simulation facts, collectors, rules, and resolution
   records are transient; an applied effect mutates only existing authoritative
@@ -267,6 +292,11 @@ the still-open product decisions rather than assumed here.
   and elapsed clock remain UI-owned and absent from saves and deterministic
   state hashes. `ROAG_PRESENTATION=off` continues to disable both timed frames
   and event effects.
+- PRESENTATION-02 adds only transient runtime-event metadata. The optional
+  positions on `AttackResolved`, `AttackTelegraphed`, enemy movement events,
+  and all derived effects remain unsaved. Collector-enabled and collector-free
+  world advancement are tested to produce identical authoritative state;
+  format 15 and content fingerprints are unchanged.
 
 ## Known deviations and baseline issues
 
@@ -287,6 +317,10 @@ the still-open product decisions rather than assumed here.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
   elites. Exact cadence, group composition, and longer-term population policy
   remain balance work rather than being generalized prematurely.
+- DANGER-03 does not activate elites, animals, or machinery as a generic
+  fallback, does not exceed the active actor budget, and does not change spawn
+  intervals, pressure thresholds, damage, or pursuit speed. Patrol-sized
+  arrivals, archetype weighting, and cadence tuning remain playtest decisions.
 - ENGINE-03 closes one bounded engine loop rather than adding a full component
   roster: defeat -> charge -> terrain power -> additional noise/pressure. It
   does not add charge-consuming combat effects, equipment-hosted components,
@@ -321,6 +355,11 @@ the still-open product decisions rather than assumed here.
 - Presentation frames do not gate authoritative input. Rapid commands can
   overlap or supersede transient effects; this preserves the action-clock
   contract rather than turning animation duration into a gameplay cooldown.
+- PRESENTATION-02 intentionally covers exact single-cell warnings and ordinary
+  committed enemy attacks. Multi-cell machinery sweeps, environmental elite
+  releases, projectile paths, camera displacement, and synthesized
+  `DamageApplied` events for enemy damage need dedicated semantic events rather
+  than message parsing or guessed geometry.
 - ENGINE-05 intentionally registers no live component rule. The repository has
   no existing component whose honest benefit warrants consuming a particular
   carried resource, so the tranche establishes the safe mutation boundary

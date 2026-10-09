@@ -20,6 +20,7 @@ REINFORCEMENT_INTERVAL = {"strained": 36, "critical": 18}
 REINFORCEMENT_MIN_DISTANCE = 12
 REINFORCEMENT_COUNT_KEY = "danger:reinforcement_count"
 REINFORCEMENT_LAST_TURN_KEY = "danger:last_reinforcement_turn"
+PRESSURE_THRESHOLDS = {"strained": 10, "critical": 18}
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,16 @@ class Pressure:
     band: str
     alert_range: int
     pursuit_steps: int
+
+
+@dataclass(frozen=True)
+class DangerForecast:
+    """Player-legible projection of pressure without hidden actor data."""
+
+    pressure: Pressure
+    next_band: str | None
+    points_to_next_band: int | None
+    response_due_in: int | None
 
 
 @dataclass(frozen=True)
@@ -66,9 +77,9 @@ def pressure(state: GameState) -> Pressure:
         stack.quantity for stack in state.carried_goods.values()
     )
     score = state.pressure_elapsed // 18 + depth + state.noise // 2 + valuables
-    if score >= 18:
+    if score >= PRESSURE_THRESHOLDS["critical"]:
         band, alert, pursuit = "critical", 12, 2
-    elif score >= 10:
+    elif score >= PRESSURE_THRESHOLDS["strained"]:
         band, alert, pursuit = "strained", 9, 1
     else:
         band, alert, pursuit = "steady", 6, 1
@@ -76,6 +87,32 @@ def pressure(state: GameState) -> Pressure:
         state.pressure_elapsed, depth, state.noise, valuables, score,
         band, alert, pursuit,
     )
+
+
+def danger_forecast(state: GameState) -> DangerForecast:
+    """Project current pressure and the shared response cadence for UI use."""
+    profile = pressure(state)
+    if profile.band == "safe":
+        return DangerForecast(profile, None, None, None)
+    if profile.band == "steady":
+        next_band = "strained"
+    elif profile.band == "strained":
+        next_band = "critical"
+    else:
+        next_band = None
+    points = (
+        PRESSURE_THRESHOLDS[next_band] - profile.score
+        if next_band is not None else None
+    )
+    interval = REINFORCEMENT_INTERVAL.get(profile.band)
+    due_in: int | None = None
+    if interval is not None:
+        last_turn = state.region.changes.get(REINFORCEMENT_LAST_TURN_KEY)
+        due_in = (
+            max(0, interval - (state.world_time - last_turn))
+            if type(last_turn) is int else 0
+        )
+    return DangerForecast(profile, next_band, points, due_in)
 
 
 def _reinforcement_sequence(state: GameState) -> int:
@@ -154,15 +191,11 @@ def _reinforcement_action(state: GameState, profile: Pressure) -> DangerAction |
         return None
     from .ecology import ACTOR_BUDGET, REGIONAL_ACTOR_LIMIT, active_actors
 
+    if danger_forecast(state).response_due_in != 0:
+        return None
     if (
         len(state.threats) >= REGIONAL_ACTOR_LIMIT
         or len(active_actors(state)) >= ACTOR_BUDGET
-    ):
-        return None
-    last_turn = state.region.changes.get(REINFORCEMENT_LAST_TURN_KEY)
-    if (
-        type(last_turn) is int
-        and state.world_time - last_turn < REINFORCEMENT_INTERVAL[profile.band]
     ):
         return None
     archetypes = _reinforcement_archetypes(state.active_region_id)
@@ -190,6 +223,34 @@ def _reinforcement_action(state: GameState, profile: Pressure) -> DangerAction |
     )
 
 
+def _activation_fallback_action(
+    state: GameState, profile: Pressure,
+) -> DangerAction | None:
+    """Reuse an ordinary dormant threat when a due arrival cannot be placed."""
+    if (
+        profile.band not in REINFORCEMENT_INTERVAL
+        or danger_forecast(state).response_due_in != 0
+    ):
+        return None
+    from .ecology import ACTOR_BUDGET, active_actors
+    from .world import distance
+
+    if len(active_actors(state)) >= ACTOR_BUDGET:
+        return None
+    candidates = [
+        actor for actor in state.combatants
+        if actor.status == "dormant"
+        and not actor.elite
+        and actor.profile not in {"animal", "machinery"}
+    ]
+    if not candidates:
+        return None
+    actor = min(candidates, key=lambda candidate: (
+        distance(state.position, candidate.position), candidate.id,
+    ))
+    return DangerAction("danger.activate_threat", profile.band, actor.id)
+
+
 def evaluate_danger_step(state: GameState) -> tuple[DangerAction, ...]:
     """Select bounded per-step pressure consequences without applying them."""
     profile = pressure(state)
@@ -209,6 +270,10 @@ def evaluate_danger_step(state: GameState) -> tuple[DangerAction, ...]:
     reinforcement = _reinforcement_action(state, profile)
     if reinforcement is not None:
         actions.append(reinforcement)
+    elif not actions:
+        activation = _activation_fallback_action(state, profile)
+        if activation is not None:
+            actions.append(activation)
     return tuple(actions)
 
 
@@ -298,6 +363,25 @@ def apply_danger_actions(
                 collector.record_step_event(ThreatSpawned(
                     actor.id, action.archetype_id, action.position, action.band,
                 ))
+        elif action.action_id == "danger.activate_threat":
+            actor = next(
+                (
+                    candidate for candidate in state.combatants
+                    if candidate.id == action.target_id
+                    and candidate.status == "dormant"
+                    and not candidate.elite
+                ),
+                None,
+            )
+            if actor is None:
+                raise ValueError("invalid dormant-threat activation directive")
+            actor.status = "engaged"
+            actor.last_known_position = state.position
+            actor.alarmed = True
+            state.region.changes[REINFORCEMENT_LAST_TURN_KEY] = state.world_time
+            messages.append(
+                action_format("action.process.escalation", threat=actor.name)
+            )
         else:
             raise ValueError(f"unknown danger action {action.action_id!r}")
     return tuple(messages)

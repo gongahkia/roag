@@ -35,7 +35,48 @@ class AttackResolved:
     target_id: str
     action_id: str
     result_id: str
+    origin: Position | None = None
+    target_position: Position | None = None
     event_id: str = field(init=False, default="combat.attack.resolved")
+
+
+@dataclass(frozen=True)
+class AttackTelegraphed:
+    attacker_id: str
+    origin: Position
+    target_position: Position
+    action_id: str
+    event_id: str = field(init=False, default="combat.attack.telegraphed")
+
+
+@dataclass(frozen=True)
+class ProjectileResolved:
+    attacker_id: str
+    origin: Position
+    target_position: Position
+    path: tuple[Position, ...]
+    projectile_id: str
+    result_id: str
+    event_id: str = field(init=False, default="combat.projectile.resolved")
+
+
+@dataclass(frozen=True)
+class AreaTelegraphed:
+    actor_id: str
+    origin: Position
+    cells: tuple[Position, ...]
+    action_id: str
+    event_id: str = field(init=False, default="world.area.telegraphed")
+
+
+@dataclass(frozen=True)
+class AreaResolved:
+    actor_id: str
+    origin: Position
+    cells: tuple[Position, ...]
+    action_id: str
+    result_id: str
+    event_id: str = field(init=False, default="world.area.resolved")
 
 
 @dataclass(frozen=True)
@@ -124,7 +165,9 @@ class ThreatSpawned:
 
 
 RuntimeEvent = (
-    ActorMoved | InteractionResolved | AttackResolved | DamageApplied
+    ActorMoved | InteractionResolved | AttackResolved | AttackTelegraphed
+    | ProjectileResolved | AreaTelegraphed | AreaResolved
+    | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | TerrainDamaged | TerrainChanged
     | ThreatSpawned

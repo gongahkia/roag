@@ -89,6 +89,7 @@ from .content import (
     SUPPORTS,
     WEAPONS,
 )
+from .danger import danger_forecast
 from .save import SaveError, save_game
 from .presentation import EffectState, PRESENTATION_FRAME_MS, presentation_enabled
 from .navigation import (
@@ -882,6 +883,24 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
         f"Load {pack_weight(state)}/{weight_capacity(state)} kg",
         *textwrap.wrap(f"Location: {location}", width=25, break_long_words=True),
     ]
+    if state.location == "region":
+        forecast = danger_forecast(state)
+        profile = forecast.pressure
+        lines.extend((
+            "PRESSURE",
+            f"{profile.band.upper()}  Score {profile.score}",
+            f"Exposure {profile.elapsed}  Depth {profile.depth}",
+            f"Noise {profile.noise}  Value {profile.valuables}",
+        ))
+        if forecast.next_band is not None:
+            lines.append(
+                f"Next {forecast.next_band}: +{forecast.points_to_next_band}"
+            )
+        if forecast.response_due_in is not None:
+            lines.append(
+                "Response: ready" if forecast.response_due_in == 0
+                else f"Response: {forecast.response_due_in} turns"
+            )
     return lines if capacity is None else lines[:capacity]
 
 

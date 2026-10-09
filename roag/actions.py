@@ -37,7 +37,8 @@ from .inventory import (
     worn_tags,
 )
 from .runtime_events import (
-    ActorDefeated, AttackResolved, DamageApplied, RuntimeEvent,
+    ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
+    AttackTelegraphed, DamageApplied, ProjectileResolved, RuntimeEvent,
     RuntimeEventBatch, RuntimeEventCollector, StatusChanged, TerrainChanged,
     TerrainDamaged,
 )
@@ -64,6 +65,7 @@ from .world import (
     passive_bulk,
     passive_capacity,
     position_key,
+    projectile_path,
     vertical_destination,
     vertical_open,
 )
@@ -648,7 +650,7 @@ def _resolve_brace_reaction(state: GameState, threat: Threat) -> str | None:
     return action_format("combat.brace.reaction", weapon=item_display_name_or_legacy(state.weapon), outcome=outcome, threat=threat.name, protection=protection, dropped=harm.dropped)
 
 
-def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
+def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     gap = distance(state.position, threat.position)
     threat.turn += 1
     from .enemy_equipment import (
@@ -1187,6 +1189,184 @@ def _threat_action(state: GameState, threat: Threat, guarded: bool) -> str:
     return action_format("combat.threat.intent", threat=threat.name, intent=threat.intent)
 
 
+_POSITIONAL_WARNING_INTENTS = frozenset({
+    "combat.intent.attack_warning_melee",
+    "combat.intent.attack_warning_reach",
+    "combat.intent.lowers_its_head_and_charges_next_turn",
+    "intent.animal.charge_warning",
+})
+_RESOLVED_WARNING_INTENTS = frozenset({
+    "combat.intent.recovers_before_another_attack",
+    "combat.intent.circles_before_another_charge",
+    "combat.intent.bogged_in_mud",
+})
+def _has_explicit_warning_target(threat: Threat) -> bool:
+    return bool(
+        threat.aimed_at is not None
+        or (
+            threat.marked_position is not None
+            and (
+                "telegraph" in threat.intent_id
+                or threat.intent_id.startswith("frontier.telegraph.")
+            )
+        )
+    )
+
+
+def _threat_warning_target(state: GameState, threat: Threat) -> Position | None:
+    """Return only an authoritative cell explicitly threatened next action."""
+    intent_id = threat.intent_id
+    if threat.aimed_at is not None:
+        return threat.aimed_at
+    if (
+        threat.marked_position is not None
+        and ("telegraph" in intent_id or intent_id.startswith("frontier.telegraph."))
+    ):
+        return threat.marked_position
+    if intent_id in _POSITIONAL_WARNING_INTENTS:
+        return state.position
+    return None
+
+
+def _threat_warning_area(
+    action_id: str,
+    target: Position | None,
+) -> tuple[Position, ...]:
+    """Return exact cells for the bounded authored warnings modeled so far."""
+    if target is None:
+        return ()
+    if action_id == "intent.elite.floodgate.sluice_telegraph":
+        return (
+            target,
+            Position(target.x - 1, target.y, target.z),
+            Position(target.x + 1, target.y, target.z),
+        )
+    if action_id == "intent.elite.reeve.cover_telegraph":
+        return (target, Position(target.x - 1, target.y, target.z))
+    if action_id == "intent.elite.tracker.resin_telegraph":
+        return (target, Position(target.x, target.y, min(2, target.z + 1)))
+    return ()
+
+
+def _threat_action(
+    state: GameState,
+    threat: Threat,
+    guarded: bool,
+    *,
+    collector: RuntimeEventCollector | None = None,
+) -> str:
+    """Resolve one enemy decision and optionally publish presentation facts.
+
+    The underlying reducer remains the sole mechanical authority. This wrapper
+    observes committed before/after state and records each fact once into the
+    already-open authoritative world-step group.
+    """
+    before_position = threat.position
+    before_warning = _threat_warning_target(state, threat)
+    before_explicit_warning = _has_explicit_warning_target(threat)
+    before_intent = threat.intent_id or "combat.enemy.action"
+    before_courier_id = state.active_courier_id or "courier"
+    before_courier = state.courier
+    before_health = before_courier.health if before_courier is not None else 0
+    before_courier_position = state.position
+    before_location = state.location
+    before_area = _threat_warning_area(before_intent, before_warning)
+    before_projectile_path = (
+        tuple(projectile_path(before_position, before_warning, state))
+        if (
+            before_warning is not None
+            and before_intent == "intent.ranged.aim_telegraph"
+            and threat.profile == "ranged"
+        )
+        else ()
+    )
+
+    message = _resolve_threat_action(state, threat, guarded)
+
+    if collector is None:
+        return message
+    after_warning = _threat_warning_target(state, threat)
+    warning_resolved = bool(
+        before_warning is not None
+        and after_warning != before_warning
+        and (
+            before_explicit_warning
+            or threat.intent_id in _RESOLVED_WARNING_INTENTS
+        )
+    )
+    if warning_resolved:
+        was_hit = bool(
+            before_courier is not None
+            and (
+                before_courier.health < before_health
+                or not before_courier.alive
+                or state.active_courier_id != before_courier_id
+                or state.location != before_location
+            )
+        )
+        if was_hit:
+            result_id = "combat.enemy.hit"
+        elif (
+            before_warning != before_courier_position
+            or threat.status == "evaded"
+        ):
+            result_id = "combat.enemy.missed"
+        elif guarded:
+            result_id = "combat.enemy.blocked"
+        else:
+            result_id = "combat.enemy.resolved"
+        collector.record_step_event(AttackResolved(
+            threat.id,
+            before_courier_id,
+            before_intent,
+            result_id,
+            before_position,
+            before_warning,
+        ))
+        if before_projectile_path:
+            collector.record_step_event(ProjectileResolved(
+                threat.id,
+                before_position,
+                before_warning,
+                before_projectile_path,
+                threat.ranged_kind,
+                result_id,
+            ))
+        if before_area:
+            collector.record_step_event(AreaResolved(
+                threat.id,
+                before_warning,
+                before_area,
+                before_intent,
+                result_id,
+            ))
+    if threat.position != before_position:
+        collector.record_step_event(ActorMoved(
+            threat.id,
+            before_position,
+            threat.position,
+            "movement.enemy",
+        ))
+    if after_warning is not None and after_warning != before_warning:
+        after_intent = threat.intent_id or "combat.enemy.telegraph"
+        after_area = _threat_warning_area(after_intent, after_warning)
+        if after_area:
+            collector.record_step_event(AreaTelegraphed(
+                threat.id,
+                after_warning,
+                after_area,
+                after_intent,
+            ))
+        else:
+            collector.record_step_event(AttackTelegraphed(
+                threat.id,
+                threat.position,
+                after_warning,
+                after_intent,
+            ))
+    return message
+
+
 def _weather_and_deadline(state: GameState) -> list[str]:
     """Advance one bounded, visible regional process on the action clock."""
     elapsed = state.pressure_elapsed
@@ -1293,7 +1473,11 @@ def _weather_and_deadline(state: GameState) -> list[str]:
     return messages
 
 
-def _patrols(state: GameState) -> list[str]:
+def _patrols(
+    state: GameState,
+    *,
+    collector: RuntimeEventCollector | None = None,
+) -> list[str]:
     messages: list[str] = []
     for threat in state.combatants:
         if threat.status != "watching" or not threat.patrol:
@@ -1306,9 +1490,17 @@ def _patrols(state: GameState) -> list[str]:
             if candidate != threat.position and is_walkable(state, candidate, ignore_threat=True):
                 target_index, target = candidate_index, candidate
                 break
+        previous = threat.position
         moved = next_path_step(state, threat, target, stop_distance=0)
         if moved != threat.position:
             threat.position = moved
+            if collector is not None:
+                collector.record_step_event(ActorMoved(
+                    threat.id,
+                    previous,
+                    threat.position,
+                    "movement.enemy.patrol",
+                ))
         if threat.position == target:
             threat.patrol_index = target_index
         if (
@@ -1366,10 +1558,12 @@ def _advance_world(
                 messages.extend(danger.messages)
                 arrived_this_step.update(
                     action.target_id for action in danger.actions
-                    if action.action_id == "danger.spawn_reinforcement"
+                    if action.action_id in {
+                        "danger.spawn_reinforcement", "danger.activate_threat",
+                    }
                     and action.target_id is not None
                 )
-                messages.extend(_patrols(state))
+                messages.extend(_patrols(state, collector=collector))
             from .worklines import apply_local_work
             apply_local_work(state)
             from .ecology import active_actors
@@ -1387,13 +1581,18 @@ def _advance_world(
                         threat.last_known_position = state.position if seen else heard
                         messages.append(_activate(threat))
                     elif threat.ecology or threat.duty:
-                        result = _threat_action(state, threat, False)
+                        result = _threat_action(
+                            state, threat, False, collector=collector,
+                        )
                         if threat.position in field_of_view(state, remember=False):
                             messages.append(result)
                 elif threat.status == "engaged":
                     if threat.id in previously_watching:
                         continue
-                    result = _threat_action(state, threat, guarded and tick == 0)
+                    result = _threat_action(
+                        state, threat, guarded and tick == 0,
+                        collector=collector,
+                    )
                     if threat.position in field_of_view(state, remember=False) or distance(state.position, threat.position) <= 6:
                         messages.append(result)
             from .enemy_equipment import tick_enemy_conditions

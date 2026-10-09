@@ -103,18 +103,27 @@ class InspectionAndForecastTests(unittest.TestCase):
         self.assertTrue(_handle_look(state, view, InputEvent("mouse", button="right", x=27, y=8)))
         self.assertEqual(state.to_dict(), before)
 
-    def test_status_shows_only_courier_identity_health_load_and_location(self):
+    def test_status_shows_courier_and_legible_regional_pressure(self):
         state = self.state
         actor = Threat("urgent", "urgent bow carrier", "ranged", Position(46, 25), 8, 8, status="engaged", aimed_at=state.position)
         state.threats.append(actor)
         state.terrain_statuses["bogged"] = TerrainStatus("deep mud", 3, "movement is slower")
         state.courier.health = state.courier.max_health // 2
         lines = _status_lines(state, 14)
-        self.assertEqual(len(lines), 6)
+        self.assertEqual(len(lines), 11)
         text = " ".join(lines)
+        from roag.danger import danger_forecast
+
+        forecast = danger_forecast(state)
         for phrase in (state.courier.name, f"Role: {state.courier.role}", "Health [####....]", "Load ", " kg", "Location: Hearthford"):
             self.assertIn(phrase, text)
-        for phrase in ("Ammo", "DANGER", "no visible threat", "Combo", "STATUS bogged", "ACTION"):
+        for phrase in (
+            "PRESSURE", "STEADY", f"Score {forecast.pressure.score}",
+            "Exposure 0", f"Depth {forecast.pressure.depth}", "Noise 0",
+            "Value 0", f"Next strained: +{forecast.points_to_next_band}",
+        ):
+            self.assertIn(phrase, text)
+        for phrase in ("Ammo", "DANGER", "no visible threat", "Combo", "STATUS bogged", "ACTION", "Response:"):
             self.assertNotIn(phrase, text)
 
         sink = _PanelSink(24, 80)

@@ -13,8 +13,9 @@ from roag.presentation import (
     presentation_enabled,
 )
 from roag.runtime_events import (
-    ActorDefeated, AttackResolved, DamageApplied, RuntimeEventBatch,
-    RuntimeEventStep, TerrainChanged, TerrainDamaged, ThreatSpawned,
+    ActorDefeated, AttackResolved, AttackTelegraphed, DamageApplied,
+    RuntimeEventBatch, RuntimeEventStep, TerrainChanged, TerrainDamaged,
+    ThreatSpawned,
 )
 from roag.session import GameSession
 from roag.state import Position, create_world
@@ -53,6 +54,47 @@ class PresentationStateTests(unittest.TestCase):
         self.assertEqual(effects.glyph(".", arrival, visible=False), ".")
         effects.advance(3 * PRESENTATION_FRAME_MS)
         self.assertEqual(effects.effects, [])
+
+    def test_enemy_warning_then_hit_uses_embedded_authoritative_positions(self):
+        origin = Position(10, 10, 0)
+        target = Position(12, 10, 0)
+        batch = RuntimeEventBatch(steps=(
+            RuntimeEventStep(1, (AttackTelegraphed(
+                "enemy", origin, target, "intent.melee.warning",
+            ),)),
+            RuntimeEventStep(2, (AttackResolved(
+                "enemy", "courier", "intent.melee.warning",
+                "combat.enemy.hit", origin, target,
+            ),)),
+        ))
+        effects = EffectState.for_seed("enemy warning presentation")
+
+        effects.consume(batch)
+
+        self.assertEqual(effects.glyph("@", target), "!")
+        self.assertEqual(effects.glyph("@", target, visible=False), "@")
+        self.assertEqual(effects.effect_at(target).effect_id, "combat.telegraph")
+        effects.advance()
+        self.assertEqual(effects.glyph("e", origin), ">")
+        self.assertEqual(effects.glyph("@", target), "*")
+        self.assertEqual(
+            effects.effect_at(target).effect_id, "combat.enemy.impact",
+        )
+
+    def test_enemy_miss_has_a_quieter_static_and_animated_cue(self):
+        origin = Position(10, 10, 0)
+        marked = Position(12, 10, 0)
+        event = AttackResolved(
+            "enemy", "courier", "intent.ranged.aim_telegraph",
+            "combat.enemy.missed", origin, marked,
+        )
+        effects = EffectState.for_seed("enemy miss presentation")
+
+        effects.consume(RuntimeEventBatch(command_events=(event,)))
+
+        self.assertEqual(effects.glyph("e", origin), ">")
+        self.assertEqual(effects.glyph(".", marked), "x")
+        self.assertEqual(effects.effect_at(marked).emphasis_id, "trail")
 
     def test_session_outcome_enters_effect_state_without_mutating_again(self):
         state = create_world("presentation-command-boundary")

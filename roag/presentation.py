@@ -8,10 +8,11 @@ import os
 from typing import Mapping
 
 from .runtime_events import (
-    ActorDefeated, ActorMoved, AttackResolved, CarriedRelicSelectionChanged,
-    DamageApplied, GuardResolved, ItemUsed, RetreatResolved, RuntimeEvent,
-    RuntimeEventBatch, StatusChanged, TerrainChanged, TerrainDamaged,
-    ThreatSpawned,
+    ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
+    AttackTelegraphed,
+    CarriedRelicSelectionChanged, DamageApplied, GuardResolved, ItemUsed,
+    ProjectileResolved, RetreatResolved, RuntimeEvent, RuntimeEventBatch, StatusChanged,
+    TerrainChanged, TerrainDamaged, ThreatSpawned,
 )
 from .state import Position
 
@@ -121,10 +122,81 @@ class EffectState:
         actor_positions: Mapping[str, Position],
         started_ms: int,
     ) -> None:
-        specification = _effect_specification(event, actor_positions)
-        if specification is None:
+        if isinstance(event, ProjectileResolved):
+            self._schedule_projectile(event, started_ms)
             return
-        effect_id, position, glyphs, emphasis_id, priority = specification
+        if isinstance(event, AreaTelegraphed):
+            for position in event.cells:
+                self._append_effect(
+                    "world.area.telegraph", position, ("!", "·", "!"),
+                    "warning", started_ms, 5,
+                )
+            return
+        if isinstance(event, AreaResolved):
+            ordered_cells = sorted(
+                event.cells,
+                key=lambda position: (
+                    abs(position.x - event.origin.x)
+                    + abs(position.y - event.origin.y)
+                    + abs(position.z - event.origin.z),
+                    position.z,
+                    position.y,
+                    position.x,
+                ),
+            )
+            for index, position in enumerate(ordered_cells):
+                self._append_effect(
+                    "world.area.resolved", position, ("*", ":", "."),
+                    "debris", started_ms + index * PRESENTATION_FRAME_MS, 6,
+                )
+            return
+        for specification in _effect_specifications(event, actor_positions):
+            effect_id, position, glyphs, emphasis_id, priority = specification
+            self._append_effect(
+                effect_id, position, glyphs, emphasis_id, started_ms, priority,
+            )
+
+    def _schedule_projectile(
+        self,
+        event: ProjectileResolved,
+        started_ms: int,
+    ) -> None:
+        previous = event.origin
+        interior = event.path[1:-1]
+        for index, position in enumerate(interior):
+            self._append_effect(
+                f"combat.projectile.{event.projectile_id}",
+                position,
+                (_projectile_glyph(previous, position), "."),
+                "trail",
+                started_ms + index * PRESENTATION_FRAME_MS,
+                4,
+            )
+            previous = position
+        if event.result_id == "combat.enemy.hit":
+            glyphs, emphasis_id, priority = ("*", "+", "*"), "flash", 6
+        elif event.result_id in {"combat.enemy.missed", "combat.enemy.blocked"}:
+            glyphs, emphasis_id, priority = ("x", "."), "trail", 3
+        else:
+            glyphs, emphasis_id, priority = ("*", "."), "motion", 4
+        self._append_effect(
+            "combat.projectile.impact",
+            event.target_position,
+            glyphs,
+            emphasis_id,
+            started_ms + len(interior) * PRESENTATION_FRAME_MS,
+            priority,
+        )
+
+    def _append_effect(
+        self,
+        effect_id: str,
+        position: Position,
+        glyphs: tuple[str, ...],
+        emphasis_id: str,
+        started_ms: int,
+        priority: int,
+    ) -> None:
         self.effects.append(MapEffect(
             effect_id,
             position,
@@ -176,21 +248,29 @@ class EffectState:
         return WATER_GLYPHS[(self.frame_index + offset) % len(WATER_GLYPHS)]
 
 
-def _effect_specification(
+def _effect_specifications(
     event: RuntimeEvent,
     actor_positions: Mapping[str, Position],
-) -> tuple[str, Position, tuple[str, ...], str, int] | None:
+) -> tuple[tuple[str, Position, tuple[str, ...], str, int], ...]:
     """Choose presentation treatment from semantic facts, never simulation text."""
+    if isinstance(event, AttackTelegraphed):
+        return ((
+            "combat.telegraph",
+            event.target_position,
+            ("!", "·", "!"),
+            "warning",
+            5,
+        ),)
     if isinstance(event, ActorMoved):
-        return "movement.trail", event.from_position, (".", "."), "trail", 1
+        return (("movement.trail", event.from_position, (".", "."), "trail", 1),)
     if isinstance(event, RetreatResolved):
-        return "movement.retreat", event.from_position, (">", "."), "motion", 2
+        return (("movement.retreat", event.from_position, (">", "."), "motion", 2),)
     if isinstance(event, TerrainDamaged):
-        return "terrain.damage", event.position, ("'", ":"), "debris", 3
+        return (("terrain.damage", event.position, ("'", ":"), "debris", 3),)
     if isinstance(event, TerrainChanged):
-        return "terrain.change", event.position, ("*", ":", "."), "debris", 5
+        return (("terrain.change", event.position, ("*", ":", "."), "debris", 5),)
     if isinstance(event, ThreatSpawned):
-        return "threat.arrival", event.position, ("!", "?", "!"), "warning", 5
+        return (("threat.arrival", event.position, ("!", "?", "!"), "warning", 5),)
 
     actor_id: str | None = None
     if isinstance(event, AttackResolved):
@@ -215,9 +295,48 @@ def _effect_specification(
         actor_id = event.actor_id
         style = ("relic.selected", ("*", "+"), "flash", 2)
     else:
-        return None
-    position = actor_positions.get(actor_id)
+        return ()
+    position = (
+        event.origin
+        if isinstance(event, AttackResolved) and event.origin is not None
+        else actor_positions.get(actor_id)
+    )
     if position is None:
-        return None
+        return ()
     effect_id, glyphs, emphasis_id, priority = style
-    return effect_id, position, glyphs, emphasis_id, priority
+    specifications = [(effect_id, position, glyphs, emphasis_id, priority)]
+    if (
+        isinstance(event, AttackResolved)
+        and event.target_position is not None
+        and event.action_id != "intent.ranged.aim_telegraph"
+    ):
+        if event.result_id == "combat.enemy.hit":
+            impact = ("*", "+", "*")
+            impact_emphasis, impact_priority = "flash", 6
+        elif event.result_id in {"combat.enemy.missed", "combat.enemy.blocked"}:
+            impact = ("x", ".")
+            impact_emphasis, impact_priority = "trail", 3
+        else:
+            impact = ("*", ".")
+            impact_emphasis, impact_priority = "motion", 4
+        specifications.append((
+            "combat.enemy.impact",
+            event.target_position,
+            impact,
+            impact_emphasis,
+            impact_priority,
+        ))
+    return tuple(specifications)
+
+
+def _projectile_glyph(previous: Position, position: Position) -> str:
+    """Choose a one-cell ASCII direction cue from embedded path geometry."""
+    dx = position.x - previous.x
+    dy = position.y - previous.y
+    if position.z != previous.z:
+        return "|"
+    if dx and dy:
+        return "\\" if (dx > 0) == (dy > 0) else "/"
+    if dx:
+        return "-"
+    return "|"

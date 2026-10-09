@@ -10,15 +10,15 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-from roag.actions import attack
+from roag.actions import advance_world, attack
 from roag.commands import (
     AdvanceWorldCommand, AttackCommand, InteractCommand, MoveCommand, RetreatCommand,
     SelectCarriedRelicCommand,
 )
 from roag.runtime_events import (
-    ActorDefeated, ActorMoved, AttackResolved, CarriedRelicSelectionChanged,
-    DamageApplied, InteractionResolved, RetreatResolved, RuntimeEventBatch,
-    StatusChanged,
+    ActorDefeated, ActorMoved, AttackResolved, AttackTelegraphed,
+    CarriedRelicSelectionChanged, DamageApplied, InteractionResolved,
+    RetreatResolved, RuntimeEventBatch, StatusChanged,
 )
 from roag.session import GameSession
 from roag.state import Position, SoundEvent, Threat, create_world
@@ -76,6 +76,110 @@ class RuntimeEventTests(unittest.TestCase):
 
         rejected = session.submit(MoveCommand(0, 0))
         self.assertEqual(rejected.events, ())
+
+    def test_enemy_warning_and_committed_attack_are_world_step_events(self):
+        state, target_id = armed_state("runtime enemy telegraph")
+        target = state.threats[0]
+        target.profile = "reach"
+        target.position = Position(42, 25)
+        session = GameSession(state)
+        health_before = state.courier.health
+
+        warning = session.submit(AdvanceWorldCommand())
+
+        self.assertEqual(len(warning.event_batch.steps), 1)
+        self.assertEqual(len(warning.event_batch.steps[0].events), 1)
+        telegraph = warning.event_batch.steps[0].events[0]
+        self.assertIsInstance(telegraph, AttackTelegraphed)
+        self.assertEqual(telegraph.attacker_id, target_id)
+        self.assertEqual(telegraph.origin, target.position)
+        self.assertEqual(telegraph.target_position, state.position)
+        self.assertEqual(state.courier.health, health_before)
+
+        committed = session.submit(AdvanceWorldCommand())
+
+        attack = next(
+            event for event in committed.event_batch.steps[0].events
+            if isinstance(event, AttackResolved)
+        )
+        self.assertEqual(attack.attacker_id, target_id)
+        self.assertEqual(attack.target_id, state.active_courier_id)
+        self.assertEqual(attack.origin, target.position)
+        self.assertEqual(attack.target_position, state.position)
+        self.assertEqual(attack.result_id, "combat.enemy.hit")
+        self.assertLess(state.courier.health, health_before)
+        self.assertEqual(committed.events.count(attack), 1)
+
+    def test_leaving_melee_measure_does_not_fabricate_an_attack_impact(self):
+        state, _ = armed_state("runtime leave warned measure")
+        target = state.threats[0]
+        target.profile = "reach"
+        target.position = Position(42, 25)
+        session = GameSession(state)
+        session.submit(AdvanceWorldCommand())
+        self.assertIn("attack_warning", target.intent_id)
+        state.position = Position(48, 25)
+
+        outcome = session.submit(AdvanceWorldCommand())
+
+        events = outcome.event_batch.steps[0].events
+        self.assertTrue(any(isinstance(event, ActorMoved) for event in events))
+        self.assertFalse(any(isinstance(event, AttackResolved) for event in events))
+
+    def test_explicit_cell_telegraph_resolves_at_marked_cell_after_move(self):
+        state, target_id = armed_state("runtime controller miss")
+        target = state.threats[0]
+        target.profile = "reach"
+        target.role = "controller"
+        target.position = Position(43, 25)
+        session = GameSession(state)
+        warning = session.submit(AdvanceWorldCommand())
+        marker = next(
+            event for event in warning.events
+            if isinstance(event, AttackTelegraphed)
+        )
+        state.position = Position(40, 26)
+
+        outcome = session.submit(AdvanceWorldCommand())
+
+        attack = next(
+            event for event in outcome.events
+            if isinstance(event, AttackResolved)
+        )
+        self.assertEqual(attack.attacker_id, target_id)
+        self.assertEqual(attack.target_position, marker.target_position)
+        self.assertNotEqual(attack.target_position, state.position)
+        self.assertEqual(attack.result_id, "combat.enemy.missed")
+
+    def test_enemy_movement_event_is_deterministic_and_step_scoped(self):
+        first, target_id = armed_state("runtime enemy movement")
+        first.threats[0].position = Position(46, 25)
+        second = copy.deepcopy(first)
+
+        first_outcome = GameSession(first).submit(AdvanceWorldCommand())
+        second_outcome = GameSession(second).submit(AdvanceWorldCommand())
+
+        self.assertEqual(first.to_dict(), second.to_dict())
+        self.assertEqual(first_outcome.event_batch, second_outcome.event_batch)
+        movement = next(
+            event for event in first_outcome.event_batch.steps[0].events
+            if isinstance(event, ActorMoved)
+        )
+        self.assertEqual(movement.actor_id, target_id)
+        self.assertEqual(movement.movement_kind_id, "movement.enemy")
+        self.assertNotEqual(movement.from_position, movement.to_position)
+
+    def test_enemy_event_observation_does_not_change_authoritative_resolution(self):
+        observed, _ = armed_state("runtime enemy observation purity")
+        observed.threats[0].position = Position(46, 25)
+        unobserved = copy.deepcopy(observed)
+
+        outcome = GameSession(observed).submit(AdvanceWorldCommand())
+        result = advance_world(unobserved)
+
+        self.assertTrue(outcome.time_advanced)
+        self.assertTrue(result.time_advanced)
+        self.assertEqual(observed.to_dict(), unobserved.to_dict())
 
     def test_interaction_event_uses_stable_choice_ids(self):
         state = create_world("runtime interaction")

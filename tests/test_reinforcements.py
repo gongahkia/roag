@@ -9,6 +9,7 @@ from pathlib import Path
 from roag.commands import AdvanceWorldCommand
 from roag.content import ENEMY_ARCHETYPES
 from roag.danger import (
+    DangerAction,
     REINFORCEMENT_COUNT_KEY,
     REINFORCEMENT_INTERVAL,
     REINFORCEMENT_LAST_TURN_KEY,
@@ -98,9 +99,12 @@ class ReinforcementDirectorTests(unittest.TestCase):
         self.assertEqual(actor.turn, 0)
         self.assertEqual(actor.last_known_position, state.position)
         self.assertEqual(len(outcome.event_batch.steps), 1)
-        self.assertEqual(len(outcome.event_batch.steps[0].events), 1)
-        event = outcome.event_batch.steps[0].events[0]
-        self.assertIsInstance(event, ThreatSpawned)
+        spawn_events = [
+            event for event in outcome.event_batch.steps[0].events
+            if isinstance(event, ThreatSpawned)
+        ]
+        self.assertEqual(len(spawn_events), 1)
+        event = spawn_events[0]
         self.assertEqual(
             (event.actor_id, event.archetype_id, event.position, event.pressure_band),
             (actor.id, actor.archetype_id, actor.position, "strained"),
@@ -172,6 +176,58 @@ class ReinforcementDirectorTests(unittest.TestCase):
             action.action_id == "danger.spawn_reinforcement"
             for action in evaluate_danger_step(region_limited)
         ))
+
+    def test_due_response_reuses_dormant_ordinary_threat_at_population_cap(self):
+        state = self.state_at_pressure("reinforcement dormant fallback")
+        dormant = next(
+            actor for actor in state.threats
+            if actor.status == "dormant" and not actor.elite
+        )
+        state.threats.extend(
+            Threat(
+                f"retired-{index}", "retired fixture", "pursuer",
+                state.position, 0, 4, status="defeated",
+            )
+            for index in range(REGIONAL_ACTOR_LIMIT - len(state.threats))
+        )
+        health_before = state.courier.health
+
+        actions = evaluate_danger_step(state)
+
+        self.assertEqual(
+            actions,
+            (DangerAction("danger.activate_threat", "strained", dormant.id),),
+        )
+        outcome = GameSession(state).submit(AdvanceWorldCommand())
+        self.assertEqual(state.courier.health, health_before)
+        self.assertEqual(dormant.status, "engaged")
+        self.assertTrue(dormant.alarmed)
+        self.assertEqual(dormant.last_known_position, state.position)
+        self.assertEqual(
+            state.region.changes[REINFORCEMENT_LAST_TURN_KEY], state.world_time,
+        )
+        self.assertFalse(any(
+            isinstance(event, ThreatSpawned) for event in outcome.events
+        ))
+        self.assertFalse(any(
+            action.action_id == "danger.activate_threat"
+            for action in evaluate_danger_step(state)
+        ))
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = save_game(state, Path(directory) / "reactivated.json")
+            raw = path.read_text(encoding="utf-8")
+            restored = load_game(path)
+        restored_actor = next(
+            actor for actor in restored.threats if actor.id == dormant.id
+        )
+        self.assertEqual(restored_actor.status, "engaged")
+        self.assertEqual(restored_actor.last_known_position, state.position)
+        self.assertEqual(
+            restored.region.changes[REINFORCEMENT_LAST_TURN_KEY],
+            state.world_time,
+        )
+        self.assertNotIn("DangerForecast", raw)
 
     def test_spawned_actor_and_equipment_round_trip_but_event_does_not(self):
         state = self.state_at_pressure("reinforcement persistence")
