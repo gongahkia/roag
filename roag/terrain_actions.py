@@ -149,11 +149,13 @@ def resolve_terrain_action(
         position,
         max(0, definition.hardness - previous_damage - power),
     )
-    sound_reduction = 0
+    sound_reduction = collapse_control = 0
     if state.run is not None and state.run.status == "active":
         from .run_items import effect_value
 
         sound_reduction = effect_value(state, "sound_reduction")
+        sound_reduction += effect_value(state, "engine_sound_reduction")
+        collapse_control = effect_value(state, "collapse_control")
     power += assistance.power
     applied = min(power, definition.hardness - previous_damage)
     total = previous_damage + applied
@@ -186,5 +188,6 @@ def resolve_terrain_action(
         assistance.sound,
         definition.yield_item_kind if destroyed else None,
         definition.yield_item_quantity if destroyed else 0,
-        definition.support_loss_on_destroy if destroyed else 0,
+        max(0, definition.support_loss_on_destroy - collapse_control)
+        if destroyed else 0,
     )

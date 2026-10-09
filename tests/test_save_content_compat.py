@@ -31,23 +31,13 @@ class SaveContentCompatibilityTests(unittest.TestCase):
             item.pop("archived_hostile_issue", None)
         return data
 
-    def test_v14_migrates_without_rewriting_history_and_adopts_on_write(self):
+    def test_v14_is_rejected_without_rewriting_the_source(self):
         self.state.history.append("Frozen historical line.")
         legacy = self._legacy_v14()
-        loaded = game_state_from_dict(legacy)
-        self.assertEqual(loaded.save_format, SAVE_FORMAT)
-        self.assertEqual(loaded.content_compat, {
-            "source": "legacy-unverified", "last_active_pack": None, "mechanical": None,
-        })
-        self.assertEqual(loaded.history[-1], "Frozen historical line.")
-        self.assertEqual(loaded.narrative_records, [])
-        with tempfile.TemporaryDirectory() as directory:
-            path = save_game(loaded, Path(directory) / "save.json")
-            written = json.loads(path.read_text(encoding="utf-8"))
-        self.assertEqual(written["content_compat"]["source"], "legacy-unverified")
-        self.assertIsNotNone(written["content_compat"]["last_active_pack"])
-        self.assertEqual(written["content_compat"]["mechanical"]["catalog_fingerprint"], main_world_mechanical_fingerprint())
-        self.assertEqual(game_state_from_dict(written).history[-1], "Frozen historical line.")
+        before = copy.deepcopy(legacy)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(legacy)
+        self.assertEqual(legacy, before)
 
     def test_native_round_trip_and_compatibility_rejection(self):
         data = self.state.to_dict()
@@ -62,18 +52,14 @@ class SaveContentCompatibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(StateError, "mechanical compatibility version"):
             game_state_from_dict(incompatible)
 
-    def test_additive_field_recipe_catalog_adopts_on_next_write(self):
+    def test_pre_run_item_catalog_fingerprint_is_rejected(self):
         prior = copy.deepcopy(self.state.to_dict())
         prior["content_compat"]["mechanical"]["catalog_fingerprint"] = (
             "4f1069c422993eee3fa9f7190f5ab91ea072d2a86703f419e2c7dc0910e5da0b"
         )
 
-        loaded = game_state_from_dict(prior)
-        self.assertEqual(loaded.seed, self.state.seed)
-        self.assertEqual(
-            loaded.save_payload()["content_compat"]["mechanical"]["catalog_fingerprint"],
-            main_world_mechanical_fingerprint(),
-        )
+        with self.assertRaisesRegex(StateError, "different main-world mechanical catalogs"):
+            game_state_from_dict(prior)
 
     def test_pack_provenance_and_presentation_fingerprint_do_not_enforce_loading(self):
         data = self.state.to_dict()
@@ -81,18 +67,10 @@ class SaveContentCompatibilityTests(unittest.TestCase):
         data["content_compat"]["last_active_pack"]["presentation_fingerprint"] = "f" * 64
         self.assertEqual(game_state_from_dict(data).seed, self.state.seed)
 
-    def test_known_hostile_provenance_migrates_but_similar_text_does_not(self):
+    def test_legacy_hostile_provenance_save_is_rejected_before_inference(self):
         legacy = self._legacy_v14()
-        household_ids = {person["id"] for person in legacy["household"]}
-        hostile = next(item for item in legacy["items"] if item["owner_id"] not in household_ids and item["location"] == "readied")
-        loaded = game_state_from_dict(legacy)
-        migrated = next(item for item in loaded.items if item.id == hostile["id"])
-        self.assertTrue(migrated.archived_hostile_issue)
-        arbitrary = self._legacy_v14()
-        raw = next(item for item in arbitrary["items"] if item["id"] == hostile["id"])
-        raw["provenance"] = "working issue carried by an unrelated rewrite"
-        loaded = game_state_from_dict(arbitrary)
-        self.assertFalse(next(item for item in loaded.items if item.id == hostile["id"]).archived_hostile_issue)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(legacy)
 
     def test_new_hostile_flag_is_independent_of_rendered_provenance(self):
         item = next(item for item in self.state.items if item.archived_hostile_issue)

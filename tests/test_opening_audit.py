@@ -129,6 +129,7 @@ class OpeningAuditTests(unittest.TestCase):
 
         screen = object()
         with patch("roag.main.run_character_creation", return_value=True), \
+                patch("roag.main._read_challenge", return_value=0), \
                 patch("roag.main.play") as play:
             self.assertTrue(_start_new_world(screen, state))
 

@@ -76,8 +76,26 @@ class AcquireGroundItemsCommand:
     item_ids: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class CollectRunItemCommand:
+    """Collect one stable run-item drop at the courier's current cell."""
+    drop_id: str
+
+
+@dataclass(frozen=True)
+class ChooseRunBranchCommand:
+    """Cross one physically reached stage threshold."""
+    region_id: str
+
+
+@dataclass(frozen=True)
+class AbandonRunCommand:
+    """Permanently settle the current run as voluntarily abandoned."""
+
+
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
     | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | TerrainActionCommand | AcquireGroundItemsCommand
+    | CollectRunItemCommand | ChooseRunBranchCommand | AbandonRunCommand
 )

@@ -11,8 +11,15 @@ source of truth.
   recipes, circuits, materials, FOV, pathfinding, and save validation remain.
 - New runs enter regional play after character creation; the vessel remains
   optional content and an existing departure path.
-- Final extraction, vessel role, permanent meta-progression, and long-term
-  enemy-density limits remain open product decisions.
+- Runs now use five branching named-Region stages, one regional boss per
+  stage, and physical post-boss thresholds. The fifth boss wins the run;
+  death, critical-route destruction, or voluntary abandonment settles it.
+- The vessel remains optional legacy content rather than a run boundary.
+- Cross-run progression is horizontal: a separate profile unlocks item-pool
+  breadth, two frontier Regions, and five disclosed challenge tiers without
+  granting permanent stats.
+- Active AI remains bounded by the existing 24-actor budget; sustained danger
+  comes from patrol-sized reinforcement, activation, and replacement.
 
 ## Tranche roadmap
 
@@ -49,13 +56,15 @@ source of truth.
 | GAMEPLAY-06 | Complete | Data-derived All, Engine Chain, and Ready Now production views make the field-engine path legible without changing recipes or imposing an objective. |
 | GAMEPLAY-07 | Complete | Inspecting a field sensor names its physical rack connection, exact trigger range, and bounded charge/benefit/noise behavior for every mode. |
 | GAMEPLAY-08 | Complete | An unseen regional works site has a zero-time charted field lead with transformed bearing, distance, sources, stations, stock, and useful en-route cargo guidance. |
+| ROGUELIKE-01 | Complete | Integrated five-stage run completion: opening cadence, patrol-sized pressure, broad physical terrain, 60 stackable build items, physical branching thresholds, horizontal profile progression, challenge tiers, and format-16 persistence. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
 through ENGINE-06, WORLD-04 through WORLD-07, DANGER-03, and PRESENTATION-01
 through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-08 are post-roadmap
-tranches scoped from the integrated systems already in the repository. Further
-tranches should continue to be chosen from playtesting and the still-open
-product decisions rather than assumed here.
+tranches scoped from the integrated systems already in the repository.
+ROGUELIKE-01 closes the remaining redesign plan as one integrated vertical
+slice. Further work is playtesting, balance, content, and polish rather than an
+unfinished foundation tranche.
 
 ## Implemented seams
 
@@ -378,8 +387,21 @@ product decisions rather than assumed here.
 
 ## Compatibility and migrations
 
-- Current save format: 15.
-- Redesign migrations introduced: none.
+- Current save format: 16.
+- Format 16 is an intentional new run-era save line. Pre-format-16 saves are
+  rejected without mutation; the older migration implementations remain only
+  as dead historical code and are no longer load entry points.
+- `GameState.run` persists deterministic stage, build, loot, branch, pressure,
+  and run-outcome authority. Runtime events, simulation facts, presentation
+  effects, and the presentation clock remain unsaved.
+- `roag-profile.json` is a separate atomic format-1 profile containing bounded
+  run records and horizontal item, Region, discovery, and challenge unlocks.
+  It is not part of authoritative run state.
+- `run_items.json` is mechanical catalog content and participates in the
+  selected pack's mechanical fingerprint.
+- The historical per-tranche notes below describe compatibility at the time
+  each tranche landed. Where they say format 15 or describe narrower terrain,
+  danger, or run behavior, this current format-16 contract supersedes them.
 - Runtime event batches and presentation state are not serialized.
 - Opening audit profiles are returned diagnostics only; they add no state,
   save migration, format bump, or mechanical content-fingerprint input.
@@ -507,6 +529,17 @@ product decisions rather than assumed here.
   circuit, inventory, pressure, threat, and regional state.
 
 ## Known deviations and baseline issues
+
+- This section retains historical scope notes for completed incremental
+  tranches. ROGUELIKE-01 supersedes the earlier statements that wall/feature
+  destruction, patrol-sized arrivals, opening production distance, final run
+  boundaries, or horizontal progression were still deferred.
+- The redesign vertical slice is complete, but exact item numbers, stage
+  pressure, reinforcement cadence, boss difficulty, and terrain hardness are
+  intentionally still playtest balance rather than frozen architecture.
+- The current run does not support returning to an earlier stage. Unclaimed
+  run-item drops are discarded at a physical threshold transition, preventing
+  old-region coordinates from leaking into the new Region.
 
 - FOUNDATION-01 preserves legacy reducer event ownership; world-step groups are
   frequently empty until later mechanics emit step-scoped runtime events.

@@ -107,7 +107,7 @@ def _validate_content_compat(value: Any) -> dict[str, Any]:
 
 
 def _enforce_content_compat(value: dict[str, Any]) -> None:
-    """Reject only a known format-15 mechanical environment mismatch."""
+    """Reject a known current-format mechanical environment mismatch."""
     mechanical = value["mechanical"]
     if mechanical is None:
         return
@@ -767,7 +767,14 @@ class RunProgress:
         "whitecairn",
     ])
     dropped_items: dict[str, tuple[str, Position]] = field(default_factory=dict)
+    allowed_item_ids: list[str] = field(default_factory=list)
     profile_recorded: bool = False
+    move_chain: int = 0
+    barrier: int = 0
+    lethal_guards_used: int = 0
+    reroll_credits: int = 0
+    damage_charge: int = 0
+    stage_worksite: Position | None = None
 
 
 def new_run_progress(seed: str, challenge_tier: int = 0) -> RunProgress:
@@ -1722,6 +1729,10 @@ def game_state_from_dict(data: Any) -> GameState:
                 values["threshold_entry"] = _position(
                     values["threshold_entry"], "run threshold entry",
                 )
+            if values.get("stage_worksite") is not None:
+                values["stage_worksite"] = _position(
+                    values["stage_worksite"], "run stage worksite",
+                )
             values["branch_positions"] = {
                 key: _position(value, "run branch")
                 for key, value in values.get("branch_positions", {}).items()
@@ -2188,6 +2199,8 @@ def validate_state(state: GameState) -> None:
         raise StateError("negative passive count")
     if state.run is not None:
         run = state.run
+        from .run_items import RUN_ITEMS
+
         if (
             not isinstance(run.run_id, str) or not run.run_id
             or run.status not in {"active", "victory", "defeat", "abandoned"}
@@ -2199,6 +2212,9 @@ def validate_state(state: GameState) -> None:
             or any(type(value) is not int or value < 0 for value in (
                 run.run_actions, run.stage_actions, run.stage_salvage,
                 run.ordinary_kills, run.elite_kills,
+                run.move_chain, run.barrier, run.lethal_guards_used,
+                run.reroll_credits,
+                run.damage_charge,
             ))
             or any(not isinstance(key, str) or type(value) is not int or value < 1
                    for key, value in run.item_stacks.items())
@@ -2206,13 +2222,17 @@ def validate_state(state: GameState) -> None:
             or len(run.opened_loot_ids) != len(set(run.opened_loot_ids))
             or set(run.branch_positions) != set(run.offered_regions)
             or not set(run.region_path) <= set(run.allowed_regions)
+            or len(run.allowed_item_ids) != len(set(run.allowed_item_ids))
+            or any(item_id not in RUN_ITEMS for item_id in run.allowed_item_ids)
+            or any(item_id not in RUN_ITEMS for item_id in run.item_stacks)
             or any(
                 not isinstance(drop_id, str) or not drop_id
-                or not isinstance(item_id, str) or not item_id
+                or item_id not in RUN_ITEMS
                 or not isinstance(position, Position)
                 for drop_id, (item_id, position) in run.dropped_items.items()
             )
             or type(run.profile_recorded) is not bool
+            or run.stage_worksite is not None and not isinstance(run.stage_worksite, Position)
         ):
             raise StateError("invalid roguelike run progress")
     try:

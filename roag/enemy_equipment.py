@@ -178,11 +178,9 @@ def harm_enemy(
         and state.run is not None
         and state.run.status == "active"
     ):
-        from .run_items import effect_value
+        from .run_items import attack_bonus
 
-        amount += effect_value(state, "damage")
-        if actor.elite or actor.id.startswith("sanctum:"):
-            amount += effect_value(state, "elite_damage")
+        amount += attack_bonus(state, actor)
     location = location or hit_location(state, actor, damage_kind, source)
     armour = armour_item(state, actor, location)
     protection = 0
@@ -203,6 +201,16 @@ def harm_enemy(
             armour.location, armour.owner_id = "destroyed", None
             protection_name += equipment_format("equipment.enemy.protection.broken")
     actor.health = max(0, actor.health - dealt)
+    if (
+        actor.health > 0 and not actor.id.startswith("sanctum:")
+        and defeated_by_actor_id == state.active_courier_id
+        and state.run is not None and state.run.status == "active"
+    ):
+        from .run_items import effect_value
+
+        execute = effect_value(state, "execute_threshold")
+        if execute and actor.health * 100 <= actor.max_health * execute:
+            actor.health = 0
     injury = ""
     if actor.uses_physical_equipment and actor.health and (
         dealt >= 2 or actor.health <= actor.max_health // 2
@@ -240,7 +248,7 @@ def harm_enemy(
 
                 record_enemy_defeat(state, actor.id, elite=actor.elite)
                 if state.courier:
-                    healing = effect_value(state, "heal")
+                    healing = effect_value(state, "heal", family="defense")
                     state.courier.health = min(
                         state.courier.max_health,
                         state.courier.health + healing,

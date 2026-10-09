@@ -374,6 +374,10 @@ def sight_radius(state: GameState) -> int:
     if any(cell.space == circuit_space and cell.kind == "lamp" and active(state, cell)
            and distance(state.position, cell.position) <= 5 for cell in state.circuits.values()):
         radius += 4
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        radius += effect_value(state, "vision")
     return max(2, radius - (2 if "narrow-sight" in worn_tags(state, ("head",)) else 0))
 
 

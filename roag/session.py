@@ -11,6 +11,7 @@ from .actions import (
 )
 from .commands import (
     AcquireGroundItemsCommand, AdvanceWorldCommand, AttackCommand, GameCommand,
+    AbandonRunCommand, ChooseRunBranchCommand, CollectRunItemCommand,
     GuardCommand, InteractCommand, MoveCommand, RetreatCommand,
     SelectCarriedRelicCommand, SetAutoPlaceCommand, TerrainActionCommand,
     UseGearCommand,
@@ -19,6 +20,7 @@ from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
     ItemUsed, RetreatResolved, RuntimeEvent, RuntimeEventBatch,
     RuntimeEventCollector, TerrainChanged,
+    RunItemCollected, RunStageChanged,
 )
 from .save import load_game, save_game
 from .state import GameState, Position, create_world
@@ -44,7 +46,7 @@ class GameSession:
     def __init__(self, state: GameState):
         self._state = state
         self._revision = 0
-        # Format 15 retains this field while automatic-placement callers still
+        # Persistence retains this field while automatic-placement callers still
         # read it. Frontends now change it only through a session command.
         self._auto_place_enabled = state.auto_place_enabled
 
@@ -250,6 +252,60 @@ class GameSession:
                 result,
                 acquisition.result_id,
                 ",".join(acquisition.item_ids) or None,
+                collector=collector,
+                world_time_before=world_time_before,
+            )
+        if isinstance(command, CollectRunItemCommand):
+            if not isinstance(command.drop_id, str) or not command.drop_id:
+                return self._reject("run.loot.invalid", collector=collector)
+            from .run_loot import collect_at
+
+            result = collect_at(self._state, command.drop_id)
+            if not result.changed or result.item_id is None:
+                return self._reject(result.result_id, command.drop_id, collector)
+            event = RunItemCollected(
+                self._state.active_courier_id or "courier",
+                result.item_id,
+                self._state.run.item_stacks[result.item_id],
+                self._state.position,
+            )
+            return self._outcome(
+                ActionResult(True, False, self._state.messages[-1]),
+                result.result_id,
+                command.drop_id,
+                (event,),
+                collector,
+                world_time_before,
+            )
+        if isinstance(command, ChooseRunBranchCommand):
+            if not isinstance(command.region_id, str) or not command.region_id:
+                return self._reject("run.branch.invalid", collector=collector)
+            from .run_progression import choose_branch
+
+            result = choose_branch(self._state, command.region_id)
+            if not result.changed:
+                return self._reject(result.result_id, command.region_id, collector)
+            return self._outcome(
+                ActionResult(True, False, result.message),
+                result.result_id,
+                command.region_id,
+                (RunStageChanged(
+                    self._state.run.stage_index,
+                    self._state.active_region_id,
+                    self._state.position,
+                ),),
+                collector,
+                world_time_before,
+            )
+        if isinstance(command, AbandonRunCommand):
+            from .run_progression import abandon_run
+
+            result = abandon_run(self._state)
+            if not result.changed:
+                return self._reject(result.result_id, collector=collector)
+            return self._outcome(
+                ActionResult(True, False, result.message),
+                result.result_id,
                 collector=collector,
                 world_time_before=world_time_before,
             )

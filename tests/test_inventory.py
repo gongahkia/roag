@@ -27,7 +27,7 @@ from roag.inventory import (
     unequip_item,
 )
 from roag.save import load_game, save_game
-from roag.state import SAVE_FORMAT, Position, game_state_from_dict, create_world
+from roag.state import Position, StateError, game_state_from_dict, create_world
 from roag.terminal import InventoryView, _handle_inventory
 from roag.world import ROAG_GANGPLANK
 
@@ -245,7 +245,7 @@ class SpatialInventoryTests(unittest.TestCase):
 
 
 class SaveMigrationTests(unittest.TestCase):
-    def test_version_three_migrates_deterministically_without_deleting_possessions(self):
+    def test_version_three_is_rejected_on_the_new_run_save_line(self):
         original = create_world("format three migration")
         choose_courier(original, original.household[2].id)
         legacy = copy.deepcopy(original.to_dict())
@@ -264,34 +264,7 @@ class SaveMigrationTests(unittest.TestCase):
         legacy["carried_passives"] = {name: 1 for name in PASSIVES}
         legacy_supplies = {f"legacy supply {index}": 1 for index in range(70)}
         legacy["consumables"] = legacy_supplies
-        first = game_state_from_dict(copy.deepcopy(legacy))
-        second = game_state_from_dict(copy.deepcopy(legacy))
-        self.assertEqual(first.save_format, SAVE_FORMAT)
-        self.assertEqual(first.to_dict(), second.to_dict())
-        kinds = {item.kind for item in first.items if item.location not in {"lost", "destroyed"}}
-        self.assertTrue(set(first.owned_weapons) <= kinds)
-        self.assertTrue(set(first.owned_gear) <= kinds)
-        physical_passives = {
-            item.kind.split(":", 1)[1]
-            for item in first.items
-            if item.kind.startswith("passive:") and item.location in {"pack", "locker"}
-        }
-        self.assertEqual(physical_passives, set(PASSIVES))
-        physical_supplies = {
-            item.kind.split(":", 1)[1]
-            for item in first.items
-            if item.kind.startswith("consumable:") and item.location in {"pack", "locker"}
-        }
-        self.assertTrue(set(legacy_supplies) <= physical_supplies)
-        self.assertTrue(any(
-            item.kind.startswith("consumable:") and item.location == "locker"
-            for item in first.items
-        ))
-        self.assertEqual(
-            set(first.carried_passives),
-            {
-                item.kind.split(":", 1)[1]
-                for item in first.items
-                if item.kind.startswith("passive:") and item.location == "pack"
-            },
-        )
+        before = copy.deepcopy(legacy)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(legacy)
+        self.assertEqual(legacy, before)

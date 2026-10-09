@@ -538,11 +538,18 @@ def apply_damage(
     damage_kind: str = "blunt",
     location: str | None = None,
     source_seed: str | None = None,
+    attacker_id: str | None = None,
 ) -> str:
     courier = state.courier
     if courier is None:
         return action_format("action.damage.no_courier")
-    if state.support == "field care" and not state.support_spent:
+    if (
+        state.support == "field care" and not state.support_spent
+        and not (
+            state.run is not None and state.run.status == "active"
+            and state.run.challenge_tier >= 5
+        )
+    ):
         state.support_spent = True
         reduction = 3 if "deep field binding" in build_combinations(state) else 2
         amount = max(0, amount - reduction)
@@ -552,6 +559,10 @@ def apply_damage(
         amount >= courier.health
         and state.carried_relic == "river-glass ward"
         and state.relics.get("river-glass ward", 0)
+        and not (
+            state.run is not None and state.run.status == "active"
+            and state.run.challenge_tier >= 5
+        )
     ):
         state.relics["river-glass ward"] -= 1
         if state.relics["river-glass ward"] == 0:
@@ -572,6 +583,10 @@ def apply_damage(
         run_armour = effect_value(state, "armour")
         if courier.health <= courier.max_health // 2:
             run_armour += effect_value(state, "low_health_armour")
+        if state.guarded_step:
+            run_armour += effect_value(state, "guard_armour")
+        if position_key(state.position) in state.smoke:
+            run_armour += effect_value(state, "smoke_evasion")
         if state.run.challenge_tier >= 3:
             amount += 1
         protection += run_armour
@@ -579,9 +594,27 @@ def apply_damage(
     if absorbed:
         amount -= absorbed
         degrade_armour(state, location, 6 + absorbed * 4)
+    if state.run is not None and state.run.status == "active" and state.run.barrier:
+        barrier_absorbed = min(amount, state.run.barrier)
+        amount -= barrier_absorbed
+        state.run.barrier -= barrier_absorbed
+    if (
+        state.run is not None and state.run.status == "active"
+        and amount >= courier.health
+    ):
+        from .run_items import effect_value
+
+        guards = effect_value(state, "lethal_guard")
+        if state.run.lethal_guards_used < guards:
+            state.run.lethal_guards_used += 1
+            amount = max(0, courier.health - 1)
     already_hurt = courier.injury != "none" or bool(courier.injuries)
     courier.health = max(0, courier.health - amount)
     if courier.health:
+        if state.run is not None and state.run.status == "active":
+            from .run_items import after_hurt
+
+            after_hurt(state, amount)
         if amount:
             injury = {
                 "head": "concussion",
@@ -594,6 +627,20 @@ def apply_damage(
             if courier.health <= courier.max_health // 2 or amount >= 2:
                 courier.injuries[location] = injury
                 courier.injury = injury
+        if amount and attacker_id and state.run is not None and state.run.status == "active":
+            from .enemy_equipment import harm_enemy
+            from .run_items import effect_value
+
+            attacker = next(
+                (actor for actor in state.threats if actor.id == attacker_id),
+                None,
+            )
+            retaliation = effect_value(state, "retaliate")
+            if attacker is not None and attacker.health > 0 and retaliation:
+                harm_enemy(
+                    state, attacker, retaliation, "run-item retaliation",
+                    defeated_by_actor_id=state.active_courier_id or "courier",
+                )
         protection_text = action_format("combat.damage.absorbed", armour=armour_name, absorbed=absorbed) if absorbed else action_format("combat.damage.exposed", location=location)
         return action_format("combat.damage.hit", source=source, location=location, damage=amount, protection=protection_text)
     fatal = (
@@ -745,6 +792,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 state, 3, action_format("combat.elite.floodgate.sluice_source"),
                 damage_kind="blunt",
                 source_seed=legacy_combat_damage_seed("elite.floodgate.sluice"),
+                attacker_id=threat.id,
             )
         return action_format("combat.elite.floodgate.safe")
     if threat.elite and state.active_region_id == "greywash":
@@ -774,6 +822,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                     state, 2, action_format("combat.elite.reeve.sling_source"),
                     damage_kind="blunt",
                     source_seed=legacy_combat_damage_seed("elite.reeve.sling"),
+                    attacker_id=threat.id,
                 )
             return action_format("combat.elite.reeve.safe")
         if state.region.changes.get("tide_held"):
@@ -794,6 +843,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 state, 3, action_format("combat.elite.tide_chain.source"),
                 damage_kind="blunt",
                 source_seed=legacy_combat_damage_seed("elite.tide_chain"),
+                attacker_id=threat.id,
             )
         return action_format("combat.elite.tide_chain.safe")
     if threat.elite and state.active_region_id == "greenwold":
@@ -876,6 +926,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 state, 3, action_format("combat.elite.false_bell.rockfall_source"),
                 damage_kind="blunt",
                 source_seed=legacy_combat_damage_seed("elite.false_bell.rockfall"),
+                attacker_id=threat.id,
             )
         return action_format("combat.elite.false_bell.safe")
     if threat.profile == "machinery":
@@ -901,7 +952,8 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 "machinery.crown_wheel" if threat.elite else "machinery.sweep",
             )
             return apply_damage(
-                state, 3 if threat.elite else 2, source, source_seed=source_seed,
+                state, 3 if threat.elite else 2, source,
+                source_seed=source_seed, attacker_id=threat.id,
             )
         return action_format("combat.machinery.safe", lane=lane)
     decision = select_goal(state, threat)
@@ -1140,6 +1192,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                     state, harm,
                     action_format("combat.threat.ranged_source", threat=threat.name, weapon=threat.ranged_kind),
                     damage_kind=kind, source_seed=source_seed,
+                    attacker_id=threat.id,
                 ) + movement
             threat.aimed_at = state.position
             _set_combat_intent(
@@ -1165,6 +1218,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 state, 3,
                 action_format("combat.threat.animal_charge_source", threat=threat.name),
                 source_seed=source_seed,
+                attacker_id=threat.id,
             )
         _set_combat_intent(threat, "combat.intent.lowers_its_head_and_charges_next_turn")
         return action_format("combat.threat.animal_warning", threat=threat.name)
@@ -1182,6 +1236,7 @@ def _resolve_threat_action(state: GameState, threat: Threat, guarded: bool) -> s
                 state, harm,
                 action_format("combat.threat.melee_source", threat=threat.name),
                 source_seed=source_seed,
+                attacker_id=threat.id,
             )
         _set_combat_intent(threat, "combat.intent.attack_warning_reach" if threat.profile == "reach" else "combat.intent.attack_warning_melee")
         return action_format(
@@ -1550,6 +1605,8 @@ def _advance_world(
             from .run_progression import record_world_step
 
             record_world_step(state)
+            if state.world_ended:
+                continue
             record_calendar_crossings(state, previous_time)
             advance_living_world(state)
             from .materials import advance_materials
@@ -1598,7 +1655,7 @@ def _advance_world(
             from .enemy_ai import sees_courier, heard_position
 
             for threat in active_actors(state):
-                if not state.combat_active:
+                if not state.combat_active or state.world_ended:
                     break
                 if threat.id in arrived_this_step:
                     continue
@@ -1823,6 +1880,10 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
                         if state.courier and "moving-volley" in state.courier.skill_nodes
                         else action_format("action.movement.roof_nail"))
     tile = base_tile(state, target)
+    if state.location == "region":
+        from .run_items import after_move
+
+        after_move(state, wet=tile in {",", "w", "~"})
     if state.location == "roag":
         if tile == "+" and target != ROAG_GANGPLANK:
             state.vessel_tiles[position_key(target)] = "/"
@@ -1932,12 +1993,6 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         state.noise += 1
     from .arc_relics import lee_sheltered
 
-    storm_delay = water_delay or burden_delay or injury_delay or (
-        state.weather == "hard rain"
-        and state.position.z == 0
-        and "rain cape" not in state.carried_passives
-        and not lee_sheltered(state)
-    )
     slowing_statuses = {
         "bogged", "current", "net-drag", "brine-chill", "coalheart-chill",
         "fatigued",
@@ -1958,6 +2013,22 @@ def move(state: GameState, dx: int, dy: int) -> ActionResult:
         state.noise = max(0, state.noise - 1)
         messages.append(action_format("action.movement.coppice_shortcut"))
     mobility_delay = armour_mobility(state) >= 3 and tile in {"m", "r", "q", "t", "w", ","}
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        terrain_relief = effect_value(state, "terrain_cost")
+        if terrain_relief:
+            water_delay = False
+        if terrain_relief >= 2:
+            status_delay = False
+        if terrain_relief >= 3:
+            mobility_delay = False
+    storm_delay = water_delay or burden_delay or injury_delay or (
+        state.weather == "hard rain"
+        and state.position.z == 0
+        and "rain cape" not in state.carried_passives
+        and not lee_sheltered(state)
+    )
     guarded_step = state.guarded_step
     drink_delay = guarded_step and "miller-small-beer" in state.drink_effects
     state.guarded_step = False
@@ -2403,14 +2474,15 @@ def terrain_action(
                 action_id,
             ),
         )
-    result = _time_result(
-        state,
-        " ".join([message, *sounds]),
-        priority=3,
-        events=events,
-        collector=collector,
-    )
+    consequence = None
     if resolution.destroyed:
+        from .run_items import after_terrain_destroyed
+        from .run_progression import critical_structure_destroyed
+
+        after_terrain_destroyed(state, material_id, target)
+        consequence = critical_structure_destroyed(
+            state, target, resolution.terrain_id or "terrain.region.unknown",
+        )
         destroyed_containers = [
             container for container in state.region.containers
             if container.position == target
@@ -2428,17 +2500,19 @@ def terrain_action(
         for landmark_id, position in state.region.landmarks.items():
             if position == target:
                 state.region.changes[f"destroyed:{landmark_id}"] = True
-        from .run_progression import critical_structure_destroyed
-
-        consequence = critical_structure_destroyed(
-            state, target, resolution.terrain_id or "terrain.region.unknown",
+    result = _time_result(
+        state,
+        " ".join([message, *sounds]),
+        priority=3,
+        events=events,
+        collector=collector,
+    )
+    if consequence is not None:
+        return ActionResult(
+            result.changed, result.time_advanced,
+            f"{result.message} {consequence.message}", result.overlay,
+            result.events, result.event_batch,
         )
-        if consequence is not None:
-            return ActionResult(
-                result.changed, result.time_advanced,
-                f"{result.message} {consequence.message}", result.overlay,
-                result.events, result.event_batch,
-            )
     return result
 
 
@@ -3291,6 +3365,9 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         damage_kind=damage_kind,
         defeated_by_actor_id=state.active_courier_id or "courier",
     )
+    from .run_items import after_attack_hit
+
+    chained = after_attack_hit(state, target)
     if harm.defeated or (
         target.morale <= 0 and target.profile != "machinery"
     ):
@@ -3345,6 +3422,16 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
         events += (StatusChanged(target.id, previous_status, target.status),)
     if harm.defeated:
         events += (ActorDefeated(target.id, state.active_courier_id or "courier"),)
+    if chained is not None:
+        chained_id, chained_damage, chained_defeated = chained
+        events += (DamageApplied(
+            state.active_courier_id or "courier", chained_id,
+            chained_damage, "arc", "torso",
+        ),)
+        if chained_defeated:
+            events += (ActorDefeated(
+                chained_id, state.active_courier_id or "courier",
+            ),)
     return _time_result(
         state,
         " ".join([text, *sounds]),

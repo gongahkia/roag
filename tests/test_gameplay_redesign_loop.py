@@ -209,17 +209,17 @@ class GameplayRedesignLoopTests(unittest.TestCase):
         self.assertEqual(state.to_dict(), restored.to_dict())
         self.assertEqual(pressure(state).score, 13)
         self.assertEqual(pressure(state).band, "strained")
-        self.assertEqual(len(spawned), 1)
-        self.assertEqual(turns_after_arrival, (0,))
+        self.assertEqual(len(spawned), 2)
+        self.assertEqual(turns_after_arrival, (0, 0))
         self.assertEqual(health_after_arrival, health_before)
         self.assertEqual(
             sum(
                 isinstance(event, ThreatSpawned)
                 for event in warning.event_batch.steps[0].events
             ),
-            1,
+            2,
         )
-        self.assertEqual(spawned[0].turn, 1)
+        self.assertTrue(all(actor.turn == 1 for actor in spawned))
         self.assertEqual(completion.result_id, "terrain.destroyed")
         self.assertTrue(any(
             isinstance(event, CollapseResolved)

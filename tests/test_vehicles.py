@@ -7,7 +7,7 @@ from pathlib import Path
 from roag.actions import interact, move
 from roag.regions import activate_region
 from roag.save import load_game, save_game
-from roag.state import SAVE_FORMAT, Position, StateError, create_world, game_state_from_dict, validate_state
+from roag.state import Position, StateError, create_world, game_state_from_dict, validate_state
 from roag.terminal import InputEvent, OverlayView, _draw_map, _draw_vehicle_interior, _handle_overlay, _handle_overlay_view, _overlay_lines, dialogue_choices
 from roag.vehicles import (
     ROAG_DOCK,
@@ -212,28 +212,26 @@ class VehicleNavigationTests(unittest.TestCase):
         self.assertEqual(state.world_time, before + 2)
         validate_state(state)
 
-    def test_recovery_and_old_save_migration_are_bounded(self):
+    def test_recovery_is_bounded_and_format_ten_is_rejected(self):
         state = create_world("vehicle migration")
         old = state.to_dict()
         old["save_format"] = 10
         for key in ("vehicles", "active_vehicle_id", "expedition_by_tug", "returning_by_tug"):
             del old[key]
-        migrated = game_state_from_dict(old)
-        self.assertEqual(migrated.save_format, SAVE_FORMAT)
-        self.assertEqual(migrated.world_time, state.world_time)
-        self.assertEqual(set(migrated.vehicles), set(state.vehicles))
-        corrupt = migrated.to_dict()
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(old)
+        corrupt = state.to_dict()
         corrupt["vehicles"]["tug"]["fuel"] = -1
         with self.assertRaises(StateError):
             game_state_from_dict(corrupt)
-        board_tug(migrated)
-        tug = migrated.vehicles["tug"]
+        board_tug(state)
+        tug = state.vehicles["tug"]
         tug.condition = 0
-        before = migrated.world_time
-        self.assertTrue(service(migrated, repair=True).changed)
-        self.assertEqual((tug.condition, migrated.world_time), (1, before + 3))
+        before = state.world_time
+        self.assertTrue(service(state, repair=True).changed)
+        self.assertEqual((tug.condition, state.world_time), (1, before + 3))
         tug.fuel = 0
-        self.assertFalse(service(migrated).changed)
+        self.assertFalse(service(state).changed)
 
 
 if __name__ == "__main__":

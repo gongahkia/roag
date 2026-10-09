@@ -16,6 +16,7 @@ INITIAL_REGIONS = frozenset({
     "hearthford", "greywash", "greenwold", "whitecairn", "dunmire",
     "marlbank",
 })
+ALL_REGIONS = INITIAL_REGIONS | {"rillscar", "frostmere"}
 
 
 class ProfileError(ValueError):
@@ -75,13 +76,22 @@ def profile_from_dict(data: object) -> PlayerProfile:
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ProfileError("malformed ROAG profile") from exc
+    from .run_items import RUN_ITEMS
+
     if (
         type(profile.unlocked_challenge_tier) is not int
         or not 0 <= profile.unlocked_challenge_tier <= 5
         or not INITIAL_REGIONS <= profile.unlocked_regions
+        or not profile.unlocked_regions <= ALL_REGIONS
+        or not profile.unlocked_items <= set(RUN_ITEMS)
         or len(profile.run_records) > RUN_RECORD_LIMIT
+        or len({record.run_id for record in profile.run_records}) != len(profile.run_records)
         or any(record.result not in {"victory", "defeat", "abandoned"}
                or record.actions < 0 or not 0 <= record.challenge_tier <= 5
+               or any(item_id not in RUN_ITEMS or type(count) is not int or count < 1
+                      for item_id, count in record.item_stacks)
+               or any(region_id not in ALL_REGIONS for region_id in record.region_path)
+               or any(region_id not in ALL_REGIONS for region_id in record.boss_kills)
                for record in profile.run_records)
     ):
         raise ProfileError("invalid ROAG profile values")

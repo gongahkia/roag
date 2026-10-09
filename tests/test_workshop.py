@@ -305,11 +305,11 @@ class WorkshopTests(unittest.TestCase):
         self.assertEqual(part.condition, 20)
         self.assertEqual(state.trade_credit, before - 2)
 
-    def test_migration_adds_stock_without_reissuing_items_or_changing_layout(self):
+    def test_format_six_is_rejected_on_the_new_run_save_line(self):
         data = self.state.to_dict()
         data["save_format"] = 6
         data["vessel_changes"] = {key: value for key, value in data["vessel_changes"].items() if not key.startswith("fitting_stock:")}
-        first, second = game_state_from_dict(data), game_state_from_dict(data)
-        self.assertEqual(first.to_dict(), second.to_dict())
-        self.assertEqual(first.to_dict()["items"], data["items"])
-        self.assertEqual(len([key for key in first.vessel_changes if key.startswith("fitting_stock:")]), 8)
+        before = copy.deepcopy(data)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(data)
+        self.assertEqual(data, before)

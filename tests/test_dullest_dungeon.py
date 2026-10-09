@@ -16,7 +16,7 @@ from roag.dumbest_dungeon.office_content import OFFICE_ROLES, OFFICE_SQUADS, off
 from roag.dumbest_dungeon.tabletop import collection_for, initial_collection, patrons
 from roag.actions import interact
 from roag.save import SaveError, load_game, save_game
-from roag.state import Position, SAVE_FORMAT, create_world, game_state_from_dict, validate_state
+from roag.state import Position, StateError, create_world, game_state_from_dict, validate_state
 from roag.world import is_walkable
 
 
@@ -717,15 +717,14 @@ class TavernIntegrationTests(unittest.TestCase):
         self.assertEqual(match["teams"][0]["orders"], expedition.ORDERS_PER_TURN)
         self.assertNotEqual(match["teams"][0]["position"], match["files"][0]["home"])
 
-    def test_format_eight_discards_board_game_only(self):
+    def test_format_eight_is_rejected_on_the_new_run_save_line(self):
         original = self.state.to_dict()
         original["save_format"] = 8
         original["tabletop"] = {"collections": {"old": "board"}, "records": ["old"], "active_match": {"version": 1}}
-        migrated = game_state_from_dict(original)
-        self.assertEqual(migrated.save_format, SAVE_FORMAT)
-        self.assertEqual(migrated.region.levels, self.state.region.levels)
-        self.assertEqual(migrated.items, self.state.items)
-        self.assertEqual(migrated.tabletop, {"collections": {}, "records": [], "active_match": None})
+        before = copy.deepcopy(original)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(original)
+        self.assertEqual(original, before)
 
     def test_first_win_reward_is_bounded_per_patron_and_season(self):
         patron = patrons(self.state)[0]

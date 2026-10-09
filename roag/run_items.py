@@ -113,15 +113,24 @@ def stack_value(definition: RunItemDefinition, stacks: int) -> int:
     return min(definition.cap, value)
 
 
-def effect_value(state: GameState, effect: str, *, family: str | None = None) -> int:
+def effect_value(
+    state: GameState,
+    effect: str,
+    *,
+    family: str | None = None,
+    trigger: str | None = None,
+) -> int:
     run = state.run
     if run is None:
         return 0
     total = 0
     for item_id, stacks in sorted(run.item_stacks.items()):
         definition = RUN_ITEMS.get(item_id)
-        if definition and definition.effect == effect and (
-            family is None or definition.family == family
+        if (
+            definition
+            and definition.effect == effect
+            and (family is None or definition.family == family)
+            and (trigger is None or definition.trigger == trigger)
         ):
             total += stack_value(definition, stacks)
     return total
@@ -183,5 +192,124 @@ def collect_run_item(state: GameState, item_id: str) -> int:
         state.courier.health = min(
             state.courier.max_health, state.courier.health + healing,
         )
+    credits = effect_value(state, "reroll_credit")
+    if credits and sum(state.run.item_stacks.values()) % max(2, 6 - credits) == 0:
+        state.run.reroll_credits += 1
     return state.run.item_stacks[item_id]
+
+
+def after_move(state: GameState, *, wet: bool) -> None:
+    run = state.run
+    if run is None or run.status != "active":
+        return
+    run.move_chain += 1
+    cadence = max(2, 6 - effect_value(state, "move_guard"))
+    if effect_value(state, "move_guard") and run.move_chain % cadence == 0:
+        state.guarded_step = True
+    if wet and effect_value(state, "wet_guard"):
+        state.guarded_step = True
+    free_step = effect_value(state, "free_step")
+    if free_step and run.move_chain % max(2, 7 - free_step) == 0:
+        # This refunds exposure only. The authoritative action and every other
+        # world system still receive their normal deterministic step.
+        state.pressure_elapsed = max(0, state.pressure_elapsed - 1)
+
+
+def attack_bonus(state: GameState, target: object) -> int:
+    """Return bounded context-sensitive attack power for the current courier."""
+    from .world import distance
+
+    bonus = effect_value(state, "damage")
+    gap = distance(state.position, target.position)
+    if gap <= 1:
+        bonus += effect_value(state, "close_damage")
+    if gap > 1:
+        bonus += effect_value(state, "ranged_damage")
+    if state.position.z > target.position.z:
+        bonus += effect_value(state, "elevation_damage")
+    if target.elite or target.id.startswith("sanctum:"):
+        bonus += effect_value(state, "elite_damage")
+    if state.run is not None and state.run.move_chain:
+        bonus += min(state.run.move_chain, effect_value(state, "momentum_damage"))
+        state.run.move_chain = 0
+    if state.run is not None and state.run.damage_charge:
+        bonus += state.run.damage_charge
+        state.run.damage_charge = 0
+    return bonus
+
+
+def after_hurt(state: GameState, damage: int) -> None:
+    if state.run is None or state.run.status != "active" or damage <= 0:
+        return
+    state.run.barrier = max(
+        state.run.barrier,
+        effect_value(state, "barrier_on_hurt"),
+    )
+
+
+def after_attack_hit(
+    state: GameState, target: object,
+) -> tuple[str, int, bool] | None:
+    """Arc one bounded hit to the nearest second target, if configured."""
+    damage = effect_value(state, "chain_damage", trigger="attack.hit")
+    if damage <= 0:
+        return None
+    from .enemy_equipment import harm_enemy
+    from .world import distance
+
+    candidates = sorted((
+        actor for actor in state.threats
+        if actor.id != target.id
+        and actor.health > 0
+        and actor.status in {"watching", "engaged"}
+        and actor.position.z == target.position.z
+        and distance(target.position, actor.position) <= 2
+    ), key=lambda actor: (distance(target.position, actor.position), actor.id))
+    if not candidates:
+        return None
+    chained = candidates[0]
+    result = harm_enemy(
+        state, chained, damage, "run-item chained strike",
+        defeated_by_actor_id=state.active_courier_id or "courier",
+    )
+    return chained.id, result.amount, result.defeated
+
+
+def after_terrain_destroyed(
+    state: GameState, material_id: str, position: object,
+) -> int:
+    """Apply bounded run-build consequences and return extra salvage."""
+    if state.run is None or state.run.status != "active":
+        return 0
+    extra = 0
+    if material_id == "stone":
+        extra += effect_value(state, "stone_yield")
+    if material_id in {"timber", "reeds"}:
+        extra += effect_value(state, "timber_yield")
+        if state.courier:
+            healing = effect_value(state, "heal", family="terrain")
+            state.courier.health = min(
+                state.courier.max_health, state.courier.health + healing,
+            )
+    state.run.stage_salvage += extra
+    impact = effect_value(
+        state, "shockwave", trigger="terrain.destroyed",
+    ) + effect_value(
+        state, "blast_damage", trigger="terrain.destroyed",
+    )
+    if impact:
+        from .enemy_equipment import harm_enemy
+        from .world import distance
+
+        for actor in sorted(state.threats, key=lambda candidate: candidate.id):
+            if (
+                actor.health > 0 and actor.status in {"watching", "engaged"}
+                and actor.position.z == position.z
+                and distance(position, actor.position) <= 2
+            ):
+                harm_enemy(
+                    state, actor, impact, "run-item terrain shockwave",
+                    defeated_by_actor_id=None,
+                )
+    return extra
 

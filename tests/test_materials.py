@@ -163,20 +163,20 @@ class MaterialTests(unittest.TestCase):
         self.assertLessEqual(len(state.region.materials), MAX_CELLS)
         validate_materials(state)
 
-    def test_mid_reaction_roundtrip_and_v6_preserves_exact_old_possessions(self):
+    def test_current_reaction_roundtrips_and_v6_is_rejected(self):
         original = self.template.to_dict()
         original["save_format"] = 6
         original.pop("vessel_materials")
         for region in original["regions"].values():
             region.pop("materials")
             region.pop("material_cursor")
-        first = game_state_from_dict(original)
-        self.assertEqual(first.to_dict(), game_state_from_dict(original).to_dict())
-        self.assertEqual(first.to_dict()["items"], original["items"])
-        for region_id in original["regions"]:
-            self.assertEqual(first.to_dict()["regions"][region_id]["levels"], original["regions"][region_id]["levels"])
-        first.region.materials["41,24,0"] = MaterialCell(material="timber", fire=2, fuel=3, collapse_due=4)
-        self.assertEqual(game_state_from_dict(first.to_dict()).to_dict(), first.to_dict())
+        before = copy.deepcopy(original)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(original)
+        self.assertEqual(original, before)
+        current = self.template
+        current.region.materials["41,24,0"] = MaterialCell(material="timber", fire=2, fuel=3, collapse_due=4)
+        self.assertEqual(game_state_from_dict(current.to_dict()).to_dict(), current.to_dict())
 
     def test_corrupt_material_fields_are_rejected(self):
         data = self.template.to_dict()

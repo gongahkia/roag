@@ -13,7 +13,7 @@ from roag.magic import SPELLS, cast, restore_at_shrine
 from roag.materials import ensure_cell, fields, key, material_glyph
 from roag.production import RECIPES, SHORE_STATIONS, SOURCES, advance_craft_economy, delegate, gather, make, site_position
 from roag.skill_tree import NODES, apply_weapon_skills, buy_node, record_milestone, study_journal, write_journal
-from roag.state import MaterialCell, Position, create_world, game_state_from_dict, validate_state
+from roag.state import MaterialCell, Position, StateError, create_world, game_state_from_dict, validate_state
 from roag.terminal import InputEvent, OverlayView, _handle_overlay, _handle_overlay_view, _overlay_lines
 from roag.world import sight_radius
 
@@ -225,7 +225,7 @@ class ProgressionProductionTests(unittest.TestCase):
         item.provenance = "masterwork: historical display prefix"
         self.assertEqual(apply_weapon_skills(state, target, 2)[0], 2)
 
-    def test_format_nine_migration_keeps_roag_progress(self):
+    def test_format_nine_is_rejected_on_the_new_run_save_line(self):
         state = self.state
         state.trade_credit = 13
         raw = copy.deepcopy(state.to_dict())
@@ -235,11 +235,10 @@ class ProgressionProductionTests(unittest.TestCase):
         for person in [*raw["household"], *raw["visitors"]]:
             for key_name in ("skill_nodes", "skill_milestones", "skill_points", "taught_nodes", "journal_nodes", "mana", "max_mana", "known_spells", "known_formulas"):
                 person.pop(key_name, None)
-        loaded = game_state_from_dict(raw)
-        self.assertEqual(loaded.trade_credit, 13)
-        self.assertEqual(len(loaded.production["sites"]), 8)
-        self.assertTrue(loaded.courier.skill_nodes)
-        validate_state(loaded)
+        before = copy.deepcopy(raw)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(raw)
+        self.assertEqual(raw, before)
 
     def test_all_twenty_four_spells_have_a_live_spatial_or_personal_effect(self):
         base = self.state

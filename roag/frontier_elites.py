@@ -322,7 +322,10 @@ def elite_action(state, actor, guarded):
         message = ecology_text("frontier.result.shutters")
         if state.position == point and not guarded:
             from .actions import apply_damage
-            message += " " + apply_damage(state, 2, ecology_text("frontier.damage.shutters"))
+            message += " " + apply_damage(
+                state, 2, ecology_text("frontier.damage.shutters"),
+                attacker_id=actor.id,
+            )
     elif mode == "brine":
         frozen = cell.ice
         cell.ice, cell.water, cell.fluid, cell.coating = False, 3 if frozen else 1, "salt", "salt"
@@ -376,6 +379,7 @@ def elite_action(state, actor, guarded):
             message = apply_damage(
                 state, 3, ecology_text("frontier.damage.counterfall"),
                 damage_kind="blunt",
+                attacker_id=actor.id,
             )
         else:
             message = ecology_text("frontier.result.counterfall")

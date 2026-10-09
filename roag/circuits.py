@@ -50,6 +50,24 @@ MAX_CELLS = 4096
 CRATE_LOAD_LIMIT = 12
 
 
+def rack_capacity(state: GameState) -> int:
+    capacity = 2 * CELL_CHARGE
+    if state.run is not None:
+        from .run_items import effect_value
+
+        capacity += effect_value(state, "rack_capacity")
+    return capacity
+
+
+def sensor_threshold(state: GameState, cell: CircuitCell) -> int:
+    threshold = cell.threshold
+    if state.run is not None and state.run.status == "active":
+        from .run_items import effect_value
+
+        threshold += effect_value(state, "sensor_range")
+    return threshold
+
+
 def initialise_circuits(state: GameState) -> None:
     """Install small, authored examples only when a new world is created."""
     if state.circuits:
@@ -122,8 +140,15 @@ def gain_charge(state: GameState, key: str, amount: int) -> int:
     cell = state.circuits.get(key)
     if cell is None or cell.kind != "rack":
         return 0
-    accepted = min(amount, max(0, 2 * CELL_CHARGE - cell.charge))
+    accepted = min(amount, max(0, rack_capacity(state) - cell.charge))
     cell.charge += accepted
+    if accepted and state.run is not None and state.run.status == "active" and state.courier:
+        from .run_items import effect_value
+
+        healing = effect_value(state, "heal", family="circuit")
+        state.courier.health = min(
+            state.courier.max_health, state.courier.health + healing,
+        )
     return accepted
 
 
@@ -140,6 +165,23 @@ def spend_charge(state: GameState, key: str, amount: int) -> int:
         return 0
     spent = min(amount, max(0, cell.charge))
     cell.charge -= spent
+    if spent and state.run is not None and state.run.status == "active":
+        from .enemy_equipment import harm_enemy
+        from .run_items import effect_value
+        from .world import distance
+
+        damage = effect_value(state, "area_damage")
+        if damage:
+            for actor in sorted(state.threats, key=lambda candidate: candidate.id):
+                if (
+                    actor.health > 0 and actor.status in {"watching", "engaged"}
+                    and actor.position.z == cell.position.z
+                    and distance(cell.position, actor.position) <= 2
+                ):
+                    harm_enemy(
+                        state, actor, damage, "run-item circuit discharge",
+                        defeated_by_actor_id=None,
+                    )
     return spent
 
 
@@ -159,7 +201,7 @@ def load_rack_from_pack(
     if (
         rack is None
         or rack.kind != "rack"
-        or rack.charge + charge > 2 * CELL_CHARGE
+        or rack.charge + charge > rack_capacity(state)
     ):
         return 0
     from .inventory import consume_pack_items
@@ -191,6 +233,7 @@ def _threats_in_space(state: GameState, space: str):
 
 def sensor_active(state: GameState, cell: CircuitCell) -> bool:
     point = cell.position
+    effective_threshold = sensor_threshold(state, cell)
     if cell.mode == "supply":
         return (
             cell.space == space_id(state)
@@ -198,21 +241,21 @@ def sensor_active(state: GameState, cell: CircuitCell) -> bool:
             and max(
                 abs(state.position.x - point.x),
                 abs(state.position.y - point.y),
-            ) <= cell.threshold
+            ) <= effective_threshold
             and _available_item(state, "cell") is not None
         )
     if cell.mode == "water":
         key = f"{point.x},{point.y},{point.z}"
-        if cell.space == space_id(state) and state.water.get(key, 0) >= cell.threshold:
+        if cell.space == space_id(state) and state.water.get(key, 0) >= effective_threshold:
             return True
         if cell.space.startswith("region:"):
             region = state.regions.get(cell.space.split(":", 1)[1])
             material = region.materials.get(key) if region else None
-            return bool(material and material.water >= cell.threshold)
-        return bool(state.vessel_materials.get(key) and state.vessel_materials[key].water >= cell.threshold)
+            return bool(material and material.water >= effective_threshold)
+        return bool(state.vessel_materials.get(key) and state.vessel_materials[key].water >= effective_threshold)
     if cell.mode == "threat":
         return any(threat.status in {"watching", "engaged"} and threat.position.z == point.z
-                   and max(abs(threat.position.x - point.x), abs(threat.position.y - point.y)) <= cell.threshold
+                   and max(abs(threat.position.x - point.x), abs(threat.position.y - point.y)) <= effective_threshold
                    for threat in _threats_in_space(state, cell.space))
     if cell.space == space_id(state) and state.position == point:
         return True
@@ -589,7 +632,7 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
     status = circuit_format("circuit.diagnostic.pulse", phase=circuit_text(f"circuit.phase.{cell.phase}"), next_phase=circuit_text(f"circuit.phase.{next_state}"), inputs=inputs, links=len(_neighbors(state, cell)), remaining=remaining)
     sources = circuit_format("circuit.diagnostic.sources", fittings=len(seen), racks=len(racks), charged=sum(r.charge > 0 for r in racks))
     if cell.kind == "rack":
-        setting = circuit_format("circuit.diagnostic.setting.rack", charge=cell.charge, maximum=2 * CELL_CHARGE, interval=PULSE_INTERVAL)
+        setting = circuit_format("circuit.diagnostic.setting.rack", charge=cell.charge, maximum=rack_capacity(state), interval=PULSE_INTERVAL)
     elif cell.kind == "switch":
         setting = circuit_format("circuit.diagnostic.setting.switch", state=circuit_text("circuit.state.closed" if cell.enabled else "circuit.state.open"))
     elif cell.kind == "sensor":
@@ -636,7 +679,7 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
             guidance.append(circuit_format(
                 "circuit.diagnostic.sensor.rack.connected",
                 x=rack.position.x, y=rack.position.y, z=f"{rack.position.z:+d}",
-                charge=rack.charge, maximum=2 * CELL_CHARGE,
+                charge=rack.charge, maximum=rack_capacity(state),
             ))
         if cell.mode == "mass":
             guidance.append(circuit_format(
@@ -819,7 +862,7 @@ def validate_circuits(state: GameState) -> None:
             raise ValueError("invalid circuit part or phase")
         if cell.layer not in PARTS[cell.kind]["layers"]:
             raise ValueError("circuit part on unsupported layer")
-        if (type(cell.enabled) is not bool or type(cell.charge) is not int or not 0 <= cell.charge <= 2 * CELL_CHARGE
+        if (type(cell.enabled) is not bool or type(cell.charge) is not int or not 0 <= cell.charge <= rack_capacity(state)
                 or type(cell.active_until) is not int or cell.active_until < 0):
             raise ValueError("invalid circuit control state")
         if (not isinstance(cell.facing, str) or cell.facing not in DIRECTIONS

@@ -260,7 +260,7 @@ class CircuitTests(unittest.TestCase):
         self.assertEqual(state.voyage_status, "resolved")
         self.assertLess(rack.charge, CELL_CHARGE)
 
-    def test_format_thirteen_inflight_pulse_migrates_with_one_step(self):
+    def test_format_thirteen_is_rejected_on_the_new_run_save_line(self):
         state = self.state
         trace = self.fit("trace", 21)
         trace.phase, trace.signal_steps = "head", SIGNAL_SPAN
@@ -268,19 +268,14 @@ class CircuitTests(unittest.TestCase):
         old["save_format"] = 13
         for cell in old["circuits"].values():
             cell.pop("signal_steps")
-        loaded = game_state_from_dict(old)
-        self.assertEqual(loaded.circuits[cell_key(trace.space, trace.position, trace.layer)].signal_steps, 1)
-        old["circuits"] = {key: cell for key, cell in old["circuits"].items() if not key.startswith("vessel/")}
-        self.assertFalse(any(cell.space == "vessel" for cell in game_state_from_dict(old).circuits.values()))
-        old["circuits"] = []
-        with self.assertRaises(StateError):
+        with self.assertRaisesRegex(StateError, "expected 16"):
             game_state_from_dict(old)
         invalid = state.to_dict()
         invalid["circuits"][cell_key(trace.space, trace.position, trace.layer)]["signal_steps"] = SIGNAL_SPAN + 1
         with self.assertRaises(StateError):
             game_state_from_dict(invalid)
 
-    def test_save_round_trip_and_format_eleven_migration_validate(self):
+    def test_save_round_trip_and_format_eleven_rejection_validate(self):
         state = self.state
         self.fit("trace", 21, layer="buried")
         loaded = game_state_from_dict(state.to_dict())
@@ -288,8 +283,8 @@ class CircuitTests(unittest.TestCase):
         old = state.to_dict()
         old["save_format"] = 11
         del old["circuits"]
-        migrated = game_state_from_dict(old)
-        self.assertEqual(migrated.circuits, {})
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(old)
         bad = state.to_dict()
         next(iter(bad["circuits"].values()))["kind"] = "free power"
         with self.assertRaises(StateError):
@@ -504,17 +499,15 @@ class CircuitTests(unittest.TestCase):
         self.assertTrue(operate(state, counter.position, "surface")[0])
         self.assertEqual(counter.threshold, 3)
 
-    def test_format_twelve_circuits_gain_default_settings_without_loss(self):
+    def test_format_twelve_circuits_are_rejected(self):
         state = self.state
         old = state.to_dict()
         old["save_format"] = 12
         for cell in old["circuits"].values():
             for field in ("facing", "mode", "threshold", "count", "sticky", "last_pulse", "last_event"):
                 cell.pop(field)
-        loaded = game_state_from_dict(old)
-        self.assertEqual(loaded.save_format, state.save_format)
-        self.assertEqual(len(loaded.circuits), len(state.circuits))
-        self.assertTrue(all(cell.facing == "east" for cell in loaded.circuits.values()))
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(old)
         invalid = state.to_dict()
         next(iter(invalid["circuits"].values()))["facing"] = "upside-down"
         with self.assertRaises(StateError):

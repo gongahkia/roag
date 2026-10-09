@@ -1,7 +1,7 @@
 """Engine-owned semantic topology for Roag's static vessel and tavern maps.
 
-Legacy one-character tokens are retained only to keep existing reducers and format-15
-state compatible.  Collision and renderer-neutral cell identity originate here.
+Legacy one-character tokens are retained to keep existing reducers and persisted
+state compatible. Collision and renderer-neutral cell identity originate here.
 """
 from __future__ import annotations
 from dataclasses import dataclass

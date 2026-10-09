@@ -1,4 +1,4 @@
-"""Semantic regional terrain over format-15 glyph-backed maps.
+"""Semantic regional terrain over glyph-backed maps.
 
 Region rows and sparse ``tile_changes`` remain authoritative persistence. This
 module gives mechanical consumers stable identities and properties without

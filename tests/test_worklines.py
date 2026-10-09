@@ -255,19 +255,19 @@ class UndertakingTests(unittest.TestCase):
         self.assertIn("dark", self.state.region.changes["beacon_account"])
         self.assertEqual(game_state_from_dict(self.state.to_dict()).to_dict(), self.state.to_dict())
 
-    def test_v6_migration_adds_empty_undertakings_and_preserves_existing_state(self):
+    def test_v6_is_rejected_and_current_undertakings_validate(self):
         data = self.state.to_dict()
         data["save_format"] = 6
         data.pop("worklines")
-        first, second = game_state_from_dict(data), game_state_from_dict(data)
-        self.assertEqual(first.to_dict(), second.to_dict())
-        self.assertEqual(first.to_dict()["items"], data["items"])
-        self.assertEqual(first.to_dict()["regions"], data["regions"])
-        bad = first.to_dict()
+        before = copy.deepcopy(data)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(data)
+        self.assertEqual(data, before)
+        bad = self.state.to_dict()
         bad["worklines"]["unknown-region"] = bad["worklines"]["hearthford"]
         with self.assertRaises(StateError):
             game_state_from_dict(bad)
-        bad = first.to_dict()
+        bad = self.state.to_dict()
         bad["worklines"]["hearthford"]["stage"] = 4
         with self.assertRaises(StateError):
             game_state_from_dict(bad)

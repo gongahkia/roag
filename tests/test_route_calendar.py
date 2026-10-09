@@ -18,7 +18,7 @@ from roag.route_chart import (
     route_availability,
     route_preview,
 )
-from roag.state import SAVE_FORMAT, create_world, game_state_from_dict
+from roag.state import StateError, create_world, game_state_from_dict
 from roag.travel import choose_destination, travel_animation_frames
 from roag.terminal import (
     ROUTE_HELP_LINES,
@@ -166,7 +166,7 @@ class CalendarAndMigrationTests(unittest.TestCase):
             loaded = load_game(path)
         self.assertEqual(loaded.to_dict(), state.to_dict())
 
-    def test_format_four_migrates_without_item_or_consequence_loss(self):
+    def test_format_four_is_rejected_on_the_new_run_save_line(self):
         state = create_world("format-four")
         state.history.append("preserved consequence")
         raw = state.to_dict()
@@ -182,12 +182,10 @@ class CalendarAndMigrationTests(unittest.TestCase):
         for item in raw["items"]:
             item.pop("pinned", None)
             item.pop("merged_into", None)
-        item_ids = {item["id"] for item in raw["items"]}
-        loaded = game_state_from_dict(raw)
-        self.assertEqual(loaded.save_format, SAVE_FORMAT)
-        self.assertEqual({item.id for item in loaded.items}, item_ids)
-        self.assertIn("preserved consequence", loaded.history)
-        self.assertEqual(set(loaded.regions), {"hearthford", "greywash", "greenwold", "whitecairn"})
+        before = copy.deepcopy(raw)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(raw)
+        self.assertEqual(raw, before)
 
 
 if __name__ == "__main__":

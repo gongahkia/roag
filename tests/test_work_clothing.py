@@ -10,7 +10,7 @@ from roag.inventory import (
     protection_at, terrain_status_for, worn_tags,
 )
 from roag.materials import advance_materials, affect_body
-from roag.state import MaterialCell, Position, SAVE_FORMAT, TerrainStatus, Threat, create_world, game_state_from_dict
+from roag.state import MaterialCell, Position, StateError, TerrainStatus, Threat, create_world, game_state_from_dict
 from roag.terminal import OverlayView, _draw_dialogue_overlay
 from roag.world import sight_radius
 from test_information_panels import PanelSink
@@ -257,13 +257,13 @@ class WorkingClothingTests(unittest.TestCase):
         for height, width in ((24, 80), (32, 100)):
             _draw_dialogue_overlay(PanelSink(height, width), state, OverlayView("merchant"))
 
-    def test_v6_load_does_not_replace_existing_container_contents_or_equipment(self):
+    def test_v6_load_is_rejected_on_the_new_run_save_line(self):
         original = self.base.to_dict()
         original["save_format"] = 6
-        loaded = game_state_from_dict(original)
-        self.assertEqual(loaded.save_format, SAVE_FORMAT)
-        self.assertEqual(loaded.items, self.base.items)
-        self.assertEqual(loaded.region.containers, self.base.region.containers)
+        before = copy.deepcopy(original)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(original)
+        self.assertEqual(original, before)
 
 
 if __name__ == "__main__":

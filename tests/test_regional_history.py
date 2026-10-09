@@ -68,30 +68,17 @@ class WorkingHistoryTests(unittest.TestCase):
             self.assertEqual(region.generation_facts["dependency"], institution.dependency)
             self.assertTrue(any(t.group == institution.id for t in self.state.region_threats[region_id]))
 
-    def test_v6_fixture_adds_testimony_without_repainting_or_reissuing(self):
+    def test_v6_fixture_is_rejected_on_the_new_run_save_line(self):
         data = self.state.to_dict()
         data["save_format"] = 6
         data.pop("institutions")
         for region in data["regions"].values():
             region.pop("generation_facts")
             region.pop("regional_history")
-        first = game_state_from_dict(data)
-        self.assertEqual(first.to_dict(), game_state_from_dict(data).to_dict())
-        # Format-15's explicit archived-hostile identity is a load-only
-        # mechanical normalization, not a repaint or reissue of the item.
-        normalized_items = [
-            {key: value for key, value in item.items() if key != "archived_hostile_issue"}
-            for item in first.to_dict()["items"]
-        ]
-        expected_items = [
-            {key: value for key, value in item.items() if key != "archived_hostile_issue"}
-            for item in data["items"]
-        ]
-        self.assertEqual(normalized_items, expected_items)
-        for region_id, old in data["regions"].items():
-            for field in ("levels", "tile_changes", "containers", "materials", "seen"):
-                self.assertEqual(first.to_dict()["regions"][region_id][field], old[field])
-            self.assertEqual(first.regions[region_id].generation_facts["evidence_mode"], "inherited testimony")
+        before = copy.deepcopy(data)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(data)
+        self.assertEqual(data, before)
 
     def test_production_consumes_real_stock_on_clock_boundaries_only(self):
         state = self.state

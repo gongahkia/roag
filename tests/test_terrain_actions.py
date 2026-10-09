@@ -336,22 +336,10 @@ class TerrainActionTests(unittest.TestCase):
         self.state.position = Position(landing.x - 1, landing.y, landing.z)
         landing_key = key(landing)
         self.state.region.tile_changes[landing_key] = ";"
-        protected_before = (
-            self.state.world_time,
-            self.state.noise,
-            dict(self.state.region.tile_changes),
-            dict(self.state.region.terrain_damage),
-            list(self.state.sound_events),
-        )
-        rejected = session.submit(TerrainActionCommand("cut", landing))
-        self.assertEqual(rejected.result_id, "terrain.rejected")
-        self.assertEqual((
-            self.state.world_time,
-            self.state.noise,
-            self.state.region.tile_changes,
-            self.state.region.terrain_damage,
-            self.state.sound_events,
-        ), protected_before)
+        resolved = session.submit(TerrainActionCommand("cut", landing))
+        self.assertEqual(resolved.result_id, "terrain.destroyed")
+        self.assertEqual(self.state.run.status, "defeat")
+        self.assertIn("required route", self.state.run.failure_reason)
 
     def test_other_terrain_replacement_discards_damage_to_previous_identity(self):
         session = GameSession(self.state)

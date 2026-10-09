@@ -8,7 +8,7 @@ from .circuit_presentation import circuit_format
 from .circuits import (
     MASS_SENSOR_ENGINE_RANGE, SENSOR_CHARGE_STEP,
     TERRAIN_ASSIST_POWER_PER_CHARGE, TERRAIN_ASSIST_SOUND_PER_CHARGE,
-    nearest_connected_rack,
+    nearest_connected_rack, sensor_threshold,
 )
 from .simulation_effects import (
     ACTOR_DEFEATED,
@@ -81,7 +81,7 @@ def registered_reaction_rules(
                     trigger_id=ACTOR_DEFEATED,
                     effect=GainCharge(SENSOR_CHARGE_STEP, target),
                     condition=WithinRange(
-                        sensor.space, sensor.position, sensor.threshold,
+                        sensor.space, sensor.position, sensor_threshold(state, sensor),
                     ),
                 ))
         elif sensor.mode == "mass":
@@ -116,7 +116,7 @@ def registered_reaction_rules(
                     ),
                     priority=-10,
                     condition=WithinRange(
-                        sensor.space, sensor.position, sensor.threshold,
+                        sensor.space, sensor.position, sensor_threshold(state, sensor),
                     ),
                 ))
     return tuple(rules)
@@ -162,6 +162,18 @@ def resolve_engine_facts(
         )
         source.last_event = message
         target.last_event = message
+        if state.run is not None and state.run.status == "active":
+            from .run_items import effect_value
+
+            if source.kind == "circuit" and source.instance_id in state.circuits:
+                source_cell = state.circuits[source.instance_id]
+                if source_cell.mode == "threat":
+                    if effect_value(state, "grant_guard"):
+                        state.guarded_step = True
+                    state.run.damage_charge = max(
+                        state.run.damage_charge,
+                        effect_value(state, "damage_charge"),
+                    )
         state.add_message(message, priority=3)
         messages.append(message)
     return EngineOutcome(resolution, tuple(messages))
@@ -194,7 +206,19 @@ def resolve_resource_gained(
         space,
         position,
     )
-    return resolve_engine_facts(state, (fact,))
+    outcome = resolve_engine_facts(state, (fact,))
+    if state.run is not None and state.run.status == "active":
+        from .circuits import gain_charge, space_id
+        from .run_items import effect_value
+
+        amount = effect_value(state, "gain_charge", family="circuit")
+        racks = sorted(
+            key for key, cell in state.circuits.items()
+            if cell.space == space_id(state) and cell.kind == "rack"
+        )
+        if amount and racks:
+            gain_charge(state, racks[0], amount)
+    return outcome
 
 
 def resolve_terrain_assistance(

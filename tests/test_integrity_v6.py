@@ -23,7 +23,7 @@ from roag.inventory import (
     record_acquisition,
 )
 from roag.regions import activate_region, reconstruct_regional_process
-from roag.state import Position, SAVE_FORMAT, Threat, create_world, game_state_from_dict
+from roag.state import Position, StateError, Threat, create_world, game_state_from_dict
 from roag.geography import layout_point
 from roag.world import ROAG_GANGPLANK
 
@@ -78,6 +78,7 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
 
     def test_death_leaves_exact_physical_load_at_defeat_site_for_successor(self):
         state = expedition("death reconciliation")
+        state.run.status = "abandoned"
         state.position = Position(40, 25)
         dead_id = state.active_courier_id
         carried_ids = {
@@ -188,7 +189,7 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
         self.assertEqual(bottle.location, "destroyed")
         self.assertIn("hearth-ale", state.drink_effects)
 
-    def test_version_five_migrates_deterministically_and_physicalises_relic(self):
+    def test_version_five_is_rejected_on_the_new_run_save_line(self):
         state = create_world("format five relic")
         legacy = copy.deepcopy(state.to_dict())
         legacy["save_format"] = 5
@@ -213,22 +214,10 @@ class PhysicalStateIntegrityTests(unittest.TestCase):
                 if container["id"] != new_id
             ]
         legacy["region"] = legacy["regions"][legacy["active_region_id"]]
-        first = game_state_from_dict(copy.deepcopy(legacy))
-        second = game_state_from_dict(copy.deepcopy(legacy))
-        self.assertEqual(first.save_format, SAVE_FORMAT)
-        self.assertEqual(first.to_dict(), second.to_dict())
-        wards = [
-            item for item in first.items
-            if item.kind == "relic:river-glass ward"
-            and item.location not in {"lost", "destroyed"}
-        ]
-        self.assertEqual(len(wards), 1)
-        self.assertEqual(first.cross_region_arc.status, "locked")
-        self.assertEqual(set(first.questlines), set(first.regions))
-        self.assertEqual(
-            {region_id: len(region.containers) for region_id, region in first.regions.items()},
-            {"hearthford": 14, "greywash": 12, "greenwold": 12, "whitecairn": 12},
-        )
+        before = copy.deepcopy(legacy)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(legacy)
+        self.assertEqual(legacy, before)
 
 
 if __name__ == "__main__":

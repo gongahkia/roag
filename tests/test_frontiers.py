@@ -6,7 +6,7 @@ from roag.frontiers import FRONTIERS, build_frontier
 from roag.quests import QUESTS, resolve_regional_quest
 from roag.regions import activate_region, region_reachable
 from roag.route_chart import neighbours
-from roag.state import Position, create_world, game_state_from_dict
+from roag.state import Position, StateError, create_world, game_state_from_dict
 
 
 class FrontierTests(unittest.TestCase):
@@ -82,7 +82,7 @@ class FrontierTests(unittest.TestCase):
             self.assertTrue(loaded.region.containers[0].opened)
             self.assertEqual(loaded.region.changes["visited account"], region_id)
 
-    def test_version_six_chart_extension_preserves_existing_legs(self):
+    def test_version_six_chart_is_rejected_on_the_new_run_save_line(self):
         state = copy.deepcopy(self.base)
         state.route_edges[0].travel_time = 19
         state.route_known.append("whitecairn")
@@ -91,11 +91,10 @@ class FrontierTests(unittest.TestCase):
         data["save_format"] = 6
         data["route_nodes"] = {k: v for k, v in data["route_nodes"].items() if k not in FRONTIERS}
         data["route_edges"] = [e for e in data["route_edges"] if e["first"] not in FRONTIERS and e["second"] not in FRONTIERS]
-        loaded = game_state_from_dict(data)
-        self.assertEqual(loaded.route_edges[0].travel_time, 19)
-        self.assertIn("whitecairn", loaded.route_known)
-        self.assertEqual(loaded.traversed_route_edges, state.traversed_route_edges)
-        self.assertEqual(set(loaded.regions), set(state.regions))
+        before = copy.deepcopy(data)
+        with self.assertRaisesRegex(StateError, "expected 16"):
+            game_state_from_dict(data)
+        self.assertEqual(data, before)
 
     def test_frontier_quest_choices_have_different_persistent_consequences(self):
         for region_id in FRONTIERS:

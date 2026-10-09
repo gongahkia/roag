@@ -67,7 +67,7 @@ class DangerDirectorTests(unittest.TestCase):
         self.assertEqual(strained.response_due_in, 0)
 
         self.state.region.changes[REINFORCEMENT_LAST_TURN_KEY] = self.state.world_time
-        self.assertEqual(danger_forecast(self.state).response_due_in, 36)
+        self.assertEqual(danger_forecast(self.state).response_due_in, 30)
 
     def test_step_evaluation_is_pure_deterministic_and_wakes_one_existing_actor(self):
         first, second = copy.deepcopy(self.state), copy.deepcopy(self.state)

@@ -118,6 +118,13 @@ def initialise_production(state: GameState) -> None:
 def site_position(state: GameState, region_id: str | None = None) -> Position | None:
     region_id = region_id or state.active_region_id
     region = state.regions.get(region_id)
+    if (
+        state.run is not None and state.run.status == "active"
+        and region_id == state.active_region_id
+        and state.run.stage_worksite is not None
+        and not region.changes.get("destroyed:run_field_worksite")
+    ):
+        return state.run.stage_worksite
     return region.landmarks.get(SITE_KEYS[region_id]) if region and region_id in SITE_KEYS else None
 
 

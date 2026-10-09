@@ -38,6 +38,9 @@ def start_run(
     if profile is not None and challenge_tier > profile.unlocked_challenge_tier:
         raise ValueError("challenge tier is not unlocked")
     run = new_run_progress(state.seed, challenge_tier)
+    from .run_items import unlocked_item_ids
+
+    run.allowed_item_ids = sorted(unlocked_item_ids(profile))
     run.allowed_regions = sorted(
         profile.unlocked_regions if profile is not None else INITIAL_REGIONS
     )
@@ -175,15 +178,86 @@ def prepare_stage(state: GameState) -> None:
         return
     run.stage_actions = 0
     run.stage_salvage = 0
+    run.dropped_items.clear()
     run.offered_regions.clear()
     run.threshold_level = None
     run.threshold_entry = None
     run.branch_positions.clear()
+    _prepare_opening_patrol(state)
+    _prepare_field_worksite(state)
     # The first cache is deliberately close enough to make the opening build
     # decision precede the first sustained danger response.
     from .run_loot import seed_stage_loot
 
     seed_stage_loot(state)
+    from .run_items import effect_value
+
+    revealed = min(2, effect_value(state, "reveal_lead"))
+    if revealed:
+        offers = route_offers(state)[:revealed]
+        if offers:
+            names = ", ".join(
+                state.regions[region_id].name
+                if region_id in state.regions else region_id.title()
+                for region_id in offers
+            )
+            state.add_message(f"The backwater map marks likely thresholds: {names}.")
+
+
+def _opening_candidates(
+    state: GameState, minimum: int, maximum: int,
+) -> list[Position]:
+    from .regions import region_reachable
+    from .world import distance, is_walkable
+
+    landing = state.region.landmarks["landing"]
+    occupied = set(state.region.landmarks.values())
+    occupied.update(box.position for box in state.region.containers)
+    return sorted((
+        point for point in region_reachable(state.region, landing)
+        if point.z == landing.z
+        and minimum <= distance(landing, point) <= maximum
+        and point not in occupied
+        and is_walkable(state, point, ignore_threat=True)
+    ), key=lambda point: (point.y, point.x))
+
+
+def _prepare_opening_patrol(state: GameState) -> None:
+    candidates = _opening_candidates(state, 10, 18)
+    actors = sorted((
+        actor for actor in state.threats
+        if not actor.elite and actor.profile not in {"animal", "machinery"}
+        and actor.health > 0
+    ), key=lambda actor: actor.id)
+    if not candidates or not actors or state.run is None:
+        return
+    rng = stage_rng(
+        state.seed,
+        f"run-opening-patrol:{state.run.run_id}:{state.run.stage_index}:{state.active_region_id}",
+    )
+    actor = actors[rng.randrange(len(actors))]
+    actor.position = candidates[rng.randrange(len(candidates))]
+    actor.home_position = actor.position
+    actor.status = "watching"
+    actor.patrol = [actor.position]
+    actor.patrol_index = 0
+
+
+def _prepare_field_worksite(state: GameState) -> None:
+    candidates = _opening_candidates(state, 18, 30)
+    if not candidates or state.run is None:
+        state.run.stage_worksite = None
+        return
+    rng = stage_rng(
+        state.seed,
+        f"run-field-worksite:{state.run.run_id}:{state.run.stage_index}:{state.active_region_id}",
+    )
+    point = candidates[rng.randrange(len(candidates))]
+    state.run.stage_worksite = point
+    state.region.landmarks["run_field_worksite"] = point
+    from .terrain import replace_terrain
+
+    replace_terrain(state.region, point, "f")
 
 
 def record_boss_defeat(state: GameState, actor_id: str) -> RunResult:

@@ -150,13 +150,13 @@ class GameSessionTests(unittest.TestCase):
         with self.assertRaises(AttributeError):
             world.cells.append(None)
 
-    def test_session_save_load_keeps_format_fifteen_without_session_state(self):
+    def test_session_save_load_keeps_format_sixteen_without_session_state(self):
         session = GameSession.create("session save")
         session.submit(AdvanceWorldCommand())
         with tempfile.TemporaryDirectory() as directory:
             path = session.save(Path(directory) / "session.json")
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["save_format"], 15)
+            self.assertEqual(payload["save_format"], 16)
             self.assertNotIn("revision", payload)
             self.assertNotIn("session", payload)
             restored = GameSession.load(path)
