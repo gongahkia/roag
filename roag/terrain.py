@@ -31,6 +31,8 @@ class TerrainDefinition:
     action_sound: int = 0
     yield_material: str | None = None
     yield_fuel: int = 0
+    yield_item_kind: str | None = None
+    yield_item_quantity: int = 0
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,8 @@ def _definition(
     action_sound: int = 0,
     yield_material: str | None = None,
     yield_fuel: int = 0,
+    yield_item_kind: str | None = None,
+    yield_item_quantity: int = 0,
 ) -> TerrainDefinition:
     if cover not in {"open", "partial", "low"}:
         raise ValueError(f"invalid terrain cover kind {cover!r}")
@@ -71,6 +75,16 @@ def _definition(
         raise ValueError(f"invalid replacement glyph for {identity!r}")
     if hardness < 0 or action_sound < 0 or yield_fuel < 0:
         raise ValueError(f"negative terrain property for {identity!r}")
+    if (
+        type(yield_item_quantity) is not int
+        or yield_item_quantity < 0
+        or (
+            yield_item_kind is not None
+            and (not isinstance(yield_item_kind, str) or not yield_item_kind)
+        )
+        or bool(yield_item_kind) != bool(yield_item_quantity)
+    ):
+        raise ValueError(f"invalid physical yield for {identity!r}")
     return TerrainDefinition(
         identity,
         glyph,
@@ -86,6 +100,8 @@ def _definition(
         action_sound,
         yield_material,
         yield_fuel,
+        yield_item_kind,
+        yield_item_quantity,
     )
 
 
@@ -105,12 +121,14 @@ _DEFINITIONS = {
         material="reeds", destructible=True, hardness=1,
         tool_actions=("cut", "dig"), replacement_glyph=".", action_sound=2,
         yield_material="reeds", yield_fuel=2,
+        yield_item_kind="material:reeds", yield_item_quantity=1,
     ),
     '"': _definition(
         "terrain.region.dense_reeds", '"', tags=("ordinary", "vegetation"),
         material="reeds", destructible=True, hardness=2,
         tool_actions=("cut", "dig"), replacement_glyph=".", action_sound=2,
         yield_material="reeds", yield_fuel=2,
+        yield_item_kind="material:reeds", yield_item_quantity=2,
     ),
     "_": _definition("terrain.region.ice", "_", tags=("ice",)),
     "m": _definition(
@@ -118,6 +136,7 @@ _DEFINITIONS = {
         material="soil", destructible=True, hardness=1,
         tool_actions=("dig",), replacement_glyph=".", action_sound=1,
         yield_material="soil",
+        yield_item_kind="ingredient:clay", yield_item_quantity=1,
     ),
     "r": _definition("terrain.region.scree", "r", tags=("earth", "stone")),
     "q": _definition("terrain.region.sharp_limestone", "q", tags=("stone",)),

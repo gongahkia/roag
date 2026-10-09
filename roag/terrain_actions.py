@@ -34,6 +34,8 @@ class TerrainActionResolution:
     yield_fuel: int = 0
     assistance_power: int = 0
     assistance_sound: int = 0
+    yield_item_kind: str | None = None
+    yield_item_quantity: int = 0
 
 
 def supports_terrain_action(
@@ -156,4 +158,6 @@ def resolve_terrain_action(
         definition.yield_fuel if destroyed else 0,
         assistance.power,
         assistance.sound,
+        definition.yield_item_kind if destroyed else None,
+        definition.yield_item_quantity if destroyed else 0,
     )

@@ -2118,6 +2118,20 @@ def terrain_action(
             cell.fuel = max(cell.fuel, resolution.yield_fuel)
             if resolution.yield_material == "soil":
                 cell.coating, cell.fire = "ash", 0
+    physical_yield = None
+    if resolution.destroyed and resolution.yield_item_kind is not None:
+        from .terrain_yields import materialize_terrain_yield
+
+        yield_name = item_spec(resolution.yield_item_kind).name
+        physical_yield = materialize_terrain_yield(
+            state,
+            resolution,
+            material_format(
+                "material.handle.terrain_yield.provenance",
+                material=yield_name,
+                coordinate=position_key(target),
+            ),
+        )
     sounds = emit_sound(state, resolution.sound, target)
     material_id = resolution.material_id or "soil"
     message_values = {
@@ -2131,6 +2145,14 @@ def terrain_action(
         **message_values,
         **({} if resolution.destroyed else {"remaining": resolution.remaining}),
     )
+    if physical_yield is not None:
+        message += " " + material_format(
+            "material.handle.terrain_yield.packed"
+            if physical_yield.packed
+            else "material.handle.terrain_yield.ground",
+            quantity=physical_yield.quantity,
+            item=item_spec(physical_yield.item_kind).name,
+        )
     events: tuple[RuntimeEvent, ...] = (
         TerrainDamaged(
             state.active_courier_id or "courier",

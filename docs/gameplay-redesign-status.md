@@ -31,11 +31,13 @@ source of truth.
 | ENGINE-04 | Complete | Successful physical gathering emits a resource fact; a nearby connected mass sensor converts it into bounded rack charge while the item remains an ordinary recipe input. |
 | ENGINE-05 | Complete | The bounded effect resolver can consume an exact quantity of real pack inventory through an explicit actor target, without touching equipped items or adding another resource model. |
 | ENGINE-06 | Complete | An opt-in supply sensor atomically converts a newly fabricated physical galvanic cell into its connected rack's full 24-pulse yield. |
+| WORLD-04 | Complete | Destroyed ordinary reeds and mud create persistent physical inventory yields, with deterministic ground fallback and acquisition reactions only after successful packing. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
-through ENGINE-06 are post-roadmap tranches scoped from the integrated systems
-already in the repository. Further tranches should continue to be chosen from
-playtesting and the still-open product decisions rather than assumed here.
+through ENGINE-06 and WORLD-04 are post-roadmap tranches scoped from the
+integrated systems already in the repository. Further tranches should continue
+to be chosen from playtesting and the still-open product decisions rather than
+assumed here.
 
 ## Implemented seams
 
@@ -151,6 +153,18 @@ playtesting and the still-open product decisions rather than assumed here.
   same authoritative physical-acquisition fact as gathered resources. Outputs
   diverted to vessel storage, rejected crafts, and flask-content recipes do
   not emit that fact.
+- Semantic terrain definitions may declare a physical item kind and quantity
+  produced only when destruction completes. Ordinary reeds yield one bundle,
+  dense reeds yield two, and mud yields one existing clay ingredient; partial
+  terrain damage never creates inventory.
+- `roag.terrain_yields.materialize_terrain_yield` is the narrow bridge from a
+  completed terrain resolution to existing physical `Item` persistence. It
+  packs the item when automatic placement succeeds and otherwise leaves it on
+  the destroyed cell in the active Region, without rolling terrain mutation
+  back for inventory capacity.
+- A packed terrain yield enters the established `resource.gained` reaction
+  path, so nearby mass machinery can respond. A ground yield remains inert
+  until a later, explicit acquisition producer moves it into a pack.
 
 ## Compatibility and migrations
 
@@ -199,6 +213,12 @@ playtesting and the still-open product decisions rather than assumed here.
   old mode values and old saves remain valid. Only existing rack charge and
   physical item state persist, while the resource fact and effect audit remain
   transient. New circuit wording is presentation content only.
+- WORLD-04 adds no persistent field, save migration, or format bump. Terrain
+  yields use the existing `Item` model and deterministic `next_item_id`; the
+  finite `material:reeds` item specification derives from the existing
+  materials catalog, while mud reuses `ingredient:clay`. Four new material
+  presentation rows affect text only, and the mechanical fingerprint remains
+  unchanged.
 
 ## Known deviations and baseline issues
 
@@ -210,10 +230,10 @@ playtesting and the still-open product decisions rather than assumed here.
 - Nearby content-pack validation also exposes existing stale UI-contract count
   and terminal legacy-overlay failures; the redesign tranches do not currently
   depend on either path.
-- WORLD-03 deliberately limits generic destruction to ordinary reeds, dense
-  reeds, and mud. Walls, timber, fragile floors, circuit placement, collapse,
-  authored features, inventory harvesting, and broader tool balance remain
-  later work rather than being silently generalized.
+- WORLD-03 and WORLD-04 deliberately limit generic destruction and physical
+  harvesting to ordinary reeds, dense reeds, and mud. Walls, timber, fragile
+  floors, circuit placement, collapse, authored features, and broader tool
+  balance remain later work rather than being silently generalized.
 - DANGER-01 deliberately added no actors, RNG draws, population caps, spawn
   placement, or balance changes; those arrived through the DANGER-02 boundary.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
@@ -228,9 +248,18 @@ playtesting and the still-open product decisions rather than assumed here.
   outputs into the same fact. Container loot, rewards, and terrain material
   exposure still require explicit producer semantics; item construction itself
   is not a global event bus.
-- Terrain yields remain environmental `MaterialCell` state (`reeds`, `soil`),
-  not physical recipe items. Converting those identities requires an explicit
-  material-to-item policy rather than silently duplicating resources.
+- WORLD-04 intentionally retains the environmental `MaterialCell` residue
+  (`reeds` or `soil`) alongside its physical yield because fire, fuel, water,
+  and collapse consume that local environmental state. The physical item is
+  the portable inventory resource; the cell is not a second pack resource.
+- Harvested clay already feeds existing production recipes. Harvested reeds
+  are physical and saveable but have no new recipe consumer in WORLD-04; adding
+  one belongs to content/balance work rather than the terrain bridge.
+- With the current mass-sensor rules, spending one rack charge to finish a
+  harvest and then packing its yield restores one charge. The loop is bounded
+  by finite terrain and emits the machinery's extra noise, but its net-zero
+  charge economy is an explicit later balance decision rather than hidden by
+  WORLD-04.
 - ENGINE-05 intentionally registers no live component rule. The repository has
   no existing component whose honest benefit warrants consuming a particular
   carried resource, so the tranche establishes the safe mutation boundary

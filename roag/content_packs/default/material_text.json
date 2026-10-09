@@ -161,6 +161,10 @@
     "material.inspection.fallback.worked_terrain": "worked terrain",
     "material.inspection.fallback.passable_ground": "passable ground",
     "material.overlay.choice.guidance": "Choose a nearby physical target. No time passes until handling is confirmed.",
-    "material.overlay.title": "MATERIAL \u2014 ONE ACTION PER HANDLING"
+    "material.overlay.title": "MATERIAL \u2014 ONE ACTION PER HANDLING",
+    "material.item.harvested.description": "A harvested measure of {material}, carried as physical field stock.",
+    "material.handle.terrain_yield.provenance": "harvested {material} from terrain at {coordinate}",
+    "material.handle.terrain_yield.packed": "Recovered {quantity} x {item} into the pack.",
+    "material.handle.terrain_yield.ground": "Pack space is unavailable; {quantity} x {item} remains on the ground."
   }
 }

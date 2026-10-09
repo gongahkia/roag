@@ -178,7 +178,7 @@ class EngineComponentTests(unittest.TestCase):
         self.assertTrue(target.health == 0)
         self.assertEqual(rack.charge, 0)
 
-    def test_kill_charge_powers_one_noisier_terrain_action(self):
+    def test_kill_charge_powers_noisier_harvest_and_yield_recovers_charge(self):
         rack, _ = self.fit_engine()
         mass_position = Position(40, 25, 0)
         mass_key = cell_key("region:hearthford", mass_position, "surface")
@@ -200,14 +200,26 @@ class EngineComponentTests(unittest.TestCase):
         outcome = session.submit(TerrainActionCommand("cut", terrain_target))
 
         self.assertEqual(outcome.result_id, "terrain.destroyed")
-        self.assertEqual(rack.charge, 0)
+        self.assertEqual(rack.charge, 1)
         self.assertEqual(self.state.noise, noise_before + 3)
         self.assertEqual(
             [type(event) for event in outcome.events],
             [TerrainDamaged, TerrainChanged],
         )
         self.assertEqual(outcome.events[0].amount, 2)
-        self.assertIn("spends 1 rack charge", self.state.circuits[mass_key].last_event)
+        self.assertTrue(any(
+            "spends 1 rack charge" in message for message in self.state.messages
+        ))
+        self.assertIn(
+            "nearby physical acquisition",
+            self.state.circuits[mass_key].last_event,
+        )
+        self.assertTrue(any(
+            item.kind == "material:reeds"
+            and item.location == "pack"
+            and item.quantity == 2
+            for item in self.state.items
+        ))
 
     def test_physical_gather_charges_mass_engine_and_resource_remains_recipe_input(self):
         self.state.circuits.clear()
@@ -420,6 +432,7 @@ class EngineComponentTests(unittest.TestCase):
             mode="mass", threshold=2,
         )
         rack.charge = 2
+        self.state.auto_place_enabled = False
         terrain_target = Position(41, 25, 0)
         terrain_key = f"{terrain_target.x},{terrain_target.y},{terrain_target.z}"
         self.state.region.tile_changes[terrain_key] = '"'
@@ -475,12 +488,18 @@ class EngineComponentTests(unittest.TestCase):
 
         self.assertEqual(first_outcome, second_outcome)
         self.assertEqual(first.to_dict(), second.to_dict())
-        self.assertEqual(first.circuits[self.rack_key].charge, 0)
+        self.assertEqual(first.circuits[self.rack_key].charge, 1)
         with tempfile.TemporaryDirectory() as directory:
             path = save_game(first, Path(directory) / "terrain-engine.json")
             restored = load_game(path)
-        self.assertEqual(restored.circuits[self.rack_key].charge, 0)
+        self.assertEqual(restored.circuits[self.rack_key].charge, 1)
         self.assertEqual(restored.region.tile_changes[terrain_key], ".")
+        self.assertTrue(any(
+            item.kind == "material:reeds"
+            and item.location == "pack"
+            and item.quantity == 2
+            for item in restored.items
+        ))
         payload = restored.to_dict()
         self.assertNotIn("simulation_facts", payload)
         self.assertNotIn("reaction_rules", payload)

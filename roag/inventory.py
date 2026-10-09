@@ -126,6 +126,27 @@ for pot in POT_AMMUNITION.values():
 def item_spec(kind: str) -> ItemSpec:
     if kind in ITEM_SPECS:
         return ITEM_SPECS[kind]
+    if kind.startswith("material:"):
+        name = kind.split(":", 1)[1]
+        from .materials import MATERIALS
+
+        if name not in MATERIALS:
+            raise KeyError(f"unknown physical material {name!r}")
+        from .material_presentation import material_display_name, material_format
+
+        display_name = material_display_name(name)
+        return ItemSpec(
+            display_name,
+            name[:2].upper(),
+            1,
+            1,
+            1,
+            "cargo",
+            material_format(
+                "material.item.harvested.description", material=display_name,
+            ),
+            stack_limit=4,
+        )
     if kind.startswith("evidence:"):
         from .workline_presentation import workline_evidence_name, workline_format
         from .worklines import EVIDENCE

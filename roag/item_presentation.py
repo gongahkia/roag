@@ -47,6 +47,9 @@ def item_display_name_or_legacy(engine_id: str) -> str:
     if engine_id.startswith("ingredient:"):
         from .chemistry_presentation import reagent_display_name
         return reagent_display_name(engine_id.split(":", 1)[1])
+    if engine_id.startswith("material:"):
+        from .material_presentation import material_display_name
+        return material_display_name(engine_id.split(":", 1)[1])
     presentation = contracted_item_presentation(engine_id)
     if presentation:
         return presentation.display_name

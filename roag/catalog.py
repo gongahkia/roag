@@ -753,6 +753,12 @@ _MATERIAL_TEMPLATE_CONTRACT = {
     "material.inspection.hint.danger": ("actor",), "material.inspection.hint.manoeuvre": ("manoeuvre", "effect"), "material.inspection.hint.transition": ("direction", "z"), "material.inspection.hint.map": (), "material.inspection.hint.default": (),
     "material.inspection.advice.forecast": ("speaker", "actor", "counter"), "material.inspection.advice.status": ("speaker", "status", "cause", "consequence"), "material.inspection.advice.fire": ("speaker",), "material.inspection.advice.smoke": ("speaker",), "material.inspection.advice.collapse": ("speaker",), "material.inspection.advice.rain": ("speaker",), "material.inspection.advice.wind": ("speaker",), "material.inspection.advice.winter": ("speaker",), "material.inspection.advice.combo": ("speaker", "combo"), "material.inspection.advice.default": ("speaker",),
 }
+_MATERIAL_TEMPLATE_CONTRACT.update({
+    "material.item.harvested.description": ("material",),
+    "material.handle.terrain_yield.provenance": ("material", "coordinate"),
+    "material.handle.terrain_yield.packed": ("quantity", "item"),
+    "material.handle.terrain_yield.ground": ("quantity", "item"),
+})
 _SANCTUM_REGIONS = ("hearthford", "greywash", "greenwold", "whitecairn", "dunmire", "rillscar", "marlbank", "frostmere")
 _SANCTUM_TEMPLATE_CONTRACT = {
     **{f"sanctum.{region}.{field}": () for region in _SANCTUM_REGIONS for field in ("name", "theme", "witness.name", "boss.name", "boss.capability", "boss.counterplay", "boss.goal")},

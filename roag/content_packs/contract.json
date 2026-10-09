@@ -17588,6 +17588,33 @@
       "placeholders": [
         "speaker"
       ]
+    },
+    {
+      "id": "material.item.harvested.description",
+      "placeholders": [
+        "material"
+      ]
+    },
+    {
+      "id": "material.handle.terrain_yield.provenance",
+      "placeholders": [
+        "material",
+        "coordinate"
+      ]
+    },
+    {
+      "id": "material.handle.terrain_yield.packed",
+      "placeholders": [
+        "quantity",
+        "item"
+      ]
+    },
+    {
+      "id": "material.handle.terrain_yield.ground",
+      "placeholders": [
+        "quantity",
+        "item"
+      ]
     }
   ],
   "sanctums": [

@@ -5,13 +5,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from roag.circuits import cell_key
 from roag.commands import TerrainActionCommand
+from roag.inventory import item_spec
 from roag.materials import handle_material, key
 from roag.regions import begin_region, validate_region
 from roag.runtime_events import TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
 from roag.session import GameSession
-from roag.state import Position, StateError, create_world, game_state_from_dict
+from roag.state import CircuitCell, Position, StateError, create_world, game_state_from_dict
 from roag.terrain import replace_terrain, terrain_at
 
 
@@ -44,6 +46,10 @@ class TerrainActionTests(unittest.TestCase):
         self.assertEqual(first.event_batch.steps[0].events, ())
         self.assertEqual(self.state.noise, 2)
         self.assertEqual(self.state.sound_events[-1].position, self.target)
+        self.assertFalse(any(
+            item.kind == "material:reeds" and item.location != "destroyed"
+            for item in self.state.items
+        ))
 
         second = session.submit(TerrainActionCommand("cut", self.target))
         self.assertEqual(second.result_id, "terrain.destroyed")
@@ -59,6 +65,29 @@ class TerrainActionTests(unittest.TestCase):
         self.assertIn("terrain gives way", self.state.messages[-1])
         yielded = self.state.region.materials[self.coordinate]
         self.assertEqual((yielded.material, yielded.fuel), ("reeds", 2))
+        physical = next(
+            item for item in self.state.items
+            if item.kind == "material:reeds" and item.location == "pack"
+        )
+        self.assertEqual(
+            (physical.owner_id, physical.quantity),
+            (self.state.active_courier_id, 2),
+        )
+        self.assertEqual(item_spec(physical.kind).name, "reeds")
+        self.assertIn("Recovered 2 x reeds into the pack", self.state.messages[-1])
+
+        with tempfile.TemporaryDirectory() as directory:
+            restored = load_game(save_game(
+                self.state, Path(directory) / "terrain-yield.json",
+            ))
+        restored_physical = next(
+            item for item in restored.items if item.id == physical.id
+        )
+        self.assertEqual(
+            (restored_physical.kind, restored_physical.location,
+             restored_physical.owner_id, restored_physical.quantity),
+            ("material:reeds", "pack", restored.active_courier_id, 2),
+        )
 
     def test_ordinary_reeds_and_mud_remain_one_action_material_work(self):
         self.state.region.tile_changes[self.coordinate] = ";"
@@ -67,6 +96,11 @@ class TerrainActionTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(self.state.world_time, before + 1)
         self.assertEqual(terrain_at(self.state.region, self.target).glyph, ".")
+        reeds = next(
+            item for item in self.state.items
+            if item.kind == "material:reeds" and item.location == "pack"
+        )
+        self.assertEqual(reeds.quantity, 1)
 
         self.state.region.tile_changes[self.coordinate] = "m"
         self.state.region.materials.pop(self.coordinate, None)
@@ -74,6 +108,74 @@ class TerrainActionTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(terrain_at(self.state.region, self.target).glyph, ".")
         self.assertEqual(self.state.region.materials[self.coordinate].material, "soil")
+        clay = next(
+            item for item in self.state.items
+            if item.kind == "ingredient:clay" and item.location == "pack"
+        )
+        self.assertEqual(clay.quantity, 1)
+        self.assertIn("harvested clay from terrain", clay.provenance)
+
+    def test_unpacked_yield_remains_on_ground_and_emits_no_resource_reaction(self):
+        self.state.region.tile_changes[self.coordinate] = "m"
+        self.state.weapon = "spade"
+        self.state.auto_place_enabled = False
+        self.state.circuits.clear()
+        rack_position = Position(39, 25, 0)
+        sensor_position = self.state.position
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        self.state.circuits[rack_key] = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+        )
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor",
+            mode="mass", threshold=2,
+        )
+
+        outcome = GameSession(self.state).submit(
+            TerrainActionCommand("dig", self.target),
+        )
+
+        self.assertEqual(outcome.result_id, "terrain.destroyed")
+        clay = next(item for item in self.state.items if item.kind == "ingredient:clay")
+        self.assertEqual(
+            (clay.location, clay.owner_id, clay.region_id, clay.ground_position),
+            ("ground", None, "hearthford", self.target),
+        )
+        self.assertEqual(self.state.circuits[rack_key].charge, 0)
+        self.assertIn("remains on the ground", self.state.messages[-1])
+
+    def test_packed_terrain_yield_emits_resource_fact_for_mass_engine(self):
+        self.state.region.tile_changes[self.coordinate] = "m"
+        self.state.weapon = "spade"
+        self.state.circuits.clear()
+        rack_position = Position(39, 25, 0)
+        sensor_position = self.state.position
+        rack_key = cell_key("region:hearthford", rack_position, "surface")
+        sensor_key = cell_key("region:hearthford", sensor_position, "surface")
+        self.state.circuits[rack_key] = CircuitCell(
+            "region:hearthford", rack_position, "surface", "rack",
+        )
+        self.state.circuits[sensor_key] = CircuitCell(
+            "region:hearthford", sensor_position, "surface", "sensor",
+            mode="mass", threshold=2,
+        )
+
+        outcome = GameSession(self.state).submit(
+            TerrainActionCommand("dig", self.target),
+        )
+
+        self.assertEqual(outcome.result_id, "terrain.destroyed")
+        clay = next(
+            item for item in self.state.items
+            if item.kind == "ingredient:clay" and item.location == "pack"
+        )
+        self.assertEqual(clay.owner_id, self.state.active_courier_id)
+        self.assertEqual(self.state.circuits[rack_key].charge, 1)
+        self.assertIn(
+            "nearby physical acquisition",
+            self.state.circuits[sensor_key].last_event,
+        )
 
     def test_wrong_tool_unsupported_verb_and_authored_position_are_zero_time(self):
         session = GameSession(self.state)
@@ -175,9 +277,11 @@ class TerrainActionTests(unittest.TestCase):
             game_state_from_dict(payload)
 
     def test_same_state_and_command_produce_equal_state_and_events(self):
+        self.state.region.tile_changes[self.coordinate] = "m"
+        self.state.weapon = "spade"
         first_state, second_state = copy.deepcopy(self.state), copy.deepcopy(self.state)
-        first = GameSession(first_state).submit(TerrainActionCommand("cut", self.target))
-        second = GameSession(second_state).submit(TerrainActionCommand("cut", self.target))
+        first = GameSession(first_state).submit(TerrainActionCommand("dig", self.target))
+        second = GameSession(second_state).submit(TerrainActionCommand("dig", self.target))
         self.assertEqual(first, second)
         self.assertEqual(first_state.to_dict(), second_state.to_dict())
 
