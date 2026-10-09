@@ -782,11 +782,15 @@ def _draw_map(
     rows = map_rows(state)
     view_height, view_width = height - 2, width - 2
     map_height, map_width = len(rows), max(map(len, rows))
+    visible = ({cell.position for cell in semantic_view.cells if cell.visible}
+               if semantic_view is not None else field_of_view(state, remember=False))
     origin_x, origin_y = camera_origin(
         state.position, map_width, map_height, view_width, view_height
     )
-    visible = ({cell.position for cell in semantic_view.cells if cell.visible}
-               if semantic_view is not None else field_of_view(state, remember=False))
+    if effects is not None:
+        offset_x, offset_y = effects.camera_offset(visible)
+        origin_x = max(0, min(max(0, map_width - view_width), origin_x + offset_x))
+        origin_y = max(0, min(max(0, map_height - view_height), origin_y + offset_y))
     threats = visible_threats(state, visible)
     from .vehicles import SPECS
 
@@ -827,7 +831,8 @@ def _draw_map(
                 char = ENTITY_GLYPHS["danger"]
             else:
                 char = curses_tile(state, position)
-            cell = material_cells.get(key(position)) if position != state.position and position not in threats else None
+            physical_cell = material_cells.get(key(position))
+            cell = physical_cell if position != state.position and position not in threats else None
             role = terrain_colour_role(
                 char, state.active_region_id,
                 aboard=state.location == "roag", material=cell,
@@ -850,7 +855,29 @@ def _draw_map(
             effect = effects.effect_at(
                 position, visible=position in visible,
             ) if effects is not None else None
-            presented = effects.ambient_glyph(char, position) if effects is not None else char
+            ambient = None
+            if effects is not None and effects.enabled and position in visible:
+                if physical_cell and physical_cell.fire:
+                    environment_id = "fire"
+                elif (
+                    (physical_cell and physical_cell.smoke >= 2)
+                    or position_key(position) in state.smoke
+                ):
+                    environment_id = "smoke"
+                elif char in {"~", ","}:
+                    environment_id = "water"
+                else:
+                    environment_id = ""
+                ambient = effects.ambient_cell(
+                    char,
+                    position,
+                    environment_id=environment_id,
+                    weather_id=state.weather,
+                    exposed=state.location == "region" and position.z >= 0,
+                )
+            presented = ambient.glyph if ambient is not None else char
+            if ambient is not None and ambient.role_id is not None and effect is None:
+                attr = _COLOUR_ATTRIBUTES[ambient.role_id] | curses.A_DIM
             if effect is not None and effects is not None:
                 presented = effect.glyph_at(effects.elapsed_ms) or presented
             if effect is not None:

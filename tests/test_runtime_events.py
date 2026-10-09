@@ -18,11 +18,13 @@ from roag.commands import (
 from roag.runtime_events import (
     ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
     AttackTelegraphed, CarriedRelicSelectionChanged, DamageApplied,
-    InteractionResolved, ProjectileResolved, RetreatResolved, RuntimeEventBatch,
-    StatusChanged,
+    CollapseResolved, InteractionResolved, ProjectileResolved, RetreatResolved,
+    RuntimeEventBatch, StatusChanged, TerrainChanged,
 )
 from roag.session import GameSession
-from roag.state import Position, SoundEvent, Threat, create_world
+from roag.materials import key
+from roag.regions import begin_region
+from roag.state import MaterialCell, Position, SoundEvent, Threat, create_world
 from roag.world import is_walkable, position_key, projectile_path
 from test_content_packs import alternate_pack
 
@@ -223,6 +225,80 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(resolved[0].cells, expected)
         self.assertEqual(resolution.events.count(resolved[0]), 1)
         self.assertTrue(all(position_key(point) in state.water for point in expected))
+
+    def test_material_collapse_emits_step_scoped_geometry_without_affecting_state(self):
+        observed = create_world("runtime material collapse")
+        begin_region(observed, "hearthford")
+        observed.threats = []
+        observed.region_threats["hearthford"] = observed.threats
+        point = Position(observed.position.x + 2, observed.position.y, 0)
+        coordinate = key(point)
+        observed.region.tile_changes[coordinate] = "."
+        observed.region.materials = {
+            coordinate: MaterialCell(
+                material="timber",
+                support=0,
+                collapse_due=observed.world_time + 1,
+            ),
+        }
+        before = copy.deepcopy(observed)
+
+        outcome = GameSession(observed).submit(AdvanceWorldCommand())
+
+        self.assertEqual(len(outcome.event_batch.steps), 1)
+        self.assertEqual(
+            [type(event) for event in outcome.event_batch.steps[0].events],
+            [CollapseResolved, TerrainChanged],
+        )
+        collapse, terrain = outcome.event_batch.steps[0].events
+        self.assertEqual(
+            (collapse.origin, collapse.cells, collapse.severity, collapse.result_id),
+            (point, (point,), 2, "collapse.rubble"),
+        )
+        self.assertEqual(
+            (terrain.actor_id, terrain.position, terrain.previous_terrain_id,
+             terrain.terrain_id, terrain.action_id),
+            ("environment", point, "terrain.region.hearthford.ground",
+             "terrain.region.loose_cover", "collapse"),
+        )
+        self.assertEqual(outcome.events, (collapse, terrain))
+        self.assertEqual(observed.region.tile_changes[coordinate], "%")
+        serialized = json.dumps(observed.to_dict(), sort_keys=True)
+        self.assertNotIn("CollapseResolved", serialized)
+        self.assertNotIn("world.collapse.resolved", serialized)
+
+        unobserved = copy.deepcopy(before)
+        advance_world(unobserved)
+        self.assertEqual(observed.to_dict(), unobserved.to_dict())
+
+    def test_protected_authored_collapse_does_not_claim_a_terrain_change(self):
+        state = create_world("runtime protected collapse")
+        begin_region(state, "hearthford")
+        state.threats = []
+        state.region_threats["hearthford"] = state.threats
+        point = state.region.landmarks["landing"]
+        state.position = Position(point.x + 1, point.y, point.z)
+        coordinate = key(point)
+        state.region.materials = {
+            coordinate: MaterialCell(
+                material="timber",
+                support=0,
+                collapse_due=state.world_time + 1,
+            ),
+        }
+        before_changes = dict(state.region.tile_changes)
+
+        outcome = GameSession(state).submit(AdvanceWorldCommand())
+
+        self.assertEqual(
+            [type(event) for event in outcome.event_batch.steps[0].events],
+            [CollapseResolved],
+        )
+        self.assertEqual(
+            outcome.event_batch.steps[0].events[0].result_id,
+            "collapse.protected_structure",
+        )
+        self.assertEqual(state.region.tile_changes, before_changes)
 
     def test_enemy_movement_event_is_deterministic_and_step_scoped(self):
         first, target_id = armed_state("runtime enemy movement")

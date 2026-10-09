@@ -34,13 +34,16 @@ source of truth.
 | ENGINE-06 | Complete | An opt-in supply sensor atomically converts a newly fabricated physical galvanic cell into its connected rack's full 24-pulse yield. |
 | WORLD-04 | Complete | Destroyed ordinary reeds and mud create persistent physical inventory yields, with deterministic ground fallback and acquisition reactions only after successful packing. |
 | WORLD-05 | Complete | Atomic zero-time ground pickup is a typed command; first-time pack acquisition consistently publishes one resource fact without drop/pick reaction loops. |
+| WORLD-06 | Complete | Standing timber is a sustained noisy terrain harvest, while authoritative material collapse exposes exact transient geometry and its resulting terrain mutation. |
 | PRESENTATION-01 | Complete | Existing runtime-event batches drive ordered transient movement, combat, terrain, and visible threat-arrival glyph effects without affecting simulation. |
 | PRESENTATION-02 | Complete | Enemy movement, positional attack warnings, and committed impacts now produce ordered world-step effects without changing AI resolution. |
 | PRESENTATION-03 | Complete | Ranged releases carry exact projectile paths, while bounded authored area attacks carry exact affected cells for staged, visibility-safe ASCII motion. |
+| PRESENTATION-04 | Complete | Visible water, fire, smoke, and precipitation derive restrained idle motion from presentation time without entering simulation state. |
+| PRESENTATION-05 | Complete | Visible structural collapses stage bounded debris, a local ASCII shockwave, and visibility-safe one-cell camera tremble from semantic collapse geometry. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
-through ENGINE-06, WORLD-04 through WORLD-05, DANGER-03, and PRESENTATION-01
-through PRESENTATION-03 are post-roadmap tranches scoped from the integrated
+through ENGINE-06, WORLD-04 through WORLD-06, DANGER-03, and PRESENTATION-01
+through PRESENTATION-05 are post-roadmap tranches scoped from the integrated
 systems already in the repository. Further tranches should continue to be
 chosen from playtesting and the still-open product decisions rather than
 assumed here.
@@ -196,6 +199,20 @@ assumed here.
 - Inventory-modal cancellation restores the item, acquisition marker, engine
   reaction, and messages together through the existing full-state inventory
   transaction.
+- Standing timber (`T`) now declares timber material, cut-only interaction,
+  hardness three, sound four, ground replacement, environmental fuel, and one
+  existing physical `commodity:timber` yield through the semantic terrain
+  catalog. A felling axe applies two power, so harvesting takes two exposed
+  world actions and produces eight total noise before any machinery bonus.
+- `roag.materials.advance_materials` accepts the open world-step collector and
+  emits one immutable `CollapseResolved` fact when a scheduled collapse
+  commits. Its exact origin, affected origin/impact cells, severity, and stable
+  result identity are transient; an actual regional glyph replacement also
+  emits the established environmental `TerrainChanged` event in causal order.
+- Authored landmarks, vertical links, and container cells retain their prior
+  collapse protection and are identified as protected results rather than
+  fabricating a terrain-change event. Collector-free material advancement
+  remains mechanically identical.
 - `roag.presentation.MapEffect` is an immutable renderer-neutral description
   of one transient glyph sequence, emphasis role, world position, start time,
   and deterministic priority. `EffectState` schedules these from
@@ -236,6 +253,30 @@ assumed here.
   semantic origin with restrained one-frame staggering. All cells remain
   FOV-gated, and durable text plus authoritative terrain/material changes
   remain available when effects are disabled.
+- `roag.presentation.AmbientCell` is a one-frame derived value rather than
+  stored effect state. `EffectState.ambient_cell(...)` uses only its UI-owned
+  clock, stable seed offset, world position, and immutable render context to
+  cycle visible deep/shallow water, fire, and smoke glyphs.
+- Hard rain, forest rain, and coast squalls add sparse, deterministic marks
+  only over a conservative set of ordinary exposed terrain glyphs. Current
+  visibility is required, primary entity/hazard/structure glyphs are never
+  replaced, and transient semantic effects retain draw priority. Weather
+  motion supplements the existing weather label/mechanics rather than being
+  its only cue.
+- `CollapseResolved` now schedules a four-frame high-priority debris sequence
+  over its exact semantic cells and a delayed eight-cell ASCII shockwave around
+  the origin. The established terrain mutation and chronicle message remain
+  the durable static cues when the transient sequence ends or presentation is
+  disabled.
+- `roag.presentation.CameraEffect` is an immutable, bounded UI-owned viewport
+  offset sequence. Collapse severity selects a finite presentation policy;
+  simulation does not specify timing or camera instructions. Active camera
+  effects are capped at 16 and never displace more than two cells by contract,
+  while the current collapse treatment uses only one-cell offsets.
+- `_draw_map` applies camera displacement only when the semantic event origin
+  is in its already-computed current visibility snapshot, then clamps the
+  shifted origin to map bounds. Hidden collapses cannot announce themselves
+  through screen motion, and no extra FOV computation is introduced.
 
 ## Compatibility and migrations
 
@@ -300,6 +341,11 @@ assumed here.
   locations for transfer. Commands, outcomes, and resource facts remain
   transient; only ordinary pack placement, acquisition history, and bounded
   component effects persist.
+- WORLD-06 adds no persistent field, migration, save-format bump, or content
+  row. Historical and current `T` glyphs resolve to the new standing-timber
+  behavior in place; sparse terrain damage, replacement, local material
+  residue, physical timber cargo, and collapse outcomes all use existing
+  format-15 state. `CollapseResolved` and its event-batch grouping are unsaved.
 - PRESENTATION-01 adds no persistent state, migration, catalog content, or
   runtime-event schema. `MapEffect`, the effect queue, presentation sequence,
   and elapsed clock remain UI-owned and absent from saves and deterministic
@@ -314,6 +360,15 @@ assumed here.
   effects. Embedded projectile paths and area cells are derived from existing
   authoritative geometry without RNG draws or mutation, are absent from save
   output, and require no save migration, format bump, or fingerprint change.
+- PRESENTATION-04 adds no event, catalog row, persistent field, migration, or
+  fingerprint change. `AmbientCell` values exist for one draw only; repeated
+  precipitation/material frames do not mutate `GameState`, consume RNG, or
+  rebuild authoritative world views. `ROAG_PRESENTATION=off` preserves the
+  static glyph path.
+- PRESENTATION-05 adds no authoritative or persistent state, migration,
+  runtime-event schema, catalog row, or fingerprint change. `CameraEffect`,
+  shockwave glyphs, and their elapsed frame state live solely in the existing
+  UI-owned `EffectState`; disabled presentation schedules none of them.
 
 ## Known deviations and baseline issues
 
@@ -325,10 +380,11 @@ assumed here.
 - Nearby content-pack validation also exposes existing stale UI-contract count
   and terminal legacy-overlay failures; the redesign tranches do not currently
   depend on either path.
-- WORLD-03 and WORLD-04 deliberately limit generic destruction and physical
-  harvesting to ordinary reeds, dense reeds, and mud. Walls, timber, fragile
-  floors, circuit placement, collapse, authored features, and broader tool
-  balance remain later work rather than being silently generalized.
+- WORLD-03 and WORLD-04 deliberately began with ordinary reeds, dense reeds,
+  and mud. WORLD-06 adds only ordinary standing timber plus semantic collapse
+  output; walls, worked timber, fragile floors, circuit placement, authored
+  features, and broader tool balance remain protected or delegated rather than
+  being silently generalized.
 - DANGER-01 deliberately added no actors, RNG draws, population caps, spawn
   placement, or balance changes; those arrived through the DANGER-02 boundary.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
@@ -360,6 +416,16 @@ assumed here.
   frontier-elite catalogue do not yet expose stable exact area geometry, so
   this tranche does not infer it from prose, duplicate their reducers, or add
   camera shake and screen-wide effects prematurely.
+- PRESENTATION-04 intentionally limits weather overlays to actual
+  precipitation and does not invent fog density, wind particles, lightning,
+  camera movement, or screen-wide storm flashes. Those require their own
+  legibility and terminal-performance decisions.
+- PRESENTATION-05 applies camera motion only to the infrequent semantic
+  collapse event. It does not shake routine attacks, terrain hits, projectiles,
+  weather, or every `TerrainChanged`, and it never blocks the next command.
+  Map-edge clamping may deliberately damp one axis of tremble rather than draw
+  outside the terminal viewport. Large structure-emergence choreography still
+  needs a future semantic event with honest authoritative geometry.
 - With the current mass-sensor rules, spending one rack charge to finish a
   harvest and then packing its yield restores one charge. The loop is bounded
   by finite terrain and emits the machinery's extra noise, but its net-zero
@@ -369,6 +435,11 @@ assumed here.
   renderer-facing item-acquired event. Whether field pickup should eventually
   spend exposure is a balance decision; presentation vocabulary should be
   added only with a concrete effect consumer.
+- WORLD-06 does not make walls, bridges, doors, fragile floors, vertical links,
+  or landmark structures generically destructible. The new collapse event is
+  renderer-neutral and currently relies on the accompanying `TerrainChanged`
+  effect for ordinary presentation; a bespoke multi-cell collapse treatment
+  belongs to a presentation tranche rather than this world-mechanics slice.
 - PRESENTATION-01 consumes only runtime events already emitted by typed command
   paths. Legacy spell, manoeuvre, thrown-device, enemy-action, and other direct
   reducer paths do not receive inferred animation from messages. Camera shake,

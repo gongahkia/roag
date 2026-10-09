@@ -1229,6 +1229,7 @@ def _threat_warning_target(state: GameState, threat: Threat) -> Position | None:
 
 
 def _threat_warning_area(
+    state: GameState,
     action_id: str,
     target: Position | None,
 ) -> tuple[Position, ...]:
@@ -1242,9 +1243,15 @@ def _threat_warning_area(
             Position(target.x + 1, target.y, target.z),
         )
     if action_id == "intent.elite.reeve.cover_telegraph":
-        return (target, Position(target.x - 1, target.y, target.z))
+        cover = Position(target.x - 1, target.y, target.z)
+        return (
+            (target, cover)
+            if is_walkable(state, cover, ignore_threat=True)
+            else (target,)
+        )
     if action_id == "intent.elite.tracker.resin_telegraph":
-        return (target, Position(target.x, target.y, min(2, target.z + 1)))
+        upper = Position(target.x, target.y, min(2, target.z + 1))
+        return (target, upper) if upper != target else (target,)
     return ()
 
 
@@ -1270,7 +1277,7 @@ def _threat_action(
     before_health = before_courier.health if before_courier is not None else 0
     before_courier_position = state.position
     before_location = state.location
-    before_area = _threat_warning_area(before_intent, before_warning)
+    before_area = _threat_warning_area(state, before_intent, before_warning)
     before_projectile_path = (
         tuple(projectile_path(before_position, before_warning, state))
         if (
@@ -1349,7 +1356,7 @@ def _threat_action(
         ))
     if after_warning is not None and after_warning != before_warning:
         after_intent = threat.intent_id or "combat.enemy.telegraph"
-        after_area = _threat_warning_area(after_intent, after_warning)
+        after_area = _threat_warning_area(state, after_intent, after_warning)
         if after_area:
             collector.record_step_event(AreaTelegraphed(
                 threat.id,
@@ -1528,7 +1535,7 @@ def _advance_world(
             from .regional_history import advance_production
 
             advance_production(state)
-            advance_materials(state)
+            advance_materials(state, collector=collector)
             from .circuits import advance_circuits
 
             advance_circuits(state)

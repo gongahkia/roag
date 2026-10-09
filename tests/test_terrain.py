@@ -62,6 +62,24 @@ class RegionalTerrainCatalogTests(unittest.TestCase):
         self.assertNotEqual(hearthford.id, greywash.id)
         self.assertEqual(terrain_from_glyph(".").id, "terrain.region.ground")
 
+    def test_standing_timber_has_explicit_physical_interaction_semantics(self):
+        timber = terrain_from_glyph("T", "hearthford")
+
+        self.assertEqual(timber.id, "terrain.region.standing_timber")
+        self.assertFalse(timber.walkable)
+        self.assertTrue(timber.blocks_sight)
+        self.assertTrue(timber.destructible)
+        self.assertEqual(timber.hardness, 3)
+        self.assertEqual(timber.tool_actions, ("cut",))
+        self.assertEqual(timber.replacement_glyph, ".")
+        self.assertEqual(timber.action_sound, 4)
+        self.assertEqual(timber.material, "timber")
+        self.assertEqual((timber.yield_material, timber.yield_fuel), ("timber", 4))
+        self.assertEqual(
+            (timber.yield_item_kind, timber.yield_item_quantity),
+            ("commodity:timber", 1),
+        )
+
     def test_unknown_historical_glyph_has_deterministic_permissive_fallback(self):
         first = terrain_from_glyph("@", "hearthford")
         second = terrain_from_glyph("@", "frostmere")

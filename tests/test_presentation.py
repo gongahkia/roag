@@ -9,13 +9,14 @@ from unittest.mock import patch
 
 from roag.commands import MoveCommand
 from roag.presentation import (
-    EffectState, MapEffect, PRESENTATION_FRAME_MS, WATER_GLYPHS,
-    presentation_enabled,
+    CameraEffect, EffectState, FIRE_GLYPHS, MapEffect, PRESENTATION_FRAME_MS,
+    SHALLOW_WATER_GLYPHS, SMOKE_GLYPHS, WATER_GLYPHS, presentation_enabled,
 )
 from roag.runtime_events import (
     ActorDefeated, AreaResolved, AreaTelegraphed, AttackResolved,
-    AttackTelegraphed, DamageApplied, ProjectileResolved, RuntimeEventBatch,
-    RuntimeEventStep, TerrainChanged, TerrainDamaged, ThreatSpawned,
+    AttackTelegraphed, CollapseResolved, DamageApplied, ProjectileResolved,
+    RuntimeEventBatch, RuntimeEventStep, TerrainChanged, TerrainDamaged,
+    ThreatSpawned,
 )
 from roag.session import GameSession
 from roag.state import Position, create_world
@@ -159,6 +160,104 @@ class PresentationStateTests(unittest.TestCase):
         resolution.advance()
         self.assertEqual(resolution.glyph(".", right), "*")
 
+    def test_collapse_stages_debris_shockwave_and_visibility_safe_camera_motion(self):
+        origin = Position(20, 10, 0)
+        impact = Position(20, 10, -1)
+        collapse = CollapseResolved(
+            origin, (origin, impact), 2, "collapse.open_drop",
+        )
+        terrain = TerrainChanged(
+            "environment", origin, "terrain.region.ground",
+            "terrain.region.open_drop", "collapse",
+        )
+        effects = EffectState.for_seed("collapse presentation")
+
+        effects.consume(RuntimeEventBatch(steps=(
+            RuntimeEventStep(1, (collapse, terrain)),
+        )))
+
+        self.assertEqual(effects.glyph("O", origin), "#")
+        self.assertEqual(effects.glyph(".", Position(21, 10, 0)), ".")
+        self.assertEqual(effects.camera_offset({origin}), (1, 0))
+        self.assertEqual(effects.camera_offset(set()), (0, 0))
+        effects.advance()
+        self.assertEqual(effects.glyph("O", origin), "*")
+        self.assertEqual(effects.glyph(".", Position(21, 10, 0)), "-")
+        self.assertEqual(effects.glyph(".", impact), "*")
+        self.assertEqual(effects.camera_offset({origin}), (-1, 0))
+        effects.advance()
+        self.assertEqual(effects.glyph(".", Position(21, 10, 0)), ".")
+        self.assertEqual(effects.camera_offset({origin}), (0, 1))
+        effects.advance(2 * PRESENTATION_FRAME_MS)
+        self.assertEqual(effects.camera_offset({origin}), (0, 0))
+        self.assertEqual(effects.glyph("O", origin), "O")
+        self.assertEqual(effects.camera_effects, [])
+
+    def test_collapse_presentation_is_deterministic_bounded_and_disableable(self):
+        origin = Position(6, 7, 0)
+        event = CollapseResolved(origin, (origin,), 3, "collapse.rubble")
+        batch = RuntimeEventBatch(command_events=(event,))
+        first = EffectState.for_seed("deterministic collapse")
+        second = EffectState.for_seed("deterministic collapse")
+
+        first.consume(batch)
+        second.consume(batch)
+
+        self.assertEqual(first.effects, second.effects)
+        self.assertEqual(first.camera_effects, second.camera_effects)
+        self.assertTrue(all(
+            abs(value) <= 1
+            for effect in first.camera_effects
+            for offset in effect.offsets
+            for value in offset
+        ))
+        disabled = EffectState.for_seed("disabled collapse", enabled=False)
+        disabled.consume(batch)
+        self.assertEqual(disabled.effects, [])
+        self.assertEqual(disabled.camera_effects, [])
+        self.assertEqual(disabled.camera_offset({origin}), (0, 0))
+        with self.assertRaises(ValueError):
+            CameraEffect("invalid", origin, ((3, 0),), 0, 1, 0)
+
+    def test_terminal_applies_ui_owned_camera_offset_without_state_mutation(self):
+        class Screen:
+            def __init__(self):
+                self.writes = []
+
+            def getmaxyx(self):
+                return 24, 80
+
+            def erase(self):
+                self.writes.clear()
+
+            def refresh(self):
+                pass
+
+            def addnstr(self, row, col, value, count, attr=0):
+                self.writes.append((row, col, value[:count], attr))
+
+        state = create_world("presentation camera composition")
+        before = state.to_dict()
+        effects = EffectState.for_seed(state.seed)
+        screen = Screen()
+        with (
+            patch("roag.terminal.camera_origin", return_value=(5, 5)),
+            patch(
+                "roag.terminal.curses_tile",
+                side_effect=lambda _state, point: str(point.x % 10),
+            ),
+            patch.object(effects, "camera_offset", return_value=(1, 0)) as offset,
+        ):
+            _draw_base(screen, state, effects=effects)
+
+        offset.assert_called_once()
+        self.assertEqual(
+            next(value for row, column, value, _ in screen.writes
+                 if (row, column) == (1, 1)),
+            "6",
+        )
+        self.assertEqual(state.to_dict(), before)
+
     def test_session_outcome_enters_effect_state_without_mutating_again(self):
         state = create_world("presentation-command-boundary")
         session = GameSession(state)
@@ -250,6 +349,78 @@ class PresentationStateTests(unittest.TestCase):
         self.assertNotIn("elapsed_ms", serialized)
         self.assertNotIn("seed_offset", serialized)
 
+    def test_material_fields_animate_only_while_presently_visible(self):
+        effects = EffectState.for_seed("presentation material fields")
+        fire = Position(12, 7, 0)
+        smoke = Position(13, 7, 0)
+        shallow = Position(14, 7, 0)
+        frames = {"fire": [], "smoke": [], "water": []}
+
+        for _ in range(4):
+            frames["fire"].append(effects.ambient_cell(
+                "f", fire, environment_id="fire",
+            ).glyph)
+            frames["smoke"].append(effects.ambient_cell(
+                "s", smoke, environment_id="smoke",
+            ).glyph)
+            frames["water"].append(effects.ambient_cell(
+                ",", shallow, environment_id="water",
+            ).glyph)
+            effects.advance()
+
+        self.assertGreater(len(set(frames["fire"])), 1)
+        self.assertGreater(len(set(frames["smoke"])), 1)
+        self.assertGreater(len(set(frames["water"])), 1)
+        self.assertTrue(set(frames["fire"]) <= set(FIRE_GLYPHS))
+        self.assertTrue(set(frames["smoke"]) <= set(SMOKE_GLYPHS))
+        self.assertTrue(set(frames["water"]) <= set(SHALLOW_WATER_GLYPHS))
+        self.assertEqual(
+            effects.ambient_cell(
+                "f", fire, environment_id="fire", visible=False,
+            ).glyph,
+            "f",
+        )
+
+    def test_precipitation_is_sparse_stable_and_never_hides_map_symbols(self):
+        first = EffectState.for_seed("presentation regional weather")
+        second = EffectState.for_seed("presentation regional weather")
+        points = tuple(Position(x, y, 0) for y in range(8) for x in range(16))
+
+        def rainy_cells(effects):
+            return {
+                point: effects.ambient_cell(
+                    ".", point, weather_id="hard rain", exposed=True,
+                )
+                for point in points
+            }
+
+        initial = rainy_cells(first)
+        self.assertEqual(initial, rainy_cells(second))
+        wet = {point for point, frame in initial.items() if frame.glyph != "."}
+        self.assertTrue(wet)
+        self.assertLess(len(wet), len(points))
+        self.assertTrue(all(initial[point].role_id == "shallow_water" for point in wet))
+        first.advance()
+        self.assertNotEqual(wet, {
+            point for point, frame in rainy_cells(first).items()
+            if frame.glyph != "."
+        })
+
+        for glyph in ("@", "e", "!", "#", "+", "f", "s"):
+            self.assertEqual(
+                first.ambient_cell(
+                    glyph, Position(3, 3), weather_id="coast squall",
+                    exposed=True,
+                ).glyph,
+                glyph,
+            )
+        self.assertEqual(first.ambient_cell(
+            ".", Position(3, 3), weather_id="hard rain", exposed=False,
+        ).glyph, ".")
+        self.assertEqual(first.ambient_cell(
+            ".", Position(3, 3), weather_id="clear", exposed=True,
+        ).glyph, ".")
+
     def test_repeated_rendering_does_not_mutate_game_state(self):
         class Screen:
             def __init__(self):
@@ -268,6 +439,7 @@ class PresentationStateTests(unittest.TestCase):
                 self.writes.append((row, col, value[:count], attr))
 
         state = create_world("presentation-render-purity")
+        state.weather = "hard rain"
         before = state.to_dict()
         effects = EffectState.for_seed(state.seed)
         screen = Screen()

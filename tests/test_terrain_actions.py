@@ -8,7 +8,7 @@ from pathlib import Path
 from roag.circuits import cell_key
 from roag.commands import TerrainActionCommand
 from roag.inventory import item_spec
-from roag.materials import handle_material, key
+from roag.materials import handle_material, key, material_at
 from roag.regions import begin_region, validate_region
 from roag.runtime_events import TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
@@ -115,6 +115,63 @@ class TerrainActionTests(unittest.TestCase):
         )
         self.assertEqual(clay.quantity, 1)
         self.assertIn("harvested clay from terrain", clay.provenance)
+
+    def test_standing_timber_requires_sustained_loud_work_and_yields_cargo(self):
+        self.state.region.tile_changes[self.coordinate] = "T"
+        self.state.weapon = "felling axe"
+        self.state.auto_place_enabled = False
+        self.state.circuits.clear()
+        session = GameSession(self.state)
+        before_time = self.state.world_time
+
+        self.assertEqual(material_at(self.state, self.target), "timber")
+
+        first = session.submit(TerrainActionCommand("cut", self.target))
+
+        self.assertEqual(first.result_id, "terrain.damaged")
+        self.assertEqual(self.state.world_time, before_time + 1)
+        self.assertEqual(self.state.region.terrain_damage[self.coordinate], 2)
+        self.assertEqual(terrain_at(self.state.region, self.target).glyph, "T")
+        self.assertEqual(self.state.noise, 4)
+        self.assertEqual(self.state.sound_events[-1].strength, 4)
+        self.assertEqual([type(event) for event in first.events], [TerrainDamaged])
+        self.assertEqual((first.events[0].amount, first.events[0].remaining), (2, 1))
+
+        second = session.submit(TerrainActionCommand("cut", self.target))
+
+        self.assertEqual(second.result_id, "terrain.destroyed")
+        self.assertEqual(self.state.world_time, before_time + 2)
+        self.assertEqual(self.state.noise, 8)
+        self.assertNotIn(self.coordinate, self.state.region.terrain_damage)
+        self.assertEqual(terrain_at(self.state.region, self.target).glyph, ".")
+        self.assertEqual(
+            [type(event) for event in second.events],
+            [TerrainDamaged, TerrainChanged],
+        )
+        self.assertEqual((second.events[0].amount, second.events[0].remaining), (1, 0))
+        residue = self.state.region.materials[self.coordinate]
+        self.assertEqual((residue.material, residue.fuel), ("timber", 4))
+        timber = next(
+            item for item in self.state.items
+            if item.kind == "commodity:timber" and item.location == "ground"
+        )
+        self.assertEqual(
+            (timber.quantity, timber.region_id, timber.ground_position),
+            (1, "hearthford", self.target),
+        )
+
+        validate_region(self.state.region)
+        with tempfile.TemporaryDirectory() as directory:
+            restored = load_game(save_game(
+                self.state, Path(directory) / "standing-timber.json",
+            ))
+        restored_timber = next(item for item in restored.items if item.id == timber.id)
+        self.assertEqual(terrain_at(restored.region, self.target).glyph, ".")
+        self.assertEqual(
+            (restored_timber.kind, restored_timber.location,
+             restored_timber.region_id, restored_timber.ground_position),
+            ("commodity:timber", "ground", "hearthford", self.target),
+        )
 
     def test_unpacked_yield_remains_on_ground_and_emits_no_resource_reaction(self):
         self.state.region.tile_changes[self.coordinate] = "m"

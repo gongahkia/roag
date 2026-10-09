@@ -80,6 +80,15 @@ class AreaResolved:
 
 
 @dataclass(frozen=True)
+class CollapseResolved:
+    origin: Position
+    cells: tuple[Position, ...]
+    severity: int
+    result_id: str
+    event_id: str = field(init=False, default="world.collapse.resolved")
+
+
+@dataclass(frozen=True)
 class DamageApplied:
     source_actor_id: str
     target_actor_id: str
@@ -166,7 +175,7 @@ class ThreatSpawned:
 
 RuntimeEvent = (
     ActorMoved | InteractionResolved | AttackResolved | AttackTelegraphed
-    | ProjectileResolved | AreaTelegraphed | AreaResolved
+    | ProjectileResolved | AreaTelegraphed | AreaResolved | CollapseResolved
     | DamageApplied
     | StatusChanged | ActorDefeated | ItemUsed | CarriedRelicSelectionChanged
     | GuardResolved | RetreatResolved | TerrainDamaged | TerrainChanged

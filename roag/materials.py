@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import heapq
 
+from .runtime_events import CollapseResolved, RuntimeEventCollector, TerrainChanged
 from .state import GameState, Item, MaterialCell, Person, Position, Threat
 from .terrain import replace_terrain
 from .material_presentation import (
@@ -47,8 +48,14 @@ def material_at(state: GameState, point: Position) -> str:
         return cell.material
     if state.location == "region" and any(c.position == point for c in state.region.containers):
         return "timber"
+    if state.location == "region":
+        from .terrain import terrain_at
+
+        semantic_material = terrain_at(state.region, point).material
+        if semantic_material is not None:
+            return semantic_material
     tile = base_tile(state, point)
-    if tile in {"T", '"', ";"}:
+    if tile in {'"', ";"}:
         return "reeds"
     if tile in {"d", "+", "=", "&"}:
         return "timber"
@@ -281,7 +288,11 @@ def _opening_below(state: GameState, point: Position) -> Position | None:
     return below if str(below.z) in state.region.levels and vertical_open(state, below, point) else None
 
 
-def advance_materials(state: GameState) -> int:
+def advance_materials(
+    state: GameState,
+    *,
+    collector: RuntimeEventCollector | None = None,
+) -> int:
     """Advance at most 64 nearby sparse cells; idle/menu time never calls here."""
     from .calendar import calendar_at
     from .world import base_tile, vertical_open
@@ -393,20 +404,54 @@ def advance_materials(state: GameState) -> int:
         _, coordinate = heapq.heappop(collapse_queue)
         cell, point = cells[coordinate], point_at(coordinate)
         below = _opening_below(state, point)
-        _expose(state, below or point, "debris", 2)
+        impact = below or point
+        _expose(state, impact, "debris", 2)
         if initial_place != (state.location, state.active_region_id):
             return len(selected)
         cell.collapse_due, cell.support, cell.material = 0, 3, "stone"
+        result_id = "collapse.vessel_structure"
+        previous_terrain = replacement = None
         if state.location == "region":
             protected = set(state.region.landmarks.values()) | {c.position for c in state.region.containers}
             protected |= {p for link in state.region.vertical_links for p in (link.first, link.second)}
             if point not in protected:
-                replace_terrain(state.region, point, "O" if point.z > 0 else "%")
+                from .terrain import terrain_at
+
+                previous_terrain = terrain_at(state.region, point)
+                replacement = replace_terrain(
+                    state.region, point, "O" if point.z > 0 else "%",
+                )
+                result_id = (
+                    "collapse.open_drop" if point.z > 0
+                    else "collapse.rubble"
+                )
+            else:
+                result_id = "collapse.protected_structure"
             if point == state.position and point.z > 0:
                 from .actions import _fall
                 state.add_message(_fall(state), priority=3)
         else:
             state.vessel_integrity = max(0, state.vessel_integrity - 1)
+        if collector is not None:
+            collapse_cells = tuple(dict.fromkeys((point, impact)))
+            collector.record_step_event(CollapseResolved(
+                point,
+                collapse_cells,
+                2,
+                result_id,
+            ))
+            if (
+                previous_terrain is not None
+                and replacement is not None
+                and previous_terrain.id != replacement.id
+            ):
+                collector.record_step_event(TerrainChanged(
+                    "environment",
+                    point,
+                    previous_terrain.id,
+                    replacement.id,
+                    "collapse",
+                ))
         state.remember(material_format("material.collapse.memory", coordinate=coordinate))
         state.add_message(material_format("material.collapse.result", coordinate=coordinate), priority=3)
     return len(selected)

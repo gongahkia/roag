@@ -10,7 +10,8 @@ from typing import Mapping
 from .runtime_events import (
     ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
     AttackTelegraphed,
-    CarriedRelicSelectionChanged, DamageApplied, GuardResolved, ItemUsed,
+    CarriedRelicSelectionChanged, CollapseResolved, DamageApplied, GuardResolved,
+    ItemUsed,
     ProjectileResolved, RetreatResolved, RuntimeEvent, RuntimeEventBatch, StatusChanged,
     TerrainChanged, TerrainDamaged, ThreatSpawned,
 )
@@ -19,8 +20,18 @@ from .state import Position
 
 PRESENTATION_FRAME_MS = 100
 WATER_GLYPHS = ("~", "≈", "≋", "≈")
+SHALLOW_WATER_GLYPHS = (",", "~", ",", "≈")
+FIRE_GLYPHS = ("f", "^", "*", "^")
+SMOKE_GLYPHS = ("s", "~", "`", "~")
 MAX_TRANSIENT_EFFECTS = 256
+MAX_CAMERA_EFFECTS = 16
 _DISABLED_VALUES = frozenset({"0", "false", "no", "off"})
+_WEATHER_SAFE_GLYPHS = frozenset({".", ",", "~", ";", '"', "=", "m", "w", ":"})
+_PRECIPITATION = {
+    "hard rain": ("|", 11),
+    "forest rain": ("'", 13),
+    "coast squall": ("/", 7),
+}
 
 
 def presentation_enabled() -> bool:
@@ -58,6 +69,50 @@ class MapEffect:
         return self.glyphs[frame]
 
 
+@dataclass(frozen=True)
+class CameraEffect:
+    """One bounded viewport displacement sequence anchored to a visible event."""
+
+    effect_id: str
+    origin: Position
+    offsets: tuple[tuple[int, int], ...]
+    started_ms: int
+    priority: int
+    sequence: int
+    visible_only: bool = True
+
+    def __post_init__(self) -> None:
+        if (
+            not self.offsets
+            or any(
+                type(dx) is not int or type(dy) is not int
+                or abs(dx) > 2 or abs(dy) > 2
+                for dx, dy in self.offsets
+            )
+        ):
+            raise ValueError("camera offsets must be bounded integer pairs")
+        if self.started_ms < 0 or self.priority < 0 or self.sequence < 0:
+            raise ValueError("camera effect timing and ordering must be non-negative")
+
+    @property
+    def ended_ms(self) -> int:
+        return self.started_ms + len(self.offsets) * PRESENTATION_FRAME_MS
+
+    def offset_at(self, elapsed_ms: int) -> tuple[int, int] | None:
+        if not self.started_ms <= elapsed_ms < self.ended_ms:
+            return None
+        frame = (elapsed_ms - self.started_ms) // PRESENTATION_FRAME_MS
+        return self.offsets[frame]
+
+
+@dataclass(frozen=True)
+class AmbientCell:
+    """One derived idle frame; it has no authority beyond the current draw."""
+
+    glyph: str
+    role_id: str | None = None
+
+
 @dataclass
 class EffectState:
     """UI-owned clock and transient effect state for one play session.
@@ -70,6 +125,7 @@ class EffectState:
     elapsed_ms: int = 0
     seed_offset: int = 0
     effects: list[MapEffect] = field(default_factory=list)
+    camera_effects: list[CameraEffect] = field(default_factory=list)
     _next_sequence: int = 0
 
     @classmethod
@@ -88,6 +144,10 @@ class EffectState:
             self.elapsed_ms += milliseconds
             self.effects[:] = [
                 effect for effect in self.effects
+                if effect.ended_ms > self.elapsed_ms
+            ]
+            self.camera_effects[:] = [
+                effect for effect in self.camera_effects
                 if effect.ended_ms > self.elapsed_ms
             ]
 
@@ -129,6 +189,8 @@ class EffectState:
                 )
         if len(self.effects) > MAX_TRANSIENT_EFFECTS:
             self.effects[:] = self.effects[-MAX_TRANSIENT_EFFECTS:]
+        if len(self.camera_effects) > MAX_CAMERA_EFFECTS:
+            self.camera_effects[:] = self.camera_effects[-MAX_CAMERA_EFFECTS:]
 
     def _schedule_event(
         self,
@@ -166,6 +228,9 @@ class EffectState:
                     "debris", started_ms + index * PRESENTATION_FRAME_MS, 6,
                 )
             return
+        if isinstance(event, CollapseResolved):
+            self._schedule_collapse(event, started_ms)
+            return
         for specification in _effect_specifications(
             event, actor_positions, suppress_ranged_impact=suppress_ranged_impact,
         ):
@@ -173,6 +238,43 @@ class EffectState:
             self._append_effect(
                 effect_id, position, glyphs, emphasis_id, started_ms, priority,
             )
+
+    def _schedule_collapse(
+        self,
+        event: CollapseResolved,
+        started_ms: int,
+    ) -> None:
+        cells = tuple(dict.fromkeys((event.origin, *event.cells)))
+        for index, position in enumerate(cells):
+            self._append_effect(
+                "world.collapse.debris",
+                position,
+                ("#", "*", "%", ":") if position == event.origin
+                else ("*", "%", ":", "."),
+                "debris",
+                started_ms + index * PRESENTATION_FRAME_MS,
+                8,
+            )
+        for position, glyph in _shockwave_cells(event.origin):
+            self._append_effect(
+                "world.collapse.shockwave",
+                position,
+                (glyph,),
+                "motion",
+                started_ms + PRESENTATION_FRAME_MS,
+                6,
+            )
+        offsets = _collapse_camera_offsets(event.severity)
+        if offsets:
+            self.camera_effects.append(CameraEffect(
+                "world.collapse.camera",
+                event.origin,
+                offsets,
+                started_ms,
+                8,
+                self._next_sequence,
+            ))
+            self._next_sequence += 1
 
     def _schedule_projectile(
         self,
@@ -241,6 +343,22 @@ class EffectState:
             default=None,
         )
 
+    def camera_offset(self, visible: set[Position]) -> tuple[int, int]:
+        """Return the strongest active offset whose origin is presently seen."""
+        if not self.enabled:
+            return (0, 0)
+        candidates = [
+            effect for effect in self.camera_effects
+            if effect.offset_at(self.elapsed_ms) is not None
+            and (effect.origin in visible or not effect.visible_only)
+        ]
+        active = max(
+            candidates,
+            key=lambda effect: (effect.priority, effect.sequence),
+            default=None,
+        )
+        return active.offset_at(self.elapsed_ms) if active is not None else (0, 0)
+
     def glyph(
         self,
         authoritative_glyph: str,
@@ -260,10 +378,41 @@ class EffectState:
 
     def ambient_glyph(self, authoritative_glyph: str, position: Position) -> str:
         """Compose deterministic idle terrain without scanning active effects."""
-        if not self.enabled or authoritative_glyph != "~":
-            return authoritative_glyph
+        return self.ambient_cell(authoritative_glyph, position).glyph
+
+    def ambient_cell(
+        self,
+        authoritative_glyph: str,
+        position: Position,
+        *,
+        environment_id: str = "",
+        weather_id: str = "",
+        visible: bool = True,
+        exposed: bool = False,
+    ) -> AmbientCell:
+        """Derive environmental motion without retaining or changing world state."""
+        if not self.enabled or not visible:
+            return AmbientCell(authoritative_glyph)
         offset = self.seed_offset + position.x * 3 + position.y * 5 + position.z * 7
-        return WATER_GLYPHS[(self.frame_index + offset) % len(WATER_GLYPHS)]
+        frame = self.frame_index + offset
+        if environment_id == "fire" and authoritative_glyph == "f":
+            return AmbientCell(FIRE_GLYPHS[frame % len(FIRE_GLYPHS)])
+        if environment_id == "smoke" and authoritative_glyph == "s":
+            return AmbientCell(SMOKE_GLYPHS[frame % len(SMOKE_GLYPHS)])
+        if authoritative_glyph == "~":
+            return AmbientCell(WATER_GLYPHS[frame % len(WATER_GLYPHS)])
+        if environment_id == "water" and authoritative_glyph == ",":
+            return AmbientCell(
+                SHALLOW_WATER_GLYPHS[frame % len(SHALLOW_WATER_GLYPHS)]
+            )
+        precipitation = _PRECIPITATION.get(weather_id) if exposed else None
+        if precipitation and authoritative_glyph in _WEATHER_SAFE_GLYPHS:
+            glyph, period = precipitation
+            if frame % period == 0:
+                if weather_id == "coast squall" and self.frame_index % 2:
+                    glyph = "\\"
+                return AmbientCell(glyph, "shallow_water")
+        return AmbientCell(authoritative_glyph)
 
 
 def _effect_specifications(
@@ -360,6 +509,29 @@ def _projectile_glyph(previous: Position, position: Position) -> str:
     if dx:
         return "-"
     return "|"
+
+
+def _shockwave_cells(origin: Position) -> tuple[tuple[Position, str], ...]:
+    return (
+        (Position(origin.x - 1, origin.y - 1, origin.z), "\\"),
+        (Position(origin.x, origin.y - 1, origin.z), "|"),
+        (Position(origin.x + 1, origin.y - 1, origin.z), "/"),
+        (Position(origin.x - 1, origin.y, origin.z), "-"),
+        (Position(origin.x + 1, origin.y, origin.z), "-"),
+        (Position(origin.x - 1, origin.y + 1, origin.z), "/"),
+        (Position(origin.x, origin.y + 1, origin.z), "|"),
+        (Position(origin.x + 1, origin.y + 1, origin.z), "\\"),
+    )
+
+
+def _collapse_camera_offsets(severity: int) -> tuple[tuple[int, int], ...]:
+    if severity <= 0:
+        return ()
+    if severity == 1:
+        return ((1, 0), (0, 0))
+    if severity == 2:
+        return ((1, 0), (-1, 0), (0, 1), (0, 0))
+    return ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 0), (0, 0))
 
 
 def _projectile_attacks(
