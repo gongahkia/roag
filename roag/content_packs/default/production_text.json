@@ -84,7 +84,7 @@
     "production.overlay.catalog.guidance": "1-8 make; A-H delegate; N/P pages; V changes view; M fills a carried flask.",
     "production.overlay.catalog.gather": "9. Gather {first}; 0. Gather {second}; remaining local lots {stock}.",
     "production.overlay.catalog.requirement_item": "{quantity} {item} ({held} held)",
-    "production.navigation.status": "Lead: {site}, {distance} paces {bearing}; [T] briefing.",
+    "production.navigation.status": "[T] {site}: {distance} paces {bearing}",
     "production.navigation.heading": "CHARTED REGIONAL WORK",
     "production.navigation.site": "{site}: {distance} paces {bearing}, charted at {x},{y},z{z}. This bearing is not a revealed route.",
     "production.navigation.resources": "Local source lots: {sources}; {stock} draws remain.",

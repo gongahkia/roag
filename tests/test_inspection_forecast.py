@@ -121,7 +121,7 @@ class InspectionAndForecastTests(unittest.TestCase):
             "PRESSURE", "STEADY", f"Score {forecast.pressure.score}",
             "Exposure 0", f"Depth {forecast.pressure.depth}", "Noise 0",
             "Value 0", f"Next strained: +{forecast.points_to_next_band}",
-            "Lead: mill",
+            "[T] mill",
         ):
             self.assertIn(phrase, text)
         for phrase in ("Ammo", "DANGER", "no visible threat", "Combo", "STATUS bogged", "ACTION", "Response:"):

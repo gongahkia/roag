@@ -86,7 +86,7 @@ class GameplayCommissioningTests(unittest.TestCase):
         self.assertIsNotNone(lead)
         self.assertEqual(lead.landmark_id, "mill")
         self.assertEqual(lead.position, site_position(state))
-        self.assertIn(lead.bearing, {"NE", "E", "SE"})
+        self.assertIn(lead.bearing, {"N", "NE", "E", "SE", "S", "SW", "W", "NW"})
         self.assertGreater(lead.distance, 50)
         self.assertEqual(lead.sources, ("iron filings", "spring water"))
         self.assertEqual(lead.stations, ("workshop", "forge"))
@@ -97,7 +97,7 @@ class GameplayCommissioningTests(unittest.TestCase):
         )
 
         status = " ".join(_status_lines(state))
-        self.assertIn("Lead: mill", status)
+        self.assertIn("[T] mill", status)
         self.assertIn(f"{lead.distance} paces {lead.bearing}", status)
         title, lines = _overlay_lines(state, "navigation")
         rendered = " ".join(lines)

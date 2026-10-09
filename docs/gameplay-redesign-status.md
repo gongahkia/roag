@@ -48,10 +48,11 @@ source of truth.
 | GAMEPLAY-05 | Complete | Fresh-field resources can be harvested, refined, crafted, fitted through terminal controls, and commissioned into a reacting mass engine without authored circuit fixtures. |
 | GAMEPLAY-06 | Complete | Data-derived All, Engine Chain, and Ready Now production views make the field-engine path legible without changing recipes or imposing an objective. |
 | GAMEPLAY-07 | Complete | Inspecting a field sensor names its physical rack connection, exact trigger range, and bounded charge/benefit/noise behavior for every mode. |
+| GAMEPLAY-08 | Complete | An unseen regional works site has a zero-time charted field lead with transformed bearing, distance, sources, stations, stock, and useful en-route cargo guidance. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
 through ENGINE-06, WORLD-04 through WORLD-07, DANGER-03, and PRESENTATION-01
-through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-07 are post-roadmap
+through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-08 are post-roadmap
 tranches scoped from the integrated systems already in the repository. Further
 tranches should continue to be chosen from playtesting and the still-open
 product decisions rather than assumed here.
@@ -301,6 +302,15 @@ product decisions rather than assumed here.
   drift from the current one-cell mass range, one-charge reaction increment,
   one-power/one-noise terrain assistance, or one-cell supply conversion while
   those mechanics retain their present values.
+- `roag.production.ProductionSiteLead` is a read-only projection of the active
+  Region's unseen physical works: actual transformed landmark position,
+  eight-way bearing, range, source/station vocabulary, remaining stock, and
+  carried timber. It reveals no terrain cell and performs no route search.
+- The normal status panel retains a compact `[T]` works bearing until the site
+  is observed. The zero-time navigation overlay expands it into a field brief
+  that names local source lots, physical stations, current timber, and useful
+  standing-timber work along the journey. Once observed, the lead disappears
+  and the existing seen-landmark/remembered-route system owns navigation.
 - `roag.presentation.MapEffect` is an immutable renderer-neutral description
   of one transient glyph sequence, emphasis role, world position, start time,
   and deterministic priority. `EffectState` schedules these from
@@ -397,6 +407,10 @@ product decisions rather than assumed here.
   migration, save-format bump, or mechanical fingerprint change. It exposes
   existing topology and bounded rule constants through selected-pack
   presentation strings; reading diagnostics is mutation-free.
+- GAMEPLAY-08 adds no authoritative or persistent state, map revelation,
+  migration, save-format bump, recipe, or mechanical fingerprint change.
+  `ProductionSiteLead`, status text, and overlay text are derived on demand;
+  querying them leaves world time, seen cells, inventory, and saves unchanged.
 - Presentation timeout frames submit no command and consume no world time or
   deterministic RNG.
 - Regional maps remain glyph-backed through `Region.levels` and
@@ -612,6 +626,12 @@ product decisions rather than assumed here.
   closes the inspectable sensor-mode and range gap, but it does not add a
   placement ghost, automatic wiring, a mandatory commissioning objective, or
   proactive tutorial prompts; the player must still inspect the fitted sensor.
+- GAMEPLAY-08 does not shorten the measured sixty-three-to-seventy-nine-step
+  terrain route, reveal a safe corridor, autoexplore unseen ground, move the
+  mill, or suppress danger along the journey. Its bearing is explicitly a
+  chart lead rather than a promised path. Numeric opening travel and encounter
+  pacing therefore remain a playtest/balance decision after wayfinding is
+  legible.
 - PRESENTATION-01 consumes only runtime events already emitted by typed command
   paths. Legacy spell, manoeuvre, thrown-device, enemy-action, and other direct
   reducer paths do not receive inferred animation from messages. Camera shake,

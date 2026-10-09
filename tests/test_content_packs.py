@@ -325,6 +325,7 @@ def alternate_pack(root: Path) -> Path:
         "production.order.record": "FIXTURE day {day}: {recipe} by {worker} at {region} ({x},{y}).",
         "production.provenance.masterwork": "FIXTURE superior {work}",
         "production.overlay.catalog.title": "FIXTURE WORKING PLANS",
+        "production.navigation.heading": "FIXTURE CHARTED WORK",
     })
     source.write_text(json.dumps(production_text, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     source = root / "magic_text.json"
@@ -762,7 +763,8 @@ def production_presentation_snapshot(environment: dict[str, str]) -> dict[str, o
             "state=create_world('production-pack-proof'); state.courier.skill_nodes.append('masterwork'); state.location='region'; state.position=site_position(state); first=gather(state, 0); "
             "[auto_place(state, create_item(state, kind, 'fixture input', quantity=quantity).id, 'pack', owner_id=state.active_courier_id) for kind, quantity in (('ingredient:healing herb', 1), ('ingredient:clay', 2), ('commodity:wool', 3))]; "
             "dressing=make(state, 'field-dressing'); made=make(state, 'make:smoke bomb kit'); state.courier.speech=7; state.trade_credit=2; delegated=delegate(state, 'make:smoke bomb kit'); state.world_time=36; advance_craft_economy(state); catalog=_overlay_lines(state, 'craft-catalog:0'); "
-            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0]], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
+            "lead_state=create_world('production-lead-pack-proof'); lead_state.location='region'; lead_state.position=lead_state.region.landmarks['landing']; navigation=_overlay_lines(lead_state, 'navigation'); "
+            "masterwork=next(item for item in state.items if item.kind == 'smoke bomb kit' and item.location == 'pack'); print(json.dumps({'pack':__import__('roag.catalog',fromlist=['selected_content_pack']).selected_content_pack().id, 'messages':[first[1],dressing[1],made[1],masterwork.provenance,delegated[1],state.production['records'][-1],catalog[0],' '.join(navigation[1])], 'mechanics':{'sources':state.production['sites']['hearthford'], 'orders':state.production['orders'], 'output':sorted((item.kind,item.quantity,item.location,item.region_id,item.masterwork) for item in state.items if item.kind in {'smoke bomb kit', 'consumable:willow dressing'}), 'credit':state.trade_credit, 'time':state.world_time, 'recipes':['field-dressing','make:smoke bomb kit']}}))",
         ], cwd=ROOT, env=environment, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -1845,6 +1847,7 @@ class ContentPackTests(unittest.TestCase):
         self.assertIn("FIXTURE", alternate["messages"][4])
         self.assertIn("FIXTURE day", alternate["messages"][5])
         self.assertEqual(alternate["messages"][6], "FIXTURE WORKING PLANS")
+        self.assertIn("FIXTURE CHARTED WORK", alternate["messages"][7])
 
     def test_production_presentation_contract_rejects_invalid_authoring(self):
         with tempfile.TemporaryDirectory() as directory:
