@@ -45,7 +45,22 @@ class Recipe:
     contents: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ProductionSiteLead:
+    """Read-only chart information for an unseen regional works site."""
+
+    landmark_id: str
+    position: Position
+    bearing: str
+    distance: int
+    sources: tuple[str, ...]
+    stations: tuple[str, ...]
+    stock: int
+    timber_carried: int
+
+
 RECIPES: dict[str, Recipe] = {}
+CATALOG_VIEWS = ("all", "engine", "ready")
 
 
 def _add(recipe: Recipe) -> None:
@@ -111,6 +126,45 @@ def at_shore_site(state: GameState) -> bool:
 
     point = site_position(state)
     return bool(state.location == "region" and point and distance(state.position, point) <= 2)
+
+
+def _bearing(origin: Position, destination: Position) -> str:
+    horizontal = "W" if destination.x < origin.x else "E" if destination.x > origin.x else ""
+    vertical = "N" if destination.y < origin.y else "S" if destination.y > origin.y else ""
+    return vertical + horizontal or "HERE"
+
+
+def production_site_lead(state: GameState) -> ProductionSiteLead | None:
+    """Describe the charted regional works until its position has been seen.
+
+    This exposes no route cells and performs no pathfinding.  Once the site is
+    observed, the existing remembered-route navigation owns wayfinding.
+    """
+    from .world import distance, position_key
+
+    if state.location != "region" or state.active_region_id not in SITE_KEYS:
+        return None
+    point = site_position(state)
+    if (
+        point is None
+        or distance(state.position, point) <= 2
+        or position_key(point) in state.region.seen
+    ):
+        return None
+    site = state.production.get("sites", {}).get(state.active_region_id, {})
+    stock = site.get("stock", 0)
+    if type(stock) is not int or stock < 0:
+        stock = 0
+    return ProductionSiteLead(
+        SITE_KEYS[state.active_region_id],
+        point,
+        _bearing(state.position, point),
+        distance(state.position, point),
+        SOURCES[state.active_region_id],
+        SHORE_STATIONS[state.active_region_id],
+        stock,
+        input_count(state, "commodity:timber"),
+    )
 
 
 def stations_here(state: GameState) -> set[str]:
@@ -182,6 +236,46 @@ def recipe_status(state: GameState, recipe_id: str) -> tuple[bool, str]:
     missing = [f"{quantity - input_count(state, kind)} {item_display_name_or_legacy(kind)}" for kind, quantity in recipe.inputs
                if input_count(state, kind) < quantity]
     return (False, production_format("production.status.needs", inputs=", ".join(missing))) if missing else (True, production_text("production.status.ready"))
+
+
+def _engine_recipe_ids() -> set[str]:
+    """Return the data-derived production chain feeding physical circuits."""
+    selected = {
+        recipe_id for recipe_id, recipe in RECIPES.items()
+        if recipe.output.startswith("circuit:")
+    }
+    required = {
+        kind for recipe_id in selected for kind, _quantity in RECIPES[recipe_id].inputs
+    }
+    changed = True
+    while changed:
+        changed = False
+        for recipe_id, recipe in RECIPES.items():
+            if recipe_id in selected or recipe.output not in required:
+                continue
+            selected.add(recipe_id)
+            required.update(kind for kind, _quantity in recipe.inputs)
+            changed = True
+    return selected
+
+
+def catalog_recipe_ids(state: GameState, view: str = "all") -> tuple[str, ...]:
+    """Return stable station-appropriate recipe IDs for a transient UI view."""
+    if view not in CATALOG_VIEWS:
+        raise ValueError(f"unknown production catalog view: {view}")
+    available = tuple(
+        recipe_id for recipe_id, recipe in RECIPES.items()
+        if recipe.station in stations_here(state)
+    )
+    if view == "engine":
+        engine = _engine_recipe_ids()
+        return tuple(recipe_id for recipe_id in available if recipe_id in engine)
+    if view == "ready":
+        return tuple(
+            recipe_id for recipe_id in available
+            if recipe_status(state, recipe_id)[0]
+        )
+    return available
 
 
 def make(state: GameState, recipe_id: str) -> tuple[bool, str]:

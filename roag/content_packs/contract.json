@@ -12604,6 +12604,14 @@
       "placeholders": []
     },
     {
+      "id": "production.recipe.hearthford-ironwork.name",
+      "placeholders": []
+    },
+    {
+      "id": "production.recipe.hearthford-paper.name",
+      "placeholders": []
+    },
+    {
       "id": "production.recipe.hearthford-splints.name",
       "placeholders": []
     },
@@ -12886,6 +12894,28 @@
       ]
     },
     {
+      "id": "production.overlay.catalog.view",
+      "placeholders": [
+        "view"
+      ]
+    },
+    {
+      "id": "production.overlay.catalog.view.all",
+      "placeholders": []
+    },
+    {
+      "id": "production.overlay.catalog.view.engine",
+      "placeholders": []
+    },
+    {
+      "id": "production.overlay.catalog.view.ready",
+      "placeholders": []
+    },
+    {
+      "id": "production.overlay.catalog.empty",
+      "placeholders": []
+    },
+    {
       "id": "production.overlay.catalog.recipe",
       "placeholders": [
         "index",
@@ -12920,6 +12950,52 @@
         "second",
         "stock"
       ]
+    },
+    {
+      "id": "production.navigation.status",
+      "placeholders": [
+        "site",
+        "distance",
+        "bearing"
+      ]
+    },
+    {
+      "id": "production.navigation.heading",
+      "placeholders": []
+    },
+    {
+      "id": "production.navigation.site",
+      "placeholders": [
+        "site",
+        "distance",
+        "bearing",
+        "x",
+        "y",
+        "z"
+      ]
+    },
+    {
+      "id": "production.navigation.resources",
+      "placeholders": [
+        "sources",
+        "stock"
+      ]
+    },
+    {
+      "id": "production.navigation.stations",
+      "placeholders": [
+        "stations"
+      ]
+    },
+    {
+      "id": "production.navigation.cargo",
+      "placeholders": [
+        "timber"
+      ]
+    },
+    {
+      "id": "production.navigation.guidance",
+      "placeholders": []
     }
   ],
   "magic": [
@@ -20089,6 +20165,51 @@
         "amount",
         "x",
         "y"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sensor.rack.connected",
+      "placeholders": [
+        "x",
+        "y",
+        "z",
+        "charge",
+        "maximum"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sensor.rack.missing",
+      "placeholders": []
+    },
+    {
+      "id": "circuit.diagnostic.sensor.mode.mass",
+      "placeholders": [
+        "range",
+        "gain",
+        "spend",
+        "power",
+        "noise"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sensor.mode.threat",
+      "placeholders": [
+        "range",
+        "gain"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sensor.mode.supply",
+      "placeholders": [
+        "range",
+        "cells",
+        "charge"
+      ]
+    },
+    {
+      "id": "circuit.diagnostic.sensor.mode.water",
+      "placeholders": [
+        "threshold"
       ]
     },
     {

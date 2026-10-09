@@ -112,12 +112,14 @@ def _enforce_content_compat(value: dict[str, Any]) -> None:
     if mechanical is None:
         return
     from .mechanical_compatibility import (
-        main_world_mechanical_fingerprint,
+        main_world_mechanical_fingerprint_is_compatible,
         mechanical_compatibility_version,
     )
     if mechanical["compatibility_version"] != mechanical_compatibility_version():
         raise StateError("save requires a different main-world mechanical compatibility version")
-    if mechanical["catalog_fingerprint"] != main_world_mechanical_fingerprint():
+    if not main_world_mechanical_fingerprint_is_compatible(
+        mechanical["catalog_fingerprint"],
+    ):
         raise StateError(
             "save requires different main-world mechanical catalogs; presentation-only pack changes are allowed"
         )

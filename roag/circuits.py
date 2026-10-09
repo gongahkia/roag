@@ -39,6 +39,11 @@ FACING_GLYPHS = {"north": "^", "east": ">", "south": "v", "west": "<"}
 SENSOR_MODES = ("mass", "water", "threat", "supply")
 PULSE_INTERVAL = 6
 CELL_CHARGE = 24
+SENSOR_CHARGE_STEP = 1
+MASS_SENSOR_ENGINE_RANGE = 1
+TERRAIN_ASSIST_POWER_PER_CHARGE = 1
+TERRAIN_ASSIST_SOUND_PER_CHARGE = 1
+SUPPLY_SENSOR_CELL_COST = 1
 SIGNAL_SPAN = 64
 DEVICE_HOLD = 7
 MAX_CELLS = 4096
@@ -621,7 +626,44 @@ def diagnostic_lines(state: GameState, cell: CircuitCell) -> list[str]:
         else:
             physical = [path for rack in charged if (path := _route(state, rack, target, open_only=False))]
             route = _blocked_link(state, min(physical, key=len)) if physical else circuit_text("circuit.diagnostic.route.no_physical")
-    return [status, sources, setting, route, circuit_format("circuit.diagnostic.last", pulse=cell.last_pulse or circuit_text("circuit.value.never"), event=cell.last_event or circuit_text("circuit.value.none"))]
+    guidance: list[str] = []
+    if cell.kind == "sensor":
+        linked = nearest_connected_rack(state, cell)
+        if linked is None:
+            guidance.append(circuit_text("circuit.diagnostic.sensor.rack.missing"))
+        else:
+            _rack_key, rack = linked
+            guidance.append(circuit_format(
+                "circuit.diagnostic.sensor.rack.connected",
+                x=rack.position.x, y=rack.position.y, z=f"{rack.position.z:+d}",
+                charge=rack.charge, maximum=2 * CELL_CHARGE,
+            ))
+        if cell.mode == "mass":
+            guidance.append(circuit_format(
+                "circuit.diagnostic.sensor.mode.mass",
+                range=MASS_SENSOR_ENGINE_RANGE,
+                gain=SENSOR_CHARGE_STEP,
+                spend=SENSOR_CHARGE_STEP,
+                power=TERRAIN_ASSIST_POWER_PER_CHARGE,
+                noise=TERRAIN_ASSIST_SOUND_PER_CHARGE,
+            ))
+        elif cell.mode == "threat":
+            guidance.append(circuit_format(
+                "circuit.diagnostic.sensor.mode.threat",
+                range=cell.threshold, gain=SENSOR_CHARGE_STEP,
+            ))
+        elif cell.mode == "supply":
+            guidance.append(circuit_format(
+                "circuit.diagnostic.sensor.mode.supply",
+                range=cell.threshold, cells=SUPPLY_SENSOR_CELL_COST,
+                charge=SUPPLY_SENSOR_CELL_COST * CELL_CHARGE,
+            ))
+        else:
+            guidance.append(circuit_format(
+                "circuit.diagnostic.sensor.mode.water",
+                threshold=cell.threshold,
+            ))
+    return [status, sources, setting, *guidance, route, circuit_format("circuit.diagnostic.last", pulse=cell.last_pulse or circuit_text("circuit.value.never"), event=cell.last_event or circuit_text("circuit.value.none"))]
 
 def _terrain_at(state: GameState, space: str, point: Position) -> str:
     if space == "vessel":

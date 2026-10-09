@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .circuits import (
-    CELL_CHARGE, gain_charge, load_rack_from_pack,
+    CELL_CHARGE, SUPPLY_SENSOR_CELL_COST, gain_charge, load_rack_from_pack,
     space_id as active_space_id, spend_charge,
 )
 from .state import GameState, Position
@@ -197,7 +197,7 @@ class LoadRack:
     actor: ActorRef
     amount: int = field(init=False, default=CELL_CHARGE)
     resource_kind: str = field(init=False, default="circuit:cell")
-    resource_amount: int = field(init=False, default=1)
+    resource_amount: int = field(init=False, default=SUPPLY_SENSOR_CELL_COST)
     effect_id: str = field(init=False, default="load_rack")
 
     def __post_init__(self) -> None:

@@ -44,10 +44,14 @@ source of truth.
 | GAMEPLAY-01 | Complete | A deterministic headless field-loop contract crosses direct entry, physical terrain harvest, engine reaction, pressure escalation, reinforcement, collapse, and save/load continuation. |
 | GAMEPLAY-02 | Complete | A deterministic generated-opening audit measures direct-start terrain, threat, production, role-loadout, and fresh-field engine access without changing balance. |
 | GAMEPLAY-03 | Complete | Every selected new-run courier has physical pack-carried access to ordinary terrain work without replacing role equipment or changing load band. |
+| GAMEPLAY-04 | Complete | Hearthford's gathered filings and water plus harvested timber can produce a physical circuit rack and sensor without vessel access or granted components. |
+| GAMEPLAY-05 | Complete | Fresh-field resources can be harvested, refined, crafted, fitted through terminal controls, and commissioned into a reacting mass engine without authored circuit fixtures. |
+| GAMEPLAY-06 | Complete | Data-derived All, Engine Chain, and Ready Now production views make the field-engine path legible without changing recipes or imposing an objective. |
+| GAMEPLAY-07 | Complete | Inspecting a field sensor names its physical rack connection, exact trigger range, and bounded charge/benefit/noise behavior for every mode. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
 through ENGINE-06, WORLD-04 through WORLD-07, DANGER-03, and PRESENTATION-01
-through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-03 are post-roadmap
+through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-07 are post-roadmap
 tranches scoped from the integrated systems already in the repository. Further
 tranches should continue to be chosen from playtesting and the still-open
 product decisions rather than assumed here.
@@ -258,6 +262,45 @@ product decisions rather than assumed here.
   active courier's pack as well as the existing synchronized weapon/gear
   mirrors. Locker, ground, lost, and other actors' tools provide no power. The
   same query drives resolution and generated-opening audit profiles.
+- Hearthford now exposes two ordinary catalog recipes at its existing shore
+  stations: two gathered iron-filings units plus one timber become two
+  ironwork, while one gathered spring-water unit plus one timber becomes one
+  paper. Combined with one additional timber, those outputs satisfy the
+  unchanged physical `circuit-rack` and `circuit-sensor` recipes exactly.
+- The field-production path uses only established gathering, terrain yield,
+  pack inventory, station gating, recipe consumption, item creation,
+  acquisition facts, and action-clock costs. It grants no component, adds no
+  vessel fallback, and does not create a parallel abstract resource balance.
+- `tests.test_gameplay_commissioning` exercises the complete fresh-field path
+  with no granted recipe resource or fitted circuit: three physical timber
+  harvests, three shore draws, both Hearthford refinements, rack/sensor
+  fabrication, circuit-terminal placement, and a final gathered resource that
+  charges the connected rack. The full sequence consumes 21 existing
+  authoritative world steps and survives format-15 save/load.
+- The production catalog overlay now uses its module-level item presentation
+  dependency consistently. Removing the shadowing branch-local import fixes
+  catalog rendering for the actual terminal recipe path and selected content
+  packs without changing simulation or introducing a new UI workflow.
+- `roag.production.catalog_recipe_ids` is the shared stable selection seam for
+  production UI views. `all` preserves the complete station-appropriate
+  catalog, `ready` derives current craftability from `recipe_status`, and
+  `engine` walks backward from physical `circuit:` outputs through actual
+  recipe inputs so prerequisite refinements remain beside their consumers.
+- The production overlay encodes view and page in transient overlay identity,
+  cycles views with `V`, preserves the selected view across `N`/`P` paging and
+  recipe selection, and gives an explicit empty-view explanation. At the
+  Hearthford works this reduces the engine path from 62 mixed plans over eight
+  pages to 15 relevant plans over two pages.
+- Circuit-terminal sensor diagnostics now name the nearest physically
+  connected rack and its current/capacity charge, or explicitly report that
+  no rack is connected. Each mass, threat, supply, and water mode also states
+  its actual trigger, effective range or threshold, charge gain/spend, and
+  terrain-power/noise consequence where applicable.
+- Shared circuit-domain constants now drive both those selected-pack
+  diagnostics and the existing bounded engine rules. The presentation cannot
+  drift from the current one-cell mass range, one-charge reaction increment,
+  one-power/one-noise terrain assistance, or one-cell supply conversion while
+  those mechanics retain their present values.
 - `roag.presentation.MapEffect` is an immutable renderer-neutral description
   of one transient glyph sequence, emphasis role, world position, start time,
   and deterministic priority. `EffectState` schedules these from
@@ -334,6 +377,26 @@ product decisions rather than assumed here.
   `vessel_changes` persistence. It adds no state field, migration, save-format
   bump, content row, or fingerprint change; existing saves and ordinary vessel
   departures do not receive a new item implicitly.
+- GAMEPLAY-04 adds two mechanical production rows, changing the default
+  catalog fingerprint from
+  `4f1069c422993eee3fa9f7190f5ab91ea072d2a86703f419e2c7dc0910e5da0b`
+  to `6941addee8ab8a680f77d0a46dfaed11cc214ae89923f2d5bc7dbea9804c51d3`.
+  A directional reviewed compatibility transition accepts only that additive
+  predecessor and adopts the active fingerprint on the next save write;
+  arbitrary catalog mismatches remain rejected. Format 15 and existing
+  authoritative state need no migration.
+- GAMEPLAY-05 adds no persistent field, catalog content, migration, or
+  fingerprint change. Commissioned racks, sensors, modes, and charge already
+  use existing format-15 circuit persistence; its terminal fix changes only
+  Python name resolution in an existing overlay.
+- GAMEPLAY-06 adds no authoritative or persistent state, recipe row, migration,
+  save-format bump, or mechanical fingerprint change. Catalog view/page state
+  exists only in the current terminal overlay. New selected-pack strings affect
+  presentation compatibility only.
+- GAMEPLAY-07 adds no authoritative or persistent state, circuit mode, recipe,
+  migration, save-format bump, or mechanical fingerprint change. It exposes
+  existing topology and bounded rule constants through selected-pack
+  presentation strings; reading diagnostics is mutation-free.
 - Presentation timeout frames submit no command and consume no world time or
   deterministic RNG.
 - Regional maps remain glyph-backed through `Region.levels` and
@@ -436,9 +499,9 @@ product decisions rather than assumed here.
 - Before WORLD-01 changes, focused validation already had two unrelated
   failures: character save round-trip courier selection and elite-machinery
   damage expectation. They are not part of WORLD-01.
-- Nearby content-pack validation also exposes existing stale UI-contract count
-  and terminal legacy-overlay failures; the redesign tranches do not currently
-  depend on either path.
+- Nearby content-pack validation also exposes an existing stale UI-contract
+  count. GAMEPLAY-05 fixed the separate craft-catalog closure failure because
+  it directly blocked the fresh-field commissioning path.
 - WORLD-03 and WORLD-04 deliberately began with ordinary reeds, dense reeds,
   and mud. WORLD-06 and WORLD-07 add only ordinary standing timber plus its
   existing support/collapse consequence; walls, worked timber, fragile floors,
@@ -519,15 +582,36 @@ product decisions rather than assumed here.
   generated Hearthford's ordinary destructible terrain before GAMEPLAY-03.
   The selected new-run courier now receives a lightweight physical tool only
   when needed, closing that access gap without redistributing role equipment.
-  Even an optimistic closure over starting equipment, terrain yields, regional
-  gathering, and shore stations still cannot make both a circuit rack and
-  sensor for any starting role because required commodity inputs have no
-  fresh-field source in that opening.
+  GAMEPLAY-04 closes the separate fresh-field commodity gap for every role:
+  three of Hearthford's four initial site draws plus three harvested timber
+  can make one rack and one sensor. The production site remains sixty-three to
+  seventy-nine measured movement actions from the opening landing, so pacing,
+  discoverability, and whether that trek is desirable remain playtest work.
 - GAMEPLAY-03 does not grant a tool to every household member, alter existing
   role loadouts, make locker tools remotely usable, change terrain hardness or
   yield, or add a circuit recipe. Death and item loss remain physical: the
   issued tool can be dropped, recovered, transferred, or lost like any other
   inventory item.
+- GAMEPLAY-04 does not shorten the route to the mill, grant starting circuit
+  parts, change gathering stock or regeneration, add background production,
+  or tune recipe/action-clock costs. It closes one exact Hearthford input path;
+  broader regional resource loops and production balance remain deferred.
+- GAMEPLAY-05 proves commissioning with ordinary production and terminal
+  controls, but its deterministic contract clears authored circuits and
+  initial threats and places three ordinary timber cells beside the mill to
+  isolate the causal chain. It is not a balance claim about the generated
+  sixty-three-to-seventy-nine-step journey. The full catalog still exposes 62
+  forge/workshop/portable recipes over eight pages, but GAMEPLAY-06 provides a
+  two-page engine view and a dynamic ready-now view rather than deleting or
+  reordering established content.
+- Circuit placement and operation still use their established direct terminal
+  reducers rather than typed `GameSession` commands. GAMEPLAY-05 does not add
+  presentation events or refactor that boundary merely to satisfy its test.
+- GAMEPLAY-06 does not add a tutorial, mandatory build objective, recipe
+  favorites, search, remembered UI filters, or knowledge unlocks. GAMEPLAY-07
+  closes the inspectable sensor-mode and range gap, but it does not add a
+  placement ghost, automatic wiring, a mandatory commissioning objective, or
+  proactive tutorial prompts; the player must still inspect the fitted sensor.
 - PRESENTATION-01 consumes only runtime events already emitted by typed command
   paths. Legacy spell, manoeuvre, thrown-device, enemy-action, and other direct
   reducer paths do not receive inferred animation from messages. Camera shake,

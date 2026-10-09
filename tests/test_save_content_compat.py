@@ -62,6 +62,19 @@ class SaveContentCompatibilityTests(unittest.TestCase):
         with self.assertRaisesRegex(StateError, "mechanical compatibility version"):
             game_state_from_dict(incompatible)
 
+    def test_additive_field_recipe_catalog_adopts_on_next_write(self):
+        prior = copy.deepcopy(self.state.to_dict())
+        prior["content_compat"]["mechanical"]["catalog_fingerprint"] = (
+            "4f1069c422993eee3fa9f7190f5ab91ea072d2a86703f419e2c7dc0910e5da0b"
+        )
+
+        loaded = game_state_from_dict(prior)
+        self.assertEqual(loaded.seed, self.state.seed)
+        self.assertEqual(
+            loaded.save_payload()["content_compat"]["mechanical"]["catalog_fingerprint"],
+            main_world_mechanical_fingerprint(),
+        )
+
     def test_pack_provenance_and_presentation_fingerprint_do_not_enforce_loading(self):
         data = self.state.to_dict()
         data["content_compat"]["last_active_pack"]["id"] = "pack-b"

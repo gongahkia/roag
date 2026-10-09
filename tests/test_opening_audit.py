@@ -5,10 +5,13 @@ from unittest.mock import patch
 
 from roag.commands import TerrainActionCommand
 from roag.inventory import (
-    ensure_initial_field_tool, load_state, sync_legacy_load, transfer_to_grid,
+    auto_place, create_item, ensure_initial_field_tool, load_state,
+    sync_legacy_load, transfer_to_grid,
 )
 from roag.main import _start_new_world
 from roag.opening_audit import opening_audit, opening_profile
+from roag.production import gather, input_count, make, site_position
+from roag.regions import begin_region
 from roag.session import GameSession
 from roag.state import Position, create_world, validate_state
 from roag.terrain_actions import terrain_action_power
@@ -26,7 +29,7 @@ class OpeningAuditTests(unittest.TestCase):
         self.assertIsNotNone(first.nearest_destructible_steps)
         self.assertIsNotNone(first.production_site_steps)
 
-    def test_generated_openings_report_loadout_and_engine_access_gaps(self):
+    def test_generated_openings_report_field_engine_access_for_every_role(self):
         result = opening_audit(4)
 
         self.assertEqual(result["failures"], [])
@@ -38,11 +41,11 @@ class OpeningAuditTests(unittest.TestCase):
         )
         self.assertEqual(
             result["core_engine_ready_samples_by_role"],
-            {role: 0 for role in (
+            {role: 4 for role in (
                 "bargemaster", "pilot", "factor", "carpenter", "guard", "healer",
             )},
         )
-        self.assertEqual(len(result["gaps"]), 1)
+        self.assertEqual(result["gaps"], [])
         self.assertLessEqual(result["nearest_destructible_steps"]["max"], 10)
         self.assertGreaterEqual(result["nearest_active_threat_steps"]["min"], 12)
         self.assertEqual(
@@ -63,10 +66,57 @@ class OpeningAuditTests(unittest.TestCase):
             )
             self.assertEqual(profile["shore_stations"], ("workshop", "forge"))
             for role in profile["roles"]:
-                self.assertEqual(role["optimistic_circuit_recipes"], ())
+                self.assertTrue(
+                    {"circuit-rack", "circuit-sensor"}
+                    <= set(role["optimistic_circuit_recipes"]),
+                )
                 missing = dict(role["core_engine_missing_inputs"])
-                self.assertTrue(missing["circuit-rack"])
-                self.assertTrue(missing["circuit-sensor"])
+                self.assertEqual(missing["circuit-rack"], ())
+                self.assertEqual(missing["circuit-sensor"], ())
+
+    def test_hearthford_sources_and_three_timber_make_core_engine_parts(self):
+        state = create_world("gameplay four field production closure")
+        pilot = next(person for person in state.household if person.role == "pilot")
+        state.active_courier_id = pilot.id
+        sync_legacy_load(state)
+        self.assertEqual(ensure_initial_field_tool(state), "reed sickle")
+        begin_region(state, "hearthford")
+        state.position = site_position(state)
+
+        with patch("roag.actions._advance_world"):
+            for source_choice in (0, 0, 1):
+                changed, message = gather(state, source_choice)
+                self.assertTrue(changed, message)
+
+            timber = create_item(
+                state, "commodity:timber", "harvested in Hearthford", quantity=3,
+            )
+            self.assertTrue(auto_place(
+                state, timber.id, "pack", owner_id=state.active_courier_id,
+            ))
+
+            for recipe_id in (
+                "hearthford-ironwork", "hearthford-paper",
+                "circuit-rack", "circuit-sensor",
+            ):
+                changed, message = make(state, recipe_id)
+                self.assertTrue(changed, message)
+
+        self.assertEqual(state.location, "region")
+        self.assertEqual(state.production["sites"]["hearthford"]["stock"], 1)
+        for kind in (
+            "ingredient:iron filings", "ingredient:spring water",
+            "commodity:timber", "commodity:ironwork", "commodity:paper",
+        ):
+            self.assertEqual(input_count(state, kind), 0)
+        carried = {
+            item.kind: item.quantity
+            for item in state.items
+            if item.location == "pack" and item.owner_id == state.active_courier_id
+        }
+        self.assertEqual(carried["circuit:rack"], 1)
+        self.assertEqual(carried["circuit:sensor"], 1)
+        validate_state(state)
 
     def test_new_run_issues_one_physical_tool_without_replacing_role_kit(self):
         state = create_world("gameplay three initial field tool")
@@ -114,8 +164,6 @@ class OpeningAuditTests(unittest.TestCase):
             item for item in state.items
             if item.kind == "reed sickle" and item.owner_id == pilot.id
         )
-        from roag.regions import begin_region
-
         begin_region(state, "hearthford")
         landing = state.position
         target = Position(landing.x - 1, landing.y, landing.z)

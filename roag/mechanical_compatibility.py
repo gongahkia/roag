@@ -21,6 +21,15 @@ from .catalog import (
 
 MECHANICAL_COMPATIBILITY_VERSION = 1
 MECHANICAL_PROJECTION_FORMAT = 1
+# Exact, reviewed additive transitions whose new catalog does not reinterpret
+# any state an older native save can contain. Keep this directional and narrow:
+# arbitrary fingerprints and mechanically modified external packs still fail.
+ADDITIVE_CATALOG_TRANSITIONS = frozenset({
+    (
+        "4f1069c422993eee3fa9f7190f5ab91ea072d2a86703f419e2c7dc0910e5da0b",
+        "6941addee8ab8a680f77d0a46dfaed11cc214ae89923f2d5bc7dbea9804c51d3",
+    ),
+})
 
 
 class MechanicalProjectionError(ValueError):
@@ -342,3 +351,9 @@ def canonical_mechanical_projection_bytes() -> bytes:
 @lru_cache(maxsize=1)
 def main_world_mechanical_fingerprint() -> str:
     return sha256(canonical_mechanical_projection_bytes()).hexdigest()
+
+
+def main_world_mechanical_fingerprint_is_compatible(saved: str) -> bool:
+    """Accept the active catalog or one explicitly reviewed additive predecessor."""
+    active = main_world_mechanical_fingerprint()
+    return saved == active or (saved, active) in ADDITIVE_CATALOG_TRANSITIONS

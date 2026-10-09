@@ -96,6 +96,7 @@ from .navigation import (
     RoutePlan,
     RouteUnavailable,
     advance_route,
+    has_navigation_guidance,
     navigation_targets,
     plan_route,
 )
@@ -928,6 +929,21 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
                 "Response: ready" if forecast.response_due_in == 0
                 else f"Response: {forecast.response_due_in} turns"
             )
+        from .production import production_site_lead
+
+        lead = production_site_lead(state)
+        if lead is not None:
+            from .production_presentation import production_format
+            from .topology_presentation import navigation_landmark_label
+
+            lines.append(production_format(
+                "production.navigation.status",
+                site=navigation_landmark_label(
+                    state.active_region_id, lead.landmark_id,
+                ),
+                distance=lead.distance,
+                bearing=lead.bearing,
+            ))
     return lines if capacity is None else lines[:capacity]
 
 
@@ -2667,6 +2683,19 @@ def _tavern_lines(state: GameState) -> list[str]:
     ]
 
 
+def _craft_catalog_location(kind: str) -> tuple[str, int]:
+    parts = kind.split(":")
+    if len(parts) == 2 and parts[0] == "craft-catalog":
+        return "all", int(parts[1])
+    if len(parts) == 3 and parts[0] == "craft-catalog":
+        return parts[1], int(parts[2])
+    raise ValueError(f"invalid craft catalog location: {kind}")
+
+
+def _craft_catalog_kind(view: str, page: int) -> str:
+    return f"craft-catalog:{page}" if view == "all" else f"craft-catalog:{view}:{page}"
+
+
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
     if kind == "gangplank":
         from .vehicle_presentation import vehicle_format, vehicle_text
@@ -2723,19 +2752,24 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         ]
     if kind.startswith("craft-catalog:"):
         from .chemistry_presentation import reagent_display_name
-        from .production import RECIPES, SOURCES, at_shore_site, input_count, recipe_status, stations_here
+        from .production import (
+            RECIPES, SOURCES, at_shore_site, catalog_recipe_ids, input_count,
+            recipe_status, stations_here,
+        )
         from .production_presentation import (
             production_format, production_recipe_name, production_station_name, production_text,
         )
 
-        page = int(kind.split(":", 1)[1])
+        view, page = _craft_catalog_location(kind)
         stations = stations_here(state)
-        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations]
+        ids = catalog_recipe_ids(state, view)
         page = min(page, max(0, (len(ids) - 1) // 8))
         pages = max(1, (len(ids) + 7) // 8)
         rows = [production_format("production.overlay.catalog.stations",
                                   stations=", ".join(production_station_name(station) for station in sorted(stations)),
-                                  page=page + 1, pages=pages)]
+                                  page=page + 1, pages=pages),
+                production_format("production.overlay.catalog.view",
+                                  view=production_text(f"production.overlay.catalog.view.{view}"))]
         for index, recipe_id in enumerate(ids[page * 8:page * 8 + 8]):
             recipe = RECIPES[recipe_id]
             legal, reason = recipe_status(state, recipe_id)
@@ -2751,6 +2785,8 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
                                           output=item_display_name_or_legacy(recipe.output),
                                           status=reason if not legal else production_text("production.status.ready").upper()))
             rows.append(production_format("production.overlay.catalog.requirements", requirements=requirements))
+        if not ids:
+            rows.append(production_text("production.overlay.catalog.empty"))
         rows.append(production_text("production.overlay.catalog.guidance"))
         if at_shore_site(state):
             first, second = SOURCES[state.active_region_id]
@@ -2884,12 +2920,58 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
             topology_text("topology.landform.overlay.guidance"),
         ]
     if kind == "navigation":
-        return "FOLLOW A KNOWN LOCAL ROUTE", [
+        lines = [
             "Choose a seen landmark, vertical link, or marked store.",
             "You follow remembered ground one pace at a time. Unseen ground needs your own eyes.",
             "Any key stops the walk. New danger, sound, weather, injury, load change, or a material hazard also stops it.",
             "Selection and cancellation cost no time.",
         ]
+        from .production import production_site_lead
+
+        lead = production_site_lead(state)
+        if lead is not None:
+            from .chemistry_presentation import reagent_display_name
+            from .production_presentation import (
+                production_format, production_station_name, production_text,
+            )
+            from .topology_presentation import navigation_landmark_label
+
+            site = navigation_landmark_label(
+                state.active_region_id, lead.landmark_id,
+            )
+            lines.extend((
+                "",
+                production_text("production.navigation.heading"),
+                production_format(
+                    "production.navigation.site",
+                    site=site,
+                    distance=lead.distance,
+                    bearing=lead.bearing,
+                    x=lead.position.x,
+                    y=lead.position.y,
+                    z=f"{lead.position.z:+d}",
+                ),
+                production_format(
+                    "production.navigation.resources",
+                    sources=", ".join(
+                        reagent_display_name(source) for source in lead.sources
+                    ),
+                    stock=lead.stock,
+                ),
+                production_format(
+                    "production.navigation.stations",
+                    stations=", ".join(
+                        production_station_name(station)
+                        for station in lead.stations
+                    ),
+                ),
+                production_format(
+                    "production.navigation.cargo",
+                    timber=lead.timber_carried,
+                ),
+                production_text("production.navigation.guidance"),
+            ))
+        return "FOLLOW A KNOWN LOCAL ROUTE", lines
     if kind == "aftermath":
         from .aftermath import AFTERMATH_LINES, contracts_for
 
@@ -3018,7 +3100,6 @@ def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
         return equipment_text("equipment.overlay.confirm.title"), describe(state, item) + [equipment_text("equipment.overlay.confirm.guidance"), equipment_text("equipment.overlay.confirm.costs")]
     if kind.startswith("vessel-refits:"):
         from .vessel_refits import REFITS, STATION_REFITS, installed
-        from .item_presentation import item_display_name_or_legacy
         from .vessel_presentation import refit_display_name, refit_drawback, refit_effect, refit_station_display_name, vessel_text
 
         station = kind.split(":", 1)[1]
@@ -3396,15 +3477,21 @@ def _handle_overlay(
                 return (f"person:{recipient_id}" if changed else kind), False
         return kind, False
     if kind.startswith("craft-catalog:"):
-        from .production import RECIPES, at_shore_site, delegate, gather, make, stations_here
+        from .production import (
+            CATALOG_VIEWS, at_shore_site, catalog_recipe_ids, delegate, gather,
+            make,
+        )
 
-        page = int(kind.split(":", 1)[1])
-        ids = [key for key, recipe in RECIPES.items() if recipe.station in stations_here(state)]
+        view, page = _craft_catalog_location(kind)
+        ids = catalog_recipe_ids(state, view)
         max_page = max(0, (len(ids) - 1) // 8)
         if char == "n":
-            return f"craft-catalog:{min(max_page, page + 1)}", False
+            return _craft_catalog_kind(view, min(max_page, page + 1)), False
         if char == "p":
-            return f"craft-catalog:{max(0, page - 1)}", False
+            return _craft_catalog_kind(view, max(0, page - 1)), False
+        if char == "v":
+            next_view = CATALOG_VIEWS[(CATALOG_VIEWS.index(view) + 1) % len(CATALOG_VIEWS)]
+            return _craft_catalog_kind(next_view, 0), False
         if char == "m":
             return "craft-mix", False
         if char in "90" and at_shore_site(state):
@@ -4114,7 +4201,7 @@ def _play_loop(
                 state.add_message(ui_format("ui.terminal.navigation.disembark"))
             elif state.location != "region":
                 state.add_message(ui_format("ui.terminal.navigation.known_route"))
-            elif not navigation_targets(state):
+            elif not has_navigation_guidance(state):
                 state.add_message(ui_format("ui.terminal.navigation.none"))
             else:
                 overlay = OverlayView("navigation")

@@ -445,6 +445,49 @@ class CircuitTests(unittest.TestCase):
         self.assertEqual(next_phase(state, rear)[0], "wire")
         self.assertIn("faces east", " ".join(diagnostic_lines(state, relay)))
 
+    def test_sensor_diagnostics_explain_connection_trigger_range_and_cost(self):
+        state = self.state
+        rack = self.fit("rack", 20)
+        rack.charge = 7
+        sensor = self.fit("sensor", 21)
+
+        expectations = {
+            "mass": (
+                "Mass reaction, range 1",
+                "new packed resource adds 1 charge",
+                "+1 power and +1 noise",
+            ),
+            "threat": (
+                "Threat reaction, range 3",
+                "courier-caused hostile defeat adds 1 rack charge",
+            ),
+            "supply": (
+                "Supply reaction, range 3",
+                "consumed 1 at a time for 24 rack charge",
+            ),
+            "water": (
+                "Water gate only: opens at 3 water here",
+                "no simulation-fact charge reaction",
+            ),
+        }
+        sensor.threshold = 3
+        for mode, fragments in expectations.items():
+            with self.subTest(mode=mode):
+                sensor.mode = mode
+                before = state.to_dict()
+                rendered = " ".join(diagnostic_lines(state, sensor))
+                self.assertIn(
+                    "Engine rack connected at 20,20,z+0: 7/48 charge.",
+                    rendered,
+                )
+                for fragment in fragments:
+                    self.assertIn(fragment, rendered)
+                self.assertEqual(state.to_dict(), before)
+
+        del state.circuits[cell_key(rack.space, rack.position, rack.layer)]
+        rendered = " ".join(diagnostic_lines(state, sensor))
+        self.assertIn("No engine rack is physically connected", rendered)
+
     def test_counter_passes_every_chosen_input_pulse(self):
         state = self.state
         trace = self.fit("trace", 20)

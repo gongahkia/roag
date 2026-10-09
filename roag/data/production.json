@@ -309,6 +309,40 @@
       "contents": []
     },
     {
+      "id": "hearthford-ironwork",
+      "station": "forge",
+      "inputs": [
+        [
+          "ingredient:iron filings",
+          2
+        ],
+        [
+          "commodity:timber",
+          1
+        ]
+      ],
+      "output": "commodity:ironwork",
+      "quantity": 2,
+      "contents": []
+    },
+    {
+      "id": "hearthford-paper",
+      "station": "workshop",
+      "inputs": [
+        [
+          "ingredient:spring water",
+          1
+        ],
+        [
+          "commodity:timber",
+          1
+        ]
+      ],
+      "output": "commodity:paper",
+      "quantity": 1,
+      "contents": []
+    },
+    {
       "id": "hearthford-splints",
       "station": "forge",
       "inputs": [

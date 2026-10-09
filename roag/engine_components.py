@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .circuit_presentation import circuit_format
-from .circuits import nearest_connected_rack
+from .circuits import (
+    MASS_SENSOR_ENGINE_RANGE, SENSOR_CHARGE_STEP,
+    TERRAIN_ASSIST_POWER_PER_CHARGE, TERRAIN_ASSIST_SOUND_PER_CHARGE,
+    nearest_connected_rack,
+)
 from .simulation_effects import (
     ACTOR_DEFEATED,
     RESOURCE_GAINED,
@@ -75,7 +79,7 @@ def registered_reaction_rules(
                     rule_id=f"engine.threat_sensor.kill_charge:{sensor_key}",
                     source=source,
                     trigger_id=ACTOR_DEFEATED,
-                    effect=GainCharge(1, target),
+                    effect=GainCharge(SENSOR_CHARGE_STEP, target),
                     condition=WithinRange(
                         sensor.space, sensor.position, sensor.threshold,
                     ),
@@ -86,16 +90,20 @@ def registered_reaction_rules(
                     rule_id=f"engine.mass_sensor.terrain_power:{sensor_key}",
                     source=source,
                     trigger_id=TERRAIN_ACTION,
-                    effect=SpendCharge(1, target),
-                    condition=WithinRange(sensor.space, sensor.position, 1),
+                    effect=SpendCharge(SENSOR_CHARGE_STEP, target),
+                    condition=WithinRange(
+                        sensor.space, sensor.position, MASS_SENSOR_ENGINE_RANGE,
+                    ),
                 ))
             if trigger_ids is None or RESOURCE_GAINED in trigger_ids:
                 rules.append(ReactionRule(
                     rule_id=f"engine.mass_sensor.resource_charge:{sensor_key}",
                     source=source,
                     trigger_id=RESOURCE_GAINED,
-                    effect=GainCharge(1, target),
-                    condition=WithinRange(sensor.space, sensor.position, 1),
+                    effect=GainCharge(SENSOR_CHARGE_STEP, target),
+                    condition=WithinRange(
+                        sensor.space, sensor.position, MASS_SENSOR_ENGINE_RANGE,
+                    ),
                 ))
         elif sensor.mode == "supply":
             if trigger_ids is None or RESOURCE_GAINED in trigger_ids:
@@ -222,4 +230,8 @@ def resolve_terrain_assistance(
         for application in outcome.resolution.applications
         if application.effect_id == "spend_charge"
     )
-    return TerrainAssistance(spent, spent, outcome)
+    return TerrainAssistance(
+        spent * TERRAIN_ASSIST_POWER_PER_CHARGE,
+        spent * TERRAIN_ASSIST_SOUND_PER_CHARGE,
+        outcome,
+    )

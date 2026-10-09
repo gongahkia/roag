@@ -146,6 +146,15 @@ def navigation_targets(state: GameState) -> tuple[NavigationTarget, ...]:
     ))
 
 
+def has_navigation_guidance(state: GameState) -> bool:
+    """Return whether T can show a route or an unrevealing charted lead."""
+    if navigation_targets(state):
+        return True
+    from .production import production_site_lead
+
+    return production_site_lead(state) is not None
+
+
 def _visible_danger(state: GameState) -> set[str]:
     visible = field_of_view(state, remember=False)
     return {
