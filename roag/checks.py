@@ -10,6 +10,7 @@ FAST_FILES = (
     "test_situations.py", "test_manoeuvres.py", "test_interference.py",
     "test_echoes.py", "test_household_stories.py",
     "test_inspection_forecast.py", "test_build_balance.py",
+    "test_gameplay_redesign_loop.py", "test_opening_audit.py",
 )
 
 

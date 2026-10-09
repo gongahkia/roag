@@ -35,18 +35,22 @@ source of truth.
 | WORLD-04 | Complete | Destroyed ordinary reeds and mud create persistent physical inventory yields, with deterministic ground fallback and acquisition reactions only after successful packing. |
 | WORLD-05 | Complete | Atomic zero-time ground pickup is a typed command; first-time pack acquisition consistently publishes one resource fact without drop/pick reaction loops. |
 | WORLD-06 | Complete | Standing timber is a sustained noisy terrain harvest, while authoritative material collapse exposes exact transient geometry and its resulting terrain mutation. |
+| WORLD-07 | Complete | Destroying ordinary standing timber explicitly destabilizes its sparse material support, scheduling the existing delayed, braceable collapse consequence. |
 | PRESENTATION-01 | Complete | Existing runtime-event batches drive ordered transient movement, combat, terrain, and visible threat-arrival glyph effects without affecting simulation. |
 | PRESENTATION-02 | Complete | Enemy movement, positional attack warnings, and committed impacts now produce ordered world-step effects without changing AI resolution. |
 | PRESENTATION-03 | Complete | Ranged releases carry exact projectile paths, while bounded authored area attacks carry exact affected cells for staged, visibility-safe ASCII motion. |
 | PRESENTATION-04 | Complete | Visible water, fire, smoke, and precipitation derive restrained idle motion from presentation time without entering simulation state. |
 | PRESENTATION-05 | Complete | Visible structural collapses stage bounded debris, a local ASCII shockwave, and visibility-safe one-cell camera tremble from semantic collapse geometry. |
+| GAMEPLAY-01 | Complete | A deterministic headless field-loop contract crosses direct entry, physical terrain harvest, engine reaction, pressure escalation, reinforcement, collapse, and save/load continuation. |
+| GAMEPLAY-02 | Complete | A deterministic generated-opening audit measures direct-start terrain, threat, production, role-loadout, and fresh-field engine access without changing balance. |
+| GAMEPLAY-03 | Complete | Every selected new-run courier has physical pack-carried access to ordinary terrain work without replacing role equipment or changing load band. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
-through ENGINE-06, WORLD-04 through WORLD-06, DANGER-03, and PRESENTATION-01
-through PRESENTATION-05 are post-roadmap tranches scoped from the integrated
-systems already in the repository. Further tranches should continue to be
-chosen from playtesting and the still-open product decisions rather than
-assumed here.
+through ENGINE-06, WORLD-04 through WORLD-07, DANGER-03, and PRESENTATION-01
+through PRESENTATION-05 and GAMEPLAY-01 through GAMEPLAY-03 are post-roadmap
+tranches scoped from the integrated systems already in the repository. Further
+tranches should continue to be chosen from playtesting and the still-open
+product decisions rather than assumed here.
 
 ## Implemented seams
 
@@ -204,6 +208,15 @@ assumed here.
   existing physical `commodity:timber` yield through the semantic terrain
   catalog. A felling axe applies two power, so harvesting takes two exposed
   world actions and produces eight total noise before any machinery bonus.
+- Terrain definitions may declare a bounded `support_loss_on_destroy`
+  consequence independently of their portable yield. Standing timber is the
+  only current terrain opting in: its completed cut removes three support from
+  the existing sparse `MaterialCell`, while partial cuts, reeds, and mud do not
+  alter support.
+- The ordinary action step passes that zero-support cell through the existing
+  material scheduler, which warns immediately and sets collapse two further
+  world actions away. Existing brace work can cancel the deadline; otherwise
+  the normal collapse mutation and runtime-event path commits it.
 - `roag.materials.advance_materials` accepts the open world-step collector and
   emits one immutable `CollapseResolved` fact when a scheduled collapse
   commits. Its exact origin, affected origin/impact cells, severity, and stable
@@ -213,6 +226,38 @@ assumed here.
   collapse protection and are identified as protected results rather than
   fabricating a terrain-change event. Collector-free material advancement
   remains mechanically identical.
+- `tests.test_gameplay_redesign_loop` fixes one small deterministic Hearthford
+  field and exercises the redesign as one causal sequence rather than isolated
+  unit seams. A packed reed harvest charges a mass engine; that charge makes a
+  timber cut faster and louder; continued timber work crosses strained
+  pressure, produces a fair persistent reinforcement, and resolves delayed
+  collapses through ordered runtime-event steps.
+- The integrated loop forks from one equivalent state and again through a
+  format-15 save checkpoint. Identical remaining commands must produce equal
+  outcomes and complete authoritative state, while a newly arrived threat may
+  not damage the courier on its creation step. The contract is included in
+  `roag.checks fast`.
+- `roag.opening_audit` constructs actual new worlds, enters Hearthford through
+  `begin_region`, and measures movement distance to semantic destructible
+  terrain, active threats, and the shore production site. It profiles every
+  selectable courier through their real physically readied weapon and
+  secondary item rather than a parallel role/loadout table.
+- The opening audit computes an explicitly optimistic recipe closure from
+  starting physical equipment, reachable ordinary terrain yields, regional
+  gathered ingredients, and the actual portable/shore stations. This is a
+  diagnostic content-access proof, not an inventory simulation or a source of
+  authoritative state. Its deterministic CLI and focused test are included in
+  `roag.checks fast`.
+- `roag.inventory.ensure_initial_field_tool` is the new-run loadout seam between
+  character creation and `begin_region`. It issues one existing physical reed
+  sickle to the selected courier only when their role equipment cannot already
+  cut or dig. The tool occupies ordinary pack space, retains the role's readied
+  weapon and secondary item, and is marked already acquired without publishing
+  an engine fact.
+- `terrain_action_power` now recognizes work tools physically present in the
+  active courier's pack as well as the existing synchronized weapon/gear
+  mirrors. Locker, ground, lost, and other actors' tools provide no power. The
+  same query drives resolution and generated-opening audit profiles.
 - `roag.presentation.MapEffect` is an immutable renderer-neutral description
   of one transient glyph sequence, emphasis role, world position, start time,
   and deterministic priority. `EffectState` schedules these from
@@ -283,6 +328,12 @@ assumed here.
 - Current save format: 15.
 - Redesign migrations introduced: none.
 - Runtime event batches and presentation state are not serialized.
+- Opening audit profiles are returned diagnostics only; they add no state,
+  save migration, format bump, or mechanical content-fingerprint input.
+- GAMEPLAY-03 uses existing format-15 `Item`, `owned_weapons`, and
+  `vessel_changes` persistence. It adds no state field, migration, save-format
+  bump, content row, or fingerprint change; existing saves and ordinary vessel
+  departures do not receive a new item implicitly.
 - Presentation timeout frames submit no command and consume no world time or
   deterministic RNG.
 - Regional maps remain glyph-backed through `Region.levels` and
@@ -346,6 +397,10 @@ assumed here.
   behavior in place; sparse terrain damage, replacement, local material
   residue, physical timber cargo, and collapse outcomes all use existing
   format-15 state. `CollapseResolved` and its event-batch grouping are unsaved.
+- WORLD-07 adds no persistent field, migration, content row, event type, or
+  save-format bump. Terrain policy is catalog metadata; only the existing
+  format-15 `MaterialCell.support` and `collapse_due` values persist, and old
+  saved glyph rows acquire the same standing-timber rule on load.
 - PRESENTATION-01 adds no persistent state, migration, catalog content, or
   runtime-event schema. `MapEffect`, the effect queue, presentation sequence,
   and elapsed clock remain UI-owned and absent from saves and deterministic
@@ -369,6 +424,10 @@ assumed here.
   runtime-event schema, catalog row, or fingerprint change. `CameraEffect`,
   shockwave glyphs, and their elapsed frame state live solely in the existing
   UI-owned `EffectState`; disabled presentation schedules none of them.
+- GAMEPLAY-01 adds no production state, mechanic, content row, migration, or
+  save-format change. Its checkpoint and measurements are test-owned; the
+  saved continuation contains only the existing format-15 terrain, material,
+  circuit, inventory, pressure, threat, and regional state.
 
 ## Known deviations and baseline issues
 
@@ -381,10 +440,10 @@ assumed here.
   and terminal legacy-overlay failures; the redesign tranches do not currently
   depend on either path.
 - WORLD-03 and WORLD-04 deliberately began with ordinary reeds, dense reeds,
-  and mud. WORLD-06 adds only ordinary standing timber plus semantic collapse
-  output; walls, worked timber, fragile floors, circuit placement, authored
-  features, and broader tool balance remain protected or delegated rather than
-  being silently generalized.
+  and mud. WORLD-06 and WORLD-07 add only ordinary standing timber plus its
+  existing support/collapse consequence; walls, worked timber, fragile floors,
+  circuit placement, authored features, and broader tool balance remain
+  protected or delegated rather than being silently generalized.
 - DANGER-01 deliberately added no actors, RNG draws, population caps, spawn
   placement, or balance changes; those arrived through the DANGER-02 boundary.
 - DANGER-02 initially admits one actor per reinforcement directive and no new
@@ -440,6 +499,35 @@ assumed here.
   renderer-neutral and currently relies on the accompanying `TerrainChanged`
   effect for ordinary presentation; a bespoke multi-cell collapse treatment
   belongs to a presentation tranche rather than this world-mechanics slice.
+- WORLD-07 does not model load propagation, neighbouring supports, structural
+  graphs, or arbitrary building demolition. One explicit terrain property
+  connects a completed ordinary harvest to the existing bounded support model;
+  authored positions retain the terrain action and collapse protection already
+  enforced by their domain boundaries.
+- GAMEPLAY-01 deliberately freezes architecture contracts rather than balance:
+  its local arena and fitted mass circuit are deterministic fixtures, not a
+  claim that normal generation should place those exact cells or that current
+  noise/reinforcement cadence is final. Player-facing pacing still requires
+  playtesting outside the headless contract.
+- GAMEPLAY-02 deliberately measures rather than rebalances the generated
+  opening. Across its stable twelve-seed diagnostic sample, destructible
+  terrain begins zero to eight movement actions away, the nearest initially
+  active threat is eighteen to forty-six terrain-path steps away, and the shore
+  production site is sixty-three to seventy-nine steps away. Exact balance
+  targets remain a playtest decision.
+- Current physical start kits let only the bargemaster and carpenter act on
+  generated Hearthford's ordinary destructible terrain before GAMEPLAY-03.
+  The selected new-run courier now receives a lightweight physical tool only
+  when needed, closing that access gap without redistributing role equipment.
+  Even an optimistic closure over starting equipment, terrain yields, regional
+  gathering, and shore stations still cannot make both a circuit rack and
+  sensor for any starting role because required commodity inputs have no
+  fresh-field source in that opening.
+- GAMEPLAY-03 does not grant a tool to every household member, alter existing
+  role loadouts, make locker tools remotely usable, change terrain hardness or
+  yield, or add a circuit recipe. Death and item loss remain physical: the
+  issued tool can be dropped, recovered, transferred, or lost like any other
+  inventory item.
 - PRESENTATION-01 consumes only runtime events already emitted by typed command
   paths. Legacy spell, manoeuvre, thrown-device, enemy-action, and other direct
   reducer paths do not receive inferred animation from messages. Camera shake,

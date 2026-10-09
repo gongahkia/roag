@@ -2315,15 +2315,18 @@ def terrain_action(
         }.get(resolution.result_id, "material.handle.structure_requirement")
         return _plain(state, material_text(message_id))
 
-    if resolution.yield_material is not None:
+    if resolution.yield_material is not None or resolution.support_loss:
         from .materials import ensure_cell
 
         cell = ensure_cell(state, target)
         if cell is not None:
-            cell.material = resolution.yield_material
-            cell.fuel = max(cell.fuel, resolution.yield_fuel)
-            if resolution.yield_material == "soil":
-                cell.coating, cell.fire = "ash", 0
+            if resolution.yield_material is not None:
+                cell.material = resolution.yield_material
+                cell.fuel = max(cell.fuel, resolution.yield_fuel)
+                if resolution.yield_material == "soil":
+                    cell.coating, cell.fire = "ash", 0
+            if resolution.support_loss:
+                cell.support = max(0, cell.support - resolution.support_loss)
     physical_yield = None
     if resolution.destroyed and resolution.yield_item_kind is not None:
         from .terrain_yields import materialize_terrain_yield

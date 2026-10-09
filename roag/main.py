@@ -127,6 +127,9 @@ def _start_new_world(screen: curses.window, state: GameState) -> bool:
     """Finish character creation and enter the initial region without time."""
     if not run_character_creation(screen, state):
         return False
+    from .inventory import ensure_initial_field_tool
+
+    ensure_initial_field_tool(state)
     begin_region(state, state.active_region_id)
     play(screen, state)
     return True

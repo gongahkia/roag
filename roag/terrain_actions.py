@@ -36,6 +36,7 @@ class TerrainActionResolution:
     assistance_sound: int = 0
     yield_item_kind: str | None = None
     yield_item_quantity: int = 0
+    support_loss: int = 0
 
 
 def supports_terrain_action(
@@ -68,22 +69,41 @@ def _protected(state: GameState, position: Position, definition: TerrainDefiniti
     return any(container.position == position for container in state.region.containers)
 
 
-def _tool_power(state: GameState, action_id: str) -> int:
+def terrain_action_power(state: GameState, action_id: str) -> int:
+    """Return the active courier's authoritative power for a terrain verb.
+
+    This is deliberately the same query used by resolution.  Read-only audits
+    and inspection UI must not grow a second, approximate loadout table.
+    """
     if state.courier is None:
         return 0
+    carried_kinds = {
+        item.kind
+        for item in state.items
+        if item.owner_id == state.active_courier_id
+        and item.location == "pack"
+    }
+    # Retain the legacy mirrors for compatibility with direct reducer fixtures;
+    # normal play keeps them synchronized with the physical readied slots.
+    carried_kinds.update(kind for kind in (state.weapon, state.gear) if kind)
     specialized = {
         ("cut", "reed sickle"): 2,
         ("cut", "felling axe"): 2,
         ("dig", "spade"): 2,
     }
-    if (action_id, state.weapon) in specialized:
-        return specialized[(action_id, state.weapon)]
-    if state.weapon == "spade" and action_id in {"cut", "dig"}:
-        return 1
-    if state.weapon in {"hand axe", "billhook", "war hammer"}:
-        return 1
-    if state.gear == "repair tools" or state.courier.technique == "lever craft":
-        return 1
+    power = max(
+        (value for (verb, kind), value in specialized.items()
+         if verb == action_id and kind in carried_kinds),
+        default=0,
+    )
+    if "spade" in carried_kinds and action_id in {"cut", "dig"}:
+        power = max(power, 1)
+    if carried_kinds & {"hand axe", "billhook", "war hammer"}:
+        power = max(power, 1)
+    if "repair tools" in carried_kinds or state.courier.technique == "lever craft":
+        power = max(power, 1)
+    if power:
+        return power
     from .legendary import permits_material
     from .practices import has_effect
 
@@ -112,7 +132,7 @@ def resolve_terrain_action(
         return rejected("terrain.unsupported")
     if _protected(state, position, definition):
         return rejected("terrain.protected")
-    power = _tool_power(state, action_id)
+    power = terrain_action_power(state, action_id)
     if power <= 0:
         return rejected("terrain.tool_required")
 
@@ -160,4 +180,5 @@ def resolve_terrain_action(
         assistance.sound,
         definition.yield_item_kind if destroyed else None,
         definition.yield_item_quantity if destroyed else 0,
+        definition.support_loss_on_destroy if destroyed else 0,
     )

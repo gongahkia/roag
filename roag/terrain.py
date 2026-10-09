@@ -29,6 +29,7 @@ class TerrainDefinition:
     tool_actions: tuple[str, ...] = ()
     replacement_glyph: str | None = None
     action_sound: int = 0
+    support_loss_on_destroy: int = 0
     yield_material: str | None = None
     yield_fuel: int = 0
     yield_item_kind: str | None = None
@@ -62,6 +63,7 @@ def _definition(
     tool_actions: tuple[str, ...] = (),
     replacement_glyph: str | None = None,
     action_sound: int = 0,
+    support_loss_on_destroy: int = 0,
     yield_material: str | None = None,
     yield_fuel: int = 0,
     yield_item_kind: str | None = None,
@@ -75,6 +77,13 @@ def _definition(
         raise ValueError(f"invalid replacement glyph for {identity!r}")
     if hardness < 0 or action_sound < 0 or yield_fuel < 0:
         raise ValueError(f"negative terrain property for {identity!r}")
+    if (
+        type(support_loss_on_destroy) is not int
+        or not 0 <= support_loss_on_destroy <= 3
+    ):
+        raise ValueError(f"invalid terrain support loss for {identity!r}")
+    if support_loss_on_destroy and not destructible:
+        raise ValueError(f"structural consequence on indestructible terrain {identity!r}")
     if (
         type(yield_item_quantity) is not int
         or yield_item_quantity < 0
@@ -98,6 +107,7 @@ def _definition(
         tuple(tool_actions),
         replacement_glyph,
         action_sound,
+        support_loss_on_destroy,
         yield_material,
         yield_fuel,
         yield_item_kind,
@@ -115,6 +125,7 @@ _DEFINITIONS = {
         tags=("ordinary", "solid", "timber", "vegetation"),
         material="timber", destructible=True, hardness=3,
         tool_actions=("cut",), replacement_glyph=".", action_sound=4,
+        support_loss_on_destroy=3,
         yield_material="timber", yield_fuel=4,
         yield_item_kind="commodity:timber", yield_item_quantity=1,
     ),

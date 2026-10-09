@@ -73,6 +73,7 @@ class RegionalTerrainCatalogTests(unittest.TestCase):
         self.assertEqual(timber.tool_actions, ("cut",))
         self.assertEqual(timber.replacement_glyph, ".")
         self.assertEqual(timber.action_sound, 4)
+        self.assertEqual(timber.support_loss_on_destroy, 3)
         self.assertEqual(timber.material, "timber")
         self.assertEqual((timber.yield_material, timber.yield_fuel), ("timber", 4))
         self.assertEqual(

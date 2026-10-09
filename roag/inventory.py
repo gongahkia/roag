@@ -50,6 +50,7 @@ BASIC_COURIER_LOADOUTS: dict[str, tuple[str, str]] = {
 BASIC_COURIER_ARMOUR: dict[str, dict[str, str]] = {
     role: dict(slots) for role, slots in _EQUIPMENT["basic_courier_armour"].items()
 }
+INITIAL_FIELD_TOOL = "reed sickle"
 
 
 @dataclass(frozen=True)
@@ -678,6 +679,45 @@ def ensure_household_basics(state: GameState) -> None:
     for person in state.household:
         if person.alive:
             ensure_courier_basics(state, person)
+
+
+def ensure_initial_field_tool(state: GameState) -> str | None:
+    """Give the selected new-run courier physical access to ordinary terrain.
+
+    Existing role equipment remains authoritative.  A courier who can already
+    cut or dig receives nothing; otherwise one lightweight existing work tool
+    is placed in their pack.  The persistent marker makes the loadout step
+    idempotent without turning regional entry or vessel departure into an item
+    source.
+    """
+    courier_id = state.active_courier_id
+    if courier_id is None:
+        raise ValueError("an initial field tool needs an active courier")
+    marker = f"initial_field_tool:{courier_id}"
+    if marker in state.vessel_changes:
+        return None
+
+    from .terrain_actions import terrain_action_power
+
+    if any(terrain_action_power(state, action_id) > 0 for action_id in ("cut", "dig")):
+        state.vessel_changes[marker] = "existing"
+        return None
+    previous_next_item_id = state.next_item_id
+    tool = create_item(
+        state,
+        INITIAL_FIELD_TOOL,
+        "Roag initial field issue",
+        owner_id=courier_id,
+    )
+    if not auto_place(state, tool.id, "pack", owner_id=courier_id):
+        state.items.remove(tool)
+        state.next_item_id = previous_next_item_id
+        raise RuntimeError("initial field tool cannot fit the selected courier's pack")
+    # Initial issue is already owned; mark it without publishing a gameplay
+    # acquisition fact so drop/pick cannot become a zero-time engine loop.
+    record_acquisition(state, tool)
+    state.vessel_changes[marker] = INITIAL_FIELD_TOOL
+    return INITIAL_FIELD_TOOL
 
 
 def transfer_to_grid(

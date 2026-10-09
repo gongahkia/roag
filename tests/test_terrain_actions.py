@@ -6,11 +6,11 @@ import unittest
 from pathlib import Path
 
 from roag.circuits import cell_key
-from roag.commands import TerrainActionCommand
+from roag.commands import AdvanceWorldCommand, TerrainActionCommand
 from roag.inventory import item_spec
 from roag.materials import handle_material, key, material_at
 from roag.regions import begin_region, validate_region
-from roag.runtime_events import TerrainChanged, TerrainDamaged
+from roag.runtime_events import CollapseResolved, TerrainChanged, TerrainDamaged
 from roag.save import load_game, save_game
 from roag.session import GameSession
 from roag.state import CircuitCell, Position, StateError, create_world, game_state_from_dict
@@ -102,6 +102,11 @@ class TerrainActionTests(unittest.TestCase):
             if item.kind == "material:reeds" and item.location == "pack"
         )
         self.assertEqual(reeds.quantity, 1)
+        self.assertEqual(
+            (self.state.region.materials[self.coordinate].support,
+             self.state.region.materials[self.coordinate].collapse_due),
+            (3, 0),
+        )
 
         self.state.region.tile_changes[self.coordinate] = "m"
         self.state.region.materials.pop(self.coordinate, None)
@@ -109,6 +114,11 @@ class TerrainActionTests(unittest.TestCase):
         self.assertTrue(changed)
         self.assertEqual(terrain_at(self.state.region, self.target).glyph, ".")
         self.assertEqual(self.state.region.materials[self.coordinate].material, "soil")
+        self.assertEqual(
+            (self.state.region.materials[self.coordinate].support,
+             self.state.region.materials[self.coordinate].collapse_due),
+            (3, 0),
+        )
         clay = next(
             item for item in self.state.items
             if item.kind == "ingredient:clay" and item.location == "pack"
@@ -132,6 +142,7 @@ class TerrainActionTests(unittest.TestCase):
         self.assertEqual(self.state.world_time, before_time + 1)
         self.assertEqual(self.state.region.terrain_damage[self.coordinate], 2)
         self.assertEqual(terrain_at(self.state.region, self.target).glyph, "T")
+        self.assertNotIn(self.coordinate, self.state.region.materials)
         self.assertEqual(self.state.noise, 4)
         self.assertEqual(self.state.sound_events[-1].strength, 4)
         self.assertEqual([type(event) for event in first.events], [TerrainDamaged])
@@ -151,6 +162,10 @@ class TerrainActionTests(unittest.TestCase):
         self.assertEqual((second.events[0].amount, second.events[0].remaining), (1, 0))
         residue = self.state.region.materials[self.coordinate]
         self.assertEqual((residue.material, residue.fuel), ("timber", 4))
+        self.assertEqual(
+            (residue.support, residue.collapse_due),
+            (0, self.state.world_time + 2),
+        )
         timber = next(
             item for item in self.state.items
             if item.kind == "commodity:timber" and item.location == "ground"
@@ -171,6 +186,46 @@ class TerrainActionTests(unittest.TestCase):
             (restored_timber.kind, restored_timber.location,
              restored_timber.region_id, restored_timber.ground_position),
             ("commodity:timber", "ground", "hearthford", self.target),
+        )
+        restored_residue = restored.region.materials[self.coordinate]
+        self.assertEqual(
+            (restored_residue.support, restored_residue.collapse_due),
+            (residue.support, residue.collapse_due),
+        )
+
+    def test_destroyed_standing_timber_uses_delayed_braceable_collapse(self):
+        self.state.region.tile_changes[self.coordinate] = "T"
+        self.state.weapon = "felling axe"
+        session = GameSession(self.state)
+        session.submit(TerrainActionCommand("cut", self.target))
+        destroyed = session.submit(TerrainActionCommand("cut", self.target))
+
+        cell = self.state.region.materials[self.coordinate]
+        self.assertEqual((cell.support, cell.collapse_due), (0, self.state.world_time + 2))
+        self.assertFalse(any(isinstance(event, CollapseResolved) for event in destroyed.events))
+        self.assertEqual(terrain_at(self.state.region, self.target).glyph, ".")
+
+        braced = copy.deepcopy(self.state)
+        braced.gear = "repair tools"
+        changed, _ = handle_material(braced, "brace", self.target)
+        self.assertTrue(changed)
+        braced_cell = braced.region.materials[self.coordinate]
+        self.assertEqual((braced_cell.support, braced_cell.collapse_due), (3, 0))
+        GameSession(braced).submit(AdvanceWorldCommand(steps=2))
+        self.assertEqual(terrain_at(braced.region, self.target).glyph, ".")
+
+        first_wait = session.submit(AdvanceWorldCommand())
+        self.assertFalse(any(isinstance(event, CollapseResolved) for event in first_wait.events))
+        collapse = session.submit(AdvanceWorldCommand())
+        self.assertEqual(
+            [type(event) for event in collapse.event_batch.steps[0].events],
+            [CollapseResolved, TerrainChanged],
+        )
+        self.assertEqual(terrain_at(self.state.region, self.target).glyph, "%")
+        collapsed = self.state.region.materials[self.coordinate]
+        self.assertEqual(
+            (collapsed.material, collapsed.support, collapsed.collapse_due),
+            ("stone", 3, 0),
         )
 
     def test_unpacked_yield_remains_on_ground_and_emits_no_resource_reaction(self):
