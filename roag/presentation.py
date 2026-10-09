@@ -100,19 +100,33 @@ class EffectState:
         if not self.enabled:
             return
         actor_positions = actor_positions or {}
+        projectile_attacks = _projectile_attacks(batch.command_events)
         for index, event in enumerate(batch.command_events):
             self._schedule_event(
                 event,
                 actor_positions,
                 self.elapsed_ms + index * PRESENTATION_FRAME_MS,
+                suppress_ranged_impact=(
+                    isinstance(event, AttackResolved)
+                    and (event.attacker_id, event.target_position) in projectile_attacks
+                ),
             )
         step_offset = len(batch.command_events)
         for step in batch.steps:
+            projectile_attacks = _projectile_attacks(step.events)
             started_ms = self.elapsed_ms + (
                 step_offset + step.step_index - 1
             ) * PRESENTATION_FRAME_MS
             for event in step.events:
-                self._schedule_event(event, actor_positions, started_ms)
+                self._schedule_event(
+                    event,
+                    actor_positions,
+                    started_ms,
+                    suppress_ranged_impact=(
+                        isinstance(event, AttackResolved)
+                        and (event.attacker_id, event.target_position) in projectile_attacks
+                    ),
+                )
         if len(self.effects) > MAX_TRANSIENT_EFFECTS:
             self.effects[:] = self.effects[-MAX_TRANSIENT_EFFECTS:]
 
@@ -121,6 +135,8 @@ class EffectState:
         event: RuntimeEvent,
         actor_positions: Mapping[str, Position],
         started_ms: int,
+        *,
+        suppress_ranged_impact: bool = False,
     ) -> None:
         if isinstance(event, ProjectileResolved):
             self._schedule_projectile(event, started_ms)
@@ -150,7 +166,9 @@ class EffectState:
                     "debris", started_ms + index * PRESENTATION_FRAME_MS, 6,
                 )
             return
-        for specification in _effect_specifications(event, actor_positions):
+        for specification in _effect_specifications(
+            event, actor_positions, suppress_ranged_impact=suppress_ranged_impact,
+        ):
             effect_id, position, glyphs, emphasis_id, priority = specification
             self._append_effect(
                 effect_id, position, glyphs, emphasis_id, started_ms, priority,
@@ -251,6 +269,8 @@ class EffectState:
 def _effect_specifications(
     event: RuntimeEvent,
     actor_positions: Mapping[str, Position],
+    *,
+    suppress_ranged_impact: bool = False,
 ) -> tuple[tuple[str, Position, tuple[str, ...], str, int], ...]:
     """Choose presentation treatment from semantic facts, never simulation text."""
     if isinstance(event, AttackTelegraphed):
@@ -308,7 +328,7 @@ def _effect_specifications(
     if (
         isinstance(event, AttackResolved)
         and event.target_position is not None
-        and event.action_id != "intent.ranged.aim_telegraph"
+        and not suppress_ranged_impact
     ):
         if event.result_id == "combat.enemy.hit":
             impact = ("*", "+", "*")
@@ -340,3 +360,14 @@ def _projectile_glyph(previous: Position, position: Position) -> str:
     if dx:
         return "-"
     return "|"
+
+
+def _projectile_attacks(
+    events: tuple[RuntimeEvent, ...],
+) -> set[tuple[str, Position]]:
+    """Match a resolved attack only to a projectile in its causal event group."""
+    return {
+        (event.attacker_id, event.target_position)
+        for event in events
+        if isinstance(event, ProjectileResolved)
+    }

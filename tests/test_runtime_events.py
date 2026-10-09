@@ -16,13 +16,14 @@ from roag.commands import (
     SelectCarriedRelicCommand,
 )
 from roag.runtime_events import (
-    ActorDefeated, ActorMoved, AttackResolved, AttackTelegraphed,
-    CarriedRelicSelectionChanged, DamageApplied, InteractionResolved,
-    RetreatResolved, RuntimeEventBatch, StatusChanged,
+    ActorDefeated, ActorMoved, AreaResolved, AreaTelegraphed, AttackResolved,
+    AttackTelegraphed, CarriedRelicSelectionChanged, DamageApplied,
+    InteractionResolved, ProjectileResolved, RetreatResolved, RuntimeEventBatch,
+    StatusChanged,
 )
 from roag.session import GameSession
 from roag.state import Position, SoundEvent, Threat, create_world
-from roag.world import is_walkable
+from roag.world import is_walkable, position_key, projectile_path
 from test_content_packs import alternate_pack
 
 
@@ -150,6 +151,78 @@ class RuntimeEventTests(unittest.TestCase):
         self.assertEqual(attack.target_position, marker.target_position)
         self.assertNotEqual(attack.target_position, state.position)
         self.assertEqual(attack.result_id, "combat.enemy.missed")
+
+    def test_ranged_release_embeds_one_exact_projectile_path(self):
+        state, target_id = armed_state("runtime projectile path")
+        target = state.threats[0]
+        target.profile = "ranged"
+        target.role = "shooter"
+        target.ranged_kind = "crossbow"
+        target.ammunition = 3
+        target.position = Position(45, 25)
+        target.aimed_at = state.position
+        target.intent_id = "intent.ranged.aim_telegraph"
+        expected_path = tuple(projectile_path(target.position, state.position, state))
+        before = copy.deepcopy(state)
+
+        outcome = GameSession(state).submit(AdvanceWorldCommand())
+
+        step_events = outcome.event_batch.steps[0].events
+        attack = next(event for event in step_events if isinstance(event, AttackResolved))
+        projectiles = [
+            event for event in step_events if isinstance(event, ProjectileResolved)
+        ]
+        self.assertEqual(len(projectiles), 1)
+        projectile = projectiles[0]
+        self.assertEqual(projectile.attacker_id, target_id)
+        self.assertEqual(projectile.projectile_id, "crossbow")
+        self.assertEqual(projectile.path, expected_path)
+        self.assertEqual(
+            (projectile.origin, projectile.target_position),
+            (expected_path[0], expected_path[-1]),
+        )
+        self.assertEqual(projectile.result_id, attack.result_id)
+        self.assertEqual(outcome.events.count(projectile), 1)
+
+        unobserved = copy.deepcopy(before)
+        advance_world(unobserved)
+        self.assertEqual(state.to_dict(), unobserved.to_dict())
+
+    def test_authored_multi_cell_warning_and_resolution_embed_exact_area(self):
+        state, target_id = armed_state("runtime authored area")
+        target = state.threats[0]
+        target.profile = "reach"
+        target.position = Position(43, 25)
+        target.elite = True
+        target.archetype_id = "hearth-elite-claimant"
+        session = GameSession(state)
+
+        warning = session.submit(AdvanceWorldCommand())
+
+        warning_events = warning.event_batch.steps[0].events
+        areas = [event for event in warning_events if isinstance(event, AreaTelegraphed)]
+        self.assertEqual(len(areas), 1)
+        telegraph = areas[0]
+        expected = (
+            Position(40, 25), Position(39, 25), Position(41, 25),
+        )
+        self.assertEqual(telegraph.actor_id, target_id)
+        self.assertEqual(telegraph.origin, state.position)
+        self.assertEqual(telegraph.cells, expected)
+        self.assertFalse(any(
+            isinstance(event, AttackTelegraphed) for event in warning_events
+        ))
+
+        resolution = session.submit(AdvanceWorldCommand())
+
+        resolved = [
+            event for event in resolution.event_batch.steps[0].events
+            if isinstance(event, AreaResolved)
+        ]
+        self.assertEqual(len(resolved), 1)
+        self.assertEqual(resolved[0].cells, expected)
+        self.assertEqual(resolution.events.count(resolved[0]), 1)
+        self.assertTrue(all(position_key(point) in state.water for point in expected))
 
     def test_enemy_movement_event_is_deterministic_and_step_scoped(self):
         first, target_id = armed_state("runtime enemy movement")
@@ -290,6 +363,8 @@ class RuntimeEventTests(unittest.TestCase):
             self.assertNotIn('"events"', serialized)
             self.assertNotIn("event_batch", serialized)
             self.assertNotIn("RuntimeEventBatch", serialized)
+            self.assertNotIn("ProjectileResolved", serialized)
+            self.assertNotIn("AreaResolved", serialized)
             restored = GameSession.load(path)
         self.assertEqual(restored.submit(MoveCommand(0, 0)).events, ())
 

@@ -36,10 +36,11 @@ source of truth.
 | WORLD-05 | Complete | Atomic zero-time ground pickup is a typed command; first-time pack acquisition consistently publishes one resource fact without drop/pick reaction loops. |
 | PRESENTATION-01 | Complete | Existing runtime-event batches drive ordered transient movement, combat, terrain, and visible threat-arrival glyph effects without affecting simulation. |
 | PRESENTATION-02 | Complete | Enemy movement, positional attack warnings, and committed impacts now produce ordered world-step effects without changing AI resolution. |
+| PRESENTATION-03 | Complete | Ranged releases carry exact projectile paths, while bounded authored area attacks carry exact affected cells for staged, visibility-safe ASCII motion. |
 
 The published foundation roadmap through ENGINE-02 is complete. ENGINE-03
 through ENGINE-06, WORLD-04 through WORLD-05, DANGER-03, and PRESENTATION-01
-through PRESENTATION-02 are post-roadmap tranches scoped from the integrated
+through PRESENTATION-03 are post-roadmap tranches scoped from the integrated
 systems already in the repository. Further tranches should continue to be
 chosen from playtesting and the still-open product decisions rather than
 assumed here.
@@ -223,6 +224,18 @@ assumed here.
   distinguishes hit/neutral resolution from a quieter blocked or missed `x`.
   Attacker recoil and target impact can be composed from one semantic event.
   Existing map danger marks and chronicle text remain the durable static cues.
+- Ordinary enemy ranged releases now emit one step-scoped
+  `ProjectileResolved` containing the authoritative origin, marked target,
+  projectile identity, outcome, and exact world path computed before the
+  reducer can move a skirmisher. The presenter advances an ASCII trace along
+  that embedded path at the existing 100 ms cadence and delays its impact cue
+  until the trace arrives.
+- `AreaTelegraphed` and `AreaResolved` carry exact cells for the existing
+  floodgate sluice, wreck-cover pull, and rising-resin attacks. Warnings expose
+  the whole bounded footprint immediately; resolution expands from the
+  semantic origin with restrained one-frame staggering. All cells remain
+  FOV-gated, and durable text plus authoritative terrain/material changes
+  remain available when effects are disabled.
 
 ## Compatibility and migrations
 
@@ -297,6 +310,10 @@ assumed here.
   and all derived effects remain unsaved. Collector-enabled and collector-free
   world advancement are tested to produce identical authoritative state;
   format 15 and content fingerprints are unchanged.
+- PRESENTATION-03 likewise adds only immutable transient events and UI-owned
+  effects. Embedded projectile paths and area cells are derived from existing
+  authoritative geometry without RNG draws or mutation, are absent from save
+  output, and require no save migration, format bump, or fingerprint change.
 
 ## Known deviations and baseline issues
 
@@ -338,6 +355,11 @@ assumed here.
 - Harvested clay already feeds existing production recipes. Harvested reeds
   are physical and saveable but have no new recipe consumer in WORLD-04; adding
   one belongs to content/balance work rather than the terrain bridge.
+- PRESENTATION-03 intentionally covers ordinary ranged shots and three core
+  bounded authored area attacks only. Machinery row sweeps and the broader
+  frontier-elite catalogue do not yet expose stable exact area geometry, so
+  this tranche does not infer it from prose, duplicate their reducers, or add
+  camera shake and screen-wide effects prematurely.
 - With the current mass-sensor rules, spending one rack charge to finish a
   harvest and then packing its yield restores one charge. The loop is bounded
   by finite terrain and emits the machinery's extra noise, but its net-zero

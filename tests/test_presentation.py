@@ -13,9 +13,9 @@ from roag.presentation import (
     presentation_enabled,
 )
 from roag.runtime_events import (
-    ActorDefeated, AttackResolved, AttackTelegraphed, DamageApplied,
-    RuntimeEventBatch, RuntimeEventStep, TerrainChanged, TerrainDamaged,
-    ThreatSpawned,
+    ActorDefeated, AreaResolved, AreaTelegraphed, AttackResolved,
+    AttackTelegraphed, DamageApplied, ProjectileResolved, RuntimeEventBatch,
+    RuntimeEventStep, TerrainChanged, TerrainDamaged, ThreatSpawned,
 )
 from roag.session import GameSession
 from roag.state import Position, create_world
@@ -95,6 +95,69 @@ class PresentationStateTests(unittest.TestCase):
         self.assertEqual(effects.glyph("e", origin), ">")
         self.assertEqual(effects.glyph(".", marked), "x")
         self.assertEqual(effects.effect_at(marked).emphasis_id, "trail")
+
+    def test_projectile_uses_embedded_path_and_delays_impact(self):
+        origin = Position(10, 10, 0)
+        first = Position(11, 10, 0)
+        second = Position(12, 10, 0)
+        target = Position(13, 10, 0)
+        events = (
+            AttackResolved(
+                "enemy", "courier", "intent.ranged.aim_telegraph",
+                "combat.enemy.hit", origin, target,
+            ),
+            ProjectileResolved(
+                "enemy", origin, target, (origin, first, second, target),
+                "crossbow", "combat.enemy.hit",
+            ),
+        )
+        effects = EffectState.for_seed("projectile presentation")
+
+        effects.consume(RuntimeEventBatch(steps=(RuntimeEventStep(1, events),)))
+
+        self.assertEqual(effects.glyph("e", origin), ">")
+        self.assertEqual(effects.glyph(".", first), "-")
+        self.assertEqual(effects.glyph("@", target), "@")
+        effects.advance()
+        self.assertEqual(effects.glyph(".", second), "-")
+        self.assertEqual(effects.glyph("@", target), "@")
+        effects.advance()
+        self.assertEqual(effects.glyph("@", target), "*")
+        self.assertEqual(
+            effects.effect_at(target).effect_id, "combat.projectile.impact",
+        )
+        self.assertEqual(effects.glyph("@", target, visible=False), "@")
+
+    def test_area_warning_is_immediate_and_resolution_expands_from_origin(self):
+        center = Position(20, 10, 0)
+        left = Position(19, 10, 0)
+        right = Position(21, 10, 0)
+        cells = (center, left, right)
+        warning = EffectState.for_seed("area telegraph presentation")
+        warning.consume(RuntimeEventBatch(command_events=(AreaTelegraphed(
+            "enemy", center, cells,
+            "intent.elite.floodgate.sluice_telegraph",
+        ),)))
+
+        self.assertEqual(
+            [warning.glyph(".", point) for point in cells], ["!", "!", "!"],
+        )
+        self.assertEqual(warning.glyph(".", left, visible=False), ".")
+
+        resolution = EffectState.for_seed("area resolution presentation")
+        resolution.consume(RuntimeEventBatch(command_events=(AreaResolved(
+            "enemy", center, cells,
+            "intent.elite.floodgate.sluice_telegraph", "combat.enemy.hit",
+        ),)))
+
+        self.assertEqual(resolution.glyph(".", center), "*")
+        self.assertEqual(resolution.glyph(".", left), ".")
+        self.assertEqual(resolution.glyph(".", right), ".")
+        resolution.advance()
+        self.assertEqual(resolution.glyph(".", left), "*")
+        self.assertEqual(resolution.glyph(".", right), ".")
+        resolution.advance()
+        self.assertEqual(resolution.glyph(".", right), "*")
 
     def test_session_outcome_enters_effect_state_without_mutating_again(self):
         state = create_world("presentation-command-boundary")
