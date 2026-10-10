@@ -1,7 +1,7 @@
 local Scheduler = {}
 
 local function priority(item)
-    if item.kind == "effect" then return 0 end
+    if item.kind == "effect" or item.kind == "impact" then return 0 end
     assert(item.kind == "actor_ready", "unknown scheduled kind")
     return 1
 end
@@ -29,10 +29,20 @@ function Scheduler.enqueue(state, item)
         actor_id = item.actor_id,
         is_player = item.is_player,
         effect_id = item.effect_id,
+        attack_id = item.attack_id,
     }
     state.schedule[#state.schedule + 1] = entry
     table.sort(state.schedule, before)
     return entry
+end
+
+function Scheduler.remove_for_actor(state, actor_id, kind)
+    for index = #state.schedule, 1, -1 do
+        local item = state.schedule[index]
+        if item.actor_id == actor_id and (kind == nil or item.kind == kind) then
+            table.remove(state.schedule, index)
+        end
+    end
 end
 
 function Scheduler.peek(state)

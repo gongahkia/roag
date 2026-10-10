@@ -1,6 +1,35 @@
 local Content = {}
 
-Content.version = "roeg-content/1"
+Content.version = "roeg-content/2"
+
+local tiles = {
+    ["."] = { walkable = true, blocks_vision = false, projectile_passable = true },
+    ["#"] = { walkable = false, blocks_vision = true, projectile_passable = false },
+}
+
+local enemies = {
+    ["core:enemy/mossbound_guard"] = {
+        id = "core:enemy/mossbound_guard", name = "Mossbound Guard", ai = "guard",
+        hp = 10, damage = 3, defense = 1, speed = 70,
+        windup = 80, recovery = 120, move_cost = 100, range = 1,
+    },
+    ["core:enemy/thornspitter"] = {
+        id = "core:enemy/thornspitter", name = "Thornspitter", ai = "spitter",
+        hp = 6, damage = 2, defense = 0, speed = 90,
+        windup = 90, recovery = 130, move_cost = 100, min_range = 2, range = 7,
+    },
+    ["core:enemy/ruin_skitter"] = {
+        id = "core:enemy/ruin_skitter", name = "Ruin Skitter", ai = "skitter",
+        hp = 4, damage = 1, defense = 0, speed = 160,
+        windup = 35, recovery = 70, move_cost = 100, range = 1,
+    },
+}
+
+local demo_spawns = {
+    { definition_id = "core:enemy/mossbound_guard", x = 7, y = 3 },
+    { definition_id = "core:enemy/thornspitter", x = 3, y = 9 },
+    { definition_id = "core:enemy/ruin_skitter", x = 6, y = 6 },
+}
 
 local maps = {
     ["core:map/test_room"] = {
@@ -65,6 +94,20 @@ function Content.get_map(id)
     return maps[id]
 end
 
+function Content.get_enemy(id)
+    return enemies[id]
+end
+
+function Content.demo_spawns(map_id)
+    if map_id == "core:map/scrolling_room" then return demo_spawns end
+    return {}
+end
+
+local function tile_at(map, x, y)
+    if x < 1 or x > map.width or y < 1 or y > map.height then return nil end
+    return tiles[map.rows[y]:sub(x, x)]
+end
+
 function Content.validate_map(map)
     assert(type(map) == "table" and type(map.id) == "string" and map.id ~= "", "map needs a stable ID")
     assert(type(map.floor_id) == "string" and map.floor_id ~= "", "map needs a floor ID")
@@ -83,8 +126,18 @@ function Content.validate_map(map)
 end
 
 function Content.walkable(map, x, y)
-    if x < 1 or x > map.width or y < 1 or y > map.height then return false end
-    return map.rows[y]:sub(x, x) == "."
+    local tile = tile_at(map, x, y)
+    return tile ~= nil and tile.walkable
+end
+
+function Content.projectile_passable(map, x, y)
+    local tile = tile_at(map, x, y)
+    return tile ~= nil and tile.projectile_passable
+end
+
+function Content.blocks_vision(map, x, y)
+    local tile = tile_at(map, x, y)
+    return tile == nil or tile.blocks_vision
 end
 
 function Content.validate_all()
@@ -96,6 +149,30 @@ function Content.validate_all()
         local map = assert(maps[id], "missing map definition")
         assert(map.id == id, "map definition ID mismatch")
         Content.validate_map(map)
+    end
+    local enemy_ids = {
+        "core:enemy/mossbound_guard", "core:enemy/thornspitter", "core:enemy/ruin_skitter",
+    }
+    for _, id in ipairs(enemy_ids) do
+        assert(not seen[id], "duplicate content ID")
+        seen[id] = true
+        local definition = assert(enemies[id], "missing enemy definition")
+        assert(definition.id == id and type(definition.ai) == "string", "invalid enemy identity")
+        for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range"}) do
+            local value = definition[field]
+            assert(type(value) == "number" and value % 1 == 0 and value >= 0, "invalid enemy stat")
+        end
+        assert(definition.hp > 0 and definition.speed > 0 and definition.windup > 0
+            and definition.recovery > 0 and definition.move_cost > 0, "invalid enemy timing")
+    end
+    local demo_map = maps["core:map/scrolling_room"]
+    local occupied = {}
+    for _, spawn in ipairs(demo_spawns) do
+        assert(enemies[spawn.definition_id], "unknown demo enemy")
+        assert(Content.walkable(demo_map, spawn.x, spawn.y), "demo spawn blocked")
+        local key = spawn.x .. "," .. spawn.y
+        assert(not occupied[key], "duplicate demo spawn")
+        occupied[key] = true
     end
     return true
 end
