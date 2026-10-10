@@ -973,7 +973,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
 
             definition = active_class(state)
             lines.extend((
-                f"RUN  Stage {state.run.stage_index}/5 — defeat five claimants; the fifth is final.",
+                f"RUN  Stage {state.run.stage_index}/5: claimant",
                 f"Salvage {state.run.stage_salvage}  Build {sum(state.run.item_stacks.values())}",
             ))
             run_controls = (
@@ -1276,6 +1276,46 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
     from .work_weapons import WORK_WEAPONS
 
     selected = _target_at_cursor(state, view)
+    if view.run_ability:
+        from .actions import (
+            run_ability_actor_legal, run_ability_position_legal,
+            run_ability_target_mode,
+        )
+        from .run_classes import active_class
+
+        definition = active_class(state)
+        name = (
+            definition.movement_name if view.run_ability == "movement"
+            else definition.signature_name
+        ) if definition else view.run_ability.title()
+        description = (
+            definition.movement_description if view.run_ability == "movement"
+            else definition.signature_description
+        ) if definition else ""
+        mode = run_ability_target_mode(state, view.run_ability)
+        if mode == "position":
+            legal, reason = run_ability_position_legal(
+                state, view.run_ability, view.cursor,
+            )
+            target = f"Cell {view.cursor.x},{view.cursor.y}"
+        else:
+            legal, reason = (
+                run_ability_actor_legal(state, view.run_ability, selected)
+                if selected else (False, "choose an eligible visible threat")
+            )
+            target = selected.name if selected else "No eligible threat at cursor"
+        cooldown = (
+            state.run.movement_cooldown if view.run_ability == "movement"
+            else state.run.signature_cooldown
+        ) if state.run else 0
+        if cooldown:
+            legal, reason = False, f"ready in {cooldown} action(s)"
+        return information_lines([
+            f"{name.upper()} — {description}",
+            f"Target: {target}; range {distance(state.position, view.cursor)}.",
+            ("LEGAL — " if legal else "BLOCKED — ") + reason + ".",
+            "Enter commits one class action; Escape cancels without time.",
+        ], width)
     if view.spell_id:
         from .magic import SPELLS, spell_status
         from .magic_presentation import magic_format, magic_text, spell_description, spell_display_name
@@ -1288,7 +1328,7 @@ def targeting_lines(state: GameState, view: TargetView, width: int) -> list[str]
             magic_format("magic.target.legality", status=magic_text("magic.target.ready" if legal else "magic.target.blocked"), reason=reason),
             magic_format("magic.target.observed", target=selected.name, intent=selected.intent) if selected else magic_text("magic.target.empty"),
         ], width)
-    ready = "Enter commits one cast; Escape costs no time."
+    ready = "Enter attacks the marked target; Escape cancels without time."
     if state.weapon == "pot sling":
         from .equipment_presentation import equipment_text
         ready = equipment_text("equipment.target.pot")
@@ -1407,18 +1447,21 @@ def _target_cycle(state: GameState, view: TargetView) -> None:
             view.selected = (view.selected + 1) % len(available)
             view.cursor = available[view.selected].position
         return
-    available = [
-        threat_id for threat_id in view.target_ids
-        if any(
-            threat.id == threat_id and threat.status in {"watching", "engaged"}
-            and courier_sees(state, threat.position)
-            and (
-                attack_target_legality(state, threat)[0]
-                or brace_target_legality(state, threat)[0]
+    if view.run_ability:
+        available = [actor.id for actor in run_ability_targets(state, view.run_ability)]
+    else:
+        available = [
+            threat_id for threat_id in view.target_ids
+            if any(
+                threat.id == threat_id and threat.status in {"watching", "engaged"}
+                and courier_sees(state, threat.position)
+                and (
+                    attack_target_legality(state, threat)[0]
+                    or brace_target_legality(state, threat)[0]
+                )
+                for threat in state.combatants
             )
-            for threat in state.combatants
-        )
-    ]
+        ]
     if not available:
         return
     view.selected = (view.selected + 1) % len(available)
@@ -1594,7 +1637,11 @@ def _overlay(screen: curses.window, title: str, lines: Iterable[str], view: Over
             _COLOUR_ATTRIBUTES[information_colour_role(source)],
         )
     if view:
-        footer = f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
+        footer = (
+            "1/2/3 choose; world paused"
+            if view.kind == "run-reward" else
+            f"Up/Down PgUp/PgDn Home/End; Esc close [{offset + 1}/{len(material)}]"
+        )
         _put(screen, top + box_height - 2, left + 2, _clip(footer, box_width - 4), _COLOUR_ATTRIBUTES["ui_accent"] | curses.A_BOLD)
     screen.refresh()
 
@@ -1969,6 +2016,11 @@ def _handle_overlay_view(
             )
             if session is not None:
                 _consume_outcome_effects(effects, state, session, outcome)
+            if outcome.changed:
+                try:
+                    curses.flushinp()
+                except curses.error:
+                    pass
             # Remain in the overlay for a queued threshold; closing requires
             # a later, fresh key and never advances the action clock.
             return not bool(state.run and state.run.pending_rewards), False

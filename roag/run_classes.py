@@ -39,7 +39,7 @@ class RunClassDefinition:
 _DEFINITIONS = (
     RunClassDefinition(
         "breaker", "Breaker",
-        "Close pressure that turns collisions, cover, and breakable terrain into damage.",
+        "Close pressure; breach cover and turn collisions into damage.",
         "Strong adjacent strike",
         "war hammer", "repair tools", None, 0, 14,
         "charge", "Charge",
@@ -49,7 +49,7 @@ _DEFINITIONS = (
     ),
     RunClassDefinition(
         "marksman", "Marksman",
-        "Firing lanes and alignment; rewards clear sightlines and deliberate positioning.",
+        "Find firing lanes, align shots, and vault over cover.",
         "Precise ranged shot",
         "staff sling", "quiet shoes", "sling stones", 12, 10,
         "vault", "Vault",
@@ -59,7 +59,7 @@ _DEFINITIONS = (
     ),
     RunClassDefinition(
         "trickster", "Trickster",
-        "Close skirmishing, swaps, and misdirection that rearrange an encounter.",
+        "Skirmish up close; swap places and misdirect pursuers.",
         "Quick close strike",
         "paired knives", "rope", None, 0, 10,
         "exchange", "Exchange",
@@ -69,7 +69,7 @@ _DEFINITIONS = (
     ),
     RunClassDefinition(
         "sapper", "Sapper",
-        "Predictable delayed blasts, short hops, and local area denial.",
+        "Plan delayed blasts, hop clear, and deny enemy routes.",
         "Modest ranged shot",
         "sling", "smoke pot", "sling stones", 12, 11,
         "hop", "Propulsion hop",

@@ -3461,8 +3461,6 @@ def run_ability_target_mode(state: GameState, ability_id: str) -> str:
 
 def run_ability_targets(state: GameState, ability_id: str) -> list[Threat]:
     """Expose only legal visible actor targets for the class targeting view."""
-    from .world import courier_sees
-
     mode = run_ability_target_mode(state, ability_id)
     if mode != "actor":
         return []
@@ -3471,15 +3469,47 @@ def run_ability_targets(state: GameState, ability_id: str) -> list[Threat]:
     definition = active_class(state)
     if definition is None:
         return []
-    maximum = 3 if definition.id == "breaker" and ability_id == "movement" else 10
     rows = [
         actor for actor in state.combatants
-        if actor.health > 0 and actor.status in {"watching", "engaged"}
-        and actor.position.z == state.position.z
-        and distance(state.position, actor.position) <= maximum
-        and courier_sees(state, actor.position)
+        if run_ability_actor_legal(state, ability_id, actor)[0]
     ]
     return sorted(rows, key=lambda actor: (distance(state.position, actor.position), actor.id))
+
+
+def run_ability_actor_legal(
+    state: GameState, ability_id: str, actor: Threat,
+) -> tuple[bool, str]:
+    """Preview the same lane and landing rules used on commitment."""
+    from .run_classes import active_class
+    from .world import courier_sees
+
+    definition = active_class(state)
+    if definition is None or run_ability_target_mode(state, ability_id) != "actor":
+        return False, "this ability does not target an actor"
+    maximum = 3 if definition.id == "breaker" else 10
+    if (
+        actor.health <= 0 or actor.status not in {"watching", "engaged"}
+        or actor.position.z != state.position.z
+        or not courier_sees(state, actor.position)
+        or distance(state.position, actor.position) > maximum
+    ):
+        return False, f"needs a visible threat within {maximum} cells"
+    if definition.id == "marksman":
+        if actor.position.x != state.position.x and actor.position.y != state.position.y:
+            return False, "piercing shot needs a cardinal lane"
+        if not line_of_sight(state, state.position, actor.position):
+            return False, "terrain blocks the piercing lane"
+    if definition.id == "breaker":
+        dx = 0 if actor.position.x == state.position.x else (1 if actor.position.x > state.position.x else -1)
+        dy = 0 if actor.position.y == state.position.y else (1 if actor.position.y > state.position.y else -1)
+        landing = Position(actor.position.x - dx, actor.position.y - dy, actor.position.z)
+        if landing != state.position and (
+            not is_walkable(state, landing, ignore_threat=True)
+            or any(other.id != actor.id and other.health > 0 and other.position == landing
+                   for other in state.combatants)
+        ):
+            return False, "charge has no open landing beside the target"
+    return True, "eligible visible threat"
 
 
 def run_ability_position_legal(
@@ -3570,8 +3600,9 @@ def use_run_ability(
         dx = 0 if target.position.x == state.position.x else (1 if target.position.x > state.position.x else -1)
         dy = 0 if target.position.y == state.position.y else (1 if target.position.y > state.position.y else -1)
         landing = Position(target.position.x - dx, target.position.y - dy, target.position.z)
-        if landing != state.position and not is_walkable(state, landing, ignore_threat=True):
-            return _plain(state, "Charge has no clear landing beside that threat.")
+        legal, reason = run_ability_actor_legal(state, ability_id, target)
+        if not legal:
+            return _plain(state, reason.capitalize() + ".")
         state.position = landing
         target.position = _step_away(state, target)
         moved(state.active_courier_id or "courier", previous_courier, state.position, "movement.class.charge")
@@ -3608,6 +3639,7 @@ def use_run_ability(
             and ((direction[0] == 0 and actor.position.x == state.position.x and (actor.position.y - state.position.y) * direction[1] > 0)
                  or (direction[1] == 0 and actor.position.y == state.position.y and (actor.position.x - state.position.x) * direction[0] > 0))
             and distance(state.position, actor.position) <= 10
+            and line_of_sight(state, state.position, actor.position)
         ]
         rows.sort(key=lambda actor: (distance(state.position, actor.position), actor.id))
         hits = []
@@ -3617,7 +3649,8 @@ def use_run_ability(
             if defeated:
                 events.append(ActorDefeated(actor.id, state.active_courier_id or "courier"))
             hits.append(actor.name)
-        after_attack_hit(state, target)
+        for actor in rows:
+            after_attack_hit(state, actor)
         text = "Piercing shot crosses " + ", ".join(hits) + "."
     elif action_id == "exchange":
         target = actor_target()

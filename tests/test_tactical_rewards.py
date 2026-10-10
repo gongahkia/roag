@@ -76,7 +76,7 @@ class TacticalRewardTests(unittest.TestCase):
         gonne = armed_state("handgonne", "handgonne charges")
         before = physical_ammunition(gonne, "handgonne charges")
         aimed = attack(gonne, "target")
-        self.assertIn("prepare handgonne", aimed.message)
+        self.assertIn("prepare Powder handgonne", aimed.message)
         fired = attack(gonne, "target")
         self.assertIn("powder smoke", fired.message)
         self.assertTrue(gonne.smoke)

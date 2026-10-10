@@ -188,6 +188,7 @@ def record_enemy_defeat(
             None,
         )
         if defeated is not None:
+            caught = 0
             for actor in sorted(state.threats, key=lambda candidate: candidate.id):
                 if (
                     actor.id != actor_id
@@ -202,10 +203,17 @@ def record_enemy_defeat(
                         allow_run_secondary=False,
                         apply_run_attack_bonus=False,
                     )
+                    caught += 1
+            if caught:
+                state.add_message(
+                    f"Defeat boon burst from {defeated.name} hits {caught} "
+                    f"{'enemy' if caught == 1 else 'enemies'} for {blast} damage.",
+                    priority=2,
+                )
     kill_index = run.ordinary_kills + run.elite_kills
     # A finite pity cadence prevents long item droughts.  Greed effects make
     # drops more frequent but contribute to pressure in danger.pressure().
-    interval = max(2, 5 - min(2, effect_value(state, "drop_chance") // 4))
+    interval = max(2, 5 - min(3, effect_value(state, "drop_chance") // 2))
     if not elite and kill_index % interval:
         return None
     roll = stage_rng(

@@ -8,7 +8,7 @@ its finite stacking vocabulary.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Mapping
 
@@ -20,6 +20,23 @@ from .state import GameState, stage_rng
 TIERS = ("common", "uncommon", "rare", "boss")
 TIER_COUNTS = {"common": 24, "uncommon": 18, "rare": 10, "boss": 8}
 STACKING = frozenset({"linear", "capped", "threshold", "diminishing"})
+
+# Keep the shipped catalogue byte-for-byte compatible with existing saves.
+# Run-only balance and clearer presentation can evolve without changing its
+# mechanical catalogue fingerprint or invalidating an unrelated chronicle.
+_EFFECTIVE_RUN_CAPS = {"backwater-map": 2, "greed-lure": 6}
+_RUN_DESCRIPTION_OVERRIDES = {
+    "river-edge": "Direct attacks, class hits, and delayed charges deal additional damage.",
+    "backwater-map": "Reveal up to two charted stage leads on entering a region.",
+    "greed-lure": "Shorten the ordinary combat-drop interval by one kill per stack, down to two; increase pressure.",
+    "last-plank": "Survive one otherwise lethal hit per stack during this run.",
+    "quarry-song": "Breaking terrain damages enemies within two cells.",
+    "fault-reader": "Reduce structural support loss from terrain work by one per stack.",
+    "double-lot": "Combat drops sample one more candidate per stack and award the least stacked.",
+    "whitecairn-fault-bell": "Terrain destruction damages enemies within two cells.",
+    "dunmire-flood-hook": "Moving through wet terrain grants guard and a barrier equal to this value.",
+    "frostmere-winter-eye": "Hits arc strong damage to one other enemy within two cells.",
+}
 
 
 @dataclass(frozen=True)
@@ -60,6 +77,10 @@ def _load_definitions() -> Mapping[str, RunItemDefinition]:
             or (definition.tier == "boss") != bool(definition.region)
         ):
             raise CatalogError(f"invalid run item {definition.id!r}")
+        if definition.id in _RUN_DESCRIPTION_OVERRIDES:
+            definition = replace(
+                definition, description=_RUN_DESCRIPTION_OVERRIDES[definition.id],
+            )
         definitions[definition.id] = definition
         tier_counts[definition.tier] += 1
     if tier_counts != TIER_COUNTS:
@@ -103,14 +124,15 @@ def stack_value(definition: RunItemDefinition, stacks: int) -> int:
     if definition.stacking in {"linear", "capped"}:
         value = definition.base + definition.per_stack * (stacks - 1)
     elif definition.stacking == "threshold":
-        # Threshold items gain a step every second copy.  Their base value is
-        # useful immediately, while duplicates deliberately scale slowly.
-        value = definition.base + definition.per_stack * ((stacks - 1) // 2)
+        # These values change a discrete cadence or limit. Every offered copy
+        # must improve that value; a dormant second copy could never be taken
+        # because the reward collector correctly rejects no-op stacks.
+        value = definition.base + definition.per_stack * (stacks - 1)
     else:
         value = definition.base
         for copy_index in range(1, stacks):
             value += max(1, definition.per_stack // (copy_index + 1))
-    return min(definition.cap, value)
+    return min(definition.cap, _EFFECTIVE_RUN_CAPS.get(definition.id, definition.cap), value)
 
 
 def effect_value(
@@ -220,6 +242,7 @@ def after_move(state: GameState, *, wet: bool) -> None:
         state.guarded_step = True
     if wet and effect_value(state, "wet_guard"):
         state.guarded_step = True
+        run.barrier = max(run.barrier, effect_value(state, "wet_guard"))
     free_step = effect_value(state, "free_step")
     if free_step and run.move_chain % max(2, 7 - free_step) == 0:
         # This refunds exposure only. The authoritative action and every other
@@ -283,8 +306,14 @@ def after_attack_hit(
     result = harm_enemy(
         state, chained, damage, "run-item chained strike",
         defeated_by_actor_id=state.active_courier_id or "courier",
-        allow_run_secondary=False,
+        # This one owned hit may trigger a defeat effect. Defeat-blast hits
+        # themselves set allow_run_secondary=False, so chains stop there.
+        allow_run_secondary=True,
         apply_run_attack_bonus=False,
+    )
+    state.add_message(
+        f"Arc boon strikes {chained.name} for {result.amount} damage.",
+        priority=2,
     )
     return chained.id, result.amount, result.defeated
 
@@ -318,6 +347,7 @@ def after_terrain_destroyed(
         from .enemy_equipment import harm_enemy
         from .world import distance
 
+        caught = 0
         for actor in sorted(state.threats, key=lambda candidate: candidate.id):
             if (
                 actor.health > 0 and actor.status in {"watching", "engaged"}
@@ -327,7 +357,14 @@ def after_terrain_destroyed(
                 harm_enemy(
                     state, actor, impact, "run-item terrain shockwave",
                     defeated_by_actor_id=state.active_courier_id or "courier",
-                    allow_run_secondary=False,
+                    allow_run_secondary=True,
                     apply_run_attack_bonus=False,
                 )
+                caught += 1
+        if caught:
+            state.add_message(
+                f"Terrain boon shockwave hits {caught} "
+                f"{'enemy' if caught == 1 else 'enemies'} for {impact} damage.",
+                priority=2,
+            )
     return extra

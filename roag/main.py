@@ -225,6 +225,8 @@ def _read_run_class(screen: curses.window, last_class_id: str = "breaker") -> st
                  colour_attribute("success") if index == selected else 0)
         _put(screen, min(height - 2, height // 2 + 4), 2,
              "Up/Down to choose; Enter to begin. Class kits are run-local.")
+        _put(screen, min(height - 1, height // 2 + 5), 2,
+             "Goal: reach each sanctum, defeat its claimant; the fifth is the final boss.")
         screen.refresh()
         key = screen.getch()
         if key in {curses.KEY_UP, ord("k")}:

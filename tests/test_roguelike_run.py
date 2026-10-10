@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from roag.actions import apply_damage
+from roag.actions import apply_damage, interact
 from roag.commands import (
     ChooseRunBranchCommand, ChooseRunRewardCommand, CollectRunItemCommand,
     TerrainActionCommand,
@@ -24,6 +24,8 @@ from roag.run_items import (
 )
 from roag.run_loot import collect_at
 from roag.run_progression import prepare_stage, record_boss_defeat, start_run
+from roag.sanctums import shrine_choice
+from roag.enemy_equipment import harm_enemy
 from roag.save import load_game, save_game
 from roag.session import GameSession
 from roag.state import (
@@ -116,6 +118,41 @@ class RoguelikeRunTests(unittest.TestCase):
             count for item_id, count in state.run.item_stacks.items()
             if RUN_ITEMS[item_id].tier == "boss"
         ), 5)
+
+    def test_sanctum_activation_owned_boss_kills_and_reachable_five_stage_route(self):
+        # Position jumps and low boss health keep this a route/ownership check,
+        # not a claim of five complete player-controlled combat encounters.
+        state = self.prepared("activated claimant route")
+        for stage in range(1, 6):
+            reachable = region_reachable(state.region)
+            shrine = state.region.landmarks["sanctum_shrine"]
+            entry = state.region.landmarks["sanctum_entry"]
+            self.assertIn(shrine, reachable)
+            self.assertIn(entry, reachable)
+            state.position = shrine
+            self.assertEqual(interact(state).overlay, "sanctum")
+            self.assertTrue(shrine_choice(state, "b")[0])
+            state.position = entry
+            self.assertTrue(interact(state).time_advanced)
+            boss = next(actor for actor in state.threats
+                        if actor.id == f"sanctum:{state.active_region_id}:boss")
+            boss.health = 1
+            harm_enemy(state, boss, 2, "accepted final hit",
+                       defeated_by_actor_id=state.active_courier_id)
+            self.assertEqual(boss.status, "defeated")
+            self.assertEqual(len(state.run.boss_kills), stage)
+            if stage == 5:
+                break
+            self.choose_pending_rewards(state)
+            region_id, point = sorted(state.run.branch_positions.items())[0]
+            self.assertIn(point, region_reachable(state.region))
+            state.position = point
+            self.assertTrue(GameSession(state).submit(
+                ChooseRunBranchCommand(region_id),
+            ).changed)
+        self.assertEqual(state.run.status, "victory")
+        self.assertTrue(state.world_ended)
+        self.assertFalse(state.run.pending_rewards)
 
     def test_pressure_emits_patrol_sized_fair_reinforcement_group(self):
         state = self.prepared("group pressure")

@@ -84,7 +84,7 @@ def pressure(state: GameState) -> Pressure:
         run_pressure = (
             run_intensity(state)
             + state.run.stage_salvage // 6
-            + effect_value(state, "drop_chance") // 4
+            + effect_value(state, "drop_chance") // 2
             + effect_value(state, "pressure_loot") // 4
             + (state.run.challenge_tier if state.run.challenge_tier >= 4 else 0)
         )

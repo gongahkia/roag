@@ -75,6 +75,11 @@ def start_run(
         f"[X] {definition.signature_name}.",
         priority=3,
     )
+    state.add_message(
+        "Reach this region's sanctum and defeat its claimant; follow the threshold "
+        "to the next region. The fifth claimant is the final boss.",
+        priority=3,
+    )
 
 
 def run_intensity(state: GameState) -> int:
