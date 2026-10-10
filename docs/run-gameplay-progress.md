@@ -74,12 +74,6 @@ controls and encounter notice rendered correctly at the supported 80-column
 layout. A full hands-on combat/readability pass is still required; automated
 checks do not establish combat feel.
 
-## Next concrete action
-
-Finish the human four-class mixed-combat, reward-focus and unassisted five-stage
-playthrough. Use the prepared route and focused tests below to isolate any
-failure found there; tune only observed balance problems.
-
 ## Focused acceptance pass (2026-10-10)
 
 Acceptance validation after the targeted fixes: `python -m unittest
@@ -88,8 +82,16 @@ roag.checks --pattern test_roguelike_run.py` passed 13 tests;
 `python -m roag.checks --pattern test_tactical_rewards.py` passed 3 tests;
 `python -m roag.checks --pattern test_targeting_visibility.py` passed 8
 tests; `python -m roag.checks fast` passed 153 tests. Content verification,
-compilation and `git diff --check` passed. The full `unittest discover`
-gate is still running; record its outcome before closing this pass.
+compilation and `git diff --check` passed. Full `python -m unittest
+discover -s tests -q` ran 1,090 tests and failed with 66 failures and 11
+errors; a second full discovery after the last test addition ran 1,091
+tests with the same failure counts. The clean pre-pass parent (`9e607232`)
+ran 1,079 tests and had 67
+failures and 11 errors. Failure identities match exactly apart from the
+pre-existing tactical-rewards wording assertion corrected here; no new
+full-suite failures appeared. The inherited failures affect older catalogue,
+save-format, character/succession, workshop, navigation, and production
+fixtures and remain outside this focused pass. Full-suite gate remains red.
 
 - Normal entry: `python -m roag` opened the curses title, seed prompt,
   four-class chooser and Hearthford board at 80x24. Live `A` with no visible
@@ -176,3 +178,14 @@ The following groups cover every currently shared effect route:
 The table records routes and disclosed limits, not exhaustive per-class
 playtesting of every item. The initial XP pool deliberately excludes legacy
 circuit-only, melee-only, ranged-only and unused reroll-credit definitions.
+
+### Acceptance verdict and next action
+
+Partial: focused combat-run behavior and the prepared five-stage victory and
+retry routes pass, with no newly failing broad-suite tests. Full live combat
+with each class, reward-focus usability under held input, an unassisted
+five-stage victory/death retry, and overall tactical feel still need human
+playtesting. The repository-wide suite remains red on inherited failures.
+Next, play the normal `python -m roag` run through mixed encounters with all
+four classes, then make only fixes supported by observed failures. Triage the
+older broad-suite failures separately from the combat-run acceptance work.
