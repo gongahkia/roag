@@ -36,6 +36,9 @@ from .actions import (
     resolve_regional_quest_choice,
     intervene_socially,
     retreat,
+    legal_attack_targets,
+    run_ability_target_mode,
+    run_ability_targets,
     use_contact_service,
     use_aftermath_contract,
     use_gear,
@@ -44,7 +47,8 @@ from .actions import (
 from .commands import (
     AcquireGroundItemsCommand, AttackCommand, GuardCommand, InteractCommand,
     MoveCommand, RetreatCommand, SelectCarriedRelicCommand,
-    SetAutoPlaceCommand, TerrainActionCommand, UseGearCommand,
+    SetAutoPlaceCommand, TerrainActionCommand, UseGearCommand, UseRunAbilityCommand,
+    ChooseRunRewardCommand,
 )
 from .session import CommandOutcome, GameSession
 from .views import WorldView
@@ -209,6 +213,7 @@ class TargetView:
     ammunition: str | None = None
     mastery_id: str | None = None
     spell_id: str | None = None
+    run_ability: str | None = None
 
     @classmethod
     def begin(cls, state: GameState) -> "TargetView":
@@ -237,6 +242,14 @@ class TargetView:
         targets.sort(key=lambda actor: (distance(state.position, actor.position), actor.id))
         return cls(targets[0].position if targets else state.position,
                    [actor.id for actor in targets], spell_id=spell_id)
+
+    @classmethod
+    def begin_run_ability(cls, state: GameState, ability_id: str) -> "TargetView":
+        targets = run_ability_targets(state, ability_id)
+        return cls(
+            targets[0].position if targets else state.position,
+            [target.id for target in targets], run_ability=ability_id,
+        )
 
 
 @dataclass
@@ -804,6 +817,15 @@ def _draw_map(
         position for _, position in state.run.dropped_items.values()
         if state.run is not None and position.z == state.position.z
     } if state.run is not None else set()
+    run_decoy = (
+        state.run.decoy_position
+        if state.run is not None and state.run.decoy_position is not None
+        and state.world_time < state.run.decoy_until else None
+    )
+    run_charge_marks = {
+        position for position, due in state.run.placed_charges
+        if due > state.world_time and position.z == state.position.z
+    } if state.run is not None else set()
     known = ({position_key(cell.position) for cell in semantic_view.cells if cell.remembered}
              if semantic_view is not None else set(state.region.seen))
     marks = set(state.treasure_marks.get(state.active_region_id, []))
@@ -830,6 +852,10 @@ def _draw_map(
                 char = SPECS[vehicle.id]["glyph"] if vehicle and state.active_vehicle_id == vehicle.id else ENTITY_GLYPHS["courier"]
             elif position in threats:
                 char = _threat_glyph(threats[position])
+            elif position == run_decoy:
+                char = "?"
+            elif position in run_charge_marks:
+                char = "!"
             elif vehicle:
                 char = SPECS[vehicle.id]["glyph"]
             elif position in danger_marks:
@@ -847,6 +873,10 @@ def _draw_map(
             if position in threats and position != state.position:
                 actor = threats[position]
                 role = "elite" if actor.elite else "neutral" if actor.ecology == "prey" else "hostile"
+            elif position == run_decoy:
+                role = "neutral"
+            elif position in run_charge_marks:
+                role = "danger"
             elif vehicle:
                 role = "player" if state.active_vehicle_id == vehicle.id and position == state.position else "interactable"
             elif position in run_item_marks:
@@ -919,6 +949,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
         f"Load {pack_weight(state)}/{weight_capacity(state)} kg",
         *textwrap.wrap(f"Location: {location}", width=25, break_long_words=True),
     ]
+    run_controls: tuple[str, ...] = ()
     if state.location == "region":
         forecast = danger_forecast(state)
         profile = forecast.pressure
@@ -938,10 +969,20 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
                 else f"Response: {forecast.response_due_in} turns"
             )
         if state.run is not None:
+            from .run_classes import active_class
+
+            definition = active_class(state)
             lines.extend((
-                f"RUN  Stage {state.run.stage_index}/5",
+                f"RUN  Stage {state.run.stage_index}/5 — defeat five claimants; the fifth is final.",
                 f"Salvage {state.run.stage_salvage}  Build {sum(state.run.item_stacks.values())}",
             ))
+            run_controls = (
+                f"{definition.name if definition else 'Unknown'}: "
+                f"[B] {definition.movement_name if definition else 'move'} "
+                f"({'ready' if state.run.movement_cooldown == 0 else str(state.run.movement_cooldown)})",
+                f"[X] {definition.signature_name if definition else 'signature'} "
+                f"({'ready' if state.run.signature_cooldown == 0 else str(state.run.signature_cooldown)})",
+            )
         from .production import production_site_lead
 
         lead = production_site_lead(state)
@@ -957,6 +998,7 @@ def _status_lines(state: GameState, capacity: int | None = None) -> list[str]:
                 distance=lead.distance,
                 bearing=lead.bearing,
             ))
+        lines.extend(run_controls)
     return lines if capacity is None else lines[:capacity]
 
 
@@ -1475,6 +1517,20 @@ def _handle_targeting(
         _target_cycle(state, view)
         return False, False
     if key in {10, 13}:
+        if view.run_ability:
+            mode = run_ability_target_mode(state, view.run_ability)
+            target = _target_at_cursor(state, view) if mode == "actor" else None
+            if mode == "actor" and target is None:
+                state.add_message("No eligible visible threat occupies the marked cell.", priority=2)
+                return False, False
+            outcome = (session or GameSession(state)).submit(UseRunAbilityCommand(
+                view.run_ability,
+                target_actor_id=target.id if target else None,
+                target_position=view.cursor if mode == "position" else None,
+            ))
+            if session is not None:
+                _consume_outcome_effects(effects, state, session, outcome)
+            return outcome.time_advanced, outcome.time_advanced
         if view.spell_id:
             from .magic import cast
 
@@ -1906,6 +1962,17 @@ def _handle_overlay_view(
     session: GameSession | None = None,
     effects: EffectState | None = None,
 ) -> tuple[bool, bool]:
+    if view.kind == "run-reward":
+        if ord("1") <= event.key <= ord("3"):
+            outcome = (session or GameSession(state)).submit(
+                ChooseRunRewardCommand(event.key - ord("1")),
+            )
+            if session is not None:
+                _consume_outcome_effects(effects, state, session, outcome)
+            # Remain in the overlay for a queued threshold; closing requires
+            # a later, fresh key and never advances the action clock.
+            return not bool(state.run and state.run.pending_rewards), False
+        return False, False
     if view.kind == "vehicle-interior":
         from .vehicles import active_vehicle, interior_entry, interior_fixture, interior_step, service
 
@@ -2714,6 +2781,14 @@ def _craft_catalog_kind(view: str, page: int) -> str:
 
 
 def _overlay_lines(state: GameState, kind: str) -> tuple[str, list[str]]:
+    if kind == "run-reward":
+        from .run_rewards import reward_lines
+
+        return "CHOOSE A BOON", reward_lines(state)
+    if kind == "run-build":
+        from .run_rewards import build_lines
+
+        return "RUN BUILD", build_lines(state)
     if kind == "gangplank":
         from .vehicle_presentation import vehicle_format, vehicle_text
         return vehicle_text("vehicle.gangplank.title"), [
@@ -3737,7 +3812,7 @@ def _handle_overlay(
         if kind.startswith("bartender:"):
             return "bartender", False
         return ("bartender" if kind.startswith("tavern:") else None), False
-    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life", "navigation"} or kind.startswith("contact:"):
+    if kind in {"help", "inventory", "equipment", "household", "hold", "contact", "info", "chronicle", "regional-ledger", "observed-life", "navigation", "run-build"} or kind.startswith("contact:"):
         return None, False
     if kind == "quit":
         if char == "a" and state.run is not None and state.run.status == "active":
@@ -4029,6 +4104,24 @@ def _play_loop(
     local_route_index = 0
     semantic_view: WorldView | None = None
     while True:
+        # ``main`` owns fresh-world construction and class selection.  Return
+        # there once the authoritative run resolves so Retry is guaranteed to
+        # use a new world rather than inheriting hidden run-local state.
+        if state.world_ended:
+            return state
+        # Threshold offers appear after the committed action and its one owed
+        # world response, before any further player input.  Flushing buffered
+        # input keeps a held movement/attack key from selecting a boon or
+        # leaking into the board when the final offer closes.
+        if (
+            overlay is None and not any((inventory_view, route_view, target_view, look_view, circuit_view))
+            and state.run is not None and state.run.pending_rewards
+        ):
+            overlay = OverlayView("run-reward")
+            try:
+                curses.flushinp()
+            except curses.error:
+                pass
         if semantic_view is None:
             semantic_view = session.world_view()
         _draw_base(screen, state, semantic_view, effects)
@@ -4223,10 +4316,26 @@ def _play_loop(
                 overlay = OverlayView(outcome.overlay_id) if outcome.overlay_id else None
         elif normalized == ord("a"):
             if state.combat_active and state.weapon:
-                target_view = TargetView.begin(state)
+                targets = legal_attack_targets(state)
+                if len(targets) == 1:
+                    outcome = session.submit(AttackCommand(targets[0].id))
+                    _consume_outcome_effects(effects, state, session, outcome)
+                else:
+                    target_view = TargetView.begin(state)
             else:
                 outcome = session.submit(AttackCommand())
                 _consume_outcome_effects(effects, state, session, outcome)
+        elif normalized == ord("b"):
+            if state.run is None or state.run.status != "active":
+                state.add_message("[B] is a movement ability during a run.")
+            else:
+                mode = run_ability_target_mode(state, "movement")
+                targets = run_ability_targets(state, "movement")
+                if mode == "actor" and len(targets) == 1:
+                    outcome = session.submit(UseRunAbilityCommand("movement", targets[0].id))
+                    _consume_outcome_effects(effects, state, session, outcome)
+                else:
+                    target_view = TargetView.begin_run_ability(state, "movement")
         elif normalized == ord("g"):
             outcome = session.submit(GuardCommand())
             _consume_outcome_effects(effects, state, session, outcome)
@@ -4239,6 +4348,17 @@ def _play_loop(
                 state.add_message(ui_format("ui.terminal.navigation.none"))
             else:
                 overlay = OverlayView("navigation")
+        elif normalized == ord("x") and state.run is not None and state.run.status == "active":
+            mode = run_ability_target_mode(state, "signature")
+            targets = run_ability_targets(state, "signature")
+            if mode == "none":
+                outcome = session.submit(UseRunAbilityCommand("signature"))
+                _consume_outcome_effects(effects, state, session, outcome)
+            elif mode == "actor" and len(targets) == 1:
+                outcome = session.submit(UseRunAbilityCommand("signature", targets[0].id))
+                _consume_outcome_effects(effects, state, session, outcome)
+            else:
+                target_view = TargetView.begin_run_ability(state, "signature")
         elif normalized == ord("x"):
             from .preparations import carried_preparations
 
@@ -4261,7 +4381,10 @@ def _play_loop(
             outcome = session.submit(RetreatCommand())
             _consume_outcome_effects(effects, state, session, outcome)
         elif normalized == ord("i"):
-            inventory_view = InventoryView.begin(state)
+            if state.run is not None and state.run.status == "active":
+                overlay = OverlayView("run-build")
+            else:
+                inventory_view = InventoryView.begin(state)
         elif normalized == ord("f"):
             overlay = OverlayView("material")
         elif normalized == ord("m"):

@@ -3441,6 +3441,260 @@ def attack(state: GameState, target_id: str | None = None, *, target_position: P
     )
 
 
+def run_ability_target_mode(state: GameState, ability_id: str) -> str:
+    """Return ``actor``, ``position`` or ``none`` for the fixed kit action."""
+    from .run_classes import active_class
+
+    definition = active_class(state)
+    if definition is None or ability_id not in {"movement", "signature"}:
+        return "none"
+    action_id = (
+        definition.movement_id if ability_id == "movement"
+        else definition.signature_id
+    )
+    return {
+        "charge": "actor" if definition.id == "breaker" else "position",
+        "vault": "position", "piercing_shot": "actor", "exchange": "actor",
+        "decoy": "position", "hop": "position", "slam": "none",
+    }[action_id]
+
+
+def run_ability_targets(state: GameState, ability_id: str) -> list[Threat]:
+    """Expose only legal visible actor targets for the class targeting view."""
+    from .world import courier_sees
+
+    mode = run_ability_target_mode(state, ability_id)
+    if mode != "actor":
+        return []
+    from .run_classes import active_class
+
+    definition = active_class(state)
+    if definition is None:
+        return []
+    maximum = 3 if definition.id == "breaker" and ability_id == "movement" else 10
+    rows = [
+        actor for actor in state.combatants
+        if actor.health > 0 and actor.status in {"watching", "engaged"}
+        and actor.position.z == state.position.z
+        and distance(state.position, actor.position) <= maximum
+        and courier_sees(state, actor.position)
+    ]
+    return sorted(rows, key=lambda actor: (distance(state.position, actor.position), actor.id))
+
+
+def run_ability_position_legal(
+    state: GameState, ability_id: str, position: Position,
+) -> tuple[bool, str]:
+    """Validate a non-actor class target without advancing the world."""
+    from .run_classes import active_class
+
+    definition = active_class(state)
+    if definition is None or position.z != state.position.z:
+        return False, "choose a visible field cell"
+    if run_ability_target_mode(state, ability_id) != "position":
+        return False, "this ability does not target ground"
+    maximum = (
+        2 if ability_id == "movement"
+        else 3 if definition.signature_id == "decoy" else 4
+    )
+    if distance(state.position, position) > maximum:
+        return False, f"beyond range {maximum}"
+    if not is_walkable(state, position, ignore_threat=True):
+        return False, "the landing must be open ground"
+    if any(actor.position == position and actor.health > 0 for actor in state.combatants):
+        return False, "another actor occupies that cell"
+    if definition.signature_id == "piercing_shot" and ability_id == "movement":
+        # A vault is traversal, not a short-range teleport.  It crosses one
+        # non-walkable cell (a low obstruction or gap) to a clear landing.
+        # This keeps its affordance visible on the ASCII board and preserves
+        # the positional decision that differentiates the Marksman.
+        if distance(state.position, position) != 2:
+            return False, "vault must cross exactly one obstruction or gap"
+        from .world import projectile_path
+
+        middle = projectile_path(state.position, position, state)
+        if len(middle) != 3 or is_walkable(state, middle[1], ignore_threat=True):
+            return False, "vault needs one blocked cell between its endpoints"
+    return True, "legal class target"
+
+
+def use_run_ability(
+    state: GameState,
+    ability_id: str,
+    target_id: str | None = None,
+    target_position: Position | None = None,
+) -> ActionResult:
+    """Resolve one fixed class action through the normal one-step scheduler."""
+    from .run_classes import active_class
+
+    definition = active_class(state)
+    run = state.run
+    if definition is None or run is None or run.status != "active":
+        return _plain(state, "Class actions are available only during a live run.")
+    if ability_id not in {"movement", "signature"}:
+        return _plain(state, "Choose the movement or signature action.")
+    action_id = definition.movement_id if ability_id == "movement" else definition.signature_id
+    cooldown = run.movement_cooldown if ability_id == "movement" else run.signature_cooldown
+    if cooldown:
+        return _plain(state, f"{action_id.replace('_', ' ').title()} is ready in {cooldown} action{'s' if cooldown != 1 else ''}.")
+    if not state.combat_active:
+        return _plain(state, "Class actions can only be committed in the field.")
+
+    from .enemy_equipment import harm_enemy
+    from .run_items import after_attack_hit
+
+    def actor_target() -> Threat | None:
+        rows = run_ability_targets(state, ability_id)
+        if target_id is None and len(rows) == 1:
+            return rows[0]
+        return next((actor for actor in rows if actor.id == target_id), None)
+
+    def harm(actor: Threat, amount: int, kind: str, source: str) -> tuple[int, bool]:
+        result = harm_enemy(
+            state, actor, amount, source, damage_kind=kind,
+            defeated_by_actor_id=state.active_courier_id or "courier",
+        )
+        return result.amount, result.defeated
+
+    def moved(actor_id: str, before: Position, after: Position, kind: str) -> None:
+        if before != after:
+            events.append(ActorMoved(actor_id, before, after, kind))
+
+    events: list[RuntimeEvent] = []
+    text: str
+    if definition.id == "breaker" and action_id == "charge":
+        target = actor_target()
+        if target is None:
+            return _plain(state, "Charge needs one visible threat within three cells.")
+        previous_courier, previous_target = state.position, target.position
+        dx = 0 if target.position.x == state.position.x else (1 if target.position.x > state.position.x else -1)
+        dy = 0 if target.position.y == state.position.y else (1 if target.position.y > state.position.y else -1)
+        landing = Position(target.position.x - dx, target.position.y - dy, target.position.z)
+        if landing != state.position and not is_walkable(state, landing, ignore_threat=True):
+            return _plain(state, "Charge has no clear landing beside that threat.")
+        state.position = landing
+        target.position = _step_away(state, target)
+        moved(state.active_courier_id or "courier", previous_courier, state.position, "movement.class.charge")
+        moved(target.id, previous_target, target.position, "movement.displaced")
+        amount, defeated = harm(target, 1, "blunt", "Breaker charge")
+        events.append(DamageApplied(state.active_courier_id or "courier", target.id, amount, "blunt", "torso"))
+        if defeated:
+            events.append(ActorDefeated(target.id, state.active_courier_id or "courier"))
+        text = f"Charge drives {target.name} back for {amount} damage."
+    elif action_id == "vault" or action_id == "hop":
+        if target_position is None:
+            return _plain(state, f"{action_id.title()} needs a marked landing cell.")
+        legal, reason = run_ability_position_legal(state, ability_id, target_position)
+        if not legal:
+            return _plain(state, f"{action_id.title()} cannot land there: {reason}.")
+        previous_courier = state.position
+        state.position = target_position
+        moved(state.active_courier_id or "courier", previous_courier, state.position, f"movement.class.{action_id}")
+        text = "Vault clears the short obstruction." if action_id == "vault" else "Propulsion hop reaches the marked cell."
+    elif action_id == "piercing_shot":
+        target = actor_target()
+        if target is None:
+            return _plain(state, "Piercing shot needs one visible target in a clear lane.")
+        dx, dy = target.position.x - state.position.x, target.position.y - state.position.y
+        if dx and dy:
+            return _plain(state, "Piercing shot needs a horizontal or vertical lane.")
+        if not line_of_sight(state, state.position, target.position):
+            return _plain(state, "Terrain blocks that piercing lane.")
+        direction = (0 if dx == 0 else (1 if dx > 0 else -1), 0 if dy == 0 else (1 if dy > 0 else -1))
+        rows = [
+            actor for actor in state.combatants
+            if actor.health > 0 and actor.status in {"watching", "engaged"}
+            and actor.position.z == state.position.z
+            and ((direction[0] == 0 and actor.position.x == state.position.x and (actor.position.y - state.position.y) * direction[1] > 0)
+                 or (direction[1] == 0 and actor.position.y == state.position.y and (actor.position.x - state.position.x) * direction[0] > 0))
+            and distance(state.position, actor.position) <= 10
+        ]
+        rows.sort(key=lambda actor: (distance(state.position, actor.position), actor.id))
+        hits = []
+        for actor in rows:
+            amount, defeated = harm(actor, 2, "pierce", "Marksman piercing shot")
+            events.append(DamageApplied(state.active_courier_id or "courier", actor.id, amount, "pierce", "torso"))
+            if defeated:
+                events.append(ActorDefeated(actor.id, state.active_courier_id or "courier"))
+            hits.append(actor.name)
+        after_attack_hit(state, target)
+        text = "Piercing shot crosses " + ", ".join(hits) + "."
+    elif action_id == "exchange":
+        target = actor_target()
+        if target is None:
+            return _plain(state, "Exchange needs one visible threat within ten cells.")
+        previous_courier, previous_target = state.position, target.position
+        state.position, target.position = target.position, state.position
+        target.last_known_position = state.position
+        moved(state.active_courier_id or "courier", previous_courier, state.position, "movement.class.exchange")
+        moved(target.id, previous_target, target.position, "movement.displaced")
+        text = f"Exchange trades places with {target.name}."
+    elif action_id == "decoy":
+        if target_position is None:
+            return _plain(state, "Decoy needs a marked open cell.")
+        legal, reason = run_ability_position_legal(state, ability_id, target_position)
+        if not legal:
+            return _plain(state, f"Decoy cannot stand there: {reason}.")
+        run.decoy_position, run.decoy_until = target_position, state.world_time + 4
+        text = "A decoy appears and will draw nearby attention for three turns."
+    elif action_id == "hop":
+        raise AssertionError("hop is handled with vault")
+    elif action_id == "slam":
+        rows = [
+            actor for actor in state.combatants
+            if actor.health > 0 and actor.status in {"watching", "engaged"}
+            and actor.position.z == state.position.z and distance(state.position, actor.position) <= 1
+        ]
+        from .run_items import after_terrain_destroyed
+        from .terrain import replace_terrain, terrain_at
+        cracked = 0
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            point = Position(state.position.x + dx, state.position.y + dy, state.position.z)
+            terrain = terrain_at(state.region, point)
+            if (
+                terrain.destructible and "ordinary" in terrain.tags
+                and terrain.hardness <= 2 and terrain.replacement_glyph
+            ):
+                replacement = replace_terrain(state.region, point, terrain.replacement_glyph)
+                after_terrain_destroyed(state, terrain.material or "soil", point)
+                events.append(TerrainChanged(
+                    state.active_courier_id or "courier", point, terrain.id,
+                    replacement.id, "ability.breaker.slam",
+                ))
+                cracked += 1
+        if not rows and not cracked:
+            return _plain(state, "Slam needs a nearby threat or soft breakable terrain.")
+        for actor in rows:
+            amount, defeated = harm(actor, 2, "blunt", "Breaker slam")
+            events.append(DamageApplied(state.active_courier_id or "courier", actor.id, amount, "blunt", "torso"))
+            if defeated:
+                events.append(ActorDefeated(actor.id, state.active_courier_id or "courier"))
+        text = "Slam shocks the close formation" + (f" and cracks {cracked} terrain cell{'s' if cracked != 1 else ''}." if cracked else ".")
+    else:  # Sapper timed charge
+        if target_position is None:
+            return _plain(state, "Timed charge needs a marked open cell.")
+        legal, reason = run_ability_position_legal(state, ability_id, target_position)
+        if not legal:
+            return _plain(state, f"Timed charge cannot be placed there: {reason}.")
+        run.placed_charges.append((target_position, state.world_time + 3))
+        text = "Timed charge armed: it detonates after two further world turns."
+
+    if ability_id == "movement":
+        # The shared movement catalogue has one rule: a successful movement
+        # ability counts as movement once. It never grants a second scheduler
+        # step, but effects such as guard and momentum can visibly reshape how
+        # every class uses its repositioning tool.
+        from .run_items import after_move
+
+        after_move(state, wet=base_tile(state, state.position) in {",", "w", "~"})
+        run.movement_cooldown = definition.movement_cooldown + 1
+        run.movement_uses += 1
+    else:
+        run.signature_cooldown = definition.signature_cooldown + 1
+        run.signature_uses += 1
+    return _time_result(state, text, priority=3, events=tuple(events))
+
+
 def guard(state: GameState, target_id: str | None = None) -> ActionResult:
     if not state.combat_active:
         return _plain(state, action_format("combat.guard.no_danger"))

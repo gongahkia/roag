@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .run_items import (
-    INITIAL_ITEM_IDS, RUN_ITEMS, collect_run_item, deterministic_item,
+    INITIAL_ITEM_IDS, RUN_ITEMS, can_collect_run_item, collect_run_item, deterministic_item,
     effect_value,
 )
 from .state import GameState, Position, stage_rng
@@ -47,12 +47,18 @@ def seed_stage_loot(state: GameState) -> None:
     )
     point = candidates[rng.randrange(len(candidates))]
     tier = "uncommon" if run.stage_index >= 3 else "common"
+    from .run_rewards import eligible_boons
+
     item = deterministic_item(
         state, tier, f"opening:{state.active_region_id}",
-        allowed_ids=frozenset(run.allowed_item_ids or INITIAL_ITEM_IDS),
+        allowed_ids=frozenset(eligible_boons(state, tier)),
     )
     drop_id = f"stage-{run.stage_index}-opening"
     run.dropped_items.setdefault(drop_id, (item.id, point))
+    # One physical chest is seeded in every stage.  Its location varies with
+    # each region and it complements, rather than replaces, XP offers.
+    if "chest" not in run.stage_reward_sources:
+        run.stage_reward_sources.append("chest")
 
 
 def loot_at(state: GameState, position: Position | None = None) -> tuple[tuple[str, str], ...]:
@@ -81,24 +87,54 @@ def collect_at(state: GameState, drop_id: str) -> RunLootResult:
     salvage_cost = max(0, salvage_cost - effect_value(state, "chest_discount"))
     if run.stage_salvage < salvage_cost:
         return RunLootResult(False, "run.loot.salvage_required", item_id)
+    if not can_collect_run_item(state, item_id):
+        # A physical cache is allowed to persist while the player takes other
+        # rewards.  When its original stack reaches its shown cap, turn the
+        # cache into another eligible boon rather than asking the player to
+        # spend a choice on a no-op.
+        from .run_rewards import eligible_boons
+
+        replacements = frozenset(eligible_boons(state, RUN_ITEMS[item_id].tier))
+        if not replacements:
+            return RunLootResult(False, "run.loot.no_effective_choice", item_id)
+        replacement = deterministic_item(
+            state, RUN_ITEMS[item_id].tier, f"replacement:{drop_id}",
+            allowed_ids=replacements,
+        )
+        item_id = replacement.id
+        run.dropped_items[drop_id] = (item_id, position)
+        state.add_message(
+            f"The exhausted cache retunes to {RUN_ITEMS[item_id].name}.",
+            priority=2,
+        )
     run.stage_salvage -= salvage_cost
     collect_run_item(state, item_id)
     duplicate = effect_value(state, "duplicate_drop")
-    if duplicate and stage_rng(
+    if duplicate and can_collect_run_item(state, item_id) and stage_rng(
         state.seed, f"run-item-duplicate:{run.run_id}:{drop_id}",
     ).randrange(100) < duplicate:
         collect_run_item(state, item_id)
     del run.dropped_items[drop_id]
     run.opened_loot_ids.append(drop_id)
+    source = "Chest discovery" if drop_id.startswith("stage-") else "Combat discovery"
     state.add_message(
-        f"Collected {RUN_ITEMS[item_id].name}: {RUN_ITEMS[item_id].description}",
+        f"{source}: {RUN_ITEMS[item_id].name}: {RUN_ITEMS[item_id].description}",
         priority=3,
     )
     return RunLootResult(True, "run.loot.collected", item_id)
 
 
-def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str | None:
-    """Award salvage and occasionally leave a deterministic run-item drop."""
+def record_enemy_defeat(
+    state: GameState, actor_id: str, *, elite: bool,
+    allow_secondary: bool = True,
+) -> str | None:
+    """Award player credit and at most one bounded secondary defeat effect.
+
+    Direct, delayed, and environmental player-owned harm all carry the courier
+    as owner, so they receive the same XP and loot credit.  Secondary splash
+    harm preserves that credit but disables another defeat splash: useful
+    chains remain legible without recursive clears or duplicate rewards.
+    """
     run = state.run
     if run is None or run.status != "active" or actor_id.startswith("sanctum:"):
         return None
@@ -106,8 +142,15 @@ def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str 
 
     if elite:
         run.elite_kills += 1
+        source = "elite"
     else:
         run.ordinary_kills += 1
+        source = "combat"
+    if source not in run.stage_reward_sources:
+        run.stage_reward_sources.append(source)
+    from .run_rewards import award_experience, eligible_boons
+
+    award_experience(state, 3 if elite else 1, source)
     run.stage_salvage += 1 + effect_value(state, "salvage")
     from .danger import pressure
 
@@ -132,7 +175,10 @@ def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str 
         )
         if racks:
             gain_charge(state, racks[0], charge)
-    blast = effect_value(state, "blast_damage", trigger="actor.defeated")
+    blast = (
+        effect_value(state, "blast_damage", trigger="actor.defeated")
+        if allow_secondary else 0
+    )
     if blast:
         from .enemy_equipment import harm_enemy
         from .world import distance
@@ -152,7 +198,9 @@ def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str 
                 ):
                     harm_enemy(
                         state, actor, blast, "run-item defeat blast",
-                        defeated_by_actor_id=None,
+                        defeated_by_actor_id=state.active_courier_id or "courier",
+                        allow_run_secondary=False,
+                        apply_run_attack_bonus=False,
                     )
     kill_index = run.ordinary_kills + run.elite_kills
     # A finite pity cadence prevents long item droughts.  Greed effects make
@@ -170,7 +218,7 @@ def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str 
     choices = [
         deterministic_item(
             state, tier, f"defeat:{actor_id}:choice:{index}",
-            allowed_ids=frozenset(run.allowed_item_ids or INITIAL_ITEM_IDS),
+            allowed_ids=frozenset(eligible_boons(state, tier)),
         )
         for index in range(choice_count)
     ]
@@ -185,3 +233,34 @@ def record_enemy_defeat(state: GameState, actor_id: str, *, elite: bool) -> str 
         return item.id
     return None
 
+
+def record_terrain_destroyed(
+    state: GameState, material_id: str, position: Position,
+) -> str | None:
+    """Place one per-stage boon at the first completed terrain harvest.
+
+    Ordinary material yields remain physical inventory.  This separate reward
+    makes terrain a deliberate build route without letting repeated reeds farm
+    an unbounded run-item stream.
+    """
+    run = state.run
+    if (
+        run is None or run.status != "active"
+        or "terrain" in run.stage_reward_sources
+    ):
+        return None
+    from .run_rewards import eligible_boons
+
+    allowed = frozenset(eligible_boons(state, "common"))
+    item = deterministic_item(
+        state, "common", f"terrain:{material_id}:{position.x},{position.y},{position.z}",
+        allowed_ids=allowed,
+    )
+    drop_id = f"terrain-{run.stage_index}-{position.x}-{position.y}-{position.z}"
+    run.dropped_items[drop_id] = (item.id, position)
+    run.stage_reward_sources.append("terrain")
+    state.add_message(
+        f"Terrain reward: {RUN_ITEMS[item.id].name} remains in the cleared ground.",
+        priority=3,
+    )
+    return item.id

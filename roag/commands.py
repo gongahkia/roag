@@ -45,6 +45,14 @@ class UseGearCommand:
 
 
 @dataclass(frozen=True)
+class UseRunAbilityCommand:
+    """Commit one fixed class movement or signature ability."""
+    ability_id: str
+    target_actor_id: str | None = None
+    target_position: Position | None = None
+
+
+@dataclass(frozen=True)
 class SelectCarriedRelicCommand:
     """Select a stable relic identity for later use, or clear selection."""
     relic_id: str | None
@@ -83,6 +91,12 @@ class CollectRunItemCommand:
 
 
 @dataclass(frozen=True)
+class ChooseRunRewardCommand:
+    """Choose one of the three already-earned run boon offers."""
+    choice_index: int
+
+
+@dataclass(frozen=True)
 class ChooseRunBranchCommand:
     """Cross one physically reached stage threshold."""
     region_id: str
@@ -95,7 +109,7 @@ class AbandonRunCommand:
 
 GameCommand = (
     MoveCommand | InteractCommand | AttackCommand | GuardCommand | RetreatCommand
-    | UseGearCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
+    | UseGearCommand | UseRunAbilityCommand | SelectCarriedRelicCommand | SetAutoPlaceCommand
     | AdvanceWorldCommand | TerrainActionCommand | AcquireGroundItemsCommand
-    | CollectRunItemCommand | ChooseRunBranchCommand | AbandonRunCommand
+    | CollectRunItemCommand | ChooseRunRewardCommand | ChooseRunBranchCommand | AbandonRunCommand
 )

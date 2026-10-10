@@ -9,6 +9,18 @@ from .state import GameState, Position, RunProgress, VerticalLink, new_run_progr
 
 
 MAX_STAGE = 5
+ENCOUNTER_FAMILIES = (
+    "swarm", "crossfire", "pincer", "hazard", "elite_hunt",
+    "reinforcement_pressure",
+)
+ENCOUNTER_LABELS = {
+    "swarm": "Swarm",
+    "crossfire": "Crossfire",
+    "pincer": "Pincer",
+    "hazard": "Hazard ground",
+    "elite_hunt": "Elite hunt",
+    "reinforcement_pressure": "Reinforcement pressure",
+}
 CHALLENGE_TIERS = {
     0: ("Ordinary", "The disclosed baseline run."),
     1: ("Hunted", "Danger responses arrive sooner."),
@@ -31,6 +43,7 @@ def start_run(
     *,
     challenge_tier: int = 0,
     profile: PlayerProfile | None = None,
+    class_id: str | None = None,
 ) -> None:
     """Reset only run authority and enter the fixed opening Region."""
     if challenge_tier not in CHALLENGE_TIERS:
@@ -46,10 +59,22 @@ def start_run(
     )
     state.run = run
     state.world_ended = False
+    from .run_classes import apply_class_kit
+
+    definition = apply_class_kit(
+        state, class_id or (profile.last_run_class if profile is not None else "breaker"),
+    )
+    if profile is not None:
+        profile.last_run_class = definition.id
     from .regions import begin_region
 
     begin_region(state, "hearthford")
     prepare_stage(state)
+    state.add_message(
+        f"{definition.name} run: [A] attack; [B] {definition.movement_name}; "
+        f"[X] {definition.signature_name}.",
+        priority=3,
+    )
 
 
 def run_intensity(state: GameState) -> int:
@@ -66,6 +91,62 @@ def record_world_step(state: GameState) -> None:
         return
     run.run_actions += 1
     run.stage_actions += 1
+    if run.movement_cooldown:
+        run.movement_cooldown -= 1
+    if run.signature_cooldown:
+        run.signature_cooldown -= 1
+    if run.decoy_position is not None and state.world_time >= run.decoy_until:
+        state.add_message("The decoy fades from the field.", priority=2)
+        run.decoy_position, run.decoy_until = None, 0
+    _resolve_due_charges(state)
+
+
+def _resolve_due_charges(state: GameState) -> None:
+    """Resolve player-owned Sapper charges once at their declared due turn."""
+    run = state.run
+    if run is None or not run.placed_charges:
+        return
+    due, pending = (
+        [row for row in run.placed_charges if row[1] <= state.world_time],
+        [row for row in run.placed_charges if row[1] > state.world_time],
+    )
+    if not due:
+        return
+    run.placed_charges = pending
+    from .enemy_equipment import harm_enemy
+    from .run_items import after_terrain_destroyed
+    from .terrain import replace_terrain, terrain_at
+    from .world import distance, position_key
+
+    for origin, _due_turn in due:
+        affected = 0
+        for actor in sorted(state.threats, key=lambda row: row.id):
+            if (
+                actor.health > 0 and actor.status in {"watching", "engaged"}
+                and actor.position.z == origin.z and distance(origin, actor.position) <= 1
+            ):
+                harm_enemy(
+                    state, actor, 2, "Sapper timed charge", damage_kind="blunt",
+                    defeated_by_actor_id=state.active_courier_id or "courier",
+                )
+                affected += 1
+        # A charge clears only soft, explicitly ordinary cover.  It cannot
+        # erase links, objectives, walls or any protected authored structure.
+        for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)):
+            point = Position(origin.x + dx, origin.y + dy, origin.z)
+            terrain = terrain_at(state.region, point)
+            if (
+                terrain.destructible and "ordinary" in terrain.tags
+                and terrain.hardness <= 2 and terrain.replacement_glyph
+            ):
+                replace_terrain(state.region, point, terrain.replacement_glyph)
+                after_terrain_destroyed(state, terrain.material or "soil", point)
+        state.smoke[position_key(origin)] = max(3, state.smoke.get(position_key(origin), 0))
+        state.add_message(
+            f"Timed charge detonates at {origin.x},{origin.y}: {affected} enemy"
+            f"{' is' if affected == 1 else 'ies are'} caught in the blast.",
+            priority=3,
+        )
 
 
 def finish_run(state: GameState, status: str, reason: str) -> RunResult:
@@ -183,6 +264,10 @@ def prepare_stage(state: GameState) -> None:
     run.threshold_level = None
     run.threshold_entry = None
     run.branch_positions.clear()
+    run.stage_reward_sources.clear()
+    family = _select_encounter_family(state)
+    run.encounter_family = family
+    run.encounter_history.append(family)
     _prepare_opening_patrol(state)
     _prepare_field_worksite(state)
     # The first cache is deliberately close enough to make the opening build
@@ -202,6 +287,29 @@ def prepare_stage(state: GameState) -> None:
                 for region_id in offers
             )
             state.add_message(f"The backwater map marks likely thresholds: {names}.")
+    state.add_message(
+        f"Stage {run.stage_index} encounter: {ENCOUNTER_LABELS[family]}.",
+        priority=2,
+    )
+
+
+def _select_encounter_family(state: GameState) -> str:
+    """Choose a deterministic tactical grammar without repetition streaks."""
+    assert state.run is not None
+    history = state.run.encounter_history
+    candidates = [
+        family for family in ENCOUNTER_FAMILIES
+        if len(history) < 2 or not (history[-1] == history[-2] == family)
+    ]
+    # Every class must meet at least one terrain-aware arena early.  Later
+    # stages remain seeded but use the whole grammar pool.
+    if state.run.stage_index == 1:
+        candidates = ["hazard"]
+    rng = stage_rng(
+        state.seed,
+        f"run-encounter:{state.run.run_id}:{state.run.stage_index}:{state.active_region_id}",
+    )
+    return candidates[rng.randrange(len(candidates))]
 
 
 def _opening_candidates(
@@ -224,23 +332,43 @@ def _opening_candidates(
 
 def _prepare_opening_patrol(state: GameState) -> None:
     candidates = _opening_candidates(state, 10, 18)
-    actors = sorted((
+    ordinary = sorted((
         actor for actor in state.threats
         if not actor.elite and actor.profile not in {"animal", "machinery"}
         and actor.health > 0
     ), key=lambda actor: actor.id)
-    if not candidates or not actors or state.run is None:
+    if not candidates or not ordinary or state.run is None:
         return
     rng = stage_rng(
         state.seed,
         f"run-opening-patrol:{state.run.run_id}:{state.run.stage_index}:{state.active_region_id}",
     )
-    actor = actors[rng.randrange(len(actors))]
-    actor.position = candidates[rng.randrange(len(candidates))]
-    actor.home_position = actor.position
-    actor.status = "watching"
-    actor.patrol = [actor.position]
-    actor.patrol_index = 0
+    family = state.run.encounter_family
+    preferred = {
+        "crossfire": {"ranged"},
+        "pincer": {"pursuer", "reach"},
+        "hazard": {"reach", "ranged"},
+        "reinforcement_pressure": {"pursuer", "ranged"},
+    }.get(family, set())
+    pool = [actor for actor in ordinary if actor.profile in preferred] or ordinary
+    if family == "elite_hunt":
+        elite = sorted((
+            actor for actor in state.threats
+            if actor.elite and not actor.id.startswith("sanctum:") and actor.health > 0
+        ), key=lambda actor: actor.id)
+        pool = elite or pool
+    count = {
+        "swarm": 3, "crossfire": 2, "pincer": 2,
+        "hazard": 2, "elite_hunt": 1, "reinforcement_pressure": 2,
+    }[family]
+    rng.shuffle(pool)
+    rng.shuffle(candidates)
+    for actor, point in zip(pool[:count], candidates):
+        actor.position = point
+        actor.home_position = point
+        actor.status = "watching"
+        actor.patrol = [point]
+        actor.patrol_index = 0
 
 
 def _prepare_field_worksite(state: GameState) -> None:
@@ -258,6 +386,11 @@ def _prepare_field_worksite(state: GameState) -> None:
     from .terrain import replace_terrain
 
     replace_terrain(state.region, point, "f")
+    if state.run.encounter_family == "hazard":
+        # This is authoritative shallow water, not a display effect.  The
+        # movement and material systems retain their established water
+        # consequences, while every class can exploit or route around it.
+        state.water[f"{point.x},{point.y},{point.z}"] = 2
 
 
 def record_boss_defeat(state: GameState, actor_id: str) -> RunResult:
@@ -275,6 +408,12 @@ def record_boss_defeat(state: GameState, actor_id: str) -> RunResult:
         if item.tier == "boss" and item.region == state.active_region_id
     )
     collect_run_item(state, boss_item.id)
+    if "boss" not in run.stage_reward_sources:
+        run.stage_reward_sources.append("boss")
+    if run.stage_index < MAX_STAGE:
+        from .run_rewards import award_experience
+
+        award_experience(state, 5, "boss")
     if run.stage_index >= MAX_STAGE:
         return finish_run(state, "victory", "five regional claimants were defeated")
     install_threshold(state)
@@ -335,4 +474,3 @@ def critical_structure_destroyed(
         "defeat",
         f"the courier destroyed the required route at {position.x},{position.y},{position.z}",
     )
-

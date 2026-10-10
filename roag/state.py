@@ -775,6 +775,23 @@ class RunProgress:
     reroll_credits: int = 0
     damage_charge: int = 0
     stage_worksite: Position | None = None
+    # A class is scoped to one disposable run, never to a Roag person or
+    # profile. Cooldowns are measured in ordinary authoritative world steps.
+    class_id: str = "breaker"
+    movement_cooldown: int = 0
+    signature_cooldown: int = 0
+    movement_uses: int = 0
+    signature_uses: int = 0
+    decoy_position: Position | None = None
+    decoy_until: int = 0
+    placed_charges: list[tuple[Position, int]] = field(default_factory=list)
+    experience: int = 0
+    level: int = 0
+    next_experience: int = 3
+    pending_rewards: list[dict[str, Any]] = field(default_factory=list)
+    encounter_family: str = ""
+    encounter_history: list[str] = field(default_factory=list)
+    stage_reward_sources: list[str] = field(default_factory=list)
 
 
 def new_run_progress(seed: str, challenge_tier: int = 0) -> RunProgress:
@@ -1725,6 +1742,27 @@ def game_state_from_dict(data: Any) -> GameState:
         run = None
         if raw_run is not None:
             values = dict(raw_run)
+            # Format-16 saves predate explicit class kits.  They retain the
+            # compatible Gunner default rather than becoming unreadable.
+            values.setdefault("class_id", "breaker")
+            # The short-lived Gunner experiment stored one shared cooldown;
+            # retain old saves by translating it into both fixed-kit actions.
+            legacy_cooldown = values.pop("class_cooldown", 0)
+            values.pop("class_uses", None)
+            values.setdefault("movement_cooldown", legacy_cooldown)
+            values.setdefault("signature_cooldown", legacy_cooldown)
+            values.setdefault("movement_uses", 0)
+            values.setdefault("signature_uses", 0)
+            values.setdefault("decoy_position", None)
+            values.setdefault("decoy_until", 0)
+            values.setdefault("placed_charges", [])
+            values.setdefault("experience", 0)
+            values.setdefault("level", 0)
+            values.setdefault("next_experience", 3)
+            values.setdefault("pending_rewards", [])
+            values.setdefault("encounter_family", "")
+            values.setdefault("encounter_history", [])
+            values.setdefault("stage_reward_sources", [])
             if values.get("threshold_entry") is not None:
                 values["threshold_entry"] = _position(
                     values["threshold_entry"], "run threshold entry",
@@ -1733,6 +1771,14 @@ def game_state_from_dict(data: Any) -> GameState:
                 values["stage_worksite"] = _position(
                     values["stage_worksite"], "run stage worksite",
                 )
+            if values.get("decoy_position") is not None:
+                values["decoy_position"] = _position(
+                    values["decoy_position"], "run decoy position",
+                )
+            values["placed_charges"] = [
+                (_position(position, "run charge position"), due)
+                for position, due in values.get("placed_charges", [])
+            ]
             values["branch_positions"] = {
                 key: _position(value, "run branch")
                 for key, value in values.get("branch_positions", {}).items()
@@ -2199,6 +2245,7 @@ def validate_state(state: GameState) -> None:
         raise StateError("negative passive count")
     if state.run is not None:
         run = state.run
+        from .run_classes import RUN_CLASSES
         from .run_items import RUN_ITEMS
 
         if (
@@ -2215,7 +2262,34 @@ def validate_state(state: GameState) -> None:
                 run.move_chain, run.barrier, run.lethal_guards_used,
                 run.reroll_credits,
                 run.damage_charge,
+                run.movement_cooldown,
+                run.signature_cooldown,
+                run.movement_uses,
+                run.signature_uses,
+                run.decoy_until,
+                run.experience,
+                run.level,
+                run.next_experience,
             ))
+            or run.class_id not in RUN_CLASSES
+            or run.decoy_position is not None and not isinstance(run.decoy_position, Position)
+            or any(
+                not isinstance(position, Position) or type(due) is not int or due < 0
+                for position, due in run.placed_charges
+            )
+            or any(
+                not isinstance(row, dict)
+                or set(row) != {"source", "level", "choices"}
+                or not isinstance(row["source"], str)
+                or type(row["level"]) is not int or row["level"] < 1
+                or not isinstance(row["choices"], list) or len(row["choices"]) != 3
+                or any(not isinstance(item_id, str) or item_id not in RUN_ITEMS for item_id in row["choices"])
+                for row in run.pending_rewards
+            )
+            or not isinstance(run.encounter_family, str)
+            or any(not isinstance(value, str) or not value for value in run.encounter_history)
+            or any(not isinstance(value, str) or not value for value in run.stage_reward_sources)
+            or len(run.stage_reward_sources) != len(set(run.stage_reward_sources))
             or any(not isinstance(key, str) or type(value) is not int or value < 1
                    for key, value in run.item_stacks.items())
             or len(run.boss_kills) > 5

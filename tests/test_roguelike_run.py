@@ -7,7 +7,10 @@ import tempfile
 import unittest
 
 from roag.actions import apply_damage
-from roag.commands import ChooseRunBranchCommand, CollectRunItemCommand, TerrainActionCommand
+from roag.commands import (
+    ChooseRunBranchCommand, ChooseRunRewardCommand, CollectRunItemCommand,
+    TerrainActionCommand,
+)
 from roag.danger import evaluate_danger_step
 from roag.production import site_position
 from roag.profile import (
@@ -35,6 +38,11 @@ class RoguelikeRunTests(unittest.TestCase):
         state = create_world(seed)
         start_run(state, profile=PlayerProfile())
         return state
+
+    def choose_pending_rewards(self, state: object) -> None:
+        session = GameSession(state)
+        while state.run.pending_rewards:
+            self.assertTrue(session.submit(ChooseRunRewardCommand(0)).changed)
 
     def test_catalog_has_sixty_stackable_items_and_forty_four_initial_unlocks(self):
         self.assertEqual(len(RUN_ITEMS), 60)
@@ -91,6 +99,7 @@ class RoguelikeRunTests(unittest.TestCase):
             self.assertTrue(result.changed)
             if stage == 5:
                 break
+            self.choose_pending_rewards(state)
             self.assertIsNotNone(state.run.threshold_level)
             region_id, point = sorted(state.run.branch_positions.items())[0]
             state.position = point
@@ -122,6 +131,7 @@ class RoguelikeRunTests(unittest.TestCase):
     def test_destroying_required_threshold_causes_immediate_causal_loss(self):
         state = self.prepared("critical destruction")
         record_boss_defeat(state, "sanctum:hearthford:boss")
+        self.choose_pending_rewards(state)
         state.threats.clear()
         state.region_threats[state.active_region_id] = state.threats
         target = state.run.threshold_entry
@@ -181,6 +191,7 @@ class RoguelikeRunTests(unittest.TestCase):
         state = self.prepared("stage drop ownership")
         first_drop_ids = set(state.run.dropped_items)
         record_boss_defeat(state, "sanctum:hearthford:boss")
+        self.choose_pending_rewards(state)
         region_id, point = sorted(state.run.branch_positions.items())[0]
         state.position = point
         self.assertTrue(GameSession(state).submit(

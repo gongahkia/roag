@@ -176,10 +176,22 @@ def deterministic_item(
     return rows[rng.randrange(len(rows))]
 
 
+def can_collect_run_item(state: GameState, item_id: str) -> bool:
+    """Whether another copy changes this run's disclosed stack effect."""
+    run = state.run
+    definition = RUN_ITEMS.get(item_id)
+    if run is None or definition is None:
+        return False
+    stacks = run.item_stacks.get(item_id, 0)
+    return stack_value(definition, stacks + 1) > stack_value(definition, stacks)
+
+
 def collect_run_item(state: GameState, item_id: str) -> int:
     """Add one stack and apply only immediate collection consequences."""
     if state.run is None or state.run.status != "active" or item_id not in RUN_ITEMS:
         raise ValueError("run item is not available to this run")
+    if not can_collect_run_item(state, item_id):
+        raise ValueError("run item has reached its disclosed maximum effect")
     before_max = effect_value(state, "max_health")
     state.run.item_stacks[item_id] = state.run.item_stacks.get(item_id, 0) + 1
     after_max = effect_value(state, "max_health")
@@ -271,6 +283,8 @@ def after_attack_hit(
     result = harm_enemy(
         state, chained, damage, "run-item chained strike",
         defeated_by_actor_id=state.active_courier_id or "courier",
+        allow_run_secondary=False,
+        apply_run_attack_bonus=False,
     )
     return chained.id, result.amount, result.defeated
 
@@ -292,6 +306,9 @@ def after_terrain_destroyed(
                 state.courier.max_health, state.courier.health + healing,
             )
     state.run.stage_salvage += extra
+    from .run_loot import record_terrain_destroyed
+
+    record_terrain_destroyed(state, material_id, position)
     impact = effect_value(
         state, "shockwave", trigger="terrain.destroyed",
     ) + effect_value(
@@ -309,7 +326,8 @@ def after_terrain_destroyed(
             ):
                 harm_enemy(
                     state, actor, impact, "run-item terrain shockwave",
-                    defeated_by_actor_id=None,
+                    defeated_by_actor_id=state.active_courier_id or "courier",
+                    allow_run_secondary=False,
+                    apply_run_attack_bonus=False,
                 )
     return extra
-

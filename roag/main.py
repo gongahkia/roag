@@ -8,7 +8,6 @@ import textwrap
 from dataclasses import dataclass
 
 from .catalog import CatalogError, WORLD_TEXT_SECTIONS, load_catalog
-from .character_ui import run_character_creation
 from .save import SaveError, load_game, save_path
 from .state import GameState, create_world
 from .terminal import MIN_HEIGHT, MIN_WIDTH, _draw_minimum_size_notice, _init_colours, _put, colour_attribute, play
@@ -123,48 +122,117 @@ def _read_seed(screen: curses.window) -> str:
 
 
 def _start_new_world(screen: curses.window, state: GameState) -> bool:
-    """Finish character creation and enter the initial region without time."""
-    if not run_character_creation(screen, state):
-        return False
+    """Select a compact class kit and enter a fresh run without point-buy."""
     from .inventory import ensure_initial_field_tool
 
-    ensure_initial_field_tool(state)
-    from .profile import load_profile
+    from .profile import load_profile, persist_run_profile, save_profile
     from .run_progression import start_run
 
     profile = load_profile()
-    challenge_tier = _read_challenge(screen, profile.unlocked_challenge_tier)
-    start_run(state, challenge_tier=challenge_tier, profile=profile)
-    play(screen, state)
-    return True
+    class_id = _read_run_class(screen, profile.last_run_class)
+    while True:
+        profile.last_run_class = class_id
+        try:
+            save_profile(profile)
+        except Exception:
+            # Selection still belongs to this run if a local preferences write
+            # is unavailable; settled-run persistence retains its reporting.
+            pass
+        ensure_initial_field_tool(state)
+        start_run(state, profile=profile, class_id=class_id)
+        play(screen, state)
+        if state.run is None or state.run.status == "active":
+            return True
+        try:
+            persist_run_profile(state)
+            profile = load_profile()
+        except Exception:
+            # A completed run is still playable/retryable if its optional
+            # profile write cannot be completed.
+            pass
+        next_action = _read_run_completion(screen, state, class_id)
+        if next_action == "title":
+            return False
+        if next_action == "class":
+            class_id = _read_run_class(screen, profile.last_run_class)
+        else:
+            class_id = profile.last_run_class
+        # Retrying must not inherit terrain, health, issued ammunition, drops,
+        # class cooldowns, or build state from the settled world.
+        state = create_world(_generated_seed())
 
 
-def _read_challenge(screen: curses.window, unlocked: int) -> int:
-    """Choose among unlocked disclosed rule tiers without changing the seed."""
-    from .run_progression import CHALLENGE_TIERS
-
-    selected = 0
+def _read_run_completion(
+    screen: curses.window, state: GameState, class_id: str,
+) -> str:
+    """Offer an immediate clean retry after a victory or defeat."""
+    run = state.run
+    status = run.status.upper() if run is not None else "RUN ENDED"
+    detail = run.failure_reason if run and run.failure_reason else "The final claimant fell."
     while True:
         screen.erase()
         height, width = screen.getmaxyx()
-        title = "CHOOSE RUN CHALLENGE"
-        _put(screen, max(1, height // 2 - 5), _centered_x(width, title), title,
+        _put(
+            screen, max(1, height // 2 - 4), _centered_x(width, status), status,
+            colour_attribute("ui_heading") | curses.A_BOLD,
+        )
+        for index, line in enumerate(textwrap.wrap(detail, width=max(24, width - 12))[:2]):
+            _put(screen, max(2, height // 2 - 2 + index), 4, line)
+        if run is not None:
+            summary = f"Stage {run.stage_index}/5; level {run.level}; bosses defeated {len(run.boss_kills)}."
+            _put(screen, min(height - 5, height // 2 + 1), 4, summary[:max(1, width - 8)])
+        _put(screen, min(height - 3, height // 2 + 3), 4,
+             f"R: fresh retry as {class_id.title()}    C: choose class    Q: title")
+        screen.refresh()
+        key = screen.getch()
+        if key in {ord("r"), ord("R"), 10, 13}:
+            return "retry"
+        if key in {ord("c"), ord("C")}:
+            return "class"
+        if key in {ord("q"), ord("Q"), 27}:
+            return "title"
+
+
+def _read_run_class(screen: curses.window, last_class_id: str = "breaker") -> str:
+    """Choose one complete fixed kit before a disposable run begins."""
+    from .run_classes import RUN_CLASSES
+
+    classes = tuple(RUN_CLASSES.values())
+    selected = next(
+        (index for index, definition in enumerate(classes) if definition.id == last_class_id),
+        0,
+    )
+    while True:
+        screen.erase()
+        height, width = screen.getmaxyx()
+        title = "CHOOSE RUN CLASS"
+        _put(screen, max(1, height // 2 - 7), _centered_x(width, title), title,
              colour_attribute("ui_heading") | curses.A_BOLD)
-        for tier in range(unlocked + 1):
-            name, description = CHALLENGE_TIERS[tier]
-            marker = ">" if tier == selected else " "
-            line = f"{marker} {tier}. {name} — {description}"
-            _put(screen, max(2, height // 2 - 3 + tier), max(1, (width - min(76, len(line))) // 2), line[:max(1, width - 2)])
+        for index, definition in enumerate(classes):
+            marker = ">" if index == selected else " "
+            line = f"{marker} {definition.name}: {definition.description}"
+            ability_line = (
+                f"  [A] {definition.basic_description}  "
+                f"[B] {definition.movement_name}  [X] {definition.signature_name}"
+            )
+            row = max(2, height // 2 - 5 + index * 2)
+            _put(
+                screen, row, 2,
+                line[:max(1, width - 4)],
+                colour_attribute("ui_accent") if index == selected else 0,
+            )
+            _put(screen, row + 1, 4, ability_line[:max(1, width - 6)],
+                 colour_attribute("success") if index == selected else 0)
+        _put(screen, min(height - 2, height // 2 + 4), 2,
+             "Up/Down to choose; Enter to begin. Class kits are run-local.")
         screen.refresh()
         key = screen.getch()
         if key in {curses.KEY_UP, ord("k")}:
-            selected = (selected - 1) % (unlocked + 1)
+            selected = (selected - 1) % len(classes)
         elif key in {curses.KEY_DOWN, ord("j")}:
-            selected = (selected + 1) % (unlocked + 1)
+            selected = (selected + 1) % len(classes)
         elif key in {10, 13}:
-            return selected
-        elif ord("0") <= key <= ord(str(min(5, unlocked))):
-            return key - ord("0")
+            return classes[selected].id
 
 
 def run(screen: curses.window) -> None:

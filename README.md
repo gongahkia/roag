@@ -4,6 +4,11 @@
 
 A [persistent](https://cavesofqud.com/) roguelike where you're a [late-medival mailman](https://en.wikipedia.org/wiki/Jōmon_people), played entirely in the [CLI](https://dwarffortresswiki.org/index.php/Command_line).
 
+Start a combat run by choosing Breaker, Marksman, Trickster, or Sapper. Each
+has a fixed three-action kit and pursues a five-claimant route ending in the
+final boss. Pick up stackable discoveries from XP choices, chests, elites, and
+bosses to change those actions without adding more active buttons.
+
 ## Stack
 
 * [Python 3.11](https://www.python.org/) *(but newer is fine)*
@@ -52,8 +57,9 @@ $ git diff --check
 | arrows or `HJKL`; `YUBN` | Move cardinally or diagonally |
 | `E` or Enter | Interact with the nearby world |
 | `A` / `G` | Attack or choose a target / guard, brace, reload, or listen |
+| `B` / `X` | During a combat run: class movement / signature ability; otherwise use preparation or relic controls |
 | `T` / `R` | Follow a known regional route / retreat |
-| `I` / `F` / `X` | Open the pack / inspect materials / use a preparation or relic |
+| `I` / `F` | During a combat run: inspect current build / inspect materials; otherwise open the pack / inspect materials |
 | `V` / `M` | Offer terms / open combat mastery |
 | `P` / `D` / `W` | Skill tree / spellbook and shrine vigil / crafting and flasks |
 | `\\` / `Z` | Circuit work / regional ledger |

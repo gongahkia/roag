@@ -92,6 +92,22 @@ def select_goal(state: GameState, threat: Threat) -> EnemyDecision:
     def option(goal: str, action: str, utility: int, reason: str, target: Position | None = None) -> None:
         scores.append(EnemyDecision(goal, action, reason, target, utility, action))
 
+    # The Trickster's decoy is deliberately small: it is a legible false
+    # target in the same pathfinding/AI vocabulary as a heard courier, not a
+    # second actor with an elaborate combat simulation.
+    run = state.run
+    if (
+        run is not None and run.decoy_position is not None
+        and state.world_time < run.decoy_until
+        and threat.position.z == run.decoy_position.z
+        and distance(threat.position, run.decoy_position) <= max(4, threat.hearing)
+    ):
+        option(
+            "investigate decoy", "investigate", 104,
+            "the visible false courier is drawing its attention",
+            run.decoy_position,
+        )
+
     if threat.carrying_item_id:
         option("escape with cargo", "escape", 120, "it has obtained the cargo it came for", threat.home_position)
     if threat.morale <= 0 or (threat.health <= max(1, threat.max_health // 3) and threat.morale < 3):

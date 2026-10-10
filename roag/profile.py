@@ -44,6 +44,7 @@ class PlayerProfile:
     unlocked_challenge_tier: int = 0
     discoveries: set[str] = field(default_factory=set)
     run_records: list[RunRecord] = field(default_factory=list)
+    last_run_class: str = "breaker"
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +54,7 @@ class PlayerProfile:
             "unlocked_challenge_tier": self.unlocked_challenge_tier,
             "discoveries": sorted(self.discoveries),
             "run_records": [asdict(record) for record in self.run_records],
+            "last_run_class": self.last_run_class,
         }
 
 
@@ -73,9 +75,11 @@ def profile_from_dict(data: object) -> PlayerProfile:
                 boss_kills=tuple(row["boss_kills"]),
                 item_stacks=tuple((key, value) for key, value in row["item_stacks"]),
             ) for row in data["run_records"]],
+            last_run_class=data.get("last_run_class", "breaker"),
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise ProfileError("malformed ROAG profile") from exc
+    from .run_classes import RUN_CLASSES
     from .run_items import RUN_ITEMS
 
     if (
@@ -84,6 +88,7 @@ def profile_from_dict(data: object) -> PlayerProfile:
         or not INITIAL_REGIONS <= profile.unlocked_regions
         or not profile.unlocked_regions <= ALL_REGIONS
         or not profile.unlocked_items <= set(RUN_ITEMS)
+        or profile.last_run_class not in RUN_CLASSES
         or len(profile.run_records) > RUN_RECORD_LIMIT
         or len({record.run_id for record in profile.run_records}) != len(profile.run_records)
         or any(record.result not in {"victory", "defeat", "abandoned"}

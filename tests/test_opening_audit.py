@@ -10,6 +10,7 @@ from roag.inventory import (
 )
 from roag.main import _start_new_world
 from roag.opening_audit import opening_audit, opening_profile
+from roag.profile import PlayerProfile
 from roag.production import gather, input_count, make, site_position
 from roag.regions import begin_region
 from roag.session import GameSession
@@ -118,18 +119,16 @@ class OpeningAuditTests(unittest.TestCase):
         self.assertEqual(carried["circuit:sensor"], 1)
         validate_state(state)
 
-    def test_new_run_issues_one_physical_tool_without_replacing_role_kit(self):
+    def test_new_run_issues_the_selected_fixed_class_kit(self):
         state = create_world("gameplay three initial field tool")
         pilot = next(person for person in state.household if person.role == "pilot")
         state.active_courier_id = pilot.id
         sync_legacy_load(state)
-        original_load = load_state(state)
         self.assertEqual((state.weapon, state.gear), ("staff", "quiet shoes"))
         self.assertEqual(terrain_action_power(state, "cut"), 0)
 
         screen = object()
-        with patch("roag.main.run_character_creation", return_value=True), \
-                patch("roag.main._read_challenge", return_value=0), \
+        with patch("roag.main._read_run_class", return_value="breaker"), \
                 patch("roag.main.play") as play:
             self.assertTrue(_start_new_world(screen, state))
 
@@ -140,8 +139,8 @@ class OpeningAuditTests(unittest.TestCase):
         ]
         self.assertEqual(len(tools), 1)
         self.assertTrue(state.vessel_changes[f"acquired:{tools[0].id}"])
-        self.assertEqual((state.weapon, state.gear), ("staff", "quiet shoes"))
-        self.assertEqual(load_state(state), original_load)
+        self.assertEqual((state.weapon, state.gear), ("war hammer", "repair tools"))
+        self.assertEqual(state.run.class_id, "breaker")
         self.assertEqual(terrain_action_power(state, "cut"), 2)
         self.assertEqual((state.world_time, state.expedition_count), (0, 1))
         self.assertEqual(state.position, state.region.landmarks["landing"])
@@ -154,6 +153,35 @@ class OpeningAuditTests(unittest.TestCase):
                 for item in state.items),
             1,
         )
+
+    def test_settled_run_retries_in_a_fresh_world_with_the_last_class(self):
+        state = create_world("gameplay retry source")
+        retry = create_world("gameplay retry destination")
+        profile = PlayerProfile(last_run_class="breaker")
+        calls = []
+
+        def resolve_play(_screen, active):
+            calls.append(active)
+            if len(calls) == 1:
+                active.run.status = "defeat"
+                active.world_ended = True
+
+        screen = object()
+        with patch("roag.main._read_run_class", return_value="sapper"), \
+                patch("roag.main._read_run_completion", return_value="retry"), \
+                patch("roag.main.create_world", return_value=retry), \
+                patch("roag.profile.load_profile", return_value=profile), \
+                patch("roag.profile.save_profile"), \
+                patch("roag.profile.persist_run_profile"), \
+                patch("roag.main.play", side_effect=resolve_play):
+            self.assertTrue(_start_new_world(screen, state))
+
+        self.assertEqual(len(calls), 2)
+        self.assertIs(calls[0], state)
+        self.assertIs(calls[1], retry)
+        self.assertEqual(calls[0].run.class_id, "sapper")
+        self.assertEqual(calls[1].run.class_id, "sapper")
+        self.assertFalse(calls[1].run.item_stacks)
 
     def test_pack_tool_is_authoritative_for_work_but_not_from_locker(self):
         state = create_world("gameplay three carried tool authority")

@@ -7,14 +7,14 @@ from pathlib import Path
 
 from .actions import (
     ActionResult, advance_world, attack, choose_relic, guard, interact, move,
-    retreat, set_auto_place_enabled, terrain_action, use_gear,
+    retreat, set_auto_place_enabled, terrain_action, use_gear, use_run_ability,
 )
 from .commands import (
     AcquireGroundItemsCommand, AdvanceWorldCommand, AttackCommand, GameCommand,
-    AbandonRunCommand, ChooseRunBranchCommand, CollectRunItemCommand,
+    AbandonRunCommand, ChooseRunBranchCommand, ChooseRunRewardCommand, CollectRunItemCommand,
     GuardCommand, InteractCommand, MoveCommand, RetreatCommand,
     SelectCarriedRelicCommand, SetAutoPlaceCommand, TerrainActionCommand,
-    UseGearCommand,
+    UseGearCommand, UseRunAbilityCommand,
 )
 from .runtime_events import (
     ActorMoved, CarriedRelicSelectionChanged, GuardResolved, InteractionResolved,
@@ -129,6 +129,18 @@ class GameSession:
         collector = RuntimeEventCollector()
         world_time_before = self._state.world_time
         result: ActionResult
+        # A threshold is an immediate decision boundary, not a frontend-only
+        # modal.  Reject every other committed command at the authoritative
+        # application boundary so replay clients, held input, and alternate
+        # renderers cannot advance the world or cross a branch while a boon is
+        # still being inspected.
+        if (
+            self._state.run is not None
+            and self._state.run.status == "active"
+            and self._state.run.pending_rewards
+            and not isinstance(command, ChooseRunRewardCommand)
+        ):
+            return self._reject("run.reward.pending", collector=collector)
         if isinstance(command, MoveCommand):
             if (type(command.dx) is not int or type(command.dy) is not int
                     or (command.dx == 0 and command.dy == 0)
@@ -183,6 +195,24 @@ class GameSession:
             if result.changed and item_id:
                 events = (ItemUsed(actor_id, item_id, "gear.use"),)
             return self._outcome(result, "gear.resolved" if result.changed else "gear.rejected", command.preparation_id, events, collector, world_time_before)
+        if isinstance(command, UseRunAbilityCommand):
+            if (
+                command.ability_id not in {"movement", "signature"}
+                or command.target_actor_id is not None and not isinstance(command.target_actor_id, str)
+                or command.target_position is not None and not isinstance(command.target_position, Position)
+            ):
+                return self._reject("run.ability.invalid", collector=collector)
+            result = use_run_ability(
+                self._state, command.ability_id, command.target_actor_id,
+                command.target_position,
+            )
+            return self._outcome(
+                result,
+                "run.ability.resolved" if result.changed else "run.ability.rejected",
+                command.target_actor_id,
+                collector=collector,
+                world_time_before=world_time_before,
+            )
         if isinstance(command, SelectCarriedRelicCommand):
             if command.relic_id is not None and (not isinstance(command.relic_id, str) or not command.relic_id):
                 return self._reject("relic.invalid", collector=collector)
@@ -276,6 +306,19 @@ class GameSession:
                 (event,),
                 collector,
                 world_time_before,
+            )
+        if isinstance(command, ChooseRunRewardCommand):
+            if type(command.choice_index) is not int or not 0 <= command.choice_index < 3:
+                return self._reject("run.reward.invalid", collector=collector)
+            from .run_rewards import choose_pending_reward
+
+            changed, message = choose_pending_reward(self._state, command.choice_index)
+            result = ActionResult(changed, False, message)
+            return self._outcome(
+                result,
+                "run.reward.chosen" if changed else "run.reward.rejected",
+                collector=collector,
+                world_time_before=world_time_before,
             )
         if isinstance(command, ChooseRunBranchCommand):
             if not isinstance(command.region_id, str) or not command.region_id:

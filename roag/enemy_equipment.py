@@ -167,13 +167,16 @@ def harm_enemy(
     damage_kind: str = "blunt",
     location: str | None = None,
     defeated_by_actor_id: str | None = None,
+    allow_run_secondary: bool = True,
+    apply_run_attack_bonus: bool = True,
 ) -> EnemyHarm:
     """Apply the same physical protection/injury reducer from any damage source."""
     from .workshop import effective_spec
 
     was_active = actor.health > 0
     if (
-        defeated_by_actor_id is not None
+        apply_run_attack_bonus
+        and defeated_by_actor_id is not None
         and defeated_by_actor_id == state.active_courier_id
         and state.run is not None
         and state.run.status == "active"
@@ -246,7 +249,10 @@ def harm_enemy(
                 from .run_loot import record_enemy_defeat
                 from .run_items import effect_value
 
-                record_enemy_defeat(state, actor.id, elite=actor.elite)
+                record_enemy_defeat(
+                    state, actor.id, elite=actor.elite,
+                    allow_secondary=allow_run_secondary,
+                )
                 if state.courier:
                     healing = effect_value(state, "heal", family="defense")
                     state.courier.health = min(
