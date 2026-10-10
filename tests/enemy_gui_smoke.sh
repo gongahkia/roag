@@ -42,7 +42,12 @@ local expected = {"WindupStarted", "AttackPerformed", "DamageTaken", false, fals
 
 function love.load(...)
     original_load(...)
-    assert(#tracked.entities == 4)
+    local enemy_count, chest_count = 0, 0
+    for _, entity in ipairs(tracked.entities) do
+        if entity.controller == "ai" then enemy_count = enemy_count + 1 end
+        if entity.controller == "chest" then chest_count = chest_count + 1 end
+    end
+    assert(enemy_count == 3 and chest_count == 1)
     original_update(10)
     assert(tracked.clock == 0) -- idle presentation cannot advance AI
     love.keypressed("space")

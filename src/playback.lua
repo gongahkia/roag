@@ -12,6 +12,7 @@ local durations = {
     EffectApplied = 0.22,
     DelayedEffectScheduled = 0.18,
     DelayedEffectResolved = 0.28,
+    BoonGranted = 0.28,
 }
 
 function Playback.new()

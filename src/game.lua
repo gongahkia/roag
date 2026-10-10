@@ -3,12 +3,14 @@ local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
 local RNG = require("src.rng")
+local Rewards = require("src.rewards")
 local Scheduler = require("src.scheduler")
 local Targeting = require("src.targeting")
 
 local Game = {}
-local SCHEMA = "roeg-run/3"
-local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150, dash=130}
+local SCHEMA = "roeg-run/4"
+local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
+    dash=130, claim_chest=100}
 local contexts = setmetatable({}, {__mode="k"}) -- resolver context never enters snapshots
 
 local function copy(value)
@@ -47,7 +49,8 @@ end
 function Game.effective_cost(base, speed)
     assert(type(base) == "number" and base % 1 == 0 and base > 0 and base <= 1000000,
         "invalid base cost")
-    assert(type(speed) == "number" and speed % 1 == 0 and speed > 0 and speed <= 1000000,
+    assert(type(speed) == "number" and speed % 1 == 0 and speed > 0
+        and speed <= 4503599627370496,
         "invalid action speed")
     return math.max(1, math.floor((base * 200 + speed) / (speed * 2)))
 end
@@ -96,6 +99,22 @@ function Game.spawn_enemy(state, definition_id, x, y, due)
     return enemy
 end
 
+function Game.spawn_chest(state, definition_id, x, y)
+    local definition = assert(Content.get_chest(definition_id), "unknown chest definition")
+    local map = assert(Content.get_map(state.map_id), "unknown map")
+    assert(Content.walkable(map, x, y), "chest spawn is blocked")
+    assert(not occupant(state, map.floor_id, x, y, nil, false), "chest spawn is occupied")
+    local chest = {
+        id=state.next_entity_id, definition_id=definition_id, controller="chest",
+        faction="neutral", position={floor_id=map.floor_id, x=x, y=y},
+        blocks_movement=true, claimed=false, price=definition.price,
+        offers=Rewards.make_offers(state, definition),
+    }
+    state.next_entity_id = chest.id + 1
+    state.entities[#state.entities + 1] = chest
+    return chest
+end
+
 function Game.new(seed, map_id, options)
     Content.validate_all()
     BoonContent.validate()
@@ -107,12 +126,16 @@ function Game.new(seed, map_id, options)
         active_floor_id=map.floor_id, clock=0, player_id=1, next_entity_id=2,
         next_schedule_id=1, next_event_id=1, next_action_id=1, next_activation_id=1,
         chain_history={}, delayed_effects={},
+        progression={level=1, xp_total=0}, currency=0,
+        next_drop_id=1, drops={}, rewarded_kills={},
         rng=RNG.new(seed or 1), entities={{
             id=1, definition_id="core:actor/adventurer", controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
             blocks_movement=true, hp=definition.hp, max_hp=definition.hp,
             damage=definition.damage, slash_damage=definition.slash_damage,
             defense=definition.defense, speed=definition.speed, boons={},
+            crit_chance_ppm=definition.crit_chance_ppm,
+            crit_damage_percent=definition.crit_damage_percent,
         }},
         schedule={}, last_action=nil, game_over=false,
     }
@@ -120,6 +143,11 @@ function Game.new(seed, map_id, options)
     if options and options.demo_enemies then
         for _, spawn in ipairs(Content.demo_spawns(map.id)) do
             Game.spawn_enemy(state, spawn.definition_id, spawn.x, spawn.y)
+        end
+    end
+    if options and options.demo_chests then
+        for _, spawn in ipairs(Content.demo_chests(map.id)) do
+            Game.spawn_chest(state, spawn.definition_id, spawn.x, spawn.y)
         end
     end
     return state
@@ -142,7 +170,7 @@ function Game.preview(state, kind, dx, dy)
         local map = Content.get_map(state.map_id)
         local cells, distance, blocked = {}, 0, false
         local count = kind == "dash" and 2 or 1
-        local reason, bump
+        local reason, bump, chest_id
         for step = 1, count do
             local x, y = position.x + dx * step, position.y + dy * step
             local cell = {x=x, y=y}
@@ -154,7 +182,9 @@ function Game.preview(state, kind, dx, dy)
             else
                 local entity = occupant(state, position.floor_id, x, y, player.id, false)
                 if entity then
-                    if kind == "move" and entity.controller == "ai" and entity.faction ~= player.faction
+                    if kind == "move" and entity.controller == "chest" and not entity.claimed then
+                        cell.status, reason, chest_id = "chest", "chest", entity.id
+                    elseif kind == "move" and entity.controller == "ai" and entity.faction ~= player.faction
                         and entity.hp and entity.hp > 0 then
                         cell.status, bump = "enemy", true
                     else
@@ -170,7 +200,7 @@ function Game.preview(state, kind, dx, dy)
         end
         return {valid=distance > 0 or bump == true,
             reason=(distance == 0 and not bump) and reason or nil,
-            cost=cost, cells=cells, distance=distance, bump=bump}
+            cost=cost, cells=cells, distance=distance, bump=bump, chest_id=chest_id}
     end
     local position = player.position
     local cells = Targeting.cells(kind, position.x, position.y, dx, dy)
@@ -184,6 +214,18 @@ end
 function Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)
     local owner = assert(Game.entity(state, owner_id), "unknown boon owner")
     Boons.set_stacks(owner, boon_id, rarity, count)
+end
+
+function Game.chest_options(state, chest_id)
+    local chest = Game.entity(state, chest_id)
+    if not chest or chest.controller ~= "chest" then
+        return nil, "unknown chest"
+    end
+    return Rewards.chest_options(state, chest)
+end
+
+function Game.next_level_xp(state)
+    return Rewards.next_threshold(state.progression.level)
 end
 
 function Game.effective_ability(state, kind, dx, dy)
@@ -221,9 +263,9 @@ local function remove_dead(state, target, output, source_id, action_id)
     end
 end
 
-local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged, damage_type)
+local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
+    damage_type, critical)
     local outcomes = {}
-    local boons_active = Boons.active(state)
     local map = Content.get_map(state.map_id)
     for _, cell in ipairs(cells) do
         if ranged and not Content.projectile_passable(map, cell.x, cell.y) then break end
@@ -236,6 +278,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 target_faction=target.faction, target_tags={target.definition_id, target.faction},
                 floor_id=cell.floor_id, x=cell.x, y=cell.y,
                 damage_type=damage_type or "physical",
+                critical=critical or false,
                 attempted_damage=raw_damage, after_defense=after_defense,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
             }
@@ -258,16 +301,12 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
         end
         if outcome.hp_after == 0 then
             emit(state, output, "Died", outcome, source.id, action_id)
-            if boons_active then
-                emit(state, output, "EntityKilled", outcome, source.id, action_id)
-            end
+            emit(state, output, "EntityKilled", outcome, source.id, action_id)
             remove_dead(state, Game.entity(state, outcome.target_id), output, source.id, action_id)
         end
     end
-    if boons_active then
-        for _, outcome in ipairs(outcomes) do
-            emit(state, output, "HitConfirmed", outcome, source.id, action_id)
-        end
+    for _, outcome in ipairs(outcomes) do
+        emit(state, output, "HitConfirmed", outcome, source.id, action_id)
     end
 end
 
@@ -382,6 +421,17 @@ local function drain_effects(state, output)
                     }, activation.owner_id, activation.root_action_id)
                     context.cause = nil
                 end)
+            context.cause = {
+                chain_id=event.chain_id, root_action_id=event.root_action_id,
+                parent_id=event.id, ancestry=event.ancestry,
+                proc_coefficient=event.proc_coefficient,
+                source_faction=event.source_faction,
+                source_position=event.source_position,
+            }
+            Rewards.on_event(state, event, function(kind, fields, source_id)
+                emit(state, output, kind, fields, source_id, event.action_id)
+            end)
+            context.cause = nil
         else
             local item = context.effects[context.effect_head]
             context.effect_head = context.effect_head + 1
@@ -398,16 +448,28 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
             proc_coefficient=Content.ability_proc_coefficient(ability_id)}
     end
     local position = source.position
+    local critical = false
+    if source.controller == "player" and
+        (ability_id == "core:ability/basic_attack"
+            or ability_id == "core:ability/sweeping_slash")
+        and (source.crit_chance_ppm or 0) > 0 then
+        critical = RNG.next_int(state.rng, 1000000) <= source.crit_chance_ppm
+        if critical then
+            raw_damage = math.floor(raw_damage * source.crit_damage_percent / 100 + 0.5)
+        end
+    end
     local fields = {
         floor_id=position.floor_id, from_x=position.x, from_y=position.y,
-        ability_id=ability_id, target_cells=cells,
+        ability_id=ability_id, target_cells=cells, raw_damage=raw_damage,
     }
+    if critical then fields.critical = true end
     if #cells == 1 and ability_id == "core:ability/basic_attack" then
         fields.target_x, fields.target_y = cells[1].x, cells[1].y
     end
     if extra then for key, value in pairs(extra) do fields[key] = value end end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
-    damage_batch(state, output, source, action_id, cells, raw_damage, ranged)
+    damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
+        nil, critical)
     if Boons.active(state) then
         emit(state, output, "AbilityUsed", fields, source.id, action_id)
     end
@@ -462,6 +524,9 @@ local function enemy_turn(state, item, output)
             emit(state, output, "Moved", {
                 floor_id=position.floor_id, from_x=from_x, from_y=from_y, x=x, y=y,
             }, enemy.id, action_id)
+            emit(state, output, "TileEntered", {
+                floor_id=position.floor_id, from_x=from_x, from_y=from_y,
+                x=x, y=y}, enemy.id, action_id)
         else
             emit(state, output, "Waited", {floor_id=position.floor_id,
                 x=position.x, y=position.y}, enemy.id, action_id)
@@ -530,8 +595,20 @@ function Game.submit(state, intent)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
-    local preview = Game.preview(state, intent.kind, intent.dx, intent.dy)
-    if not preview.valid then return false, preview.reason, {} end
+    local preview, chest
+    if intent.kind == "claim_chest" then
+        chest = Game.entity(state, intent.chest_id)
+        if not chest or chest.controller ~= "chest" then
+            return false, "unknown chest", {}
+        end
+        local valid, reason = Rewards.can_claim(state, chest, intent.offer_index)
+        if not valid then return false, reason, {} end
+        preview = {valid=true, cost=Game.effective_cost(COSTS.claim_chest,
+            Game.player(state).speed)}
+    else
+        preview = Game.preview(state, intent.kind, intent.dx, intent.dy)
+        if not preview.valid then return false, preview.reason, {}, preview end
+    end
 
     Scheduler.pop(state)
     local output = {}
@@ -560,8 +637,17 @@ function Game.submit(state, intent)
             end
         end
         emit(state, output, "Moved", fields, player.id, action_id)
-        if Boons.active(state) then
-            emit(state, output, "TileEntered", fields, player.id, action_id)
+        for step = 1, preview.distance do
+            local x, y = preview.cells[step].x, preview.cells[step].y
+            local from_step_x = from_x + intent.dx * (step - 1)
+            local from_step_y = from_y + intent.dy * (step - 1)
+            emit(state, output, "TileEntered", {
+                floor_id=position.floor_id, from_x=from_step_x, from_y=from_step_y,
+                x=x, y=y, source_position={floor_id=position.floor_id, x=x, y=y},
+            }, player.id, action_id)
+            Rewards.pickup_at(state, player, x, y, function(event_kind, reward_fields, source_id)
+                emit(state, output, event_kind, reward_fields, source_id, action_id)
+            end)
         end
     elseif kind == "basic_attack" or kind == "sweeping_slash" then
         action.dx, action.dy = intent.dx, intent.dy
@@ -575,6 +661,13 @@ function Game.submit(state, intent)
         attack(state, output, player, action_id, ability_id,
             cells, damage,
             false, preview.bump and {bump=true} or nil)
+    elseif kind == "claim_chest" then
+        local offer = Rewards.claim(state, chest, intent.offer_index,
+            function(event_kind, reward_fields, source_id)
+                emit(state, output, event_kind, reward_fields, source_id, action_id)
+            end)
+        action.chest_id, action.boon_id, action.rarity = chest.id,
+            offer.boon_id, offer.rarity
     else
         emit(state, output, "Waited", {floor_id=position.floor_id,
             x=position.x, y=position.y}, player.id, action_id)
@@ -671,6 +764,7 @@ function Game.restore(snapshot)
     assert(snapshot.boon_content_version == BoonContent.version,
         "incompatible boon content version")
     Content.validate_all()
+    BoonContent.validate()
     local map = assert(Content.get_map(snapshot.map_id), "unknown map content ID")
     assert(snapshot.active_floor_id == map.floor_id, "incompatible floor ID")
     assert(type(snapshot.clock) == "number" and snapshot.clock % 1 == 0 and snapshot.clock >= 0,
@@ -679,14 +773,34 @@ function Game.restore(snapshot)
     assert(type(snapshot.rng) == "table", "missing RNG state")
     assert(type(snapshot.chain_history) == "table" and
         type(snapshot.delayed_effects) == "table", "missing boon state")
+    assert(type(snapshot.progression) == "table" and
+        type(snapshot.progression.level) == "number" and
+        snapshot.progression.level % 1 == 0 and snapshot.progression.level >= 1
+        and type(snapshot.progression.xp_total) == "number"
+        and snapshot.progression.xp_total % 1 == 0
+        and snapshot.progression.xp_total >= 0
+        and snapshot.progression.xp_total < Rewards.next_threshold(snapshot.progression.level),
+        "invalid progression state")
+    assert(type(snapshot.currency) == "number" and snapshot.currency % 1 == 0
+        and snapshot.currency >= 0 and type(snapshot.drops) == "table"
+        and type(snapshot.rewarded_kills) == "table"
+        and type(snapshot.next_drop_id) == "number", "invalid reward state")
     local state = copy(snapshot)
     RNG.new(state.rng.state)
     local player = Game.player(state)
     assert(player.position.floor_id == map.floor_id, "player on wrong floor")
     assert(Content.walkable(map, player.position.x, player.position.y), "player outside walkable map")
+    assert(type(player.crit_chance_ppm) == "number" and player.crit_chance_ppm % 1 == 0
+        and player.crit_chance_ppm >= 0 and
+        type(player.crit_damage_percent) == "number"
+        and player.crit_damage_percent % 1 == 0 and player.crit_damage_percent >= 100,
+        "invalid player crit stats")
+    assert(type(player.hp) == "number" and player.hp >= 0 and player.hp <= player.max_hp,
+        "invalid player health")
     local occupied = {}
     for _, entity in ipairs(state.entities) do
         Boons.validate_inventory(entity)
+        if entity.controller == "chest" then Rewards.validate_chest(entity) end
         if entity.blocks_movement then
             assert(Content.walkable(map, entity.position.x, entity.position.y), "entity outside walkable map")
             local key = entity.position.x .. "," .. entity.position.y
@@ -704,6 +818,18 @@ function Game.restore(snapshot)
             end
             assert(found, "pending windup has no matching impact")
         end
+    end
+    local drop_ids = {}
+    for _, drop in ipairs(state.drops) do
+        assert(type(drop.id) == "number" and drop.id % 1 == 0
+            and drop.id >= 1 and drop.id < state.next_drop_id
+            and not drop_ids[drop.id] and drop.kind == "currency"
+            and type(drop.amount) == "number" and drop.amount % 1 == 0
+            and drop.amount > 0 and type(drop.collected) == "boolean"
+            and drop.position.floor_id == map.floor_id
+            and Content.walkable(map, drop.position.x, drop.position.y),
+            "invalid currency drop")
+        drop_ids[drop.id] = true
     end
     for id, payload in pairs(state.delayed_effects) do
         local found = false

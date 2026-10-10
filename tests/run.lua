@@ -11,6 +11,7 @@ local Playback = require("src.playback")
 local Targeting = require("src.targeting")
 local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
+local Rewards = require("src.rewards")
 
 local passed, failed = 0, 0
 local function equal(a, b, path)
@@ -45,7 +46,10 @@ test("four legal cardinal movements cost 100 each", function()
     local steps = {{1, 0}, {0, 1}, {-1, 0}, {0, -1}}
     for index, step in ipairs(steps) do
         local committed, _, events = Game.submit(state, { kind = "move", dx = step[1], dy = step[2] })
-        assert(committed and #events == 1 and events[1].kind == "Moved")
+        assert(committed and #events == 2 and events[1].kind == "Moved"
+            and events[2].kind == "TileEntered")
+        assert(events[2].x == Game.player(state).position.x
+            and events[2].y == Game.player(state).position.y)
         assert(state.clock == index * 100)
     end
     local pos = Game.player(state).position
@@ -256,7 +260,8 @@ test("Dash partial path spends 130 once when second tile is wall", function()
     assert(preview.cells[1].status == "open" and preview.cells[2].status == "wall")
     local ok, _, events = Game.submit(state, { kind = "dash", dx = 1, dy = 0 })
     assert(ok and state.clock == 230 and state.last_action.cost == 130)
-    assert(state.last_action.distance == 1 and #events == 1)
+    assert(state.last_action.distance == 1 and #events == 2)
+    assert(events[2].kind == "TileEntered" and events[2].x == 3)
     assert(Game.player(state).position.x == 3 and Game.player(state).position.y == 3)
     assert(#events[1].path == 1 and events[1].path[1].x == 3)
 end)
@@ -266,7 +271,9 @@ test("Dash crosses two open cells and emits one ordered path", function()
     local preview = Game.preview(state, "dash", 1, 0)
     assert(preview.valid and preview.distance == 2)
     local ok, _, events = Game.submit(state, { kind = "dash", dx = 1, dy = 0 })
-    assert(ok and state.clock == 130 and #events == 1 and events[1].kind == "Moved")
+    assert(ok and state.clock == 130 and #events == 3 and events[1].kind == "Moved")
+    assert(events[2].kind == "TileEntered" and events[2].x == 3
+        and events[3].kind == "TileEntered" and events[3].x == 4)
     assert(events[1].time == 0 and events[1].x == 4 and events[1].y == 2)
     assert(events[1].path[1].x == 3 and events[1].path[2].x == 4)
 end)
@@ -581,7 +588,7 @@ test("equal-time enemy turns keep stable entity sequence", function()
     local _, _, events = Game.submit(state,{kind="wait"})
     local at_zero = {}
     for _, event in ipairs(events) do
-        if event.time == 0 and event.source_id ~= state.player_id then
+        if event.time == 0 and event.kind == "Moved" and event.source_id ~= state.player_id then
             at_zero[#at_zero + 1] = event.source_id
         end
     end
@@ -1098,6 +1105,9 @@ test("multi-stage Sword lightning explosion chain retains sibling branches and s
         and activations[2].boon_id == "core:boon/detonation_bloom")
     assert(#events_of(events, "EntityKilled") == 2)
     assert(#events_of(events, "EffectApplied") == 2)
+    assert(#events_of(events, "ExperienceGained") == 2
+        and #events_of(events, "CurrencyDropped") == 2)
+    assert(state.progression.xp_total == 7 and #state.drops == 2)
     local deaths = events_of(events, "Died")
     assert(deaths[1].target_id == second.id and deaths[1].damage_type == "lightning")
     assert(deaths[2].target_id == third.id and deaths[2].damage_type == "explosion")
@@ -1126,6 +1136,373 @@ test("dozens of enemies and high proc activity finish without recursive overflow
     assert(#events_of(events, "BoonActivated") >= 4)
     assert(#events_of(events, "DamageTaken") >= 5)
     assert(#events < 10000)
+end)
+
+test("boon-free kill emits canonical contact, death, XP and one drop", function()
+    local state = Game.new(101)
+    local enemy = quiet_enemy(state, "core:enemy/ruin_skitter", 3, 2)
+    local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(#events_of(events,"HitConfirmed") == 1)
+    assert(#events_of(events,"EntityKilled") == 1)
+    assert(#events_of(events,"ExperienceGained") == 1)
+    assert(#events_of(events,"CurrencyDropped") == 1)
+    assert(state.progression.xp_total == 3 and #state.drops == 1)
+    assert(state.drops[1].killed_entity_id == enemy.id and state.drops[1].amount == 2)
+    local killed = events_of(events,"EntityKilled")[1]
+    assert(killed.source_id == state.player_id and killed.target_id == enemy.id)
+    assert(killed.x == 3 and killed.y == 2 and killed.root_action_id == events[1].action_id)
+    local _, _, miss = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(#events_of(miss,"AttackPerformed") == 1 and #events_of(miss,"HitConfirmed") == 0)
+    assert(state.progression.xp_total == 3 and #state.drops == 1)
+end)
+
+test("Sweep multi-kills finish HP batch before reward events and award once each", function()
+    local state = Game.new(102)
+    local a = quiet_enemy(state,"core:enemy/ruin_skitter",2,3)
+    local b = quiet_enemy(state,"core:enemy/ruin_skitter",3,3)
+    a.hp, b.hp = 2, 2
+    local _, _, events = Game.submit(state,{kind="sweeping_slash",dx=0,dy=1})
+    assert(#events_of(events,"DamageBatchResolved") == 1)
+    assert(#events_of(events,"EntityKilled") == 2)
+    assert(#events_of(events,"ExperienceGained") == 2)
+    assert(#events_of(events,"CurrencyDropped") == 2)
+    assert(state.progression.xp_total == 6 and #state.drops == 2)
+    local batch = events_of(events,"DamageBatchResolved")[1]
+    assert(batch.outcomes[1].hp_after == 0 and batch.outcomes[2].hp_after == 0)
+    assert(batch.id < events_of(events,"ExperienceGained")[1].id)
+    local kills = events_of(events,"EntityKilled")
+    assert(kills[1].target_id ~= kills[2].target_id)
+    assert(state.rewarded_kills[a.id] and state.rewarded_kills[b.id])
+end)
+
+test("player-owned immediate and delayed boon kills receive XP; enemy friendly fire does not", function()
+    local lightning = Game.new(103)
+    grant(lightning,"storm_conductor","legendary",2)
+    local first = quiet_enemy(lightning,"core:enemy/mossbound_guard",3,2)
+    local second = quiet_enemy(lightning,"core:enemy/ruin_skitter",4,2)
+    first.hp, second.hp = 10, 1
+    local _, _, events = Game.submit(lightning,{kind="basic_attack",dx=1,dy=0})
+    assert(#events_of(events,"EntityKilled") == 1)
+    assert(events_of(events,"EntityKilled")[1].damage_type == "lightning")
+    assert(lightning.progression.xp_total == 3 and #lightning.drops == 1)
+
+    local delayed = Game.new(104)
+    grant(delayed,"temporal_echo","common")
+    local echo_target = quiet_enemy(delayed,"core:enemy/ruin_skitter",3,2)
+    echo_target.hp = 5
+    Game.submit(delayed,{kind="basic_attack",dx=1,dy=0})
+    assert(delayed.progression.xp_total == 0 and echo_target.hp == 1)
+    local _, _, due_events = Game.submit(delayed,{kind="wait"})
+    assert(#events_of(due_events,"EntityKilled") == 1)
+    assert(events_of(due_events,"EntityKilled")[1].time == 200)
+    assert(delayed.progression.xp_total == 3)
+
+    local friendly = Game.new(105)
+    local shooter = Game.spawn_enemy(friendly,"core:enemy/thornspitter",2,5)
+    local ally = quiet_enemy(friendly,"core:enemy/ruin_skitter",2,4)
+    ally.hp = 1
+    local _, _, ff_events = Game.submit(friendly,{kind="wait"})
+    local killed = events_of(ff_events,"EntityKilled")
+    assert(#killed == 1 and killed[1].source_id == shooter.id
+        and killed[1].target_id == ally.id)
+    assert(friendly.progression.xp_total == 0 and #friendly.drops == 1)
+end)
+
+test("automatic level overflow uses seeded stat picks and no full heal", function()
+    local state = Game.new(106)
+    local mirror = Game.restore(Game.snapshot(state))
+    Game.player(state).hp, Game.player(mirror).hp = 10, 10
+    local function level(run)
+        local events = {}
+        Rewards.gain_xp(run,35,{target_id=99,target_definition_id="test",
+            floor_id=run.active_floor_id,x=3,y=2},function(kind,fields)
+            events[#events+1] = {kind=kind,fields=fields}
+        end)
+        return events
+    end
+    local a, b = level(state), level(mirror)
+    equal(a,b)
+    assert(state.progression.level == 4 and state.progression.xp_total == 35)
+    assert(Game.next_level_xp(state) == 50)
+    assert(#a == 7 and a[1].kind == "ExperienceGained")
+    assert(Game.player(state).hp < Game.player(state).max_hp)
+    equal(Game.snapshot(state),Game.snapshot(mirror))
+end)
+
+test("all six growth stats affect real combat values and speed stays positive", function()
+    local rules = Content.get_progression()
+    local original = {}
+    for stat, value in pairs(rules.stat_weights) do original[stat] = value end
+    local ok, err = pcall(function()
+        for _, selected in ipairs(rules.stat_order) do
+            local state = Game.new(107)
+            local actor = Game.player(state)
+            actor.hp = 10
+            for stat in pairs(rules.stat_weights) do
+                rules.stat_weights[stat] = stat == selected and 1000000 or 1
+            end
+            local previous = actor[selected] or actor[selected .. "_ppm"]
+            local records = {}
+            Rewards.gain_xp(state,5,{target_id=9,target_definition_id="test",
+                floor_id=state.active_floor_id,x=3,y=2},function(kind,fields)
+                records[#records+1]={kind=kind,fields=fields}
+            end)
+            assert(records[3].kind == "StatIncreased" and records[3].fields.stat == selected)
+            assert(Content.validate_all())
+            if selected == "max_health" then
+                assert(actor.max_hp == 28 and actor.hp == 14)
+                assert(records[3].fields.old_hp == 10 and records[3].fields.new_hp == 14)
+            elseif selected == "damage" then
+                assert(actor.damage == 5 and actor.slash_damage == 4)
+                local target = quiet_enemy(state,"core:enemy/ruin_skitter",3,2)
+                target.hp = 6
+                Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+                assert(target.hp == 1)
+            elseif selected == "defense" then
+                assert(actor.defense == 1)
+                local attacker = Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+                assert(attacker.damage == 3)
+                Game.submit(state,{kind="wait"})
+                Game.submit(state,{kind="wait"})
+                assert(actor.hp == 8)
+            elseif selected == "speed" then
+                assert(actor.speed == 110 and Game.effective_cost(100,actor.speed) == 91)
+                local _, _, wait = Game.submit(state,{kind="wait"})
+                assert(wait[1].kind == "Waited" and state.clock == 91)
+            elseif selected == "crit_chance" then
+                assert(actor.crit_chance_ppm == 50000)
+            elseif selected == "crit_damage" then
+                assert(actor.crit_damage_percent == 175)
+            end
+        end
+    end)
+    for stat, value in pairs(original) do rules.stat_weights[stat] = value end
+    assert(ok,err)
+    assert(Game.effective_cost(100,4503599627370496) == 1)
+end)
+
+test("speed gained from a kill affects only future recovery", function()
+    local rules = Content.get_progression()
+    local original = {}
+    for stat, value in pairs(rules.stat_weights) do
+        original[stat] = value
+        rules.stat_weights[stat] = stat == "speed" and 1000000 or 1
+    end
+    local ok, err = pcall(function()
+        local state = Game.new(117)
+        local guard = quiet_enemy(state,"core:enemy/mossbound_guard",3,2)
+        guard.hp = 1
+        local _, _, killed = Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+        assert(events_of(killed,"StatIncreased")[1].stat == "speed")
+        assert(Game.player(state).speed == 110)
+        assert(state.last_action.cost == 100 and state.clock == 100)
+        Game.submit(state,{kind="wait"})
+        assert(state.last_action.cost == 91 and state.clock == 191)
+    end)
+    for stat, value in pairs(original) do rules.stat_weights[stat] = value end
+    assert(ok,err)
+end)
+
+test("direct critical strikes use seeded rolls and do not crit secondary effects", function()
+    local state = Game.new(108)
+    local actor = Game.player(state)
+    actor.crit_chance_ppm, actor.crit_damage_percent = 1000000, 200
+    local target = quiet_enemy(state,"core:enemy/mossbound_guard",3,2)
+    target.hp, target.max_hp = 20, 20
+    local mirror = Game.restore(Game.snapshot(state))
+    local _, _, a = Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    local _, _, b = Game.submit(mirror,{kind="basic_attack",dx=1,dy=0})
+    equal(a,b)
+    assert(a[1].critical and a[1].raw_damage == 8)
+    assert(Game.entity(state,target.id).hp == 13)
+end)
+
+test("currency drops are nonblocking, auto-collect once, and round-trip", function()
+    local state = Game.new(109)
+    quiet_enemy(state,"core:enemy/ruin_skitter",3,2)
+    Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    local before = Game.snapshot(state)
+    local clone = Game.restore(before)
+    local _, _, a = Game.submit(state,{kind="move",dx=1,dy=0})
+    local _, _, b = Game.submit(clone,{kind="move",dx=1,dy=0})
+    equal(a,b)
+    assert(state.clock == 200 and state.currency == 2 and state.drops[1].collected)
+    assert(#events_of(a,"TileEntered") == 1 and #events_of(a,"CurrencyCollected") == 1)
+    Game.submit(state,{kind="move",dx=-1,dy=0})
+    local _, _, repeat_move = Game.submit(state,{kind="move",dx=1,dy=0})
+    assert(state.currency == 2 and #events_of(repeat_move,"CurrencyCollected") == 0)
+end)
+
+test("Dash picks up currency on each traversed cell without an extra action", function()
+    local state = Game.new(113)
+    state.drops = {
+        {id=1,kind="currency",amount=2,position={floor_id=state.active_floor_id,x=3,y=2},
+            collected=false,killed_entity_id=11},
+        {id=2,kind="currency",amount=3,position={floor_id=state.active_floor_id,x=4,y=2},
+            collected=false,killed_entity_id=12},
+    }
+    state.next_drop_id = 3
+    local _, _, events = Game.submit(state,{kind="dash",dx=1,dy=0})
+    assert(state.clock == 130 and state.currency == 5 and state.last_action.cost == 130)
+    assert(#events_of(events,"TileEntered") == 2)
+    assert(#events_of(events,"CurrencyCollected") == 2)
+    assert(state.drops[1].collected and state.drops[2].collected)
+end)
+
+test("chest caches three valid distinct offers; cancel, affordability, claim and traversal", function()
+    local state = Game.new(110)
+    local chest = Game.spawn_chest(state,"core:chest/standard",3,2)
+    local initial = Game.snapshot(state)
+    local options = assert(Game.chest_options(state,chest.id))
+    assert(#options.offers == 3 and options.price == 5 and options.shortfall == 5)
+    local names = {}
+    for _, offer in ipairs(options.offers) do
+        assert(BoonContent.get(offer.boon_id) and not names[offer.boon_id])
+        names[offer.boon_id] = true
+    end
+    equal(initial,Game.snapshot(state)) -- opening/cancelling is presentation-only
+    local reopened = Game.chest_options(state,chest.id)
+    equal(options,reopened)
+    assert(not Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=1}))
+    equal(initial,Game.snapshot(state))
+    state.currency = 5
+    local _, reason = Game.submit(state,{kind="move",dx=1,dy=0})
+    assert(reason == "chest" and state.clock == 0)
+    local chosen = options.offers[1]
+    local committed, _, events = Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=1})
+    assert(committed and state.clock == 100 and state.currency == 0 and chest.claimed)
+    assert(not chest.blocks_movement and #events_of(events,"ChestClaimed") == 1)
+    assert(Game.player(state).boons[chosen.boon_id][chosen.rarity] == 1)
+    assert(not Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=1}))
+    assert(Game.submit(state,{kind="move",dx=1,dy=0}))
+    assert(state.currency == 0)
+end)
+
+test("elite chest uses free price and favorable validated rarity profile", function()
+    local standard = Content.get_chest("core:chest/standard")
+    local elite = Content.get_chest("core:chest/free_elite")
+    assert(Content.validate_all())
+    assert(standard.price == 5 and elite.price == 0)
+    assert(standard.rarity_weights.common == 70 and standard.rarity_weights.uncommon == 25
+        and standard.rarity_weights.rare == 4 and standard.rarity_weights.legendary == 1)
+    assert(elite.rarity_weights.common == 20 and elite.rarity_weights.uncommon == 45
+        and elite.rarity_weights.rare == 28 and elite.rarity_weights.legendary == 7)
+    local state = Game.new(111)
+    local chest = Game.spawn_chest(state,"core:chest/free_elite",3,2)
+    assert(Game.chest_options(state,chest.id).shortfall == 0)
+    assert(Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=2}))
+    assert(state.currency == 0 and chest.claimed and state.clock == 100)
+end)
+
+test("separate chests can add mixed-rarity stacks of the same boon", function()
+    local state = Game.new(114)
+    local first = Game.spawn_chest(state,"core:chest/free_elite",3,2)
+    local second = Game.spawn_chest(state,"core:chest/free_elite",2,3)
+    first.offers[1] = {boon_id="core:boon/storm_conductor",rarity="common"}
+    second.offers[1] = {boon_id="core:boon/storm_conductor",rarity="legendary"}
+    -- Maintain each chest's three distinct valid offers in this authored test setup.
+    for _, chest in ipairs({first,second}) do
+        local used = {[chest.offers[1].boon_id]=true}
+        for index = 2, 3 do
+            if used[chest.offers[index].boon_id] then
+                for _, id in ipairs(BoonContent.order) do
+                    if not used[id] then
+                        chest.offers[index].boon_id = id
+                        break
+                    end
+                end
+            end
+            used[chest.offers[index].boon_id] = true
+        end
+        assert(Rewards.validate_chest(chest))
+    end
+    assert(Game.submit(state,{kind="claim_chest",chest_id=first.id,offer_index=1}))
+    assert(Game.submit(state,{kind="claim_chest",chest_id=second.id,offer_index=1}))
+    local stacks = Game.player(state).boons["core:boon/storm_conductor"]
+    assert(stacks.common == 1 and stacks.legendary == 1)
+    equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
+end)
+
+test("committed enemy impact precedes newly ready chest purchaser at same time", function()
+    local state = Game.new(115)
+    local chest = Game.spawn_chest(state,"core:chest/standard",3,2)
+    state.currency = 5
+    local shooter = Game.spawn_enemy(state,"core:enemy/thornspitter",2,5)
+    local hp = Game.player(state).hp
+    local _, _, events = Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=1})
+    assert(state.clock == 100 and state.last_action.cost == 100)
+    local started, impact, damage
+    for index, event in ipairs(events) do
+        if event.kind == "WindupStarted" and event.source_id == shooter.id then started=index end
+        if event.kind == "AttackPerformed" and event.source_id == shooter.id then impact=index end
+        if event.kind == "DamageTaken" and event.source_id == shooter.id then damage=index end
+    end
+    assert(started and impact and damage and started < impact and impact < damage)
+    assert(events[impact].time == 100 and Game.player(state).hp == hp - shooter.damage)
+end)
+
+test("pending delayed credited kill retains XP and drop continuation after restore", function()
+    local state = Game.new(116)
+    grant(state,"temporal_echo","common")
+    local victim = quiet_enemy(state,"core:enemy/ruin_skitter",3,2)
+    victim.hp = 5
+    Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    local copy_state = Game.restore(Game.snapshot(state))
+    local _, _, a = Game.submit(state,{kind="wait"})
+    local _, _, b = Game.submit(copy_state,{kind="wait"})
+    equal(a,b)
+    assert(#events_of(a,"ExperienceGained") == 1
+        and #events_of(a,"CurrencyDropped") == 1)
+    equal(Game.snapshot(state),Game.snapshot(copy_state))
+end)
+
+test("chest offers and critical future remain identical after snapshot restore", function()
+    local state = Game.new(112)
+    local chest = Game.spawn_chest(state,"core:chest/standard",3,2)
+    state.currency = 10
+    Game.player(state).crit_chance_ppm = 250000
+    local copy_state = Game.restore(Game.snapshot(state))
+    equal(Game.chest_options(state,chest.id),Game.chest_options(copy_state,chest.id))
+    local _, _, a = Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=3})
+    local _, _, b = Game.submit(copy_state,{kind="claim_chest",chest_id=chest.id,offer_index=3})
+    equal(a,b)
+    local target_a = quiet_enemy(state,"core:enemy/mossbound_guard",2,3)
+    quiet_enemy(copy_state,"core:enemy/mossbound_guard",2,3)
+    local _, _, attack_a = Game.submit(state,{kind="basic_attack",dx=0,dy=1})
+    local _, _, attack_b = Game.submit(copy_state,{kind="basic_attack",dx=0,dy=1})
+    equal(attack_a,attack_b)
+    assert(Game.entity(state,target_a.id))
+    equal(Game.snapshot(state),Game.snapshot(copy_state))
+end)
+
+test("ordinary kill, pickup, level, purchase and boon transform form a complete loop", function()
+    local state = Game.new(1)
+    local chest = Game.spawn_chest(state,"core:chest/standard",5,2)
+    assert(chest.offers[1].boon_id == "core:boon/crescent_reach")
+    local guard = quiet_enemy(state,"core:enemy/mossbound_guard",3,2)
+    guard.hp = 1
+    local _, _, kill = Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    assert(#events_of(kill,"EntityKilled") == 1 and state.progression.level == 2)
+    assert(#events_of(kill,"StatIncreased") == 1)
+    assert(Game.submit(state,{kind="move",dx=1,dy=0}))
+    assert(state.currency == 4)
+    local skitter = quiet_enemy(state,"core:enemy/ruin_skitter",4,2)
+    skitter.hp = 1
+    Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    Game.submit(state,{kind="move",dx=1,dy=0})
+    assert(state.currency == 6)
+    local before = Game.snapshot(state)
+    local _, reason = Game.submit(state,{kind="move",dx=1,dy=0})
+    assert(reason == "chest")
+    equal(before,Game.snapshot(state))
+    local _, _, claim = Game.submit(state,{kind="claim_chest",chest_id=chest.id,offer_index=1})
+    assert(state.currency == 1 and #events_of(claim,"BoonGranted") == 1)
+    local cells = Game.effective_ability(state,"sweeping_slash",1,0)
+    assert(#cells == 4 and cells[4].x == 6 and cells[4].y == 2)
+    local foe = quiet_enemy(state,"core:enemy/ruin_skitter",6,2)
+    foe.hp = 1
+    local _, _, slash = Game.submit(state,{kind="sweeping_slash",dx=1,dy=0})
+    assert(#events_of(slash,"EntityKilled") == 1 and Game.entity(state,foe.id) == nil)
 end)
 
 print(("%d passed, %d failed"):format(passed, failed))
