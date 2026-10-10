@@ -8,6 +8,10 @@ local durations = {
     DamageBlocked = 0.20,
     Died = 0.30,
     WindupCancelled = 0.20,
+    BoonActivated = 0.22,
+    EffectApplied = 0.22,
+    DelayedEffectScheduled = 0.18,
+    DelayedEffectResolved = 0.28,
 }
 
 function Playback.new()

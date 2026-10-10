@@ -1,4 +1,5 @@
 local Camera = require("src.camera")
+local BoonContent = require("src.boon_content")
 local Content = require("src.content")
 local Game = require("src.game")
 local Playback = require("src.playback")
@@ -13,6 +14,31 @@ local camera_state
 local targeting -- nil, or a presentation-only { kind, dx, dy }.
 local notice = "Ready"
 local playback = Playback.new()
+local showcase_index = 0
+local showcase = {
+    {name="Lightning", boons={{"storm_conductor","rare",2},
+        {"static_footsteps","rare",1}}},
+    {name="Cascade", boons={{"storm_conductor","legendary",2},
+        {"detonation_bloom","rare",2}, {"resonant_wounds","rare",1},
+        {"temporal_echo","uncommon",1}}},
+    {name="Transformation", boons={{"crescent_reach","rare",1},
+        {"thorn_mirror","rare",1}, {"turncoat_spark","rare",1}}},
+}
+
+local function apply_showcase()
+    local player = Game.player(state)
+    for _, id in ipairs(BoonContent.order) do
+        for _, rarity in ipairs(BoonContent.rarities) do
+            Game.set_boon_stacks(state, player.id, id, rarity, 0)
+        end
+    end
+    local selected = showcase[showcase_index]
+    if selected then
+        for _, entry in ipairs(selected.boons) do
+            Game.set_boon_stacks(state, player.id, "core:boon/" .. entry[1], entry[2], entry[3])
+        end
+    end
+end
 
 local cardinal = {
     w = { 0, -1 }, up = { 0, -1 }, kp8 = { 0, -1 },
@@ -40,6 +66,7 @@ end
 
 function love.load()
     state = Game.new(1, "core:map/scrolling_room", {demo_enemies=true})
+    apply_showcase()
     reset_camera()
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
 end
@@ -71,11 +98,19 @@ function love.keypressed(key, _, isrepeat)
     if isrepeat then return end
     if key == "n" then
         state = Game.new(1, "core:map/scrolling_room", {demo_enemies=true})
+        apply_showcase()
         playback, targeting, notice = Playback.new(), nil, "New test run"
         reset_camera()
         return
     end
     if Playback.busy(playback) or state.game_over then return end
+    if key == "b" and not targeting then
+        showcase_index = (showcase_index + 1) % (#showcase + 1)
+        apply_showcase()
+        notice = "DEV loadout: " .. (showcase[showcase_index] and
+            showcase[showcase_index].name or "None") .. " — no time"
+        return
+    end
     if targeting then
         if key == "escape" then
             targeting = nil
@@ -164,6 +199,8 @@ local function draw_history_event(event)
         draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7)
     elseif event.kind == "WindupCancelled" then
         draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4)
+    elseif event.kind == "EffectApplied" or event.kind == "DelayedEffectResolved" then
+        draw_cells(event.target_cells or {}, 0.36, 0.78, 1.0, 0.57)
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
     end
@@ -240,7 +277,7 @@ end
 local function draw_panel()
     local position = Game.player(state).position
     love.graphics.setColor(0.93, 0.95, 0.88)
-    love.graphics.print("ROEG — Tranche 02", PANEL_X, 26)
+    love.graphics.print("ROEG — Tranche 03", PANEL_X, 26)
     local player = Game.player(state)
     love.graphics.print(("HP: %d / %d"):format(player.hp, player.max_hp), PANEL_X, 58)
     love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 82)
@@ -250,10 +287,38 @@ local function draw_panel()
     love.graphics.print("Cost: " .. (action and action.cost or "—"), PANEL_X, 154)
     love.graphics.printf(notice, PANEL_X, 181, 260)
 
+    if not targeting then
+        love.graphics.setColor(0.66, 0.86, 1)
+        love.graphics.print("BOONS (B: developer loadout)", PANEL_X, 213)
+        local line = 0
+        for _, id in ipairs(BoonContent.order) do
+            local stacks = player.boons and player.boons[id]
+            if stacks then
+                local counts = {}
+                local short = {common="C", uncommon="U", rare="R", legendary="L"}
+                for _, rarity in ipairs(BoonContent.rarities) do
+                    if (stacks[rarity] or 0) > 0 then
+                        counts[#counts + 1] = short[rarity] .. stacks[rarity]
+                    end
+                end
+                if #counts > 0 then
+                    local label = BoonContent.get(id).name .. " " .. table.concat(counts, " ")
+                    love.graphics.print(label, PANEL_X, 230 + line * 12)
+                    line = line + 1
+                end
+            end
+        end
+        if line == 0 then love.graphics.print("None equipped", PANEL_X, 230) end
+    end
+
     local history = Playback.current(playback)
     if history then
         love.graphics.setColor(1, 0.67, 0.28)
-        love.graphics.print("PLAYBACK: " .. history.kind, PANEL_X, 325)
+        local playback_label = history.kind
+        if history.boon_id then
+            playback_label = history.kind .. ": " .. BoonContent.get(history.boon_id).name
+        end
+        love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 325, 265)
         love.graphics.print("Past event; input paused", PANEL_X, 349)
     else
         local strikes = Game.pending_strikes(state)
@@ -261,6 +326,13 @@ local function draw_panel()
             love.graphics.setColor(1, 0.51, 0.43)
             love.graphics.print(("LIVE WINDUPS: %d"):format(#strikes), PANEL_X, 325)
             love.graphics.print(("Next impact in %d time"):format(strikes[1].due - state.clock), PANEL_X, 349)
+        else
+            local effects = Game.pending_boon_effects(state)
+            if #effects > 0 then
+                love.graphics.setColor(0.54, 0.85, 1)
+                love.graphics.print(("LIVE ECHOES: %d"):format(#effects), PANEL_X, 325)
+                love.graphics.print(("Next in %d time"):format(effects[1].due - state.clock), PANEL_X, 349)
+            end
         end
     end
 
@@ -288,7 +360,7 @@ local function draw_panel()
     end
 
     love.graphics.setColor(0.80, 0.86, 0.80)
-    love.graphics.print("CONTROLS (N: restart)", PANEL_X, 383)
+    love.graphics.print("CONTROLS (N reset, B boons)", PANEL_X, 383)
     love.graphics.print("Move: WASD / arrows", PANEL_X, 409)
     love.graphics.print("Wait: Space or .", PANEL_X, 433)
     love.graphics.print("F: Sword Strike", PANEL_X, 465)

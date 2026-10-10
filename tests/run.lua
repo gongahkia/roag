@@ -8,6 +8,9 @@ local Scheduler = require("src.scheduler")
 local Camera = require("src.camera")
 local AI = require("src.ai")
 local Playback = require("src.playback")
+local Targeting = require("src.targeting")
+local Boons = require("src.boons")
+local BoonContent = require("src.boon_content")
 
 local passed, failed = 0, 0
 local function equal(a, b, path)
@@ -709,6 +712,420 @@ test("demo replay, idle state and presentation playback are deterministic", func
         Playback.update(playback,1)
     end
     equal(before,Game.snapshot(a))
+end)
+
+local function quiet_enemy(state, definition_id, x, y)
+    local enemy = Game.spawn_enemy(state, definition_id, x, y)
+    Scheduler.remove_for_actor(state, enemy.id)
+    return enemy
+end
+
+local function grant(state, name, rarity, count)
+    Game.set_boon_stacks(state, state.player_id, "core:boon/" .. name, rarity, count or 1)
+end
+
+test("boon catalogue, four rarity strengths and invalid references", function()
+    assert(BoonContent.validate())
+    for _, id in ipairs(BoonContent.order) do
+        local def = BoonContent.get(id)
+        local previous = -1
+        for _, rarity in ipairs(BoonContent.rarities) do
+            local value = def.parameters[rarity].power
+            assert(value > previous)
+            previous = value
+        end
+    end
+    local copy_defs = {}
+    for id, def in pairs(BoonContent.definitions) do copy_defs[id] = def end
+    copy_defs["core:boon/storm_conductor"] = nil
+    assert(not pcall(BoonContent.validate, copy_defs, BoonContent.order))
+    assert(not pcall(Game.set_boon_stacks, Game.new(1), 1, "missing:boon", "rare", 1))
+end)
+
+test("boon inventory mixed stacks, removal and snapshot", function()
+    local state = Game.new(91)
+    grant(state, "storm_conductor", "common", 1)
+    grant(state, "storm_conductor", "rare", 2)
+    grant(state, "storm_conductor", "legendary", 1000)
+    assert(Boons.aggregate("core:boon/storm_conductor", Game.player(state).boons["core:boon/storm_conductor"],
+        "chance") == 500380000)
+    grant(state, "storm_conductor", "rare", 0)
+    assert(Game.player(state).boons["core:boon/storm_conductor"].rare == nil)
+    equal(Game.snapshot(state), Game.snapshot(Game.restore(Game.snapshot(state))))
+end)
+
+test("mixed rarity additive probability, overflow, zero coefficient and seeded rolls", function()
+    local state = Game.new(99)
+    local stacks = {common=1, rare=1, legendary=1}
+    assert(Boons.aggregate("core:boon/storm_conductor", stacks, "chance") == 700000)
+    local before = state.rng.state
+    assert(Boons.proc_count(state, 1500000, 0) == 0 and state.rng.state == before)
+    local mirror = Game.restore(Game.snapshot(state))
+    local saw_one, saw_two = false, false
+    for _ = 1, 30 do
+        local a = Boons.proc_count(state, 1500000, 1)
+        local b = Boons.proc_count(mirror, 1500000, 1)
+        assert(a == b and (a == 1 or a == 2))
+        saw_one, saw_two = saw_one or a == 1, saw_two or a == 2
+    end
+    assert(saw_one and saw_two)
+end)
+
+test("all four Storm rarities retain lightning behavior and zero attack coefficient suppresses chance only", function()
+    local copies = {common=50, uncommon=17, rare=6, legendary=2}
+    for _, rarity in ipairs(BoonContent.rarities) do
+        local state = Game.new(101)
+        grant(state, "storm_conductor", rarity, copies[rarity])
+        quiet_enemy(state, "core:enemy/ruin_skitter", 3, 2)
+        quiet_enemy(state, "core:enemy/thornspitter", 4, 2)
+        local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+        assert(#events_of(events, "BoonActivated") >= 1)
+        assert(events_of(events, "EffectApplied")[1].damage_type == "lightning")
+    end
+    local state = Game.new(102)
+    grant(state, "storm_conductor", "legendary", 2)
+    grant(state, "detonation_bloom", "common")
+    quiet_enemy(state, "core:enemy/ruin_skitter", 3, 2)
+    local original = Content.ability_proc_coefficient
+    Content.ability_proc_coefficient = function(id)
+        if id == "core:ability/basic_attack" then return 0 end
+        return original(id)
+    end
+    local ok, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    Content.ability_proc_coefficient = original
+    assert(ok and events[1].proc_coefficient == 0)
+    assert(#events_of(events, "EntityKilled") == 1)
+    local activated = events_of(events, "BoonActivated")
+    assert(#activated == 1 and activated[1].boon_id == "core:boon/detonation_bloom")
+end)
+
+test("attack contact, empty attack and blocked damage have distinct events", function()
+    local state = Game.new(13)
+    grant(state, "crescent_reach", "common") -- turns on extended event facts without a proc
+    local _, _, miss = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(#events_of(miss, "AttackPerformed") == 1 and #events_of(miss, "HitConfirmed") == 0)
+    local target = quiet_enemy(state, "core:enemy/mossbound_guard", 3, 2)
+    target.defense = 99
+    local _, _, blocked = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(#events_of(blocked, "HitConfirmed") == 1)
+    assert(#events_of(blocked, "DamageBlocked") == 1 and #events_of(blocked, "DamageTaken") == 0)
+    assert(blocked[1].root_action_id == blocked[1].action_id and blocked[1].proc_coefficient == 1)
+    assert(blocked[1].source_position.x == 2)
+end)
+
+test("Storm secondary lightning and Static Footsteps movement use real HP pipeline", function()
+    local state = Game.new(17)
+    grant(state, "storm_conductor", "legendary", 2)
+    local first = quiet_enemy(state, "core:enemy/ruin_skitter", 3, 2)
+    local second = quiet_enemy(state, "core:enemy/thornspitter", 4, 2)
+    local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(Game.entity(state, first.id) == nil and Game.entity(state, second.id) == nil)
+    assert(#events_of(events, "BoonActivated") == 1)
+    assert(#events_of(events, "EffectApplied") == 1)
+    local hit = events_of(events, "DamageTaken")
+    assert(#hit == 2 and hit[2].damage_type == "lightning"
+        and hit[2].source_id == state.player_id and hit[2].chain_id == hit[1].chain_id)
+
+    local movement = Game.new(18)
+    grant(movement, "static_footsteps", "legendary", 2)
+    local foe = quiet_enemy(movement, "core:enemy/ruin_skitter", 4, 2)
+    local _, _, moved = Game.submit(movement, {kind="move", dx=1, dy=0})
+    assert(#events_of(moved, "TileEntered") == 1 and #events_of(moved, "BoonActivated") >= 1)
+    assert(Game.entity(movement, foe.id) == nil)
+end)
+
+test("Thorn Mirror reacts to positive owner damage but not fully blocked damage", function()
+    local function run(defense)
+        local state = Game.new(41)
+        local player = Game.player(state)
+        player.position.x, player.position.y, player.defense = 8, 5, defense
+        grant(state, "thorn_mirror", "rare")
+        local spitter = Game.spawn_enemy(state, "core:enemy/thornspitter", 8, 2)
+        local _, _, events = Game.submit(state, {kind="wait"})
+        return state, spitter, events
+    end
+    local hit, attacker, events = run(0)
+    assert(Game.player(hit).hp == 22 and attacker.hp == 3)
+    assert(#events_of(events, "BoonActivated") == 1)
+    local blocked, unharmed, blocked_events = run(99)
+    assert(Game.player(blocked).hp == 24 and unharmed.hp == 6)
+    assert(#events_of(blocked_events, "DamageTaken") == 0)
+    assert(#events_of(blocked_events, "BoonActivated") == 0)
+end)
+
+test("Resonant Wounds correlates adjacent event-time targets once per pair and chain", function()
+    local function run(positions)
+        local state = Game.new(57)
+        Game.player(state).position.x, Game.player(state).position.y = 5, 5
+        grant(state, "resonant_wounds", "common")
+        for _, point in ipairs(positions) do
+            quiet_enemy(state, "core:enemy/mossbound_guard", point[1], point[2])
+        end
+        local _, _, events = Game.submit(state, {kind="sweeping_slash", dx=0, dy=-1})
+        return state, events
+    end
+    local _, adjacent = run({{4,4},{5,4},{6,4}})
+    assert(#events_of(adjacent, "BoonActivated") == 2)
+    assert(#events_of(adjacent, "EffectApplied") == 2)
+    local batch = events_of(adjacent, "DamageBatchResolved")[1]
+    assert(#batch.outcomes == 3 and batch.outcomes[1].hp_after == 8
+        and batch.outcomes[2].hp_after == 8 and batch.outcomes[3].hp_after == 8)
+    local last_primary, first_reaction = 0, nil
+    for index, event in ipairs(adjacent) do
+        if event.kind == "DamageTaken" and event.damage_type == "physical" then
+            last_primary = index
+        elseif event.kind == "BoonActivated" and not first_reaction then
+            first_reaction = index
+        end
+    end
+    assert(first_reaction and last_primary < first_reaction)
+    local _, separated = run({{4,4},{6,4}})
+    assert(#events_of(separated, "BoonActivated") == 0)
+    local one, single = run({{4,4}})
+    assert(#events_of(single, "BoonActivated") == 0)
+    local _, _, later = Game.submit(one, {kind="basic_attack", dx=0, dy=-1})
+    assert(#events_of(later, "BoonActivated") == 0)
+
+    local separate = Game.new(58)
+    Game.player(separate).position.x, Game.player(separate).position.y = 5, 5
+    grant(separate, "resonant_wounds", "common")
+    quiet_enemy(separate, "core:enemy/mossbound_guard", 5, 4)
+    quiet_enemy(separate, "core:enemy/mossbound_guard", 6, 4)
+    local _, _, first = Game.submit(separate, {kind="basic_attack", dx=0, dy=-1})
+    local _, _, second = Game.submit(separate, {kind="basic_attack", dx=1, dy=-1})
+    assert(#events_of(first, "DamageTaken") == 1 and #events_of(second, "DamageTaken") == 1)
+    assert(#events_of(first, "BoonActivated") == 0 and #events_of(second, "BoonActivated") == 0)
+end)
+
+test("Resonant Wounds correlates distinct sibling lightning branches", function()
+    local state = Game.new(59, "core:map/scrolling_room")
+    Game.player(state).position.x, Game.player(state).position.y = 5, 5
+    grant(state, "storm_conductor", "legendary", 4) -- two guaranteed siblings
+    grant(state, "resonant_wounds", "common")
+    quiet_enemy(state, "core:enemy/ruin_skitter", 6, 5)
+    quiet_enemy(state, "core:enemy/ruin_skitter", 8, 5)
+    quiet_enemy(state, "core:enemy/ruin_skitter", 9, 5)
+    local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    local storm, resonance = 0, 0
+    for _, event in ipairs(events_of(events, "BoonActivated")) do
+        if event.boon_id == "core:boon/storm_conductor" then storm = storm + 1 end
+        if event.boon_id == "core:boon/resonant_wounds" then resonance = resonance + 1 end
+    end
+    assert(storm == 2 and resonance == 1)
+    local lightning = {}
+    for _, event in ipairs(events_of(events, "DamageTaken")) do
+        if event.damage_type == "lightning" then lightning[#lightning + 1] = event end
+    end
+    assert(#lightning == 2 and lightning[1].target_id ~= lightning[2].target_id)
+    assert(lightning[1].chain_id == lightning[2].chain_id)
+end)
+
+test("Resonant Wounds deduplicates each unordered pair despite repeated later damage", function()
+    local state = Game.new(60)
+    Game.player(state).position.x, Game.player(state).position.y = 5, 5
+    grant(state, "storm_conductor", "legendary", 2)
+    grant(state, "resonant_wounds", "common")
+    for _, point in ipairs({{5,4},{6,4},{6,5}}) do
+        local enemy = quiet_enemy(state, "core:enemy/mossbound_guard", point[1], point[2])
+        enemy.hp, enemy.max_hp, enemy.defense = 50, 50, 0
+    end
+    local _, _, events = Game.submit(state, {kind="sweeping_slash", dx=1, dy=-1})
+    local resonance = 0
+    for _, event in ipairs(events_of(events, "BoonActivated")) do
+        if event.boon_id == "core:boon/resonant_wounds" then resonance = resonance + 1 end
+    end
+    assert(resonance == 3)
+    assert(#events_of(events, "DamageTaken") > 3)
+end)
+
+test("Turncoat Spark observes enemy friendly fire and credits player reaction", function()
+    local state = Game.new(61)
+    Game.player(state).position.x, Game.player(state).position.y = 8, 5
+    grant(state, "turncoat_spark", "rare")
+    local spitter = Game.spawn_enemy(state, "core:enemy/thornspitter", 8, 2)
+    local guard = quiet_enemy(state, "core:enemy/mossbound_guard", 8, 4)
+    local _, _, events = Game.submit(state, {kind="wait"})
+    assert(guard.hp == 9 and spitter.hp == 3)
+    assert(#events_of(events, "BoonActivated") == 1)
+    local damage = events_of(events, "DamageTaken")
+    assert(#damage == 2 and damage[1].source_id == spitter.id and damage[1].target_id == guard.id)
+    assert(damage[2].source_id == state.player_id and damage[2].target_id == spitter.id)
+    assert(damage[2].chain_id == damage[1].chain_id)
+end)
+
+test("Crescent Reach composes geometry and power without mutating base ability", function()
+    local state = Game.new(64)
+    Game.player(state).position.x, Game.player(state).position.y = 5, 5
+    grant(state, "crescent_reach", "common", 1)
+    grant(state, "crescent_reach", "rare", 2)
+    local cells, damage = Game.effective_ability(state, "sweeping_slash", 1, -1)
+    assert(#cells == 4 and cells[4].x == 7 and cells[4].y == 3 and damage == 10)
+    assert(#Targeting.cells("sweeping_slash", 5, 5, 1, -1) == 3)
+    local restored = Game.restore(Game.snapshot(state))
+    local again, power = Game.effective_ability(restored, "sweeping_slash", 1, -1)
+    equal(cells, again); assert(power == damage)
+    grant(restored, "crescent_reach", "rare", 0)
+    local changed, reduced = Game.effective_ability(restored, "sweeping_slash", 1, -1)
+    assert(#changed == 4 and reduced == 4)
+    grant(restored, "crescent_reach", "common", 0)
+    assert(#Game.effective_ability(restored, "sweeping_slash", 1, -1) == 3)
+
+    local blocked = Game.new(66)
+    Game.player(blocked).position.x, Game.player(blocked).position.y = 4, 3
+    grant(blocked, "crescent_reach", "common")
+    local behind_wall = Game.effective_ability(blocked, "sweeping_slash", 1, -1)
+    assert(#behind_wall == 3) -- (5,2) is open, but the reach cell (6,1) is wall
+end)
+
+test("two compatible declared ability modifiers compose in stable registry order", function()
+    local id = "core:boon/test_edge"
+    local definition = {
+        id=id, name="Test Edge", description="Test-only compatible power modifier",
+        tags={"transformation"},
+        triggers={}, scope={kind="owner"}, stack_policy="add_power", effects={},
+        parameters={common={chance=0,power=2}, uncommon={chance=0,power=3},
+            rare={chance=0,power=4}, legendary={chance=0,power=5}},
+        modifiers={{ability_id="core:ability/sweeping_slash", kind="add_damage"}},
+        incompatible={},
+    }
+    BoonContent.definitions[id] = definition
+    BoonContent.order[#BoonContent.order + 1] = id
+    local ok, result = pcall(function()
+        local state = Game.new(67)
+        grant(state, "crescent_reach", "common")
+        Game.set_boon_stacks(state, state.player_id, id, "common", 1)
+        local cells, damage = Game.effective_ability(state, "sweeping_slash", 1, 0)
+        assert(#cells == 4 and damage == 6)
+    end)
+    BoonContent.definitions[id] = nil
+    table.remove(BoonContent.order)
+    assert(ok, result)
+end)
+
+test("declared boon incompatibilities reject a conflicting loadout", function()
+    local state = Game.new(65)
+    local reach = BoonContent.get("core:boon/crescent_reach")
+    local original = reach.incompatible
+    reach.incompatible = {"core:boon/storm_conductor"}
+    grant(state, "storm_conductor", "common")
+    local ok = pcall(grant, state, "crescent_reach", "common")
+    reach.incompatible = original
+    assert(not ok and Game.player(state).boons["core:boon/crescent_reach"] == nil)
+end)
+
+test("Temporal Echo resolves at 200 before player readiness and restores identically", function()
+    local state = Game.new(71)
+    grant(state, "temporal_echo", "common")
+    local target = quiet_enemy(state, "core:enemy/thornspitter", 3, 2)
+    local _, _, first = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(state.clock == 100 and target.hp == 2)
+    assert(#events_of(first, "DelayedEffectScheduled") == 1)
+    local schedule = events_of(first, "DelayedEffectScheduled")[1]
+    assert(schedule.due == 200 and #schedule.target_cells == 1)
+    local restored = Game.restore(Game.snapshot(state))
+    local _, _, a = Game.submit(state, {kind="wait"})
+    local _, _, b = Game.submit(restored, {kind="wait"})
+    equal(a,b); equal(Game.snapshot(state),Game.snapshot(restored))
+    assert(state.clock == 200 and target.hp == 1)
+    local delayed = events_of(a, "DelayedEffectResolved")[1]
+    assert(delayed and delayed.time == 200 and delayed.chain_id == schedule.chain_id)
+    assert(#delayed.ancestry == 1 and delayed.ancestry[1] ==
+        "1:core:boon/temporal_echo")
+    assert(events_of(a, "DamageTaken")[1].source_id == state.player_id)
+end)
+
+test("locked delayed area hits its current occupant and never advances during idle presentation", function()
+    local state = Game.new(72)
+    grant(state, "temporal_echo", "rare")
+    local original = quiet_enemy(state, "core:enemy/mossbound_guard", 3, 2)
+    local replacement = quiet_enemy(state, "core:enemy/ruin_skitter", 4, 2)
+    Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(state.clock == 100 and #Game.pending_boon_effects(state) == 1)
+    local before = Game.snapshot(state)
+    for _ = 1, 1000 do Game.pending_boon_effects(state); Game.player(state) end
+    equal(before, Game.snapshot(state))
+    original.position.x, replacement.position.x = 4, 3
+    local old_hp, new_hp = original.hp, replacement.hp
+    local _, _, events = Game.submit(state, {kind="wait"})
+    assert(state.clock == 200 and original.hp == old_hp and replacement.hp < new_hp)
+    assert(events_of(events, "DamageTaken")[1].target_id == replacement.id)
+end)
+
+test("boon seed replay and plain-data pending state preserve ordered continuation", function()
+    local function run()
+        local state = Game.new(83)
+        Game.player(state).position.x, Game.player(state).position.y = 5, 5
+        grant(state, "storm_conductor", "rare", 4)
+        grant(state, "temporal_echo", "uncommon", 1)
+        quiet_enemy(state, "core:enemy/mossbound_guard", 6, 5)
+        quiet_enemy(state, "core:enemy/ruin_skitter", 7, 5)
+        local events = {}
+        for _, intent in ipairs({{kind="basic_attack",dx=1,dy=0},
+            {kind="wait"}, {kind="wait"}}) do
+            local _, _, batch = Game.submit(state, intent)
+            for _, event in ipairs(batch) do events[#events + 1] = event end
+        end
+        local function plain(value)
+            assert(type(value) ~= "function" and type(value) ~= "userdata"
+                and type(value) ~= "thread")
+            if type(value) == "table" then
+                for key, child in pairs(value) do plain(key); plain(child) end
+            end
+        end
+        plain(Game.snapshot(state))
+        return Game.snapshot(state), events
+    end
+    local a, ae = run()
+    local b, be = run()
+    equal(a,b); equal(ae,be)
+end)
+
+test("multi-stage Sword lightning explosion chain retains sibling branches and stops recursion", function()
+    local state = Game.new(73)
+    Game.player(state).position.x, Game.player(state).position.y = 5, 5
+    grant(state, "storm_conductor", "legendary", 2)
+    grant(state, "detonation_bloom", "rare", 1)
+    local first = quiet_enemy(state, "core:enemy/mossbound_guard", 6, 5)
+    local second = quiet_enemy(state, "core:enemy/thornspitter", 7, 5)
+    local third = quiet_enemy(state, "core:enemy/ruin_skitter", 8, 5)
+    third.hp = 1
+    local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(Game.entity(state, first.id) and Game.entity(state, first.id).hp == 5
+        and Game.entity(state, second.id) == nil
+        and Game.entity(state, third.id) == nil)
+    local activations = events_of(events, "BoonActivated")
+    assert(#activations == 2 and activations[1].boon_id == "core:boon/storm_conductor"
+        and activations[2].boon_id == "core:boon/detonation_bloom")
+    assert(#events_of(events, "EntityKilled") == 2)
+    assert(#events_of(events, "EffectApplied") == 2)
+    local deaths = events_of(events, "Died")
+    assert(deaths[1].target_id == second.id and deaths[1].damage_type == "lightning")
+    assert(deaths[2].target_id == third.id and deaths[2].damage_type == "explosion")
+    local original_chain = events[1].chain_id
+    for _, event in ipairs(events) do assert(event.chain_id == original_chain) end
+    assert(#events < 100)
+end)
+
+test("dozens of enemies and high proc activity finish without recursive overflow", function()
+    local state = Game.new(79, "core:map/scrolling_room")
+    Game.player(state).position.x, Game.player(state).position.y = 17, 16
+    grant(state, "storm_conductor", "legendary", 4)
+    grant(state, "detonation_bloom", "legendary", 2)
+    grant(state, "resonant_wounds", "rare", 2)
+    local count = 0
+    for y = 14, 19 do
+        for x = 18, 23 do
+            if Content.walkable(Content.get_map(state.map_id), x, y) then
+                quiet_enemy(state, "core:enemy/ruin_skitter", x, y)
+                count = count + 1
+            end
+        end
+    end
+    assert(count >= 30)
+    local _, _, events = Game.submit(state, {kind="basic_attack", dx=1, dy=0})
+    assert(#events_of(events, "BoonActivated") >= 4)
+    assert(#events_of(events, "DamageTaken") >= 5)
+    assert(#events < 10000)
 end)
 
 print(("%d passed, %d failed"):format(passed, failed))

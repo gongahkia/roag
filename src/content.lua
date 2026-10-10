@@ -8,6 +8,13 @@ local tiles = {
 }
 
 local adventurer = { hp = 24, damage = 4, slash_damage = 3, defense = 0, speed = 100 }
+local ability_proc_coefficients = {
+    ["core:ability/basic_attack"] = 1,
+    ["core:ability/sweeping_slash"] = 1,
+    ["core:ability/guard_strike"] = 1,
+    ["core:ability/thorn_lane"] = 1,
+    ["core:ability/skitter_stab"] = 1,
+}
 
 local enemies = {
     ["core:enemy/mossbound_guard"] = {
@@ -104,6 +111,10 @@ function Content.get_adventurer()
     return adventurer
 end
 
+function Content.ability_proc_coefficient(id)
+    return ability_proc_coefficients[id] or 1
+end
+
 function Content.demo_spawns(map_id)
     if map_id == "core:map/scrolling_room" then return demo_spawns end
     return {}
@@ -147,6 +158,10 @@ function Content.blocks_vision(map, x, y)
 end
 
 function Content.validate_all()
+    for _, coefficient in pairs(ability_proc_coefficients) do
+        assert(type(coefficient) == "number" and coefficient >= 0 and coefficient <= 10,
+            "invalid ability proc coefficient")
+    end
     local ids = { "core:map/test_room", "core:map/scrolling_room" }
     local seen = {}
     for _, id in ipairs(ids) do
