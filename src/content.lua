@@ -7,6 +7,8 @@ local tiles = {
     ["#"] = { walkable = false, blocks_vision = true, projectile_passable = false },
 }
 
+local adventurer = { hp = 24, damage = 4, slash_damage = 3, defense = 0, speed = 100 }
+
 local enemies = {
     ["core:enemy/mossbound_guard"] = {
         id = "core:enemy/mossbound_guard", name = "Mossbound Guard", ai = "guard",
@@ -98,6 +100,10 @@ function Content.get_enemy(id)
     return enemies[id]
 end
 
+function Content.get_adventurer()
+    return adventurer
+end
+
 function Content.demo_spawns(map_id)
     if map_id == "core:map/scrolling_room" then return demo_spawns end
     return {}
@@ -157,13 +163,20 @@ function Content.validate_all()
         assert(not seen[id], "duplicate content ID")
         seen[id] = true
         local definition = assert(enemies[id], "missing enemy definition")
-        assert(definition.id == id and type(definition.ai) == "string", "invalid enemy identity")
+        assert(definition.id == id and (definition.ai == "guard" or definition.ai == "spitter"
+            or definition.ai == "skitter"), "invalid enemy identity")
         for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range"}) do
             local value = definition[field]
             assert(type(value) == "number" and value % 1 == 0 and value >= 0, "invalid enemy stat")
         end
         assert(definition.hp > 0 and definition.speed > 0 and definition.windup > 0
-            and definition.recovery > 0 and definition.move_cost > 0, "invalid enemy timing")
+            and definition.recovery > 0 and definition.move_cost > 0 and definition.range > 0,
+            "invalid enemy timing")
+        if definition.ai == "spitter" then
+            assert(type(definition.min_range) == "number" and definition.min_range % 1 == 0
+                and definition.min_range >= 2 and definition.min_range <= definition.range,
+                "invalid ranged minimum")
+        end
     end
     local demo_map = maps["core:map/scrolling_room"]
     local occupied = {}
@@ -172,6 +185,8 @@ function Content.validate_all()
         assert(Content.walkable(demo_map, spawn.x, spawn.y), "demo spawn blocked")
         local key = spawn.x .. "," .. spawn.y
         assert(not occupied[key], "duplicate demo spawn")
+        assert(spawn.x ~= demo_map.start_x or spawn.y ~= demo_map.start_y,
+            "demo enemy overlaps player")
         occupied[key] = true
     end
     return true

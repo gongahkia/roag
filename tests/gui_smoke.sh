@@ -12,8 +12,9 @@ cat > "$output_dir/main.lua" <<'LUA'
 local Game = require("src.game")
 local original_new = Game.new
 local tracked
-function Game.new(...)
-    tracked = original_new(...)
+function Game.new(seed, map_id)
+    -- Preserve the original Tranche 01 no-enemy input/camera smoke scenario.
+    tracked = original_new(seed, map_id)
     return tracked
 end
 

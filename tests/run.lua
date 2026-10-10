@@ -6,6 +6,8 @@ local Game = require("src.game")
 local RNG = require("src.rng")
 local Scheduler = require("src.scheduler")
 local Camera = require("src.camera")
+local AI = require("src.ai")
+local Playback = require("src.playback")
 
 local passed, failed = 0, 0
 local function equal(a, b, path)
@@ -377,6 +379,336 @@ test("camera follows smoothly, clamps, centers small maps, leaves simulation idl
     Camera.update(two_steps, 0.06, 20, 15)
     assert(math.abs(one_step.x - two_steps.x) < 0.000001)
     assert(math.abs(one_step.y - two_steps.y) < 0.000001)
+end)
+
+local function events_of(events, kind)
+    local result = {}
+    for _, event in ipairs(events) do
+        if event.kind == kind then result[#result + 1] = event end
+    end
+    return result
+end
+
+test("enemy bump is one basic hit and one recovery without movement", function()
+    local state = Game.new(10)
+    local enemy = Game.spawn_enemy(state, "core:enemy/mossbound_guard", 3, 2, 1000)
+    local preview = Game.preview(state, "move", 1, 0)
+    assert(preview.valid and preview.bump and preview.distance == 0)
+    local ok, _, events = Game.submit(state, {kind="move",dx=1,dy=0})
+    assert(ok and state.clock == 100 and state.last_action.kind == "basic_attack")
+    assert(state.last_action.bump and state.last_action.cost == 100)
+    assert(Game.player(state).position.x == 2 and enemy.hp == 7)
+    assert(#events_of(events, "AttackPerformed") == 1)
+    assert(#events_of(events, "DamageTaken") == 1)
+    assert(events[1].bump and events[1].action_id == events_of(events,"DamageTaken")[1].action_id)
+end)
+
+test("explicit diagonal Sword Strike damages its occupied tile", function()
+    local state = Game.new(10)
+    local enemy = Game.spawn_enemy(state,"core:enemy/ruin_skitter",3,3,1000)
+    local _, _, events = Game.submit(state,{kind="basic_attack",dx=1,dy=1})
+    assert(state.clock == 100 and enemy.hp == 0)
+    assert(Game.entity(state,enemy.id) == nil)
+    assert(events[1].target_x == 3 and events[1].target_y == 3)
+    assert(#events_of(events,"DamageTaken") == 1)
+end)
+
+test("empty explicit attacks, walls and cancel retain prior semantics with enemies", function()
+    local state = Game.new(11)
+    Game.spawn_enemy(state, "core:enemy/mossbound_guard", 5, 2, 1000)
+    local before = Game.snapshot(state)
+    assert(not Game.submit(state, {kind="move",dx=-1,dy=0}))
+    assert(not Game.submit(state, {kind="cancel"}))
+    equal(before, Game.snapshot(state))
+    local ok, _, events = Game.submit(state, {kind="basic_attack",dx=-1,dy=-1})
+    assert(ok and state.clock == 100 and #events == 1 and events[1].kind == "AttackPerformed")
+end)
+
+test("damage floor, death removal and ordered provenance", function()
+    local state = Game.new(12)
+    local enemy = Game.spawn_enemy(state, "core:enemy/ruin_skitter", 3, 2, 1000)
+    enemy.hp = 2
+    local id = enemy.id
+    local ok, _, events = Game.submit(state, {kind="basic_attack",dx=1,dy=0})
+    assert(ok and Game.entity(state,id) == nil)
+    equal({events[1].kind,events[2].kind,events[3].kind,events[4].kind,events[5].kind},
+        {"AttackPerformed","DamageBatchResolved","DamageAttempted","DamageTaken","Died"})
+    assert(events[3].actual_loss == 2 and events[3].hp_after == 0)
+    for _, event in ipairs(events) do
+        assert(event.source_id == state.player_id and event.action_id == events[1].action_id)
+    end
+end)
+
+test("fully blocked damage has no DamageTaken", function()
+    local state = Game.new(13)
+    local enemy = Game.spawn_enemy(state, "core:enemy/mossbound_guard", 3, 2, 1000)
+    enemy.defense = 100
+    local hp = enemy.hp
+    local _, _, events = Game.submit(state, {kind="basic_attack",dx=1,dy=0})
+    assert(enemy.hp == hp and #events_of(events,"DamageAttempted") == 1)
+    assert(#events_of(events,"DamageBlocked") == 1)
+    assert(#events_of(events,"DamageTaken") == 0 and #events_of(events,"Died") == 0)
+end)
+
+test("Sweep commits three target HP outcomes before individual damage records", function()
+    local state = Game.new(14, "core:map/scrolling_room")
+    local positions = {{2,2},{3,2},{4,2}}
+    for _, position in ipairs(positions) do
+        local enemy = Game.spawn_enemy(state,"core:enemy/ruin_skitter",position[1],position[2],1000)
+        enemy.hp = 2
+    end
+    local ok, _, events = Game.submit(state, {kind="sweeping_slash",dx=0,dy=-1})
+    assert(ok and state.clock == 150 and #state.entities == 1)
+    assert(events[1].kind == "AttackPerformed" and events[2].kind == "DamageBatchResolved")
+    assert(#events[2].outcomes == 3 and #events_of(events,"Died") == 3)
+    for index, outcome in ipairs(events[2].outcomes) do
+        assert(outcome.hp_after == 0 and outcome.x == positions[index][1])
+    end
+    assert(events[3].kind == "DamageAttempted")
+end)
+
+test("Dash still rejects first blocker and stops at occupied second tile", function()
+    local state = Game.new(15)
+    Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2,1000)
+    local before = Game.snapshot(state)
+    assert(not Game.submit(state,{kind="dash",dx=1,dy=0}))
+    equal(before,Game.snapshot(state))
+    local enemy = Game.entity(state,2)
+    enemy.position.x = 4
+    local preview = Game.preview(state,"dash",1,0)
+    assert(preview.valid and preview.distance == 1 and preview.cells[2].status == "occupied")
+    assert(Game.submit(state,{kind="dash",dx=1,dy=0}))
+    assert(state.clock == 130 and Game.player(state).position.x == 3)
+end)
+
+test("Guard detours around a wall and commits cardinal melee", function()
+    local state = Game.new(16)
+    Game.player(state).position.x, Game.player(state).position.y = 2, 3
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",7,3)
+    local first = AI.choose(state,guard)
+    assert(first.kind == "move" and first.dy == -1)
+    local seen_windup = false
+    for _ = 1, 12 do
+        local ok, _, events = Game.submit(state,{kind="wait"})
+        assert(ok)
+        for _, event in ipairs(events) do
+            if event.kind == "WindupStarted" and event.source_id == guard.id then
+                seen_windup = true
+                assert(#event.target_cells == 1)
+            end
+        end
+        if seen_windup then break end
+    end
+    assert(seen_windup)
+    assert(Content.walkable(Content.get_map(state.map_id),guard.position.x,guard.position.y))
+end)
+
+test("Thornspitter respects blocking wall and repositions for lane", function()
+    local state = Game.new(17)
+    Game.player(state).position.x, Game.player(state).position.y = 3, 3
+    local spitter = Game.spawn_enemy(state,"core:enemy/thornspitter",7,3)
+    local intent = AI.choose(state,spitter)
+    assert(intent.kind == "move")
+    local _, _, events = Game.submit(state,{kind="wait"})
+    assert(#events_of(events,"WindupStarted") == 0)
+    assert(spitter.position.x ~= 6 or spitter.position.y ~= 3)
+end)
+
+test("Skitter seeks diagonal flank and uses faster locked windup", function()
+    local state = Game.new(18)
+    local skitter = Game.spawn_enemy(state,"core:enemy/ruin_skitter",3,3)
+    local intent = AI.choose(state,skitter)
+    assert(intent.kind == "windup" and intent.ability_id == "core:ability/skitter_stab")
+    local _, _, events = Game.submit(state,{kind="wait"})
+    local starts = events_of(events,"WindupStarted")
+    assert(#starts >= 1 and starts[1].due == 22)
+    local attacks = events_of(events,"AttackPerformed")
+    assert(#attacks >= 1 and attacks[1].time == 22 and attacks[1].time < 100)
+    assert(Game.player(state).hp < Game.player(state).max_hp)
+end)
+
+test("Skitter repositions from cardinal adjacency while Guard attacks", function()
+    local skitter_state = Game.new(18)
+    local skitter = Game.spawn_enemy(skitter_state,"core:enemy/ruin_skitter",3,2)
+    local before = Game.snapshot(skitter_state)
+    local skitter_intent = AI.choose(skitter_state,skitter)
+    assert(skitter_intent.kind == "move" and skitter_intent.dx == 0 and skitter_intent.dy == 1)
+    equal(before,Game.snapshot(skitter_state))
+    local guard_state = Game.new(18)
+    local guard = Game.spawn_enemy(guard_state,"core:enemy/mossbound_guard",3,2)
+    assert(AI.choose(guard_state,guard).kind == "windup")
+end)
+
+test("spitter target lane stays locked while player moves away", function()
+    local state = Game.new(19)
+    local spitter = Game.spawn_enemy(state,"core:enemy/thornspitter",2,5)
+    spitter.speed = 60 -- test a longer windup than the player's 100 recovery
+    assert(Game.submit(state,{kind="wait"}))
+    assert(state.clock == 100 and spitter.pending_attack and spitter.pending_attack.due == 150)
+    local locked = Game.snapshot(spitter.pending_attack.target_cells)
+    local hp = Game.player(state).hp
+    local _, _, events = Game.submit(state,{kind="move",dx=1,dy=0})
+    assert(Game.player(state).position.x == 3 and Game.player(state).hp == hp)
+    local strikes = events_of(events,"AttackPerformed")
+    assert(#strikes == 1 and strikes[1].source_id == spitter.id and strikes[1].time == 150)
+    equal(locked,strikes[1].target_cells)
+end)
+
+test("committed impact wins timestamp tie; player wins ready enemy tie", function()
+    local state = Game.new(20)
+    local spitter = Game.spawn_enemy(state,"core:enemy/thornspitter",2,5)
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",7,2,100)
+    local _, _, events = Game.submit(state,{kind="wait"})
+    assert(state.clock == 100 and Game.player(state).hp == 22)
+    assert(#events_of(events,"AttackPerformed") == 1)
+    local ready = Scheduler.peek(state)
+    assert(ready.actor_id == state.player_id and ready.due == 100)
+    local _, _, later = Game.submit(state,{kind="wait"})
+    local guard_acted = false
+    for _, event in ipairs(later) do
+        if event.source_id == guard.id then guard_acted = true end
+    end
+    assert(guard_acted and spitter.id ~= guard.id)
+end)
+
+test("equal-time enemy turns keep stable entity sequence", function()
+    local state = Game.new(21)
+    local first = Game.spawn_enemy(state,"core:enemy/mossbound_guard",7,2)
+    local second = Game.spawn_enemy(state,"core:enemy/mossbound_guard",9,2)
+    local _, _, events = Game.submit(state,{kind="wait"})
+    local at_zero = {}
+    for _, event in ipairs(events) do
+        if event.time == 0 and event.source_id ~= state.player_id then
+            at_zero[#at_zero + 1] = event.source_id
+        end
+    end
+    equal(at_zero,{first.id,second.id})
+end)
+
+test("enemy ranged strike damages an allied blocker before player", function()
+    local state = Game.new(22)
+    local spitter = Game.spawn_enemy(state,"core:enemy/thornspitter",2,5)
+    local ally = Game.spawn_enemy(state,"core:enemy/mossbound_guard",2,4,1000)
+    local player_hp, ally_hp = Game.player(state).hp, ally.hp
+    local _, _, events = Game.submit(state,{kind="wait"})
+    assert(ally.hp == ally_hp - math.max(0, spitter.damage - ally.defense)
+        and Game.player(state).hp == player_hp)
+    local taken = events_of(events,"DamageTaken")
+    assert(#taken == 1 and taken[1].target_id == ally.id and taken[1].source_id == spitter.id)
+end)
+
+test("ordinary damage leaves windup active and impact still occurs", function()
+    local state = Game.new(23)
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+    assert(Game.submit(state,{kind="wait"}))
+    assert(guard.pending_attack and guard.pending_attack.due == 114)
+    local _, _, events = Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    assert(guard.hp == 7 and #events_of(events,"WindupCancelled") == 0)
+    assert(#events_of(events,"AttackPerformed") >= 2 and Game.player(state).hp == 21)
+end)
+
+test("stun cancels windup and cannot ghost-hit after restore", function()
+    local state = Game.new(24)
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+    assert(Game.submit(state,{kind="wait"}))
+    local ok, _, events = Game.stun(state,guard.id,200,state.player_id,99)
+    assert(ok and #events_of(events,"WindupCancelled") == 1)
+    assert(guard.pending_attack == nil)
+    local restored = Game.restore(Game.snapshot(state))
+    local hp = Game.player(state).hp
+    for _, run in ipairs({state,restored}) do
+        local _, _, future = Game.submit(run,{kind="wait"})
+        assert(#events_of(future,"AttackPerformed") == 0 and Game.player(run).hp == hp)
+    end
+    equal(Game.snapshot(state),Game.snapshot(restored))
+end)
+
+test("displacement cancels windup and prevents late impact", function()
+    local state = Game.new(25)
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+    assert(Game.submit(state,{kind="wait"}))
+    local ok, _, events = Game.displace(state,guard.id,4,2,state.player_id,100)
+    assert(ok and guard.position.x == 4 and guard.pending_attack == nil)
+    assert(#events_of(events,"WindupCancelled") == 1)
+    local hp = Game.player(state).hp
+    local _, _, future = Game.submit(state,{kind="wait"})
+    assert(#events_of(future,"AttackPerformed") == 0 and Game.player(state).hp == hp)
+end)
+
+test("death cancels pending strike and removes enemy ready work", function()
+    local state = Game.new(26)
+    local guard = Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+    assert(Game.submit(state,{kind="wait"}))
+    guard.hp = 3
+    local id = guard.id
+    local _, _, events = Game.submit(state,{kind="basic_attack",dx=1,dy=0})
+    assert(Game.entity(state,id) == nil and #events_of(events,"Died") == 1)
+    assert(#events_of(events,"WindupCancelled") == 1)
+    for _, item in ipairs(state.schedule) do assert(item.actor_id ~= id) end
+    assert(Game.player(state).hp == 24)
+    local restored = Game.restore(Game.snapshot(state))
+    local _, _, later = Game.submit(restored,{kind="wait"})
+    assert(#events_of(later,"AttackPerformed") == 0 and Game.player(restored).hp == 24)
+end)
+
+test("pending windup snapshot restores locked geometry and future ordering", function()
+    local state = Game.new(27)
+    Game.spawn_enemy(state,"core:enemy/mossbound_guard",3,2)
+    assert(Game.submit(state,{kind="wait"}))
+    assert(#Game.pending_strikes(state) == 1)
+    for _, item in ipairs(state.schedule) do
+        assert(item.actor_id ~= 2 or item.kind ~= "actor_ready")
+    end
+    local restored = Game.restore(Game.snapshot(state))
+    equal(Game.pending_strikes(state),Game.pending_strikes(restored))
+    local a_ok, _, a_events = Game.submit(state,{kind="wait"})
+    local b_ok, _, b_events = Game.submit(restored,{kind="wait"})
+    assert(a_ok and b_ok)
+    equal(a_events,b_events)
+    equal(Game.snapshot(state),Game.snapshot(restored))
+end)
+
+test("player death ends the run and snapshot stays restorable", function()
+    local state = Game.new(29)
+    Game.player(state).hp = 1
+    Game.spawn_enemy(state,"core:enemy/thornspitter",2,5)
+    local ok, _, events = Game.submit(state,{kind="wait"})
+    assert(ok and state.game_over and Game.player(state).hp == 0)
+    assert(#events_of(events,"Died") == 1)
+    assert(not Game.submit(state,{kind="wait"}))
+    local restored = Game.restore(Game.snapshot(state))
+    equal(Game.snapshot(state),Game.snapshot(restored))
+end)
+
+test("demo replay, idle state and presentation playback are deterministic", function()
+    local function run()
+        local state = Game.new(28,"core:map/scrolling_room",{demo_enemies=true})
+        local before = Game.snapshot(state)
+        for _ = 1,1000 do Game.pending_strikes(state) end
+        equal(before,Game.snapshot(state))
+        local output = {}
+        for _ = 1,3 do
+            local ok, _, events = Game.submit(state,{kind="wait"})
+            assert(ok)
+            for _, event in ipairs(events) do output[#output+1] = event end
+        end
+        return Game.snapshot(state),output
+    end
+    local a,ae = run()
+    local b,be = run()
+    equal(a,b)
+    equal(ae,be)
+    local playback = Playback.new()
+    Playback.add(playback,ae,1)
+    local before = Game.snapshot(a)
+    local previous_id = 0
+    while Playback.busy(playback) do
+        local current = Playback.current(playback)
+        assert(current.id >= previous_id)
+        previous_id = current.id
+        Playback.update(playback,1)
+    end
+    equal(before,Game.snapshot(a))
 end)
 
 print(("%d passed, %d failed"):format(passed, failed))

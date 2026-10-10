@@ -1,31 +1,36 @@
-# ROEG — Tranche 01 Adventurer
+# ROEG — Tranche 02 combat testbed
 
-ROEG is a new LÖVE roguelike project. The current playable slice has the Adventurer's starting actions in a hand-authored scrolling test area. The authoritative design is in `docs/ROEG_SPEC_v1.0.md`. The original foundation brief is in `prompts/TRANCHE_00_FOUNDATION.md`.
+ROEG is a LÖVE 11.5 roguelike prototype. The current authored 35×25 test map has one Adventurer and three enemy archetypes. `docs/ROEG_SPEC_v1.0.md` is the authoritative design baseline. The 15×11 foundation map remains available to headless tests.
 
-## Run
+## Run and controls
 
-Install LÖVE 11.x and run `love .` from this directory. The game was built with LÖVE 11.5. For headless tests, install LuaJIT or Lua 5.1+ and run `luajit tests/run.lua` (or `lua tests/run.lua`). No packages are required. On a desktop with LÖVE and `timeout`, `sh tests/gui_smoke.sh` runs a callback/render smoke check and prints a temporary directory with four screenshots to inspect; it does not replace manual keyboard testing.
+Run `love .`. Press **N** to restart the test encounter. Move one cardinal tile with WASD or arrows; Space or `.` waits. Press **F** for Sword Strike, **R** for Sweeping Slash, or **X** for Dash; select a direction with WASD/arrows, or Q/E/Z/C for diagonal attacks, inspect the preview, then press Enter. Escape cancels aiming without spending time. Bumping an enemy with a cardinal move performs one basic Sword Strike instead of moving. Walls and a blocked first Dash step consume no time. Dash still moves one cell for its full 130 recovery if only the second cell is blocked.
 
-## Controls
+The demo places a Mossbound Guard at (7,3), Thornspitter at (3,9), and Ruin Skitter at (6,6). They use distinct shapes and HP bars. The sidebar shows player HP, world time, last action/cost, historical playback, and live windups. The game ends when player HP reaches zero; N starts a new test run.
 
-- Move one tile: WASD or arrow keys (100 time).
-- Wait: Space or `.` (100 time).
-- Sword Strike: F (100 time); Sweeping Slash: R (150 time); Dash: X (130 time).
-- In an aiming mode, select a direction with WASD/arrows or numpad 2/4/6/8. Sword Strike and Sweep also accept Q/E/Z/C or numpad 1/3/7/9 for diagonals. Inspect the highlighted preview, then press Enter to commit. Escape cancels with no time cost. Direction selection never moves the player.
-- Held-key OS repeats are ignored. A blocked normal move, blocked first Dash step, invalid direction, or canceled aim does not spend world time. Explicit attacks can hit empty or wall cells and still consume time.
+## Provisional combat and timing
 
-Sweep's **provisional** geometry uses the compass order N, NE, E, SE, S, SW, W, NW. It hits three distinct adjacent cells in **counterclockwise, chosen, clockwise** order: N targets NW/N/NE; NE targets N/NE/E. It emits one immediate `AttackPerformed` event containing that ordered area, with no damage in this tranche.
+| Actor | HP | Damage | Defense | Speed | Windup | Recovery | Movement cost | Range |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Adventurer | 24 | 4 Sword / 3 Sweep | 0 | 100 | Immediate | 100 Sword, 150 Sweep | 100 | Adjacent |
+| Mossbound Guard | 10 | 3 | 1 | 70 | 80 | 120 | 100 | Cardinal adjacent |
+| Thornspitter | 6 | 2 | 0 | 90 | 90 | 130 | 100 | Cardinal lane, 2–7 |
+| Ruin Skitter | 4 | 1 | 0 | 160 | 35 | 70 | 100 | Adjacent, prefers diagonal flank |
 
-Dash checks up to two cardinal cells in sequence. A blocked first cell rejects the action. If the first is open and the second is a wall, occupied, or off map, the Adventurer moves one cell and pays the full 130 time **once**. If both are open, Dash moves two cells and pays once. The two-cell preview colors open, blocked, and unreachable cells. Blocking entities count as obstacles, but no enemies or bump attacks exist yet.
+These numbers are in `src/content.lua` and are provisional. Dash costs 130. Effective time is `max(1, round(base × 100 / speed))`, calculated with integer inputs. Damage is `max(0, attack damage − defense)`, capped at remaining HP. There are no critical hits because this slice defines no crit stat. Player strikes resolve immediately; enemies lock their target cells when a windup begins. An enemy has **no ready turn during its windup**. Its next ready time is impact time plus effective recovery. Ordinary damage does not cancel the locked strike; stun, displacement and death do. `Game.stun` cancels a windup and makes the enemy ready no earlier than the supplied integer stun expiry; `Game.displace` cancels it and applies one normal recovery before the enemy is ready again. A ranged shot stops at the first combatant in its locked lane, including an allied enemy. Terrain walls block firing lanes.
 
-## Layout and boundaries
+Sweep retains its provisional three-cell counterclockwise/center/clockwise order. All hit HP changes in an area attack are applied as one batch before `DamageBatchResolved` and individual `DamageAttempted`, `DamageTaken` or `DamageBlocked`, and `Died` records. `DamageTaken` requires positive actual HP loss. Every action/strike event carries source and action IDs. Reward and kill-credit policy is deferred.
 
-- `main.lua` and `conf.lua`: keyboard input, targeting previews, rendering, diagnostics, window setup. The UI uses the 35×25 authored scrolling map; the original 15×11 room remains for foundation tests.
-- `src/content.lua`: stable map IDs and validation, walkability used by the simulation.
-- `src/game.lua` and `src/targeting.lua`: plain-data state, authoritative action validation and target geometry, ordered events, snapshot/restore at player decision boundaries.
-- `src/camera.lua`: presentation-only smooth following and map clamping. It updates from frame time; world time and grid positions do not.
-- `src/scheduler.lua`: integer timestamp ordering: committed effects first, then player ready turns, then other actors, with stable sequence/ID ties.
-- `src/rng.lua`: simulation-owned serializable Park–Miller generator. Its integer products fit exactly in Lua's double number representation; it is suitable for deterministic gameplay draws, not cryptography. Seeds must be integers from 1 to 2147483646. Cross-runtime equivalence relies on ordinary IEEE-754 number arithmetic.
-- `tests/run.lua`: headless checks using the same `Game.submit` path as the LÖVE game.
+At equal simulated time, committed impacts resolve before newly ready actors. The player acts before newly ready enemies, then remaining actor ties use stable schedule sequence/ID order. A fast enemy can strike before the player is ready again; no reaction turn is inserted. Guard uses cardinal BFS around walls, Thornspitter seeks a clear lane and repositions, and Skitter seeks a diagonal flank. AI decisions use only simulation state and stable neighbor order.
 
-Snapshots reference the validated map by stable content ID and include schema/content versions, entity positions, world clock, scheduler queue/counters, action/event counters, and RNG state. `Game.snapshot` and `Game.restore` round-trip plain Lua data in memory. Content version advanced from `roeg-content/0` to `/1` for the added map, so older snapshots are rejected; there is no migration. Camera and aiming state are presentation only and are never serialized. Full on-disk save/resume and compatibility handling arrive in a later tranche.
+## Presentation and architecture
+
+`src/game.lua` owns combat state, action validation, damage, occupancy, interruptions, events, and snapshot/restore. `src/ai.lua` chooses read-only enemy intents. `src/scheduler.lua` orders actor readiness and committed impacts. `src/targeting.lua` keeps Adventurer attack shapes. `src/content.lua` keeps map/tile properties and tunable combat definitions. `src/rng.lua` remains the serializable simulation RNG. None of these simulation modules references LÖVE.
+
+`main.lua` renders the authored map, combatants, HP and locked tiles. `src/camera.lua` follows smoothly without affecting world time. `src/playback.lua` consumes **copies of already resolved ordered events** for short visual stages. During playback, input is briefly gated; orange/red historical telegraphs are labeled as past events. When input is available, red highlights and the sidebar show only **currently pending authoritative strikes** and their simulated time to impact. Presentation state is never included in a simulation snapshot.
+
+The in-memory plain-data snapshot schema is `roeg-run/2`, with content version `roeg-content/2`. It includes enemy HP/AI memory, locked target geometry, impact IDs and due times, scheduler sequence, RNG, and other state. Older snapshots are rejected; no cross-version migration or on-disk save UI exists yet. `Game.stun` and `Game.displace` are small simulation operations for interruption; there is no player stun/knockback ability or status-effect framework.
+
+## Verification
+
+Run `luajit tests/run.lua` (or `lua tests/run.lua`) for headless tests; no LÖVE global is used. On a desktop with LÖVE and `timeout`, run `sh tests/gui_smoke.sh` for the original no-enemy targeting/camera scenario and `sh tests/enemy_gui_smoke.sh` for enemy windup/impact/live-pending presentation. Both print temporary screenshot locations for inspection. These callback-driven checks do not replace pressing keys yourself in `love .`.
