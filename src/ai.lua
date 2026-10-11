@@ -15,7 +15,7 @@ local function occupied(state, actor_id, x, y)
 end
 
 local function free(state, actor_id, x, y)
-    return Content.walkable(Content.get_map(state.map_id), x, y)
+    return Content.walkable(Content.map_for(state), x, y)
         and not occupied(state, actor_id, x, y)
 end
 
@@ -27,11 +27,11 @@ local function lane(state, enemy, player, minimum, maximum)
     if distance < minimum or distance > maximum then return nil end
     local step_x = dx == 0 and 0 or dx / math.abs(dx)
     local step_y = dy == 0 and 0 or dy / math.abs(dy)
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     local cells = {}
     for step = 1, distance do
         local x, y = a.x + step_x * step, a.y + step_y * step
-        if not Content.projectile_passable(map, x, y) then return nil end
+        if not Content.projectile_passable(map, x, y, state) then return nil end
         cells[#cells + 1] = {x=x, y=y}
     end
     return cells
@@ -42,7 +42,7 @@ local function goal_key(map, x, y)
 end
 
 local function next_step(state, actor, goals)
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     local start = actor.position
     local queue = {{x=start.x, y=start.y}}
     local seen = {[goal_key(map, start.x, start.y)] = true}
@@ -66,7 +66,7 @@ local function next_step(state, actor, goals)
 end
 
 local function adjacent_goals(state, enemy, player, diagonal)
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     local goals = {}
     local offsets = diagonal and {{-1,-1},{1,-1},{1,1},{-1,1}} or directions
     for _, offset in ipairs(offsets) do
@@ -77,7 +77,7 @@ local function adjacent_goals(state, enemy, player, diagonal)
 end
 
 local function lane_goals(state, enemy, player, definition)
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     local goals = {}
     for _, direction in ipairs(directions) do
         for distance = definition.min_range, definition.range do
@@ -103,6 +103,36 @@ function AI.choose(state, enemy)
     local dx = player.position.x - enemy.position.x
     local dy = player.position.y - enemy.position.y
     local distance = math.abs(dx) + math.abs(dy)
+
+    if definition.ai == "pursuer" then
+        if distance == 1 then
+            return {kind="windup",ability_id="core:ability/pursuer_strike",
+                cells={{x=player.position.x,y=player.position.y}},ranged=false}
+        end
+        return next_step(state,enemy,adjacent_goals(state,enemy,player,false)) or {kind="wait"}
+    end
+    if definition.ai == "warden" then
+        local line=lane(state,enemy,player,1,definition.range)
+        local adjacent=distance==1
+        local attacks=enemy.ai_memory.attacks or 0
+        if line and (not adjacent or attacks%2==1) then
+            return {kind="windup",ability_id="core:ability/warden_roots",
+                cells=line,ranged=true}
+        end
+        if adjacent then
+            local cells={{x=player.position.x,y=player.position.y}}
+            if dx~=0 then
+                cells[#cells+1]={x=player.position.x,y=player.position.y-1}
+                cells[#cells+1]={x=player.position.x,y=player.position.y+1}
+            else
+                cells[#cells+1]={x=player.position.x-1,y=player.position.y}
+                cells[#cells+1]={x=player.position.x+1,y=player.position.y}
+            end
+            return {kind="windup",ability_id="core:ability/warden_sweep",
+                cells=cells,ranged=false}
+        end
+        return next_step(state,enemy,adjacent_goals(state,enemy,player,false)) or {kind="wait"}
+    end
 
     if definition.ai == "guard" then
         if distance == 1 then

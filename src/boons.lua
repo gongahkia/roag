@@ -218,7 +218,7 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
                     if modifier.kind == "forward_cell" then
                         local x = owner.position.x + dx * 2
                         local y = owner.position.y + dy * 2
-                        local map = Content.get_map(state.map_id)
+                        local map = Content.map_for(state)
                         local path_open = Content.walkable(map,
                             owner.position.x + dx, owner.position.y + dy)
                             and Content.walkable(map, x, y)

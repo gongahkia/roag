@@ -14,7 +14,7 @@ local original_new = Game.new
 local tracked
 function Game.new(seed, map_id)
     -- Preserve the original Tranche 01 no-enemy input/camera smoke scenario.
-    tracked = original_new(seed, map_id)
+    tracked = original_new(seed, "core:map/scrolling_room")
     return tracked
 end
 
@@ -45,7 +45,9 @@ function love.draw(...)
     local position = Game.player(tracked).position
     local check = expected[phase]
     assert(tracked.clock == check.time and position.x == check.x and position.y == check.y,
-        "unexpected game state in GUI phase " .. phase)
+        ("unexpected game state in GUI phase %d: time=%d position=%d,%d expected=%d %d,%d")
+            :format(phase,tracked.clock,position.x,position.y,
+                check.time,check.x,check.y))
     pending = true
     love.graphics.captureScreenshot(function(image)
         local png = image:encode("png")
@@ -73,7 +75,7 @@ function love.draw(...)
 end
 LUA
 
-ROEG_GUI_SMOKE_OUTPUT="$output_dir" timeout 15s love "$output_dir"
+ROEG_GUI_SMOKE_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4; do
     test -s "$output_dir/phase$phase.png"
 done

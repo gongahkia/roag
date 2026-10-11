@@ -2,15 +2,20 @@ local AI = require("src.ai")
 local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
+local Generation = require("src.generation")
 local RNG = require("src.rng")
 local Rewards = require("src.rewards")
 local Scheduler = require("src.scheduler")
+local Stage = require("src.stage")
 local Targeting = require("src.targeting")
+local Visibility = require("src.visibility")
+local World = require("src.world")
 
 local Game = {}
-local SCHEMA = "roeg-run/4"
+local SCHEMA = "roeg-run/7"
+Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
-    dash=130, claim_chest=100}
+    dash=130, claim_chest=100, choose_route=0}
 local contexts = setmetatable({}, {__mode="k"}) -- resolver context never enters snapshots
 
 local function copy(value)
@@ -81,7 +86,7 @@ end
 
 function Game.spawn_enemy(state, definition_id, x, y, due)
     local definition = assert(Content.get_enemy(definition_id), "unknown enemy definition")
-    local map = assert(Content.get_map(state.map_id), "unknown map")
+    local map = assert(Content.map_for(state), "unknown map")
     assert(Content.walkable(map, x, y), "enemy spawn is blocked")
     assert(not occupant(state, map.floor_id, x, y, nil, false), "enemy spawn is occupied")
     local id = state.next_entity_id
@@ -92,6 +97,7 @@ function Game.spawn_enemy(state, definition_id, x, y, due)
         position = {floor_id=map.floor_id, x=x, y=y}, blocks_movement = true,
         hp = definition.hp, max_hp = definition.hp, damage = definition.damage,
         defense = definition.defense, speed = definition.speed, stunned_until = 0,
+        invulnerable=definition.invulnerable or nil,
     }
     state.entities[#state.entities + 1] = enemy
     Scheduler.enqueue(state, {kind="actor_ready", due=due or state.clock,
@@ -99,37 +105,85 @@ function Game.spawn_enemy(state, definition_id, x, y, due)
     return enemy
 end
 
-function Game.spawn_chest(state, definition_id, x, y)
+function Game.spawn_chest(state, definition_id, x, y, stable_marker_id)
     local definition = assert(Content.get_chest(definition_id), "unknown chest definition")
-    local map = assert(Content.get_map(state.map_id), "unknown map")
+    local map = assert(Content.map_for(state), "unknown map")
     assert(Content.walkable(map, x, y), "chest spawn is blocked")
     assert(not occupant(state, map.floor_id, x, y, nil, false), "chest spawn is occupied")
+    local offer_rng
+    if state.generated_map then
+        stable_marker_id=stable_marker_id or
+            (definition_id .. ":" .. x .. "," .. y)
+        assert(type(stable_marker_id)=="string" and #stable_marker_id>0,
+            "generated chest needs stable marker ID")
+        for _,existing in ipairs(state.entities) do
+            assert(existing.stable_marker_id~=stable_marker_id,
+                "duplicate generated chest marker ID")
+        end
+        offer_rng=RNG.new(RNG.derive(state.run_seed,
+            state.active_floor_id .. ":" .. stable_marker_id))
+    end
     local chest = {
         id=state.next_entity_id, definition_id=definition_id, controller="chest",
         faction="neutral", position={floor_id=map.floor_id, x=x, y=y},
         blocks_movement=true, claimed=false, price=definition.price,
-        offers=Rewards.make_offers(state, definition),
+        offers=Rewards.make_offers(state, definition, offer_rng),
+        stable_marker_id=stable_marker_id,
     }
     state.next_entity_id = chest.id + 1
     state.entities[#state.entities + 1] = chest
     return chest
 end
 
+function Game.spawn_door(state, x, y, stable_marker_id)
+    local map=assert(Content.map_for(state),"unknown map")
+    assert(Content.walkable(map,x,y),"door socket is blocked")
+    assert(not occupant(state,map.floor_id,x,y,nil,false),"door socket is occupied")
+    local door={id=state.next_entity_id,definition_id="core:door/ruin",
+        controller="door",faction="neutral",
+        position={floor_id=map.floor_id,x=x,y=y},
+        stable_marker_id=stable_marker_id,open=false,
+        blocks_movement=true,blocks_vision=true,blocks_projectiles=true}
+    state.next_entity_id=door.id+1
+    state.entities[#state.entities+1]=door
+    return door
+end
+
 function Game.new(seed, map_id, options)
     Content.validate_all()
     BoonContent.validate()
-    local map = assert(Content.get_map(map_id or "core:map/test_room"), "unknown map content ID")
+    World.validate()
+    seed=seed or 1
+    RNG.new(seed)
+    map_id=map_id or "core:map/test_room"
+    local generated_map
+    if map_id==Generation.map_id then
+        generated_map=Generation.generate(seed,options and options.generation)
+        local stage_index=options and options.stage_options and options.stage_options.index or 1
+        if options and options.stage and stage_index>1 then
+            generated_map.floor_id=Generation.floor_id.."/stage/"..stage_index
+            generated_map.elite.floor_id=generated_map.floor_id
+        end
+    end
+    local map = generated_map or assert(Content.get_map(map_id), "unknown map content ID")
     local definition = Content.get_adventurer()
+    local player_id=(options and options.entity_id_base or 0)+1
     local state = {
         schema=SCHEMA, content_version=Content.version,
         boon_content_version=BoonContent.version, map_id=map.id,
-        active_floor_id=map.floor_id, clock=0, player_id=1, next_entity_id=2,
+        run_seed=seed, root_seed=options and options.root_seed or seed,
+        generated_map=generated_map,stage_options=options and options.stage_options,
+        retired_stages=options and options.retired_stages or {},
+        room_content_version=generated_map and Generation.room_content_version or nil,
+        active_floor_id=map.floor_id, clock=0, player_id=player_id,
+        next_entity_id=player_id+1,
         next_schedule_id=1, next_event_id=1, next_action_id=1, next_activation_id=1,
         chain_history={}, delayed_effects={},
         progression={level=1, xp_total=0}, currency=0,
-        next_drop_id=1, drops={}, rewarded_kills={},
-        rng=RNG.new(seed or 1), entities={{
-            id=1, definition_id="core:actor/adventurer", controller="player", faction="player",
+        next_drop_id=1, drops={}, rewarded_kills={}, explored={},visible={},
+        secrets={},world_content_version=World.version,
+        rng=RNG.new(seed), entities={{
+            id=player_id, definition_id="core:actor/adventurer", controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
             blocks_movement=true, hp=definition.hp, max_hp=definition.hp,
             damage=definition.damage, slash_damage=definition.slash_damage,
@@ -139,7 +193,20 @@ function Game.new(seed, map_id, options)
         }},
         schedule={}, last_action=nil, game_over=false,
     }
-    Scheduler.enqueue(state, {kind="actor_ready", due=0, actor_id=1, is_player=true})
+    Scheduler.enqueue(state, {kind="actor_ready", due=0, actor_id=player_id, is_player=true})
+    if generated_map then
+        for _,place in ipairs(generated_map.placements.enemies) do
+            Game.spawn_enemy(state,place.definition_id,place.x,place.y)
+        end
+        for _,place in ipairs(generated_map.placements.chests) do
+            Game.spawn_chest(state,place.definition_id,place.x,place.y,place.id)
+        end
+        for _,place in ipairs(generated_map.placements.doors or {}) do
+            Game.spawn_door(state,place.x,place.y,place.id)
+        end
+        World.populate(state)
+        if options and options.stage then Stage.init(state,Game.spawn_enemy) end
+    end
     if options and options.demo_enemies then
         for _, spawn in ipairs(Content.demo_spawns(map.id)) do
             Game.spawn_enemy(state, spawn.definition_id, spawn.x, spawn.y)
@@ -150,7 +217,18 @@ function Game.new(seed, map_id, options)
             Game.spawn_chest(state, spawn.definition_id, spawn.x, spawn.y)
         end
     end
+    Visibility.recompute(state)
     return state
+end
+
+function Game.new_generated(seed,options)
+    return Game.new(seed,Generation.map_id,options)
+end
+
+function Game.new_stage(seed,options)
+    options=options or {}
+    options.stage=true
+    return Game.new(seed,Generation.map_id,options)
 end
 
 function Game.preview(state, kind, dx, dy)
@@ -167,10 +245,10 @@ function Game.preview(state, kind, dx, dy)
             return {valid=false, reason="movement is cardinal", cells={}}
         end
         local position = player.position
-        local map = Content.get_map(state.map_id)
+        local map = Content.map_for(state)
         local cells, distance, blocked = {}, 0, false
         local count = kind == "dash" and 2 or 1
-        local reason, bump, chest_id
+        local reason, bump, chest_id, door_id
         for step = 1, count do
             local x, y = position.x + dx * step, position.y + dy * step
             local cell = {x=x, y=y}
@@ -184,6 +262,11 @@ function Game.preview(state, kind, dx, dy)
                 if entity then
                     if kind == "move" and entity.controller == "chest" and not entity.claimed then
                         cell.status, reason, chest_id = "chest", "chest", entity.id
+                    elseif kind == "move" and entity.controller == "exit" then
+                        cell.status, reason, chest_id = "exit", "exit", nil
+                        return {valid=false,reason="exit",cells={cell},exit_id=entity.id}
+                    elseif kind == "move" and entity.controller == "door" and not entity.open then
+                        cell.status, door_id = "door", entity.id
                     elseif kind == "move" and entity.controller == "ai" and entity.faction ~= player.faction
                         and entity.hp and entity.hp > 0 then
                         cell.status, bump = "enemy", true
@@ -198,9 +281,10 @@ function Game.preview(state, kind, dx, dy)
             end
             cells[#cells + 1] = cell
         end
-        return {valid=distance > 0 or bump == true,
-            reason=(distance == 0 and not bump) and reason or nil,
-            cost=cost, cells=cells, distance=distance, bump=bump, chest_id=chest_id}
+        return {valid=distance > 0 or bump == true or door_id ~= nil,
+            reason=(distance == 0 and not bump and not door_id) and reason or nil,
+            cost=cost, cells=cells, distance=distance, bump=bump,
+            chest_id=chest_id,door_id=door_id}
     end
     local position = player.position
     local cells = Targeting.cells(kind, position.x, position.y, dx, dy)
@@ -222,6 +306,11 @@ function Game.chest_options(state, chest_id)
         return nil, "unknown chest"
     end
     return Rewards.chest_options(state, chest)
+end
+
+function Game.route_options(state,exit_id)
+    local options,reason=Stage.route_options(state,exit_id)
+    return options and copy(options) or nil,reason
 end
 
 function Game.next_level_xp(state)
@@ -266,12 +355,13 @@ end
 local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
     damage_type, critical)
     local outcomes = {}
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     for _, cell in ipairs(cells) do
-        if ranged and not Content.projectile_passable(map, cell.x, cell.y) then break end
+        if ranged and not Content.projectile_passable(map, cell.x, cell.y, state) then break end
         local target = occupant(state, cell.floor_id, cell.x, cell.y, source.id, true)
         if target then
-            local after_defense = math.max(0, raw_damage - (target.defense or 0))
+            local after_defense = target.invulnerable and 0 or
+                math.max(0, raw_damage - (target.defense or 0))
             local loss = math.min(target.hp, after_defense)
             outcomes[#outcomes + 1] = {
                 target_id=target.id, target_definition_id=target.definition_id,
@@ -306,7 +396,10 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
         end
     end
     for _, outcome in ipairs(outcomes) do
-        emit(state, output, "HitConfirmed", outcome, source.id, action_id)
+        local target=Game.entity(state,outcome.target_id)
+        if not (target and target.invulnerable) then
+            emit(state, output, "HitConfirmed", outcome, source.id, action_id)
+        end
     end
 end
 
@@ -431,6 +524,16 @@ local function drain_effects(state, output)
             Rewards.on_event(state, event, function(kind, fields, source_id)
                 emit(state, output, kind, fields, source_id, event.action_id)
             end)
+            World.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end,function(definition_id,x,y,stable_id)
+                return Game.spawn_chest(state,definition_id,x,y,stable_id)
+            end)
+            Stage.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end,function(definition_id,x,y,stable_id)
+                return Game.spawn_chest(state,definition_id,x,y,stable_id)
+            end)
             context.cause = nil
         else
             local item = context.effects[context.effect_head]
@@ -491,6 +594,9 @@ local function enemy_turn(state, item, output)
     state.next_action_id = action_id + 1
     local position = enemy.position
     if intent.kind == "windup" then
+        if enemy.ai_id=="warden" then
+            enemy.ai_memory.attacks=(enemy.ai_memory.attacks or 0)+1
+        end
         local due = state.clock + Game.effective_cost(definition.windup, enemy.speed)
         local scheduled = Scheduler.enqueue(state, {kind="impact", due=due,
             actor_id=enemy.id, attack_id=action_id})
@@ -515,7 +621,7 @@ local function enemy_turn(state, item, output)
     end
     if intent.kind == "move" then
         local x, y = position.x + intent.dx, position.y + intent.dy
-        local map = Content.get_map(state.map_id)
+        local map = Content.map_for(state)
         if Content.walkable(map, x, y)
             and not occupant(state, position.floor_id, x, y, enemy.id, false) then
             local from_x, from_y = position.x, position.y
@@ -567,6 +673,10 @@ local function advance_to_player(state, output)
             enemy_turn(state, item, output)
         elseif item.kind == "impact" then
             resolve_impact(state, item, output)
+        elseif item.kind=="stage_pressure" or item.kind=="stage_deadline" then
+            Stage.resolve_due(state,item,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,nil)
+            end,Game.spawn_enemy)
         else
             local payload = state.delayed_effects[item.id]
             if payload then
@@ -591,12 +701,68 @@ end
 
 function Game.submit(state, intent)
     if state.game_over then return false, "game over", {} end
+    if state.stage and state.stage.phase=="prototype_endpoint" then
+        return false,"final boss pending",{}
+    end
     local ready = Scheduler.peek(state)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
     if type(intent) ~= "table" then return false, "invalid intent", {} end
     local preview, chest
-    if intent.kind == "claim_chest" then
+    if intent.kind == "choose_route" then
+        local options,reason=Stage.route_options(state,intent.exit_id)
+        if not options then return false,reason,{} end
+        local route=options.routes[intent.route_index]
+        if not route then return false,"invalid route",{} end
+        local old_index=state.stage.index
+        local old_player=copy(Game.player(state))
+        local history=copy(state.stage.route_history)
+        history[#history+1]=route.id
+        local output={}
+        if old_index>=3 then
+            state.stage.phase="prototype_endpoint"
+            state.stage.route_history=history
+            state.last_action={kind="choose_route",time=state.clock,cost=0,
+                route_id=route.id}
+            emit(state,output,"PrototypeEndpoint",{stage_index=old_index,
+                route_id=route.id},state.player_id,state.next_action_id)
+            state.next_action_id=state.next_action_id+1
+            return true,nil,output
+        end
+        local retired=copy(state.retired_stages or {})
+        local frozen=copy(state)
+        frozen.retired_stages=nil
+        frozen.stage.phase="transition"
+        retired[#retired+1]=frozen
+        local next_index=old_index+1
+        local next_seed=RNG.derive(state.root_seed,
+            "stage:"..next_index..":"..route.id)
+        local fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
+            entity_id_base=state.next_entity_id-1,retired_stages=retired,
+            stage_options={index=next_index,route_history=history}})
+        local replacement=Game.player(fresh)
+        local new_position=replacement.position
+        local new_id=replacement.id
+        for key in pairs(replacement) do replacement[key]=nil end
+        for key,value in pairs(old_player) do replacement[key]=copy(value) end
+        replacement.id=new_id
+        replacement.position=new_position
+        fresh.progression=copy(state.progression)
+        fresh.currency=state.currency
+        fresh.rng=copy(state.rng)
+        fresh.next_event_id=state.next_event_id
+        fresh.next_action_id=state.next_action_id+1
+        fresh.next_activation_id=state.next_activation_id
+        fresh.last_action={kind="choose_route",time=state.clock,cost=0,
+            route_id=route.id}
+        for key in pairs(state) do state[key]=nil end
+        for key,value in pairs(fresh) do state[key]=value end
+        Visibility.recompute(state)
+        emit(state,output,"StageEntered",{stage_index=next_index,
+            route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
+            x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
+        return true,nil,output
+    elseif intent.kind == "claim_chest" then
         chest = Game.entity(state, intent.chest_id)
         if not chest or chest.controller ~= "chest" then
             return false, "unknown chest", {}
@@ -617,7 +783,8 @@ function Game.submit(state, intent)
     local position = player.position
     local action_id = state.next_action_id
     state.next_action_id = action_id + 1
-    local kind = preview.bump and "basic_attack" or intent.kind
+    local kind = preview.bump and "basic_attack"
+        or (preview.door_id and "open_door") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
     if preview.bump then action.bump = true end
     if kind == "move" or kind == "dash" then
@@ -661,6 +828,17 @@ function Game.submit(state, intent)
         attack(state, output, player, action_id, ability_id,
             cells, damage,
             false, preview.bump and {bump=true} or nil)
+    elseif kind == "open_door" then
+        local door=assert(Game.entity(state,preview.door_id),"missing door")
+        assert(door.controller=="door" and not door.open,"door already opened")
+        door.open=true
+        door.blocks_movement=false
+        door.blocks_vision=false
+        door.blocks_projectiles=false
+        action.door_id=door.id
+        emit(state,output,"DoorOpened",{door_id=door.id,
+            floor_id=position.floor_id,x=door.position.x,y=door.position.y},
+            player.id,action_id)
     elseif kind == "claim_chest" then
         local offer = Rewards.claim(state, chest, intent.offer_index,
             function(event_kind, reward_fields, source_id)
@@ -674,9 +852,14 @@ function Game.submit(state, intent)
     end
     state.last_action = action
     drain_effects(state, output)
+    Stage.after_player_action(state,function(event_kind,fields,source_id)
+        emit(state,output,event_kind,fields,source_id,action_id)
+    end)
+    drain_effects(state,output)
     Scheduler.enqueue(state, {kind="actor_ready", due=state.clock + preview.cost,
         actor_id=player.id, is_player=true})
     advance_to_player(state, output)
+    Visibility.recompute(state)
     Boons.prune_histories(state)
     contexts[output] = nil
     return true, nil, output
@@ -689,6 +872,7 @@ function Game.stun(state, target_id, duration, source_id, action_id)
     if not target or target.controller ~= "ai" or target.hp <= 0 then
         return false, "invalid stun target", {}
     end
+    if target.invulnerable then return false,"immune",{} end
     local output = {}
     cancel_windup(state, target, output, "stun", source_id, action_id)
     target.stunned_until = math.max(target.stunned_until or 0, state.clock + duration)
@@ -705,10 +889,11 @@ function Game.displace(state, target_id, x, y, source_id, action_id)
     if not target or target.controller ~= "ai" or target.hp <= 0 then
         return false, "invalid displacement target", {}
     end
+    if target.invulnerable then return false,"immune",{} end
     if target.position.x == x and target.position.y == y then
         return false, "same cell", {}
     end
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     if not Content.walkable(map, x, y) then return false, "wall", {} end
     if occupant(state, target.position.floor_id, x, y, target.id, false) then
         return false, "occupied", {}
@@ -754,6 +939,14 @@ function Game.pending_boon_effects(state)
     return result
 end
 
+function Game.is_visible(state,floor_id,x,y)
+    return Visibility.is_visible(state,floor_id,x,y)
+end
+
+function Game.was_explored(state,floor_id,x,y)
+    return Visibility.was_explored(state,floor_id,x,y)
+end
+
 function Game.snapshot(state)
     return copy(state)
 end
@@ -763,9 +956,22 @@ function Game.restore(snapshot)
     assert(snapshot.content_version == Content.version, "incompatible content version")
     assert(snapshot.boon_content_version == BoonContent.version,
         "incompatible boon content version")
+    assert(snapshot.world_content_version==World.version,
+        "incompatible exploration content version")
     Content.validate_all()
     BoonContent.validate()
-    local map = assert(Content.get_map(snapshot.map_id), "unknown map content ID")
+    World.validate()
+    local map = snapshot.generated_map or
+        assert(Content.get_map(snapshot.map_id), "unknown map content ID")
+    if snapshot.generated_map then
+        assert(snapshot.map_id==Generation.map_id and snapshot.run_seed==map.seed,
+            "generated floor identity mismatch")
+        assert(snapshot.room_content_version==Generation.room_content_version,
+            "incompatible room content version")
+        local valid,errors=Generation.validate(map,snapshot.secrets)
+        assert(valid,"invalid saved generated floor: "..
+            (errors[1] and errors[1].kind or "unknown"))
+    end
     assert(snapshot.active_floor_id == map.floor_id, "incompatible floor ID")
     assert(type(snapshot.clock) == "number" and snapshot.clock % 1 == 0 and snapshot.clock >= 0,
         "invalid world clock")
@@ -785,7 +991,24 @@ function Game.restore(snapshot)
         and snapshot.currency >= 0 and type(snapshot.drops) == "table"
         and type(snapshot.rewarded_kills) == "table"
         and type(snapshot.next_drop_id) == "number", "invalid reward state")
+    assert(type(snapshot.explored)=="table" and type(snapshot.secrets)=="table"
+        and type(snapshot.visible)=="table","missing exploration state")
     local state = copy(snapshot)
+    assert(type(state.root_seed)=="number" and type(state.retired_stages)=="table",
+        "missing run stage identity")
+    Stage.validate(state)
+    local frozen_floors={}
+    for _,frozen in ipairs(state.retired_stages) do
+        assert(frozen.schema==SCHEMA and frozen.stage
+            and frozen.stage.phase=="transition"
+            and frozen.generated_map and frozen.active_floor_id==frozen.generated_map.floor_id
+            and frozen.active_floor_id~=state.active_floor_id
+            and not frozen_floors[frozen.active_floor_id]
+            and type(frozen.schedule)=="table" and type(frozen.clock)=="number",
+            "invalid frozen stage")
+        frozen_floors[frozen.active_floor_id]=true
+    end
+    Visibility.recompute(state)
     RNG.new(state.rng.state)
     local player = Game.player(state)
     assert(player.position.floor_id == map.floor_id, "player on wrong floor")
@@ -797,10 +1020,55 @@ function Game.restore(snapshot)
         "invalid player crit stats")
     assert(type(player.hp) == "number" and player.hp >= 0 and player.hp <= player.max_hp,
         "invalid player health")
-    local occupied = {}
+    local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
+        assert(type(entity.id)=="number" and entity.id%1==0
+            and entity.id>=1 and entity.id<state.next_entity_id
+            and not entity_ids[entity.id],"invalid or duplicate entity ID")
+        entity_ids[entity.id]=true
+        assert(type(entity.position)=="table" and
+            entity.position.floor_id==map.floor_id
+            and type(entity.position.x)=="number" and entity.position.x%1==0
+            and type(entity.position.y)=="number" and entity.position.y%1==0
+            and entity.position.x>=1 and entity.position.x<=map.width
+            and entity.position.y>=1 and entity.position.y<=map.height,
+            "entity on incompatible floor")
+        if entity.controller=="ai" then
+            local definition=Content.get_enemy(entity.definition_id)
+            assert(definition and entity.ai_id==definition.ai,
+                "unknown enemy or AI content reference")
+        elseif entity.controller=="player" then
+            assert(entity.id==state.player_id and
+                entity.definition_id=="core:actor/adventurer",
+                "invalid player content reference")
+        elseif entity.controller~="chest" and entity.controller~="door"
+            and entity.controller~="exit" then
+            error("unknown entity controller")
+        end
+        if entity.controller=="ai" or entity.controller=="player" then
+            assert(type(entity.hp)=="number" and entity.hp%1==0
+                and (entity.hp>0 or (state.game_over and
+                    entity.controller=="player" and entity.hp==0))
+                and type(entity.max_hp)=="number"
+                and entity.max_hp%1==0 and entity.hp<=entity.max_hp
+                and type(entity.speed)=="number" and entity.speed%1==0
+                and entity.speed>0,"invalid combatant state")
+        end
         Boons.validate_inventory(entity)
         if entity.controller == "chest" then Rewards.validate_chest(entity) end
+        if entity.controller == "door" then
+            assert(entity.definition_id=="core:door/ruin"
+                and type(entity.open)=="boolean"
+                and entity.blocks_movement==not entity.open
+                and entity.blocks_vision==not entity.open
+                and entity.blocks_projectiles==not entity.open,
+                "invalid door state")
+        end
+        if entity.controller=="exit" then
+            assert(state.stage and state.stage.exit_id==entity.id
+                and entity.blocks_movement and #entity.routes==2,
+                "invalid stage exit")
+        end
         if entity.blocks_movement then
             assert(Content.walkable(map, entity.position.x, entity.position.y), "entity outside walkable map")
             local key = entity.position.x .. "," .. entity.position.y
@@ -808,6 +1076,19 @@ function Game.restore(snapshot)
             occupied[key] = true
         end
         if entity.pending_attack then
+            assert(Content.has_ability(entity.pending_attack.ability_id),
+                "unknown pending ability reference")
+            assert(type(entity.pending_attack.target_cells)=="table"
+                and #entity.pending_attack.target_cells>=1,
+                "missing pending target cells")
+            for _,cell in ipairs(entity.pending_attack.target_cells) do
+                assert(cell.floor_id==map.floor_id
+                    and type(cell.x)=="number" and cell.x%1==0
+                    and type(cell.y)=="number" and cell.y%1==0
+                    and cell.x>=1 and cell.x<=map.width
+                    and cell.y>=1 and cell.y<=map.height,
+                    "invalid pending target cell")
+            end
             local found = false
             for _, item in ipairs(state.schedule) do
                 if item.id == entity.pending_attack.schedule_id and item.kind == "impact"
@@ -817,6 +1098,34 @@ function Game.restore(snapshot)
                     and item.due == entity.pending_attack.due then found = true; break end
             end
             assert(found, "pending windup has no matching impact")
+        end
+    end
+    if state.generated_map then
+        assert(#state.secrets==#(map.placements.secrets or {}),
+            "generated secret state missing")
+        for index,place in ipairs(map.placements.secrets or {}) do
+            local secret=state.secrets[index]
+            assert(secret and secret.id==place.id
+                and secret.definition_id==place.definition_id
+                and secret.floor_id==map.floor_id
+                and type(secret.revealed)=="boolean",
+                "generated secret identity mismatch")
+            if secret.revealed and secret.wall_x then
+                local chest=Game.entity(state,secret.reward_id)
+                assert(chest and chest.controller=="chest" and
+                    chest.stable_marker_id=="secret:"..secret.id,
+                    "revealed wall cache has no stable reward")
+            end
+        end
+        for _,place in ipairs(map.placements.doors or {}) do
+            local found=false
+            for _,entity in ipairs(state.entities) do
+                if entity.controller=="door" and entity.stable_marker_id==place.id
+                    and entity.position.x==place.x and entity.position.y==place.y then
+                    found=true; break
+                end
+            end
+            assert(found,"generated door state missing")
         end
     end
     local drop_ids = {}

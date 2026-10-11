@@ -28,4 +28,15 @@ function RNG.next_int(rng, maximum)
     return (value % maximum) + 1
 end
 
+-- Stable independent stream seed; does not consume the parent run RNG.
+function RNG.derive(seed, label)
+    RNG.new(seed)
+    assert(type(label) == "string" and #label > 0, "RNG stream needs a label")
+    local value = seed
+    for index = 1, #label do
+        value = (value * 131 + label:byte(index)) % (MODULUS - 1)
+    end
+    return value + 1
+end
+
 return RNG

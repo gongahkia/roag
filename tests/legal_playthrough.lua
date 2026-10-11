@@ -1,0 +1,291 @@
+-- Guided acceptance driver: reads the world, but changes it only through Game.submit.
+local Game=require('src.game')
+local Content=require('src.content')
+
+local Play={}
+local dirs={{0,-1},{1,0},{0,1},{-1,0}}
+
+local function same(a,b) return a.x==b.x and a.y==b.y end
+local function adjacent(a,b)
+    return math.abs(a.x-b.x)<=1 and math.abs(a.y-b.y)<=1 and not same(a,b)
+end
+local function cardinal(a,b)
+    return math.abs(a.x-b.x)+math.abs(a.y-b.y)==1
+end
+
+function Play.new(seed)
+    return {state=Game.new_stage(seed),seed=seed,trace={},events={},checkpoints={}}
+end
+
+function Play.action(run,intent)
+    local state=run.state
+    local player=Game.player(state)
+    local from={x=player.position.x,y=player.position.y,hp=player.hp,
+        clock=state.clock,stage=state.stage.index}
+    local ok,reason,events=Game.submit(state,intent)
+    local record={intent=intent,ok=ok,reason=reason,from=from,
+        clock=state.clock,hp=player.hp,currency=state.currency,
+        event_kinds={}}
+    for _,event in ipairs(events) do
+        record.event_kinds[#record.event_kinds+1]=event.kind
+        run.events[#run.events+1]=event
+    end
+    run.trace[#run.trace+1]=record
+    return ok,reason,events
+end
+
+local function passable(state,x,y)
+    local map=Content.map_for(state)
+    if not Content.walkable(map,x,y) then return false end
+    for _,entity in ipairs(state.entities) do
+        if entity.blocks_movement and entity.position.x==x and entity.position.y==y
+            and entity.id~=state.player_id and entity.controller~='ai'
+            and entity.controller~='door' then return false end
+    end
+    return true
+end
+
+function Play.path(state,goal)
+    local p=Game.player(state).position
+    if goal(p) then return {} end
+    local map=Content.map_for(state)
+    local function key(x,y) return (y-1)*map.width+x end
+    local queue={{x=p.x,y=p.y,first=nil}}
+    local seen={[key(p.x,p.y)]=true}
+    local head=1
+    while head<=#queue do
+        local node=queue[head];head=head+1
+        for _,d in ipairs(dirs) do
+            local x,y=node.x+d[1],node.y+d[2]
+            local k=key(x,y)
+            if not seen[k] and passable(state,x,y) then
+                seen[k]=true
+                local first=node.first or d
+                if goal({x=x,y=y}) then return first end
+                queue[#queue+1]={x=x,y=y,first=first}
+            end
+        end
+    end
+end
+
+local function threatened(state,x,y)
+    for _,strike in ipairs(Game.pending_strikes(state)) do
+        for _,cell in ipairs(strike.target_cells) do
+            if cell.floor_id==state.active_floor_id and cell.x==x and cell.y==y then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function Play.escape(run,goal)
+    local state=run.state
+    local p=Game.player(state).position
+    if not threatened(state,p.x,p.y) then return false end
+    local best,score
+    for _,d in ipairs(dirs) do
+        local x,y=p.x+d[1],p.y+d[2]
+        local preview=Game.preview(state,'move',d[1],d[2])
+        if preview.valid and preview.distance==1 and not threatened(state,x,y) then
+            local value=goal and math.abs(x-goal.x)+math.abs(y-goal.y) or 0
+            if not best or value<score then best,score=d,value end
+        end
+    end
+    if best then
+        local ok=Play.action(run,{kind='move',dx=best[1],dy=best[2]})
+        return ok
+    end
+    return false
+end
+
+function Play.attack_adjacent(run,excluded_id)
+    local state=run.state
+    local p=Game.player(state).position
+    local selected
+    for _,entity in ipairs(state.entities) do
+        if entity.controller=='ai' and entity.id~=excluded_id and not entity.invulnerable
+            and adjacent(p,entity.position) and
+            (not selected or entity.hp<selected.hp or
+                (entity.hp==selected.hp and entity.id<selected.id)) then
+            selected=entity
+        end
+    end
+    if not selected then return false end
+    local ok=Play.action(run,{kind='basic_attack',
+        dx=selected.position.x-p.x,dy=selected.position.y-p.y})
+    return ok
+end
+
+function Play.navigate(run,goal,max_actions)
+    for _=1,max_actions do
+        local state=run.state
+        if goal(Game.player(state).position) then return true end
+        if state.game_over then return false,'dead' end
+        if Play.escape(run) then
+            -- A committed dodge consumes its normal recovery; replan afterward.
+        elseif Play.attack_adjacent(run,state.stage and state.stage.elite_id) then
+            -- Do not let a nearby normal enemy attack freely during travel.
+        else
+        local step=Play.path(state,goal)
+        if not step then return false,'no path' end
+        local ok,reason=Play.action(run,{kind='move',dx=step[1],dy=step[2]})
+        if not ok then return false,reason end
+        end
+    end
+    return false,'navigation action limit'
+end
+
+function Play.fight(run,id,max_actions)
+    for _=1,max_actions do
+        local state=run.state
+        if state.game_over then return false,'dead' end
+        local enemy=Game.entity(state,id)
+        if not enemy then return true end
+        local p=Game.player(state).position
+        if Play.escape(run,enemy.position) then
+            -- Locked strikes are evaluated against current occupancy after this dodge.
+        elseif adjacent(p,enemy.position) then
+            local dx,dy=enemy.position.x-p.x,enemy.position.y-p.y
+            local ok,reason=Play.action(run,{kind='basic_attack',dx=dx,dy=dy})
+            if not ok then return false,reason end
+        else
+            local step=Play.path(state,function(at) return adjacent(at,enemy.position) end)
+            if not step then return false,'no approach' end
+            local ok,reason=Play.action(run,{kind='move',dx=step[1],dy=step[2]})
+            if not ok then return false,reason end
+        end
+    end
+    return false,'combat action limit'
+end
+
+function Play.nearest(state,predicate)
+    local p=Game.player(state).position
+    local best,score
+    for _,entity in ipairs(state.entities) do
+        if predicate(entity) then
+            local d=math.abs(p.x-entity.position.x)+math.abs(p.y-entity.position.y)
+            if not best or d<score or (d==score and entity.id<best.id) then
+                best,score=entity,d
+            end
+        end
+    end
+    return best
+end
+
+function Play.has_event(run,kind)
+    for _,event in ipairs(run.events) do if event.kind==kind then return true end end
+    return false
+end
+
+local function checkpoint(run,name)
+    local state=run.state
+    run.checkpoints[#run.checkpoints+1]={name=name,actions=#run.trace,
+        clock=state.clock,hp=Game.player(state).hp,currency=state.currency,
+        stage=state.stage.index,floor_id=state.active_floor_id}
+end
+
+-- Seed 3 is a guided route, not a human playtest. No player/entity/stat/scheduler
+-- field is assigned by the driver; every world change comes from Game.submit.
+function Play.stage_one(seed)
+    local run=Play.new(seed)
+    local state=run.state
+    checkpoint(run,'new_run')
+    local kills=0
+    repeat
+        local enemy=assert(Play.nearest(state,function(entity)
+            return entity.controller=='ai' and entity.id~=state.stage.elite_id
+                and not entity.invulnerable
+        end),'no ordinary enemy')
+        local x,y,id=enemy.position.x,enemy.position.y,enemy.id
+        local ok,reason=Play.fight(run,id,120)
+        assert(ok,reason)
+        kills=kills+1
+        ok,reason=Play.navigate(run,function(p) return p.x==x and p.y==y end,150)
+        assert(ok,reason)
+    until state.currency>=5 and kills>=1 or kills>=6
+    assert(state.currency>=5 and not state.game_over,'could not earn chest price')
+    checkpoint(run,'earned_currency')
+
+    local chest=assert(Play.nearest(state,function(entity)
+        return entity.controller=='chest' and not entity.claimed and entity.price>0
+    end),'no paid chest')
+    local ok,reason=Play.navigate(run,function(p)
+        return cardinal(p,chest.position)
+    end,200)
+    assert(ok,reason)
+    local before_clock,before_currency=state.clock,state.currency
+    local options=assert(Game.chest_options(state,chest.id))
+    local reopened=assert(Game.chest_options(state,chest.id))
+    assert(#options.offers==3 and #reopened.offers==3 and
+        state.clock==before_clock and state.currency==before_currency)
+    for i=1,3 do
+        assert(options.offers[i].boon_id==reopened.offers[i].boon_id and
+            options.offers[i].rarity==reopened.offers[i].rarity)
+    end
+    -- Seed 3's third offer is Static Footsteps; its movement proc is observable.
+    assert(options.offers[3].boon_id=='core:boon/static_footsteps')
+    ok,reason=Play.action(run,{kind='claim_chest',chest_id=chest.id,offer_index=3})
+    assert(ok,reason)
+    assert(chest.claimed and state.currency==before_currency-chest.price)
+    checkpoint(run,'paid_chest_claimed')
+
+    local elite=assert(Game.entity(state,state.stage.elite_id),'missing elite')
+    ok,reason=Play.navigate(run,function(p)
+        return adjacent(p,elite.position)
+    end,400)
+    assert(ok,reason)
+    checkpoint(run,'elite_reached')
+    ok,reason=Play.fight(run,elite.id,150)
+    assert(ok,reason)
+    assert(state.stage.phase=='extraction' and not state.game_over)
+    checkpoint(run,'elite_defeated')
+
+    local free=assert(Game.entity(state,state.stage.elite_reward_id))
+    ok,reason=Play.navigate(run,function(p)
+        return cardinal(p,free.position)
+    end,30)
+    assert(ok,reason)
+    ok,reason=Play.action(run,{kind='claim_chest',chest_id=free.id,offer_index=1})
+    assert(ok,reason)
+    checkpoint(run,'free_chest_claimed')
+    local exit=assert(Game.entity(state,state.stage.exit_id))
+    ok,reason=Play.navigate(run,function(p)
+        return cardinal(p,exit.position)
+    end,30)
+    assert(ok,reason)
+    local first_floor=state.active_floor_id
+    local route=assert(Game.route_options(state,exit.id))
+    assert(#route.routes==2)
+    ok,reason=Play.action(run,{kind='choose_route',exit_id=exit.id,route_index=1})
+    assert(ok,reason)
+    assert(state.stage.index==2 and state.active_floor_id~=first_floor)
+    checkpoint(run,'stage_two_entered')
+    local next_enemy=assert(Play.nearest(state,function(entity)
+        return entity.controller=='ai' and entity.id~=state.stage.elite_id
+            and not entity.invulnerable
+    end),'new stage has no ordinary enemy')
+    ok,reason=Play.fight(run,next_enemy.id,120)
+    assert(ok,reason)
+    checkpoint(run,'stage_two_enemy_defeated')
+    return run
+end
+
+function Play.replay(run)
+    local replay=Play.new(run.seed)
+    for index,record in ipairs(run.trace) do
+        local ok,reason,events=Play.action(replay,record.intent)
+        assert(ok==record.ok and reason==record.reason,
+            'replay action differs at '..index)
+        assert(replay.state.clock==record.clock and
+            #events==#record.event_kinds,'replay time/events differ at '..index)
+        for j,event in ipairs(events) do
+            assert(event.kind==record.event_kinds[j],
+                'replay event differs at '..index..':'..j)
+        end
+    end
+    return replay
+end
+
+function Play.cardinal(a,b) return cardinal(a,b) end
+return Play

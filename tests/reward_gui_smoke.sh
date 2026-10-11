@@ -13,7 +13,7 @@ local Game = require("src.game")
 local original_new = Game.new
 local tracked, chest
 function Game.new(seed, map_id)
-    tracked = original_new(seed, map_id)
+    tracked = original_new(seed, "core:map/scrolling_room")
     local guard = Game.spawn_enemy(tracked,"core:enemy/mossbound_guard",4,3)
     local skitter = Game.spawn_enemy(tracked,"core:enemy/ruin_skitter",3,4)
     require("src.scheduler").remove_for_actor(tracked,guard.id)
@@ -105,6 +105,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_REWARD_GUI_OUTPUT="$output_dir" timeout 15s love "$output_dir"
+ROEG_REWARD_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4; do test -s "$output_dir/phase$phase.png"; done
 printf 'Reward GUI smoke passed: four screenshots in %s\n' "$output_dir"

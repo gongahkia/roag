@@ -2,7 +2,10 @@ local Camera = require("src.camera")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
 local Game = require("src.game")
+local Generation = require("src.generation")
 local Playback = require("src.playback")
+local Persistence = require("src.persistence")
+local storage = require("src.love_storage")
 
 local TILE = 32
 local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
@@ -14,9 +17,16 @@ local camera_state
 local targeting -- nil, or a presentation-only { kind, dx, dy }.
 local notice = "Ready"
 local playback = Playback.new()
+local minimap_visible = true
 local showcase_index = 0
+local floor_seed = 1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
+local route_menu -- exit offers are plain data in the authoritative exit entity.
 local reward_notices, reward_notice_time = {}, 0
+local save_service = Persistence.new(storage)
+local title, pause_menu, confirm_new, save_status = true, false, false, nil
+local confirm_reset_seed
+local persistence_message = ""
 local showcase = {
     {name="Lightning", boons={{"storm_conductor","rare",2},
         {"static_footsteps","rare",1}}},
@@ -57,7 +67,36 @@ local diagonal = {
 local labels = {
     move = "Move", wait = "Wait", basic_attack = "Sword Strike",
     sweeping_slash = "Sweeping Slash", dash = "Dash", claim_chest = "Claim Chest",
+    open_door = "Open Door",
+    choose_route = "Choose Route",
 }
+
+local function visible_at(x,y)
+    return not state.generated_map or Game.is_visible(state,state.active_floor_id,x,y)
+end
+
+local function visible_event(event)
+    if not state.generated_map then return true end
+    local spatial=false
+    if event.x and event.y and visible_at(event.x,event.y) then return true end
+    if event.x and event.y then spatial=true end
+    for _,cell in ipairs(event.target_cells or {}) do
+        spatial=true
+        if visible_at(cell.x,cell.y) then return true end
+    end
+    if not spatial and event.source_position and
+        visible_at(event.source_position.x,event.source_position.y) then return true end
+    return event.kind=="BoonGranted" or event.kind=="StatIncreased"
+end
+
+local function visible_events(events)
+    if not state.generated_map then return events end
+    local shown={}
+    for _,event in ipairs(events) do
+        if visible_event(event) then shown[#shown+1]=event end
+    end
+    return shown
+end
 local stat_labels = {max_health="Max HP", damage="Damage", defense="Defense",
     speed="Speed", crit_chance="Crit chance", crit_damage="Crit damage"}
 
@@ -73,20 +112,27 @@ local function upgrade_notice(event)
 end
 
 local function reset_camera()
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     local position = Game.player(state).position
     camera = Camera.new(map, VIEWPORT, TILE, position.x, position.y)
     camera_state = state
 end
 
 function love.load()
-    state = Game.new(1, "core:map/scrolling_room", {demo_enemies=true,demo_chests=true})
-    apply_showcase()
-    reset_camera()
+    if os.getenv("ROEG_GUI_AUTOSTART") == "1" then
+        title=false
+        state=Game.new_stage(floor_seed)
+        apply_showcase()
+        reset_camera()
+    else
+        save_status=save_service:inspect()
+        persistence_message=save_status.reason or ""
+    end
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
 end
 
 function love.update(dt)
+    if title or not state then return end
     if camera_state ~= state then reset_camera() end
     local position = Game.player(state).position
     Camera.update(camera, dt, position.x, position.y)
@@ -104,10 +150,55 @@ function love.update(dt)
     end
 end
 
+local function begin_new()
+    local candidate=Game.new_stage(floor_seed)
+    local ok,reason=save_service:replace(candidate)
+    if not ok then
+        persistence_message="New Run save failed: "..tostring(reason)
+        return
+    end
+    state=candidate
+    title,confirm_new,pause_menu=false,false,false
+    persistence_message=reason or ""
+    targeting,chest_menu,route_menu=nil,nil,nil
+    playback=Playback.new()
+    notice=("Seed %d — new run"):format(floor_seed)
+    reset_camera()
+end
+
+local function continue_run()
+    local loaded,found=save_service:load()
+    save_status=found
+    if not loaded then
+        persistence_message=found.reason or found.status
+        return
+    end
+    state=loaded
+    floor_seed=state.root_seed or state.run_seed
+    title,confirm_new,pause_menu=false,false,false
+    persistence_message=found.status=="recovered"
+        and "Recovered previous valid save generation" or ""
+    targeting,chest_menu,route_menu=nil,nil,nil
+    playback=Playback.new() -- resolved presentation never replays authoritative effects.
+    notice="Continued saved run"
+    reset_camera()
+end
+
+local function checkpoint()
+    if os.getenv("ROEG_GUI_AUTOSTART") == "1" then return end
+    local ok,reason=save_service:save(state)
+    if not ok then persistence_message="Autosave failed: "..tostring(reason) end
+end
+
 local function submit(intent)
+    local old_stage=state.stage and state.stage.index
     local committed, reason, events, preview = Game.submit(state, intent)
     if committed then
-        Playback.add(playback, events, state.player_id)
+        if state.stage and old_stage~=state.stage.index then
+            playback=Playback.new() -- historical attacks belong to the retired floor.
+            reset_camera()
+        end
+        Playback.add(playback, visible_events(events), state.player_id)
         for _, event in ipairs(events) do
             if event.kind == "StatIncreased" then
                 reward_notices[#reward_notices + 1] = upgrade_notice(event)
@@ -116,18 +207,44 @@ local function submit(intent)
                 notice = ("Collected %d currency"):format(event.amount)
             end
         end
+        local milestone=state.game_over or
+            (state.stage and state.stage.phase=="prototype_endpoint") or
+            (state.stage and old_stage~=state.stage.index) or
+            (state.last_action and state.last_action.kind=="claim_chest")
+        for _,event in ipairs(events) do
+            if event.kind=="EliteDefeated" or event.kind=="PursuerArrived" then
+                milestone=true
+            end
+        end
+        if milestone then checkpoint() end
         local action = state.last_action
         if action.kind == "dash" then
             notice = ("Dash: %d/2 tiles, +%d time"):format(action.distance, action.cost)
         elseif action.kind == "claim_chest" then
             notice = ("Claimed %s (%s), +%d time"):format(
                 BoonContent.get(action.boon_id).name, action.rarity, action.cost)
+        elseif action.kind == "open_door" then
+            notice = ("Opened door: +%d time"):format(action.cost)
+        elseif action.kind == "choose_route" then
+            notice = state.stage.phase=="prototype_endpoint"
+                and "End of current prototype — final boss pending"
+                or ("Stage %d: prototype Overgrown Ruins route"):format(state.stage.index)
         else
             notice = ("%s: +%d time"):format(labels[action.kind], action.cost)
         end
         for _, event in ipairs(events) do
             if event.kind == "CurrencyCollected" then
                 notice = notice .. ("; +%d currency"):format(event.amount)
+            elseif event.kind == "SecretDiscovered" then
+                notice = notice .. "; hidden cache found"
+            elseif event.kind == "EliteDefeated" then
+                notice = "Thorn Warden defeated — free chest and exit unlocked"
+            elseif event.kind == "PursuerArrived" then
+                notice = "The Extraction Pursuer has arrived! Reach the exit."
+            elseif event.kind == "PursuerSpawnFailed" then
+                notice = "Pursuer route unavailable — exit remains open"
+            elseif event.kind == "ElitePhaseChanged" then
+                notice = "Thorn Warden enters phase two"
             end
         end
     else
@@ -137,6 +254,9 @@ local function submit(intent)
                 chest_menu.selected = 1
                 notice = "Chest offers ready — no time"
             end
+        elseif reason=="exit" and preview and preview.exit_id then
+            route_menu=Game.route_options(state,preview.exit_id)
+            if route_menu then notice="Routes ready — no world time" end
         else
             notice = (reason or "Invalid action") .. " — no time"
         end
@@ -146,12 +266,84 @@ end
 
 function love.keypressed(key, _, isrepeat)
     if isrepeat then return end
-    if key == "n" then
-        state = Game.new(1, "core:map/scrolling_room", {demo_enemies=true,demo_chests=true})
+    if title then
+        if confirm_new then
+            if key=="y" or key=="return" or key=="kpenter" then begin_new()
+            elseif key=="n" or key=="escape" then confirm_new=false end
+            return
+        end
+        if key=="c" or key=="return" or key=="kpenter" then
+            if save_status and (save_status.status=="active" or
+                save_status.status=="recovered") then continue_run()
+            else persistence_message="No compatible active run to continue" end
+        elseif key=="n" then
+            if save_status and (save_status.status=="active" or
+                save_status.status=="recovered" or
+                save_status.status=="incompatible") then
+                confirm_new=true
+            else begin_new() end
+        elseif key=="escape" or key=="q" then love.event.quit() end
+        return
+    end
+    if pause_menu then
+        if key=="escape" or key=="1" or key=="return" then
+            pause_menu=false
+        elseif key=="2" or key=="s" then
+            local ok,reason=save_service:save(state)
+            if ok then love.event.quit()
+            else persistence_message="Save & Quit failed: "..tostring(reason) end
+        end
+        return
+    end
+    if confirm_reset_seed then
+        if key=="escape" or key=="n" then
+            confirm_reset_seed=nil
+        elseif key=="return" or key=="kpenter" or key=="y" then
+            local candidate=Game.new_stage(confirm_reset_seed)
+            if os.getenv("ROEG_GUI_AUTOSTART")~="1" then
+                local ok,reason=save_service:replace(candidate)
+                if not ok then
+                    persistence_message="Reset failed: "..tostring(reason)
+                    return
+                end
+                persistence_message=reason or ""
+            end
+            floor_seed=confirm_reset_seed
+            state=candidate
+            apply_showcase()
+            playback,targeting,chest_menu,route_menu=Playback.new(),nil,nil,nil
+            reward_notices,reward_notice_time={},0
+            notice=("Seed %d — new floor"):format(floor_seed)
+            confirm_reset_seed=nil
+            reset_camera()
+        end
+        return
+    end
+    if key == "n" or key == "m" then
+        if os.getenv("ROEG_GUI_AUTOSTART")~="1" then
+            confirm_reset_seed=key=="m" and floor_seed%2147483646+1 or floor_seed
+            persistence_message="Replace current run? Enter/Y confirm · Esc cancel"
+            return
+        end
+        if key == "m" then floor_seed = floor_seed % 2147483646 + 1 end
+        state = Game.new_stage(floor_seed)
         apply_showcase()
-        playback, targeting, chest_menu, notice = Playback.new(), nil, nil, "New test run"
+        playback, targeting, chest_menu, route_menu, notice = Playback.new(), nil, nil, nil,
+            ("Seed %d — new floor"):format(floor_seed)
         reward_notices, reward_notice_time = {}, 0
         reset_camera()
+        return
+    end
+    if route_menu then
+        if key=="escape" then
+            route_menu=nil
+            notice="Route choice cancelled — no time"
+        elseif key=="1" or key=="2" then
+            route_menu.selected=tonumber(key)
+        elseif key=="return" or key=="kpenter" then
+            if submit({kind="choose_route",exit_id=route_menu.exit_id,
+                route_index=route_menu.selected}) then route_menu=nil end
+        end
         return
     end
     if chest_menu then
@@ -167,7 +359,18 @@ function love.keypressed(key, _, isrepeat)
         end
         return
     end
-    if Playback.busy(playback) or state.game_over then return end
+    if key=="escape" and not targeting then
+        pause_menu=true
+        persistence_message=""
+        return
+    end
+    if key == "tab" then
+        minimap_visible = not minimap_visible
+        notice = minimap_visible and "Map shown — no time" or "Map hidden — no time"
+        return
+    end
+    if Playback.busy(playback) or state.game_over
+        or (state.stage and state.stage.phase=="prototype_endpoint") then return end
     if key == "b" and not targeting then
         showcase_index = (showcase_index + 1) % (#showcase + 1)
         apply_showcase()
@@ -222,17 +425,19 @@ end
 local function draw_cells(cells, red, green, blue, alpha)
     love.graphics.setColor(red, green, blue, alpha)
     for _, cell in ipairs(cells) do
+        if visible_at(cell.x,cell.y) then
         local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
         love.graphics.rectangle("fill", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, math.min(1, alpha + 0.3))
         love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, alpha)
+        end
     end
 end
 
 local function draw_enemies()
     for _, enemy in ipairs(state.entities) do
-        if enemy.controller == "ai" then
+        if enemy.controller == "ai" and visible_at(enemy.position.x,enemy.position.y) then
             local x, y = Camera.tile_top_left(camera, enemy.position.x, enemy.position.y)
             if enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)
@@ -241,6 +446,18 @@ local function draw_enemies()
                 love.graphics.setColor(0.70, 0.40, 0.80)
                 love.graphics.polygon("fill", x + 15, y + 3, x + 28, y + 15,
                     x + 15, y + 27, x + 2, y + 15)
+            elseif enemy.ai_id=="warden" then
+                love.graphics.setColor(0.42,0.75,0.22)
+                love.graphics.rectangle("fill",x+3,y+3,26,24)
+                love.graphics.setColor(0.78,0.32,0.27)
+                love.graphics.polygon("fill",x+4,y+4,x+16,y-5,x+28,y+4)
+                love.graphics.print(enemy.phase_two and "II" or "I",x+9,y+7)
+            elseif enemy.ai_id=="pursuer" then
+                love.graphics.setColor(0.55,0.86,1,0.85)
+                love.graphics.circle("fill",x+16,y+14,12)
+                love.graphics.setColor(0.10,0.24,0.30)
+                love.graphics.circle("fill",x+12,y+12,2)
+                love.graphics.circle("fill",x+20,y+12,2)
             else
                 love.graphics.setColor(0.95, 0.49, 0.27)
                 love.graphics.polygon("fill", x + 15, y + 3, x + 28, y + 26,
@@ -257,7 +474,7 @@ end
 
 local function draw_rewards()
     for _, drop in ipairs(state.drops) do
-        if not drop.collected then
+        if not drop.collected and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
             love.graphics.setColor(1, 0.86, 0.26)
             love.graphics.circle("fill", x + 16, y + 16, 6)
@@ -266,7 +483,8 @@ local function draw_rewards()
         end
     end
     for _, entity in ipairs(state.entities) do
-        if entity.controller == "chest" then
+        if entity.controller == "chest" and
+            visible_at(entity.position.x,entity.position.y) then
             local x, y = Camera.tile_top_left(camera, entity.position.x, entity.position.y)
             if entity.claimed then
                 love.graphics.setColor(0.34, 0.26, 0.17)
@@ -276,6 +494,22 @@ local function draw_rewards()
             love.graphics.rectangle("fill", x + 4, y + 10, 24, 18)
             love.graphics.setColor(1, 0.86, 0.41)
             love.graphics.rectangle("line", x + 4, y + 10, 24, 18)
+        end
+        if entity.controller == "door" and
+            visible_at(entity.position.x,entity.position.y) then
+            local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            love.graphics.setColor(entity.open and 0.42 or 0.57,
+                entity.open and 0.47 or 0.35,0.22)
+            love.graphics.rectangle("fill",x+6,y+3,20,27)
+            love.graphics.setColor(0.79,0.69,0.39)
+            love.graphics.rectangle("line",x+6,y+3,20,27)
+        end
+        if entity.controller=="exit" and
+            visible_at(entity.position.x,entity.position.y) then
+            local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            love.graphics.setColor(0.34,0.88,0.94)
+            love.graphics.circle("line",x+16,y+16,12)
+            love.graphics.polygon("fill",x+16,y+6,x+23,y+17,x+16,y+25,x+9,y+17)
         end
     end
 end
@@ -290,10 +524,15 @@ local function draw_history_event(event)
         draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4)
     elseif event.kind == "EffectApplied" or event.kind == "DelayedEffectResolved" then
         draw_cells(event.target_cells or {}, 0.36, 0.78, 1.0, 0.57)
+    elseif event.kind == "SecretDiscovered" then
+        draw_cells({{x=event.wall_x or event.x,y=event.wall_y or event.y}},
+            0.97,0.78,0.31,0.60)
+    elseif event.kind == "DoorOpened" then
+        draw_cells({{x=event.x,y=event.y}},0.69,0.85,0.40,0.48)
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
     end
-    if event.from_x and event.from_y then
+    if event.from_x and event.from_y and visible_at(event.from_x,event.from_y) then
         local x, y = Camera.tile_top_left(camera, event.from_x, event.from_y)
         love.graphics.setColor(1, 0.92, 0.52, 0.85)
         love.graphics.circle("line", x + TILE / 2, y + TILE / 2, 13)
@@ -304,6 +543,7 @@ local function draw_preview()
     if not targeting or targeting.dx == nil then return end
     local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
     for _, cell in ipairs(preview.cells) do
+        if visible_at(cell.x,cell.y) then
         if targeting.kind == "dash" then
             if cell.status == "open" then
                 love.graphics.setColor(0.22, 0.85, 0.55, 0.55)
@@ -321,25 +561,134 @@ local function draw_preview()
         love.graphics.rectangle("fill", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(1, 1, 1, 0.9)
         love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
+        end
     end
 end
 
+local function draw_minimap()
+    if not state.generated_map or not minimap_visible then return end
+    local map=Content.map_for(state)
+    local known=state.explored[map.floor_id]
+    local scale=1.3
+    local ox,oy=VIEWPORT.x+9,VIEWPORT.y+18
+    love.graphics.setColor(0.015,0.027,0.023,0.91)
+    love.graphics.rectangle("fill",ox-5,oy-14,map.width*scale+10,
+        map.height*scale+20)
+    love.graphics.setColor(0.7,0.85,0.7)
+    love.graphics.print("MAP · Tab",ox,oy-14)
+    for _,at in ipairs(known and known.order or {}) do
+        local x=(at-1)%map.width+1
+        local y=math.floor((at-1)/map.width)+1
+        local current=visible_at(x,y)
+        local wall=map.rows[y]:sub(x,x)=="#"
+        if wall then
+            love.graphics.setColor(current and 0.54 or 0.22,
+                current and 0.64 or 0.28,current and 0.54 or 0.24)
+        else
+            love.graphics.setColor(current and 0.40 or 0.16,
+                current and 0.62 or 0.26,current and 0.39 or 0.17)
+        end
+        love.graphics.rectangle("fill",ox+(x-1)*scale,oy+(y-1)*scale,scale,scale)
+    end
+    for _,entity in ipairs(state.entities) do
+        if entity.controller=="door" and
+            Game.was_explored(state,map.floor_id,entity.position.x,entity.position.y) then
+            love.graphics.setColor(0.9,0.67,0.30)
+            love.graphics.rectangle("fill",ox+(entity.position.x-1)*scale,
+                oy+(entity.position.y-1)*scale,2.4,2.4)
+        end
+    end
+    if map.elite and (not state.stage or
+        state.stage.phase=="exploring" or state.stage.phase=="elite_active")
+        and Game.was_explored(state,map.floor_id,map.elite.x,map.elite.y) then
+        love.graphics.setColor(0.94,0.67,0.35)
+        love.graphics.rectangle("line",ox+(map.elite.x-1)*scale-1,
+            oy+(map.elite.y-1)*scale-1,4,4)
+    end
+    if state.stage and state.stage.exit_id then
+        local exit=Game.entity(state,state.stage.exit_id)
+        if exit and Game.was_explored(state,map.floor_id,
+            exit.position.x,exit.position.y) then
+            love.graphics.setColor(0.35,0.88,0.98)
+            love.graphics.rectangle("line",ox+(exit.position.x-1)*scale-1,
+                oy+(exit.position.y-1)*scale-1,4,4)
+        end
+    end
+    local p=Game.player(state).position
+    love.graphics.setColor(1,0.86,0.23)
+    love.graphics.rectangle("fill",ox+(p.x-1)*scale-1,
+        oy+(p.y-1)*scale-1,4,4)
+end
+
 local function draw_world()
-    local map = Content.get_map(state.map_id)
+    local map = Content.map_for(state)
     love.graphics.setScissor(VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
     love.graphics.setColor(0.09, 0.13, 0.11)
     love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
-    for y = 1, map.height do
-        for x = 1, map.width do
+    local min_x=math.max(1,math.floor((camera.x-VIEWPORT.width/2)/TILE)+1)
+    local max_x=math.min(map.width,math.ceil((camera.x+VIEWPORT.width/2)/TILE)+1)
+    local min_y=math.max(1,math.floor((camera.y-VIEWPORT.height/2)/TILE)+1)
+    local max_y=math.min(map.height,math.ceil((camera.y+VIEWPORT.height/2)/TILE)+1)
+    for y = min_y, max_y do
+        for x = min_x, max_x do
+            if not state.generated_map or
+                Game.was_explored(state,map.floor_id,x,y) then
             local screen_x, screen_y = Camera.tile_top_left(camera, x, y)
             local wall = map.rows[y]:sub(x, x) == "#"
+            local visual=map.visual_rows and map.visual_rows[y]:sub(x,x) or nil
+            local remembered=state.generated_map and not visible_at(x,y)
+            local r,g,b
             if wall then
-                love.graphics.setColor(0.30, 0.39, 0.34)
+                r,g,b=0.26,0.33,0.29
+            elseif visual=="a" then
+                r,g,b=0.29,0.25,0.35
+            elseif visual=="c" then
+                r,g,b=0.24,0.25,0.20
+            elseif visual=="m" then
+                r,g,b=0.16,0.28,0.15
+            elseif visual=="v" then
+                r,g,b=0.15,0.25,0.16
+            elseif visual=="r" then
+                r,g,b=0.20,0.21,0.17
             else
-                love.graphics.setColor(0.14, 0.20, 0.17)
+                r,g,b=0.15,0.20,0.17
             end
+            if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
+            love.graphics.setColor(r,g,b)
             love.graphics.rectangle("fill", screen_x, screen_y, TILE - 2, TILE - 2)
+            if not remembered and visual=="k" then
+                love.graphics.setColor(0.39,0.55,0.30,0.78)
+                love.graphics.line(screen_x+9,screen_y+6,screen_x+17,screen_y+16,
+                    screen_x+12,screen_y+25)
+            elseif not remembered and visual=="p" then
+                love.graphics.setColor(0.34,0.51,0.27,0.73)
+                love.graphics.circle("line",screen_x+16,screen_y+16,6)
+                love.graphics.circle("fill",screen_x+16,screen_y+16,2)
+            elseif not remembered and visual=="m" then
+                love.graphics.setColor(0.28,0.47,0.23,0.65)
+                love.graphics.circle("fill",screen_x+23,screen_y+9,3)
+            elseif not remembered and visual=="v" then
+                love.graphics.setColor(0.33,0.52,0.25,0.75)
+                love.graphics.line(screen_x+6,screen_y+3,screen_x+8,screen_y+12,
+                    screen_x+14,screen_y+17)
+            elseif not remembered and visual=="r" then
+                love.graphics.setColor(0.48,0.47,0.34,0.65)
+                love.graphics.rectangle("fill",screen_x+6,screen_y+20,7,4)
+                love.graphics.rectangle("fill",screen_x+17,screen_y+15,4,3)
+            elseif not remembered and visual=="w" and map.visual_rows then
+                love.graphics.setColor(0.34,0.45,0.30,0.5)
+                love.graphics.rectangle("fill",screen_x+3,screen_y+3,7,3)
+            end
+            end
         end
+    end
+    if map.elite and (not state.stage or
+        state.stage.phase=="exploring" or state.stage.phase=="elite_active")
+        and visible_at(map.elite.x,map.elite.y) then
+        local x,y=Camera.tile_top_left(camera,map.elite.x,map.elite.y)
+        love.graphics.setColor(0.96,0.72,0.32)
+        love.graphics.circle("line",x+TILE/2,y+TILE/2,12)
+        love.graphics.circle("line",x+TILE/2,y+TILE/2,8)
     end
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
@@ -349,11 +698,24 @@ local function draw_world()
     draw_preview()
     draw_rewards()
     draw_enemies()
+    if state.stage and state.stage.phase=="elite_active" then
+        local elite=Game.entity(state,state.stage.elite_id)
+        if elite and visible_at(elite.position.x,elite.position.y) then
+            love.graphics.setColor(0.04,0.06,0.04,0.82)
+            love.graphics.rectangle("fill",230,27,330,37)
+            love.graphics.setColor(0.82,0.95,0.60)
+            love.graphics.print(("THORN WARDEN  phase %d  %d/%d HP"):format(
+                elite.phase_two and 2 or 1,elite.hp,elite.max_hp),239,34)
+            love.graphics.setColor(0.37,0.72,0.25)
+            love.graphics.rectangle("fill",239,52,310*elite.hp/elite.max_hp,5)
+        end
+    end
     local position = Game.player(state).position
     local screen_x, screen_y = Camera.tile_top_left(camera, position.x, position.y)
     love.graphics.setColor(0.95, 0.78, 0.30)
     love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
     draw_history_event(Playback.current(playback))
+    draw_minimap()
     if chest_menu then
         love.graphics.setColor(0.02, 0.04, 0.04, 0.93)
         love.graphics.rectangle("fill", 70, 100, 640, 390)
@@ -377,6 +739,29 @@ local function draw_world()
             or "1/2/3 select · Enter claim · Esc cancel (no time)"
         love.graphics.print(status, 90, 451)
     end
+    if route_menu then
+        love.graphics.setColor(0.02,0.04,0.05,0.95)
+        love.graphics.rectangle("fill",85,145,600,310)
+        love.graphics.setColor(0.66,0.91,1)
+        love.graphics.print(route_menu.stage_index>=3
+            and "Final boss gateway — prototype endpoint"
+            or "Choose a route — prototype stages",105,165)
+        for index,route in ipairs(route_menu.routes) do
+            love.graphics.setColor(index==route_menu.selected and 1 or 0.76,
+                index==route_menu.selected and 0.87 or 0.85,0.67)
+            love.graphics.print(index..". "..route.name,110,205+(index-1)*75)
+            love.graphics.print(route.description,130,230+(index-1)*75)
+        end
+        love.graphics.setColor(0.9,0.95,0.9)
+        love.graphics.print("1/2 select · Enter confirm · Esc cancel (no time)",105,410)
+    end
+    if state.stage and state.stage.phase=="prototype_endpoint" then
+        love.graphics.setColor(0,0,0,0.80)
+        love.graphics.rectangle("fill",VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height)
+        love.graphics.setColor(0.72,0.93,1)
+        love.graphics.printf("End of current prototype — final boss pending",
+            VIEWPORT.x,VIEWPORT.y+VIEWPORT.height/2-10,VIEWPORT.width,"center")
+    end
     if state.game_over and not Playback.busy(playback) then
         love.graphics.setColor(0, 0, 0, 0.65)
         love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
@@ -390,7 +775,18 @@ end
 local function draw_panel()
     local position = Game.player(state).position
     love.graphics.setColor(0.93, 0.95, 0.88)
-    love.graphics.print("ROEG — Tranche 04", PANEL_X, 26)
+    love.graphics.print("ROEG — Overgrown Ruins", PANEL_X, 26)
+    if state.generated_map then
+        local arena=state.generated_map.elite
+        local seen=Game.was_explored(state,state.active_floor_id,arena.x,arena.y)
+        local arena_label=seen and ("arena %d,%d"):format(arena.x,arena.y)
+            or "arena undiscovered"
+        love.graphics.print(("Stage %d %s · Seed %d"):format(
+            state.stage and state.stage.index or 1,
+            state.stage and state.stage.phase or "fixture",state.run_seed), PANEL_X, 43)
+    else
+        love.graphics.print("Authored test map", PANEL_X, 43)
+    end
     local player = Game.player(state)
     love.graphics.print(("HP: %d / %d"):format(player.hp, player.max_hp), PANEL_X, 58)
     love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 82)
@@ -406,6 +802,20 @@ local function draw_panel()
     love.graphics.print("Last: " .. (action and labels[action.kind] or "none"), PANEL_X, 130)
     love.graphics.print("Cost: " .. (action and action.cost or "—"), PANEL_X, 154)
     love.graphics.printf(notice, PANEL_X, 251, 260)
+    if state.stage then
+        local stage=state.stage
+        love.graphics.setColor(1,0.72,0.42)
+        if stage.phase=="exploring" or stage.phase=="elite_active" then
+            love.graphics.print(("Danger %d · next %d time"):format(
+                stage.pressure_count,math.max(0,stage.next_pressure-state.clock)),PANEL_X,309)
+        elseif stage.phase=="extraction" then
+            love.graphics.print(("Extract: %d world time left"):format(
+                math.max(0,stage.deadline-state.clock)),PANEL_X,309)
+        elseif stage.phase=="pursuit" then
+            love.graphics.print(stage.pursuer_id and "PURSUER ACTIVE — reach exit"
+                or "No pursuer route — exit open",PANEL_X,309)
+        end
+    end
     if reward_notice_time > 0 and reward_notices[1] then
         love.graphics.setColor(1, 0.87, 0.39)
         love.graphics.printf(reward_notices[1], PANEL_X, 283, 260)
@@ -413,7 +823,7 @@ local function draw_panel()
 
     if not targeting then
         love.graphics.setColor(0.66, 0.86, 1)
-        love.graphics.print("BOONS (B: developer loadout)", PANEL_X, 315)
+        love.graphics.print("BOONS (B: developer loadout)", PANEL_X, 334)
         local line = 0
         for _, id in ipairs(BoonContent.order) do
             local stacks = player.boons and player.boons[id]
@@ -427,12 +837,12 @@ local function draw_panel()
                 end
                 if #counts > 0 then
                     local label = BoonContent.get(id).name .. " " .. table.concat(counts, " ")
-                    love.graphics.print(label, PANEL_X, 332 + line * 12)
+                    love.graphics.print(label, PANEL_X, 351 + line * 12)
                     line = line + 1
                 end
             end
         end
-        if line == 0 then love.graphics.print("None equipped", PANEL_X, 332) end
+        if line == 0 then love.graphics.print("None equipped", PANEL_X, 351) end
     end
 
     local history = Playback.current(playback)
@@ -445,13 +855,27 @@ local function draw_panel()
         love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 446, 265)
         love.graphics.print("Past event; input paused", PANEL_X, 465)
     else
-        local strikes = Game.pending_strikes(state)
+        local strikes = {}
+        for _,strike in ipairs(Game.pending_strikes(state)) do
+            for _,cell in ipairs(strike.target_cells) do
+                if visible_at(cell.x,cell.y) then
+                    strikes[#strikes+1]=strike; break
+                end
+            end
+        end
         if #strikes > 0 then
             love.graphics.setColor(1, 0.51, 0.43)
             love.graphics.print(("LIVE WINDUPS: %d"):format(#strikes), PANEL_X, 446)
             love.graphics.print(("Next impact in %d time"):format(strikes[1].due - state.clock), PANEL_X, 465)
         else
-            local effects = Game.pending_boon_effects(state)
+            local effects = {}
+            for _,effect in ipairs(Game.pending_boon_effects(state)) do
+                for _,cell in ipairs(effect.target_cells or {}) do
+                    if visible_at(cell.x,cell.y) then
+                        effects[#effects+1]=effect; break
+                    end
+                end
+            end
             if #effects > 0 then
                 love.graphics.setColor(0.54, 0.85, 1)
                 love.graphics.print(("LIVE ECHOES: %d"):format(#effects), PANEL_X, 446)
@@ -460,12 +884,21 @@ local function draw_panel()
         end
     end
 
+    if state.stage then
+        local id=state.stage.route_history[state.stage.index-1]
+        local name="Origin"
+        for _,route in ipairs(Content.get_stage_rules().routes) do
+            if route.id==id then name=route.name;break end
+        end
+        love.graphics.setColor(0.65,0.82,0.87)
+        love.graphics.print("Route: "..name,PANEL_X,480)
+    end
     if targeting then
         love.graphics.setColor(1, 0.72, 0.32)
-        love.graphics.print("AIMING: " .. labels[targeting.kind], PANEL_X, 315)
+        love.graphics.print("AIMING: " .. labels[targeting.kind], PANEL_X, 334)
         if targeting.dx ~= nil then
             local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
-            love.graphics.print(("Direction: %d, %d"):format(targeting.dx, targeting.dy), PANEL_X, 339)
+            love.graphics.print(("Direction: %d, %d"):format(targeting.dx, targeting.dy), PANEL_X, 358)
             if targeting.kind == "dash" then
                 local outcome = ("Path: %d/2 open"):format(preview.distance or 0)
                 if preview.cells[1] and preview.cells[1].status ~= "open" then
@@ -473,18 +906,18 @@ local function draw_panel()
                 elseif preview.cells[2] and preview.cells[2].status ~= "open" then
                     outcome = outcome .. " (second " .. preview.cells[2].status .. ")"
                 end
-                love.graphics.print(outcome, PANEL_X, 363)
+                love.graphics.print(outcome, PANEL_X, 382)
             else
-                love.graphics.print(("Cells: %d"):format(#preview.cells), PANEL_X, 363)
+                love.graphics.print(("Cells: %d"):format(#preview.cells), PANEL_X, 382)
             end
         else
-            love.graphics.print("Select a direction", PANEL_X, 339)
+            love.graphics.print("Select a direction", PANEL_X, 358)
         end
-        love.graphics.print("Enter: commit  Esc: cancel", PANEL_X, 399)
+        love.graphics.print("Enter: commit  Esc: cancel", PANEL_X, 418)
     end
 
     love.graphics.setColor(0.80, 0.86, 0.80)
-    love.graphics.print("CONTROLS (N reset, B dev boons)", PANEL_X, 495)
+    love.graphics.print("N/M reset (confirm) · Tab map · B dev", PANEL_X, 495)
     love.graphics.print("Move: WASD / arrows", PANEL_X, 513)
     love.graphics.print("Wait: Space or .", PANEL_X, 531)
     love.graphics.print("F sword · R slash · X dash", PANEL_X, 549)
@@ -494,7 +927,54 @@ local function draw_panel()
 end
 
 function love.draw()
+    if title then
+        love.graphics.setColor(0.88,0.94,0.83)
+        love.graphics.printf("ROEG — Overgrown Ruins",0,120,1024,"center")
+        local can_continue=save_status and
+            (save_status.status=="active" or save_status.status=="recovered")
+        love.graphics.printf(can_continue and "C / Enter: Continue" or
+            "Continue unavailable",0,220,1024,"center")
+        love.graphics.printf("N: New Run",0,255,1024,"center")
+        love.graphics.printf("Q / Esc: Quit",0,290,1024,"center")
+        local status=save_status and save_status.status or "absent"
+        love.graphics.printf("Save status: "..status,0,350,1024,"center")
+        if confirm_new then
+            love.graphics.setColor(1,0.72,0.38)
+            love.graphics.printf("Replace saved run? Y / Enter confirm · Esc cancel",
+                0,390,1024,"center")
+        end
+        if persistence_message~="" then
+            love.graphics.setColor(1,0.46,0.43)
+            love.graphics.printf(persistence_message,100,435,824,"center")
+        end
+        return
+    end
     if camera_state ~= state then reset_camera() end
     draw_world()
     draw_panel()
+    if persistence_message~="" and not pause_menu then
+        love.graphics.setColor(1,0.48,0.43)
+        love.graphics.printf(persistence_message,VIEWPORT.x+12,
+            VIEWPORT.y+12,VIEWPORT.width-24,"center")
+    end
+    if confirm_reset_seed then
+        love.graphics.setColor(0,0,0,0.84)
+        love.graphics.rectangle("fill",160,200,704,230)
+        love.graphics.setColor(1,0.75,0.48)
+        love.graphics.printf(("Replace run with seed %d?"):format(confirm_reset_seed),
+            160,255,704,"center")
+        love.graphics.printf("Enter / Y confirm · Esc cancel",160,295,704,"center")
+    end
+    if pause_menu then
+        love.graphics.setColor(0,0,0,0.83)
+        love.graphics.rectangle("fill",160,150,704,330)
+        love.graphics.setColor(0.94,0.95,0.85)
+        love.graphics.printf("PAUSED — world time stopped",160,190,704,"center")
+        love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
+        love.graphics.printf("2 / S: Save & Quit",160,290,704,"center")
+        if persistence_message~="" then
+            love.graphics.setColor(1,0.46,0.43)
+            love.graphics.printf(persistence_message,180,355,664,"center")
+        end
+    end
 end

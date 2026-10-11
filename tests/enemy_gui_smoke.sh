@@ -14,9 +14,10 @@ local Playback = require("src.playback")
 local original_new, original_submit, original_add = Game.new, Game.submit, Playback.add
 local tracked, playback, events
 local run_number = 0
-function Game.new(...)
+function Game.new(seed)
     run_number = run_number + 1
-    tracked = original_new(...)
+    tracked = original_new(seed,"core:map/scrolling_room",
+        {demo_enemies=true,demo_chests=true})
     if run_number == 2 then
         for _, entity in ipairs(tracked.entities) do
             if entity.ai_id == "spitter" then entity.speed = 60 end
@@ -102,7 +103,7 @@ function love.draw(...)
 end
 LUA
 
-ROEG_ENEMY_GUI_OUTPUT="$output_dir" timeout 15s love "$output_dir"
+ROEG_ENEMY_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4 5; do
     test -s "$output_dir/phase$phase.png"
 done

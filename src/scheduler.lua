@@ -1,7 +1,8 @@
 local Scheduler = {}
 
 local function priority(item)
-    if item.kind == "effect" or item.kind == "impact" then return 0 end
+    if item.kind == "effect" or item.kind == "impact"
+        or item.kind == "stage_pressure" or item.kind == "stage_deadline" then return 0 end
     assert(item.kind == "actor_ready", "unknown scheduled kind")
     return 1
 end

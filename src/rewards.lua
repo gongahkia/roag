@@ -110,16 +110,22 @@ function Rewards.on_event(state, event, emit)
     if event.source_id == state.player_id and event.source_faction == "player" then
         Rewards.gain_xp(state, definition.xp_reward, event, emit)
     end
-    local drop = {
-        id=state.next_drop_id, kind="currency", amount=definition.currency_drop,
-        position={floor_id=event.floor_id, x=event.x, y=event.y}, collected=false,
-        killed_entity_id=event.target_id,
-    }
-    state.next_drop_id = drop.id + 1
-    state.drops[#state.drops + 1] = drop
-    emit("CurrencyDropped", {drop_id=drop.id, amount=drop.amount,
-        target_id=event.target_id, floor_id=event.floor_id, x=event.x, y=event.y},
-        event.source_id)
+    Rewards.spawn_currency(state,definition.currency_drop,event.floor_id,
+        event.x,event.y,emit,event.source_id,nil,event.target_id)
+end
+
+function Rewards.spawn_currency(state,amount,floor_id,x,y,emit,source_id,secret_id,killed_entity_id)
+    assert(type(amount)=="number" and amount%1==0 and amount>0,
+        "invalid currency drop")
+    local drop={id=state.next_drop_id,kind="currency",amount=amount,
+        position={floor_id=floor_id,x=x,y=y},collected=false,
+        killed_entity_id=killed_entity_id,secret_id=secret_id}
+    state.next_drop_id=drop.id+1
+    state.drops[#state.drops+1]=drop
+    emit("CurrencyDropped",{drop_id=drop.id,amount=amount,
+        target_id=killed_entity_id,secret_id=secret_id,
+        floor_id=floor_id,x=x,y=y},source_id)
+    return drop
 end
 
 function Rewards.pickup_at(state, actor, x, y, emit)
@@ -137,10 +143,10 @@ function Rewards.pickup_at(state, actor, x, y, emit)
     end
 end
 
-local function roll_rarity(state, weights)
+local function roll_rarity(rng, weights)
     local total = 0
     for _, rarity in ipairs(BoonContent.rarities) do total = total + weights[rarity] end
-    local roll = RNG.next_int(state.rng, total)
+    local roll = RNG.next_int(rng, total)
     for _, rarity in ipairs(BoonContent.rarities) do
         roll = roll - weights[rarity]
         if roll <= 0 then return rarity end
@@ -148,15 +154,16 @@ local function roll_rarity(state, weights)
     error("invalid rarity weights")
 end
 
-function Rewards.make_offers(state, chest_definition)
+function Rewards.make_offers(state, chest_definition, offer_rng)
+    local rng=offer_rng or state.rng
     assert(#BoonContent.order >= 3, "chest pool needs three boons")
     local pool = {}
     for index, id in ipairs(BoonContent.order) do pool[index] = id end
     local offers = {}
     for index = 1, 3 do
-        local selected = RNG.next_int(state.rng, #pool)
+        local selected = RNG.next_int(rng, #pool)
         offers[index] = {boon_id=table.remove(pool, selected),
-            rarity=roll_rarity(state, chest_definition.rarity_weights)}
+            rarity=roll_rarity(rng, chest_definition.rarity_weights)}
     end
     return offers
 end

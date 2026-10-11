@@ -1505,5 +1505,10 @@ test("ordinary kill, pickup, level, purchase and boon transform form a complete 
     assert(#events_of(slash,"EntityKilled") == 1 and Game.entity(state,foe.id) == nil)
 end)
 
+require("tests.generation_tests")(test, equal)
+require("tests.exploration_tests")(test, equal)
+require("tests.stage_tests")(test, equal)
+require("tests.persistence_tests")(test, equal)
+
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

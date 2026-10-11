@@ -13,6 +13,12 @@ local durations = {
     DelayedEffectScheduled = 0.18,
     DelayedEffectResolved = 0.28,
     BoonGranted = 0.28,
+    SecretDiscovered = 0.48,
+    SecretRewardSpawned = 0.28,
+    DoorOpened = 0.22,
+    ElitePhaseChanged = 0.50,
+    EliteDefeated = 0.80,
+    PursuerArrived = 0.80,
 }
 
 function Playback.new()

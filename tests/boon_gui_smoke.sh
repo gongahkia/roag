@@ -14,8 +14,9 @@ local Playback = require("src.playback")
 local Scheduler = require("src.scheduler")
 local original_new, original_submit = Game.new, Game.submit
 local tracked, events, playback
-function Game.new(...)
-    tracked = original_new(...)
+function Game.new(seed)
+    tracked = original_new(seed,"core:map/scrolling_room",
+        {demo_enemies=true,demo_chests=true})
     local first = Game.spawn_enemy(tracked, "core:enemy/ruin_skitter", 4, 3)
     local second = Game.spawn_enemy(tracked, "core:enemy/thornspitter", 5, 3)
     Scheduler.remove_for_actor(tracked, first.id)
@@ -89,6 +90,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_BOON_GUI_OUTPUT="$output_dir" timeout 15s love "$output_dir"
+ROEG_BOON_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3; do test -s "$output_dir/phase$phase.png"; done
 printf 'Boon GUI smoke passed: three screenshots in %s\n' "$output_dir"
