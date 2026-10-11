@@ -110,7 +110,8 @@ return function(test,equal)
         local store=memory();local service=P.new(store)
         local state=Game.new_stage(4)
         assert(service:save(state));assert(service:save(state))
-        store[P.slots[2]]=store[P.slots[2]]:gsub('roeg%-content/6','roeg-content/9',1)
+        store[P.slots[2]]=store[P.slots[2]]:gsub(
+            Content.version:gsub('%W','%%%0'),'roeg-content/99',1)
         -- A header edit breaks its checksum only if payload changes; compatibility is header data.
         local loaded,meta=service:load()
         assert(not loaded and meta.status=='incompatible')

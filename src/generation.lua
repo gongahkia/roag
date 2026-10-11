@@ -1,8 +1,9 @@
--- One concrete Overgrown Ruins floor, built from an authored graph and room templates.
+-- Concrete floors built from biome-specific authored rooms and graph geometry.
 -- No LÖVE state, callbacks, or runtime combatants are stored here.
 local Content = require("src.content")
 local RNG = require("src.rng")
 local Rooms = require("src.rooms")
+local Biomes = require("src.biomes")
 local World = require("src.world")
 
 local Generation = {}
@@ -12,6 +13,7 @@ Generation.room_content_version = Rooms.version
 Generation.width, Generation.height = Rooms.biome.width, Rooms.biome.height
 Generation.room_min, Generation.room_max = Rooms.biome.room_min, Rooms.biome.room_max
 Generation.chest_target = Rooms.biome.standard_chests
+function Generation.biome_for_map(map_id) return Biomes.for_map(map_id) end
 
 local dirs = {{-1,0},{1,0},{0,-1},{0,1}}
 local function key(x,y) return x .. "," .. y end
@@ -39,11 +41,18 @@ local function add_edge(graph, seen, a,b,kind)
     return true
 end
 
-function Generation.plan(rng)
+function Generation.plan(rng,biome)
     local target=Generation.room_min+RNG.next_int(rng,
         Generation.room_max-Generation.room_min+1)-1
     local graph={nodes={},edges={},critical={1}}
     local c,r=1,1
+    if biome and biome.strategy=="courtyards" then
+        -- The central courtyard is always on the main route; side wings still
+        -- come from the same branching/loop planner below.
+        c,r=2,2
+        graph.critical[2]=slot(2,1)
+        graph.critical[3]=slot(2,2)
+    end
     while c<4 or r<3 do
         if c==4 then r=r+1
         elseif r==3 then c=c+1
@@ -119,7 +128,7 @@ function Generation.plan(rng)
     assert(#loops>0,"room plan has no loop candidate")
     local first=table.remove(loops,RNG.next_int(rng,#loops))
     add_edge(graph,edge_seen,first[1],first[2],"loop")
-    if #loops>0 and RNG.next_int(rng,3)==1 then
+    if #loops>0 and (biome and biome.strategy=="canals" or RNG.next_int(rng,3)==1) then
         local next_loop=loops[RNG.next_int(rng,#loops)]
         add_edge(graph,edge_seen,next_loop[1],next_loop[2],"loop")
     end
@@ -171,7 +180,7 @@ local function socket_for(room, facing)
     error("missing room socket "..facing)
 end
 
-local function stamp_room(map, terrain, art, footprint, rng, node, transformed)
+local function stamp_room(map, terrain, art, footprint, rng, node, transformed,biome)
     local cx=20+(node.col-1)*32+RNG.next_int(rng,7)-4
     local cy=16+(node.row-1)*26+RNG.next_int(rng,7)-4
     local ox=cx-math.floor(transformed.width/2)
@@ -199,23 +208,33 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed)
         local varied=base
         if editable[key(x,y)] then
             map.editable_cells[#map.editable_cells+1]={x=wx,y=wy,kind="room"}
-            if RNG.next_int(rng,100)<=35 then varied=base=="#" and "." or "#" end
+            if RNG.next_int(rng,100)<=35 then
+                if biome.strategy=="canals" then
+                    varied=base=="~" and "." or "~"
+                else varied=base=="#" and "." or "#" end
+            end
         else
             map.protected_cells[#map.protected_cells+1]={x=wx,y=wy,tile=base}
         end
         terrain[wy][wx]=varied
-        if varied=="#" then art[wy][wx]="w"
+        if varied=="#" then art[wy][wx]=biome.wall_visual
+        elseif varied=="~" then art[wy][wx]="q"
         elseif node.role=="elite" then art[wy][wx]="a"
         else
             local roll=RNG.next_int(rng,12)
-            art[wy][wx]=roll==1 and "v" or roll==2 and "r"
-                or roll<=5 and "m" or "s"
+            if biome.strategy=="ruins" then
+                art[wy][wx]=roll==1 and "v" or roll==2 and "r"
+                    or roll<=5 and "m" or "s"
+            else
+                art[wy][wx]=roll<=3 and biome.floor_visual
+                    or roll==4 and "r" or biome.floor_visual
+            end
         end
     end end
     return room
 end
 
-local function corridor_path(a,b,rng)
+local function corridor_path(a,b,rng,biome)
     local cells={}
     local function line(x1,y1,x2,y2)
         local dx=x1==x2 and 0 or (x2>x1 and 1 or -1)
@@ -248,10 +267,36 @@ local function corridor_path(a,b,rng)
         line(top.x,mid,bottom.x,mid)
         line(bottom.x,mid,bottom.x,bottom.y)
     end
+    if biome.strategy=="warrens" and #cells>=12 then
+        -- Replace one straight interior run with a short, repeatable zigzag.
+        -- The detour remains in the empty inter-room band.
+        local first=math.floor(#cells/3)
+        local last=math.floor(#cells*2/3)
+        local p,q=cells[first],cells[last]
+        if p and q and (p.x==q.x or p.y==q.y) and last-first>=5 then
+            local bend={}
+            for i=1,first do bend[#bend+1]=cells[i] end
+            local offset=RNG.next_int(rng,2)==1 and 2 or -2
+            local function append(x,y)
+                local prev=bend[#bend]
+                while prev.x~=x or prev.y~=y do
+                    local nx=prev.x+(prev.x==x and 0 or (x>prev.x and 1 or -1))
+                    local ny=prev.y+(prev.x~=x and 0 or (y>prev.y and 1 or -1))
+                    bend[#bend+1]={x=nx,y=ny};prev=bend[#bend]
+                end
+            end
+            if p.y==q.y then
+                append(p.x,p.y+offset);append(q.x,p.y+offset)
+            else append(p.x+offset,p.y);append(p.x+offset,q.y) end
+            append(q.x,q.y)
+            for i=last+1,#cells do bend[#bend+1]=cells[i] end
+            cells=bend
+        end
+    end
     return cells
 end
 
-local function assign_placements(map)
+local function assign_placements(map,biome)
     local occupied={}
     local chests={}
     for _,room in ipairs(map.rooms) do
@@ -270,7 +315,7 @@ local function assign_placements(map)
             definition_id="core:chest/standard",x=p.x,y=p.y,room_id=chosen.room.id}
         occupied[key(p.x,p.y)]=true
     end
-    local enemy_types=Rooms.biome.enemy_ids
+    local enemy_types=biome.enemy_ids
     local count=0
     for _,room in ipairs(map.rooms) do
         if room.role~="start" and room.role~="elite" then
@@ -308,7 +353,7 @@ end
 
 local function place_exploration(map, terrain, art, footprint, seed, attempt)
     local secret_rng=RNG.new(RNG.derive(seed,
-        Generation.floor_id..":secrets:"..attempt))
+        map.floor_id..":secrets:"..attempt))
     local critical={}
     for _,id in ipairs(map.graph.critical) do critical[id]=true end
     local branches={}
@@ -379,10 +424,11 @@ local function place_exploration(map, terrain, art, footprint, seed, attempt)
         x=door_socket.x,y=door_socket.y}
 end
 
-local function build(seed,attempt,derived_seed)
+local function build(seed,attempt,derived_seed,biome)
     local rng=RNG.new(derived_seed)
-    local graph=Generation.plan(rng)
-    local map={id=Generation.map_id,floor_id=Generation.floor_id,
+    local graph=Generation.plan(rng,biome)
+    local map={id=biome.map_id,floor_id=biome.floor_id,biome_id=biome.id,
+        strategy=biome.strategy,
         width=Generation.width,height=Generation.height,
         seed=seed,attempt=attempt,derived_seed=derived_seed,
         graph=graph,rooms={},corridors={},protected_cells={},editable_cells={},
@@ -392,11 +438,13 @@ local function build(seed,attempt,derived_seed)
     local footprint={}
     local by_id={}
     for _,node in ipairs(graph.nodes) do
-        local pool=Rooms.for_role(node.role)
-        local def=pool[RNG.next_int(rng,#pool)]
+        local pool=Rooms.for_role(node.role,biome.id)
+        local def=biome.hub_template_id and node.id==6
+            and Rooms.definitions[biome.hub_template_id]
+            or pool[RNG.next_int(rng,#pool)]
         local turn=def.rotations[RNG.next_int(rng,#def.rotations)]
         local transformed=Rooms.transform(def,turn,def.mirror and RNG.next_int(rng,2)==1)
-        local room=stamp_room(map,terrain,art,footprint,rng,node,transformed)
+        local room=stamp_room(map,terrain,art,footprint,rng,node,transformed,biome)
         map.rooms[#map.rooms+1]=room
         by_id[node.id]=room
     end
@@ -410,7 +458,7 @@ local function build(seed,attempt,derived_seed)
         elseif a.center.y<b.center.y then facing_a,facing_b="S","N"
         else facing_a,facing_b="N","S" end
         local from,to=socket_for(a,facing_a),socket_for(b,facing_b)
-        local cells=corridor_path(from,to,rng)
+        local cells=corridor_path(from,to,rng,biome)
         local corridor={edge_id=edge.id,from_room=a.id,to_room=b.id,
             from_socket={x=from.x,y=from.y,facing=from.facing},
             to_socket={x=to.x,y=to.y,facing=to.facing},
@@ -422,7 +470,7 @@ local function build(seed,attempt,derived_seed)
                 and (owner==a.id or owner==b.id),
                 "corridor intersects authored room")
             terrain[p.y][p.x]="."
-            art[p.y][p.x]="c"
+            art[p.y][p.x]=biome.corridor_visual
             if not owner then
                 map.editable_cells[#map.editable_cells+1]={x=p.x,y=p.y,kind="corridor"}
             end
@@ -437,9 +485,81 @@ local function build(seed,attempt,derived_seed)
             if ax>1 and ax<map.width and ay>1 and ay<map.height
                 and not footprint[key(ax,ay)] then
                 terrain[ay][ax]="."
-                art[ay][ax]="m"
+                art[ay][ax]=biome.floor_visual
                 corridor.alcoves[#corridor.alcoves+1]={x=ax,y=ay}
                 map.editable_cells[#map.editable_cells+1]={x=ax,y=ay,kind="alcove"}
+            end
+        end
+        if biome.strategy=="canals" then
+            -- A second bank parallels one long straight gallery segment.
+            -- Both ends reconnect, so it is a usable flank, not decoration.
+            local best_start,best_end,best_length=nil,nil,0
+            local run_start=1
+            for i=3,#cells do
+                local a0,a1,a2=cells[i-2],cells[i-1],cells[i]
+                local same=(a1.x-a0.x==a2.x-a1.x and
+                    a1.y-a0.y==a2.y-a1.y)
+                if not same or i==#cells then
+                    local finish=same and i or i-1
+                    if finish-run_start+1>best_length then
+                        best_start,best_end,best_length=run_start,finish,
+                            finish-run_start+1
+                    end
+                    run_start=i-1
+                end
+            end
+            if best_length>=9 then
+                local first,last=cells[best_start+2],cells[best_end-2]
+                local horizontal=first.y==last.y
+                for _,side in ipairs({2,-2}) do
+                    local extra={}
+                    local function push(x,y) extra[#extra+1]={x=x,y=y} end
+                    for step=1,2 do
+                        push(first.x+(horizontal and 0 or side/2*step),
+                            first.y+(horizontal and side/2*step or 0))
+                    end
+                    local steps=math.abs(last.x-first.x)+math.abs(last.y-first.y)
+                    for step=1,steps do
+                        push(first.x+(horizontal and (last.x>first.x and step or -step) or side),
+                            first.y+(horizontal and side or (last.y>first.y and step or -step)))
+                    end
+                    for step=1,2 do
+                        push(last.x+(horizontal and 0 or side-side/2*step),
+                            last.y+(horizontal and side-side/2*step or 0))
+                    end
+                    local safe=true
+                    for _,p in ipairs(extra) do
+                        if p.x<=1 or p.x>=map.width or p.y<=1 or p.y>=map.height
+                            or footprint[key(p.x,p.y)] then safe=false;break end
+                    end
+                    if safe then
+                        for _,p in ipairs(extra) do
+                            terrain[p.y][p.x]="."
+                            art[p.y][p.x]="b"
+                            map.editable_cells[#map.editable_cells+1]={x=p.x,y=p.y,kind="parallel_bank"}
+                        end
+                        corridor.parallel=extra
+                        break
+                    end
+                end
+            end
+        elseif biome.strategy=="courtyards" then
+            -- Wider passage nodes around wings create little defensible hubs.
+            for i=6,#cells-5,10 do
+                local p=cells[i]
+                local widened={}
+                for dy=-1,1 do for dx=-1,1 do
+                    local x,y=p.x+dx,p.y+dy
+                    if x>1 and x<map.width and y>1 and y<map.height
+                        and not footprint[key(x,y)] then
+                        terrain[y][x]="."
+                        art[y][x]="t"
+                        map.editable_cells[#map.editable_cells+1]={x=x,y=y,kind="courtyard_node"}
+                        widened[#widened+1]={x=x,y=y}
+                    end
+                end end
+                corridor.widened=corridor.widened or {}
+                corridor.widened[#corridor.widened+1]=widened
             end
         end
         map.corridors[#map.corridors+1]=corridor
@@ -449,7 +569,7 @@ local function build(seed,attempt,derived_seed)
     map.start_x,map.start_y=start.x,start.y
     map.elite={floor_id=map.floor_id,x=elite.x,y=elite.y,room_id=12,
         kind="reserved_elite_arena"}
-    assign_placements(map)
+    assign_placements(map,biome)
     place_exploration(map,terrain,art,footprint,seed,attempt)
     map.rows=serialize_grid(terrain)
     map.visual_rows=serialize_grid(art)
@@ -484,9 +604,10 @@ function Generation.validate(map,runtime_secrets)
     end
     local ok,reason=pcall(Content.validate_map,map)
     if not ok then issue("map_invalid",0,0,tostring(reason)); return false,errors end
-    if map.id~=Generation.map_id or
-        (map.floor_id~=Generation.floor_id and not
-            map.floor_id:match("^"..Generation.floor_id.."/stage/[2-9]$"))
+    local biome=Biomes.get(map.biome_id or Biomes.order[1])
+    if not biome or map.id~=biome.map_id or
+        (map.floor_id~=biome.floor_id and not
+            map.floor_id:match("^"..biome.floor_id.."/stage/[2-9]$"))
         or type(map.graph)~="table" or type(map.rooms)~="table"
         or type(map.corridors)~="table" or type(map.placements)~="table" then
         issue("metadata_invalid",0,0,"missing generated floor records")
@@ -787,7 +908,7 @@ function Generation.validate(map,runtime_secrets)
         issue("visual_invalid",0,0,"missing visual layer")
     else
         for y,row_text in ipairs(art) do
-            if #row_text~=map.width or row_text:find("[^wsmcavrkp]") then
+            if #row_text~=map.width or row_text:find("[^wsmcavrkpFfWbTtq]") then
                 issue("visual_invalid",0,y,"invalid decoration layer")
             end
         end
@@ -815,7 +936,8 @@ function Generation.repair(map,limit)
         end
         if not candidate then break end
         if candidate.kind=="corridor_blocked" then
-            set_tile(map,candidate.x,candidate.y,".","c")
+            local biome=Biomes.get(map.biome_id or Biomes.order[1])
+            set_tile(map,candidate.x,candidate.y,".",biome.corridor_visual)
         else
             local secret
             for _,place in ipairs(map.placements.secrets) do
@@ -859,7 +981,19 @@ end
 
 function Generation.generate(seed,options)
     options=options or {}
-    Rooms.validate()
+    local biome=assert(Biomes.get(options.biome_id or Biomes.order[1]),
+        "unknown generation biome")
+    Biomes.validate()
+    local order={}
+    for _,base_id in ipairs(Rooms.order) do
+        order[#order+1]=biome.room_prefix..base_id:match("[^/]+$")
+    end
+    local biome_rules={id=biome.id,floor_id=biome.floor_id,
+        width=Generation.width,height=Generation.height,
+        room_min=Generation.room_min,room_max=Generation.room_max,
+        standard_chests=Generation.chest_target,retry_limit=Rooms.biome.retry_limit,
+        enemy_ids=biome.enemy_ids}
+    Rooms.validate(Rooms.definitions,order,biome_rules)
     World.validate()
     RNG.new(seed)
     local retry_limit=options.retry_limit or Rooms.biome.retry_limit
@@ -867,8 +1001,8 @@ function Generation.generate(seed,options)
         and retry_limit>=0 and retry_limit<=8,"invalid generation retry budget")
     local attempts={}
     for attempt=0,retry_limit do
-        local derived=RNG.derive(seed,Generation.floor_id..":"..attempt)
-        local ok,map_or_error=pcall(build,seed,attempt,derived)
+        local derived=RNG.derive(seed,biome.floor_id..":"..attempt)
+        local ok,map_or_error=pcall(build,seed,attempt,derived,biome)
         local map=ok and map_or_error or nil
         if map then
             if options.fault then inject_fault(map,options.fault) end
@@ -886,8 +1020,8 @@ function Generation.generate(seed,options)
         end
     end
     -- Known safe deterministic reference candidate, independently validated on every use.
-    local fallback_seed=RNG.derive(314159,Generation.floor_id..":fallback")
-    local fallback=build(seed,-1,fallback_seed)
+    local fallback_seed=RNG.derive(314159,biome.floor_id..":fallback")
+    local fallback=build(seed,-1,fallback_seed,biome)
     local valid,errors=Generation.validate(fallback)
     assert(valid,"prevalidated fallback failed: "..(errors[1] and errors[1].kind or "unknown"))
     fallback.diagnostics={attempts=attempts,fallback=true,

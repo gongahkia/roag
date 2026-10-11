@@ -1,7 +1,8 @@
 -- Editor-friendly authored Overgrown Ruins rooms. All definition fields are plain data.
 local Content = require("src.content")
+local Biomes = require("src.biomes")
 local Rooms = {}
-Rooms.version = "roeg-rooms/1"
+Rooms.version = "roeg-rooms/2"
 Rooms.biome = {id="core:biome/overgrown_ruins", floor_id="core:floor/overgrown_ruins",
     width=140,height=90,room_min=8,room_max=12,standard_chests=5,
     retry_limit=2,
@@ -77,6 +78,100 @@ Rooms.definitions = {
         rotations={0,1,2,3}, mirror=true, protected_default=true},
 }
 
+-- Each variant is materialized as the same plain-data template schema. The
+-- construction recipe only authors protected geometry; runtime never mutates
+-- a shared definition. An editor can serialize the resulting rows directly.
+local function variant(base,biome)
+    local function clone(value)
+        if type(value)~="table" then return value end
+        local out={}
+        for k,v in pairs(value) do out[k]=clone(v) end
+        return out
+    end
+    local def=clone(base)
+    def.id=biome.room_prefix..base.id:match("[^/]+$")
+    local w,h=#def.rows[1],#def.rows
+    local reserved={}
+    for _,socket in ipairs(def.sockets) do
+        reserved[socket.y..":"..socket.x]=true
+        local dx=socket.facing=="W" and 1 or socket.facing=="E" and -1 or 0
+        local dy=socket.facing=="N" and 1 or socket.facing=="S" and -1 or 0
+        reserved[(socket.y+dy)..":"..(socket.x+dx)]=true
+    end
+    for _,points in pairs(def.markers) do
+        for _,p in ipairs(points) do
+            reserved[p.y..":"..p.x]=true
+            for _,d in ipairs({{1,0},{-1,0},{0,1},{0,-1}}) do
+                reserved[(p.y+d[2])..":"..(p.x+d[1])]=true
+            end
+        end
+    end
+    reserved[math.floor((h+1)/2)..":"..math.floor((w+1)/2)]=true
+    local grid={}
+    local new_walls={}
+    for y,row in ipairs(def.rows) do
+        grid[y]={}
+        for x=1,w do grid[y][x]=row:sub(x,x) end
+    end
+    local function wall(x,y)
+        if x>1 and x<w and y>1 and y<h and not reserved[y..":"..x] then
+            grid[y][x]="#"
+            new_walls[y..":"..x]=true
+        end
+    end
+    if biome.strategy=="warrens" then
+        -- Broken roundish corners and offset mushroom clusters leave wide
+        -- central pockets and four protected socket approaches.
+        for _,p in ipairs({{3,2},{w-2,2},{2,3},{w-1,3},
+            {2,h-2},{w-1,h-2},{3,h-1},{w-2,h-1}}) do wall(p[1],p[2]) end
+        if w>=15 then
+            for _,p in ipairs({{5,4},{6,4},{w-5,h-3},{w-6,h-3}}) do wall(p[1],p[2]) end
+        end
+    elseif biome.strategy=="canals" then
+        -- Paired channel banks with multiple bridge gaps; the long gallery
+        -- axis stays open for the Lancer and can be flanked from either side.
+        if w>=15 then
+            for y=3,h-2 do
+                if y~=math.floor((h+1)/2) and y~=4 and y~=h-3 then
+                    wall(4,y);wall(w-3,y)
+                end
+            end
+        else wall(3,3);wall(w-2,h-2) end
+        -- Authored channel cells are impassable shallow water but transparent
+        -- to sight and projectiles. Boundary masonry stays solid stone.
+        for y=2,h-1 do for x=2,w-1 do
+            if grid[y][x]=="#" then grid[y][x]="~" end
+        end end
+    elseif biome.strategy=="courtyards" then
+        -- Corner ramparts and staggered wing partitions frame an open center.
+        for _,p in ipairs({{3,3},{w-2,3},{3,h-2},{w-2,h-2}}) do wall(p[1],p[2]) end
+        if w>=15 then
+            for x=5,w-4 do
+                if x~=math.floor((w+1)/2) and x%3~=0 then
+                    wall(x,3);wall(x,h-2)
+                end
+            end
+        end
+    end
+    for y=1,h do def.rows[y]=table.concat(grid[y]) end
+    -- Retain authored variation points outside new partitions. In canals,
+    -- editable water toggles to walkable bridge cells during generation.
+    def.editable={}
+    for _,p in ipairs(base.editable or {}) do
+        if not new_walls[p.y..":"..p.x] then
+            def.editable[#def.editable+1]={x=p.x,y=p.y}
+        end
+    end
+    return def
+end
+for index=2,#Biomes.order do
+    local biome=Biomes.get(Biomes.order[index])
+    for _,base_id in ipairs(Rooms.order) do
+        local definition=variant(Rooms.definitions[base_id],biome)
+        Rooms.definitions[definition.id]=definition
+    end
+end
+
 local facings = {N=true,E=true,S=true,W=true}
 local marker_kinds = {player=true,enemy=true,chest=true,landmark=true,
     elite=true,secret_anchor=true,secret_wall=true}
@@ -88,11 +183,10 @@ local function has_role(def, role)
 end
 Rooms.has_role = has_role
 
-function Rooms.validate(definitions, order)
+function Rooms.validate(definitions, order, biome)
     definitions, order = definitions or Rooms.definitions, order or Rooms.order
-    local biome=Rooms.biome
-    assert(biome.id=="core:biome/overgrown_ruins"
-        and biome.floor_id=="core:floor/overgrown_ruins"
+    biome=biome or Rooms.biome
+    assert(type(biome.id)=="string" and type(biome.floor_id)=="string"
         and type(biome.width)=="number" and biome.width%1==0 and biome.width>=80
         and type(biome.height)=="number" and biome.height%1==0 and biome.height>=60
         and type(biome.room_min)=="number" and biome.room_min%1==0
@@ -123,7 +217,7 @@ function Rooms.validate(definitions, order)
         assert(w >= 7 and h >= 7 and w % 2 == 1 and h % 2 == 1,
             "invalid room dimensions: " .. id)
         for y, row in ipairs(def.rows) do
-            assert(#row == w and not row:find("[^.#]"),
+            assert(#row == w and not row:find("[^.#~]"),
                 "invalid room tile in " .. id .. " row " .. y)
         end
         assert(def.protected_default == true, "room needs a protected mask: " .. id)
@@ -279,9 +373,12 @@ function Rooms.transform(def, turns, mirror)
         turns=turns,mirror=mirror,protected_default=true}
 end
 
-function Rooms.for_role(role)
+function Rooms.for_role(role,biome_id)
     local result={}
-    for _, id in ipairs(Rooms.order) do
+    local biome=Biomes.get(biome_id or Rooms.biome.id)
+    assert(biome,"unknown room biome")
+    for _, base_id in ipairs(Rooms.order) do
+        local id=biome.room_prefix..base_id:match("[^/]+$")
         local def=Rooms.definitions[id]
         if has_role(def,role) then result[#result+1]=def end
     end

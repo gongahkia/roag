@@ -9,9 +9,23 @@ cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
+local Biomes=require('src.biomes')
 local mode=assert(os.getenv('ROEG_PROFILE_SCENE'))
 local tracked,boon_activations
 boon_activations=0
+if mode=='fungal' or mode=='aqueduct' or mode=='bastion' then
+    local id=mode=='fungal' and Biomes.order[2]
+        or mode=='aqueduct' and Biomes.order[3] or Biomes.order[4]
+    local original=Game.new_stage
+    function Game.new_stage(seed)
+        local index=mode=='bastion' and 3 or 2
+        tracked=original(seed,{stage_options={index=index,biome_id=id,
+            route_history=index==3 and {"core:route/fungal_hollows",
+                "core:route/ashen_bastion"}
+                or {(id:gsub('^core:biome/','core:route/'))}}})
+        return tracked
+    end
+end
 if mode=='boon' or mode=='crowd' then
     function Game.new_stage(seed)
         tracked=Game.new(seed,'core:map/scrolling_room',
@@ -83,7 +97,8 @@ end
 function love.draw(...)
     old_draw(...)
     frames=frames+1
-    if mode=='generated' then
+    if mode=='generated' or mode=='fungal' or mode=='aqueduct'
+        or mode=='bastion' then
         if frames==50 then love.keypressed('tab') end
         if frames==100 then love.keypressed('tab') end
         if frames>120 and frames<165 and frames%4==0 then
@@ -116,7 +131,7 @@ function love.draw(...)
     end
 end
 LUA
-for scene in generated boon crowd; do
+for scene in generated boon crowd fungal aqueduct bastion; do
     ROEG_PROFILE_SCENE="$scene" ROEG_PROFILE_OUTPUT="$output_dir" \
       ROEG_GUI_AUTOSTART=1 ROEG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
       timeout 30s love "$output_dir"

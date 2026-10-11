@@ -210,7 +210,7 @@ local function write_record(self,kind,snapshot)
     return true,seq
 end
 function P.save(self,state)
-    if state.game_over or (state.stage and state.stage.phase=='prototype_endpoint') then
+    if state.game_over then
         return P.tombstone(self)
     end
     local snapshot=Game.snapshot(state)

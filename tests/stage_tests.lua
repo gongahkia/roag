@@ -456,11 +456,14 @@ return function(test,equal)
         assert(committed,err)
         assert(#events(out,"StageEntered")==1 and state.stage.index==2
             and state.clock==0 and #state.retired_stages==1)
-        assert(state.run_seed==RNG.derive(root,"stage:2:core:route/ruined"))
+        assert(state.run_seed==RNG.derive(root,"stage:2:core:route/sunken_aqueduct")
+            and state.stage.biome_id=="core:biome/sunken_aqueduct"
+            and state.generated_map.strategy=="canals")
         assert(Game.submit(alternative,{kind="choose_route",exit_id=exit.id,
             route_index=1}))
         assert(alternative.run_seed~=state.run_seed)
-        assert(state.player_id>=next_id and state.stage.route_history[1]=="core:route/ruined")
+        assert(state.player_id>=next_id and
+            state.stage.route_history[1]=="core:route/sunken_aqueduct")
         player=Game.player(state)
         assert(player.hp==17 and player.max_hp==31 and state.currency==13
             and state.progression.level==2 and state.progression.xp_total==7
@@ -472,7 +475,7 @@ return function(test,equal)
         assert(not Game.submit(state,{kind="choose_route",exit_id=exit.id,route_index=2}))
     end)
 
-    test("three prototype stages end at explicit non-victory gateway",function()
+    test("three biome stages hand off to a living final boss, not victory",function()
         local state=Game.new_stage(9)
         for index=1,3 do
             defeat(state)
@@ -483,11 +486,14 @@ return function(test,equal)
                 route_index=1})
             assert(ok,reason)
             if index<3 then assert(state.stage.index==index+1 and state.stage.phase=="exploring")
-            else assert(state.stage.phase=="prototype_endpoint" and not state.game_over) end
+            else assert(state.finale and state.finale.phase=="active"
+                and not state.game_over and not state.victory
+                and Game.entity(state,state.finale.boss_id)
+                and #state.retired_stages==3) end
         end
-        assert(#state.stage.route_history==3)
+        assert(#state.finale.route_history==3)
         equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
-        assert(not Game.submit(state,{kind="wait"}))
+        assert(Game.submit(state,{kind="wait"}))
     end)
 
     test("continuous controlled elite fight, reward, pursuer, route and next-stage combat",function()

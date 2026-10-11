@@ -107,11 +107,14 @@ function Rewards.on_event(state, event, emit)
     local definition = Content.get_enemy(event.target_definition_id)
     if not definition or state.rewarded_kills[event.target_id] then return end
     state.rewarded_kills[event.target_id] = true
-    if event.source_id == state.player_id and event.source_faction == "player" then
+    if definition.xp_reward>0 and event.source_id == state.player_id
+        and event.source_faction == "player" then
         Rewards.gain_xp(state, definition.xp_reward, event, emit)
     end
-    Rewards.spawn_currency(state,definition.currency_drop,event.floor_id,
-        event.x,event.y,emit,event.source_id,nil,event.target_id)
+    if definition.currency_drop>0 then
+        Rewards.spawn_currency(state,definition.currency_drop,event.floor_id,
+            event.x,event.y,emit,event.source_id,nil,event.target_id)
+    end
 end
 
 function Rewards.spawn_currency(state,amount,floor_id,x,y,emit,source_id,secret_id,killed_entity_id)

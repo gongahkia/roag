@@ -1,6 +1,7 @@
 local Camera = require("src.camera")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
+local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
 local Playback = require("src.playback")
@@ -80,11 +81,12 @@ local labels = {
 }
 
 local function visible_at(x,y)
-    return not state.generated_map or Game.is_visible(state,state.active_floor_id,x,y)
+    return not (state.generated_map or state.finale) or
+        Game.is_visible(state,state.active_floor_id,x,y)
 end
 
 local function visible_event(event)
-    if not state.generated_map then return true end
+    if not (state.generated_map or state.finale) then return true end
     local spatial=false
     if event.x and event.y and visible_at(event.x,event.y) then return true end
     if event.x and event.y then spatial=true end
@@ -98,7 +100,7 @@ local function visible_event(event)
 end
 
 local function visible_events(events)
-    if not state.generated_map then return events end
+    if not (state.generated_map or state.finale) then return events end
     local shown={}
     for _,event in ipairs(events) do
         if visible_event(event) then shown[#shown+1]=event end
@@ -202,9 +204,10 @@ end
 
 local function submit(intent)
     local old_stage=state.stage and state.stage.index
+    local old_floor=state.active_floor_id
     local committed, reason, events, preview = Game.submit(state, intent)
     if committed then
-        if state.stage and old_stage~=state.stage.index then
+        if old_floor~=state.active_floor_id then
             playback=Playback.new() -- historical attacks belong to the retired floor.
             reset_camera()
         end
@@ -218,8 +221,7 @@ local function submit(intent)
             end
         end
         local milestone=state.game_over or
-            (state.stage and state.stage.phase=="prototype_endpoint") or
-            (state.stage and old_stage~=state.stage.index) or
+            old_floor~=state.active_floor_id or
             (state.last_action and state.last_action.kind=="claim_chest")
         for _,event in ipairs(events) do
             if event.kind=="EliteDefeated" or event.kind=="PursuerArrived" then
@@ -236,9 +238,9 @@ local function submit(intent)
         elseif action.kind == "open_door" then
             notice = ("Opened door: +%d time"):format(action.cost)
         elseif action.kind == "choose_route" then
-            notice = state.stage.phase=="prototype_endpoint"
-                and "End of current prototype — final boss pending"
-                or ("Stage %d: prototype Overgrown Ruins route"):format(state.stage.index)
+            notice = state.finale and "Final Sanctum — Hollow Regent"
+                or ("Stage %d: %s"):format(state.stage.index,
+                    Biomes.get(state.stage.biome_id).name)
         else
             notice = ("%s: +%d time"):format(labels[action.kind], action.cost)
         end
@@ -255,6 +257,12 @@ local function submit(intent)
                 notice = "Pursuer route unavailable — exit remains open"
             elseif event.kind == "ElitePhaseChanged" then
                 notice = "Thorn Warden enters phase two"
+            elseif event.kind == "RegentPhaseChanged" then
+                notice = "Hollow Regent enters phase two"
+            elseif event.kind == "RegentDefeated" then
+                notice = "The Hollow Regent falls"
+            elseif event.kind == "Victory" then
+                notice = "VICTORY — the Hollow Regent is defeated"
             end
         end
     else
@@ -389,8 +397,7 @@ function love.keypressed(key, _, isrepeat)
         notice="Boon list page — no time"
         return
     end
-    if Playback.busy(playback) or state.game_over
-        or (state.stage and state.stage.phase=="prototype_endpoint") then return end
+    if Playback.busy(playback) or state.game_over then return end
     if key == "b" and not targeting then
         showcase_index = (showcase_index + 1) % (#showcase + 1)
         apply_showcase()
@@ -472,12 +479,36 @@ local function draw_enemies()
                 love.graphics.setColor(0.70, 0.40, 0.80)
                 love.graphics.polygon("fill", x + 15, y + 3, x + 28, y + 15,
                     x + 15, y + 27, x + 2, y + 15)
+            elseif enemy.ai_id=="spore_herald" then
+                love.graphics.setColor(0.50,0.87,0.88)
+                love.graphics.circle("fill",x+16,y+17,10)
+                love.graphics.setColor(0.82,0.45,0.90)
+                love.graphics.circle("fill",x+11,y+9,5)
+                love.graphics.circle("fill",x+22,y+10,5)
+            elseif enemy.ai_id=="canal_lancer" then
+                love.graphics.setColor(0.28,0.76,0.90)
+                love.graphics.rectangle("fill",x+6,y+8,18,19)
+                love.graphics.setColor(0.86,0.92,0.77)
+                love.graphics.line(x+24,y+4,x+24,y+28)
+            elseif enemy.ai_id=="cinder_bellkeeper" then
+                love.graphics.setColor(0.82,0.47,0.28)
+                love.graphics.rectangle("fill",x+5,y+8,22,18)
+                love.graphics.setColor(1,0.78,0.35)
+                love.graphics.circle("line",x+16,y+10,8)
             elseif enemy.ai_id=="warden" then
                 love.graphics.setColor(0.42,0.75,0.22)
                 love.graphics.rectangle("fill",x+3,y+3,26,24)
                 love.graphics.setColor(0.78,0.32,0.27)
                 love.graphics.polygon("fill",x+4,y+4,x+16,y-5,x+28,y+4)
                 love.graphics.print(enemy.phase_two and "II" or "I",x+9,y+7)
+            elseif enemy.ai_id=="hollow_regent" then
+                love.graphics.setColor(0.59,0.31,0.76)
+                love.graphics.polygon("fill",x+16,y+1,x+29,y+12,
+                    x+25,y+27,x+7,y+27,x+3,y+12)
+                love.graphics.setColor(0.96,0.77,0.43)
+                love.graphics.polygon("line",x+3,y+10,x+8,y+2,
+                    x+16,y+8,x+24,y+2,x+29,y+10)
+                love.graphics.print(enemy.phase_two and "II" or "I",x+10,y+10)
             elseif enemy.ai_id=="pursuer" then
                 love.graphics.setColor(0.55,0.86,1,0.85)
                 love.graphics.circle("fill",x+16,y+14,12)
@@ -607,7 +638,7 @@ local function draw_preview()
 end
 
 local function draw_minimap()
-    if not state.generated_map or not minimap_visible then return end
+    if not (state.generated_map or state.finale) or not minimap_visible then return end
     local map=Content.map_for(state)
     local known=state.explored[map.floor_id]
     local scale=1.3
@@ -621,8 +652,11 @@ local function draw_minimap()
         local x=(at-1)%map.width+1
         local y=math.floor((at-1)/map.width)+1
         local current=visible_at(x,y)
-        local wall=map.rows[y]:sub(x,x)=="#"
-        if wall then
+        local tile=map.rows[y]:sub(x,x)
+        if tile=="~" then
+            love.graphics.setColor(current and 0.23 or 0.10,
+                current and 0.51 or 0.22,current and 0.70 or 0.30)
+        elseif tile=="#" then
             love.graphics.setColor(current and 0.54 or 0.22,
                 current and 0.64 or 0.28,current and 0.54 or 0.24)
         else
@@ -663,6 +697,7 @@ end
 
 local function draw_world()
     local map = Content.map_for(state)
+    local clue=Biomes.get(map.biome_id or Biomes.order[1]).clue_color
     love.graphics.setScissor(VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
     love.graphics.setColor(0.09, 0.13, 0.11)
     love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
@@ -672,17 +707,29 @@ local function draw_world()
     local max_y=math.min(map.height,math.ceil((camera.y+VIEWPORT.height/2)/TILE)+1)
     for y = min_y, max_y do
         for x = min_x, max_x do
-            if not state.generated_map or
+            if not (state.generated_map or state.finale) or
                 Game.was_explored(state,map.floor_id,x,y) then
             local screen_x, screen_y = Camera.tile_top_left(camera, x, y)
-            local wall = map.rows[y]:sub(x, x) == "#"
+            local tile=map.rows[y]:sub(x,x)
+            local wall = tile == "#"
             local visual=map.visual_rows and map.visual_rows[y]:sub(x,x) or nil
-            local remembered=state.generated_map and not visible_at(x,y)
+            local remembered=(state.generated_map or state.finale) and not visible_at(x,y)
             local r,g,b
-            if wall then
+            if tile=="~" then
+                r,g,b=0.10,0.29,0.42
+            elseif wall then
                 r,g,b=0.26,0.33,0.29
+                if visual=="F" then r,g,b=0.23,0.31,0.36
+                elseif visual=="W" then r,g,b=0.20,0.32,0.42
+                elseif visual=="T" then r,g,b=0.39,0.29,0.28 end
             elseif visual=="a" then
                 r,g,b=0.29,0.25,0.35
+            elseif visual=="f" then
+                r,g,b=0.17,0.31,0.31
+            elseif visual=="b" then
+                r,g,b=0.20,0.36,0.43
+            elseif visual=="t" then
+                r,g,b=0.36,0.27,0.24
             elseif visual=="c" then
                 r,g,b=0.24,0.25,0.20
             elseif visual=="m" then
@@ -695,14 +742,19 @@ local function draw_world()
                 r,g,b=0.15,0.20,0.17
             end
             if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
+            if state.finale then
+                if wall then r,g,b=0.25,0.19,0.35
+                else r,g,b=0.24,0.19,0.29 end
+                if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
+            end
             love.graphics.setColor(r,g,b)
             love.graphics.rectangle("fill", screen_x, screen_y, TILE - 2, TILE - 2)
             if not remembered and visual=="k" then
-                love.graphics.setColor(0.39,0.55,0.30,0.78)
+                love.graphics.setColor(clue[1],clue[2],clue[3],0.78)
                 love.graphics.line(screen_x+9,screen_y+6,screen_x+17,screen_y+16,
                     screen_x+12,screen_y+25)
             elseif not remembered and visual=="p" then
-                love.graphics.setColor(0.34,0.51,0.27,0.73)
+                love.graphics.setColor(clue[1],clue[2],clue[3],0.73)
                 love.graphics.circle("line",screen_x+16,screen_y+16,6)
                 love.graphics.circle("fill",screen_x+16,screen_y+16,2)
             elseif not remembered and visual=="m" then
@@ -719,6 +771,20 @@ local function draw_world()
             elseif not remembered and visual=="w" and map.visual_rows then
                 love.graphics.setColor(0.34,0.45,0.30,0.5)
                 love.graphics.rectangle("fill",screen_x+3,screen_y+3,7,3)
+            elseif not remembered and visual=="f" then
+                love.graphics.setColor(0.42,0.81,0.77,0.60)
+                love.graphics.circle("fill",screen_x+8,screen_y+10,2)
+                love.graphics.circle("fill",screen_x+23,screen_y+23,2)
+            elseif not remembered and visual=="b" then
+                love.graphics.setColor(0.52,0.76,0.84,0.48)
+                love.graphics.line(screen_x+4,screen_y+24,screen_x+26,screen_y+24)
+            elseif not remembered and visual=="q" then
+                love.graphics.setColor(0.40,0.68,0.81,0.72)
+                love.graphics.line(screen_x+3,screen_y+10,screen_x+12,screen_y+10)
+                love.graphics.line(screen_x+17,screen_y+22,screen_x+28,screen_y+22)
+            elseif not remembered and visual=="t" then
+                love.graphics.setColor(0.72,0.48,0.34,0.52)
+                love.graphics.line(screen_x+4,screen_y+14,screen_x+27,screen_y+14)
             end
             end
         end
@@ -749,6 +815,18 @@ local function draw_world()
                 elite.phase_two and 2 or 1,elite.hp,elite.max_hp),239,34)
             love.graphics.setColor(0.37,0.72,0.25)
             love.graphics.rectangle("fill",239,52,310*elite.hp/elite.max_hp,5)
+        end
+    end
+    if state.finale and state.finale.phase=="active" then
+        local boss=Game.entity(state,state.finale.boss_id)
+        if boss and visible_at(boss.position.x,boss.position.y) then
+            love.graphics.setColor(0.05,0.04,0.09,0.88)
+            love.graphics.rectangle("fill",220,27,350,39)
+            love.graphics.setColor(0.94,0.78,0.95)
+            love.graphics.print(("HOLLOW REGENT  phase %d  %d/%d HP"):format(
+                boss.phase_two and 2 or 1,boss.hp,boss.max_hp),229,34)
+            love.graphics.setColor(0.68,0.37,0.82)
+            love.graphics.rectangle("fill",229,53,328*boss.hp/boss.max_hp,5)
         end
     end
     local position = Game.player(state).position
@@ -788,8 +866,8 @@ local function draw_world()
         love.graphics.rectangle("fill",85,145,600,310)
         love.graphics.setColor(0.66,0.91,1)
         love.graphics.print(route_menu.stage_index>=3
-            and "Final boss gateway — prototype endpoint"
-            or "Choose a route — prototype stages",105,165)
+            and "Enter the Final Sanctum"
+            or "Choose a route — next biome",105,165)
         for index,route in ipairs(route_menu.routes) do
             love.graphics.setColor(index==route_menu.selected and 1 or 0.76,
                 index==route_menu.selected and 0.87 or 0.85,0.67)
@@ -797,21 +875,51 @@ local function draw_world()
             love.graphics.print(route.description,130,230+(index-1)*75)
         end
         love.graphics.setColor(0.9,0.95,0.9)
-        love.graphics.print("1/2 select · Enter confirm · Esc cancel (no time)",105,410)
-    end
-    if state.stage and state.stage.phase=="prototype_endpoint" then
-        love.graphics.setColor(0,0,0,0.80)
-        love.graphics.rectangle("fill",VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height)
-        love.graphics.setColor(0.72,0.93,1)
-        love.graphics.printf("End of current prototype — final boss pending",
-            VIEWPORT.x,VIEWPORT.y+VIEWPORT.height/2-10,VIEWPORT.width,"center")
+        love.graphics.print(route_menu.stage_index>=3
+            and "Enter confirm · Esc cancel (no time)"
+            or "1/2 select · Enter confirm · Esc cancel (no time)",105,410)
     end
     if state.game_over and not Playback.busy(playback) then
-        love.graphics.setColor(0, 0, 0, 0.65)
+        love.graphics.setColor(0, 0, 0, 0.84)
         love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
-        love.graphics.setColor(1, 0.36, 0.33)
-        love.graphics.printf("GAME OVER — press N to restart", VIEWPORT.x,
-            VIEWPORT.y + VIEWPORT.height / 2 - 10, VIEWPORT.width, "center")
+        if state.victory then
+            local result=state.victory
+            local names={"Overgrown Ruins"}
+            for index=1,2 do
+                local biome_id=result.route_history[index]:gsub("^core:route/","core:biome/")
+                names[#names+1]=Biomes.get(biome_id).name
+            end
+            local owned={}
+            for _,id in ipairs(BoonContent.order) do
+                local stacks=result.boons[id]
+                if stacks then
+                    local total=0
+                    for _,rarity in ipairs(BoonContent.rarities) do
+                        total=total+(stacks[rarity] or 0)
+                    end
+                    if total>0 then owned[#owned+1]=BoonContent.get(id).name.." x"..total end
+                end
+            end
+            love.graphics.setColor(1,0.82,0.43)
+            love.graphics.printf("VICTORY",VIEWPORT.x,130,VIEWPORT.width,"center")
+            love.graphics.setColor(0.92,0.89,0.96)
+            love.graphics.printf("Hollow Regent defeated · Seed "..result.seed,
+                VIEWPORT.x,168,VIEWPORT.width,"center")
+            love.graphics.printf(table.concat(names," > "),VIEWPORT.x+30,199,
+                VIEWPORT.width-60,"center")
+            love.graphics.printf(("Adventurer · Level %d · XP %d · HP %d/%d · Currency %d"):format(
+                result.level,result.xp_total,result.hp,result.max_hp,result.currency),
+                VIEWPORT.x+30,235,VIEWPORT.width-60,"center")
+            love.graphics.printf("Simulated world time: "..result.world_time,
+                VIEWPORT.x+30,262,VIEWPORT.width-60,"center")
+            love.graphics.printf("Boons: "..(#owned>0 and table.concat(owned,", ") or "none"),
+                VIEWPORT.x+45,298,VIEWPORT.width-90,"center")
+            love.graphics.printf("N — New Run",VIEWPORT.x,408,VIEWPORT.width,"center")
+        else
+            love.graphics.setColor(1, 0.36, 0.33)
+            love.graphics.printf("GAME OVER — press N to restart", VIEWPORT.x,
+                VIEWPORT.y + VIEWPORT.height / 2 - 10, VIEWPORT.width, "center")
+        end
     end
     love.graphics.setScissor()
 end
@@ -819,7 +927,8 @@ end
 local function draw_panel()
     local position = Game.player(state).position
     love.graphics.setColor(0.93, 0.95, 0.88)
-    love.graphics.print("ROEG — Overgrown Ruins", PANEL_X, 26)
+    love.graphics.print("ROEG — "..(state.finale and "Final Sanctum" or
+        state.stage and Biomes.get(state.stage.biome_id).name or "Overgrown Ruins"), PANEL_X, 26)
     if state.generated_map then
         local arena=state.generated_map.elite
         local seen=Game.was_explored(state,state.active_floor_id,arena.x,arena.y)
@@ -828,6 +937,8 @@ local function draw_panel()
         love.graphics.print(("Stage %d %s · Seed %d"):format(
             state.stage and state.stage.index or 1,
             state.stage and state.stage.phase or "fixture",state.run_seed), PANEL_X, 43)
+    elseif state.finale then
+        love.graphics.print(("Final boss · Seed %d"):format(state.root_seed),PANEL_X,43)
     else
         love.graphics.print("Authored test map", PANEL_X, 43)
     end
@@ -859,6 +970,12 @@ local function draw_panel()
             love.graphics.print(stage.pursuer_id and "PURSUER ACTIVE — reach exit"
                 or "No pursuer route — exit open",PANEL_X,309)
         end
+    end
+    if state.finale then
+        love.graphics.setColor(0.89,0.66,0.96)
+        love.graphics.print("Hollow Regent · phase "..(state.finale.phase=="active"
+            and (Game.entity(state,state.finale.boss_id).phase_two and 2 or 1)
+            or "defeated"),PANEL_X,309)
     end
     if reward_notice_time > 0 and reward_notices[1] then
         love.graphics.setColor(1, 0.87, 0.39)
@@ -903,7 +1020,8 @@ local function draw_panel()
         elseif history.kind=="Moved" or history.kind=="Displaced" then
             playback_label="Movement"
         elseif history.kind=="WindupStarted" then
-            playback_label=("Locked windup: T%d → T%d"):format(history.time,history.due)
+            playback_label=("%s: T%d > T%d"):format(
+                Content.ability_name(history.ability_id),history.time,history.due)
         end
         love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 446, 265)
         love.graphics.print(history.kind=="WindupStarted" and
@@ -923,7 +1041,9 @@ local function draw_panel()
         if #strikes > 0 then
             love.graphics.setColor(1, 0.51, 0.43)
             love.graphics.print(("LIVE WINDUPS: %d"):format(#strikes), PANEL_X, 446)
-            love.graphics.print(("Next impact in %d time"):format(strikes[1].due - state.clock), PANEL_X, 465)
+            love.graphics.print(("%s in %d time"):format(
+                Content.ability_name(strikes[1].ability_id),
+                strikes[1].due-state.clock), PANEL_X, 465)
         else
             local effects = {}
             for _,effect in ipairs(Game.pending_boon_effects(state)) do
@@ -986,7 +1106,7 @@ end
 function love.draw()
     if title then
         love.graphics.setColor(0.88,0.94,0.83)
-        love.graphics.printf("ROEG — Overgrown Ruins",0,120,1024,"center")
+        love.graphics.printf("ROEG — Four Biomes",0,120,1024,"center")
         local can_continue=save_status and
             (save_status.status=="active" or save_status.status=="recovered")
         love.graphics.printf(can_continue and "C / Enter: Continue" or

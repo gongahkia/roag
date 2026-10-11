@@ -37,6 +37,27 @@ local function lane(state, enemy, player, minimum, maximum)
     return cells
 end
 
+local function clear_line(state,from,to)
+    local map=Content.map_for(state)
+    local x,y=from.x,from.y
+    local dx,dy=math.abs(to.x-x),math.abs(to.y-y)
+    local sx,sy=to.x>x and 1 or -1,to.y>y and 1 or -1
+    local err=dx-dy
+    while x~=to.x or y~=to.y do
+        local old_x,old_y=x,y
+        local twice=2*err
+        if twice>-dy then err=err-dy;x=x+sx end
+        if twice<dx then err=err+dx;y=y+sy end
+        if x~=old_x and y~=old_y and
+            (not Content.projectile_passable(map,x,old_y,state)
+                or not Content.projectile_passable(map,old_x,y,state)) then
+            return false
+        end
+        if not Content.projectile_passable(map,x,y,state) then return false end
+    end
+    return true
+end
+
 local function goal_key(map, x, y)
     return (y - 1) * map.width + x
 end
@@ -116,6 +137,51 @@ function AI.choose(state, enemy)
     local dy = player.position.y - enemy.position.y
     local distance = math.abs(dx) + math.abs(dy)
 
+    if definition.ai=="hollow_regent" then
+        local attacks=enemy.ai_memory.attacks or 0
+        local pattern=attacks%3
+        local line=lane(state,enemy,player,1,5)
+        if pattern==0 and line then
+            return {kind="windup",ability_id="core:ability/regent_line",
+                cells=line,ranged="piercing_line"}
+        end
+        if pattern==1 and distance<=2 then
+            local fx,fy=0,0
+            if math.abs(dx)>=math.abs(dy) then fx=dx>=0 and 1 or -1
+            else fy=dy>=0 and 1 or -1 end
+            local sx,sy=-fy,fx
+            local cells={}
+            local map=Content.map_for(state)
+            for step=1,2 do
+                for side=-1,1 do
+                    local x=enemy.position.x+fx*step+sx*side
+                    local y=enemy.position.y+fy*step+sy*side
+                    if Content.projectile_passable(map,x,y,state) then
+                        cells[#cells+1]={x=x,y=y}
+                    end
+                end
+            end
+            return {kind="windup",ability_id="core:ability/regent_crown",
+                cells=cells,ranged="area"}
+        end
+        if distance<=definition.range and clear_line(state,enemy.position,player.position) then
+            local cells={}
+            local map=Content.map_for(state)
+            for oy=-1,1 do
+                for ox=-1,1 do
+                    local x,y=player.position.x+ox,player.position.y+oy
+                    if Content.projectile_passable(map,x,y,state) then
+                        cells[#cells+1]={x=x,y=y}
+                    end
+                end
+            end
+            return {kind="windup",ability_id="core:ability/regent_sigil",
+                cells=cells,ranged="area"}
+        end
+        return next_step(state,enemy,adjacent_goals(state,enemy,player,false))
+            or {kind="wait"}
+    end
+
     if definition.ai == "pursuer" then
         if distance == 1 then
             return {kind="windup",ability_id="core:ability/pursuer_strike",
@@ -152,6 +218,67 @@ function AI.choose(state, enemy)
                 cells={{x=player.position.x,y=player.position.y}}, ranged=false}
         end
         return next_step(state, enemy, adjacent_goals(state, enemy, player, false)) or {kind="wait"}
+    end
+    if definition.ai=="spore_herald" then
+        if distance<=1 then
+            for _,d in ipairs(directions) do
+                local x,y=enemy.position.x+d[1],enemy.position.y+d[2]
+                if free(state,enemy.id,x,y) and
+                    math.abs(player.position.x-x)+math.abs(player.position.y-y)>distance
+                    and clear_line(state,{x=x,y=y},player.position) then
+                    return {kind="move",dx=d[1],dy=d[2]}
+                end
+            end
+        end
+        if distance<=definition.range and clear_line(state,enemy.position,player.position) then
+            local cells={{x=player.position.x,y=player.position.y}}
+            local offsets=math.abs(dx)>=math.abs(dy)
+                and {{0,-1},{0,1}} or {{-1,0},{1,0}}
+            local map=Content.map_for(state)
+            for _,offset in ipairs(offsets) do
+                local x,y=player.position.x+offset[1],player.position.y+offset[2]
+                if Content.projectile_passable(map,x,y,state) then
+                    cells[#cells+1]={x=x,y=y}
+                end
+            end
+            return {kind="windup",ability_id="core:ability/spore_burst",
+                cells=cells,ranged="area"}
+        end
+        return next_step(state,enemy,lane_goals(state,enemy,player,
+            {min_range=2,range=definition.range})) or {kind="wait"}
+    end
+    if definition.ai=="canal_lancer" then
+        local cells=lane(state,enemy,player,1,2)
+        if cells then
+            local step_x=dx==0 and 0 or dx/math.abs(dx)
+            local step_y=dy==0 and 0 or dy/math.abs(dy)
+            local map=Content.map_for(state)
+            local x,y=enemy.position.x+2*step_x,enemy.position.y+2*step_y
+            if #cells==1 and Content.projectile_passable(map,x,y,state) then
+                cells[#cells+1]={x=x,y=y}
+            end
+            return {kind="windup",ability_id="core:ability/canal_thrust",
+                cells=cells,ranged="piercing_line"}
+        end
+        return next_step(state,enemy,lane_goals(state,enemy,player,
+            {min_range=1,range=2})) or {kind="wait"}
+    end
+    if definition.ai=="cinder_bellkeeper" then
+        local sight=lane(state,enemy,player,1,definition.range)
+        if sight then
+            local map=Content.map_for(state)
+            local cells={{x=player.position.x,y=player.position.y}}
+            for _,d in ipairs(directions) do
+                local x,y=player.position.x+d[1],player.position.y+d[2]
+                if Content.projectile_passable(map,x,y,state) then
+                    cells[#cells+1]={x=x,y=y}
+                end
+            end
+            return {kind="windup",ability_id="core:ability/bell_cross",
+                cells=cells,ranged="area"}
+        end
+        return next_step(state,enemy,lane_goals(state,enemy,player,
+            {min_range=2,range=definition.range})) or {kind="wait"}
     end
     if definition.ai == "spitter" then
         local cells = lane(state, enemy, player, definition.min_range, definition.range)

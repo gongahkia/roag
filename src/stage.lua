@@ -1,5 +1,6 @@
 local Content=require("src.content")
 local Generation=require("src.generation")
+local Biomes=require("src.biomes")
 local RNG=require("src.rng")
 local Scheduler=require("src.scheduler")
 local Visibility=require("src.visibility")
@@ -66,11 +67,19 @@ end
 
 local function anchor_candidates(state,minimum,seen)
     local candidates={}
+    local added={}
+    local offsets={{0,0},{0,-1},{1,0},{0,1},{-1,0},
+        {-1,-1},{1,-1},{1,1},{-1,1},{0,-2},{2,0},{0,2},{-2,0}}
     for _,room in ipairs(state.generated_map.rooms) do
         if room.role~="start" and room.role~="elite" then
             for _,p in ipairs(room.markers.enemy or {}) do
-                if legal(state,p.x,p.y,minimum,seen) then
-                    candidates[#candidates+1]={x=p.x,y=p.y}
+                for _,d in ipairs(offsets) do
+                    local x,y=p.x+d[1],p.y+d[2]
+                    local k=x..","..y
+                    if not added[k] and legal(state,x,y,minimum,seen) then
+                        candidates[#candidates+1]={x=x,y=y}
+                        added[k]=true
+                    end
                 end
             end
         end
@@ -107,7 +116,8 @@ function Stage.init(state,spawn_enemy)
     elite.dormant=true
     elite.ai_memory.attacks=0
     local rules=Content.get_stage_rules()
-    state.stage={index=options.index or 1,phase="exploring",elite_id=elite.id,
+    state.stage={index=options.index or 1,biome_id=map.biome_id or Biomes.order[1],
+        phase="exploring",elite_id=elite.id,
         pressure_rng=RNG.new(RNG.derive(state.root_seed,
             "pressure:"..(options.index or 1)..":"..state.run_seed)),
         pressure_count=0,next_pressure=rules.pressure_first,
@@ -168,7 +178,7 @@ function Stage.on_event(state,event,emit,spawn_chest)
         local exit={id=state.next_entity_id,definition_id="core:exit/arena",
             controller="exit",faction="neutral",position={floor_id=state.active_floor_id,
                 x=exit_at.x,y=exit_at.y},blocks_movement=true,
-            routes=copy(Content.get_stage_rules().routes)}
+            routes=copy(Biomes.routes_for(stage.index,stage.route_history))}
         state.next_entity_id=exit.id+1
         state.entities[#state.entities+1]=exit
         stage.exit_id=exit.id
@@ -193,8 +203,7 @@ local function pressure_due(state,emit,spawn_enemy)
     local candidates=anchor_candidates(state,rules.pressure_safe_radius,seen)
     if normal<rules.pressure_max_active and #candidates>0 then
         local at=candidates[RNG.next_int(stage.pressure_rng,#candidates)]
-        local pool={"core:enemy/mossbound_guard","core:enemy/thornspitter",
-            "core:enemy/ruin_skitter"}
+        local pool=assert(Biomes.get(stage.biome_id)).enemy_ids
         local type_id=pool[RNG.next_int(stage.pressure_rng,#pool)]
         local enemy=spawn_enemy(state,type_id,at.x,at.y,state.clock)
         stage.pressure_count=stage.pressure_count+1
@@ -266,13 +275,30 @@ function Stage.validate(state)
     local stage=state.stage
     if not stage then return true end
     local phases={exploring=true,elite_active=true,extraction=true,
-        pursuit=true,prototype_endpoint=true}
+        pursuit=true}
     assert(phases[stage.phase] and stage.index>=1 and stage.index<=3
         and type(stage.route_history)=="table"
-        and #stage.route_history==stage.index-1
-            +(stage.phase=="prototype_endpoint" and 1 or 0),
+        and #stage.route_history==stage.index-1,
         "invalid active stage state")
-    local base=Generation.floor_id
+    local biome=assert(Biomes.get(stage.biome_id),"invalid stage biome")
+    local base=biome.floor_id
+    assert(state.generated_map.biome_id==biome.id,"stage biome mismatch")
+    if stage.index==1 then
+        assert(stage.biome_id==Biomes.order[1],"first stage biome mismatch")
+    else
+        local visited={}
+        for i=1,stage.index-1 do
+            local route_id=stage.route_history[i]
+            local chosen=type(route_id)=="string" and
+                route_id:gsub("^core:route/","core:biome/") or nil
+            assert(chosen and Biomes.get(chosen) and chosen~=Biomes.order[1]
+                and not visited[chosen],"invalid or repeated biome route")
+            visited[chosen]=true
+            if i==stage.index-1 then
+                assert(chosen==stage.biome_id,"route destination mismatch")
+            end
+        end
+    end
     assert(state.active_floor_id==(stage.index==1 and base
         or base.."/stage/"..stage.index),"stage floor identity mismatch")
     assert(type(stage.pressure_count)=="number" and stage.pressure_count>=0

@@ -2,7 +2,9 @@ local AI = require("src.ai")
 local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
+local Biomes = require("src.biomes")
 local Generation = require("src.generation")
+local Finale = require("src.finale")
 local RNG = require("src.rng")
 local Rewards = require("src.rewards")
 local Scheduler = require("src.scheduler")
@@ -12,7 +14,7 @@ local Visibility = require("src.visibility")
 local World = require("src.world")
 
 local Game = {}
-local SCHEMA = "roeg-run/8"
+local SCHEMA = "roeg-run/10"
 Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
     dash=130, claim_chest=100, choose_route=0}
@@ -157,11 +159,14 @@ function Game.new(seed, map_id, options)
     RNG.new(seed)
     map_id=map_id or "core:map/test_room"
     local generated_map
-    if map_id==Generation.map_id then
-        generated_map=Generation.generate(seed,options and options.generation)
+    local biome=Biomes.for_map(map_id)
+    if biome then
+        local generation=copy(options and options.generation or {})
+        generation.biome_id=biome.id
+        generated_map=Generation.generate(seed,generation)
         local stage_index=options and options.stage_options and options.stage_options.index or 1
         if options and options.stage and stage_index>1 then
-            generated_map.floor_id=Generation.floor_id.."/stage/"..stage_index
+            generated_map.floor_id=biome.floor_id.."/stage/"..stage_index
             generated_map.elite.floor_id=generated_map.floor_id
         end
     end
@@ -228,7 +233,17 @@ end
 function Game.new_stage(seed,options)
     options=options or {}
     options.stage=true
-    return Game.new(seed,Generation.map_id,options)
+    local biome_id=options.stage_options and options.stage_options.biome_id
+        or Biomes.order[1]
+    return Game.new(seed,assert(Biomes.get(biome_id)).map_id,options)
+end
+
+function Game.new_finale(seed,options)
+    options=options or {}
+    local state=Game.new(seed,Finale.map.id,options)
+    Finale.init(state,Game.spawn_enemy,copy(options.route_history or {}))
+    Visibility.recompute(state)
+    return state
 end
 
 function Game.preview(state, kind, dx, dy)
@@ -358,8 +373,13 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
     local outcomes = {}
     local map = Content.map_for(state)
     for _, cell in ipairs(cells) do
-        if ranged and not Content.projectile_passable(map, cell.x, cell.y, state) then break end
-        local target = occupant(state, cell.floor_id, cell.x, cell.y, source.id, true)
+        -- true is the legacy shot (stop at first occupant); "piercing_line"
+        -- stops at terrain, while "area" checks each locked cell separately.
+        local passable=not ranged or
+            Content.projectile_passable(map,cell.x,cell.y,state)
+        if not passable and ranged~="area" then break end
+        local target=passable and occupant(state,cell.floor_id,cell.x,cell.y,
+            source.id,true) or nil
         if target then
             local adjacent_hostile_count,adjacent_burning_count=0,0
             for _,other in ipairs(state.entities) do
@@ -393,7 +413,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 target_burning=target.statuses and target.statuses.burning~=nil or false,
                 adjacent_burning_count=adjacent_burning_count,
             }
-            if ranged then break end
+            if ranged==true then break end
         end
     end
     -- Commit the entire batch before exposing any dependent damage/death record.
@@ -624,6 +644,9 @@ local function drain_effects(state, output)
             end,function(definition_id,x,y,stable_id)
                 return Game.spawn_chest(state,definition_id,x,y,stable_id)
             end)
+            Finale.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end)
             context.cause = nil
         else
             local item = context.effects[context.effect_head]
@@ -684,7 +707,7 @@ local function enemy_turn(state, item, output)
     state.next_action_id = action_id + 1
     local position = enemy.position
     if intent.kind == "windup" then
-        if enemy.ai_id=="warden" then
+        if enemy.ai_id=="warden" or enemy.ai_id=="hollow_regent" then
             enemy.ai_memory.attacks=(enemy.ai_memory.attacks or 0)+1
         end
         local due = state.clock + Game.effective_cost(definition.windup, enemy.speed)
@@ -818,9 +841,6 @@ end
 
 function Game.submit(state, intent)
     if state.game_over then return false, "game over", {} end
-    if state.stage and state.stage.phase=="prototype_endpoint" then
-        return false,"final boss pending",{}
-    end
     local ready = Scheduler.peek(state)
     assert(ready and ready.kind == "actor_ready" and ready.actor_id == state.player_id
         and ready.due == state.clock, "player is not ready")
@@ -836,15 +856,8 @@ function Game.submit(state, intent)
         local history=copy(state.stage.route_history)
         history[#history+1]=route.id
         local output={}
-        if old_index>=3 then
-            state.stage.phase="prototype_endpoint"
-            state.stage.route_history=history
-            state.last_action={kind="choose_route",time=state.clock,cost=0,
-                route_id=route.id}
-            emit(state,output,"PrototypeEndpoint",{stage_index=old_index,
-                route_id=route.id},state.player_id,state.next_action_id)
-            state.next_action_id=state.next_action_id+1
-            return true,nil,output
+        if old_index>=3 and route.id~="core:route/gateway" then
+            return false,"invalid final route",{}
         end
         local retired=copy(state.retired_stages or {})
         local frozen=copy(state)
@@ -853,10 +866,18 @@ function Game.submit(state, intent)
         retired[#retired+1]=frozen
         local next_index=old_index+1
         local next_seed=RNG.derive(state.root_seed,
-            "stage:"..next_index..":"..route.id)
-        local fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
-            entity_id_base=state.next_entity_id-1,retired_stages=retired,
-            stage_options={index=next_index,route_history=history}})
+            (old_index>=3 and "finale:" or "stage:"..next_index..":")..route.id)
+        local fresh
+        if old_index>=3 then
+            fresh=Game.new_finale(next_seed,{root_seed=state.root_seed,
+                entity_id_base=state.next_entity_id-1,retired_stages=retired,
+                route_history=history})
+        else
+            fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
+                entity_id_base=state.next_entity_id-1,retired_stages=retired,
+                stage_options={index=next_index,route_history=history,
+                    biome_id=assert(route.biome_id,"route lacks biome")}})
+        end
         local replacement=Game.player(fresh)
         local new_position=replacement.position
         local new_id=replacement.id
@@ -875,7 +896,7 @@ function Game.submit(state, intent)
         for key in pairs(state) do state[key]=nil end
         for key,value in pairs(fresh) do state[key]=value end
         Visibility.recompute(state)
-        emit(state,output,"StageEntered",{stage_index=next_index,
+        emit(state,output,old_index>=3 and "FinalSanctumEntered" or "StageEntered",{stage_index=next_index,
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
@@ -977,6 +998,9 @@ function Game.submit(state, intent)
     Scheduler.enqueue(state, {kind="actor_ready", due=state.clock + preview.cost,
         actor_id=player.id, is_player=true})
     advance_to_player(state, output)
+    Finale.finish(state,function(kind,fields,source_id)
+        emit(state,output,kind,fields,source_id,action_id)
+    end)
     Visibility.recompute(state)
     Boons.prune_histories(state)
     contexts[output] = nil
@@ -1082,7 +1106,8 @@ function Game.restore(snapshot)
     local map = snapshot.generated_map or
         assert(Content.get_map(snapshot.map_id), "unknown map content ID")
     if snapshot.generated_map then
-        assert(snapshot.map_id==Generation.map_id and snapshot.run_seed==map.seed,
+        local biome=Biomes.get(map.biome_id or Biomes.order[1])
+        assert(biome and snapshot.map_id==biome.map_id and snapshot.run_seed==map.seed,
             "generated floor identity mismatch")
         assert(snapshot.room_content_version==Generation.room_content_version,
             "incompatible room content version")
@@ -1115,6 +1140,7 @@ function Game.restore(snapshot)
     assert(type(state.root_seed)=="number" and type(state.retired_stages)=="table",
         "missing run stage identity")
     Stage.validate(state)
+    Finale.validate(state)
     local frozen_floors={}
     for _,frozen in ipairs(state.retired_stages) do
         assert(frozen.schema==SCHEMA and frozen.stage
@@ -1184,7 +1210,8 @@ function Game.restore(snapshot)
         end
         if entity.controller=="exit" then
             assert(state.stage and state.stage.exit_id==entity.id
-                and entity.blocks_movement and #entity.routes==2,
+                and entity.blocks_movement
+                and #entity.routes==(state.stage.index==3 and 1 or 2),
                 "invalid stage exit")
         end
         if entity.blocks_movement then

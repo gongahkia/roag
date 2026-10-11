@@ -21,7 +21,8 @@ function Play.action(run,intent)
     local state=run.state
     local player=Game.player(state)
     local from={x=player.position.x,y=player.position.y,hp=player.hp,
-        clock=state.clock,stage=state.stage.index}
+        clock=state.clock,stage=state.stage and state.stage.index or
+            state.finale and state.finale.index}
     local ok,reason,events=Game.submit(state,intent)
     local record={intent=intent,ok=ok,reason=reason,from=from,
         clock=state.clock,hp=player.hp,currency=state.currency,
@@ -139,9 +140,9 @@ end
 function Play.fight(run,id,max_actions)
     for _=1,max_actions do
         local state=run.state
-        if state.game_over then return false,'dead' end
         local enemy=Game.entity(state,id)
         if not enemy then return true end
+        if state.game_over then return false,'dead' end
         local p=Game.player(state).position
         if Play.escape(run,enemy.position) then
             -- Locked strikes are evaluated against current occupancy after this dodge.
@@ -182,12 +183,13 @@ local function checkpoint(run,name)
     local state=run.state
     run.checkpoints[#run.checkpoints+1]={name=name,actions=#run.trace,
         clock=state.clock,hp=Game.player(state).hp,currency=state.currency,
-        stage=state.stage.index,floor_id=state.active_floor_id}
+        stage=state.stage and state.stage.index or state.finale and state.finale.index,
+        floor_id=state.active_floor_id}
 end
 
 -- Seed 3 is a guided route, not a human playtest. No player/entity/stat/scheduler
 -- field is assigned by the driver; every world change comes from Game.submit.
-function Play.stage_one(seed)
+function Play.stage_one(seed,route_index)
     local run=Play.new(seed)
     local state=run.state
     checkpoint(run,'new_run')
@@ -258,7 +260,8 @@ function Play.stage_one(seed)
     local first_floor=state.active_floor_id
     local route=assert(Game.route_options(state,exit.id))
     assert(#route.routes==2)
-    ok,reason=Play.action(run,{kind='choose_route',exit_id=exit.id,route_index=1})
+    ok,reason=Play.action(run,{kind='choose_route',exit_id=exit.id,
+        route_index=route_index or 1})
     assert(ok,reason)
     assert(state.stage.index==2 and state.active_floor_id~=first_floor)
     checkpoint(run,'stage_two_entered')
@@ -269,6 +272,75 @@ function Play.stage_one(seed)
     ok,reason=Play.fight(run,next_enemy.id,120)
     assert(ok,reason)
     checkpoint(run,'stage_two_enemy_defeated')
+    return run
+end
+
+-- Full Tranche 12 guided route, with no direct state edits. This remains a
+-- deterministic strategy test rather than a claim of human survival.
+function Play.biome_route(seed)
+    local run=Play.stage_one(seed,1)
+    local state=run.state
+    assert(state.stage.biome_id=='core:biome/fungal_hollows')
+    local spore=assert(Play.nearest(state,function(e)
+        return e.definition_id=='core:enemy/spore_herald' end))
+    assert(Play.fight(run,spore.id,160))
+    checkpoint(run,'spore_herald_defeated')
+    local before=state.currency
+    local x,y=spore.position.x,spore.position.y
+    assert(Play.navigate(run,function(p) return p.x==x and p.y==y end,150))
+    assert(state.currency>=before+Content.get_enemy(spore.definition_id).currency_drop)
+    checkpoint(run,'fungal_currency_collected')
+    local elite=assert(Game.entity(state,state.stage.elite_id))
+    assert(Play.navigate(run,function(p)
+        return math.max(math.abs(p.x-elite.position.x),
+            math.abs(p.y-elite.position.y))==1
+    end,500))
+    assert(Play.fight(run,elite.id,180))
+    checkpoint(run,'fungal_elite_defeated')
+    local exit=assert(Game.entity(state,state.stage.exit_id))
+    assert(Play.navigate(run,function(p) return cardinal(p,exit.position) end,100))
+    local routes=assert(Game.route_options(state,exit.id))
+    assert(routes.routes[2].biome_id=='core:biome/ashen_bastion')
+    assert(Play.action(run,{kind='choose_route',exit_id=exit.id,route_index=2}))
+    assert(state.stage.biome_id=='core:biome/ashen_bastion')
+    checkpoint(run,'ashen_stage_entered')
+    local bell=assert(Play.nearest(state,function(e)
+        return e.definition_id=='core:enemy/cinder_bellkeeper' end))
+    assert(Play.fight(run,bell.id,170))
+    checkpoint(run,'bellkeeper_defeated')
+    return run
+end
+
+-- Every mutation in this seeded completion uses Game.submit. The driver reads
+-- positions and locked cells to choose legal actions; it never edits combat
+-- stats, schedules, entity positions or stage flags.
+function Play.complete_run(seed)
+    local run=Play.biome_route(seed)
+    local state=run.state
+    local elite=assert(Game.entity(state,state.stage.elite_id))
+    local ok,reason=Play.navigate(run,function(p)
+        return math.max(math.abs(p.x-elite.position.x),
+            math.abs(p.y-elite.position.y))==1
+    end,600)
+    assert(ok,reason)
+    ok,reason=Play.fight(run,elite.id,250)
+    assert(ok,reason)
+    checkpoint(run,'third_elite_defeated')
+    local exit=assert(Game.entity(state,state.stage.exit_id))
+    ok,reason=Play.navigate(run,function(p)
+        return cardinal(p,exit.position)
+    end,100)
+    assert(ok,reason)
+    local offered=assert(Game.route_options(state,exit.id))
+    assert(offered.routes[1].id=='core:route/gateway')
+    ok,reason=Play.action(run,{kind='choose_route',exit_id=exit.id,route_index=1})
+    assert(ok,reason)
+    checkpoint(run,'final_sanctum_entered')
+    assert(state.finale and not state.victory)
+    ok,reason=Play.fight(run,state.finale.boss_id,350)
+    assert(ok,reason)
+    assert(state.victory and state.game_over and Play.has_event(run,'Victory'))
+    checkpoint(run,'victory')
     return run
 end
 

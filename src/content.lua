@@ -1,10 +1,13 @@
 local Content = {}
+local Biomes = require("src.biomes")
+local Finale = require("src.finale")
 
-Content.version = "roeg-content/6"
+Content.version = "roeg-content/8"
 
 local tiles = {
     ["."] = { walkable = true, blocks_vision = false, projectile_passable = true },
     ["#"] = { walkable = false, blocks_vision = true, projectile_passable = false },
+    ["~"] = { walkable = false, blocks_vision = false, projectile_passable = true },
 }
 
 local adventurer = {
@@ -35,10 +38,9 @@ local stage_rules = {
     grace=1500, pressure_first=1200, pressure_periods={1200,900,650},
     pressure_max_active=18, pressure_safe_radius=8,
     pursuer_spawn_distance=14,
-    routes={
-        {id="core:route/verdant",name="Verdant passage",description="Prototype: Overgrown Ruins layout"},
-        {id="core:route/ruined",name="Ruined causeway",description="Prototype: Overgrown Ruins layout"},
-    },
+    routes={Biomes.routes_for(1,{})[1],Biomes.routes_for(1,{})[2],
+        Biomes.routes_for(2,{"core:route/fungal_hollows"})[2],
+        Biomes.routes_for(3,{})[1]},
 }
 local ability_proc_coefficients = {
     ["core:ability/basic_attack"] = 1,
@@ -46,12 +48,28 @@ local ability_proc_coefficients = {
     ["core:ability/guard_strike"] = 1,
     ["core:ability/thorn_lane"] = 1,
     ["core:ability/skitter_stab"] = 1,
+    ["core:ability/spore_burst"] = 1,
+    ["core:ability/canal_thrust"] = 1,
+    ["core:ability/bell_cross"] = 1,
     ["core:ability/warden_sweep"] = 1,
     ["core:ability/warden_roots"] = 1,
+    ["core:ability/regent_line"] = 1,
+    ["core:ability/regent_crown"] = 1,
+    ["core:ability/regent_sigil"] = 1,
     ["core:ability/pursuer_strike"] = 0,
+}
+local ability_names={
+    ["core:ability/regent_line"]="Regent's Line",
+    ["core:ability/regent_crown"]="Broken Crown",
+    ["core:ability/regent_sigil"]="Hollow Sigil",
 }
 
 local enemies = {
+    ["core:enemy/hollow_regent"] = {
+        id="core:enemy/hollow_regent",name="Hollow Regent",ai="hollow_regent",
+        hp=62,damage=4,defense=1,speed=75,windup=110,recovery=145,
+        move_cost=100,range=6,xp_reward=0,currency_drop=0,
+    },
     ["core:enemy/thorn_warden"] = {
         id="core:enemy/thorn_warden",name="Thorn Warden",ai="warden",
         hp=44,damage=5,defense=1,speed=85,windup=85,recovery=120,
@@ -80,6 +98,21 @@ local enemies = {
         hp = 4, damage = 1, defense = 0, speed = 160,
         windup = 35, recovery = 70, move_cost = 100, range = 1,
         xp_reward = 3, currency_drop = 2,
+    },
+    ["core:enemy/spore_herald"] = {
+        id="core:enemy/spore_herald",name="Spore Herald",ai="spore_herald",
+        hp=7,damage=2,defense=0,speed=85,windup=100,recovery=135,
+        move_cost=100,range=5,xp_reward=5,currency_drop=3,
+    },
+    ["core:enemy/canal_lancer"] = {
+        id="core:enemy/canal_lancer",name="Canal Lancer",ai="canal_lancer",
+        hp=9,damage=3,defense=1,speed=90,windup=75,recovery=120,
+        move_cost=100,range=2,xp_reward=5,currency_drop=4,
+    },
+    ["core:enemy/cinder_bellkeeper"] = {
+        id="core:enemy/cinder_bellkeeper",name="Cinder Bellkeeper",ai="cinder_bellkeeper",
+        hp=12,damage=3,defense=1,speed=65,windup=115,recovery=145,
+        move_cost=100,range=4,xp_reward=6,currency_drop=4,
     },
 }
 
@@ -152,7 +185,7 @@ local maps = {
 }
 
 function Content.get_map(id)
-    return maps[id]
+    return maps[id] or (id==Finale.map.id and Finale.map or nil)
 end
 
 -- Generated runs carry their concrete map; authored fixtures remain registry lookups.
@@ -183,6 +216,9 @@ end
 function Content.has_ability(id)
     return ability_proc_coefficients[id] ~= nil
 end
+function Content.ability_name(id)
+    return ability_names[id] or id:gsub('^core:ability/',''):gsub('_',' ')
+end
 
 function Content.demo_spawns(map_id)
     if map_id == "core:map/scrolling_room" then return demo_spawns end
@@ -203,7 +239,7 @@ function Content.validate_map(map)
     for y = 1, map.height do
         local row = map.rows[y]
         assert(type(row) == "string" and #row == map.width, "invalid map row width")
-        assert(not row:find("[^.#]"), "unknown map tile")
+        assert(not row:find("[^.#~]"), "unknown map tile")
     end
     assert(type(map.start_x) == "number" and type(map.start_y) == "number", "missing start")
     assert(map.start_x % 1 == 0 and map.start_y % 1 == 0, "start must be on grid")
@@ -276,18 +312,22 @@ function Content.validate_all()
         assert(type(coefficient) == "number" and coefficient >= 0 and coefficient <= 10,
             "invalid ability proc coefficient")
     end
-    local ids = { "core:map/test_room", "core:map/scrolling_room" }
+    local ids = { "core:map/test_room", "core:map/scrolling_room",
+        Finale.map.id }
     local seen = {}
     for _, id in ipairs(ids) do
         assert(not seen[id], "duplicate content ID")
         seen[id] = true
-        local map = assert(maps[id], "missing map definition")
+        local map = assert(Content.get_map(id), "missing map definition")
         assert(map.id == id, "map definition ID mismatch")
         Content.validate_map(map)
     end
     local enemy_ids = {
         "core:enemy/mossbound_guard", "core:enemy/thornspitter", "core:enemy/ruin_skitter",
+        "core:enemy/spore_herald","core:enemy/canal_lancer",
+        "core:enemy/cinder_bellkeeper",
         "core:enemy/thorn_warden", "core:enemy/extraction_pursuer",
+        "core:enemy/hollow_regent",
     }
     for _, id in ipairs(enemy_ids) do
         assert(not seen[id], "duplicate content ID")
@@ -295,7 +335,10 @@ function Content.validate_all()
         local definition = assert(enemies[id], "missing enemy definition")
         assert(definition.id == id and (definition.ai == "guard" or definition.ai == "spitter"
             or definition.ai == "skitter" or definition.ai == "warden"
-            or definition.ai == "pursuer"), "invalid enemy identity")
+            or definition.ai == "pursuer" or definition.ai=="spore_herald"
+            or definition.ai=="canal_lancer" or definition.ai=="cinder_bellkeeper"
+            or definition.ai=="hollow_regent"),
+            "invalid enemy identity")
         for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range",
             "xp_reward", "currency_drop"}) do
             local value = definition[field]
@@ -303,7 +346,8 @@ function Content.validate_all()
         end
         assert(definition.hp > 0 and definition.speed > 0 and definition.windup > 0
             and definition.recovery > 0 and definition.move_cost > 0 and definition.range > 0
-            and (definition.invulnerable or (definition.xp_reward > 0 and definition.currency_drop > 0)),
+            and (definition.invulnerable or definition.ai=="hollow_regent"
+                or (definition.xp_reward > 0 and definition.currency_drop > 0)),
             "invalid enemy timing")
         if definition.ai == "spitter" then
             assert(type(definition.min_range) == "number" and definition.min_range % 1 == 0

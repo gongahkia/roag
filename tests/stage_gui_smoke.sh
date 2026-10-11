@@ -100,10 +100,13 @@ function love.draw(...)
         assert(tracked.stage.phase=="pursuit" and tracked.stage.pursuer_id)
         assert(has("PURSUER ACTIVE"))
     elseif phase==5 then
-        assert(has("Choose a route") and has("Prototype: Overgrown Ruins layout"))
+        assert(has("Choose a route") and has("Fungal Hollows")
+            and has("Sunken Aqueduct"))
     elseif phase==6 then
         assert(tracked.stage.index==2 and tracked.stage.phase=="exploring")
-        assert(has("Stage 2 exploring") and tracked.generated_map.seed~=1)
+        assert(has("Stage 2 exploring") and tracked.generated_map.seed~=1
+            and tracked.stage.biome_id=="core:biome/fungal_hollows"
+            and has("Fungal Hollows"))
     end
     pending=true
     love.graphics.captureScreenshot(function(image)
