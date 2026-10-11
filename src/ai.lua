@@ -44,6 +44,18 @@ end
 local function next_step(state, actor, goals)
     local map = Content.map_for(state)
     local start = actor.position
+    -- One local occupancy snapshot per BFS. The old free() call rescanned every
+    -- entity for every candidate tile, which grew sharply in crowded floors.
+    -- This is read-only and discarded after the decision, so doors/movement
+    -- cannot leave stale path data between decisions.
+    local blocked = {}
+    for _,entity in ipairs(state.entities) do
+        local position=entity.position
+        if entity.id~=actor.id and entity.blocks_movement and position
+            and position.floor_id==state.active_floor_id then
+            blocked[goal_key(map,position.x,position.y)]=true
+        end
+    end
     local queue = {{x=start.x, y=start.y}}
     local seen = {[goal_key(map, start.x, start.y)] = true}
     local head = 1
@@ -53,7 +65,7 @@ local function next_step(state, actor, goals)
         for _, direction in ipairs(directions) do
             local x, y = current.x + direction[1], current.y + direction[2]
             local key = goal_key(map, x, y)
-            if not seen[key] and free(state, actor.id, x, y) then
+            if not seen[key] and Content.walkable(map,x,y) and not blocked[key] then
                 seen[key] = true
                 local first_dx = current.first_dx or direction[1]
                 local first_dy = current.first_dy or direction[2]

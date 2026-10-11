@@ -27,6 +27,9 @@ local save_service = Persistence.new(storage)
 local title, pause_menu, confirm_new, save_status = true, false, false, nil
 local confirm_reset_seed
 local persistence_message = ""
+local diagnostics = os.getenv("ROEG_DIAGNOSTICS")=="1" and
+    require("src.diagnostics").new() or nil
+local diagnostics_update_ms=0
 local showcase = {
     {name="Lightning", boons={{"storm_conductor","rare",2},
         {"static_footsteps","rare",1}}},
@@ -266,6 +269,10 @@ end
 
 function love.keypressed(key, _, isrepeat)
     if isrepeat then return end
+    if key=="f3" then
+        diagnostics=diagnostics and nil or require("src.diagnostics").new()
+        return
+    end
     if title then
         if confirm_new then
             if key=="y" or key=="return" or key=="kpenter" then begin_new()
@@ -978,3 +985,45 @@ function love.draw()
         end
     end
 end
+
+-- Keep measured callback CPU durations separate from observed frame intervals.
+-- This wrapper and the F3 overlay are presentation-only and disabled by default.
+local ordinary_update,ordinary_draw=love.update,love.draw
+function love.update(dt)
+    if not diagnostics then return ordinary_update(dt) end
+    local start=love.timer.getTime()
+    ordinary_update(dt)
+    diagnostics_update_ms=(love.timer.getTime()-start)*1000
+end
+function love.draw()
+    if not diagnostics then return ordinary_draw() end
+    local frame=love.timer.getTime()
+    ordinary_draw()
+    local draw_ms=(love.timer.getTime()-frame)*1000
+    local visible=0
+    if state and state.entities then
+        for _,entity in ipairs(state.entities) do
+            if entity.position and visible_at(entity.position.x,entity.position.y) then
+                visible=visible+1
+            end
+        end
+    end
+    local stats=love.graphics.getStats and love.graphics.getStats() or nil
+    require("src.diagnostics").sample(diagnostics,frame,
+        diagnostics_update_ms,draw_ms,visible,stats)
+    local summary=require("src.diagnostics").summary(diagnostics)
+    love.graphics.setColor(0,0,0,0.78)
+    love.graphics.rectangle("fill",12,12,340,67)
+    love.graphics.setColor(0.9,1,0.9)
+    love.graphics.print(("F3 diag  FPS %d  actors %d  draws %s"):format(
+        love.timer.getFPS(),visible,tostring(summary.draw_calls)),20,18)
+    love.graphics.print(("frame p50/p95/p99 %.1f / %.1f / %.1f ms"):format(
+        summary.frame_p50_ms or 0,summary.frame_p95_ms or 0,
+        summary.frame_p99_ms or 0),20,37)
+    love.graphics.print(("update/draw CPU p95 %.1f / %.1f ms"):format(
+        summary.update_p95_ms or 0,summary.draw_p95_ms or 0),20,56)
+end
+function love.roegDiagnostics()
+    return diagnostics and require("src.diagnostics").summary(diagnostics) or nil
+end
+
