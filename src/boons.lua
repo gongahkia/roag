@@ -93,6 +93,7 @@ local function predicate(node, state, owner, boon_id, event, history)
             and distance(owner.position,p)<=node.radius
     end
     if op == "direct_attack" then return event.direct_attack == true end
+    if op == "other_boon" then return event.boon_id ~= nil and event.boon_id ~= boon_id end
     if op == "target_was_full" then
         return event.hp_before ~= nil and event.hp_before==event.target_max_hp
     end

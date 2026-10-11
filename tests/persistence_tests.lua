@@ -411,8 +411,10 @@ return function(test,equal)
         equal(Game.snapshot(state),Game.snapshot(restored))
     end)
     test('real filesystem adapter survives fresh service and state object',function()
-        local dir=os.tmpname()
-        os.remove(dir)
+        local temporary=os.tmpname()
+        os.remove(temporary)
+        local root=os.getenv('TMPDIR')
+        local dir=root and root..'/'..temporary:match('[^/]+$') or temporary
         assert(os.execute('mkdir -p '..dir)==0)
         local store={}
         function store:read(name)

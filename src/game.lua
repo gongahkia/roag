@@ -1,6 +1,7 @@
 local AI = require("src.ai")
 local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
+local Achievements = require("src.achievements")
 local Content = require("src.content")
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
@@ -14,7 +15,7 @@ local Visibility = require("src.visibility")
 local World = require("src.world")
 
 local Game = {}
-local SCHEMA = "roeg-run/10"
+local SCHEMA = "roeg-run/11"
 Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
     dash=130, claim_chest=100, choose_route=0}
@@ -173,10 +174,14 @@ function Game.new(seed, map_id, options)
     local map = generated_map or assert(Content.get_map(map_id), "unknown map content ID")
     local definition = Content.get_adventurer()
     local player_id=(options and options.entity_id_base or 0)+1
+    local available=copy(options and options.available_boons or BoonContent.starter_order())
+    Achievements.validate_pool(available)
     local state = {
         schema=SCHEMA, content_version=Content.version,
         boon_content_version=BoonContent.version, map_id=map.id,
         run_seed=seed, root_seed=options and options.root_seed or seed,
+        available_boons=available,
+        meta=copy(options and options.meta or Achievements.new_run(false)),
         generated_map=generated_map,stage_options=options and options.stage_options,
         retired_stages=options and options.retired_stages or {},
         room_content_version=generated_map and Generation.room_content_version or nil,
@@ -241,6 +246,7 @@ end
 function Game.new_finale(seed,options)
     options=options or {}
     local state=Game.new(seed,Finale.map.id,options)
+    state.final_map=copy(Finale.map) -- authoritative concrete chamber in snapshots
     Finale.init(state,Game.spawn_enemy,copy(options.route_history or {}))
     Visibility.recompute(state)
     return state
@@ -313,6 +319,7 @@ end
 
 function Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)
     local owner = assert(Game.entity(state, owner_id), "unknown boon owner")
+    if state.meta then state.meta.eligible=false end -- developer/fixture grant
     Boons.set_stacks(owner, boon_id, rarity, count)
 end
 
@@ -647,6 +654,9 @@ local function drain_effects(state, output)
             Finale.on_event(state,event,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,event.action_id)
             end)
+            Achievements.observe(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end)
             context.cause = nil
         else
             local item = context.effects[context.effect_head]
@@ -871,10 +881,12 @@ function Game.submit(state, intent)
         if old_index>=3 then
             fresh=Game.new_finale(next_seed,{root_seed=state.root_seed,
                 entity_id_base=state.next_entity_id-1,retired_stages=retired,
-                route_history=history})
+                route_history=history,available_boons=state.available_boons,
+                meta=state.meta})
         else
             fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
                 entity_id_base=state.next_entity_id-1,retired_stages=retired,
+                available_boons=state.available_boons,meta=state.meta,
                 stage_options={index=next_index,route_history=history,
                     biome_id=assert(route.biome_id,"route lacks biome")}})
         end
@@ -1001,13 +1013,16 @@ function Game.submit(state, intent)
     Finale.finish(state,function(kind,fields,source_id)
         emit(state,output,kind,fields,source_id,action_id)
     end)
+    drain_effects(state,output)
     Visibility.recompute(state)
     Boons.prune_histories(state)
+    Achievements.prune(state)
     contexts[output] = nil
     return true, nil, output
 end
 
 function Game.stun(state, target_id, duration, source_id, action_id)
+    if state.meta then state.meta.eligible=false end -- direct fixture manipulation
     assert(type(duration) == "number" and duration % 1 == 0 and duration > 0,
         "stun duration must be positive integer time")
     local target = Game.entity(state, target_id)
@@ -1027,6 +1042,7 @@ function Game.stun(state, target_id, duration, source_id, action_id)
 end
 
 function Game.displace(state, target_id, x, y, source_id, action_id)
+    if state.meta then state.meta.eligible=false end -- direct fixture manipulation
     local target = Game.entity(state, target_id)
     if not target or target.controller ~= "ai" or target.hp <= 0 then
         return false, "invalid displacement target", {}
@@ -1103,7 +1119,7 @@ function Game.restore(snapshot)
     Content.validate_all()
     BoonContent.validate()
     World.validate()
-    local map = snapshot.generated_map or
+    local map = snapshot.generated_map or snapshot.final_map or
         assert(Content.get_map(snapshot.map_id), "unknown map content ID")
     if snapshot.generated_map then
         local biome=Biomes.get(map.biome_id or Biomes.order[1])
@@ -1115,11 +1131,20 @@ function Game.restore(snapshot)
         assert(valid,"invalid saved generated floor: "..
             (errors[1] and errors[1].kind or "unknown"))
     end
+    if snapshot.final_map then
+        assert(snapshot.map_id==Finale.map.id and map.id==Finale.map.id
+            and map.floor_id==Finale.map.floor_id,
+            "invalid saved final chamber identity")
+        Content.validate_map(map)
+        Finale.validate_map(map)
+    end
     assert(snapshot.active_floor_id == map.floor_id, "incompatible floor ID")
     assert(type(snapshot.clock) == "number" and snapshot.clock % 1 == 0 and snapshot.clock >= 0,
         "invalid world clock")
     assert(type(snapshot.entities) == "table" and type(snapshot.schedule) == "table", "invalid run state")
     assert(type(snapshot.rng) == "table", "missing RNG state")
+    Achievements.validate_pool(snapshot.available_boons)
+    Achievements.validate(snapshot.meta)
     assert(type(snapshot.chain_history) == "table" and
         type(snapshot.delayed_effects) == "table", "missing boon state")
     assert(type(snapshot.progression) == "table" and
@@ -1199,7 +1224,14 @@ function Game.restore(snapshot)
                 and entity.speed>0,"invalid combatant state")
         end
         Boons.validate_inventory(entity)
-        if entity.controller == "chest" then Rewards.validate_chest(entity) end
+        if entity.controller == "chest" then
+            Rewards.validate_chest(entity)
+            local allowed={}
+            for _,id in ipairs(state.available_boons) do allowed[id]=true end
+            for _,offer in ipairs(entity.offers) do
+                assert(allowed[offer.boon_id],"chest offer outside frozen run pool")
+            end
+        end
         if entity.controller == "door" then
             assert(entity.definition_id=="core:door/ruin"
                 and type(entity.open)=="boolean"

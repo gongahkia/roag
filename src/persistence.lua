@@ -131,7 +131,8 @@ local function parse_record(bytes)
     end
     local seq=tonumber(lines[2])
     assert(seq and seq%1==0 and seq>=1 and seq<9007199254740991,'invalid generation')
-    assert(lines[3]=='active' or lines[3]=='terminal','invalid save kind')
+    assert(lines[3]=='active' or lines[3]=='terminal' or lines[3]=='pending_terminal',
+        'invalid save kind')
     local size=tonumber(lines[6])
     assert(size and size%1==0 and size>=0 and size<=P.max_bytes
         and #bytes-pos+1==size,'save payload size mismatch')
@@ -183,6 +184,7 @@ function P.inspect(self)
     end
     local recovered=invalid>0
     return {status=record.kind=='terminal' and 'terminal' or
+        record.kind=='pending_terminal' and 'pending_terminal' or
         (recovered and 'recovered' or 'active'),record=record,state=loaded,
         invalid=invalid}
 end
@@ -217,6 +219,15 @@ function P.save(self,state)
     local ok,reason=pcall(Game.restore,snapshot)
     if not ok then return false,'unstable save boundary: '..tostring(reason) end
     return write_record(self,'active',snapshot)
+end
+-- Terminal award outbox. This record is never offered as live Continue.
+-- It can be replayed idempotently into the separate profile before tombstoning.
+function P.pending_terminal(self,state)
+    assert(state.game_over,'pending terminal requires finished run')
+    local snapshot=Game.snapshot(state)
+    local ok,reason=pcall(Game.restore,snapshot)
+    if not ok then return false,'unstable terminal boundary: '..tostring(reason) end
+    return write_record(self,'pending_terminal',snapshot)
 end
 function P.tombstone(self)
     local ok,reason=write_record(self,'terminal',nil)

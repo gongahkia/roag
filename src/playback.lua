@@ -20,6 +20,8 @@ local durations = {
     DoorOpened = 0.22,
     ElitePhaseChanged = 0.50,
     EliteDefeated = 0.80,
+    RegentPhaseChanged = 0.45,
+    RegentDefeated = 0.80,
     PursuerArrived = 0.80,
 }
 

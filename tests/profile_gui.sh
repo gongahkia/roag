@@ -26,6 +26,18 @@ if mode=='fungal' or mode=='aqueduct' or mode=='bastion' then
         return tracked
     end
 end
+if mode=='finale' then
+    function Game.new_stage(seed)
+        tracked=Game.new_finale(seed,{root_seed=seed,route_history={
+            'core:route/fungal_hollows','core:route/ashen_bastion',
+            'core:route/gateway'}})
+        local boss=Game.entity(tracked,tracked.finale.boss_id)
+        local player=Game.player(tracked)
+        player.position.x,player.position.y=boss.position.x,boss.position.y+1
+        require('src.visibility').recompute(tracked)
+        return tracked
+    end
+end
 if mode=='boon' or mode=='crowd' then
     function Game.new_stage(seed)
         tracked=Game.new(seed,'core:map/scrolling_room',
@@ -62,6 +74,7 @@ local frames=0
 local output=assert(os.getenv('ROEG_PROFILE_OUTPUT'))
 function love.load(...)
     old_load(...)
+    if mode=='finale' then love.keypressed('space') end
     if mode=='crowd' then
         local before=tracked.clock
         love.keypressed('space') -- real committed wait; 40 actors move/attack
@@ -131,7 +144,7 @@ function love.draw(...)
     end
 end
 LUA
-for scene in generated boon crowd fungal aqueduct bastion; do
+for scene in generated boon crowd fungal aqueduct bastion finale; do
     ROEG_PROFILE_SCENE="$scene" ROEG_PROFILE_OUTPUT="$output_dir" \
       ROEG_GUI_AUTOSTART=1 ROEG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
       timeout 30s love "$output_dir"

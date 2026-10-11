@@ -33,7 +33,7 @@ return function(test,equal)
         end
         error('no approach to final encounter object')
     end
-    local function prepared(seed,first,second)
+    local function prepared(seed,first,second,before_final_exit)
         local state=Game.new_stage(seed or 5)
         for index=1,3 do
             for _,actor in ipairs(state.entities) do
@@ -45,6 +45,7 @@ return function(test,equal)
             local dx,dy=approach(state,boss)
             local ok,reason=Game.submit(state,{kind='basic_attack',dx=dx,dy=dy})
             assert(ok,reason)
+            if index==3 and before_final_exit then before_final_exit(state) end
             local exit=assert(Game.entity(state,state.stage.exit_id))
             approach(state,exit)
             local route_index=index==1 and (first or 1)
@@ -107,6 +108,26 @@ return function(test,equal)
         end
     end)
 
+    test('third-floor delayed Echo stays frozen after final handoff',function()
+        local pending_id
+        local state=prepared(39,1,2,function(old)
+            local player=Game.player(old)
+            player.damage=2
+            Game.set_boon_stacks(old,player.id,'core:boon/temporal_echo',
+                'legendary',1)
+            assert(Game.submit(old,{kind='basic_attack',dx=1,dy=0}))
+            local effects=Game.pending_boon_effects(old)
+            assert(#effects>0)
+            pending_id=effects[1].id
+        end)
+        assert(state.retired_stages[3].delayed_effects[pending_id]
+            and not state.delayed_effects[pending_id])
+        for _,item in ipairs(state.schedule) do assert(item.id~=pending_id) end
+        local _,_,events=Game.submit(state,{kind='wait'})
+        assert(count(events,'DelayedEffectResolved')==0)
+        equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
+    end)
+
     test('Regent commits three different locked shapes and phase changes future speed',function()
         local state=prepared(41)
         local boss=Game.entity(state,state.finale.boss_id)
@@ -148,6 +169,34 @@ return function(test,equal)
         equal(hit,replayed);equal(Game.snapshot(state),Game.snapshot(restored))
         assert(count(hit,'WindupCancelled')==0)
         if boss.pending_attack then equal(locked,boss.pending_attack.target_cells) end
+    end)
+
+    test('locked Regent cells resolve before the next decision after a dodge',function()
+        local state=prepared(43)
+        local boss=Game.entity(state,state.finale.boss_id)
+        approach(state,boss)
+        local player=Game.player(state)
+        local from_x,from_y=player.position.x,player.position.y
+        local _,_,first=Game.submit(state,{kind='wait'})
+        assert(count(first,'WindupStarted')==1 and boss.pending_attack)
+        local locked=Game.snapshot(boss.pending_attack.target_cells)
+        local due=boss.pending_attack.due
+        local direction=from_x==boss.position.x and 1 or 0
+        local step=direction==1 and {1,0} or {0,1}
+        local ok,reason,second=Game.submit(state,{kind='move',
+            dx=step[1],dy=step[2]})
+        assert(ok,reason)
+        local impact
+        for _,event in ipairs(second) do
+            if event.kind=='AttackPerformed' and event.source_id==boss.id then
+                impact=event;break
+            end
+        end
+        assert(impact and impact.time==due and due<state.clock)
+        equal(locked,impact.target_cells)
+        assert(player.position.x~=from_x or player.position.y~=from_y)
+        assert(not (player.position.x==locked[1].x and
+            player.position.y==locked[1].y))
     end)
 
     test('Regent stun, displacement and death cancel committed windups',function()
@@ -194,6 +243,89 @@ return function(test,equal)
         equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
     end)
 
+    test('delayed Echo can deliver the final blow without duplicate Victory',function()
+        local state=prepared(56)
+        local boss=Game.entity(state,state.finale.boss_id)
+        local player=Game.player(state)
+        local dx,dy=approach(state,boss)
+        boss.hp=4;player.damage=2
+        Game.set_boon_stacks(state,player.id,'core:boon/temporal_echo','legendary',1)
+        local _,_,first=Game.submit(state,{kind='basic_attack',dx=dx,dy=dy})
+        assert(not state.game_over and #Game.pending_boon_effects(state)>0
+            and count(first,'Victory')==0)
+        local _,_,second=Game.submit(state,{kind='wait'})
+        assert(state.victory and count(second,'DelayedEffectResolved')==1
+            and count(second,'RegentDefeated')==1 and count(second,'Victory')==1)
+    end)
+
+    test('friendly fire kills Regent through shared area damage pipeline',function()
+        local state=prepared(57)
+        local boss=Game.entity(state,state.finale.boss_id)
+        local player=Game.player(state)
+        player.position.x,player.position.y=boss.position.x,boss.position.y+1
+        Visibility.recompute(state)
+        boss.hp=2
+        Scheduler.remove_for_actor(state,boss.id)
+        local bell=Game.spawn_enemy(state,'core:enemy/cinder_bellkeeper',
+            boss.position.x,boss.position.y+3,0)
+        local _,_,first=Game.submit(state,{kind='wait'})
+        assert(count(first,'WindupStarted')==1 and bell.pending_attack)
+        local _,_,second=Game.submit(state,{kind='wait'})
+        assert(state.victory and count(second,'EntityKilled')==1
+            and count(second,'Victory')==1)
+        for _,event in ipairs(second) do
+            if event.kind=='EntityKilled' then
+                assert(event.target_id==boss.id and event.source_id==bell.id)
+            end
+        end
+    end)
+
+    test('same-impact player and Regent lethal results in Defeat by HP outcome',function()
+        local state=prepared(59)
+        local boss=Game.entity(state,state.finale.boss_id)
+        local player=Game.player(state)
+        player.position.x,player.position.y=boss.position.x,boss.position.y+1
+        player.hp=1;boss.hp=2
+        Visibility.recompute(state)
+        Scheduler.remove_for_actor(state,boss.id)
+        Game.spawn_enemy(state,'core:enemy/cinder_bellkeeper',
+            boss.position.x,boss.position.y+3,0)
+        assert(Game.submit(state,{kind='wait'}))
+        local _,_,impact=Game.submit(state,{kind='wait'})
+        assert(state.game_over and not state.victory
+            and state.finale.phase=='boss_defeated'
+            and count(impact,'EntityKilled')==2
+            and count(impact,'Victory')==0)
+        equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
+    end)
+
+    test('credited kill chains Storm and Detonation into Regent damage',function()
+        local state=prepared(63)
+        local boss=Game.entity(state,state.finale.boss_id)
+        local player=Game.player(state)
+        player.position.x,player.position.y=boss.position.x,boss.position.y-1
+        player.damage=5
+        Visibility.recompute(state)
+        local guard=Game.spawn_enemy(state,'core:enemy/mossbound_guard',
+            boss.position.x+1,boss.position.y,0)
+        guard.hp=1
+        Scheduler.remove_for_actor(state,guard.id)
+        Game.set_boon_stacks(state,player.id,'core:boon/storm_conductor',
+            'legendary',1)
+        Game.set_boon_stacks(state,player.id,'core:boon/detonation_bloom',
+            'legendary',1)
+        local before=boss.hp
+        local ok,reason,events=Game.submit(state,{kind='basic_attack',dx=1,dy=1})
+        assert(ok,reason)
+        local seen={}
+        for _,event in ipairs(events) do
+            if event.kind=='BoonActivated' then seen[event.boon_id]=true end
+        end
+        assert(seen['core:boon/storm_conductor']
+            and seen['core:boon/detonation_bloom']
+            and boss.hp<before and not Game.entity(state,guard.id))
+    end)
+
     test('finale disk-equivalent save restores pending attack and delayed boon effect',function()
         local state=prepared(58)
         local boss=Game.entity(state,state.finale.boss_id)
@@ -209,6 +341,16 @@ return function(test,equal)
         local _,_,a=Game.submit(state,{kind='wait'})
         local _,_,b=Game.submit(restored,{kind='wait'})
         equal(a,b);equal(Game.snapshot(state),Game.snapshot(restored))
+    end)
+
+    test('saved concrete chamber rejects a blocked Regent cell',function()
+        local state=prepared(60)
+        local snapshot=Game.snapshot(state)
+        local map=snapshot.final_map
+        local y,x=map.boss_y,map.boss_x
+        map.rows[y]=map.rows[y]:sub(1,x-1)..'#'..map.rows[y]:sub(x+1)
+        local ok,reason=pcall(Game.restore,snapshot)
+        assert(not ok and tostring(reason):find('final chamber',1,true))
     end)
 
     test('terminal Victory and Defeat tombstone both save generations',function()
@@ -236,6 +378,7 @@ return function(test,equal)
                 assert(Game.submit(state,{kind='wait'}))
             end
             assert(state.game_over and (state.victory~=nil)==(ending=='victory'))
+            equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
             assert(service:save(state))
             local fresh=Persistence.new(storage)
             local loaded,meta=fresh:load()
@@ -262,6 +405,14 @@ return function(test,equal)
         assert(attacks['core:ability/regent_line']
             and attacks['core:ability/regent_crown']
             and attacks['core:ability/regent_sigil'])
+        local died,defeated,won
+        for index,event in ipairs(run.events) do
+            if event.kind=='Died' and event.target_id==state.finale.boss_id then
+                died=index
+            elseif event.kind=='RegentDefeated' then defeated=index
+            elseif event.kind=='Victory' then won=index end
+        end
+        assert(died and defeated and won and died<defeated and defeated<won)
         local replay=Play.replay(run)
         equal(Game.snapshot(state),Game.snapshot(replay.state))
     end)

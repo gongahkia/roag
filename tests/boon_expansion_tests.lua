@@ -27,8 +27,8 @@ return function(test,equal)
         return result
     end
 
-    test('expanded catalogue has twenty validated four-rarity identities in chest pool',function()
-        assert(#Catalog.order==20 and Catalog.validate())
+    test('original twenty boons remain validated and available before unlocks',function()
+        assert(#Catalog.order==24 and Catalog.starter_count==20 and Catalog.validate())
         local seen={}
         for _,id in ipairs(Catalog.order) do
             assert(not seen[id]);seen[id]=true
@@ -46,7 +46,10 @@ return function(test,equal)
             local offers=Rewards.make_offers(s,Content.get_chest('core:chest/standard'))
             for _,offer in ipairs(offers) do found[offer.boon_id]=true end
         end
-        for _,id in ipairs(Catalog.order) do assert(found[id],id..' never offered') end
+        for i,id in ipairs(Catalog.order) do
+            if i<=Catalog.starter_count then assert(found[id],id..' never offered')
+            else assert(not found[id],id..' leaked before unlock') end
+        end
     end)
 
     test('mixed rarity new stacks aggregate without cap and serialize',function()

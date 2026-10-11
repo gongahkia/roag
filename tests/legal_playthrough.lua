@@ -13,8 +13,8 @@ local function cardinal(a,b)
     return math.abs(a.x-b.x)+math.abs(a.y-b.y)==1
 end
 
-function Play.new(seed)
-    return {state=Game.new_stage(seed),seed=seed,trace={},events={},checkpoints={}}
+function Play.new(seed,options)
+    return {state=Game.new_stage(seed,options),seed=seed,trace={},events={},checkpoints={}}
 end
 
 function Play.action(run,intent)
@@ -189,8 +189,8 @@ end
 
 -- Seed 3 is a guided route, not a human playtest. No player/entity/stat/scheduler
 -- field is assigned by the driver; every world change comes from Game.submit.
-function Play.stage_one(seed,route_index)
-    local run=Play.new(seed)
+function Play.stage_one(seed,route_index,options)
+    local run=Play.new(seed,options)
     local state=run.state
     checkpoint(run,'new_run')
     local kills=0
@@ -277,8 +277,8 @@ end
 
 -- Full Tranche 12 guided route, with no direct state edits. This remains a
 -- deterministic strategy test rather than a claim of human survival.
-function Play.biome_route(seed)
-    local run=Play.stage_one(seed,1)
+function Play.biome_route(seed,options)
+    local run=Play.stage_one(seed,1,options)
     local state=run.state
     assert(state.stage.biome_id=='core:biome/fungal_hollows')
     local spore=assert(Play.nearest(state,function(e)
@@ -314,8 +314,8 @@ end
 -- Every mutation in this seeded completion uses Game.submit. The driver reads
 -- positions and locked cells to choose legal actions; it never edits combat
 -- stats, schedules, entity positions or stage flags.
-function Play.complete_run(seed)
-    local run=Play.biome_route(seed)
+function Play.complete_run(seed,options)
+    local run=Play.biome_route(seed,options)
     local state=run.state
     local elite=assert(Game.entity(state,state.stage.elite_id))
     local ok,reason=Play.navigate(run,function(p)

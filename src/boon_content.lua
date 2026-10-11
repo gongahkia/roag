@@ -1,6 +1,6 @@
 -- Authored boon data. Behavior names are implemented by the small shared resolver.
 local Catalog = {}
-Catalog.version = "roeg-boons/2"
+Catalog.version = "roeg-boons/3"
 Catalog.rarities = {"common", "uncommon", "rare", "legendary"}
 Catalog.order = {
     "core:boon/storm_conductor", "core:boon/detonation_bloom",
@@ -13,7 +13,15 @@ Catalog.order = {
     "core:boon/perfect_guard", "core:boon/final_spark",
     "core:boon/pulse_step", "core:boon/packed_powder",
     "core:boon/longblade_geometry", "core:boon/phantom_lunge",
+    "core:boon/guardians_vow", "core:boon/prospectors_heart",
+    "core:boon/circuit_chorus", "core:boon/crownfire",
 }
+Catalog.starter_count = 20
+function Catalog.starter_order()
+    local result={}
+    for i=1,Catalog.starter_count do result[i]=Catalog.order[i] end
+    return result
+end
 
 local function strengths(chances, powers)
     local result = {}
@@ -171,12 +179,41 @@ Catalog.definitions = {
         effects={{kind="path_adjacent_hostiles",damage_type="physical"}},
         modifiers={{ability_id="core:ability/dash",kind="path_strike"}},incompatible={},
     },
+    ["core:boon/guardians_vow"] = {
+        name="Guardian's Vow", description="A fully blocked hostile hit bursts around you.",
+        tags={"defense","explosion"}, triggers={"DamageBlocked"},scope={kind="owner"},
+        predicate={all={{op="target_owner"},{op="source_hostile"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="area",radius=1,damage_type="explosion"}},
+    },
+    ["core:boon/prospectors_heart"] = {
+        name="Prospector's Heart", description="Collecting currency restores health.",
+        tags={"sustain","currency"},triggers={"CurrencyCollected"},scope={kind="owner"},
+        predicate={op="source_owner"},stack_policy="add_power",
+        parameters=strengths(nil,{1,2,3,4}),effects={{kind="heal_owner"}},
+    },
+    ["core:boon/circuit_chorus"] = {
+        name="Circuit Chorus",description="Other boon activations spark a nearby foe.",
+        tags={"offense","lightning"},triggers={"BoonActivated"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="other_boon"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="damage_nearest",radius=4,damage_type="lightning"}},
+    },
+    ["core:boon/crownfire"] = {
+        name="Crownfire",description="Direct first strikes ignite unhurt foes for three ticks.",
+        tags={"offense","burning"},triggers={"DamageTaken"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="target_hostile"},
+            {op="direct_attack"},{op="target_was_full"},{op="positive"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="apply_status",status="burning",interval=100,ticks=3}},
+    },
 }
 
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
-    DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true}
+    DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true,
+    CurrencyCollected=true,BoonActivated=true}
 local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true}
@@ -186,7 +223,7 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     source_tag=true, target_tag=true, source_faction=true, target_faction=true,
     direct_attack=true,target_was_full=true,adjacent_hostiles=true,burning_pair=true,
     source_hostile=true,source_in_radius=true,owner_hp_percent=true,
-    distinct_chain_group=true,ability_id=true,unique_windup=true}
+    distinct_chain_group=true,ability_id=true,unique_windup=true,other_boon=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -307,6 +344,10 @@ function Catalog.offer_text(id,rarity)
         ["core:boon/packed_powder"]="blast damage before defense",
         ["core:boon/longblade_geometry"]="Sword damage bonus; reach stays 2",
         ["core:boon/phantom_lunge"]="path strike damage before defense",
+        ["core:boon/guardians_vow"]="adjacent burst damage before defense",
+        ["core:boon/prospectors_heart"]="health per pickup",
+        ["core:boon/circuit_chorus"]="spark damage before defense",
+        ["core:boon/crownfire"]="Burning damage/tick before defense",
     }
     local suffix=def.stack_policy=="chance_overflow"
         and ("%.1f%% proc, %d %s"):format(p.chance/10000,p.power,units[id] or "power")

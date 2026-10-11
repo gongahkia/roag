@@ -16,6 +16,7 @@ local phase=assert(os.getenv('ROEG_FINALE_RESUME_PHASE'))
 local out=assert(os.getenv('ROEG_FINALE_RESUME_OUTPUT'))
 local old_stage,old_submit,old_restore=Game.new_stage,Game.submit,Game.restore
 local tracked,building,prepared=nil,false,false
+local last_submit
 local dirs={{0,-1},{1,0},{0,1},{-1,0}}
 local function near(state,object)
     local player=Game.player(state)
@@ -62,7 +63,12 @@ function Game.restore(snapshot)
     tracked=old_restore(snapshot);return tracked
 end
 function Game.submit(state,...)
-    tracked=state;return old_submit(state,...)
+    tracked=state
+    local before_damage=Game.player(state).damage
+    local ok,reason,events,preview=old_submit(state,...)
+    last_submit={intent=(...),ok=ok,reason=reason,events=events,
+        before_damage=before_damage}
+    return ok,reason,events,preview
 end
 assert(love.filesystem.load('roeg_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
@@ -112,6 +118,15 @@ function love.draw(...)
             love.keypressed('2') -- production Save & Quit, then process exits
             step=2;pending=false
         end)
+    elseif phase=='terminal' then
+        assert(has('Continue unavailable') and has('Save status: terminal'))
+        pending=true
+        love.graphics.captureScreenshot(function(image)
+            write(out..'/terminal.png',image:encode('png'):getString())
+            love.keypressed('c')
+            assert(not tracked)
+            love.event.quit()
+        end)
     elseif step==1 then
         assert(has('C / Enter: Continue'))
         pending=true
@@ -126,10 +141,31 @@ function love.draw(...)
         assert(has('HOLLOW REGENT') and tracked.finale.phase=='active')
         pending=true
         love.graphics.captureScreenshot(function(image)
-            write(out..'/continued.png',image:encode('png'):getString())
-            assert(Game.submit(tracked,{kind='wait'}))
-            assert(Persistence.encode(Game.snapshot(tracked))==read(out..'/next'))
-            love.event.quit()
+            local ok,reason=xpcall(function()
+                write(out..'/continued.png',image:encode('png'):getString())
+                love.keypressed('space')
+                assert(Persistence.encode(Game.snapshot(tracked))==read(out..'/next'),
+                    'continued action diverged')
+                old_update(100)
+                local live=tracked
+                Game.player(live).damage=100 -- prepared terminal check
+                love.keypressed('f');love.keypressed('w');love.keypressed('return')
+                local boss=Game.entity(live,live.finale.boss_id)
+                assert(live.victory and live.game_over,
+                    ('victory callback failed: boss=%s hp=%s at=%s,%s player=%s,%s dmg=%s phase=%s last=%s submitted=%s/%s'):format(
+                        tostring(boss and boss.id),tostring(boss and boss.hp),
+                        tostring(boss and boss.position.x),tostring(boss and boss.position.y),
+                        tostring(Game.player(live).position.x),tostring(Game.player(live).position.y),
+                        tostring(Game.player(live).damage),live.finale.phase,
+                        tostring(live.last_action and live.last_action.kind),
+                        tostring(last_submit and last_submit.intent.kind),
+                        tostring(last_submit and last_submit.reason)
+                        ..' before_damage='..tostring(last_submit and last_submit.before_damage)))
+                assert(Persistence.new(require('src.love_storage')):inspect().status=='terminal',
+                    'terminal tombstone missing')
+            end,debug.traceback)
+            if not ok then write(out..'/load-error.txt',reason) end
+            love.event.quit(ok and 0 or 1)
         end)
     end
 end
@@ -139,7 +175,9 @@ ROEG_GUI_AUTOSTART=1 ROEG_FINALE_RESUME_PHASE=save \
   timeout 30s love "$output_dir"
 ROEG_FINALE_RESUME_PHASE=load ROEG_FINALE_RESUME_OUTPUT="$output_dir" \
   XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
-for file in expected next save.png title.png continued.png; do
+ROEG_FINALE_RESUME_PHASE=terminal ROEG_FINALE_RESUME_OUTPUT="$output_dir" \
+  XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
+for file in expected next save.png title.png continued.png terminal.png; do
     test -s "$output_dir/$file"
 done
-printf 'Finale disk resume passed: two fresh LÖVE processes in %s\n' "$output_dir"
+printf 'Finale disk resume and terminal tombstone passed: three fresh LÖVE processes in %s\n' "$output_dir"

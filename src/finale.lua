@@ -26,6 +26,33 @@ Finale.map={
     },
 }
 
+function Finale.validate_map(map)
+    assert(map.id==Finale.map.id and map.floor_id==Finale.map.floor_id
+        and map.width==Finale.map.width and map.height==Finale.map.height
+        and map.start_x==Finale.map.start_x and map.start_y==Finale.map.start_y
+        and map.boss_x==Finale.map.boss_x and map.boss_y==Finale.map.boss_y,
+        "invalid final chamber anchors")
+    local queue={{map.start_x,map.start_y}}
+    local seen={[map.start_y*map.width+map.start_x]=true}
+    local head=1
+    local directions={{0,-1},{1,0},{0,1},{-1,0}}
+    while head<=#queue do
+        local p=queue[head];head=head+1
+        for _,d in ipairs(directions) do
+            local x,y=p[1]+d[1],p[2]+d[2]
+            local key=y*map.width+x
+            if x>=1 and x<=map.width and y>=1 and y<=map.height
+                and not seen[key] and map.rows[y]:sub(x,x)=="." then
+                seen[key]=true
+                queue[#queue+1]={x,y}
+            end
+        end
+    end
+    assert(seen[map.boss_y*map.width+map.boss_x] and #queue>=200,
+        "final chamber boss is unreachable or lacks combat clearance")
+    return true
+end
+
 local function entity(state,id)
     for _,actor in ipairs(state.entities) do
         if actor.id==id then return actor end
@@ -83,9 +110,11 @@ function Finale.validate(state)
     local finale=state.finale
     assert(state.stage==nil and state.map_id==Finale.map.id
         and state.active_floor_id==Finale.map.floor_id
+        and state.final_map and state.final_map.id==Finale.map.id
         and finale.index==4 and type(finale.route_history)=="table"
         and #finale.route_history==3 and #state.retired_stages==3,
         "invalid finale identity")
+    Finale.validate_map(state.final_map)
     assert(finale.route_history[3]=="core:route/gateway",
         "invalid final route")
     assert(finale.phase=="active" or finale.phase=="boss_defeated"
@@ -93,7 +122,8 @@ function Finale.validate(state)
     local boss=entity(state,finale.boss_id)
     if finale.phase=="active" then
         assert(boss and boss.definition_id=="core:enemy/hollow_regent"
-            and boss.hp>0 and not state.game_over and not state.victory,
+            and boss.hp>0 and not state.victory
+            and (not state.game_over or entity(state,state.player_id).hp==0),
             "missing active Regent")
     else
         assert(not boss and type(finale.defeat_time)=="number",

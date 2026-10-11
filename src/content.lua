@@ -190,7 +190,7 @@ end
 
 -- Generated runs carry their concrete map; authored fixtures remain registry lookups.
 function Content.map_for(state)
-    return state.generated_map or Content.get_map(state.map_id)
+    return state.generated_map or state.final_map or Content.get_map(state.map_id)
 end
 
 function Content.get_enemy(id)
@@ -368,7 +368,7 @@ function Content.validate_all()
     for _,route in ipairs(stage_rules.routes) do
         assert(type(route.id)=="string" and not route_ids[route.id]
             and type(route.name)=="string" and type(route.description)=="string",
-            "invalid prototype route")
+            "invalid stage route")
         route_ids[route.id]=true
     end
     local demo_map = maps["core:map/scrolling_room"]

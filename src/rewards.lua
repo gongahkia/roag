@@ -159,9 +159,10 @@ end
 
 function Rewards.make_offers(state, chest_definition, offer_rng)
     local rng=offer_rng or state.rng
-    assert(#BoonContent.order >= 3, "chest pool needs three boons")
+    local available=state.available_boons or BoonContent.starter_order()
+    assert(#available >= 3, "chest pool needs three boons")
     local pool = {}
-    for index, id in ipairs(BoonContent.order) do pool[index] = id end
+    for index, id in ipairs(available) do pool[index] = id end
     local offers = {}
     for index = 1, 3 do
         local selected = RNG.next_int(rng, #pool)

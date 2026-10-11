@@ -6,6 +6,9 @@ local Game = require("src.game")
 local Generation = require("src.generation")
 local Playback = require("src.playback")
 local Persistence = require("src.persistence")
+local Profile = require("src.profile")
+local AchievementContent = require("src.achievement_content")
+local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 
 local TILE = 32
@@ -26,6 +29,8 @@ local chest_menu -- presentation focus only; offers live in authoritative chest 
 local route_menu -- exit offers are plain data in the authoritative exit entity.
 local reward_notices, reward_notice_time = {}, 0
 local save_service = Persistence.new(storage)
+local profile_service = Profile.new(storage)
+local profile_status,profile,unlocks_view
 local title, pause_menu, confirm_new, save_status = true, false, false, nil
 local confirm_reset_seed
 local persistence_message = ""
@@ -47,6 +52,7 @@ local showcase = {
 }
 
 local function apply_showcase()
+    if state.meta then state.meta.eligible=false end
     local player = Game.player(state)
     for _, id in ipairs(BoonContent.order) do
         for _, rarity in ipairs(BoonContent.rarities) do
@@ -137,6 +143,26 @@ function love.load()
     else
         save_status=save_service:inspect()
         persistence_message=save_status.reason or ""
+        profile_status=profile_service:inspect()
+        profile=profile_status.profile
+        if profile_status.status=="corrupt" or profile_status.status=="incompatible" then
+            persistence_message="Profile "..profile_status.status.."; progress preserved. "..
+                (profile_status.reason or "")
+        elseif profile_status.status=="recovered" then
+            persistence_message="Recovered previous valid profile generation"
+        end
+        if save_status.status=="pending_terminal" then
+            local pending=save_status.state.meta and save_status.state.meta.pending or {}
+            local ok,updated=profile_service:commit_awards(pending)
+            if ok then
+                profile=updated
+                local done,why=save_service:tombstone()
+                if done then save_status=save_service:inspect()
+                else persistence_message="Terminal save needs retry: "..tostring(why) end
+            else
+                persistence_message="Terminal unlock recovery needs retry: "..tostring(updated)
+            end
+        end
     end
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
 end
@@ -162,14 +188,33 @@ function love.update(dt)
     end
 end
 
-local function begin_new()
-    local candidate=Game.new_stage(floor_seed)
+local function begin_new(seed)
+    seed=seed or floor_seed
+    if save_service:inspect().status=="pending_terminal" then
+        persistence_message="Terminal unlock is pending; retry recovery before New Run"
+        return
+    end
+    local current=profile_service:inspect()
+    if current.status=="corrupt" or current.status=="incompatible" then
+        persistence_message="Cannot replace incompatible/corrupt profile; progress preserved"
+        return
+    end
+    local run_id,updated=profile_service:allocate_run()
+    if not run_id then
+        persistence_message="New Run profile write failed: "..tostring(updated)
+        return
+    end
+    local candidate=Game.new_stage(seed,{meta=Achievements.new_run(true,run_id),
+        available_boons=Achievements.pool(updated.earned)})
     local ok,reason=save_service:replace(candidate)
     if not ok then
         persistence_message="New Run save failed: "..tostring(reason)
         return
     end
     state=candidate
+    profile=updated
+    profile_status=profile_service:inspect()
+    floor_seed=seed
     title,confirm_new,pause_menu=false,false,false
     persistence_message=reason or ""
     targeting,chest_menu,route_menu=nil,nil,nil
@@ -196,14 +241,53 @@ local function continue_run()
     reset_camera()
 end
 
-local function checkpoint()
-    if os.getenv("ROEG_GUI_AUTOSTART") == "1" then return end
+local function checkpoint(force)
+    if not force and os.getenv("ROEG_GUI_AUTOSTART") == "1" then return true end
+    local pending=state.meta and state.meta.pending or {}
+    if state.game_over and next(pending) then
+        local saved,reason=save_service:pending_terminal(state)
+        if not saved then
+            persistence_message="Terminal save failed: "..tostring(reason)
+            return false
+        end
+        local committed,updated=profile_service:commit_awards(pending)
+        if not committed then
+            persistence_message="Unlock pending; retry required: "..tostring(updated)
+            return false
+        end
+        profile=updated
+        local done,why=save_service:tombstone()
+        if not done then
+            persistence_message="Terminal save needs retry: "..tostring(why)
+            return false
+        end
+        state.meta.pending={}
+        save_status=save_service:inspect()
+        return true
+    end
     local ok,reason=save_service:save(state)
-    if not ok then persistence_message="Autosave failed: "..tostring(reason) end
+    if not ok then
+        persistence_message="Autosave failed: "..tostring(reason)
+        return false
+    end
+    if next(pending) then
+        local committed,updated=profile_service:commit_awards(pending)
+        if not committed then
+            persistence_message="Unlock pending; retry required: "..tostring(updated)
+            return false
+        end
+        profile=updated
+        state.meta.pending={}
+        local acknowledged,why=save_service:save(state)
+        if not acknowledged then
+            persistence_message="Unlock saved; run checkpoint retry: "..tostring(why)
+        end
+    end
+    profile_status=profile_service:inspect()
+    return true
 end
 
 local function submit(intent)
-    local old_stage=state.stage and state.stage.index
     local old_floor=state.active_floor_id
     local committed, reason, events, preview = Game.submit(state, intent)
     if committed then
@@ -218,13 +302,19 @@ local function submit(intent)
                 if reward_notice_time == 0 then reward_notice_time = 3 end
             elseif event.kind == "CurrencyCollected" then
                 notice = ("Collected %d currency"):format(event.amount)
+            elseif event.kind=="AchievementEarned" then
+                reward_notices[#reward_notices+1]="Unlocked: "..
+                    AchievementContent.get(event.achievement_id).name.." → "..
+                    BoonContent.get(event.reward_boon_id).name
+                if reward_notice_time==0 then reward_notice_time=3 end
             end
         end
         local milestone=state.game_over or
             old_floor~=state.active_floor_id or
             (state.last_action and state.last_action.kind=="claim_chest")
         for _,event in ipairs(events) do
-            if event.kind=="EliteDefeated" or event.kind=="PursuerArrived" then
+            if event.kind=="EliteDefeated" or event.kind=="PursuerArrived"
+                or event.kind=="AchievementEarned" then
                 milestone=true
             end
         end
@@ -290,6 +380,10 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if title then
+        if unlocks_view then
+            if key=="escape" or key=="u" then unlocks_view=false end
+            return
+        end
         if confirm_new then
             if key=="y" or key=="return" or key=="kpenter" then begin_new()
             elseif key=="n" or key=="escape" then confirm_new=false end
@@ -305,6 +399,19 @@ function love.keypressed(key, _, isrepeat)
                 save_status.status=="incompatible") then
                 confirm_new=true
             else begin_new() end
+        elseif key=="u" then unlocks_view=true
+        elseif key=="r" and save_status and save_status.status=="pending_terminal" then
+            local pending=save_status.state.meta and save_status.state.meta.pending or {}
+            local ok,updated=profile_service:commit_awards(pending)
+            if ok then
+                profile=updated
+                local done,why=save_service:tombstone()
+                if done then
+                    save_status=save_service:inspect()
+                    profile_status=profile_service:inspect()
+                    persistence_message="Terminal unlock recovered and saved"
+                else persistence_message="Terminal save needs retry: "..tostring(why) end
+            else persistence_message="Terminal unlock recovery needs retry: "..tostring(updated) end
         elseif key=="escape" or key=="q" then love.event.quit() end
         return
     end
@@ -312,9 +419,7 @@ function love.keypressed(key, _, isrepeat)
         if key=="escape" or key=="1" or key=="return" then
             pause_menu=false
         elseif key=="2" or key=="s" then
-            local ok,reason=save_service:save(state)
-            if ok then love.event.quit()
-            else persistence_message="Save & Quit failed: "..tostring(reason) end
+            if checkpoint(true) then love.event.quit() end
         end
         return
     end
@@ -322,23 +427,20 @@ function love.keypressed(key, _, isrepeat)
         if key=="escape" or key=="n" then
             confirm_reset_seed=nil
         elseif key=="return" or key=="kpenter" or key=="y" then
-            local candidate=Game.new_stage(confirm_reset_seed)
+            local requested=confirm_reset_seed
             if os.getenv("ROEG_GUI_AUTOSTART")~="1" then
-                local ok,reason=save_service:replace(candidate)
-                if not ok then
-                    persistence_message="Reset failed: "..tostring(reason)
-                    return
-                end
-                persistence_message=reason or ""
+                begin_new(requested)
+                if state and state.run_seed==requested then confirm_reset_seed=nil end
+            else
+                floor_seed=requested
+                state=Game.new_stage(floor_seed)
+                apply_showcase()
+                playback,targeting,chest_menu,route_menu=Playback.new(),nil,nil,nil
+                reward_notices,reward_notice_time={},0
+                notice=("Seed %d — new floor"):format(floor_seed)
+                confirm_reset_seed=nil
+                reset_camera()
             end
-            floor_seed=confirm_reset_seed
-            state=candidate
-            apply_showcase()
-            playback,targeting,chest_menu,route_menu=Playback.new(),nil,nil,nil
-            reward_notices,reward_notice_time={},0
-            notice=("Seed %d — new floor"):format(floor_seed)
-            confirm_reset_seed=nil
-            reset_camera()
         end
         return
     end
@@ -914,11 +1016,31 @@ local function draw_world()
                 VIEWPORT.x+30,262,VIEWPORT.width-60,"center")
             love.graphics.printf("Boons: "..(#owned>0 and table.concat(owned,", ") or "none"),
                 VIEWPORT.x+45,298,VIEWPORT.width-90,"center")
+            local unlocked={}
+            for _,id in ipairs(AchievementContent.order) do
+                if state.meta and state.meta.earned[id] then
+                    unlocked[#unlocked+1]=BoonContent.get(AchievementContent.get(id).reward).name
+                end
+            end
+            love.graphics.printf("Unlocked this run: "..(#unlocked>0 and
+                table.concat(unlocked,", ") or "none"),VIEWPORT.x+45,350,
+                VIEWPORT.width-90,"center")
             love.graphics.printf("N — New Run",VIEWPORT.x,408,VIEWPORT.width,"center")
         else
             love.graphics.setColor(1, 0.36, 0.33)
             love.graphics.printf("GAME OVER — press N to restart", VIEWPORT.x,
                 VIEWPORT.y + VIEWPORT.height / 2 - 10, VIEWPORT.width, "center")
+            if state.meta then
+                local earned={}
+                for _,id in ipairs(AchievementContent.order) do
+                    if state.meta.earned[id] then
+                        earned[#earned+1]=AchievementContent.get(id).name
+                    end
+                end
+                love.graphics.printf("Achievements this run: "..(#earned>0 and
+                    table.concat(earned,", ") or "none"),VIEWPORT.x+35,380,
+                    VIEWPORT.width-70,"center")
+            end
         end
     end
     love.graphics.setScissor()
@@ -973,9 +1095,15 @@ local function draw_panel()
     end
     if state.finale then
         love.graphics.setColor(0.89,0.66,0.96)
-        love.graphics.print("Hollow Regent · phase "..(state.finale.phase=="active"
-            and (Game.entity(state,state.finale.boss_id).phase_two and 2 or 1)
-            or "defeated"),PANEL_X,309)
+        local boss=Game.entity(state,state.finale.boss_id)
+        if boss and visible_at(boss.position.x,boss.position.y) then
+            love.graphics.print("Hollow Regent · phase "..
+                (boss.phase_two and 2 or 1),PANEL_X,309)
+        elseif state.finale.phase=="victory" then
+            love.graphics.print("Hollow Regent defeated",PANEL_X,309)
+        else
+            love.graphics.print("Final Sanctum · foe beyond sight",PANEL_X,309)
+        end
     end
     if reward_notice_time > 0 and reward_notices[1] then
         love.graphics.setColor(1, 0.87, 0.39)
@@ -1112,9 +1240,32 @@ function love.draw()
         love.graphics.printf(can_continue and "C / Enter: Continue" or
             "Continue unavailable",0,220,1024,"center")
         love.graphics.printf("N: New Run",0,255,1024,"center")
-        love.graphics.printf("Q / Esc: Quit",0,290,1024,"center")
+        love.graphics.printf("U: Unlocks / Achievements · Q / Esc: Quit",0,290,1024,"center")
         local status=save_status and save_status.status or "absent"
         love.graphics.printf("Save status: "..status,0,350,1024,"center")
+        if status=="pending_terminal" then
+            love.graphics.printf("R: Retry terminal unlock recovery",0,372,1024,"center")
+        end
+        if unlocks_view then
+            love.graphics.setColor(0.02,0.05,0.05,0.96)
+            love.graphics.rectangle("fill",75,75,874,490)
+            love.graphics.setColor(0.91,0.96,0.81)
+            love.graphics.printf("ACHIEVEMENTS · Esc to return",90,100,844,"center")
+            local earned=profile and profile.earned or {}
+            for index,id in ipairs(AchievementContent.order) do
+                local def=AchievementContent.get(id)
+                local label=earned[id] and "UNLOCKED" or "LOCKED"
+                love.graphics.printf(("%s — %s · %s"):format(label,def.name,
+                    BoonContent.get(def.reward).name),105,155+(index-1)*88,814,"left")
+                love.graphics.printf(def.hint,125,181+(index-1)*88,780,"left")
+            end
+            if profile_status and (profile_status.status=="corrupt" or
+                profile_status.status=="incompatible") then
+                love.graphics.printf("Profile "..profile_status.status.." — progress preserved",
+                    90,518,844,"center")
+            end
+            return
+        end
         if confirm_new then
             love.graphics.setColor(1,0.72,0.38)
             love.graphics.printf("Replace saved run? Y / Enter confirm · Esc cancel",
