@@ -50,5 +50,5 @@ frequent enough near actual Thornspitter encounters.
 5. Save & Quit during playback, Continue, and check that the player appears on
    the logical tile and that world time did not change on load.
 
-Future content priorities: deeper boon/build synergies, genuinely different
-biomes and encounters, then final boss and permanent unlocks.
+Tranche 11 expanded boon/build synergies. Future content priorities are genuinely
+different biomes and encounters, then final boss and permanent unlocks.

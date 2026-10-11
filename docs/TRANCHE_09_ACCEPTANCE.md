@@ -8,8 +8,8 @@ ordinary `Game.submit` intents only. It does not reposition an actor, change
 health/stats/currency, clear schedules, or change enemy behavior. This is a
 guided automated strategy, not an unassisted run or a human playtest.
 
-The tested path kills ordinary enemies for XP/currency, buys the third cached
-paid-chest offer (Static Footsteps), sees a real boon activation, travels to
+The tested path kills ordinary enemies for XP/currency, buys the first cached
+paid-chest offer (Emberbrand in the expanded Tranche 11 pool), ignites a real target, travels to
 the elite, triggers phase two and defeats it, claims the free chest, confirms a
 prototype route, and kills an ordinary enemy on stage two. The full action and
 event sequence is replayed from the same seed and compared to an identical
@@ -27,6 +27,11 @@ with 4 HP remaining; the route entered stage three. The guide died during
 the stage-three elite fight at action 1048. It did not demonstrate the third
 exit. This is evidence that the particular strategy failed, not a proven
 map softlock or a human balance verdict.
+
+Tranche 11 changed seed 3's paid chest choice to earned Emberbrand. On the
+current build, the same legal-action guide reached the explicit non-victory
+prototype endpoint in 965 actions with 1 HP. This is a guided automated run,
+not a human playtest or a guarantee for other seeds/builds.
 
 Independent ordinary-action checks use seed 9 for the movement sigil, seed 65
 for an empty-tile Sword Strike on the cracked wall, seed 13 for a cardinal

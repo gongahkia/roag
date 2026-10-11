@@ -223,9 +223,9 @@ function Play.stage_one(seed)
         assert(options.offers[i].boon_id==reopened.offers[i].boon_id and
             options.offers[i].rarity==reopened.offers[i].rarity)
     end
-    -- Seed 3's third offer is Static Footsteps; its movement proc is observable.
-    assert(options.offers[3].boon_id=='core:boon/static_footsteps')
-    ok,reason=Play.action(run,{kind='claim_chest',chest_id=chest.id,offer_index=3})
+    -- Seed 3's reachable chest now offers Emberbrand in the expanded catalogue.
+    assert(options.offers[1].boon_id=='core:boon/emberbrand')
+    ok,reason=Play.action(run,{kind='claim_chest',chest_id=chest.id,offer_index=1})
     assert(ok,reason)
     assert(chest.claimed and state.currency==before_currency-chest.price)
     checkpoint(run,'paid_chest_claimed')
@@ -238,6 +238,7 @@ function Play.stage_one(seed)
     checkpoint(run,'elite_reached')
     ok,reason=Play.fight(run,elite.id,150)
     assert(ok,reason)
+    assert(Play.has_event(run,'StatusApplied'),'earned Emberbrand never ignited a target')
     assert(state.stage.phase=='extraction' and not state.game_over)
     checkpoint(run,'elite_defeated')
 

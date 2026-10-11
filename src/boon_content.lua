@@ -1,12 +1,18 @@
 -- Authored boon data. Behavior names are implemented by the small shared resolver.
 local Catalog = {}
-Catalog.version = "roeg-boons/1"
+Catalog.version = "roeg-boons/2"
 Catalog.rarities = {"common", "uncommon", "rare", "legendary"}
 Catalog.order = {
     "core:boon/storm_conductor", "core:boon/detonation_bloom",
     "core:boon/thorn_mirror", "core:boon/static_footsteps",
     "core:boon/resonant_wounds", "core:boon/temporal_echo",
     "core:boon/crescent_reach", "core:boon/turncoat_spark",
+    "core:boon/emberbrand", "core:boon/flashpoint",
+    "core:boon/grave_dividend", "core:boon/opening_cut",
+    "core:boon/crowdbreaker", "core:boon/harriers_response",
+    "core:boon/perfect_guard", "core:boon/final_spark",
+    "core:boon/pulse_step", "core:boon/packed_powder",
+    "core:boon/longblade_geometry", "core:boon/phantom_lunge",
 }
 
 local function strengths(chances, powers)
@@ -79,17 +85,108 @@ Catalog.definitions = {
         stack_policy="add_power", parameters=strengths(nil,{1,2,3,4}),
         effects={{kind="damage_source", damage_type="lightning", proc_coefficient=1}},
     },
+    ["core:boon/emberbrand"] = {
+        name="Emberbrand", description="Direct hits ignite foes for three 100-time ticks.",
+        tags={"offense","burning"}, triggers={"HitConfirmed"}, scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="target_hostile"},{op="direct_attack"}}},
+        stack_policy="add_power",parameters=strengths(nil,{2,3,4,6}),
+        effects={{kind="apply_status", status="burning", interval=100, ticks=3}},
+    },
+    ["core:boon/flashpoint"] = {
+        name="Flashpoint", description="Damage to a Burning foe beside another Burning foe bursts.",
+        tags={"offense","burning"}, triggers={"DamageTaken"},scope={kind="radius",radius=8},
+        predicate={all={{op="positive"},{op="target_hostile"},{op="burning_pair"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="area",radius=1,damage_type="fire"}},
+    },
+    ["core:boon/grave_dividend"] = {
+        name="Grave Dividend",description="Credited hostile kills restore health.",
+        tags={"sustain"},triggers={"EntityKilled"},scope={kind="floor"},
+        predicate={all={{op="source_owner"},{op="target_hostile"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="heal_owner"}},
+    },
+    ["core:boon/opening_cut"] = {
+        name="Opening Cut",description="Directly damaging an unhurt foe deals bonus damage.",
+        tags={"offense"},triggers={"DamageTaken"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="target_hostile"},{op="direct_attack"},{op="target_was_full"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="damage_target",damage_type="physical"}},
+    },
+    ["core:boon/crowdbreaker"] = {
+        name="Crowdbreaker",description="Direct hits gain bonus damage per nearby living hostile.",
+        tags={"offense","spatial"},triggers={"DamageTaken"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="target_hostile"},{op="direct_attack"},{op="adjacent_hostiles",min=1}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="damage_target",damage_type="physical",scale="adjacent_hostiles"}},
+    },
+    ["core:boon/harriers_response"] = {
+        name="Harrier's Response",description="Nearby hostile windups may draw a retaliatory spark.",
+        tags={"defense","lightning"},triggers={"WindupStarted"},scope={kind="radius",radius=7},
+        predicate={all={{op="source_hostile"},{op="unique_windup"}}},
+        stack_policy="chance_overflow",
+        parameters=strengths({80000,180000,350000,650000},{1,2,3,4}),
+        effects={{kind="damage_source",damage_type="lightning"}},
+    },
+    ["core:boon/perfect_guard"] = {
+        name="Perfect Guard",description="Fully blocked hostile damage retaliates nearby.",
+        tags={"defense"},triggers={"DamageBlocked"},scope={kind="owner"},
+        predicate={all={{op="target_owner"},{op="source_hostile"},{op="source_in_radius",radius=5}}},
+        stack_policy="add_power",parameters=strengths(nil,{2,3,4,6}),
+        effects={{kind="damage_source",damage_type="thorns"}},
+    },
+    ["core:boon/final_spark"] = {
+        name="Final Spark",description="Direct hits while at 40% health or less spark again.",
+        tags={"offense","lightning"},triggers={"DamageTaken"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="target_hostile"},{op="direct_attack"},{op="owner_hp_percent",max=40}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="damage_target",damage_type="lightning"}},
+    },
+    ["core:boon/pulse_step"] = {
+        name="Pulse Step",description="Enter a tile beside two foes to pulse into both.",
+        tags={"movement","spatial"},triggers={"TileEntered"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="adjacent_hostiles",min=2}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="adjacent_hostiles",damage_type="pulse"}},
+    },
+    ["core:boon/packed_powder"] = {
+        name="Packed Powder",description="Each disjoint three credited or observed hostile deaths blast.",
+        tags={"offense","explosion"},triggers={"EntityKilled"},scope={kind="floor"},
+        predicate={all={{op="target_hostile"},{op="distinct_chain_group",size=3}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="area",radius=1,damage_type="explosion"}},
+    },
+    ["core:boon/longblade_geometry"] = {
+        name="Longblade Geometry",description="Explicit Sword Strike reaches two cells in its line.",
+        tags={"transformation","offense"},triggers={},scope={kind="owner"},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),effects={},
+        modifiers={{ability_id="core:ability/basic_attack",kind="line_second_cell"},
+            {ability_id="core:ability/basic_attack",kind="add_damage"}},incompatible={},
+    },
+    ["core:boon/phantom_lunge"] = {
+        name="Phantom Lunge",description="Dash strikes each hostile beside its traversed path once.",
+        tags={"transformation","movement"},triggers={"Moved"},scope={kind="owner"},
+        predicate={all={{op="source_owner"},{op="ability_id",value="core:ability/dash"}}},
+        stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),
+        effects={{kind="path_adjacent_hostiles",damage_type="physical"}},
+        modifiers={{ability_id="core:ability/dash",kind="path_strike"}},incompatible={},
+    },
 }
 
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
-    TileEntered=true, AttackPerformed=true}
-local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true}
+    DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true}
+local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
+    apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
+    path_adjacent_hostiles=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
-    source_tag=true, target_tag=true, source_faction=true, target_faction=true}
+    source_tag=true, target_tag=true, source_faction=true, target_faction=true,
+    direct_attack=true,target_was_full=true,adjacent_hostiles=true,burning_pair=true,
+    source_hostile=true,source_in_radius=true,owner_hp_percent=true,
+    distinct_chain_group=true,ability_id=true,unique_windup=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -103,7 +200,15 @@ local function validate_predicate(node)
         if node.op == "pair_adjacent_damage" then
             assert(node.neighborhood == "cardinal" or node.neighborhood == "eight",
                 "invalid pair neighborhood")
-        elseif node.op == "source_id" or node.op == "target_id"
+        elseif node.op == "adjacent_hostiles" then
+            assert(type(node.min)=="number" and node.min%1==0 and node.min>=1,"invalid adjacent count")
+        elseif node.op == "distinct_chain_group" then
+            assert(type(node.size)=="number" and node.size%1==0 and node.size>=2,"invalid group size")
+        elseif node.op == "source_in_radius" then
+            assert(type(node.radius)=="number" and node.radius%1==0 and node.radius>=0,"invalid source radius")
+        elseif node.op == "owner_hp_percent" then
+            assert(type(node.max)=="number" and node.max>=0 and node.max<=100,"invalid health threshold")
+        elseif node.op == "source_id" or node.op == "target_id" or node.op == "ability_id"
             or node.op == "source_tag" or node.op == "target_tag"
             or node.op == "source_faction" or node.op == "target_faction" then
             assert(node.value ~= nil, "missing predicate value")
@@ -150,6 +255,13 @@ function Catalog.validate(definitions, order)
                 assert(type(effect.delay) == "number" and effect.delay % 1 == 0
                     and effect.delay > 0, "invalid echo delay")
             end
+            if effect.kind == "apply_status" then
+                assert(effect.status=="burning" and type(effect.interval)=="number"
+                    and effect.interval%1==0 and effect.interval>0
+                    and type(effect.ticks)=="number" and effect.ticks%1==0
+                    and effect.ticks>0,"invalid status effect")
+            end
+            assert(effect.scale==nil or effect.scale=="adjacent_hostiles","invalid effect scale")
         end
         local last_power, last_chance = -1, -1
         for _, rarity in ipairs(Catalog.rarities) do
@@ -162,9 +274,12 @@ function Catalog.validate(definitions, order)
             last_power, last_chance = p.power, p.chance
         end
         for _, modifier in ipairs(def.modifiers or {}) do
-            assert(modifier.ability_id == "core:ability/sweeping_slash"
-                and (modifier.kind == "forward_cell" or modifier.kind == "add_damage"),
-                "invalid ability modifier")
+            assert((modifier.ability_id == "core:ability/sweeping_slash"
+                    and (modifier.kind == "forward_cell" or modifier.kind == "add_damage"))
+                or (modifier.ability_id == "core:ability/basic_attack"
+                    and (modifier.kind == "line_second_cell" or modifier.kind == "add_damage"))
+                or (modifier.ability_id == "core:ability/dash"
+                    and modifier.kind == "path_strike"),"invalid ability modifier")
         end
         for _, other in ipairs(def.incompatible or {}) do
             assert(other ~= id and definitions[other], "invalid boon incompatibility")
@@ -175,5 +290,28 @@ function Catalog.validate(definitions, order)
 end
 
 function Catalog.get(id) return Catalog.definitions[id] end
+
+function Catalog.offer_text(id,rarity)
+    local def=assert(Catalog.get(id),"unknown boon")
+    local p=assert(def.parameters[rarity],"unknown rarity")
+    local units={
+        ["core:boon/emberbrand"]="damage/tick before defense",
+        ["core:boon/flashpoint"]="burst damage before defense",
+        ["core:boon/grave_dividend"]="health per credited kill",
+        ["core:boon/opening_cut"]="bonus damage before defense",
+        ["core:boon/crowdbreaker"]="damage per adjacent foe",
+        ["core:boon/harriers_response"]="spark damage before defense",
+        ["core:boon/perfect_guard"]="retaliation damage before defense",
+        ["core:boon/final_spark"]="bonus damage before defense",
+        ["core:boon/pulse_step"]="pulse damage before defense",
+        ["core:boon/packed_powder"]="blast damage before defense",
+        ["core:boon/longblade_geometry"]="Sword damage bonus; reach stays 2",
+        ["core:boon/phantom_lunge"]="path strike damage before defense",
+    }
+    local suffix=def.stack_policy=="chance_overflow"
+        and ("%.1f%% proc, %d %s"):format(p.chance/10000,p.power,units[id] or "power")
+        or ("%d %s per copy"):format(p.power,units[id] or "power")
+    return def.description.." ["..suffix.."]"
+end
 
 return Catalog

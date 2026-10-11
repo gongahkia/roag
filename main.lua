@@ -19,6 +19,7 @@ local notice = "Ready"
 local playback = Playback.new()
 local minimap_visible = true
 local showcase_index = 0
+local boon_page = 0
 local floor_seed = 1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
 local route_menu -- exit offers are plain data in the authoritative exit entity.
@@ -38,6 +39,10 @@ local showcase = {
         {"temporal_echo","uncommon",1}}},
     {name="Transformation", boons={{"crescent_reach","rare",1},
         {"thorn_mirror","rare",1}, {"turncoat_spark","rare",1}}},
+    {name="Firestorm",boons={{"emberbrand","rare",1},{"flashpoint","rare",1},
+        {"grave_dividend","uncommon",1}}},
+    {name="Blade and Lunge",boons={{"longblade_geometry","rare",1},
+        {"phantom_lunge","rare",1},{"pulse_step","uncommon",1}}},
 }
 
 local function apply_showcase()
@@ -379,6 +384,11 @@ function love.keypressed(key, _, isrepeat)
         notice = minimap_visible and "Map shown — no time" or "Map hidden — no time"
         return
     end
+    if key == "v" and not targeting then
+        boon_page=boon_page+1
+        notice="Boon list page — no time"
+        return
+    end
     if Playback.busy(playback) or state.game_over
         or (state.stage and state.stage.phase=="prototype_endpoint") then return end
     if key == "b" and not targeting then
@@ -484,6 +494,11 @@ local function draw_enemies()
             love.graphics.setColor(0.94, 0.28, 0.29)
             love.graphics.rectangle("fill", x + 3, y + 28,
                 (TILE - 6) * enemy.hp / enemy.max_hp, 3)
+            if enemy.statuses and enemy.statuses.burning then
+                love.graphics.setColor(1,0.47,0.13,0.95)
+                love.graphics.circle("fill",x+26,y+5,3)
+                love.graphics.polygon("fill",x+23,y+5,x+26,y-2,x+29,y+5)
+            end
             end
         end
     end
@@ -541,7 +556,15 @@ local function draw_history_event(event)
     elseif event.kind == "WindupCancelled" then
         draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4)
     elseif event.kind == "EffectApplied" or event.kind == "DelayedEffectResolved" then
-        draw_cells(event.target_cells or {}, 0.36, 0.78, 1.0, 0.57)
+        if event.damage_type=="fire" then
+            draw_cells(event.target_cells or {},1,0.42,0.13,0.51)
+        elseif event.damage_type=="pulse" then
+            draw_cells(event.target_cells or {},0.55,0.94,0.67,0.51)
+        else
+            draw_cells(event.target_cells or {}, 0.36, 0.78, 1.0, 0.57)
+        end
+    elseif event.kind=="StatusApplied" or event.kind=="StatusTick" then
+        draw_cells({{x=event.x,y=event.y}},1,0.43,0.13,0.45)
     elseif event.kind == "SecretDiscovered" then
         draw_cells({{x=event.wall_x or event.x,y=event.wall_y or event.y}},
             0.97,0.78,0.31,0.60)
@@ -751,7 +774,8 @@ local function draw_world()
                 index == chest_menu.selected and 0.89 or 0.88, 0.67)
             love.graphics.print(("%d. %s [%s] · power %d%s"):format(
                 index, definition.name, offer.rarity, power.power, chance), 90, 158 + (index-1)*88)
-            love.graphics.print(definition.description, 110, 180 + (index-1)*88)
+            love.graphics.printf(BoonContent.offer_text(offer.boon_id,offer.rarity),
+                110, 180 + (index-1)*88,580)
         end
         love.graphics.setColor(0.9, 0.95, 0.9)
         local status = chest_menu.shortfall > 0 and
@@ -843,8 +867,7 @@ local function draw_panel()
 
     if not targeting then
         love.graphics.setColor(0.66, 0.86, 1)
-        love.graphics.print("BOONS (B: developer loadout)", PANEL_X, 334)
-        local line = 0
+        local owned={}
         for _, id in ipairs(BoonContent.order) do
             local stacks = player.boons and player.boons[id]
             if stacks then
@@ -857,12 +880,18 @@ local function draw_panel()
                 end
                 if #counts > 0 then
                     local label = BoonContent.get(id).name .. " " .. table.concat(counts, " ")
-                    love.graphics.print(label, PANEL_X, 351 + line * 12)
-                    line = line + 1
+                    owned[#owned+1]=label
                 end
             end
         end
-        if line == 0 then love.graphics.print("None equipped", PANEL_X, 351) end
+        local pages=math.max(1,math.ceil(#owned/7))
+        local page=boon_page%pages
+        love.graphics.print(("BOONS %d/%d (V page · B dev)"):format(page+1,pages),PANEL_X,334)
+        for line=1,7 do
+            local label=owned[page*7+line]
+            if label then love.graphics.print(label,PANEL_X,351+(line-1)*12) end
+        end
+        if #owned==0 then love.graphics.print("None equipped", PANEL_X, 351) end
     end
 
     local history = Playback.current(playback)

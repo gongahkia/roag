@@ -12,7 +12,7 @@ local Visibility = require("src.visibility")
 local World = require("src.world")
 
 local Game = {}
-local SCHEMA = "roeg-run/7"
+local SCHEMA = "roeg-run/8"
 Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
     dash=130, claim_chest=100, choose_route=0}
@@ -288,9 +288,10 @@ function Game.preview(state, kind, dx, dy)
     end
     local position = player.position
     local cells = Targeting.cells(kind, position.x, position.y, dx, dy)
-    if kind == "sweeping_slash" then
-        cells = Boons.ability(state, player, "core:ability/sweeping_slash",
-            cells, player.slash_damage, dx, dy)
+    if kind == "sweeping_slash" or kind == "basic_attack" then
+        cells = Boons.ability(state, player,
+            kind=="basic_attack" and "core:ability/basic_attack" or "core:ability/sweeping_slash",
+            cells, kind=="basic_attack" and player.damage or player.slash_damage, dx, dy,true)
     end
     return {valid=true, cost=cost, cells=cells}
 end
@@ -317,14 +318,14 @@ function Game.next_level_xp(state)
     return Rewards.next_threshold(state.progression.level)
 end
 
-function Game.effective_ability(state, kind, dx, dy)
+function Game.effective_ability(state, kind, dx, dy, explicit)
     assert(kind == "basic_attack" or kind == "sweeping_slash", "unknown ability")
     local owner = Game.player(state)
     local base = Targeting.cells(kind, owner.position.x, owner.position.y, dx, dy)
     assert(base, "invalid ability direction")
     return Boons.ability(state, owner,
         kind == "basic_attack" and "core:ability/basic_attack" or "core:ability/sweeping_slash",
-        base, kind == "basic_attack" and owner.damage or owner.slash_damage, dx, dy)
+        base, kind == "basic_attack" and owner.damage or owner.slash_damage, dx, dy,explicit)
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
@@ -353,13 +354,28 @@ local function remove_dead(state, target, output, source_id, action_id)
 end
 
 local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-    damage_type, critical)
+    damage_type, critical, direct_attack)
     local outcomes = {}
     local map = Content.map_for(state)
     for _, cell in ipairs(cells) do
         if ranged and not Content.projectile_passable(map, cell.x, cell.y, state) then break end
         local target = occupant(state, cell.floor_id, cell.x, cell.y, source.id, true)
         if target then
+            local adjacent_hostile_count,adjacent_burning_count=0,0
+            for _,other in ipairs(state.entities) do
+                if other.id~=target.id and other.hp and other.hp>0
+                    and other.position.floor_id==cell.floor_id
+                    and math.max(math.abs(other.position.x-cell.x),
+                        math.abs(other.position.y-cell.y))==1 then
+                    if other.faction~=source.faction then
+                        adjacent_hostile_count=adjacent_hostile_count+1
+                    end
+                    if other.faction==target.faction
+                        and other.statuses and other.statuses.burning then
+                        adjacent_burning_count=adjacent_burning_count+1
+                    end
+                end
+            end
             local after_defense = target.invulnerable and 0 or
                 math.max(0, raw_damage - (target.defense or 0))
             local loss = math.min(target.hp, after_defense)
@@ -371,6 +387,11 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 critical=critical or false,
                 attempted_damage=raw_damage, after_defense=after_defense,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
+                target_max_hp=target.max_hp,direct_attack=direct_attack or false,
+                source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
+                adjacent_hostile_count=adjacent_hostile_count,
+                target_burning=target.statuses and target.statuses.burning~=nil or false,
+                adjacent_burning_count=adjacent_burning_count,
             }
             if ranged then break end
         end
@@ -420,6 +441,37 @@ local function effect_cells(state, activation, effect)
         local target = Game.entity(state, event.source_id)
         if not target or target.hp <= 0 then return {} end
         return {{floor_id=target.position.floor_id, x=target.position.x, y=target.position.y}}
+    end
+    if effect.kind == "damage_target" then
+        local target=Game.entity(state,event.target_id)
+        if not target or not target.hp or target.hp<=0 then return {} end
+        return {{floor_id=target.position.floor_id,x=target.position.x,y=target.position.y}}
+    end
+    if effect.kind == "adjacent_hostiles" or effect.kind == "path_adjacent_hostiles" then
+        local owner=Game.entity(state,activation.owner_id)
+        if not owner then return {} end
+        local path=effect.kind=="path_adjacent_hostiles" and event.path or
+            {{floor_id=event.floor_id,x=event.x,y=event.y}}
+        local targets={}
+        for _,target in ipairs(state.entities) do
+            if target.id~=owner.id and target.hp and target.hp>0
+                and target.faction~=owner.faction then
+                for _,step in ipairs(path or {}) do
+                    if target.position.floor_id==step.floor_id
+                        and math.max(math.abs(target.position.x-step.x),
+                            math.abs(target.position.y-step.y))==1 then
+                        targets[#targets+1]=target;break
+                    end
+                end
+            end
+        end
+        table.sort(targets,function(a,b)return a.id<b.id end)
+        local cells={}
+        for _,target in ipairs(targets) do
+            cells[#cells+1]={floor_id=target.position.floor_id,
+                x=target.position.x,y=target.position.y}
+        end
+        return cells
     end
     local x, y = event.x or event.from_x, event.y or event.from_y
     local floor_id = event.floor_id or (event.source_position and event.source_position.floor_id)
@@ -477,6 +529,39 @@ local function execute_effect(state, output, activation, effect)
             boon_id=activation.boon_id, activation_id=activation.id,
             due=due, effect_id=scheduled.id, target_cells=activation.event.target_cells,
         }, source.id, activation.root_action_id)
+    elseif effect.kind=="apply_status" then
+        local target=Game.entity(state,activation.event.target_id)
+        if target and target.hp and target.hp>0 then
+            target.statuses=target.statuses or {}
+            local status=target.statuses[effect.status]
+            if status then
+                status.power=math.max(status.power,activation.power)
+                status.remaining=effect.ticks
+                status.source_id=activation.owner_id
+                status.activation=copy(activation)
+            else
+                local due=state.clock+effect.interval
+                local scheduled=Scheduler.enqueue(state,{kind="effect",due=due,
+                    actor_id=target.id,attack_id=activation.root_action_id})
+                scheduled.effect_id=scheduled.id
+                target.statuses[effect.status]={power=activation.power,
+                    remaining=effect.ticks,interval=effect.interval,
+                    next_due=due,schedule_id=scheduled.id,
+                    source_id=activation.owner_id,activation=copy(activation)}
+            end
+            emit(state,output,"StatusApplied",{status=effect.status,
+                target_id=target.id,floor_id=target.position.floor_id,
+                x=target.position.x,y=target.position.y,
+                power=target.statuses[effect.status].power},source.id,activation.root_action_id)
+        end
+    elseif effect.kind=="heal_owner" then
+        if owner and owner.hp and owner.hp>0 then
+            local before=owner.hp
+            owner.hp=math.min(owner.max_hp,owner.hp+activation.power)
+            emit(state,output,"Healed",{target_id=owner.id,
+                requested=activation.power,actual_gain=owner.hp-before,
+                hp_before=before,hp_after=owner.hp},source.id,activation.root_action_id)
+        end
     else
         local cells = effect_cells(state, activation, effect)
         emit(state, output, "EffectApplied", {
@@ -484,8 +569,12 @@ local function execute_effect(state, output, activation, effect)
             damage_type=effect.damage_type, target_cells=cells,
         }, source.id, activation.root_action_id)
         if #cells > 0 then
+            local power=activation.power
+            if effect.scale=="adjacent_hostiles" then
+                power=power*(activation.event.adjacent_hostile_count or 0)
+            end
             damage_batch(state, output, source, activation.root_action_id, cells,
-                activation.power, false, effect.damage_type)
+                power, false, effect.damage_type)
         end
     end
     context.cause = nil
@@ -509,7 +598,8 @@ local function drain_effects(state, output)
                     emit(state, output, "BoonActivated", {
                         boon_id=activation.boon_id, activation_id=activation.id,
                         trigger_event_id=event.id, power=activation.power,
-                        x=event.x, y=event.y, floor_id=event.floor_id,
+                        x=event.x or event.from_x,
+                        y=event.y or event.from_y, floor_id=event.floor_id,
                         pair_target_id=activation.pair_target_id,
                     }, activation.owner_id, activation.root_action_id)
                     context.cause = nil
@@ -572,7 +662,7 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     if extra then for key, value in pairs(extra) do fields[key] = value end end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
     damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-        nil, critical)
+        nil, critical,true)
     if Boons.active(state) then
         emit(state, output, "AbilityUsed", fields, source.id, action_id)
     end
@@ -691,8 +781,35 @@ local function advance_to_player(state, output)
                 context.cause = nil
                 execute_effect(state, output, payload.activation, payload.effect)
             else
+                local target=Game.entity(state,item.actor_id)
+                local status=target and target.statuses and target.statuses.burning
+                if status and status.schedule_id==item.id then
+                    local activation=status.activation
+                    local context=contexts[output]
+                    context.cause=effect_cause(activation,{damage_type="fire"})
+                    emit(state,output,"StatusTick",{status="burning",target_id=target.id,
+                        floor_id=target.position.floor_id,x=target.position.x,
+                        y=target.position.y},status.source_id,activation.root_action_id)
+                    local source=Game.entity(state,status.source_id) or
+                        {id=status.source_id,position=activation.source_position,
+                            faction=activation.source_faction}
+                    damage_batch(state,output,source,activation.root_action_id,
+                        {{floor_id=target.position.floor_id,x=target.position.x,
+                            y=target.position.y}},status.power,false,"fire")
+                    context.cause=nil
+                    status.remaining=status.remaining-1
+                    if target.hp>0 and status.remaining>0 then
+                        local due=state.clock+status.interval
+                        local next_item=Scheduler.enqueue(state,{kind="effect",due=due,
+                            actor_id=target.id,attack_id=activation.root_action_id})
+                        next_item.effect_id=next_item.id
+                        status.schedule_id=next_item.id
+                        status.next_due=due
+                    elseif target.statuses then target.statuses.burning=nil end
+                else
                 emit(state, output, "ScheduledEffectResolved", {effect_id=item.effect_id},
                     item.actor_id, item.attack_id)
+                end
             end
         end
         drain_effects(state, output)
@@ -819,7 +936,8 @@ function Game.submit(state, intent)
     elseif kind == "basic_attack" or kind == "sweeping_slash" then
         action.dx, action.dy = intent.dx, intent.dy
         local cells = {}
-        local target, damage = Game.effective_ability(state, kind, intent.dx, intent.dy)
+        local target, damage = Game.effective_ability(state, kind, intent.dx, intent.dy,
+            not preview.bump)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
@@ -1149,6 +1267,27 @@ function Game.restore(snapshot)
         end
         assert(found and type(payload.activation) == "table"
             and type(payload.activation.ancestry) == "table", "invalid delayed boon effect")
+    end
+    for _,actor in ipairs(state.entities) do
+        for kind,status in pairs(actor.statuses or {}) do
+            assert(kind=="burning" and actor.hp and actor.hp>0
+                and type(status.power)=="number" and status.power>=0
+                and type(status.remaining)=="number" and status.remaining%1==0
+                and status.remaining>0 and type(status.interval)=="number"
+                and status.interval%1==0 and status.interval>0
+                and type(status.next_due)=="number" and status.next_due>=state.clock
+                and type(status.activation)=="table"
+                and type(status.activation.ancestry)=="table",
+                "invalid active status")
+            local found=false
+            for _,item in ipairs(state.schedule) do
+                if item.id==status.schedule_id and item.kind=="effect"
+                    and item.actor_id==actor.id and item.due==status.next_due then
+                    found=true;break
+                end
+            end
+            assert(found,"missing scheduled status tick")
+        end
     end
     Scheduler.sort(state)
     if not state.game_over then

@@ -86,6 +86,61 @@ local function predicate(node, state, owner, boon_id, event, history)
     if op == "target_owner" then return event.target_id == owner.id end
     if op == "source_not_owner" then return event.source_id ~= owner.id end
     if op == "target_hostile" then return hostile(owner, event.target_faction) end
+    if op == "source_hostile" then return hostile(owner, event.source_faction) end
+    if op == "source_in_radius" then
+        local p=event.source_position
+        return p and p.floor_id==owner.position.floor_id
+            and distance(owner.position,p)<=node.radius
+    end
+    if op == "direct_attack" then return event.direct_attack == true end
+    if op == "target_was_full" then
+        return event.hp_before ~= nil and event.hp_before==event.target_max_hp
+    end
+    if op == "owner_hp_percent" then
+        local hp=event.source_hp_at_attack or owner.hp
+        local max_hp=event.source_max_hp_at_attack or owner.max_hp
+        return hp and max_hp and hp*100<=max_hp*node.max
+    end
+    if op == "adjacent_hostiles" then
+        if event.adjacent_hostile_count then return event.adjacent_hostile_count>=node.min end
+        if not event.x or not event.y then return false end
+        local count=0
+        for _,other in ipairs(state.entities) do
+            if other.id~=owner.id and other.hp and other.hp>0
+                and other.faction~=owner.faction
+                and other.position.floor_id==event.floor_id
+                and math.max(math.abs(other.position.x-event.x),
+                    math.abs(other.position.y-event.y))==1 then count=count+1 end
+        end
+        return count>=node.min
+    end
+    if op == "burning_pair" then
+        if event.target_burning~=nil then return event.target_burning
+            and (event.adjacent_burning_count or 0)>0 end
+        return false
+    end
+    if op == "distinct_chain_group" then
+        if not event.target_id then return false end
+        history.groups=history.groups or {}
+        local key=owner.id..":"..boon_id
+        local group=history.groups[key] or {seen={},count=0}
+        history.groups[key]=group
+        if group.seen[event.target_id] then return false end
+        group.seen[event.target_id]=true
+        group.count=group.count+1
+        if group.count<node.size then return false end
+        group.count=0
+        return true
+    end
+    if op == "unique_windup" then
+        if not event.windup_id then return false end
+        history.windups=history.windups or {}
+        local key=owner.id..":"..boon_id..":"..event.windup_id
+        if history.windups[key] then return false end
+        history.windups[key]=true
+        return true
+    end
+    if op == "ability_id" then return event.ability_id==node.value end
     if op == "positive" then return (event.actual_loss or 0) > 0 end
     if op == "source_target_same_faction" then
         return event.source_id ~= event.target_id and event.source_faction ~= nil
@@ -203,7 +258,7 @@ function Boons.validate_inventory(owner)
     end
 end
 
-function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy)
+function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy, explicit)
     local cells, damage = {}, base_damage
     for index, cell in ipairs(base_cells) do
         cells[index] = {floor_id=cell.floor_id, x=cell.x, y=cell.y}
@@ -229,6 +284,14 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
                         if path_open and not found then
                             cells[#cells + 1] = {floor_id=owner.position.floor_id, x=x, y=y}
                         end
+                    elseif modifier.kind == "line_second_cell" and explicit~=false then
+                        local map=Content.map_for(state)
+                        local mid_x,mid_y=owner.position.x+dx,owner.position.y+dy
+                        local x,y=mid_x+dx,mid_y+dy
+                        if Content.projectile_passable(map,mid_x,mid_y,state)
+                            and Content.projectile_passable(map,x,y,state) then
+                            cells[#cells+1]={floor_id=owner.position.floor_id,x=x,y=y}
+                        end
                     elseif modifier.kind == "add_damage" then damage = damage + power end
                 end
             end
@@ -240,7 +303,7 @@ end
 local function chain_record(state, chain_id)
     local record = state.chain_history[chain_id]
     if not record then
-        record = {damages={}, pairs={}}
+        record = {damages={}, pairs={},groups={},windups={}}
         state.chain_history[chain_id] = record
     end
     return record
@@ -326,6 +389,11 @@ end
 function Boons.prune_histories(state)
     local keep = {}
     for _, payload in pairs(state.delayed_effects) do keep[payload.activation.chain_id] = true end
+    for _,actor in ipairs(state.entities) do
+        for _,status in pairs(actor.statuses or {}) do
+            if status.activation then keep[status.activation.chain_id]=true end
+        end
+    end
     for id in pairs(state.chain_history) do
         if not keep[id] then state.chain_history[id] = nil end
     end

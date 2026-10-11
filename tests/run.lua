@@ -1476,7 +1476,7 @@ test("chest offers and critical future remain identical after snapshot restore",
 end)
 
 test("ordinary kill, pickup, level, purchase and boon transform form a complete loop", function()
-    local state = Game.new(1)
+    local state = Game.new(17) -- A cached Crescent Reach offer in the expanded pool.
     local chest = Game.spawn_chest(state,"core:chest/standard",5,2)
     assert(chest.offers[1].boon_id == "core:boon/crescent_reach")
     local guard = quiet_enemy(state,"core:enemy/mossbound_guard",3,2)
@@ -1511,6 +1511,7 @@ require("tests.stage_tests")(test, equal)
 require("tests.persistence_tests")(test, equal)
 require("tests.acceptance_tests")(test, equal)
 require("tests.motion_tests")(test, equal)
+require("tests.boon_expansion_tests")(test, equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

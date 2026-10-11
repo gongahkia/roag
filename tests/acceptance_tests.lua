@@ -20,6 +20,7 @@ return function(test,equal)
         assert(Play.has_event(run,'ExperienceGained'))
         assert(Play.has_event(run,'BoonGranted'))
         assert(Play.has_event(run,'BoonActivated'))
+        assert(Play.has_event(run,'StatusApplied')) -- earned Emberbrand fired in real combat
         assert(Play.has_event(run,'ElitePhaseChanged'))
         assert(Play.has_event(run,'StageEntered'))
         local old_floor=assert(run.state.retired_stages[1].generated_map)

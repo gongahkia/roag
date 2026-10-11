@@ -91,6 +91,22 @@ measure('high_stack_chain',boon,{
     {kind='wait'},{kind='wait'},
 },#boon.entities,'40 legendary copies; actual Sweep/proc chain')
 
+local expanded=Game.new(211)
+local expanded_player=Game.player(expanded)
+expanded_player.position.x,expanded_player.position.y=3,5
+for _,name in ipairs({'longblade_geometry','emberbrand','flashpoint',
+    'grave_dividend','storm_conductor','detonation_bloom','crowdbreaker',
+    'opening_cut','packed_powder'}) do
+    Game.set_boon_stacks(expanded,expanded_player.id,'core:boon/'..name,'rare',2)
+end
+for _,position in ipairs({{4,4},{4,5},{4,6},{5,4},{5,5}}) do
+    Game.spawn_enemy(expanded,'core:enemy/ruin_skitter',position[1],position[2],100)
+end
+measure('expanded_build_chain',expanded,{
+    {kind='sweeping_slash',dx=1,dy=0},
+    {kind='wait'},{kind='wait'},
+},#expanded.entities,'18 rare copies across nine boons; actual Sweep/status/proc chain')
+
 local guided=Play.stage_one(3)
 local route={}
 for i=1,math.min(count,#guided.trace) do route[i]=guided.trace[i].intent end
