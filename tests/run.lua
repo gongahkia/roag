@@ -1510,6 +1510,7 @@ require("tests.exploration_tests")(test, equal)
 require("tests.stage_tests")(test, equal)
 require("tests.persistence_tests")(test, equal)
 require("tests.acceptance_tests")(test, equal)
+require("tests.motion_tests")(test, equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

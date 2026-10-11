@@ -40,8 +40,10 @@ end
 
 function Camera.tile_top_left(camera, x, y)
     local viewport = camera.viewport
-    return viewport.x + viewport.width / 2 + (x - 1) * camera.tile - camera.x,
-        viewport.y + viewport.height / 2 + (y - 1) * camera.tile - camera.y
+    -- Round the shared world-to-screen offset for tiles and sprites alike.
+    -- Both stay crisp while the camera itself retains subpixel easing.
+    return math.floor(viewport.x + viewport.width / 2 + (x - 1) * camera.tile - camera.x + 0.5),
+        math.floor(viewport.y + viewport.height / 2 + (y - 1) * camera.tile - camera.y + 0.5)
 end
 
 return Camera

@@ -12,10 +12,25 @@ local Game=require('src.game')
 local mode=assert(os.getenv('ROEG_PROFILE_SCENE'))
 local tracked,boon_activations
 boon_activations=0
-if mode=='boon' then
+if mode=='boon' or mode=='crowd' then
     function Game.new_stage(seed)
         tracked=Game.new(seed,'core:map/scrolling_room',
-            {demo_enemies=true,demo_chests=true})
+            mode=='boon' and {demo_enemies=true,demo_chests=true} or nil)
+        if mode=='crowd' then
+            local Content=require('src.content')
+            local map=Content.map_for(tracked)
+            local count=0
+            for y=2,10 do
+                for x=2,14 do
+                    if count<40 and not (x==3 and y==3) and
+                        Content.walkable(map,x,y) then
+                        Game.spawn_enemy(tracked,'core:enemy/mossbound_guard',x,y)
+                        count=count+1
+                    end
+                end
+            end
+            assert(count==40,'crowd fixture is too small')
+        end
         return tracked
     end
 end
@@ -33,6 +48,11 @@ local frames=0
 local output=assert(os.getenv('ROEG_PROFILE_OUTPUT'))
 function love.load(...)
     old_load(...)
+    if mode=='crowd' then
+        local before=tracked.clock
+        love.keypressed('space') -- real committed wait; 40 actors move/attack
+        assert(tracked.clock>before,'crowd action did not commit')
+    end
     if mode=='boon' then
         love.keypressed('b');love.keypressed('b')
         local function settle()
@@ -96,7 +116,7 @@ function love.draw(...)
     end
 end
 LUA
-for scene in generated boon; do
+for scene in generated boon crowd; do
     ROEG_PROFILE_SCENE="$scene" ROEG_PROFILE_OUTPUT="$output_dir" \
       ROEG_GUI_AUTOSTART=1 ROEG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
       timeout 30s love "$output_dir"

@@ -137,9 +137,11 @@ end
 function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
-    local position = Game.player(state).position
-    Camera.update(camera, dt, position.x, position.y)
     Playback.update(playback, dt)
+    local position = Game.player(state).position
+    local visual_x,visual_y=Playback.position(playback,state.player_id,
+        position.floor_id,position.x,position.y)
+    Camera.update(camera, dt, visual_x, visual_y)
     if #reward_notices > 0 then
         reward_notice_time = reward_notice_time - math.max(0, dt)
         while reward_notice_time <= 0 and #reward_notices > 0 do
@@ -445,8 +447,14 @@ end
 
 local function draw_enemies()
     for _, enemy in ipairs(state.entities) do
-        if enemy.controller == "ai" and visible_at(enemy.position.x,enemy.position.y) then
-            local x, y = Camera.tile_top_left(camera, enemy.position.x, enemy.position.y)
+        local position=enemy.position
+        if enemy.controller == "ai" then
+            -- Both the event-time pose and final authoritative tile must be
+            -- visible; hidden movement cannot expose unseen routes.
+            local visual_x,visual_y,shown=Playback.visible_position(playback,enemy.id,
+                position.floor_id,position.x,position.y,visible_at)
+            if shown then
+            local x, y = Camera.tile_top_left(camera, visual_x, visual_y)
             if enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)
                 love.graphics.rectangle("fill", x + 5, y + 5, TILE - 12, TILE - 13)
@@ -476,6 +484,7 @@ local function draw_enemies()
             love.graphics.setColor(0.94, 0.28, 0.29)
             love.graphics.rectangle("fill", x + 3, y + 28,
                 (TILE - 6) * enemy.hp / enemy.max_hp, 3)
+            end
         end
     end
 end
@@ -524,6 +533,7 @@ end
 
 local function draw_history_event(event)
     if not event then return end
+    if event.kind=="Moved" or event.kind=="Displaced" then return end
     if event.kind == "WindupStarted" then
         draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5)
     elseif event.kind == "AttackPerformed" then
@@ -719,7 +729,9 @@ local function draw_world()
         end
     end
     local position = Game.player(state).position
-    local screen_x, screen_y = Camera.tile_top_left(camera, position.x, position.y)
+    local visual_x,visual_y=Playback.position(playback,state.player_id,
+        position.floor_id,position.x,position.y)
+    local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
     love.graphics.setColor(0.95, 0.78, 0.30)
     love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
     draw_history_event(Playback.current(playback))
@@ -859,9 +871,17 @@ local function draw_panel()
         local playback_label = history.kind
         if history.boon_id then
             playback_label = history.kind .. ": " .. BoonContent.get(history.boon_id).name
+        elseif history.kind=="Moved" or history.kind=="Displaced" then
+            playback_label="Movement"
+        elseif history.kind=="WindupStarted" then
+            playback_label=("Locked windup: T%d → T%d"):format(history.time,history.due)
         end
         love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 446, 265)
-        love.graphics.print("Past event; input paused", PANEL_X, 465)
+        love.graphics.print(history.kind=="WindupStarted" and
+            "Past event; strike may already be due" or
+            (history.kind=="Moved" or history.kind=="Displaced") and
+            "Sliding; input resumes shortly" or
+            "Past event; input paused", PANEL_X, 465)
     else
         local strikes = {}
         for _,strike in ipairs(Game.pending_strikes(state)) do

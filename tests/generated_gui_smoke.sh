@@ -82,7 +82,15 @@ local function route(predicate)
 end
 local function walk(path)
     local old=tracked.clock
-    for _,button in ipairs(path) do love.keypressed(button) end
+    for _,button in ipairs(path) do
+        love.keypressed(button)
+        local steps=0
+        while love.roegPlaybackPending() do
+            original_update(0.5)
+            steps=steps+1
+            assert(steps<100,"generated traversal playback did not drain")
+        end
+    end
     assert(tracked.clock==old+#path*100)
     local before=tracked.clock
     original_update(2) -- camera only

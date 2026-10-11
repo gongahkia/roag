@@ -40,6 +40,15 @@ local original_load, original_update, original_draw = love.load, love.update, lo
 local phase, pending = 1, false
 local output_dir = assert(os.getenv("ROEG_ENEMY_GUI_OUTPUT"))
 local expected = {"WindupStarted", "AttackPerformed", "DamageTaken", false, false}
+local function settle_motion()
+    local steps=0
+    while Playback.current(playback) and
+        Playback.current(playback).kind=="Moved" do
+        original_update(0.33)
+        steps=steps+1
+        assert(steps<20,"motion beat failed to finish")
+    end
+end
 
 function love.load(...)
     original_load(...)
@@ -53,6 +62,7 @@ function love.load(...)
     assert(tracked.clock == 0) -- idle presentation cannot advance AI
     love.keypressed("space")
     assert(tracked.clock == 100 and Game.player(tracked).hp == 22)
+    settle_motion()
     local windup, impact
     for index, event in ipairs(events) do
         if event.kind == "WindupStarted" and not windup then windup = index end
@@ -86,6 +96,7 @@ function love.draw(...)
             love.keypressed("space") -- playback gates input; no extra turn
             assert(tracked.clock == 100)
             original_update(0.56)
+            settle_motion()
         elseif phase == 2 then
             original_update(0.27)
         elseif phase == 3 then

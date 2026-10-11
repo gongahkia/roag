@@ -81,7 +81,13 @@ function love.draw(...)
             press("a")
         elseif phase == 3 then
             press("return")
-            for _ = 1, 15 do press("d") end
+            -- One action is accepted per completed visual beat. Drain the
+            -- presentation gate between scripted key presses, as a person does.
+            original_update(0.2)
+            for _ = 1, 15 do
+                press("d")
+                original_update(0.1)
+            end
             original_update(2) -- settle presentation camera only
         else
             love.event.quit()

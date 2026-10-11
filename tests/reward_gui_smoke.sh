@@ -41,6 +41,14 @@ local function has(fragment)
     end
     return false
 end
+local function settle()
+    local steps=0
+    while love.roegPlaybackPending() do
+        original_update(0.5)
+        steps=steps+1
+        assert(steps<100,"reward playback failed to drain")
+    end
+end
 function love.load(...)
     original_load(...)
     assert(tracked.clock == 0 and tracked.currency == 0)
@@ -77,11 +85,14 @@ function love.draw(...)
         elseif phase == 2 then
             love.keypressed("d") -- step onto Guard drop; four currency
             assert(tracked.currency == 4)
+            settle()
             love.keypressed("f"); love.keypressed("z"); love.keypressed("return")
-            original_update(0.6)
-            love.keypressed("a"); love.keypressed("s") -- step onto Skitter drop
+            settle()
+            love.keypressed("a"); settle()
+            love.keypressed("s"); settle() -- step onto Skitter drop
             assert(tracked.currency == 6)
-            love.keypressed("w"); love.keypressed("d")
+            love.keypressed("w"); settle()
+            love.keypressed("d"); settle()
             local before = tracked.clock
             love.keypressed("d") -- bump chest; menu is a free preview
             assert(tracked.clock == before)
