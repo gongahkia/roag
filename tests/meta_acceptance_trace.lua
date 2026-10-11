@@ -21,7 +21,8 @@ assert(service:commit_awards(first.state.meta.pending))
 local pool=Achievements.pool(service:inspect().profile.earned)
 assert(#pool==21 and pool[21]=='core:boon/prospectors_heart')
 
-local second=Play.new(25,{meta=Achievements.new_run(true,'trace/run-2'),
+local next_seed=tonumber(arg and arg[1]) or 34
+local second=Play.new(next_seed,{meta=Achievements.new_run(true,'trace/run-2'),
     available_boons=pool})
 local state=second.state
 local chest,offer_index
@@ -33,7 +34,7 @@ for _,entity in ipairs(state.entities) do
     end
     if chest then break end
 end
-assert(chest and offer_index,'no unlocked offer in seed 25')
+assert(chest and offer_index,'no unlocked offer in chosen seed')
 local kills=0
 while state.currency<chest.price and kills<8 and not state.game_over do
     local enemy=assert(Play.nearest(state,function(entity)
@@ -77,6 +78,6 @@ for _=1,6 do
     if proc then break end
 end
 assert(proc,'unlocked boon did not activate on legal currency pickup')
-print(('meta trace: seed 1 secret in %d actions; seed 25 paid chest offer %d, '
+print(('meta trace: seed 1 secret in %d actions; seed %d paid chest offer %d, '
     ..'%d kills, %d actions, unlocked boon activated'):format(
-    #first.trace,offer_index,kills,#second.trace))
+    #first.trace,next_seed,offer_index,kills,#second.trace))

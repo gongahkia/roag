@@ -227,7 +227,11 @@ function P.pending_terminal(self,state)
     local snapshot=Game.snapshot(state)
     local ok,reason=pcall(Game.restore,snapshot)
     if not ok then return false,'unstable terminal boundary: '..tostring(reason) end
-    return write_record(self,'pending_terminal',snapshot)
+    local first,why=write_record(self,'pending_terminal',snapshot)
+    if not first then return false,why end
+    local second,final=write_record(self,'pending_terminal',snapshot)
+    if not second then return false,'terminal outbox backup failed: '..tostring(final) end
+    return true,final
 end
 function P.tombstone(self)
     local ok,reason=write_record(self,'terminal',nil)

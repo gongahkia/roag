@@ -2,11 +2,12 @@
 -- Storage has read(name) and write(name,bytes), as with active-run persistence.
 local Codec=require("src.persistence")
 local Achievements=require("src.achievement_content")
-local Boons=require("src.boon_content")
 local Profile={}
 Profile.schema="roeg-profile/1"
 Profile.format="roeg-profile-record/1"
-Profile.content=Achievements.version.."|"..Boons.version
+-- Achievement definitions are the profile compatibility boundary. A combat
+-- content/schema update may invalidate an active run without erasing progress.
+Profile.content=Achievements.version
 Profile.slots={"profile-a.roeg","profile-b.roeg"}
 Profile.max_bytes=131072
 local function checksum(bytes)
@@ -121,6 +122,9 @@ function Profile.allocate_run(self)
     next_value.next_run_serial=serial+1
     local ok,reason=self:save(next_value)
     if not ok then return nil,reason end
+    -- Keep the reserved serial in both generations before issuing the ID.
+    ok,reason=self:save(next_value)
+    if not ok then return nil,"run ID backup failed: "..tostring(reason) end
     return ("local-run/%d"):format(serial),next_value
 end
 function Profile.commit_awards(self,pending)
@@ -130,14 +134,19 @@ function Profile.commit_awards(self,pending)
     end
     local value=found.profile or Profile.fresh()
     local next_value=Codec.decode(Codec.encode(value))
-    local changed=false
+    local has_award=false
     for id,flag in pairs(pending) do
         if not Achievements.get(id) or flag~=true then return false,"invalid pending award" end
-        if not next_value.earned[id] then next_value.earned[id]=true;changed=true end
+        has_award=true
+        next_value.earned[id]=true
     end
-    if changed then
+    if has_award then
+        -- A terminal tombstone may follow this return. Both profile slots must
+        -- already contain the award so one later corrupt slot cannot lose it.
         local ok,reason=self:save(next_value)
         if not ok then return false,reason end
+        ok,reason=self:save(next_value)
+        if not ok then return false,"award backup failed: "..tostring(reason) end
     end
     return true,next_value
 end

@@ -3,6 +3,7 @@ local Scheduler=require('src.scheduler')
 local Rewards=require('src.rewards')
 local Content=require('src.content')
 local BoonContent=require('src.boon_content')
+local Boons=require('src.boons')
 local Achievements=require('src.achievements')
 local AchievementContent=require('src.achievement_content')
 local Profile=require('src.profile')
@@ -90,6 +91,28 @@ return function(test,equal)
         assert(service:inspect().status=='recovered')
         assert(disk[Persistence.slots[1]]==nil and disk[Persistence.slots[2]]==nil)
     end)
+    test('both corrupt profile records and oversized input fail closed',function()
+        local disk=storage();local service=Profile.new(disk)
+        local value=Profile.fresh()
+        assert(service:save(value) and service:save(value))
+        disk[Profile.slots[1]]='broken'
+        disk[Profile.slots[2]]='also broken'
+        assert(service:inspect().status=='corrupt' and not service:save(value))
+        disk[Profile.slots[1]]=string.rep('x',Profile.max_bytes+257)
+        assert(service:inspect().status=='corrupt')
+    end)
+    test('profile remains available when active run content becomes incompatible',function()
+        local disk=storage();local service=Profile.new(disk)
+        local id=AchievementContent.order[1]
+        local p=Profile.fresh();p.earned[id]=true
+        assert(service:save(p))
+        local saves=Persistence.new(disk)
+        assert(saves:replace(Game.new_stage(77)))
+        disk[Persistence.slots[2]]=disk[Persistence.slots[2]]:gsub(
+            'roeg%-save/1','roeg-save/9',1)
+        assert(saves:inspect().status=='incompatible')
+        assert(service:inspect().profile.earned[id])
+    end)
     test('all four unlocked boons are offered through frozen future-run chest rolls',function()
         local earned={};for _,id in ipairs(AchievementContent.order) do earned[id]=true end
         local pool=Achievements.pool(earned)
@@ -104,6 +127,15 @@ return function(test,equal)
         local old=Persistence.encode(Game.snapshot(s))
         local restored=Game.restore(Game.snapshot(s))
         assert(Persistence.encode(Game.snapshot(restored))==old)
+    end)
+    test('unlocked mixed-rarity stacks remain additive and serializable without cap',function()
+        local s=Game.new(81)
+        Game.set_boon_stacks(s,s.player_id,'core:boon/prospectors_heart','common',100)
+        Game.set_boon_stacks(s,s.player_id,'core:boon/prospectors_heart','rare',3)
+        local stacks=Game.player(s).boons['core:boon/prospectors_heart']
+        assert(Boons.aggregate('core:boon/prospectors_heart',stacks,'power')==109)
+        assert(Persistence.encode(Game.snapshot(s))==
+            Persistence.encode(Game.snapshot(Game.restore(Game.snapshot(s)))))
     end)
     test('Guardian Vow block bursts, Prospector pickup heals, Crownfire first strike burns',function()
         local blocked=Game.new(36)
@@ -193,8 +225,14 @@ return function(test,equal)
             if kind=='AchievementEarned' then awards[#awards+1]=fields end
         end
         local function activation(boon,chain)
-            Achievements.observe(s,{kind='BoonActivated',boon_id=boon,chain_id=chain},emit)
+            Achievements.observe(s,{kind='BoonActivated',boon_id=boon,
+                chain_id=chain,source_id=s.player_id},emit)
         end
+        for i=1,3 do
+            Achievements.observe(s,{kind='BoonActivated',boon_id=BoonContent.order[i],
+                chain_id=6,source_id=999},emit)
+        end
+        assert(not s.meta.earned[id])
         activation(BoonContent.order[1],7)
         activation(BoonContent.order[1],7)
         activation(BoonContent.order[2],7)
@@ -220,6 +258,40 @@ return function(test,equal)
         end
         assert(wins==1 and awards==1)
     end)
+    test('ordinary stage-two chest builds earn three-boon Chain Reaction',function()
+        local run=Play.stage_one(3,1,{meta=Achievements.new_run(true,'local-run/chain-play')})
+        local state=run.state
+        for _,choice in ipairs({{58,1,'core:boon/opening_cut'},
+            {57,1,'core:boon/storm_conductor'}}) do
+            local chest=assert(Game.entity(state,choice[1]))
+            assert(chest.offers[choice[2]].boon_id==choice[3])
+            local ok,why=Play.navigate(run,function(p)
+                return math.abs(p.x-chest.position.x)+math.abs(p.y-chest.position.y)==1
+            end,600)
+            assert(ok,why)
+            ok,why=Play.action(run,{kind='claim_chest',chest_id=chest.id,
+                offer_index=choice[2]})
+            assert(ok,why)
+        end
+        local id=AchievementContent.order[3]
+        for _=1,10 do
+            if state.meta.earned[id] then break end
+            local enemy=Play.nearest(state,function(entity)
+                return entity.controller=='ai' and entity.id~=state.stage.elite_id
+                    and not entity.invulnerable end)
+            assert(enemy and not state.game_over,'no remaining legal chain target')
+            local ok,why=Play.fight(run,enemy.id,150)
+            assert(ok,why)
+        end
+        assert(state.meta.earned[id] and not state.game_over)
+        local awards=0
+        for _,event in ipairs(run.events) do
+            if event.kind=='AchievementEarned' and event.achievement_id==id then
+                awards=awards+1
+            end
+        end
+        assert(awards==1 and #run.trace>=585)
+    end)
     test('profile run IDs advance even when a seed repeats',function()
         local disk=storage();local service=Profile.new(disk)
         local first=assert(service:allocate_run())
@@ -228,6 +300,21 @@ return function(test,equal)
         local a=Game.new_stage(3,{meta=Achievements.new_run(true,first)})
         local b=Game.new_stage(3,{meta=Achievements.new_run(true,second)})
         assert(a.run_seed==b.run_seed and a.meta.run_id~=b.meta.run_id)
+        local newest=service:inspect().record.slot
+        disk[Profile.slots[newest]]='truncated'
+        local third=assert(service:allocate_run())
+        assert(third~=second and third~=first)
+    end)
+    test('verified award survives corruption of either profile generation',function()
+        local disk=storage();local service=Profile.new(disk)
+        local id=AchievementContent.order[1]
+        assert(service:commit_awards({[id]=true}))
+        local newest=service:inspect().record.slot
+        disk[Profile.slots[newest]]='truncated'
+        local found=service:inspect()
+        assert(found.status=='recovered' and found.profile.earned[id])
+        assert(service:commit_awards({[id]=true}))
+        assert(service:inspect().profile.earned[id])
     end)
     test('pending terminal award outbox survives restart and idempotent commit',function()
         local disk=storage();local saves=Persistence.new(disk);local profiles=Profile.new(disk)
@@ -238,10 +325,60 @@ return function(test,equal)
         assert(saves:pending_terminal(s))
         local found=Persistence.new(disk):inspect()
         assert(found.status=='pending_terminal' and not Persistence.new(disk):load())
+        local newest=found.record.slot
+        disk[Persistence.slots[newest]]=disk[Persistence.slots[newest]]:sub(1,50)
+        local backup=Persistence.new(disk):inspect()
+        assert(backup.status=='pending_terminal' and backup.invalid==1
+            and backup.state.meta.pending[id])
         assert(profiles:commit_awards(found.state.meta.pending))
         assert(profiles:commit_awards(found.state.meta.pending))
         assert(saves:tombstone())
         assert(saves:inspect().status=='terminal')
         assert(profiles:inspect().profile.earned[id])
+    end)
+    test('failed profile commit leaves terminal outbox recoverable',function()
+        local disk=storage();local saves=Persistence.new(disk);local profiles=Profile.new(disk)
+        local s=Game.new(78,nil,{meta=Achievements.new_run(true,'local-run/fault')})
+        local id=AchievementContent.order[1]
+        s.meta.earned[id]=true;s.meta.pending[id]=true
+        s.game_over=true;Game.player(s).hp=0
+        assert(saves:pending_terminal(s))
+        disk.fail=true
+        assert(not profiles:commit_awards(s.meta.pending))
+        disk.fail=false
+        assert(saves:inspect().status=='pending_terminal')
+        local recovered=Persistence.new(disk):inspect().state
+        assert(recovered.meta.pending[id])
+        assert(profiles:commit_awards(recovered.meta.pending))
+        assert(saves:tombstone())
+        assert(profiles:inspect().profile.earned[id])
+        assert(saves:inspect().status=='terminal')
+    end)
+    test('verified profile award survives a failed terminal tombstone retry',function()
+        local disk=storage();local saves=Persistence.new(disk);local profiles=Profile.new(disk)
+        local s=Game.new(80,nil,{meta=Achievements.new_run(true,'local-run/tombstone')})
+        local id=AchievementContent.order[1]
+        s.meta.earned[id]=true;s.meta.pending[id]=true
+        s.game_over=true;Game.player(s).hp=0
+        assert(saves:pending_terminal(s))
+        assert(profiles:commit_awards(s.meta.pending))
+        disk.fail=true
+        assert(not saves:tombstone())
+        disk.fail=false
+        assert(saves:inspect().status=='pending_terminal')
+        assert(profiles:commit_awards(s.meta.pending))
+        assert(saves:tombstone())
+        assert(saves:inspect().status=='terminal'
+            and profiles:inspect().profile.earned[id])
+    end)
+    test('meta queries and disk commits draw no simulation RNG or world time',function()
+        local s=Game.new_stage(79,{meta=Achievements.new_run(true,'local-run/pure')})
+        local before=Persistence.encode(Game.snapshot(s))
+        local disk=storage();local service=Profile.new(disk)
+        local run_id=assert(service:allocate_run())
+        assert(run_id)
+        assert(service:commit_awards({}))
+        Achievements.validate_pool(s.available_boons)
+        assert(before==Persistence.encode(Game.snapshot(s)))
     end)
 end

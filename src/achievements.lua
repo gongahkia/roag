@@ -76,7 +76,8 @@ function A.observe(state,event,emit)
     if not meta or not meta.eligible then return end
     if event.kind=="EliteDefeated" then award(state,ids[1],emit)
     elseif event.kind=="SecretDiscovered" then award(state,ids[2],emit)
-    elseif event.kind=="BoonActivated" and event.boon_id then
+    elseif event.kind=="BoonActivated" and event.boon_id
+        and event.source_id==state.player_id then
         local chain=meta.chains[event.chain_id] or {}
         meta.chains[event.chain_id]=chain
         chain[event.boon_id]=true
