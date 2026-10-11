@@ -270,7 +270,8 @@ end
 function love.keypressed(key, _, isrepeat)
     if isrepeat then return end
     if key=="f3" then
-        diagnostics=diagnostics and nil or require("src.diagnostics").new()
+        if diagnostics then diagnostics=nil
+        else diagnostics=require("src.diagnostics").new() end
         return
     end
     if title then
@@ -1003,7 +1004,9 @@ function love.draw()
     local visible=0
     if state and state.entities then
         for _,entity in ipairs(state.entities) do
-            if entity.position and visible_at(entity.position.x,entity.position.y) then
+            if entity.position and
+                (entity.id==state.player_id or entity.controller=="ai") and
+                visible_at(entity.position.x,entity.position.y) then
                 visible=visible+1
             end
         end
@@ -1026,4 +1029,8 @@ end
 function love.roegDiagnostics()
     return diagnostics and require("src.diagnostics").summary(diagnostics) or nil
 end
-
+-- Read-only seam for callback smoke tests: a blocked key during presentation
+-- playback has not been submitted to the simulation.
+function love.roegPlaybackPending()
+    return Playback.busy(playback)
+end

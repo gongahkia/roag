@@ -78,16 +78,31 @@ local function route(tx,ty)
     error("no secret approach route")
 end
 local function walk(path)
+    local function settle()
+        local ticks=0
+        while love.roegPlaybackPending() do
+            old_update(0.25) -- presentation time only; wait for the real gate.
+            ticks=ticks+1
+            assert(ticks<400,"playback did not drain")
+        end
+    end
     for _,button in ipairs(path) do
+        settle()
         local p=Game.player(tracked).position
         local x,y=p.x,p.y
+        local before=tracked.clock
         love.keypressed(button)
-        old_update(2) -- presentation playback and camera only
+        settle()
         if p.x==x and p.y==y then
-            assert(tracked.last_action.kind=="open_door")
+            assert(tracked.clock>before and tracked.last_action.kind=="open_door",
+                ("uncommitted route input %s at %d,%d time %d"):format(
+                    button,x,y,before))
+            before=tracked.clock
             love.keypressed(button)
-            old_update(2)
+            settle()
+            assert(tracked.clock>before,"door entry did not commit")
         end
+        assert(p.x~=x or p.y~=y,"route did not move after door handling")
     end
 end
 function love.load(...)

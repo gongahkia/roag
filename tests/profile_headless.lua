@@ -10,7 +10,7 @@ local function quantile(values,p)
     table.sort(values)
     return values[math.max(1,math.ceil(#values*p))] or 0
 end
-local function measure(name,state,intents,actors,setup)
+local function measure(name,state,intents,actors,setup,seed)
     collectgarbage('collect')
     local start_memory=collectgarbage('count')
     local initial=state.clock
@@ -31,9 +31,11 @@ local function measure(name,state,intents,actors,setup)
     end
     local elapsed=os.clock()-start
     local max=quantile(samples,1)
+    local total_ms=0
+    for _,value in ipairs(samples) do total_ms=total_ms+value end
     print(('%s\tseed=%d\tactors=%d\tactions=%d\tsim_units=%d\tcpu_s=%.3f\tmean_ms=%.3f\tp50_ms=%.3f\tp95_ms=%.3f\tmax_ms=%.3f\tevents=%d\tactivation_or_due_events=%d\theap_start_kb=%.0f\theap_peak_kb=%.0f\tqueue_peak=unavailable\tsetup=%s'):
-        format(name,21,actors,#samples,state.clock-initial,elapsed,
-            elapsed*1000/#samples,quantile(samples,0.50),
+        format(name,seed or 21,actors,#samples,state.clock-initial,elapsed,
+        total_ms/#samples,quantile(samples,0.50),
             quantile(samples,0.95),max,events,effects,start_memory,peak_memory,
             setup or 'normal'))
 end
@@ -90,6 +92,14 @@ measure('high_stack_chain',boon,{
 },#boon.entities,'40 legendary copies; actual Sweep/proc chain')
 
 local guided=Play.stage_one(3)
+local route={}
+for i=1,math.min(count,#guided.trace) do route[i]=guided.trace[i].intent end
+local guided_actions,guided_events,guided_stage,guided_hp=
+    #guided.trace,#guided.events,guided.state.stage.index,Game.player(guided.state).hp
+guided=nil
+collectgarbage('collect')
+local route_state=Game.new_stage(3)
+measure('legal_route',route_state,route,#route_state.entities,
+    'guided ordinary-action trace prefix',3)
 print(('guided_seed_3\tlegal_actions=%d\tevents=%d\tstage=%d\thp=%d'):
-    format(#guided.trace,#guided.events,guided.state.stage.index,
-        Game.player(guided.state).hp))
+    format(guided_actions,guided_events,guided_stage,guided_hp))

@@ -10,22 +10,54 @@ cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local mode=assert(os.getenv('ROEG_PROFILE_SCENE'))
+local tracked,boon_activations
+boon_activations=0
 if mode=='boon' then
     function Game.new_stage(seed)
-        return Game.new(seed,'core:map/scrolling_room',
+        tracked=Game.new(seed,'core:map/scrolling_room',
             {demo_enemies=true,demo_chests=true})
+        return tracked
     end
 end
+local actual_submit=Game.submit
+function Game.submit(...)
+    local ok,reason,events,preview=actual_submit(...)
+    for _,event in ipairs(events or {}) do
+        if event.kind=='BoonActivated' then boon_activations=boon_activations+1 end
+    end
+    return ok,reason,events,preview
+end
 assert(love.filesystem.load('roeg_main.lua'))()
-local old_load,old_draw=love.load,love.draw
+local old_load,old_draw,old_update=love.load,love.draw,love.update
 local frames=0
 local output=assert(os.getenv('ROEG_PROFILE_OUTPUT'))
 function love.load(...)
     old_load(...)
     if mode=='boon' then
         love.keypressed('b');love.keypressed('b')
-        for _=1,3 do love.keypressed('d') end
-        love.keypressed('f');love.keypressed('d');love.keypressed('return')
+        local function settle()
+            local ticks=0
+            while love.roegPlaybackPending() do
+                old_update(0.25)
+                ticks=ticks+1
+                assert(ticks<400,'boon scene playback did not drain')
+            end
+        end
+        for _=1,2 do love.keypressed('d');settle() end
+        local p=Game.player(tracked).position
+        local buttons={['-1,-1']='q',['0,-1']='w',['1,-1']='e',
+            ['-1,0']='a',['1,0']='d',['-1,1']='z',
+            ['0,1']='s',['1,1']='c'}
+        local target
+        for _,entity in ipairs(tracked.entities) do
+            local dx,dy=entity.position.x-p.x,entity.position.y-p.y
+            if entity.controller=='ai' and buttons[dx..','..dy] then
+                target=buttons[dx..','..dy];break
+            end
+        end
+        assert(target,'no adjacent target in boon profile scene')
+        love.keypressed('f');love.keypressed(target);love.keypressed('return')
+        assert(boon_activations>0,'prepared hit did not activate boon')
     end
 end
 function love.draw(...)
@@ -48,6 +80,7 @@ function love.draw(...)
         end
         file:write('fps\t',love.timer.getFPS(),'\n')
         file:write('average_delta_s\t',love.timer.getAverageDelta(),'\n')
+        file:write('boon_activations\t',boon_activations,'\n')
         if love.graphics.getRendererInfo then
             local name,version,vendor,device=love.graphics.getRendererInfo()
             file:write('renderer\t',tostring(name),' ',tostring(version),' ',

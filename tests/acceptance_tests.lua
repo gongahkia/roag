@@ -1,6 +1,7 @@
 local Game=require('src.game')
 local Play=require('tests.legal_playthrough')
 local Persistence=require('src.persistence')
+local Diagnostics=require('src.diagnostics')
 
 return function(test,equal)
     test('legal generated run buys a boon, defeats Warden and fights in stage two',function()
@@ -21,6 +22,26 @@ return function(test,equal)
         assert(Play.has_event(run,'BoonActivated'))
         assert(Play.has_event(run,'ElitePhaseChanged'))
         assert(Play.has_event(run,'StageEntered'))
+        local old_floor=assert(run.state.retired_stages[1].generated_map)
+        local visited,corridor={},false
+        for _,record in ipairs(run.trace) do
+            if record.from.stage==1 then
+                local inside=false
+                for _,room in ipairs(old_floor.rooms) do
+                    if record.from.x>=room.x and
+                        record.from.x<room.x+room.width and
+                        record.from.y>=room.y and
+                        record.from.y<room.y+room.height then
+                        visited[room.id]=true;inside=true
+                    end
+                end
+                if not inside then corridor=true end
+            end
+        end
+        local room_count=0
+        for _ in pairs(visited) do room_count=room_count+1 end
+        assert(room_count>=2 and corridor,
+            'legal guide did not cross distinct rooms and corridor space')
         local replay=Play.replay(run)
         equal(Game.snapshot(run.state),Game.snapshot(replay.state))
         equal(run.events,replay.events)
@@ -69,6 +90,22 @@ return function(test,equal)
         assert(p.x==door.position.x and p.y==door.position.y)
     end)
 
+    test('generated-floor legal controls include Dash Sweep diagonal Sword and Wait',function()
+        local run=Play.new(3)
+        local direction
+        for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}}) do
+            local preview=Game.preview(run.state,'dash',d[1],d[2])
+            if preview.valid and preview.distance>0 then direction=d;break end
+        end
+        assert(direction,'no valid dash from generated spawn')
+        assert(Play.action(run,{kind='dash',dx=direction[1],dy=direction[2]}))
+        assert(Play.action(run,{kind='sweeping_slash',dx=1,dy=-1}))
+        assert(Play.action(run,{kind='basic_attack',dx=-1,dy=1}))
+        assert(Play.action(run,{kind='wait'}))
+        assert(run.state.clock>0 and Play.has_event(run,'AttackPerformed'))
+        equal(Game.snapshot(run.state),Game.snapshot(Play.replay(run).state))
+    end)
+
     test('legal death rejects later actions and a fresh seed can restart',function()
         local run=Play.new(1)
         for _=1,120 do
@@ -97,5 +134,21 @@ return function(test,equal)
             equal(a_events,b_events)
         end
         equal(Game.snapshot(run.state),Game.snapshot(restored))
+    end)
+
+    test('presentation diagnostics do not change authoritative actions or RNG',function()
+        local normal=Game.new_stage(31)
+        local measured=Game.new_stage(31)
+        local diagnostics=Diagnostics.new()
+        for i=1,8 do
+            local intent={kind='wait'}
+            local a_ok,a_reason,a_events=Game.submit(normal,intent)
+            local b_ok,b_reason,b_events=Game.submit(measured,intent)
+            assert(a_ok==b_ok and a_reason==b_reason)
+            Diagnostics.sample(diagnostics,i/60,0.2,2,3,{drawcalls=4})
+            equal(a_events,b_events)
+        end
+        equal(Game.snapshot(normal),Game.snapshot(measured))
+        assert(Diagnostics.summary(diagnostics).samples==7)
     end)
 end

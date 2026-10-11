@@ -10,6 +10,7 @@ cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
+local Persistence=require('src.persistence')
 local tracked
 local old_new,old_restore,old_submit=Game.new_stage,Game.restore,Game.submit
 function Game.new_stage(...)
@@ -32,6 +33,15 @@ local phase=assert(os.getenv('ROEG_PERSIST_PHASE'))
 local output_dir=assert(os.getenv('ROEG_PERSIST_OUTPUT'))
 local captured,title_pending,continued=false,false,false
 local labels={}
+local function bytes(path,value)
+    local file=assert(io.open(path,'wb'))
+    file:write(Persistence.encode(value));file:close()
+end
+local function expected(path)
+    local file=assert(io.open(path,'rb'))
+    local result=file:read('*a');file:close()
+    return result
+end
 local old_print,old_printf=love.graphics.print,love.graphics.printf
 love.graphics.print=function(value,...)
     labels[#labels+1]=tostring(value)
@@ -53,6 +63,10 @@ function love.load(...)
         assert(tracked and tracked.clock==0)
         love.keypressed('space')
         assert(tracked.clock==100)
+        bytes(output_dir..'/expected.snapshot',Game.snapshot(tracked))
+        local control=old_restore(Game.snapshot(tracked))
+        assert(old_submit(control,{kind='wait'}))
+        bytes(output_dir..'/expected-next.snapshot',Game.snapshot(control))
         old_update(10)
         love.keypressed('escape') -- pause without world time
         assert(tracked.clock==100)
@@ -74,6 +88,9 @@ function love.draw(...)
             file:write(image:encode('png'):getString());file:close()
             love.keypressed('c') -- fresh process Continue
             assert(tracked and tracked.clock==100)
+            assert(Persistence.encode(Game.snapshot(tracked))==
+                expected(output_dir..'/expected.snapshot'),
+                'cross-process authoritative snapshot differs')
             continued=true
         end)
         return
@@ -90,6 +107,9 @@ function love.draw(...)
         else
             love.keypressed('space')
             assert(tracked.clock==200)
+            assert(Persistence.encode(Game.snapshot(tracked))==
+                expected(output_dir..'/expected-next.snapshot'),
+                'cross-process next action differs')
             love.event.quit()
         end
     end)
