@@ -238,8 +238,11 @@ LUA
 run_phase() {
     number=$1
     shift
+    autostart=0
+    if [ "$number" -eq 4 ]; then autostart=1; fi
     ROEG_E04_PHASE="$number" ROEG_E04_OUTPUT="$output_dir" \
-        XDG_DATA_HOME="$output_dir/data" timeout 25s love "$app" "$@" \
+        ROEG_GUI_AUTOSTART="$autostart" XDG_DATA_HOME="$output_dir/data" \
+        timeout 25s love "$app" "$@" \
         >"$output_dir/phase$number.log" 2>&1
 }
 run_phase 1 --studio
@@ -254,7 +257,7 @@ save_dir=$(cat "$output_dir/save_dir.txt")
 (cd "$app" && luajit tools/studio_theme_publish.lua --save-dir "$save_dir" \
     --project ui_fixture --apply) >"$output_dir/theme-publish.log"
 run_phase 3
-ROEG_GUI_AUTOSTART=1 run_phase 4
+run_phase 4
 cp "$app/assets/studio/theme-a.pack" "$output_dir/good-theme.pack"
 (cd "$app" && luajit - <<'LUA'
 local Store=require('src.studio_theme_store')
