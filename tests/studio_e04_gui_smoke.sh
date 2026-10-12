@@ -36,9 +36,15 @@ Playback.add=function(q,...)
     queue=q;return original_add(q,...)
 end
 assert(love.filesystem.load('roeg_main.lua'))()
-local old_load,old_draw=love.load,love.draw
+local old_load,old_draw,old_update=love.load,love.draw,love.update
 local shot,pending,part=0,false,1
 local effect_snapshot
+-- Compare atlas and loose art at the same presentation instant. The hit
+-- sprite fades from playback.remaining, so wall-clock frame jitter otherwise
+-- changes a few color bytes between fresh LÖVE processes.
+function love.update(dt)
+    return old_update(phase==4 and 0 or dt)
+end
 local function state()return assert(love.roegStudioState())end
 local function replace_text(value)
     for _=1,120 do love.keypressed('backspace') end

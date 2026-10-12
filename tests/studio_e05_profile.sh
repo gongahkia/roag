@@ -58,10 +58,12 @@ function love.draw()
         mode,tostring(a),tostring(b),tostring(c),tostring(d),frame))
     f:write(('draw_cpu_ms_p50=%.3f p95=%.3f max=%.3f\n'):format(
         percentile(times,.5),percentile(times,.95),times[#times]))
-    f:write(('observed_frame_ms_p50=%.3f p95=%.3f\n'):format(
-        percentile(intervals,.5),percentile(intervals,.95)))
-    f:write(('drawcalls=%s texturememory=%s fps=%s\n'):format(
-        tostring(stats.drawcalls),tostring(stats.texturememory),
+    f:write(('observed_frame_ms_p50=%.3f p95=%.3f p99=%.3f\n'):format(
+        percentile(intervals,.5),percentile(intervals,.95),percentile(intervals,.99)))
+    local w,h=love.graphics.getDimensions()
+    f:write(('window=%dx%d dpi_scale=%s drawcalls=%s texturememory=%s lua_heap_kib=%.1f fps=%s\n'):format(
+        w,h,tostring(love.window.getDPIScale()),tostring(stats.drawcalls),
+        tostring(stats.texturememory),collectgarbage('count'),
         tostring(love.timer.getFPS())))
     f:close();love.event.quit()
 end

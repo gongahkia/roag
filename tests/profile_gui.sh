@@ -129,6 +129,12 @@ function love.draw(...)
         file:write('fps\t',love.timer.getFPS(),'\n')
         file:write('average_delta_s\t',love.timer.getAverageDelta(),'\n')
         file:write('boon_activations\t',boon_activations,'\n')
+        local width,height=love.graphics.getDimensions()
+        local desktop_width,desktop_height=love.window.getDesktopDimensions()
+        file:write('window_logical\t',width,'x',height,'\n')
+        file:write('desktop_logical\t',desktop_width,'x',desktop_height,'\n')
+        file:write('dpi_scale\t',love.window.getDPIScale(),'\n')
+        file:write('lua_heap_kib\t',collectgarbage('count'),'\n')
         if love.graphics.getRendererInfo then
             local name,version,vendor,device=love.graphics.getRendererInfo()
             file:write('renderer\t',tostring(name),' ',tostring(version),' ',

@@ -2,7 +2,7 @@
 # Synthetic published PNG corpus; measures compilation separately from drawing.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-out=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-studio-e05-stress-XXXXXX")
+out=$(mktemp -d "${TMPDIR:-/tmp}/roeg-studio-e05-stress-XXXXXX")
 app="$out/app"
 mkdir -p "$app/assets/studio/sources" "$out/data"
 cp "$project_dir/main.lua" "$project_dir/conf.lua" "$app/"
@@ -31,11 +31,22 @@ local f=assert(io.open('assets/studio/manifest.txt','wb'))
 f:write(Project.encode(project));f:close()
 LUA
 )
-XDG_DATA_HOME="$out/data" TMPDIR="${TMPDIR:-/var/tmp}" \
-    /usr/bin/time -f 'build_wall_s=%e build_cpu_user_s=%U build_max_rss_kib=%M' \
-    -o "$out/build-time.txt" timeout 40s love "$app" --atlas-build --atlas-max=128 \
-    >"$out/build.log" 2>&1
+if [ "$(uname -s)" = Darwin ]; then
+    XDG_DATA_HOME="$out/data" TMPDIR="${TMPDIR:-/tmp}" \
+        /usr/bin/time -l -p timeout 40s love "$app" --atlas-build --atlas-max=128 \
+        >"$out/build.log" 2>"$out/build-time.txt"
+else
+    XDG_DATA_HOME="$out/data" TMPDIR="${TMPDIR:-/tmp}" \
+        /usr/bin/time -f 'build_wall_s=%e build_cpu_user_s=%U build_max_rss_kib=%M' \
+        -o "$out/build-time.txt" timeout 40s love "$app" --atlas-build --atlas-max=128 \
+        >"$out/build.log" 2>&1
+fi
 save_dir="$out/data/love/roeg-foundation"
+if [ ! -d "$save_dir/studio/atlas-build" ]; then
+    candidate=$(sed -n 's/^Atlas candidate: .* page(s), \(.*\)studio\/atlas-build\/$/\1/p' "$out/build.log")
+    save_dir=${candidate%/}
+fi
+test -d "$save_dir/studio/atlas-build"
 (cd "$app" && luajit tools/studio_atlas_publish.lua --save-dir "$save_dir" \
     --project stress_atlas >"$out/dry-run.log")
 pages=$(rg -c '^page ' "$out/dry-run.log")
