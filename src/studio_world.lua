@@ -7,7 +7,7 @@ local W={schema='roeg-studio-world/1',max_rooms=32,max_tiles=32}
 local symbols={['.']=true,['#']=true,['~']=true,[' ']=true}
 local roles={combat=true,treasure=true,landmark=true,secret=true,start=true,elite=true}
 local markers={enemy=true,chest=true,player=true,elite=true,landmark=true,
-    secret_anchor=true,secret_wall=true}
+    secret_anchor=true,secret_wall=true,stair=true}
 local function check(ok,msg) if not ok then error(msg,2) end end
 local function integer(n,lo,hi) return type(n)=='number' and n%1==0 and n>=lo and n<=hi end
 local function clone(value)
@@ -46,7 +46,7 @@ function W.new_room(id,name,width,height)
     return {id=id,name=name or id,width=width,height=height,rows=rows,
         roles={'combat'},biomes={Biomes.order[1]},weight=1,sockets=sockets,
         markers={enemy={{x=midx,y=midy}},chest={{x=width-2,y=height-2}},
-            player={},elite={},landmark={},secret_anchor={{x=2,y=2}},
+            player={},elite={},landmark={},stair={},secret_anchor={{x=2,y=2}},
             secret_wall={{x=1,y=2}}},editable={},protected={},
         visual_cells={},tile_cells={},rotations={0,1,2,3},mirror=true}
 end
@@ -88,8 +88,10 @@ end
 function W.add_marker(room,kind,x,y)
     check(markers[kind],'invalid marker kind')
     check(integer(x,1,room.width) and integer(y,1,room.height),'marker outside room')
-    local points=room.markers[kind]
+    local points=room.markers[kind] or {}
+    room.markers[kind]=points
     for i,p in ipairs(points) do if p.x==x and p.y==y then table.remove(points,i);return false end end
+    if kind=='stair' then room.markers.stair={};points=room.markers.stair end
     points[#points+1]={x=x,y=y};return true
 end
 local function walkable(room,x,y)
@@ -186,6 +188,8 @@ function W.validate(pack,assets)
             check(walkable(room,s.x+dx,s.y+dy),'socket lacks inner clearance: '..id)
         end
         check(type(room.markers)=='table','invalid markers: '..id)
+        check(not room.markers.stair or #room.markers.stair<=1,
+            'room may have only one stair marker: '..id)
         check(type(room.markers.secret_anchor)=='table' and
             #room.markers.secret_anchor>0,'room needs future secret anchor: '..id)
         for kind,points in pairs(room.markers) do
@@ -195,7 +199,7 @@ function W.validate(pack,assets)
                     integer(p.y,1,room.height) and
                     room.rows[p.y]:sub(p.x,p.x)==(kind=='secret_wall' and '#' or '.'),
                     'invalid '..kind..' marker at '..tostring(p.x)..','..tostring(p.y)..': '..id)
-                if kind=='player' or kind=='elite' or kind=='chest' then
+                if kind=='player' or kind=='elite' or kind=='chest' or kind=='stair' then
                     required[#required+1]=p
                 end
             end

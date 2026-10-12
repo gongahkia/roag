@@ -20,6 +20,10 @@ function Scheduler.enqueue(state, item)
     assert(type(item.due) == "number" and item.due % 1 == 0 and item.due >= state.clock,
         "scheduled time must be an integer at or after world time")
     priority(item)
+    local floor_id=item.floor_id or state.active_floor_id
+    if item.kind == "stage_pressure" or item.kind == "stage_deadline" then
+        floor_id=nil -- stage-wide timers continue while either floor is active
+    end
     local id = state.next_schedule_id
     state.next_schedule_id = id + 1
     local entry = {
@@ -31,6 +35,7 @@ function Scheduler.enqueue(state, item)
         is_player = item.is_player,
         effect_id = item.effect_id,
         attack_id = item.attack_id,
+        floor_id = floor_id,
     }
     state.schedule[#state.schedule + 1] = entry
     table.sort(state.schedule, before)

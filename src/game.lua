@@ -6,6 +6,7 @@ local Content = require("src.content")
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
+local Floors = require("src.floors")
 local RNG = require("src.rng")
 local Rewards = require("src.rewards")
 local Scheduler = require("src.scheduler")
@@ -160,15 +161,22 @@ function Game.new(seed, map_id, options)
     RNG.new(seed)
     map_id=map_id or "core:map/test_room"
     local generated_map
+    local generated_pair
     local biome=Biomes.for_map(map_id)
     if biome then
         local generation=copy(options and options.generation or {})
         generation.biome_id=biome.id
-        generated_map=Generation.generate(seed,generation)
         local stage_index=options and options.stage_options and options.stage_options.index or 1
-        if options and options.stage and stage_index>1 then
-            generated_map.floor_id=biome.floor_id.."/stage/"..stage_index
-            generated_map.elite.floor_id=generated_map.floor_id
+        if options and options.stage and options.multifloor then
+            generation.stage_index=stage_index
+            generated_pair=Generation.generate_pair(seed,generation)
+            generated_map=generated_pair[1]
+        else
+            generated_map=Generation.generate(seed,generation)
+            if options and options.stage and stage_index>1 then
+                generated_map.floor_id=biome.floor_id.."/stage/"..stage_index
+                generated_map.elite.floor_id=generated_map.floor_id
+            end
         end
     end
     local map = generated_map or assert(Content.get_map(map_id), "unknown map content ID")
@@ -183,6 +191,10 @@ function Game.new(seed, map_id, options)
         available_boons=available,
         meta=copy(options and options.meta or Achievements.new_run(false)),
         generated_map=generated_map,stage_options=options and options.stage_options,
+        inactive_floor_maps={},floor_pause={},
+        floor_order=generated_pair and {generated_pair[1].floor_id,
+            generated_pair[2].floor_id} or nil,
+        active_floor_index=generated_pair and 1 or nil,
         retired_stages=options and options.retired_stages or {},
         room_content_version=generated_map and Generation.room_content_version or nil,
         active_floor_id=map.floor_id, clock=0, player_id=player_id,
@@ -205,17 +217,34 @@ function Game.new(seed, map_id, options)
     }
     Scheduler.enqueue(state, {kind="actor_ready", due=0, actor_id=player_id, is_player=true})
     if generated_map then
-        for _,place in ipairs(generated_map.placements.enemies) do
-            Game.spawn_enemy(state,place.definition_id,place.x,place.y)
+        local function populate_active(append)
+            local active=state.generated_map
+            for _,place in ipairs(active.placements.enemies) do
+                Game.spawn_enemy(state,place.definition_id,place.x,place.y)
+            end
+            for _,place in ipairs(active.placements.chests) do
+                Game.spawn_chest(state,place.definition_id,place.x,place.y,
+                    generated_pair and active.floor_id..":"..place.id or place.id)
+            end
+            for _,place in ipairs(active.placements.doors or {}) do
+                Game.spawn_door(state,place.x,place.y,
+                    generated_pair and active.floor_id..":"..place.id or place.id)
+            end
+            World.populate(state,append)
         end
-        for _,place in ipairs(generated_map.placements.chests) do
-            Game.spawn_chest(state,place.definition_id,place.x,place.y,place.id)
+        populate_active(false)
+        if generated_pair then
+            state.generated_map=generated_pair[2]
+            state.active_floor_id=generated_pair[2].floor_id
+            populate_active(true)
+            Stage.init(state,Game.spawn_enemy)
+            Floors.park(state,state.active_floor_id)
+            state.inactive_floor_maps[state.active_floor_id]=state.generated_map
+            state.generated_map=generated_pair[1]
+            state.active_floor_id=generated_pair[1].floor_id
+        elseif options and options.stage then
+            Stage.init(state,Game.spawn_enemy)
         end
-        for _,place in ipairs(generated_map.placements.doors or {}) do
-            Game.spawn_door(state,place.x,place.y,place.id)
-        end
-        World.populate(state)
-        if options and options.stage then Stage.init(state,Game.spawn_enemy) end
     end
     if options and options.demo_enemies then
         for _, spawn in ipairs(Content.demo_spawns(map.id)) do
@@ -302,10 +331,20 @@ function Game.preview(state, kind, dx, dy)
             end
             cells[#cells + 1] = cell
         end
+        local stair,landing
+        if kind=="move" and distance==1 then
+            stair=Floors.portal(state,cells[1].x,cells[1].y)
+            if stair then
+                landing,reason=Floors.landing(state,stair)
+                if not landing then
+                    return {valid=false,reason=reason,cells=cells}
+                end
+            end
+        end
         return {valid=distance > 0 or bump == true or door_id ~= nil,
             reason=(distance == 0 and not bump and not door_id) and reason or nil,
             cost=cost, cells=cells, distance=distance, bump=bump,
-            chest_id=chest_id,door_id=door_id}
+            chest_id=chest_id,door_id=door_id,stair=stair,landing=landing}
     end
     local position = player.position
     local cells = Targeting.cells(kind, position.x, position.y, dx, dy)
@@ -887,6 +926,7 @@ function Game.submit(state, intent)
             fresh=Game.new_stage(next_seed,{root_seed=state.root_seed,
                 entity_id_base=state.next_entity_id-1,retired_stages=retired,
                 available_boons=state.available_boons,meta=state.meta,
+                multifloor=state.floor_order~=nil,
                 stage_options={index=next_index,route_history=history,
                     biome_id=assert(route.biome_id,"route lacks biome")}})
         end
@@ -965,6 +1005,30 @@ function Game.submit(state, intent)
             Rewards.pickup_at(state, player, x, y, function(event_kind, reward_fields, source_id)
                 emit(state, output, event_kind, reward_fields, source_id, action_id)
             end)
+        end
+        if kind=="move" and preview.stair then
+            local old_floor=position.floor_id
+            local pursuer_at,interrupted=Floors.change(state,preview.stair,preview.landing)
+            local arrived=player.position
+            action.to_floor_id=arrived.floor_id
+            emit(state,output,"FloorChanged",{
+                from_floor_id=old_floor,to_floor_id=arrived.floor_id,
+                floor_id=arrived.floor_id,from_x=preview.stair.x,
+                from_y=preview.stair.y,x=arrived.x,y=arrived.y,
+                stair_id=preview.stair.id},player.id,action_id)
+            if pursuer_at then
+                if interrupted then
+                    emit(state,output,"WindupCancelled",{
+                        target_id=state.stage.pursuer_id,
+                        windup_id=interrupted.schedule_id,reason="floor_change",
+                        floor_id=old_floor,x=preview.stair.x,y=preview.stair.y},
+                        player.id,action_id)
+                end
+                emit(state,output,"PursuerRelocated",{
+                    pursuer_id=state.stage.pursuer_id,
+                    floor_id=arrived.floor_id,x=pursuer_at.x,y=pursuer_at.y},
+                    state.stage.pursuer_id,action_id)
+            end
         end
     elseif kind == "basic_attack" or kind == "sweeping_slash" then
         action.dx, action.dy = intent.dx, intent.dy
@@ -1074,7 +1138,9 @@ end
 function Game.pending_strikes(state)
     local result = {}
     for _, entity in ipairs(state.entities) do
-        if entity.pending_attack then result[#result + 1] = copy(entity.pending_attack) end
+        if entity.pending_attack and entity.position.floor_id==state.active_floor_id then
+            result[#result + 1] = copy(entity.pending_attack)
+        end
     end
     table.sort(result, function(a, b)
         if a.due ~= b.due then return a.due < b.due end
@@ -1121,6 +1187,7 @@ function Game.restore(snapshot)
     World.validate()
     local map = snapshot.generated_map or snapshot.final_map or
         assert(Content.get_map(snapshot.map_id), "unknown map content ID")
+    local maps={[map.floor_id]=map}
     if snapshot.generated_map then
         assert(snapshot.generated_map.studio_pack_fingerprint==
             Generation.studio_pack_fingerprint(),
@@ -1130,9 +1197,36 @@ function Game.restore(snapshot)
             "generated floor identity mismatch")
         assert(snapshot.room_content_version==Generation.room_content_version,
             "incompatible room content version")
-        local valid,errors=Generation.validate(map,snapshot.secrets)
-        assert(valid,"invalid saved generated floor: "..
-            (errors[1] and errors[1].kind or "unknown"))
+        if snapshot.floor_order then
+            assert(type(snapshot.floor_order)=="table" and #snapshot.floor_order==2
+                and type(snapshot.inactive_floor_maps)=="table"
+                and type(snapshot.floor_pause)=="table"
+                and (snapshot.active_floor_index==1 or snapshot.active_floor_index==2)
+                and snapshot.floor_order[snapshot.active_floor_index]==map.floor_id,
+                "invalid connected-floor index")
+            local pair={}
+            local inactive_count=0
+            for _ in pairs(snapshot.inactive_floor_maps) do
+                inactive_count=inactive_count+1
+            end
+            assert(inactive_count==1,"connected stage has extra inactive maps")
+            for index,id in ipairs(snapshot.floor_order) do
+                local floor=index==snapshot.active_floor_index and map
+                    or snapshot.inactive_floor_maps[id]
+                assert(floor and floor.floor_id==id and floor.id==map.id
+                    and floor.biome_id==map.biome_id and floor.seed==snapshot.run_seed
+                    and floor.studio_pack_fingerprint==Generation.studio_pack_fingerprint(),
+                    "invalid connected-floor identity")
+                pair[index]=floor
+                maps[id]=floor
+            end
+            local valid,reason=Generation.validate_pair(pair,snapshot.secrets)
+            assert(valid,"invalid saved connected floors: "..tostring(reason))
+        else
+            local valid,errors=Generation.validate(map,snapshot.secrets)
+            assert(valid,"invalid saved generated floor: "..
+                (errors[1] and errors[1].kind or "unknown"))
+        end
     end
     if snapshot.final_map then
         assert(snapshot.map_id==Finale.map.id and map.id==Finale.map.id
@@ -1167,6 +1261,40 @@ function Game.restore(snapshot)
     local state = copy(snapshot)
     assert(type(state.root_seed)=="number" and type(state.retired_stages)=="table",
         "missing run stage identity")
+    local scheduled={}
+    for _,item in ipairs(state.schedule) do scheduled[#scheduled+1]=item end
+    if state.floor_order then
+        local paused_count=0
+        for id,pause in pairs(state.floor_pause) do
+            paused_count=paused_count+1
+            assert(id~=state.active_floor_id and maps[id]
+                and type(pause)=="table" and type(pause.suspended_at)=="number"
+                and pause.suspended_at<=state.clock and type(pause.schedule)=="table",
+                "invalid paused floor")
+            for _,item in ipairs(pause.schedule) do
+                assert(item.floor_id==id and item.due>=pause.suspended_at,
+                    "invalid paused floor work")
+                scheduled[#scheduled+1]=item
+            end
+        end
+        assert(paused_count==1,"connected stage must have one paused floor")
+        local ids={}
+        for _,item in ipairs(scheduled) do
+            assert(type(item.id)=="number" and item.id%1==0
+                and item.id>=1 and item.id<state.next_schedule_id
+                and not ids[item.id],"duplicate connected-floor schedule ID")
+            ids[item.id]=true
+            if item.kind=="stage_pressure" or item.kind=="stage_deadline" then
+                assert(item.floor_id==nil,"stage timer attached to a floor")
+            else
+                assert(maps[item.floor_id],"scheduled work has no floor")
+            end
+        end
+        for _,item in ipairs(state.schedule) do
+            assert(item.floor_id==nil or item.floor_id==state.active_floor_id,
+                "inactive floor work is running")
+        end
+    end
     Stage.validate(state)
     Finale.validate(state)
     local frozen_floors={}
@@ -1198,12 +1326,13 @@ function Game.restore(snapshot)
             and entity.id>=1 and entity.id<state.next_entity_id
             and not entity_ids[entity.id],"invalid or duplicate entity ID")
         entity_ids[entity.id]=true
+        local entity_map=entity.position and maps[entity.position.floor_id]
         assert(type(entity.position)=="table" and
-            entity.position.floor_id==map.floor_id
+            entity_map
             and type(entity.position.x)=="number" and entity.position.x%1==0
             and type(entity.position.y)=="number" and entity.position.y%1==0
-            and entity.position.x>=1 and entity.position.x<=map.width
-            and entity.position.y>=1 and entity.position.y<=map.height,
+            and entity.position.x>=1 and entity.position.x<=entity_map.width
+            and entity.position.y>=1 and entity.position.y<=entity_map.height,
             "entity on incompatible floor")
         if entity.controller=="ai" then
             local definition=Content.get_enemy(entity.definition_id)
@@ -1250,8 +1379,10 @@ function Game.restore(snapshot)
                 "invalid stage exit")
         end
         if entity.blocks_movement then
-            assert(Content.walkable(map, entity.position.x, entity.position.y), "entity outside walkable map")
-            local key = entity.position.x .. "," .. entity.position.y
+            assert(Content.walkable(entity_map, entity.position.x, entity.position.y),
+                "entity outside walkable map")
+            local key = entity.position.floor_id..":"..
+                entity.position.x .. "," .. entity.position.y
             assert(not occupied[key], "overlapping blocking entities")
             occupied[key] = true
         end
@@ -1262,15 +1393,15 @@ function Game.restore(snapshot)
                 and #entity.pending_attack.target_cells>=1,
                 "missing pending target cells")
             for _,cell in ipairs(entity.pending_attack.target_cells) do
-                assert(cell.floor_id==map.floor_id
+                assert(cell.floor_id==entity.position.floor_id
                     and type(cell.x)=="number" and cell.x%1==0
                     and type(cell.y)=="number" and cell.y%1==0
-                    and cell.x>=1 and cell.x<=map.width
-                    and cell.y>=1 and cell.y<=map.height,
+                    and cell.x>=1 and cell.x<=entity_map.width
+                    and cell.y>=1 and cell.y<=entity_map.height,
                     "invalid pending target cell")
             end
             local found = false
-            for _, item in ipairs(state.schedule) do
+            for _, item in ipairs(scheduled) do
                 if item.id == entity.pending_attack.schedule_id and item.kind == "impact"
                     and item.actor_id == entity.id
                     and item.attack_id == entity.pending_attack.action_id
@@ -1281,48 +1412,61 @@ function Game.restore(snapshot)
         end
     end
     if state.generated_map then
-        assert(#state.secrets==#(map.placements.secrets or {}),
-            "generated secret state missing")
-        for index,place in ipairs(map.placements.secrets or {}) do
-            local secret=state.secrets[index]
-            assert(secret and secret.id==place.id
-                and secret.definition_id==place.definition_id
-                and secret.floor_id==map.floor_id
-                and type(secret.revealed)=="boolean",
-                "generated secret identity mismatch")
-            if secret.revealed and secret.wall_x then
-                local chest=Game.entity(state,secret.reward_id)
-                assert(chest and chest.controller=="chest" and
-                    chest.stable_marker_id=="secret:"..secret.id,
-                    "revealed wall cache has no stable reward")
-            end
+        local expected_secret_count=0
+        local floor_maps={map}
+        if state.floor_order then
+            floor_maps={maps[state.floor_order[1]],maps[state.floor_order[2]]}
         end
-        for _,place in ipairs(map.placements.doors or {}) do
-            local found=false
-            for _,entity in ipairs(state.entities) do
-                if entity.controller=="door" and entity.stable_marker_id==place.id
-                    and entity.position.x==place.x and entity.position.y==place.y then
-                    found=true; break
+        for _,floor_map in ipairs(floor_maps) do
+            expected_secret_count=expected_secret_count+#(floor_map.placements.secrets or {})
+            for _,place in ipairs(floor_map.placements.secrets or {}) do
+                local secret
+                for _,candidate in ipairs(state.secrets) do
+                    if candidate.id==place.id and candidate.floor_id==floor_map.floor_id then
+                        secret=candidate;break
+                    end
+                end
+                assert(secret and secret.definition_id==place.definition_id
+                    and type(secret.revealed)=="boolean",
+                    "generated secret identity mismatch")
+                if secret.revealed and secret.wall_x then
+                    local chest=Game.entity(state,secret.reward_id)
+                    assert(chest and chest.controller=="chest" and
+                        chest.stable_marker_id=="secret:"..secret.id,
+                        "revealed wall cache has no stable reward")
                 end
             end
-            assert(found,"generated door state missing")
+            for _,place in ipairs(floor_map.placements.doors or {}) do
+                local found=false
+                local marker=state.floor_order and floor_map.floor_id..":"..place.id
+                    or place.id
+                for _,entity in ipairs(state.entities) do
+                    if entity.controller=="door" and entity.stable_marker_id==marker
+                        and entity.position.floor_id==floor_map.floor_id
+                        and entity.position.x==place.x and entity.position.y==place.y then
+                        found=true; break
+                    end
+                end
+                assert(found,"generated door state missing")
+            end
         end
+        assert(#state.secrets==expected_secret_count,"generated secret state missing")
     end
     local drop_ids = {}
     for _, drop in ipairs(state.drops) do
+        local drop_map=drop.position and maps[drop.position.floor_id]
         assert(type(drop.id) == "number" and drop.id % 1 == 0
             and drop.id >= 1 and drop.id < state.next_drop_id
             and not drop_ids[drop.id] and drop.kind == "currency"
             and type(drop.amount) == "number" and drop.amount % 1 == 0
             and drop.amount > 0 and type(drop.collected) == "boolean"
-            and drop.position.floor_id == map.floor_id
-            and Content.walkable(map, drop.position.x, drop.position.y),
+            and drop_map and Content.walkable(drop_map, drop.position.x, drop.position.y),
             "invalid currency drop")
         drop_ids[drop.id] = true
     end
     for id, payload in pairs(state.delayed_effects) do
         local found = false
-        for _, item in ipairs(state.schedule) do
+        for _, item in ipairs(scheduled) do
             if item.id == id and item.kind == "effect" and item.effect_id == id then
                 found = true; break
             end
@@ -1332,17 +1476,20 @@ function Game.restore(snapshot)
     end
     for _,actor in ipairs(state.entities) do
         for kind,status in pairs(actor.statuses or {}) do
+            local floor_id=actor.position.floor_id
+            local floor_clock=state.floor_pause and state.floor_pause[floor_id]
+                and state.floor_pause[floor_id].suspended_at or state.clock
             assert(kind=="burning" and actor.hp and actor.hp>0
                 and type(status.power)=="number" and status.power>=0
                 and type(status.remaining)=="number" and status.remaining%1==0
                 and status.remaining>0 and type(status.interval)=="number"
                 and status.interval%1==0 and status.interval>0
-                and type(status.next_due)=="number" and status.next_due>=state.clock
+                and type(status.next_due)=="number" and status.next_due>=floor_clock
                 and type(status.activation)=="table"
                 and type(status.activation.ancestry)=="table",
                 "invalid active status")
             local found=false
-            for _,item in ipairs(state.schedule) do
+            for _,item in ipairs(scheduled) do
                 if item.id==status.schedule_id and item.kind=="effect"
                     and item.actor_id==actor.id and item.due==status.next_due then
                     found=true;break

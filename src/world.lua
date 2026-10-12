@@ -54,8 +54,8 @@ local function replace_tile(map,x,y,tile,visual)
     map.visual_rows[y]=art:sub(1,x-1)..visual..art:sub(x+1)
 end
 
-function World.populate(state)
-    state.secrets={}
+function World.populate(state,append)
+    if not append then state.secrets={} end
     for _,placement in ipairs(state.generated_map and state.generated_map.placements.secrets or {}) do
         local secret={id=placement.id,definition_id=placement.definition_id,
             floor_id=state.active_floor_id,x=placement.x,y=placement.y,

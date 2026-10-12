@@ -117,7 +117,7 @@ function Stage.init(state,spawn_enemy)
     elite.ai_memory.attacks=0
     local rules=Content.get_stage_rules()
     state.stage={index=options.index or 1,biome_id=map.biome_id or Biomes.order[1],
-        phase="exploring",elite_id=elite.id,
+        phase="exploring",elite_id=elite.id,elite_floor_id=map.floor_id,
         pressure_rng=RNG.new(RNG.derive(state.root_seed,
             "pressure:"..(options.index or 1)..":"..state.run_seed)),
         pressure_count=0,next_pressure=rules.pressure_first,
@@ -137,7 +137,8 @@ function Stage.after_player_action(state,emit)
     end
     if not elite or not elite.dormant then return end
     local player=state.entities[1]
-    if distance(player.position,elite.position)<=Content.get_stage_rules().elite_activation_radius then
+    if player.position.floor_id==elite.position.floor_id
+        and distance(player.position,elite.position)<=Content.get_stage_rules().elite_activation_radius then
         elite.dormant=nil
         stage.phase="elite_active"
         Scheduler.enqueue(state,{kind="actor_ready",due=state.clock,
@@ -195,7 +196,8 @@ local function pressure_due(state,emit,spawn_enemy)
     local rules=Content.get_stage_rules()
     local normal=0
     for _,e in ipairs(state.entities) do
-        if e.controller=="ai" and e.id~=stage.elite_id and e.id~=stage.pursuer_id then
+        if e.controller=="ai" and e.position.floor_id==state.active_floor_id
+            and e.id~=stage.elite_id and e.id~=stage.pursuer_id then
             normal=normal+1
         end
     end
@@ -267,7 +269,10 @@ function Stage.route_options(state,exit_id)
     end
     if not exit or exit.controller~="exit" then return nil,"exit unavailable" end
     local player=state.entities[1]
-    if distance(player.position,exit.position)~=1 then return nil,"exit not adjacent" end
+    if player.position.floor_id~=exit.position.floor_id
+        or distance(player.position,exit.position)~=1 then
+        return nil,"exit not adjacent"
+    end
     return {exit_id=exit_id,selected=1,routes=exit.routes,stage_index=stage.index}
 end
 
@@ -299,8 +304,17 @@ function Stage.validate(state)
             end
         end
     end
-    assert(state.active_floor_id==(stage.index==1 and base
-        or base.."/stage/"..stage.index),"stage floor identity mismatch")
+    local expected=stage.index==1 and base or base.."/stage/"..stage.index
+    if state.floor_order then
+        assert(#state.floor_order==2 and
+            state.floor_order[1]==base.."/stage/"..stage.index.."/depth/1"
+            and state.floor_order[2]==base.."/stage/"..stage.index.."/depth/2"
+            and state.active_floor_id==state.floor_order[state.active_floor_index]
+            and stage.elite_floor_id==state.floor_order[2],
+            "connected stage floor identity mismatch")
+    else
+        assert(state.active_floor_id==expected,"stage floor identity mismatch")
+    end
     assert(type(stage.pressure_count)=="number" and stage.pressure_count>=0
         and type(stage.pressure_rng)=="table", "invalid pressure director")
     RNG.new(stage.pressure_rng.state)

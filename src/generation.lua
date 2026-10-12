@@ -31,18 +31,6 @@ function Generation.studio_pack_fingerprint() return pack_fingerprint(active_stu
 
 local dirs = {{-1,0},{1,0},{0,-1},{0,1}}
 local function key(x,y) return x .. "," .. y end
-local function slot(c,r) return (r-1)*4+c end
-local function col(id) return (id-1)%4+1 end
-local function row(id) return math.floor((id-1)/4)+1 end
-local function neighbors(id)
-    local result={}
-    for _,d in ipairs(dirs) do
-        local c,r=col(id)+d[1],row(id)+d[2]
-        if c>=1 and c<=4 and r>=1 and r<=3 then result[#result+1]=slot(c,r) end
-    end
-    table.sort(result)
-    return result
-end
 local function edge_key(a,b)
     if a>b then a,b=b,a end
     return a .. ":" .. b
@@ -55,21 +43,38 @@ local function add_edge(graph, seen, a,b,kind)
     return true
 end
 
-function Generation.plan(rng,biome)
-    local target=Generation.room_min+RNG.next_int(rng,
-        Generation.room_max-Generation.room_min+1)-1
+function Generation.plan(rng,biome,layout)
+    layout=layout or {grid_cols=4,grid_rows=3,room_min=Generation.room_min,
+        room_max=Generation.room_max,terminal_id=12}
+    local cols,rows=layout.grid_cols,layout.grid_rows
+    local function slot(c,r) return (r-1)*cols+c end
+    local function col(id) return (id-1)%cols+1 end
+    local function row(id) return math.floor((id-1)/cols)+1 end
+    local function neighbors(id)
+        local result={}
+        for _,d in ipairs(dirs) do
+            local c,r=col(id)+d[1],row(id)+d[2]
+            if c>=1 and c<=cols and r>=1 and r<=rows then
+                result[#result+1]=slot(c,r)
+            end
+        end
+        table.sort(result)
+        return result
+    end
+    local target=layout.room_min+RNG.next_int(rng,
+        layout.room_max-layout.room_min+1)-1
     local graph={nodes={},edges={},critical={1}}
     local c,r=1,1
-    if biome and biome.strategy=="courtyards" then
+    if biome and biome.strategy=="courtyards" and cols==4 and rows==3 then
         -- The central courtyard is always on the main route; side wings still
         -- come from the same branching/loop planner below.
         c,r=2,2
         graph.critical[2]=slot(2,1)
         graph.critical[3]=slot(2,2)
     end
-    while c<4 or r<3 do
-        if c==4 then r=r+1
-        elseif r==3 then c=c+1
+    while c<cols or r<rows do
+        if c==cols then r=r+1
+        elseif r==rows then c=c+1
         elseif RNG.next_int(rng,2)==1 then c=c+1
         else r=r+1 end
         local id=slot(c,r)
@@ -85,12 +90,12 @@ function Generation.plan(rng,biome)
                 local p,q
                 if row(a)==row(b) then
                     local rr=row(a)+side
-                    if rr>=1 and rr<=3 then
+                    if rr>=1 and rr<=rows then
                         p,q=slot(col(a),rr),slot(col(b),rr)
                     end
                 else
                     local cc=col(a)+side
-                    if cc>=1 and cc<=4 then
+                    if cc>=1 and cc<=cols then
                         p,q=slot(cc,row(a)),slot(cc,row(b))
                     end
                 end
@@ -115,7 +120,7 @@ function Generation.plan(rng,biome)
     local selected=#graph.critical
     while selected<target do
         local candidates={}
-        for id=1,12 do
+        for id=1,cols*rows do
             if not chosen[id] then
                 for _,near in ipairs(neighbors(id)) do
                     if chosen[near] then candidates[#candidates+1]=id; break end
@@ -132,7 +137,7 @@ function Generation.plan(rng,biome)
         add_edge(graph,edge_seen,id,parents[RNG.next_int(rng,#parents)],"branch")
     end
     local loops={}
-    for id=1,12 do
+    for id=1,cols*rows do
         if chosen[id] then for _,near in ipairs(neighbors(id)) do
             if chosen[near] and id<near and not edge_seen[edge_key(id,near)] then
                 loops[#loops+1]={id,near}
@@ -146,12 +151,12 @@ function Generation.plan(rng,biome)
         local next_loop=loops[RNG.next_int(rng,#loops)]
         add_edge(graph,edge_seen,next_loop[1],next_loop[2],"loop")
     end
-    for id=1,12 do
+    for id=1,cols*rows do
         if chosen[id] then
             local role="combat"
             if id==1 then role="start"
-            elseif id==12 then role="elite"
-            elseif id%4==0 or id%5==0 then role="treasure"
+            elseif id==layout.terminal_id then role="elite"
+            elseif id%cols==0 or id%5==0 then role="treasure"
             elseif id%3==0 then role="landmark" end
             graph.nodes[#graph.nodes+1]={id=id,col=col(id),row=row(id),role=role}
         end
@@ -195,8 +200,11 @@ local function socket_for(room, facing)
 end
 
 local function stamp_room(map, terrain, art, footprint, rng, node, transformed,biome)
-    local cx=20+(node.col-1)*32+RNG.next_int(rng,7)-4
-    local cy=16+(node.row-1)*26+RNG.next_int(rng,7)-4
+    local layout=map.layout
+    local cx=(layout and layout.base_x or 20)+
+        (node.col-1)*(layout and layout.slot_x or 32)+RNG.next_int(rng,7)-4
+    local cy=(layout and layout.base_y or 16)+
+        (node.row-1)*(layout and layout.slot_y or 26)+RNG.next_int(rng,7)-4
     local ox=cx-math.floor(transformed.width/2)
     local oy=cy-math.floor(transformed.height/2)
     local editable={}
@@ -319,6 +327,7 @@ local function corridor_path(a,b,rng,biome)
 end
 
 local function assign_placements(map,biome)
+    local chest_target=map.layout and map.layout.chest_target or Generation.chest_target
     local occupied={}
     local chests={}
     for _,room in ipairs(map.rooms) do
@@ -327,10 +336,10 @@ local function assign_placements(map,biome)
             if point then chests[#chests+1]={room=room,point=point} end
         end
     end
-    assert(#chests>=Generation.chest_target,"too few chest markers")
-    -- Spread five chests through the ordered room slots, including branches.
-    for index=1,Generation.chest_target do
-        local chosen=chests[math.floor((index-1)*(#chests-1)/(Generation.chest_target-1))+1]
+    assert(#chests>=chest_target,"too few chest markers")
+    -- Spread the biome-wide chest budget across both floor room pools.
+    for index=1,chest_target do
+        local chosen=chests[math.floor((index-1)*(#chests-1)/(chest_target-1))+1]
         local p=chosen.point
         local id="chest:"..chosen.room.id
         map.placements.chests[#map.placements.chests+1]={id=id,
@@ -412,16 +421,21 @@ local function place_exploration(map, terrain, art, footprint, seed, attempt)
     end
     local movement=movement_candidates[RNG.next_int(secret_rng,#movement_candidates)]
     local anchor=attack.room.markers.secret_anchor[1]
-    map.placements.secrets[1]={id="secret:cracked:"..attack.room.id,
-        definition_id="core:secret/cracked_cache",room_id=attack.room.id,
-        x=anchor.x,y=anchor.y,wall_x=attack.wall.x,wall_y=attack.wall.y,
-        cache_x=attack.cache_x,cache_y=attack.cache_y}
+    local secret_kind=map.layout and map.layout.secret_kind or "both"
+    if secret_kind=="both" or secret_kind=="cracked" then
+        map.placements.secrets[#map.placements.secrets+1]={id="secret:cracked:"..attack.room.id,
+            definition_id="core:secret/cracked_cache",room_id=attack.room.id,
+            x=anchor.x,y=anchor.y,wall_x=attack.wall.x,wall_y=attack.wall.y,
+            cache_x=attack.cache_x,cache_y=attack.cache_y}
+        art[attack.wall.y][attack.wall.x]="k" -- recurring cracked wall
+    end
     local step=movement.markers.secret_anchor[1]
-    map.placements.secrets[2]={id="secret:sigil:"..movement.id,
-        definition_id="core:secret/moss_sigil",room_id=movement.id,
-        x=step.x,y=step.y}
-    art[attack.wall.y][attack.wall.x]="k" -- subtle recurring cracked moss
-    art[step.y][step.x]="p" -- subtle recurring spiral floor pattern
+    if secret_kind=="both" or secret_kind=="sigil" then
+        map.placements.secrets[#map.placements.secrets+1]={id="secret:sigil:"..movement.id,
+            definition_id="core:secret/moss_sigil",room_id=movement.id,
+            x=step.x,y=step.y}
+        art[step.y][step.x]="p" -- recurring movement sigil
+    end
 
     local degree={}
     for _,edge in ipairs(map.graph.edges) do
@@ -446,13 +460,17 @@ local function place_exploration(map, terrain, art, footprint, seed, attempt)
         x=door_socket.x,y=door_socket.y}
 end
 
-local function build(seed,attempt,derived_seed,biome,pack)
+local function build(seed,attempt,derived_seed,biome,pack,options)
+    options=options or {}
+    local layout=options.layout
     local rng=RNG.new(derived_seed)
-    local graph=Generation.plan(rng,biome)
-    local map={id=biome.map_id,floor_id=biome.floor_id,biome_id=biome.id,
+    local graph=Generation.plan(rng,biome,layout)
+    local map={id=biome.map_id,floor_id=options.floor_id or biome.floor_id,biome_id=biome.id,
         strategy=biome.strategy,
-        width=Generation.width,height=Generation.height,
+        width=layout and layout.width or Generation.width,
+        height=layout and layout.height or Generation.height,
         seed=seed,attempt=attempt,derived_seed=derived_seed,
+        layout=layout,floor_index=options.floor_index,
         graph=graph,rooms={},corridors={},protected_cells={},editable_cells={},
         placements={enemies={},chests={},secrets={},doors={}},repairs={}}
     if pack then
@@ -475,7 +493,7 @@ local function build(seed,attempt,derived_seed,biome,pack)
                 for _=1,source.weight do pool[#pool+1]=definition end
             end
         end end
-        local def=biome.hub_template_id and node.id==6
+        local def=biome.hub_template_id and node.id==6 and not layout
             and Rooms.definitions[biome.hub_template_id]
             or pool[RNG.next_int(rng,#pool)]
         if pack and def.studio_weight then
@@ -604,10 +622,17 @@ local function build(seed,attempt,derived_seed,biome,pack)
         map.corridors[#map.corridors+1]=corridor
     end
     local start=by_id[1].markers.player[1]
-    local elite=by_id[12].markers.elite[1]
+    local terminal_id=layout and layout.terminal_id or 12
+    local elite=by_id[terminal_id].markers.elite[1]
     map.start_x,map.start_y=start.x,start.y
-    map.elite={floor_id=map.floor_id,x=elite.x,y=elite.y,room_id=12,
+    map.elite={floor_id=map.floor_id,x=elite.x,y=elite.y,room_id=terminal_id,
         kind="reserved_elite_arena"}
+    if layout then
+        local stair_room=options.floor_index==1 and by_id[terminal_id] or by_id[1]
+        local marker=stair_room.markers.stair and stair_room.markers.stair[1]
+        map.stair_anchor=marker and {x=marker.x,y=marker.y,
+            room_id=stair_room.id,template_id=stair_room.template_id} or nil
+    end
     assign_placements(map,biome)
     place_exploration(map,terrain,art,footprint,seed,attempt)
     map.rows=serialize_grid(terrain)
@@ -644,15 +669,29 @@ function Generation.validate(map,runtime_secrets)
     local ok,reason=pcall(Content.validate_map,map)
     if not ok then issue("map_invalid",0,0,tostring(reason)); return false,errors end
     local biome=Biomes.get(map.biome_id or Biomes.order[1])
+    local layout=map.layout
+    if layout and (layout.grid_cols~=3 or layout.grid_rows~=2
+        or layout.room_min~=6 or layout.room_max~=6
+        or layout.terminal_id~=6 or layout.width~=104 or layout.height~=68
+        or layout.base_x~=20 or layout.base_y~=16
+        or layout.slot_x~=32 or layout.slot_y~=26
+        or (layout.chest_target~=2 and layout.chest_target~=3)
+        or (layout.secret_kind~="cracked" and layout.secret_kind~="sigil")
+        or (map.floor_index~=1 and map.floor_index~=2)) then
+        issue("layout_invalid",0,0,"invalid connected-floor layout")
+        return false,errors
+    end
     if not biome or map.id~=biome.map_id or
         (map.floor_id~=biome.floor_id and not
-            map.floor_id:match("^"..biome.floor_id.."/stage/[2-9]$"))
+            map.floor_id:match("^"..biome.floor_id.."/stage/[2-9]$") and not
+            map.floor_id:match("^"..biome.floor_id.."/stage/[1-3]/depth/[12]$"))
         or type(map.graph)~="table" or type(map.rooms)~="table"
         or type(map.corridors)~="table" or type(map.placements)~="table" then
         issue("metadata_invalid",0,0,"missing generated floor records")
         return false,errors
     end
-    if #map.rooms<Generation.room_min or #map.rooms>Generation.room_max
+    if #map.rooms<(layout and layout.room_min or Generation.room_min)
+        or #map.rooms>(layout and layout.room_max or Generation.room_max)
         or #map.graph.edges<#map.rooms then
         issue("graph_invalid",0,0,"room count or loop missing")
     end
@@ -684,7 +723,8 @@ function Generation.validate(map,runtime_secrets)
             end
         end
     end
-    if #graph_queue~=#map.rooms or not graph_reached[12] then
+    if #graph_queue~=#map.rooms or
+        not graph_reached[layout and layout.terminal_id or 12] then
         issue("graph_disconnected",0,0,"entrance cannot reach elite room in graph")
     end
     local secret_states={}
@@ -834,8 +874,9 @@ function Generation.validate(map,runtime_secrets)
             end
         end
     end
-    if #(map.placements.chests or {})~=Generation.chest_target then
-        issue("chest_count",0,0,"expected five paid chests")
+    if #(map.placements.chests or {})~=
+        (layout and layout.chest_target or Generation.chest_target) then
+        issue("chest_count",0,0,"wrong paid chest count")
     end
     local seen=reachable(map,blockers)
     if not seen[key(map.elite.x,map.elite.y)] then
@@ -940,10 +981,13 @@ function Generation.validate(map,runtime_secrets)
             end
         end
     end
-    if #(map.placements.secrets or {})~=2
-        or not secret_ids["core:secret/cracked_cache"]
-        or not secret_ids["core:secret/moss_sigil"] then
-        issue("secret_count",0,0,"expected two optional discovery mechanisms")
+    local expected_secrets=layout and 1 or 2
+    if #(map.placements.secrets or {})~=expected_secrets
+        or ((not layout or layout.secret_kind=="cracked")
+            and not secret_ids["core:secret/cracked_cache"])
+        or ((not layout or layout.secret_kind=="sigil")
+            and not secret_ids["core:secret/moss_sigil"]) then
+        issue("secret_count",0,0,"wrong optional discovery mechanisms")
     end
     local art=map.visual_rows
     if type(art)~="table" or #art~=map.height then
@@ -1045,8 +1089,10 @@ function Generation.generate(seed,options)
         and retry_limit>=0 and retry_limit<=8,"invalid generation retry budget")
     local attempts={}
     for attempt=0,retry_limit do
-        local derived=RNG.derive(seed,biome.floor_id..":"..attempt)
-        local ok,map_or_error=pcall(build,seed,attempt,derived,biome,pack)
+        local salt=biome.floor_id..":"..
+            (options.floor_index and "depth:"..options.floor_index..":" or "")..attempt
+        local derived=RNG.derive(seed,salt)
+        local ok,map_or_error=pcall(build,seed,attempt,derived,biome,pack,options)
         local map=ok and map_or_error or nil
         if map then
             if options.fault then inject_fault(map,options.fault) end
@@ -1064,22 +1110,91 @@ function Generation.generate(seed,options)
         end
     end
     -- Known safe deterministic reference candidate, independently validated on every use.
-    local fallback_seed=RNG.derive(314159,biome.floor_id..":fallback")
-    local fallback_ok,fallback=pcall(build,seed,-1,fallback_seed,biome,pack)
+    local fallback_seed=RNG.derive(314159,biome.floor_id..":"..
+        (options.floor_index and "depth:"..options.floor_index..":" or "").."fallback")
+    local fallback_ok,fallback=pcall(build,seed,-1,fallback_seed,biome,pack,options)
     local valid,errors=false,{}
     if fallback_ok then valid,errors=Generation.validate(fallback) end
     local authored_excluded=false
     if not valid and pack then
-        fallback=build(seed,-1,fallback_seed,biome,nil)
+        fallback=build(seed,-1,fallback_seed,biome,nil,options)
         valid,errors=Generation.validate(fallback)
         authored_excluded=true
         fallback.studio_pack_fingerprint=pack_fingerprint(pack)
         fallback.studio_templates={}
     end
-    assert(valid,"prevalidated fallback failed: "..(errors[1] and errors[1].kind or "unknown"))
+    assert(valid,"prevalidated fallback failed: "..(errors[1] and errors[1].kind
+        or (not fallback_ok and tostring(fallback) or "unknown")))
     fallback.diagnostics={attempts=attempts,fallback=true,
         fallback_reference_seed=fallback_seed,authored_excluded=authored_excluded}
     return fallback
+end
+
+-- Two compact concrete floors share one biome room/reward budget. The first
+-- terminal marker is a stair; the second is the ordinary miniboss arena.
+function Generation.generate_pair(seed,options)
+    options=options or {}
+    local biome=assert(Biomes.get(options.biome_id or Biomes.order[1]),
+        "unknown connected-floor biome")
+    local stage_index=options.stage_index or 1
+    assert(type(stage_index)=="number" and stage_index%1==0
+        and stage_index>=1 and stage_index<=3,"invalid connected-floor stage")
+    local maps={}
+    for index=1,2 do
+        local layout={grid_cols=3,grid_rows=2,room_min=6,room_max=6,
+            terminal_id=6,width=104,height=68,
+            base_x=20,base_y=16,slot_x=32,slot_y=26,
+            chest_target=index==1 and 2 or 3,
+            secret_kind=index==1 and "cracked" or "sigil"}
+        maps[index]=Generation.generate(seed,{biome_id=biome.id,
+            studio_pack=options.studio_pack,retry_limit=options.retry_limit,
+            floor_index=index,layout=layout,
+            floor_id=biome.floor_id.."/stage/"..stage_index.."/depth/"..index})
+    end
+    local upper,lower=maps[1],maps[2]
+    local ux,uy=upper.stair_anchor and upper.stair_anchor.x or upper.elite.x,
+        upper.stair_anchor and upper.stair_anchor.y or upper.elite.y
+    local lx,ly=lower.stair_anchor and lower.stair_anchor.x or lower.start_x,
+        lower.stair_anchor and lower.stair_anchor.y or lower.start_y
+    upper.placements.stairs={{id="stair:down",x=ux,y=uy,
+        to_floor_id=lower.floor_id,to_x=lx,to_y=ly}}
+    lower.placements.stairs={{id="stair:up",x=lx,y=ly,
+        to_floor_id=upper.floor_id,to_x=ux,to_y=uy}}
+    assert(Generation.validate_pair(maps),"invalid connected biome floors")
+    return maps
+end
+
+function Generation.validate_pair(maps,runtime_secrets)
+    if type(maps)~="table" or #maps~=2 then return false,"expected two floors" end
+    local upper,lower=maps[1],maps[2]
+    if upper.floor_id==lower.floor_id or upper.biome_id~=lower.biome_id
+        or #upper.rooms+#lower.rooms<8 or #upper.rooms+#lower.rooms>12
+        or #upper.placements.chests+#lower.placements.chests~=5
+        or #upper.placements.secrets+#lower.placements.secrets~=2 then
+        return false,"invalid biome-wide budget"
+    end
+    for _,map in ipairs(maps) do
+        local valid,errors=Generation.validate(map,runtime_secrets)
+        if not valid then return false,errors[1] and errors[1].kind or "floor invalid" end
+        local stair=map.placements.stairs and map.placements.stairs[1]
+        if not stair or #map.placements.stairs~=1 or
+            not Content.walkable(map,stair.x,stair.y) then
+            return false,"missing walkable stair"
+        end
+        for _,kind in ipairs({"enemies","chests","doors"}) do
+            for _,place in ipairs(map.placements[kind] or {}) do
+                if place.x==stair.x and place.y==stair.y then
+                    return false,"stair overlaps placement"
+                end
+            end
+        end
+    end
+    local down,up=upper.placements.stairs[1],lower.placements.stairs[1]
+    if down.to_floor_id~=lower.floor_id or down.to_x~=up.x or down.to_y~=up.y
+        or up.to_floor_id~=upper.floor_id or up.to_x~=down.x or up.to_y~=down.y then
+        return false,"stair links are not reciprocal"
+    end
+    return true
 end
 
 return Generation

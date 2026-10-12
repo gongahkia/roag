@@ -115,14 +115,17 @@ end
 
 local function visible_event(event)
     if not (state.generated_map or state.finale) then return true end
+    if event.floor_id and event.floor_id~=state.active_floor_id then return false end
     local spatial=false
     if event.x and event.y and visible_at(event.x,event.y) then return true end
     if event.x and event.y then spatial=true end
     for _,cell in ipairs(event.target_cells or {}) do
         spatial=true
-        if visible_at(cell.x,cell.y) then return true end
+        if (not cell.floor_id or cell.floor_id==state.active_floor_id)
+            and visible_at(cell.x,cell.y) then return true end
     end
     if not spatial and event.source_position and
+        event.source_position.floor_id==state.active_floor_id and
         visible_at(event.source_position.x,event.source_position.y) then return true end
     return event.kind=="BoonGranted" or event.kind=="StatIncreased"
 end
@@ -395,7 +398,7 @@ local function begin_new(seed)
     end
     Generation.install_studio_pack(next_world_pack)
     local candidate=Game.new_stage(seed,{meta=Achievements.new_run(true,run_id),
-        available_boons=Achievements.pool(updated.earned)})
+        available_boons=Achievements.pool(updated.earned),multifloor=true})
     local ok,reason=save_service:replace(candidate)
     if not ok then
         persistence_message="New Run save failed: "..tostring(reason)
@@ -544,6 +547,9 @@ local function submit(intent)
                 notice = notice .. ("; +%d currency"):format(event.amount)
             elseif event.kind == "SecretDiscovered" then
                 notice = notice .. "; hidden cache found"
+            elseif event.kind == "FloorChanged" then
+                notice = ("Stairs to floor %d/2: +%d time"):format(
+                    state.active_floor_index,state.last_action.cost)
             elseif event.kind == "EliteDefeated" then
                 notice = "Thorn Warden defeated — free chest and exit unlocked"
             elseif event.kind == "PursuerArrived" then
@@ -809,7 +815,7 @@ end
 local function draw_enemies()
     for _, enemy in ipairs(state.entities) do
         local position=enemy.position
-        if enemy.controller == "ai" then
+        if enemy.controller == "ai" and position.floor_id==state.active_floor_id then
             -- Both the event-time pose and final authoritative tile must be
             -- visible; hidden movement cannot expose unseen routes.
             local visual_x,visual_y,shown=Playback.visible_position(playback,enemy.id,
@@ -885,7 +891,8 @@ end
 
 local function draw_rewards()
     for _, drop in ipairs(state.drops) do
-        if not drop.collected and visible_at(drop.position.x,drop.position.y) then
+        if not drop.collected and drop.position.floor_id==state.active_floor_id
+            and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
             if not draw_visual(bound_visual('core:drop/currency'),x,y,TILE,TILE) then
                 love.graphics.setColor(1, 0.86, 0.26)
@@ -896,7 +903,8 @@ local function draw_rewards()
         end
     end
     for _, entity in ipairs(state.entities) do
-        if entity.controller == "chest" and
+        if entity.position.floor_id==state.active_floor_id
+            and entity.controller == "chest" and
             visible_at(entity.position.x,entity.position.y) then
             local x, y = Camera.tile_top_left(camera, entity.position.x, entity.position.y)
             local chest_art=bound_visual(entity.definition_id)
@@ -913,7 +921,8 @@ local function draw_rewards()
             love.graphics.rectangle("line", x + 4, y + 10, 24, 18)
             end
         end
-        if entity.controller == "door" and
+        if entity.position.floor_id==state.active_floor_id
+            and entity.controller == "door" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
             love.graphics.setColor(entity.open and 0.42 or 0.57,
@@ -922,12 +931,23 @@ local function draw_rewards()
             love.graphics.setColor(0.79,0.69,0.39)
             love.graphics.rectangle("line",x+6,y+3,20,27)
         end
-        if entity.controller=="exit" and
+        if entity.position.floor_id==state.active_floor_id
+            and entity.controller=="exit" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
             love.graphics.setColor(0.34,0.88,0.94)
             love.graphics.circle("line",x+16,y+16,12)
             love.graphics.polygon("fill",x+16,y+6,x+23,y+17,x+16,y+25,x+9,y+17)
+        end
+    end
+    for _,stair in ipairs(state.generated_map and
+        state.generated_map.placements.stairs or {}) do
+        if visible_at(stair.x,stair.y) then
+            local x,y=Camera.tile_top_left(camera,stair.x,stair.y)
+            love.graphics.setColor(0.43,0.88,0.96)
+            love.graphics.rectangle("line",x+4,y+4,TILE-8,TILE-8)
+            love.graphics.line(x+9,y+13,x+16,y+19,x+23,y+13)
+            love.graphics.line(x+9,y+20,x+16,y+26,x+23,y+20)
         end
     end
 end
@@ -1021,15 +1041,23 @@ local function draw_minimap()
         love.graphics.rectangle("fill",ox+(x-1)*scale,oy+(y-1)*scale,scale,scale)
     end
     for _,entity in ipairs(state.entities) do
-        if entity.controller=="door" and
+        if entity.position.floor_id==map.floor_id and entity.controller=="door" and
             Game.was_explored(state,map.floor_id,entity.position.x,entity.position.y) then
             love.graphics.setColor(0.9,0.67,0.30)
             love.graphics.rectangle("fill",ox+(entity.position.x-1)*scale,
                 oy+(entity.position.y-1)*scale,2.4,2.4)
         end
     end
+    for _,stair in ipairs(map.placements.stairs or {}) do
+        if Game.was_explored(state,map.floor_id,stair.x,stair.y) then
+            love.graphics.setColor(0.43,0.88,0.96)
+            love.graphics.rectangle("line",ox+(stair.x-1)*scale-1,
+                oy+(stair.y-1)*scale-1,4,4)
+        end
+    end
     if map.elite and (not state.stage or
         state.stage.phase=="exploring" or state.stage.phase=="elite_active")
+        and (not state.floor_order or state.active_floor_index==2)
         and Game.was_explored(state,map.floor_id,map.elite.x,map.elite.y) then
         love.graphics.setColor(0.94,0.67,0.35)
         love.graphics.rectangle("line",ox+(map.elite.x-1)*scale-1,
@@ -1037,7 +1065,8 @@ local function draw_minimap()
     end
     if state.stage and state.stage.exit_id then
         local exit=Game.entity(state,state.stage.exit_id)
-        if exit and Game.was_explored(state,map.floor_id,
+        if exit and exit.position.floor_id==map.floor_id
+            and Game.was_explored(state,map.floor_id,
             exit.position.x,exit.position.y) then
             love.graphics.setColor(0.35,0.88,0.98)
             love.graphics.rectangle("line",ox+(exit.position.x-1)*scale-1,
@@ -1387,13 +1416,14 @@ local function draw_panel()
     love.graphics.print("ROEG — "..(state.finale and "Final Sanctum" or
         state.stage and Biomes.get(state.stage.biome_id).name or "Overgrown Ruins"), PANEL_X, 26)
     if state.generated_map then
-        local arena=state.generated_map.elite
-        local seen=Game.was_explored(state,state.active_floor_id,arena.x,arena.y)
-        local arena_label=seen and ("arena %d,%d"):format(arena.x,arena.y)
-            or "arena undiscovered"
-        love.graphics.print(("Stage %d %s · Seed %d"):format(
-            state.stage and state.stage.index or 1,
-            state.stage and state.stage.phase or "fixture",state.run_seed), PANEL_X, 43)
+        if state.floor_order then
+            love.graphics.print(("Stage %d · Floor %d/2 · Seed %d"):format(
+                state.stage.index,state.active_floor_index,state.run_seed),PANEL_X,43)
+        else
+            love.graphics.print(("Stage %d %s · Seed %d"):format(
+                state.stage and state.stage.index or 1,
+                state.stage and state.stage.phase or "fixture",state.run_seed), PANEL_X, 43)
+        end
     elseif state.finale then
         love.graphics.print(("Final boss · Seed %d"):format(state.root_seed),PANEL_X,43)
     else

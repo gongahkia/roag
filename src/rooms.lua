@@ -174,7 +174,7 @@ end
 
 local facings = {N=true,E=true,S=true,W=true}
 local marker_kinds = {player=true,enemy=true,chest=true,landmark=true,
-    elite=true,secret_anchor=true,secret_wall=true}
+    elite=true,secret_anchor=true,secret_wall=true,stair=true}
 local roles = {start=true,combat=true,treasure=true,landmark=true,elite=true,secret=true}
 local function point_key(x,y) return x .. "," .. y end
 local function has_role(def, role)
@@ -256,6 +256,8 @@ function Rooms.validate(definitions, order, biome)
             reserved[point_key(x,y)] = true
         end
         assert(type(def.markers)=="table", "room needs markers: " .. id)
+        assert(not def.markers.stair or #def.markers.stair<=1,
+            "room may have only one stair marker: " .. id)
         local blocking_markers={}
         for kind, points in pairs(def.markers) do
             assert(marker_kinds[kind] and type(points)=="table", "invalid marker kind: " .. id)
@@ -266,7 +268,7 @@ function Rooms.validate(definitions, order, biome)
                         (kind=="secret_wall" and "#" or "."),
                     "invalid " .. kind .. " marker: " .. id)
                 reserved[point_key(p.x,p.y)] = true
-                if kind=="player" or kind=="enemy" or kind=="chest" then
+                if kind=="player" or kind=="enemy" or kind=="chest" or kind=="stair" then
                     assert(not blocking_markers[point_key(p.x,p.y)],
                         "overlapping blocking markers: " .. id)
                     blocking_markers[point_key(p.x,p.y)]=true

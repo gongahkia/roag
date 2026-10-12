@@ -6,9 +6,9 @@ local Biomes=require('src.biomes')
 local Generation=require('src.generation')
 local E={}
 local tools={'floor','wall','water','void','tile','editable','protected',
-    'socket','enemy','chest','secret_anchor','secret_wall'}
+    'socket','enemy','chest','secret_anchor','secret_wall','stair'}
 local tool_labels={'Floor','Wall','Water','Void','Tile','Edit','Prot',
-    'Sock','Enemy','Chest','S.An','S.Wl'}
+    'Sock','Enemy','Chest','S.An','S.Wl','Stair'}
 local colors={['.']={0.21,0.29,0.25},['#']={0.42,0.45,0.40},
     ['~']={0.15,0.38,0.56},[' ']={0.08,0.10,0.12}}
 local function same(a,b)
@@ -116,7 +116,7 @@ function E:paint(x,y)
             local dy=facing=='N' and 1 or facing=='S' and -1 or 0
             W.set_cell(room,x+dx,y+dy,'.')
         end end
-    elseif room.markers[tool] then W.add_marker(room,tool,x,y) end
+    elseif tool=='stair' or room.markers[tool] then W.add_marker(room,tool,x,y) end
 end
 local function line(x0,y0,x1,y1,visit)
     local dx,dy=math.abs(x1-x0),math.abs(y1-y0)
@@ -137,7 +137,8 @@ function E:mousepressed(px,py,button)
     end
     if button~=1 then return false end
     if py>=78 and py<124 and px>=195 and px<800 then
-        local index=math.floor((px-195)/50)+1
+        local index=math.floor((px-195)/50)+1+
+            (py>=101 and 12 or 0)
         if tools[index] then self.tool=tools[index];self.message='Tool: '..self.tool;return true end
     end
     if px<185 then
@@ -224,6 +225,7 @@ function E:keypressed(key,control)
     elseif key=='8' then self.tool='socket'
     elseif key=='9' then self.tool='enemy'
     elseif key=='0' then self.tool='chest'
+    elseif key=='y' then self.tool='stair'
     elseif key=='tab' then self.selected_tile=self.selected_tile%#self.pack.tiles+1
     elseif key=='z' then
         local tile=self.pack.tiles[self.selected_tile]
@@ -341,9 +343,10 @@ function E:draw(image_for)
     g.setColor(0.17,0.23,0.25);g.rectangle('fill',194,76,math.min(610,width-410),50)
     for i,tool in ipairs(tools) do
         local col=(i-1)%12;local x=195+col*50
-        if tool==self.tool then g.setColor(0.28,0.47,0.44);g.rectangle('fill',x,77,49,44) end
+        local y=77+math.floor((i-1)/12)*24
+        if tool==self.tool then g.setColor(0.28,0.47,0.44);g.rectangle('fill',x,y,49,22) end
         g.setColor(0.88,0.94,0.87)
-        g.print(tool_labels[i],x+2,89)
+        g.print(tool_labels[i],x+2,y+4)
     end
     local vx,vy,vw,vh=self:viewport()
     g.setColor(0.08,0.12,0.14);g.rectangle('fill',vx,vy,vw,vh)
@@ -430,7 +433,7 @@ function E:draw(image_for)
         'Zoom: '..self.zoom..' px/tile','F1 name · F2 ID · I art',
         'U clear art · Tab tile · K new',
         'F3/F4 tile name/ID · Z type',
-        'E deco · Backspace erase',
+        'E deco · Y stair · Backspace erase',
         'R role · C/L/Q extra',
         'B biome · J toggle','F preview biome · O overlay',
         'T rotations · +/- weight','M mirror · P/H transform',
