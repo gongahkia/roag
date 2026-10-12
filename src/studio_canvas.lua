@@ -167,12 +167,18 @@ function C:mousepressed(x,y,button)
     if x>=right and y>=height-140 and y<height-80 then
         local row=math.floor((y-(height-140))/30)
         local col=math.floor((x-right)/54)+1
-        local commands=row==0 and {'l','delete','pageup','pagedown'} or {'v','k','r'}
+        local commands=row==0 and {'l','delete_layer','pageup','pagedown'} or {'v','k','r'}
         if commands[col] then local handled,reason=self:keypressed(commands[col]);return true,reason end
     end
     if x>=right and y>=100 and y<230 then
         local row=math.floor((y-100)/30)+1
         if tools[row] then self:set_tool(tools[row]);return true end
+    end
+    if x>=right and y>=220 and y<236 then self:set_tool('select');return true end
+    if x>=18 and x<260 and y>=80 and y<100 then
+        self:finish();self.modal='outline'
+        self.typed=self.outline_color~='' and self.outline_color or hex(self.color)
+        return true
     end
     if x>=right and y>=236 and y<304 then
         local col=math.floor((x-right)/26)+1;local row=math.floor((y-236)/30)
@@ -189,6 +195,11 @@ function C:mousepressed(x,y,button)
     local px,py=self:pixel_at(x,y)
     if not px then return false end
     self.cursor_x,self.cursor_y=px,py
+    if self.tool=='select' then
+        self.selection={x0=px,y0=py,x1=px,y1=py}
+        self.selection_anchor={px,py};self.selecting=true
+        return true
+    end
     if self.tool=='eyedropper' then self.color=D.composite_pixel(self.doc,px,py);return true end
     if self.tool=='fill' then
         local ok,err=self:change(function() local changed,reason=D.fill(self.doc,px,py,self.color);if reason then error(reason) end end)
@@ -207,6 +218,14 @@ function C:mousemoved(x,y,dx,dy)
         self.lastx=x;self.lasty=y;return
     end
     local px,py=self:pixel_at(x,y);self.cursor_x,self.cursor_y=px,py
+    if self.selecting then
+        if px then
+            local ax,ay=self.selection_anchor[1],self.selection_anchor[2]
+            self.selection={x0=math.min(ax,px),y0=math.min(ay,py),
+                x1=math.max(ax,px),y1=math.max(ay,py)}
+        end
+        return
+    end
     if not self.dragging then return end
     if not px then self:finish();return end
     if px~=self.lastpx or py~=self.lastpy then
@@ -230,6 +249,15 @@ function C:keypressed(key)
             if self.modal=='color' then
                 local c=fromhex(self.typed);if not c then return 'Enter 8 hex digits: RRGGBBAA' end
                 self.color=c
+            elseif self.modal=='outline' then
+                local value=self.typed:upper()
+                if value~='OFF' and not fromhex(value) then
+                    return true,'Enter RRGGBBAA or OFF'
+                end
+                local ok,err=self:change(function()
+                    self.outline_color=value=='OFF' and '' or value
+                end)
+                if not ok then return true,err end
             elseif self.modal=='rename' then
                 local name=self.typed
                 local ok,err=self:change(function() assert(#name>=1 and #name<=64,'layer name must be 1–64 characters');D.active(self.doc).name=name end)
@@ -239,23 +267,35 @@ function C:keypressed(key)
         end
         return true
     end
-    local ctrl=love.keyboard.isDown('lctrl','rctrl')
-    if ctrl and key=='z' then if love.keyboard.isDown('lshift','rshift') then self:redo() else self:undo() end;return true end
-    if ctrl and key=='y' then self:redo();return true end
+    local modifier=love.keyboard.isDown('lctrl','rctrl','lgui','rgui')
+    if modifier and key=='z' then
+        if love.keyboard.isDown('lshift','rshift') then self:redo() else self:undo() end
+        return true
+    end
+    if modifier and key=='y' then self:redo();return true end
     if key=='p' then self:set_tool('pencil')
     elseif key=='e' then self:set_tool('eraser')
     elseif key=='i' then self:set_tool('eyedropper')
     elseif key=='f' then self:set_tool('fill')
+    elseif key=='m' then self:set_tool('select')
+    elseif key=='c' then return self:apply_selection('recolor')
+    elseif key=='backspace' or (key=='delete' and self.selection and self.tool=='select') then
+        return self:apply_selection('erase')
     elseif key=='[' or key=='leftbracket' then self.brush=math.max(1,self.brush/2)
     elseif key==']' or key=='rightbracket' then self.brush=math.min(8,self.brush*2)
     elseif key=='l' then return self:change(function() D.add_layer(self.doc) end)
-    elseif key=='delete' then return self:change(function() D.delete_layer(self.doc) end)
+    elseif key=='delete' or key=='delete_layer' then
+        return self:change(function() D.delete_layer(self.doc) end)
     elseif key=='pageup' then return self:change(function() D.move_layer(self.doc,1) end)
     elseif key=='pagedown' then return self:change(function() D.move_layer(self.doc,-1) end)
     elseif key=='v' then return self:change(function() local l=D.active(self.doc);l.visible=not l.visible end)
     elseif key=='k' then return self:change(function() local l=D.active(self.doc);l.locked=not l.locked end)
     elseif key=='r' then self:finish();self.modal='rename';self.typed=D.active(self.doc).name
     elseif key=='h' then self:finish();self.modal='color';self.typed=hex(self.color)
+    elseif key=='o' then
+        self:finish();self.modal='outline'
+        self.typed=self.outline_color~='' and self.outline_color or hex(self.color)
+    elseif key=='escape' and self.selection then self.selection=nil;self.selecting=false
     elseif key=='0' then self:fit()
     elseif key=='+' or key=='=' or key=='kp+' then self:zoom_at(1,love.graphics.getWidth()/2,love.graphics.getHeight()/2)
     elseif key=='-' then self:zoom_at(-1,love.graphics.getWidth()/2,love.graphics.getHeight()/2)
