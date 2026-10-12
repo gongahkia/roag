@@ -1,4 +1,7 @@
 local Content = require("src.content")
+local Terrain = require("src.terrain")
+local EliteAI = require("src.elite_ai")
+local RegularAI = require("src.regular_ai")
 
 local AI = {}
 local directions = {{0,-1},{1,0},{0,1},{-1,0}} -- stable N, E, S, W
@@ -24,6 +27,7 @@ local function lane(state, enemy, player, minimum, maximum)
     local dx, dy = b.x - a.x, b.y - a.y
     if dx ~= 0 and dy ~= 0 then return nil end
     local distance = math.abs(dx) + math.abs(dy)
+
     if distance < minimum or distance > maximum then return nil end
     local step_x = dx == 0 and 0 or dx / math.abs(dx)
     local step_y = dy == 0 and 0 or dy / math.abs(dy)
@@ -31,7 +35,8 @@ local function lane(state, enemy, player, minimum, maximum)
     local cells = {}
     for step = 1, distance do
         local x, y = a.x + step_x * step, a.y + step_y * step
-        if not Content.projectile_passable(map, x, y, state) then return nil end
+        if not Content.projectile_passable(map, x, y, state)
+            or Terrain.symbol(map,x,y)=="m" then return nil end
         cells[#cells + 1] = {x=x, y=y}
     end
     return cells
@@ -53,7 +58,8 @@ local function clear_line(state,from,to)
                 or not Content.projectile_passable(map,old_x,y,state)) then
             return false
         end
-        if not Content.projectile_passable(map,x,y,state) then return false end
+        if not Content.projectile_passable(map,x,y,state)
+            or Terrain.symbol(map,x,y)=="m" then return false end
     end
     return true
 end
@@ -136,6 +142,25 @@ function AI.choose(state, enemy)
     local dx = player.position.x - enemy.position.x
     local dy = player.position.y - enemy.position.y
     local distance = math.abs(dx) + math.abs(dy)
+
+    if definition.ai=="biome_elite" then
+        return EliteAI.choose(state,enemy,player,{definition=definition,
+            map=Content.map_for(state),
+            projectile_passable=function(map,x,y)
+                return Content.projectile_passable(map,x,y,state)
+            end,
+            clear_line=clear_line,next_step=next_step,
+            adjacent_goals=adjacent_goals})
+    end
+    if definition.ai=="expansion_regular" then
+        return RegularAI.choose(state,enemy,player,{definition=definition,
+            map=Content.map_for(state),
+            projectile_passable=function(map,x,y)
+                return Content.projectile_passable(map,x,y,state)
+            end,
+            clear_line=clear_line,next_step=next_step,
+            adjacent_goals=adjacent_goals,free=free})
+    end
 
     if definition.ai=="hollow_regent" then
         local attacks=enemy.ai_memory.attacks or 0

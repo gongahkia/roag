@@ -18,6 +18,8 @@ local durations = {
     SecretDiscovered = 0.48,
     SecretRewardSpawned = 0.28,
     DoorOpened = 0.22,
+    TerrainTriggered = 0.12,
+    TerrainBroken = 0.20,
     ElitePhaseChanged = 0.50,
     EliteDefeated = 0.80,
     RegentPhaseChanged = 0.45,
@@ -33,6 +35,7 @@ local cascade = {
     DamageTaken=true, DamageBlocked=true, BoonActivated=true,
     EffectApplied=true, StatusApplied=true, StatusTick=true,
     DelayedEffectScheduled=true, DelayedEffectResolved=true,
+    TerrainTriggered=true,
 }
 Playback.max_cascade_seconds = 0.36
 

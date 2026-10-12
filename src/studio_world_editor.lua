@@ -4,13 +4,16 @@ local W=require('src.studio_world')
 local Rooms=require('src.rooms')
 local Biomes=require('src.biomes')
 local Generation=require('src.generation')
+local Terrain=require('src.terrain')
 local E={}
 local tools={'floor','wall','water','void','tile','editable','protected',
     'socket','enemy','chest','secret_anchor','secret_wall','stair'}
 local tool_labels={'Floor','Wall','Water','Void','Tile','Edit','Prot',
     'Sock','Enemy','Chest','S.An','S.Wl','Stair'}
 local colors={['.']={0.21,0.29,0.25},['#']={0.42,0.45,0.40},
-    ['~']={0.15,0.38,0.56},[' ']={0.08,0.10,0.12}}
+    ['~']={0.15,0.38,0.56},[' ']={0.08,0.10,0.12},
+    b={0.54,0.29,0.22},g={0.34,0.40,0.20},i={0.42,0.76,0.91},
+    B={0.50,0.41,0.28},m={0.43,0.54,0.58},c={0.39,0.73,0.77}}
 local function same(a,b)
     if type(a)~=type(b) then return false end
     if type(a)~='table' then return a==b end
@@ -226,15 +229,24 @@ function E:keypressed(key,control)
     elseif key=='9' then self.tool='enemy'
     elseif key=='0' then self.tool='chest'
     elseif key=='y' then self.tool='stair'
+    elseif key=='a' then self:change(function() W.add_terrain_tiles(self.pack) end)
+        self.message='Six mechanical terrain tiles added; Tab selects a tile'
     elseif key=='tab' then self.selected_tile=self.selected_tile%#self.pack.tiles+1
     elseif key=='z' then
         local tile=self.pack.tiles[self.selected_tile]
         self:change(function()
-            local next_symbol=tile.symbol=='.' and '#' or tile.symbol=='#' and '~' or '.'
+            local choices={'.','#','~'}
+            for _,symbol in ipairs(Terrain.order) do choices[#choices+1]=symbol end
+            local at=1
+            for index,symbol in ipairs(choices) do
+                if symbol==tile.symbol then at=index;break end
+            end
+            local next_symbol=choices[at%#choices+1]
+            local semantic=Terrain.get(next_symbol)
             tile.symbol=next_symbol
-            tile.blocks_movement=next_symbol~='.'
-            tile.blocks_sight=next_symbol=='#'
-            tile.blocks_projectile=next_symbol=='#'
+            tile.blocks_movement=not semantic.walkable
+            tile.blocks_sight=semantic.blocks_vision
+            tile.blocks_projectile=not semantic.projectile_passable
             for _,room in ipairs(self.pack.rooms) do
                 for location,id in pairs(room.tile_cells) do if id==tile.id then
                     local x,y=location:match('^(%d+),(%d+)$')
@@ -432,7 +444,8 @@ function E:draw(image_for)
         'Tool: '..self.tool,'Tile: '..self.pack.tiles[self.selected_tile].id,
         'Zoom: '..self.zoom..' px/tile','F1 name · F2 ID · I art',
         'U clear art · Tab tile · K new',
-        'F3/F4 tile name/ID · Z type',
+        'A add mechanics · Z tile type',
+        'F3/F4 tile name/ID',
         'E deco · Y stair · Backspace erase',
         'R role · C/L/Q extra',
         'B biome · J toggle','F preview biome · O overlay',

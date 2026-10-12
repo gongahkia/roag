@@ -3,8 +3,10 @@
 local Project=require('src.studio_project')
 local Rooms=require('src.rooms')
 local Biomes=require('src.biomes')
+local Terrain=require('src.terrain')
 local W={schema='roeg-studio-world/1',max_rooms=32,max_tiles=32}
-local symbols={['.']=true,['#']=true,['~']=true,[' ']=true}
+local symbols={[' ']=true}
+for symbol in pairs(Terrain.definitions) do symbols[symbol]=true end
 local roles={combat=true,treasure=true,landmark=true,secret=true,start=true,elite=true}
 local markers={enemy=true,chest=true,player=true,elite=true,landmark=true,
     secret_anchor=true,secret_wall=true,stair=true}
@@ -19,13 +21,25 @@ local function key(x,y) return x..','..y end
 local function sorted(list) local out={};for _,v in ipairs(list) do out[#out+1]=v end;table.sort(out);return out end
 function W.new(project_id)
     check(Project.valid_project_id(project_id),'invalid world project ID')
-    return {schema=W.schema,project_id=project_id,tiles={
+    local pack={schema=W.schema,project_id=project_id,tiles={
         {id='studio:tile/floor',name='Floor',symbol='.',asset_id='',
             blocks_movement=false,blocks_sight=false,blocks_projectile=false},
         {id='studio:tile/wall',name='Wall',symbol='#',asset_id='',
             blocks_movement=true,blocks_sight=true,blocks_projectile=true},
         {id='studio:tile/water',name='Water',symbol='~',asset_id='',
             blocks_movement=true,blocks_sight=false,blocks_projectile=false}},rooms={}}
+    return pack
+end
+function W.add_terrain_tiles(pack)
+    for _,symbol in ipairs(Terrain.order) do
+        local def=Terrain.get(symbol)
+        local id='studio:tile/'..def.id:match('[^/]+$')
+        if not W.tile(pack,id) then
+            pack.tiles[#pack.tiles+1]={id=id,name=def.name,symbol=symbol,asset_id='',
+                blocks_movement=not def.walkable,blocks_sight=def.blocks_vision,
+                blocks_projectile=not def.projectile_passable}
+        end
+    end
 end
 function W.new_room(id,name,width,height)
     check(Project.valid_id(id),'invalid room ID')
@@ -95,8 +109,9 @@ function W.add_marker(room,kind,x,y)
     points[#points+1]={x=x,y=y};return true
 end
 local function walkable(room,x,y)
-    return x>=1 and y>=1 and x<=room.width and y<=room.height and
-        room.rows[y]:sub(x,x)=='.'
+    local def=x>=1 and y>=1 and x<=room.width and y<=room.height and
+        Terrain.get(room.rows[y]:sub(x,x))
+    return def and def.walkable or false
 end
 function W.validate(pack,assets)
     check(type(pack)=='table' and pack.schema==W.schema,'incompatible world schema')
@@ -121,9 +136,9 @@ function W.validate(pack,assets)
         for _,field in ipairs({'blocks_movement','blocks_sight','blocks_projectile'}) do
             check(type(tile[field])=='boolean','invalid '..field..': '..tile.id)
         end
-        -- E03 maps authored semantics onto the three established gameplay tiles.
-        -- A future tile-properties extension can lift this restriction safely.
-        local m,s,p=tile.symbol~='.',tile.symbol=='#',tile.symbol=='#'
+        local semantic=Terrain.get(tile.symbol)
+        local m,s,p=not semantic.walkable,semantic.blocks_vision,
+            not semantic.projectile_passable
         check(tile.blocks_movement==m and tile.blocks_sight==s and
             tile.blocks_projectile==p,'tile properties disagree with runtime symbol: '..tile.id)
     end
@@ -141,8 +156,11 @@ function W.validate(pack,assets)
             room.width%2==1 and room.height%2==1,'invalid dimensions: '..id)
         check(type(room.rows)=='table' and #room.rows==room.height,'invalid rows: '..id)
         for y,row in ipairs(room.rows) do
-            check(type(row)=='string' and #row==room.width and not row:find('[^%.#~ ]'),
+            check(type(row)=='string' and #row==room.width,
                 'invalid row '..y..': '..id)
+            for x=1,#row do
+                check(symbols[row:sub(x,x)],'invalid row '..y..' cell '..x..': '..id)
+            end
         end
         check(walkable(room,(room.width+1)/2,(room.height+1)/2),
             'room center must be walkable: '..id)
@@ -152,7 +170,8 @@ function W.validate(pack,assets)
         for _,role in ipairs(room.roles) do
             check(roles[role] and not seen[role],'invalid role: '..id);seen[role]=true
         end
-        check(type(room.biomes)=='table' and #room.biomes>0 and #room.biomes<=4,
+        check(type(room.biomes)=='table' and #room.biomes>0
+            and #room.biomes<=#Biomes.order,
             'missing biome: '..id)
         local role_seen=seen
         local cx,cy=(room.width+1)/2,(room.height+1)/2

@@ -61,8 +61,8 @@ return function(test,equal)
         return target
     end
 
-    test("four biome registries select transformable authored rooms",function()
-        assert(Biomes.validate() and #Biomes.order==4)
+    test("seven biome registries select transformable authored rooms",function()
+        assert(Biomes.validate() and #Biomes.order==7)
         local seen={}
         for _,id in ipairs(Biomes.order) do
             local b=assert(Biomes.get(id))

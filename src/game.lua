@@ -3,6 +3,7 @@ local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
 local Achievements = require("src.achievements")
 local Content = require("src.content")
+local Classes = require("src.classes")
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -12,6 +13,8 @@ local Rewards = require("src.rewards")
 local Scheduler = require("src.scheduler")
 local Stage = require("src.stage")
 local Targeting = require("src.targeting")
+local Terrain = require("src.terrain")
+local RegularAI = require("src.regular_ai")
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -180,7 +183,8 @@ function Game.new(seed, map_id, options)
         end
     end
     local map = generated_map or assert(Content.get_map(map_id), "unknown map content ID")
-    local definition = Content.get_adventurer()
+    local definition = assert(Content.get_class(options and options.class_id
+        or Classes.order[1]),"unknown starting class")
     local player_id=(options and options.entity_id_base or 0)+1
     local available=copy(options and options.available_boons or BoonContent.starter_order())
     Achievements.validate_pool(available)
@@ -205,7 +209,7 @@ function Game.new(seed, map_id, options)
         next_drop_id=1, drops={}, rewarded_kills={}, explored={},visible={},
         secrets={},world_content_version=World.version,
         rng=RNG.new(seed), entities={{
-            id=player_id, definition_id="core:actor/adventurer", controller="player", faction="player",
+            id=player_id, definition_id=definition.id, controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
             blocks_movement=true, hp=definition.hp, max_hp=definition.hp,
             damage=definition.damage, slash_damage=definition.slash_damage,
@@ -285,7 +289,9 @@ function Game.preview(state, kind, dx, dy)
     if kind == "cancel" then return {valid=false, reason="cancelled", cells={}} end
     if not COSTS[kind] then return {valid=false, reason="unknown action", cells={}} end
     local player = Game.player(state)
-    local cost = Game.effective_cost(COSTS[kind], player.speed)
+    local class=Classes.for_player(player)
+    local base_cost=class.costs[kind] or COSTS[kind]
+    local cost = Game.effective_cost(base_cost, player.speed)
     if kind == "wait" then return {valid=true, cells={}, cost=cost} end
     if not Targeting.direction_index(dx, dy) then
         return {valid=false, reason="invalid direction", cells={}}
@@ -297,9 +303,13 @@ function Game.preview(state, kind, dx, dy)
         local position = player.position
         local map = Content.map_for(state)
         local cells, distance, blocked = {}, 0, false
-        local count = kind == "dash" and 2 or 1
+        local count = kind == "dash" and math.max(3,class.dash_distance) or 1
         local reason, bump, chest_id, door_id
         for step = 1, count do
+            if kind=="dash" and step>class.dash_distance
+                and not Terrain.can_extend_dash(map,cells) then
+                break
+            end
             local x, y = position.x + dx * step, position.y + dy * step
             local cell = {x=x, y=y}
             if blocked then
@@ -341,18 +351,20 @@ function Game.preview(state, kind, dx, dy)
                 end
             end
         end
+        if distance>0 then
+            local extra=Terrain.move_extra(map,kind,cells)
+            if extra>0 then cost=Game.effective_cost(base_cost+extra,player.speed) end
+        end
+        if bump then
+            cost=Game.effective_cost(class.costs.basic_attack,player.speed)
+        end
         return {valid=distance > 0 or bump == true or door_id ~= nil,
             reason=(distance == 0 and not bump and not door_id) and reason or nil,
             cost=cost, cells=cells, distance=distance, bump=bump,
             chest_id=chest_id,door_id=door_id,stair=stair,landing=landing}
     end
     local position = player.position
-    local cells = Targeting.cells(kind, position.x, position.y, dx, dy)
-    if kind == "sweeping_slash" or kind == "basic_attack" then
-        cells = Boons.ability(state, player,
-            kind=="basic_attack" and "core:ability/basic_attack" or "core:ability/sweeping_slash",
-            cells, kind=="basic_attack" and player.damage or player.slash_damage, dx, dy,true)
-    end
+    local cells = Game.effective_ability(state,kind,dx,dy,true)
     return {valid=true, cost=cost, cells=cells}
 end
 
@@ -382,11 +394,13 @@ end
 function Game.effective_ability(state, kind, dx, dy, explicit)
     assert(kind == "basic_attack" or kind == "sweeping_slash", "unknown ability")
     local owner = Game.player(state)
-    local base = Targeting.cells(kind, owner.position.x, owner.position.y, dx, dy)
+    local base,ability_id,ranged,damage_type=Classes.attack(state,owner,
+        kind,dx,dy,Content)
     assert(base, "invalid ability direction")
-    return Boons.ability(state, owner,
-        kind == "basic_attack" and "core:ability/basic_attack" or "core:ability/sweeping_slash",
-        base, kind == "basic_attack" and owner.damage or owner.slash_damage, dx, dy,explicit)
+    local cells,damage=Boons.ability(state,owner,ability_id,base,
+        kind == "basic_attack" and owner.damage or owner.slash_damage,
+        dx,dy,explicit)
+    return cells,damage,ability_id,ranged,damage_type
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
@@ -473,6 +487,15 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
         emit(state, output, "DamageAttempted", outcome, source.id, action_id)
         if outcome.actual_loss > 0 then
             emit(state, output, "DamageTaken", outcome, source.id, action_id)
+            local struck=Game.entity(state,outcome.target_id)
+            if outcome.hp_after>0 and struck
+                and RegularAI.roles[struck.definition_id]=="retaliator"
+                and source.faction~=struck.faction then
+                struck.ai_memory.retaliate=true
+                emit(state,output,"RetaliationReadied",{
+                    target_id=struck.id,floor_id=outcome.floor_id,
+                    x=outcome.x,y=outcome.y},struck.id,action_id)
+            end
         else
             emit(state, output, "DamageBlocked", outcome, source.id, action_id)
         end
@@ -488,6 +511,15 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             emit(state, output, "HitConfirmed", outcome, source.id, action_id)
         end
     end
+end
+
+local function terrain_damage(state,output,source_id,action_id,target,power,damage_type,
+    source_faction)
+    if not target or not target.hp or target.hp<=0 then return end
+    local source=Game.entity(state,source_id) or
+        {id=source_id or 0,faction=source_faction or "environment",hp=0,max_hp=0}
+    damage_batch(state,output,source,action_id,{{floor_id=target.position.floor_id,
+        x=target.position.x,y=target.position.y}},power,false,damage_type,false,false)
 end
 
 local function effect_cause(activation, effect)
@@ -685,6 +717,15 @@ local function drain_effects(state, output)
             end,function(definition_id,x,y,stable_id)
                 return Game.spawn_chest(state,definition_id,x,y,stable_id)
             end)
+            context.terrain_contact=context.terrain_contact or {}
+            Terrain.on_event(state,Content.map_for(state),event,
+                context.terrain_contact,function(id) return Game.entity(state,id) end,
+                function(kind,fields,source_id,action_id)
+                    emit(state,output,kind,fields,source_id,action_id)
+                end,function(target,source_id,action_id,power,damage_type,source_faction)
+                    terrain_damage(state,output,source_id,action_id,target,power,
+                        damage_type,source_faction)
+                end)
             Stage.on_event(state,event,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,event.action_id)
             end,function(definition_id,x,y,stable_id)
@@ -714,9 +755,7 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     end
     local position = source.position
     local critical = false
-    if source.controller == "player" and
-        (ability_id == "core:ability/basic_attack"
-            or ability_id == "core:ability/sweeping_slash")
+    if source.controller == "player" and Classes.is_attack(ability_id)
         and (source.crit_chance_ppm or 0) > 0 then
         critical = RNG.next_int(state.rng, 1000000) <= source.crit_chance_ppm
         if critical then
@@ -734,7 +773,7 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     if extra then for key, value in pairs(extra) do fields[key] = value end end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
     damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-        nil, critical,true)
+        extra and extra.damage_type, critical,true)
     if Boons.active(state) then
         emit(state, output, "AbilityUsed", fields, source.id, action_id)
     end
@@ -755,8 +794,10 @@ local function enemy_turn(state, item, output)
     local action_id = state.next_action_id
     state.next_action_id = action_id + 1
     local position = enemy.position
+    if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then
-        if enemy.ai_id=="warden" or enemy.ai_id=="hollow_regent" then
+        if enemy.ai_id=="warden" or enemy.ai_id=="hollow_regent"
+            or enemy.ai_id=="biome_elite" then
             enemy.ai_memory.attacks=(enemy.ai_memory.attacks or 0)+1
         end
         local due = state.clock + Game.effective_cost(definition.windup, enemy.speed)
@@ -771,9 +812,11 @@ local function enemy_turn(state, item, output)
             source_id=enemy.id, floor_id=position.floor_id,
             source_x=position.x, source_y=position.y,
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
-            damage=enemy.damage, due=due,
+            damage=enemy.damage+(intent.damage_bonus or 0), due=due,
+            support=copy(intent.support),advance=copy(intent.advance),
             committed_time=state.clock,
         }
+        if intent.clear_retaliate then enemy.ai_memory.retaliate=nil end
         emit(state, output, "WindupStarted", {
             windup_id=scheduled.id, due=due, ability_id=intent.ability_id,
             floor_id=position.floor_id, from_x=position.x, from_y=position.y,
@@ -781,6 +824,7 @@ local function enemy_turn(state, item, output)
         }, enemy.id, action_id)
         return
     end
+    local moved=false
     if intent.kind == "move" then
         local x, y = position.x + intent.dx, position.y + intent.dy
         local map = Content.map_for(state)
@@ -788,6 +832,7 @@ local function enemy_turn(state, item, output)
             and not occupant(state, position.floor_id, x, y, enemy.id, false) then
             local from_x, from_y = position.x, position.y
             position.x, position.y = x, y
+            moved=true
             enemy.ai_memory.last_dx, enemy.ai_memory.last_dy = intent.dx, intent.dy
             emit(state, output, "Moved", {
                 floor_id=position.floor_id, from_x=from_x, from_y=from_y, x=x, y=y,
@@ -804,7 +849,9 @@ local function enemy_turn(state, item, output)
             x=position.x, y=position.y}, enemy.id, action_id)
     end
     Scheduler.enqueue(state, {kind="actor_ready",
-        due=state.clock + Game.effective_cost(definition.move_cost, enemy.speed),
+        due=state.clock + Game.effective_cost(definition.move_cost+
+            (moved and Terrain.move_extra(Content.map_for(state),
+                "move",{{x=position.x,y=position.y,status="open"}}) or 0), enemy.speed),
         actor_id=enemy.id, is_player=false})
 end
 
@@ -814,9 +861,80 @@ local function resolve_impact(state, item, output)
     local pending = enemy.pending_attack
     if not pending or pending.schedule_id ~= item.id or pending.action_id ~= item.attack_id then return end
     enemy.pending_attack = nil
-    attack(state, output, enemy, pending.action_id, pending.ability_id,
-        pending.target_cells, pending.damage, pending.ranged,
-        {windup_id=pending.schedule_id, committed_time=pending.committed_time})
+    if pending.support then
+        emit(state,output,"SupportResolved",{ability_id=pending.ability_id,
+            windup_id=pending.schedule_id,target_cells=pending.target_cells,
+            floor_id=enemy.position.floor_id},enemy.id,pending.action_id)
+        if pending.support.kind=="heal" then
+            for _,cell in ipairs(pending.target_cells) do
+                local target=occupant(state,cell.floor_id,cell.x,cell.y,
+                    enemy.id,true)
+                if target and target.faction==enemy.faction then
+                    local amount=math.min(pending.support.power,
+                        target.max_hp-target.hp)
+                    if amount>0 then
+                        target.hp=target.hp+amount
+                        emit(state,output,"Healed",{target_id=target.id,
+                            amount=amount,floor_id=cell.floor_id,x=cell.x,y=cell.y},
+                            enemy.id,pending.action_id)
+                    end
+                end
+            end
+        elseif pending.support.kind=="summon" then
+            local count=0
+            for _,ally in ipairs(state.entities) do
+                if ally.summoned_by_id==enemy.id and ally.hp and ally.hp>0 then
+                    count=count+1
+                end
+            end
+            for _,cell in ipairs(pending.target_cells) do
+                if count>=pending.support.max_active
+                    or (enemy.ai_memory.summons or 0)>=3 then break end
+                if cell.floor_id==state.active_floor_id
+                    and Content.walkable(Content.map_for(state),cell.x,cell.y)
+                    and not occupant(state,cell.floor_id,cell.x,cell.y,nil,false) then
+                    local spawned=Game.spawn_enemy(state,pending.support.enemy_id,
+                        cell.x,cell.y,state.clock+1)
+                    spawned.summoned_by_id=enemy.id
+                    count=count+1
+                    enemy.ai_memory.summons=(enemy.ai_memory.summons or 0)+1
+                    emit(state,output,"EnemySummoned",{enemy_id=spawned.id,
+                        definition_id=spawned.definition_id,floor_id=cell.floor_id,
+                        x=cell.x,y=cell.y},enemy.id,pending.action_id)
+                end
+            end
+        end
+    else
+        attack(state, output, enemy, pending.action_id, pending.ability_id,
+            pending.target_cells, pending.damage, pending.ranged,
+            {windup_id=pending.schedule_id, committed_time=pending.committed_time})
+    end
+    if pending.advance and not state.game_over then
+        local from_x,from_y=enemy.position.x,enemy.position.y
+        local path={}
+        for _=1,pending.advance.max_steps do
+            local x=enemy.position.x+pending.advance.dx
+            local y=enemy.position.y+pending.advance.dy
+            if not Content.walkable(Content.map_for(state),x,y)
+                or occupant(state,enemy.position.floor_id,x,y,enemy.id,false) then
+                break
+            end
+            enemy.position.x,enemy.position.y=x,y
+            path[#path+1]={floor_id=enemy.position.floor_id,x=x,y=y}
+        end
+        if #path>0 then
+            emit(state,output,"Moved",{floor_id=enemy.position.floor_id,
+                from_x=from_x,from_y=from_y,x=enemy.position.x,
+                y=enemy.position.y,path=path},enemy.id,pending.action_id)
+            local prior_x,prior_y=from_x,from_y
+            for _,cell in ipairs(path) do
+                emit(state,output,"TileEntered",{floor_id=cell.floor_id,
+                    from_x=prior_x,from_y=prior_y,x=cell.x,y=cell.y},
+                    enemy.id,pending.action_id)
+                prior_x,prior_y=cell.x,cell.y
+            end
+        end
+    end
     Scheduler.enqueue(state, {kind="actor_ready", actor_id=enemy.id,
         due=state.clock + Game.effective_cost(Content.get_enemy(enemy.definition_id).recovery, enemy.speed),
         is_player=false})
@@ -1033,16 +1151,14 @@ function Game.submit(state, intent)
     elseif kind == "basic_attack" or kind == "sweeping_slash" then
         action.dx, action.dy = intent.dx, intent.dy
         local cells = {}
-        local target, damage = Game.effective_ability(state, kind, intent.dx, intent.dy,
+        local target, damage, ability_id, ranged, damage_type = Game.effective_ability(state, kind, intent.dx, intent.dy,
             not preview.bump)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        local ability_id = kind == "basic_attack" and "core:ability/basic_attack"
-            or "core:ability/sweeping_slash"
         attack(state, output, player, action_id, ability_id,
-            cells, damage,
-            false, preview.bump and {bump=true} or nil)
+            cells, damage,ranged,
+            {bump=preview.bump or nil,damage_type=damage_type})
     elseif kind == "open_door" then
         local door=assert(Game.entity(state,preview.door_id),"missing door")
         assert(door.controller=="door" and not door.open,"door already opened")
@@ -1340,7 +1456,7 @@ function Game.restore(snapshot)
                 "unknown enemy or AI content reference")
         elseif entity.controller=="player" then
             assert(entity.id==state.player_id and
-                entity.definition_id=="core:actor/adventurer",
+                Content.get_class(entity.definition_id),
                 "invalid player content reference")
         elseif entity.controller~="chest" and entity.controller~="door"
             and entity.controller~="exit" then
@@ -1375,7 +1491,9 @@ function Game.restore(snapshot)
         if entity.controller=="exit" then
             assert(state.stage and state.stage.exit_id==entity.id
                 and entity.blocks_movement
-                and #entity.routes==(state.stage.index==3 and 1 or 2),
+                and (state.stage.index==3 and #entity.routes==1
+                    or state.stage.index<3 and
+                    (#entity.routes==2 or #entity.routes==3)),
                 "invalid stage exit")
         end
         if entity.blocks_movement then
@@ -1389,6 +1507,25 @@ function Game.restore(snapshot)
         if entity.pending_attack then
             assert(Content.has_ability(entity.pending_attack.ability_id),
                 "unknown pending ability reference")
+            local support=entity.pending_attack.support
+            if support then
+                assert((support.kind=="heal" and type(support.power)=="number"
+                    and support.power%1==0 and support.power>=1 and support.power<=20)
+                    or (support.kind=="summon"
+                    and Content.get_enemy(support.enemy_id)
+                    and type(support.max_active)=="number"
+                    and support.max_active%1==0 and support.max_active>=1
+                    and support.max_active<=3),"invalid pending support windup")
+            end
+            local advance=entity.pending_attack.advance
+            if advance then
+                assert(type(advance.max_steps)=="number"
+                    and advance.max_steps%1==0 and advance.max_steps>=1
+                    and advance.max_steps<=3
+                    and type(advance.dx)=="number" and type(advance.dy)=="number"
+                    and math.abs(advance.dx)+math.abs(advance.dy)==1,
+                    "invalid pending charge path")
+            end
             assert(type(entity.pending_attack.target_cells)=="table"
                 and #entity.pending_attack.target_cells>=1,
                 "missing pending target cells")

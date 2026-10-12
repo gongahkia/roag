@@ -266,7 +266,9 @@ return function(test,equal)
     end)
     test('normal legal seed three Victory awards Regent Fall and excludes secret near miss',function()
         local run=Play.complete_run(3,{meta=Achievements.new_run(true,'local-run/victory')})
-        assert(run.state.victory and #run.trace==991)
+        -- The two newly distinct route elites change this guided combat trace;
+        -- retain an exact deterministic action-count check for its current form.
+        assert(run.state.victory and #run.trace==945)
         assert(run.state.meta.earned[AchievementContent.order[1]])
         assert(run.state.meta.earned[AchievementContent.order[4]])
         assert(not run.state.meta.earned[AchievementContent.order[2]])

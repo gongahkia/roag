@@ -1,19 +1,16 @@
 local Content = {}
 local Biomes = require("src.biomes")
 local Finale = require("src.finale")
+local Terrain = require("src.terrain")
+local EliteAI = require("src.elite_ai")
+local RegularAI = require("src.regular_ai")
+local Classes = require("src.classes")
 
 Content.version = "roeg-content/8"
 
-local tiles = {
-    ["."] = { walkable = true, blocks_vision = false, projectile_passable = true },
-    ["#"] = { walkable = false, blocks_vision = true, projectile_passable = false },
-    ["~"] = { walkable = false, blocks_vision = false, projectile_passable = true },
-}
+local tiles = Terrain.definitions
 
-local adventurer = {
-    hp = 24, damage = 4, slash_damage = 3, defense = 0, speed = 100,
-    crit_chance_ppm = 0, crit_damage_percent = 150,
-}
+local adventurer = Classes.get("core:actor/adventurer")
 
 local progression = {
     first_threshold = 5, threshold_step = 5,
@@ -63,6 +60,28 @@ local ability_names={
     ["core:ability/regent_crown"]="Broken Crown",
     ["core:ability/regent_sigil"]="Hollow Sigil",
 }
+for _,id in ipairs(Classes.order) do
+    local class=Classes.get(id)
+    ability_proc_coefficients[class.basic_id]=1
+    ability_proc_coefficients[class.special_id]=1
+    ability_names[class.basic_id]=class.basic_name
+    ability_names[class.special_id]=class.special_name
+end
+for _,profile in pairs(EliteAI.profiles) do
+    for _,shape in ipairs(profile) do
+        local id="core:ability/elite_"..shape
+        ability_proc_coefficients[id]=1
+        ability_names[id]=shape:gsub("_"," ")
+    end
+end
+for _,name in ipairs({"mossbreaker_crack","mossbreaker_cleave","gloom_fork",
+    "mire_ring","pack_chorus","vault_ambush","crystal_barrage",
+    "cinder_mend","cinder_tap","glass_charge","glass_jab",
+    "forge_call","forge_tap","bulwark_retort","bulwark_bash"}) do
+    local id="core:ability/"..name
+    ability_proc_coefficients[id]=1
+    ability_names[id]=name:gsub("_"," ")
+end
 
 local enemies = {
     ["core:enemy/hollow_regent"] = {
@@ -115,6 +134,41 @@ local enemies = {
         move_cost=100,range=4,xp_reward=6,currency_drop=4,
     },
 }
+
+local biome_elites={
+    {"mycelial_matriarch","Mycelial Matriarch",48,4,75,105,135,5},
+    {"canal_lockmaster","Canal Lockmaster",50,4,80,95,130,5},
+    {"ash_marshal","Ash Marshal",52,5,70,110,140,5},
+    {"prism_curator","Prism Curator",46,4,85,100,130,6},
+    {"index_keeper","Index Keeper",48,4,80,105,135,6},
+    {"ember_crucible","Ember Crucible",54,5,65,115,145,5},
+}
+for _,row in ipairs(biome_elites) do
+    local id="core:enemy/"..row[1]
+    enemies[id]={id=id,name=row[2],ai="biome_elite",hp=row[3],damage=row[4],
+        defense=1,speed=row[5],windup=row[6],recovery=row[7],
+        move_cost=100,range=row[8],xp_reward=12,currency_drop=8}
+end
+
+local expansion_regulars={
+    {"mossbreaker","Mossbreaker",13,3,1,65,100,130,1},
+    {"gloom_strider","Gloom Strider",6,2,0,120,85,115,5},
+    {"mire_binder","Mire Binder",8,2,0,75,120,145,4},
+    {"pack_chorister","Pack Chorister",9,2,0,85,85,115,1},
+    {"vault_lurker","Vault Lurker",7,3,0,100,120,135,4},
+    {"crystal_bombardier","Crystal Bombardier",7,2,0,70,125,150,5},
+    {"cinder_mender","Cinder Mender",8,1,0,75,105,125,3},
+    {"glass_charger","Glass Charger",9,3,0,110,100,120,4},
+    {"forge_conjurer","Forge Conjurer",9,1,0,70,120,145,5},
+    {"bastion_bulwark","Bastion Bulwark",13,2,2,55,105,135,2},
+}
+for _,row in ipairs(expansion_regulars) do
+    local id="core:enemy/"..row[1]
+    enemies[id]={id=id,name=row[2],ai="expansion_regular",hp=row[3],
+        damage=row[4],defense=row[5],speed=row[6],windup=row[7],
+        recovery=row[8],move_cost=100,range=row[9],
+        xp_reward=4,currency_drop=3}
+end
 
 local demo_spawns = {
     { definition_id = "core:enemy/mossbound_guard", x = 7, y = 3 },
@@ -200,6 +254,7 @@ end
 function Content.get_adventurer()
     return adventurer
 end
+function Content.get_class(id) return Classes.get(id) end
 
 function Content.get_progression() return progression end
 function Content.get_stage_rules() return stage_rules end
@@ -239,7 +294,9 @@ function Content.validate_map(map)
     for y = 1, map.height do
         local row = map.rows[y]
         assert(type(row) == "string" and #row == map.width, "invalid map row width")
-        assert(not row:find("[^.#~]"), "unknown map tile")
+        for x=1,#row do
+            assert(Terrain.is_valid(row:sub(x,x)),"unknown map tile")
+        end
     end
     assert(type(map.start_x) == "number" and type(map.start_y) == "number", "missing start")
     assert(map.start_x % 1 == 0 and map.start_y % 1 == 0, "start must be on grid")
@@ -275,6 +332,11 @@ function Content.blocks_vision(map, x, y, state)
 end
 
 function Content.validate_all()
+    Terrain.validate()
+    EliteAI.validate()
+    RegularAI.validate()
+    Classes.validate()
+    Biomes.validate()
     local function positive_integer(value)
         return type(value) == "number" and value % 1 == 0 and value > 0
     end
@@ -329,6 +391,12 @@ function Content.validate_all()
         "core:enemy/thorn_warden", "core:enemy/extraction_pursuer",
         "core:enemy/hollow_regent",
     }
+    for _,row in ipairs(biome_elites) do
+        enemy_ids[#enemy_ids+1]="core:enemy/"..row[1]
+    end
+    for _,row in ipairs(expansion_regulars) do
+        enemy_ids[#enemy_ids+1]="core:enemy/"..row[1]
+    end
     for _, id in ipairs(enemy_ids) do
         assert(not seen[id], "duplicate content ID")
         seen[id] = true
@@ -337,7 +405,8 @@ function Content.validate_all()
             or definition.ai == "skitter" or definition.ai == "warden"
             or definition.ai == "pursuer" or definition.ai=="spore_herald"
             or definition.ai=="canal_lancer" or definition.ai=="cinder_bellkeeper"
-            or definition.ai=="hollow_regent"),
+            or definition.ai=="hollow_regent" or definition.ai=="biome_elite"
+            or definition.ai=="expansion_regular"),
             "invalid enemy identity")
         for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range",
             "xp_reward", "currency_drop"}) do
@@ -353,6 +422,18 @@ function Content.validate_all()
             assert(type(definition.min_range) == "number" and definition.min_range % 1 == 0
                 and definition.min_range >= 2 and definition.min_range <= definition.range,
                 "invalid ranged minimum")
+        end
+    end
+    for _,biome_id in ipairs(Biomes.order) do
+        local biome=Biomes.get(biome_id)
+        assert(enemies[biome.elite_id] and
+            (enemies[biome.elite_id].ai=="warden"
+                or enemies[biome.elite_id].ai=="biome_elite"),
+            "unknown biome elite")
+        for _,enemy_id in ipairs(biome.enemy_ids) do
+            assert(enemies[enemy_id] and enemies[enemy_id].ai~="biome_elite"
+                and enemies[enemy_id].ai~="warden",
+                "unknown or invalid biome encounter")
         end
     end
     assert(stage_rules.elite_activation_radius>0 and stage_rules.grace>0

@@ -8,9 +8,9 @@ report is not a completion claim.
 
 | Goal criterion | Evidence required | Current state |
 |---|---|---|
-| Two floors in each of seven biomes | Normal generated stages, 100 seeds per biome, stairs, pursuer, snapshot and GUI checks | Four inherited biomes now generate validated paired floors in normal New Run; 100 seeds each, focused GUI/disk passed. Three new biomes and two-floor full-run Victory remain pending. |
-| Six functional terrain mechanics | Canonical event, AI/path/LOS, editor, generated play and save tests | Pending |
-| Sixteen regular enemies and seven unique minibosses | Registry, encounter pools, tactical combat, telegraph and reward tests | Pending |
+| Two floors in each of seven biomes | Normal generated stages, 100 seeds per biome, stairs, pursuer, snapshot and GUI checks | Seven biomes generate validated paired floors; 100 seeds per biome, focused GUI/disk passed. Default two-floor full-run Victory remains pending. |
+| Six functional terrain mechanics | Canonical event, AI/path/LOS, editor, generated play and save tests | Six integrated in paired-floor generation; 800-map seed corpus, headless mechanics, Studio/game GUI and snapshot/disk gates passed. Physical readability/balance remains untested. |
+| Sixteen regular enemies and seven unique minibosses | Registry, encounter pools, tactical combat, telegraph and reward tests | Ten new regular roles plus six unique non-Ruins elites integrated; focused headless, GUI and pending-windup disk checks pass. Human balance and full two-floor Victory remain pending. |
 | Four playable classes | UI selection, distinct attacks/mobility, legal progress and save tests | Pending |
 | Fifty functional boons | Four rarities each, ordinary chest rolls, synergy and chain tests | Pending |
 | Studio contextual audio | Fresh-process import/preview/publish, runtime cue and music transitions, fallback | Pending |
@@ -43,3 +43,54 @@ floor 2 in 106 moves with 16 HP; an assisted Warden fixture verified the route
 handoff. This does **not** prove a normal two-floor complete Victory or resolve
 the measured longer critical path. See `ROEG_EXPANSION_PROGRESS.md` and
 `docs/ROEG_MULTIFLOOR_EXPANSION.md` for exact mechanics, limits and commands.
+
+## M2 checkpoint
+
+Six gameplay terrain symbols are implemented through `src/terrain.lua`,
+`src/content.lua`, `src/generation.lua`, `src/game.lua`, `src/ai.lua` and
+presentation in `main.lua`/`src/playback.lua`. E03 tile authoring uses the same
+semantic flags without migrating existing three-tile projects. The full
+headless suite is **307/307**; 100 paired seeds per inherited biome yielded
+**800 valid floors**, one retry and no repairs/fallbacks after excluding
+barricades from critical corridors. Established game GUI **24/24**, terrain
+game **3/3**, terrain two-process Studio **3/3**, E03 Studio **3/3**, and
+two-process connected-floor disk Continue passed. A generated barricade break
+restores exactly, and a crystal secondary kill awards ordinary XP/currency.
+See `docs/ROEG_TERRAIN_EXPANSION.md` for rule values and editor controls.
+The full goal remains **IN PROGRESS**: ten regular enemies, six additional
+minibosses, three additional classes, 26 boons and Studio audio remain.
+
+## M3 checkpoint
+
+Glacial Observatory, Fractured Archive and Sundered Forge have separate
+template families, geometry strategies, palettes and route choices. Across all
+seven biomes, 100 paired seeds each produced **1,400 valid concrete floors**;
+the three new biomes had one retry total, no repairs and no fallbacks. The
+headless suite passed **314/314**. The established game GUI suite passed
+**24/24** across three isolated rounds, Studio E03 **3/3**, new biome GUI
+**3/3** and three two-process disk Continue checks passed. A single-floor
+ordinary-action trace entered Observatory and killed a regular enemy; the
+legacy single-floor seed-3 legal Victory still passed in 991 actions. These do
+not prove full Victory under the new default two-floor mode. New-biome regular
+encounters and all non-Ruins elites still use temporary inherited content;
+M4 must replace it. See `docs/ROEG_BIOME_EXPANSION.md` and the progress log.
+
+## M4 checkpoint
+
+The temporary M3 encounters above are superseded. Six new biome elites and
+ten regular archetypes now use biome-specific stage spawning, unique elite
+footprints, ordinary locked windups, phase changes, canonical friendly fire
+and rewards, and serialized support/summon/charge follow-ups.
+`docs/ROEG_ENCOUNTER_EXPANSION.md` lists their IDs, tactical roles and
+provisional values. Focused headless tests cover pending elite continuation,
+all roles, barricade destruction, healing, summoning, charge traversal,
+same-batch friendly fire and retaliation conditions. The established game GUI
+suite passed **24/24** on rerun after correcting a Warden label regression;
+new encounter GUI **3/3**, Studio E03 **3/3**, and a fresh-process
+pending-elite disk Continue passed. The seed-3 ordinary-action legacy
+single-floor Victory changed to **945 actions, 3 HP, 94,200 simulated time**
+under the new Fungal/Bastion elites. The initial stage-GUI timeout was an
+explicit callback assertion from changed text, not a proven native crash.
+The default two-floor full-run Victory remains unestablished. The entire goal
+remains **IN PROGRESS** while classes, 26 boons, Studio audio and M8
+acceptance remain. Exact final headless count is recorded in the progress log.

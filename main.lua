@@ -1,6 +1,7 @@
 local Camera = require("src.camera")
 local BoonContent = require("src.boon_content")
 local Content = require("src.content")
+local Classes = require("src.classes")
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -32,6 +33,7 @@ local showcase_index = 0
 local boon_page = 0
 local boon_detail_id
 local floor_seed = 1
+local selected_class_id=Classes.order[1]
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
 local route_menu -- exit offers are plain data in the authoritative exit entity.
 local reward_notices, reward_notice_time = {}, 0
@@ -106,6 +108,7 @@ local playback_cue_labels={
     DamageTaken="Damage", DamageBlocked="Blocked", EffectApplied="Effects",
     StatusApplied="Status", StatusTick="Status ticks",
     DelayedEffectScheduled="Echo queued", DelayedEffectResolved="Echo",
+    TerrainTriggered="Terrain", TerrainBroken="Barricade broken",
 }
 
 local function visible_at(x,y)
@@ -398,7 +401,8 @@ local function begin_new(seed)
     end
     Generation.install_studio_pack(next_world_pack)
     local candidate=Game.new_stage(seed,{meta=Achievements.new_run(true,run_id),
-        available_boons=Achievements.pool(updated.earned),multifloor=true})
+        available_boons=Achievements.pool(updated.earned),multifloor=true,
+        class_id=selected_class_id})
     local ok,reason=save_service:replace(candidate)
     if not ok then
         persistence_message="New Run save failed: "..tostring(reason)
@@ -424,6 +428,7 @@ local function continue_run()
         return
     end
     state=loaded
+    selected_class_id=Game.player(state).definition_id
     floor_seed=state.root_seed or state.run_seed
     title,confirm_new,pause_menu=false,false,false
     persistence_message=found.status=="recovered"
@@ -529,7 +534,7 @@ local function submit(intent)
         if milestone then checkpoint() end
         local action = state.last_action
         if action.kind == "dash" then
-            notice = ("Dash: %d/2 tiles, +%d time"):format(action.distance, action.cost)
+            notice = ("Dash: %d tiles, +%d time"):format(action.distance, action.cost)
         elseif action.kind == "claim_chest" then
             notice = ("Claimed %s (%s), +%d time"):format(
                 BoonContent.get(action.boon_id).name, action.rarity, action.cost)
@@ -608,6 +613,11 @@ function love.keypressed(key, _, isrepeat)
             elseif key=="n" or key=="escape" then confirm_new=false end
             return
         end
+        local class_index=tonumber(key)
+        if class_index and Classes.order[class_index] then
+            selected_class_id=Classes.order[class_index]
+            return
+        end
         if key=="c" or key=="return" or key=="kpenter" then
             if save_status and (save_status.status=="active" or
                 save_status.status=="recovered") then continue_run()
@@ -682,7 +692,8 @@ function love.keypressed(key, _, isrepeat)
         if key=="escape" then
             route_menu=nil
             notice="Route choice cancelled — no time"
-        elseif key=="1" or key=="2" then
+        elseif (key=="1" or key=="2" or key=="3")
+            and route_menu.routes[tonumber(key)] then
             route_menu.selected=tonumber(key)
         elseif key=="return" or key=="kpenter" then
             if submit({kind="choose_route",exit_id=route_menu.exit_id,
@@ -763,13 +774,16 @@ function love.keypressed(key, _, isrepeat)
 
     if key == "f" then
         targeting = { kind = "basic_attack" }
-        notice = "Sword Strike: choose direction, then Enter"
+        notice = Classes.for_player(Game.player(state)).basic_name..
+            ": choose direction, then Enter"
     elseif key == "r" then
         targeting = { kind = "sweeping_slash" }
-        notice = "Sweeping Slash: choose direction, then Enter"
+        notice = Classes.for_player(Game.player(state)).special_name..
+            ": choose direction, then Enter"
     elseif key == "x" then
         targeting = { kind = "dash" }
-        notice = "Dash: choose cardinal direction, then Enter"
+        notice = Classes.for_player(Game.player(state)).dash_name..
+            ": choose cardinal direction, then Enter"
     elseif key == "space" or key == "." or key == "kp5" then
         submit({ kind = "wait" })
     elseif cardinal[key] then
@@ -811,6 +825,26 @@ local function actor_visual(binding,id)
         Playback.current_pose_events(playback))
     return pose and bound_visual(binding..'/'..pose) or bound_visual(binding)
 end
+local expansion_enemy_colors={
+    ["core:enemy/mossbreaker"]={0.42,0.69,0.34},
+    ["core:enemy/gloom_strider"]={0.49,0.66,0.85},
+    ["core:enemy/mire_binder"]={0.45,0.71,0.58},
+    ["core:enemy/pack_chorister"]={0.78,0.62,0.83},
+    ["core:enemy/vault_lurker"]={0.56,0.53,0.75},
+    ["core:enemy/crystal_bombardier"]={0.52,0.88,0.96},
+    ["core:enemy/cinder_mender"]={0.94,0.64,0.38},
+    ["core:enemy/glass_charger"]={0.73,0.87,0.97},
+    ["core:enemy/forge_conjurer"]={0.98,0.49,0.25},
+    ["core:enemy/bastion_bulwark"]={0.72,0.61,0.45},
+}
+local biome_elite_colors={
+    ["core:enemy/mycelial_matriarch"]={0.73,0.52,0.90},
+    ["core:enemy/canal_lockmaster"]={0.34,0.72,0.89},
+    ["core:enemy/ash_marshal"]={0.88,0.51,0.37},
+    ["core:enemy/prism_curator"]={0.72,0.88,0.96},
+    ["core:enemy/index_keeper"]={0.87,0.75,0.44},
+    ["core:enemy/ember_crucible"]={0.97,0.55,0.27},
+}
 
 local function draw_enemies()
     for _, enemy in ipairs(state.entities) do
@@ -855,6 +889,19 @@ local function draw_enemies()
                 love.graphics.setColor(0.78,0.32,0.27)
                 love.graphics.polygon("fill",x+4,y+4,x+16,y-5,x+28,y+4)
                 love.graphics.print(enemy.phase_two and "II" or "I",x+9,y+7)
+            elseif enemy.ai_id=="biome_elite" then
+                love.graphics.setColor(unpack(biome_elite_colors[enemy.definition_id]))
+                love.graphics.polygon("fill",x+16,y+1,x+30,y+11,
+                    x+25,y+29,x+7,y+29,x+2,y+11)
+                love.graphics.setColor(0.16,0.18,0.23)
+                love.graphics.print(enemy.phase_two and "II" or "I",x+10,y+9)
+            elseif enemy.ai_id=="expansion_regular" then
+                love.graphics.setColor(unpack(expansion_enemy_colors[enemy.definition_id]))
+                love.graphics.polygon("fill",x+16,y+3,x+28,y+11,
+                    x+24,y+27,x+8,y+27,x+4,y+11)
+                love.graphics.setColor(0.12,0.17,0.20)
+                love.graphics.print(Content.get_enemy(enemy.definition_id).name:sub(1,1),
+                    x+12,y+8)
             elseif enemy.ai_id=="hollow_regent" then
                 love.graphics.setColor(0.59,0.31,0.76)
                 love.graphics.polygon("fill",x+16,y+1,x+29,y+12,
@@ -976,6 +1023,10 @@ local function draw_history_event(event)
             0.97,0.78,0.31,0.60)
     elseif event.kind == "DoorOpened" then
         draw_cells({{x=event.x,y=event.y}},0.69,0.85,0.40,0.48)
+    elseif event.kind == "TerrainTriggered" then
+        draw_cells({{x=event.x,y=event.y}},0.76,0.50,0.22,0.42)
+    elseif event.kind == "TerrainBroken" then
+        draw_cells({{x=event.x,y=event.y}},0.90,0.72,0.34,0.52)
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
     end
@@ -1103,23 +1154,44 @@ local function draw_world()
                 Game.was_explored(state,map.floor_id,x,y) then
             local screen_x, screen_y = Camera.tile_top_left(camera, x, y)
             local tile=map.rows[y]:sub(x,x)
-            local wall = tile == "#"
+            local wall = tile == "#" or tile=="B"
             local visual=map.visual_rows and map.visual_rows[y]:sub(x,x) or nil
             local remembered=(state.generated_map or state.finale) and not visible_at(x,y)
             local r,g,b
-            if tile=="~" then
+            if tile=="b" then
+                r,g,b=0.30,0.31,0.12
+            elseif tile=="g" then
+                r,g,b=0.19,0.27,0.16
+            elseif tile=="i" then
+                r,g,b=0.35,0.54,0.62
+            elseif tile=="B" then
+                r,g,b=0.46,0.32,0.20
+            elseif tile=="m" then
+                r,g,b=0.26,0.35,0.36
+            elseif tile=="c" then
+                r,g,b=0.32,0.26,0.46
+            elseif tile=="~" then
                 r,g,b=0.10,0.29,0.42
             elseif wall then
                 r,g,b=0.26,0.33,0.29
                 if visual=="F" then r,g,b=0.23,0.31,0.36
                 elseif visual=="W" then r,g,b=0.20,0.32,0.42
-                elseif visual=="T" then r,g,b=0.39,0.29,0.28 end
+                elseif visual=="T" then r,g,b=0.39,0.29,0.28
+                elseif visual=="I" then r,g,b=0.42,0.57,0.65
+                elseif visual=="L" then r,g,b=0.41,0.34,0.27
+                elseif visual=="O" then r,g,b=0.45,0.28,0.24 end
             elseif visual=="a" then
                 r,g,b=0.29,0.25,0.35
             elseif visual=="f" then
                 r,g,b=0.17,0.31,0.31
             elseif visual=="b" then
                 r,g,b=0.20,0.36,0.43
+            elseif visual=="i" then
+                r,g,b=0.25,0.40,0.47
+            elseif visual=="l" then
+                r,g,b=0.35,0.29,0.23
+            elseif visual=="o" then
+                r,g,b=0.36,0.25,0.20
             elseif visual=="t" then
                 r,g,b=0.36,0.27,0.24
             elseif visual=="c" then
@@ -1170,6 +1242,27 @@ local function draw_world()
                         love.graphics.draw(handle.texture,screen_x,screen_y,0,
                             TILE/handle.width,TILE/handle.height)
                     end
+                end
+            end
+            if tile=="b" or tile=="g" or tile=="i" or tile=="B"
+                or tile=="m" or tile=="c" then
+                love.graphics.setColor(0.88,0.91,0.78,remembered and 0.25 or 0.65)
+                if tile=="b" then
+                    love.graphics.line(screen_x+7,screen_y+24,screen_x+14,screen_y+8,
+                        screen_x+20,screen_y+24)
+                elseif tile=="g" then
+                    love.graphics.circle("line",screen_x+16,screen_y+17,7)
+                elseif tile=="i" then
+                    love.graphics.line(screen_x+5,screen_y+21,screen_x+25,screen_y+10)
+                elseif tile=="B" then
+                    love.graphics.line(screen_x+5,screen_y+9,screen_x+25,screen_y+9)
+                    love.graphics.line(screen_x+5,screen_y+20,screen_x+25,screen_y+20)
+                elseif tile=="m" then
+                    love.graphics.circle("line",screen_x+16,screen_y+16,8)
+                elseif tile=="c" then
+                    love.graphics.polygon("line",screen_x+16,screen_y+5,
+                        screen_x+24,screen_y+16,screen_x+16,screen_y+27,
+                        screen_x+8,screen_y+16)
                 end
             end
             if not remembered and visual=="k" then
@@ -1234,8 +1327,10 @@ local function draw_world()
             love.graphics.setColor(0.04,0.06,0.04,0.82)
             love.graphics.rectangle("fill",230,27,330,37)
             love.graphics.setColor(0.82,0.95,0.60)
-            love.graphics.print(("THORN WARDEN  phase %d  %d/%d HP"):format(
-                elite.phase_two and 2 or 1,elite.hp,elite.max_hp),239,34)
+            local elite_name=Content.get_enemy(elite.definition_id).name
+            if elite.ai_id=="warden" then elite_name=elite_name:upper() end
+            love.graphics.print(("%s  phase %d  %d/%d HP"):format(
+                elite_name,elite.phase_two and 2 or 1,elite.hp,elite.max_hp),239,34)
             love.graphics.setColor(0.37,0.72,0.25)
             love.graphics.rectangle("fill",239,52,310*elite.hp/elite.max_hp,5)
         end
@@ -1256,11 +1351,17 @@ local function draw_world()
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
-    local avatar=actor_visual('core:actor/adventurer',state.player_id)
+    local avatar=actor_visual(Game.player(state).definition_id,state.player_id)
     if avatar then
         draw_visual(avatar,screen_x,screen_y,TILE,TILE)
     else
-        love.graphics.setColor(0.95, 0.78, 0.30)
+        local colors={
+            [Classes.order[1]]={0.95,0.78,0.30},
+            [Classes.order[2]]={0.49,0.83,0.49},
+            [Classes.order[3]]={0.67,0.62,0.96},
+            [Classes.order[4]]={0.96,0.49,0.38},
+        }
+        love.graphics.setColor(unpack(colors[Game.player(state).definition_id]))
         love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
     end
     local current_group=Playback.current_group(playback)
@@ -1323,21 +1424,21 @@ local function draw_world()
     end
     if route_menu then
         love.graphics.setColor(0.02,0.04,0.05,0.95)
-        love.graphics.rectangle("fill",85,145,600,310)
+        love.graphics.rectangle("fill",85,135,600,350)
         love.graphics.setColor(0.66,0.91,1)
         love.graphics.print(route_menu.stage_index>=3
             and "Enter the Final Sanctum"
-            or "Choose a route — next biome",105,165)
+            or "Choose a route — next biome",105,155)
         for index,route in ipairs(route_menu.routes) do
             love.graphics.setColor(index==route_menu.selected and 1 or 0.76,
                 index==route_menu.selected and 0.87 or 0.85,0.67)
-            love.graphics.print(index..". "..route.name,110,205+(index-1)*75)
-            love.graphics.print(route.description,130,230+(index-1)*75)
+            love.graphics.print(index..". "..route.name,110,190+(index-1)*75)
+            love.graphics.print(route.description,130,215+(index-1)*75)
         end
         love.graphics.setColor(0.9,0.95,0.9)
         love.graphics.print(route_menu.stage_index>=3
             and "Enter confirm · Esc cancel (no time)"
-            or "1/2 select · Enter confirm · Esc cancel (no time)",105,410)
+            or "1/2/3 select · Enter confirm · Esc cancel (no time)",105,435)
     end
     if state.game_over and not Playback.busy(playback) then
         love.graphics.setColor(0, 0, 0, 0.84)
@@ -1367,8 +1468,9 @@ local function draw_world()
                 VIEWPORT.x,168,VIEWPORT.width,"center")
             love.graphics.printf(table.concat(names," > "),VIEWPORT.x+30,199,
                 VIEWPORT.width-60,"center")
-            love.graphics.printf(("Adventurer · Level %d · XP %d · HP %d/%d · Currency %d"):format(
-                result.level,result.xp_total,result.hp,result.max_hp,result.currency),
+            local class=Classes.get(result.class_id or Classes.order[1])
+            love.graphics.printf(("%s · Level %d · XP %d · HP %d/%d · Currency %d"):format(
+                class.name,result.level,result.xp_total,result.hp,result.max_hp,result.currency),
                 VIEWPORT.x+30,235,VIEWPORT.width-60,"center")
             love.graphics.printf("Simulated world time: "..result.world_time,
                 VIEWPORT.x+30,262,VIEWPORT.width-60,"center")
@@ -1439,7 +1541,9 @@ local function draw_panel()
         studio_theme:draw_icon('xp_icon',PANEL_X+244,178,18)
         studio_theme:draw_icon('currency_icon',PANEL_X+244,195,18)
     end
-    love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 82)
+    local class=Classes.for_player(player)
+    love.graphics.print("Class: "..class.name,PANEL_X,77)
+    love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 91)
     love.graphics.print(("World time: %d"):format(state.clock), PANEL_X, 106)
     love.graphics.print(("Level %d · XP %d / %d"):format(state.progression.level,
         state.progression.xp_total, Game.next_level_xp(state)), PANEL_X, 178)
@@ -1449,7 +1553,11 @@ local function draw_panel()
     love.graphics.print(("Crit %.1f%% · x%.2f"):format(player.crit_chance_ppm / 10000,
         player.crit_damage_percent / 100), PANEL_X, 227)
     local action = state.last_action
-    love.graphics.print("Last: " .. (action and labels[action.kind] or "none"), PANEL_X, 130)
+    local last=action and (action.kind=="basic_attack" and class.basic_name
+        or action.kind=="sweeping_slash" and class.special_name
+        or action.kind=="dash" and class.dash_name
+        or labels[action.kind]) or "none"
+    love.graphics.print("Last: " .. last, PANEL_X, 130)
     love.graphics.print("Cost: " .. (action and action.cost or "—"), PANEL_X, 154)
     love.graphics.printf(notice, PANEL_X, 251, 260)
     if state.stage then
@@ -1624,7 +1732,7 @@ local function draw_panel()
     love.graphics.print("Tab map · F5 art · B dev", PANEL_X, 495)
     love.graphics.print("Move: WASD / arrows", PANEL_X, 513)
     love.graphics.print("Wait: Space or .", PANEL_X, 531)
-    love.graphics.print("F sword · R slash · X dash", PANEL_X, 549)
+    love.graphics.print(class.ui_controls, PANEL_X, 549)
     love.graphics.print("Aim: WASD / Q E Z C", PANEL_X, 567)
     love.graphics.print("Chest: bump · 1/2/3 · Enter", PANEL_X, 585)
     love.graphics.print("Enter confirm / Esc cancel", PANEL_X, 603)
@@ -1679,17 +1787,24 @@ function love.draw()
                 love.graphics.getHeight())
         end
         love.graphics.setColor(0.88,0.94,0.83)
-        love.graphics.printf("ROEG — Four Biomes",0,120,1024,"center")
+        love.graphics.printf("ROEG — Seven Biomes",0,120,1024,"center")
+        local chosen=Classes.get(selected_class_id)
+        love.graphics.printf("Class 1–4: "..chosen.name,0,157,1024,"center")
+        love.graphics.printf(chosen.description,0,180,1024,"center")
+        love.graphics.printf(("HP %d · DMG %d · DEF %d · SPD %d · base costs F%d/R%d/X%d")
+            :format(chosen.hp,chosen.damage,chosen.defense,chosen.speed,
+                chosen.costs.basic_attack,chosen.costs.sweeping_slash,
+                chosen.costs.dash),0,203,1024,"center")
         local can_continue=save_status and
             (save_status.status=="active" or save_status.status=="recovered")
         love.graphics.printf(can_continue and "C / Enter: Continue" or
-            "Continue unavailable",0,220,1024,"center")
-        love.graphics.printf("N: New Run",0,255,1024,"center")
-        love.graphics.printf("U: Unlocks / Achievements · Q / Esc: Quit",0,290,1024,"center")
+            "Continue unavailable",0,242,1024,"center")
+        love.graphics.printf("N: New Run",0,277,1024,"center")
+        love.graphics.printf("U: Unlocks / Achievements · Q / Esc: Quit",0,312,1024,"center")
         local status=save_status and save_status.status or "absent"
-        love.graphics.printf("Save status: "..status,0,350,1024,"center")
+        love.graphics.printf("Save status: "..status,0,366,1024,"center")
         if status=="pending_terminal" then
-            love.graphics.printf("R: Retry terminal unlock recovery",0,372,1024,"center")
+            love.graphics.printf("R: Retry terminal unlock recovery",0,390,1024,"center")
         end
         if unlocks_view then
             love.graphics.setColor(0.02,0.05,0.05,0.96)

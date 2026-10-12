@@ -111,13 +111,15 @@ function Stage.init(state,spawn_enemy)
     if not state.generated_map then return end
     local options=state.stage_options or {}
     local map=state.generated_map
-    local elite=spawn_enemy(state,"core:enemy/thorn_warden",map.elite.x,map.elite.y,0)
+    local biome=assert(Biomes.get(map.biome_id),"unknown elite biome")
+    local elite=spawn_enemy(state,biome.elite_id,map.elite.x,map.elite.y,0)
     Scheduler.remove_for_actor(state,elite.id,"actor_ready")
     elite.dormant=true
     elite.ai_memory.attacks=0
     local rules=Content.get_stage_rules()
     state.stage={index=options.index or 1,biome_id=map.biome_id or Biomes.order[1],
         phase="exploring",elite_id=elite.id,elite_floor_id=map.floor_id,
+        elite_definition_id=biome.elite_id,
         pressure_rng=RNG.new(RNG.derive(state.root_seed,
             "pressure:"..(options.index or 1)..":"..state.run_seed)),
         pressure_count=0,next_pressure=rules.pressure_first,
@@ -286,6 +288,9 @@ function Stage.validate(state)
         and #stage.route_history==stage.index-1,
         "invalid active stage state")
     local biome=assert(Biomes.get(stage.biome_id),"invalid stage biome")
+    assert(stage.elite_definition_id==nil
+        or stage.elite_definition_id==biome.elite_id,
+        "stage elite content mismatch")
     local base=biome.floor_id
     assert(state.generated_map.biome_id==biome.id,"stage biome mismatch")
     if stage.index==1 then
@@ -321,8 +326,11 @@ function Stage.validate(state)
     local ids={}
     for _,entity in ipairs(state.entities) do ids[entity.id]=entity end
     if stage.phase=="exploring" or stage.phase=="elite_active" then
-        assert(ids[stage.elite_id] and ids[stage.elite_id].ai_id=="warden",
-            "active stage missing Warden")
+        local elite=ids[stage.elite_id]
+        assert(elite and elite.definition_id==
+            (stage.elite_definition_id or "core:enemy/thorn_warden")
+            and (elite.ai_id=="warden" or elite.ai_id=="biome_elite"),
+            "active stage missing biome elite")
     else
         assert(not ids[stage.elite_id] and ids[stage.elite_reward_id]
             and ids[stage.elite_reward_id].controller=="chest"

@@ -1,6 +1,7 @@
 -- Editor-friendly authored Overgrown Ruins rooms. All definition fields are plain data.
 local Content = require("src.content")
 local Biomes = require("src.biomes")
+local Terrain = require("src.terrain")
 local Rooms = {}
 Rooms.version = "roeg-rooms/2"
 Rooms.biome = {id="core:biome/overgrown_ruins", floor_id="core:floor/overgrown_ruins",
@@ -152,6 +153,55 @@ local function variant(base,biome)
                 end
             end
         end
+    elseif biome.strategy=="observatory" then
+        -- Offset star points frame an open axial crossing. Ice is a deliberate
+        -- route choice, not a compulsory automatic walking slide.
+        if w>=15 then
+            for _,p in ipairs({{4,4},{w-3,4},{4,h-3},{w-3,h-3},
+                {6,3},{w-5,h-2}}) do wall(p[1],p[2]) end
+        else wall(3,3);wall(w-2,h-2) end
+    elseif biome.strategy=="archive" then
+        -- Interrupted shelf aisles create alternate narrow sight lines.
+        if w>=15 then
+            for y=3,h-2 do
+                if y%3~=1 then wall(4,y);wall(w-3,h+1-y) end
+            end
+        else wall(3,3);wall(w-2,h-2) end
+    elseif biome.strategy=="forge" then
+        -- Staggered furnace bays and open center leave flanking approaches.
+        if w>=15 then
+            for x=4,w-3 do
+                if x%4~=0 then
+                    wall(x,3)
+                    if x%4~=2 then wall(w+1-x,h-2) end
+                end
+            end
+        else wall(3,h-2);wall(w-2,3) end
+    end
+    local source_editable={}
+    for _,p in ipairs(base.editable or {}) do
+        source_editable[p.y..":"..p.x]=true
+    end
+    local function feature(x,y,symbol)
+        if x>1 and x<w and y>1 and y<h and grid[y][x]=="."
+            and not reserved[y..":"..x] and not source_editable[y..":"..x] then
+            grid[y][x]=symbol
+        end
+    end
+    if biome.strategy=="observatory" then
+        for _,p in ipairs({{3,4},{w-2,h-3},{w-3,3},{4,h-2}}) do
+            feature(p[1],p[2],"i")
+        end
+    elseif biome.strategy=="archive" then
+        for _,p in ipairs({{5,3},{w-4,h-2},{5,h-3}}) do
+            feature(p[1],p[2],"m")
+        end
+        if w<15 then feature(3,(h+1)/2,"m") end
+    elseif biome.strategy=="forge" then
+        for _,p in ipairs({{4,4},{w-3,h-3},{5,h-2}}) do
+            feature(p[1],p[2],"c")
+        end
+        if w<15 then feature(3,(h+1)/2,"c") end
     end
     for y=1,h do def.rows[y]=table.concat(grid[y]) end
     -- Retain authored variation points outside new partitions. In canals,
@@ -217,8 +267,12 @@ function Rooms.validate(definitions, order, biome)
         assert(w >= 7 and h >= 7 and w % 2 == 1 and h % 2 == 1,
             "invalid room dimensions: " .. id)
         for y, row in ipairs(def.rows) do
-            assert(#row == w and not row:find("[^.#~ ]"),
-                "invalid room tile in " .. id .. " row " .. y)
+            assert(#row == w,"invalid room tile in " .. id .. " row " .. y)
+            for x=1,#row do
+                local symbol=row:sub(x,x)
+                assert(symbol==" " or Terrain.is_valid(symbol),
+                    "invalid room tile in " .. id .. " row " .. y)
+            end
         end
         assert(def.protected_default == true, "room needs a protected mask: " .. id)
         assert(type(def.roles) == "table" and #def.roles > 0, "room needs role: " .. id)
@@ -312,7 +366,8 @@ function Rooms.validate(definitions, order, biome)
         for _, p in ipairs(def.editable or {}) do
             assert(type(p.x)=="number" and type(p.y)=="number" and p.x%1==0
                 and p.y%1==0 and p.x>1 and p.x<w and p.y>1 and p.y<h
-                and def.rows[p.y]:sub(p.x,p.x)~=" "
+                and ({["."]=true,["#"]=true,["~"]=true})[
+                    def.rows[p.y]:sub(p.x,p.x)]
                 and not reserved[point_key(p.x,p.y)] and
                 not editable_seen[point_key(p.x,p.y)],
                 "editable mask violates protected geometry: " .. id)

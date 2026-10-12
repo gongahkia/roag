@@ -259,7 +259,7 @@ function Play.stage_one(seed,route_index,options)
     assert(ok,reason)
     local first_floor=state.active_floor_id
     local route=assert(Game.route_options(state,exit.id))
-    assert(#route.routes==2)
+    assert(#route.routes==3)
     ok,reason=Play.action(run,{kind='choose_route',exit_id=exit.id,
         route_index=route_index or 1})
     assert(ok,reason)

@@ -97,6 +97,7 @@ function Finale.finish(state,emit)
     for _,floor in ipairs(state.retired_stages) do elapsed=elapsed+floor.clock end
     state.victory={boss_id=finale.boss_id,boss_name="Hollow Regent",
         seed=state.root_seed,route_history=finale.route_history,
+        class_id=player.definition_id,
         level=state.progression.level,xp_total=state.progression.xp_total,
         hp=player.hp,max_hp=player.max_hp,currency=state.currency,
         boons=player.boons,world_time=elapsed,

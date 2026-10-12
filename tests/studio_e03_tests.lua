@@ -123,7 +123,7 @@ return function(test,equal)
             assert(found,'authored room absent from '..biome_id)
             chosen=chosen+1
         end
-        assert(chosen==4)
+        assert(chosen==#Biomes.order)
     end)
     test('E03 room history groups fast pointer drag and survives zoom/pan mapping',function()
         local old_love=_G.love

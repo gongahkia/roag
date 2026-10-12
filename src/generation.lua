@@ -6,6 +6,7 @@ local Rooms = require("src.rooms")
 local Biomes = require("src.biomes")
 local World = require("src.world")
 local StudioWorld = require("src.studio_world")
+local Terrain = require("src.terrain")
 
 local Generation = {}
 Generation.map_id = "core:map/overgrown_ruins"
@@ -147,7 +148,9 @@ function Generation.plan(rng,biome,layout)
     assert(#loops>0,"room plan has no loop candidate")
     local first=table.remove(loops,RNG.next_int(rng,#loops))
     add_edge(graph,edge_seen,first[1],first[2],"loop")
-    if #loops>0 and (biome and biome.strategy=="canals" or RNG.next_int(rng,3)==1) then
+    if #loops>0 and (biome and (biome.strategy=="canals"
+        or biome.strategy=="observatory" or biome.strategy=="forge")
+        or RNG.next_int(rng,3)==1) then
         local next_loop=loops[RNG.next_int(rng,#loops)]
         add_edge(graph,edge_seen,next_loop[1],next_loop[2],"loop")
     end
@@ -228,6 +231,7 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed,b
         if base~=" " then
         assert(not footprint[key(wx,wy)],"room footprints overlap")
         footprint[key(wx,wy)]=room.id
+        if base=="B" then map.breakable_origins[key(wx,wy)]=true end
         local varied=base
         if editable[key(x,y)] then
             map.editable_cells[#map.editable_cells+1]={x=wx,y=wy,kind="room"}
@@ -282,7 +286,8 @@ local function corridor_path(a,b,rng,biome)
         local left,right=a,b
         if a.x>b.x then left,right=b,a end
         local gap=right.x-left.x
-        local offset=math.floor(gap/2)+RNG.next_int(rng,3)-2
+        local offset=math.floor(gap/2)+
+            (biome.strategy=="archive" and 0 or RNG.next_int(rng,3)-2)
         local mid=math.max(left.x+2,math.min(right.x-2,left.x+offset))
         line(left.x,left.y,mid,left.y)
         line(mid,left.y,mid,right.y)
@@ -291,7 +296,8 @@ local function corridor_path(a,b,rng,biome)
         local top,bottom=a,b
         if a.y>b.y then top,bottom=b,a end
         local gap=bottom.y-top.y
-        local offset=math.floor(gap/2)+RNG.next_int(rng,3)-2
+        local offset=math.floor(gap/2)+
+            (biome.strategy=="archive" and 0 or RNG.next_int(rng,3)-2)
         local mid=math.max(top.y+2,math.min(bottom.y-2,top.y+offset))
         line(top.x,top.y,top.x,mid)
         line(top.x,mid,bottom.x,mid)
@@ -460,6 +466,56 @@ local function place_exploration(map, terrain, art, footprint, seed, attempt)
         x=door_socket.x,y=door_socket.y}
 end
 
+local function place_terrain(map,seed)
+    if not map.layout then return end -- preserve historical one-floor fixtures
+    local rng=RNG.new(RNG.derive(seed,map.floor_id..":terrain"))
+    local occupied={}
+    local function reserve(x,y,radius)
+        radius=radius or 0
+        for oy=-radius,radius do for ox=-radius,radius do
+            if math.abs(ox)+math.abs(oy)<=radius then
+                occupied[key(x+ox,y+oy)]=true
+            end
+        end end
+    end
+    reserve(map.start_x,map.start_y,4)
+    reserve(map.elite.x,map.elite.y,4)
+    for _,kind in ipairs({"enemies","chests","doors"}) do
+        for _,p in ipairs(map.placements[kind] or {}) do reserve(p.x,p.y,1) end
+    end
+    for _,p in ipairs(map.placements.secrets or {}) do
+        reserve(p.x,p.y,1)
+        if p.wall_x then reserve(p.wall_x,p.wall_y,1) end
+    end
+    local corridor_cells={}
+    for _,corridor in ipairs(map.corridors) do
+        for _,p in ipairs(corridor.cells) do corridor_cells[key(p.x,p.y)]=true end
+    end
+    local kinds=map.floor_index==1 and {"b","g","i"} or {"B","m","c"}
+    for _,symbol in ipairs(kinds) do
+        local candidates={}
+        local side=symbol=="b" or symbol=="B" or symbol=="c"
+        for _,p in ipairs(map.editable_cells) do
+            local eligible=side and (p.kind=="alcove" or
+                p.kind=="parallel_bank" or p.kind=="courtyard_node" or
+                p.kind=="star_node" or p.kind=="forge_bay")
+                or not side and p.kind=="corridor"
+            if eligible and not occupied[key(p.x,p.y)]
+                and (symbol~="B" or not corridor_cells[key(p.x,p.y)])
+                and Terrain.symbol(map,p.x,p.y)=="." then
+                candidates[#candidates+1]=p
+            end
+        end
+        assert(#candidates>0,"no safe terrain candidate for "..symbol)
+        local chosen=candidates[RNG.next_int(rng,#candidates)]
+        set_tile(map,chosen.x,chosen.y,symbol)
+        map.terrain_placements[#map.terrain_placements+1]={
+            symbol=symbol,id=Terrain.get(symbol).id,x=chosen.x,y=chosen.y}
+        reserve(chosen.x,chosen.y,2)
+        if symbol=="B" then map.breakable_origins[key(chosen.x,chosen.y)]=true end
+    end
+end
+
 local function build(seed,attempt,derived_seed,biome,pack,options)
     options=options or {}
     local layout=options.layout
@@ -472,7 +528,8 @@ local function build(seed,attempt,derived_seed,biome,pack,options)
         seed=seed,attempt=attempt,derived_seed=derived_seed,
         layout=layout,floor_index=options.floor_index,
         graph=graph,rooms={},corridors={},protected_cells={},editable_cells={},
-        placements={enemies={},chests={},secrets={},doors={}},repairs={}}
+        placements={enemies={},chests={},secrets={},doors={}},repairs={},
+        terrain_placements={},breakable_origins={},broken_barricades={}}
     if pack then
         map.studio_pack_fingerprint=pack_fingerprint(pack)
         map.studio_templates={}
@@ -547,7 +604,7 @@ local function build(seed,attempt,derived_seed,biome,pack,options)
                 map.editable_cells[#map.editable_cells+1]={x=ax,y=ay,kind="alcove"}
             end
         end
-        if biome.strategy=="canals" then
+        if biome.strategy=="canals" or biome.strategy=="archive" then
             -- A second bank parallels one long straight gallery segment.
             -- Both ends reconnect, so it is a usable flank, not decoration.
             local best_start,best_end,best_length=nil,nil,0
@@ -618,6 +675,32 @@ local function build(seed,attempt,derived_seed,biome,pack,options)
                 corridor.widened=corridor.widened or {}
                 corridor.widened[#corridor.widened+1]=widened
             end
+        elseif biome.strategy=="observatory" or biome.strategy=="forge" then
+            -- Short radial/star or offset furnace-bay pockets make cross-floor
+            -- cover and lateral choices without sealing the primary corridor.
+            local stride=biome.strategy=="observatory" and 9 or 11
+            for i=6,#cells-5,stride do
+                local p=cells[i]
+                local opened={}
+                local offsets=biome.strategy=="observatory"
+                    and {{1,0},{-1,0},{0,1},{0,-1}}
+                    or (i%2==0 and {{1,0},{1,1},{1,-1}}
+                        or {{-1,0},{-1,1},{-1,-1}})
+                for _,d in ipairs(offsets) do
+                    local x,y=p.x+d[1],p.y+d[2]
+                    if x>1 and x<map.width and y>1 and y<map.height
+                        and not footprint[key(x,y)] then
+                        terrain[y][x]="."
+                        art[y][x]=biome.floor_visual
+                        map.editable_cells[#map.editable_cells+1]={x=x,y=y,
+                            kind=biome.strategy=="observatory" and "star_node"
+                                or "forge_bay"}
+                        opened[#opened+1]={x=x,y=y}
+                    end
+                end
+                corridor.widened=corridor.widened or {}
+                corridor.widened[#corridor.widened+1]=opened
+            end
         end
         map.corridors[#map.corridors+1]=corridor
     end
@@ -637,6 +720,7 @@ local function build(seed,attempt,derived_seed,biome,pack,options)
     place_exploration(map,terrain,art,footprint,seed,attempt)
     map.rows=serialize_grid(terrain)
     map.visual_rows=serialize_grid(art)
+    place_terrain(map,seed)
     return map
 end
 
@@ -737,6 +821,13 @@ function Generation.validate(map,runtime_secrets)
         end
     end
     local protected={}
+    local barricades=map.breakable_origins or {}
+    local broken=map.broken_barricades or {}
+    for k,value in pairs(broken) do
+        if value~=true or not barricades[k] then
+            issue("barricade_state_invalid",0,0,"unknown broken barricade "..tostring(k))
+        end
+    end
     for _,cell in ipairs(map.protected_cells or {}) do
         local k=key(cell.x,cell.y)
         if protected[k] and protected[k]~=cell.tile then
@@ -745,8 +836,33 @@ function Generation.validate(map,runtime_secrets)
         protected[k]=cell.tile
         if map.rows[cell.y]:sub(cell.x,cell.x)~=cell.tile
             and not (mutable_walls[k] and cell.tile=="#"
+                and map.rows[cell.y]:sub(cell.x,cell.x)==".")
+            and not (broken[k] and cell.tile=="B"
                 and map.rows[cell.y]:sub(cell.x,cell.x)==".") then
             issue("protected_changed",cell.x,cell.y,"authored geometry changed")
+        end
+    end
+    if layout and map.terrain_placements then
+        local expected=map.floor_index==1 and {b=true,g=true,i=true}
+            or {B=true,m=true,c=true}
+        local found,positions={},{}
+        for _,placement in ipairs(map.terrain_placements or {}) do
+            local symbol=placement.symbol
+            local k=key(placement.x,placement.y)
+            if not expected[symbol] or found[symbol] or positions[k]
+                or not Terrain.get(symbol)
+                or placement.id~=Terrain.get(symbol).id
+                or Terrain.symbol(map,placement.x,placement.y)~=
+                    (broken[k] and "." or symbol) then
+                issue("terrain_placement_invalid",placement.x,placement.y,
+                    tostring(symbol))
+            end
+            found[symbol]=true;positions[k]=true
+        end
+        for symbol in pairs(expected) do
+            if not found[symbol] then
+                issue("terrain_placement_missing",0,0,symbol)
+            end
         end
     end
     local editable={}
@@ -994,7 +1110,7 @@ function Generation.validate(map,runtime_secrets)
         issue("visual_invalid",0,0,"missing visual layer")
     else
         for y,row_text in ipairs(art) do
-            if #row_text~=map.width or row_text:find("[^wsmcavrkpFfWbTtq]") then
+            if #row_text~=map.width or row_text:find("[^wsmcavrkpFfWbTtqIiLlOo]") then
                 issue("visual_invalid",0,y,"invalid decoration layer")
             end
         end
