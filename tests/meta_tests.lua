@@ -217,6 +217,26 @@ return function(test,equal)
             dx=secret.wall_x-secret.x,dy=secret.wall_y-secret.y})
         assert(count(again,'SecretDiscovered')==0 and count(again,'AchievementEarned')==0)
     end)
+    test('earning an achievement changes neither gameplay RNG nor world time',function()
+        local eligible=Play.new(1,{meta=Achievements.new_run(true,'local-run/rng')})
+        local control=Play.new(1)
+        local secret=eligible.state.secrets[1]
+        local ok,reason=Play.navigate(eligible,function(p)
+            return p.x==secret.x and p.y==secret.y end,350)
+        assert(ok,reason)
+        Play.action(eligible,{kind='basic_attack',dx=secret.wall_x-secret.x,
+            dy=secret.wall_y-secret.y})
+        for _,record in ipairs(eligible.trace) do
+            local done,why=Play.action(control,record.intent)
+            assert(done==record.ok and why==record.reason)
+        end
+        assert(eligible.state.meta.earned[AchievementContent.order[2]])
+        assert(eligible.state.clock==control.state.clock
+            and eligible.state.rng.state==control.state.rng.state
+            and eligible.state.currency==control.state.currency)
+        local a,b=Game.player(eligible.state).position,Game.player(control.state).position
+        assert(a.floor_id==b.floor_id and a.x==b.x and a.y==b.y)
+    end)
     test('chain rule requires three distinct same-chain boon activations',function()
         local s=Game.new(75,nil,{meta=Achievements.new_run(true,'local-run/chain')})
         local id=AchievementContent.order[3]

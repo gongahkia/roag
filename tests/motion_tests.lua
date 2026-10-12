@@ -171,4 +171,109 @@ return function(test,equal)
         Playback.update(playback,0.55)
         assert(Playback.current(playback).kind=="AttackPerformed")
     end)
+
+    test("consecutive locked windups share one visible beat without reordering impacts",function()
+        local events={}
+        for id=2,4 do
+            events[#events+1]={id=id,kind="WindupStarted",source_id=id,
+                floor_id="floor",time=100,due=200,
+                target_cells={{x=id,y=3}}}
+        end
+        events[#events+1]={id=5,kind="AttackPerformed",source_id=2,
+            floor_id="floor",time=200,target_cells={{x=2,y=3}}}
+        local playback=Playback.new()
+        Playback.add(playback,events,1)
+        assert(#playback.items==2 and playback.items[1].duration==0.55)
+        local group=Playback.current_group(playback)
+        assert(#group==3 and group[1]==events[1] and group[2]==events[2]
+            and group[3]==events[3])
+        Playback.update(playback,0.55)
+        assert(Playback.current(playback)==events[4]
+            and Playback.current_group(playback)==nil)
+        Playback.update(playback,0.26)
+        assert(not Playback.busy(playback))
+    end)
+
+    test("windup grouping respects intervening events and action boundaries",function()
+        local function windup(id,time)
+            return {id=id,kind="WindupStarted",source_id=id,
+                floor_id="floor",time=time,due=time+100}
+        end
+        local playback=Playback.new()
+        Playback.add(playback,{windup(2,0),windup(3,40),
+            moved(4,5,3,6,3,40),windup(5,40)},1)
+        assert(#playback.items==3 and #playback.items[1].events==2)
+        Playback.add(playback,{windup(6,40)},1)
+        assert(#playback.items==4) -- a later submitted action is distinct
+    end)
+
+    test("dense same-kind boon cues share a bounded beat, with hits and deaths ordered",function()
+        local events={{id=1,kind="DamageTaken",time=100,floor_id="floor",x=3,y=2}}
+        for id=2,41 do
+            events[#events+1]={id=id,kind="BoonActivated",time=100,
+                floor_id="floor",x=3,y=2,boon_id="core:boon/storm_conductor"}
+        end
+        events[#events+1]={id=42,kind="Died",time=100,floor_id="floor",x=3,y=2}
+        local playback=Playback.new()
+        Playback.add(playback,events,1)
+        assert(#playback.items==3)
+        assert(playback.items[1].event==events[1])
+        assert(playback.items[2].duration==Playback.max_cascade_seconds)
+        assert(#playback.items[2].events==40)
+        for index,event in ipairs(playback.items[2].events) do
+            assert(event==events[index+1])
+        end
+        Playback.update(playback,0.20)
+        assert(Playback.current(playback)==events[2])
+        Playback.update(playback,Playback.max_cascade_seconds)
+        assert(Playback.current(playback)==events[#events])
+    end)
+
+    test("one lethal target's hit and death share a beat without mixing other deaths",function()
+        local hit={id=1,kind="DamageTaken",target_id=7,time=100,
+            floor_id="floor",x=3,y=2}
+        local death={id=2,kind="Died",target_id=7,time=100,
+            floor_id="floor",x=3,y=2}
+        local other={id=3,kind="Died",target_id=8,time=100,
+            floor_id="floor",x=4,y=2}
+        local playback=Playback.new()
+        Playback.add(playback,{hit,death,other},1)
+        assert(#playback.items==2 and playback.items[1].duration==0.30)
+        local group=Playback.current_group(playback)
+        assert(#group==2 and group[1]==hit and group[2]==death)
+        Playback.update(playback,0.30)
+        assert(Playback.current(playback)==other)
+    end)
+
+    test("generated ranged lanes retain lateral geometry across representative seeds",function()
+        local Biomes=require("src.biomes")
+        local lanes=0
+        for _,biome_id in ipairs({Biomes.order[1],Biomes.order[3]}) do
+            for seed=1,20 do
+                local map=Generation.generate(seed,{biome_id=biome_id})
+                for _,p in ipairs(map.placements.enemies) do
+                    if p.definition_id=="core:enemy/thornspitter" or
+                        p.definition_id=="core:enemy/canal_lancer" then
+                        for _,d in ipairs({{1,0},{-1,0},{0,1},{0,-1}}) do
+                            local length,lateral=0,false
+                            for step=1,7 do
+                                local x,y=p.x+step*d[1],p.y+step*d[2]
+                                if not Content.projectile_passable(map,x,y) then break end
+                                length=step
+                                lateral=lateral or
+                                    Content.walkable(map,x-d[2],y+d[1]) or
+                                    Content.walkable(map,x+d[2],y-d[1])
+                            end
+                            if length>=5 then
+                                lanes=lanes+1
+                                assert(lateral,('no lateral exit %s seed %d enemy %s'):
+                                    format(biome_id,seed,p.id))
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        assert(lanes>=100,'corpus did not exercise enough ranged lanes')
+    end)
 end

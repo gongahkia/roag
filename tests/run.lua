@@ -1515,6 +1515,12 @@ require("tests.boon_expansion_tests")(test, equal)
 require("tests.biome_tests")(test, equal)
 require("tests.finale_tests")(test, equal)
 require("tests.meta_tests")(test, equal)
+require("tests.studio_tests")(test, equal)
+require("tests.studio_e01_tests")(test, equal)
+require("tests.studio_e03_tests")(test, equal)
+require("tests.studio_e04_tests")(test, equal)
+require("tests.studio_e05_tests")(test, equal)
+require("tests.studio_e06_tests")(test, equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

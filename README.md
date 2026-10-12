@@ -1,4 +1,5 @@
 # ROEG — Game guide
+ROEG Studio's separate editor launches with `love . --studio`; see [Studio E00 workflow](docs/ROEG_STUDIO_E00.md), [E01 pixel drawing](docs/ROEG_STUDIO_E01.md), [E03 room/biome authoring](docs/ROEG_STUDIO_E03.md), [E04 presentation themes](docs/ROEG_STUDIO_E04.md), and [E05 optional static atlases](docs/ROEG_STUDIO_E05.md). Plain `love .` remains the game.
 ROEG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters a seeded, continuous procedural Overgrown Ruins stage with fog, secrets, a Thorn Warden elite and a timed extraction route. `docs/ROEG_SPEC_v1.0.md` is the authoritative design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
 ## Run and controls
@@ -105,3 +106,20 @@ Press **U** on the title to view four achievements and their reward boons. A nor
 The profile uses separate `profile-a.roeg` / `profile-b.roeg` generations in LÖVE's platform save directory. A checked write to the inactive slot protects the previous valid record against a failed or truncated write, subject to platform flush limits. A terminal run with an uncommitted award first writes two verified non-resumable pending-terminal run records, verifies the profile award in both profile generations, then writes the existing terminal tombstone. If an award write fails, the title shows the pending status; press **R** to retry after storage is restored. Corrupt or incompatible profiles are preserved and block progress-bearing New Run until repaired externally. Active-run schema is now `roeg-run/11`, boon content `roeg-boons/3`; older active runs can be rejected without erasing a compatible separate profile. See [Tranche 14 notes](docs/TRANCHE_14_META.md).
 
 Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock followed by a seed-34 paid chest purchase and actual activation of the new boon. Run `sh tests/meta_gui_smoke.sh` for the isolated two-process title/profile/future-run demonstration. Both tests use disposable storage and do not touch a player's normal profile.
+
+## ROEG Studio
+
+The [E04 guide](docs/ROEG_STUDIO_E04.md) covers HUD, bitmap text,
+background and effect authoring. The [E05 guide](docs/ROEG_STUDIO_E05.md)
+covers deterministic static atlases.
+
+ROEG Studio E06 adds a draft/published asset preview, read-only Publish
+Readiness and **F5** visual refresh in a running game. Save in Studio, review
+the explicit publish steps, then press F5 to reload visuals without changing
+the current floor or turn state. See [Studio E06 workflow](docs/ROEG_STUDIO_E06.md).
+
+Tranche 15 groups consecutive locked windups and dense same-kind boon cues into
+short presentation beats, and shows when a gameplay key is ignored during the
+visual input gate. Combat scheduling, event order, 80 ms movement and saves are
+unchanged. See [Tranche 15 measurements and physical playtest checklist](docs/TRANCHE_15_ACCEPTANCE.md)
+for the read-only seed corpus, legal-run trace and reproducible profile commands.

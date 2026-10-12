@@ -25,6 +25,17 @@ local durations = {
     PursuerArrived = 0.80,
 }
 
+-- Routine secondary feedback may be dense in a high-stack boon chain. It is
+-- presented as a short shared cascade beat; the ordered simulation events
+-- remain intact; unrelated deaths, locked attacks, impacts and motion stay
+-- separate.
+local cascade = {
+    DamageTaken=true, DamageBlocked=true, BoonActivated=true,
+    EffectApplied=true, StatusApplied=true, StatusTick=true,
+    DelayedEffectScheduled=true, DelayedEffectResolved=true,
+}
+Playback.max_cascade_seconds = 0.36
+
 -- Concurrent actors share a beat. Each actor follows its own ordered path;
 -- many enemy moves cost one short presentation beat, not N beats.
 Playback.tile_seconds = 0.08
@@ -54,6 +65,7 @@ end
 
 function Playback.add(playback, events, player_id)
     local motions, order, first_event = {}, {}, nil
+    local first_new_item = #playback.items + 1
     local function flush()
         if not first_event then return end
         local longest = 1
@@ -100,7 +112,36 @@ function Playback.add(playback, events, player_id)
             local duration = durations[event.kind]
             if duration and (event.kind ~= "AttackPerformed" or event.source_id ~= player_id) then
                 flush()
-                playback.items[#playback.items+1] = {event=event,duration=duration}
+                -- Consecutive locked attacks have no intervening impact or
+                -- movement to show. Routine boon/damage feedback similarly
+                -- shares a bounded beat. Both groups retain event order.
+                local previous = playback.items[#playback.items]
+                local group_kind = event.kind == "WindupStarted" and "windup"
+                    or cascade[event.kind] and event.kind or nil
+                if event.kind == "Died" and #playback.items >= first_new_item
+                    and previous and previous.event.kind == "DamageTaken"
+                    and not previous.events and event.target_id and
+                    previous.event.target_id == event.target_id and
+                    previous.event.time == event.time and
+                    previous.event.floor_id == event.floor_id then
+                    -- A lethal hit and its resulting death are one readable
+                    -- impact, while both ordered facts remain available.
+                    previous.events={previous.event,event}
+                    previous.duration=math.max(previous.duration,duration)
+                    previous.group_kind="lethal"
+                elseif group_kind and #playback.items >= first_new_item and previous
+                    and previous.group_kind == group_kind and
+                    previous.event.floor_id == event.floor_id then
+                    previous.events = previous.events or {previous.event}
+                    previous.events[#previous.events+1] = event
+                    if cascade[event.kind] then
+                        previous.duration=math.min(Playback.max_cascade_seconds,
+                            math.max(previous.duration,duration)+0.015)
+                    end
+                else
+                    playback.items[#playback.items+1] = {
+                        event=event,duration=duration,group_kind=group_kind}
+                end
             end
         end
     end
@@ -112,6 +153,10 @@ end
 
 function Playback.current(playback)
     return playback.items[1] and playback.items[1].event or nil
+end
+
+function Playback.current_group(playback)
+    return playback.items[1] and playback.items[1].events or nil
 end
 
 function Playback.busy(playback)

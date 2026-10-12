@@ -217,7 +217,7 @@ function Rooms.validate(definitions, order, biome)
         assert(w >= 7 and h >= 7 and w % 2 == 1 and h % 2 == 1,
             "invalid room dimensions: " .. id)
         for y, row in ipairs(def.rows) do
-            assert(#row == w and not row:find("[^.#~]"),
+            assert(#row == w and not row:find("[^.#~ ]"),
                 "invalid room tile in " .. id .. " row " .. y)
         end
         assert(def.protected_default == true, "room needs a protected mask: " .. id)
@@ -310,6 +310,7 @@ function Rooms.validate(definitions, order, biome)
         for _, p in ipairs(def.editable or {}) do
             assert(type(p.x)=="number" and type(p.y)=="number" and p.x%1==0
                 and p.y%1==0 and p.x>1 and p.x<w and p.y>1 and p.y<h
+                and def.rows[p.y]:sub(p.x,p.x)~=" "
                 and not reserved[point_key(p.x,p.y)] and
                 not editable_seen[point_key(p.x,p.y)],
                 "editable mask violates protected geometry: " .. id)
@@ -368,9 +369,21 @@ function Rooms.transform(def, turns, mirror)
         local x,y=transform_point(p.x,p.y)
         editable[#editable+1]={x=x,y=y}
     end
+    local studio_protected={}
+    for _,p in ipairs(def.studio_protected or {}) do
+        local x,y=transform_point(p.x,p.y)
+        studio_protected[#studio_protected+1]={x=x,y=y}
+    end
+    local studio_visual_cells={}
+    for location,asset_id in pairs(def.studio_visual_cells or {}) do
+        local x,y=location:match('^(%d+),(%d+)$')
+        x,y=transform_point(tonumber(x),tonumber(y))
+        studio_visual_cells[x..','..y]=asset_id
+    end
     return {id=def.id,roles=def.roles,width=out_w,height=out_h,rows=rows,
         sockets=sockets_out,markers=markers,editable=editable,
-        turns=turns,mirror=mirror,protected_default=true}
+        turns=turns,mirror=mirror,protected_default=true,
+        studio_visual_cells=studio_visual_cells,studio_protected=studio_protected}
 end
 
 function Rooms.for_role(role,biome_id)

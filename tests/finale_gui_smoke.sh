@@ -116,7 +116,16 @@ function love.draw(...)
         assert(had('WindupStarted') and #Game.pending_strikes(tracked)>0
             and has('LIVE WINDUPS'))
     elseif phase==5 then
-        assert(had('RegentPhaseChanged') and has('phase 2'))
+        local boss=Game.entity(tracked,tracked.finale.boss_id)
+        local player=Game.player(tracked)
+        local recent={}
+        for i=math.max(1,#events-8),#events do recent[#recent+1]=events[i].kind end
+        assert(had('RegentPhaseChanged') and has('phase 2'),
+            ('phase 2 missing; seed=%s time=%s boss=%s player=%d,%d recent=%s'):format(
+                tostring(tracked.root_seed),tostring(tracked.clock),
+                boss and (boss.hp..'@'..boss.position.x..','..boss.position.y)
+                    or 'dead',player.position.x,player.position.y,
+                table.concat(recent,',')))
     elseif phase==6 then
         assert(tracked.victory and had('RegentDefeated') and had('Victory')
             and has('VICTORY') and has('Hollow Regent defeated'))

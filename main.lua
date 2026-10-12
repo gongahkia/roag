@@ -10,6 +10,11 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
+local Studio = require("src.studio_app")
+local VisualAssets = require("src.visual_assets")
+local StudioWorldRuntime = require("src.studio_world_runtime")
+local StudioThemeRuntime = require("src.studio_theme_runtime")
+local StudioAtlasBuild = require("src.studio_atlas_build")
 
 local TILE = 32
 local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
@@ -37,6 +42,15 @@ local persistence_message = ""
 local diagnostics = os.getenv("ROEG_DIAGNOSTICS")=="1" and
     require("src.diagnostics").new() or nil
 local diagnostics_update_ms=0
+local studio
+local visual_assets
+local studio_world_status='absent'
+local studio_theme,studio_theme_status
+local refresh_pending=false
+local refresh_result='not requested'
+local visual_refresh_message=''
+local next_world_pack
+local visual_signature
 local showcase = {
     {name="Lightning", boons={{"storm_conductor","rare",2},
         {"static_footsteps","rare",1}}},
@@ -84,6 +98,11 @@ local labels = {
     sweeping_slash = "Sweeping Slash", dash = "Dash", claim_chest = "Claim Chest",
     open_door = "Open Door",
     choose_route = "Choose Route",
+}
+local playback_cue_labels={
+    DamageTaken="Damage", DamageBlocked="Blocked", EffectApplied="Effects",
+    StatusApplied="Status", StatusTick="Status ticks",
+    DelayedEffectScheduled="Echo queued", DelayedEffectResolved="Echo",
 }
 
 local function visible_at(x,y)
@@ -134,7 +153,71 @@ local function reset_camera()
     camera_state = state
 end
 
-function love.load()
+local function visual_fingerprint(visuals,theme,world)
+    local sum=require('src.studio_atlas').checksum
+    local parts={visuals.status,visuals.atlas_status or '',
+        theme and require('src.studio_theme').encode(theme.theme) or '',
+        world and require('src.studio_world').encode(world) or ''}
+    if visuals.read then
+        parts[#parts+1]=sum(visuals.read('assets/studio/manifest.txt') or '')
+    end
+    local ids={}
+    for id in pairs(visuals.by_id or {}) do ids[#ids+1]=id end
+    table.sort(ids)
+    for _,id in ipairs(ids) do
+        local asset=visuals.by_id[id]
+        parts[#parts+1]=id
+        parts[#parts+1]=sum(visuals.read('assets/studio/'..asset.source) or '')
+    end
+    return sum(table.concat(parts,'|'))
+end
+
+function love.load(args)
+    for _,value in ipairs(args or {}) do
+        if value=='--atlas-build' then
+            local max_size=2048
+            for _,option in ipairs(args) do
+                local number=option:match('^%-%-atlas%-max=(%d+)$')
+                if number then max_size=tonumber(number) end
+            end
+            local ok,reason=pcall(function()
+                local pack,pages=StudioAtlasBuild.compile(function(path)
+                    return love.filesystem.read(path)
+                end,max_size)
+                local location=StudioAtlasBuild.save_candidate(pack,pages)
+                print(('Atlas candidate: %d page(s), %s%s'):format(
+                    #pack.pages,love.filesystem.getSaveDirectory()..'/',location))
+            end)
+            if not ok then io.stderr:write('Atlas build failed: '..tostring(reason)..'\n') end
+            love.event.quit(ok and 0 or 1)
+            return
+        end
+    end
+    if Studio.requested(args) then
+        studio=Studio.new()
+        studio:load()
+        return
+    end
+    visual_assets=VisualAssets.new(function(path)
+        return love.filesystem.read(path)
+    end,function(bytes,asset)
+        local data=love.filesystem.newFileData(bytes,asset.source)
+        local pixels=love.image.newImageData(data)
+        local image=love.graphics.newImage(pixels)
+        image:setFilter(asset.filter,asset.filter)
+        return image,pixels
+    end)
+    studio_theme,studio_theme_status=StudioThemeRuntime.inspect(function(path)
+        return love.filesystem.read(path)
+    end,visual_assets)
+    local world_pack
+    world_pack,studio_world_status=StudioWorldRuntime.inspect(function(path)
+        return love.filesystem.read(path)
+    end)
+    next_world_pack=world_pack
+    visual_assets:check_atlas()
+    visual_signature=visual_fingerprint(visual_assets,studio_theme,world_pack)
+    Generation.install_studio_pack(world_pack)
     if os.getenv("ROEG_GUI_AUTOSTART") == "1" then
         title=false
         state=Game.new_stage(floor_seed)
@@ -163,11 +246,97 @@ function love.load()
                 persistence_message="Terminal unlock recovery needs retry: "..tostring(updated)
             end
         end
+        if studio_world_status~='absent' and studio_world_status~='loaded' then
+            persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
+                'Studio world: '..studio_world_status
+        end
+        if studio_theme_status~='absent' and studio_theme_status~='loaded' then
+            persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
+                'Studio theme: '..studio_theme_status
+        end
     end
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
 end
 
+-- Build all replacement GPU handles before publishing any of them.  This is
+-- presentation state only; the active concrete floor is never regenerated.
+local function refresh_visuals()
+    local read=function(path) return love.filesystem.read(path) end
+    local make_image=function(bytes,asset)
+        local data=love.filesystem.newFileData(bytes,asset.source)
+        local pixels=love.image.newImageData(data)
+        local image=love.graphics.newImage(pixels)
+        image:setFilter(asset.filter,asset.filter)
+        return image,pixels
+    end
+    local ok,candidate,theme,theme_status,world,world_status=pcall(function()
+        local visuals=VisualAssets.new(read,make_image)
+        assert(visuals.status=='loaded' or visuals.status=='absent',
+            'visual manifest: '..visuals.status)
+        if visuals.status=='loaded' then
+            local ids={}
+            for id in pairs(visuals.by_id) do ids[#ids+1]=id end
+            table.sort(ids)
+            for _,id in ipairs(ids) do
+                assert(visuals:resolve_id(id),'missing or invalid visual '..id)
+            end
+        end
+        local new_theme,new_theme_status=StudioThemeRuntime.inspect(read,visuals)
+        assert(new_theme_status=='loaded' or new_theme_status=='absent' or
+            tostring(new_theme_status):match('^recovered'),
+            'theme: '..tostring(new_theme_status))
+        local new_world,new_world_status=StudioWorldRuntime.inspect(read)
+        assert(new_world_status=='loaded' or new_world_status=='absent' or
+            tostring(new_world_status):match('^recovered'),
+            'world: '..tostring(new_world_status))
+        if new_world then
+            local published_assets=visuals.atlas_project and
+                visuals.atlas_project.assets or {}
+            local valid,why=pcall(require('src.studio_world').validate,
+                new_world,published_assets)
+            assert(valid,'world: '..tostring(why))
+        end
+        return visuals,new_theme,new_theme_status,new_world,new_world_status
+    end)
+    if not ok then
+        refresh_result='rejected: '..tostring(candidate)
+        local brief=tostring(candidate):find('theme:',1,true) and 'theme pack invalid' or
+            tostring(candidate):find('world:',1,true) and 'world pack invalid' or
+            tostring(candidate):find('visual manifest:',1,true) and 'visual manifest invalid' or
+            'missing/corrupt visual'
+        notice='F5 art rejected: '..brief
+        visual_refresh_message=refresh_result
+        print('Visual refresh '..refresh_result)
+        return false
+    end
+    local signature=visual_fingerprint(candidate,theme,world)
+    local same=signature==visual_signature
+    visual_assets,studio_theme,studio_theme_status=candidate,theme,theme_status
+    studio_world_status=world_status
+    -- A run owns concrete floor geometry. World templates are installed only
+    -- for a fresh run from the title, never into an existing run.
+    next_world_pack=world
+    visual_signature=signature
+    if title and not state then Generation.install_studio_pack(world) end
+    local backing=candidate.atlas_status
+    if candidate.status=='absent' then backing='built-in fallback'
+    elseif backing~='loaded' and backing~='recovered previous atlas generation' then
+        backing='published loose ('..tostring(backing)..')'
+    else backing='atlas' end
+    refresh_result=(same and 'checked' or 'refreshed')..' · '..backing..
+        ((state and world_status=='loaded') and ' · world geometry deferred' or '')
+    local brief=candidate.status=='absent' and 'built-in' or
+        (backing=='atlas' and 'atlas' or 'loose (atlas unavailable)')
+    notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief
+    visual_refresh_message=refresh_result
+    if not same then print('Visual refresh '..refresh_result) end
+    collectgarbage('step',200)
+    return true
+end
+
 function love.update(dt)
+    if studio then return end
+    if refresh_pending then refresh_pending=false;refresh_visuals() end
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
@@ -204,6 +373,7 @@ local function begin_new(seed)
         persistence_message="New Run profile write failed: "..tostring(updated)
         return
     end
+    Generation.install_studio_pack(next_world_pack)
     local candidate=Game.new_stage(seed,{meta=Achievements.new_run(true,run_id),
         available_boons=Achievements.pool(updated.earned)})
     local ok,reason=save_service:replace(candidate)
@@ -373,7 +543,9 @@ local function submit(intent)
 end
 
 function love.keypressed(key, _, isrepeat)
+    if studio then return studio:keypressed(key) end
     if isrepeat then return end
+    if key=='f5' then refresh_pending=true;return end
     if key=="f3" then
         if diagnostics then diagnostics=nil
         else diagnostics=require("src.diagnostics").new() end
@@ -499,7 +671,15 @@ function love.keypressed(key, _, isrepeat)
         notice="Boon list page — no time"
         return
     end
-    if Playback.busy(playback) or state.game_over then return end
+    if Playback.busy(playback) then
+        if cardinal[key] or diagonal[key] or key=="space" or key=="."
+            or key=="f" or key=="r" or key=="x"
+            or key=="return" or key=="kpenter" then
+            notice="Input ignored during playback — press again when ready"
+        end
+        return
+    end
+    if state.game_over then return end
     if key == "b" and not targeting then
         showcase_index = (showcase_index + 1) % (#showcase + 1)
         apply_showcase()
@@ -574,7 +754,18 @@ local function draw_enemies()
                 position.floor_id,position.x,position.y,visible_at)
             if shown then
             local x, y = Camera.tile_top_left(camera, visual_x, visual_y)
-            if enemy.ai_id == "guard" then
+            local enemy_art=visual_assets and
+                visual_assets:resolve_id(enemy.definition_id)
+            if enemy_art then
+                love.graphics.setColor(1,1,1,1)
+                if enemy_art.quad then
+                    love.graphics.draw(enemy_art.texture,enemy_art.quad,x,y,0,
+                        TILE/enemy_art.width,TILE/enemy_art.height)
+                else
+                    love.graphics.draw(enemy_art.texture,x,y,0,
+                        TILE/enemy_art.width,TILE/enemy_art.height)
+                end
+            elseif enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)
                 love.graphics.rectangle("fill", x + 5, y + 5, TILE - 12, TILE - 13)
             elseif enemy.ai_id == "spitter" then
@@ -851,6 +1042,20 @@ local function draw_world()
             end
             love.graphics.setColor(r,g,b)
             love.graphics.rectangle("fill", screen_x, screen_y, TILE - 2, TILE - 2)
+            local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
+            if authored_id and visual_assets then
+                local handle=visual_assets:resolve_id(authored_id)
+                if handle then
+                    love.graphics.setColor(1,1,1,remembered and 0.38 or 1)
+                    if handle.quad then
+                        love.graphics.draw(handle.texture,handle.quad,screen_x,screen_y,
+                            0,TILE/handle.width,TILE/handle.height)
+                    else
+                        love.graphics.draw(handle.texture,screen_x,screen_y,0,
+                            TILE/handle.width,TILE/handle.height)
+                    end
+                end
+            end
             if not remembered and visual=="k" then
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.78)
                 love.graphics.line(screen_x+9,screen_y+6,screen_x+17,screen_y+16,
@@ -935,13 +1140,54 @@ local function draw_world()
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
-    love.graphics.setColor(0.95, 0.78, 0.30)
-    love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
-    draw_history_event(Playback.current(playback))
+    local avatar=visual_assets and visual_assets:resolve('core:actor/adventurer')
+    if avatar then
+        love.graphics.setColor(1,1,1)
+        if avatar.quad then
+            love.graphics.draw(avatar.texture,avatar.quad,screen_x,screen_y,0,
+                TILE/avatar.width,TILE/avatar.height)
+        else
+            love.graphics.draw(avatar.texture,screen_x,screen_y,0,
+                TILE/avatar.width,TILE/avatar.height)
+        end
+    else
+        love.graphics.setColor(0.95, 0.78, 0.30)
+        love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
+    end
+    local current_group=Playback.current_group(playback)
+    if current_group then
+        for _,event in ipairs(current_group) do draw_history_event(event) end
+    else
+        draw_history_event(Playback.current(playback))
+    end
+    local visual_event=Playback.current(playback)
+    if studio_theme and visual_event and
+        (not visual_event.floor_id or visual_event.floor_id==state.active_floor_id) then
+        local seen,effects={},0
+        for _,event in ipairs(current_group or {visual_event}) do
+            if (event.kind=='DamageTaken' or event.kind=='BoonActivated')
+                and event.x and event.y then
+                local key=event.kind..':'..event.x..':'..event.y
+                if not seen[key] then
+                    seen[key]=true
+                    studio_theme:draw_effect(event,playback,
+                        function(x,y) return Camera.tile_top_left(camera,x,y) end,
+                        visible_at)
+                    effects=effects+1
+                    if effects>=8 then break end
+                end
+            end
+        end
+    end
     draw_minimap()
     if chest_menu then
-        love.graphics.setColor(0.02, 0.04, 0.04, 0.93)
-        love.graphics.rectangle("fill", 70, 100, 640, 390)
+        if studio_theme and studio_theme:draw_panel(70,100,640,390) then
+            love.graphics.setColor(0.02,0.04,0.04,0.72)
+            love.graphics.rectangle('fill',74,104,632,382)
+        else
+            love.graphics.setColor(0.02, 0.04, 0.04, 0.93)
+            love.graphics.rectangle("fill", 70, 100, 640, 390)
+        end
         love.graphics.setColor(1, 0.88, 0.53)
         love.graphics.print(("%s — price %d (you have %d)"):format(
             chest_menu.name, chest_menu.price, state.currency), 90, 120)
@@ -1047,6 +1293,12 @@ local function draw_world()
 end
 
 local function draw_panel()
+    if studio_theme then
+        if studio_theme:draw_panel(PANEL_X-12,16,280,608) then
+            love.graphics.setColor(0.015,0.025,0.025,0.62)
+            love.graphics.rectangle('fill',PANEL_X-9,19,274,602)
+        end
+    end
     local position = Game.player(state).position
     love.graphics.setColor(0.93, 0.95, 0.88)
     love.graphics.print("ROEG — "..(state.finale and "Final Sanctum" or
@@ -1065,7 +1317,15 @@ local function draw_panel()
         love.graphics.print("Authored test map", PANEL_X, 43)
     end
     local player = Game.player(state)
-    love.graphics.print(("HP: %d / %d"):format(player.hp, player.max_hp), PANEL_X, 58)
+    local hp_text=("HP: %d / %d"):format(player.hp, player.max_hp)
+    if not (studio_theme and studio_theme:draw_text(hp_text,PANEL_X,58,2)) then
+        love.graphics.print(hp_text, PANEL_X, 58)
+    end
+    if studio_theme then
+        studio_theme:draw_icon('hp_icon',PANEL_X+244,58,18)
+        studio_theme:draw_icon('xp_icon',PANEL_X+244,178,18)
+        studio_theme:draw_icon('currency_icon',PANEL_X+244,195,18)
+    end
     love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 82)
     love.graphics.print(("World time: %d"):format(state.clock), PANEL_X, 106)
     love.graphics.print(("Level %d · XP %d / %d"):format(state.progression.level,
@@ -1143,13 +1403,31 @@ local function draw_panel()
     if history then
         love.graphics.setColor(1, 0.67, 0.28)
         local playback_label = history.kind
-        if history.boon_id then
+        local group=Playback.current_group(playback)
+        if group and group[#group].kind=="Died" then
+            playback_label="Lethal hit · target down"
+        elseif group and history.kind~="WindupStarted" then
+            if history.kind=="BoonActivated" and history.boon_id then
+                playback_label=("%s x%d"):format(
+                    BoonContent.get(history.boon_id).name,#group)
+            else
+                playback_label=("%s x%d"):format(
+                    playback_cue_labels[history.kind] or history.kind,#group)
+            end
+        elseif history.boon_id then
             playback_label = history.kind .. ": " .. BoonContent.get(history.boon_id).name
         elseif history.kind=="Moved" or history.kind=="Displaced" then
             playback_label="Movement"
         elseif history.kind=="WindupStarted" then
-            playback_label=("%s: T%d > T%d"):format(
-                Content.ability_name(history.ability_id),history.time,history.due)
+            if group then
+                local due=history.due
+                for _,event in ipairs(group) do due=math.min(due,event.due) end
+                playback_label=("%d locked attacks: earliest T%d"):
+                    format(#group,due)
+            else
+                playback_label=("%s: T%d > T%d"):format(
+                    Content.ability_name(history.ability_id),history.time,history.due)
+            end
         end
         love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 446, 265)
         love.graphics.print(history.kind=="WindupStarted" and
@@ -1222,7 +1500,7 @@ local function draw_panel()
     end
 
     love.graphics.setColor(0.80, 0.86, 0.80)
-    love.graphics.print("N/M reset (confirm) · Tab map · B dev", PANEL_X, 495)
+    love.graphics.print("Tab map · F5 art · B dev", PANEL_X, 495)
     love.graphics.print("Move: WASD / arrows", PANEL_X, 513)
     love.graphics.print("Wait: Space or .", PANEL_X, 531)
     love.graphics.print("F sword · R slash · X dash", PANEL_X, 549)
@@ -1232,7 +1510,14 @@ local function draw_panel()
 end
 
 function love.draw()
+    if studio then return studio:draw() end
     if title then
+        if studio_theme and studio_theme:draw_background('title_background',0,0,
+            love.graphics.getWidth(),love.graphics.getHeight()) then
+            love.graphics.setColor(0,0,0,.45)
+            love.graphics.rectangle('fill',0,0,love.graphics.getWidth(),
+                love.graphics.getHeight())
+        end
         love.graphics.setColor(0.88,0.94,0.83)
         love.graphics.printf("ROEG — Four Biomes",0,120,1024,"center")
         local can_continue=save_status and
@@ -1275,6 +1560,10 @@ function love.draw()
             love.graphics.setColor(1,0.46,0.43)
             love.graphics.printf(persistence_message,100,435,824,"center")
         end
+        if visual_refresh_message~='' then
+            love.graphics.setColor(.71,.9,.85)
+            love.graphics.printf('Visuals: '..visual_refresh_message,100,505,824,'center')
+        end
         return
     end
     if camera_state ~= state then reset_camera() end
@@ -1296,6 +1585,7 @@ function love.draw()
     if pause_menu then
         love.graphics.setColor(0,0,0,0.83)
         love.graphics.rectangle("fill",160,150,704,330)
+        if studio_theme then studio_theme:draw_background('pause_background',160,150,704,330) end
         love.graphics.setColor(0.94,0.95,0.85)
         love.graphics.printf("PAUSED — world time stopped",160,190,704,"center")
         love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
@@ -1353,4 +1643,75 @@ end
 -- playback has not been submitted to the simulation.
 function love.roegPlaybackPending()
     return Playback.busy(playback)
+end
+function love.roegAssetStatus()
+    return visual_assets and visual_assets.status or 'studio'
+end
+function love.roegVisualRefreshStatus() return refresh_result end
+function love.roegWorldPackStatus() return studio_world_status end
+function love.roegThemeStatus() return studio_theme_status or 'absent' end
+function love.roegAtlasStatus()
+    return visual_assets and visual_assets.atlas_status or 'absent'
+end
+function love.roegAssetBacking(id)
+    local handle=visual_assets and visual_assets:resolve_id(id)
+    return handle and handle.source or 'fallback'
+end
+function love.roegThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
+function love.roegAssetResolved(binding)
+    return visual_assets and visual_assets:get(binding)~=nil or false
+end
+function love.roegAssetIdResolved(id)
+    return visual_assets and visual_assets:get_id(id)~=nil or false
+end
+function love.roegStudioState()
+    if not studio then return nil end
+    return {mode=studio.mode,project=studio.project,dirty=studio.dirty,
+        message=studio.message,workspace=studio.workspace,
+        pipeline_report=studio.pipeline_report,draft_preview=studio.draft_preview,
+        selected=studio.selected,canvas=studio.canvas,
+        world=studio.world_editor and studio.world_editor.pack,
+        world_editor=studio.world_editor,
+        theme=studio.theme_editor and studio.theme_editor.theme,
+        theme_editor=studio.theme_editor}
+end
+function love.textinput(text)
+    if studio then studio:textinput(text) end
+end
+function love.mousepressed(x,y,button)
+    if studio then studio:mousepressed(x,y,button) end
+end
+function love.mousemoved(x,y,dx,dy)
+    if studio then studio:mousemoved(x,y,dx,dy) end
+end
+function love.mousereleased(x,y,button)
+    if studio then studio:mousereleased(x,y,button) end
+end
+function love.wheelmoved(dx,dy)
+    if studio then studio:wheelmoved(dx,dy) end
+end
+function love.focus(focused)
+    if studio then studio:focus(focused) end
+end
+function love.filedropped(file)
+    if studio then studio:filedropped(file) end
+end
+function love.quit()
+    if studio and studio.canvas then
+        studio.canvas:finish()
+        studio.dirty=studio.metadata_dirty or studio.canvas:dirty()
+    end
+    if studio and studio.world_editor then
+        studio.world_editor:finish()
+        studio.dirty=studio.metadata_dirty or studio.world_editor:dirty()
+    end
+    if studio and studio.theme_editor then
+        studio.dirty=studio.metadata_dirty or studio.theme_editor:dirty() or studio.dirty
+    end
+    if studio and studio.dirty and not studio.allow_quit then
+        studio.return_mode=studio.mode
+        studio.mode='quit_confirm'
+        studio:status('Unsaved project edits. Enter/Y closes without saving; Esc returns.')
+        return true
+    end
 end

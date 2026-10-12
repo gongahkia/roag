@@ -1122,6 +1122,9 @@ function Game.restore(snapshot)
     local map = snapshot.generated_map or snapshot.final_map or
         assert(Content.get_map(snapshot.map_id), "unknown map content ID")
     if snapshot.generated_map then
+        assert(snapshot.generated_map.studio_pack_fingerprint==
+            Generation.studio_pack_fingerprint(),
+            "incompatible published world pack")
         local biome=Biomes.get(map.biome_id or Biomes.order[1])
         assert(biome and snapshot.map_id==biome.map_id and snapshot.run_seed==map.seed,
             "generated floor identity mismatch")

@@ -5,6 +5,7 @@ local RNG = require("src.rng")
 local Rooms = require("src.rooms")
 local Biomes = require("src.biomes")
 local World = require("src.world")
+local StudioWorld = require("src.studio_world")
 
 local Generation = {}
 Generation.map_id = "core:map/overgrown_ruins"
@@ -14,6 +15,19 @@ Generation.width, Generation.height = Rooms.biome.width, Rooms.biome.height
 Generation.room_min, Generation.room_max = Rooms.biome.room_min, Rooms.biome.room_max
 Generation.chest_target = Rooms.biome.standard_chests
 function Generation.biome_for_map(map_id) return Biomes.for_map(map_id) end
+local active_studio_pack
+local function pack_fingerprint(pack)
+    if not pack then return nil end
+    local bytes=StudioWorld.encode(pack)
+    local a,b=1,0
+    for i=1,#bytes do a=(a+bytes:byte(i))%65521;b=(b+a)%65521 end
+    return string.format('%08x:%d',b*65536+a,#bytes)
+end
+function Generation.install_studio_pack(pack)
+    if pack then StudioWorld.validate(pack) end
+    active_studio_pack=pack
+end
+function Generation.studio_pack_fingerprint() return pack_fingerprint(active_studio_pack) end
 
 local dirs = {{-1,0},{1,0},{0,-1},{0,1}}
 local function key(x,y) return x .. "," .. y end
@@ -202,9 +216,10 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed,b
         local wx,wy=ox+x-1,oy+y-1
         assert(wx>1 and wx<map.width and wy>1 and wy<map.height,
             "room outside generated floor")
+        local base=transformed.rows[y]:sub(x,x)
+        if base~=" " then
         assert(not footprint[key(wx,wy)],"room footprints overlap")
         footprint[key(wx,wy)]=room.id
-        local base=transformed.rows[y]:sub(x,x)
         local varied=base
         if editable[key(x,y)] then
             map.editable_cells[#map.editable_cells+1]={x=wx,y=wy,kind="room"}
@@ -217,6 +232,12 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed,b
             map.protected_cells[#map.protected_cells+1]={x=wx,y=wy,tile=base}
         end
         terrain[wy][wx]=varied
+        local visual_id=transformed.studio_visual_cells and
+            transformed.studio_visual_cells[key(x,y)]
+        if visual_id then
+            map.studio_visuals=map.studio_visuals or {}
+            map.studio_visuals[key(wx,wy)]=visual_id
+        end
         if varied=="#" then art[wy][wx]=biome.wall_visual
         elseif varied=="~" then art[wy][wx]="q"
         elseif node.role=="elite" then art[wy][wx]="a"
@@ -229,6 +250,7 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed,b
                 art[wy][wx]=roll<=3 and biome.floor_visual
                     or roll==4 and "r" or biome.floor_visual
             end
+        end
         end
     end end
     return room
@@ -424,7 +446,7 @@ local function place_exploration(map, terrain, art, footprint, seed, attempt)
         x=door_socket.x,y=door_socket.y}
 end
 
-local function build(seed,attempt,derived_seed,biome)
+local function build(seed,attempt,derived_seed,biome,pack)
     local rng=RNG.new(derived_seed)
     local graph=Generation.plan(rng,biome)
     local map={id=biome.map_id,floor_id=biome.floor_id,biome_id=biome.id,
@@ -433,15 +455,32 @@ local function build(seed,attempt,derived_seed,biome)
         seed=seed,attempt=attempt,derived_seed=derived_seed,
         graph=graph,rooms={},corridors={},protected_cells={},editable_cells={},
         placements={enemies={},chests={},secrets={},doors={}},repairs={}}
+    if pack then
+        map.studio_pack_fingerprint=pack_fingerprint(pack)
+        map.studio_templates={}
+    end
     local terrain=blank_grid(map.width,map.height,"#")
     local art=blank_grid(map.width,map.height,"w")
     local footprint={}
     local by_id={}
     for _,node in ipairs(graph.nodes) do
         local pool=Rooms.for_role(node.role,biome.id)
+        if pack then for _,source in ipairs(pack.rooms) do
+            local allowed=false
+            for _,biome_id in ipairs(source.biomes) do
+                if biome_id==biome.id then allowed=true;break end
+            end
+            if allowed and Rooms.has_role(source,node.role) then
+                local definition=StudioWorld.runtime_room(source,pack)
+                for _=1,source.weight do pool[#pool+1]=definition end
+            end
+        end end
         local def=biome.hub_template_id and node.id==6
             and Rooms.definitions[biome.hub_template_id]
             or pool[RNG.next_int(rng,#pool)]
+        if pack and def.studio_weight then
+            map.studio_templates[def.id]=def
+        end
         local turn=def.rotations[RNG.next_int(rng,#def.rotations)]
         local transformed=Rooms.transform(def,turn,def.mirror and RNG.next_int(rng,2)==1)
         local room=stamp_room(map,terrain,art,footprint,rng,node,transformed,biome)
@@ -680,7 +719,8 @@ function Generation.validate(map,runtime_secrets)
     end
     local footprints={}
     for _,room in ipairs(map.rooms) do
-        local definition=Rooms.definitions[room.template_id]
+        local definition=Rooms.definitions[room.template_id] or
+            map.studio_templates and map.studio_templates[room.template_id]
         local transformed
         if definition then
             local success,result=pcall(Rooms.transform,definition,room.turns,room.mirror)
@@ -695,13 +735,15 @@ function Generation.validate(map,runtime_secrets)
             for y=1,room.height do for x=1,room.width do
                 local wx,wy=room.x+x-1,room.y+y-1
                 local k=key(wx,wy)
+                local expected=transformed.rows[y]:sub(x,x)
+                if expected~=" " then
                 if footprints[k] then
                     issue("room_overlap",wx,wy,room.id)
                 end
                 footprints[k]=room.id
-                local expected=transformed.rows[y]:sub(x,x)
                 if not editable[key(x,y)] and protected[k]~=expected then
                     issue("protected_mask_missing",wx,wy,room.template_id)
+                end
                 end
             end end
             for _,s in ipairs(transformed.sockets) do
@@ -981,6 +1023,8 @@ end
 
 function Generation.generate(seed,options)
     options=options or {}
+    local pack=options.studio_pack or active_studio_pack
+    if pack then StudioWorld.validate(pack) end
     local biome=assert(Biomes.get(options.biome_id or Biomes.order[1]),
         "unknown generation biome")
     Biomes.validate()
@@ -1002,13 +1046,13 @@ function Generation.generate(seed,options)
     local attempts={}
     for attempt=0,retry_limit do
         local derived=RNG.derive(seed,biome.floor_id..":"..attempt)
-        local ok,map_or_error=pcall(build,seed,attempt,derived,biome)
+        local ok,map_or_error=pcall(build,seed,attempt,derived,biome,pack)
         local map=ok and map_or_error or nil
         if map then
             if options.fault then inject_fault(map,options.fault) end
             local valid,errors,repairs=Generation.repair(map,8)
             attempts[#attempts+1]={attempt=attempt,derived_seed=derived,
-                valid=valid,error_count=#errors,repairs=repairs}
+                valid=valid,error_count=#errors,first_error=errors[1],repairs=repairs}
             if valid then
                 map.repairs=repairs
                 map.diagnostics={attempts=attempts,fallback=false}
@@ -1021,11 +1065,20 @@ function Generation.generate(seed,options)
     end
     -- Known safe deterministic reference candidate, independently validated on every use.
     local fallback_seed=RNG.derive(314159,biome.floor_id..":fallback")
-    local fallback=build(seed,-1,fallback_seed,biome)
-    local valid,errors=Generation.validate(fallback)
+    local fallback_ok,fallback=pcall(build,seed,-1,fallback_seed,biome,pack)
+    local valid,errors=false,{}
+    if fallback_ok then valid,errors=Generation.validate(fallback) end
+    local authored_excluded=false
+    if not valid and pack then
+        fallback=build(seed,-1,fallback_seed,biome,nil)
+        valid,errors=Generation.validate(fallback)
+        authored_excluded=true
+        fallback.studio_pack_fingerprint=pack_fingerprint(pack)
+        fallback.studio_templates={}
+    end
     assert(valid,"prevalidated fallback failed: "..(errors[1] and errors[1].kind or "unknown"))
     fallback.diagnostics={attempts=attempts,fallback=true,
-        fallback_reference_seed=fallback_seed}
+        fallback_reference_seed=fallback_seed,authored_excluded=authored_excluded}
     return fallback
 end
 
