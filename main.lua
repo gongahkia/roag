@@ -802,7 +802,7 @@ local function bound_visual(binding)
 end
 local function actor_visual(binding,id)
     local pose=VisualSlots.pose(id,Playback.current(playback),
-        Playback.current_group(playback))
+        Playback.current_pose_events(playback))
     return pose and bound_visual(binding..'/'..pose) or bound_visual(binding)
 end
 

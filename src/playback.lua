@@ -66,6 +66,7 @@ end
 function Playback.add(playback, events, player_id)
     local motions, order, first_event = {}, {}, nil
     local first_new_item = #playback.items + 1
+    local player_attacks = {}
     local function flush()
         if not first_event then return end
         local longest = 1
@@ -110,7 +111,12 @@ function Playback.add(playback, events, player_id)
             first_event = first_event or event
         else
             local duration = durations[event.kind]
-            if duration and (event.kind ~= "AttackPerformed" or event.source_id ~= player_id) then
+            if event.kind == "AttackPerformed" and event.source_id == player_id then
+                flush()
+                -- Player attacks used to have no presentation beat. Show the
+                -- pose during the next existing beat, if one follows.
+                player_attacks[#player_attacks+1]={event=event,index=#playback.items+1}
+            elseif duration then
                 flush()
                 -- Consecutive locked attacks have no intervening impact or
                 -- movement to show. Routine boon/damage feedback similarly
@@ -146,6 +152,18 @@ function Playback.add(playback, events, player_id)
         end
     end
     flush()
+    for _,attack in ipairs(player_attacks) do
+        local item=playback.items[attack.index]
+        if not item then
+            -- A miss with no other feedback still needs one visible pose.
+            item={event=attack.event,duration=Playback.tile_seconds,
+                pose_only=true}
+            playback.items[#playback.items+1]=item
+        else
+            item.pose_events=item.pose_events or {}
+            item.pose_events[#item.pose_events+1]=attack.event
+        end
+    end
     if playback.remaining == 0 and #playback.items > 0 then
         playback.remaining = playback.items[1].duration
     end
@@ -157,6 +175,18 @@ end
 
 function Playback.current_group(playback)
     return playback.items[1] and playback.items[1].events or nil
+end
+
+function Playback.current_pose_events(playback)
+    local item=playback.items[1]
+    if not item then return nil end
+    if not item.pose_events then return item.events or {item.event} end
+    local events={}
+    for _,event in ipairs(item.events or {item.event}) do
+        events[#events+1]=event
+    end
+    for _,event in ipairs(item.pose_events) do events[#events+1]=event end
+    return events
 end
 
 function Playback.busy(playback)

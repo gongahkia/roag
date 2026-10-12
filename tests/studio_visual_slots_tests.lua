@@ -3,6 +3,7 @@ local Project=require('src.studio_project')
 local PNG=require('src.studio_png')
 local Publish=require('src.studio_publish')
 local VisualAssets=require('src.visual_assets')
+local Playback=require('src.playback')
 return function(test)
     test('Studio visual bindings accept actor states, boon art and terrain slots',function()
         local p=Project.new('visuals','Visuals')
@@ -27,6 +28,25 @@ return function(test)
         assert(Slots.pose(id,{kind='DamageTaken',target_id=id,actual_loss=0})==nil)
         assert(Slots.pose(id,nil,{{kind='AttackPerformed',source_id=id},
             {kind='DamageTaken',target_id=id,actual_loss=1}})=='hurt')
+    end)
+    test('Player attack pose shares impact beat or uses one short miss beat',function()
+        local attack={kind='AttackPerformed',source_id=1,floor_id='floor',
+            target_cells={}}
+        local hit={kind='DamageTaken',target_id=2,actual_loss=1,
+            floor_id='floor',time=100}
+        local playback=Playback.new()
+        Playback.add(playback,{attack,hit},1)
+        assert(#playback.items==1 and Playback.current(playback)==hit)
+        assert(Slots.pose(1,nil,Playback.current_pose_events(playback))=='attack')
+        Playback.update(playback,1)
+        assert(not Playback.busy(playback))
+        local missed=Playback.new()
+        Playback.add(missed,{attack},1)
+        assert(#missed.items==1 and
+            missed.items[1].duration==Playback.tile_seconds)
+        assert(Slots.pose(1,nil,Playback.current_pose_events(missed))=='attack')
+        Playback.update(missed,Playback.tile_seconds)
+        assert(not Playback.busy(missed))
     end)
     test('Terrain classifier distinguishes centers, edges and both corner types',function()
         local function shape(rows,x,y)

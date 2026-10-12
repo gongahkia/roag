@@ -73,10 +73,12 @@ function love.draw(...)
         file:close()
         if phase == 1 then
             press("return")
+            original_update(0.1) -- consume the visible player attack pose
             press("r")
             press("w")
         elseif phase == 2 then
             press("return")
+            original_update(0.1) -- input is rejected until the pose beat ends
             press("x")
             press("a")
         elseif phase == 3 then

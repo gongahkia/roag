@@ -20,6 +20,7 @@ local slots={
     {'wall','core:terrain/overgrown_ruins/wall/base',{180,50,180,255}},
     {'background','core:background/overgrown_ruins',{35,50,90,255}},
     {'currency','core:drop/currency',{240,210,20,255}},
+    {'currency_detail','core:drop/currency/detail',{250,190,35,255}},
     {'boon_icon','core:boon/storm_conductor/icon',{60,190,240,255}},
     {'boon_detail','core:boon/storm_conductor/detail',{90,220,250,255}},
 }
@@ -72,6 +73,7 @@ function love.load(...)
         'core:boon/storm_conductor','common',1)
     assert(love.roegAssetResolved('core:actor/adventurer/attack'))
     assert(love.roegAssetResolved('core:actor/adventurer/hurt'))
+    assert(love.roegAssetResolved('core:boon/storm_conductor/icon'))
 end
 function love.update(_) original_update(0) end
 function love.draw(...)
@@ -79,13 +81,28 @@ function love.draw(...)
     original_draw(...)
     local required=phase==1 and 'core:actor/adventurer' or
         phase==2 and 'core:actor/adventurer/attack' or
-        'core:actor/adventurer/hurt'
-    assert(seen[required],required..' was not drawn in phase '..phase)
+        phase==3 and 'core:actor/adventurer/hurt' or nil
+    if required then
+        assert(seen[required],required..' was not drawn in phase '..phase)
+    end
     assert(seen['core:background/overgrown_ruins'],'gameplay backdrop not drawn')
-    assert(seen['core:terrain/overgrown_ruins/wall/base'],
-        'automatic wall terrain not drawn')
+    if phase==1 then
+        assert(seen['core:terrain/overgrown_ruins/wall/base'],
+            'automatic wall terrain not drawn')
+    end
     assert(seen['core:drop/currency'],'floor currency sprite not drawn')
-    assert(seen['core:boon/storm_conductor/icon'],'owned boon icon not drawn')
+    assert(seen['core:boon/storm_conductor/icon'],
+        'owned boon icon not drawn in phase '..phase..' stacks='..
+        tostring(Game.player(state).boons['core:boon/storm_conductor'] and
+        Game.player(state).boons['core:boon/storm_conductor'].common))
+    if phase==4 then
+        assert(seen['core:boon/storm_conductor/detail'],
+            'clicked owned boon detail was not drawn')
+    elseif phase==5 then
+        assert(seen['core:drop/currency/detail'],
+            'currency pickup detail was not drawn')
+        assert(state.drops[1].collected,'currency was not collected')
+    end
     local path=output..'/phase'..phase..'.tga'
     love.graphics.captureScreenshot(function(image)
         local file=assert(io.open(path,'wb'))
@@ -93,17 +110,24 @@ function love.draw(...)
     end)
     if phase==1 then
         Playback.add(queue,{{kind='AttackPerformed',source_id=state.player_id,
-            floor_id=state.active_floor_id,time=0,x=2,y=2}},state.player_id)
+            floor_id=state.active_floor_id,time=0,x=2,y=2,
+            target_cells={{x=3,y=2}}}},state.player_id)
     elseif phase==2 then
         queue.items={};queue.remaining=0
         Playback.add(queue,{{kind='DamageTaken',target_id=state.player_id,
-            actual_loss=1,floor_id=state.active_floor_id,time=0,x=2,y=2}},
+            actual_loss=1,floor_id=state.active_floor_id,time=0,x=3,y=2}},
             state.player_id)
+    elseif phase==3 then
+        queue.items={};queue.remaining=0
+        love.mousepressed(747,355,1)
+    elseif phase==4 then
+        love.mousepressed(747,355,1)
+        love.keypressed('d')
     else love.event.quit() end
     phase=phase+1
 end
 LUA
 ROEG_GUI_AUTOSTART=1 ROEG_VISUAL_OUTPUT="$output" \
     XDG_DATA_HOME="$output/data" timeout 25s love "$app" >"$output/game.log" 2>&1
-for phase in 1 2 3; do test -s "$output/phase$phase.tga"; done
+for phase in 1 2 3 4 5; do test -s "$output/phase$phase.tga"; done
 printf 'Visual slots GUI passed: %s\n' "$output"
