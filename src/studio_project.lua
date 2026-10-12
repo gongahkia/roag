@@ -2,6 +2,7 @@
 local M={schema='roeg-studio-project/1',max_image_bytes=8*1024*1024}
 local bit=require('bit')
 local Document=require('src.studio_document')
+local VisualSlots=require('src.visual_slots')
 local crc_table={}
 for i=0,255 do
     local c=i
@@ -14,7 +15,7 @@ end
 local kinds={actor=true,enemy=true,tile=true,effect=true,ui=true,background=true,
     glyph=true,shader=true,ui_icon=true,ui_panel=true,ui_background=true,
     bitmap_font=true,effect_sprite=true}
-M.bindings={['core:actor/adventurer']=true}
+M.bindings=VisualSlots.bindings
 local function check(ok,message) if not ok then error(message,2) end end
 local function string_field(s,label,max)
     check(type(s)=='string' and #s<=max and not s:find('%z'),label..' must be text')
