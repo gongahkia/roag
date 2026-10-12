@@ -26,9 +26,11 @@ XDG_DATA_HOME="$output/data" TMPDIR="${TMPDIR:-/var/tmp}" \
     timeout 35s love "$app" --atlas-build >"$output/build.log" 2>&1
 save_dir="$output/data/love/roeg"
 if [ ! -d "$save_dir/studio/atlas-build" ]; then
-    save_dir=$(find "$output/data" -type d -path '*/studio/atlas-build' -print -quit)
-    save_dir=${save_dir%/studio/atlas-build}
+    # LÖVE reports its real save path; XDG_DATA_HOME is Linux-specific.
+    candidate=$(sed -n 's/^Atlas candidate: .* page(s), \(.*\)studio\/atlas-build\/$/\1/p' "$output/build.log")
+    save_dir=${candidate%/}
 fi
+test -d "$save_dir/studio/atlas-build"
 (cd "$app" && luajit tools/studio_atlas_publish.lua --save-dir "$save_dir" \
     --project e06_visuals --apply) >"$output/publish.log" 2>&1
 cp "$project_dir/tests/e06_game_wrapper.lua" "$app/main.lua"
