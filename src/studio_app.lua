@@ -10,6 +10,7 @@ local StudioTheme=require('src.studio_theme')
 local StudioThemeStore=require('src.studio_theme_store')
 local ThemeEditor=require('src.studio_theme_editor')
 local Pipeline=require('src.studio_pipeline_status')
+local GuiPublish=require('src.studio_gui_publish')
 local VisualAssets=require('src.visual_assets')
 local E06Views=require('src.studio_e06_views')
 local utf8=require('utf8')
@@ -188,7 +189,92 @@ function App:inspect_pipeline()
         published_read,self.world_pack,self.theme_pack,verify_page)
     if not ok then self:status('Publish readiness failed: '..tostring(report));return end
     self.pipeline_report=report;self.mode='pipeline'
-    self:status('Read-only publish readiness · Esc returns · P rescans')
+    self.loose_plan=nil;self.loose_publisher=nil
+    self:status('Publish readiness · D previews loose files · Esc returns')
+end
+function App:preview_loose_publish()
+    if not self.project then self:status('Open a project first');return end
+    if self.dirty or self.canvas and self.canvas:dirty() or
+        self.world_editor and self.world_editor:dirty() or
+        self.theme_editor and self.theme_editor:dirty() then
+        self:status('Save all Studio edits (S) before publishing.');return
+    end
+    local saved,reason=self.store:open(self.project.id,decode)
+    if not saved then self:status('Saved project unavailable: '..tostring(reason));return end
+    if Project.encode(saved)~=Project.encode(self.project) then
+        self:status('Saved project changed outside Studio; reopen it before publishing.')
+        return
+    end
+    local ok,publisher,plan=pcall(function()
+        local target=GuiPublish.new(love.filesystem.getSource())
+        local base='studio/projects/'..saved.id..'/'
+        local preview=target:plan(saved,function(path)
+            return IO:read(base..path)
+        end)
+        return target,preview
+    end)
+    if not ok then self:status('Loose publish preview failed: '..tostring(publisher));return end
+    self.loose_publisher,self.loose_plan,self.loose_project=publisher,plan,saved
+    self:status(plan.blocked or 'Dry run only. Review files, then press A to apply.')
+end
+function App:confirm_loose_publish()
+    local plan=self.loose_plan
+    if not plan then self:status('Press D to preview the exact files first.');return end
+    if plan.blocked then self:status(plan.blocked);return end
+    if plan.counts.create+plan.counts.overwrite==0 then
+        self:status('Published loose visuals are already current.');return
+    end
+    self.typed='';self.mode='publish_confirm'
+    self:status(plan.counts.overwrite>0 and
+        'Type OVERWRITE and press Enter to replace the published manifest.' or
+        'Press Enter to publish the listed new files; Esc cancels.')
+end
+function App:backup_published_manifest(bytes)
+    local base='studio/publish-backups/'..self.project.id
+    IO:mkdir(base)
+    for number=1,9999 do
+        local path=base..('/manifest-%04d.txt'):format(number)
+        if not love.filesystem.getInfo(path) then
+            IO:write(path,bytes)
+            assert(IO:read(path)==bytes,'published manifest backup read-back mismatch')
+            return love.filesystem.getSaveDirectory()..'/'..path
+        end
+    end
+    error('published manifest backup directory is full')
+end
+function App:apply_loose_publish()
+    local plan=self.loose_plan
+    if not plan or not self.loose_publisher then
+        self.mode='pipeline';self:status('Preview the files again.');return
+    end
+    if self.dirty then
+        self.mode='pipeline';self.loose_plan=nil
+        self:status('Studio edits changed; save and preview again.');return
+    end
+    local saved,reason=self.store:open(self.project.id,decode)
+    if not saved or Project.encode(saved)~=Project.encode(self.loose_project) then
+        self.mode='pipeline';self.loose_plan=nil
+        self:status('Saved project changed; reopen or preview again: '..tostring(reason))
+        return
+    end
+    local base='studio/projects/'..saved.id..'/'
+    local ok,applied,why,backup=pcall(function()
+        return self.loose_publisher:apply(saved,function(path)
+            return IO:read(base..path)
+        end,plan,plan.counts.overwrite>0,function(bytes)
+            return self:backup_published_manifest(bytes)
+        end)
+    end)
+    if not ok then why=applied;applied=false end
+    self.mode='pipeline';self.loose_plan=nil;self.loose_publisher=nil
+    if not applied then
+        self:status('Publish stopped: '..tostring(why)..' Press P, then D to preview again.')
+        return
+    end
+    self:inspect_pipeline()
+    self.publish_last_backup=backup
+    self:status('Published loose art to this checkout. Game: F5 refreshes visuals.'..
+        (backup and ' Previous manifest backed up.' or ''))
 end
 function App:create_sprite(w,h)
     if not self.project then self:status('Create or open a project first');return end
@@ -349,9 +435,23 @@ function App:keypressed(key)
         if key=='escape' then self.help_open=false end
         return true
     end
+    if self.mode=='publish_confirm' then
+        if key=='escape' then self.mode='pipeline';self.typed=''
+        elseif key=='backspace' then self.typed=self.typed:sub(1,-2)
+        elseif key=='return' or key=='kpenter' then
+            if self.loose_plan.counts.overwrite==0 or self.typed=='OVERWRITE' then
+                self:apply_loose_publish()
+            else self:status('Type OVERWRITE exactly, or Esc to cancel.') end
+        end
+        return true
+    end
     if self.mode=='pipeline' then
-        if key=='escape' then self.mode='project'
-        elseif key=='p' then self:inspect_pipeline() end
+        if key=='escape' then
+            if self.loose_plan then self.loose_plan=nil;self.loose_publisher=nil
+            else self.mode='project' end
+        elseif key=='p' then self:inspect_pipeline()
+        elseif key=='d' then self:preview_loose_publish()
+        elseif key=='a' then self:confirm_loose_publish() end
         return true
     end
     if self.mode=='theme' then
@@ -634,6 +734,10 @@ function App:keypressed(key)
     end
 end
 function App:textinput(text)
+    if self.mode=='publish_confirm' then
+        if #self.typed+#text<=32 then self.typed=self.typed..text end
+        return
+    end
     if self.mode=='canvas' then self.canvas:textinput(text);return end
     if self.mode=='theme' then self.theme_editor:textinput(text);return end
     if self.mode=='name' or self.mode=='edit' or self.mode=='size' or
@@ -643,6 +747,20 @@ function App:textinput(text)
 end
 function App:mousepressed(x,y,button)
     if self.help_open then return true end
+    if button==1 and self.mode=='pipeline' then
+        if y>=558 and y<=596 then
+            if x>=24 and x<224 then self:keypressed('d')
+            elseif x>=240 and x<440 then self:keypressed('a') end
+        end
+        return true
+    end
+    if button==1 and self.mode=='publish_confirm' then
+        if y>=380 and y<=420 then
+            if x>=360 and x<500 then self:keypressed('return')
+            elseif x>=520 and x<660 then self:keypressed('escape') end
+        end
+        return true
+    end
     if self.mode=='canvas' then
         if self.draft_preview then self.draft_preview=false;return true end
         local handled,reason=self.canvas:mousepressed(x,y,button)
@@ -775,12 +893,17 @@ function App:draw()
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
-    if self.mode=='pipeline' then
+    if self.mode=='pipeline' or self.mode=='publish_confirm' then
         E06Views.pipeline(self.pipeline_report,self.workspace,self.dirty,
             (self:selected_asset() or {}).id,
             self.world_editor and self.world_editor:room() and
                 self.world_editor:room().id or 'none',
-            self.theme_pack and self.theme_pack.name or 'none')
+            self.theme_pack and self.theme_pack.name or 'none',
+            self.loose_plan,self.loose_publisher and self.loose_publisher.root,
+            self.publish_last_backup,self.message)
+        if self.mode=='publish_confirm' then
+            E06Views.publish_confirm(self.loose_plan,self.typed,self.message)
+        end
         if self.help_open then E06Views.help(self.workspace) end
         return
     end

@@ -17,6 +17,9 @@ local slots={
     {'player','core:actor/adventurer',{220,40,40,255}},
     {'attack','core:actor/adventurer/attack',{40,220,40,255}},
     {'hurt','core:actor/adventurer/hurt',{40,40,220,255}},
+    {'enemy','core:enemy/mossbound_guard',{190,100,50,255}},
+    {'enemy_attack','core:enemy/mossbound_guard/attack',{190,180,50,255}},
+    {'enemy_hurt','core:enemy/mossbound_guard/hurt',{130,50,190,255}},
     {'wall','core:terrain/overgrown_ruins/wall/base',{180,50,180,255}},
     {'background','core:background/overgrown_ruins',{35,50,90,255}},
     {'currency','core:drop/currency',{240,210,20,255}},
@@ -41,11 +44,13 @@ cat > "$app/main.lua" <<'LUA'
 local Game=require('src.game')
 local Playback=require('src.playback')
 local VisualAssets=require('src.visual_assets')
-local state,queue
+local state,queue,enemy
 local old_new=Game.new_stage
 function Game.new_stage(seed)
     state=Game.new(seed,'core:map/test_room')
     local position=Game.player(state).position
+    enemy=Game.spawn_enemy(state,'core:enemy/mossbound_guard',
+        position.x+3,position.y)
     state.drops[#state.drops+1]={id=777,kind='currency',amount=1,
         position={floor_id=position.floor_id,x=position.x+1,y=position.y},
         collected=false}
@@ -81,7 +86,9 @@ function love.draw(...)
     original_draw(...)
     local required=phase==1 and 'core:actor/adventurer' or
         phase==2 and 'core:actor/adventurer/attack' or
-        phase==3 and 'core:actor/adventurer/hurt' or nil
+        phase==3 and 'core:actor/adventurer/hurt' or
+        phase==6 and 'core:enemy/mossbound_guard/attack' or
+        phase==7 and 'core:enemy/mossbound_guard/hurt' or nil
     if required then
         assert(seen[required],required..' was not drawn in phase '..phase)
     end
@@ -90,7 +97,13 @@ function love.draw(...)
         assert(seen['core:terrain/overgrown_ruins/wall/base'],
             'automatic wall terrain not drawn')
     end
-    assert(seen['core:drop/currency'],'floor currency sprite not drawn')
+    if phase<5 then
+        assert(seen['core:drop/currency'],'floor currency sprite not drawn')
+    end
+    if phase==1 then
+        assert(seen['core:enemy/mossbound_guard'],
+            'base enemy sprite not drawn')
+    end
     assert(seen['core:boon/storm_conductor/icon'],
         'owned boon icon not drawn in phase '..phase..' stacks='..
         tostring(Game.player(state).boons['core:boon/storm_conductor'] and
@@ -123,11 +136,21 @@ function love.draw(...)
     elseif phase==4 then
         love.mousepressed(747,355,1)
         love.keypressed('d')
+    elseif phase==5 then
+        queue.items={};queue.remaining=0
+        Playback.add(queue,{{kind='AttackPerformed',source_id=enemy.id,
+            floor_id=state.active_floor_id,time=0,target_cells={}}},
+            state.player_id)
+    elseif phase==6 then
+        queue.items={};queue.remaining=0
+        Playback.add(queue,{{kind='DamageTaken',target_id=enemy.id,
+            actual_loss=1,floor_id=state.active_floor_id,time=0}},
+            state.player_id)
     else love.event.quit() end
     phase=phase+1
 end
 LUA
 ROEG_GUI_AUTOSTART=1 ROEG_VISUAL_OUTPUT="$output" \
     XDG_DATA_HOME="$output/data" timeout 25s love "$app" >"$output/game.log" 2>&1
-for phase in 1 2 3 4 5; do test -s "$output/phase$phase.tga"; done
+for phase in 1 2 3 4 5 6 7; do test -s "$output/phase$phase.tga"; done
 printf 'Visual slots GUI passed: %s\n' "$output"

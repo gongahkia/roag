@@ -32,8 +32,9 @@ Replace `mossbound_guard` with any built-in enemy slug, or `storm_conductor`
 with any built-in boon slug. The existing fallback art remains when a slot is
 empty. On a shared beat, hurt takes priority over attack. These are still
 images, not animation timelines. A player attack uses the next impact beat;
-an otherwise silent miss has one 80 ms visual beat. The game currently grants boons from chests;
-it has no individual boon drops on the floor. Currency is its floor pickup.
+an otherwise silent miss has one 80 ms visual beat. The game currently grants
+boons from chests; it has no individual boon drops on the floor. Currency is
+its floor pickup.
 Chest offers display the detailed boon image when supplied. After a claim, a
 large card appears briefly. Click an owned boon in the right HUD to reopen its
 detail; **Esc** or click closes it without advancing world time.
