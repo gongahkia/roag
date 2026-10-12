@@ -19,10 +19,10 @@ function love.load(args)
     love.keypressed('i');love.keypressed('b');love.keypressed('s')
     assert(not state().dirty)
     love.keypressed('p');love.keypressed('d')
-    assert(state().mode=='pipeline' and state().loose_plan,
+    assert(state().mode=='pipeline' and state().publish_preview,
         'preview failed: '..tostring(state().mode)..' '..tostring(state().message))
-    assert(state().loose_plan.counts.create==2 and
-        state().loose_plan.counts.overwrite==0)
+    assert(state().publish_preview.counts.create==2 and
+        state().publish_preview.counts.overwrite==0)
     assert(not love.filesystem.getInfo('assets/studio/manifest.txt'),
         'dry run created a published manifest')
 end
@@ -48,14 +48,14 @@ function love.draw()
         elseif current==2 then
             advance=function()
                 love.keypressed('return')
-                assert(state().mode=='pipeline' and not state().loose_plan)
+                assert(state().mode=='pipeline' and not state().publish_preview)
                 before_manifest=published()
                 assert(Project.decode(before_manifest).id=='gui_publish')
                 love.keypressed('escape')
                 love.keypressed('1');clear_field()
                 love.textinput('Changed player');love.keypressed('return')
                 love.keypressed('s');love.keypressed('p');love.keypressed('d')
-                assert(state().loose_plan.counts.overwrite==1)
+                assert(state().publish_preview.counts.overwrite==1)
             end
         elseif current==3 then
             advance=function()
@@ -70,7 +70,7 @@ function love.draw()
         elseif current==4 then
             advance=function()
                 love.mousepressed(420,399,1) -- Confirm button
-                assert(state().mode=='pipeline' and not state().loose_plan)
+                assert(state().mode=='pipeline' and not state().publish_preview)
                 local after=published()
                 assert(after~=before_manifest and
                     Project.decode(after).assets[1].name=='Changed player')

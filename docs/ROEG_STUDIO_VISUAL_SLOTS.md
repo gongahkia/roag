@@ -82,16 +82,21 @@ visual cells, publish the world pack separately as described in
 
 ## Publish and inspect
 
-From the checkout root, substitute the save directory shown by Studio and
-your project ID. The first command is read-only:
+In Studio, save with **S**, press **P** for Publish Readiness, then **D** to
+preview the exact loose files. Press **A** and confirm to publish. A replacement
+manifest requires typing `OVERWRITE`; Studio backs up its previous bytes in
+the LÖVE save directory. Press **F5** in the running game to refresh the art.
+Your editable source remains under `studio/projects/<project-id>/` in the LÖVE
+save directory.
+
+The CLI remains available. From the checkout root, substitute the save
+directory shown by Studio and your project ID. The first command is read-only:
 
 ```sh
 luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite
 luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite --apply
 ```
 
-If the dry run says `overwrite`, review it and add `--overwrite` to the apply
-command. A running game uses **F5** to refresh published visuals. The Studio
-**P** screen reports whether the loose image pack is current. The art pack is
-derived; back up the editable `studio/projects/<project-id>/` directory
-separately.
+If the CLI dry run says `overwrite`, review it and add `--overwrite` to the
+apply command. The **P** screen reports whether the loose image pack is current.
+The art pack is derived; back up the editable project directory separately.

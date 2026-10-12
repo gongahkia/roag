@@ -1801,6 +1801,8 @@ function love.roegStudioState()
     return {mode=studio.mode,project=studio.project,dirty=studio.dirty,
         message=studio.message,workspace=studio.workspace,
         pipeline_report=studio.pipeline_report,draft_preview=studio.draft_preview,
+        publish_preview=studio.loose_plan and {
+            counts=studio.loose_plan.counts,blocked=studio.loose_plan.blocked},
         selected=studio.selected,canvas=studio.canvas,
         world=studio.world_editor and studio.world_editor.pack,
         world_editor=studio.world_editor,

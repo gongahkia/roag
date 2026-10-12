@@ -4,6 +4,7 @@ local Project=require('src.studio_project')
 local Publish=require('src.studio_publish')
 local ffi=require('ffi')
 local M={}
+local next_temp=0
 
 if ffi.os=='Windows' then
     ffi.cdef('int _mkdir(const char *path);')
@@ -43,9 +44,27 @@ local function disk(root)
         assert(path=='assets/studio/manifest.txt' or
             path:match('^assets/studio/sources/[a-z0-9_%-]+%.png$'),
             'unsafe publish file')
-        local file=assert(io.open(full(path),'wb'))
+        -- Build beside the destination, then replace the finished file. The
+        -- manifest is last in Publish.plan, so a failed image write cannot
+        -- activate an incomplete new pack.
+        local destination=full(path)
+        local temporary
+        repeat
+            next_temp=next_temp+1
+            temporary=destination..('.roeg-publish-%d-%d.tmp'):format(
+                os.time(),next_temp)
+            local existing=io.open(temporary,'rb')
+            if existing then existing:close() else break end
+        until false
+        local file=assert(io.open(temporary,'wb'))
         assert(file:write(bytes))
         assert(file:close())
+        local staged=assert(io.open(temporary,'rb'))
+        local staged_bytes=assert(staged:read('*a'))
+        assert(staged:close())
+        assert(staged_bytes==bytes,'publish staging read-back mismatch: '..path)
+        local renamed,reason=os.rename(temporary,destination)
+        if not renamed then os.remove(temporary);error(reason or 'publish rename failed') end
         assert(self:read(path)==bytes,'publish read-back mismatch: '..path)
         return true
     end

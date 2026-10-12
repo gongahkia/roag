@@ -113,9 +113,10 @@ The [E04 guide](docs/ROEG_STUDIO_E04.md) covers HUD, bitmap text,
 background and effect authoring. The [E05 guide](docs/ROEG_STUDIO_E05.md)
 covers deterministic static atlases.
 
-ROEG Studio E06 adds a draft/published asset preview, read-only Publish
-Readiness and **F5** visual refresh in a running game. Save in Studio, review
-the explicit publish steps, then press F5 to reload visuals without changing
+ROEG Studio E06 adds a draft/published asset preview, Publish Readiness,
+and **F5** visual refresh in a running game. Save in Studio, press **P**, then
+**D** to preview loose image files and **A** to publish with confirmation.
+Press F5 to reload visuals without changing
 the current floor or turn state. See [Studio E06 workflow](docs/ROEG_STUDIO_E06.md).
 Static attack/hurt sprites, boon cards, currency pickups, gameplay backdrops,
 and automatically classified terrain use the optional

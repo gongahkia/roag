@@ -21,22 +21,36 @@ opens a deterministic generated-biome preview. **U** opens the E04 theme
 editor; its **Tab** views include title, HUD at 800×600 and 1024×640, menu and
 effect samples. These are draft presentation values, not a running game.
 
-From the project view, **P** opens read-only **Publish Readiness**. It reports
+From the project view, **P** opens **Publish Readiness**. Its initial scan is
+read-only. It reports
 project/selected IDs, save status, validated source pixels, changed loose
 publication files, world/theme source versus published packs, atlas
 compatibility and each visible asset's selected backing (`atlas`, `published
 loose`, or `built-in fallback`). **P** rescans after an external publish;
 **Esc** returns. Errors name the missing/bad resource. **F10** shows contextual
-shortcuts in all Studio views; E03 keeps **F1** for room-name editing. A read-only report does not repair, save or
-publish anything.
+shortcuts in all Studio views; E03 keeps **F1** for room-name editing.
+
+Press **D** on Publish Readiness to see the exact loose PNG and manifest file
+plan. This is a dry run; it does not write the checkout. Press **A** or click
+**Apply reviewed plan** to open a confirmation dialog. For new files, press
+**Enter** to publish. If the manifest would be replaced, type `OVERWRITE`
+exactly and press **Enter**. The old manifest is backed up under the Studio
+save directory at `studio/publish-backups/<project-id>/`. **Esc** cancels.
+Studio checks the saved project and destination again before writing and
+rejects a changed plan. It also refuses to replace a manifest belonging to
+another project or a corrupt manifest. Save first with **S**; unsaved strokes
+and metadata cannot be published.
 
 ## Save, publish and refresh
 
-Press **S** in Studio and inspect Publish Readiness. Copy the absolute save
-directory shown in the Studio window, then run the applicable commands from
-the ROEG checkout. Each first command is a dry run; review its changes before
-the separately authorized apply. Add `--overwrite` only when a publisher says
-an existing destination needs replacement.
+For loose image art, the **S → P → D → A** flow above replaces the CLI step
+when Studio is launched from a writable checkout directory. Press **F5** in
+the game after applying. Studio publishes only loose image PNGs and the visual
+manifest through this GUI flow. World, theme, and atlas packs still use the
+separate commands below; these commands also remain available for loose art.
+Copy the absolute save directory shown in Studio and run commands from the
+ROEG checkout. Each first command is a dry run. Add `--overwrite` only after
+reviewing a reported replacement.
 
 ```sh
 luajit tools/studio_publish.lua --save-dir '/absolute/LOVE/save/directory' --project my_project
@@ -80,6 +94,7 @@ and profile are independent of this workflow.
 ```sh
 TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp sh tests/studio_e06_gui_smoke.sh
+TMPDIR=/var/tmp sh tests/studio_gui_publish_smoke.sh
 TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-e06-game-gui
 ```
 
@@ -92,7 +107,8 @@ refresh and rejects invalid theme/PNG candidates. These callback-driven tests
 are not a physical mouse, keyboard or Wacom test.
 
 The status view scans on request. It does not continuously watch the filesystem
-or execute shell commands from LÖVE. Preview on the largest 512×512 E01
+or execute shell commands from LÖVE. GUI loose publishing needs a writable
+directory checkout; a packaged `.love` archive is read-only. Preview on the largest 512×512 E01
 documents may still have the existing full-image upload cost for an edited
 frame; the overlay reuses that texture. Repeated refresh replaces old Lua
 Image/Quad references and lets garbage collection release GPU resources; it

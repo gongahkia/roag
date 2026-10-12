@@ -62,6 +62,7 @@ function App:new_project(name)
         if saved_id==id then self:status('Project ID already exists: '..id);return end
     end
     self.project=Project.new(id,name)
+    self.loose_plan=nil;self.loose_publisher=nil;self.publish_last_backup=nil
     self.world_pack=StudioWorld.new(id);self.world_editor=nil
     self.world_images={};self.world_image_data={}
     self.world_blocked=false
@@ -73,6 +74,7 @@ function App:open_project(id)
     local project,reason=self.store:open(id,decode)
     if not project then self:status('Open failed: '..tostring(reason));return end
     self.project=project;self.selected=1;self.dirty=false;self.metadata_dirty=false;self.mode='project'
+    self.loose_plan=nil;self.loose_publisher=nil;self.publish_last_backup=nil
     local pack,world_reason=self.world_store:open(id,project.assets)
     self.world_pack=pack or StudioWorld.new(id)
     self.world_editor=nil;self.world_images={};self.world_image_data={}
@@ -258,21 +260,24 @@ function App:apply_loose_publish()
         return
     end
     local base='studio/projects/'..saved.id..'/'
+    local made_backup
     local ok,applied,why,backup=pcall(function()
         return self.loose_publisher:apply(saved,function(path)
             return IO:read(base..path)
         end,plan,plan.counts.overwrite>0,function(bytes)
-            return self:backup_published_manifest(bytes)
+            made_backup=self:backup_published_manifest(bytes)
+            return made_backup
         end)
     end)
     if not ok then why=applied;applied=false end
     self.mode='pipeline';self.loose_plan=nil;self.loose_publisher=nil
+    self.publish_last_backup=backup or made_backup or self.publish_last_backup
     if not applied then
+        self:inspect_pipeline()
         self:status('Publish stopped: '..tostring(why)..' Press P, then D to preview again.')
         return
     end
     self:inspect_pipeline()
-    self.publish_last_backup=backup
     self:status('Published loose art to this checkout. Game: F5 refreshes visuals.'..
         (backup and ' Previous manifest backed up.' or ''))
 end
