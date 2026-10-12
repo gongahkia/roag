@@ -2,6 +2,7 @@
 local Project=require('src.studio_project')
 local Document=require('src.studio_document')
 local PNG=require('src.studio_png')
+local Outline=require('src.studio_outline')
 local S={}
 local function checksum(bytes)
     local a,b=1,0
@@ -172,7 +173,7 @@ function S:document(project,asset)
         'editable document does not match asset')
     return doc
 end
-function S:_save_document(project,asset,doc,decode)
+function S:_save_document(project,asset,doc,decode,outline_color)
     local valid,err=pcall(Document.validate,doc)
     if not valid then return false,tostring(err) end
     if doc.id~=asset.id then return false,'document asset ID mismatch' end
@@ -181,9 +182,14 @@ function S:_save_document(project,asset,doc,decode)
     if not found then return false,'asset is not in project' end
     local root=prefix(project.id)
     local encoded=Document.encode(doc)
-    local png=PNG.encode(doc.width,doc.height,Document.flatten(doc))
+    outline_color=outline_color or asset.outline_color or ''
+    local width,height,raw=doc.width,doc.height,Document.flatten(doc)
+    if outline_color~='' then
+        width,height,raw=Outline.render(raw,width,height,outline_color)
+    end
+    local png=PNG.encode(width,height,raw,outline_color~='' and 2048 or nil)
     if decode then
-        local ok,reason=pcall(decode,png,'painted.png',doc.width,doc.height)
+        local ok,reason=pcall(decode,png,'painted.png',width,height)
         if not ok then return false,'derived PNG decode failed: '..tostring(reason) end
     end
     local n=1;local document,derived
@@ -202,7 +208,7 @@ function S:_save_document(project,asset,doc,decode)
     if not ok then return false,tostring(reason) end
     local copy={};for k,v in pairs(asset) do copy[k]=v end
     copy.document=document;copy.derived=derived;copy.width=doc.width;copy.height=doc.height
-    copy.format='png';copy.transparent=true
+    copy.format='png';copy.transparent=true;copy.outline_color=outline_color
     local candidate={schema=project.schema,id=project.id,name=project.name,assets={}}
     for i,a in ipairs(project.assets) do candidate.assets[i]=a==asset and copy or a end
     local saved,seq=self:save(candidate,decode)
@@ -210,8 +216,8 @@ function S:_save_document(project,asset,doc,decode)
     for k,v in pairs(copy) do asset[k]=v end
     return true,seq
 end
-function S:save_document(project,asset,doc,decode)
-    local ok,saved,reason=pcall(self._save_document,self,project,asset,doc,decode)
+function S:save_document(project,asset,doc,decode,outline_color)
+    local ok,saved,reason=pcall(self._save_document,self,project,asset,doc,decode,outline_color)
     if not ok then return false,tostring(saved) end
     return saved,reason
 end

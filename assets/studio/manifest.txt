@@ -1,0 +1,3 @@
+ROEG-STUDIO-MANIFEST/1
+project	player_sprite	player sprite
+asset	studio:actor/image_001	Adventurer sample	actor	sources/player_sprite-0001-045173b4.png	png	16	16	true	nearest	core:actor/adventurer							

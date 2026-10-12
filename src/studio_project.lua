@@ -71,6 +71,11 @@ function M.validate(project,read,decode)
             check(type(tag)=='string' and tag:match('^[a-z0-9_-]+$') and #tag<=32,'invalid tag')
         end
         a.document=a.document or '';a.derived=a.derived or ''
+        a.outline_color=a.outline_color or ''
+        check(a.outline_color=='' or (type(a.outline_color)=='string' and
+            a.outline_color:match('^%x%x%x%x%x%x%x%x$')),'invalid outline color')
+        check(a.outline_color=='' or a.document~='',
+            'outline requires an editable document')
         check(a.source=='' or M.valid_path(a.source),'unsafe source path')
         check(a.document=='' or (M.valid_path(a.document) and a.document:match('%.rgba$')),'unsafe document path')
         check(a.derived=='' or (M.valid_path(a.derived) and a.derived:match('%.png$')),'unsafe derived path')
@@ -113,13 +118,20 @@ function M.validate(project,read,decode)
                 check(type(png)=='string','missing derived PNG: '..a.derived)
                 total_project_bytes=total_project_bytes+#png
                 local w,h=M.png_dimensions(png)
-                check(w==a.width and h==a.height,'derived dimensions mismatch')
+                local dw,dh=M.output_dimensions(a)
+                check(w==dw and h==dh,'derived dimensions mismatch')
                 if decode then decode(png,a.derived,w,h) end
             end
         end
     end
     if read then check(total_project_bytes<=128*1024*1024,'project referenced-data size limit') end
     return true
+end
+function M.output_dimensions(asset)
+    if asset.derived~='' and asset.outline_color~='' then
+        return asset.width*2,asset.height*2
+    end
+    return asset.width,asset.height
 end
 function M.png_dimensions(bytes)
     check(type(bytes)=='string' and #bytes>=45 and #bytes<=M.max_image_bytes,
@@ -188,6 +200,7 @@ function M.encode(project)
             tostring(a.height),tostring(a.transparent),a.filter,a.binding,
             a.description or '',table.concat(tags,','),a.atlas_group or '',
             a.frame_hint or '',a.animation_hint or '',a.document or '',a.derived or ''}
+        if a.outline_color~='' then f[#f+1]=a.outline_color end
         for i,v in ipairs(f) do f[i]=escape(v) end
         out[#out+1]=table.concat(f,'\t')
     end
@@ -205,14 +218,15 @@ function M.decode(bytes)
     local project=M.new(p[2],p[3])
     for i=3,#lines do
         local f=fields(lines[i])
-        check((#f==16 or #f==18) and f[1]=='asset','invalid asset record')
+        check((#f==16 or #f==18 or #f==19) and f[1]=='asset','invalid asset record')
         local tags={}
         if f[13]~='' then for t in f[13]:gmatch('[^,]+') do tags[#tags+1]=t end end
         project.assets[#project.assets+1]={id=f[2],name=f[3],kind=f[4],source=f[5],
             format=f[6],width=tonumber(f[7]),height=tonumber(f[8]),
             transparent=f[9]=='true',filter=f[10],binding=f[11],
             description=f[12],tags=tags,atlas_group=f[14],
-            frame_hint=f[15],animation_hint=f[16],document=f[17] or '',derived=f[18] or ''}
+            frame_hint=f[15],animation_hint=f[16],document=f[17] or '',
+            derived=f[18] or '',outline_color=f[19] or ''}
         check(f[9]=='true' or f[9]=='false','invalid alpha intent')
     end
     M.validate(project)
@@ -221,6 +235,6 @@ end
 function M.asset(id,name,kind)
     return {id=id,name=name,kind=kind,source='',format='',width=0,height=0,
         transparent=true,filter='nearest',binding='',description='',tags={},atlas_group='',
-        frame_hint='',animation_hint='',document='',derived=''}
+        frame_hint='',animation_hint='',document='',derived='',outline_color=''}
 end
 return M

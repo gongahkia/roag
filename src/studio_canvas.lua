@@ -1,5 +1,6 @@
 -- Studio E01 canvas controller. Mouse and pen-as-mouse share this path.
 local D=require('src.studio_document')
+local Outline=require('src.studio_outline')
 local C={}
 local palette={{0,0,0,255},{255,255,255,255},{232,82,71,255},{243,173,55,255},
     {246,223,99,255},{85,174,107,255},{71,185,199,255},{64,109,187,255},
@@ -13,9 +14,11 @@ local function fromhex(s)
     if not s:match('^%x%x%x%x%x%x%x%x$') then return nil end
     return {tonumber(s:sub(1,2),16),tonumber(s:sub(3,4),16),tonumber(s:sub(5,6),16),tonumber(s:sub(7,8),16)}
 end
-function C.new(doc)
+function C.new(doc,outline_color)
     local self=setmetatable({doc=doc,tool='pencil',color={255,255,255,255},brush=1,zoom=8,panx=0,pany=0,
-        dragging=false,panning=false,before=nil,undo_stack={},redo_stack={},bytes_history=0,
+        dragging=false,panning=false,selecting=false,selection=nil,before=nil,
+        outline_color=outline_color or '',saved_outline=outline_color or '',
+        undo_stack={},redo_stack={},bytes_history=0,
         texture=nil,texture_dirty=true,modal=nil,typed='',cursor_x=nil,cursor_y=nil,is_dirty=false,layer_offset=1}, {__index=C})
     self:fit();self.saved=D.encode(doc);return self
 end
@@ -45,13 +48,18 @@ function C:pixel_at(x,y)
     return px,py
 end
 function C:dirty() return self.dragging or self.is_dirty end
-function C:saved_now() self.saved=D.encode(self.doc);self.is_dirty=false end
-function C:begin_change() self:finish();self.before=D.encode(self.doc) end
+function C:saved_now()
+    self.saved=D.encode(self.doc);self.saved_outline=self.outline_color;self.is_dirty=false
+end
+function C:begin_change()
+    self:finish();self.before=D.encode(self.doc);self.before_outline=self.outline_color
+end
 function C:commit()
     if not self.before then return end
     local after=D.encode(self.doc)
-    if after~=self.before then
-        self.undo_stack[#self.undo_stack+1]={before=self.before,after=after}
+    if after~=self.before or self.outline_color~=self.before_outline then
+        self.undo_stack[#self.undo_stack+1]={before=self.before,after=after,
+            before_outline=self.before_outline,after_outline=self.outline_color}
         self.bytes_history=self.bytes_history+#self.before+#after
         self.redo_stack={}
         while #self.undo_stack>32 or self.bytes_history>32*1024*1024 do
@@ -60,11 +68,12 @@ function C:commit()
         end
         self.texture_dirty=true
     end
-    self.is_dirty=after~=self.saved
-    self.before=nil
+    self.is_dirty=after~=self.saved or self.outline_color~=self.saved_outline
+    self.before=nil;self.before_outline=nil
 end
 function C:finish()
     if self.dragging then self.dragging=false;self:commit() end
+    self.selecting=false
     self.panning=false
 end
 function C:undo()
@@ -72,20 +81,56 @@ function C:undo()
     if not entry then return false end
     self.bytes_history=self.bytes_history-#entry.before-#entry.after
     self.redo_stack[#self.redo_stack+1]=entry
-    self.doc=D.decode(entry.before);self.texture_dirty=true;self.is_dirty=entry.before~=self.saved;return true
+    self.doc=D.decode(entry.before);self.outline_color=entry.before_outline or ''
+    self.texture_dirty=true
+    self.is_dirty=entry.before~=self.saved or self.outline_color~=self.saved_outline
+    return true
 end
 function C:redo()
     self:finish();local entry=table.remove(self.redo_stack)
     if not entry then return false end
     self.undo_stack[#self.undo_stack+1]=entry
     self.bytes_history=self.bytes_history+#entry.before+#entry.after
-    self.doc=D.decode(entry.after);self.texture_dirty=true;self.is_dirty=entry.after~=self.saved;return true
+    self.doc=D.decode(entry.after);self.outline_color=entry.after_outline or ''
+    self.texture_dirty=true
+    self.is_dirty=entry.after~=self.saved or self.outline_color~=self.saved_outline
+    return true
 end
 function C:change(fn)
     self:begin_change()
     local ok,err=pcall(function() fn();self:commit() end)
-    if not ok then self.doc=D.decode(self.before);self.before=nil;return false,tostring(err) end
+    if not ok then
+        self.doc=D.decode(self.before);self.outline_color=self.before_outline
+        self.before=nil;self.before_outline=nil;self.texture_dirty=true
+        return false,tostring(err)
+    end
     return true
+end
+function C:apply_selection(mode)
+    if not self.selection then return false,'Drag a selection first (M)' end
+    local l=D.active(self.doc)
+    if l.locked or not l.visible then return false,'layer is locked or hidden' end
+    local s=self.selection
+    return self:change(function()
+        for y=s.y0,s.y1 do
+            local row=l.rows[y+1]
+            local first,last=s.x0*4+1,(s.x1+1)*4
+            local center
+            if mode=='erase' then center=string.rep('\0',last-first+1)
+            else
+                local pixels={}
+                for x=s.x0,s.x1 do
+                    local p=x*4+1
+                    local alpha=row:byte(p+3)
+                    if alpha>0 then
+                        pixels[#pixels+1]=string.char(self.color[1],self.color[2],self.color[3],alpha)
+                    else pixels[#pixels+1]=row:sub(p,p+3) end
+                end
+                center=table.concat(pixels)
+            end
+            l.rows[y+1]=row:sub(1,first-1)..center..row:sub(last+1)
+        end
+    end)
 end
 function C:set_tool(tool)
     self:finish();self.tool=tool

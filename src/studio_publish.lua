@@ -24,7 +24,11 @@ function M.plan(project,source_read,dest_read)
             local bytes=assert(source_read(publish_source))
             copy.source=string.format('sources/%s-%04d-%s.png',
                 project.id,ordinal,checksum(bytes))
+            if asset.derived~='' then
+                copy.width,copy.height=Project.output_dimensions(asset)
+            end
             copy.document='';copy.derived=''
+            copy.outline_color=''
             files[#files+1]={path='assets/studio/'..copy.source,bytes=bytes}
             published.assets[#published.assets+1]=copy
         elseif asset.binding~='' then

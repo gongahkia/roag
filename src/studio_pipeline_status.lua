@@ -48,7 +48,8 @@ function S.inspect(project,source_read,published_read,world,theme,verify_page)
         end
         local decoded,w,h=false,nil,nil
         if bytes then decoded,w,h=pcall(Project.png_dimensions,bytes) end
-        local source_ok=decoded and w==asset.width and h==asset.height
+        local expected_w,expected_h=Project.output_dimensions(asset)
+        local source_ok=decoded and w==expected_w and h==expected_h
         local published_asset=by_id[asset.id]
         local item={id=asset.id,source=source_ok and 'valid' or 'missing/draft',
             resolver='built-in fallback'}
