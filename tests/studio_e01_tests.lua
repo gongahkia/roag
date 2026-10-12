@@ -242,5 +242,9 @@ return function(test,equal)
         assert(published.binding=='core:actor/adventurer' and published.outline_color=='')
         local w,h=Project.png_dimensions(files[1].bytes)
         assert(w==6 and h==6)
+        local atlas=require('src.studio_atlas').plan(output,function(path)
+            return path==files[1].path and files[1].bytes or nil
+        end,32,2)
+        assert(atlas.assets[a.id].w==6 and atlas.assets[a.id].h==6)
     end)
 end
