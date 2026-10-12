@@ -53,7 +53,7 @@ function M.validate(project,read,decode)
     local total_project_bytes=0
     for _,a in ipairs(project.assets) do
         check(type(a)=='table' and M.valid_id(a.id),'invalid asset ID')
-        check(not ids[a.id],'duplicate asset ID: '..a.id);ids[a.id]=true
+        check(not ids[a.id],'duplicate asset ID: '..a.id);ids[a.id]=a
         string_field(a.name,'asset name',80)
         check(#a.name>0,'asset name required')
         check(kinds[a.kind],'unsupported asset kind')
@@ -67,6 +67,8 @@ function M.validate(project,read,decode)
         string_field(a.atlas_group or '','atlas group',60)
         string_field(a.frame_hint or '','frame hint',120)
         string_field(a.animation_hint or '','animation hint',120)
+        a.reference_id=a.reference_id or ''
+        check(a.reference_id=='' or M.valid_id(a.reference_id),'invalid reference asset ID')
         check(type(a.tags)=='table' and #a.tags<=20,'invalid tags')
         for _,tag in ipairs(a.tags) do
             check(type(tag)=='string' and tag:match('^[a-z0-9_-]+$') and #tag<=32,'invalid tag')
@@ -123,6 +125,16 @@ function M.validate(project,read,decode)
                 check(w==dw and h==dh,'derived dimensions mismatch')
                 if decode then decode(png,a.derived,w,h) end
             end
+        end
+    end
+    for _,a in ipairs(project.assets) do
+        if a.reference_id~='' then
+            local reference=ids[a.reference_id]
+            check(reference and reference~=a,'missing or self reference asset: '..a.reference_id)
+            check(reference.width==a.width and reference.height==a.height,
+                'reference dimensions must match: '..a.id)
+            check(reference.source~='' or reference.document~='',
+                'reference has no pixels: '..a.reference_id)
         end
     end
     if read then check(total_project_bytes<=128*1024*1024,'project referenced-data size limit') end
@@ -201,7 +213,8 @@ function M.encode(project)
             tostring(a.height),tostring(a.transparent),a.filter,a.binding,
             a.description or '',table.concat(tags,','),a.atlas_group or '',
             a.frame_hint or '',a.animation_hint or '',a.document or '',a.derived or ''}
-        if a.outline_color~='' then f[#f+1]=a.outline_color end
+        if a.outline_color~='' or a.reference_id~='' then f[#f+1]=a.outline_color end
+        if a.reference_id~='' then f[#f+1]=a.reference_id end
         for i,v in ipairs(f) do f[i]=escape(v) end
         out[#out+1]=table.concat(f,'\t')
     end
@@ -219,7 +232,7 @@ function M.decode(bytes)
     local project=M.new(p[2],p[3])
     for i=3,#lines do
         local f=fields(lines[i])
-        check((#f==16 or #f==18 or #f==19) and f[1]=='asset','invalid asset record')
+        check((#f==16 or #f==18 or #f==19 or #f==20) and f[1]=='asset','invalid asset record')
         local tags={}
         if f[13]~='' then for t in f[13]:gmatch('[^,]+') do tags[#tags+1]=t end end
         project.assets[#project.assets+1]={id=f[2],name=f[3],kind=f[4],source=f[5],
@@ -227,7 +240,7 @@ function M.decode(bytes)
             transparent=f[9]=='true',filter=f[10],binding=f[11],
             description=f[12],tags=tags,atlas_group=f[14],
             frame_hint=f[15],animation_hint=f[16],document=f[17] or '',
-            derived=f[18] or '',outline_color=f[19] or ''}
+            derived=f[18] or '',outline_color=f[19] or '',reference_id=f[20] or ''}
         check(f[9]=='true' or f[9]=='false','invalid alpha intent')
     end
     M.validate(project)
@@ -236,6 +249,6 @@ end
 function M.asset(id,name,kind)
     return {id=id,name=name,kind=kind,source='',format='',width=0,height=0,
         transparent=true,filter='nearest',binding='',description='',tags={},atlas_group='',
-        frame_hint='',animation_hint='',document='',derived='',outline_color=''}
+        frame_hint='',animation_hint='',document='',derived='',outline_color='',reference_id=''}
 end
 return M

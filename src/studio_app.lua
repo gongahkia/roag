@@ -298,11 +298,8 @@ function App:create_sprite(w,h)
     self.canvas_asset=a;self.mode='canvas';self.dirty=true;self.metadata_dirty=true
     self:status('Transparent sprite created. Draw, then press S to save.')
 end
-function App:edit_pixels()
-    local a=self:selected_asset()
-    if not a then self:status('Select an asset first');return end
-    local ok,doc=pcall(function()
-        if a.document~='' then return self.store:document(self.project,a) end
+function App:asset_document(a)
+    if a.document~='' then return self.store:document(self.project,a) end
         assert(a.source~='','Draft has no pixels; press C to create a sprite')
         assert(a.width<=Document.max_dimension and a.height<=Document.max_dimension,'image exceeds 512-pixel editing limit')
         local bytes=assert(IO:read('studio/projects/'..self.project.id..'/'..a.source))
@@ -314,10 +311,64 @@ function App:edit_pixels()
                 math.floor(b*255+0.5),math.floor(alpha*255+0.5))
         end end
         return Document.from_rgba(a.id,a.width,a.height,table.concat(raw))
-    end)
+end
+function App:attach_reference(canvas,a)
+    local reference_id=a.reference_id
+    if not reference_id or reference_id=='' then
+        local base=a.binding and a.binding:match('^(.-)/attack$') or
+            (a.binding and a.binding:match('^(.-)/hurt$'))
+        if base then
+            for _,candidate in ipairs(self.project.assets) do
+                if candidate.binding==base then reference_id=candidate.id;break end
+            end
+        end
+    end
+    if not reference_id or reference_id=='' then return end
+    for _,candidate in ipairs(self.project.assets) do
+        if candidate.id==reference_id then
+            local ok,doc=pcall(self.asset_document,self,candidate)
+            if ok and doc.width==canvas.doc.width and doc.height==canvas.doc.height then
+                canvas:set_reference(doc,candidate.name)
+            end
+            return
+        end
+    end
+end
+function App:edit_pixels()
+    local a=self:selected_asset()
+    if not a then self:status('Select an asset first');return end
+    local ok,doc=pcall(self.asset_document,self,a)
     if not ok then self:status('Pixel editor unavailable: '..tostring(doc));return end
     self.canvas=Canvas.new(doc,a.outline_color);self.canvas_asset=a;self.mode='canvas'
+    self:attach_reference(self.canvas,a)
     self:status('Pixel editor: mouse or pen-as-mouse draws on the selected layer.')
+end
+function App:duplicate_sprite()
+    local original=self:selected_asset()
+    if not original then self:status('Select an asset first');return end
+    if #self.project.assets>=256 then self:status('Project asset limit reached');return end
+    local ok,doc=pcall(self.asset_document,self,original)
+    if not ok then self:status('Copy unavailable: '..tostring(doc));return end
+    local n,id=1,nil
+    repeat
+        id=string.format('studio:%s/copy_%03d',original.kind,n);n=n+1
+        local found=false
+        for _,asset in ipairs(self.project.assets) do if asset.id==id then found=true;break end end
+        if not found then break end
+    until n>1000
+    if n>1001 then self:status('No free copy asset ID');return end
+    local copy=Project.asset(id,(original.name..' copy'):sub(1,80),original.kind)
+    copy.filter=original.filter
+    copy.reference_id=original.id
+    local reference_doc=doc
+    doc=Document.decode(Document.encode(doc))
+    doc.id=id
+    self.project.assets[#self.project.assets+1]=copy
+    self.selected=#self.project.assets;self.filter_kind='all'
+    self.canvas=Canvas.new(doc,original.outline_color)
+    self.canvas:set_reference(reference_doc,original.name)
+    self.canvas_asset=copy;self.mode='canvas';self.dirty=true;self.metadata_dirty=true
+    self:status('Copied layers. G toggles the original overlay; S saves this separate sprite.')
 end
 function App:selected_asset()
     local asset=self.project and self.project.assets[self.selected]
@@ -702,6 +753,7 @@ function App:keypressed(key)
     elseif key=='s' then self:save()
     elseif key=='a' then self:add_draft()
     elseif key=='i' then self:import_sample()
+    elseif key=='d' then self:duplicate_sprite()
     elseif key=='c' then
         if self.project then self.mode='size';self.typed='32x32'
             self:status('Enter width x height (1–512). Presets: 16x16, 32x32, 64x64, 128x128.') end
@@ -727,6 +779,7 @@ function App:keypressed(key)
     elseif key=='3' then self:edit('kind')
     elseif key=='4' then self:edit('binding')
     elseif key=='5' then self:edit('filter')
+    elseif key=='6' then self:edit('reference_id')
     elseif key=='b' then
         local a=self:selected_asset()
         if a then
@@ -804,9 +857,9 @@ function App:mousepressed(x,y,button)
         local first=math.max(1,at-13)
         local index=visible[first+math.floor((y-166)/25)]
         if index then self.selected=index;self.preview=nil end
-    elseif self.mode=='project' and x>=450 and y>=386 and y<=506 then
+    elseif self.mode=='project' and x>=450 and y>=386 and y<=530 then
         local index=math.floor((y-386)/24)+1
-        local f=({'name','id','kind','binding','filter'})[index]
+        local f=({'name','id','kind','binding','filter','reference_id'})[index]
         if f then self:edit(f) end
     end
 end
@@ -964,14 +1017,14 @@ function App:draw()
         local width,height=Project.output_dimensions(a)
         g.print(('PNG %d×%d · %s'):format(width,height,a.filter),458,355)
         g.print('Source: '..(a.source=='' and (a.derived=='' and '[draft]' or '[painted layers]') or a.source),458,370)
-        local values={a.name,a.id,a.kind,a.binding,a.filter}
+        local values={a.name,a.id,a.kind,a.binding,a.filter,a.reference_id or ''}
         for i,v in ipairs(values) do
-            g.print(('%d %s: %s'):format(i,({'Name','Asset ID','Kind','Binding','Filter'})[i],v),
+            g.print(('%d %s: %s'):format(i,({'Name','Asset ID','Kind','Binding','Filter','Reference'})[i],v),
                 458,386+(i-1)*24)
         end
     end
     g.setColor(0.68,0.82,0.8)
-    g.print('Tab filter: '..self.filter_kind..' · 1–5 edit · B bind · C sprite · E pixels',24,550)
+    g.print('Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
     g.print('Click asset or field · Enter accept · Esc cancel · Save before close',24,573)
     g.print('F10 help · Canvas Tab preview · P readiness',600,550)
     g.setColor(1,0.76,0.45);g.printf(self.message,24,601,976,'left')

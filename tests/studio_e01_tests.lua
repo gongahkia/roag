@@ -247,4 +247,39 @@ return function(test,equal)
         end,32,2)
         assert(atlas.assets[a.id].w==6 and atlas.assets[a.id].h==6)
     end)
+    test('E01 copied pose preserves source layers and persistent reference',function()
+        local io,files=mem();local store=Store.new(io)
+        local p=Project.new('e01','E01')
+        local original=Project.asset('studio:actor/hero','Hero','actor')
+        original.binding='core:actor/adventurer';p.assets[1]=original
+        local source=D.new(original.id,4,4)
+        D.set(source,1,1,{80,90,100,255},'replace')
+        assert(store:save_document(p,original,source))
+        local original_bytes=files['studio/projects/e01/'..original.document]
+        local copy=Project.asset('studio:actor/copy_001','Hero hurt','actor')
+        copy.binding='core:actor/adventurer/hurt'
+        copy.reference_id=original.id;p.assets[2]=copy
+        local pose=D.decode(D.encode(source));pose.id=copy.id
+        D.set(pose,1,1,{240,20,30,255},'replace')
+        assert(store:save_document(p,copy,pose))
+        assert(files['studio/projects/e01/'..original.document]==original_bytes)
+        local reopened=assert(store:open('e01'))
+        local saved_original,saved_copy
+        for _,asset in ipairs(reopened.assets) do
+            if asset.id==original.id then saved_original=asset else saved_copy=asset end
+        end
+        assert(saved_copy.reference_id==original.id)
+        assert(rgba(store:document(reopened,saved_original),1,1)=='80,90,100,255')
+        assert(rgba(store:document(reopened,saved_copy),1,1)=='240,20,30,255')
+        local plan=Publish.plan(reopened,function(path)
+            return files['studio/projects/e01/'..path]
+        end,function()return nil end)
+        local published=Project.decode(plan[#plan].bytes)
+        assert(published.assets[1].reference_id=='' and published.assets[2].reference_id=='')
+        saved_copy.reference_id='studio:actor/missing'
+        assert(not pcall(Project.validate,reopened))
+        saved_copy.reference_id=original.id
+        saved_copy.width=5
+        assert(not pcall(Project.validate,reopened))
+    end)
 end

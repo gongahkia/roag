@@ -29,6 +29,7 @@ function M.plan(project,source_read,dest_read)
             end
             copy.document='';copy.derived=''
             copy.outline_color=''
+            copy.reference_id=''
             files[#files+1]={path='assets/studio/'..copy.source,bytes=bytes}
             published.assets[#published.assets+1]=copy
         elseif asset.binding~='' then

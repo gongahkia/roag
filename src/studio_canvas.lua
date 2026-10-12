@@ -22,6 +22,14 @@ function C.new(doc,outline_color)
         texture=nil,texture_dirty=true,modal=nil,typed='',cursor_x=nil,cursor_y=nil,is_dirty=false,layer_offset=1}, {__index=C})
     self:fit();self.saved=D.encode(doc);return self
 end
+function C:set_reference(doc,name)
+    assert(doc.width==self.doc.width and doc.height==self.doc.height,
+        'reference dimensions must match the canvas')
+    self.reference_raw=D.flatten(doc)
+    self.reference_name=name or doc.id
+    self.reference_texture=nil
+    self.reference_visible=true
+end
 function C:fit()
     local vw=math.max(100,love.graphics.getWidth()-455)
     local vh=math.max(100,love.graphics.getHeight()-180)
@@ -296,6 +304,8 @@ function C:keypressed(key)
     elseif key=='o' then
         self:finish();self.modal='outline'
         self.typed=self.outline_color~='' and self.outline_color or hex(self.color)
+    elseif key=='g' and self.reference_raw then
+        self.reference_visible=not self.reference_visible
     elseif key=='escape' and self.selection then self.selection=nil;self.selecting=false
     elseif key=='0' then self:fit()
     elseif key=='+' or key=='=' or key=='kp+' then self:zoom_at(1,love.graphics.getWidth()/2,love.graphics.getHeight()/2)
@@ -321,6 +331,17 @@ function C:refresh_texture()
     else self.texture=love.graphics.newImage(data) end
     self.texture:setFilter('nearest','nearest');self.texture_dirty=false
 end
+function C:refresh_reference_texture()
+    if not self.reference_raw or self.reference_texture then return end
+    local data=love.image.newImageData(self.doc.width,self.doc.height)
+    local i=1
+    for y=0,self.doc.height-1 do for x=0,self.doc.width-1 do
+        local r,g,b,a=self.reference_raw:byte(i,i+3);i=i+4
+        data:setPixel(x,y,r/255,g/255,b/255,a/255)
+    end end
+    self.reference_texture=love.graphics.newImage(data)
+    self.reference_texture:setFilter('nearest','nearest')
+end
 function C:draw()
     local g=love.graphics;local w,h=g.getDimensions();local rx,ry,rw,rh=self:rect()
     g.setColor(0.93,0.94,0.86);g.print('PIXEL EDITOR · '..self.doc.id,18,16)
@@ -334,6 +355,11 @@ function C:draw()
         #self.undo_stack,#self.redo_stack),18,65)
     g.setColor(0.87,0.9,0.78)
     g.print('O outline: '..(self.outline_color~='' and ('#'..self.outline_color..' · 2× export') or 'off'),18,83)
+    if self.reference_raw then
+        g.setColor(0.61,0.88,0.97)
+        g.print(('G reference: %s (%s, preview only)'):format(
+            self.reference_name:sub(1,28),self.reference_visible and 'on' or 'off'),290,83)
+    end
     local side=w-230
     g.setColor(0.28,0.4,0.37);g.rectangle('fill',side+1,62,103,28)
     g.rectangle('fill',side+107,62,103,28)
@@ -350,6 +376,13 @@ function C:draw()
     self:refresh_texture()
     local image_scale=self.outline_color~='' and self.zoom/2 or self.zoom
     g.setColor(1,1,1);g.draw(self.texture,ox,oy,0,image_scale,image_scale)
+    if self.reference_visible then
+        self:refresh_reference_texture()
+        if self.reference_texture then
+            g.setColor(0.62,0.88,1,0.42)
+            g.draw(self.reference_texture,ox,oy,0,self.zoom,self.zoom)
+        end
+    end
     if self.zoom>=12 then
         g.setColor(0.15,0.17,0.18,0.24)
         for x=0,self.doc.width do g.line(ox+x*self.zoom,oy,ox+x*self.zoom,oy+self.doc.height*self.zoom) end
@@ -408,7 +441,7 @@ function C:draw()
     end end
     g.setColor(0.72,0.84,0.81)
     g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-51)
-    g.print('L add · R rename · O outline · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-31)
+    g.print('L add · R rename · O outline · G reference · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-31)
     g.print('S save · wheel zoom · middle/Space drag pan',18,h-12)
     if self.modal then
         g.setColor(0.02,0.04,0.05,0.94);g.rectangle('fill',rx+40,ry+100,rw-80,110)
