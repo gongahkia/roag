@@ -12,6 +12,14 @@ The asset's stable ID can be your own `studio:...` ID; the **Binding** field is
 what selects its game role. The Studio **F10** help screen lists the patterns.
 All artwork remains editable in the LÖVE save directory shown by Studio.
 
+To make a hurt or attack image from an existing sprite, select its asset in
+Studio and press **D**. The new asset gets independent editable layers and a
+toggleable (**G**) visual reference to the source. Save the copy, return to
+metadata, set its **Binding** to the matching `/hurt` or `/attack` slot, and
+publish. The original ordinary sprite remains intact. The reference does not
+appear in the game image. Field **6** can set another same-size asset as the
+reference by its asset ID.
+
 ## Actors and rewards
 
 | Binding | Display |

@@ -300,17 +300,18 @@ function App:create_sprite(w,h)
 end
 function App:asset_document(a)
     if a.document~='' then return self.store:document(self.project,a) end
-        assert(a.source~='','Draft has no pixels; press C to create a sprite')
-        assert(a.width<=Document.max_dimension and a.height<=Document.max_dimension,'image exceeds 512-pixel editing limit')
-        local bytes=assert(IO:read('studio/projects/'..self.project.id..'/'..a.source))
-        local pixels=decode(bytes,a.source,a.width,a.height)
-        local raw={}
-        for y=0,a.height-1 do for x=0,a.width-1 do
-            local r,g,b,alpha=pixels:getPixel(x,y)
-            raw[#raw+1]=string.char(math.floor(r*255+0.5),math.floor(g*255+0.5),
-                math.floor(b*255+0.5),math.floor(alpha*255+0.5))
-        end end
-        return Document.from_rgba(a.id,a.width,a.height,table.concat(raw))
+    assert(a.source~='','Draft has no pixels; press C to create a sprite')
+    assert(a.width<=Document.max_dimension and a.height<=Document.max_dimension,
+        'image exceeds 512-pixel editing limit')
+    local bytes=assert(IO:read('studio/projects/'..self.project.id..'/'..a.source))
+    local pixels=decode(bytes,a.source,a.width,a.height)
+    local raw={}
+    for y=0,a.height-1 do for x=0,a.width-1 do
+        local r,g,b,alpha=pixels:getPixel(x,y)
+        raw[#raw+1]=string.char(math.floor(r*255+0.5),math.floor(g*255+0.5),
+            math.floor(b*255+0.5),math.floor(alpha*255+0.5))
+    end end
+    return Document.from_rgba(a.id,a.width,a.height,table.concat(raw))
 end
 function App:attach_reference(canvas,a)
     local reference_id=a.reference_id
@@ -1019,6 +1020,7 @@ function App:draw()
         g.print('Source: '..(a.source=='' and (a.derived=='' and '[draft]' or '[painted layers]') or a.source),458,370)
         local values={a.name,a.id,a.kind,a.binding,a.filter,a.reference_id or ''}
         for i,v in ipairs(values) do
+            if i==6 and #v>48 then v=v:sub(1,45)..'...' end
             g.print(('%d %s: %s'):format(i,({'Name','Asset ID','Kind','Binding','Filter','Reference'})[i],v),
                 458,386+(i-1)*24)
         end

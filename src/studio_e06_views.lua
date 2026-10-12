@@ -12,9 +12,10 @@ function V.help(workspace)
     g.setColor(.94,.96,.85)
     local lines={
         'ROEG STUDIO · F10 / Esc closes help',
-        'Project: N new · O open · S save · E pixels · W world · U UI · P publish',
+        'Project: N new · O open · S save · D copy · E pixels · W world · U UI · P publish',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
-        'Pixels: C recolor · Delete clear · O outline · Tab draft preview',
+        'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
+        'Asset field 6: reference asset ID (same source dimensions); copy sets it',
         'Pixels: Cmd/Ctrl+Z undo · Cmd/Ctrl+Shift+Z redo',
         'Asset Binding (4): core:actor/adventurer/attack or /hurt',
         'Enemy Binding: core:enemy/<enemy_id>/attack or /hurt',
