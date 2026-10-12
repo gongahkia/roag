@@ -12,6 +12,7 @@ local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 local Studio = require("src.studio_app")
 local VisualAssets = require("src.visual_assets")
+local VisualSlots = require("src.visual_slots")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
 local StudioAtlasBuild = require("src.studio_atlas_build")
@@ -29,6 +30,7 @@ local playback = Playback.new()
 local minimap_visible = true
 local showcase_index = 0
 local boon_page = 0
+local boon_detail_id
 local floor_seed = 1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
 local route_menu -- exit offers are plain data in the authoritative exit entity.
@@ -44,6 +46,7 @@ local diagnostics = os.getenv("ROEG_DIAGNOSTICS")=="1" and
 local diagnostics_update_ms=0
 local studio
 local visual_assets
+local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
 local studio_theme,studio_theme_status
 local refresh_pending=false
@@ -144,6 +147,23 @@ local function upgrade_notice(event)
     end
     return ("Level %d: %s %s → %s"):format(event.level,
         stat_labels[event.stat] or event.stat, old, new)
+end
+
+local function owned_boon_ids()
+    if not state then return {} end
+    local player=Game.player(state)
+    local result={}
+    for _,id in ipairs(BoonContent.order) do
+        local stacks=player.boons and player.boons[id]
+        if stacks then
+            for _,rarity in ipairs(BoonContent.rarities) do
+                if (stacks[rarity] or 0)>0 then
+                    result[#result+1]=id;break
+                end
+            end
+        end
+    end
+    return result
 end
 
 local function reset_camera()
@@ -472,6 +492,21 @@ local function submit(intent)
                 if reward_notice_time == 0 then reward_notice_time = 3 end
             elseif event.kind == "CurrencyCollected" then
                 notice = ("Collected %d currency"):format(event.amount)
+                if visual_assets and
+                    visual_assets.bindings['core:drop/currency/detail'] then
+                    reward_notices[#reward_notices+1]={text=notice,
+                        binding='core:drop/currency/detail'}
+                    if reward_notice_time==0 then reward_notice_time=3 end
+                end
+            elseif event.kind == "BoonGranted" then
+                if visual_assets and (visual_assets.bindings[event.boon_id..'/detail']
+                    or visual_assets.bindings[event.boon_id..'/icon']) then
+                    reward_notices[#reward_notices+1]={
+                        text='Gained '..BoonContent.get(event.boon_id).name,
+                        binding=event.boon_id..'/detail',
+                        fallback=event.boon_id..'/icon'}
+                    if reward_notice_time==0 then reward_notice_time=3 end
+                end
             elseif event.kind=="AchievementEarned" then
                 reward_notices[#reward_notices+1]="Unlocked: "..
                     AchievementContent.get(event.achievement_id).name.." → "..
@@ -549,6 +584,12 @@ function love.keypressed(key, _, isrepeat)
     if key=="f3" then
         if diagnostics then diagnostics=nil
         else diagnostics=require("src.diagnostics").new() end
+        return
+    end
+    if boon_detail_id then
+        if key=='escape' or key=='return' or key=='kpenter' then
+            boon_detail_id=nil
+        end
         return
     end
     if title then
@@ -744,6 +785,27 @@ local function draw_cells(cells, red, green, blue, alpha)
     end
 end
 
+local function draw_visual(handle,x,y,w,h,alpha)
+    if not handle then return false end
+    love.graphics.setColor(1,1,1,alpha or 1)
+    if handle.quad then
+        love.graphics.draw(handle.texture,handle.quad,x,y,0,
+            w/handle.width,h/handle.height)
+    else
+        love.graphics.draw(handle.texture,x,y,0,
+            w/handle.width,h/handle.height)
+    end
+    return true
+end
+local function bound_visual(binding)
+    return visual_assets and visual_assets:resolve(binding) or nil
+end
+local function actor_visual(binding,id)
+    local pose=VisualSlots.pose(id,Playback.current(playback),
+        Playback.current_group(playback))
+    return pose and bound_visual(binding..'/'..pose) or bound_visual(binding)
+end
+
 local function draw_enemies()
     for _, enemy in ipairs(state.entities) do
         local position=enemy.position
@@ -754,17 +816,10 @@ local function draw_enemies()
                 position.floor_id,position.x,position.y,visible_at)
             if shown then
             local x, y = Camera.tile_top_left(camera, visual_x, visual_y)
-            local enemy_art=visual_assets and
-                visual_assets:resolve_id(enemy.definition_id)
+            local enemy_art=actor_visual(enemy.definition_id,enemy.id) or
+                (visual_assets and visual_assets:resolve_id(enemy.definition_id))
             if enemy_art then
-                love.graphics.setColor(1,1,1,1)
-                if enemy_art.quad then
-                    love.graphics.draw(enemy_art.texture,enemy_art.quad,x,y,0,
-                        TILE/enemy_art.width,TILE/enemy_art.height)
-                else
-                    love.graphics.draw(enemy_art.texture,x,y,0,
-                        TILE/enemy_art.width,TILE/enemy_art.height)
-                end
+                draw_visual(enemy_art,x,y,TILE,TILE)
             elseif enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)
                 love.graphics.rectangle("fill", x + 5, y + 5, TILE - 12, TILE - 13)
@@ -832,16 +887,22 @@ local function draw_rewards()
     for _, drop in ipairs(state.drops) do
         if not drop.collected and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
-            love.graphics.setColor(1, 0.86, 0.26)
-            love.graphics.circle("fill", x + 16, y + 16, 6)
-            love.graphics.setColor(0.26, 0.19, 0.05)
-            love.graphics.circle("line", x + 16, y + 16, 6)
+            if not draw_visual(bound_visual('core:drop/currency'),x,y,TILE,TILE) then
+                love.graphics.setColor(1, 0.86, 0.26)
+                love.graphics.circle("fill", x + 16, y + 16, 6)
+                love.graphics.setColor(0.26, 0.19, 0.05)
+                love.graphics.circle("line", x + 16, y + 16, 6)
+            end
         end
     end
     for _, entity in ipairs(state.entities) do
         if entity.controller == "chest" and
             visible_at(entity.position.x,entity.position.y) then
             local x, y = Camera.tile_top_left(camera, entity.position.x, entity.position.y)
+            local chest_art=bound_visual(entity.definition_id)
+            if chest_art and not entity.claimed then
+                draw_visual(chest_art,x,y,TILE,TILE)
+            else
             if entity.claimed then
                 love.graphics.setColor(0.34, 0.26, 0.17)
             else
@@ -850,6 +911,7 @@ local function draw_rewards()
             love.graphics.rectangle("fill", x + 4, y + 10, 24, 18)
             love.graphics.setColor(1, 0.86, 0.41)
             love.graphics.rectangle("line", x + 4, y + 10, 24, 18)
+            end
         end
         if entity.controller == "door" and
             visible_at(entity.position.x,entity.position.y) then
@@ -994,6 +1056,14 @@ local function draw_world()
     love.graphics.setScissor(VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
     love.graphics.setColor(0.09, 0.13, 0.11)
     love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
+    local biome_id=map.biome_id or Biomes.order[1]
+    local background=bound_visual('core:background/'..biome_id:match('/([^/]+)$'))
+    if background then
+        draw_visual(background,VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height)
+    end
+    if terrain_cache_assets~=visual_assets then
+        terrain_cache_assets=visual_assets;terrain_cache={}
+    end
     local min_x=math.max(1,math.floor((camera.x-VIEWPORT.width/2)/TILE)+1)
     local max_x=math.min(map.width,math.ceil((camera.x+VIEWPORT.width/2)/TILE)+1)
     local min_y=math.max(1,math.floor((camera.y-VIEWPORT.height/2)/TILE)+1)
@@ -1040,8 +1110,25 @@ local function draw_world()
                 else r,g,b=0.24,0.19,0.29 end
                 if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
             end
-            love.graphics.setColor(r,g,b)
+            love.graphics.setColor(r,g,b,background and not wall and 0.78 or 1)
             love.graphics.rectangle("fill", screen_x, screen_y, TILE - 2, TILE - 2)
+            local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
+                tile=='.' and 'floor' or nil
+            if kind and visual_assets and visual_assets.has_terrain then
+                local shape=VisualSlots.terrain_shape(map,x,y,kind)
+                local cache_key=biome_id..':'..kind..':'..shape
+                local handle=terrain_cache[cache_key]
+                if handle==nil then
+                    for _,binding in ipairs(VisualSlots.terrain_bindings(
+                        biome_id,kind,shape)) do
+                        handle=visual_assets:resolve(binding)
+                        if handle then break end
+                    end
+                    terrain_cache[cache_key]=handle or false
+                end
+                if handle then draw_visual(handle,screen_x,screen_y,TILE,TILE,
+                    remembered and 0.38 or 1) end
+            end
             local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
             if authored_id and visual_assets then
                 local handle=visual_assets:resolve_id(authored_id)
@@ -1140,16 +1227,9 @@ local function draw_world()
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
-    local avatar=visual_assets and visual_assets:resolve('core:actor/adventurer')
+    local avatar=actor_visual('core:actor/adventurer',state.player_id)
     if avatar then
-        love.graphics.setColor(1,1,1)
-        if avatar.quad then
-            love.graphics.draw(avatar.texture,avatar.quad,screen_x,screen_y,0,
-                TILE/avatar.width,TILE/avatar.height)
-        else
-            love.graphics.draw(avatar.texture,screen_x,screen_y,0,
-                TILE/avatar.width,TILE/avatar.height)
-        end
+        draw_visual(avatar,screen_x,screen_y,TILE,TILE)
     else
         love.graphics.setColor(0.95, 0.78, 0.30)
         love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
@@ -1201,7 +1281,10 @@ local function draw_world()
             love.graphics.print(("%d. %s [%s] · power %d%s"):format(
                 index, definition.name, offer.rarity, power.power, chance), 90, 158 + (index-1)*88)
             love.graphics.printf(BoonContent.offer_text(offer.boon_id,offer.rarity),
-                110, 180 + (index-1)*88,580)
+                110, 180 + (index-1)*88,470)
+            local art=bound_visual(offer.boon_id..'/detail') or
+                bound_visual(offer.boon_id..'/icon')
+            if art then draw_visual(art,610,151+(index-1)*88,64,64) end
         end
         love.graphics.setColor(0.9, 0.95, 0.9)
         local status = chest_menu.shortfall > 0 and
@@ -1367,7 +1450,9 @@ local function draw_panel()
     end
     if reward_notice_time > 0 and reward_notices[1] then
         love.graphics.setColor(1, 0.87, 0.39)
-        love.graphics.printf(reward_notices[1], PANEL_X, 283, 260)
+        local item=reward_notices[1]
+        love.graphics.printf(type(item)=='table' and item.text or item,
+            PANEL_X, 283, 260)
     end
 
     if not targeting then
@@ -1385,16 +1470,22 @@ local function draw_panel()
                 end
                 if #counts > 0 then
                     local label = BoonContent.get(id).name .. " " .. table.concat(counts, " ")
-                    owned[#owned+1]=label
+                    owned[#owned+1]={label=label,id=id}
                 end
             end
         end
         local pages=math.max(1,math.ceil(#owned/7))
         local page=boon_page%pages
-        love.graphics.print(("BOONS %d/%d (V page · B dev)"):format(page+1,pages),PANEL_X,334)
+        love.graphics.print(("BOONS %d/%d · V page · click"):format(page+1,pages),PANEL_X,334)
         for line=1,7 do
-            local label=owned[page*7+line]
-            if label then love.graphics.print(label,PANEL_X,351+(line-1)*12) end
+            local item=owned[page*7+line]
+            if item then
+                local icon=bound_visual(item.id..'/icon')
+                if icon then draw_visual(icon,PANEL_X,351+(line-1)*12,12,12) end
+                love.graphics.setColor(0.66,0.86,1)
+                love.graphics.print(item.label,PANEL_X+(icon and 16 or 0),
+                    351+(line-1)*12)
+            end
         end
         if #owned==0 then love.graphics.print("None equipped", PANEL_X, 351) end
     end
@@ -1509,6 +1600,45 @@ local function draw_panel()
     love.graphics.print("Enter confirm / Esc cancel", PANEL_X, 603)
 end
 
+local function draw_reward_detail()
+    local item=reward_notice_time>0 and reward_notices[1] or nil
+    if type(item)~='table' or chest_menu or pause_menu then return end
+    local art=bound_visual(item.binding) or
+        (item.fallback and bound_visual(item.fallback))
+    if not art then return end
+    local x,y=VIEWPORT.x+VIEWPORT.width-174,VIEWPORT.y+VIEWPORT.height-150
+    love.graphics.setColor(0.025,0.045,0.05,0.93)
+    love.graphics.rectangle('fill',x,y,160,134)
+    draw_visual(art,x+32,y+8,96,96)
+    love.graphics.setColor(0.93,0.95,0.85)
+    love.graphics.printf(item.text,x+6,y+107,148,'center')
+end
+
+local function draw_boon_detail()
+    if not boon_detail_id then return end
+    local definition=BoonContent.get(boon_detail_id)
+    if not definition then return end
+    local x,y=150,158
+    love.graphics.setColor(0.02,0.04,0.05,0.97)
+    love.graphics.rectangle('fill',x,y,550,305)
+    love.graphics.setColor(0.68,0.83,0.78)
+    love.graphics.rectangle('line',x,y,550,305)
+    local art=bound_visual(boon_detail_id..'/detail') or
+        bound_visual(boon_detail_id..'/icon')
+    if art then draw_visual(art,x+18,y+50,192,192) end
+    love.graphics.setColor(0.97,0.91,0.69)
+    love.graphics.printf(definition.name,x+225,y+24,300)
+    local stacks=Game.player(state).boons[boon_detail_id] or {}
+    local rarity='common'
+    for _,candidate in ipairs(BoonContent.rarities) do
+        if (stacks[candidate] or 0)>0 then rarity=candidate end
+    end
+    love.graphics.setColor(0.88,0.91,0.88)
+    love.graphics.printf(BoonContent.offer_text(boon_detail_id,rarity),
+        x+225,y+65,300)
+    love.graphics.print('Esc or click to close · no world time',x+18,y+275)
+end
+
 function love.draw()
     if studio then return studio:draw() end
     if title then
@@ -1569,6 +1699,8 @@ function love.draw()
     if camera_state ~= state then reset_camera() end
     draw_world()
     draw_panel()
+    draw_reward_detail()
+    draw_boon_detail()
     if persistence_message~="" and not pause_menu then
         love.graphics.setColor(1,0.48,0.43)
         love.graphics.printf(persistence_message,VIEWPORT.x+12,
@@ -1679,7 +1811,17 @@ function love.textinput(text)
     if studio then studio:textinput(text) end
 end
 function love.mousepressed(x,y,button)
-    if studio then studio:mousepressed(x,y,button) end
+    if studio then studio:mousepressed(x,y,button);return end
+    if button~=1 then return end
+    if boon_detail_id then boon_detail_id=nil;return end
+    if not state or title or pause_menu or chest_menu or route_menu or
+        Playback.busy(playback) or x<PANEL_X or x>1008 or y<351 or y>=435 then
+        return
+    end
+    local owned=owned_boon_ids()
+    local pages=math.max(1,math.ceil(#owned/7))
+    local index=(boon_page%pages)*7+math.floor((y-351)/12)+1
+    boon_detail_id=owned[index]
 end
 function love.mousemoved(x,y,dx,dy)
     if studio then studio:mousemoved(x,y,dx,dy) end

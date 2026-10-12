@@ -4,7 +4,7 @@ local Project=require('src.studio_project')
 local AtlasRuntime=require('src.studio_atlas_runtime')
 local V={}
 function V.new(read,make_image)
-    local self=setmetatable({bindings={},by_id={},cache={},image_data={},
+    local self=setmetatable({bindings={},by_id={},cache={},image_data={},has_terrain=false,
         failed={},status='absent',atlas_status='absent'},{__index=V})
     local ok,bytes=pcall(read,'assets/studio/manifest.txt')
     if not ok or not bytes then return self end
@@ -14,6 +14,7 @@ function V.new(read,make_image)
     for _,asset in ipairs(project.assets) do
         if asset.source~='' then self.by_id[asset.id]=asset end
         if asset.binding~='' and asset.source~='' then
+            if asset.binding:match('^core:terrain/') then self.has_terrain=true end
             if self.bindings[asset.binding] then
                 self.status='duplicate binding: '..asset.binding
                 self.bindings={}

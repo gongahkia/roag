@@ -7,8 +7,8 @@ local function box(x,y,w,h)
 end
 function V.help(workspace)
     local g=love.graphics;local w,h=g.getDimensions()
-    local x,y=math.floor((w-740)/2),math.floor((h-420)/2)
-    box(x,y,740,420)
+    local x,y=math.floor((w-900)/2),math.floor((h-520)/2)
+    box(x,y,900,520)
     g.setColor(.94,.96,.85)
     local lines={
         'ROEG STUDIO · F10 / Esc closes help',
@@ -16,6 +16,12 @@ function V.help(workspace)
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · Tab draft preview',
         'Pixels: Cmd/Ctrl+Z undo · Cmd/Ctrl+Shift+Z redo',
+        'Asset Binding (4): core:actor/adventurer/attack or /hurt',
+        'Enemy Binding: core:enemy/<enemy_id>/attack or /hurt',
+        'Boon Binding: core:boon/<boon_id>/icon or /detail',
+        'World: core:terrain/<biome>/<floor|wall|water>/<shape>',
+        'Shapes: center · edge_n/e/s/w · corner_nw/ne/se/sw · inner_corner_*',
+        'Backdrop: core:background/<biome> · Drop: core:drop/currency',
         'World: drag paint · T rotations · M mirror · P/H transformed preview',
         'World: F generated biome preview · O overlays · V validate',
         'Theme: Tab cycles title, HUD sizes, menu and effect preview',
@@ -23,7 +29,7 @@ function V.help(workspace)
         'Game: F5 refreshes published visuals, preserving the current floor.',
         'Workspace: '..(workspace or ''),
     }
-    for i,line in ipairs(lines) do g.print(line,x+20,y+18+(i-1)*38) end
+    for i,line in ipairs(lines) do g.print(line,x+20,y+18+(i-1)*28) end
 end
 function V.draft(canvas,handle)
     local g=love.graphics;local w,h=g.getDimensions()

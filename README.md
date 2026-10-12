@@ -117,6 +117,9 @@ ROEG Studio E06 adds a draft/published asset preview, read-only Publish
 Readiness and **F5** visual refresh in a running game. Save in Studio, review
 the explicit publish steps, then press F5 to reload visuals without changing
 the current floor or turn state. See [Studio E06 workflow](docs/ROEG_STUDIO_E06.md).
+Static attack/hurt sprites, boon cards, currency pickups, gameplay backdrops,
+and automatically classified terrain use the optional
+[visual slot bindings](docs/ROEG_STUDIO_VISUAL_SLOTS.md).
 
 Tranche 15 groups consecutive locked windups and dense same-kind boon cues into
 short presentation beats, and shows when a gameplay key is ignored during the
