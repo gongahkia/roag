@@ -96,7 +96,8 @@ function App:save()
     if self.canvas then self.canvas:finish() end
     local ok,reason
     if self.canvas and (self.canvas:dirty() or self.canvas_asset.document=='') then
-        ok,reason=self.store:save_document(self.project,self.canvas_asset,self.canvas.doc,decode)
+        ok,reason=self.store:save_document(self.project,self.canvas_asset,self.canvas.doc,
+            decode,self.canvas.outline_color)
     else ok,reason=self.store:save(self.project,decode) end
     if ok and self.world_editor then
         self.world_editor:finish()
@@ -161,7 +162,8 @@ function App:world_asset_image(id)
         local bytes=IO:read('studio/projects/'..self.project.id..'/'..path)
         if not bytes then return nil end
         local ok,image=pcall(function()
-            local pixels=decode(bytes,path,asset.width,asset.height)
+            local width,height=Project.output_dimensions(asset)
+            local pixels=decode(bytes,path,width,height)
             local value=love.graphics.newImage(pixels)
             value:setFilter(asset.filter,asset.filter)
             self.world_image_data[id]=pixels
@@ -223,7 +225,7 @@ function App:edit_pixels()
         return Document.from_rgba(a.id,a.width,a.height,table.concat(raw))
     end)
     if not ok then self:status('Pixel editor unavailable: '..tostring(doc));return end
-    self.canvas=Canvas.new(doc);self.canvas_asset=a;self.mode='canvas'
+    self.canvas=Canvas.new(doc,a.outline_color);self.canvas_asset=a;self.mode='canvas'
     self:status('Pixel editor: mouse or pen-as-mouse draws on the selected layer.')
 end
 function App:selected_asset()
@@ -383,6 +385,11 @@ function App:keypressed(key)
         if key=='s' and not self.canvas.modal then self:save();return end
         if key=='escape' and not self.canvas.modal then
             self.canvas:finish()
+            if self.canvas.selection then
+                self.canvas.selection=nil
+                self:status('Selection cleared.')
+                return
+            end
             if self.canvas:dirty() or self.canvas_asset.document=='' then
                 self:status('Save this sprite (S) before returning to asset metadata.')
             else self.mode='project';self:status('Asset metadata ready.') end
@@ -709,7 +716,8 @@ function App:preview_image(a)
     local readok,bytes=pcall(IO.read,IO,'studio/projects/'..self.project.id..'/'..path)
     if not readok or not bytes then self:status('Missing image: '..path);return nil end
     local ok,image=pcall(function()
-        local pixels=decode(bytes,path,a.width,a.height)
+        local width,height=Project.output_dimensions(a)
+        local pixels=decode(bytes,path,width,height)
         local result=love.graphics.newImage(pixels)
         result:setFilter(a.filter,a.filter)
         return result
@@ -819,12 +827,14 @@ function App:draw()
         end
         local image=self:preview_image(a)
         if image then
-            local scale=math.min(240/a.width,160/a.height,8)
+            local width,height=image:getWidth(),image:getHeight()
+            local scale=math.min(240/width,160/height,8)
             g.setColor(1,1,1)
-            g.draw(image,580-a.width*scale/2,264-a.height*scale/2,0,scale,scale)
+            g.draw(image,580-width*scale/2,264-height*scale/2,0,scale,scale)
         else g.setColor(0.8,0.8,0.72);g.print('No image source',510,258) end
         g.setColor(0.8,0.88,0.83)
-        g.print(('PNG %d×%d · %s'):format(a.width,a.height,a.filter),458,355)
+        local width,height=Project.output_dimensions(a)
+        g.print(('PNG %d×%d · %s'):format(width,height,a.filter),458,355)
         g.print('Source: '..(a.source=='' and (a.derived=='' and '[draft]' or '[painted layers]') or a.source),458,370)
         local values={a.name,a.id,a.kind,a.binding,a.filter}
         for i,v in ipairs(values) do

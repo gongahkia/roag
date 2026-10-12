@@ -13,8 +13,9 @@ function V.help(workspace)
     local lines={
         'ROEG STUDIO · F10 / Esc closes help',
         'Project: N new · O open · S save · E pixels · W world · U UI · P publish',
-        'Pixels: P pencil · E eraser · I pick · F fill · Tab draft preview',
-        'Pixels: wheel zoom · Space/middle drag pan · Ctrl+Z/Y undo/redo',
+        'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
+        'Pixels: C recolor · Delete clear · O outline · Tab draft preview',
+        'Pixels: Cmd/Ctrl+Z undo · Cmd/Ctrl+Shift+Z redo',
         'World: drag paint · T rotations · M mirror · P/H transformed preview',
         'World: F generated biome preview · O overlays · V validate',
         'Theme: Tab cycles title, HUD sizes, menu and effect preview',
@@ -30,7 +31,7 @@ function V.draft(canvas,handle)
     box(x,y,690,360)
     canvas:refresh_texture()
     local texture=canvas.texture
-    local dw,dh=canvas.doc.width,canvas.doc.height
+    local dw,dh=texture:getWidth(),texture:getHeight()
     g.setColor(.96,.95,.85)
     g.print('DRAFT · current pixels, including unsaved strokes · Tab/click closes',x+18,y+14)
     local function checker(px,py,bw,bh)

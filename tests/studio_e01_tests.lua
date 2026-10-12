@@ -3,6 +3,7 @@ local PNG=require('src.studio_png')
 local Project=require('src.studio_project')
 local Store=require('src.studio_store')
 local Publish=require('src.studio_publish')
+local Outline=require('src.studio_outline')
 local function rgba(doc,x,y,id) return table.concat(D.get(doc,x,y,id),',') end
 local function mem()
     local files={};local io={fail=false,partial=false}
@@ -156,5 +157,90 @@ return function(test,equal)
         end)
         _G.love=old_love
         assert(ok,err)
+    end)
+    test('E01 rectangular selection recolors opaque pixels and clears as one undo step',function()
+        local old_love=_G.love
+        local down={}
+        _G.love={graphics={getWidth=function()return 1024 end,
+            getHeight=function()return 640 end,getDimensions=function()return 1024,640 end},
+            keyboard={isDown=function(...)
+                for i=1,select('#',...) do if down[select(i,...)] then return true end end
+                return false
+            end}}
+        local ok,err=pcall(function()
+            local C=require('src.studio_canvas')
+            local d=D.new('core:actor/adventurer',4,4)
+            D.set(d,1,1,{10,20,30,128},'replace')
+            D.set(d,2,2,{40,50,60,255},'replace')
+            local c=C.new(d);c.color={200,100,50,255}
+            c:keypressed('m')
+            local ox,oy=c:origin()
+            local function pos(x,y)return ox+(x+0.5)*c.zoom,oy+(y+0.5)*c.zoom end
+            local x0,y0=pos(1,1);local x1,y1=pos(2,2)
+            c:mousepressed(x0,y0,1);c:mousemoved(x1,y1,x1-x0,y1-y0)
+            c:mousereleased()
+            assert(c.selection.x0==1 and c.selection.y1==2 and not c:dirty())
+            assert(c:keypressed('c'))
+            assert(rgba(c.doc,1,1)=='200,100,50,128')
+            assert(rgba(c.doc,2,2)=='200,100,50,255')
+            assert(rgba(c.doc,1,2)=='0,0,0,0')
+            assert(#c.undo_stack==1)
+            down.lgui=true;c:keypressed('z');down.lgui=nil
+            assert(rgba(c.doc,1,1)=='10,20,30,128')
+            down.rgui=true;down.lshift=true;c:keypressed('z')
+            down.rgui=nil;down.lshift=nil
+            assert(rgba(c.doc,1,1)=='200,100,50,128')
+            assert(c:keypressed('delete'))
+            assert(rgba(c.doc,1,1)=='0,0,0,0' and rgba(c.doc,2,2)=='0,0,0,0')
+            down.lctrl=true;c:keypressed('z');down.lctrl=nil
+            assert(rgba(c.doc,1,1)=='200,100,50,128')
+            c.doc.layers[1].locked=true
+            assert(not c:apply_selection('erase'))
+            assert(rgba(c.doc,1,1)=='200,100,50,128')
+            c:keypressed('o')
+            for _=1,8 do c:keypressed('backspace') end
+            c:textinput('#ABCDEF80');c:keypressed('return')
+            assert(c.outline_color=='ABCDEF80')
+            assert(c:undo() and c.outline_color=='')
+            assert(c:redo() and c.outline_color=='ABCDEF80')
+        end)
+        _G.love=old_love
+        assert(ok,err)
+    end)
+    test('E01 one-output-pixel outline preserves 2x core and requested RGBA',function()
+        local d=D.new('core:actor/adventurer',3,3)
+        D.set(d,1,1,{10,20,30,128},'replace')
+        local w,h,raw=Outline.render(D.flatten(d),3,3,'A1B2C3D4')
+        assert(w==6 and h==6 and #raw==144)
+        local function pixel(x,y)
+            local p=(y*w+x)*4+1
+            return table.concat({raw:byte(p,p+3)},',')
+        end
+        assert(pixel(2,2)=='10,20,30,128' and pixel(3,3)=='10,20,30,128')
+        assert(pixel(1,1)=='161,178,195,212' and pixel(4,4)=='161,178,195,212')
+        assert(pixel(0,0)=='0,0,0,0')
+        assert(not pcall(Outline.render,D.flatten(d),3,3,'bad'))
+    end)
+    test('E01 outlined source reopens and publishes as a 2x bound visual',function()
+        local io=mem();local store=Store.new(io)
+        local p=Project.new('e01','E01')
+        local a=Project.asset('studio:actor/hero','Hero','actor')
+        a.binding='core:actor/adventurer';p.assets[1]=a
+        local d=D.new(a.id,3,3)
+        D.set(d,1,1,{80,90,100,255},'replace')
+        assert(store:save_document(p,a,d,nil,'FF0000FF'))
+        assert(a.width==3 and a.height==3 and a.outline_color=='FF0000FF')
+        local reopened=assert(store:open('e01'))
+        assert(reopened.assets[1].outline_color=='FF0000FF')
+        assert(D.get(store:document(reopened,reopened.assets[1]),1,1)[1]==80)
+        local files=Publish.plan(reopened,function(path)
+            return io:read('studio/projects/e01/'..path)
+        end,function()return nil end)
+        local output=Project.decode(files[2].bytes)
+        local published=output.assets[1]
+        assert(published.width==6 and published.height==6)
+        assert(published.binding=='core:actor/adventurer' and published.outline_color=='')
+        local w,h=Project.png_dimensions(files[1].bytes)
+        assert(w==6 and h==6)
     end)
 end

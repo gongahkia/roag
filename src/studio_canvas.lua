@@ -247,10 +247,11 @@ function C:keypressed(key)
         elseif key=='backspace' then self.typed=self.typed:sub(1,-2)
         elseif key=='return' then
             if self.modal=='color' then
-                local c=fromhex(self.typed);if not c then return 'Enter 8 hex digits: RRGGBBAA' end
+                local c=fromhex(self.typed)
+                if not c then return true,'Enter 8 hex digits: RRGGBBAA' end
                 self.color=c
             elseif self.modal=='outline' then
-                local value=self.typed:upper()
+                local value=self.typed:gsub('^#',''):upper()
                 if value~='OFF' and not fromhex(value) then
                     return true,'Enter RRGGBBAA or OFF'
                 end
@@ -279,7 +280,7 @@ function C:keypressed(key)
     elseif key=='f' then self:set_tool('fill')
     elseif key=='m' then self:set_tool('select')
     elseif key=='c' then return self:apply_selection('recolor')
-    elseif key=='backspace' or (key=='delete' and self.selection and self.tool=='select') then
+    elseif key=='backspace' or (key=='delete' and self.selection) then
         return self:apply_selection('erase')
     elseif key=='[' or key=='leftbracket' then self.brush=math.max(1,self.brush/2)
     elseif key==']' or key=='rightbracket' then self.brush=math.min(8,self.brush*2)
@@ -305,13 +306,18 @@ end
 function C:textinput(t) if self.modal and #self.typed+#t<=64 then self.typed=self.typed..t end end
 function C:refresh_texture()
     if not self.texture_dirty then return end
-    local raw=D.flatten(self.doc);local data=love.image.newImageData(self.doc.width,self.doc.height)
+    local raw=D.flatten(self.doc)
+    local width,height=self.doc.width,self.doc.height
+    if self.outline_color~='' then width,height,raw=Outline.render(raw,width,height,self.outline_color) end
+    local data=love.image.newImageData(width,height)
     local i=1
-    for y=0,self.doc.height-1 do for x=0,self.doc.width-1 do
+    for y=0,height-1 do for x=0,width-1 do
         local r,g,b,a=raw:byte(i,i+3);i=i+4
         data:setPixel(x,y,r/255,g/255,b/255,a/255)
     end end
-    if self.texture and self.texture.replacePixels then self.texture:replacePixels(data)
+    if self.texture and self.texture.replacePixels and
+        self.texture:getWidth()==width and self.texture:getHeight()==height then
+        self.texture:replacePixels(data)
     else self.texture=love.graphics.newImage(data) end
     self.texture:setFilter('nearest','nearest');self.texture_dirty=false
 end
@@ -326,6 +332,8 @@ function C:draw()
     g.print(('Cursor %s · %s · Undo %d / Redo %d'):format(
         self.cursor_x and (self.cursor_x..','..self.cursor_y) or 'outside',self:dirty() and 'UNSAVED' or 'Saved',
         #self.undo_stack,#self.redo_stack),18,65)
+    g.setColor(0.87,0.9,0.78)
+    g.print('O outline: '..(self.outline_color~='' and ('#'..self.outline_color..' · 2× export') or 'off'),18,83)
     local side=w-230
     g.setColor(0.28,0.4,0.37);g.rectangle('fill',side+1,62,103,28)
     g.rectangle('fill',side+107,62,103,28)
@@ -340,7 +348,8 @@ function C:draw()
         g.rectangle('fill',xx,yy,step,step)
     end end
     self:refresh_texture()
-    g.setColor(1,1,1);g.draw(self.texture,ox,oy,0,self.zoom,self.zoom)
+    local image_scale=self.outline_color~='' and self.zoom/2 or self.zoom
+    g.setColor(1,1,1);g.draw(self.texture,ox,oy,0,image_scale,image_scale)
     if self.zoom>=12 then
         g.setColor(0.15,0.17,0.18,0.24)
         for x=0,self.doc.width do g.line(ox+x*self.zoom,oy,ox+x*self.zoom,oy+self.doc.height*self.zoom) end
@@ -348,6 +357,13 @@ function C:draw()
     end
     if self.cursor_x then
         g.setColor(1,1,0.4,0.9);g.rectangle('line',ox+self.cursor_x*self.zoom,oy+self.cursor_y*self.zoom,self.zoom,self.zoom)
+    end
+    if self.selection then
+        local s=self.selection
+        local x,y=ox+s.x0*self.zoom,oy+s.y0*self.zoom
+        local sw,sh=(s.x1-s.x0+1)*self.zoom,(s.y1-s.y0+1)*self.zoom
+        g.setColor(0.05,0.08,0.09,1);g.rectangle('line',x,y,sw,sh)
+        g.setColor(1,1,1,1);g.rectangle('line',x+1,y+1,math.max(0,sw-2),math.max(0,sh-2))
     end
     g.setScissor()
     local sx=w-230
@@ -357,6 +373,10 @@ function C:draw()
         g.rectangle('fill',sx+4,100+(i-1)*30,210,28)
         g.setColor(1,1,1);g.print(('%s  %s'):format(({'P','E','I','F'})[i],t),sx+14,106+(i-1)*30)
     end
+    g.setColor(self.tool=='select' and 0.3 or 0.22,
+        self.tool=='select' and 0.47 or 0.31,0.34)
+    g.rectangle('fill',sx+4,220,210,16)
+    g.setColor(1,1,1);g.print('M  select rectangle',sx+14,221)
     for i,c in ipairs(palette) do
         local col=(i-1)%8;local row=math.floor((i-1)/8)
         g.setColor(0.65,0.65,0.65);g.rectangle('fill',sx+col*26+4,236+row*30,11,11)
@@ -387,12 +407,14 @@ function C:draw()
         g.setColor(1,1,1);g.print(label,bx+5,by+6)
     end end
     g.setColor(0.72,0.84,0.81)
-    g.print('L add · Del remove · R rename',18,h-51)
-    g.print('V show · K lock · PgUp/PgDn order · Ctrl+Z/Y undo/redo',18,h-31)
-    g.print('S save · Esc metadata · wheel zoom · middle/Space drag pan',18,h-12)
+    g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-51)
+    g.print('L add · R rename · O outline · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-31)
+    g.print('S save · wheel zoom · middle/Space drag pan',18,h-12)
     if self.modal then
         g.setColor(0.02,0.04,0.05,0.94);g.rectangle('fill',rx+40,ry+100,rw-80,110)
-        g.setColor(1,1,1);g.printf(self.modal=='color' and 'RGBA hex: RRGGBBAA' or 'Layer name',rx+50,ry+112,rw-100,'center')
+        local prompt=self.modal=='color' and 'RGBA hex: RRGGBBAA' or
+            self.modal=='outline' and 'Outline: RRGGBBAA or OFF (1 pixel at 2×)' or 'Layer name'
+        g.setColor(1,1,1);g.printf(prompt,rx+50,ry+112,rw-100,'center')
         g.printf(self.typed,rx+50,ry+151,rw-100,'center')
     end
 end

@@ -156,9 +156,41 @@ function love.load(args)
         local data=love.image.newImageData(love.filesystem.newFileData(
             assert(love.filesystem.read('studio/projects/import_project/'..a.derived)),'import-painted.png'))
         assert(math.floor(select(2,data:getPixel(0,0))*255+0.5)==255)
+        color('1122CCFF')
+        love.keypressed('m')
+        local x0,y0=pixel_xy(0,0);local x1,y1=pixel_xy(2,2)
+        scripted_stroke=true
+        love.mousepressed(x0,y0,1);scripted_move(x1,y1,x1-x0,y1-y0)
+        love.mousereleased(x1,y1,1);scripted_stroke=false
+        assert(s.canvas.selection.x0==0 and s.canvas.selection.x1==2)
+        love.keypressed('c')
+        assert(D.get(s.canvas.doc,0,0)[3]==204,'GUI selection recolor failed')
+        love.mousepressed(love.graphics.getWidth()-210,72,1)
+        assert(D.get(s.canvas.doc,0,0)[2]==255,'GUI selection undo failed')
+        love.mousepressed(love.graphics.getWidth()-105,72,1)
+        assert(D.get(s.canvas.doc,0,0)[3]==204,'GUI selection redo failed')
+        love.keypressed('delete')
+        assert(D.get(s.canvas.doc,0,0)[4]==0,'GUI selection clear failed')
+        love.mousepressed(love.graphics.getWidth()-210,72,1)
+        assert(D.get(s.canvas.doc,0,0)[4]==255,'GUI selection clear undo failed')
+        love.keypressed('o');for _=1,8 do love.keypressed('backspace') end
+        love.textinput('AABBCCFF');love.keypressed('return')
+        assert(s.canvas.outline_color=='AABBCCFF')
+        love.keypressed('s')
+        local outlined=assert(love.filesystem.read('studio/projects/import_project/'..a.derived))
+        local ow,oh=require('src.studio_project').png_dimensions(outlined)
+        assert(ow==32 and oh==32,'outlined export is not 2x')
         assert(not love.filesystem.getInfo('active-a.roeg') and
             not love.filesystem.getInfo('profile-a.roeg'),
             'Studio touched gameplay persistence')
+    elseif phase==7 then
+        love.keypressed('o');love.keypressed('return');love.keypressed('e')
+        local s=state();assert(s.project.id=='import_project')
+        assert(s.canvas.outline_color=='AABBCCFF' and s.canvas.doc.width==16)
+        local a=s.project.assets[1]
+        local bytes=assert(love.filesystem.read('studio/projects/import_project/'..a.derived))
+        local image=love.image.newImageData(love.filesystem.newFileData(bytes,'outlined.png'))
+        assert(image:getWidth()==32 and image:getHeight()==32)
     else
         assert(love.roegStudioState()==nil)
         if phase==5 then assert(love.roegAssetStatus()=='loaded' and love.roegAssetResolved('core:actor/adventurer'))
@@ -247,6 +279,7 @@ run_phase 1 0 --studio
 run_phase 2 0 --studio
 run_phase 3 0 --studio
 run_phase 4 0 --studio
+run_phase 7 0 --studio
 for frame in before mid after; do test -s "$output_dir/$frame.tga"; done
 if cmp -s "$output_dir/before.tga" "$output_dir/mid.tga" || cmp -s "$output_dir/mid.tga" "$output_dir/after.tga"; then
     echo 'Canvas did not change across actual rendered drawing frames' >&2;exit 1
@@ -264,4 +297,4 @@ test -s "$output_dir/phase5.tga" && test -s "$output_dir/phase6.tga"
 if cmp -s "$output_dir/phase5.tga" "$output_dir/phase6.tga"; then
     echo 'Painted game sprite and fallback rendered identical frames' >&2;exit 1
 fi
-printf 'Studio E01 GUI smoke passed: paint, layers, fresh reopen, PNG, publish and fallback in %s\n' "$output_dir"
+printf 'Studio E01 GUI smoke passed: paint, selection, outline, fresh reopen, PNG, publish and fallback in %s\n' "$output_dir"
