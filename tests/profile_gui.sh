@@ -142,8 +142,8 @@ function love.draw(...)
         end
         file:close()
         love.graphics.captureScreenshot(function(image)
-            local screenshot=assert(io.open(output..'/'..mode..'.png','wb'))
-            screenshot:write(image:encode('png'):getString())
+            local screenshot=assert(io.open(output..'/'..mode..'.tga','wb'))
+            screenshot:write(image:encode('tga'):getString())
             screenshot:close()
             love.event.quit()
         end)
@@ -155,6 +155,6 @@ for scene in generated boon crowd fungal aqueduct bastion finale; do
       ROEG_GUI_AUTOSTART=1 ROEG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
       timeout 30s love "$output_dir"
     test -s "$output_dir/$scene.tsv"
-    test -s "$output_dir/$scene.png"
+    test -s "$output_dir/$scene.tga"
 done
 printf 'GUI profile results: %s\n' "$output_dir"

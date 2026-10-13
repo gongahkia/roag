@@ -107,7 +107,7 @@ function E:binding(cue_id)
         if b.cue_id==cue_id then return b,i end
     end
 end
-function E:import_bytes(bytes,name,replace_id)
+function E:import_bytes(bytes,name,replace_id,supplied_provenance)
     local format,duration
     local valid,why=pcall(function()
         format,duration=Audio.format(bytes)
@@ -133,6 +133,7 @@ function E:import_bytes(bytes,name,replace_id)
     for _,sound in ipairs(self.pack.sounds) do if sound.id==id then prior=sound;break end end
     local provenance=prior and {tags=prior.tags,author=prior.author,
         source_url=prior.source_url,license=prior.license} or
+        supplied_provenance or
         {tags='imported',author='User import',license='User supplied; verify rights'}
     local sound,err=self.store:import(self.pack,id,
         prior and prior.name or name,bytes,provenance)
@@ -173,7 +174,9 @@ function E:import_sample()
     local kinds={'step','hit','boon','menu','enemy','terrain','music','ambience'}
     local kind=kinds[self.sample_index]
     self.sample_index=self.sample_index%#kinds+1
-    local added=self:import_bytes(Samples.wav(kind),'Original sample '..kind)
+    local added=self:import_bytes(Samples.wav(kind),'Original sample '..kind,nil,
+        {tags='placeholder',author='ROEG Studio synthesized',
+            license='Original project asset'})
     if added then self.message=self.message..' · next sample: '..kinds[self.sample_index] end
     return added
 end

@@ -1186,7 +1186,7 @@ local function draw_minimap()
                 oy+(entity.position.y-1)*scale,2.4,2.4)
         end
     end
-    for _,stair in ipairs(map.placements.stairs or {}) do
+    for _,stair in ipairs(map.placements and map.placements.stairs or {}) do
         if Game.was_explored(state,map.floor_id,stair.x,stair.y) then
             love.graphics.setColor(0.43,0.88,0.96)
             love.graphics.rectangle("line",ox+(stair.x-1)*scale-1,
@@ -2025,8 +2025,12 @@ function love.roegAudioDiagnostics()
     if not audio_runtime then return {status=audio_status,played=0,voices=0} end
     return {status=audio_runtime.status,played=audio_runtime.played_count,
         voices=#audio_runtime.voices,scene=audio_runtime.scene_id,
+        music_playing=audio_runtime.music~=nil and
+            audio_runtime.music.source:isPlaying(),
+        music_transitioning=audio_runtime.retiring_music~=nil,
         sound_count=audio_runtime.pack and #audio_runtime.pack.sounds or 0,
-        binding_count=audio_runtime.pack and #audio_runtime.pack.bindings or 0}
+        binding_count=audio_runtime.pack and #audio_runtime.pack.bindings or 0,
+        fallback_binding_count=audio_runtime.fallback_binding_count or 0}
 end
 function love.roegWorldPackStatus() return studio_world_status end
 function love.roegThemeStatus() return studio_theme_status or 'absent' end
@@ -2093,14 +2097,18 @@ end
 function love.quit()
     if studio and studio.canvas then
         studio.canvas:finish()
-        studio.dirty=studio.metadata_dirty or studio.canvas:dirty()
+        studio.dirty=studio.metadata_dirty or studio.canvas:dirty() or studio.dirty
     end
     if studio and studio.world_editor then
         studio.world_editor:finish()
-        studio.dirty=studio.metadata_dirty or studio.world_editor:dirty()
+        studio.dirty=studio.metadata_dirty or studio.world_editor:dirty() or studio.dirty
     end
     if studio and studio.theme_editor then
         studio.dirty=studio.metadata_dirty or studio.theme_editor:dirty() or studio.dirty
+    end
+    if studio and studio.audio_editor then
+        studio.audio_editor:stop_audition()
+        studio.dirty=studio.metadata_dirty or studio.audio_editor:dirty() or studio.dirty
     end
     if studio and studio.dirty and not studio.allow_quit then
         studio.return_mode=studio.mode

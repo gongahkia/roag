@@ -8,6 +8,7 @@ cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cp "$project_dir/tests/legal_playthrough.lua" "$output_dir/tests/legal_playthrough.lua"
+cp "$project_dir/tests/expansion_legal_playthrough.lua" "$output_dir/tests/expansion_legal_playthrough.lua"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Profile=require('src.profile')
@@ -94,14 +95,16 @@ function love.draw(...)
         capture(phase..'-unlocks',function()
             love.keypressed('escape')
             if phase=='earn' then
-                set_seed(3)
+                set_seed(9)
                 love.keypressed('n')
                 local live=assert(main_state())
                 tracked=live
-                assert(live.meta.eligible and live.run_seed==3)
+                assert(live.meta.eligible and live.run_seed==9 and
+                    live.floor_order and #live.floor_order==2)
                 assert(main_state()==live)
-                local Play=require('tests.legal_playthrough')
-                local guided=Play.stage_one(3,1) -- generate ordinary legal command trace
+                local Driver=require('tests.expansion_legal_playthrough')
+                local guided,reason=Driver.attempt(9,{stop_after_stage=1})
+                assert(guided,reason) -- generate ordinary paired-floor commands
                 tracked=live
                 local defeated=false
                 for _,record in ipairs(guided.trace) do
@@ -126,8 +129,12 @@ function love.draw(...)
                 love.keypressed('n') -- existing active save requires confirmation
                 love.keypressed('return')
                 tracked=assert(main_state())
-                assert(#tracked.available_boons==21)
-                assert(tracked.available_boons[21]=='core:boon/guardians_vow')
+                local unlocked=false
+                for _,id in ipairs(tracked.available_boons) do
+                    if id=='core:boon/guardians_vow' then unlocked=true end
+                end
+                assert(unlocked and #tracked.available_boons>=47,
+                    'future run did not freeze the expanded pool plus reward')
                 step=2
             end
         end)

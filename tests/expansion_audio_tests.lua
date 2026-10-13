@@ -213,6 +213,26 @@ return function(test,equal)
         runtime:set_ambience(nil)
         assert(runtime.ambience==nil)
     end)
+    test('partial published audio overrides one cue and retains original unbound sounds',function()
+        local pack,source=Samples.showcase('audio_test')
+        local move=pack.bindings[1]
+        pack.bindings={move}
+        local published={}
+        for _,sound in ipairs(pack.sounds) do
+            published[Audio.published_path(sound)]=source[sound.path]
+        end
+        local plan=Store.plan_published(pack,function(path)return published[path]end)
+        published[plan.path]=plan.bytes
+        local runtime=Runtime.new(function(path)return published[path]end,
+            function()return fake_source()end)
+        assert(runtime.custom_binding_count==1 and
+            runtime.fallback_binding_count>=20)
+        assert(runtime:emit('core:cue/player/move'))
+        assert(runtime:emit('core:cue/enemy/telegraph'),
+            'an unbound enemy cue became silent under a partial custom pack')
+        assert(runtime:set_scene('core:cue/music/explore/fungal_hollows'))
+        assert(runtime.music and runtime.music.source:isPlaying())
+    end)
     test('audio refresh rejects incompatible newer data and falls back on corruption',function()
         local pack,source=Samples.showcase('audio_test')
         local published={}

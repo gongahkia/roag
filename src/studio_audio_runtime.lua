@@ -105,6 +105,7 @@ end
 local function candidate(read,make_source)
     local pack,status=Store.inspect_published(read)
     local bytes_by_path
+    local published=pack~=nil
     if not pack then
         if status~='absent' and status~='corrupt audio' then
             return nil,'rejected: '..tostring(status)
@@ -139,8 +140,39 @@ local function candidate(read,make_source)
         end
         templates[sound.id]=source
     end
+    local bindings=binding_map(pack)
+    local custom_count=#pack.bindings
+    local fallback_count=0
+    if published then
+        -- A valid project pack may intentionally override only a few cues.
+        -- Keep the original placeholder coverage for every unbound context.
+        local original,original_bytes=Samples.showcase('builtin_audio')
+        local needed={}
+        for _,binding in ipairs(original.bindings) do
+            if not bindings[binding.cue_id] then
+                bindings[binding.cue_id]=binding
+                needed[binding.variants[1].asset_id]=true
+                fallback_count=fallback_count+1
+            end
+        end
+        for _,sound in ipairs(original.sounds) do
+            if needed[sound.id] and not templates[sound.id] then
+                local music=sound.id:match('original_music$') or
+                    sound.id:match('original_ambience$')
+                local okay,source=pcall(make_source,original_bytes[sound.path],
+                    sound,music and 'stream' or 'static')
+                if not okay or not source then
+                    return nil,'original audio decode failed '..sound.id..': '..
+                        tostring(source)
+                end
+                templates[sound.id]=source
+            end
+        end
+    end
     return {pack=pack,status=status,templates=templates,
-        bindings=binding_map(pack),signature=Audio.checksum(Audio.encode(pack))}
+        bindings=bindings,custom_binding_count=published and custom_count or 0,
+        fallback_binding_count=fallback_count,
+        signature=Audio.checksum(Audio.encode(pack))}
 end
 function R.new(read,make_source)
     local self=setmetatable({read=read,make_source=make_source,
@@ -176,6 +208,8 @@ function R:refresh()
     self.paused=false
     self.pack,self.templates,self.bindings,self.signature=loaded.pack,
         loaded.templates,loaded.bindings,loaded.signature
+    self.custom_binding_count=loaded.custom_binding_count
+    self.fallback_binding_count=loaded.fallback_binding_count
     self.status='refreshed · '..loaded.status
     local scene,ambient=self.scene_id,self.ambient_id
     self.scene_id,self.ambient_id=nil,nil

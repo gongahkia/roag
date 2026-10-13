@@ -39,7 +39,8 @@ local function passable(state,x,y)
     local map=Content.map_for(state)
     if not Content.walkable(map,x,y) then return false end
     for _,entity in ipairs(state.entities) do
-        if entity.blocks_movement and entity.position.x==x and entity.position.y==y
+        if entity.blocks_movement and entity.position.floor_id==state.active_floor_id
+            and entity.position.x==x and entity.position.y==y
             and entity.id~=state.player_id and entity.controller~='ai'
             and entity.controller~='door' then return false end
     end
@@ -106,6 +107,7 @@ function Play.attack_adjacent(run,excluded_id)
     local selected
     for _,entity in ipairs(state.entities) do
         if entity.controller=='ai' and entity.id~=excluded_id and not entity.invulnerable
+            and entity.position.floor_id==state.active_floor_id
             and adjacent(p,entity.position) and
             (not selected or entity.hp<selected.hp or
                 (entity.hp==selected.hp and entity.id<selected.id)) then
@@ -164,7 +166,8 @@ function Play.nearest(state,predicate)
     local p=Game.player(state).position
     local best,score
     for _,entity in ipairs(state.entities) do
-        if predicate(entity) then
+        if entity.position and entity.position.floor_id==state.active_floor_id
+            and predicate(entity) then
             local d=math.abs(p.x-entity.position.x)+math.abs(p.y-entity.position.y)
             if not best or d<score or (d==score and entity.id<best.id) then
                 best,score=entity,d

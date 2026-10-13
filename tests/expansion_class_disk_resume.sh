@@ -12,6 +12,8 @@ local Game=require("src.game")
 local Persistence=require("src.persistence")
 local Classes=require("src.classes")
 local phase=assert(os.getenv("ROEG_CLASS_RESUME_PHASE"))
+local class_index=tonumber(os.getenv("ROEG_CLASS_INDEX")) or 2
+assert(Classes.order[class_index],"invalid class index")
 local tracked
 local old_new,old_restore=Game.new_stage,Game.restore
 function Game.new_stage(seed,options)
@@ -35,9 +37,9 @@ end
 function love.load(...)
     old_load(...)
     if phase=="save" then
-        love.keypressed("2")
+        love.keypressed(tostring(class_index))
         love.keypressed("n")
-        assert(tracked and Game.player(tracked).definition_id==Classes.order[2])
+        assert(tracked and Game.player(tracked).definition_id==Classes.order[class_index])
         assert(tracked.floor_order and #tracked.floor_order==2)
         assert(Game.submit(tracked,{kind="wait"}))
         write("expected",Persistence.encode(Game.snapshot(tracked)))
@@ -58,7 +60,7 @@ function love.draw(...)
             love.keypressed("2")
         else
             love.keypressed("c")
-            assert(tracked and Game.player(tracked).definition_id==Classes.order[2])
+            assert(tracked and Game.player(tracked).definition_id==Classes.order[class_index])
             write("actual",Persistence.encode(Game.snapshot(tracked)))
             assert(Game.submit(tracked,{kind="wait"}))
             write("continued",Persistence.encode(Game.snapshot(tracked)))
@@ -77,4 +79,4 @@ test -s "$output_dir/save.png"
 test -s "$output_dir/load.png"
 cmp "$output_dir/expected" "$output_dir/actual"
 cmp "$output_dir/next" "$output_dir/continued"
-printf 'Class disk Continue PASS: %s\n' "$output_dir"
+printf 'Class %s disk Continue PASS: %s\n' "${ROEG_CLASS_INDEX:-2}" "$output_dir"

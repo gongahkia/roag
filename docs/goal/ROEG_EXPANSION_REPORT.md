@@ -8,13 +8,13 @@ report is not a completion claim.
 
 | Goal criterion | Evidence required | Current state |
 |---|---|---|
-| Two floors in each of seven biomes | Normal generated stages, 100 seeds per biome, stairs, pursuer, snapshot and GUI checks | Seven biomes generate validated paired floors; 100 seeds per biome, focused GUI/disk passed. Default two-floor full-run Victory remains pending. |
+| Two floors in each of seven biomes | Normal generated stages, 100 seeds per biome, stairs, pursuer, snapshot and GUI checks | Seven biomes generate validated paired floors; 100 seeds per biome, focused GUI/disk and all-class legal full Victories pass. |
 | Six functional terrain mechanics | Canonical event, AI/path/LOS, editor, generated play and save tests | Six integrated in paired-floor generation; 800-map seed corpus, headless mechanics, Studio/game GUI and snapshot/disk gates passed. Physical readability/balance remains untested. |
-| Sixteen regular enemies and seven unique minibosses | Registry, encounter pools, tactical combat, telegraph and reward tests | Ten new regular roles plus six unique non-Ruins elites integrated; focused headless, GUI and pending-windup disk checks pass. Human balance and full two-floor Victory remain pending. |
-| Four playable classes | UI selection, distinct attacks/mobility, legal progress and save tests | Pending |
-| Fifty functional boons | Four rarities each, ordinary chest rolls, synergy and chain tests | Pending |
-| Studio contextual audio | Fresh-process import/preview/publish, runtime cue and music transitions, fallback | Pending |
-| End-to-end release acceptance | Existing/new headless and GUI, deterministic replay, legal victories, disk continuation, performance | Pending |
+| Sixteen regular enemies and seven unique minibosses | Registry, encounter pools, tactical combat, telegraph and reward tests | Ten new regular roles plus six unique non-Ruins elites integrated; focused headless, GUI and pending-windup disk checks pass. Human balance remains untested. |
+| Four playable classes | UI selection, distinct attacks/mobility, legal progress and save tests | Four kits and title selection pass. Exact-replay six-floor legal Victory traces pass for Adventurer seed 9, Ranger seed 9, Arcanist seed 45 and Berserker seed 28. |
+| Fifty functional boons | Four rarities each, ordinary chest rolls, synergy and chain tests | 26 new, 24 inherited; class-aware offers, ten cross-system synergies, focused GUI/disk and ordinary paid-chest activation pass. |
+| Studio contextual audio | Fresh-process import/preview/publish, runtime cue and music transitions, fallback | 272 contextual cues, Studio browser/picker/mixer and music transitions integrated; headless and 3/3 fresh-process audio GUI pass. Physical listening untested. |
+| End-to-end release acceptance | Existing/new headless and GUI, deterministic replay, legal victories, disk continuation, performance | 351/351 integrated headless, all-class legal Victory and M7 game/Studio/audio GUI rounds pass; final focused GUI/disk/profile and handback audit underway. |
 
 ## Handoff and baseline
 
@@ -133,3 +133,32 @@ new primed boon state and its next action exactly. The legacy single-floor
 legal Victory remains 945 actions, 3 HP, 94,200 simulated time. Default
 two-floor all-class Victory and human balance remain M8 work. M7 Studio audio
 is still outstanding at this checkpoint.
+
+## M7 checkpoint
+
+`src/audio_cues.lua` registers 272 data-driven contexts for four classes,
+all 50 boons, regular enemies, seven elites, six terrain mechanics, seven
+biomes, room templates and UI/world events. `src/studio_audio*.lua` provides
+versioned WAV/Ogg source storage, original sound synthesis, a visible Studio
+library/cue picker/mixer, checked dry-run/explicit publication, bounded LÖVE
+voices, transitions, F5 refresh and safe built-in fallback. See
+`docs/ROEG_AUDIO_EXPANSION.md` for exact user steps and provenance rules.
+The integrated suite passed **351/351**. The eight established game GUI
+harnesses passed **24/24**, six Studio harnesses **18/18**, and the new audio
+fresh-process GUI smoke **3/3**. The audio smoke includes import/audition,
+reopen, contextual room/theme editing, published playback, corrupt-pack
+fallback and Save & Continue. These are callback-driven, not a human hearing
+or physical-input test. Separate pack publication remains non-atomic across
+audio, visuals, worlds and themes.
+
+## M8 checkpoint
+
+All four classes have exact-replay **ordinary submitted-action** six-floor
+Victories against the Hollow Regent: Adventurer seed 9 (949 actions, 22 HP),
+Ranger seed 9 (1,050 actions, 8 HP), Arcanist seed 45 (1,269 actions, 6 HP)
+and Berserker seed 28 (1,037 actions, 35 HP). Each includes three paid chest
+purchases. Trace artifacts are `/var/tmp/roeg-m8-<class>.trace` and the
+headless suite asserts all four. No player/enemy HP mutation, teleport,
+invulnerability or forced route unlock is used by the driver. Final focused
+GUI/disk regression, performance, compatibility and portable handback review
+remain underway; this is not a complete-goal claim yet.

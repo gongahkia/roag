@@ -1,14 +1,12 @@
 # ROEG autonomous expansion progress
 
-Updated: 2026-10-12. This is a checkpoint for the single goal in
+Updated: 2026-10-13. This is a checkpoint for the single goal in
 [`../ROEG_AUTONOMOUS_EXPANSION_GOAL.md`](../ROEG_AUTONOMOUS_EXPANSION_GOAL.md).
-The goal is **active**. M0 is verified; M1's connected-floor implementation is
-working in normal New Run and has passed focused verification. M2's six
-mechanics are integrated and have passed focused verification; broader
-full-run acceptance is still open. M3's three additional biome geometries and
-route choices are integrated. M4's ten regular enemies and six new biome
-minibosses are integrated and have passed focused checks. The full expansion
-is not complete.
+The goal is **active**. M0's Git handoff is verified. M1–M7 are implemented
+and have passed their focused gates. M8 now has deterministic normal-action
+Victory traces for all four classes through six procedural floors and the
+Hollow Regent. The final cross-feature, performance and handback audit is
+still underway; the full expansion is not yet marked complete.
 
 ## M0 — Git handoff and baseline: VERIFIED
 
@@ -56,14 +54,14 @@ The older intermittent GUI timeout/signal-139 history is not claimed fixed.
 
 | Milestone | Required outcome | Current evidence/status | Next action |
 |---|---|---|---|
-| M1 | Two connected, traversable floors per generated biome; stairs, frozen inactive floors, saves and E03 markers | Working normal-run two-floor slice; seed, legal stair, GUI, save, Echo, windup, pursuer and route checks pass; broader legal full-run/pacing acceptance remains open | Keep the paired-floor path under M8 legal Victory and pacing review |
-| M2 | Six editor-authorable terrain mechanics | Integrated in connected-floor generation and E03; 100-seed-per-biome, canonical damage, save, GUI and Studio reopen checks pass | Carry wider tactical/balance review into M8; proceed to M3 |
-| M3 | Seven distinct two-floor biomes and route choices | Three new strategies/template families and a three-choice route graph are integrated; 100 paired seeds each, GUI and disk checks pass | Prove default two-floor legal full run under M8 |
-| M4 | Sixteen regular enemies; seven biome-specific minibosses | Ten new tactical roles and six new elites integrated in normal pools/arenas; focused AI, damage, phase, GUI and disk checks pass | Carry balance and ordinary two-floor survival into M8; proceed to M5 |
-| M5 | Four playable classes | Adventurer inherited | Add class selection and three distinct action sets |
-| M6 | Fifty working boons, four rarities each | Twenty-four inherited | Add 26 validated effects and class-aware chest eligibility |
-| M7 | Studio contextual audio import, picker, binding, transitions, publication and runtime playback | No complete audio workflow | Build editor and presentation-only audio pipeline |
-| M8 | Full legal-action, GUI, save, seed and performance acceptance | Baseline only | Run full acceptance matrix after integrated content |
+| M1 | Two connected, traversable floors per generated biome; stairs, frozen inactive floors, saves and E03 markers | Seven-biome paired-floor seed corpus, legal full runs, focused GUI/disk pass | Final cross-feature audit |
+| M2 | Six editor-authorable terrain mechanics | Generated use, canonical effects, E03 authoring, GUI/disk and seed checks pass | Human tactical readability remains untested |
+| M3 | Seven distinct two-floor biomes and route choices | Distinct strategies, 100 paired seeds each, routes, GUI/disk and legal runs pass | Final route/pacing audit |
+| M4 | Sixteen regular enemies; seven biome-specific minibosses | Ten new roles and six new elites in normal pools; AI, combat, GUI and disk pass | Human balance remains untested |
+| M5 | Four playable classes | Distinct kits, title selection, GUI/disk and legal six-floor Victory for all four pass | Final class-specific review |
+| M6 | Fifty working boons, four rarities each | 26 new effects, class-aware offers, ten cross-system synergies, GUI/disk and ordinary chest activation pass | Final stress/pacing review |
+| M7 | Studio contextual audio import, picker, binding, transitions, publication and runtime playback | Source/published storage, UI, cue routing, music, fallback, three fresh-process GUI rounds and 351-test integrated headless suite pass | Physical listening remains untested |
+| M8 | Full legal-action, GUI, save, seed and performance acceptance | All-class legal Victory traces and integrated 351/351 headless pass | Finish focused GUI/disk repetitions, profile and handback audit |
 
 ## M1 — Connected floors: implemented and focused checks passed
 
@@ -345,3 +343,49 @@ full two-floor legal Victory for every class, human readability of rapid
 multi-boon bursts and native hardware play. The four achievements are still
 earned, but the larger pool changes future-run offer probabilities by design.
 Next: M7 Studio audio picker/import/publish/playback; M8 full acceptance.
+
+## M7 — Studio audio: implemented and focused gate passed
+
+The sound library now imports/decodes PCM WAV or Ogg Vorbis, keeps original
+bytes in checked Studio generations, supports stable audio IDs, metadata and
+provenance, replacement, audition, search, weighted variants and validated
+binding/mixer/transition settings. The central picker has **272 contextual
+cues** spanning every class/enemy/elite/boon, terrain, world, UI, biome music,
+ambience and authored rooms. F8 opens it from UI Theme and World Room views.
+The separate dry-run/explicit-apply publisher writes immutable audio files
+before a checked manifest. It rejects unverified import permissions.
+
+Normal LÖVE playback uses the existing fog-filtered canonical event stream,
+bounded static/stream sources, a presentation-only variant counter, pause,
+scene music and ambience transitions, and F5 refresh. Corrupt or absent
+optional audio falls back to original project-synthesized sounds. This does
+not alter snapshots or gameplay RNG. No external licensed sound was fetched.
+See `docs/ROEG_AUDIO_EXPANSION.md`.
+
+The integrated headless suite passed **351/351** after eight focused audio
+tests and two legal-run tests. The audio LÖVE smoke passed **3/3** isolated
+rounds: real imported WAV bytes, audition, binding, transition edit,
+save/reopen, dry-run/apply, actual published movement playback, F5 corrupt-pack
+fallback and fresh-process Save & Continue. The six established Studio
+harnesses passed **18/18**, and the eight established game harnesses passed
+**24/24**, each across three isolated rounds. A contextual GUI fixture first
+timed out because it created an unsaved room and Studio correctly refused to
+quit; saving the room fixed the fixture. This was not evidence of a native
+LÖVE crash. Audio was checked through callback-driven playback calls; no human
+listening or native Windows/macOS sound-device acceptance occurred.
+
+## M8 — End-to-end legal acceptance: underway
+
+A stair-aware driver uses only `Game.submit` to clear six procedural floors,
+three biome elites and the Hollow Regent. **Seed 9 Adventurer achieved real
+Victory in 949 legal actions, 22 HP and 94,064 simulated time, with three
+paid purchases.** The complete trace and exact ordered-event/snapshot replay
+are at `/var/tmp/roeg-m8-adventurer.trace` and in the new headless test.
+The same initial strategy failed on seeds 1–8, mainly at elite approaches or
+fights; it is not an artificial victory guarantee. Separate exact-replay traces
+now also pass for Ranger seed 9 (**1,050 actions, 8 HP**), Arcanist seed 45
+(**1,269 actions, 6 HP**) and Berserker seed 28 (**1,037 actions, 35 HP**).
+All four traverse six generated floors, defeat three biome elites and kill the
+Hollow Regent using only submitted legal actions. Their paths are artifacts in
+`/var/tmp/roeg-m8-<class>.trace`; the headless suite asserts all four.
+This is automated legal play, not physical-keyboard or human acceptance.

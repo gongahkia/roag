@@ -17,6 +17,10 @@ local Game=require('src.game')
 local Persistence=require('src.persistence')
 local Samples=require('src.studio_audio_samples')
 local tracked
+local original_restore=Game.restore
+if phase==4 then
+    Game.restore=function(...)tracked=original_restore(...);return tracked end
+end
 if phase==3 then
     Game.new_stage=function()tracked=Game.new(7,'core:map/test_room');return tracked end
 end
@@ -29,12 +33,13 @@ local function search(value)
     for _=1,100 do love.keypressed('backspace') end
     love.textinput(value);love.keypressed('return')
 end
-local function shot(name)
+local function shot(name,after)
     pending=true
     love.graphics.captureScreenshot(function(image)
         local file=assert(io.open(output..'/'..name..'.tga','wb'))
         file:write(image:encode('tga'):getString());file:close()
-        pending=false;love.event.quit()
+        pending=false
+        if after then after() else love.event.quit() end
     end)
 end
 local function dropped(name,bytes)
@@ -56,6 +61,12 @@ function love.load(args)
         dropped('original music.wav',Samples.wav('music')) -- file-drop callback
         local editor=state().audio_editor
         assert(#editor.pack.sounds==2 and editor.pack.sounds[1].format=='wav')
+        love.keypressed('a')
+        for _=1,100 do love.keypressed('backspace') end
+        love.textinput('ROEG Studio synthesized');love.keypressed('return')
+        love.keypressed('l')
+        for _=1,100 do love.keypressed('backspace') end
+        love.textinput('Original project asset');love.keypressed('return')
         love.keypressed('up');love.keypressed('p')
         assert(editor.audition and editor.audition:isPlaying(),editor.message)
         love.keypressed('x')
@@ -71,6 +82,11 @@ function love.load(args)
         for _=1,30 do love.keypressed('backspace') end
         love.textinput('fade');love.keypressed('return')
         assert(assert(editor:binding(assert(editor:cue()).id)).transition.mode=='fade')
+        search('music/explore/overgrown_ruins')
+        love.keypressed('right');love.keypressed('right')
+        local explore=assert(editor:binding(assert(editor:cue()).id))
+        assert(explore.variants[1].asset_id==editor.pack.sounds[2].id and
+            explore.transition.mode=='crossfade')
         love.keypressed('s');assert(not state().dirty)
         local path=love.filesystem.getSaveDirectory()
         local file=assert(io.open(output..'/save_dir.txt','wb'))
@@ -80,9 +96,11 @@ function love.load(args)
         love.keypressed('o');love.keypressed('return');love.keypressed('y')
         local editor=state().audio_editor
         assert(state().mode=='audio' and #editor.pack.sounds==2)
-        assert(#editor.pack.bindings==2)
+        assert(#editor.pack.bindings==3)
         local first=editor.pack.sounds[1]
         assert(love.filesystem.read(first.path)==Samples.wav('step'))
+        assert(first.author=='ROEG Studio synthesized' and
+            first.license=='Original project asset')
         editor:audition_sound(first)
         assert(editor.audition and editor.audition:isPlaying())
         editor:stop_audition()
@@ -101,11 +119,14 @@ function love.load(args)
         love.keypressed('f8');assert(state().mode=='audio')
         assert(assert(state().audio_editor:cue()).context_id==room.id,
             'room F8 did not select local ambience/music context')
+        love.keypressed('s');assert(not state().dirty)
     elseif phase==3 then
         assert(tracked and tracked.clock==0)
         local info=love.roegAudioDiagnostics()
-        assert(info.binding_count==2 and info.sound_count==2,
+        assert(info.binding_count==3 and info.sound_count==2,
             'published audio pack was not loaded: '..tostring(info.status))
+        assert(info.scene=='core:cue/music/title' and info.music_playing,
+            'published music did not play in the isolated movement fixture')
         local before=info.played
         love.keypressed('d')
         assert(tracked.clock==100)
@@ -125,6 +146,28 @@ function love.load(args)
     elseif phase==4 then
         assert(love.roegAudioDiagnostics().binding_count>=20,
             'corrupt optional pack did not use built-in samples')
+        love.keypressed('c')
+        assert(tracked,'Continue did not restore saved run')
+        local file=assert(io.open(output..'/game.snapshot','rb'))
+        local expected=file:read('*a');file:close()
+        assert(Persistence.encode(Game.snapshot(tracked))==expected,
+            'audio publish/fallback altered fresh-process Continue')
+    elseif phase==5 then
+        local before=love.roegAudioDiagnostics()
+        assert(before.scene=='core:cue/music/title' and before.music_playing,
+            'published title music did not play')
+        love.keypressed('n')
+        old_update(0) -- scene changes at the next safe presentation update
+        local after=love.roegAudioDiagnostics()
+        assert(after.scene=='core:cue/music/explore/overgrown_ruins' and
+            after.music_playing and after.music_transitioning and
+            after.played>before.played,
+            ('title to exploration did not crossfade: before=%s/%s/%s after=%s/%s/%s/%s status=%s'):
+                format(tostring(before.scene),tostring(before.music_playing),
+                    tostring(before.played),tostring(after.scene),
+                    tostring(after.music_playing),
+                    tostring(after.music_transitioning),tostring(after.played),
+                    tostring(after.status)))
     end
 end
 function love.update(dt)
@@ -135,15 +178,21 @@ function love.draw()
     if pending then return end
     if phase==1 then shot('studio-audio')
     elseif phase==2 then shot('studio-reopened')
-    elseif phase==3 then shot('game-audio-f5')
-    elseif phase==4 then shot('game-fallback') end
+    elseif phase==3 then shot('game-audio-f5',function()
+        love.keypressed('escape');love.keypressed('2') -- real Save & Quit
+        assert(love.filesystem.getInfo('active-a.roeg') or
+            love.filesystem.getInfo('active-b.roeg'))
+    end)
+    elseif phase==4 then shot('game-fallback')
+    elseif phase==5 then shot('game-music-transition') end
 end
 LUA
 run_phase() {
     number=$1;shift
     ROEG_AUDIO_PHASE="$number" ROEG_AUDIO_OUTPUT="$output_dir" \
         ROEG_GUI_AUTOSTART=$([ "$number" -eq 3 ] && echo 1 || echo 0) \
-        XDG_DATA_HOME="$output_dir/data" timeout 25s love "$app" "$@" \
+    XDG_DATA_HOME=$([ "$number" -eq 5 ] && echo "$output_dir/music-data" ||
+        echo "$output_dir/data") timeout 25s love "$app" "$@" \
         >"$output_dir/phase$number.log" 2>&1 || {
             cat "$output_dir/phase$number.log" >&2
             echo "Audio GUI failure artifacts: $output_dir" >&2
@@ -158,9 +207,10 @@ save_dir=$(cat "$output_dir/save_dir.txt")
 test ! -e "$app/assets/studio/audio-a.pack"
 (cd "$app" && luajit tools/studio_audio_publish.lua --save-dir "$save_dir" \
     --project audio_fixture --apply) >"$output_dir/audio-publish.log"
+run_phase 5
 run_phase 3
 run_phase 4
-for name in studio-audio studio-reopened game-audio-f5 game-fallback; do
+for name in studio-audio studio-reopened game-audio-f5 game-fallback game-music-transition; do
     test -s "$output_dir/$name.tga"
 done
 printf 'M7 audio GUI smoke passed: %s\n' "$output_dir"

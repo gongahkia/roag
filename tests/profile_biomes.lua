@@ -17,7 +17,7 @@ for index=1,#Biomes.order do
         stage_index=3
         history={'core:route/fungal_hollows','core:route/ashen_bastion'}
     end
-    local state=Game.new_stage(23,{stage_options={index=stage_index,
+    local state=Game.new_stage(23,{multifloor=true,stage_options={index=stage_index,
         biome_id=biome_id,route_history=history}})
     local player=Game.player(state)
     player.hp,player.max_hp,player.defense=1000,1000,100
