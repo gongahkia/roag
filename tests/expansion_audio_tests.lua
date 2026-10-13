@@ -116,6 +116,19 @@ return function(test,equal)
         source[mismatch.sounds[1].path]='corrupt'
         assert(not pcall(Audio.validate,mismatch,function(path)return source[path]end))
     end)
+    test('audio publishing refuses unverified source permissions without changing drafts',function()
+        local pack=Samples.showcase('audio_test')
+        assert(Audio.validate_publish_permissions(pack))
+        local before=Audio.encode(pack)
+        pack.sounds[1].license='User supplied; verify rights'
+        assert(not pcall(Audio.validate_publish_permissions,pack))
+        pack.sounds[1].license='Original project asset'
+        pack.sounds[1].author=''
+        assert(not pcall(Audio.validate_publish_permissions,pack))
+        pack.sounds[1].author='ROEG Studio synthesized'
+        assert(Audio.encode(pack)==before,
+            'permission rejection altered editable source metadata')
+    end)
     test('audio publish plan is read-only and complete generations recover safely',function()
         local io,_,pack,source=fixture()
         local published={}

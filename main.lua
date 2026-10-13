@@ -879,6 +879,51 @@ function love.keypressed(key, _, isrepeat)
     end
 end
 
+-- LÖVE's standard gamepad buttons reuse the same validated key path and
+-- presentation gate. D-pad menu selection never submits a world action.
+function love.gamepadpressed(_,button)
+    if studio then return end
+    if title and not unlocks_view and not confirm_new then
+        if button=='leftshoulder' or button=='rightshoulder' then
+            local index=1
+            for i,id in ipairs(Classes.order) do
+                if id==selected_class_id then index=i;break end
+            end
+            index=(index-1+(button=='rightshoulder' and 1 or -1)+
+                #Classes.order)%#Classes.order+1
+            selected_class_id=Classes.order[index]
+            if audio_runtime then
+                audio_runtime:emit('core:cue/class/'..
+                    selected_class_id:match('([^/]+)$')..'/select')
+            end
+            return
+        end
+    end
+    if route_menu or chest_menu then
+        if button=='dpup' or button=='dpleft' or
+            button=='dpdown' or button=='dpright' then
+            local menu=route_menu or chest_menu
+            local count=route_menu and #menu.routes or #menu.offers
+            local delta=(button=='dpup' or button=='dpleft') and -1 or 1
+            local selected=(menu.selected-1+delta+count)%count+1
+            love.keypressed(tostring(selected))
+            return
+        end
+    end
+    local key
+    if title then
+        key=({a='return',b='escape',x='u',y='n',start='n',
+            dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
+    elseif pause_menu then
+        key=({a='return',b='escape',y='2',start='escape'})[button]
+    else
+        key=({a='return',b='escape',x='f',y='r',
+            rightshoulder='x',leftshoulder='v',start='escape',back='tab',
+            dpup='w',dpdown='s',dpleft='a',dpright='d'})[button]
+    end
+    if key then love.keypressed(key) end
+end
+
 local function draw_cells(cells, red, green, blue, alpha)
     love.graphics.setColor(red, green, blue, alpha)
     for _, cell in ipairs(cells) do
@@ -1888,6 +1933,8 @@ function love.draw()
             "Continue unavailable",0,242,1024,"center")
         love.graphics.printf("N: New Run",0,277,1024,"center")
         love.graphics.printf("U: Unlocks / Achievements · Q / Esc: Quit",0,312,1024,"center")
+        love.graphics.printf("Gamepad: shoulders class · Y new · A continue · D-pad choices · B back",
+            0,337,1024,"center")
         local status=save_status and save_status.status or "absent"
         love.graphics.printf("Save status: "..status,0,366,1024,"center")
         if status=="pending_terminal" then
@@ -2014,6 +2061,12 @@ end
 -- playback has not been submitted to the simulation.
 function love.roegPlaybackPending()
     return Playback.busy(playback)
+end
+function love.roegMenuState()
+    local menu=route_menu or chest_menu
+    if not menu then return nil end
+    return {kind=route_menu and 'route' or 'chest',selected=menu.selected,
+        count=route_menu and #menu.routes or #menu.offers}
 end
 function love.roegAssetStatus()
     return visual_assets and visual_assets.status or 'studio'

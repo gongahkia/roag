@@ -2,11 +2,12 @@
 
 Updated: 2026-10-13. This is a checkpoint for the single goal in
 [`../ROEG_AUTONOMOUS_EXPANSION_GOAL.md`](../ROEG_AUTONOMOUS_EXPANSION_GOAL.md).
-The goal is **active**. M0's Git handoff is verified. M1–M7 are implemented
-and have passed their focused gates. M8 now has deterministic normal-action
-Victory traces for all four classes through six procedural floors and the
-Hollow Regent. The final cross-feature, performance and handback audit is
-still underway; the full expansion is not yet marked complete.
+The implementation and automated acceptance matrix are **COMPLETE**. M0's
+Git handoff is verified; M1–M7 are implemented; M8 passed integrated
+headless, GUI, disk, seed, legal-action and performance gates. Four classes
+have deterministic ordinary-action Victories through six procedural floors
+and the Hollow Regent. Physical keyboard/controller, Wacom, speaker and
+native GPU/Mac acceptance remains a separate human check.
 
 ## M0 — Git handoff and baseline: VERIFIED
 
@@ -34,6 +35,12 @@ An isolated LÖVE 11.5 probe of `love.filesystem.getSaveDirectory()` returned
 write the player's normal save directory. Never use the normal player save
 directory for expansion tests.
 
+At the 2026-10-13 release audit, the local branch is `main` tracking
+`origin/main`; both reported `9eba496de1b1e0e648f2ddb229c0daa56079ee5d`
+and `git merge-base --is-ancestor origin/main HEAD` still succeeds. This is a
+read-only observation, not a reset, pull or claim about external Studio data.
+The expansion's current working-tree edits remain preserved locally.
+
 Baseline on Fedora WSL2, LuaJIT 2.1, LÖVE 11.5:
 
 | Check | Actual result |
@@ -60,8 +67,8 @@ The older intermittent GUI timeout/signal-139 history is not claimed fixed.
 | M4 | Sixteen regular enemies; seven biome-specific minibosses | Ten new roles and six new elites in normal pools; AI, combat, GUI and disk pass | Human balance remains untested |
 | M5 | Four playable classes | Distinct kits, title selection, GUI/disk and legal six-floor Victory for all four pass | Final class-specific review |
 | M6 | Fifty working boons, four rarities each | 26 new effects, class-aware offers, ten cross-system synergies, GUI/disk and ordinary chest activation pass | Final stress/pacing review |
-| M7 | Studio contextual audio import, picker, binding, transitions, publication and runtime playback | Source/published storage, UI, cue routing, music, fallback, three fresh-process GUI rounds and 351-test integrated headless suite pass | Physical listening remains untested |
-| M8 | Full legal-action, GUI, save, seed and performance acceptance | All-class legal Victory traces and integrated 351/351 headless pass | Finish focused GUI/disk repetitions, profile and handback audit |
+| M7 | Studio contextual audio import, picker, binding, transitions, publication and runtime playback | Source/published storage, WAV/Ogg import, UI, cue routing, music, per-cue fallback, three fresh-process GUI rounds and integrated headless pass | Physical listening remains a human check |
+| M8 | Full legal-action, GUI, save, seed and performance acceptance | All-class legal Victory, seven legal elite routes, 354/354 headless, 84/84 three-round GUI runs, fresh-process disk gates and measured profiles pass | Engineering gate complete; human checklist in handoff |
 
 ## M1 — Connected floors: implemented and focused checks passed
 
@@ -362,11 +369,14 @@ optional audio falls back to original project-synthesized sounds. This does
 not alter snapshots or gameplay RNG. No external licensed sound was fetched.
 See `docs/ROEG_AUDIO_EXPANSION.md`.
 
-The integrated headless suite passed **351/351** after eight focused audio
-tests and two legal-run tests. The audio LÖVE smoke passed **3/3** isolated
-rounds: real imported WAV bytes, audition, binding, transition edit,
+The integrated headless suite passed **354/354** after ten focused audio
+tests and three legal-run tests. The audio LÖVE smoke passed **3/3** isolated
+rounds: real imported WAV and original Ogg Vorbis bytes, audition, binding,
+transition edit,
 save/reopen, dry-run/apply, actual published movement playback, F5 corrupt-pack
-fallback and fresh-process Save & Continue. The six established Studio
+fallback and fresh-process Save & Continue. A second real-game process
+confirmed title→exploration music with a crossfade. Partial valid packs now
+retain original sound bindings for unbound cues. The six established Studio
 harnesses passed **18/18**, and the eight established game harnesses passed
 **24/24**, each across three isolated rounds. A contextual GUI fixture first
 timed out because it created an unsaved room and Studio correctly refused to
@@ -374,7 +384,7 @@ quit; saving the room fixed the fixture. This was not evidence of a native
 LÖVE crash. Audio was checked through callback-driven playback calls; no human
 listening or native Windows/macOS sound-device acceptance occurred.
 
-## M8 — End-to-end legal acceptance: underway
+## M8 — End-to-end legal acceptance: automated gate complete
 
 A stair-aware driver uses only `Game.submit` to clear six procedural floors,
 three biome elites and the Hollow Regent. **Seed 9 Adventurer achieved real
@@ -389,3 +399,43 @@ All four traverse six generated floors, defeat three biome elites and kill the
 Hollow Regent using only submitted legal actions. Their paths are artifacts in
 `/var/tmp/roeg-m8-<class>.trace`; the headless suite asserts all four.
 This is automated legal play, not physical-keyboard or human acceptance.
+
+Additional ordinary submitted-action routes defeat **all seven** unique
+minibosses: Ruins seed 9, Fungal seed 2, Aqueduct seed 21, Observatory seed
+21, Bastion seed 9, Archive seed 9 and Forge seed 25. The 354-test suite
+asserts each canonical elite death on its generated lower floor. The final
+game GUI suite passed **24/24**, focused floor/terrain/biome/encounter/class/
+boon/terrain-Studio GUI passed **21/21**, and motion/build/older-biome/finale/
+meta GUI passed **15/15**, each in three isolated rounds. The new gamepad
+callback GUI smoke passed **3/3**, covering title class selection, attack,
+visual input gate, chest menu navigation and cancellation; physical controller
+hardware was not used. All four classes passed separate two-process disk
+Continue. The connected-floor, new-biome, elite, boon, old boon, old biome and
+three-process finale/tombstone disk scripts passed. A real finale minimap
+render crash from indexing absent `placements` on the authored arena was
+reproduced and fixed; the finale disk and GUI checks now pass. The old meta
+GUI fixture was updated from a single-floor trace and 21-boon assumption to
+the current paired-floor legal route and 47-boon future-run pool.
+Together with the 18 established Studio and three audio GUI results, this is
+**84/84** isolated GUI runs across 28 harnesses and three rounds. No
+signal-139 recurrence was observed in this final corpus; the historical
+intermittent native-crash report has no proven root cause and is not claimed
+fixed. The initial audio transition assertion was a callback checking before
+the safe update boundary, and the initial meta assertion used a stale
+single-floor trace; both fixture assumptions were corrected without changing
+simulation rules.
+
+Fresh Fedora WSL2 measurements: Adventurer seed-9 legal Victory sampled 949
+committed actions and 16,781 events; action CPU p50/p95/max was
+**2.742/9.464/44.811 ms**, max 44 events/action and schedule depth 21.
+A synthetic 90-extra-enemy crowd reached **17.280/51.809/51.809 ms** over
+four actions, while 40 legendary boon copies generated 118 events in three
+actions with p95 1.477 ms. The 100-pair-per-biome generator profile found
+p50 **9.172–12.818 ms**, p95 **15.435–22.351 ms**, two retries, no repairs or
+fallbacks over 1,400 floors. The rendered seven-scene WSLg llvmpipe sample
+had frame p50 **7.18–9.93 ms** and p95 **11.52–14.66 ms**; the same E05
+fixture's atlas/loose modes both used 11 draw calls, with atlas texture memory
+14,336 versus 7,168 bytes. These are software-renderer observations, not
+native GPU or human feel acceptance. See
+[`ROEG_EXPANSION_HANDOFF.md`](ROEG_EXPANSION_HANDOFF.md) for reproducible
+commands and the physical-play checklist.

@@ -1,8 +1,10 @@
 # ROEG autonomous expansion report (working)
 
-Status: **IN PROGRESS**. The committed-source Git handoff and M0 baseline are
-verified in [`ROEG_EXPANSION_PROGRESS.md`](ROEG_EXPANSION_PROGRESS.md). This
-report is not a completion claim.
+Status: **COMPLETE for implementation and automated acceptance**. The
+committed-source Git handoff and M0 baseline are verified in
+[`ROEG_EXPANSION_PROGRESS.md`](ROEG_EXPANSION_PROGRESS.md). Human play,
+physical controller/Wacom, speaker listening, native GPU and Mac runtime
+acceptance remain separate checks described in the handoff.
 
 ## Acceptance ledger
 
@@ -14,7 +16,7 @@ report is not a completion claim.
 | Four playable classes | UI selection, distinct attacks/mobility, legal progress and save tests | Four kits and title selection pass. Exact-replay six-floor legal Victory traces pass for Adventurer seed 9, Ranger seed 9, Arcanist seed 45 and Berserker seed 28. |
 | Fifty functional boons | Four rarities each, ordinary chest rolls, synergy and chain tests | 26 new, 24 inherited; class-aware offers, ten cross-system synergies, focused GUI/disk and ordinary paid-chest activation pass. |
 | Studio contextual audio | Fresh-process import/preview/publish, runtime cue and music transitions, fallback | 272 contextual cues, Studio browser/picker/mixer and music transitions integrated; headless and 3/3 fresh-process audio GUI pass. Physical listening untested. |
-| End-to-end release acceptance | Existing/new headless and GUI, deterministic replay, legal victories, disk continuation, performance | 351/351 integrated headless, all-class legal Victory and M7 game/Studio/audio GUI rounds pass; final focused GUI/disk/profile and handback audit underway. |
+| End-to-end release acceptance | Existing/new headless and GUI, deterministic replay, legal victories, disk continuation, performance | 354/354 integrated headless; 84/84 three-round isolated GUI runs; seven legal elite routes; all-class full Victories; fresh-process disk/profile/audio checks; WSL2 CPU and llvmpipe profiles; handback documented. |
 
 ## Handoff and baseline
 
@@ -143,9 +145,9 @@ versioned WAV/Ogg source storage, original sound synthesis, a visible Studio
 library/cue picker/mixer, checked dry-run/explicit publication, bounded LÖVE
 voices, transitions, F5 refresh and safe built-in fallback. See
 `docs/ROEG_AUDIO_EXPANSION.md` for exact user steps and provenance rules.
-The integrated suite passed **351/351**. The eight established game GUI
+The integrated suite passed **354/354**. The eight established game GUI
 harnesses passed **24/24**, six Studio harnesses **18/18**, and the new audio
-fresh-process GUI smoke **3/3**. The audio smoke includes import/audition,
+fresh-process GUI smoke **3/3**. The audio smoke includes WAV/Ogg import/audition,
 reopen, contextual room/theme editing, published playback, corrupt-pack
 fallback and Save & Continue. These are callback-driven, not a human hearing
 or physical-input test. Separate pack publication remains non-atomic across
@@ -161,4 +163,88 @@ purchases. Trace artifacts are `/var/tmp/roeg-m8-<class>.trace` and the
 headless suite asserts all four. No player/enemy HP mutation, teleport,
 invulnerability or forced route unlock is used by the driver. Final focused
 GUI/disk regression, performance, compatibility and portable handback review
-remain underway; this is not a complete-goal claim yet.
+are recorded below.
+
+Seven generated lower-floor minibosses were also defeated through legal
+submitted actions on seed-based routes: Ruins 9, Fungal 2, Aqueduct 21,
+Observatory 21, Bastion 9, Archive 9 and Forge 25. The driver may read
+authoritative state for path choice but only changes it through `Game.submit`.
+These are automated tactical strategies, not human playthroughs.
+
+### M8 measured performance, Fedora WSL2
+
+The paired-floor Adventurer seed-9 legal Victory cost 949 committed actions,
+16,781 emitted events and 94,064 simulated world units. One isolated CPU
+sample measured **2.742/9.464/44.811 ms** per action at p50/p95/max; maximum
+was 44 events/action, schedule depth 21 and Lua heap about 51,458 KiB while
+retaining the entire trace. An alternate measurement gave 2.356/8.106/36.151
+ms, showing ordinary run-to-run timing variation. A synthetic 90-enemy
+stress fixture measured 17.280/51.809/51.809 ms over four actions; its actor
+count and small sample should not be treated as ordinary stage latency. A
+40-copy legendary boon chain resolved 118 events over three actions with
+1.477 ms p95. No event was dropped for presentation speed.
+
+Across 100 paired seeds for each of seven biomes, generation p50 ranged from
+9.172 to 12.818 ms per pair and p95 from 15.435 to 22.351 ms. The 1,400
+floors had two deterministic retries, zero repairs and zero fallbacks in this
+profile. A separate paired-stage 16-action wait fixture measured p95
+1.916–7.833 ms across biomes; its player has high HP/defense solely to keep
+profiling stable.
+
+The LÖVE renderer was **Mesa llvmpipe on WSL2**, not a native GPU. Seven
+180-frame callback scenes reported frame p50 7.18–9.93 ms and p95
+11.52–14.66 ms; a 41-visible-actor synthetic scene had p95 12.95 ms.
+One E05 fixture sampled atlas versus loose: both used 11 draw calls; atlas
+texture memory was 14,336 bytes versus 7,168 loose, while draw CPU p50 was
+0.905 versus 1.099 ms. This single software-renderer run is not a native FPS
+claim or proof of a general atlas performance win.
+
+The physical keyboard, controller, Wacom pen, speakers and native Mac/Windows
+graphics path were not exercised by a person. Callback GUI and source-play
+checks prove LÖVE calls and rendered frames, not perceived sound, controls or
+combat balance. The reproducible Mac handback and 10–20-minute playtest are
+in [`ROEG_EXPANSION_HANDOFF.md`](ROEG_EXPANSION_HANDOFF.md).
+
+### M8 verification and remaining limits
+
+The actual starting checkout passed **283/283** headless, not the older
+reported 267-test count. Final `TMPDIR=/var/tmp luajit tests/run.lua` passed
+**354/354**. The final isolated GUI corpus passed **84/84**: eight established
+game harnesses (24), six established Studio E00/E01/E03/E04/E05/E06 (18),
+seven focused floor/terrain/biome/encounter/class/boon/terrain-Studio (21),
+five motion/build/older-biome/finale/meta (15), new audio (3) and gamepad
+callback (3), each in three processes. The three-round audio smoke imported
+and auditioned real original WAV and Ogg bytes, reopened sources, published
+them, played title/exploration music and a movement cue, crossfaded, refreshed
+after corruption, and preserved an exact Save & Continue snapshot. The
+three-round gamepad smoke checked title class choice, attack input gating and
+zero-time chest-menu selection/cancel; no physical controller was used.
+
+Connected-floor, new-biome, pending-elite, new-boon, old-boon and old-biome
+fresh-process disk continuations passed. Four separate two-process class
+Continues passed. The finale three-process Continue and terminal tombstone
+passed after fixing a genuine minimap draw path that assumed the authored
+final arena had a stair-placement table. The meta GUI fixture had a stale
+single-floor trace/21-boon assumption; it now verifies a paired-floor elite
+kill and a 47-boon next-run pool. Historical intermittent GUI signal-139 or
+hang reports did not recur in the final corpus, but their old root cause has
+not been established. An audio transition callback initially asserted before
+the normal next-update scene swap; the fixture now waits for that boundary.
+
+`love --version` reported 11.5. Normal `love .` and `love . --studio` each
+stayed healthy for three seconds in isolated save directories, and the GUI
+harnesses exercised more substantive interactions. `git diff --check` and
+shell syntax checks passed. No personal run/profile/Studio save directory was
+used or modified by the tests. The six-floor Victories and seven legal elite
+routes are **automated** and may inspect authoritative state to choose legal
+submitted actions; no human play or native Mac/Windows acceptance is claimed.
+
+The source/publisher packs are optional and individually checked. A missing,
+incompatible or corrupt audio publication retains per-cue original sounds or
+the prior complete generation as appropriate; invalid visual/theme/world
+content retains its existing E00–E06 fallback rules. Cross-pack publication
+is still non-atomic. Content versions may reject older active saves; the
+separate permanent profile remains protected. Numerical balance, long-run
+player feel, original placeholder audio and native-device performance remain
+appropriate targets for a future human correction/polish pass, not hidden
+claims of this engineering gate.

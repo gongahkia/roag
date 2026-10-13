@@ -138,12 +138,30 @@ Ranger, Arcanist or Berserker before **N**. All classes use the existing
 WASD/arrow movement, **F** basic attack, **R** special and **X** mobility aim
 and confirmation flow. See the [class kit guide](docs/ROEG_CLASS_EXPANSION.md)
 and [expansion progress](docs/goal/ROEG_EXPANSION_PROGRESS.md) for exact
-mechanics, current regression evidence and outstanding milestones. The
-default two-floor full-run Victory has not yet been demonstrated by the
-older single-floor guided driver.
+mechanics, current regression evidence and outstanding milestones. Separate
+ordinary submitted-action traces now clear six generated floors and the final
+boss for all four classes; the older single-floor guide is still retained as
+a narrower regression check.
+
+Standard LÖVE gamepad callbacks provide a menu path: shoulder buttons cycle
+classes on the title, **Y** starts a run, **A** confirms or continues,
+**B** cancels, and the D-pad selects chest/route offers. During play the D-pad
+moves or aims cardinally, **X/Y/right shoulder** choose basic/special/mobility,
+and **Start** pauses. This reuses the keyboard input gate; eight-direction
+diagonal aim still uses the keyboard. Controller hardware has not been
+physically tested.
 
 Normal New Runs also draw from the expanded **46-boon** ordinary pool, with
 class-compatible transformations; the four achievement rewards remain
 separate unlocks for a total of 50. See the
 [M6 boon catalogue](docs/ROEG_BOON_EXPANSION.md) for exact triggers,
 provisional rarity strengths and the seeded legal chest-acquisition trace.
+
+Studio's [audio guide](docs/ROEG_AUDIO_EXPANSION.md) documents the Sound
+Library, contextual cue picker, original WAV/Ogg import, checked dry-run and
+explicit publication, scene music, and per-cue original fallback. F8 opens
+audio assignment from a Studio room or theme; normal-game F5 refreshes the
+optional audio pack alongside visuals. Audio is presentation-only.
+The [expansion handback and physical-play checklist](docs/goal/ROEG_EXPANSION_HANDOFF.md)
+lists reproducible gates and keeps Git source transfer separate from personal
+LÖVE saves and Studio projects.

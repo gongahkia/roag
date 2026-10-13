@@ -46,10 +46,8 @@ local pack,status=AudioStore.new(adapter):open(id)
 assert(pack,'Studio audio unavailable: '..tostring(status))
 local files={}
 Audio.validate(pack,function(path)return adapter:read(path)end)
+Audio.validate_publish_permissions(pack)
 for _,sound in ipairs(pack.sounds) do
-    assert(sound.author~='' and sound.license~='' and
-        sound.license~='User supplied; verify rights',
-        'complete author/license permission for '..sound.id..' before publishing')
     local from=assert(adapter:read(sound.path),'missing source '..sound.id)
     local path=Audio.published_path(sound)
     local prior=read(path)

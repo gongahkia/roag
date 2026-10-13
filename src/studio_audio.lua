@@ -60,6 +60,14 @@ function A.published_path(sound)
     check(basename and not basename:find('%.%.'),'invalid published audio basename')
     return 'assets/studio/audio/'..basename
 end
+function A.validate_publish_permissions(pack)
+    for _,sound in ipairs(pack.sounds) do
+        check(sound.author~='' and sound.license~='' and
+            sound.license~='User supplied; verify rights',
+            'complete author/license permission for '..sound.id..' before publishing')
+    end
+    return true
+end
 function A.make_sound(project_id,id,name,bytes,provenance)
     check(Project.valid_project_id(project_id) and Project.valid_id(id),
         'invalid audio identity')
