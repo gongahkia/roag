@@ -50,6 +50,7 @@ for _,label in ipairs({'stage_1','stage_2','stage_3','finale'}) do
     report(label,buckets[label] or {})
 end
 report('all',all)
-print(('legal_victory=%s cpu_s=%.3f events=%d max_events_per_action=%d schedule_peak=%d heap_start_kib=%.0f heap_peak_kib=%.0f world_time=%d hp=%d'):
+print(('legal_victory=%s cpu_s=%.3f events=%d max_events_per_action=%d schedule_peak=%d heap_start_kib=%.0f heap_peak_kib=%.0f run_world_time=%d finale_clock=%d hp=%d'):
     format(tostring(run.state.victory~=nil),elapsed,event_total,max_events,
-        queue_peak,heap_start,heap_peak,run.state.clock,run.state.victory.hp))
+        queue_peak,heap_start,heap_peak,run.state.victory.world_time,
+        run.state.clock,run.state.victory.hp))

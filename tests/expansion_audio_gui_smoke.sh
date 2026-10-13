@@ -10,6 +10,8 @@ cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cp -R "$project_dir/examples" "$app/examples"
 cp -R "$project_dir/tools" "$app/tools"
+mkdir -p "$app/tests/fixtures"
+cp "$project_dir/tests/fixtures/original_test_tone.ogg" "$app/tests/fixtures/original_test_tone.ogg"
 cat > "$app/main.lua" <<'LUA'
 local phase=assert(tonumber(os.getenv('ROEG_AUDIO_PHASE')))
 local output=assert(os.getenv('ROEG_AUDIO_OUTPUT'))
@@ -104,6 +106,23 @@ function love.load(args)
         editor:audition_sound(first)
         assert(editor.audition and editor.audition:isPlaying())
         editor:stop_audition()
+        dropped('original tone.ogg',assert(love.filesystem.read(
+            'tests/fixtures/original_test_tone.ogg')))
+        assert(#editor.pack.sounds==3 and editor.pack.sounds[3].format=='ogg',
+            'Studio did not import the original Ogg Vorbis fixture')
+        editor:audition_sound(editor.pack.sounds[3])
+        assert(editor.audition and editor.audition:isPlaying(),
+            'Ogg audition did not create and play a LÖVE Source')
+        editor:stop_audition()
+        love.keypressed('tab');love.keypressed('tab') -- Library metadata
+        love.keypressed('a')
+        for _=1,100 do love.keypressed('backspace') end
+        love.textinput('ROEG Studio synthesized');love.keypressed('return')
+        love.keypressed('l')
+        for _=1,100 do love.keypressed('backspace') end
+        love.textinput('Original project asset');love.keypressed('return')
+        love.keypressed('tab') -- Cue picker
+        love.keypressed('s');assert(not state().dirty)
         love.keypressed('escape')
         love.keypressed('u');assert(state().mode=='theme')
         love.keypressed('f8');assert(state().mode=='audio')
@@ -123,7 +142,8 @@ function love.load(args)
     elseif phase==3 then
         assert(tracked and tracked.clock==0)
         local info=love.roegAudioDiagnostics()
-        assert(info.binding_count==3 and info.sound_count==2,
+        assert(info.binding_count==3 and info.sound_count==3 and
+            info.fallback_binding_count>=20,
             'published audio pack was not loaded: '..tostring(info.status))
         assert(info.scene=='core:cue/music/title' and info.music_playing,
             'published music did not play in the isolated movement fixture')
