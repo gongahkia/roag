@@ -9,6 +9,9 @@ local WorldEditor=require('src.studio_world_editor')
 local StudioTheme=require('src.studio_theme')
 local StudioThemeStore=require('src.studio_theme_store')
 local ThemeEditor=require('src.studio_theme_editor')
+local StudioAudio=require('src.studio_audio')
+local StudioAudioStore=require('src.studio_audio_store')
+local AudioEditor=require('src.studio_audio_editor')
 local Pipeline=require('src.studio_pipeline_status')
 local GuiPublish=require('src.studio_gui_publish')
 local VisualAssets=require('src.visual_assets')
@@ -32,7 +35,7 @@ local function slug(name)
 end
 function App.new()
     return setmetatable({store=Store.new(IO),world_store=StudioWorldStore.new(IO),
-        theme_store=StudioThemeStore.new(IO),
+        theme_store=StudioThemeStore.new(IO),audio_store=StudioAudioStore.new(IO),
         project=nil,selected=1,dirty=false,
         mode='home',message='Create a project (N) or open one (O).',
         preview=nil,preview_id=nil,field=nil,typed='',pending=nil,listing={},list_index=1,
@@ -50,6 +53,7 @@ function App:status(text)
     self.message=text
     if self.world_editor then self.world_editor.message=text end
     if self.theme_editor then self.theme_editor.message=text end
+    if self.audio_editor then self.audio_editor.message=text end
 end
 function App:ask_discard(action)
     if self.dirty then self.pending=action;self.return_mode=self.mode;self.mode='confirm'
@@ -67,6 +71,7 @@ function App:new_project(name)
     self.world_images={};self.world_image_data={}
     self.world_blocked=false
     self.theme_pack=StudioTheme.new(id);self.theme_editor=nil;self.theme_blocked=false
+    self.audio_pack=StudioAudio.new(id);self.audio_editor=nil;self.audio_blocked=false
     self.selected=1;self.dirty=true;self.metadata_dirty=true;self.mode='project';self.preview=nil;self.canvas=nil
     self:status('Created '..id..' (unsaved). Drag a PNG or press I for the sample.')
 end
@@ -84,6 +89,10 @@ function App:open_project(id)
     self.theme_pack=theme or StudioTheme.new(id)
     self.theme_editor=nil;self.theme_reason=theme_reason
     self.theme_blocked=not theme and theme_reason~='missing theme document'
+    local audio,audio_reason=self.audio_store:open(id)
+    self.audio_pack=audio or StudioAudio.new(id)
+    self.audio_editor=nil;self.audio_reason=audio_reason
+    self.audio_blocked=not audio and audio_reason~='missing audio document'
     self.preview=nil;self.preview_id=nil;self.canvas=nil
     self:status(reason..' '..id..(self.world_blocked and
         ' · World document unavailable: '..tostring(world_reason) or
@@ -92,7 +101,11 @@ function App:open_project(id)
         (self.theme_blocked and
         ' · Theme document unavailable: '..tostring(theme_reason) or
         theme_reason=='recovered previous theme generation' and
-        ' · recovered previous theme generation' or ''))
+        ' · recovered previous theme generation' or '')..
+        (self.audio_blocked and
+        ' · Audio document unavailable: '..tostring(audio_reason) or
+        audio_reason=='recovered previous audio generation' and
+        ' · recovered previous audio generation' or ''))
 end
 function App:save()
     if not self.project then self:status('No project to save');return end
@@ -111,14 +124,33 @@ function App:save()
         self.theme_pack=self.theme_editor.theme
         ok,reason=self.theme_store:save(self.theme_pack,self.project.assets)
     end
+    if ok and self.audio_editor then
+        self.audio_pack=self.audio_editor.pack
+        ok,reason=self.audio_store:save(self.audio_pack)
+    end
     if ok then
         if self.canvas then self.canvas:saved_now() end
         if self.world_editor then self.world_editor:saved_now() end
         if self.theme_editor then self.theme_editor:saved_now() end
+        if self.audio_editor then self.audio_editor:saved_now() end
         self.dirty=false;self.metadata_dirty=false;self.preview=nil
         self.world_images={};self.world_image_data={}
         self:status('Saved generation '..reason)
     else self:status('Save failed: '..tostring(reason)) end
+end
+function App:open_audio(context)
+    if not self.project then self:status('Open a project first');return end
+    if self.audio_blocked then
+        self:status('Audio editor blocked: '..tostring(self.audio_reason));return
+    end
+    if self.audio_editor and self.audio_editor:dirty() then
+        self:status('Save audio edits before switching context');return
+    end
+    self.audio_return_mode=self.mode
+    self.audio_editor=AudioEditor.new(self.audio_pack,self.audio_store,IO,
+        self.world_editor and self.world_editor.pack or self.world_pack,context)
+    self.mode='audio'
+    self:status('Sound Library / Cue Picker · drop WAV/Ogg · S save · F search')
 end
 function App:open_theme()
     if not self.project then self:status('Open a project first');return end
@@ -198,7 +230,8 @@ function App:preview_loose_publish()
     if not self.project then self:status('Open a project first');return end
     if self.dirty or self.canvas and self.canvas:dirty() or
         self.world_editor and self.world_editor:dirty() or
-        self.theme_editor and self.theme_editor:dirty() then
+        self.theme_editor and self.theme_editor:dirty() or
+        self.audio_editor and self.audio_editor:dirty() then
         self:status('Save all Studio edits (S) before publishing.');return
     end
     local saved,reason=self.store:open(self.project.id,decode)
@@ -431,6 +464,14 @@ function App:import_sample()
     self:import_bytes(bytes,'Adventurer sample')
 end
 function App:filedropped(file)
+    if self.mode=='audio' then
+        self.audio_editor:import_file(file)
+        self.audio_pack=self.audio_editor.pack
+        self.dirty=self.metadata_dirty or self.audio_editor:dirty() or
+            self.world_editor and self.world_editor:dirty() or
+            self.theme_editor and self.theme_editor:dirty() or false
+        return
+    end
     if self.mode=='canvas' then
         self:status('Save this sprite and return to asset metadata before importing another PNG.')
         return
@@ -490,6 +531,37 @@ function App:keypressed(key)
     if key=='f10' then self.help_open=not self.help_open;return true end
     if self.help_open then
         if key=='escape' then self.help_open=false end
+        return true
+    end
+    if key=='f8' and (self.mode=='project' or self.mode=='world' or
+        self.mode=='theme') then
+        local context
+        if self.mode=='world' then
+            local room=self.world_editor and self.world_editor:room()
+            context=room and room.id or 'room'
+        elseif self.mode=='theme' then context='ui' end
+        self:open_audio(context)
+        return true
+    end
+    if self.mode=='audio' then
+        if key=='s' and not self.audio_editor.input and
+            not self.audio_editor.delete_confirm then self:save();return true end
+        if key=='escape' and not self.audio_editor.input and
+            not self.audio_editor.delete_confirm then
+            self.audio_editor:stop_audition()
+            if self.audio_editor:dirty() then
+                self:status('Save audio edits (S) before returning; original clips remain safe.')
+            else
+                self.mode=self.audio_return_mode or 'project'
+                self:status('Returned to '..self.mode..'.')
+            end
+            return true
+        end
+        self.audio_editor:keypressed(key,love.keyboard.isDown('lctrl','rctrl'))
+        self.audio_pack=self.audio_editor.pack
+        self.dirty=self.metadata_dirty or self.audio_editor:dirty() or
+            self.world_editor and self.world_editor:dirty() or
+            self.theme_editor and self.theme_editor:dirty() or false
         return true
     end
     if self.mode=='publish_confirm' then
@@ -761,6 +833,7 @@ function App:keypressed(key)
     elseif key=='e' then self:edit_pixels()
     elseif key=='w' then self:open_world()
     elseif key=='u' then self:open_theme()
+    elseif key=='y' then self:open_audio()
     elseif key=='p' then self:inspect_pipeline()
     elseif key=='tab' then
         local kinds={'all','actor','enemy','tile','effect','ui','background','glyph',
@@ -799,6 +872,7 @@ function App:textinput(text)
     end
     if self.mode=='canvas' then self.canvas:textinput(text);return end
     if self.mode=='theme' then self.theme_editor:textinput(text);return end
+    if self.mode=='audio' then self.audio_editor:textinput(text);return end
     if self.mode=='name' or self.mode=='edit' or self.mode=='size' or
         self.mode=='world_size' or self.mode=='world_edit' then
         if #self.typed+#text<=100 then self.typed=self.typed..text end
@@ -839,6 +913,14 @@ function App:mousepressed(x,y,button)
         self.dirty=self.metadata_dirty or self.theme_editor:dirty()
         return true
     end
+    if self.mode=='audio' then
+        self.audio_editor:mousepressed(x,y,button)
+        self.audio_pack=self.audio_editor.pack
+        self.dirty=self.metadata_dirty or self.audio_editor:dirty() or
+            self.world_editor and self.world_editor:dirty() or
+            self.theme_editor and self.theme_editor:dirty() or false
+        return true
+    end
     if self.mode~='home' and self.mode~='project' then return end
     if button~=1 then return end
     if y>=72 and y<=100 then
@@ -851,7 +933,8 @@ function App:mousepressed(x,y,button)
         elseif x<700 then self:keypressed('e')
         elseif x<800 then self:keypressed('w')
         elseif x<900 then self:keypressed('u')
-        elseif x<1000 then self:keypressed('p') end
+        elseif x<960 then self:keypressed('p')
+        else self:keypressed('y') end
     elseif self.mode=='project' and x<430 and y>=166 and y<536 then
         local visible=self:visible_assets()
         local at=1;for i,v in ipairs(visible) do if v==self.selected then at=i end end
@@ -904,10 +987,15 @@ function App:preview_image(a)
     return image
 end
 function App:draw()
+    if self.mode=='audio' then
+        self.audio_editor:draw()
+        if self.help_open then E06Views.help(self.workspace) end
+        return
+    end
     if self.mode=='theme' then
         self.theme_editor:draw()
         love.graphics.setColor(.95,.83,.53)
-        love.graphics.print('DRAFT THEME · preview only · F10 help',18,60)
+        love.graphics.print('DRAFT THEME · F8 contextual sound/music · F10 help',18,60)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -948,7 +1036,7 @@ function App:draw()
                 190,285,640,'center')
         end
         love.graphics.setColor(.95,.83,.53)
-        love.graphics.print('DRAFT ROOM · edited geometry/visuals · F10 help',18,60)
+        love.graphics.print('DRAFT ROOM · F8 room sound/music · F10 help',18,60)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -972,7 +1060,7 @@ function App:draw()
     g.setColor(0.55,0.78,0.76)
     g.print('Editor mode — no game simulation or profile writes',24,43)
     g.setColor(0.18,0.25,0.27);g.rectangle('fill',18,72,900,30)
-    g.setColor(1,1,1);g.print('N New  O Open  S Save  A Draft  I Sample  C Sprite  E Pixels  W World  U UI  P Publish',26,79)
+    g.setColor(1,1,1);g.print('N New O Open S Save A Draft I Sample C Sprite E Pixels W World U UI P Publish Y Audio',26,79)
     g.setColor(0.7,0.78,0.77)
     g.print('Workspace: '..self.workspace,24,112)
     local p=self.project

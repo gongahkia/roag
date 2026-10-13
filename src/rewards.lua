@@ -160,9 +160,21 @@ end
 function Rewards.make_offers(state, chest_definition, offer_rng)
     local rng=offer_rng or state.rng
     local available=state.available_boons or BoonContent.starter_order()
-    assert(#available >= 3, "chest pool needs three boons")
     local pool = {}
-    for index, id in ipairs(available) do pool[index] = id end
+    local player
+    for _,actor in ipairs(state.entities) do
+        if actor.id==state.player_id then player=actor;break end
+    end
+    local class_id=player and player.definition_id or "core:actor/adventurer"
+    for _,id in ipairs(available) do
+        local eligible=BoonContent.get(id).eligible_classes
+        local allowed=not eligible
+        for _,candidate in ipairs(eligible or {}) do
+            if candidate==class_id then allowed=true;break end
+        end
+        if allowed then pool[#pool+1]=id end
+    end
+    assert(#pool >= 3, "chest pool needs three boons")
     local offers = {}
     for index = 1, 3 do
         local selected = RNG.next_int(rng, #pool)

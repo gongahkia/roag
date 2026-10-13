@@ -11,6 +11,7 @@ cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Persistence=require("src.persistence")
 local Classes=require("src.classes")
+local phase=assert(os.getenv("ROEG_CLASS_RESUME_PHASE"))
 local tracked
 local old_new,old_restore=Game.new_stage,Game.restore
 function Game.new_stage(seed,options)
@@ -18,12 +19,12 @@ function Game.new_stage(seed,options)
     return tracked
 end
 function Game.restore(...)
-    tracked=old_restore(...)
-    return tracked
+    local restored=old_restore(...)
+    if phase=="load" then tracked=restored end
+    return restored
 end
 assert(love.filesystem.load("roeg_main.lua"))()
 local old_load,old_draw=love.load,love.draw
-local phase=assert(os.getenv("ROEG_CLASS_RESUME_PHASE"))
 local out=assert(os.getenv("ROEG_CLASS_RESUME_OUTPUT"))
 local function write(name,bytes)
     local f=assert(io.open(out.."/"..name,"wb"));f:write(bytes);f:close()

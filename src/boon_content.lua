@@ -22,6 +22,13 @@ function Catalog.starter_order()
     for i=1,Catalog.starter_count do result[i]=Catalog.order[i] end
     return result
 end
+function Catalog.normal_order()
+    local result=Catalog.starter_order()
+    for _,id in ipairs(require("src.boon_expansion_content").order) do
+        result[#result+1]=id
+    end
+    return result
+end
 
 local function strengths(chances, powers)
     local result = {}
@@ -82,7 +89,7 @@ Catalog.definitions = {
         stack_policy="add_power", parameters=strengths(nil,{1,2,3,4}),
         modifiers={{ability_id="core:ability/sweeping_slash", kind="forward_cell"},
             {ability_id="core:ability/sweeping_slash", kind="add_damage"}},
-        effects={}, incompatible={},
+        effects={}, incompatible={},eligible_classes={"core:actor/adventurer"},
     },
     ["core:boon/turncoat_spark"] = {
         name="Turncoat Spark", description="Observed enemy friendly fire shocks the aggressor.",
@@ -170,6 +177,7 @@ Catalog.definitions = {
         stack_policy="add_power",parameters=strengths(nil,{1,2,3,4}),effects={},
         modifiers={{ability_id="core:ability/basic_attack",kind="line_second_cell"},
             {ability_id="core:ability/basic_attack",kind="add_damage"}},incompatible={},
+        eligible_classes={"core:actor/adventurer"},
     },
     ["core:boon/phantom_lunge"] = {
         name="Phantom Lunge",description="Dash strikes each hostile beside its traversed path once.",
@@ -209,21 +217,34 @@ Catalog.definitions = {
     },
 }
 
+local expansion=require("src.boon_expansion_content")
+for _,id in ipairs(expansion.order) do
+    assert(not Catalog.definitions[id],"duplicate expansion boon")
+    Catalog.order[#Catalog.order+1]=id
+    Catalog.definitions[id]=expansion.definitions[id]
+end
+
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
     DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true,
-    CurrencyCollected=true,BoonActivated=true}
+    CurrencyCollected=true,BoonActivated=true,TerrainTriggered=true,TerrainBroken=true}
 local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
-    path_adjacent_hostiles=true}
+    path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
+    mark_damage=true,status_neighbors=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
     source_tag=true, target_tag=true, source_faction=true, target_faction=true,
     direct_attack=true,target_was_full=true,adjacent_hostiles=true,burning_pair=true,
     source_hostile=true,source_in_radius=true,owner_hp_percent=true,
-    distinct_chain_group=true,ability_id=true,unique_windup=true,other_boon=true}
+    distinct_chain_group=true,ability_id=true,unique_windup=true,other_boon=true,
+    event_kind=true,from_terrain=true,path_terrain=true,source_on_terrain=true,
+    target_near_terrain=true,terrain_id=true,damage_type=true,primed=true,
+    special_attack=true,target_hp_percent_before=true,owner_in_locked_cells=true,
+    overlapping_windups=true,approaching_owner=true,aligned_hostiles=true,
+    event_distance=true,visible_source=true,visible_event=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -245,9 +266,22 @@ local function validate_predicate(node)
             assert(type(node.radius)=="number" and node.radius%1==0 and node.radius>=0,"invalid source radius")
         elseif node.op == "owner_hp_percent" then
             assert(type(node.max)=="number" and node.max>=0 and node.max<=100,"invalid health threshold")
+        elseif node.op == "target_hp_percent_before" then
+            assert(type(node.max)=="number" and node.max>=0 and node.max<=100,
+                "invalid target health threshold")
+        elseif node.op == "aligned_hostiles" then
+            assert(type(node.min)=="number" and node.min%1==0 and node.min>=2,
+                "invalid formation count")
+        elseif node.op == "event_distance" then
+            assert(type(node.min)=="number" and type(node.max)=="number"
+                and node.min>=0 and node.max>=node.min,"invalid event distance")
         elseif node.op == "source_id" or node.op == "target_id" or node.op == "ability_id"
             or node.op == "source_tag" or node.op == "target_tag"
-            or node.op == "source_faction" or node.op == "target_faction" then
+            or node.op == "source_faction" or node.op == "target_faction"
+            or node.op == "event_kind" or node.op == "from_terrain"
+            or node.op == "path_terrain" or node.op == "source_on_terrain"
+            or node.op == "target_near_terrain" or node.op == "terrain_id"
+            or node.op == "damage_type" then
             assert(node.value ~= nil, "missing predicate value")
         end
     end
@@ -263,6 +297,8 @@ function Catalog.validate(definitions, order)
         assert(type(id) == "string" and id:match("^core:boon/"), "invalid boon ID")
         assert(def.id == id, "boon definition ID mismatch")
         assert(type(def.name) == "string" and type(def.description) == "string", "invalid boon text")
+        assert(def.unit==nil or (type(def.unit)=="string" and #def.unit>0),
+            "invalid boon magnitude text")
         assert(type(def.tags) == "table" and type(def.triggers) == "table"
             and type(def.effects) == "table", "invalid boon declaration")
         assert(def.scope and ({owner=true, nearby=true, radius=true, floor=true})[def.scope.kind],
@@ -281,6 +317,7 @@ function Catalog.validate(definitions, order)
         end
         for _, effect in ipairs(def.effects) do
             assert(valid_effects[effect.kind], "invalid boon effect")
+            if effect.when then validate_predicate(effect.when) end
             assert(effect.proc_coefficient == nil or
                 (type(effect.proc_coefficient) == "number" and effect.proc_coefficient >= 0
                     and effect.proc_coefficient <= 10), "invalid proc coefficient")
@@ -297,6 +334,24 @@ function Catalog.validate(definitions, order)
                     and effect.interval%1==0 and effect.interval>0
                     and type(effect.ticks)=="number" and effect.ticks%1==0
                     and effect.ticks>0,"invalid status effect")
+            end
+            if effect.kind=="prime" or effect.kind=="speed_boost"
+                or effect.kind=="ward" or effect.kind=="mark_damage" then
+                assert(type(effect.duration)=="number" and effect.duration%1==0
+                    and effect.duration>0 and effect.duration<=10000,
+                    "invalid boon duration")
+            end
+            if effect.kind=="mark_damage" then
+                assert(type(effect.threshold)=="number" and effect.threshold%1==0
+                    and effect.threshold>=2 and effect.threshold<=effect.cap
+                    and effect.cap<=20,"invalid mark threshold")
+            end
+            if effect.kind=="status_neighbors" then
+                assert(effect.status=="burning","invalid shared status")
+            end
+            if effect.consume_prime~=nil then
+                assert(effect.consume_prime==true and effect.kind=="damage_target",
+                    "invalid primed effect")
             end
             assert(effect.scale==nil or effect.scale=="adjacent_hostiles","invalid effect scale")
         end
@@ -316,7 +371,29 @@ function Catalog.validate(definitions, order)
                 or (modifier.ability_id == "core:ability/basic_attack"
                     and (modifier.kind == "line_second_cell" or modifier.kind == "add_damage"))
                 or (modifier.ability_id == "core:ability/dash"
-                    and modifier.kind == "path_strike"),"invalid ability modifier")
+                    and (modifier.kind == "path_strike" or modifier.kind=="dash_prime"))
+                or (modifier.ability_id=="core:ability/ranger_shot"
+                    and (modifier.kind=="branch_near" or modifier.kind=="add_damage"))
+                or (modifier.ability_id=="core:ability/ranger_volley"
+                    and (modifier.kind=="line_extend" or modifier.kind=="add_damage"))
+                or (modifier.ability_id=="core:ability/arcanist_sigil"
+                    and (modifier.kind=="area_expand" or modifier.kind=="add_damage"))
+                or (modifier.ability_id=="core:ability/arcanist_bolt"
+                    and (modifier.kind=="status_chain" or modifier.kind=="add_damage"))
+                or (modifier.ability_id=="core:ability/berserker_crush"
+                    and (modifier.kind=="shockwave" or modifier.kind=="add_damage")),
+                "invalid ability modifier")
+        end
+        if def.eligible_classes then
+            local Classes=require("src.classes")
+            assert(type(def.eligible_classes)=="table" and #def.eligible_classes>0,
+                "invalid class eligibility")
+            local classes={}
+            for _,class_id in ipairs(def.eligible_classes) do
+                assert(Classes.get(class_id) and not classes[class_id],
+                    "invalid eligible class")
+                classes[class_id]=true
+            end
         end
         for _, other in ipairs(def.incompatible or {}) do
             assert(other ~= id and definitions[other], "invalid boon incompatibility")
@@ -350,8 +427,9 @@ function Catalog.offer_text(id,rarity)
         ["core:boon/crownfire"]="Burning damage/tick before defense",
     }
     local suffix=def.stack_policy=="chance_overflow"
-        and ("%.1f%% proc, %d %s"):format(p.chance/10000,p.power,units[id] or "power")
-        or ("%d %s per copy"):format(p.power,units[id] or "power")
+        and ("%.1f%% proc, %d %s"):format(p.chance/10000,p.power,
+            def.unit or units[id] or "power")
+        or ("%d %s per copy"):format(p.power,def.unit or units[id] or "power")
     return def.description.." ["..suffix.."]"
 end
 

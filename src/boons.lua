@@ -1,6 +1,10 @@
 local Catalog = require("src.boon_content")
 local Content = require("src.content")
 local RNG = require("src.rng")
+local Terrain=require("src.terrain")
+local Classes=require("src.classes")
+local Visibility=require("src.visibility")
+local Floors=require("src.floors")
 
 local Boons = {}
 local PPM = 1000000
@@ -82,6 +86,105 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=="event_kind" then return event.kind==node.value end
+    if op=="visible_source" then
+        local p=event.source_position
+        return p and Visibility.is_visible(state,p.floor_id,p.x,p.y) or false
+    end
+    if op=="visible_event" then
+        local p=event_position(event)
+        return p and Visibility.is_visible(state,p.floor_id,p.x,p.y) or false
+    end
+    if op=="terrain_id" then return event.terrain_id==node.value end
+    if op=="damage_type" then return event.damage_type==node.value end
+    if op=="from_terrain" then
+        return Terrain.symbol(Floors.map(state,event.floor_id),event.from_x or -1,
+            event.from_y or -1)==node.value
+    end
+    if op=="path_terrain" then
+        local map=Floors.map(state,event.floor_id)
+        for _,cell in ipairs(event.path or {}) do
+            if cell.floor_id==owner.position.floor_id
+                and Terrain.symbol(map,cell.x,cell.y)==node.value then return true end
+        end
+        return false
+    end
+    if op=="source_on_terrain" then
+        local p=event.source_position
+        return p and p.floor_id==owner.position.floor_id and
+            Terrain.symbol(Floors.map(state,p.floor_id),p.x,p.y)==node.value
+    end
+    if op=="target_near_terrain" then
+        if not event.x or not event.y or event.floor_id~=owner.position.floor_id then
+            return false
+        end
+        local map=Floors.map(state,event.floor_id)
+        for y=event.y-1,event.y+1 do for x=event.x-1,event.x+1 do
+            if Terrain.symbol(map,x,y)==node.value then return true end
+        end end
+        return false
+    end
+    if op=="primed" then
+        local memory=owner.boon_memory and owner.boon_memory[boon_id]
+        return memory and (memory.charges or 0)>0
+            and (memory.expires_at or -1)>=state.clock or false
+    end
+    if op=="special_attack" then
+        return event.ability_id==Classes.for_player(owner).special_id
+    end
+    if op=="target_hp_percent_before" then
+        return event.hp_before and event.target_max_hp
+            and event.hp_before*100<=event.target_max_hp*node.max or false
+    end
+    if op=="owner_in_locked_cells" then
+        for _,cell in ipairs(event.target_cells or {}) do
+            if cell.floor_id==owner.position.floor_id
+                and cell.x==owner.position.x and cell.y==owner.position.y then
+                return true
+            end
+        end
+        return false
+    end
+    if op=="overlapping_windups" then
+        for _,actor in ipairs(state.entities) do
+            if actor.id~=event.source_id and actor.pending_attack
+                and actor.faction~=owner.faction and actor.hp and actor.hp>0 then
+                for _,a in ipairs(actor.pending_attack.target_cells or {}) do
+                    for _,b in ipairs(event.target_cells or {}) do
+                        if a.floor_id==b.floor_id and a.x==b.x and a.y==b.y then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+        return false
+    end
+    if op=="approaching_owner" then
+        return event.floor_id==owner.position.floor_id and event.from_x and event.x
+            and math.abs(event.x-owner.position.x)+math.abs(event.y-owner.position.y)
+                <math.abs(event.from_x-owner.position.x)+
+                    math.abs(event.from_y-owner.position.y)
+    end
+    if op=="aligned_hostiles" then
+        if not event.x or not event.y then return false end
+        local row,column=0,0
+        for _,actor in ipairs(state.entities) do
+            local p=actor.position
+            if actor.hp and actor.hp>0 and actor.faction~=owner.faction
+                and p.floor_id==event.floor_id then
+                if p.y==event.y then row=row+1 end
+                if p.x==event.x then column=column+1 end
+            end
+        end
+        return math.max(row,column)>=node.min
+    end
+    if op=="event_distance" then
+        local p=event_position(event)
+        if not p or p.floor_id~=owner.position.floor_id then return false end
+        local d=distance(owner.position,p)
+        return d>=node.min and d<=node.max
+    end
     if op == "source_owner" then return event.source_id == owner.id end
     if op == "target_owner" then return event.target_id == owner.id end
     if op == "source_not_owner" then return event.source_id ~= owner.id end
@@ -257,10 +360,61 @@ function Boons.validate_inventory(owner)
             end
         end
     end
+    for id,memory in pairs(owner.boon_memory or {}) do
+        assert(Catalog.get(id) and type(memory)=="table","invalid boon memory")
+        for _,field in ipairs({"charges","expires_at","speed","ward","mark_count",
+            "mark_target_id"}) do
+            local value=memory[field]
+            assert(value==nil or (type(value)=="number" and value%1==0
+                and value>=0),"invalid boon memory value")
+        end
+        if memory.charges or memory.speed or memory.ward or memory.mark_count then
+            assert(memory.expires_at~=nil,"boon memory missing expiry")
+        end
+        if memory.mark_count then
+            assert(memory.mark_target_id~=nil,"boon mark missing target")
+        end
+    end
 end
 
-function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy, explicit)
+function Boons.speed_bonus(state,owner)
+    local memory=owner.boon_memory and
+        owner.boon_memory["core:boon/bloodrush"]
+    return memory and (memory.expires_at or -1)>=state.clock
+        and (memory.speed or 0) or 0
+end
+
+function Boons.consume_ward(state,owner,damage)
+    if damage<=0 then return 0 end
+    local memory=owner.boon_memory and
+        owner.boon_memory["core:boon/betrayal_ward"]
+    if not memory or (memory.expires_at or -1)<state.clock
+        or (memory.ward or 0)<=0 then return 0 end
+    local absorbed=math.min(damage,memory.ward)
+    memory.ward=0 -- one positive hit consumes the stored ward
+    return absorbed
+end
+
+function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy,
+    explicit, ranged)
     local cells, damage = {}, base_damage
+    local map=Content.map_for(state)
+    local function living_at(cell)
+        for _,actor in ipairs(state.entities) do
+            local p=actor.position
+            if actor.id~=owner.id and actor.hp and actor.hp>0 and p
+                and p.floor_id==owner.position.floor_id
+                and p.x==cell.x and p.y==cell.y then return actor end
+        end
+    end
+    local function append_unique(x,y)
+        if x==owner.position.x and y==owner.position.y then return end
+        if not Content.projectile_passable(map,x,y,state) then return end
+        for _,cell in ipairs(cells) do
+            if cell.x==x and cell.y==y then return end
+        end
+        cells[#cells+1]={floor_id=owner.position.floor_id,x=x,y=y}
+    end
     for index, cell in ipairs(base_cells) do
         cells[index] = {floor_id=cell.floor_id, x=cell.x, y=cell.y}
     end
@@ -274,7 +428,6 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
                     if modifier.kind == "forward_cell" then
                         local x = owner.position.x + dx * 2
                         local y = owner.position.y + dy * 2
-                        local map = Content.map_for(state)
                         local path_open = Content.walkable(map,
                             owner.position.x + dx, owner.position.y + dy)
                             and Content.walkable(map, x, y)
@@ -286,19 +439,94 @@ function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy
                             cells[#cells + 1] = {floor_id=owner.position.floor_id, x=x, y=y}
                         end
                     elseif modifier.kind == "line_second_cell" and explicit~=false then
-                        local map=Content.map_for(state)
                         local mid_x,mid_y=owner.position.x+dx,owner.position.y+dy
                         local x,y=mid_x+dx,mid_y+dy
                         if Content.projectile_passable(map,mid_x,mid_y,state)
                             and Content.projectile_passable(map,x,y,state) then
                             cells[#cells+1]={floor_id=owner.position.floor_id,x=x,y=y}
                         end
+                    elseif modifier.kind=="branch_near" or
+                        modifier.kind=="status_chain" then
+                        local primary,index
+                        for j,cell in ipairs(cells) do
+                            local found=living_at(cell)
+                            if found then primary,index=found,j;break end
+                        end
+                        if primary and (modifier.kind=="branch_near" or
+                            primary.statuses and primary.statuses.burning) then
+                            while #cells>index do table.remove(cells) end
+                            local candidates={}
+                            for _,actor in ipairs(state.entities) do
+                                local p=actor.position
+                                if actor.id~=primary.id and actor.id~=owner.id
+                                    and actor.hp and actor.hp>0
+                                    and actor.faction~=owner.faction and p
+                                    and p.floor_id==owner.position.floor_id
+                                    and math.max(math.abs(p.x-primary.position.x),
+                                        math.abs(p.y-primary.position.y))==1
+                                    and (modifier.kind=="branch_near" or
+                                        actor.statuses and actor.statuses.burning) then
+                                    candidates[#candidates+1]=actor
+                                end
+                            end
+                            table.sort(candidates,function(a,b)return a.id<b.id end)
+                            local added=0
+                            for _,candidate in ipairs(candidates) do
+                                local p=candidate.position
+                                local sx=p.x-primary.position.x
+                                local sy=p.y-primary.position.y
+                                if sx==0 or sy==0 or
+                                    (Content.projectile_passable(map,
+                                        primary.position.x+sx,primary.position.y,state)
+                                    and Content.projectile_passable(map,
+                                        primary.position.x,primary.position.y+sy,state)) then
+                                    append_unique(p.x,p.y)
+                                    added=added+1
+                                    if modifier.kind=="branch_near" and added>=2 then
+                                        break
+                                    end
+                                end
+                            end
+                            ranged="piercing_line"
+                        end
+                    elseif modifier.kind=="line_extend" then
+                        local last=cells[#cells]
+                        local end_x=owner.position.x+5*dx
+                        local end_y=owner.position.y+5*dy
+                        if last and last.x==end_x and last.y==end_y
+                            and Content.projectile_passable(map,end_x,end_y,state)
+                            and (dx==0 or dy==0 or
+                                (Content.projectile_passable(map,end_x+dx,end_y,state)
+                                and Content.projectile_passable(map,end_x,end_y+dy,state))) then
+                            append_unique(end_x+dx,end_y+dy)
+                        end
+                    elseif modifier.kind=="area_expand" then
+                        local cx=owner.position.x+2*dx
+                        local cy=owner.position.y+2*dy
+                        local reached=false
+                        for _,cell in ipairs(cells) do
+                            if cell.x==cx and cell.y==cy then reached=true;break end
+                        end
+                        if reached and Content.projectile_passable(map,cx,cy,state) then
+                            for oy=-2,2 do for ox=-2,2 do
+                                if math.max(math.abs(ox),math.abs(oy))==2 then
+                                    append_unique(cx+ox,cy+oy)
+                                end
+                            end end
+                        end
+                    elseif modifier.kind=="shockwave" then
+                        local hit=cells[1]
+                        if hit then
+                            for _,step in ipairs({{0,-1},{1,0},{0,1},{-1,0}}) do
+                                append_unique(hit.x+step[1],hit.y+step[2])
+                            end
+                        end
                     elseif modifier.kind == "add_damage" then damage = damage + power end
                 end
             end
         end
     end
-    return cells, damage
+    return cells, damage, ranged
 end
 
 local function chain_record(state, chain_id)
@@ -371,7 +599,10 @@ function Boons.on_event(state, event, enqueue, emit_activation)
                             }
                             emit_activation(activation)
                             for _, effect in ipairs(def.effects) do
-                                enqueue(activation, effect)
+                                if not effect.when or predicate(effect.when,state,
+                                    owner,id,event,history) then
+                                    enqueue(activation, effect)
+                                end
                             end
                         end
                     end

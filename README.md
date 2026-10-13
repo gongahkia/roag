@@ -127,3 +127,23 @@ short presentation beats, and shows when a gameplay key is ignored during the
 visual input gate. Combat scheduling, event order, 80 ms movement and saves are
 unchanged. See [Tranche 15 measurements and physical playtest checklist](docs/TRANCHE_15_ACCEPTANCE.md)
 for the read-only seed corpus, legal-run trace and reproducible profile commands.
+
+## Autonomous expansion in progress
+
+Normal New Run now starts in a connected two-floor biome; reciprocal stairs
+preserve the inactive floor and its pending events. Seven biome identities,
+six gameplay terrain mechanics, 16 regular enemy archetypes and seven distinct
+biome elites are integrated. On the title, press **1–4** to choose Adventurer,
+Ranger, Arcanist or Berserker before **N**. All classes use the existing
+WASD/arrow movement, **F** basic attack, **R** special and **X** mobility aim
+and confirmation flow. See the [class kit guide](docs/ROEG_CLASS_EXPANSION.md)
+and [expansion progress](docs/goal/ROEG_EXPANSION_PROGRESS.md) for exact
+mechanics, current regression evidence and outstanding milestones. The
+default two-floor full-run Victory has not yet been demonstrated by the
+older single-floor guided driver.
+
+Normal New Runs also draw from the expanded **46-boon** ordinary pool, with
+class-compatible transformations; the four achievement rewards remain
+separate unlocks for a total of 50. See the
+[M6 boon catalogue](docs/ROEG_BOON_EXPANSION.md) for exact triggers,
+provisional rarity strengths and the seeded legal chest-acquisition trace.

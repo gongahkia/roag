@@ -94,3 +94,42 @@ explicit callback assertion from changed text, not a proven native crash.
 The default two-floor full-run Victory remains unestablished. The entire goal
 remains **IN PROGRESS** while classes, 26 boons, Studio audio and M8
 acceptance remain. Exact final headless count is recorded in the progress log.
+
+## M5 checkpoint
+
+All four selectable class kits now use the normal title → New Run path and the
+same deterministic action pipeline. Ranger bow/volley/evasive Dash, Arcanist
+lightning/fire sigil/phase step and Berserker heavy crush/broad cleave/armored
+lunge are genuinely different from the unchanged Adventurer. Their IDs and
+stats survive route/floor/finale transitions and fresh-process Save & Quit /
+Continue. The full headless suite passed **330/330**, established game GUI
+**24/24**, class GUI **3/3** four-class isolated rounds, and a Ranger disk
+continuation matched exact snapshots before/after the next committed action.
+All four won an ordinary first encounter on default paired-floor seed 3.
+The old single-floor guided stage-one route reached stage two for three
+classes; Arcanist's melee-oriented guide hit a navigation limit. These are
+not default two-floor victories. M6 class-specific transformations and
+class-aware offers are still required. See `docs/ROEG_CLASS_EXPANSION.md`.
+
+## M6 checkpoint
+
+The required 26 new tactical/class boon identities are integrated, bringing
+the registry to 50. New Run's frozen ordinary pool is 46 (20 original + 26
+new); the older four achievement boons still require permanent unlocks.
+Class-specific offers are filtered for each starting class, and old
+Adventurer-only transformations no longer appear for the other three classes.
+Generic stateful prime/speed/ward/mark effects and event predicates power
+terrain, enemy-originated and chain interactions; six class transformations
+modify the ordinary ability pipeline. See `docs/ROEG_BOON_EXPANSION.md` for
+the full catalogue and provisional strengths.
+
+The headless suite reached **341/341**. Focused tests activate each new boon,
+check ten mixed old/new synergies, exact save/restore, generation chest
+eligibility over 400 paired stages and deterministic rejection of blocked
+transform geometry. A real seed-50 paired-floor ordinary-action trace buys
+Common Rhythm of Steel through a paid chest and uses it in 59 actions.
+The new callback GUI smoke passed **3/3**; a two-process LÖVE run restored
+new primed boon state and its next action exactly. The legacy single-floor
+legal Victory remains 945 actions, 3 HP, 94,200 simulated time. Default
+two-floor all-class Victory and human balance remain M8 work. M7 Studio audio
+is still outstanding at this checkpoint.

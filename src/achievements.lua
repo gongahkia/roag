@@ -3,7 +3,7 @@ local Boons=require("src.boon_content")
 local A={}
 local ids=Content.order
 function A.pool(earned)
-    local result=Boons.starter_order()
+    local result=Boons.normal_order()
     for _,id in ipairs(ids) do
         if earned and earned[id] then result[#result+1]=Content.get(id).reward end
     end
@@ -13,19 +13,11 @@ function A.validate_pool(pool)
     assert(type(pool)=="table" and #pool>=Boons.starter_count
         and #pool<=#Boons.order,"invalid available boon pool")
     local seen={}
-    local last_order=Boons.starter_count
     for i,id in ipairs(pool) do
         assert(type(id)=="string" and Boons.get(id) and not seen[id],
             "invalid available boon ID")
         if i<=Boons.starter_count then
             assert(id==Boons.order[i],"starter boon pool changed")
-        else
-            local found
-            for j=last_order+1,#Boons.order do
-                if Boons.order[j]==id then found=j;break end
-            end
-            assert(found,"unlocked boon pool order changed")
-            last_order=found
         end
         seen[id]=true
     end

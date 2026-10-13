@@ -260,3 +260,88 @@ schema changed. The final M4 headless rerun passed **323/323**; `git diff
 Next: M5 playable class selection/action identities, then M6 boons and M7
 Studio audio. M8 retains the default two-floor legal Victory, balance,
 fresh-process and physical-playability limits.
+
+## M5 — Four selectable playable classes: integrated, regression gates passed
+
+The title now selects Adventurer, Ranger, Arcanist or Berserker with keys
+1–4. The original Adventurer remains the default and retains its prior
+numbers/ability identities. Ranger has a four-cell bow, piercing volley and
+three-cell evasive Dash; Arcanist has lightning bolt, fire area sigil and
+phase step; Berserker has a heavy crush, broad cleave and slower armored
+lunge. All attacks submit through the same action/scheduler/damage pipeline.
+Class identity and growth persist through floors, route handoffs, finale and
+disk Continue. See [`../ROEG_CLASS_EXPANSION.md`](../ROEG_CLASS_EXPANSION.md).
+
+The M5 headless suite passed **330/330**, including seven new focused class
+tests. Established game GUI smokes passed **24/24** over three isolated
+rounds. A new class GUI smoke selected each class from the title, started a
+normal paired-floor run, committed its distinct basic ability and checked
+the HUD in **3/3** rounds (12 fresh processes). A separate **two-process**
+LÖVE disk Continue test selected Ranger from the title, saved after a legal
+action and compared the exact authoritative state and next continuation after
+restart. The first draft of that test accidentally tracked a `Game.restore`
+validation copy created during New Run; the corrected test tracks the live
+game object. No runtime defect was established by that draft failure.
+
+Ordinary-action first encounters on seed 3 paired-floor starts succeeded for
+all four classes (42/28/42/23 actions, ending HP 7/17/4/27). The older
+single-floor stage-one guide reaches stage two with Adventurer, Ranger and
+Berserker (345/346/359 actions); its Arcanist run hits the driver's 200-action
+navigation limit because that guide treats all kits as adjacent melee. This
+is a driver/strategy limitation, not proof that Arcanist cannot progress.
+No default two-floor full legal Victory for any class is established. M8 must
+build a stair-aware, class-aware ordinary-action guide and evaluate balance.
+
+Next: M6 adds **exactly 26** new functioning boons, including two class
+transformations each for Ranger, Arcanist and Berserker, and class-aware
+chest eligibility. M7 implements Studio audio. M8 performs final end-to-end
+legal-action, save, GUI, performance and manual-playtest handoff checks.
+
+## M6 — Fifty-boon catalogue: implemented, focused verification passed
+
+The catalogue now has **50 distinct validated IDs**: the original 20 starter
+boons, the four existing achievement rewards and **26 new** tactical/class
+boons. Fresh eligible title New Runs freeze a pool of 46, adding the 26 to
+the original 20; the four achievement boons retain their separate unlock
+gate. Old direct game fixtures and existing saved pools can still use their
+frozen original 20. Offers filter six new class transformations and the two
+Adventurer-only old transformations by player class before seeded sampling.
+Descriptions include rarity-specific magnitude, and all four rarities keep
+the same mechanic. See [`../ROEG_BOON_EXPANSION.md`](../ROEG_BOON_EXPANSION.md).
+
+The 26 include terrain contact/exiting/ice/barricade/mist/crystal reactions,
+timed primes, capped marks, speed and a one-hit ward, enemy windup/friendly
+fire/formation/distance predicates, chain aggregation and two ability
+transformations for each new class. New state is validated plain data in the
+player snapshot. Generic predicates/effects and the existing queued damage
+path implement them; the simulation remains scheduler-driven. On stair
+handoff, owner-scoped movement events still prime movement boons; terrain
+predicates use the event floor's stored map.
+
+The focused suite exercises **all 26** through actual combat/movement,
+compares **ten** mixed old/new interactions plus Ranger first-hit batching,
+checks walls and rejected Dash, and checks exact snapshot/restore. It sampled
+950 seeded offer rolls per class and all new IDs were found in actual cached
+chests across **100 paired-stage seeds per class** (400 stages, 800 floors).
+Seed 50's **ordinary-action** paired-floor acceptance trace earns currency,
+buys Common Rhythm of Steel from paid chest 7 offer 2, then primes it by
+movement and lands its bonus: **59 actions, 21 HP, clock 5,900**, trace at
+`/var/tmp/roeg-m6-seed50.trace`. This proves acquisition and use, not full
+two-floor Victory.
+
+The M6 headless suite passed **341/341**; the old single-floor guided seed-3
+Victory remains **945 actions, 3 HP, clock 94,200**. New boon GUI passed
+**3/3** isolated sessions, with a rendered Ranger branch/Rhythm/input-gate
+capture. A separate two-process LÖVE Save & Quit / Continue test restored
+new boon prime state and matched the next ordered snapshot. The established
+game GUI repeat passed **24/24** across three isolated rounds. The six
+established Studio GUI harnesses also passed **18/18** across three isolated
+rounds. Final post-edit headless rerun remained **341/341** and
+`git diff --check` passed. M6 is verified for the focused catalogue and
+integration gate; its full paired-floor win remains part of M8.
+
+Remaining M6/M8 risks: numerical balance of 46-offer runs and high stacks,
+full two-floor legal Victory for every class, human readability of rapid
+multi-boon bursts and native hardware play. The four achievements are still
+earned, but the larger pool changes future-run offer probabilities by design.
+Next: M7 Studio audio picker/import/publish/playback; M8 full acceptance.

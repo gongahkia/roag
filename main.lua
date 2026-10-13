@@ -17,6 +17,8 @@ local VisualSlots = require("src.visual_slots")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
 local StudioAtlasBuild = require("src.studio_atlas_build")
+local AudioRuntime = require("src.studio_audio_runtime")
+local AudioCues = require("src.audio_cues")
 
 local TILE = 32
 local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
@@ -56,6 +58,49 @@ local refresh_result='not requested'
 local visual_refresh_message=''
 local next_world_pack
 local visual_signature
+local audio_runtime,audio_status
+local function local_room_audio(kind)
+    if not state or not state.generated_map or not audio_runtime then return nil end
+    local player=Game.player(state).position
+    for _,room in ipairs(state.generated_map.rooms or {}) do
+        if room.template_id and room.template_id:match('^studio:room/') and
+            player.x>=room.x and player.y>=room.y and
+            player.x<room.x+room.width and player.y<room.y+room.height then
+            local cue=AudioCues.room_cue(room.template_id,kind)
+            if audio_runtime.bindings and audio_runtime.bindings[cue] then
+                return cue
+            end
+        end
+    end
+end
+local function audio_scene()
+    if title or not state then return 'core:cue/music/title' end
+    if state.game_over then
+        return state.victory and 'core:cue/music/victory' or 'core:cue/music/defeat'
+    end
+    if state.finale then return 'core:cue/music/final_boss' end
+    local biome=state.stage and state.stage.biome_id
+    if not biome then return 'core:cue/music/title' end
+    local local_music=local_room_audio('music')
+    if local_music then return local_music end
+    local tail=biome:match('([^/]+)$')
+    local elite=state.stage.phase=='elite_active' or
+        state.stage.phase=='extraction' or state.stage.phase=='pursuit'
+    return 'core:cue/music/'..(elite and 'elite' or 'explore')..'/'..tail
+end
+local function audio_ambience()
+    if title or not state or state.game_over or state.finale or not state.stage then
+        return nil
+    end
+    return local_room_audio('ambient') or
+        'core:cue/ambient/'..state.stage.biome_id:match('([^/]+)$')
+end
+local function sync_audio_scene()
+    if audio_runtime then
+        audio_runtime:set_scene(audio_scene())
+        audio_runtime:set_ambience(audio_ambience())
+    end
+end
 local showcase = {
     {name="Lightning", boons={{"storm_conductor","rare",2},
         {"static_footsteps","rare",1}}},
@@ -224,6 +269,14 @@ function love.load(args)
         studio:load()
         return
     end
+    local audio_ok,audio=pcall(AudioRuntime.new,
+        function(path)return love.filesystem.read(path)end,
+        function(bytes,sound,source_type)
+            local data=love.filesystem.newFileData(bytes,sound.id..'.'..sound.format)
+            return love.audio.newSource(data,source_type)
+        end)
+    if audio_ok then audio_runtime=audio;audio_status=audio.status
+    else audio_status='silent: '..tostring(audio) end
     visual_assets=VisualAssets.new(function(path)
         return love.filesystem.read(path)
     end,function(bytes,asset)
@@ -282,6 +335,7 @@ function love.load(args)
         end
     end
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
+    sync_audio_scene()
 end
 
 -- Build all replacement GPU handles before publishing any of them.  This is
@@ -362,7 +416,22 @@ end
 
 function love.update(dt)
     if studio then return end
-    if refresh_pending then refresh_pending=false;refresh_visuals() end
+    if refresh_pending then
+        refresh_pending=false
+        refresh_visuals()
+        if audio_runtime then
+            local _,reason=audio_runtime:refresh();audio_status=reason
+            if tostring(reason):match('^rejected') then
+                notice='F5 audio: '..tostring(reason)
+                print(notice)
+            end
+        end
+    end
+    if audio_runtime then
+        sync_audio_scene()
+        audio_runtime:set_paused(pause_menu)
+        audio_runtime:update(dt)
+    end
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
@@ -493,7 +562,12 @@ local function submit(intent)
             playback=Playback.new() -- historical attacks belong to the retired floor.
             reset_camera()
         end
-        Playback.add(playback, visible_events(events), state.player_id)
+        local shown=visible_events(events)
+        Playback.add(playback, shown, state.player_id)
+        if audio_runtime then
+            for _,event in ipairs(shown) do audio_runtime:event(event,state) end
+            sync_audio_scene()
+        end
         for _, event in ipairs(events) do
             if event.kind == "StatIncreased" then
                 reward_notices[#reward_notices + 1] = upgrade_notice(event)
@@ -596,6 +670,19 @@ function love.keypressed(key, _, isrepeat)
         if diagnostics then diagnostics=nil
         else diagnostics=require("src.diagnostics").new() end
         return
+    end
+    if audio_runtime and (title or pause_menu or chest_menu or route_menu) then
+        local cue=(key=='escape' or key=='n' and confirm_new) and
+            'core:cue/ui/cancel' or
+            (key=='return' or key=='kpenter') and 'core:cue/ui/confirm' or
+            (key=='up' or key=='down' or key=='left' or key=='right' or
+                key=='1' or key=='2' or key=='3' or key=='4') and
+                'core:cue/ui/hover' or nil
+        if cue then audio_runtime:emit(cue) end
+        if title and tonumber(key) and Classes.order[tonumber(key)] then
+            local class=Classes.order[tonumber(key)]
+            audio_runtime:emit('core:cue/class/'..class:match('([^/]+)$')..'/select')
+        end
     end
     if boon_detail_id then
         if key=='escape' or key=='return' or key=='kpenter' then
@@ -1729,7 +1816,7 @@ local function draw_panel()
     end
 
     love.graphics.setColor(0.80, 0.86, 0.80)
-    love.graphics.print("Tab map · F5 art · B dev", PANEL_X, 495)
+    love.graphics.print("Tab map · F5 art/audio · B dev", PANEL_X, 495)
     love.graphics.print("Move: WASD / arrows", PANEL_X, 513)
     love.graphics.print("Wait: Space or .", PANEL_X, 531)
     love.graphics.print(class.ui_controls, PANEL_X, 549)
@@ -1839,6 +1926,13 @@ function love.draw()
             love.graphics.setColor(.71,.9,.85)
             love.graphics.printf('Visuals: '..visual_refresh_message,100,505,824,'center')
         end
+        local audio_note=audio_runtime and audio_runtime.status or audio_status
+        if audio_note and (audio_note:find('corrupt',1,true) or
+            audio_note:find('rejected',1,true) or
+            audio_note:find('silent',1,true)) then
+            love.graphics.setColor(1,.73,.48)
+            love.graphics.printf('Audio: '..audio_note,100,532,824,'center')
+        end
         return
     end
     if camera_state ~= state then reset_camera() end
@@ -1925,6 +2019,15 @@ function love.roegAssetStatus()
     return visual_assets and visual_assets.status or 'studio'
 end
 function love.roegVisualRefreshStatus() return refresh_result end
+function love.roegAudioStatus() return audio_runtime and audio_runtime.status or audio_status end
+function love.roegAudioScene() return audio_runtime and audio_runtime.scene_id or 'silent' end
+function love.roegAudioDiagnostics()
+    if not audio_runtime then return {status=audio_status,played=0,voices=0} end
+    return {status=audio_runtime.status,played=audio_runtime.played_count,
+        voices=#audio_runtime.voices,scene=audio_runtime.scene_id,
+        sound_count=audio_runtime.pack and #audio_runtime.pack.sounds or 0,
+        binding_count=audio_runtime.pack and #audio_runtime.pack.bindings or 0}
+end
 function love.roegWorldPackStatus() return studio_world_status end
 function love.roegThemeStatus() return studio_theme_status or 'absent' end
 function love.roegAtlasStatus()
@@ -1952,7 +2055,9 @@ function love.roegStudioState()
         world=studio.world_editor and studio.world_editor.pack,
         world_editor=studio.world_editor,
         theme=studio.theme_editor and studio.theme_editor.theme,
-        theme_editor=studio.theme_editor}
+        theme_editor=studio.theme_editor,
+        audio=studio.audio_editor and studio.audio_editor.pack,
+        audio_editor=studio.audio_editor}
 end
 function love.textinput(text)
     if studio then studio:textinput(text) end

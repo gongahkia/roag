@@ -290,8 +290,9 @@ function Game.preview(state, kind, dx, dy)
     if not COSTS[kind] then return {valid=false, reason="unknown action", cells={}} end
     local player = Game.player(state)
     local class=Classes.for_player(player)
+    local speed=player.speed+Boons.speed_bonus(state,player)
     local base_cost=class.costs[kind] or COSTS[kind]
-    local cost = Game.effective_cost(base_cost, player.speed)
+    local cost = Game.effective_cost(base_cost, speed)
     if kind == "wait" then return {valid=true, cells={}, cost=cost} end
     if not Targeting.direction_index(dx, dy) then
         return {valid=false, reason="invalid direction", cells={}}
@@ -353,10 +354,10 @@ function Game.preview(state, kind, dx, dy)
         end
         if distance>0 then
             local extra=Terrain.move_extra(map,kind,cells)
-            if extra>0 then cost=Game.effective_cost(base_cost+extra,player.speed) end
+            if extra>0 then cost=Game.effective_cost(base_cost+extra,speed) end
         end
         if bump then
-            cost=Game.effective_cost(class.costs.basic_attack,player.speed)
+            cost=Game.effective_cost(class.costs.basic_attack,speed)
         end
         return {valid=distance > 0 or bump == true or door_id ~= nil,
             reason=(distance == 0 and not bump and not door_id) and reason or nil,
@@ -397,10 +398,10 @@ function Game.effective_ability(state, kind, dx, dy, explicit)
     local base,ability_id,ranged,damage_type=Classes.attack(state,owner,
         kind,dx,dy,Content)
     assert(base, "invalid ability direction")
-    local cells,damage=Boons.ability(state,owner,ability_id,base,
+    local cells,damage,modified_ranged=Boons.ability(state,owner,ability_id,base,
         kind == "basic_attack" and owner.damage or owner.slash_damage,
-        dx,dy,explicit)
-    return cells,damage,ability_id,ranged,damage_type
+        dx,dy,explicit,ranged)
+    return cells,damage,ability_id,modified_ranged,damage_type
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
@@ -429,7 +430,7 @@ local function remove_dead(state, target, output, source_id, action_id)
 end
 
 local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-    damage_type, critical, direct_attack)
+    damage_type, critical, direct_attack, ability_id)
     local outcomes = {}
     local map = Content.map_for(state)
     for _, cell in ipairs(cells) do
@@ -458,14 +459,18 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             end
             local after_defense = target.invulnerable and 0 or
                 math.max(0, raw_damage - (target.defense or 0))
+            local ward_absorbed=Boons.consume_ward(state,target,after_defense)
+            after_defense=after_defense-ward_absorbed
             local loss = math.min(target.hp, after_defense)
             outcomes[#outcomes + 1] = {
                 target_id=target.id, target_definition_id=target.definition_id,
                 target_faction=target.faction, target_tags={target.definition_id, target.faction},
                 floor_id=cell.floor_id, x=cell.x, y=cell.y,
                 damage_type=damage_type or "physical",
+                ability_id=ability_id,
                 critical=critical or false,
                 attempted_damage=raw_damage, after_defense=after_defense,
+                ward_absorbed=ward_absorbed,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
                 source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
@@ -571,6 +576,25 @@ local function effect_cells(state, activation, effect)
         end
         return cells
     end
+    if effect.kind=="status_neighbors" then
+        local cells,targets={},{}
+        for _,actor in ipairs(state.entities) do
+            local p=actor.position
+            if actor.id~=event.target_id and actor.hp and actor.hp>0
+                and actor.faction~=activation.source_faction
+                and actor.statuses and actor.statuses[effect.status]
+                and p.floor_id==event.floor_id
+                and math.max(math.abs(p.x-event.x),math.abs(p.y-event.y))==1 then
+                targets[#targets+1]=actor
+            end
+        end
+        table.sort(targets,function(a,b)return a.id<b.id end)
+        for _,actor in ipairs(targets) do
+            cells[#cells+1]={floor_id=actor.position.floor_id,
+                x=actor.position.x,y=actor.position.y}
+        end
+        return cells
+    end
     local x, y = event.x or event.from_x, event.y or event.from_y
     local floor_id = event.floor_id or (event.source_position and event.source_position.floor_id)
     if not x or not y then
@@ -627,6 +651,48 @@ local function execute_effect(state, output, activation, effect)
             boon_id=activation.boon_id, activation_id=activation.id,
             due=due, effect_id=scheduled.id, target_cells=activation.event.target_cells,
         }, source.id, activation.root_action_id)
+    elseif effect.kind=="prime" or effect.kind=="speed_boost"
+        or effect.kind=="ward" then
+        if owner and owner.hp and owner.hp>0 then
+            owner.boon_memory=owner.boon_memory or {}
+            local memory=owner.boon_memory[activation.boon_id] or {}
+            memory.expires_at=state.clock+effect.duration
+            if effect.kind=="prime" then memory.charges=1
+            elseif effect.kind=="speed_boost" then
+                memory.speed=math.max(memory.speed or 0,activation.power)
+            else memory.ward=math.max(memory.ward or 0,activation.power) end
+            owner.boon_memory[activation.boon_id]=memory
+            emit(state,output,"BoonStateApplied",{boon_id=activation.boon_id,
+                effect_kind=effect.kind,expires_at=memory.expires_at,
+                power=activation.power},source.id,activation.root_action_id)
+        end
+    elseif effect.kind=="mark_damage" then
+        if owner and owner.hp and owner.hp>0 then
+            local target=Game.entity(state,activation.event.target_id)
+            if target and target.hp and target.hp>0 then
+                owner.boon_memory=owner.boon_memory or {}
+                local memory=owner.boon_memory[activation.boon_id] or {}
+                if memory.mark_target_id~=target.id or
+                    (memory.expires_at or -1)<state.clock then
+                    memory.mark_count=0
+                end
+                memory.mark_target_id=target.id
+                memory.mark_count=math.min(effect.cap,(memory.mark_count or 0)+1)
+                memory.expires_at=state.clock+effect.duration
+                owner.boon_memory[activation.boon_id]=memory
+                emit(state,output,"BoonStateApplied",{boon_id=activation.boon_id,
+                    effect_kind=effect.kind,target_id=target.id,
+                    stacks=memory.mark_count,expires_at=memory.expires_at},
+                    source.id,activation.root_action_id)
+                if memory.mark_count>=effect.threshold then
+                    local p=target.position
+                    damage_batch(state,output,source,activation.root_action_id,
+                        {{floor_id=p.floor_id,x=p.x,y=p.y}},
+                        activation.power*(memory.mark_count-effect.threshold+1),
+                        false,effect.damage_type,false,false)
+                end
+            end
+        end
     elseif effect.kind=="apply_status" then
         local target=Game.entity(state,activation.event.target_id)
         if target and target.hp and target.hp>0 then
@@ -662,6 +728,10 @@ local function execute_effect(state, output, activation, effect)
         end
     else
         local cells = effect_cells(state, activation, effect)
+        if effect.consume_prime and owner and owner.boon_memory then
+            local memory=owner.boon_memory[activation.boon_id]
+            if memory then memory.charges=0 end
+        end
         emit(state, output, "EffectApplied", {
             boon_id=activation.boon_id, activation_id=activation.id,
             damage_type=effect.damage_type, target_cells=cells,
@@ -773,7 +843,7 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     if extra then for key, value in pairs(extra) do fields[key] = value end end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
     damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-        extra and extra.damage_type, critical,true)
+        extra and extra.damage_type, critical,true,ability_id)
     if Boons.active(state) then
         emit(state, output, "AbilityUsed", fields, source.id, action_id)
     end
@@ -1078,7 +1148,7 @@ function Game.submit(state, intent)
         local valid, reason = Rewards.can_claim(state, chest, intent.offer_index)
         if not valid then return false, reason, {} end
         preview = {valid=true, cost=Game.effective_cost(COSTS.claim_chest,
-            Game.player(state).speed)}
+            Game.player(state).speed+Boons.speed_bonus(state,Game.player(state)))}
     else
         preview = Game.preview(state, intent.kind, intent.dx, intent.dy)
         if not preview.valid then return false, preview.reason, {}, preview end
