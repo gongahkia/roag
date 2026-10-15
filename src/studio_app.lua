@@ -996,7 +996,7 @@ function App:draw()
     if self.mode=='theme' then
         self.theme_editor:draw()
         love.graphics.setColor(.95,.83,.53)
-        love.graphics.print('DRAFT THEME · F8 contextual sound/music · F10 help',18,60)
+        love.graphics.print('DRAFT THEME · F8 sound/music · F10 help',520,39)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1037,7 +1037,7 @@ function App:draw()
                 190,285,640,'center')
         end
         love.graphics.setColor(UI.color.warning)
-        love.graphics.print('DRAFT ROOM · F8 room sound/music · F10 help',18,60)
+        love.graphics.print('DRAFT ROOM · F8 sound/music · F10 help',520,39)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1073,6 +1073,9 @@ function App:draw()
         'No project open',24,139)
     UI.panel(20,166,410,370)
     g.setColor(UI.color.muted)
+    if not p then
+        g.printf('N  Create a project\nO  Open a saved project',35,299,380,'center')
+    end
     if p and #p.assets==0 then g.print('Empty project. Press A or drop a PNG.',30,195) end
     if p then
         local visible=self:visible_assets();local at=1
@@ -1091,7 +1094,7 @@ function App:draw()
     g.setColor(UI.color.text)
     g.print(a and ('SELECTED · '..a.name) or 'No asset selected',458,148)
     if a then
-        UI.inset(459,182,258,178)
+        UI.inset(459,182,258,163)
         for yy=183,342,16 do
             for xx=460,700,16 do
                 local dark=((xx+yy)/16)%2<1
@@ -1106,6 +1109,7 @@ function App:draw()
             g.setColor(1,1,1)
             g.draw(image,580-width*scale/2,264-height*scale/2,0,scale,scale)
         else g.setColor(UI.color.muted);g.print('No image source',510,258) end
+        UI.line(UI.color.border,459,182,258,163)
         g.setColor(UI.color.muted)
         local width,height=Project.output_dimensions(a)
         g.print(('PNG %d×%d · %s'):format(width,height,a.filter),458,355)
@@ -1116,6 +1120,10 @@ function App:draw()
             g.print(('%d %s: %s'):format(i,({'Name','Asset ID','Kind','Binding','Filter','Reference'})[i],v),
                 458,386+(i-1)*24)
         end
+    else
+        g.setColor(UI.color.muted)
+        g.printf('Select an asset to inspect its preview, source and game binding.',
+            486,292,475,'center')
     end
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)

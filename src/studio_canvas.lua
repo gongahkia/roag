@@ -368,6 +368,10 @@ function C:draw()
     g.setColor(UI.color.text);g.print(self.tool:upper()..'  ·  '..self.brush..' px',28,241)
     g.setColor(UI.color.muted);g.print('COLOR  /  RGBA',28,278)
     UI.inset(28,301,25,25)
+    UI.fill(UI.color.checker_light,30,303,11,11)
+    UI.fill(UI.color.checker_dark,41,303,10,11)
+    UI.fill(UI.color.checker_dark,30,314,11,10)
+    UI.fill(UI.color.checker_light,41,314,10,10)
     g.setColor(self.color[1]/255,self.color[2]/255,self.color[3]/255,self.color[4]/255)
     g.rectangle('fill',30,303,21,21)
     g.setColor(UI.color.text);g.print('#'..hex(self.color),60,306)
@@ -383,8 +387,7 @@ function C:draw()
     g.print(self:dirty() and 'UNSAVED' or 'SAVED',28,469)
     g.setColor(UI.color.muted)
     g.print(('Cursor %s'):format(
-        self.cursor_x and (self.cursor_x..','..self.cursor_y) or 'outside',self:dirty() and 'UNSAVED' or 'Saved',
-        #self.undo_stack,#self.redo_stack),28,493)
+        self.cursor_x and (self.cursor_x..','..self.cursor_y) or 'outside'),28,493)
     local side=w-230
     UI.button(side+1,62,103,28,'Undo',false,#self.undo_stack>0)
     UI.button(side+107,62,103,28,'Redo',false,#self.redo_stack>0)
@@ -423,6 +426,7 @@ function C:draw()
         g.setColor(1,1,1,1);g.rectangle('line',x+1,y+1,math.max(0,sw-2),math.max(0,sh-2))
     end
     g.setScissor()
+    UI.line(UI.color.border,rx,ry,rw,rh)
     local sx=w-230
     UI.panel(sx,100,220,h-160)
     for i,t in ipairs(tools) do
@@ -465,9 +469,9 @@ function C:draw()
     end end
     UI.statusbar(h-60,60)
     g.setColor(UI.color.muted)
-    g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-51)
-    g.print('L add · R rename · O outline · G reference · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-31)
-    g.print('S save · wheel zoom · middle/Space drag pan',18,h-12)
+    g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-55)
+    g.print('L add · R rename · O outline · G reference · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-37)
+    g.print('S save · wheel zoom · middle/Space drag pan',18,h-19)
     if self.modal then
         UI.modal(rx+40,ry+100,rw-80,110)
         local prompt=self.modal=='color' and 'RGBA hex: RRGGBBAA' or
