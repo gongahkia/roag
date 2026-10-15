@@ -16,6 +16,7 @@ local Pipeline=require('src.studio_pipeline_status')
 local GuiPublish=require('src.studio_gui_publish')
 local VisualAssets=require('src.visual_assets')
 local E06Views=require('src.studio_e06_views')
+local UI=require('src.studio_chrome')
 local utf8=require('utf8')
 local App={}
 function App.requested(args)
@@ -46,7 +47,7 @@ end
 function App:load()
     love.window.setTitle('ROAG Studio — authored assets')
     love.window.setMode(love.graphics.getWidth(),love.graphics.getHeight(),{resizable=true,minwidth=1024,minheight=640})
-    love.graphics.setBackgroundColor(0.075,0.095,0.11)
+    love.graphics.setBackgroundColor(UI.color.background)
     self.workspace=love.filesystem.getSaveDirectory()..'/studio/projects'
 end
 function App:status(text)
@@ -1001,8 +1002,8 @@ function App:draw()
     end
     if self.mode=='canvas' then
         self.canvas:draw()
-        love.graphics.setColor(1,0.76,0.45)
-        love.graphics.print(self.message,18,82)
+        love.graphics.setColor(UI.color.warning)
+        love.graphics.printf(self.message,24,love.graphics.getHeight()-133,172,'left')
         if self.draft_preview then
             if not self.published_visuals then
                 self.published_visuals=VisualAssets.new(function(path)
@@ -1025,8 +1026,8 @@ function App:draw()
         self.world_editor:draw(function(id) return self:world_asset_image(id) end)
         if self.mode~='world' then
             local g=love.graphics
-            g.setColor(0.02,0.04,0.05,0.96);g.rectangle('fill',170,205,680,200)
-            g.setColor(0.93,0.96,0.86)
+            UI.modal(170,205,680,200)
+            g.setColor(UI.color.text)
             local title=self.mode=='world_size' and 'NEW ROOM DIMENSIONS (odd, ≤23×17)' or
                 self.mode=='world_edit' and ('EDIT ROOM '..self.field:upper()) or
                 'DELETE SELECTED ROOM?'
@@ -1035,7 +1036,7 @@ function App:draw()
                 'Enter / Y to delete · Esc to cancel' or self.typed,
                 190,285,640,'center')
         end
-        love.graphics.setColor(.95,.83,.53)
+        love.graphics.setColor(UI.color.warning)
         love.graphics.print('DRAFT ROOM · F8 room sound/music · F10 help',18,60)
         if self.help_open then E06Views.help(self.workspace) end
         return
@@ -1055,20 +1056,23 @@ function App:draw()
         return
     end
     local g=love.graphics
-    g.setColor(0.92,0.95,0.88)
-    g.print('ROAG STUDIO  ·  authored asset workspace',24,20)
-    g.setColor(0.55,0.78,0.76)
-    g.print('Editor mode — no game simulation or profile writes',24,43)
-    g.setColor(0.18,0.25,0.27);g.rectangle('fill',18,72,900,30)
-    g.setColor(1,1,1);g.print('N New O Open S Save A Draft I Sample C Sprite E Pixels W World U UI P Publish Y Audio',26,79)
-    g.setColor(0.7,0.78,0.77)
-    g.print('Workspace: '..self.workspace,24,112)
+    local w,h=g.getDimensions()
+    UI.begin('ROAG  /  STUDIO','ASSETS  ·  Static art, rooms, themes and audio')
+    local actions={{'N New',18,82},{'O Open',100,98},{'S Save',200,98},
+        {'A Draft',300,98},{'I Sample',400,98},{'C Sprite',500,98},
+        {'E Pixels',600,98},{'W World',700,98},{'U UI',800,98},
+        {'P Pub',900,58},{'Y Audio',960,math.max(45,w-978)}}
+    for _,action in ipairs(actions) do
+        UI.button(action[2],72,action[3],29,action[1],false,true)
+    end
+    g.setColor(UI.color.muted)
+    g.print('WORKSPACE  '..self.workspace,24,112)
     local p=self.project
-    g.setColor(0.9,0.85,0.53)
+    g.setColor(p and UI.color.text or UI.color.muted)
     g.print(p and (p.name..'  ['..p.id..']'..(self.dirty and '  * UNSAVED' or '')) or
         'No project open',24,139)
-    g.setColor(0.12,0.17,0.18);g.rectangle('fill',20,166,410,370)
-    g.setColor(0.8,0.86,0.82)
+    UI.panel(20,166,410,370)
+    g.setColor(UI.color.muted)
     if p and #p.assets==0 then g.print('Empty project. Press A or drop a PNG.',30,195) end
     if p then
         local visible=self:visible_assets();local at=1
@@ -1076,22 +1080,22 @@ function App:draw()
         local first=math.max(1,at-13)
         for row=1,math.min(14,#visible-first+1) do
             local i=visible[first+row-1];local a=p.assets[i]
-            if i==self.selected then g.setColor(0.22,0.36,0.34)
-                g.rectangle('fill',24,166+(row-1)*25,400,24) end
-            g.setColor((a.source=='' and a.derived=='') and 0.77 or 0.89,0.87,0.78)
+            if i==self.selected then UI.selected(24,166+(row-1)*25,400,24) end
+            g.setColor((a.source=='' and a.derived=='') and UI.color.muted or UI.color.text)
             g.print(('%s  %s  %s'):format(a.kind,a.id,(a.source=='' and a.derived=='') and '[draft]' or ''),
                 31,171+(row-1)*25)
         end
     end
     local a=self:selected_asset()
-    g.setColor(0.12,0.17,0.18);g.rectangle('fill',446,139,555,397)
-    g.setColor(0.9,0.95,0.87)
+    UI.panel(446,139,555,397)
+    g.setColor(UI.color.text)
     g.print(a and ('SELECTED · '..a.name) or 'No asset selected',458,148)
     if a then
+        UI.inset(459,182,258,178)
         for yy=183,342,16 do
             for xx=460,700,16 do
                 local dark=((xx+yy)/16)%2<1
-                g.setColor(dark and 0.24 or 0.4,dark and 0.27 or 0.43,dark and 0.28 or 0.44)
+                g.setColor(dark and UI.color.checker_dark or UI.color.checker_light)
                 g.rectangle('fill',xx,yy,16,16)
             end
         end
@@ -1101,8 +1105,8 @@ function App:draw()
             local scale=math.min(240/width,160/height,8)
             g.setColor(1,1,1)
             g.draw(image,580-width*scale/2,264-height*scale/2,0,scale,scale)
-        else g.setColor(0.8,0.8,0.72);g.print('No image source',510,258) end
-        g.setColor(0.8,0.88,0.83)
+        else g.setColor(UI.color.muted);g.print('No image source',510,258) end
+        g.setColor(UI.color.muted)
         local width,height=Project.output_dimensions(a)
         g.print(('PNG %d×%d · %s'):format(width,height,a.filter),458,355)
         g.print('Source: '..(a.source=='' and (a.derived=='' and '[draft]' or '[painted layers]') or a.source),458,370)
@@ -1113,17 +1117,18 @@ function App:draw()
                 458,386+(i-1)*24)
         end
     end
-    g.setColor(0.68,0.82,0.8)
+    UI.statusbar(543,math.max(97,h-543))
+    g.setColor(UI.color.muted)
     g.print('Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
     g.print('Click asset or field · Enter accept · Esc cancel · Save before close',24,573)
     g.print('F10 help · Canvas Tab preview · P readiness',600,550)
-    g.setColor(1,0.76,0.45);g.printf(self.message,24,601,976,'left')
+    g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')
     if self.mode=='name' or self.mode=='edit' or self.mode=='size' or self.mode=='confirm' or
         self.mode=='quit_confirm' or self.mode=='open' or
         self.mode=='world_size' or self.mode=='world_edit' or
         self.mode=='world_delete_confirm' then
-        g.setColor(0.02,0.04,0.05,0.96);g.rectangle('fill',170,205,680,200)
-        g.setColor(0.93,0.96,0.86)
+        UI.modal(170,205,680,200)
+        g.setColor(UI.color.text)
         local title=self.mode=='name' and 'NEW PROJECT NAME' or
             self.mode=='edit' and ('EDIT '..self.field:upper()) or
             self.mode=='size' and 'NEW SPRITE DIMENSIONS (1–512)' or

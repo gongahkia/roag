@@ -1,6 +1,7 @@
 -- Focused on-screen sound library and contextual cue picker. Source files stay
 -- immutable; all edits below change only versioned plain-data metadata.
 local Audio=require('src.studio_audio')
+local UI=require('src.studio_chrome')
 local Cues=require('src.audio_cues')
 local Samples=require('src.studio_audio_samples')
 local E={}
@@ -449,17 +450,12 @@ end
 function E:draw()
     local g=love.graphics
     local width,height=g.getDimensions()
-    g.setColor(.92,.95,.86)
-    g.print('ROAG STUDIO · SOUND LIBRARY / CONTEXTUAL CUE PICKER',18,14)
-    g.setColor(.62,.79,.77)
-    g.print('S save · Esc return · F8 context · Tab view · Ctrl+Z/Y undo/redo',18,38)
+    UI.begin('ROAG  /  AUDIO','S save  ·  Esc assets  ·  F8 context  ·  Tab view  ·  Ctrl+Z/Y history')
     for index,name in ipairs(tabs) do
-        g.setColor(index==self.tab and .23 or .13,index==self.tab and .40 or .22,.26)
-        g.rectangle('fill',20+(index-1)*150,68,145,34)
-        g.setColor(.94,.93,.80);g.print(name,30+(index-1)*150,76)
+        UI.button(20+(index-1)*150,68,145,34,name,index==self.tab,true)
     end
-    g.setColor(.14,.19,.20);g.rectangle('fill',18,116,430,382)
-    g.setColor(.15,.21,.23);g.rectangle('fill',465,116,width-483,382)
+    UI.panel(18,116,430,382)
+    UI.panel(465,116,width-483,382)
     if self.tab==1 then
         local visible=self:visible_sounds()
         local first=1
@@ -469,13 +465,12 @@ function E:draw()
                 local i=visible[first+row-1]
                 local sound=self.pack.sounds[i]
                 local y=122+(row-1)*24
-                if i==self.selected_sound then g.setColor(.25,.40,.36)
-                    g.rectangle('fill',22,y,422,23) end
-                g.setColor(.87,.91,.83)
+                if i==self.selected_sound then UI.selected(22,y,422,23) end
+                g.setColor(UI.color.text)
                 g.print(sound.name:sub(1,37),30,y+3)
         end
         local sound=self:sound()
-        g.setColor(.93,.92,.78)
+        g.setColor(UI.color.text)
         if sound then
             local lines={'ID  '..sound.id,'FORMAT  '..sound.format..' · '..sound.bytes..' bytes',
                 'DURATION  '..(sound.duration and string.format('%.2f s',sound.duration) or 'decoder'),
@@ -497,12 +492,12 @@ function E:draw()
             local cue=self.cues[index]
             local y=122+(row-1)*24
             if first+row-1==self.selected_cue then
-                g.setColor(.25,.40,.36);g.rectangle('fill',22,y,422,23) end
-            g.setColor(.87,.91,.83)
+                UI.selected(22,y,422,23) end
+            g.setColor(UI.color.text)
             g.print(cue.name:sub(1,35),30,y+3)
         end
         local cue,index,total=self:cue()
-        g.setColor(.93,.92,.78)
+        g.setColor(UI.color.text)
         if cue then
             local binding=self:binding(cue.id)
             g.print('CUE '..index..'/'..total..' · '..cue.name,476,125)
@@ -529,25 +524,26 @@ function E:draw()
         for i,name in ipairs(Audio.categories) do
             local y=122+(i-1)*24
             if i==self.selected_category then
-                g.setColor(.25,.40,.36);g.rectangle('fill',22,y,422,23) end
+                UI.selected(22,y,422,23) end
             local item=self.pack.mix[name]
-            g.setColor(.87,.91,.83)
+            g.setColor(UI.color.text)
             g.print(('%s  %.1f  %s'):format(name,item.volume,item.mute and 'MUTED' or ''),30,y+3)
         end
-        g.setColor(.9,.91,.78)
+        g.setColor(UI.color.muted)
         g.print('Category volume and mute affect playback only.',476,142)
         g.print('Left/Right: change volume · M: mute/unmute',476,172)
         g.print('No game clock or RNG is used for audio.',476,216)
     end
-    g.setColor(.20,.30,.31);g.rectangle('fill',20,520,680,33)
-    g.setColor(.95,.92,.76);g.print('P audition          X stop          F search          I original sample',28,527)
-    g.setColor(.90,.82,.53)
+    UI.panel(20,520,680,33)
+    g.setColor(UI.color.text);g.print('P audition          X stop          F search          I original sample',28,527)
+    UI.statusbar(560,height-560)
+    g.setColor(UI.color.muted)
     g.print((self:dirty() and '* UNSAVED · ' or 'Saved · ')..#self.pack.sounds..
         ' sound(s) · '..#self.pack.bindings..' cue binding(s)',20,568)
-    g.setColor(1,.72,.46);g.printf(self.message,20,height-55,width-40,'left')
+    g.setColor(UI.color.warning);g.printf(self.message,20,height-55,width-40,'left')
     if self.delete_confirm or self.input then
-        g.setColor(.02,.04,.05,.96);g.rectangle('fill',190,207,width-380,190)
-        g.setColor(.95,.94,.83)
+        UI.modal(190,207,width-380,190)
+        g.setColor(UI.color.text)
         g.printf(self.delete_confirm and 'DELETE SOUND METADATA?' or
             ('EDIT '..self.input:upper()),205,226,width-410,'center')
         g.printf(self.delete_confirm and 'Enter/Y confirms · Esc cancels' or

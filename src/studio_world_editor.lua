@@ -5,6 +5,7 @@ local Rooms=require('src.rooms')
 local Biomes=require('src.biomes')
 local Generation=require('src.generation')
 local Terrain=require('src.terrain')
+local UI=require('src.studio_chrome')
 local E={}
 local tools={'floor','wall','water','void','tile','editable','protected',
     'socket','enemy','chest','secret_anchor','secret_wall','stair'}
@@ -342,26 +343,22 @@ function E:draw(image_for)
     local g=love.graphics
     local room=self:room()
     local width,height=g.getDimensions()
-    g.setColor(0.92,0.95,0.88);g.print('ROAG STUDIO · WORLD / ROOM EDITOR',20,14)
-    g.setColor(0.6,0.8,0.8)
-    g.print('N new  D duplicate  X delete  S save  Esc assets  Ctrl+Z/Y undo/redo',20,39)
-    g.setColor(0.14,0.20,0.21);g.rectangle('fill',6,76,177,height-130)
-    g.setColor(0.87,0.91,0.84);g.print('ROOMS',15,87)
+    UI.begin('ROAG  /  WORLD','N new  ·  D duplicate  ·  X delete  ·  S save  ·  Esc assets  ·  Ctrl+Z/Y history')
+    UI.panel(6,76,177,height-130)
+    g.setColor(UI.color.muted);g.print('ROOMS',15,87)
+    UI.rule(14,121,160)
     for i,r in ipairs(self.pack.rooms) do
-        if i==self.selected then g.setColor(0.24,0.39,0.38)
-            g.rectangle('fill',9,141+(i-1)*24,170,23) end
-        g.setColor(0.9,0.91,0.84);g.print(r.name:sub(1,20),14,145+(i-1)*24)
+        if i==self.selected then UI.selected(9,141+(i-1)*24,170,23) end
+        g.setColor(UI.color.text);g.print(r.name:sub(1,20),14,145+(i-1)*24)
     end
-    g.setColor(0.17,0.23,0.25);g.rectangle('fill',194,76,math.min(610,width-410),50)
+    UI.panel(194,76,math.min(610,width-410),50)
     for i,tool in ipairs(tools) do
         local col=(i-1)%12;local x=195+col*50
         local y=77+math.floor((i-1)/12)*24
-        if tool==self.tool then g.setColor(0.28,0.47,0.44);g.rectangle('fill',x,y,49,22) end
-        g.setColor(0.88,0.94,0.87)
-        g.print(tool_labels[i],x+2,y+4)
+        UI.button(x,y,49,22,tool_labels[i],tool==self.tool,true)
     end
     local vx,vy,vw,vh=self:viewport()
-    g.setColor(0.08,0.12,0.14);g.rectangle('fill',vx,vy,vw,vh)
+    UI.inset(vx,vy,vw,vh)
     if self.generated then
         local map=self.generated
         local step=math.min(vw/map.width,vh/map.height)
@@ -434,8 +431,8 @@ function E:draw(image_for)
         g.setColor(0.8,0.87,0.82);g.printf('No room. Press N to create one.',vx,vy+vh/2,vw,'center')
     end
     local px=width-203
-    g.setColor(0.14,0.19,0.21);g.rectangle('fill',px,76,197,height-130)
-    g.setColor(0.91,0.94,0.87)
+    UI.panel(px,76,197,height-130)
+    g.setColor(UI.color.text)
     local lines={'WORLD SOURCE',room and room.id or '[no room]',
         room and (room.width..'×'..room.height..' · '..table.concat(room.roles,',')) or '',
         room and table.concat(room.biomes,','):gsub('core:biome/','') or '',
@@ -452,7 +449,12 @@ function E:draw(image_for)
         'T rotations · +/- weight','M mirror · P/H transform',
         'V validate · G generate','[ / ] seed '..self.seed,
         'Mouse paint · wheel zoom','Middle/space drag pan'}
-    for i,text in ipairs(lines) do g.print(text:sub(1,30),px+8,88+(i-1)*22) end
-    g.setColor(1,0.77,0.44);g.printf(self.message,194,height-42,width-206,'left')
+    for i,text in ipairs(lines) do
+        g.setColor((i==1 or i==7 or i==9) and UI.color.accent or
+            (i>=10 and UI.color.muted or UI.color.text))
+        g.print(text:sub(1,30),px+8,88+(i-1)*22)
+    end
+    UI.statusbar(height-52,52)
+    g.setColor(UI.color.warning);g.printf(self.message,194,height-42,width-206,'left')
 end
 return E

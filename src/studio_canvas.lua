@@ -1,6 +1,7 @@
 -- Studio E01 canvas controller. Mouse and pen-as-mouse share this path.
 local D=require('src.studio_document')
 local Outline=require('src.studio_outline')
+local UI=require('src.studio_chrome')
 local C={}
 local palette={{0,0,0,255},{255,255,255,255},{232,82,71,255},{243,173,55,255},
     {246,223,99,255},{85,174,107,255},{71,185,199,255},{64,109,187,255},
@@ -344,27 +345,50 @@ function C:refresh_reference_texture()
 end
 function C:draw()
     local g=love.graphics;local w,h=g.getDimensions();local rx,ry,rw,rh=self:rect()
-    g.setColor(0.93,0.94,0.86);g.print('PIXEL EDITOR · '..self.doc.id,18,16)
-    g.setColor(0.69,0.83,0.78)
+    UI.begin('ROAG  /  PIXELS',self.doc.id)
+    g.setColor(UI.color.muted)
     local active=D.active(self.doc)
-    g.print(('Tool %s · RGBA #%s · Brush %d · %d×%d · %d%% · Layer %s'):format(
+    g.print(('Tool %s  ·  RGBA #%s  ·  Brush %d  ·  %d×%d  ·  %d%%  ·  Layer %s'):format(
         self.tool,hex(self.color),self.brush,self.doc.width,self.doc.height,self.zoom*100,
-        active.name:sub(1,18)),18,42)
-    g.print(('Cursor %s · %s · Undo %d / Redo %d'):format(
-        self.cursor_x and (self.cursor_x..','..self.cursor_y) or 'outside',self:dirty() and 'UNSAVED' or 'Saved',
-        #self.undo_stack,#self.redo_stack),18,65)
-    g.setColor(0.87,0.9,0.78)
-    g.print('O outline: '..(self.outline_color~='' and ('#'..self.outline_color..' · 2× export') or 'off'),18,83)
+        active.name:sub(1,18)),18,68)
+    g.setColor(UI.color.text)
+    g.print('O  OUTLINE  '..(self.outline_color~='' and ('#'..self.outline_color..'  /  2× export') or 'OFF'),18,84)
     if self.reference_raw then
-        g.setColor(0.61,0.88,0.97)
-        g.print(('G reference: %s (%s, preview only)'):format(
-            self.reference_name:sub(1,28),self.reference_visible and 'on' or 'off'),290,83)
+        g.setColor(UI.color.accent)
+        g.print(('G  REFERENCE  %s  /  %s'):format(
+            self.reference_name:sub(1,28),self.reference_visible and 'ON' or 'OFF'),290,84)
     end
+    UI.panel(18,100,180,h-160)
+    g.setColor(UI.color.muted);g.print('DOCUMENT',28,116)
+    g.setColor(UI.color.text);g.printf(self.doc.id,28,140,160)
+    g.setColor(UI.color.muted)
+    g.print(('%d × %d  ·  %d%%'):format(self.doc.width,self.doc.height,self.zoom*100),28,176)
+    UI.rule(28,202,160)
+    g.print('ACTIVE TOOL',28,216)
+    g.setColor(UI.color.text);g.print(self.tool:upper()..'  ·  '..self.brush..' px',28,241)
+    g.setColor(UI.color.muted);g.print('COLOR  /  RGBA',28,278)
+    UI.inset(28,301,25,25)
+    g.setColor(self.color[1]/255,self.color[2]/255,self.color[3]/255,self.color[4]/255)
+    g.rectangle('fill',30,303,21,21)
+    g.setColor(UI.color.text);g.print('#'..hex(self.color),60,306)
+    UI.rule(28,345,160)
+    g.setColor(UI.color.muted);g.print('SELECTION',28,358)
+    g.setColor(UI.color.text)
+    g.print(self.selection and ('%d × %d pixels'):format(
+        self.selection.x1-self.selection.x0+1,self.selection.y1-self.selection.y0+1) or 'None',28,382)
+    g.setColor(UI.color.muted);g.print('HISTORY',28,419)
+    g.setColor(UI.color.text)
+    g.print(('Undo %d  ·  Redo %d'):format(#self.undo_stack,#self.redo_stack),28,443)
+    g.setColor(self:dirty() and UI.color.warning or UI.color.accent)
+    g.print(self:dirty() and 'UNSAVED' or 'SAVED',28,469)
+    g.setColor(UI.color.muted)
+    g.print(('Cursor %s'):format(
+        self.cursor_x and (self.cursor_x..','..self.cursor_y) or 'outside',self:dirty() and 'UNSAVED' or 'Saved',
+        #self.undo_stack,#self.redo_stack),28,493)
     local side=w-230
-    g.setColor(0.28,0.4,0.37);g.rectangle('fill',side+1,62,103,28)
-    g.rectangle('fill',side+107,62,103,28)
-    g.setColor(1,1,1);g.print('Undo',side+24,68);g.print('Redo',side+130,68)
-    g.setColor(0.12,0.16,0.17);g.rectangle('fill',rx,ry,rw,rh)
+    UI.button(side+1,62,103,28,'Undo',false,#self.undo_stack>0)
+    UI.button(side+107,62,103,28,'Redo',false,#self.redo_stack>0)
+    UI.inset(rx,ry,rw,rh)
     local ox,oy=self:origin()
     g.setScissor(rx,ry,rw,rh)
     local step=math.max(8,self.zoom*2)
@@ -400,16 +424,12 @@ function C:draw()
     end
     g.setScissor()
     local sx=w-230
-    g.setColor(0.15,0.22,0.23);g.rectangle('fill',sx,100,220,h-160)
+    UI.panel(sx,100,220,h-160)
     for i,t in ipairs(tools) do
-        g.setColor(self.tool==t and 0.3 or 0.22,self.tool==t and 0.47 or 0.31,0.34)
-        g.rectangle('fill',sx+4,100+(i-1)*30,210,28)
-        g.setColor(1,1,1);g.print(('%s  %s'):format(({'P','E','I','F'})[i],t),sx+14,106+(i-1)*30)
+        UI.button(sx+4,100+(i-1)*30,210,28,
+            ('%s  %s'):format(({'P','E','I','F'})[i],t),self.tool==t,true)
     end
-    g.setColor(self.tool=='select' and 0.3 or 0.22,
-        self.tool=='select' and 0.47 or 0.31,0.34)
-    g.rectangle('fill',sx+4,220,210,16)
-    g.setColor(1,1,1);g.print('M  select rectangle',sx+14,221)
+    UI.button(sx+4,220,210,16,'M  select rectangle',self.tool=='select',true)
     for i,c in ipairs(palette) do
         local col=(i-1)%8;local row=math.floor((i-1)/8)
         g.setColor(0.65,0.65,0.65);g.rectangle('fill',sx+col*26+4,236+row*30,11,11)
@@ -417,10 +437,15 @@ function C:draw()
         g.setColor(0.3,0.3,0.3);g.rectangle('fill',sx+col*26+15,236+row*30,11,11)
         g.rectangle('fill',sx+col*26+4,247+row*30,11,11)
         g.setColor(c[1]/255,c[2]/255,c[3]/255,c[4]/255);g.rectangle('fill',sx+col*26+4,236+row*30,22,22)
-        g.setColor(0.7,0.8,0.8);g.rectangle('line',sx+col*26+4,236+row*30,22,22)
+        UI.line(UI.color.border,sx+col*26+4,236+row*30,22,22)
+        if c[1]==self.color[1] and c[2]==self.color[2] and
+            c[3]==self.color[3] and c[4]==self.color[4] then
+            g.setColor(UI.color.accent)
+            g.rectangle('line',sx+col*26+2,234+row*30,26,26)
+        end
     end
-    g.setColor(0.88,0.9,0.82);g.print('H / click: RGBA hex #'..hex(self.color),sx+4,322)
-    g.print('LAYERS  bottom to top',sx+4,350)
+    g.setColor(UI.color.text);g.print('H / click: RGBA hex #'..hex(self.color),sx+4,322)
+    g.setColor(UI.color.muted);g.print('LAYERS  /  bottom to top',sx+4,350)
     local selected_index=1;for i,l in ipairs(self.doc.layers) do if l.id==self.doc.selected then selected_index=i end end
     self.layer_offset=math.max(1,math.min(self.layer_offset,math.max(1,#self.doc.layers-4)))
     if selected_index<self.layer_offset then self.layer_offset=selected_index end
@@ -428,26 +453,26 @@ function C:draw()
     for i=self.layer_offset,math.min(#self.doc.layers,self.layer_offset+4) do
         local l=self.doc.layers[i]
         local y=375+(i-self.layer_offset)*24
-        g.setColor(l.id==self.doc.selected and 0.34 or 0.2,0.34,0.32)
-        g.rectangle('fill',sx+4,y,210,22)
-        g.setColor(1,1,1)
+        if l.id==self.doc.selected then UI.selected(sx+4,y,210,22)
+        else UI.fill(UI.color.raised,sx+4,y,210,22) end
+        g.setColor(l.visible and UI.color.text or UI.color.muted)
         g.print((l.visible and '[V]' or '[ ]')..(l.locked and '[L] ' or '[ ] ')..l.name,sx+7,y+3)
     end
     local buttons={{'Add','Del','Up','Down'},{'Show','Lock','Rename'}}
     for row=1,2 do for col,label in ipairs(buttons[row]) do
         local bx,by=sx+(col-1)*54,h-140+(row-1)*30
-        g.setColor(0.26,0.38,0.36);g.rectangle('fill',bx+1,by+1,51,27)
-        g.setColor(1,1,1);g.print(label,bx+5,by+6)
+        UI.button(bx+1,by+1,51,27,label,false,true)
     end end
-    g.setColor(0.72,0.84,0.81)
+    UI.statusbar(h-60,60)
+    g.setColor(UI.color.muted)
     g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-51)
     g.print('L add · R rename · O outline · G reference · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-31)
     g.print('S save · wheel zoom · middle/Space drag pan',18,h-12)
     if self.modal then
-        g.setColor(0.02,0.04,0.05,0.94);g.rectangle('fill',rx+40,ry+100,rw-80,110)
+        UI.modal(rx+40,ry+100,rw-80,110)
         local prompt=self.modal=='color' and 'RGBA hex: RRGGBBAA' or
             self.modal=='outline' and 'Outline: RRGGBBAA or OFF (1 pixel at 2×)' or 'Layer name'
-        g.setColor(1,1,1);g.printf(prompt,rx+50,ry+112,rw-100,'center')
+        g.setColor(UI.color.text);g.printf(prompt,rx+50,ry+112,rw-100,'center')
         g.printf(self.typed,rx+50,ry+151,rw-100,'center')
     end
 end

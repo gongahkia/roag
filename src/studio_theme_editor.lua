@@ -1,5 +1,6 @@
 -- E04 game-specific theme chooser and realistic, presentation-only mock preview.
 local Theme=require('src.studio_theme')
+local UI=require('src.studio_chrome')
 local Runtime=require('src.studio_theme_runtime')
 local E={}
 local views={'hud','title','chest','effect'}
@@ -186,38 +187,37 @@ end
 function E:draw()
     local g=love.graphics
     local width,height=g.getDimensions()
-    g.setColor(.92,.95,.87);g.print('ROAG STUDIO · UI / PRESENTATION',18,14)
-    g.setColor(.60,.78,.75)
-    g.print('S save · Esc assets · Ctrl+Z/Y undo/redo · R revert · N name',18,39)
-    g.setColor(.19,.27,.28);g.rectangle('fill',12,72,285,34)
-    g.setColor(.93,.95,.86);g.print('Tab view    V size    P effect',20,79)
-    g.setColor(.84,.83,.56)
+    UI.begin('ROAG  /  UI THEME','S save  ·  Esc assets  ·  Ctrl+Z/Y history  ·  R revert  ·  N name')
+    UI.button(12,72,88,34,'Tab view',false,true)
+    UI.button(100,72,100,34,'V size',false,true)
+    UI.button(200,72,97,34,'P effect',false,true)
+    g.setColor(UI.color.text)
     g.print(self.theme.name..(self:dirty() and ' * UNSAVED' or ''),18,111)
+    UI.panel(12,131,285,308)
     for i,slot in ipairs(Theme.slots) do
         local y=133+(i-1)*34
-        if i==self.selected then g.setColor(.24,.39,.37)
-            g.rectangle('fill',12,y,285,32) end
-        g.setColor(.92,.94,.85)
+        if i==self.selected then UI.selected(12,y,285,32) end
+        g.setColor(UI.color.text)
         g.print(slot:gsub('_',' '),20,y+2)
-        g.setColor(.57,.82,.78)
+        g.setColor(UI.color.muted)
         local id=self.theme.slots[slot]
         g.print(id=='' and '(default)' or id:sub(1,35),22,y+17)
     end
-    g.setColor(.85,.90,.82)
+    g.setColor(UI.color.muted)
     g.print('←/→ bind compatible art · click a slot',16,449)
     g.print('I insets  G glyph map  H sample text',16,467)
     g.print('M metrics  B bg mode  D effect ms',16,483)
     g.print('[ / ] scale · missing glyphs use built-in font',16,501)
-    g.setColor(.58,.77,.75)
+    g.setColor(UI.color.warning)
     g.printf(self.message,18,height-76,width-36)
     if self.input then
-        g.setColor(.03,.05,.06,.96);g.rectangle('fill',310,205,width-330,145)
-        g.setColor(.94,.94,.80);g.print('EDIT '..self.input:upper(),333,225)
+        UI.modal(310,205,width-330,145)
+        g.setColor(UI.color.text);g.print('EDIT '..self.input:upper(),333,225)
         g.print(self.typed,333,268)
         return
     end
     local vx,vy,vw,vh=316,94,math.max(320,width-337),math.max(320,height-155)
-    g.setColor(.07,.10,.12);g.rectangle('fill',vx,vy,vw,vh)
+    UI.inset(vx,vy,vw,vh)
     local logical_w,logical_h=self.viewport==1 and 800 or 1024,
         self.viewport==1 and 600 or 640
     local factor=math.min(vw/logical_w,vh/logical_h)
@@ -277,7 +277,8 @@ function E:draw()
         end
     end
     g.pop();g.setScissor()
-    g.setColor(.82,.87,.75)
+    UI.statusbar(height-55,55)
+    g.setColor(UI.color.muted)
     g.print(('Preview: %s · %d×%d · %s'):format(views[self.view],logical_w,
         logical_h,self.theme.background.mode),vx,height-46)
 end
