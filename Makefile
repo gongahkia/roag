@@ -47,15 +47,16 @@ test:
 gui: gui-game gui-studio gui-expansion
 
 gui-game:
-	$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
-	$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
-	$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
+	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
+	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
+	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
 
 gui-studio:
 	@set -e; for suite in studio_gui_smoke studio_e01_gui_smoke \
 	  studio_e03_gui_smoke studio_e04_gui_smoke studio_e05_gui_smoke \
 	  studio_e06_gui_smoke studio_reference_gui_smoke \
 	  studio_gui_publish_smoke studio_visual_slots_gui_smoke; do \
+	    printf 'RUN Studio %s\n' "$$suite"; \
 	    $(GUI_RUN) sh "tests/$$suite.sh"; \
 	  done
 
@@ -65,6 +66,7 @@ gui-expansion:
 	  expansion_encounter_gui_smoke expansion_class_gui_smoke \
 	  expansion_boon_gui_smoke expansion_audio_gui_smoke \
 	  expansion_gamepad_gui_smoke; do \
+	    printf 'RUN expansion %s\n' "$$suite"; \
 	    $(GUI_RUN) sh "tests/$$suite.sh"; \
 	  done
 
