@@ -4,7 +4,20 @@ local PNG=require('src.studio_png')
 local Publish=require('src.studio_publish')
 local VisualAssets=require('src.visual_assets')
 local Playback=require('src.playback')
+local Classes=require('src.classes')
+local Biomes=require('src.biomes')
 return function(test)
+    test('Visual art registry covers every playable class and biome elite pose',function()
+        for _,id in ipairs(Classes.order) do
+            assert(Slots.bindings[id] and Slots.bindings[id..'/attack'] and
+                Slots.bindings[id..'/hurt'])
+        end
+        for _,biome_id in ipairs(Biomes.order) do
+            local id=Biomes.get(biome_id).elite_id
+            assert(Slots.bindings[id] and Slots.bindings[id..'/attack'] and
+                Slots.bindings[id..'/hurt'])
+        end
+    end)
     test('Studio visual bindings accept actor states, boon art and terrain slots',function()
         local p=Project.new('visuals','Visuals')
         local asset=Project.asset('studio:actor/attack','Attack','actor')

@@ -23,7 +23,7 @@ endif
 help:
 	@printf '%s\n' \
 	  'make game                       Play ROAG' \
-	  'make studio                     Open ROAG Studio' \
+	  'make studio                     Open this ROAG project at its artwork checklist' \
 	  'make atlas-build                Compile a draft atlas candidate' \
 	  'make test                       Run the full headless LuaJIT suite' \
 	  'make gui                        Run game, Studio, and expansion GUI smokes' \
@@ -36,7 +36,7 @@ game:
 	$(LOVE_RUN) .
 
 studio:
-	$(LOVE_RUN) . --studio
+	$(LOVE_RUN) . --studio --current-project
 
 atlas-build:
 	$(LOVE_RUN) . --atlas-build
@@ -55,7 +55,8 @@ gui-studio:
 	@set -e; for suite in studio_gui_smoke studio_e01_gui_smoke \
 	  studio_e03_gui_smoke studio_e04_gui_smoke studio_e05_gui_smoke \
 	  studio_e06_gui_smoke studio_reference_gui_smoke \
-	  studio_gui_publish_smoke studio_visual_slots_gui_smoke; do \
+	  studio_gui_publish_smoke studio_visual_slots_gui_smoke \
+	  studio_artwork_gui_smoke; do \
 	    printf 'RUN Studio %s\n' "$$suite"; \
 	    $(GUI_RUN) sh "tests/$$suite.sh"; \
 	  done

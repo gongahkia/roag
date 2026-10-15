@@ -6,12 +6,13 @@ local function box(x,y,w,h)
 end
 function V.help(workspace)
     local g=love.graphics;local w,h=g.getDimensions()
-    local x,y=math.floor((w-900)/2),math.floor((h-520)/2)
-    box(x,y,900,520)
+    local x,y=math.floor((w-900)/2),math.floor((h-550)/2)
+    box(x,y,900,550)
     g.setColor(UI.color.text)
     local lines={
         'ROAG STUDIO · F10 / Esc closes help',
-        'Project: N new · O open · S save · D copy · E pixels · W world · U UI · P publish',
+        'Project: L artwork checklist · N new · O open · S save · E pixels · W world · U UI',
+        'Artwork: Enter create/edit · Tab group · M missing · / or F search · A assets',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
         'Asset field 6: reference asset ID (same source dimensions); copy sets it',

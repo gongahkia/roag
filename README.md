@@ -1,5 +1,5 @@
 # ROAG — Game guide
-ROAG Studio's separate editor launches with `make studio` (or `love . --studio` when LÖVE is on `PATH`); see [Studio E00 workflow](docs/ROAG_STUDIO_E00.md), [E01 pixel drawing](docs/ROAG_STUDIO_E01.md), [E03 room/biome authoring](docs/ROAG_STUDIO_E03.md), [E04 presentation themes](docs/ROAG_STUDIO_E04.md), [E05 optional static atlases](docs/ROAG_STUDIO_E05.md), and the [Studio audio picker and publishing guide](docs/ROAG_AUDIO_EXPANSION.md). `make game` opens the game. Intel macOS setup and isolated test commands are in the [Mac guide](docs/MAC_NATIVE.md).
+ROAG Studio's separate editor launches with `make studio`, which opens this checkout's ROAG artwork checklist and its editable project. `love . --studio --current-project` does the same when LÖVE is on `PATH`; plain `love . --studio` retains the project chooser. See the [artwork checklist](docs/ROAG_STUDIO_ARTWORK_CHECKLIST.md), [Studio E00 workflow](docs/ROAG_STUDIO_E00.md), [E01 pixel drawing](docs/ROAG_STUDIO_E01.md), [E03 room/biome authoring](docs/ROAG_STUDIO_E03.md), [E04 presentation themes](docs/ROAG_STUDIO_E04.md), [E05 optional static atlases](docs/ROAG_STUDIO_E05.md), and the [Studio audio picker and publishing guide](docs/ROAG_AUDIO_EXPANSION.md). `make game` opens the game. Intel macOS setup and isolated test commands are in the [Mac guide](docs/MAC_NATIVE.md).
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
 ## Quick commands
@@ -112,6 +112,17 @@ The profile uses separate `profile-a.roag` / `profile-b.roag` generations in LÖ
 Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock followed by a seed-34 paid chest purchase and actual activation of the new boon. Run `sh tests/meta_gui_smoke.sh` for the isolated two-process title/profile/future-run demonstration. Both tests use disposable storage and do not touch a player's normal profile.
 
 ## ROAG Studio
+
+Run **`make studio`** from this checkout. Studio opens the current ROAG project
+(creating a safe, empty editable project if necessary) at **Artwork**. The
+checklist shows the game's actor, enemy, boon, reward, biome and terrain
+bindings, plus UI theme and World tile assignments. **Missing** means no
+artwork has been created in this Studio project; the game continues to use its
+built-in fallback. Select a binding and press **Enter** or **Create artwork**
+to make a sprite already linked to it. Search with **/**, switch groups with
+**Tab**, toggle missing-only with **M**, and return to **Assets** with **Esc**.
+See the [artwork checklist guide](docs/ROAG_STUDIO_ARTWORK_CHECKLIST.md) for
+the status meanings and project selection rules.
 
 In the Assets screen, drag in a PNG or click **Sample**. Click an asset and
 **Edit pixels** to draw, or **Duplicate & edit…** to name and paint a separate

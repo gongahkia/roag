@@ -265,7 +265,7 @@ function love.load(args)
         end
     end
     if Studio.requested(args) then
-        studio=Studio.new()
+        studio=Studio.new(args)
         studio:load()
         return
     end
@@ -2111,6 +2111,8 @@ function love.roagStudioState()
         publish_preview=studio.loose_plan and {
             counts=studio.loose_plan.counts,blocked=studio.loose_plan.blocked},
         selected=studio.selected,canvas=studio.canvas,
+        artwork=studio.slot_entries,visible_artwork=studio:visible_slots(),
+        artwork_group=studio.slot_group,artwork_query=studio.slot_query,
         world=studio.world_editor and studio.world_editor.pack,
         world_editor=studio.world_editor,
         theme=studio.theme_editor and studio.theme_editor.theme,

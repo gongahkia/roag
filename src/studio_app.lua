@@ -15,6 +15,7 @@ local AudioEditor=require('src.studio_audio_editor')
 local Pipeline=require('src.studio_pipeline_status')
 local GuiPublish=require('src.studio_gui_publish')
 local VisualAssets=require('src.visual_assets')
+local Artwork=require('src.studio_artwork_inventory')
 local E06Views=require('src.studio_e06_views')
 local UI=require('src.studio_chrome')
 local utf8=require('utf8')
@@ -47,7 +48,11 @@ local function slug(name)
     if value=='' or not value:match('^[a-z]') then value='project_'..value end
     return value:sub(1,48)
 end
-function App.new()
+function App.new(args)
+    local current_project=false
+    for _,arg in ipairs(args or {}) do
+        if arg=='--current-project' then current_project=true end
+    end
     return setmetatable({store=Store.new(IO),world_store=StudioWorldStore.new(IO),
         theme_store=StudioThemeStore.new(IO),audio_store=StudioAudioStore.new(IO),
         project=nil,selected=1,dirty=false,
@@ -55,7 +60,9 @@ function App.new()
         preview=nil,preview_id=nil,field=nil,typed='',pending=nil,listing={},list_index=1,
         context_menu=nil,copy_source=nil,
         filter_kind='all',world_images={},world_image_data={},
-        draft_preview=false,help_open=false,pipeline_report=nil},
+        draft_preview=false,help_open=false,pipeline_report=nil,
+        current_project=current_project,slot_entries={},slot_index=1,
+        slot_group='Core',slot_query='',slot_missing=false},
         {__index=App})
 end
 function App:load()
@@ -63,6 +70,30 @@ function App:load()
     love.window.setMode(love.graphics.getWidth(),love.graphics.getHeight(),{resizable=true,minwidth=1024,minheight=640})
     love.graphics.setBackgroundColor(UI.color.background)
     self.workspace=love.filesystem.getSaveDirectory()..'/studio/projects'
+    if self.current_project then
+        -- The LÖVE identity belongs to this checkout. A published project is
+        -- preferred if its editable source still exists; otherwise use ROAG.
+        local id=love.filesystem.getIdentity():match('^([a-z][a-z0-9_-]*)%-foundation$')
+            or 'roag'
+        local bytes=love.filesystem.read('assets/studio/manifest.txt')
+        if bytes then
+            local ok,published=pcall(Project.decode,bytes)
+            if ok then
+                for _,saved in ipairs(self.store:list()) do
+                    if saved==published.id then id=saved;break end
+                end
+            end
+        end
+        local exists=false
+        for _,saved in ipairs(self.store:list()) do
+            if saved==id then exists=true;break end
+        end
+        if exists then self:open_project(id)
+        else
+            self:new_project(id:upper())
+            if self:save() then self:open_artwork() end
+        end
+    end
 end
 function App:status(text)
     self.message=text
@@ -120,9 +151,61 @@ function App:open_project(id)
         theme_reason=='recovered previous theme generation' and
         ' · recovered previous theme generation' or '')..
         (self.audio_blocked and
-        ' · Audio document unavailable: '..tostring(audio_reason) or
-        audio_reason=='recovered previous audio generation' and
-        ' · recovered previous audio generation' or ''))
+            ' · Audio document unavailable: '..tostring(audio_reason) or
+            audio_reason=='recovered previous audio generation' and
+            ' · recovered previous audio generation' or ''))
+    if self.current_project then self:open_artwork() end
+end
+function App:refresh_artwork()
+    if not self.project then self.slot_entries={};return end
+    local root='studio/projects/'..self.project.id..'/'
+    self.slot_entries=Artwork.build(self.project,self.world_pack,self.theme_pack,
+        function(path)return IO:read(root..path) end,
+        function(path)return love.filesystem.read(path) end)
+end
+function App:open_artwork()
+    if not self.project then self:status('Open a project first');return end
+    self:refresh_artwork()
+    self.slot_index=1;self.mode='slots'
+    self:status('Artwork checklist · select a slot and press Enter to draw or edit.')
+end
+function App:visible_slots()
+    return Artwork.filter(self.slot_entries,self.slot_query,self.slot_group,
+        self.slot_missing)
+end
+function App:open_selected_slot()
+    local entry=self:visible_slots()[self.slot_index]
+    if not entry then return end
+    if entry.kind=='theme' then
+        self:open_theme();self:status(entry.label..': assign artwork in UI / Presentation.')
+    elseif entry.kind=='world' then
+        self:open_world()
+        if entry.not_added and self.world_editor then
+            self.world_editor:change(function()
+                StudioWorld.add_terrain_tiles(self.world_editor.pack)
+            end)
+            self.world_pack=self.world_editor.pack;self.dirty=true
+        end
+        if self.world_editor then
+            for i,tile in ipairs(self.world_editor.pack.tiles) do
+                if entry.key=='world:'..tile.id then
+                    self.world_editor.selected_tile=i;break
+                end
+            end
+        end
+        self:status(entry.label..': assign artwork in World Editor; save when ready.')
+    elseif entry.asset then
+        self.selected=entry.asset_index;self.filter_kind='all';self.slot_return=true
+        if entry.asset.source~='' or entry.asset.document~='' then self:edit_pixels()
+        else self.pending_slot=entry;self.mode='size';self.typed='32x32'
+            self:status('Choose dimensions for '..entry.label..'.') end
+    elseif entry.status=='published elsewhere' then
+        self:status('Published by another project. Open its editable project or make new art here.')
+        self.pending_slot=entry;self.mode='size';self.typed='32x32'
+    else
+        self.pending_slot=entry;self.mode='size';self.typed='32x32'
+        self:status('New art for '..entry.label..' · enter width x height.')
+    end
 end
 function App:save()
     if not self.project then self:status('No project to save');return end
@@ -154,6 +237,7 @@ function App:save()
         self.world_images={};self.world_image_data={}
         self:status('Saved generation '..reason)
     else self:status('Save failed: '..tostring(reason)) end
+    return ok,reason
 end
 function App:open_audio(context)
     if not self.project then self:status('Open a project first');return end
@@ -331,22 +415,44 @@ function App:apply_loose_publish()
     self:status('Published loose art to this checkout. Game: F5 refreshes visuals.'..
         (backup and ' Previous manifest backed up.' or ''))
 end
-function App:create_sprite(w,h)
+function App:create_sprite(w,h,slot)
     if not self.project then self:status('Create or open a project first');return end
-    if #self.project.assets>=256 then self:status('Project asset limit reached');return end
+    if #self.project.assets>=256 and not (slot and slot.asset) then
+        self:status('Project asset limit reached');return end
     local n=1;local id
     repeat
         id=string.format('studio:actor/sprite_%03d',n);n=n+1
         local found=false;for _,a in ipairs(self.project.assets) do if a.id==id then found=true end end
         if not found then break end
     until n>1000
+    local a
+    if slot and slot.asset then
+        a=slot.asset;id=a.id
+    elseif slot then
+        local candidate='studio:art/'..slot.binding:match(':(.+)$')
+        if Project.valid_id(candidate) then
+            local free=true
+            for _,old in ipairs(self.project.assets) do
+                if old.id==candidate then free=false;break end
+            end
+            if free then id=candidate end
+        end
+        a=Project.asset(id,slot.label:sub(1,80),slot.kind)
+        a.binding=slot.binding
+    else a=Project.asset(id,'New sprite','actor') end
     local doc=Document.new(id,w,h)
-    local a=Project.asset(id,'New sprite','actor')
     a.width=w;a.height=h;a.format='png'
-    self.project.assets[#self.project.assets+1]=a
-    self.selected=#self.project.assets;self.filter_kind='all';self.canvas=Canvas.new(doc)
+    if not (slot and slot.asset) then
+        self.project.assets[#self.project.assets+1]=a
+    end
+    for index,asset in ipairs(self.project.assets) do
+        if asset==a then self.selected=index;break end
+    end
+    self.filter_kind='all';self.canvas=Canvas.new(doc)
     self.canvas_asset=a;self.mode='canvas';self.dirty=true;self.metadata_dirty=true
-    self:status('Transparent sprite created. Draw, then press S to save.')
+    self.slot_return=not not slot;self.pending_slot=nil
+    self:status((slot and ('Drawing '..slot.binding..'. ') or '')..
+        'Transparent sprite created. Draw, then press S to save.')
 end
 function App:asset_document(a)
     if a.document~='' then return self.store:document(self.project,a) end
@@ -683,7 +789,10 @@ function App:keypressed(key)
             end
             if self.canvas:dirty() or self.canvas_asset.document=='' then
                 self:status('Save this sprite (S) before returning to asset metadata.')
-            else self.mode='project';self:status('Asset metadata ready.') end
+            else
+                if self.slot_return then self:open_artwork()
+                else self.mode='project';self:status('Asset metadata ready.') end
+            end
             return
         end
         local handled,reason=self.canvas:keypressed(key)
@@ -848,11 +957,15 @@ function App:keypressed(key)
         return
     end
     if self.mode=='size' then
-        if key=='escape' then self.mode='project'
+        if key=='escape' then
+            self.mode=self.pending_slot and 'slots' or 'project'
+            self.pending_slot=nil
         elseif key=='backspace' then self.typed=self.typed:sub(1,-2)
         elseif key=='return' then
             local w,h=self.typed:match('^(%d+)%s*[xX]%s*(%d+)$')
-            local ok,err=pcall(function() self:create_sprite(tonumber(w),tonumber(h)) end)
+            local ok,err=pcall(function()
+                self:create_sprite(tonumber(w),tonumber(h),self.pending_slot)
+            end)
             if not ok then self:status('Invalid sprite size: '..tostring(err)) end
         end
         return
@@ -882,6 +995,47 @@ function App:keypressed(key)
         end
         return
     end
+    if self.mode=='slots' then
+        if self.slot_searching then
+            if key=='escape' or key=='return' then self.slot_searching=false
+            elseif key=='delete' then self.slot_query='';self.slot_index=1
+            elseif key=='backspace' then
+                local offset=utf8.offset(self.slot_query,-1)
+                if offset then self.slot_query=self.slot_query:sub(1,offset-1) end
+                self.slot_index=1
+            end
+            return
+        end
+        if key=='escape' or key=='a' then self.mode='project';return
+        elseif key=='slash' or key=='/' or key=='f' then
+            self.slot_searching=true
+            self.slot_skip_text=key=='slash' and '/' or key
+            return
+        elseif key=='tab' then
+            local at=1
+            for i,group in ipairs(Artwork.groups) do
+                if group==self.slot_group then at=i;break end
+            end
+            self.slot_group=Artwork.groups[at%#Artwork.groups+1]
+            self.slot_index=1;return
+        elseif key=='m' then
+            self.slot_missing=not self.slot_missing;self.slot_index=1;return
+        elseif key=='up' or key=='down' then
+            self.slot_index=math.max(1,math.min(#self:visible_slots(),
+                self.slot_index+(key=='up' and -1 or 1)))
+            return
+        elseif key=='return' then self:open_selected_slot();return
+        elseif key=='s' then self:save();self:refresh_artwork();return
+        elseif key=='p' then self:inspect_pipeline();return
+        elseif key=='o' then
+            self:ask_discard(function()
+                self.listing=self.store:list();self.list_index=1;self.mode='open'
+                self:status('Select a project and press Enter.')
+            end)
+            return
+        end
+        return
+    end
     if key=='n' then self:ask_discard(function()
         self.mode='name';self.typed='';self:status('Type a project name, then Enter.') end)
     elseif key=='o' then self:ask_discard(function()
@@ -899,6 +1053,7 @@ function App:keypressed(key)
     elseif key=='u' then self:open_theme()
     elseif key=='y' then self:open_audio()
     elseif key=='p' then self:inspect_pipeline()
+    elseif key=='l' then self:open_artwork()
     elseif key=='tab' then
         local kinds={'all','actor','enemy','tile','effect','ui','background','glyph',
             'shader','ui_icon','ui_panel','ui_background','bitmap_font','effect_sprite'}
@@ -937,6 +1092,14 @@ function App:textinput(text)
     if self.mode=='canvas' then self.canvas:textinput(text);return end
     if self.mode=='theme' then self.theme_editor:textinput(text);return end
     if self.mode=='audio' then self.audio_editor:textinput(text);return end
+    if self.mode=='slots' and self.slot_searching then
+        if text==self.slot_skip_text then self.slot_skip_text=nil;return end
+        self.slot_skip_text=nil
+        if #self.slot_query+#text<=80 then
+            self.slot_query=self.slot_query..text;self.slot_index=1
+        end
+        return
+    end
     if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
         self.mode=='size' or
         self.mode=='world_size' or self.mode=='world_edit' then
@@ -970,6 +1133,28 @@ function App:mousepressed(x,y,button,presses)
             if self.listing[i] then self.list_index=i;self:open_project(self.listing[i]) end
         elseif button==1 and x>=440 and x<580 and y>=418 and y<458 then
             self:keypressed('escape')
+        end
+        return true
+    end
+    if self.mode=='slots' then
+        if button==1 then
+            if y>=75 and y<106 then
+                if x<145 then self.mode='project'
+                elseif x<290 then self:keypressed('tab')
+                elseif x<430 then self:keypressed('m')
+                elseif x<570 then self.slot_searching=true;self.slot_skip_text=nil
+                elseif x<710 then self:keypressed('p') end
+            elseif x>=24 and x<682 and y>=182 and y<542 then
+                local visible=self:visible_slots()
+                local first=math.max(1,self.slot_index-16)
+                local index=first+math.floor((y-182)/21)
+                if visible[index] then
+                    self.slot_index=index
+                    if presses and presses>=2 then self:open_selected_slot() end
+                end
+            elseif x>=720 and x<982 and y>=440 and y<480 then
+                self:open_selected_slot()
+            end
         end
         return true
     end
@@ -1030,7 +1215,7 @@ function App:mousepressed(x,y,button,presses)
         if x<100 then self:keypressed('n')
         elseif x<200 then self:keypressed('o')
         elseif x<300 then self:keypressed('s')
-        elseif x<400 then self:keypressed('a')
+        elseif x<400 then self:keypressed('l')
         elseif x<500 then self:keypressed('i')
         elseif x<600 then self:keypressed('c')
         elseif x<700 then self:keypressed('e')
@@ -1073,6 +1258,11 @@ function App:mousereleased()
         self.dirty=self.metadata_dirty or self.world_editor:dirty() end
 end
 function App:wheelmoved(dx,dy)
+    if self.mode=='slots' then
+        self.slot_index=math.max(1,math.min(#self:visible_slots(),
+            self.slot_index-(dy>0 and 3 or dy<0 and -3 or 0)))
+        return
+    end
     if self.mode=='canvas' then self.canvas:wheelmoved(dx,dy) end
     if self.mode=='world' then self.world_editor:wheelmoved(dx,dy) end
 end
@@ -1096,6 +1286,86 @@ function App:preview_image(a)
     if not ok then self:status('Preview decode failed: '..tostring(image));return nil end
     self.preview=image;self.preview_id=a.id
     return image
+end
+function App:draw_artwork()
+    local g=love.graphics
+    local w,h=g.getDimensions()
+    UI.begin('ROAG  /  ARTWORK','This game’s art destinations · missing slots use built-in visuals')
+    UI.button(20,75,120,30,'Assets',false,true)
+    UI.button(150,75,130,30,'Group: '..self.slot_group,false,true)
+    UI.button(290,75,130,30,self.slot_missing and 'Missing only' or 'Show all',
+        self.slot_missing,true)
+    UI.button(430,75,130,30,'Search /',self.slot_searching,true)
+    UI.button(570,75,130,30,'Publish P',false,true)
+    g.setColor(UI.color.muted)
+    local query=self.slot_query~='' and self.slot_query or '(type / to search)'
+    g.print('Search: '..query..(self.slot_searching and ' ▌' or ''),24,119)
+    local visible=self:visible_slots()
+    local missing=0
+    for _,entry in ipairs(self.slot_entries) do
+        if entry.status=='missing' or entry.status=='unmapped' or
+            entry.status=='not added' or
+            entry.status=='draft' or entry.status=='broken source' or
+            entry.status=='broken reference' or
+            entry.status=='blank canvas' then missing=missing+1 end
+    end
+    g.print(('%d destinations · %d without project art · %d shown'):format(
+        #self.slot_entries,missing,#visible),24,144)
+    UI.panel(20,177,674,371)
+    UI.panel(706,177,296,371)
+    self.slot_index=math.min(math.max(1,self.slot_index),math.max(1,#visible))
+    local first=math.max(1,self.slot_index-16)
+    for row=1,math.min(17,#visible-first+1) do
+        local index=first+row-1
+        local entry=visible[index]
+        local y=182+(row-1)*21
+        if index==self.slot_index then UI.selected(24,y,666,21) end
+        local status=entry.status
+        g.setColor((status=='missing' or status=='unmapped' or status=='draft') and
+            UI.color.warning or UI.color.text)
+        g.setScissor(31,y,470,21)
+        g.print(entry.label,31,y+3)
+        g.setScissor()
+        g.setColor(UI.color.muted)
+        g.print(entry.group,508,y+3)
+        g.setColor(status=='published' and UI.color.accent or UI.color.warning)
+        g.print(status=='published' and 'PUBLISHED' or
+            (status=='missing' or status=='unmapped' or status=='not added') and 'MISSING' or
+            (status=='draft' or status=='blank canvas') and 'DRAFT' or
+            status=='drawn, assigned' and 'DRAWN' or
+            status=='drawn, unpublished' and 'DRAWN' or
+            status=='published elsewhere' and 'OTHER' or 'CHECK',602,y+3)
+    end
+    local entry=visible[self.slot_index]
+    if entry then
+        g.setColor(UI.color.text)
+        g.printf(entry.label,722,194,264)
+        g.setColor(UI.color.muted)
+        g.printf(entry.key,722,243,264)
+        g.setColor(UI.color.warning)
+        g.printf('Status: '..entry.status,722,302,264)
+        g.setColor(UI.color.muted)
+        g.printf(entry.optional and
+            'Optional variant. The game uses another slot or built-in art when absent.' or
+            'Game destination. Built-in art remains available until you publish a replacement.',
+            722,337,264)
+        if entry.asset then
+            g.printf('Project asset: '..entry.asset.id,722,398,264)
+        end
+        UI.button(720,440,262,40,
+            entry.kind=='theme' and 'Open UI bindings' or
+            entry.kind=='world' and 'Open World tiles' or
+            entry.asset and 'Edit artwork' or 'Create artwork',false,true)
+    else
+        g.setColor(UI.color.muted)
+        g.printf('No matching destinations. Change group or search.',722,260,264)
+    end
+    UI.statusbar(556,math.max(88,h-556))
+    g.setColor(UI.color.muted)
+    g.print('↑↓ / wheel select · Enter/double-click create or edit · Tab group · M missing · / search',24,565)
+    g.print('Esc/A assets · S save · P publish readiness · F10 help',24,590)
+    g.setColor(UI.color.warning)
+    g.printf(self.message,24,620,w-48)
 end
 function App:draw()
     if self.mode=='audio' then
@@ -1165,11 +1435,16 @@ function App:draw()
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
+    if self.mode=='slots' then
+        self:draw_artwork()
+        if self.help_open then E06Views.help(self.workspace) end
+        return
+    end
     local g=love.graphics
     local w,h=g.getDimensions()
     UI.begin('ROAG  /  STUDIO','ASSETS  ·  Static art, rooms, themes and audio')
     local actions={{'New',18,82},{'Open',100,98},{'Save',200,98},
-        {'Draft',300,98},{'Sample',400,98},{'Sprite',500,98},
+        {'Artwork',300,98},{'Sample',400,98},{'Sprite',500,98},
         {'Pixels',600,98},{'World',700,98},{'UI',800,98},
         {'Publish',900,58},{'Audio',960,math.max(45,w-978)}}
     for _,action in ipairs(actions) do
@@ -1184,7 +1459,7 @@ function App:draw()
     UI.panel(20,166,410,370)
     g.setColor(UI.color.muted)
     if not p then
-        g.printf('Click New to create a project\nClick Open to reopen your art',35,299,380,'center')
+        g.printf('Click New to create a project\nClick Open to reopen your art\nArtwork shows every game destination.',35,299,380,'center')
     end
     if p and #p.assets==0 then g.print('Empty project. Drop a PNG, click Sample or Sprite.',30,195) end
     if p then
@@ -1246,7 +1521,7 @@ function App:draw()
     end
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)
-    g.print('Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
+    g.print('L artwork checklist · Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
     g.print('Left click select · double-click/edit preview · right-click actions · Save before close',24,573)
     g.print('F10 help · Canvas Tab preview · P readiness',600,550)
     g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')

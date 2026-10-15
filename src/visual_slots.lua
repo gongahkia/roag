@@ -2,6 +2,7 @@
 local Biomes=require('src.biomes')
 local Boons=require('src.boon_content')
 local Content=require('src.content')
+local Classes=require('src.classes')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 local function slug(id) return id:match('/([^/]+)$') end
@@ -9,9 +10,9 @@ local shapes={'base','center','edge','corner','inner_corner','edge_n','edge_e',
     'edge_s','edge_w','corner_nw','corner_ne','corner_se','corner_sw',
     'inner_corner_nw','inner_corner_ne','inner_corner_se','inner_corner_sw',
     'horizontal','vertical','isolated','end_n','end_e','end_s','end_w'}
-add('core:actor/adventurer')
-add('core:actor/adventurer/attack')
-add('core:actor/adventurer/hurt')
+for _,id in ipairs(Classes.order) do
+    add(id);add(id..'/attack');add(id..'/hurt')
+end
 add('core:drop/currency')
 add('core:drop/currency/detail')
 add('core:chest/standard')
@@ -21,6 +22,7 @@ local enemy_ids={['core:enemy/thorn_warden']=true,
 for _,biome_id in ipairs(Biomes.order) do
     local biome=Biomes.get(biome_id)
     add('core:background/'..slug(biome_id))
+    enemy_ids[biome.elite_id]=true
     for _,enemy_id in ipairs(biome.enemy_ids) do enemy_ids[enemy_id]=true end
     for _,tile in ipairs({'floor','wall','water'}) do
         for _,shape in ipairs(shapes) do
