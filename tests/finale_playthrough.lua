@@ -3,7 +3,7 @@ local Play=require('tests.legal_playthrough')
 local Persistence=require('src.persistence')
 local seed=tonumber(arg[1]) or 3
 local run=Play.complete_run(seed)
-local path=arg[2] or ('/tmp/roeg-finale-seed-'..seed..'.trace')
+local path=arg[2] or ('/tmp/roag-finale-seed-'..seed..'.trace')
 local file=assert(io.open(path,'wb'))
 file:write(Persistence.encode({seed=seed,trace=run.trace,
     checkpoints=run.checkpoints,victory=run.state.victory}))

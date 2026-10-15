@@ -1,4 +1,4 @@
-# ROEG Studio E00
+# ROAG Studio E00
 
 Studio is a separate mode of the existing LÖVE 11.5 application:
 
@@ -6,7 +6,7 @@ Studio is a separate mode of the existing LÖVE 11.5 application:
 love . --studio
 ```
 
-Plain `love .` still starts the game. Studio does not construct a gameplay run or read/write active-run and achievement records. The two modes share the established `roeg-foundation` LÖVE identity so published visuals can be tried without moving player saves, but Studio files live only in `studio/projects/<project-id>/` under the save directory. The exact absolute workspace is printed inside Studio. LÖVE's platform save base is typically `%APPDATA%\LOVE\roeg-foundation` on Windows, `$XDG_DATA_HOME/love/roeg-foundation` (usually `~/.local/share/love/roeg-foundation`) on Linux/WSL, and `~/Library/Application Support/LOVE/roeg-foundation` on macOS. Use the displayed `love.filesystem.getSaveDirectory()` path when these defaults differ.
+Plain `love .` still starts the game. Studio does not construct a gameplay run or read/write active-run and achievement records. The two modes share the established `roag-foundation` LÖVE identity so published visuals can be tried without moving player saves, but Studio files live only in `studio/projects/<project-id>/` under the save directory. The exact absolute workspace is printed inside Studio. LÖVE's platform save base is typically `%APPDATA%\LOVE\roag-foundation` on Windows, `$XDG_DATA_HOME/love/roag-foundation` (usually `~/.local/share/love/roag-foundation`) on Linux/WSL, and `~/Library/Application Support/LOVE/roag-foundation` on macOS. Use the displayed `love.filesystem.getSaveDirectory()` path when these defaults differ.
 
 ## First asset
 
@@ -36,4 +36,4 @@ Normal `love .` resolves `core:actor/adventurer` once through the optional loose
 
 Run `luajit tests/run.lua` for pure-Lua schema, source, failure-injection, publish and fallback tests. Run `TMPDIR=/var/tmp sh tests/studio_gui_smoke.sh` for four isolated LÖVE processes: create/import/save, reopen, publish/render and fallback. The smoke test uses a copied application and disposable `XDG_DATA_HOME`; it never writes a player's normal save. The keyboard and file-drop checks are callback driven, not physical mouse/tablet testing.
 
-LÖVE 11.5 does not provide a portable atomic rename for these files or a native PNG `ImageData:encode` path. Source imports preserve original PNG bytes. There is no hardware fsync guarantee. E01 now adds a mouse/Wacom-as-mouse pixel canvas, layered source documents, undo/redo and verified PNG output; see [E01 pixel drawing](ROEG_STUDIO_E01.md). Pen pressure/tilt is not promised by standard LÖVE mouse callbacks. E00 does not implement drawing, frames, animation, room editing, atlases or hot reload.
+LÖVE 11.5 does not provide a portable atomic rename for these files or a native PNG `ImageData:encode` path. Source imports preserve original PNG bytes. There is no hardware fsync guarantee. E01 now adds a mouse/Wacom-as-mouse pixel canvas, layered source documents, undo/redo and verified PNG output; see [E01 pixel drawing](ROAG_STUDIO_E01.md). Pen pressure/tilt is not promised by standard LÖVE mouse callbacks. E00 does not implement drawing, frames, animation, room editing, atlases or hot reload.

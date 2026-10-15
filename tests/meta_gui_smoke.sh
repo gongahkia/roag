@@ -2,9 +2,9 @@
 # Callback-driven two-process title/profile smoke. All saves use isolated XDG data.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-meta-gui-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-meta-gui-XXXXXX")
 mkdir -p "$output_dir/data" "$output_dir/tests"
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cp "$project_dir/tests/legal_playthrough.lua" "$output_dir/tests/legal_playthrough.lua"
@@ -25,10 +25,10 @@ function Game.restore(...)
     tracked=result
     return result
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw,original_update=love.load,love.draw,love.update
-local phase=assert(os.getenv('ROEG_META_PHASE'))
-local output=assert(os.getenv('ROEG_META_OUTPUT'))
+local phase=assert(os.getenv('ROAG_META_PHASE'))
+local output=assert(os.getenv('ROAG_META_OUTPUT'))
 local labels={}
 local old_print,old_printf=love.graphics.print,love.graphics.printf
 love.graphics.print=function(value,...)
@@ -150,8 +150,8 @@ function love.draw(...)
     end
 end
 LUA
-ROEG_META_PHASE=earn ROEG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
-ROEG_META_PHASE=future ROEG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
+ROAG_META_PHASE=earn ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
+ROAG_META_PHASE=future ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
 test -s "$output_dir/earn-unlocks.png"
 test -s "$output_dir/future-unlocks.png"
 test -s "$output_dir/future-run.png"

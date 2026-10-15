@@ -9,13 +9,13 @@ local function source_path(id,slot)
 end
 local function record(seq,pack,kind)
     local payload=Audio.encode(pack)
-    return table.concat({'ROEG-STUDIO-'..kind..'/1',seq,#payload,
+    return table.concat({'ROAG-STUDIO-'..kind..'/1',seq,#payload,
         Audio.checksum(payload)},'\n')..'\n'..payload
 end
 local function header(bytes,kind)
     assert(type(bytes)=='string' and #bytes<=270000,'invalid audio record size')
     local tag,seq,size,sum,payload=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n(.*)$')
-    assert(tag=='ROEG-STUDIO-'..kind..'/1','incompatible audio record')
+    assert(tag=='ROAG-STUDIO-'..kind..'/1','incompatible audio record')
     seq,size=tonumber(seq),tonumber(size)
     assert(seq and seq%1==0 and seq>=1 and seq<9007199254740991 and
         size and size%1==0 and size<=262144 and #payload==size and

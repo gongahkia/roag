@@ -1,10 +1,10 @@
 local Project=require('src.studio_project')
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw,original_update=love.load,love.draw,love.update
-local output=assert(os.getenv('ROEG_GUI_PUBLISH_OUTPUT'))
+local output=assert(os.getenv('ROAG_GUI_PUBLISH_OUTPUT'))
 local phase,advance,pending=1,nil,false
 local before_manifest
-local function state() return assert(love.roegStudioState()) end
+local function state() return assert(love.roagStudioState()) end
 local function published()
     local file=assert(io.open(love.filesystem.getSource()..
         '/assets/studio/manifest.txt','rb'))

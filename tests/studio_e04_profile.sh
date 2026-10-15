@@ -20,11 +20,11 @@ local old_add=Playback.add
 Playback.add=function(p,...)
     queue=p;return old_add(p,...)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw=love.load,love.draw
 local times,intervals={},{}
-local output=assert(os.getenv('ROEG_E04_PROFILE_OUTPUT'))
-local mode=assert(os.getenv('ROEG_E04_PROFILE_MODE'))
+local output=assert(os.getenv('ROAG_E04_PROFILE_OUTPUT'))
+local mode=assert(os.getenv('ROAG_E04_PROFILE_MODE'))
 local frame=0
 local function percentile(list,p)
     table.sort(list)
@@ -71,8 +71,8 @@ for mode in themed fallback; do
     if [ "$mode" = fallback ]; then
         mv "$app/assets/studio/theme-a.pack" "$output_dir/profile-theme.off"
     fi
-    ROEG_GUI_AUTOSTART=1 ROEG_E04_PROFILE_MODE="$mode" \
-        ROEG_E04_PROFILE_OUTPUT="$output_dir/profile-$mode.txt" \
+    ROAG_GUI_AUTOSTART=1 ROAG_E04_PROFILE_MODE="$mode" \
+        ROAG_E04_PROFILE_OUTPUT="$output_dir/profile-$mode.txt" \
         XDG_DATA_HOME="$output_dir/data" timeout 25s love "$app" \
         >"$output_dir/profile-$mode.log" 2>&1
     test -s "$output_dir/profile-$mode.txt"

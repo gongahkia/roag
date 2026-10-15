@@ -3,19 +3,19 @@
 # Editor shortcuts, save, reopen, and preview the current room.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-terrain-studio-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-terrain-studio-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cat > "$app/main.lua" <<'LUA'
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw=love.load,love.draw
-local phase=assert(tonumber(os.getenv('ROEG_TERRAIN_STUDIO_PHASE')))
-local output=assert(os.getenv('ROEG_TERRAIN_STUDIO_OUTPUT'))
+local phase=assert(tonumber(os.getenv('ROAG_TERRAIN_STUDIO_PHASE')))
+local output=assert(os.getenv('ROAG_TERRAIN_STUDIO_OUTPUT'))
 local pending=false
-local function state() return assert(love.roegStudioState()) end
+local function state() return assert(love.roagStudioState()) end
 local function replace(value)
     for _=1,120 do love.keypressed('backspace') end
     love.textinput(value);love.keypressed('return')
@@ -62,7 +62,7 @@ function love.draw(...)
 end
 LUA
 for phase in 1 2; do
-    ROEG_TERRAIN_STUDIO_PHASE="$phase" ROEG_TERRAIN_STUDIO_OUTPUT="$output_dir" \
+    ROAG_TERRAIN_STUDIO_PHASE="$phase" ROAG_TERRAIN_STUDIO_OUTPUT="$output_dir" \
         XDG_DATA_HOME="$output_dir/data" timeout 25s love "$app" --studio \
         > "$output_dir/phase$phase.log" 2>&1 || {
             cat "$output_dir/phase$phase.log"; exit 1;

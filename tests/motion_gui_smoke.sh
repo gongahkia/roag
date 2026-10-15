@@ -2,8 +2,8 @@
 # Callback-driven rendered start/mid/end frames for player, enemy and Dash.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-motion-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-motion-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -24,7 +24,7 @@ function Camera.update(camera,...)
     camera_update(camera,...)
     latest_camera=camera.x
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load,original_update,original_draw=love.load,love.update,love.draw
 local circle,rectangle=love.graphics.circle,love.graphics.rectangle
 local player_x,guard_x
@@ -36,7 +36,7 @@ love.graphics.rectangle=function(mode,x,y,width,height,...)
     if mode=="fill" and width==20 and height==19 then guard_x=x end
     return rectangle(mode,x,y,width,height,...)
 end
-local output=assert(os.getenv("ROEG_MOTION_GUI_OUTPUT"))
+local output=assert(os.getenv("ROAG_MOTION_GUI_OUTPUT"))
 local labels={"move_start","move_mid","move_end",
     "partial_start","partial_mid","partial_end",
     "dash_start","dash_leg1","dash_leg2","dash_end","scroll_end"}
@@ -116,7 +116,7 @@ function love.draw(...)
     capture(labels[phase])
 end
 LUA
-ROEG_MOTION_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 \
+ROAG_MOTION_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
     timeout 20s love "$output_dir"
 for frame in move_start move_mid move_end partial_start partial_mid partial_end \
     dash_start dash_leg1 dash_leg2 dash_end scroll_end; do

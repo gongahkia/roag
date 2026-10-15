@@ -1,7 +1,7 @@
 -- Checked two-generation atlas activation. Pages are immutable, content named
 -- and validated before the inactive record is written.
 local Atlas=require('src.studio_atlas')
-local S={format='ROEG-STUDIO-ATLAS-RECORD/1',disable_path='assets/studio/atlas-off.flag'}
+local S={format='ROAG-STUDIO-ATLAS-RECORD/1',disable_path='assets/studio/atlas-off.flag'}
 local function line_header(bytes)
     assert(type(bytes)=='string' and #bytes<=1024*1024+200,'invalid atlas record size')
     local format,seq,size,hash,payload=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n(.*)$')

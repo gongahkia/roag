@@ -3,8 +3,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-generated-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-generated-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -27,9 +27,9 @@ function Game.new(seed,map_id,options)
     end
     return tracked
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load,original_update,original_draw=love.load,love.update,love.draw
-local output_dir=assert(os.getenv("ROEG_GENERATED_GUI_OUTPUT"))
+local output_dir=assert(os.getenv("ROAG_GENERATED_GUI_OUTPUT"))
 local phase,pending=1,false
 local labels,elite_rings={},0
 local old_print,old_printf,old_circle=love.graphics.print,love.graphics.printf,love.graphics.circle
@@ -85,7 +85,7 @@ local function walk(path)
     for _,button in ipairs(path) do
         love.keypressed(button)
         local steps=0
-        while love.roegPlaybackPending() do
+        while love.roagPlaybackPending() do
             original_update(0.5)
             steps=steps+1
             assert(steps<100,"generated traversal playback did not drain")
@@ -161,6 +161,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_GENERATED_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
+ROAG_GENERATED_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
 for phase in 1 2 3; do test -s "$output_dir/phase$phase.png"; done
 printf 'Generated GUI smoke passed: three screenshots in %s\n' "$output_dir"

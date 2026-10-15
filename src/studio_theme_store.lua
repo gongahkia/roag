@@ -14,13 +14,13 @@ end
 local function record(seq,theme,kind)
     assert(type(seq)=='number' and seq%1==0 and seq>=1 and seq<9007199254740991)
     local payload=Theme.encode(theme)
-    return table.concat({'ROEG-STUDIO-'..kind..'/1',seq,#payload,hash(payload)},'\n')..
+    return table.concat({'ROAG-STUDIO-'..kind..'/1',seq,#payload,hash(payload)},'\n')..
         '\n'..payload
 end
 local function header(bytes,kind)
     assert(type(bytes)=='string' and #bytes<=66000,'invalid theme record size')
     local format,seq,size,sum,payload=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n(.*)$')
-    assert(format=='ROEG-STUDIO-'..kind..'/1','incompatible theme record')
+    assert(format=='ROAG-STUDIO-'..kind..'/1','incompatible theme record')
     seq,size=tonumber(seq),tonumber(size)
     assert(seq and seq%1==0 and seq>=1 and seq<9007199254740991 and
         size and size%1==0 and size>=0 and size<=65536 and

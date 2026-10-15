@@ -4,7 +4,7 @@ local Project=require('src.studio_project')
 local Rooms=require('src.rooms')
 local Biomes=require('src.biomes')
 local Terrain=require('src.terrain')
-local W={schema='roeg-studio-world/1',max_rooms=32,max_tiles=32}
+local W={schema='roag-studio-world/1',max_rooms=32,max_tiles=32}
 local symbols={[' ']=true}
 for symbol in pairs(Terrain.definitions) do symbols[symbol]=true end
 local roles={combat=true,treasure=true,landmark=true,secret=true,start=true,elite=true}
@@ -349,7 +349,7 @@ local function read_points(s)
 end
 function W.encode(pack)
     W.validate(pack)
-    local out={'ROEG-STUDIO-WORLD/1'};add(out,'project',pack.project_id)
+    local out={'ROAG-STUDIO-WORLD/1'};add(out,'project',pack.project_id)
     local tiles=clone(pack.tiles);table.sort(tiles,function(a,b)return a.id<b.id end)
     for _,t in ipairs(tiles) do add(out,'tile',t.id,t.name,t.symbol,t.asset_id,
         t.blocks_movement and 1 or 0,t.blocks_sight and 1 or 0,
@@ -376,7 +376,7 @@ function W.decode(bytes)
     check(type(bytes)=='string' and #bytes<=1024*1024,'world source too large')
     local lines={};for line in (bytes..'\n'):gmatch('(.-)\n') do
         if line~='' then lines[#lines+1]=line end end
-    check(lines[1]=='ROEG-STUDIO-WORLD/1','incompatible world source')
+    check(lines[1]=='ROAG-STUDIO-WORLD/1','incompatible world source')
     local project=fields(lines[2] or '');check(project[1]=='project' and #project==2,
         'invalid world project record')
     local pack={schema=W.schema,project_id=project[2],tiles={},rooms={}}

@@ -45,7 +45,7 @@ local profile_status,profile,unlocks_view
 local title, pause_menu, confirm_new, save_status = true, false, false, nil
 local confirm_reset_seed
 local persistence_message = ""
-local diagnostics = os.getenv("ROEG_DIAGNOSTICS")=="1" and
+local diagnostics = os.getenv("ROAG_DIAGNOSTICS")=="1" and
     require("src.diagnostics").new() or nil
 local diagnostics_update_ms=0
 local studio
@@ -297,7 +297,7 @@ function love.load(args)
     visual_assets:check_atlas()
     visual_signature=visual_fingerprint(visual_assets,studio_theme,world_pack)
     Generation.install_studio_pack(world_pack)
-    if os.getenv("ROEG_GUI_AUTOSTART") == "1" then
+    if os.getenv("ROAG_GUI_AUTOSTART") == "1" then
         title=false
         state=Game.new_stage(floor_seed)
         apply_showcase()
@@ -509,7 +509,7 @@ local function continue_run()
 end
 
 local function checkpoint(force)
-    if not force and os.getenv("ROEG_GUI_AUTOSTART") == "1" then return true end
+    if not force and os.getenv("ROAG_GUI_AUTOSTART") == "1" then return true end
     local pending=state.meta and state.meta.pending or {}
     if state.game_over and next(pending) then
         local saved,reason=save_service:pending_terminal(state)
@@ -744,7 +744,7 @@ function love.keypressed(key, _, isrepeat)
             confirm_reset_seed=nil
         elseif key=="return" or key=="kpenter" or key=="y" then
             local requested=confirm_reset_seed
-            if os.getenv("ROEG_GUI_AUTOSTART")~="1" then
+            if os.getenv("ROAG_GUI_AUTOSTART")~="1" then
                 begin_new(requested)
                 if state and state.run_seed==requested then confirm_reset_seed=nil end
             else
@@ -761,7 +761,7 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if key == "n" or key == "m" then
-        if os.getenv("ROEG_GUI_AUTOSTART")~="1" then
+        if os.getenv("ROAG_GUI_AUTOSTART")~="1" then
             confirm_reset_seed=key=="m" and floor_seed%2147483646+1 or floor_seed
             persistence_message="Replace current run? Enter/Y confirm · Esc cancel"
             return
@@ -1647,7 +1647,7 @@ local function draw_panel()
     end
     local position = Game.player(state).position
     love.graphics.setColor(0.93, 0.95, 0.88)
-    love.graphics.print("ROEG — "..(state.finale and "Final Sanctum" or
+    love.graphics.print("ROAG — "..(state.finale and "Final Sanctum" or
         state.stage and Biomes.get(state.stage.biome_id).name or "Overgrown Ruins"), PANEL_X, 26)
     if state.generated_map then
         if state.floor_order then
@@ -1919,7 +1919,7 @@ function love.draw()
                 love.graphics.getHeight())
         end
         love.graphics.setColor(0.88,0.94,0.83)
-        love.graphics.printf("ROEG — Seven Biomes",0,120,1024,"center")
+        love.graphics.printf("ROAG — Seven Biomes",0,120,1024,"center")
         local chosen=Classes.get(selected_class_id)
         love.graphics.printf("Class 1–4: "..chosen.name,0,157,1024,"center")
         love.graphics.printf(chosen.description,0,180,1024,"center")
@@ -2054,27 +2054,27 @@ function love.draw()
     love.graphics.print(("update/draw CPU p95 %.1f / %.1f ms"):format(
         summary.update_p95_ms or 0,summary.draw_p95_ms or 0),20,56)
 end
-function love.roegDiagnostics()
+function love.roagDiagnostics()
     return diagnostics and require("src.diagnostics").summary(diagnostics) or nil
 end
 -- Read-only seam for callback smoke tests: a blocked key during presentation
 -- playback has not been submitted to the simulation.
-function love.roegPlaybackPending()
+function love.roagPlaybackPending()
     return Playback.busy(playback)
 end
-function love.roegMenuState()
+function love.roagMenuState()
     local menu=route_menu or chest_menu
     if not menu then return nil end
     return {kind=route_menu and 'route' or 'chest',selected=menu.selected,
         count=route_menu and #menu.routes or #menu.offers}
 end
-function love.roegAssetStatus()
+function love.roagAssetStatus()
     return visual_assets and visual_assets.status or 'studio'
 end
-function love.roegVisualRefreshStatus() return refresh_result end
-function love.roegAudioStatus() return audio_runtime and audio_runtime.status or audio_status end
-function love.roegAudioScene() return audio_runtime and audio_runtime.scene_id or 'silent' end
-function love.roegAudioDiagnostics()
+function love.roagVisualRefreshStatus() return refresh_result end
+function love.roagAudioStatus() return audio_runtime and audio_runtime.status or audio_status end
+function love.roagAudioScene() return audio_runtime and audio_runtime.scene_id or 'silent' end
+function love.roagAudioDiagnostics()
     if not audio_runtime then return {status=audio_status,played=0,voices=0} end
     return {status=audio_runtime.status,played=audio_runtime.played_count,
         voices=#audio_runtime.voices,scene=audio_runtime.scene_id,
@@ -2085,23 +2085,23 @@ function love.roegAudioDiagnostics()
         binding_count=audio_runtime.pack and #audio_runtime.pack.bindings or 0,
         fallback_binding_count=audio_runtime.fallback_binding_count or 0}
 end
-function love.roegWorldPackStatus() return studio_world_status end
-function love.roegThemeStatus() return studio_theme_status or 'absent' end
-function love.roegAtlasStatus()
+function love.roagWorldPackStatus() return studio_world_status end
+function love.roagThemeStatus() return studio_theme_status or 'absent' end
+function love.roagAtlasStatus()
     return visual_assets and visual_assets.atlas_status or 'absent'
 end
-function love.roegAssetBacking(id)
+function love.roagAssetBacking(id)
     local handle=visual_assets and visual_assets:resolve_id(id)
     return handle and handle.source or 'fallback'
 end
-function love.roegThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
-function love.roegAssetResolved(binding)
+function love.roagThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
+function love.roagAssetResolved(binding)
     return visual_assets and visual_assets:get(binding)~=nil or false
 end
-function love.roegAssetIdResolved(id)
+function love.roagAssetIdResolved(id)
     return visual_assets and visual_assets:get_id(id)~=nil or false
 end
-function love.roegStudioState()
+function love.roagStudioState()
     if not studio then return nil end
     return {mode=studio.mode,project=studio.project,dirty=studio.dirty,
         message=studio.message,workspace=studio.workspace,

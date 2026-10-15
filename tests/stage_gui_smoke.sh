@@ -2,8 +2,8 @@
 # Prepared, callback-driven visual coverage of the real stage resolver and UI.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-stage-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-stage-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -31,9 +31,9 @@ function Game.submit(state,intent)
     tracked=state
     return a,b,c,d
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
-local output_dir=assert(os.getenv("ROEG_STAGE_GUI_OUTPUT"))
+local output_dir=assert(os.getenv("ROAG_STAGE_GUI_OUTPUT"))
 local phase,pending=1,false
 local labels={}
 local old_print,old_printf=love.graphics.print,love.graphics.printf
@@ -152,6 +152,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_STAGE_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
+ROAG_STAGE_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
 for phase in 1 2 3 4 5 6; do test -s "$output_dir/phase$phase.png"; done
 printf 'Stage GUI smoke passed: six screenshots in %s\n' "$output_dir"

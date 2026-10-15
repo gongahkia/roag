@@ -2,13 +2,13 @@
 # Two fresh LuaJIT processes use only a temporary on-disk save directory.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-save_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-build-save-XXXXXX")
+save_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-build-save-XXXXXX")
 cd "$project_dir"
-ROEG_BUILD_SAVE_DIR="$save_dir" luajit <<'LUA'
+ROAG_BUILD_SAVE_DIR="$save_dir" luajit <<'LUA'
 local G=require('src.game')
 local P=require('src.persistence')
 local S=require('src.scheduler')
-local dir=assert(os.getenv('ROEG_BUILD_SAVE_DIR'))
+local dir=assert(os.getenv('ROAG_BUILD_SAVE_DIR'))
 local storage={}
 function storage:read(name)
     local f=io.open(dir..'/'..name,'rb');if not f then return nil end
@@ -31,10 +31,10 @@ local f=assert(io.open(dir..'/expected.bytes','wb'))
 f:write(P.encode(G.snapshot(state)));f:close()
 print('written active run with Burning and Temporal Echo to temporary disk storage')
 LUA
-ROEG_BUILD_SAVE_DIR="$save_dir" luajit <<'LUA'
+ROAG_BUILD_SAVE_DIR="$save_dir" luajit <<'LUA'
 local G=require('src.game')
 local P=require('src.persistence')
-local dir=assert(os.getenv('ROEG_BUILD_SAVE_DIR'))
+local dir=assert(os.getenv('ROAG_BUILD_SAVE_DIR'))
 local storage={}
 function storage:read(name)
     local f=io.open(dir..'/'..name,'rb');if not f then return nil end

@@ -1,5 +1,5 @@
 -- LuaJIT publisher. Dry-run is read-only; --apply copies immutable clips before
--- activating one checked metadata generation. Run from the ROEG checkout.
+-- activating one checked metadata generation. Run from the ROAG checkout.
 package.path='./?.lua;./?/init.lua;'..package.path
 local Project=require('src.studio_project')
 local ProjectStore=require('src.studio_store')
@@ -31,7 +31,7 @@ local function write(path,bytes)
     assert(read(path)==bytes,'audio publish read-back failed: '..path)
 end
 assert(read('main.lua') and read('conf.lua') and read('src/studio_audio.lua'),
-    'run audio publisher from the ROEG checkout')
+    'run audio publisher from the ROAG checkout')
 local adapter={}
 function adapter:read(path)
     assert(Project.valid_path(path),'unsafe Studio audio source path')

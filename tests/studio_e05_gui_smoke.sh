@@ -2,7 +2,7 @@
 # Isolated E01/E03/E04 authored art -> atlas -> normal-game draw/fallback.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-out=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-studio-e05-XXXXXX")
+out=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-studio-e05-XXXXXX")
 run_love() {
     XDG_DATA_HOME="$2/data" TMPDIR="${TMPDIR:-/var/tmp}" \
         timeout 25s love "$2/app" "$3" >"$4" 2>&1
@@ -17,8 +17,8 @@ cp "$e04/good-theme.pack" "$e04/app/assets/studio/theme-a.pack"
 cp "$e04/icon-source.rgba" "$out/icon-original.rgba"
 # The upstream E04 smoke intentionally leaves an isolated active checkpoint.
 # Each image comparison starts the same fresh title -> New Run sequence.
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-cp "$e04/app/roeg_main.lua" "$e04/app/main.lua"
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+cp "$e04/app/roag_main.lua" "$e04/app/main.lua"
 run_love build "$e04" --atlas-build "$out/e04-build.log"
 cp "$save_dir/studio/atlas-build/manifest.txt" "$out/first-candidate.pack"
 mkdir -p "$out/first-pages"
@@ -39,23 +39,23 @@ cat >>"$e04/app/main.lua" <<'LUA'
 local e05_load=love.load
 function love.load(args)
     e05_load(args)
-    local phase=tonumber(os.getenv('ROEG_E04_PHASE'))
+    local phase=tonumber(os.getenv('ROAG_E04_PHASE'))
     if phase==3 or phase==4 then
-        local expected=os.getenv('ROEG_E05_EXPECT') or 'atlas'
+        local expected=os.getenv('ROAG_E05_EXPECT') or 'atlas'
         for _,id in ipairs({'studio:ui/heart','studio:ui/panel',
             'studio:bg/title','studio:effect/hit'}) do
-            assert(love.roegAssetBacking(id)==expected,
-                id..' backing: '..tostring(love.roegAssetBacking(id)))
+            assert(love.roagAssetBacking(id)==expected,
+                id..' backing: '..tostring(love.roagAssetBacking(id)))
         end
-        assert(love.roegAssetBacking('studio:font/hud')=='loose')
+        assert(love.roagAssetBacking('studio:font/hud')=='loose')
     end
 end
 LUA
 mkdir -p "$out/e04-atlas" "$out/e04-loose" "$out/e04-corrupt" "$out/e04-stale"
 cp "$out/icon-original.rgba" "$out/e04-atlas/icon-source.rgba"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-atlas" \
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-atlas" \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/e04-atlas-title.log" 2>&1
-ROEG_E04_PHASE=4 ROEG_E04_OUTPUT="$out/e04-atlas" ROEG_GUI_AUTOSTART=1 \
+ROAG_E04_PHASE=4 ROAG_E04_OUTPUT="$out/e04-atlas" ROAG_GUI_AUTOSTART=1 \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/e04-atlas-effect.log" 2>&1
 cmp "$e04/game-title.tga" "$out/e04-atlas/game-title.tga"
 luajit "$project_dir/tests/atlas_frame_compare.lua" \
@@ -65,13 +65,13 @@ luajit "$project_dir/tests/atlas_frame_compare.lua" \
     "$e04/game-effect.tga" "$out/e04-atlas/game-effect.tga" \
     >"$out/effect-frame-comparison.log"
 # Editor reopen after compilation still reads the original layered source.
-ROEG_E04_PHASE=2 ROEG_E04_OUTPUT="$out/e04-atlas" \
+ROAG_E04_PHASE=2 ROAG_E04_OUTPUT="$out/e04-atlas" \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" --studio \
     >"$out/e04-atlas-reopen.log" 2>&1
 (cd "$e04/app" && luajit tools/studio_atlas_publish.lua --disable --apply \
     >"$out/e04-disable.log")
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-loose" ROEG_E05_EXPECT=loose \
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-loose" ROAG_E05_EXPECT=loose \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/e04-loose.log" 2>&1
 cmp "$e04/game-title.tga" "$out/e04-loose/game-title.tga"
 luajit "$project_dir/tests/atlas_frame_compare.lua" \
@@ -82,8 +82,8 @@ luajit "$project_dir/tests/atlas_frame_compare.lua" \
 page=$(find "$e04/app/assets/studio/atlas" -name 'page-*.png' | head -1)
 cp "$page" "$out/good-page.png"
 printf 'truncated' > "$page"
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-corrupt" ROEG_E05_EXPECT=loose \
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-corrupt" ROAG_E05_EXPECT=loose \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/e04-corrupt.log" 2>&1
 luajit "$project_dir/tests/atlas_frame_compare.lua" \
     "$e04/game-hud.tga" "$out/e04-corrupt/game-hud.tga" ignore-notice \
@@ -92,15 +92,15 @@ cp "$out/good-page.png" "$page"
 cp "$e04/app/assets/studio/manifest.txt" "$out/visual-manifest.txt"
 sed 's/UI Fixture/UI Fixture Changed/' "$out/visual-manifest.txt" \
     > "$e04/app/assets/studio/manifest.txt"
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-stale" ROEG_E05_EXPECT=loose \
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-stale" ROAG_E05_EXPECT=loose \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/e04-stale.log" 2>&1
 luajit "$project_dir/tests/atlas_frame_compare.lua" \
     "$e04/game-hud.tga" "$out/e04-stale/game-hud.tga" ignore-notice \
     >"$out/stale-hud-comparison.log"
 cp "$out/visual-manifest.txt" "$e04/app/assets/studio/manifest.txt"
 # Exercise real Save & Quit / Continue across two more LÖVE processes.
-cp "$e04/app/roeg_main.lua" "$e04/app/main.lua"
+cp "$e04/app/roag_main.lua" "$e04/app/main.lua"
 cat >"$e04/app/main.lua" <<'LUA'
 local Game=require('src.game')
 local Codec=require('src.persistence')
@@ -109,33 +109,33 @@ local restore=Game.restore
 Game.restore=function(...)
     tracked=restore(...);return tracked
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old=love.load
 function love.load(args)
     old(args)
-    local mode=os.getenv('ROEG_E05_MODE')
+    local mode=os.getenv('ROAG_E05_MODE')
     if mode=='save' then
         love.keypressed('c')
         assert(tracked,'atlas fixture Continue unavailable')
-        assert(love.roegAssetBacking('studio:ui/heart')=='atlas')
-        local f=assert(io.open(os.getenv('ROEG_E05_SNAPSHOT'),'wb'))
+        assert(love.roagAssetBacking('studio:ui/heart')=='atlas')
+        local f=assert(io.open(os.getenv('ROAG_E05_SNAPSHOT'),'wb'))
         f:write(Codec.encode(Game.snapshot(tracked)));f:close()
         love.keypressed('escape');love.keypressed('s')
     elseif mode=='continue' then
         love.keypressed('c')
         assert(tracked,'fresh-process Continue unavailable')
-        local f=assert(io.open(os.getenv('ROEG_E05_SNAPSHOT'),'rb'))
+        local f=assert(io.open(os.getenv('ROAG_E05_SNAPSHOT'),'rb'))
         local expected=f:read('*a');f:close()
         assert(Codec.encode(Game.snapshot(tracked))==expected,
             'atlas changed restored authoritative snapshot')
-        assert(love.roegAssetBacking('studio:ui/heart')=='atlas')
+        assert(love.roagAssetBacking('studio:ui/heart')=='atlas')
         love.event.quit()
     end
 end
 LUA
-ROEG_E05_MODE=save ROEG_E05_SNAPSHOT="$out/saved.snapshot" \
+ROAG_E05_MODE=save ROAG_E05_SNAPSHOT="$out/saved.snapshot" \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/save.log" 2>&1
-ROEG_E05_MODE=continue ROEG_E05_SNAPSHOT="$out/saved.snapshot" \
+ROAG_E05_MODE=continue ROAG_E05_SNAPSHOT="$out/saved.snapshot" \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" >"$out/continue.log" 2>&1
 # A separate E03 fixture proves the generated room tile samples an atlas Quad.
 TMPDIR="${TMPDIR:-/var/tmp}" sh "$project_dir/tests/studio_e03_gui_smoke.sh" \
@@ -144,7 +144,7 @@ e03=$(awk '{print $NF}' "$out/e03-fixture.log" | tail -1)
 test -s "$e03/phase3.tga"
 cp "$e03/phase3.tga" "$out/e03-loose.tga"
 cp "$e03/app/main.lua" "$out/e03-wrapper.lua"
-cp "$e03/app/roeg_main.lua" "$e03/app/main.lua"
+cp "$e03/app/roag_main.lua" "$e03/app/main.lua"
 run_love build "$e03" --atlas-build "$out/e03-build.log"
 e03_save=$(cat "$e03/save_dir.txt")
 (cd "$e03/app" && luajit tools/studio_atlas_publish.lua --save-dir "$e03_save" \
@@ -156,25 +156,25 @@ cat >>"$e03/app/main.lua" <<'LUA'
 local e05_load=love.load
 function love.load(args)
     e05_load(args)
-    if tonumber(os.getenv('ROEG_E03_PHASE'))==3 then
-        assert(love.roegAssetBacking('studio:tile/moss')=='atlas',
+    if tonumber(os.getenv('ROAG_E03_PHASE'))==3 then
+        assert(love.roagAssetBacking('studio:tile/moss')=='atlas',
             'authored generated-room tile did not resolve from atlas')
     end
 end
 LUA
-ROEG_E03_PHASE=3 ROEG_E03_OUTPUT="$e03" ROEG_GUI_AUTOSTART=1 \
+ROAG_E03_PHASE=3 ROAG_E03_OUTPUT="$e03" ROAG_GUI_AUTOSTART=1 \
     XDG_DATA_HOME="$e03/data" timeout 25s love "$e03/app" >"$out/e03-atlas-game.log" 2>&1
 cmp "$out/e03-loose.tga" "$e03/phase3.tga"
 # Re-edit the original E01 layer in Studio. The old immutable document remains
 # intact; a new loose publish makes the old atlas stale until it is rebuilt.
-cp "$e04/app/roeg_main.lua" "$e04/app/main.lua"
+cp "$e04/app/roag_main.lua" "$e04/app/main.lua"
 cat >"$e04/app/main.lua" <<'LUA'
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old=love.load
 function love.load(args)
     old(args)
     love.keypressed('o');love.keypressed('return')
-    local studio=assert(love.roegStudioState())
+    local studio=assert(love.roagStudioState())
     assert(studio.mode=='project' and studio.project.id=='ui_fixture')
     local asset,selected_index
     for index,candidate in ipairs(studio.project.assets) do
@@ -183,33 +183,33 @@ function love.load(args)
         end
     end
     assert(asset and asset.document~='')
-    while love.roegStudioState().selected~=selected_index do
-        love.keypressed(love.roegStudioState().selected<selected_index and
+    while love.roagStudioState().selected~=selected_index do
+        love.keypressed(love.roagStudioState().selected<selected_index and
             'down' or 'up')
     end
-    assert(love.roegStudioState().project.assets[
-        love.roegStudioState().selected].id=='studio:ui/heart')
+    assert(love.roagStudioState().project.assets[
+        love.roagStudioState().selected].id=='studio:ui/heart')
     local old_document=asset.document
     local old_path='studio/projects/ui_fixture/'..old_document
     local old_bytes=assert(love.filesystem.read(old_path))
     love.keypressed('e')
-    local canvas=assert(love.roegStudioState().canvas)
+    local canvas=assert(love.roagStudioState().canvas)
     local ox,oy=canvas:origin()
     local x,y=ox+6.5*canvas.zoom,oy+6.5*canvas.zoom
     love.mousepressed(x,y,1);love.mousereleased(x,y,1)
     assert(canvas:dirty(),'edited E01 sprite has no pixel change')
     love.keypressed('s')
     local updated
-    for _,candidate in ipairs(love.roegStudioState().project.assets) do
+    for _,candidate in ipairs(love.roagStudioState().project.assets) do
         if candidate.id=='studio:ui/heart' then updated=candidate end
     end
     assert(updated and updated.document~=old_document,
         'E01 edit did not create a new immutable source path: '..
-            tostring(love.roegStudioState().message))
+            tostring(love.roagStudioState().message))
     assert(love.filesystem.read(old_path)==old_bytes,
         'atlas compilation or re-edit changed the old E01 source')
     love.keypressed('escape')
-    assert(love.roegStudioState().mode=='project')
+    assert(love.roagStudioState().mode=='project')
     love.keypressed('i') -- Import a separate optional enemy visual.
     local function replace(value)
         for _=1,120 do love.keypressed('backspace') end
@@ -218,8 +218,8 @@ function love.load(args)
     love.keypressed('3');replace('enemy')
     love.keypressed('2');replace('core:enemy/mossbound_guard')
     love.keypressed('s')
-    assert(love.roegStudioState().project.assets[
-        love.roegStudioState().selected].id=='core:enemy/mossbound_guard')
+    assert(love.roagStudioState().project.assets[
+        love.roagStudioState().selected].id=='core:enemy/mossbound_guard')
     love.event.quit()
 end
 LUA
@@ -232,28 +232,28 @@ cat >>"$e04/app/main.lua" <<'LUA'
 local e05_load=love.load
 function love.load(args)
     e05_load(args)
-    if tonumber(os.getenv('ROEG_E04_PHASE'))==3 or
-        tonumber(os.getenv('ROEG_E04_PHASE'))==4 then
-        assert(love.roegAssetBacking('studio:ui/heart')==
-            os.getenv('ROEG_E05_EXPECT'),'rebuilt stable ID backing differs')
-        assert(love.roegAssetBacking('core:enemy/mossbound_guard')==
-            os.getenv('ROEG_E05_EXPECT'),'enemy sprite backing differs')
+    if tonumber(os.getenv('ROAG_E04_PHASE'))==3 or
+        tonumber(os.getenv('ROAG_E04_PHASE'))==4 then
+        assert(love.roagAssetBacking('studio:ui/heart')==
+            os.getenv('ROAG_E05_EXPECT'),'rebuilt stable ID backing differs')
+        assert(love.roagAssetBacking('core:enemy/mossbound_guard')==
+            os.getenv('ROAG_E05_EXPECT'),'enemy sprite backing differs')
     end
 end
 LUA
 mkdir -p "$out/e04-rebuild-loose" "$out/e04-rebuild-atlas"
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-rebuild-loose" ROEG_E05_EXPECT=loose \
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-rebuild-loose" ROAG_E05_EXPECT=loose \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
     >"$out/e04-rebuild-stale.log" 2>&1
-ROEG_E04_PHASE=4 ROEG_E04_OUTPUT="$out/e04-rebuild-loose" ROEG_E05_EXPECT=loose \
-    ROEG_GUI_AUTOSTART=1 XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
+ROAG_E04_PHASE=4 ROAG_E04_OUTPUT="$out/e04-rebuild-loose" ROAG_E05_EXPECT=loose \
+    ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
     >"$out/e04-rebuild-loose-effect.log" 2>&1
 if cmp -s "$out/e04-atlas/game-hud.tga" \
     "$out/e04-rebuild-loose/game-hud.tga"; then
     echo 'E01 re-edit did not change the live HUD image' >&2;exit 1
 fi
-cp "$e04/app/roeg_main.lua" "$e04/app/main.lua"
+cp "$e04/app/roag_main.lua" "$e04/app/main.lua"
 run_love build "$e04" --atlas-build "$out/e04-rebuild.log"
 (cd "$e04/app" && luajit tools/studio_atlas_publish.lua --save-dir "$save_dir" \
     --project ui_fixture --apply >"$out/e04-rebuild-apply.log")
@@ -262,21 +262,21 @@ cat >>"$e04/app/main.lua" <<'LUA'
 local e05_load=love.load
 function love.load(args)
     e05_load(args)
-    if tonumber(os.getenv('ROEG_E04_PHASE'))==3 or
-        tonumber(os.getenv('ROEG_E04_PHASE'))==4 then
-        assert(love.roegAssetBacking('studio:ui/heart')=='atlas',
+    if tonumber(os.getenv('ROAG_E04_PHASE'))==3 or
+        tonumber(os.getenv('ROAG_E04_PHASE'))==4 then
+        assert(love.roagAssetBacking('studio:ui/heart')=='atlas',
             'edited E01 sprite did not enter the rebuilt atlas')
-        assert(love.roegAssetBacking('core:enemy/mossbound_guard')=='atlas',
+        assert(love.roagAssetBacking('core:enemy/mossbound_guard')=='atlas',
             'enemy sprite did not enter the rebuilt atlas')
     end
 end
 LUA
-rm -f "$save_dir/active-a.roeg" "$save_dir/active-b.roeg"
-ROEG_E04_PHASE=3 ROEG_E04_OUTPUT="$out/e04-rebuild-atlas" \
+rm -f "$save_dir/active-a.roag" "$save_dir/active-b.roag"
+ROAG_E04_PHASE=3 ROAG_E04_OUTPUT="$out/e04-rebuild-atlas" \
     XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
     >"$out/e04-rebuild-atlas-game.log" 2>&1
-ROEG_E04_PHASE=4 ROEG_E04_OUTPUT="$out/e04-rebuild-atlas" \
-    ROEG_GUI_AUTOSTART=1 XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
+ROAG_E04_PHASE=4 ROAG_E04_OUTPUT="$out/e04-rebuild-atlas" \
+    ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$e04/data" timeout 25s love "$e04/app" \
     >"$out/e04-rebuild-atlas-effect.log" 2>&1
 luajit "$project_dir/tests/atlas_frame_compare.lua" \
     "$out/e04-rebuild-loose/game-hud.tga" \
@@ -298,7 +298,7 @@ cp "$e01/phase5.tga" "$out/e01-loose-player.tga"
 mv "$e01/app/assets/studio/manifest.disabled" \
     "$e01/app/assets/studio/manifest.txt"
 cp "$e01/app/main.lua" "$out/e01-wrapper.lua"
-cp "$e01/app/roeg_main.lua" "$e01/app/main.lua"
+cp "$e01/app/roag_main.lua" "$e01/app/main.lua"
 run_love build "$e01" --atlas-build "$out/e01-build.log"
 e01_save=$(cat "$e01/save_dir.txt")
 (cd "$e01/app" && luajit tools/studio_atlas_publish.lua --save-dir "$e01_save" \
@@ -310,13 +310,13 @@ cat >>"$e01/app/main.lua" <<'LUA'
 local e05_load=love.load
 function love.load(args)
     e05_load(args)
-    if tonumber(os.getenv('ROEG_E01_PHASE'))==5 then
-        assert(love.roegAssetBacking('core:actor/adventurer')=='atlas',
+    if tonumber(os.getenv('ROAG_E01_PHASE'))==5 then
+        assert(love.roagAssetBacking('core:actor/adventurer')=='atlas',
             'painted player actor did not resolve from atlas')
     end
 end
 LUA
-ROEG_E01_PHASE=5 ROEG_E01_OUTPUT="$e01" ROEG_GUI_AUTOSTART=1 \
+ROAG_E01_PHASE=5 ROAG_E01_OUTPUT="$e01" ROAG_GUI_AUTOSTART=1 \
     XDG_DATA_HOME="$e01/data" timeout 25s love "$e01/app" \
     >"$out/e01-atlas-game.log" 2>&1
 luajit "$project_dir/tests/atlas_frame_compare.lua" \

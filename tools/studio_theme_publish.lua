@@ -24,7 +24,7 @@ local function read(path)
     local bytes=f:read('*a');f:close();return bytes
 end
 assert(read('main.lua') and read('conf.lua') and read('src/studio_theme.lua'),
-    'run publisher from the ROEG checkout')
+    'run publisher from the ROAG checkout')
 local adapter={}
 function adapter:read(path)
     assert(Project.valid_path(path),'unsafe Studio path')

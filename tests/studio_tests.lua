@@ -125,12 +125,12 @@ return function(test,equal)
     test('Studio valid newer incompatible manifest is visible, not rolled back',function()
         local io,files=memory();local store=Store.new(io)
         local p=Project.new('demo','First');assert(store:save(p))
-        local payload=Project.encode(p):gsub('ROEG%-STUDIO%-MANIFEST/1',
-            'ROEG-STUDIO-MANIFEST/9',1)
+        local payload=Project.encode(p):gsub('ROAG%-STUDIO%-MANIFEST/1',
+            'ROAG-STUDIO-MANIFEST/9',1)
         local a,b=1,0
         for i=1,#payload do a=(a+payload:byte(i))%65521;b=(b+a)%65521 end
         files['studio/projects/demo/manifest-b.txt']=
-            table.concat({'ROEG-STUDIO-RECORD/1','2',#payload,
+            table.concat({'ROAG-STUDIO-RECORD/1','2',#payload,
                 string.format('%08x',b*65536+a)},'\n')..'\n'..payload
         local loaded,reason=store:open('demo')
         assert(not loaded and reason:find('incompatible manifest format',1,true))

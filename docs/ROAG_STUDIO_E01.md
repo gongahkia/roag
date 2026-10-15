@@ -1,4 +1,4 @@
-# ROEG Studio E01 — pixel drawing
+# ROAG Studio E01 — pixel drawing
 
 Launch with `love . --studio`. Plain `love .` still launches the game. Studio uses `studio/projects/<project-id>/` under the absolute workspace path displayed in the window (`love.filesystem.getSaveDirectory()`); it does not write active-run or achievement files.
 
@@ -22,7 +22,7 @@ A Wacom pen configured by its desktop driver to emulate mouse press/move/release
 
 ## Source and publish
 
-`manifest-a.txt` and `manifest-b.txt` are the rotating, checked E00 project records. E01 adds optional relative `document` and `derived` fields to each asset; old E00 records still open. Each save writes a new immutable `documents/layers-XXXX.rgba` source and `derived/painted-XXXX.png` before switching the manifest. The source document is versioned `ROEG-LAYERS/1` with exact RGBA8 planes, stable layer IDs, names, order, visibility, lock state, selected layer and checksum. The derived PNG is flattened from visible layers at save time. Studio validates both on reopen and visibly reports a recovered older complete generation when newer referenced data is torn. There is no hardware fsync guarantee. Older immutable document generations remain in the workspace for recovery and can consume disk space over many edits.
+`manifest-a.txt` and `manifest-b.txt` are the rotating, checked E00 project records. E01 adds optional relative `document` and `derived` fields to each asset; old E00 records still open. Each save writes a new immutable `documents/layers-XXXX.rgba` source and `derived/painted-XXXX.png` before switching the manifest. The source document is versioned `ROAG-LAYERS/1` with exact RGBA8 planes, stable layer IDs, names, order, visibility, lock state, selected layer and checksum. The derived PNG is flattened from visible layers at save time. Studio validates both on reopen and visibly reports a recovered older complete generation when newer referenced data is torn. There is no hardware fsync guarantee. Older immutable document generations remain in the workspace for recovery and can consume disk space over many edits.
 
 The PNG writer in `src/studio_png.lua` emits RGBA8 PNG with stored DEFLATE/zlib blocks, Adler-32 and PNG CRCs; it does not call the LÖVE 12-only `ImageData:encode('png')`. It is lossless, larger than a compressed art PNG, and decodes in LÖVE 11.5. Editable source stays separate from both imported PNG and derived output. Documents are limited to 512×512, 16 layers, 16 MiB encoded each and 128 MiB of actively referenced project data. History is bounded to 32 actions or 32 MiB; saving establishes a clean checkpoint while undo/redo can still cross it in the current session. The editor does not flatten on each pointer event. Very large, many-layer projects and uncollected old generations may need future storage/performance work.
 
@@ -37,14 +37,23 @@ luajit tools/studio_publish.lua --save-dir '/absolute/path/shown/in/Studio' --pr
 
 `--overwrite` is required when replacing an existing changed published manifest. The publisher chooses the asset's derived painted PNG when present and emits the existing game-facing stable-ID manifest. It never writes run/profile saves. Removing or disabling `assets/studio/manifest.txt` restores the original game fallback token.
 
-For the `player_sprite` project on this Mac, use the absolute save directory displayed by Studio:
+For a project created under the current `roag-foundation` identity on this Mac,
+use its ID and the absolute save directory displayed by Studio:
 
 ```sh
-luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite
-luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite --apply
+make publish-preview PROJECT=my_project
+make publish-apply PROJECT=my_project APPLY=yes
 ```
 
-Review the first command's dry run. If it reports `overwrite`, review the changed published files before adding `--overwrite` to the second command. In Studio, **P** opens publish readiness, **D** previews exact file changes, and **A** applies after confirmation; changed published manifests require typing `OVERWRITE`. Run the game or press **F5** in an open game, then start/continue a run to see the player sprite. Atlas art is optional: the resolver also accepts the published loose PNG. Back up `studio/projects/player_sprite/` in the LÖVE save directory to retain its editable layers and original imported PNG; the published pack in `assets/studio/` is a derived copy.
+Review the first command's dry run. If it reports `overwrite`, review the
+changed published files before adding `OVERWRITE=yes` to the apply command.
+In Studio, **P** opens publish readiness, **D** previews exact file changes,
+and **A** applies after confirmation; changed published manifests require
+typing `OVERWRITE`. Run the game or press **F5** in an open game to see the
+sprite. Atlas art is optional: the resolver also accepts the published loose
+PNG. Back up `studio/projects/<project-id>/` in the displayed save directory
+to retain editable layers and imported PNGs; the published pack in
+`assets/studio/` is a derived copy.
 
 ## Checks
 
@@ -53,7 +62,7 @@ TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp sh tests/studio_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/studio_e01_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/studio_reference_gui_smoke.sh
-TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-e01-game-gui
+TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-e01-game-gui
 ```
 
 The E01 GUI smoke uses disposable `XDG_DATA_HOME` on Linux and an isolated LÖVE identity through the [Mac test wrapper](MAC_NATIVE.md) on macOS. It creates and edits a two-layer transparent sprite through LÖVE callbacks, captures before/mid/after canvas frames, reopens it in another process, exercises selection and the 2× outline in another disposable project, validates decoded PNG pixels, dry-runs and applies publishing in an isolated app copy, and checks normal-game sprite selection plus fallback. The reference GUI smoke copies imported art, checks original bytes, publishes ordinary and hurt bindings, reopens the copy in a fresh process, and checks overlay pixels on screen. Callback tests are not physical mouse or pen testing.

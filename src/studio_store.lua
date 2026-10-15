@@ -10,7 +10,7 @@ local function checksum(bytes)
     return string.format('%08x',b*65536+a)
 end
 local function pack(seq,payload)
-    return table.concat({'ROEG-STUDIO-RECORD/1',seq,#payload,checksum(payload)},'\n')..'\n'..payload
+    return table.concat({'ROAG-STUDIO-RECORD/1',seq,#payload,checksum(payload)},'\n')..'\n'..payload
 end
 local function unpack(bytes)
     assert(type(bytes)=='string' and #bytes<=1024*1024+100,'invalid record size')
@@ -19,7 +19,7 @@ local function unpack(bytes)
         local e=assert(bytes:find('\n',pos,true),'truncated record')
         h[i]=bytes:sub(pos,e-1);pos=e+1
     end
-    assert(h[1]=='ROEG-STUDIO-RECORD/1','incompatible record format')
+    assert(h[1]=='ROAG-STUDIO-RECORD/1','incompatible record format')
     local seq,size=tonumber(h[2]),tonumber(h[3])
     assert(seq and seq%1==0 and seq>=1 and size and size%1==0 and
         size>=0 and size<=1024*1024 and #bytes-pos+1==size,'invalid record header')

@@ -3,8 +3,8 @@
 # regular summoner. Every invocation uses a fresh LÖVE process/save directory.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-encounter-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-encounter-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -14,7 +14,7 @@ local Biomes=require("src.biomes")
 local Content=require("src.content")
 local Scheduler=require("src.scheduler")
 local Visibility=require("src.visibility")
-local kind=assert(os.getenv("ROEG_ENCOUNTER_KIND"))
+local kind=assert(os.getenv("ROAG_ENCOUNTER_KIND"))
 local tracked
 local old_new=Game.new_stage
 function Game.new_stage(seed,options)
@@ -23,11 +23,11 @@ function Game.new_stage(seed,options)
         route_history={(id:gsub("^core:biome/","core:route/"))}}})
     return tracked
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
 local old_print,old_color=love.graphics.print,love.graphics.setColor
 local labels,telegraph={},0
-local out=assert(os.getenv("ROEG_ENCOUNTER_OUTPUT"))
+local out=assert(os.getenv("ROAG_ENCOUNTER_OUTPUT"))
 love.graphics.print=function(v,...)
     labels[#labels+1]=tostring(v)
     return old_print(v,...)
@@ -116,8 +116,8 @@ LUA
 
 for kind in elite regular; do
     mkdir -p "$output_dir/save-$kind"
-    ROEG_GUI_AUTOSTART=1 ROEG_ENCOUNTER_KIND="$kind" \
-        ROEG_ENCOUNTER_OUTPUT="$output_dir" \
+    ROAG_GUI_AUTOSTART=1 ROAG_ENCOUNTER_KIND="$kind" \
+        ROAG_ENCOUNTER_OUTPUT="$output_dir" \
         XDG_DATA_HOME="$output_dir/save-$kind" \
         timeout 20s love "$output_dir" >"$output_dir/$kind.log" 2>&1
     test -s "$output_dir/$kind.png"

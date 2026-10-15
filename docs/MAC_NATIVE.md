@@ -6,25 +6,35 @@ Use LÖVE 11.5, LuaJIT 2.1, and Python 3.9 or newer on x86_64 macOS. The tested 
 `6795bb3a1656af6a2fdfe741e150787b481886d3a280327a261a3fdded586913`.
 The archive is unsigned; the matching checksum verifies the downloaded archive
 against the tested copy, but is not a code signature. A user-level app can live
-at `~/Applications/ROEG-Love-11.5.app`. If macOS blocks its first launch, review
+at `~/Applications/ROAG-Love-11.5.app`. If macOS blocks its first launch, review
 it in System Settings → Privacy & Security and approve it there. Do not remove
 quarantine or disable Gatekeeper. No administrator install is required.
 
 From the checkout root, after the app is approved:
 
 ```sh
-export ROEG_LOVE_BIN="$HOME/Applications/ROEG-Love-11.5.app/Contents/MacOS/love"
-/usr/bin/arch -x86_64 "$ROEG_LOVE_BIN" .
-/usr/bin/arch -x86_64 "$ROEG_LOVE_BIN" . --studio
+make game
+make studio
+make test
+make gui
+```
+
+The Makefile uses the installed x86_64 LÖVE 11.5 app on this Mac. The direct
+commands are:
+
+```sh
+export ROAG_LOVE_BIN="$HOME/Applications/ROAG-Love-11.5.app/Contents/MacOS/love"
+/usr/bin/arch -x86_64 "$ROAG_LOVE_BIN" .
+/usr/bin/arch -x86_64 "$ROAG_LOVE_BIN" . --studio
 luajit tests/run.lua
-luajit tests/finale_playthrough.lua 3 /tmp/roeg-seed3.trace
+luajit tests/finale_playthrough.lua 3 /tmp/roag-seed3.trace
 ```
 
 For callback-driven GUI tests, put the opt-in wrappers first on `PATH` in the
 test shell. They accept only disposable app copies under macOS temporary
 directories, replace the copied `conf.lua` identity with a stable
-`roeg-mac-test-*` identity, and run the selected native x86_64 executable.
-They never launch the checkout with the normal `roeg-foundation` identity.
+`roag-mac-test-*` identity, and run the selected native x86_64 executable.
+They never launch the checkout with the normal `roag-foundation` identity.
 The `timeout` wrapper implements the GNU `timeout DURATION` and
 `timeout -k GRACE DURATION` forms used by these scripts, with the requested
 duration and exit code 124 on a timeout. These wrappers are macOS opt-in; the
@@ -47,9 +57,13 @@ sh tests/profile_gui.sh
 Studio and game fixtures write to their isolated LÖVE save identities. Use
 `love.filesystem.getSaveDirectory()` or the `save_dir.txt` files emitted by
 Studio fixtures to find their real macOS path; `XDG_DATA_HOME` does not move
-LÖVE's macOS save directory. The normal identity's save location on this Mac
-was reported as `~/Library/Application Support/LOVE/roeg-foundation`.
-Unrelated `LOVE/roag` data is outside this project's test scope.
+LÖVE's macOS save directory. The renamed game uses the `roag-foundation`
+identity, whose expected location on this Mac is
+`~/Library/Application Support/LOVE/roag-foundation`; Studio displays the
+actual path. Earlier game saves and Studio sources under the previous identity
+are not loaded by this version. No external save directory was deleted or
+merged during the name change. The separate `LOVE/roag` identity belongs to
+another application and remains untouched.
 
 The following publisher commands are **dry runs**. Supply the save directory
 reported by the Studio project, and review the plan. Only an explicit
@@ -64,8 +78,14 @@ luajit tools/studio_theme_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my
 luajit tools/studio_atlas_publish.lua --save-dir "$STUDIO_SAVE_DIR" --project my_project
 ```
 
+The matching Makefile shortcut is `make publish-preview PROJECT=my_project`.
+Use `PUBLISHER=world`, `theme`, `audio`, or `atlas` for the other packs; compile
+an atlas candidate first with `make atlas-build`. Applying a reviewed plan
+requires `make publish-apply PROJECT=my_project APPLY=yes`, with
+`OVERWRITE=yes` only when the publisher requires it. Set `SAVE_DIR` explicitly
+if Studio shows a different location. Studio's own **P → D → A** flow publishes
+loose visual art without a shell command.
+
 These tests use synthetic GUI callbacks, screenshots, and temporary art. They
-do not establish physical keyboard, mouse, or Wacom feel. The old personal
-Studio projects and player profile were unavailable at migration; create new
-personal content on this Mac rather than treating disposable fixtures as a
-recovered project.
+do not establish physical keyboard, mouse, or Wacom feel. The renamed identity
+starts fresh; automated fixtures are not personal Studio projects.

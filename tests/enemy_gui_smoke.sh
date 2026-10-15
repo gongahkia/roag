@@ -3,8 +3,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-enemy-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-enemy-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -35,10 +35,10 @@ function Playback.add(queue, output, player_id)
     return original_add(queue, output, player_id)
 end
 
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load, original_update, original_draw = love.load, love.update, love.draw
 local phase, pending = 1, false
-local output_dir = assert(os.getenv("ROEG_ENEMY_GUI_OUTPUT"))
+local output_dir = assert(os.getenv("ROAG_ENEMY_GUI_OUTPUT"))
 local expected = {"WindupStarted", "AttackPerformed", "DamageTaken", false, false}
 local function settle_motion()
     local steps=0
@@ -114,7 +114,7 @@ function love.draw(...)
 end
 LUA
 
-ROEG_ENEMY_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_ENEMY_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4 5; do
     test -s "$output_dir/phase$phase.png"
 done

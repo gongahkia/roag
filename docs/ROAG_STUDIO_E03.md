@@ -1,4 +1,4 @@
-# ROEG Studio E03 — room and biome authoring
+# ROAG Studio E03 — room and biome authoring
 
 Launch `love . --studio`; plain `love .` remains the game. Studio files live under the save directory shown in the editor, at `studio/projects/<project-id>/`. The World editor does not write active-run or achievement records.
 
@@ -26,7 +26,7 @@ luajit tools/studio_world_publish.lua --save-dir '/absolute/save/directory/shown
 
 Use `--overwrite` only after reviewing a dry run when an occupied published slot or visual manifest must change. The world publisher writes a checked generation to the inactive `assets/studio/world-a.pack` or `world-b.pack`; normal `love .` loads the newest valid generation. The source document stays in its separate checked `world-a.txt` / `world-b.txt` Studio files. The published pack is inert escaped text, never Lua code. Remove or temporarily disable both published world slots to use only built-in room pools again. Existing published visuals may remain; without a matching authored room, the game draws its ordinary terrain. Changing or disabling a pack while an active run depends on it causes that run to be reported incompatible rather than silently resuming against different room definitions. The separate achievement profile is unaffected.
 
-The default E03 catalogue still starts with floor, wall and shallow water for old-project compatibility. **A** adds six validated mechanical tiles: bramble, bog, ice, breakable barricade, mist and crystal. Their movement, sight and projectile flags are explicit and checked against the game terrain definitions. See [terrain expansion rules](ROEG_TERRAIN_EXPANSION.md). The biome selector now includes seven identities, including Observatory, Archive and Forge. The editor assigns rooms to biome pools; it does not author new topology algorithms.
+The default E03 catalogue still starts with floor, wall and shallow water for old-project compatibility. **A** adds six validated mechanical tiles: bramble, bog, ice, breakable barricade, mist and crystal. Their movement, sight and projectile flags are explicit and checked against the game terrain definitions. See [terrain expansion rules](ROAG_TERRAIN_EXPANSION.md). The biome selector now includes seven identities, including Observatory, Archive and Forge. The editor assigns rooms to biome pools; it does not author new topology algorithms.
 
 ## Verification and limits
 

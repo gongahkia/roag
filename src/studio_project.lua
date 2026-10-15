@@ -1,5 +1,5 @@
 -- Portable, inert, deterministic Studio manifest. Tabs separate escaped fields.
-local M={schema='roeg-studio-project/1',max_image_bytes=8*1024*1024}
+local M={schema='roag-studio-project/1',max_image_bytes=8*1024*1024}
 local bit=require('bit')
 local Document=require('src.studio_document')
 local VisualSlots=require('src.visual_slots')
@@ -201,7 +201,7 @@ local function fields(line)
 end
 function M.encode(project)
     M.validate(project)
-    local out={'ROEG-STUDIO-MANIFEST/1','project\t'..escape(project.id)..'\t'..escape(project.name)}
+    local out={'ROAG-STUDIO-MANIFEST/1','project\t'..escape(project.id)..'\t'..escape(project.name)}
     local assets={}
     for _,a in ipairs(project.assets) do assets[#assets+1]=a end
     table.sort(assets,function(a,b) return a.id<b.id end)
@@ -226,7 +226,7 @@ function M.decode(bytes)
     for line in (bytes..'\n'):gmatch('(.-)\n') do
         if #line>0 then lines[#lines+1]=line end
     end
-    check(lines[1]=='ROEG-STUDIO-MANIFEST/1','incompatible manifest format')
+    check(lines[1]=='ROAG-STUDIO-MANIFEST/1','incompatible manifest format')
     local p=fields(lines[2] or '')
     check(#p==3 and p[1]=='project','invalid project record')
     local project=M.new(p[2],p[3])

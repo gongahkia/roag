@@ -28,7 +28,7 @@ local function read(path)
     return read_file(path)
 end
 assert(read('main.lua') and read('conf.lua') and read('src/studio_world.lua'),
-    'run from ROEG checkout')
+    'run from ROAG checkout')
 local adapter={}
 function adapter:read(path)
     assert(Project.valid_path(path),'unsafe workspace path')

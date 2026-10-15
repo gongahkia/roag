@@ -1,11 +1,11 @@
-# ROEG — Codex Tranche 00: Functional Foundation
+# ROAG — Codex Tranche 00: Functional Foundation
 
-You are the implementation agent working on **ROEG**, a **brand-new** LÖVE2D/Lua roguelike. The user has selected **GPT-6 Sol High** for this work. This tranche should implement a **thin, functional foundation**, not an abstract engine.
+You are the implementation agent working on **ROAG**, a **brand-new** LÖVE2D/Lua roguelike. The user has selected **GPT-6 Sol High** for this work. This tranche should implement a **thin, functional foundation**, not an abstract engine.
 
 ## Required starting context
 
-1. Locate and read `docs/ROEG_SPEC_v1.0.md` in this repository **in full**. It is the authoritative product and architecture specification. This prompt governs the limited scope of Tranche 00. Where the specification identifies provisional values, keep them easy to adjust.
-2. Confirm the repository/workspace is for **ROEG**, not the pre-existing **ROAG** game or another project. **Do not touch ROAG, ROEG predecessors, sibling repositories, or unrelated files.** If the expected specification is missing or this is clearly the wrong repository, stop and report the issue rather than inventing the requirements or changing a different project.
+1. Locate and read `docs/ROAG_SPEC_v1.0.md` in this repository **in full**. It is the authoritative product and architecture specification. This prompt governs the limited scope of Tranche 00. Where the specification identifies provisional values, keep them easy to adjust.
+2. Confirm the repository/workspace is for this **ROAG** game, not the older unrelated game or another project. **Do not touch sibling repositories or unrelated files.** If the expected specification is missing or this is clearly the wrong repository, stop and report the issue rather than inventing the requirements or changing a different project.
 3. Inspect existing files, Git status and available tools before writing. Preserve any pre-existing user changes. Prefer LÖVE **11.5** if available, but detect and report the actual installed version. Use Lua syntax compatible with LÖVE 11.x / LuaJIT. Avoid unnecessary external dependencies.
 
 ## Objective
@@ -43,7 +43,7 @@ Deliver a small game that opens in LÖVE and lets a player move around a hand-au
 
 ### Out of scope — do not implement
 
-Enemies, combat damage, AI, complex telegraphs, boons, probabilities/proc chains, XP/currency, chests, procedural map generation, secrets, asset pipelines, WFC, multiple floors, save menus, full editor, shader systems, controller/mobile support, network features, and elaborate menu UI. Do not copy architecture or content from ROAG. Don't add interfaces, dependency frameworks or placeholder modules solely for hypothetical future use.
+Enemies, combat damage, AI, complex telegraphs, boons, probabilities/proc chains, XP/currency, chests, procedural map generation, secrets, asset pipelines, WFC, multiple floors, save menus, full editor, shader systems, controller/mobile support, network features, and elaborate menu UI. Do not copy architecture or content from the older unrelated game. Don't add interfaces, dependency frameworks or placeholder modules solely for hypothetical future use.
 
 ### Engineering boundaries
 
@@ -57,11 +57,11 @@ Enemies, combat damage, AI, complex telegraphs, boons, probabilities/proc chains
 
 ## Acceptance criteria
 
-1. The user can launch the game with `love .` from the ROEG root (assuming LÖVE is installed) and visibly move in the room, Wait, and attack eight directions without enemies.
+1. The user can launch the game with `love .` from the ROAG root (assuming LÖVE is installed) and visibly move in the room, Wait, and attack eight directions without enemies.
 2. The simulated world clock changes only on valid committed actions, and is displayed.
 3. The CLI tests use the same authoritative action functions used by LÖVE, without graphics initialization.
 4. Repeating the same seed and intent sequence yields identical state and event ordering; snapshot/restore does not alter future results.
-5. There is no game-logic dependency on LÖVE and no accidental changes outside the ROEG project.
+5. There is no game-logic dependency on LÖVE and no accidental changes outside the ROAG project.
 
 ## Completion report format
 

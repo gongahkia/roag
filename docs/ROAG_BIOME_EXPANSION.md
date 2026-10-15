@@ -20,7 +20,7 @@ The three new template families are authored as plain-data room definitions
 with protected socket/marker approaches, transforms and editable masks. They
 share the generator's map contract and existing combat system. M4 replaced
 the original temporary encounter pools and gave each non-Ruins biome its own
-elite; [encounter notes](ROEG_ENCOUNTER_EXPANSION.md) list their footprints,
+elite; [encounter notes](ROAG_ENCOUNTER_EXPANSION.md) list their footprints,
 roles and provisional values. Thorn Warden remains exclusive to Ruins.
 
 Route choices are cached in the spawned extraction exit and spend zero world
@@ -35,7 +35,7 @@ time when browsed or confirmed:
 The menu accepts **1/2/3**, **Enter** and **Esc**. Stage 3 always offers the
 existing Final Sanctum confirmation after its elite. Old saved extraction
 menus with two cached choices retain those choices on Continue; current new
-runs use three. Active-run schema remains `roeg-run/11`; concrete floors are
+runs use three. Active-run schema remains `roag-run/11`; concrete floors are
 stored rather than regenerated on restore.
 
 Validation at this checkpoint: 100 root seeds × seven biomes × two floors =

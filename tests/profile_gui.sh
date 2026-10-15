@@ -2,15 +2,15 @@
 # Opt-in callback-driven rendering samples under the current display/renderer.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=${1:-$(mktemp -d "${TMPDIR:-/tmp}/roeg-gui-profile-XXXXXX")}
+output_dir=${1:-$(mktemp -d "${TMPDIR:-/tmp}/roag-gui-profile-XXXXXX")}
 mkdir -p "$output_dir/data"
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Biomes=require('src.biomes')
-local mode=assert(os.getenv('ROEG_PROFILE_SCENE'))
+local mode=assert(os.getenv('ROAG_PROFILE_SCENE'))
 local tracked,boon_activations
 boon_activations=0
 if mode=='fungal' or mode=='aqueduct' or mode=='bastion' then
@@ -68,10 +68,10 @@ function Game.submit(...)
     end
     return ok,reason,events,preview
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
 local frames=0
-local output=assert(os.getenv('ROEG_PROFILE_OUTPUT'))
+local output=assert(os.getenv('ROAG_PROFILE_OUTPUT'))
 function love.load(...)
     old_load(...)
     if mode=='finale' then love.keypressed('space') end
@@ -84,7 +84,7 @@ function love.load(...)
         love.keypressed('b');love.keypressed('b')
         local function settle()
             local ticks=0
-            while love.roegPlaybackPending() do
+            while love.roagPlaybackPending() do
                 old_update(0.25)
                 ticks=ticks+1
                 assert(ticks<400,'boon scene playback did not drain')
@@ -119,7 +119,7 @@ function love.draw(...)
         end
     end
     if frames==180 then
-        local data=assert(love.roegDiagnostics())
+        local data=assert(love.roagDiagnostics())
         local file=assert(io.open(output..'/'..mode..'.tsv','w'))
         for _,field in ipairs({'samples','frame_p50_ms','frame_p95_ms',
             'frame_p99_ms','update_p95_ms','draw_p95_ms',
@@ -151,8 +151,8 @@ function love.draw(...)
 end
 LUA
 for scene in generated boon crowd fungal aqueduct bastion finale; do
-    ROEG_PROFILE_SCENE="$scene" ROEG_PROFILE_OUTPUT="$output_dir" \
-      ROEG_GUI_AUTOSTART=1 ROEG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
+    ROAG_PROFILE_SCENE="$scene" ROAG_PROFILE_OUTPUT="$output_dir" \
+      ROAG_GUI_AUTOSTART=1 ROAG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
       timeout 30s love "$output_dir"
     test -s "$output_dir/$scene.tsv"
     test -s "$output_dir/$scene.tga"

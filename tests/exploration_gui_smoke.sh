@@ -2,8 +2,8 @@
 # Callback-driven LÖVE render test for fog memory, map input and a real secret.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-exploration-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-exploration-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -22,9 +22,9 @@ function Game.new(seed,map_id,options)
     end
     return tracked
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
-local out=assert(os.getenv("ROEG_EXPLORATION_GUI_OUTPUT"))
+local out=assert(os.getenv("ROAG_EXPLORATION_GUI_OUTPUT"))
 local phase,pending=1,false
 local origin_known
 local hidden_source
@@ -80,7 +80,7 @@ end
 local function walk(path)
     local function settle()
         local ticks=0
-        while love.roegPlaybackPending() do
+        while love.roagPlaybackPending() do
             old_update(0.25) -- presentation time only; wait for the real gate.
             ticks=ticks+1
             assert(ticks<400,"playback did not drain")
@@ -185,6 +185,6 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_EXPLORATION_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
+ROAG_EXPLORATION_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
 for phase in 1 2 3; do test -s "$output_dir/phase$phase.png"; done
 printf 'Exploration GUI smoke passed: three screenshots in %s\n' "$output_dir"

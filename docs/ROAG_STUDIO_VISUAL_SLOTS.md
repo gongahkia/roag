@@ -1,4 +1,4 @@
-# ROEG Studio visual slots
+# ROAG Studio visual slots
 
 All slots below use **static** PNGs. They change presentation during existing
 playback beats; they do not add animation frames, combat actions, map rules, or
@@ -86,7 +86,7 @@ wall, water, and explicit tile/decoration images for individual authored rooms.
 An explicit authored image at a cell appears above the automatic terrain art.
 Publish image assets first; if you also edited room geometry or explicit
 visual cells, publish the world pack separately as described in
-[E03](ROEG_STUDIO_E03.md).
+[E03](ROAG_STUDIO_E03.md).
 
 ## Publish and inspect
 
@@ -101,8 +101,8 @@ The CLI remains available. From the checkout root, substitute the save
 directory shown by Studio and your project ID. The first command is read-only:
 
 ```sh
-luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite
-luajit tools/studio_publish.lua --save-dir "$HOME/Library/Application Support/LOVE/roeg-foundation" --project player_sprite --apply
+make publish-preview PROJECT=my_project
+make publish-apply PROJECT=my_project APPLY=yes
 ```
 
 If the CLI dry run says `overwrite`, review it and add `--overwrite` to the

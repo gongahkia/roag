@@ -2,7 +2,7 @@
 local Project=require('src.studio_project')
 local Codec=require('src.persistence')
 local Cues=require('src.audio_cues')
-local A={schema='roeg-studio-audio/1',max_sounds=256,max_bindings=512,
+local A={schema='roag-studio-audio/1',max_sounds=256,max_bindings=512,
     max_source_bytes=32*1024*1024,max_project_bytes=128*1024*1024}
 A.categories={'player','enemy','boss','elite','class','ability','boon',
     'terrain','world','room','biome','ui','music'}

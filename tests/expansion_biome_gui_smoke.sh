@@ -4,10 +4,10 @@
 # represent physical keyboard play.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-expansion-biomes-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-expansion-biomes-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cat > "$app/main.lua" <<'LUA'
@@ -15,7 +15,7 @@ local Game=require('src.game')
 local Biomes=require('src.biomes')
 local Content=require('src.content')
 local Visibility=require('src.visibility')
-local id=assert(os.getenv('ROEG_EXPANSION_BIOME_ID'))
+local id=assert(os.getenv('ROAG_EXPANSION_BIOME_ID'))
 local biome=assert(Biomes.get(id))
 local index,history
 if id==Biomes.order[5] then
@@ -32,7 +32,7 @@ function Game.new_stage(seed,options)
         stage_options={index=index,biome_id=id,route_history=history}})
     return tracked
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
 local old_print=love.graphics.print
 local labels={}
@@ -40,7 +40,7 @@ love.graphics.print=function(value,...)
     labels[#labels+1]=tostring(value)
     return old_print(value,...)
 end
-local output=assert(os.getenv('ROEG_EXPANSION_BIOME_OUTPUT'))
+local output=assert(os.getenv('ROAG_EXPANSION_BIOME_OUTPUT'))
 local phase,pending,direction=1,false,nil
 local function has(fragment)
     for _,label in ipairs(labels) do
@@ -101,8 +101,8 @@ function love.draw(...)
 end
 LUA
 for biome_id in core:biome/glacial_observatory core:biome/fractured_archive core:biome/sundered_forge; do
-    ROEG_EXPANSION_BIOME_ID="$biome_id" ROEG_EXPANSION_BIOME_OUTPUT="$output_dir" \
-        ROEG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data-${biome_id##*/}" \
+    ROAG_EXPANSION_BIOME_ID="$biome_id" ROAG_EXPANSION_BIOME_OUTPUT="$output_dir" \
+        ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data-${biome_id##*/}" \
         timeout 30s love "$app" > "$output_dir/${biome_id##*/}.log" 2>&1 || {
             cat "$output_dir/${biome_id##*/}.log"; exit 1;
         }

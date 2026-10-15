@@ -1,4 +1,4 @@
-# ROEG Studio E05 — deterministic static texture atlases
+# ROAG Studio E05 — deterministic static texture atlases
 
 E05 compiles the **published loose PNGs**, not editable Studio layers. Stable
 asset IDs, room tile IDs, UI theme bindings and source documents do not change.
@@ -59,7 +59,7 @@ zlib-compressed lossless PNGs. The same inputs/configuration produce the same
 bytes on the same LÖVE/zlib build. Renderer-specific zlib versions may produce
 different compressed bytes while retaining identical decoded pixels.
 
-The inert `roeg-studio-atlas/1` record maps IDs to page, untrimmed rectangle,
+The inert `roag-studio-atlas/1` record maps IDs to page, untrimmed rectangle,
 padding, filter, source checksum and source-manifest fingerprint. Page PNGs are
 immutable and content named. The game validates the checked record, complete
 pages, decoded dimensions, current loose inputs and deterministic mapping
@@ -82,7 +82,7 @@ TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp sh tests/studio_e05_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/studio_e05_stress.sh
 TMPDIR=/var/tmp sh tests/studio_e05_profile.sh
-TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-e05-game-gui
+TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-e05-game-gui
 ```
 
 The E05 GUI smoke creates E01 and E03/E04 isolated fixtures, compares real

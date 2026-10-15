@@ -76,8 +76,8 @@ return function(test,equal)
             and not recovered.profile.earned[AchievementContent.order[2]])
         disk[Profile.slots[2]]=nil
         assert(service:save(second))
-        disk[Profile.slots[2]]=disk[Profile.slots[2]]:gsub('roeg%-profile%-record/1',
-            'roeg-profile-record/9',1)
+        disk[Profile.slots[2]]=disk[Profile.slots[2]]:gsub('roag%-profile%-record/1',
+            'roag-profile-record/9',1)
         assert(service:inspect().status=='incompatible')
         assert(not service:save(second))
     end)
@@ -109,7 +109,7 @@ return function(test,equal)
         local saves=Persistence.new(disk)
         assert(saves:replace(Game.new_stage(77)))
         disk[Persistence.slots[2]]=disk[Persistence.slots[2]]:gsub(
-            'roeg%-save/1','roeg-save/9',1)
+            'roag%-save/1','roag-save/9',1)
         assert(saves:inspect().status=='incompatible')
         assert(service:inspect().profile.earned[id])
     end)

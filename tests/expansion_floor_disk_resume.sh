@@ -2,8 +2,8 @@
 # Assisted stair setup; production Save & Quit/Continue in two isolated LÖVE processes.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-floor-resume-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-floor-resume-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -21,13 +21,13 @@ function Game.new_stage(seed,options)
 end
 function Game.restore(...)
     local restored=original_restore(...)
-    if os.getenv('ROEG_FLOOR_RESUME_PHASE')=='load' then tracked=restored end
+    if os.getenv('ROAG_FLOOR_RESUME_PHASE')=='load' then tracked=restored end
     return restored
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
-local phase=assert(os.getenv('ROEG_FLOOR_RESUME_PHASE'))
-local output=assert(os.getenv('ROEG_FLOOR_RESUME_OUTPUT'))
+local phase=assert(os.getenv('ROAG_FLOOR_RESUME_PHASE'))
+local output=assert(os.getenv('ROAG_FLOOR_RESUME_OUTPUT'))
 local pending,done,continued=false,false,false
 local function write(name,bytes)
     local file=assert(io.open(output..'/'..name,'wb'))
@@ -106,9 +106,9 @@ function love.draw(...)
 end
 LUA
 mkdir -p "$output_dir/data"
-ROEG_FLOOR_RESUME_PHASE=save ROEG_FLOOR_RESUME_OUTPUT="$output_dir" \
+ROAG_FLOOR_RESUME_PHASE=save ROAG_FLOOR_RESUME_OUTPUT="$output_dir" \
     XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
-ROEG_FLOOR_RESUME_PHASE=load ROEG_FLOOR_RESUME_OUTPUT="$output_dir" \
+ROAG_FLOOR_RESUME_PHASE=load ROAG_FLOOR_RESUME_OUTPUT="$output_dir" \
     XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
 test -s "$output_dir/save.png"
 test -s "$output_dir/load.png"

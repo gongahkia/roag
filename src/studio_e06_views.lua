@@ -11,7 +11,7 @@ function V.help(workspace)
     box(x,y,900,520)
     g.setColor(.94,.96,.85)
     local lines={
-        'ROEG STUDIO · F10 / Esc closes help',
+        'ROAG STUDIO · F10 / Esc closes help',
         'Project: N new · O open · S save · D copy · E pixels · W world · U UI · P publish',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',

@@ -26,7 +26,7 @@ local function read_file(path)
     local bytes=f:read('*a');f:close();return bytes
 end
 assert(read_file('main.lua') and read_file('conf.lua') and
-    read_file('src/studio_project.lua'),'run publisher from the ROEG checkout')
+    read_file('src/studio_project.lua'),'run publisher from the ROAG checkout')
 local io_adapter={}
 function io_adapter:read(path)
     assert(Project.valid_path(path),'unsafe workspace path')

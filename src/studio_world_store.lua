@@ -14,7 +14,7 @@ end
 local function unpack_record(bytes)
     assert(type(bytes)=='string' and #bytes<=1024*1024+100,'invalid world record')
     local header,seq,size,sum,payload=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n(.*)$')
-    assert(header=='ROEG-STUDIO-WORLD-RECORD/1','incompatible world record')
+    assert(header=='ROAG-STUDIO-WORLD-RECORD/1','incompatible world record')
     seq,size=tonumber(seq),tonumber(size)
     assert(seq and seq%1==0 and seq>=1 and size and size%1==0 and
         size>=0 and size<=1024*1024 and #payload==size and hash(payload)==sum,
@@ -55,7 +55,7 @@ function S:save(pack,assets)
     local seq=record and record.seq+1 or 1
     local slot=record and (record.slot=='a' and 'b' or 'a') or 'a'
     local payload=World.encode(pack)
-    local bytes=table.concat({'ROEG-STUDIO-WORLD-RECORD/1',seq,#payload,hash(payload)},'\n')..'\n'..payload
+    local bytes=table.concat({'ROAG-STUDIO-WORLD-RECORD/1',seq,#payload,hash(payload)},'\n')..'\n'..payload
     local filename=path(pack.project_id,slot)
     local made,merr=pcall(self.io.mkdir,self.io,'studio/projects/'..pack.project_id)
     if not made then return false,tostring(merr) end

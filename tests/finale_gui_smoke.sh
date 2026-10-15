@@ -2,8 +2,8 @@
 # Prepared three-stage route; final interactions use real LÖVE key callbacks.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-finale-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-finale-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -81,9 +81,9 @@ function Game.submit(state,intent)
     for _,event in ipairs(output or {}) do events[#events+1]=event end
     return ok,reason,output,preview
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
-local output_dir=assert(os.getenv('ROEG_FINALE_GUI_OUTPUT'))
+local output_dir=assert(os.getenv('ROAG_FINALE_GUI_OUTPUT'))
 local labels,phase,pending={},1,false
 local old_print,old_printf=love.graphics.print,love.graphics.printf
 love.graphics.print=function(value,...) labels[#labels+1]=tostring(value);return old_print(value,...) end
@@ -165,7 +165,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_GUI_AUTOSTART=1 ROEG_FINALE_GUI_OUTPUT="$output_dir" \
+ROAG_GUI_AUTOSTART=1 ROAG_FINALE_GUI_OUTPUT="$output_dir" \
   XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
 for image in 1 2 3 4 5 6 7; do test -s "$output_dir/$image.png"; done
 printf 'Finale GUI smoke passed: route, telegraph, phase, Victory, New Run in %s\n' "$output_dir"

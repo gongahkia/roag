@@ -7,7 +7,7 @@ local Achievements=require('src.achievements')
 local Classes=require('src.classes')
 local Persistence=require('src.persistence')
 local seed=tonumber(arg[1]) or 9
-local path=arg[2] or '/var/tmp/roeg-expansion-legal-victory.trace'
+local path=arg[2] or '/var/tmp/roag-expansion-legal-victory.trace'
 local class_id=arg[3] or Classes.order[1]
 if not class_id:find(':',1,true) then class_id='core:actor/'..class_id end
 assert(Classes.get(class_id),'unknown class '..class_id)

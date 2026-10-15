@@ -2,20 +2,20 @@
 # Copy a Studio sprite, paint a pose, and reopen its presentation-only reference.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-reference-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-reference-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cp -R "$project_dir/examples" "$app/examples"
 cat > "$app/main.lua" <<'LUA'
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw,original_update=love.load,love.draw,love.update
 local D=require('src.studio_document')
-local phase=assert(tonumber(os.getenv('ROEG_REFERENCE_PHASE')))
-local output=assert(os.getenv('ROEG_REFERENCE_OUTPUT'))
-local function state() return assert(love.roegStudioState()) end
+local phase=assert(tonumber(os.getenv('ROAG_REFERENCE_PHASE')))
+local output=assert(os.getenv('ROAG_REFERENCE_OUTPUT'))
+local function state() return assert(love.roagStudioState()) end
 local function press(k) love.keypressed(k) end
 local function replace_field(value)
     for _=1,100 do press('backspace') end
@@ -119,9 +119,9 @@ function love.update(dt)
     end
 end
 LUA
-ROEG_REFERENCE_PHASE=1 ROEG_REFERENCE_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
+ROAG_REFERENCE_PHASE=1 ROAG_REFERENCE_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
     timeout 25s love "$app" --studio >"$output_dir/phase1.log" 2>&1
-ROEG_REFERENCE_PHASE=2 ROEG_REFERENCE_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
+ROAG_REFERENCE_PHASE=2 ROAG_REFERENCE_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
     timeout 25s love "$app" --studio >"$output_dir/phase2.log" 2>&1
 test -s "$output_dir/reference-on.tga" && test -s "$output_dir/reference-off.tga"
 if cmp -s "$output_dir/reference-on.tga" "$output_dir/reference-off.tga"; then

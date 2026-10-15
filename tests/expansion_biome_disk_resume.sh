@@ -4,19 +4,19 @@
 # Game.submit actions and complete concrete maps are compared byte-for-byte.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-expansion-biome-resume-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-expansion-biome-resume-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cat > "$app/main.lua" <<'LUA'
 local Game=require('src.game')
 local Biomes=require('src.biomes')
 local Persistence=require('src.persistence')
-local id=assert(os.getenv('ROEG_EXPANSION_RESUME_ID'))
-local phase=assert(os.getenv('ROEG_EXPANSION_RESUME_PHASE'))
-local output=assert(os.getenv('ROEG_EXPANSION_RESUME_OUTPUT'))
+local id=assert(os.getenv('ROAG_EXPANSION_RESUME_ID'))
+local phase=assert(os.getenv('ROAG_EXPANSION_RESUME_PHASE'))
+local output=assert(os.getenv('ROAG_EXPANSION_RESUME_OUTPUT'))
 local index,history
 if id==Biomes.order[5] then
     index,history=2,{'core:route/glacial_observatory'}
@@ -38,7 +38,7 @@ function Game.restore(...)
     if phase=='load' then tracked=restored end
     return restored
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw=love.load,love.draw
 local pending,done,continued=false,false,false
 local function write(name,bytes)
@@ -91,9 +91,9 @@ for biome_id in core:biome/glacial_observatory core:biome/fractured_archive core
     name=${biome_id##*/}
     mkdir -p "$output_dir/data-$name"
     for phase in save load; do
-        ROEG_EXPANSION_RESUME_ID="$biome_id" \
-            ROEG_EXPANSION_RESUME_PHASE="$phase" \
-            ROEG_EXPANSION_RESUME_OUTPUT="$output_dir" \
+        ROAG_EXPANSION_RESUME_ID="$biome_id" \
+            ROAG_EXPANSION_RESUME_PHASE="$phase" \
+            ROAG_EXPANSION_RESUME_OUTPUT="$output_dir" \
             XDG_DATA_HOME="$output_dir/data-$name" \
             timeout 30s love "$app" > "$output_dir/$name-$phase.log" 2>&1 || {
                 cat "$output_dir/$name-$phase.log"; exit 1;

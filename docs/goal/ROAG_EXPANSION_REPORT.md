@@ -1,8 +1,8 @@
-# ROEG autonomous expansion report (working)
+# ROAG autonomous expansion report (working)
 
 Status: **COMPLETE for implementation and automated acceptance**. The
 committed-source Git handoff and M0 baseline are verified in
-[`ROEG_EXPANSION_PROGRESS.md`](ROEG_EXPANSION_PROGRESS.md). Human play,
+[`ROAG_EXPANSION_PROGRESS.md`](ROAG_EXPANSION_PROGRESS.md). Human play,
 physical controller/Wacom, speaker listening, native GPU and Mac runtime
 acceptance remain separate checks described in the handoff.
 
@@ -43,8 +43,8 @@ focused floor GUI **3/3**, Studio E03 GUI **3/3**, and isolated two-process
 connected-floor Save/Continue passed. One seed-3 legal action trace entered
 floor 2 in 106 moves with 16 HP; an assisted Warden fixture verified the route
 handoff. This does **not** prove a normal two-floor complete Victory or resolve
-the measured longer critical path. See `ROEG_EXPANSION_PROGRESS.md` and
-`docs/ROEG_MULTIFLOOR_EXPANSION.md` for exact mechanics, limits and commands.
+the measured longer critical path. See `ROAG_EXPANSION_PROGRESS.md` and
+`docs/ROAG_MULTIFLOOR_EXPANSION.md` for exact mechanics, limits and commands.
 
 ## M2 checkpoint
 
@@ -58,7 +58,7 @@ barricades from critical corridors. Established game GUI **24/24**, terrain
 game **3/3**, terrain two-process Studio **3/3**, E03 Studio **3/3**, and
 two-process connected-floor disk Continue passed. A generated barricade break
 restores exactly, and a crystal secondary kill awards ordinary XP/currency.
-See `docs/ROEG_TERRAIN_EXPANSION.md` for rule values and editor controls.
+See `docs/ROAG_TERRAIN_EXPANSION.md` for rule values and editor controls.
 The full goal remains **IN PROGRESS**: ten regular enemies, six additional
 minibosses, three additional classes, 26 boons and Studio audio remain.
 
@@ -75,7 +75,7 @@ ordinary-action trace entered Observatory and killed a regular enemy; the
 legacy single-floor seed-3 legal Victory still passed in 991 actions. These do
 not prove full Victory under the new default two-floor mode. New-biome regular
 encounters and all non-Ruins elites still use temporary inherited content;
-M4 must replace it. See `docs/ROEG_BIOME_EXPANSION.md` and the progress log.
+M4 must replace it. See `docs/ROAG_BIOME_EXPANSION.md` and the progress log.
 
 ## M4 checkpoint
 
@@ -83,7 +83,7 @@ The temporary M3 encounters above are superseded. Six new biome elites and
 ten regular archetypes now use biome-specific stage spawning, unique elite
 footprints, ordinary locked windups, phase changes, canonical friendly fire
 and rewards, and serialized support/summon/charge follow-ups.
-`docs/ROEG_ENCOUNTER_EXPANSION.md` lists their IDs, tactical roles and
+`docs/ROAG_ENCOUNTER_EXPANSION.md` lists their IDs, tactical roles and
 provisional values. Focused headless tests cover pending elite continuation,
 all roles, barricade destruction, healing, summoning, charge traversal,
 same-batch friendly fire and retaliation conditions. The established game GUI
@@ -111,7 +111,7 @@ All four won an ordinary first encounter on default paired-floor seed 3.
 The old single-floor guided stage-one route reached stage two for three
 classes; Arcanist's melee-oriented guide hit a navigation limit. These are
 not default two-floor victories. M6 class-specific transformations and
-class-aware offers are still required. See `docs/ROEG_CLASS_EXPANSION.md`.
+class-aware offers are still required. See `docs/ROAG_CLASS_EXPANSION.md`.
 
 ## M6 checkpoint
 
@@ -122,7 +122,7 @@ Class-specific offers are filtered for each starting class, and old
 Adventurer-only transformations no longer appear for the other three classes.
 Generic stateful prime/speed/ward/mark effects and event predicates power
 terrain, enemy-originated and chain interactions; six class transformations
-modify the ordinary ability pipeline. See `docs/ROEG_BOON_EXPANSION.md` for
+modify the ordinary ability pipeline. See `docs/ROAG_BOON_EXPANSION.md` for
 the full catalogue and provisional strengths.
 
 The headless suite reached **341/341**. Focused tests activate each new boon,
@@ -144,7 +144,7 @@ biomes, room templates and UI/world events. `src/studio_audio*.lua` provides
 versioned WAV/Ogg source storage, original sound synthesis, a visible Studio
 library/cue picker/mixer, checked dry-run/explicit publication, bounded LÖVE
 voices, transitions, F5 refresh and safe built-in fallback. See
-`docs/ROEG_AUDIO_EXPANSION.md` for exact user steps and provenance rules.
+`docs/ROAG_AUDIO_EXPANSION.md` for exact user steps and provenance rules.
 The integrated suite passed **354/354**. The eight established game GUI
 harnesses passed **24/24**, six Studio harnesses **18/18**, and the new audio
 fresh-process GUI smoke **3/3**. The audio smoke includes WAV/Ogg import/audition,
@@ -159,7 +159,7 @@ All four classes have exact-replay **ordinary submitted-action** six-floor
 Victories against the Hollow Regent: Adventurer seed 9 (949 actions, 22 HP),
 Ranger seed 9 (1,050 actions, 8 HP), Arcanist seed 45 (1,269 actions, 6 HP)
 and Berserker seed 28 (1,037 actions, 35 HP). Each includes three paid chest
-purchases. Trace artifacts are `/var/tmp/roeg-m8-<class>.trace` and the
+purchases. Trace artifacts are `/var/tmp/roag-m8-<class>.trace` and the
 headless suite asserts all four. No player/enemy HP mutation, teleport,
 invulnerability or forced route unlock is used by the driver. Final focused
 GUI/disk regression, performance, compatibility and portable handback review
@@ -203,7 +203,7 @@ The physical keyboard, controller, Wacom pen, speakers and native Mac/Windows
 graphics path were not exercised by a person. Callback GUI and source-play
 checks prove LÖVE calls and rendered frames, not perceived sound, controls or
 combat balance. The reproducible Mac handback and 10–20-minute playtest are
-in [`ROEG_EXPANSION_HANDOFF.md`](ROEG_EXPANSION_HANDOFF.md).
+in [`ROAG_EXPANSION_HANDOFF.md`](ROAG_EXPANSION_HANDOFF.md).
 
 ### M8 verification and remaining limits
 

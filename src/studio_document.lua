@@ -172,7 +172,7 @@ function D.move_layer(doc,direction)
 end
 function D.encode(doc)
     D.validate(doc)
-    local out={'ROEG-LAYERS/1\n',u32(#doc.id),doc.id,u32(doc.width),u32(doc.height),u32(doc.next_layer),u32(#doc.layers),u32(#doc.selected),doc.selected}
+    local out={'ROAG-LAYERS/1\n',u32(#doc.id),doc.id,u32(doc.width),u32(doc.height),u32(doc.next_layer),u32(#doc.layers),u32(#doc.selected),doc.selected}
     for _,l in ipairs(doc.layers) do
         out[#out+1]=u32(#l.id);out[#out+1]=l.id;out[#out+1]=u32(#l.name);out[#out+1]=l.name
         out[#out+1]=string.char(l.visible and 1 or 0,l.locked and 1 or 0)
@@ -183,7 +183,7 @@ function D.encode(doc)
     return bytes..u32(b*65536+a)
 end
 function D.decode(bytes)
-    check(type(bytes)=='string' and #bytes<=D.max_bytes+4 and bytes:sub(1,14)=='ROEG-LAYERS/1\n','invalid document header')
+    check(type(bytes)=='string' and #bytes<=D.max_bytes+4 and bytes:sub(1,14)=='ROAG-LAYERS/1\n','invalid document header')
     local a,b=1,0;for i=1,#bytes-4 do a=(a+bytes:byte(i))%65521;b=(b+a)%65521 end
     check(number(bytes,#bytes-3)==b*65536+a,'document checksum mismatch')
     local p=15;local function str()

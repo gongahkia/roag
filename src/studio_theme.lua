@@ -1,7 +1,7 @@
 -- E04 presentation source. Plain, versioned data; no renderer or simulation state.
 local Project=require('src.studio_project')
 local Codec=require('src.persistence')
-local T={schema='roeg-studio-theme/1'}
+local T={schema='roag-studio-theme/1'}
 T.slots={'hud_panel','hp_icon','xp_icon','currency_icon','title_background',
     'pause_background','bitmap_font','hit_effect','boon_effect'}
 local accepted={

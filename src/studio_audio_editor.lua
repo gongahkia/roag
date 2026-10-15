@@ -175,7 +175,7 @@ function E:import_sample()
     local kind=kinds[self.sample_index]
     self.sample_index=self.sample_index%#kinds+1
     local added=self:import_bytes(Samples.wav(kind),'Original sample '..kind,nil,
-        {tags='placeholder',author='ROEG Studio synthesized',
+        {tags='placeholder',author='ROAG Studio synthesized',
             license='Original project asset'})
     if added then self.message=self.message..' · next sample: '..kinds[self.sample_index] end
     return added
@@ -450,7 +450,7 @@ function E:draw()
     local g=love.graphics
     local width,height=g.getDimensions()
     g.setColor(.92,.95,.86)
-    g.print('ROEG STUDIO · SOUND LIBRARY / CONTEXTUAL CUE PICKER',18,14)
+    g.print('ROAG STUDIO · SOUND LIBRARY / CONTEXTUAL CUE PICKER',18,14)
     g.setColor(.62,.79,.77)
     g.print('S save · Esc return · F8 context · Tab view · Ctrl+Z/Y undo/redo',18,38)
     for index,name in ipairs(tabs) do

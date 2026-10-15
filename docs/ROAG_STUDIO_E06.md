@@ -1,4 +1,4 @@
-# ROEG Studio E06 — draft preview, publish readiness and visual refresh
+# ROAG Studio E06 — draft preview, publish readiness and visual refresh
 
 Launch Studio with `love . --studio`. The title bar and workspace path identify
 the editor; plain `love .` still starts the game. Studio projects remain under
@@ -49,7 +49,7 @@ the game after applying. Studio publishes only loose image PNGs and the visual
 manifest through this GUI flow. World, theme, and atlas packs still use the
 separate commands below; these commands also remain available for loose art.
 Copy the absolute save directory shown in Studio and run commands from the
-ROEG checkout. Each first command is a dry run. Add `--overwrite` only after
+ROAG checkout. Each first command is a dry run. Add `--overwrite` only after
 reviewing a reported replacement.
 
 ```sh
@@ -95,7 +95,7 @@ and profile are independent of this workflow.
 TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp sh tests/studio_e06_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/studio_gui_publish_smoke.sh
-TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-e06-game-gui
+TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-e06-game-gui
 ```
 
 The E06 GUI smoke uses isolated LÖVE data and app copies. It captures an

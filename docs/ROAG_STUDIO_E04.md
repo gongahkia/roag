@@ -1,4 +1,4 @@
-# ROEG Studio E04 — HUD, bitmap text, backgrounds and effects
+# ROAG Studio E04 — HUD, bitmap text, backgrounds and effects
 
 Launch `love . --studio`; plain `love .` remains the game. E04 builds on E01's editable PNG artwork and E03's project workspace. It neither opens a gameplay run nor writes active-run or achievement records.
 

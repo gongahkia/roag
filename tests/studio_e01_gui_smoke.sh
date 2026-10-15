@@ -2,16 +2,16 @@
 # Callback-driven E01 drawing, fresh-process reopen, lossless publish and fallback.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-studio-e01-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-studio-e01-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cp -R "$project_dir/examples" "$app/examples"
 cp -R "$project_dir/tools" "$app/tools"
 cat > "$app/main.lua" <<'LUA'
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw,original_update=love.load,love.draw,love.update
 local original_mousemoved=love.mousemoved
 -- A scripted press is not an OS press. Ignore unrelated WSLg cursor motion
@@ -25,8 +25,8 @@ end
 local function scripted_move(x,y,dx,dy)
     return original_mousemoved(x,y,dx,dy)
 end
-local phase=assert(tonumber(os.getenv('ROEG_E01_PHASE')))
-local output=assert(os.getenv('ROEG_E01_OUTPUT'))
+local phase=assert(tonumber(os.getenv('ROAG_E01_PHASE')))
+local output=assert(os.getenv('ROAG_E01_OUTPUT'))
 -- Screenshot callbacks only persist frames; editor inputs run in the next update.
 -- LÖVE/driver rendering may still own the captured image inside the callback.
 local shot,pending,queued_action=0,false,nil
@@ -34,7 +34,7 @@ local function mark(label)
     local file=assert(io.open(output..'/trace-phase'..phase..'.log','ab'))
     file:write(label..'\n');file:close()
 end
-local function state() return assert(love.roegStudioState()) end
+local function state() return assert(love.roagStudioState()) end
 local function pixel_xy(px,py)
     local c=assert(state().canvas)
     local x,y=c:origin();return x+px*c.zoom+math.floor(c.zoom/2),y+py*c.zoom+math.floor(c.zoom/2)
@@ -180,8 +180,8 @@ function love.load(args)
         local outlined=assert(love.filesystem.read('studio/projects/import_project/'..a.derived))
         local ow,oh=require('src.studio_project').png_dimensions(outlined)
         assert(ow==32 and oh==32,'outlined export is not 2x')
-        assert(not love.filesystem.getInfo('active-a.roeg') and
-            not love.filesystem.getInfo('profile-a.roeg'),
+        assert(not love.filesystem.getInfo('active-a.roag') and
+            not love.filesystem.getInfo('profile-a.roag'),
             'Studio touched gameplay persistence')
     elseif phase==7 then
         love.keypressed('o');love.keypressed('return');love.keypressed('e')
@@ -192,9 +192,9 @@ function love.load(args)
         local image=love.image.newImageData(love.filesystem.newFileData(bytes,'outlined.png'))
         assert(image:getWidth()==32 and image:getHeight()==32)
     else
-        assert(love.roegStudioState()==nil)
-        if phase==5 then assert(love.roegAssetStatus()=='loaded' and love.roegAssetResolved('core:actor/adventurer'))
-        else assert(love.roegAssetStatus()=='absent' and not love.roegAssetResolved('core:actor/adventurer')) end
+        assert(love.roagStudioState()==nil)
+        if phase==5 then assert(love.roagAssetStatus()=='loaded' and love.roagAssetResolved('core:actor/adventurer'))
+        else assert(love.roagAssetStatus()=='absent' and not love.roagAssetResolved('core:actor/adventurer')) end
     end
 end
 function love.update(dt)
@@ -271,8 +271,8 @@ function love.draw()
 end
 LUA
 run_phase() {
-    ROEG_E01_PHASE="$1" ROEG_E01_OUTPUT="$output_dir" \
-        XDG_DATA_HOME="$output_dir/data" ROEG_GUI_AUTOSTART="${2:-0}" \
+    ROAG_E01_PHASE="$1" ROAG_E01_OUTPUT="$output_dir" \
+        XDG_DATA_HOME="$output_dir/data" ROAG_GUI_AUTOSTART="${2:-0}" \
         timeout 25s love "$app" ${3:-} > "$output_dir/phase$1.log" 2>&1
 }
 run_phase 1 0 --studio

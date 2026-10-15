@@ -43,6 +43,6 @@ TMPDIR=/var/tmp sh tests/expansion_floor_disk_resume.sh
 
 The GUI smokes use callback-driven LÖVE in isolated save directories. They do
 not represent a human keyboard or pen test. The terrain source definitions are
-versioned independently as `roeg-terrain/1`; active-run schema stays
-`roeg-run/11` because old concrete maps are preserved and new fields are
+versioned independently as `roag-terrain/1`; active-run schema stays
+`roag-run/11` because old concrete maps are preserved and new fields are
 optional on restore.

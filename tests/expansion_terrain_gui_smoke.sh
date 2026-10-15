@@ -3,8 +3,8 @@
 # contact damage through an ordinary key action. It is not a physical playtest.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-terrain-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-terrain-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -24,9 +24,9 @@ function Game.submit(state,intent)
     last_events=events
     return committed,reason,events,preview
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
-local output=assert(os.getenv('ROEG_TERRAIN_GUI_OUTPUT'))
+local output=assert(os.getenv('ROAG_TERRAIN_GUI_OUTPUT'))
 local phase,pending,direction,initial_hp=1,false,nil,nil
 local first_bytes
 local function capture(image,path)
@@ -91,7 +91,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_TERRAIN_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 \
+ROAG_TERRAIN_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
     timeout 30s love "$output_dir"
 test -s "$output_dir/terrain1.png"
 test -s "$output_dir/terrain2.png"

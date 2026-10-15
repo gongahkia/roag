@@ -22,7 +22,7 @@ boundary finish before terminal Victory is installed. If player and Regent
 both die during that resolution, the player death wins the terminal result.
 No Regent XP, currency or chest is added after the terminal blow.
 
-`roeg-run/10` and `roeg-content/8` intentionally reject older active saves.
+`roag-run/10` and `roag-content/8` intentionally reject older active saves.
 The two-generation persistence envelope is unchanged. A finale Save & Quit
 stores the concrete chamber, boss phase/HP, locked attacks, delayed effects,
 fog, player build and frozen stages. Victory and defeat write terminal records
@@ -32,7 +32,7 @@ Verification commands:
 
 ```sh
 luajit tests/run.lua
-luajit tests/finale_playthrough.lua 3 /tmp/roeg-finale-seed-3.trace
+luajit tests/finale_playthrough.lua 3 /tmp/roag-finale-seed-3.trace
 luajit tests/profile_finale.lua 3
 luajit tests/finale_corpus.lua
 sh tests/finale_gui_smoke.sh

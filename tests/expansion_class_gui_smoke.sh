@@ -2,14 +2,14 @@
 # Four isolated title -> class choice -> New Run -> attack callback sessions.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-class-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-class-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Classes=require("src.classes")
-local chosen=assert(tonumber(os.getenv("ROEG_CLASS_INDEX")))
+local chosen=assert(tonumber(os.getenv("ROAG_CLASS_INDEX")))
 local target=Classes.order[chosen]
 local tracked,last_attack
 local old_new,old_submit=Game.new_stage,Game.submit
@@ -26,7 +26,7 @@ function Game.submit(state,intent)
     end
     return ok,reason,events,preview
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
 local old_print,old_printf=love.graphics.print,love.graphics.printf
 local labels={}
@@ -36,7 +36,7 @@ end
 love.graphics.printf=function(v,...)
     labels[#labels+1]=tostring(v);return old_printf(v,...)
 end
-local out=assert(os.getenv("ROEG_CLASS_OUTPUT"))
+local out=assert(os.getenv("ROAG_CLASS_OUTPUT"))
 local phase,pending=1,false
 local function has(fragment)
     for _,label in ipairs(labels) do
@@ -79,7 +79,7 @@ end
 LUA
 for index in 1 2 3 4; do
     mkdir -p "$output_dir/data-$index"
-    ROEG_CLASS_INDEX="$index" ROEG_CLASS_OUTPUT="$output_dir" \
+    ROAG_CLASS_INDEX="$index" ROAG_CLASS_OUTPUT="$output_dir" \
         XDG_DATA_HOME="$output_dir/data-$index" \
         timeout 25s love "$output_dir" >"$output_dir/class-$index.log" 2>&1
     test -s "$output_dir/class-$index-1.png"

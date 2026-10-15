@@ -2,7 +2,7 @@
 # Synthetic published PNG corpus; measures compilation separately from drawing.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-out=$(mktemp -d "${TMPDIR:-/tmp}/roeg-studio-e05-stress-XXXXXX")
+out=$(mktemp -d "${TMPDIR:-/tmp}/roag-studio-e05-stress-XXXXXX")
 app="$out/app"
 mkdir -p "$app/assets/studio/sources" "$out/data"
 cp "$project_dir/main.lua" "$project_dir/conf.lua" "$app/"
@@ -41,7 +41,7 @@ else
         -o "$out/build-time.txt" timeout 40s love "$app" --atlas-build --atlas-max=128 \
         >"$out/build.log" 2>&1
 fi
-save_dir="$out/data/love/roeg-foundation"
+save_dir="$out/data/love/roag-foundation"
 if [ ! -d "$save_dir/studio/atlas-build" ]; then
     candidate=$(sed -n 's/^Atlas candidate: .* page(s), \(.*\)studio\/atlas-build\/$/\1/p' "$out/build.log")
     save_dir=${candidate%/}

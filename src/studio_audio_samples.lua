@@ -63,7 +63,7 @@ function S.showcase(project_id)
             local bytes=S.wav(kind)
             local id='studio:audio/original_'..kind
             sound=Audio.make_sound(project_id,id,'Original '..kind..' placeholder',
-                bytes,{author='ROEG Studio synthesized',license='Original project asset',
+                bytes,{author='ROAG Studio synthesized',license='Original project asset',
                     tags='placeholder'})
             pack.sounds[#pack.sounds+1]=sound
             source[sound.path]=bytes

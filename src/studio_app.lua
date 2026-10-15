@@ -44,7 +44,7 @@ function App.new()
         {__index=App})
 end
 function App:load()
-    love.window.setTitle('ROEG Studio — authored assets')
+    love.window.setTitle('ROAG Studio — authored assets')
     love.window.setMode(love.graphics.getWidth(),love.graphics.getHeight(),{resizable=true,minwidth=1024,minheight=640})
     love.graphics.setBackgroundColor(0.075,0.095,0.11)
     self.workspace=love.filesystem.getSaveDirectory()..'/studio/projects'
@@ -1056,7 +1056,7 @@ function App:draw()
     end
     local g=love.graphics
     g.setColor(0.92,0.95,0.88)
-    g.print('ROEG STUDIO  ·  authored asset workspace',24,20)
+    g.print('ROAG STUDIO  ·  authored asset workspace',24,20)
     g.setColor(0.55,0.78,0.76)
     g.print('Editor mode — no game simulation or profile writes',24,43)
     g.setColor(0.18,0.25,0.27);g.rectangle('fill',18,72,900,30)

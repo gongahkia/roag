@@ -2,10 +2,10 @@
 # Two separate LÖVE processes share an isolated platform save directory.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-persistence-gui-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-persistence-gui-XXXXXX")
 data_dir="$output_dir/data"
 mkdir -p "$data_dir"
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -27,10 +27,10 @@ function Game.submit(state,...)
     tracked=state
     return old_submit(state,...)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
-local phase=assert(os.getenv('ROEG_PERSIST_PHASE'))
-local output_dir=assert(os.getenv('ROEG_PERSIST_OUTPUT'))
+local phase=assert(os.getenv('ROAG_PERSIST_PHASE'))
+local output_dir=assert(os.getenv('ROAG_PERSIST_OUTPUT'))
 local captured,title_pending,continued=false,false,false
 local labels={}
 local function bytes(path,value)
@@ -115,8 +115,8 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_PERSIST_PHASE=save ROEG_PERSIST_OUTPUT="$output_dir" XDG_DATA_HOME="$data_dir" timeout 25s love "$output_dir"
-ROEG_PERSIST_PHASE=load ROEG_PERSIST_OUTPUT="$output_dir" XDG_DATA_HOME="$data_dir" timeout 25s love "$output_dir"
+ROAG_PERSIST_PHASE=save ROAG_PERSIST_OUTPUT="$output_dir" XDG_DATA_HOME="$data_dir" timeout 25s love "$output_dir"
+ROAG_PERSIST_PHASE=load ROAG_PERSIST_OUTPUT="$output_dir" XDG_DATA_HOME="$data_dir" timeout 25s love "$output_dir"
 test -s "$output_dir/save.png"
 test -s "$output_dir/title.png"
 test -s "$output_dir/load.png"

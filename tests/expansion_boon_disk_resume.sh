@@ -2,16 +2,16 @@
 # New plain-data boon prime survives real Save & Quit / Continue LÖVE processes.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-m6-resume-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-m6-resume-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 mkdir -p "$output_dir/data"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Persistence=require("src.persistence")
-local phase=assert(os.getenv("ROEG_M6_RESUME_PHASE"))
-local out=assert(os.getenv("ROEG_M6_RESUME_OUTPUT"))
+local phase=assert(os.getenv("ROAG_M6_RESUME_PHASE"))
+local out=assert(os.getenv("ROAG_M6_RESUME_OUTPUT"))
 local tracked
 local old_new,old_restore=Game.new_stage,Game.restore
 function Game.new_stage(seed,options)
@@ -24,7 +24,7 @@ function Game.restore(...)
     if phase=="load" then tracked=restored end
     return restored
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_draw=love.load,love.draw
 local function write(name,bytes)
     local f=assert(io.open(out.."/"..name,"wb"));f:write(bytes);f:close()
@@ -75,10 +75,10 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_M6_RESUME_PHASE=save ROEG_M6_RESUME_OUTPUT="$output_dir" \
+ROAG_M6_RESUME_PHASE=save ROAG_M6_RESUME_OUTPUT="$output_dir" \
     XDG_DATA_HOME="$output_dir/data" timeout 25s love "$output_dir" \
     >"$output_dir/save.log" 2>&1
-ROEG_M6_RESUME_PHASE=load ROEG_M6_RESUME_OUTPUT="$output_dir" \
+ROAG_M6_RESUME_PHASE=load ROAG_M6_RESUME_OUTPUT="$output_dir" \
     XDG_DATA_HOME="$output_dir/data" timeout 25s love "$output_dir" \
     >"$output_dir/load.log" 2>&1
 test -s "$output_dir/save.png"

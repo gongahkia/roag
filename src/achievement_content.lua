@@ -1,5 +1,5 @@
 -- Authored, stable permanent progression content. Runtime progress lives elsewhere.
-local A={version="roeg-achievements/1"}
+local A={version="roag-achievements/1"}
 A.order={"core:achievement/first_guardian","core:achievement/uncovered_truth",
     "core:achievement/chain_reaction","core:achievement/regents_fall"}
 A.definitions={

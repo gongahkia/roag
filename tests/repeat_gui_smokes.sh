@@ -3,7 +3,7 @@
 set -u
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 rounds=${1:-5}
-output_dir=${2:-$(mktemp -d "${TMPDIR:-/tmp}/roeg-gui-repeat-XXXXXX")}
+output_dir=${2:-$(mktemp -d "${TMPDIR:-/tmp}/roag-gui-repeat-XXXXXX")}
 mkdir -p "$output_dir"
 manifest="$output_dir/results.tsv"
 printf 'round\tharness\texit\tlog\n' > "$manifest"

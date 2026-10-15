@@ -1,12 +1,12 @@
 local Document=require('src.studio_document')
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw=love.load,love.draw
-local mode=assert(os.getenv('ROEG_E06_STUDIO_MODE'))
-local output=assert(os.getenv('ROEG_E06_OUTPUT'))
+local mode=assert(os.getenv('ROAG_E06_STUDIO_MODE'))
+local output=assert(os.getenv('ROAG_E06_OUTPUT'))
 local phase=1
 local pending=false
 local before_image
-local function state() return assert(love.roegStudioState()) end
+local function state() return assert(love.roagStudioState()) end
 local function input(value)
     for _=1,100 do love.keypressed('backspace') end
     love.textinput(value);love.keypressed('return')

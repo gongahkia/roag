@@ -3,8 +3,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-reward-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-reward-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -22,9 +22,9 @@ function Game.new(seed, map_id)
     chest = Game.spawn_chest(tracked,"core:chest/standard",5,3)
     return tracked
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load, original_update, original_draw = love.load, love.update, love.draw
-local output_dir = assert(os.getenv("ROEG_REWARD_GUI_OUTPUT"))
+local output_dir = assert(os.getenv("ROAG_REWARD_GUI_OUTPUT"))
 local phase, pending, labels = 1, false, {}
 local old_print, old_printf = love.graphics.print, love.graphics.printf
 love.graphics.print = function(value, ...)
@@ -43,7 +43,7 @@ local function has(fragment)
 end
 local function settle()
     local steps=0
-    while love.roegPlaybackPending() do
+    while love.roagPlaybackPending() do
         original_update(0.5)
         steps=steps+1
         assert(steps<100,"reward playback failed to drain")
@@ -116,6 +116,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_REWARD_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_REWARD_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4; do test -s "$output_dir/phase$phase.png"; done
 printf 'Reward GUI smoke passed: four screenshots in %s\n' "$output_dir"

@@ -16,9 +16,9 @@ are unchanged.
 ```sh
 TMPDIR=/var/tmp luajit tests/run.lua
 TMPDIR=/var/tmp luajit tests/tranche15_probe.lua 20
-TMPDIR=/var/tmp luajit tests/finale_playthrough.lua 3 /var/tmp/roeg-t15-legal.trace
+TMPDIR=/var/tmp luajit tests/finale_playthrough.lua 3 /var/tmp/roag-t15-legal.trace
 TMPDIR=/var/tmp luajit tests/profile_headless.lua 30
-TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-t15-game-gui
+TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-t15-game-gui
 TMPDIR=/var/tmp sh tests/tranche15_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/profile_gui.sh
 TMPDIR=/var/tmp sh tests/studio_e05_profile.sh

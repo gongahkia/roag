@@ -342,7 +342,7 @@ function E:draw(image_for)
     local g=love.graphics
     local room=self:room()
     local width,height=g.getDimensions()
-    g.setColor(0.92,0.95,0.88);g.print('ROEG STUDIO · WORLD / ROOM EDITOR',20,14)
+    g.setColor(0.92,0.95,0.88);g.print('ROAG STUDIO · WORLD / ROOM EDITOR',20,14)
     g.setColor(0.6,0.8,0.8)
     g.print('N new  D duplicate  X delete  S save  Esc assets  Ctrl+Z/Y undo/redo',20,39)
     g.setColor(0.14,0.20,0.21);g.rectangle('fill',6,76,177,height-130)

@@ -1,6 +1,6 @@
 -- Authored boon data. Behavior names are implemented by the small shared resolver.
 local Catalog = {}
-Catalog.version = "roeg-boons/3"
+Catalog.version = "roag-boons/3"
 Catalog.rarities = {"common", "uncommon", "rare", "legendary"}
 Catalog.order = {
     "core:boon/storm_conductor", "core:boon/detonation_bloom",

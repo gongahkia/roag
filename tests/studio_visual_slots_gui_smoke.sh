@@ -2,10 +2,10 @@
 # Native draw-path check in a copied app with a disposable LÖVE identity.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-visual-slots-XXXXXX")
+output=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-visual-slots-XXXXXX")
 app="$output/app"
 mkdir -p "$app/assets/studio/sources" "$output/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 APP="$app" luajit - <<'LUA'
@@ -67,18 +67,18 @@ function VisualAssets:resolve(binding)
     if handle then seen[binding]=(seen[binding] or 0)+1 end
     return handle
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_update,original_draw=love.load,love.update,love.draw
-local output=assert(os.getenv('ROEG_VISUAL_OUTPUT'))
+local output=assert(os.getenv('ROAG_VISUAL_OUTPUT'))
 local phase=1
 function love.load(...)
     original_load(...)
-    assert(state and queue and love.roegAssetStatus()=='loaded')
+    assert(state and queue and love.roagAssetStatus()=='loaded')
     Game.set_boon_stacks(state,state.player_id,
         'core:boon/storm_conductor','common',1)
-    assert(love.roegAssetResolved('core:actor/adventurer/attack'))
-    assert(love.roegAssetResolved('core:actor/adventurer/hurt'))
-    assert(love.roegAssetResolved('core:boon/storm_conductor/icon'))
+    assert(love.roagAssetResolved('core:actor/adventurer/attack'))
+    assert(love.roagAssetResolved('core:actor/adventurer/hurt'))
+    assert(love.roagAssetResolved('core:boon/storm_conductor/icon'))
 end
 function love.update(_) original_update(0) end
 function love.draw(...)
@@ -150,7 +150,7 @@ function love.draw(...)
     phase=phase+1
 end
 LUA
-ROEG_GUI_AUTOSTART=1 ROEG_VISUAL_OUTPUT="$output" \
+ROAG_GUI_AUTOSTART=1 ROAG_VISUAL_OUTPUT="$output" \
     XDG_DATA_HOME="$output/data" timeout 25s love "$app" >"$output/game.log" 2>&1
 for phase in 1 2 3 4 5 6 7; do test -s "$output/phase$phase.tga"; done
 printf 'Visual slots GUI passed: %s\n' "$output"

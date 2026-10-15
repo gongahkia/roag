@@ -2,10 +2,10 @@
 # Isolated E04 art -> Studio theme -> publish -> real game -> fallback.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-studio-e04-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-studio-e04-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cp -R "$project_dir/examples" "$app/examples"
@@ -14,8 +14,8 @@ cat > "$app/main.lua" <<'LUA'
 local Game=require('src.game')
 local Playback=require('src.playback')
 local Persistence=require('src.persistence')
-local phase=assert(tonumber(os.getenv('ROEG_E04_PHASE')))
-local output=assert(os.getenv('ROEG_E04_OUTPUT'))
+local phase=assert(tonumber(os.getenv('ROAG_E04_PHASE')))
+local output=assert(os.getenv('ROAG_E04_OUTPUT'))
 local tracked,events,queue
 local original_new_stage,original_submit,original_add=Game.new_stage,Game.submit,Playback.add
 local original_restore=Game.restore
@@ -35,7 +35,7 @@ end
 Playback.add=function(q,...)
     queue=q;return original_add(q,...)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
 local shot,pending,part=0,false,1
 local effect_snapshot
@@ -45,7 +45,7 @@ local effect_snapshot
 function love.update(dt)
     return old_update(phase==4 and 0 or dt)
 end
-local function state()return assert(love.roegStudioState())end
+local function state()return assert(love.roagStudioState())end
 local function replace_text(value)
     for _=1,120 do love.keypressed('backspace') end
     love.textinput(value);love.keypressed('return')
@@ -127,8 +127,8 @@ function love.load(args)
         local source=assert(love.filesystem.read('studio/projects/ui_fixture/'..icon.document))
         local written=assert(io.open(output..'/icon-source.rgba','wb'))
         written:write(source);written:close()
-        assert(not love.filesystem.getInfo('active-a.roeg') and
-            not love.filesystem.getInfo('profile-a.roeg'))
+        assert(not love.filesystem.getInfo('active-a.roag') and
+            not love.filesystem.getInfo('profile-a.roag'))
         local file=assert(io.open(output..'/save_dir.txt','wb'))
         file:write(love.filesystem.getSaveDirectory());file:close()
     elseif phase==2 then
@@ -152,10 +152,10 @@ function love.load(args)
         love.keypressed('tab');love.keypressed('v');love.keypressed('p')
         assert(s.theme_editor.viewport==2 or s.theme_editor.viewport==1)
     elseif phase==3 then
-        assert(love.roegThemeStatus()=='loaded',love.roegThemeStatus())
-        assert(love.roegAssetIdResolved('studio:ui/heart'))
+        assert(love.roagThemeStatus()=='loaded',love.roagThemeStatus())
+        assert(love.roagAssetIdResolved('studio:ui/heart'))
     elseif phase==4 then
-        assert(love.roegThemeStatus()=='loaded')
+        assert(love.roagThemeStatus()=='loaded')
         assert(tracked and tracked.clock==0)
         love.keypressed('space')
         assert(tracked.clock==100)
@@ -173,9 +173,9 @@ function love.load(args)
             'combat playback never reached hit effect')
         effect_snapshot=Persistence.encode(Game.snapshot(tracked))
     elseif phase==5 then
-        assert(love.roegThemeStatus()=='absent')
+        assert(love.roagThemeStatus()=='absent')
     elseif phase==7 then
-        assert(love.roegThemeStatus():find('incompatible',1,true),
+        assert(love.roagThemeStatus():find('incompatible',1,true),
             'valid incompatible optional theme did not fall back')
         love.keypressed('c')
         assert(tracked,'Continue failed with incompatible optional theme')
@@ -184,10 +184,10 @@ function love.load(args)
         assert(Persistence.encode(Game.snapshot(tracked))==expected,
             'incompatible visual pack changed active-run continuation')
     elseif phase==8 then
-        assert(love.roegThemeStatus():find('corrupt',1,true),
+        assert(love.roagThemeStatus():find('corrupt',1,true),
             'damaged optional theme did not fall back')
     elseif phase==6 then
-        assert(love.roegThemeStatus()=='absent')
+        assert(love.roagThemeStatus()=='absent')
         love.keypressed('c')
         assert(tracked,'Continue failed without optional theme')
         local file=assert(io.open(output..'/saved.snapshot','rb'))
@@ -212,7 +212,7 @@ function love.draw()
     elseif phase==2 then screenshot('studio-reopened')
     elseif phase==3 then
         if part==1 then
-            assert(love.roegThemeDrawCounts().background>0)
+            assert(love.roagThemeDrawCounts().background>0)
             screenshot('game-title',function()
                 part=2;love.keypressed('n')
                 assert(tracked and tracked.clock==0)
@@ -220,7 +220,7 @@ function love.draw()
                 f:write(Persistence.encode(Game.snapshot(tracked)));f:close()
             end)
         else
-            local counts=love.roegThemeDrawCounts()
+            local counts=love.roagThemeDrawCounts()
             assert(counts.panel>0 and counts.icon>0 and counts.glyph>0,
                 'themed HUD/icon/bitmap text did not render')
             local f=assert(io.open(output..'/saved.snapshot','rb'))
@@ -230,7 +230,7 @@ function love.draw()
             screenshot('game-hud')
         end
     elseif phase==4 then
-        assert(love.roegThemeDrawCounts().effect>0,
+        assert(love.roagThemeDrawCounts().effect>0,
             'genuine DamageTaken did not render authored effect')
         assert(Persistence.encode(Game.snapshot(tracked))==effect_snapshot,
             'authored effect draw changed authoritative state')
@@ -246,8 +246,8 @@ run_phase() {
     shift
     autostart=0
     if [ "$number" -eq 4 ]; then autostart=1; fi
-    ROEG_E04_PHASE="$number" ROEG_E04_OUTPUT="$output_dir" \
-        ROEG_GUI_AUTOSTART="$autostart" XDG_DATA_HOME="$output_dir/data" \
+    ROAG_E04_PHASE="$number" ROAG_E04_OUTPUT="$output_dir" \
+        ROAG_GUI_AUTOSTART="$autostart" XDG_DATA_HOME="$output_dir/data" \
         timeout 25s love "$app" "$@" \
         >"$output_dir/phase$number.log" 2>&1
 }
@@ -279,7 +279,7 @@ local payload=Codec.encode(theme)
 local a,b=1,0
 for i=1,#payload do a=(a+payload:byte(i))%65521;b=(b+a)%65521 end
 local f=assert(io.open(path,'wb'))
-f:write(('ROEG-STUDIO-PUBLISHED-THEME/1\n2\n%d\n%08x\n'):format(
+f:write(('ROAG-STUDIO-PUBLISHED-THEME/1\n2\n%d\n%08x\n'):format(
     #payload,b*65536+a)..payload);f:close()
 LUA
 )

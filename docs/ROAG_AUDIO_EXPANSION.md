@@ -1,4 +1,4 @@
-# ROEG Studio audio authoring (M7)
+# ROAG Studio audio authoring (M7)
 
 Launch `love . --studio`. Open or create a Studio project, then press **Y Audio**
 on the project screen. **F8** opens the same contextual Cue Picker from a room
@@ -50,7 +50,7 @@ project screen; it varies by OS and LÖVE filesystem identity.
 
 ## Publish and play
 
-Save the Studio project. From the ROEG checkout, inspect the proposed audio
+Save the Studio project. From the ROAG checkout, inspect the proposed audio
 files and metadata record:
 
 ```sh

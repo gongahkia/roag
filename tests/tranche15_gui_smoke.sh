@@ -2,8 +2,8 @@
 # Callback-driven check that simultaneous locked attacks are readable in one beat.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-t15-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-t15-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -22,9 +22,9 @@ function Playback.add(queue,events,player_id)
     playback=queue
     return original_add(queue,events,player_id)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_update,original_draw=love.load,love.update,love.draw
-local output=assert(os.getenv('ROEG_T15_GUI_OUTPUT'))
+local output=assert(os.getenv('ROAG_T15_GUI_OUTPUT'))
 local phase,pending,next_action=1,false,nil
 local printed={}
 local old_printf=love.graphics.printf
@@ -92,7 +92,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_T15_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 \
+ROAG_T15_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
     timeout -k 3s 20s love "$output_dir" > "$output_dir/love.log" 2>&1 || {
         cat "$output_dir/love.log" >&2
         printf 'Tranche 15 GUI artifacts: %s\n' "$output_dir" >&2

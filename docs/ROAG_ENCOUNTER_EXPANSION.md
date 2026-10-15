@@ -1,4 +1,4 @@
-# ROEG expansion encounters (M4)
+# ROAG expansion encounters (M4)
 
 The seven biome elites and sixteen ordinary enemy identities use the existing
 integer-time scheduler, locked `WindupStarted` cells, batched damage and death

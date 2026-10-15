@@ -2,8 +2,8 @@
 # Callback-driven GUI check for Burning, Longblade geometry and the playback input gate.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-build-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-build-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -30,9 +30,9 @@ function Playback.add(p,...)
     queue=p
     return original_add(p,...)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
-local out=assert(os.getenv('ROEG_BUILD_GUI_OUTPUT'))
+local out=assert(os.getenv('ROAG_BUILD_GUI_OUTPUT'))
 local phase,pending=1,false
 local function has(kind,target_id)
     for _,event in ipairs(events or {}) do
@@ -84,6 +84,6 @@ function love.draw(...)
     if phase<=4 and not pending then save() end
 end
 LUA
-ROEG_BUILD_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_BUILD_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4; do test -s "$output_dir/phase$phase.png"; done
 printf 'Build GUI smoke passed: Burning, Longblade and input gate in %s\n' "$output_dir"

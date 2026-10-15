@@ -3,8 +3,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-boon-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-boon-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -34,9 +34,9 @@ function Playback.add(queue, output, player_id)
     return original_add(queue, output, player_id)
 end
 
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load, original_update, original_draw = love.load, love.update, love.draw
-local output_dir = assert(os.getenv("ROEG_BOON_GUI_OUTPUT"))
+local output_dir = assert(os.getenv("ROAG_BOON_GUI_OUTPUT"))
 local phase, pending = 1, false
 local function save()
     pending = true
@@ -90,6 +90,6 @@ function love.draw(...)
 end
 LUA
 
-ROEG_BOON_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_BOON_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3; do test -s "$output_dir/phase$phase.png"; done
 printf 'Boon GUI smoke passed: three screenshots in %s\n' "$output_dir"

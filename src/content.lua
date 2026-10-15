@@ -6,7 +6,7 @@ local EliteAI = require("src.elite_ai")
 local RegularAI = require("src.regular_ai")
 local Classes = require("src.classes")
 
-Content.version = "roeg-content/8"
+Content.version = "roag-content/8"
 
 local tiles = Terrain.definitions
 

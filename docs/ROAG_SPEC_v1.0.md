@@ -1,8 +1,8 @@
-# ROEG — Architecture & Gameplay Specification v1.0
+# ROAG — Architecture & Gameplay Specification v1.0
 
 **Status:** Agreed design baseline, with explicitly identified provisional values.  
 **Date:** 10 October 2026  
-**Project:** ROEG (R-O-E-G), a fresh codebase; do not inherit ROAG's implementation.  
+**Project:** ROAG (R-O-A-G), a fresh codebase separate from the older unrelated game.  
 **Engine:** LÖVE 11.5 / Lua, subject to a local toolchain check before implementation.  
 **Purpose:** Authoritative reference for staged implementation and design reviews.
 

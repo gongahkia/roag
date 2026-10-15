@@ -124,7 +124,7 @@ return function(test,equal)
         local a,b=1,0
         for i=1,#payload do a=(a+payload:byte(i))%65521;b=(b+a)%65521 end
         files['studio/projects/e04_fixture/theme-b.txt']=
-            ('ROEG-STUDIO-THEME-SOURCE/1\n2\n%d\n%08x\n'):format(
+            ('ROAG-STUDIO-THEME-SOURCE/1\n2\n%d\n%08x\n'):format(
                 #payload,b*65536+a)..payload
         local opened,reason=store:open('e04_fixture',assets)
         assert(not opened and reason:find('incompatible'))
@@ -157,7 +157,7 @@ return function(test,equal)
         local a,b=1,0
         for i=1,#payload do a=(a+payload:byte(i))%65521;b=(b+a)%65521 end
         files['assets/studio/theme-b.pack']=
-            ('ROEG-STUDIO-PUBLISHED-THEME/1\n2\n%d\n%08x\n'):format(
+            ('ROAG-STUDIO-PUBLISHED-THEME/1\n2\n%d\n%08x\n'):format(
                 #payload,b*65536+a)..payload
         local loaded,reason=Store.inspect_published(read)
         assert(not loaded and reason:find('incompatible'))

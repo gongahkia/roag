@@ -20,12 +20,12 @@ local add=Playback.add
 Playback.add=function(p,...)
     queue=p;return add(p,...)
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw=love.load,love.draw
 local times,intervals={},{}
 local frame=0
-local output=assert(os.getenv('ROEG_E05_PROFILE_OUTPUT'))
-local mode=assert(os.getenv('ROEG_E05_PROFILE_MODE'))
+local output=assert(os.getenv('ROAG_E05_PROFILE_OUTPUT'))
+local mode=assert(os.getenv('ROAG_E05_PROFILE_MODE'))
 local function percentile(list,p)
     table.sort(list)
     return list[math.max(1,math.min(#list,math.ceil(#list*p)))]
@@ -40,7 +40,7 @@ function love.load(args)
         Playback.update(queue,.1)
     end
     assert(Playback.current(queue).kind=='DamageTaken')
-    assert(love.roegAssetBacking('studio:ui/heart')==mode)
+    assert(love.roagAssetBacking('studio:ui/heart')==mode)
 end
 function love.update(dt)
     if frame>0 then intervals[#intervals+1]=dt*1000 end
@@ -73,8 +73,8 @@ for mode in atlas loose; do
         (cd "$app" && luajit tools/studio_atlas_publish.lua --disable --apply \
             >"$out/profile-disable.log")
     fi
-    ROEG_GUI_AUTOSTART=1 ROEG_E05_PROFILE_MODE="$mode" \
-        ROEG_E05_PROFILE_OUTPUT="$out/profile-$mode.txt" \
+    ROAG_GUI_AUTOSTART=1 ROAG_E05_PROFILE_MODE="$mode" \
+        ROAG_E05_PROFILE_OUTPUT="$out/profile-$mode.txt" \
         XDG_DATA_HOME="$e04/data" timeout 25s love "$app" \
         >"$out/profile-$mode.log" 2>&1
     test -s "$out/profile-$mode.txt"

@@ -3,8 +3,8 @@
 # their real locked enemy telegraphs, and the route UI. No real keyboard play.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-biome-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-biome-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -14,7 +14,7 @@ local Biomes=require("src.biomes")
 local Content=require("src.content")
 local Scheduler=require("src.scheduler")
 local Visibility=require("src.visibility")
-local id=assert(os.getenv("ROEG_BIOME_GUI_ID"))
+local id=assert(os.getenv("ROAG_BIOME_GUI_ID"))
 local b=assert(Biomes.get(id))
 local index=id==Biomes.order[4] and 3 or 2
 local history=index==3 and {"core:route/fungal_hollows","core:route/ashen_bastion"}
@@ -26,13 +26,13 @@ function Game.new_stage(seed,options)
         biome_id=id,route_history=history}})
     return tracked
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
 local old_print,old_printf,old_color=love.graphics.print,
     love.graphics.printf,love.graphics.setColor
 local labels,scenery,telegraph={},0,0
 local phase,pending=1,false
-local out=assert(os.getenv("ROEG_BIOME_GUI_OUTPUT"))
+local out=assert(os.getenv("ROAG_BIOME_GUI_OUTPUT"))
 love.graphics.print=function(v,...)
     labels[#labels+1]=tostring(v);return old_print(v,...)
 end
@@ -153,8 +153,8 @@ end
 LUA
 
 for name in fungal_hollows sunken_aqueduct ashen_bastion; do
-    ROEG_BIOME_GUI_ID="core:biome/$name" ROEG_BIOME_GUI_OUTPUT="$output_dir" \
-      ROEG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
+    ROAG_BIOME_GUI_ID="core:biome/$name" ROAG_BIOME_GUI_OUTPUT="$output_dir" \
+      ROAG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"
 done
 for strategy in warrens canals courtyards; do
     for frame in 1 2 3; do test -s "$output_dir/$strategy-$frame.png"; done

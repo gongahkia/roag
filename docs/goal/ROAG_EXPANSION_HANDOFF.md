@@ -1,4 +1,4 @@
-# ROEG expansion: Windows/WSL to Mac handback
+# ROAG expansion: Windows/WSL to Mac handback
 
 This document is for the single autonomous expansion goal. It does not change
 Git history, active-run saves, permanent profiles or Studio projects.
@@ -7,14 +7,14 @@ Git history, active-run saves, permanent profiles or Studio projects.
 
 The Mac→Windows source handoff was verified from the user's GitHub push/pull
 confirmation and Git ancestry. The exact preflight evidence is in
-[`ROEG_EXPANSION_PROGRESS.md`](ROEG_EXPANSION_PROGRESS.md). The current
+[`ROAG_EXPANSION_PROGRESS.md`](ROAG_EXPANSION_PROGRESS.md). The current
 expansion working-tree edits are **local changes**. They will not reach another
 computer until the user deliberately transfers them through a chosen source
 workflow. This project does not automatically push, commit, reset or merge.
 
 Git does not transfer ignored or uncommitted files, nor the LÖVE save directory.
 The active run, permanent profile and Studio project workspace remain under
-`love.filesystem.getSaveDirectory()` with identity `roeg-foundation`; Studio
+`love.filesystem.getSaveDirectory()` with identity `roag-foundation`; Studio
 shows its actual workspace path. Back up or transfer those directories
 separately if the same personal state is wanted on the Mac. Do not copy a
 newer or incompatible save over a known-good record without a backup. Game
@@ -24,17 +24,17 @@ single atomic deployment.
 
 ## Reproduce the engineering gates
 
-From the ROEG checkout with LuaJIT and LÖVE 11.5:
+From the ROAG checkout with LuaJIT and LÖVE 11.5:
 
 ```sh
 TMPDIR=/var/tmp luajit tests/run.lua
-TMPDIR=/var/tmp bash tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-game-gui
+TMPDIR=/var/tmp bash tests/repeat_gui_smokes.sh 3 /var/tmp/roag-game-gui
 TMPDIR=/var/tmp bash tests/expansion_audio_gui_smoke.sh
 TMPDIR=/var/tmp bash tests/finale_disk_resume.sh
-luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roeg-adventurer.trace adventurer
-luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roeg-ranger.trace ranger
-luajit tests/expansion_full_victory_trace.lua 45 /var/tmp/roeg-arcanist.trace arcanist
-luajit tests/expansion_full_victory_trace.lua 28 /var/tmp/roeg-berserker.trace berserker
+luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roag-adventurer.trace adventurer
+luajit tests/expansion_full_victory_trace.lua 9 /var/tmp/roag-ranger.trace ranger
+luajit tests/expansion_full_victory_trace.lua 45 /var/tmp/roag-arcanist.trace arcanist
+luajit tests/expansion_full_victory_trace.lua 28 /var/tmp/roag-berserker.trace berserker
 love --version
 love .
 love . --studio

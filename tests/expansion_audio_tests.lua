@@ -125,7 +125,7 @@ return function(test,equal)
         pack.sounds[1].license='Original project asset'
         pack.sounds[1].author=''
         assert(not pcall(Audio.validate_publish_permissions,pack))
-        pack.sounds[1].author='ROEG Studio synthesized'
+        pack.sounds[1].author='ROAG Studio synthesized'
         assert(Audio.encode(pack)==before,
             'permission rejection altered editable source metadata')
     end)
@@ -260,7 +260,7 @@ return function(test,equal)
         local bad=Audio.decode(Audio.encode(pack));bad.schema='future-audio/2'
         local payload=Persistence.encode(bad)
         local newer=Store.paths[2]
-        published[newer]=('ROEG-STUDIO-PUBLISHED-AUDIO/1\n2\n%d\n%s\n%s'):
+        published[newer]=('ROAG-STUDIO-PUBLISHED-AUDIO/1\n2\n%d\n%s\n%s'):
             format(#payload,Audio.checksum(payload),payload)
         local ok,status=runtime:refresh()
         assert(not ok and status:match('rejected') and #runtime.pack.sounds==8)

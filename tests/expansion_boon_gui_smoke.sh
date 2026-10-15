@@ -2,8 +2,8 @@
 # Callback-driven Ranger transform and purchased-catalogue presentation fixture.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-m6-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-m6-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -33,9 +33,9 @@ function Playback.add(playback,...)
     queue=playback
     return add(playback,...)
 end
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
-local out=assert(os.getenv("ROEG_M6_GUI_OUTPUT"))
+local out=assert(os.getenv("ROAG_M6_GUI_OUTPUT"))
 local phase,pending=1,false
 local function has(kind,boon_id)
     for _,event in ipairs(events or {}) do
@@ -82,7 +82,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_M6_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 \
+ROAG_M6_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
     timeout 20s love "$output_dir" >"$output_dir/love.log" 2>&1
 for phase in 1 2 3 4; do test -s "$output_dir/phase$phase.png"; done
 printf 'M6 boon GUI PASS: Ranger branch/rhythm/input gate in %s\n' "$output_dir"

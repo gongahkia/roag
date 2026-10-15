@@ -19,7 +19,7 @@ local Visibility = require("src.visibility")
 local World = require("src.world")
 
 local Game = {}
-local SCHEMA = "roeg-run/11"
+local SCHEMA = "roag-run/11"
 Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
     dash=130, claim_chest=100, choose_route=0}

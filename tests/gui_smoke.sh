@@ -3,8 +3,8 @@
 set -eu
 
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 
@@ -19,7 +19,7 @@ function Game.new(seed, map_id)
     return tracked
 end
 
-assert(love.filesystem.load("roeg_main.lua"))()
+assert(love.filesystem.load("roag_main.lua"))()
 local original_load, original_update, original_draw = love.load, love.update, love.draw
 local actual_keypressed=love.keypressed
 local scripted=false
@@ -33,7 +33,7 @@ local function press(key)
     return result
 end
 local phase, pending = 1, false
-local output_dir = assert(os.getenv("ROEG_GUI_SMOKE_OUTPUT"))
+local output_dir = assert(os.getenv("ROAG_GUI_SMOKE_OUTPUT"))
 local expected = {
     {time=0, x=3, y=3},
     {time=100, x=3, y=3},
@@ -47,7 +47,7 @@ function love.load(...)
     press('f3');press('f3')
     assert(Persistence.encode(Game.snapshot(tracked))==before,
         'diagnostics toggle changed authoritative state')
-    assert(love.roegDiagnostics()==nil,'F3 did not toggle diagnostics off')
+    assert(love.roagDiagnostics()==nil,'F3 did not toggle diagnostics off')
     press("f")
     press("e")
 end
@@ -100,7 +100,7 @@ function love.draw(...)
 end
 LUA
 
-ROEG_GUI_SMOKE_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_GUI_SMOKE_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
 for phase in 1 2 3 4; do
     test -s "$output_dir/phase$phase.png"
 done

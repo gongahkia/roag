@@ -1,6 +1,6 @@
 -- Shared semantic terrain data. Rows contain symbols; art and derived atlases
 -- remain presentation-only. Values here are provisional and deterministic.
-local Terrain={version="roeg-terrain/1"}
+local Terrain={version="roag-terrain/1"}
 
 Terrain.order={"b","g","i","B","m","c"}
 Terrain.definitions={

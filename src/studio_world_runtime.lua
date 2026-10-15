@@ -9,13 +9,13 @@ end
 function R.record(seq,pack)
     assert(type(seq)=='number' and seq%1==0 and seq>=1,'invalid pack sequence')
     local payload=W.encode(pack)
-    return table.concat({'ROEG-STUDIO-PUBLISHED-WORLD/1',seq,#payload,sum(payload)},'\n')..
+    return table.concat({'ROAG-STUDIO-PUBLISHED-WORLD/1',seq,#payload,sum(payload)},'\n')..
         '\n'..payload
 end
 function R.header(bytes)
     assert(type(bytes)=='string' and #bytes<=1024*1024+100,'invalid published pack size')
     local format,seq,size,checksum,payload=bytes:match('^([^\n]+)\n([^\n]+)\n([^\n]+)\n([^\n]+)\n(.*)$')
-    assert(format=='ROEG-STUDIO-PUBLISHED-WORLD/1','incompatible published pack format')
+    assert(format=='ROAG-STUDIO-PUBLISHED-WORLD/1','incompatible published pack format')
     seq,size=tonumber(seq),tonumber(size)
     assert(seq and seq%1==0 and seq>=1 and size and size%1==0 and
         size>=0 and size<=1024*1024 and #payload==size and checksum==sum(payload),

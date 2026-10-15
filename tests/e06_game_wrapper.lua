@@ -7,10 +7,10 @@ local old_new=Game.new_stage
 Game.new_stage=function(...)
     tracked=old_new(...);return tracked
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw=love.load,love.draw
-local root=assert(os.getenv('ROEG_E06_APP'))
-local output=assert(os.getenv('ROEG_E06_OUTPUT'))
+local root=assert(os.getenv('ROAG_E06_APP'))
+local output=assert(os.getenv('ROAG_E06_OUTPUT'))
 local function read(path)
     local f=io.open(root..'/'..path,'rb')
     if not f then return nil end
@@ -50,18 +50,18 @@ local function f5(expected)
     love.update(0)
     refresh_ms[#refresh_ms+1]=(love.timer.getTime()-started)*1000
     assert_unchanged()
-    assert(love.roegAssetBacking('core:actor/adventurer')==expected,
-        'actor backing '..love.roegAssetBacking('core:actor/adventurer'))
-    assert(love.roegAssetBacking('studio:ui/heart')==expected,
-        'HUD backing '..love.roegAssetBacking('studio:ui/heart'))
+    assert(love.roagAssetBacking('core:actor/adventurer')==expected,
+        'actor backing '..love.roagAssetBacking('core:actor/adventurer'))
+    assert(love.roagAssetBacking('studio:ui/heart')==expected,
+        'HUD backing '..love.roagAssetBacking('studio:ui/heart'))
 end
 function love.load(args)
     original_load(args)
     assert(tracked,'expected isolated normal game startup')
     original_snapshot=Codec.encode(Game.snapshot(tracked))
     before_clock=tracked.clock
-    assert(love.roegAssetBacking('core:actor/adventurer')=='atlas')
-    assert(love.roegAssetBacking('studio:ui/heart')=='atlas')
+    assert(love.roagAssetBacking('core:actor/adventurer')=='atlas')
+    assert(love.roagAssetBacking('studio:ui/heart')=='atlas')
     initial_heap=collectgarbage('count')
     initial_texture=love.graphics.getStats().texturememory or 0
 end
@@ -78,7 +78,7 @@ function love.draw()
             write('assets/studio/sources/actor.png',assert(read('alternate-actor.png')))
             write('assets/studio/sources/heart.png',assert(read('alternate-icon.png')))
             f5('loose')
-            assert(love.roegAtlasStatus():match('stale'))
+            assert(love.roagAtlasStatus():match('stale'))
         elseif phase==2 then
             actor_changed=changed(images[1],images[2],16,16,720,590)
             hud_changed=changed(images[1],images[2],980,55,1008,88)
@@ -110,7 +110,7 @@ function love.draw()
             collectgarbage('collect')
             print(('E06 repeated unchanged F5 heap %.0f→%.0fKiB'):
                 format(before_repeat,collectgarbage('count')))
-            assert(love.roegVisualRefreshStatus():match('checked'),
+            assert(love.roagVisualRefreshStatus():match('checked'),
                 'repeat F5 should report unchanged')
         elseif phase==5 then
             assert(changed(images[3],images[5],16,16,720,590)==0,
@@ -120,9 +120,9 @@ function love.draw()
             local valid_theme=assert(read(theme_path))
             write(theme_path,'corrupt theme generation')
             love.keypressed('f5');love.update(0)
-            assert(love.roegVisualRefreshStatus():match('rejected'),
+            assert(love.roagVisualRefreshStatus():match('rejected'),
                 'bad theme should reject candidate')
-            assert(love.roegAssetBacking('studio:ui/heart')=='atlas')
+            assert(love.roagAssetBacking('studio:ui/heart')=='atlas')
             assert_unchanged()
             write(theme_path,valid_theme)
             f5('atlas')
@@ -130,9 +130,9 @@ function love.draw()
             local valid_actor=assert(read(actor_path))
             write(actor_path,'not a PNG')
             love.keypressed('f5');love.update(0)
-            assert(love.roegVisualRefreshStatus():match('rejected'),
+            assert(love.roagVisualRefreshStatus():match('rejected'),
                 'bad loose PNG should reject candidate')
-            assert(love.roegAssetBacking('core:actor/adventurer')=='atlas')
+            assert(love.roagAssetBacking('core:actor/adventurer')=='atlas')
             assert_unchanged()
             write(actor_path,valid_actor)
             f5('atlas')
@@ -143,7 +143,7 @@ function love.draw()
             local world_path='assets/studio/world-a.pack'
             write(world_path,WorldRuntime.record(1,world))
             love.keypressed('f5');love.update(0)
-            assert(love.roegVisualRefreshStatus():match('rejected'),
+            assert(love.roagVisualRefreshStatus():match('rejected'),
                 'world reference mismatch should reject candidate')
             assert_unchanged()
             assert(os.remove(root..'/'..world_path))

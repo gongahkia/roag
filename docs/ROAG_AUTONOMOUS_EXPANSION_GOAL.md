@@ -1,6 +1,6 @@
-# ROEG — Autonomous Expansion Goal Specification
+# ROAG — Autonomous Expansion Goal Specification
 
-**Version:** 1.0 · **Prepared:** 2026-10-12 · **Target:** GPT-6 Sol High, interactive Codex CLI `/goal` on Windows 11 / Fedora WSL2 · **Intended repository:** the current `roag` checkout (name is intentional).
+**Version:** 1.0 · **Prepared:** 2026-10-12 · **Target:** GPT-6 Sol High, interactive Codex CLI `/goal` on Windows 11 / Fedora WSL2 · **Intended repository:** the current ROAG checkout.
 
 **Status:** User-approved design contract. This file is one long-running goal, not authorization to sacrifice correctness for breadth. Read the actual source and latest project documentation before implementing. The Mac checkout is authoritative until the latest work is explicitly transferred and verified on Windows; Windows becomes the primary development location after this handoff.
 
@@ -27,13 +27,13 @@ Use the existing validated content schemas and extension seams. Prefer concise r
 ## 1. Non-negotiable preflight and Mac → Windows handoff gate
 
 1. **Do not edit game code until provenance is established.** The user's Intel MacBook repository is authoritative until its intended source changes are transferred. A GitHub push from Mac followed by a pull on Windows is an acceptable transfer: obtain the user's explicit confirmation, fetch the intended upstream, verify that upstream is an ancestor of local HEAD, inspect every local-only commit for unexpected source changes, check the working tree for conflicts, and confirm this specification and the complete project are present. A legitimate local goal-document commit may make local HEAD a descendant of upstream; exact HEAD equality is not required. If ancestry fails or unexpected source divergence exists, **STOP with the specific discrepancy**. A staged archive, dated export manifest or transfer marker is an alternative, not a mandatory artifact when Git synchronization is verified. Git proves only committed repository contents; it does not transfer uncommitted, ignored or external Studio save-directory data.
-2. **Protect preexisting Windows data.** Inventory local changes and any separate staged transfer before merging or copying; preserve unclear differences in a non-destructive backup. Never run `git reset --hard`, `git clean -fdx`, recursive deletion, or bulk checkout overwrites to resolve divergence. Do not rename the intentionally named `roag` project.
+2. **Protect preexisting Windows data.** Inventory local changes and any separate staged transfer before merging or copying; preserve unclear differences in a non-destructive backup. Never run `git reset --hard`, `git clean -fdx`, recursive deletion, or bulk checkout overwrites to resolve divergence. Do not rename the existing checkout directory as part of this goal.
 3. **Studio's LÖVE save directory is outside Git.** Verify the location with `love.filesystem.getSaveDirectory()` under the actual application identity. The latest Mac save directory, if any, may include editable layered sprites, room/theme/source projects, audio to be added, active-run records and the permanent profile. Preserve or import only after inspection and safeguards; do not overwrite existing player data. Missing old personal artwork/saves is already a known acceptable condition and must **not** block programming; do not invent or claim recovery of it.
 4. Once the Mac transfer is verified, treat Windows/Fedora WSL as the **primary development checkout** for this goal. Do not edit the Mac checkout through a shared mount, remote session, or concurrent branch during autonomous implementation. Produce a final **portable handback/export summary** so future Mac work can import changes without losing data.
 5. Confirm Fedora WSL, LuaJIT and LÖVE 11.5, actual commands and script dependencies. Start by running the real baseline (`luajit tests/run.lua`, established game and Studio GUI smoke suites, current legal Victory driver, saves). The last reported baseline before additional Mac edits was **272/272 headless**, established game GUI **24/24** and Studio GUI **18/18** across three rounds, and a seed-3 legal-action Victory of **991 actions, 5 HP, world time 98,800**. These are historical reference values, **not** proof of the current baseline. Record actual results.
 6. Verify user-supplied source/audio license information and file safety. Only modify this project's checkout and disposable test fixtures; never touch live personal or unrelated project saves as part of testing. Preserve any existing uncommitted work.
 
-**Hard gate:** If Git ancestry/local-only changes or an alternative transfer cannot establish committed-source currency and safe ownership, report `BLOCKED: MAC→WINDOWS HANDOFF` with exact missing inputs. Do not proceed to milestone 1 on an uncertain source tree. The user has confirmed that the completed Mac→Windows source transfer for this goal used GitHub; its verified local evidence is recorded in `docs/goal/ROEG_EXPANSION_PROGRESS.md`. Missing personal Studio data is a separate, nonblocking resource unless a specific feature requires it.
+**Hard gate:** If Git ancestry/local-only changes or an alternative transfer cannot establish committed-source currency and safe ownership, report `BLOCKED: MAC→WINDOWS HANDOFF` with exact missing inputs. Do not proceed to milestone 1 on an uncertain source tree. The user has confirmed that the completed Mac→Windows source transfer for this goal used GitHub; its verified local evidence is recorded in `docs/goal/ROAG_EXPANSION_PROGRESS.md`. Missing personal Studio data is a separate, nonblocking resource unless a specific feature requires it.
 
 ## 2. Architecture and gameplay invariants
 
@@ -151,7 +151,7 @@ The following **design matrix** sets the expected breadth. The names are provisi
 
 Balance values are Codex's choice but should be **useful at Common**, materially stronger at higher rarities, and not trivialize the game by turn 50. Transformations must obey compatibility and preserve source ability IDs. Unavailable class-specific boon rewards should not be drawn for unrelated classes if they are unusable; use class-aware eligibility without breaking cached three-offer fairness. Verify each effect in actual combat and at least 10 cross-boon integrations, including class×terrain, enemy-friendly-fire×boon, multi-target damage batches, time-delayed chains and high-stack overflow. Do not introduce an arbitrary copy cap. Perform stress tests and keep visual proc backlogs bounded presentation-only; no gameplay events may be dropped.
 
-## 10. ROEG Studio sound picker and complete audio-binding pipeline
+## 10. ROAG Studio sound picker and complete audio-binding pipeline
 
 Add a **real user-visible sound editor inside Studio**, not merely `sound.lua` constants or a JSON file the user must edit by hand. It must work even if all third-party placeholder downloads fail or the user imports their own audio later. Implement against LÖVE 11.5; prefer verified **WAV for short SFX and Ogg Vorbis for music/ambience**. Use `love.audio.newSource(..., 'static')` for short clips and `(..., 'stream')` for long audio where appropriate, with reusable/poolable sources, voice limits, playback priorities and error handling. No audio execution in headless simulation.
 
@@ -173,7 +173,7 @@ The user will provide final sound/music files later. Codex may obtain placeholde
 
 ## 11. Internal milestones and autonomous operating rules
 
-Treat this as **one goal with checkpoints**, not nine separate prompts. After each milestone, update `docs/goal/ROEG_EXPANSION_PROGRESS.md` with completion status, test commands/results, open risks, next action and any new schema IDs. Also maintain an objective checkable feature matrix and concise `docs/goal/ROEG_EXPANSION_REPORT.md` throughout. Keep human-readable progress and test artifacts in project-local or disposable locations, avoid huge binary/log commits, preserve unrelated files.
+Treat this as **one goal with checkpoints**, not nine separate prompts. After each milestone, update `docs/goal/ROAG_EXPANSION_PROGRESS.md` with completion status, test commands/results, open risks, next action and any new schema IDs. Also maintain an objective checkable feature matrix and concise `docs/goal/ROAG_EXPANSION_REPORT.md` throughout. Keep human-readable progress and test artifacts in project-local or disposable locations, avoid huge binary/log commits, preserve unrelated files.
 
 Suggested dependency order (adjust if justified, but explain changes):
 
@@ -227,6 +227,6 @@ Provide a final structured report: (1) verdict and remaining issues, (2) migrati
 - This is a **static-sprite, tile-based, turn-based** game, not a real-time platformer or a three-dimensional title. Existing board-game sliding is presentation interpolation only.
 - Shader/audio/editor improvements may add presentation metadata, never authoritative simulation nondeterminism. Do not entangle UI sound playback with game rules.
 - Source references: OpenAI Codex Goals guidance: https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex . LÖVE audio (`static`/`stream`): https://love2d.org/wiki/love.audio.newSource . OpenGameArt licensing: https://opengameart.org/node/5571 .
-- The user is intentionally using the `roag` directory for the new ROEG project. Do not revisit naming as a development blocker.
+- This checkout is the ROAG project. Its existing directory name is not a development blocker; do not rename the directory as part of this goal.
 
 **Begin working as soon as M0's handoff gate passes; keep pursuing this goal autonomously, with milestone verification and honest status.**

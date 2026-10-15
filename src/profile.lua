@@ -3,12 +3,12 @@
 local Codec=require("src.persistence")
 local Achievements=require("src.achievement_content")
 local Profile={}
-Profile.schema="roeg-profile/1"
-Profile.format="roeg-profile-record/1"
+Profile.schema="roag-profile/1"
+Profile.format="roag-profile-record/1"
 -- Achievement definitions are the profile compatibility boundary. A combat
 -- content/schema update may invalidate an active run without erasing progress.
 Profile.content=Achievements.version
-Profile.slots={"profile-a.roeg","profile-b.roeg"}
+Profile.slots={"profile-a.roag","profile-b.roag"}
 Profile.max_bytes=131072
 local function checksum(bytes)
     local a,b=1,0

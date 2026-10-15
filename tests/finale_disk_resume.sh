@@ -2,8 +2,8 @@
 # Fresh LÖVE process Save & Quit -> title Continue for a prepared final encounter.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-finale-resume-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-finale-resume-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -12,8 +12,8 @@ local Scheduler=require('src.scheduler')
 local Content=require('src.content')
 local Visibility=require('src.visibility')
 local Persistence=require('src.persistence')
-local phase=assert(os.getenv('ROEG_FINALE_RESUME_PHASE'))
-local out=assert(os.getenv('ROEG_FINALE_RESUME_OUTPUT'))
+local phase=assert(os.getenv('ROAG_FINALE_RESUME_PHASE'))
+local out=assert(os.getenv('ROAG_FINALE_RESUME_OUTPUT'))
 local old_stage,old_submit,old_restore=Game.new_stage,Game.submit,Game.restore
 local tracked,building,prepared=nil,false,false
 local last_submit
@@ -70,7 +70,7 @@ function Game.submit(state,...)
         before_damage=before_damage}
     return ok,reason,events,preview
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
 local labels,step,pending={},1,false
 local old_print,old_printf=love.graphics.print,love.graphics.printf
@@ -170,12 +170,12 @@ function love.draw(...)
     end
 end
 LUA
-ROEG_GUI_AUTOSTART=1 ROEG_FINALE_RESUME_PHASE=save \
-  ROEG_FINALE_RESUME_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
+ROAG_GUI_AUTOSTART=1 ROAG_FINALE_RESUME_PHASE=save \
+  ROAG_FINALE_RESUME_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
   timeout 30s love "$output_dir"
-ROEG_FINALE_RESUME_PHASE=load ROEG_FINALE_RESUME_OUTPUT="$output_dir" \
+ROAG_FINALE_RESUME_PHASE=load ROAG_FINALE_RESUME_OUTPUT="$output_dir" \
   XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
-ROEG_FINALE_RESUME_PHASE=terminal ROEG_FINALE_RESUME_OUTPUT="$output_dir" \
+ROAG_FINALE_RESUME_PHASE=terminal ROAG_FINALE_RESUME_OUTPUT="$output_dir" \
   XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
 for file in expected next save.png title.png continued.png terminal.png; do
     test -s "$output_dir/$file"

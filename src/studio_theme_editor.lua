@@ -186,7 +186,7 @@ end
 function E:draw()
     local g=love.graphics
     local width,height=g.getDimensions()
-    g.setColor(.92,.95,.87);g.print('ROEG STUDIO · UI / PRESENTATION',18,14)
+    g.setColor(.92,.95,.87);g.print('ROAG STUDIO · UI / PRESENTATION',18,14)
     g.setColor(.60,.78,.75)
     g.print('S save · Esc assets · Ctrl+Z/Y undo/redo · R revert · N name',18,39)
     g.setColor(.19,.27,.28);g.rectangle('fill',12,72,285,34)
@@ -233,7 +233,7 @@ function E:draw()
                 bg:getWidth(),bg:getHeight(),logical_w,logical_h)
             g.setColor(1,1,1);g.draw(bg,ox,oy,0,w/bg:getWidth(),h/bg:getHeight())
         end
-        g.setColor(.95,.96,.83);g.printf('ROEG — Four Biomes',0,120,logical_w,'center')
+        g.setColor(.95,.96,.83);g.printf('ROAG — Four Biomes',0,120,logical_w,'center')
         g.printf('Continue  ·  New Run',0,220,logical_w,'center')
     elseif views[self.view]=='chest' then
         g.setColor(.16,.21,.19);g.rectangle('fill',0,0,logical_w,logical_h)

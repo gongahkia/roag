@@ -4,7 +4,7 @@ local Content = require("src.content")
 local Rewards = require("src.rewards")
 
 local World = {}
-World.version = "roeg-world/1"
+World.version = "roag-world/1"
 World.order = {"core:secret/cracked_cache", "core:secret/moss_sigil"}
 World.definitions = {
     ["core:secret/cracked_cache"] = {

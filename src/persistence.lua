@@ -7,8 +7,8 @@ local Generation=require('src.generation')
 local World=require('src.world')
 
 local P={}
-P.format='roeg-save/1'
-P.slots={'active-a.roeg','active-b.roeg'}
+P.format='roag-save/1'
+P.slots={'active-a.roag','active-b.roag'}
 P.max_bytes=32*1024*1024
 P.compatibility=table.concat({Content.version,BoonContent.version,
     Generation.room_content_version,World.version},'|')

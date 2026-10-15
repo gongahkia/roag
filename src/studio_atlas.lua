@@ -2,7 +2,7 @@
 local Project=require('src.studio_project')
 local Codec=require('src.persistence')
 local bit=require('bit')
-local A={schema='roeg-studio-atlas/1',max_pages=32,
+local A={schema='roag-studio-atlas/1',max_pages=32,
     slots={'assets/studio/atlas-a.pack','assets/studio/atlas-b.pack'}}
 local crc_table={}
 for i=0,255 do

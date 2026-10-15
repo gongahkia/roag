@@ -1,7 +1,7 @@
-# ROEG autonomous expansion progress
+# ROAG autonomous expansion progress
 
 Updated: 2026-10-13. This is a checkpoint for the single goal in
-[`../ROEG_AUTONOMOUS_EXPANSION_GOAL.md`](../ROEG_AUTONOMOUS_EXPANSION_GOAL.md).
+[`../ROAG_AUTONOMOUS_EXPANSION_GOAL.md`](../ROAG_AUTONOMOUS_EXPANSION_GOAL.md).
 The implementation and automated acceptance matrix are **COMPLETE**. M0's
 Git handoff is verified; M1–M7 are implemented; M8 passed integrated
 headless, GUI, disk, seed, legal-action and performance gates. Four classes
@@ -20,7 +20,7 @@ was intentionally not used. On 2026-10-12:
 - `git merge-base --is-ancestor origin/main HEAD` succeeded. Local HEAD was
   `377478ff671470d2e63a64027c4a27c06f8772ba` and was one commit ahead.
 - `git diff --name-status origin/main..HEAD` showed only the addition of
-  `docs/ROEG_AUTONOMOUS_EXPANSION_GOAL.md`. There were no unexpected source
+  `docs/ROAG_AUTONOMOUS_EXPANSION_GOAL.md`. There were no unexpected source
   changes in the local-only commit.
 - `git status --porcelain=v1 --untracked-files=all` was empty **before** this
   progress documentation was written. Required game source, specification,
@@ -29,9 +29,9 @@ was intentionally not used. On 2026-10-12:
 This verifies the **committed repository source** under the user's stated Git
 handoff. Git does not establish the transfer of uncommitted or ignored Mac files,
 nor external LÖVE Studio project, run-save or profile data. Those resources are
-not claimed recovered. The project identity in `conf.lua` is `roeg-foundation`.
+not claimed recovered. The project identity in `conf.lua` is `roag-foundation`.
 An isolated LÖVE 11.5 probe of `love.filesystem.getSaveDirectory()` returned
-`$XDG_DATA_HOME/love/roeg-foundation`; the probe used `/var/tmp` and did not
+`$XDG_DATA_HOME/love/roag-foundation`; the probe used `/var/tmp` and did not
 write the player's normal save directory. Never use the normal player save
 directory for expansion tests.
 
@@ -46,12 +46,12 @@ Baseline on Fedora WSL2, LuaJIT 2.1, LÖVE 11.5:
 | Check | Actual result |
 |---|---|
 | `TMPDIR=/var/tmp luajit tests/run.lua` | 283 passed, 0 failed; existing four-biome 100-seed corpora passed |
-| `TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 1 /var/tmp/roeg-expansion-m0-game-gui` | 8/8 isolated game GUI harnesses |
+| `TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 1 /var/tmp/roag-expansion-m0-game-gui` | 8/8 isolated game GUI harnesses |
 | Studio E00, E01, E03, E04, E05, E06 GUI scripts once each | 6/6 isolated Studio harnesses |
 | `TMPDIR=/var/tmp sh tests/boon_disk_resume.sh` | Passed, fresh-process Burning/Temporal Echo continuation |
 | `TMPDIR=/var/tmp sh tests/biome_disk_resume.sh` | Passed, six LÖVE processes |
 | `TMPDIR=/var/tmp sh tests/finale_disk_resume.sh` | Passed, fresh-process finale and tombstone |
-| `TMPDIR=/var/tmp luajit tests/finale_playthrough.lua 3 /var/tmp/roeg-expansion-m0-seed3.trace` | Legal Victory: 991 actions, 5 HP, time 98,800 |
+| `TMPDIR=/var/tmp luajit tests/finale_playthrough.lua 3 /var/tmp/roag-expansion-m0-seed3.trace` | Legal Victory: 991 actions, 5 HP, time 98,800 |
 
 The historical 272/272 count was superseded by this checkout's 283/283. Baseline
 GUI coverage above is one round; repeated rounds remain a later integration gate.
@@ -100,7 +100,7 @@ Focused evidence on 2026-10-12:
 - `TMPDIR=/var/tmp sh tests/expansion_floor_gui_smoke.sh` passed three fresh
   callback/render processes; `tests/expansion_floor_disk_resume.sh` passed a
   two-process isolated LÖVE Save & Quit/Continue with exact state and next
-  action equality. Screenshots are under the printed `/var/tmp/roeg-floor-*`
+  action equality. Screenshots are under the printed `/var/tmp/roag-floor-*`
   paths. The disk script checks that normal New Run requested connected floors.
 - Eight established gameplay GUI harnesses passed **24/24** in three isolated
   rounds. Studio E03 edit/reopen/publish/game/fallback passed **3/3**.
@@ -114,7 +114,7 @@ Focused evidence on 2026-10-12:
 
 `TMPDIR=/var/tmp luajit tests/run.lua` passed **295/295** (baseline 283/283).
 `git diff --check` passed. Existing 24 boons, saves, profiles, Studio art and gameplay rules
-are unchanged. The active-run schema remains `roeg-run/11` because optional
+are unchanged. The active-run schema remains `roag-run/11` because optional
 paired-floor fields coexist with the fully validated single-floor snapshot.
 
 ## Open risks and next action
@@ -144,7 +144,7 @@ projectiles; crystals arc a positive lightning hit to another nearby hostile
 through ordinary damage, kill credit and rewards. Built-in tile colors/glyphs,
 fog filtering, short presentation cues and E03 World Editor authoring are
 included. Exact provisional rules and controls are in
-[`../ROEG_TERRAIN_EXPANSION.md`](../ROEG_TERRAIN_EXPANSION.md).
+[`../ROAG_TERRAIN_EXPANSION.md`](../ROAG_TERRAIN_EXPANSION.md).
 
 The first floor places bramble, bog and ice; the second places barricade, mist
 and crystal. Placement consumes a derived terrain-only RNG stream. A 100-seed
@@ -194,7 +194,7 @@ making all seven reachable across runs. Existing two-offer extraction menus
 remain cached and loadable from old snapshots. The Thorn Warden and inherited
 regular enemies are **temporary M3 encounter pools**; seven unique minibosses
 and ten new regular roles remain M4. See
-[`../ROEG_BIOME_EXPANSION.md`](../ROEG_BIOME_EXPANSION.md).
+[`../ROAG_BIOME_EXPANSION.md`](../ROAG_BIOME_EXPANSION.md).
 
 The new 100-seed-per-biome corpus validated **600 new concrete floors** (300
 paired maps) with 1/0/0 retries for Observatory/Archive/Forge, zero repairs and
@@ -233,7 +233,7 @@ is exclusive to Overgrown Ruins; Fungal, Aqueduct, Bastion, Observatory,
 Archive and Forge each have a distinct elite. Each new elite has two locked
 footprints, phase-two speed/pattern change, the existing reward/extraction
 lifecycle and normal kill credit. Source definitions and provisional numbers
-are documented in [`../ROEG_ENCOUNTER_EXPANSION.md`](../ROEG_ENCOUNTER_EXPANSION.md).
+are documented in [`../ROAG_ENCOUNTER_EXPANSION.md`](../ROAG_ENCOUNTER_EXPANSION.md).
 
 The `tests/expansion_encounter_tests.lua` checks each roster/pool, alternating
 elite cells, phase behavior, exact pending-windup restoration, all ten regular
@@ -254,7 +254,7 @@ established suite then passed **24/24** over three fresh-process rounds.
 
 The seed-3 ordinary-action *legacy single-floor* guide reaches Victory with
 the new Fungal and Bastion elites in **945 actions, 3 HP, total simulated time
-94,200**; replay trace: `/var/tmp/roeg-m4-seed3.trace`. The baseline 991/5/
+94,200**; replay trace: `/var/tmp/roag-m4-seed3.trace`. The baseline 991/5/
 98,800 figures remain historical, and the exact-count meta test now expects
 945 because the encounter content changed. A default two-floor full Victory
 and human tactical/readability acceptance are still unproven. No pressure
@@ -275,7 +275,7 @@ three-cell evasive Dash; Arcanist has lightning bolt, fire area sigil and
 phase step; Berserker has a heavy crush, broad cleave and slower armored
 lunge. All attacks submit through the same action/scheduler/damage pipeline.
 Class identity and growth persist through floors, route handoffs, finale and
-disk Continue. See [`../ROEG_CLASS_EXPANSION.md`](../ROEG_CLASS_EXPANSION.md).
+disk Continue. See [`../ROAG_CLASS_EXPANSION.md`](../ROAG_CLASS_EXPANSION.md).
 
 The M5 headless suite passed **330/330**, including seven new focused class
 tests. Established game GUI smokes passed **24/24** over three isolated
@@ -312,7 +312,7 @@ gate. Old direct game fixtures and existing saved pools can still use their
 frozen original 20. Offers filter six new class transformations and the two
 Adventurer-only old transformations by player class before seeded sampling.
 Descriptions include rarity-specific magnitude, and all four rarities keep
-the same mechanic. See [`../ROEG_BOON_EXPANSION.md`](../ROEG_BOON_EXPANSION.md).
+the same mechanic. See [`../ROAG_BOON_EXPANSION.md`](../ROAG_BOON_EXPANSION.md).
 
 The 26 include terrain contact/exiting/ice/barricade/mist/crystal reactions,
 timed primes, capped marks, speed and a one-hit ward, enemy windup/friendly
@@ -331,7 +331,7 @@ chests across **100 paired-stage seeds per class** (400 stages, 800 floors).
 Seed 50's **ordinary-action** paired-floor acceptance trace earns currency,
 buys Common Rhythm of Steel from paid chest 7 offer 2, then primes it by
 movement and lands its bonus: **59 actions, 21 HP, clock 5,900**, trace at
-`/var/tmp/roeg-m6-seed50.trace`. This proves acquisition and use, not full
+`/var/tmp/roag-m6-seed50.trace`. This proves acquisition and use, not full
 two-floor Victory.
 
 The M6 headless suite passed **341/341**; the old single-floor guided seed-3
@@ -367,7 +367,7 @@ bounded static/stream sources, a presentation-only variant counter, pause,
 scene music and ambience transitions, and F5 refresh. Corrupt or absent
 optional audio falls back to original project-synthesized sounds. This does
 not alter snapshots or gameplay RNG. No external licensed sound was fetched.
-See `docs/ROEG_AUDIO_EXPANSION.md`.
+See `docs/ROAG_AUDIO_EXPANSION.md`.
 
 The integrated headless suite passed **354/354** after ten focused audio
 tests and three legal-run tests. The audio LÖVE smoke passed **3/3** isolated
@@ -390,14 +390,14 @@ A stair-aware driver uses only `Game.submit` to clear six procedural floors,
 three biome elites and the Hollow Regent. **Seed 9 Adventurer achieved real
 Victory in 949 legal actions, 22 HP and 94,064 simulated time, with three
 paid purchases.** The complete trace and exact ordered-event/snapshot replay
-are at `/var/tmp/roeg-m8-adventurer.trace` and in the new headless test.
+are at `/var/tmp/roag-m8-adventurer.trace` and in the new headless test.
 The same initial strategy failed on seeds 1–8, mainly at elite approaches or
 fights; it is not an artificial victory guarantee. Separate exact-replay traces
 now also pass for Ranger seed 9 (**1,050 actions, 8 HP**), Arcanist seed 45
 (**1,269 actions, 6 HP**) and Berserker seed 28 (**1,037 actions, 35 HP**).
 All four traverse six generated floors, defeat three biome elites and kill the
 Hollow Regent using only submitted legal actions. Their paths are artifacts in
-`/var/tmp/roeg-m8-<class>.trace`; the headless suite asserts all four.
+`/var/tmp/roag-m8-<class>.trace`; the headless suite asserts all four.
 This is automated legal play, not physical-keyboard or human acceptance.
 
 Additional ordinary submitted-action routes defeat **all seven** unique
@@ -437,5 +437,5 @@ had frame p50 **7.18–9.93 ms** and p95 **11.52–14.66 ms**; the same E05
 fixture's atlas/loose modes both used 11 draw calls, with atlas texture memory
 14,336 versus 7,168 bytes. These are software-renderer observations, not
 native GPU or human feel acceptance. See
-[`ROEG_EXPANSION_HANDOFF.md`](ROEG_EXPANSION_HANDOFF.md) for reproducible
+[`ROAG_EXPANSION_HANDOFF.md`](ROAG_EXPANSION_HANDOFF.md) for reproducible
 commands and the physical-play checklist.

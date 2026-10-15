@@ -3,7 +3,7 @@ local Content = require("src.content")
 local Biomes = require("src.biomes")
 local Terrain = require("src.terrain")
 local Rooms = {}
-Rooms.version = "roeg-rooms/2"
+Rooms.version = "roag-rooms/2"
 Rooms.biome = {id="core:biome/overgrown_ruins", floor_id="core:floor/overgrown_ruins",
     width=140,height=90,room_min=8,room_max=12,standard_chests=5,
     retry_limit=2,

@@ -1,9 +1,9 @@
 -- Reproducible guided legal-action trace through two distinct new biomes.
--- Usage: luajit tests/biome_acceptance_trace.lua /tmp/roeg-biome-trace.tsv
+-- Usage: luajit tests/biome_acceptance_trace.lua /tmp/roag-biome-trace.tsv
 package.path='./?.lua;./?/init.lua;'..package.path
 local Play=require('tests.legal_playthrough')
 local Game=require('src.game')
-local path=arg[1] or '/tmp/roeg-biome-trace.tsv'
+local path=arg[1] or '/tmp/roag-biome-trace.tsv'
 local run=Play.biome_route(3)
 local file=assert(io.open(path,'w'))
 file:write('action\tstage\tfrom_x\tfrom_y\tintent\tdx\tdy\tworld_time\thp\tcurrency\tevents\n')

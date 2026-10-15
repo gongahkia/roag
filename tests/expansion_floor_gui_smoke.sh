@@ -2,8 +2,8 @@
 # Assisted callback fixture: rendered stair/HUD/fog and one real movement handoff.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roeg-floor-gui-XXXXXX")
-cp "$project_dir/main.lua" "$output_dir/roeg_main.lua"
+output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-floor-gui-XXXXXX")
+cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -17,7 +17,7 @@ function Game.new_stage(seed,options)
     tracked=original_new(seed,options)
     return tracked
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
 local old_print=love.graphics.print
 local labels={}
@@ -25,7 +25,7 @@ love.graphics.print=function(value,...)
     labels[#labels+1]=tostring(value)
     return old_print(value,...)
 end
-local output=assert(os.getenv('ROEG_FLOOR_GUI_OUTPUT'))
+local output=assert(os.getenv('ROAG_FLOOR_GUI_OUTPUT'))
 local direction
 local phase,pending=1,false
 local function has(fragment)
@@ -81,7 +81,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROEG_FLOOR_GUI_OUTPUT="$output_dir" ROEG_GUI_AUTOSTART=1 \
+ROAG_FLOOR_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
     timeout 30s love "$output_dir"
 test -s "$output_dir/floor1.png"
 test -s "$output_dir/floor2.png"

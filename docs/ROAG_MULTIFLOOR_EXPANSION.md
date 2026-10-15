@@ -23,7 +23,7 @@ rejects blocked, disconnected, editable or duplicate stair anchors. The marker
 rotates and mirrors with the room. A selected authored terminal room on floor 1
 or start room on floor 2 can supply the generated stair position; otherwise
 generation uses the existing reserved elite/start marker. E03 source encoding
-remains `roeg-studio-world/1`, so older projects without this optional marker
+remains `roag-studio-world/1`, so older projects without this optional marker
 continue to load. The published world pack retains stable room and tile IDs.
 
 The legacy `Game.new_stage(seed)` constructor remains available to existing

@@ -1,5 +1,5 @@
 local run,result=require("tests.expansion_boon_acceptance").run()
-local path=arg[1] or "/var/tmp/roeg-m6-seed50.trace"
+local path=arg[1] or "/var/tmp/roag-m6-seed50.trace"
 local file=assert(io.open(path,"wb"))
 file:write("seed\taction\tclock\thp\tcurrency\tintent\tevents\n")
 for index,record in ipairs(run.trace) do

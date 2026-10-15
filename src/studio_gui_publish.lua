@@ -51,7 +51,7 @@ local function disk(root)
         local temporary
         repeat
             next_temp=next_temp+1
-            temporary=destination..('.roeg-publish-%d-%d.tmp'):format(
+            temporary=destination..('.roag-publish-%d-%d.tmp'):format(
                 os.time(),next_temp)
             local existing=io.open(temporary,'rb')
             if existing then existing:close() else break end

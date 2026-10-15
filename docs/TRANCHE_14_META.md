@@ -13,11 +13,11 @@ These powers are provisional. Mixed-rarity stacks add strength through the exist
 
 ## Storage and failure behavior
 
-The independent profile schema `roeg-profile/1` uses the inert active-run codec and two separate checksummed slots. It stores earned flags and a monotonic local run serial. A verified newer incompatible record is rejected without falling back to an older compatible profile. Invalid/truncated newest records recover the previous valid generation. Corrupt records are not silently overwritten.
+The independent profile schema `roag-profile/1` uses the inert active-run codec and two separate checksummed slots. It stores earned flags and a monotonic local run serial. A verified newer incompatible record is rejected without falling back to an older compatible profile. Invalid/truncated newest records recover the previous valid generation. Corrupt records are not silently overwritten.
 
 At an achievement boundary, the active run is saved with a pending award before the profile write. Profile awards merge idempotently by ID and verify both generations before the run outbox is acknowledged. Run-ID reservations also verify both generations before issuing an ID. A successful profile commit clears the in-memory outbox and writes another run checkpoint; a crash between those writes merely retries an already-earned ID. At terminal Victory or Defeat with a pending award, two `pending_terminal` run generations are verified first. It is never offered as live Continue. The profile award is verified before terminal tombstones replace both active generations. On startup, and with title **R**, pending terminal recovery retries idempotently. Failed writes retain the last verified generation; full hardware power-loss durability is not promised because LÖVE has no portable fsync/atomic rename.
 
-`ROEG_GUI_AUTOSTART=1` fixtures do not autosave milestones or earn achievements; explicit Save & Quit still uses the existing run-save path. The **B** developer boon showcase and direct fixture boon/stun/displacement helpers mark the run ineligible, and that flag persists through snapshots and stage changes. External edits to Lua state are outside the local integrity model.
+`ROAG_GUI_AUTOSTART=1` fixtures do not autosave milestones or earn achievements; explicit Save & Quit still uses the existing run-save path. The **B** developer boon showcase and direct fixture boon/stun/displacement helpers mark the run ineligible, and that flag persists through snapshots and stage changes. External edits to Lua state are outside the local integrity model.
 
 ## Checks
 
@@ -25,7 +25,7 @@ At an achievement boundary, the active run is saved with a pending award before 
 TMPDIR=/var/tmp luajit tests/run.lua
 luajit tests/meta_acceptance_trace.lua
 TMPDIR=/var/tmp sh tests/meta_gui_smoke.sh
-TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roeg-gui-repeat
+TMPDIR=/var/tmp sh tests/repeat_gui_smokes.sh 3 /var/tmp/roag-gui-repeat
 ```
 
 The GUI smoke uses isolated `XDG_DATA_HOME`, two fresh LÖVE processes, a replayed sequence of legal `Game.submit` actions for the elite achievement, title **U**, Save & Quit, and a future New Run. It is callback-driven automated evidence, not a physical-keyboard playtest. Existing `finale_disk_resume.sh` and `biome_disk_resume.sh` continue checking active-run save/Continue and terminal tombstones.

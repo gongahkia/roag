@@ -1,6 +1,6 @@
 -- Build candidates with `love . --atlas-build`, then dry-run this command.
 -- `--apply` activates an entire verified generation; `--overwrite` is required
--- after both metadata slots have been used. Run from the ROEG checkout.
+-- after both metadata slots have been used. Run from the ROAG checkout.
 package.path='./?.lua;./?/init.lua;'..package.path
 local Atlas=require('src.studio_atlas')
 local Store=require('src.studio_atlas_store')
@@ -40,14 +40,14 @@ local function safe_destination(path)
     end
 end
 assert(read('main.lua') and read('conf.lua') and read('src/studio_atlas.lua'),
-    'run from the ROEG checkout')
+    'run from the ROAG checkout')
 if opts['--disable'] or opts['--enable'] then
     local action=opts['--disable'] and 'Disable' or 'Enable'
     print(action..' optional atlas lookup; loose visuals remain available.')
     if not opts['--apply'] then print('Dry run. Pass --apply to change lookup.');return end
     local flag=Store.disable_path
     safe_destination(flag)
-    if opts['--disable'] then write(flag,'ROEG-ATLAS-DISABLED/1\n')
+    if opts['--disable'] then write(flag,'ROAG-ATLAS-DISABLED/1\n')
     else os.remove(flag);assert(not read(flag),'cannot enable atlas') end
     print(action..'d atlas lookup.')
     return

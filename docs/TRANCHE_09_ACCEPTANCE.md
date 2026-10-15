@@ -2,7 +2,7 @@
 
 ## Evidence classes and replay
 
-`luajit tests/acceptance_trace.lua /tmp/roeg-acceptance.tsv` writes the
+`luajit tests/acceptance_trace.lua /tmp/roag-acceptance.tsv` writes the
 seed-3 guided trace. The driver observes the current game state and submits
 ordinary `Game.submit` intents only. It does not reposition an actor, change
 health/stats/currency, clear schedules, or change enemy behavior. This is a
@@ -16,7 +16,7 @@ event sequence is replayed from the same seed and compared to an identical
 snapshot. A second test serializes the resulting state through the inert save
 codec, restores a new game object, and compares subsequent actions/events.
 
-`luajit tests/attempt_full_run.lua /tmp/roeg-full-attempt.tsv` attempts to
+`luajit tests/attempt_full_run.lua /tmp/roag-full-attempt.tsv` attempts to
 continue that same legal-action strategy through stages two and three. It
 prints the first failure rather than assigning a successful outcome. Reaching
 the final prototype endpoint with this strategy is **not** an automated
@@ -62,7 +62,7 @@ durations exclude GPU completion and are reported separately. LÖVE's FPS,
 draw-call and texture-memory stats are sampled when available. These
 callback-driven samples do not establish performance on a normal laptop.
 The normal game does not collect timing samples until F3 or
-`ROEG_DIAGNOSTICS=1` enables them.
+`ROAG_DIAGNOSTICS=1` enables them.
 
 One matched isolated LuaJIT 2.1/x86_64 seed-21 run (`9` actions for normal,
 `3` each for the synthetic crowds) gave the following CPU action p50 values:
@@ -80,13 +80,13 @@ produced 118 events and 32 activation/due events in three actions; its
 isolated action p95 was 1.93 ms with a sampled 2,064 KiB peak. A second run
 under other system load measured a 62.86 ms median for the 107-actor case,
 so the table is evidence of a hot-path improvement, not a stable percentile
-guarantee. The source files under `/tmp/roeg-tranche09-profile-before.tsv`
-and `/tmp/roeg-tranche09-profile-after.tsv` record the matched run.
+guarantee. The source files under `/tmp/roag-tranche09-profile-before.tsv`
+and `/tmp/roag-tranche09-profile-after.tsv` record the matched run.
 In a longer post-change run (`luajit tests/profile_headless.lua 30`), the
 normal 17-actor stage had 30 actions at p50/p95/max 5.06/6.65/8.76 ms;
 the 107-actor synthetic crowd had 10 actions at 21.01/31.81/31.81 ms;
 and the first 30 inputs of the seed-3 legal route had 3.35/5.87/7.50 ms.
-The raw output is `/tmp/roeg-tranche09-profile-final30.tsv` in this work
+The raw output is `/tmp/roag-tranche09-profile-final30.tsv` in this work
 session; rerun the command for portable evidence on another machine.
 
 LÖVE 11.5 used the WSLg display and Mesa **llvmpipe software OpenGL** for

@@ -2,10 +2,10 @@
 # Callback-only gamepad mapping check; no physical controller is claimed.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-gamepad-gui-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-gamepad-gui-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cat > "$app/main.lua" <<'LUA'
@@ -13,14 +13,14 @@ local Game=require('src.game')
 local Content=require('src.content')
 local Visibility=require('src.visibility')
 local Classes=require('src.classes')
-local output=assert(os.getenv('ROEG_GAMEPAD_OUTPUT'))
+local output=assert(os.getenv('ROAG_GAMEPAD_OUTPUT'))
 local tracked
 local original_new=Game.new_stage
 function Game.new_stage(...)
     tracked=original_new(...)
     return tracked
 end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local old_load,old_draw,old_update=love.load,love.draw,love.update
 local clock
 local directions={{-1,0,'dpright'},{1,0,'dpleft'},
@@ -43,10 +43,10 @@ function love.load(args)
     love.gamepadpressed(nil,'dpdown')
     assert(tracked.clock==clock,'input passed through playback gate')
     for _=1,120 do
-        if not love.roegPlaybackPending() then break end
+        if not love.roagPlaybackPending() then break end
         old_update(.1)
     end
-    assert(not love.roegPlaybackPending())
+    assert(not love.roagPlaybackPending())
     local map=Content.map_for(tracked)
     local player=Game.player(tracked)
     local chest
@@ -76,13 +76,13 @@ function love.load(args)
     Visibility.recompute(tracked) -- prepared UI-only chest approach
     clock=tracked.clock
     love.gamepadpressed(nil,bump)
-    local menu=assert(love.roegMenuState())
+    local menu=assert(love.roagMenuState())
     assert(menu.kind=='chest' and menu.selected==1 and menu.count==3)
     assert(tracked.clock==clock,'opening chest menu spent world time')
     love.gamepadpressed(nil,'dpdown')
-    assert(love.roegMenuState().selected==2 and tracked.clock==clock)
+    assert(love.roagMenuState().selected==2 and tracked.clock==clock)
     love.gamepadpressed(nil,'dpup')
-    assert(love.roegMenuState().selected==1 and tracked.clock==clock)
+    assert(love.roagMenuState().selected==1 and tracked.clock==clock)
 end
 local captured=false
 function love.draw()
@@ -93,13 +93,13 @@ function love.draw()
         local file=assert(io.open(output..'/gamepad-menu.tga','wb'))
         file:write(image:encode('tga'):getString());file:close()
         love.gamepadpressed(nil,'b')
-        assert(not love.roegMenuState() and tracked.clock==clock,
+        assert(not love.roagMenuState() and tracked.clock==clock,
             'gamepad cancel changed the world')
         love.event.quit()
     end)
 end
 LUA
-ROEG_GAMEPAD_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
+ROAG_GAMEPAD_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
     timeout 25s love "$app" >"$output_dir/gamepad.log" 2>&1 || {
         cat "$output_dir/gamepad.log" >&2
         echo "Gamepad smoke artifacts: $output_dir" >&2

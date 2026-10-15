@@ -176,12 +176,12 @@ return function(test,equal)
     test('E03 valid newer incompatible world source never rolls back silently',function()
         local io,files=memory();local store=Store.new(io)
         local pack=fixture();assert(store:save(pack,{}))
-        local payload=W.encode(pack):gsub('ROEG%-STUDIO%-WORLD/1',
-            'ROEG-STUDIO-WORLD/2')
+        local payload=W.encode(pack):gsub('ROAG%-STUDIO%-WORLD/1',
+            'ROAG-STUDIO-WORLD/2')
         local a,b=1,0
         for i=1,#payload do a=(a+payload:byte(i))%65521;b=(b+a)%65521 end
         files['studio/projects/e03_fixture/world-b.txt']=table.concat({
-            'ROEG-STUDIO-WORLD-RECORD/1',2,#payload,
+            'ROAG-STUDIO-WORLD-RECORD/1',2,#payload,
             string.format('%08x',b*65536+a)},'\n')..'\n'..payload
         local loaded,reason=store:open('e03_fixture',{})
         assert(not loaded and reason:find('incompatible',1,true))
@@ -197,12 +197,12 @@ return function(test,equal)
         local loaded,status=Runtime.inspect(read)
         assert(loaded and status:find('recovered',1,true))
         -- Repack a valid envelope with a newer inert but incompatible payload.
-        local payload=W.encode(pack):gsub('ROEG%-STUDIO%-WORLD/1','ROEG-STUDIO-WORLD/2')
+        local payload=W.encode(pack):gsub('ROAG%-STUDIO%-WORLD/1','ROAG-STUDIO-WORLD/2')
         local function checksum(bytes)
             local a,b=1,0;for i=1,#bytes do a=(a+bytes:byte(i))%65521;b=(b+a)%65521 end
             return string.format('%08x',b*65536+a)
         end
-        files[Runtime.paths[2]]=table.concat({'ROEG-STUDIO-PUBLISHED-WORLD/1',3,
+        files[Runtime.paths[2]]=table.concat({'ROAG-STUDIO-PUBLISHED-WORLD/1',3,
             #payload,checksum(payload)},'\n')..'\n'..payload
         assert(not Runtime.inspect(read))
     end)

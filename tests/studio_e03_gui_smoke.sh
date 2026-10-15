@@ -2,10 +2,10 @@
 # Isolated callback-driven E03 author -> reopen -> publish -> game render/fallback.
 set -eu
 project_dir=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
-output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roeg-studio-e03-XXXXXX")
+output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-studio-e03-XXXXXX")
 app="$output_dir/app"
 mkdir -p "$app" "$output_dir/data"
-cp "$project_dir/main.lua" "$app/roeg_main.lua"
+cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
 cp -R "$project_dir/examples" "$app/examples"
@@ -18,12 +18,12 @@ local old_new,old_restore,old_submit=Game.new_stage,Game.restore,Game.submit
 Game.new_stage=function(...) tracked=old_new(...);return tracked end
 Game.restore=function(...) tracked=old_restore(...);return tracked end
 Game.submit=function(s,...) tracked=s;return old_submit(s,...) end
-assert(love.filesystem.load('roeg_main.lua'))()
+assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_update,original_draw=love.load,love.update,love.draw
-local phase=assert(tonumber(os.getenv('ROEG_E03_PHASE')))
-local output=assert(os.getenv('ROEG_E03_OUTPUT'))
+local phase=assert(tonumber(os.getenv('ROAG_E03_PHASE')))
+local output=assert(os.getenv('ROAG_E03_OUTPUT'))
 local shot,pending,queued=0,false,nil
-local function state() return assert(love.roegStudioState()) end
+local function state() return assert(love.roagStudioState()) end
 local function replace_text(value)
     for _=1,120 do love.keypressed('backspace') end
     love.textinput(value);love.keypressed('return')
@@ -93,8 +93,8 @@ function love.load(args)
         love.keypressed('v')
         assert(e.message:find('VALID',1,true),e.message)
         love.keypressed('s');assert(not state().dirty)
-        assert(not love.filesystem.getInfo('active-a.roeg') and
-            not love.filesystem.getInfo('profile-a.roeg'),
+        assert(not love.filesystem.getInfo('active-a.roag') and
+            not love.filesystem.getInfo('profile-a.roag'),
             'Studio world editing touched player persistence')
         local f=assert(io.open(output..'/save_dir.txt','wb'))
         f:write(love.filesystem.getSaveDirectory());f:close()
@@ -125,7 +125,7 @@ function love.load(args)
             'asset ID edit broke authored room reference')
         love.keypressed('w');assert(state().mode=='world')
     elseif phase==5 then
-        assert(love.roegWorldPackStatus()=='loaded')
+        assert(love.roagWorldPackStatus()=='loaded')
         love.keypressed('n')
         assert(tracked and tracked.generated_map.rooms[1].template_id==
             'studio:room/room_001')
@@ -138,7 +138,7 @@ function love.load(args)
         snapshot_file('authored-next.snapshot',Game.snapshot(control))
         love.keypressed('escape')
     elseif phase==6 then
-        assert(love.roegWorldPackStatus()=='loaded')
+        assert(love.roagWorldPackStatus()=='loaded')
         love.keypressed('c')
         assert(tracked and Persistence.encode(Game.snapshot(tracked))==
             read_file('authored-save.snapshot'),
@@ -148,12 +148,12 @@ function love.load(args)
             read_file('authored-next.snapshot'),
             'authored floor continuation differs after disk restore')
     else
-        assert(love.roegStudioState()==nil)
+        assert(love.roagStudioState()==nil)
         local G=require('src.generation')
         local map=G.generate(1)
         if phase==3 then
-            assert(love.roegWorldPackStatus()=='loaded')
-            assert(love.roegAssetIdResolved('studio:tile/moss'))
+            assert(love.roagWorldPackStatus()=='loaded')
+            assert(love.roagAssetIdResolved('studio:tile/moss'))
             assert(map.rooms[1].template_id=='studio:room/room_001')
             local visual=false
             for _,id in pairs(map.studio_visuals or {}) do
@@ -161,7 +161,7 @@ function love.load(args)
             end
             assert(visual,'normal game floor lacks authored tile visual')
         else
-            assert(love.roegWorldPackStatus()=='absent')
+            assert(love.roagWorldPackStatus()=='absent')
             assert(map.rooms[1].template_id~='studio:room/room_001')
         end
     end
@@ -204,8 +204,8 @@ function love.draw()
 end
 LUA
 run_phase() {
-    ROEG_E03_PHASE="$1" ROEG_E03_OUTPUT="$output_dir" \
-        XDG_DATA_HOME="$output_dir/data" ROEG_GUI_AUTOSTART="${2:-0}" \
+    ROAG_E03_PHASE="$1" ROAG_E03_OUTPUT="$output_dir" \
+        XDG_DATA_HOME="$output_dir/data" ROAG_GUI_AUTOSTART="${2:-0}" \
         timeout 25s love "$app" ${3:-} > "$output_dir/phase$1.log" 2>&1
 }
 run_phase 1 0 --studio
