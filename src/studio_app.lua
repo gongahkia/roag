@@ -19,6 +19,19 @@ local E06Views=require('src.studio_e06_views')
 local UI=require('src.studio_chrome')
 local utf8=require('utf8')
 local App={}
+local asset_actions={
+    {id='edit',label='Edit pixels'},
+    {id='copy',label='Duplicate & edit…'},
+    {id='rename',label='Rename…'},
+    {id='bind',label='Bind as player'},
+}
+local function asset_action_enabled(asset,action)
+    if not asset then return false end
+    if action=='edit' or action=='copy' then
+        return asset.source~='' or asset.document~=''
+    end
+    return action~='bind' or asset.kind=='actor'
+end
 function App.requested(args)
     for _,value in ipairs(args or {}) do if value=='--studio' then return true end end
     return false
@@ -38,8 +51,9 @@ function App.new()
     return setmetatable({store=Store.new(IO),world_store=StudioWorldStore.new(IO),
         theme_store=StudioThemeStore.new(IO),audio_store=StudioAudioStore.new(IO),
         project=nil,selected=1,dirty=false,
-        mode='home',message='Create a project (N) or open one (O).',
+        mode='home',message='Click New to create a project, or Open to reopen one.',
         preview=nil,preview_id=nil,field=nil,typed='',pending=nil,listing={},list_index=1,
+        context_menu=nil,copy_source=nil,
         filter_kind='all',world_images={},world_image_data={},
         draft_preview=false,help_open=false,pipeline_report=nil},
         {__index=App})
@@ -74,7 +88,8 @@ function App:new_project(name)
     self.theme_pack=StudioTheme.new(id);self.theme_editor=nil;self.theme_blocked=false
     self.audio_pack=StudioAudio.new(id);self.audio_editor=nil;self.audio_blocked=false
     self.selected=1;self.dirty=true;self.metadata_dirty=true;self.mode='project';self.preview=nil;self.canvas=nil
-    self:status('Created '..id..' (unsaved). Drag a PNG or press I for the sample.')
+    self.context_menu=nil;self.copy_source=nil
+    self:status('Created '..id..' (unsaved). Drop a PNG, click Sample, or click Sprite.')
 end
 function App:open_project(id)
     local project,reason=self.store:open(id,decode)
@@ -95,6 +110,7 @@ function App:open_project(id)
     self.audio_editor=nil;self.audio_reason=audio_reason
     self.audio_blocked=not audio and audio_reason~='missing audio document'
     self.preview=nil;self.preview_id=nil;self.canvas=nil
+    self.context_menu=nil;self.copy_source=nil
     self:status(reason..' '..id..(self.world_blocked and
         ' · World document unavailable: '..tostring(world_reason) or
         world_reason=='recovered previous world generation' and
@@ -405,6 +421,47 @@ function App:duplicate_sprite()
     self.canvas_asset=copy;self.mode='canvas';self.dirty=true;self.metadata_dirty=true
     self:status('Copied layers. G toggles the original overlay; S saves this separate sprite.')
 end
+function App:begin_copy()
+    local source=self:selected_asset()
+    if not source then self:status('Select an asset first');return end
+    if source.source=='' and source.document=='' then
+        self:status('This draft has no pixels to copy. Create or import its image first.');return
+    end
+    self.copy_source=self.selected
+    self.typed=(source.name..' copy'):sub(1,80)
+    self.mode='copy_name'
+    self:status('Name the independent copy, then open it for pixel editing.')
+end
+function App:commit_copy()
+    local name=self.typed
+    if #name<1 or #name>80 or not name:find('%S') or name:find('%c') then
+        self:status('Copy name must contain visible text and fit in 80 bytes.');return
+    end
+    self.selected=self.copy_source
+    self.mode='project'
+    self:duplicate_sprite()
+    self.copy_source=nil
+    if self.mode=='canvas' then
+        self.canvas_asset.name=name
+        self:status('Editing '..name..'. The source asset remains unchanged; S saves the copy.')
+    end
+end
+function App:asset_action(action)
+    self.context_menu=nil
+    local a=self:selected_asset()
+    if not asset_action_enabled(a,action) then return end
+    if action=='edit' then self:edit_pixels()
+    elseif action=='copy' then self:begin_copy()
+    elseif action=='rename' then self:edit('name')
+    elseif action=='bind' and a.kind=='actor' then self:keypressed('b') end
+end
+function App:asset_at(y)
+    if y<166 or y>=516 then return nil end
+    local visible=self:visible_assets();local at=1
+    for i,v in ipairs(visible) do if v==self.selected then at=i end end
+    local first=math.max(1,at-13)
+    return visible[first+math.floor((y-166)/25)]
+end
 function App:selected_asset()
     local asset=self.project and self.project.assets[self.selected]
     if asset and self.filter_kind~='all' and asset.kind~=self.filter_kind then return nil end
@@ -529,6 +586,10 @@ function App:commit_edit()
     self.mode='project';self.field=nil
 end
 function App:keypressed(key)
+    if self.context_menu then
+        self.context_menu=nil
+        if key=='escape' then return true end
+    end
     if key=='f10' then self.help_open=not self.help_open;return true end
     if self.help_open then
         if key=='escape' then self.help_open=false end
@@ -796,8 +857,9 @@ function App:keypressed(key)
         end
         return
     end
-    if self.mode=='name' or self.mode=='edit' then
-        if key=='escape' then self.mode=self.project and 'project' or 'home'
+    if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' then
+        if key=='escape' then
+            self.mode=self.project and 'project' or 'home';self.copy_source=nil
         elseif key=='backspace' then
             local offset=utf8.offset(self.typed,-1)
             if offset then self.typed=self.typed:sub(1,offset-1) end
@@ -806,6 +868,7 @@ function App:keypressed(key)
                 local name=self.typed;self.mode='home'
                 local ok,err=pcall(function() self:new_project(name) end)
                 if not ok then self:status('New project rejected: '..tostring(err)) end
+            elseif self.mode=='copy_name' then self:commit_copy()
             else self:commit_edit() end
         end
         return
@@ -874,13 +937,42 @@ function App:textinput(text)
     if self.mode=='canvas' then self.canvas:textinput(text);return end
     if self.mode=='theme' then self.theme_editor:textinput(text);return end
     if self.mode=='audio' then self.audio_editor:textinput(text);return end
-    if self.mode=='name' or self.mode=='edit' or self.mode=='size' or
+    if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
+        self.mode=='size' or
         self.mode=='world_size' or self.mode=='world_edit' then
         if #self.typed+#text<=100 then self.typed=self.typed..text end
     end
 end
-function App:mousepressed(x,y,button)
+function App:mousepressed(x,y,button,presses)
     if self.help_open then return true end
+    if self.context_menu then
+        local menu=self.context_menu
+        self.context_menu=nil
+        if button==1 and x>=menu.x and x<menu.x+196 and
+            y>=menu.y and y<menu.y+#asset_actions*31 then
+            local item=asset_actions[math.floor((y-menu.y)/31)+1]
+            if item then self:asset_action(item.id) end
+        end
+        return true
+    end
+    if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
+        self.mode=='size' or self.mode=='confirm' or self.mode=='quit_confirm' then
+        if button==1 and y>=350 and y<390 then
+            if x>=324 and x<500 then self:keypressed('return')
+            elseif x>=520 and x<696 then self:keypressed('escape') end
+        end
+        return true
+    end
+    if self.mode=='open' then
+        if button==1 and x>=190 and x<830 and y>=239 and y<377 then
+            local first=math.max(1,self.list_index-5)
+            local i=first+math.floor((y-239)/23)
+            if self.listing[i] then self.list_index=i;self:open_project(self.listing[i]) end
+        elseif button==1 and x>=440 and x<580 and y>=418 and y<458 then
+            self:keypressed('escape')
+        end
+        return true
+    end
     if button==1 and self.mode=='pipeline' then
         if y>=558 and y<=596 then
             if x>=24 and x<224 then self:keypressed('d')
@@ -923,6 +1015,16 @@ function App:mousepressed(x,y,button)
         return true
     end
     if self.mode~='home' and self.mode~='project' then return end
+    if button==2 and self.mode=='project' then
+        local index=x>=20 and x<430 and self:asset_at(y) or nil
+        if index then self.selected=index;self.preview=nil end
+        if index or (self:selected_asset() and x>=446 and x<1001 and y>=139 and y<536) then
+            local w,h=love.graphics.getDimensions()
+            self.context_menu={x=math.max(4,math.min(x,w-204)),
+                y=math.max(66,math.min(y,h-#asset_actions*31-4))}
+            return true
+        end
+    end
     if button~=1 then return end
     if y>=72 and y<=100 then
         if x<100 then self:keypressed('n')
@@ -936,12 +1038,20 @@ function App:mousepressed(x,y,button)
         elseif x<900 then self:keypressed('u')
         elseif x<960 then self:keypressed('p')
         else self:keypressed('y') end
-    elseif self.mode=='project' and x<430 and y>=166 and y<536 then
-        local visible=self:visible_assets()
-        local at=1;for i,v in ipairs(visible) do if v==self.selected then at=i end end
-        local first=math.max(1,at-13)
-        local index=visible[first+math.floor((y-166)/25)]
-        if index then self.selected=index;self.preview=nil end
+    elseif self.mode=='project' and x>=20 and x<430 and y>=166 and y<516 then
+        local index=self:asset_at(y)
+        if index then
+            self.selected=index;self.preview=nil
+            if presses and presses>=2 then self:edit_pixels() end
+        end
+    elseif self.mode=='project' and self:selected_asset() and
+        x>=736 and x<986 and y>=182 and y<322 then
+        local row=math.floor((y-182)/35)+1
+        local item=asset_actions[row]
+        if item and (y-182)%35<30 then self:asset_action(item.id) end
+    elseif self.mode=='project' and self:selected_asset() and
+        x>=459 and x<717 and y>=182 and y<345 then
+        self:edit_pixels()
     elseif self.mode=='project' and x>=450 and y>=386 and y<=530 then
         local index=math.floor((y-386)/24)+1
         local f=({'name','id','kind','binding','filter','reference_id'})[index]
@@ -1058,10 +1168,10 @@ function App:draw()
     local g=love.graphics
     local w,h=g.getDimensions()
     UI.begin('ROAG  /  STUDIO','ASSETS  ·  Static art, rooms, themes and audio')
-    local actions={{'N New',18,82},{'O Open',100,98},{'S Save',200,98},
-        {'A Draft',300,98},{'I Sample',400,98},{'C Sprite',500,98},
-        {'E Pixels',600,98},{'W World',700,98},{'U UI',800,98},
-        {'P Pub',900,58},{'Y Audio',960,math.max(45,w-978)}}
+    local actions={{'New',18,82},{'Open',100,98},{'Save',200,98},
+        {'Draft',300,98},{'Sample',400,98},{'Sprite',500,98},
+        {'Pixels',600,98},{'World',700,98},{'UI',800,98},
+        {'Publish',900,58},{'Audio',960,math.max(45,w-978)}}
     for _,action in ipairs(actions) do
         UI.button(action[2],72,action[3],29,action[1],false,true)
     end
@@ -1074,9 +1184,9 @@ function App:draw()
     UI.panel(20,166,410,370)
     g.setColor(UI.color.muted)
     if not p then
-        g.printf('N  Create a project\nO  Open a saved project',35,299,380,'center')
+        g.printf('Click New to create a project\nClick Open to reopen your art',35,299,380,'center')
     end
-    if p and #p.assets==0 then g.print('Empty project. Press A or drop a PNG.',30,195) end
+    if p and #p.assets==0 then g.print('Empty project. Drop a PNG, click Sample or Sprite.',30,195) end
     if p then
         local visible=self:visible_assets();local at=1
         for i,v in ipairs(visible) do if v==self.selected then at=i end end
@@ -1085,8 +1195,11 @@ function App:draw()
             local i=visible[first+row-1];local a=p.assets[i]
             if i==self.selected then UI.selected(24,166+(row-1)*25,400,24) end
             g.setColor((a.source=='' and a.derived=='') and UI.color.muted or UI.color.text)
-            g.print(('%s  %s  %s'):format(a.kind,a.id,(a.source=='' and a.derived=='') and '[draft]' or ''),
-                31,171+(row-1)*25)
+            local row_y=166+(row-1)*25
+            g.setScissor(31,row_y,390,24)
+            g.print(('%s  ·  %s%s'):format(a.name,a.kind,
+                (a.source=='' and a.derived=='') and '  [draft]' or ''),31,row_y+5)
+            g.setScissor()
         end
     end
     local a=self:selected_asset()
@@ -1094,6 +1207,12 @@ function App:draw()
     g.setColor(UI.color.text)
     g.print(a and ('SELECTED · '..a.name) or 'No asset selected',458,148)
     if a then
+        g.setColor(UI.color.muted);g.print('ACTIONS',738,148)
+        UI.panel(730,177,263,149)
+        for i,item in ipairs(asset_actions) do
+            UI.button(736,182+(i-1)*35,250,30,item.label,false,
+                asset_action_enabled(a,item.id))
+        end
         UI.inset(459,182,258,163)
         for yy=183,342,16 do
             for xx=460,700,16 do
@@ -1128,35 +1247,58 @@ function App:draw()
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)
     g.print('Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
-    g.print('Click asset or field · Enter accept · Esc cancel · Save before close',24,573)
+    g.print('Left click select · double-click/edit preview · right-click actions · Save before close',24,573)
     g.print('F10 help · Canvas Tab preview · P readiness',600,550)
     g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')
-    if self.mode=='name' or self.mode=='edit' or self.mode=='size' or self.mode=='confirm' or
+    if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
+        self.mode=='size' or self.mode=='confirm' or
         self.mode=='quit_confirm' or self.mode=='open' or
         self.mode=='world_size' or self.mode=='world_edit' or
         self.mode=='world_delete_confirm' then
-        UI.modal(170,205,680,200)
+        UI.modal(170,self.mode=='open' and 160 or 205,680,
+            self.mode=='open' and 320 or 200)
         g.setColor(UI.color.text)
         local title=self.mode=='name' and 'NEW PROJECT NAME' or
             self.mode=='edit' and ('EDIT '..self.field:upper()) or
+            self.mode=='copy_name' and 'NAME THE INDEPENDENT COPY' or
             self.mode=='size' and 'NEW SPRITE DIMENSIONS (1–512)' or
             self.mode=='world_size' and 'NEW ROOM DIMENSIONS (odd, ≤23×17)' or
             self.mode=='world_edit' and ('EDIT ROOM '..self.field:upper()) or
             self.mode=='world_delete_confirm' and 'DELETE ROOM?' or
             self.mode=='confirm' and 'DISCARD UNSAVED EDITS?' or 'OPEN PROJECT'
         if self.mode=='quit_confirm' then title='CLOSE WITHOUT SAVING?' end
-        g.printf(title,190,225,640,'center')
+        g.printf(title,190,self.mode=='open' and 184 or 225,640,'center')
         if self.mode=='open' then
             local first=math.max(1,self.list_index-5)
             for row=1,math.min(6,#self.listing-first+1) do
                 local i=first+row-1;local id=self.listing[i]
-                g.setColor(i==self.list_index and 1 or 0.7,0.88,0.78)
-                g.printf(id,190,260+(row-1)*23,640,'center')
+                if i==self.list_index then UI.selected(190,239+(row-1)*23,640,22) end
+                g.setColor(UI.color.text)
+                g.printf(id,190,243+(row-1)*23,640,'center')
             end
-        else g.printf((self.mode=='confirm' or self.mode=='quit_confirm' or
+            UI.button(440,418,140,40,'Cancel',false,true)
+        else
+            if self.mode~='confirm' and self.mode~='quit_confirm' and
+                self.mode~='world_delete_confirm' then
+                UI.inset(220,274,580,38)
+            end
+            g.printf((self.mode=='confirm' or self.mode=='quit_confirm' or
             self.mode=='world_delete_confirm') and
             'Enter / Y to discard · Esc to cancel' or
-            self.typed,190,285,640,'center') end
+            self.typed,190,285,640,'center')
+            UI.button(324,350,176,40,
+                (self.mode=='confirm' or self.mode=='quit_confirm') and
+                    'Confirm' or 'Continue',false,true)
+            UI.button(520,350,176,40,'Cancel',false,true)
+        end
+    end
+    if self.context_menu then
+        local menu=self.context_menu
+        UI.panel(menu.x,menu.y,196,#asset_actions*31)
+        for i,item in ipairs(asset_actions) do
+            UI.button(menu.x+2,menu.y+(i-1)*31+1,192,29,item.label,false,
+                asset_action_enabled(a,item.id))
+        end
     end
     if self.help_open then E06Views.help(self.workspace) end
 end

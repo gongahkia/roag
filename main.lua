@@ -2105,6 +2105,8 @@ function love.roagStudioState()
     if not studio then return nil end
     return {mode=studio.mode,project=studio.project,dirty=studio.dirty,
         message=studio.message,workspace=studio.workspace,
+        field=studio.field,context_menu=studio.context_menu,
+        visible_assets=studio:visible_assets(),
         pipeline_report=studio.pipeline_report,draft_preview=studio.draft_preview,
         publish_preview=studio.loose_plan and {
             counts=studio.loose_plan.counts,blocked=studio.loose_plan.blocked},
@@ -2119,8 +2121,8 @@ end
 function love.textinput(text)
     if studio then studio:textinput(text) end
 end
-function love.mousepressed(x,y,button)
-    if studio then studio:mousepressed(x,y,button);return end
+function love.mousepressed(x,y,button,istouch,presses)
+    if studio then studio:mousepressed(x,y,button,presses);return end
     if button~=1 then return end
     if boon_detail_id then boon_detail_id=nil;return end
     if not state or title or pause_menu or chest_menu or route_menu or

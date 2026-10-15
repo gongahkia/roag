@@ -21,6 +21,11 @@ local function replace_field(value)
     for _=1,100 do press('backspace') end
     love.textinput(value);press('return')
 end
+local function replace_field_by_mouse(value)
+    for _=1,100 do press('backspace') end
+    love.textinput(value)
+    love.mousepressed(390,370,1)
+end
 local function pixel(doc,x,y)
     return table.concat(D.get(doc,x,y),',')
 end
@@ -32,9 +37,15 @@ function love.load(args)
         local source=state().project.assets[1]
         assert(source.binding=='core:actor/adventurer')
         local original_bytes=assert(love.filesystem.read('studio/projects/reference_test/'..source.source))
-        press('d')
+        love.mousepressed(50,178,2)
+        assert(state().context_menu,'right-click asset menu did not open')
+        love.mousepressed(80,218,1)
+        assert(state().mode=='copy_name','mouse copy did not ask for a name')
+        replace_field_by_mouse('Hurt pose')
         local s=state();local copy=s.project.assets[s.selected]
-        assert(s.mode=='canvas' and copy.id~=source.id and copy.reference_id==source.id)
+        assert(s.mode=='canvas' and copy.name=='Hurt pose' and
+            copy.id~=source.id and copy.reference_id==source.id)
+        assert(source.name=='Adventurer sample','copy changed source name')
         assert(s.canvas.reference_visible and s.canvas.reference_name==source.name)
         assert(D.flatten(s.canvas.doc)==s.canvas.reference_raw)
         press('g');assert(not s.canvas.reference_visible)
@@ -45,6 +56,14 @@ function love.load(args)
         love.mousepressed(x,y,1);love.mousereleased(x,y,1)
         assert(pixel(s.canvas.doc,0,0)=='255,0,0,255')
         press('s');assert(not state().dirty)
+        press('escape')
+        love.mousepressed(750,265,1)
+        assert(state().mode=='edit' and state().field=='name',
+            'rename button did not open name field')
+        replace_field_by_mouse('Player hurt')
+        assert(copy.name=='Player hurt' and source.name=='Adventurer sample')
+        love.mousepressed(750,195,1)
+        assert(state().mode=='canvas','Edit pixels button did not open canvas')
         press('escape');press('4');replace_field('core:actor/adventurer/hurt');press('s')
         assert(not state().dirty and copy.document~=source.document)
         assert(love.filesystem.read('studio/projects/reference_test/'..source.source)==original_bytes,
@@ -64,12 +83,20 @@ function love.load(args)
         end
         assert(bindings['core:actor/adventurer'] and bindings['core:actor/adventurer/hurt'])
     else
-        press('o');press('return')
+        love.mousepressed(120,85,1)
+        assert(state().mode=='open','Open button did not show projects')
+        love.mousepressed(500,246,1)
         local s=state();assert(s.mode=='project' and #s.project.assets==2)
+        local hurt_index
         for i,a in ipairs(s.project.assets) do
-            if a.binding=='core:actor/adventurer/hurt' then s.selected=i end
+            if a.binding=='core:actor/adventurer/hurt' then hurt_index=i end
         end
-        press('e');s=state()
+        assert(hurt_index,'saved hurt pose missing')
+        for row,index in ipairs(s.visible_assets) do
+            if index==hurt_index then love.mousepressed(50,178+(row-1)*25,1) end
+        end
+        assert(s.selected==hurt_index,'left-click asset selection failed')
+        love.mousepressed(750,195,1);s=state()
         assert(s.mode=='canvas' and s.canvas.reference_visible and s.canvas.reference_raw)
         assert(pixel(s.canvas.doc,0,0)=='255,0,0,255')
         assert(not s.canvas:dirty())

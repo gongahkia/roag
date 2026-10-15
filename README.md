@@ -113,6 +113,13 @@ Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock fo
 
 ## ROAG Studio
 
+In the Assets screen, drag in a PNG or click **Sample**. Click an asset and
+**Edit pixels** to draw, or **Duplicate & edit…** to name and paint a separate
+copy. Right-click an asset row for the same actions and **Rename…**; double-click
+a row or click its preview to open the canvas. Save the editable project before
+publishing. See the [pixel drawing guide](docs/ROAG_STUDIO_E01.md) for controls,
+bindings and the publish steps.
+
 The [E04 guide](docs/ROAG_STUDIO_E04.md) covers HUD, bitmap text,
 background and effect authoring. The [E05 guide](docs/ROAG_STUDIO_E05.md)
 covers deterministic static atlases.

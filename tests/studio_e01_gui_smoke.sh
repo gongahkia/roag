@@ -201,6 +201,7 @@ function love.update(dt)
     original_update(dt)
     if queued_action then
         local action=queued_action;queued_action=nil
+        mark('queued-action')
         action();pending=false
     end
 end
@@ -222,7 +223,15 @@ function love.draw()
                     scripted_stroke=true
                     love.mousepressed(x,y,1)
                     local D=require('src.studio_document')
-                    assert(D.get(c.doc,0,0)[4]==255,'source pixel did not paint on press')
+                    local px,py=c:pixel_at(x,y)
+                    assert(D.get(c.doc,0,0)[4]==255,
+                        ('source pixel did not paint on press: mode=%s tool=%s modal=%s '
+                            ..'color=%s,%s,%s,%s pixel=%s,%s space=%s'):format(
+                            tostring(state().mode),tostring(c.tool),tostring(c.modal),
+                            tostring(c.color[1]),tostring(c.color[2]),
+                            tostring(c.color[3]),tostring(c.color[4]),
+                            tostring(px),tostring(py),
+                            tostring(love.keyboard.isDown('space'))))
                     scripted_move(tx,ty,tx-x,ty-y)
                     assert(D.get(c.doc,3,0)[4]==255,'drag interpolation did not paint')
                 end
@@ -261,11 +270,19 @@ function love.draw()
             else queued_action=function() love.event.quit() end end
         end)
     elseif shot==0 then
-        shot=1
+        -- Request this screenshot once. On macOS its callback may run after
+        -- another draw, so queue the quit for the next update as in phase 1.
+        pending=true;shot=1
         love.graphics.captureScreenshot(function(img)
+            mark('capture-callback')
             local bytes=img:encode('tga'):getString()
             local f=assert(io.open(output..'/phase'..phase..'.tga','wb'));f:write(bytes);f:close()
-            love.event.quit()
+            queued_action=function()
+                local s=love.roagStudioState()
+                mark('quit-request mode='..tostring(s and s.mode)..
+                    ' dirty='..tostring(s and s.dirty))
+                love.event.quit()
+            end
         end)
     end
 end
