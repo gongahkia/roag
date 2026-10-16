@@ -14,7 +14,6 @@ From the checkout root, after the app is approved:
 
 ```sh
 make game
-make studio
 make test
 make gui
 ```
@@ -25,10 +24,11 @@ commands are:
 ```sh
 export ROAG_LOVE_BIN="$HOME/Applications/ROAG-Love-11.5.app/Contents/MacOS/love"
 /usr/bin/arch -x86_64 "$ROAG_LOVE_BIN" .
-/usr/bin/arch -x86_64 "$ROAG_LOVE_BIN" . --studio
 luajit tests/run.lua
 luajit tests/finale_playthrough.lua 3 /tmp/roag-seed3.trace
 ```
+
+For the editor, use the sibling Paint checkout: `cd ../paint && make app`.
 
 For callback-driven GUI tests, put the opt-in wrappers first on `PATH` in the
 test shell. They accept only disposable app copies under macOS temporary

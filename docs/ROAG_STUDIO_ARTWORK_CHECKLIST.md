@@ -1,13 +1,14 @@
 # ROAG Studio artwork checklist
 
-From this checkout, run `make studio`. The Make target passes
-`--studio --current-project` to LÖVE 11.5. Studio reads this game's LÖVE
+This is an archived description of the former in-game editor. The active editor
+lives in the sibling Paint project; from this checkout, run
+`cd ../paint && make app`. The former Studio read this game's LÖVE
 identity (`roag-foundation`) to select the `roag` editable project. If the
 active published visual manifest names another project **and its editable
 project is present**, Studio opens that project instead. If neither exists,
 it creates and saves a new empty `roag` project under the Studio workspace
 shown on screen. A corrupt existing project is reported and **not** replaced.
-The original `love . --studio` project chooser remains available.
+The former project chooser is no longer available in ROAG.
 
 The first screen is **Artwork**. It reads the game's actual visual binding
 registry and this project's current UI theme and World tile definitions. It
@@ -69,8 +70,8 @@ Atlas selection and pack compatibility are detailed on Publish Readiness.
 Existing E00/E01 projects remain separate and can be opened with **O** or the
 Assets screen's **Open** button. No source pixels, imported PNGs, run saves or
 profiles are copied into the auto-created project. The checklist is read-only
-until you explicitly create/edit/save art. `love . --studio` without
-`--current-project` retains the manual project chooser for isolated projects.
+until you explicitly create/edit/save art. The former manual project chooser
+for isolated projects is now part of Paint.
 
 Validation: `luajit tests/run.lua` and
 `TMPDIR=/var/tmp sh tests/studio_artwork_gui_smoke.sh`. The GUI script uses a

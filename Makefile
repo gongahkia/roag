@@ -11,19 +11,16 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game studio test gui gui-game gui-expansion
+.PHONY: help game test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
-	 'make game             Play ROAG with its built-in visuals' \
-	 'make studio           Open the sibling TAMS Paint app' \
+	 'make game             Play ROAG with generated atlas visuals' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
 	 'cd ../paint && make app    Open TAMS Paint for artwork, rooms, UI and audio' \
-	 'ROAG_GENERATED_ART=1 make game    Opt into generated four-tone atlases'
+	 'ROAG_GENERATED_ART=0 make game    Use built-in art instead of generated atlases'
 game:
 	$(LOVE_RUN) .
-studio:
-	@$(MAKE) --no-print-directory -C ../paint app
 test:
 	$(LUAJIT) tests/run.lua
 gui: gui-game gui-expansion

@@ -1,6 +1,6 @@
 # ROAG — Game guide
 
-The game starts with built-in visuals through `make game` or `love .`. The editor now lives in the sibling [Paint project](../paint/README.md): `make studio` forwards there, or run `cd ../paint && make app`. Editable art and project data were copied there without changing ROAG run saves or achievement profiles. The game still reads compatible optional published visuals, world rooms, UI themes, audio, and atlases. Set `ROAG_GENERATED_ART=1` before launch to preview the new optional four-tone generated atlases; unset it to return to built-in art.
+The game starts with the generated four-tone atlases through `make game` or `love .`. The editor lives in the sibling [Paint project](../paint/README.md); run it with `cd ../paint && make app`. The game still reads compatible optional published visuals, world rooms, UI themes, audio, and atlases. Set `ROAG_GENERATED_ART=0` before launch to use the built-in art. Missing or invalid atlas data also falls back safely.
 
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
@@ -128,15 +128,14 @@ ROAG retains read-only format validators and published-content readers because
 saved generated floors and optional loose/world/theme/audio/atlas packs refer
 to their stable IDs. None of these readers opens editor UI or changes simulation.
 The hand-painted published PNGs were archived in Paint and removed from this
-game checkout, so `make game` now uses built-in sprites by default. `F5` still
+game checkout, so `make game` now uses the generated atlases by default. `F5` still
 refreshes compatible published visuals without changing the current floor.
 
 Paint also contains the original Codex-generated sheets and a deterministic
 four-tone compiler. The derived character, terrain, icon and backdrop atlases
-are optional. Launch with `ROAG_GENERATED_ART=1 make game` to select them when
-no higher-priority loose Studio binding exists. The default launch keeps the
-built-in art. The optional atlas is checked as one complete generation and
-falls back safely if missing or corrupt.
+load by default when no higher-priority loose Studio binding exists. Launch
+with `ROAG_GENERATED_ART=0 make game` to use built-in art instead. The atlas is
+checked as one complete generation and falls back safely if missing or corrupt.
 
 Historical Studio E00–E06 guides remain in `docs/` for format and workflow
 background; the active authoring commands now live in Paint.

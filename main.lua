@@ -269,7 +269,7 @@ local function visual_fingerprint(visuals,theme,world)
 end
 
 local function load_generated_visuals(read)
-    if os.getenv('ROAG_GENERATED_ART')~='1' then return nil,'disabled' end
+    if os.getenv('ROAG_GENERATED_ART')=='0' then return nil,'disabled' end
     local ok,visuals,status=pcall(GeneratedVisuals.new,read,
         function(bytes,path)
             local data=love.filesystem.newFileData(bytes,path)
