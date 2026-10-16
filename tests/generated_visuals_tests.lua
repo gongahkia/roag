@@ -51,6 +51,13 @@ return function(test,equal)
         end
         assert(atlas:resolve('core:enemy/hollow_regent') and
             atlas:resolve('core:enemy/extraction_pursuer'))
+        for _,slot in ipairs({'hp_icon','xp_icon','currency_icon',
+            'hit_effect','boon_effect'}) do
+            assert(atlas:resolve('core:ui/'..slot))
+        end
+        for _,drop in ipairs({'currency','food','health'}) do
+            assert(atlas:resolve('core:drop/'..drop))
+        end
         local count=0
         for _ in pairs(atlas.handles) do count=count+1 end
         assert(count==235 and #Boons.order==52)
