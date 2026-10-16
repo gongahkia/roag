@@ -3,9 +3,11 @@
 local Project=require('src.studio_project')
 local AtlasRuntime=require('src.studio_atlas_runtime')
 local V={}
-function V.new(read,make_image)
+function V.new(read,make_image,generated)
     local self=setmetatable({bindings={},by_id={},cache={},image_data={},has_terrain=false,
-        failed={},status='absent',atlas_status='absent'},{__index=V})
+        failed={},status=generated and 'generated' or 'absent',atlas_status='absent',
+        generated=generated},{__index=V})
+    if generated then self.has_terrain=true end
     local ok,bytes=pcall(read,'assets/studio/manifest.txt')
     if not ok or not bytes then return self end
     local decoded,project=pcall(Project.decode,bytes)
@@ -36,20 +38,23 @@ function V:check_atlas()
     end
 end
 function V:resolve_id(id)
-    if not self.by_id[id] then return nil end
+    if not self.by_id[id] then
+        return self.generated and self.generated:resolve(id) or nil
+    end
     self:check_atlas()
     if self.atlas then
         local packed=self.atlas:resolve(id)
         if packed then return packed end
     end
     local image=self:get_id(id)
-    if not image then return nil end
+    if not image then return self.generated and self.generated:resolve(id) or nil end
     return {texture=image,width=image:getWidth(),height=image:getHeight(),
         source='loose',offset_x=0,offset_y=0}
 end
 function V:resolve(binding)
     local asset=self.bindings[binding]
-    return asset and self:resolve_id(asset.id) or nil
+    return asset and self:resolve_id(asset.id) or
+        self.generated and self.generated:resolve(binding) or nil
 end
 function V:get(binding)
     local asset=self.bindings[binding]

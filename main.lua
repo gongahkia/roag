@@ -16,6 +16,7 @@ local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 local VisualAssets = require("src.visual_assets")
+local GeneratedVisuals = require("src.generated_visuals")
 local VisualSlots = require("src.visual_slots")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
@@ -250,6 +251,7 @@ end
 local function visual_fingerprint(visuals,theme,world)
     local sum=require('src.studio_atlas').checksum
     local parts={visuals.status,visuals.atlas_status or '',
+        visuals.generated and visuals.generated.signature or '',
         theme and require('src.studio_theme').encode(theme.theme) or '',
         world and require('src.studio_world').encode(world) or ''}
     if visuals.read then
@@ -266,6 +268,20 @@ local function visual_fingerprint(visuals,theme,world)
     return sum(table.concat(parts,'|'))
 end
 
+local function load_generated_visuals(read)
+    if os.getenv('ROAG_GENERATED_ART')~='1' then return nil,'disabled' end
+    local ok,visuals,status=pcall(GeneratedVisuals.new,read,
+        function(bytes,path)
+            local data=love.filesystem.newFileData(bytes,path)
+            local pixels=love.image.newImageData(data)
+            local image=love.graphics.newImage(pixels)
+            image:setFilter('nearest','nearest')
+            return image
+        end)
+    if not ok then return nil,'rejected: '..tostring(visuals) end
+    return visuals,status
+end
+
 function love.load(args)
     ui_body_font,ui_display_font=UIFont.load()
     love.graphics.setFont(ui_body_font)
@@ -277,6 +293,12 @@ function love.load(args)
         end)
     if audio_ok then audio_runtime=audio;audio_status=audio.status
     else audio_status='silent: '..tostring(audio) end
+    local generated,generated_status=load_generated_visuals(function(path)
+        return love.filesystem.read(path)
+    end)
+    if generated_status:match('^rejected') then
+        print('Generated art fallback: '..generated_status)
+    end
     visual_assets=VisualAssets.new(function(path)
         return love.filesystem.read(path)
     end,function(bytes,asset)
@@ -285,7 +307,7 @@ function love.load(args)
         local image=love.graphics.newImage(pixels)
         image:setFilter(asset.filter,asset.filter)
         return image,pixels
-    end)
+    end,generated)
     studio_theme,studio_theme_status=StudioThemeRuntime.inspect(function(path)
         return love.filesystem.read(path)
     end,visual_assets)
@@ -354,8 +376,12 @@ local function refresh_visuals()
         return image,pixels
     end
     local ok,candidate,theme,theme_status,world,world_status=pcall(function()
-        local visuals=VisualAssets.new(read,make_image)
-        assert(visuals.status=='loaded' or visuals.status=='absent',
+        local generated,generated_status=load_generated_visuals(read)
+        assert(not generated_status:match('^rejected'),
+            'generated art: '..generated_status)
+        local visuals=VisualAssets.new(read,make_image,generated)
+        assert(visuals.status=='loaded' or visuals.status=='absent' or
+            visuals.status=='generated',
             'visual manifest: '..visuals.status)
         if visuals.status=='loaded' then
             local ids={}
@@ -404,6 +430,7 @@ local function refresh_visuals()
     if title and not state then Generation.install_studio_pack(world) end
     local backing=candidate.atlas_status
     if candidate.status=='absent' then backing='built-in fallback'
+    elseif candidate.status=='generated' then backing='generated atlas'
     elseif backing~='loaded' and backing~='recovered previous atlas generation' then
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
