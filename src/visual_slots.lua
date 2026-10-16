@@ -49,6 +49,17 @@ function V.pose(id,current,group)
     end
     return hurt and 'hurt' or attack and 'attack' or nil
 end
+-- The authored base image faces right. Mirroring only changes presentation;
+-- vertical movement retains the last horizontal facing.
+function V.facing(current,dx)
+    if dx==-1 or dx==1 then return dx end
+    return current or 1
+end
+function V.horizontal_draw(x,width,image_width,facing)
+    local scale=width/image_width
+    if facing==-1 then return x+width,-scale end
+    return x,scale
+end
 local symbol={floor='.',wall='#',water='~'}
 function V.terrain_shape(map,x,y,kind)
     local mark=assert(symbol[kind],'invalid terrain kind')

@@ -37,6 +37,13 @@ function Camera.set_presentation_offset(camera, x, y)
     camera.offset_x, camera.offset_y = x, y
 end
 
+function Camera.set_tile(camera, tile, player_x, player_y)
+    assert(type(tile)=='number' and tile>0 and tile%1==0,
+        'invalid presentation tile size')
+    camera.tile=tile
+    camera.x,camera.y=target(camera,player_x,player_y)
+end
+
 function Camera.update(camera, dt, player_x, player_y)
     local goal_x, goal_y = target(camera, player_x, player_y)
     local alpha = 1 - math.exp(-math.max(dt, 0) / camera.time_constant)

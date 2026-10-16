@@ -24,7 +24,9 @@ local StudioAtlasBuild = require("src.studio_atlas_build")
 local AudioRuntime = require("src.studio_audio_runtime")
 local AudioCues = require("src.audio_cues")
 
-local TILE = 32
+local ZOOM_TILES={32,40,48,56,64}
+local zoom_index=3 -- 150% by default; gameplay geometry remains 32px logical art.
+local TILE=ZOOM_TILES[zoom_index]
 local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
 local PANEL_X = 742
 local BOON_ROW_Y,BOON_ROW_H=425,15
@@ -44,6 +46,7 @@ local boon_page = 0
 local boon_detail_id
 local floor_seed = 1
 local selected_class_id=Classes.order[1]
+local player_facing=1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
 local route_menu -- exit offers are plain data in the authoritative exit entity.
 local reward_notices, reward_notice_time = {}, 0
@@ -231,6 +234,20 @@ local function reset_camera()
     camera = Camera.new(map, VIEWPORT, TILE, position.x, position.y)
     hit_feedback = HitFeedback.new()
     camera_state = state
+end
+
+local function zoom_by(steps)
+    local next_index=math.max(1,math.min(#ZOOM_TILES,zoom_index+steps))
+    if next_index==zoom_index then return end
+    zoom_index=next_index
+    TILE=ZOOM_TILES[zoom_index]
+    if state and camera then
+        local position=Game.player(state).position
+        local x,y=Playback.position(playback,state.player_id,
+            position.floor_id,position.x,position.y)
+        Camera.set_tile(camera,TILE,x,y)
+    end
+    notice=('Zoom %d%% — no world time'):format(TILE*100/32)
 end
 
 local function visual_fingerprint(visuals,theme,world)
@@ -494,6 +511,7 @@ local function begin_new(seed)
         return
     end
     state=candidate
+    player_facing=1
     profile=updated
     profile_status=profile_service:inspect()
     floor_seed=seed
@@ -514,6 +532,7 @@ local function continue_run()
         return
     end
     state=loaded
+    player_facing=1
     selected_class_id=Game.player(state).definition_id
     floor_seed=state.root_seed or state.run_seed
     title,confirm_new,pause_menu=false,false,false
@@ -835,6 +854,8 @@ function love.keypressed(key, _, isrepeat)
         notice = minimap_visible and "Map shown — no time" or "Map hidden — no time"
         return
     end
+    if key=='=' or key=='+' or key=='kp+' then zoom_by(1);return end
+    if key=='-' or key=='kp-' then zoom_by(-1);return end
     if key == "v" and not targeting then
         boon_page=boon_page+1
         notice="Boon list page — no time"
@@ -865,6 +886,7 @@ function love.keypressed(key, _, isrepeat)
         local direction = cardinal[key] or diagonal[key]
         if direction then
             targeting.dx, targeting.dy = direction[1], direction[2]
+            player_facing=VisualSlots.facing(player_facing,direction[1])
             local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
             notice = preview.valid and "Preview ready; Enter to commit" or
                 ((preview.reason or "Invalid target") .. " — no time")
@@ -899,6 +921,7 @@ function love.keypressed(key, _, isrepeat)
         submit({ kind = "wait" })
     elseif cardinal[key] then
         local direction = cardinal[key]
+        player_facing=VisualSlots.facing(player_facing,direction[1])
         submit({ kind = "move", dx = direction[1], dy = direction[2] })
     end
 end
@@ -961,15 +984,17 @@ local function draw_cells(cells, red, green, blue, alpha)
     end
 end
 
-local function draw_visual(handle,x,y,w,h,alpha)
+local function draw_visual(handle,x,y,w,h,alpha,flip_x)
     if not handle then return false end
     love.graphics.setColor(1,1,1,alpha or 1)
+    local draw_x,scale_x=VisualSlots.horizontal_draw(x,w,handle.width,
+        flip_x and -1 or 1)
     if handle.quad then
-        love.graphics.draw(handle.texture,handle.quad,x,y,0,
-            w/handle.width,h/handle.height)
+        love.graphics.draw(handle.texture,handle.quad,draw_x,y,0,
+            scale_x,h/handle.height)
     else
-        love.graphics.draw(handle.texture,x,y,0,
-            w/handle.width,h/handle.height)
+        love.graphics.draw(handle.texture,draw_x,y,0,
+            scale_x,h/handle.height)
     end
     return true
 end
@@ -1016,9 +1041,16 @@ local function draw_enemies()
                 (visual_assets and visual_assets:resolve_id(enemy.definition_id))
             if enemy_art then
                 draw_visual(enemy_art,x,y,TILE,TILE)
-            elseif enemy.ai_id == "guard" then
+            else
+            -- Built-in tokens were drawn on a 32px tile. Scale them with the
+            -- camera so zoom works even without published enemy artwork.
+            love.graphics.push()
+            love.graphics.translate(x,y)
+            love.graphics.scale(TILE/32)
+            local x,y=0,0
+            if enemy.ai_id == "guard" then
                 love.graphics.setColor(0.42, 0.73, 0.43)
-                love.graphics.rectangle("fill", x + 5, y + 5, TILE - 12, TILE - 13)
+                love.graphics.rectangle("fill", x + 5, y + 5, 20, 19)
             elseif enemy.ai_id == "spitter" then
                 love.graphics.setColor(0.70, 0.40, 0.80)
                 love.graphics.polygon("fill", x + 15, y + 3, x + 28, y + 15,
@@ -1077,19 +1109,33 @@ local function draw_enemies()
                 love.graphics.polygon("fill", x + 15, y + 3, x + 28, y + 26,
                     x + 2, y + 26)
             end
+            love.graphics.pop()
+            end
+            local bar_x=x+TILE*3/32
+            local bar_y=y+TILE*28/32
+            local bar_width=TILE*26/32
+            local bar_height=math.max(3,TILE*3/32)
             love.graphics.setColor(0.16, 0.19, 0.16)
-            love.graphics.rectangle("fill", x + 3, y + 28, TILE - 6, 3)
+            love.graphics.rectangle("fill",bar_x,bar_y,bar_width,bar_height)
             love.graphics.setColor(0.94, 0.28, 0.29)
-            love.graphics.rectangle("fill", x + 3, y + 28,
-                (TILE - 6) * enemy.hp / enemy.max_hp, 3)
+            love.graphics.rectangle("fill",bar_x,bar_y,
+                bar_width*enemy.hp/enemy.max_hp,bar_height)
             if enemy.statuses and enemy.statuses.burning then
+                local scale=TILE/32
                 love.graphics.setColor(1,0.47,0.13,0.95)
-                love.graphics.circle("fill",x+26,y+5,3)
-                love.graphics.polygon("fill",x+23,y+5,x+26,y-2,x+29,y+5)
+                love.graphics.circle("fill",x+26*scale,y+5*scale,3*scale)
+                love.graphics.polygon("fill",x+23*scale,y+5*scale,
+                    x+26*scale,y-2*scale,x+29*scale,y+5*scale)
             end
             end
         end
     end
+end
+
+local function begin_tile_token(x,y)
+    love.graphics.push()
+    love.graphics.translate(x,y)
+    love.graphics.scale(TILE/32)
 end
 
 local function draw_rewards()
@@ -1098,6 +1144,8 @@ local function draw_rewards()
             and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
             if not draw_visual(bound_visual('core:drop/'..drop.kind),x,y,TILE,TILE) then
+                begin_tile_token(x,y)
+                local x,y=0,0
                 if drop.kind=="food" then
                     love.graphics.setColor(.48,.82,.28)
                     love.graphics.circle("fill",x+16,y+17,7)
@@ -1113,6 +1161,7 @@ local function draw_rewards()
                     love.graphics.setColor(0.26, 0.19, 0.05)
                     love.graphics.circle("line", x + 16, y + 16, 6)
                 end
+                love.graphics.pop()
             end
         end
     end
@@ -1125,6 +1174,8 @@ local function draw_rewards()
             if chest_art and not entity.claimed then
                 draw_visual(chest_art,x,y,TILE,TILE)
             else
+            begin_tile_token(x,y)
+            local x,y=0,0
             if entity.claimed then
                 love.graphics.setColor(0.34, 0.26, 0.17)
             else
@@ -1133,35 +1184,45 @@ local function draw_rewards()
             love.graphics.rectangle("fill", x + 4, y + 10, 24, 18)
             love.graphics.setColor(1, 0.86, 0.41)
             love.graphics.rectangle("line", x + 4, y + 10, 24, 18)
+            love.graphics.pop()
             end
         end
         if entity.position.floor_id==state.active_floor_id
             and entity.controller == "door" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            begin_tile_token(x,y)
+            local x,y=0,0
             love.graphics.setColor(entity.open and 0.42 or 0.57,
                 entity.open and 0.47 or 0.35,0.22)
             love.graphics.rectangle("fill",x+6,y+3,20,27)
             love.graphics.setColor(0.79,0.69,0.39)
             love.graphics.rectangle("line",x+6,y+3,20,27)
+            love.graphics.pop()
         end
         if entity.position.floor_id==state.active_floor_id
             and entity.controller=="exit" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            begin_tile_token(x,y)
+            local x,y=0,0
             love.graphics.setColor(0.34,0.88,0.94)
             love.graphics.circle("line",x+16,y+16,12)
             love.graphics.polygon("fill",x+16,y+6,x+23,y+17,x+16,y+25,x+9,y+17)
+            love.graphics.pop()
         end
     end
     for _,stair in ipairs(state.generated_map and
         state.generated_map.placements.stairs or {}) do
         if visible_at(stair.x,stair.y) then
             local x,y=Camera.tile_top_left(camera,stair.x,stair.y)
+            begin_tile_token(x,y)
+            local x,y=0,0
             love.graphics.setColor(0.43,0.88,0.96)
-            love.graphics.rectangle("line",x+4,y+4,TILE-8,TILE-8)
+            love.graphics.rectangle("line",x+4,y+4,24,24)
             love.graphics.line(x+9,y+13,x+16,y+19,x+23,y+13)
             love.graphics.line(x+9,y+20,x+16,y+26,x+23,y+20)
+            love.graphics.pop()
         end
     end
 end
@@ -1549,7 +1610,7 @@ local function draw_world()
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
     local avatar=actor_visual(Game.player(state).definition_id,state.player_id)
     if avatar then
-        draw_visual(avatar,screen_x,screen_y,TILE,TILE)
+        draw_visual(avatar,screen_x,screen_y,TILE,TILE,nil,player_facing==-1)
     else
         local colors={
             [Classes.order[1]]={0.95,0.78,0.30},
@@ -1560,7 +1621,8 @@ local function draw_world()
             [Classes.order[6]]={0.73,0.93,0.44},
         }
         love.graphics.setColor(unpack(colors[Game.player(state).definition_id]))
-        love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
+        love.graphics.circle("fill", screen_x + TILE / 2 - TILE/32,
+            screen_y + TILE / 2 - TILE/32, 11*TILE/32)
     end
     local current_group=Playback.current_group(playback)
     if current_group then
@@ -1938,7 +2000,7 @@ local function draw_panel()
         g.print('WASD move  ·  Space wait',px,543)
     end
     g.setColor(.46,.61,.62)
-    g.print('Tab map  ·  Esc pause',px,600)
+    g.print('Tab map  ·  +/- zoom  ·  Esc pause',px,600)
 end
 
 local function draw_reward_detail()
@@ -2003,7 +2065,7 @@ function love.draw()
         love.graphics.setColor(.37,.57,.56)
         love.graphics.rectangle('fill',294,187,436,1)
         love.graphics.setColor(.64,.77,.75)
-        love.graphics.printf('1–6  CHOOSE CLASS',250,201,524,'center')
+        love.graphics.printf('1–6  CHOOSE CLASS FOR NEW RUN',250,201,524,'center')
         love.graphics.setColor(.96,.94,.8)
         love.graphics.printf(chosen.name:upper(),250,225,524,'center')
         love.graphics.setColor(.77,.85,.79)
@@ -2014,11 +2076,17 @@ function love.draw()
             250,285,524,'center')
         local can_continue=save_status and
             (save_status.status=="active" or save_status.status=="recovered")
+        local saved_player=can_continue and save_status.state and
+            Game.player(save_status.state)
+        local saved_class=saved_player and Classes.get(saved_player.definition_id)
+        love.graphics.setColor(.57,.72,.69)
+        love.graphics.printf('Class choice applies to New Run only',250,313,524,'center')
         love.graphics.setColor(can_continue and {.95,.87,.61} or {.46,.57,.56})
-        love.graphics.printf(can_continue and 'C / Enter: Continue' or
+        love.graphics.printf(can_continue and
+            ('C / Enter: Continue saved '..(saved_class and saved_class.name or 'run')) or
             'Continue unavailable',250,340,524,'center')
         love.graphics.setColor(.94,.94,.82)
-        love.graphics.printf('N: New Run',250,369,524,'center')
+        love.graphics.printf('N: New Run as '..chosen.name,250,369,524,'center')
         love.graphics.setColor(.66,.8,.77)
         love.graphics.printf('U: Achievements',250,398,524,'center')
         love.graphics.setColor(.44,.61,.6)
@@ -2225,6 +2293,9 @@ function love.mousereleased(x,y,button)
 end
 function love.wheelmoved(dx,dy)
     if studio then studio:wheelmoved(dx,dy) end
+    if not studio and state and not title and dy~=0 then
+        zoom_by(dy>0 and 1 or -1)
+    end
 end
 function love.focus(focused)
     if studio then studio:focus(focused) end

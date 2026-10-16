@@ -172,6 +172,14 @@ ordinary submitted-action traces now clear six generated floors and the final
 boss for the original four classes; the older single-floor guide is still retained as
 a narrower regression check.
 
+**C/Enter Continue** resumes the saved run with its original class and sprite;
+it does not start the class currently selected on the title. To play a different
+class, select it with **1–6**, press **N New Run**, and confirm replacement if asked.
+In game, moving or aiming left/right mirrors the selected class sprite; up/down
+keeps its last horizontal facing. Press **+/-** or scroll the mouse wheel to zoom
+the world between 100% and 200% (150% by default). Zoom and facing are visual
+only and do not advance world time or alter collision.
+
 Standard LÖVE gamepad callbacks provide a menu path: shoulder buttons cycle
 classes on the title, **Y** starts a run, **A** confirms or continues,
 **B** cancels, and the D-pad selects chest/route offers. During play the D-pad
