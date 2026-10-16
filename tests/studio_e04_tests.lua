@@ -182,4 +182,45 @@ return function(test,equal)
         Theme.effect_for(theme,{kind='DamageTaken',x=2,y=2},true)
         equal(before,Game.snapshot(state))
     end)
+    test('individual Artwork UI and uppercase/lowercase glyphs render without a theme pack',function()
+        local Project=require('src.studio_project')
+        local Slots=require('src.visual_slots')
+        local assets={}
+        local function asset(id,kind,binding,w,h)
+            local a=Project.asset(id,id,kind)
+            a.binding=binding;a.source='sources/'..id:match('/([^/]+)$')..'.png'
+            a.format='png';a.width=w;a.height=h
+            assets[id]=a
+        end
+        asset('studio:art/hp','ui_icon','core:ui/hp_icon',16,16)
+        asset('studio:art/upper','glyph',Slots.glyph_binding('A'),4,8)
+        asset('studio:art/lower','glyph',Slots.glyph_binding('a'),4,8)
+        local visuals={status='loaded',project_id='roag',by_id=assets,bindings={}}
+        for _,a in pairs(assets) do visuals.bindings[a.binding]=a end
+        function visuals:resolve_id(id)
+            local a=self.by_id[id]
+            return a and {texture=id,width=a.width,height=a.height}
+        end
+        function visuals:resolve(binding)
+            local a=self.bindings[binding]
+            return a and self:resolve_id(a.id)
+        end
+        local runtime,status=Runtime.inspect(function()return nil end,visuals)
+        assert(runtime and status=='loaded')
+        assert(runtime.theme.slots.hp_icon=='studio:art/hp')
+        local previous=_G.love
+        local draws,printed={},{}
+        _G.love={graphics={setColor=function()end,
+            draw=function(texture,_,x)draws[#draws+1]={texture,x} end,
+            print=function(char)printed[#printed+1]=char end,
+            getFont=function()return {getWidth=function()return 4 end} end}}
+        local ok,reason=pcall(function()
+            assert(runtime:draw_text('Aa?',0,0,2))
+        end)
+        _G.love=previous
+        assert(ok,reason)
+        assert(#draws==2 and draws[1][1]=='studio:art/upper' and
+            draws[2][1]=='studio:art/lower')
+        assert(#printed==1 and printed[1]=='?')
+    end)
 end

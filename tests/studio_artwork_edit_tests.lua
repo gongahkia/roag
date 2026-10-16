@@ -9,6 +9,30 @@ local Document=require('src.studio_document')
 local PNG=require('src.studio_png')
 
 return function(test)
+    test('Artwork opens UI sprites and letters in the pixel workflow',function()
+        local App=require('src.studio_app')
+        local Inventory=require('src.studio_artwork_inventory')
+        local Theme=require('src.studio_theme')
+        local app=App.new({})
+        app.project=Project.new('roag','ROAG')
+        app.theme_pack=Theme.new('roag')
+        app.slot_entries=Inventory.build(app.project,nil,app.theme_pack)
+        app.slot_group='UI theme'
+        local visible=app:visible_slots()
+        for i,entry in ipairs(visible) do
+            if entry.key=='theme:hp_icon' then app.slot_index=i;break end
+        end
+        app:open_selected_slot()
+        assert(app.mode=='size' and app.pending_slot.binding=='core:ui/hp_icon')
+        app.mode='slots';app.pending_slot=nil;app.slot_group='Letters & text'
+        visible=app:visible_slots()
+        for i,entry in ipairs(visible) do
+            if entry.key=='core:glyph/ascii_097' then app.slot_index=i;break end
+        end
+        app:open_selected_slot()
+        assert(app.mode=='size' and app.typed=='4x8' and
+            app.pending_slot.kind=='glyph')
+    end)
     test('Studio top navigation omits standalone Pixels and Publish tabs',function()
         local previous_love=_G.love
         local UI=require('src.studio_chrome')

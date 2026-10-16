@@ -291,9 +291,7 @@ end
 function App:open_selected_slot()
     local entry=self:visible_slots()[self.slot_index]
     if not entry then return end
-    if entry.kind=='theme' then
-        self:open_theme();self:status(entry.label..': assign artwork in UI / Presentation.')
-    elseif entry.kind=='world' then
+    if entry.kind=='world' then
         self:open_world()
         if entry.not_added and self.world_editor then
             self.world_editor:change(function()
@@ -312,12 +310,12 @@ function App:open_selected_slot()
     elseif entry.asset then
         self.selected=entry.asset_index;self.filter_kind='all';self.slot_return=true
         if entry.asset.source~='' or entry.asset.document~='' then self:edit_pixels()
-        else self.pending_slot=entry;self.mode='size';self.typed='32x32'
+        else self.pending_slot=entry;self.mode='size';self.typed=entry.default_size or '32x32'
             self:status('Choose dimensions for '..entry.label..'.') end
     elseif entry.status=='published elsewhere' then
         self:edit_published_slot(entry)
     else
-        self.pending_slot=entry;self.mode='size';self.typed='32x32'
+        self.pending_slot=entry;self.mode='size';self.typed=entry.default_size or '32x32'
         self:status('New art for '..entry.label..' · enter width x height.')
     end
 end
@@ -330,7 +328,7 @@ function App:new_blank_slot(entry)
         w,h=nil,nil
     end
     self.pending_slot=entry;self.mode='size'
-    self.typed=w and h and ('%dx%d'):format(w,h) or '32x32'
+    self.typed=w and h and ('%dx%d'):format(w,h) or entry.default_size or '32x32'
     self:status('New blank art for '..entry.label..' · choose width x height.')
 end
 function App:save()
@@ -403,6 +401,14 @@ function App:bind_selected_artwork()
         if candidate.id==self.binding_asset_id then asset=candidate;break end
     end
     if not asset then self:status('Artwork no longer exists.');return end
+    local theme_slot=entry.binding:match('^core:ui/(.+)$')
+    if theme_slot and not (StudioTheme.accepted[theme_slot] and
+        StudioTheme.accepted[theme_slot][asset.kind]) then
+        self:status('This UI destination needs '..entry.kind..' artwork.');return
+    end
+    if entry.binding:match('^core:glyph/') and asset.kind~='glyph' then
+        self:status('Individual letters need glyph artwork.');return
+    end
     for _,other in ipairs(self.project.assets) do
         if other~=asset and other.binding==entry.binding then
             self:status('This project already binds '..entry.binding..
@@ -487,7 +493,15 @@ function App:open_theme()
     if not self.project then self:status('Open a project first');return end
     if self.theme_blocked then
         self:status('Theme editor blocked: '..tostring(self.theme_reason));return end
-    self.theme_editor=ThemeEditor.new(self.theme_pack,self.project.assets,
+    local preview_theme=StudioTheme.decode(StudioTheme.encode(self.theme_pack))
+    for _,asset in ipairs(self.project.assets) do
+        local slot=asset.binding:match('^core:ui/(.+)$')
+        if slot and StudioTheme.accepted[slot] and
+            (asset.source~='' or asset.derived~='') then
+            preview_theme.slots[slot]=asset.id
+        end
+    end
+    self.theme_editor=ThemeEditor.new(preview_theme,self.project.assets,
         function(id) return self:world_asset_image(id) end,self.world_image_data)
     self.mode='theme'
     self:status('UI / Presentation: choose asset slots, Tab preview, S save.')
@@ -1793,7 +1807,6 @@ function App:draw_artwork()
                 722,390,264)
         end
         UI.button(720,published_elsewhere and 416 or 440,262,40,
-            entry.kind=='theme' and 'Open UI bindings' or
             entry.kind=='world' and 'Open World tiles' or
             has_editable_art and 'Edit artwork' or
             'Create artwork',false,true)

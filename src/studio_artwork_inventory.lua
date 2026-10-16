@@ -6,7 +6,8 @@ local Terrain=require('src.terrain')
 local Document=require('src.studio_document')
 local I={}
 local group_order={Character=1,Enemies=2,Rewards=3,Boons=4,
-    Backdrops=5,Terrain=6,['UI theme']=7,['World tiles']=8}
+    Backdrops=5,Terrain=6,['UI theme']=7,['Letters & text']=8,
+    ['World tiles']=9}
 local function words(value)
     return (value:gsub('_',' '):gsub('^%l',string.upper))
 end
@@ -71,6 +72,27 @@ local function art_state(asset,source_read)
     end
     return 'drawn'
 end
+local function published_status(asset,published,source_read,published_read)
+    if not asset then return published and 'published elsewhere' or 'missing' end
+    if not has_pixels(asset) then return 'draft' end
+    local source_path=asset.derived~='' and asset.derived or asset.source
+    local bytes=safe_read(source_read,source_path)
+    local state=art_state(asset,source_read)
+    if state~='drawn' then return state end
+    if published and bytes and
+        bytes==safe_read(published_read,'assets/studio/'..published.source) then
+        return 'published'
+    end
+    return published and 'changed since publish' or 'drawn, unpublished'
+end
+local function glyph_label(byte)
+    local char=string.char(byte)
+    if byte==32 then return 'Space' end
+    if char:match('%u') then return 'Uppercase '..char end
+    if char:match('%l') then return 'Lowercase '..char end
+    if char:match('%d') then return 'Digit '..char end
+    return 'Punctuation '..char
+end
 function I.build(project,world,theme,source_read,published_read)
     assert(project and project.assets,'Studio project required')
     local published_by_binding={}
@@ -86,36 +108,46 @@ function I.build(project,world,theme,source_read,published_read)
     end
     local result={}
     for id in pairs(Slots.bindings) do
+        if not id:match('^core:ui/') and not id:match('^core:glyph/') then
         local entry=visual_entry(id)
         local asset,index=asset_for(project,id)
         local published=published_by_binding[id]
         entry.asset=asset;entry.asset_index=index;entry.published_asset=published
-        if not asset then
-            entry.status=published and 'published elsewhere' or 'missing'
-        elseif not has_pixels(asset) then entry.status='draft'
-        else
-            local source_path=asset.derived~='' and asset.derived or asset.source
-            local bytes=safe_read(source_read,source_path)
-            local state=art_state(asset,source_read)
-            if state~='drawn' then entry.status=state
-            else
-                if published and bytes and
-                    bytes==safe_read(published_read,'assets/studio/'..published.source) then
-                    entry.status='published'
-                elseif published then entry.status='changed since publish'
-                else entry.status='drawn, unpublished' end
-            end
-        end
+        entry.status=published_status(asset,published,source_read,published_read)
         result[#result+1]=entry
+        end
     end
     for _,slot in ipairs(Theme.slots) do
+        local binding='core:ui/'..slot
+        local direct,index=asset_for(project,binding)
+        local published=published_by_binding[binding]
         local id=theme and theme.slots[slot] or ''
-        local asset,index
-        if id~='' then asset,index=find_id(project,id) end
+        local assigned,assigned_index
+        if id~='' then assigned,assigned_index=find_id(project,id) end
+        local asset=direct or assigned
+        index=index or assigned_index
+        local status=direct and published_status(direct,published,source_read,published_read)
+            or published and 'published elsewhere' or
+            id=='' and 'missing' or
+            art_state(assigned,source_read):gsub('^drawn$','drawn, assigned')
         result[#result+1]={key='theme:'..slot,label=words(slot),group='UI theme',
-            kind='theme',asset=asset,asset_index=index,optional=false,
-            status=id=='' and 'unmapped' or
-                art_state(asset,source_read):gsub('^drawn$','drawn, assigned')}
+            kind=slot=='hud_panel' and 'ui_panel' or
+                (slot=='title_background' or slot=='pause_background') and
+                    'ui_background' or slot=='bitmap_font' and 'bitmap_font' or
+                (slot=='hit_effect' or slot=='boon_effect') and 'effect_sprite' or
+                    'ui_icon',binding=binding,asset=asset,asset_index=index,
+            published_asset=published,optional=false,status=status}
+    end
+    for byte=32,126 do
+        local char=string.char(byte)
+        local binding=Slots.glyph_binding(char)
+        local asset,index=asset_for(project,binding)
+        local published=published_by_binding[binding]
+        result[#result+1]={key=binding,binding=binding,
+            label=glyph_label(byte),group='Letters & text',kind='glyph',
+            asset=asset,asset_index=index,published_asset=published,
+            default_size='4x8',optional=false,
+            status=published_status(asset,published,source_read,published_read)}
     end
     local world_tiles={}
     local known_tiles={}
@@ -181,5 +213,5 @@ function I.filter(entries,query,group,missing_only)
     return result
 end
 I.groups={'Core','All','Character','Enemies','Rewards','Boons','Backdrops',
-    'Terrain','UI theme','World tiles'}
+    'Terrain','UI theme','Letters & text','World tiles'}
 return I

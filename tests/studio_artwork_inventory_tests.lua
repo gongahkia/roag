@@ -21,11 +21,34 @@ return function(test)
         assert(row(entries,'core:enemy/mycelial_matriarch').group=='Enemies')
         assert(row(entries,'core:boon/storm_conductor/icon').group=='Boons')
         assert(row(entries,'core:terrain/overgrown_ruins/wall/base').group=='Terrain')
-        assert(row(entries,'theme:hp_icon').status=='unmapped')
+        assert(row(entries,'theme:hp_icon').status=='missing')
+        assert(row(entries,'theme:hp_icon').binding=='core:ui/hp_icon')
+        assert(row(entries,'core:glyph/ascii_065').label=='Uppercase A')
+        assert(row(entries,'core:glyph/ascii_097').label=='Lowercase a')
+        assert(row(entries,'core:glyph/ascii_065').default_size=='4x8')
+        assert(#Inventory.filter(entries,'uppercase','Letters & text',true)==26)
         assert(row(entries,'world:studio:tile/floor').status=='unmapped')
         assert(row(entries,'world:studio:tile/bramble_bed').status=='not added')
         assert(#Inventory.filter(entries,'storm conductor','Boons',true)==2)
         assert(#Inventory.filter(entries,'adventurer','Enemies',false)==0)
+    end)
+    test('Studio artwork UI and letter slots use normal one-image publishing',function()
+        local project=Project.new('roag','ROAG')
+        local icon=Project.asset('studio:art/ui/hp_icon','HP','ui_icon')
+        icon.binding='core:ui/hp_icon';icon.source='sources/hp.png'
+        icon.format='png';icon.width=16;icon.height=16
+        local upper=Project.asset('studio:art/glyph/a','A','glyph')
+        upper.binding='core:glyph/ascii_065';upper.source='sources/a.png'
+        upper.format='png';upper.width=4;upper.height=8
+        project.assets={icon,upper}
+        assert(Project.validate(project))
+        local source={['sources/hp.png']='hp pixels',['sources/a.png']='A pixels'}
+        local entries=Inventory.build(project,nil,Theme.new('roag'),
+            function(path)return source[path] end)
+        assert(row(entries,'theme:hp_icon').status=='drawn, unpublished')
+        assert(row(entries,'core:glyph/ascii_065').status=='drawn, unpublished')
+        assert(row(entries,'core:glyph/ascii_097').status=='missing')
+        assert(row(entries,'theme:hp_icon').asset_index==1)
     end)
     test('Studio artwork status distinguishes draft, drawn, changed and published pixels',function()
         local project=Project.new('roag','ROAG')

@@ -13,7 +13,7 @@ function E.new(theme,assets,image_for,image_data)
         selected=1,view=1,viewport=1,history={},future={},saved=Theme.encode(theme),
         message='Up/Down slot · Left/Right choose image · Tab preview · S save',
         input=nil,effect_started=0,preview_text='HP 24/40 LV 3 GOLD 12'}, {__index=E})
-    self.renderer=Runtime.preview(self.theme,image_for,image_data)
+    self.renderer=Runtime.preview(self.theme,image_for,image_data,assets)
     return self
 end
 function E:dirty() return Theme.encode(self.theme)~=self.saved end

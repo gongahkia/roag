@@ -6,6 +6,20 @@ local Classes=require('src.classes')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 local function slug(id) return id:match('/([^/]+)$') end
+-- One editable image per printable ASCII character. The numeric suffix keeps
+-- upper and lower case distinct while satisfying Studio's lowercase ID rule.
+local glyph_bindings={}
+function V.glyph_binding(character)
+    return glyph_bindings[character]
+end
+for byte=32,126 do
+    local id=('core:glyph/ascii_%03d'):format(byte)
+    glyph_bindings[string.char(byte)]=id
+    add(id)
+end
+for _,slot in ipairs({'hud_panel','hp_icon','xp_icon','currency_icon',
+    'title_background','pause_background','bitmap_font','hit_effect',
+    'boon_effect'}) do add('core:ui/'..slot) end
 local shapes={'base','center','edge','corner','inner_corner','edge_n','edge_e',
     'edge_s','edge_w','corner_nw','corner_ne','corner_se','corner_sw',
     'inner_corner_nw','inner_corner_ne','inner_corner_se','inner_corner_sw',

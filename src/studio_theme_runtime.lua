@@ -1,34 +1,70 @@
 -- Optional E04 renderer. All counters, images and timers are presentation only.
 local Theme=require('src.studio_theme')
 local Store=require('src.studio_theme_store')
+local Slots=require('src.visual_slots')
 local R={}
-function R.preview(theme,lookup,image_data)
-    return setmetatable({theme=theme,visuals={get_id=function(_,id) return lookup(id) end,
-        image_data=image_data or {}},
+function R.preview(theme,lookup,image_data,assets)
+    local visuals={get_id=function(_,id) return lookup(id) end,
+        image_data=image_data or {},bindings={}}
+    for _,asset in ipairs(assets or {}) do
+        if asset.binding~='' and (asset.source~='' or asset.derived~='') then
+            visuals.bindings[asset.binding]=asset
+        end
+    end
+    function visuals:resolve(binding)
+        local asset=self.bindings[binding]
+        local image=asset and lookup(asset.id)
+        return image and {texture=image,width=image:getWidth(),
+            height=image:getHeight()} or nil
+    end
+    return setmetatable({theme=theme,visuals=visuals,
         quads={},panel_quads={},counts={panel=0,icon=0,glyph=0,background=0,effect=0}},
         {__index=R})
 end
 function R.inspect(read,visuals)
     local theme,status=Store.inspect_published(read)
-    if not theme then return nil,status end
-    if not visuals or visuals.status~='loaded' or
-        visuals.project_id~=theme.project_id then
-        return nil,'theme assets unavailable or from a different project'
+    local bindings=visuals and visuals.bindings or {}
+    local direct=false
+    for _,slot in ipairs(Theme.slots) do
+        if bindings['core:ui/'..slot] then direct=true;break end
+    end
+    if not direct then
+        for byte=32,126 do
+            if bindings[Slots.glyph_binding(string.char(byte))] then
+                direct=true;break
+            end
+        end
+    end
+    if not theme and not direct then return nil,status end
+    if not visuals or visuals.status~='loaded' then
+        return nil,'theme assets unavailable'
+    end
+    if theme and visuals.project_id~=theme.project_id then
+        if not direct then return nil,'theme assets unavailable or from a different project' end
+        theme=nil
+    end
+    theme=theme or Theme.new(visuals.project_id)
+    -- Individually published Artwork slots take precedence over the optional
+    -- theme's asset choices. The theme editor still owns layout and presets.
+    local effective=Theme.decode(Theme.encode(theme))
+    for _,slot in ipairs(Theme.slots) do
+        local asset=bindings['core:ui/'..slot]
+        if asset then effective.slots[slot]=asset.id end
     end
     local assets={}
     for _,asset in pairs(visuals.by_id) do assets[#assets+1]=asset end
-    local valid,why=pcall(Theme.validate,theme,assets)
+    local valid,why=pcall(Theme.validate,effective,assets)
     if not valid then return nil,'theme asset mismatch: '..tostring(why) end
     for _,slot in ipairs(Theme.slots) do
-        local id=theme.slots[slot]
+        local id=effective.slots[slot]
         if id~='' and not (visuals.resolve_id and visuals:resolve_id(id) or
             visuals:get_id(id)) then
             return nil,'theme image unavailable: '..slot..' ('..id..')'
         end
     end
-    return setmetatable({theme=theme,visuals=visuals,quads={},panel_quads={},
+    return setmetatable({theme=effective,visuals=visuals,quads={},panel_quads={},
         counts={panel=0,icon=0,glyph=0,background=0,effect=0}},
-        {__index=R}),status
+        {__index=R}),direct and 'loaded' or status
 end
 function R:image(slot)
     local id=self.theme.slots[slot]
@@ -92,11 +128,18 @@ function R:draw_background(slot,x,y,w,h)
 end
 function R:draw_text(value,x,y,scale)
     local handle=self:handle('bitmap_font')
-    if not handle then return false end
+    local direct_bindings=self.visuals.bindings or {}
+    local has_direct=false
+    for byte=32,126 do
+        if direct_bindings[Slots.glyph_binding(string.char(byte))] then
+            has_direct=true;break
+        end
+    end
+    if not handle and not has_direct then return false end
     local font=self.theme.font
     local id=self.theme.slots.bitmap_font
-    local glyphs=self.quads[id]
-    if not glyphs then
+    local glyphs=handle and self.quads[id] or {}
+    if handle and not glyphs then
         local positions=Theme.glyphs(font,handle.width,handle.height)
         glyphs={}
         local pixels=self.visuals.image_data and
@@ -126,7 +169,16 @@ function R:draw_text(value,x,y,scale)
     local fallback=love.graphics.getFont()
     for i=1,#value do
         local c=value:sub(i,i)
+        local binding=Slots.glyph_binding(c)
+        local direct= binding and direct_bindings[binding] and
+            self.visuals:resolve(binding) or nil
         if c=='\n' then x=start;y=y+font.line_height*scale
+        elseif direct then
+            love.graphics.setColor(1,1,1,1)
+            draw_handle(direct,nil,x,y,0,font.glyph_width*scale/direct.width,
+                font.glyph_height*scale/direct.height)
+            x=x+(font.advance+font.spacing)*scale
+            self.counts.glyph=self.counts.glyph+1
         elseif glyphs[c] then
             love.graphics.setColor(1,1,1,1)
             draw_handle(handle,glyphs[c],x,y,0,scale,scale)

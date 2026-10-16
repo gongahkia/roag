@@ -141,6 +141,17 @@ The [E04 guide](docs/ROAG_STUDIO_E04.md) covers HUD, bitmap text,
 background and effect authoring. The [E05 guide](docs/ROAG_STUDIO_E05.md)
 covers deterministic static atlases.
 
+**Draw UI and letters in Artwork.** Select the **UI theme** group for HP/XP/
+currency icons, HUD panel, title/pause backgrounds and hit/boon effects. Select
+**Letters & text** for individual uppercase, lowercase, digit and punctuation
+glyphs. Each is a separate editable sprite: Enter, draw, **Save drawing**, then
+**Use in Game** and confirm the binding. In a running game, press **F5** to load
+published pixels. The **UI** page is for layout, effect settings, binding
+choices and previews; existing bitmap font sheets remain supported. Individual
+letter art currently renders in the themed HP readout and UI preview; other
+game text retains the built-in font until that text is routed through the theme
+renderer. Empty glyphs and missing assets use the built-in fallback.
+
 ROAG Studio E06 adds a draft/published asset preview, Publish Readiness,
 and **F5** visual refresh in a running game. For publishing a whole project's
 loose images or a world/UI/audio pack, use the advanced **P** path from Assets;

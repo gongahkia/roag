@@ -1833,7 +1833,9 @@ local function draw_panel()
     g.print(class.name:upper()..'  ·  LV '..state.progression.level,px,80)
     if studio_theme then studio_theme:draw_icon('hp_icon',px,103,16) end
     g.setColor(.77,.83,.78)
-    g.print('HEALTH',px+22,105)
+    if not (studio_theme and studio_theme:draw_text('HEALTH',px+22,105,2)) then
+        g.print('HEALTH',px+22,105)
+    end
     local hp_text=('%d/%d'):format(player.hp,player.max_hp)
     if not (studio_theme and studio_theme:draw_text('HP '..hp_text,px+176,98,2)) then
         g.setFont(ui_display_font)
@@ -1852,11 +1854,17 @@ local function draw_panel()
     local needed=next_xp-previous
     if studio_theme then studio_theme:draw_icon('xp_icon',px,155,16) end
     g.setColor(.77,.83,.78)
-    g.print(('XP  %d/%d'):format(earned,needed),px+22,156)
+    local xp_label=('XP  %d/%d'):format(earned,needed)
+    if not (studio_theme and studio_theme:draw_text(xp_label,px+22,156,2)) then
+        g.print(xp_label,px+22,156)
+    end
     hud_meter(px,174,260,8,earned,needed,.43,.72,.94)
     if studio_theme then studio_theme:draw_icon('currency_icon',px,192,16) end
     g.setColor(.98,.81,.44)
-    g.print('GOLD  '..state.currency,px+22,193)
+    local gold_label='GOLD  '..state.currency
+    if not (studio_theme and studio_theme:draw_text(gold_label,px+22,193,2)) then
+        g.print(gold_label,px+22,193)
+    end
     hud_rule(214)
 
     g.setColor(.075,.13,.14,.95)
@@ -1983,7 +1991,10 @@ local function draw_panel()
     end
     if #owned==0 then
         g.setColor(.55,.67,.67)
-        g.print('No boons yet',px,BOON_ROW_Y)
+        if not (studio_theme and studio_theme:draw_text('No boons yet',
+            px,BOON_ROW_Y,2)) then
+            g.print('No boons yet',px,BOON_ROW_Y)
+        end
     end
     hud_rule(533)
     local item=reward_notice_time>0 and reward_notices[1] or nil
