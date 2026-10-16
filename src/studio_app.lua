@@ -303,12 +303,23 @@ function App:open_selected_slot()
         else self.pending_slot=entry;self.mode='size';self.typed='32x32'
             self:status('Choose dimensions for '..entry.label..'.') end
     elseif entry.status=='published elsewhere' then
-        self:status('Published by another project. Open its editable project or make new art here.')
-        self.pending_slot=entry;self.mode='size';self.typed='32x32'
+        self:edit_published_slot(entry)
     else
         self.pending_slot=entry;self.mode='size';self.typed='32x32'
         self:status('New art for '..entry.label..' · enter width x height.')
     end
+end
+function App:new_blank_slot(entry)
+    if not entry or entry.asset or not entry.binding then return end
+    local published=entry.published_asset
+    local w,h
+    if published then w,h=Project.output_dimensions(published) end
+    if w and (w>Document.max_dimension or h>Document.max_dimension) then
+        w,h=nil,nil
+    end
+    self.pending_slot=entry;self.mode='size'
+    self.typed=w and h and ('%dx%d'):format(w,h) or '32x32'
+    self:status('New blank art for '..entry.label..' · choose width x height.')
 end
 function App:save()
     if not self.project then self:status('No project to save');return end
@@ -556,6 +567,54 @@ function App:create_sprite(w,h,slot)
     self.slot_return=not not slot;self.pending_slot=nil
     self:status((slot and ('Drawing '..slot.binding..'. ') or '')..
         'Transparent sprite created. Draw, then press S to save.')
+end
+function App:edit_published_slot(entry)
+    local published=entry and entry.published_asset
+    if not published or published.source=='' then
+        self:status('Published sprite is unavailable. Choose New blank sprite to draw one.')
+        return
+    end
+    if #self.project.assets>=256 then
+        self:status('Project asset limit reached');return
+    end
+    local id='studio:art/'..entry.binding:match(':(.+)$')
+    local taken={}
+    for _,asset in ipairs(self.project.assets) do taken[asset.id]=true end
+    if not Project.valid_id(id) or taken[id] then
+        local n=1
+        repeat
+            id=string.format('studio:actor/sprite_%03d',n);n=n+1
+        until not taken[id] or n>1000
+        if taken[id] then self:status('No free asset ID for this artwork');return end
+    end
+    local ok,doc=pcall(function()
+        local source=published.source
+        local bytes=assert(love.filesystem.read('assets/studio/'..source),
+            'published PNG is missing')
+        local w,h=Project.png_dimensions(bytes)
+        assert(w<=Document.max_dimension and h<=Document.max_dimension,
+            'published sprite exceeds the 512-pixel editor limit')
+        local pixels=decode(bytes,source,w,h)
+        local raw={}
+        for y=0,h-1 do for x=0,w-1 do
+            local r,g,b,a=pixels:getPixel(x,y)
+            raw[#raw+1]=string.char(math.floor(r*255+0.5),
+                math.floor(g*255+0.5),math.floor(b*255+0.5),
+                math.floor(a*255+0.5))
+        end end
+        return Document.from_rgba(id,w,h,table.concat(raw))
+    end)
+    if not ok then
+        self:status('Cannot edit published sprite: '..tostring(doc));return
+    end
+    local canvas=Canvas.new(doc)
+    local asset=Project.asset(id,entry.label:sub(1,80),entry.kind)
+    asset.binding=entry.binding;asset.filter=published.filter
+    self.project.assets[#self.project.assets+1]=asset
+    self.selected=#self.project.assets;self.filter_kind='all'
+    self.canvas=canvas;self.canvas_asset=asset;self.mode='canvas'
+    self.dirty=true;self.metadata_dirty=true;self.slot_return=true
+    self:status('Editing a copy of published art. Press S to save it in this project.')
 end
 function App:asset_document(a)
     if a.document~='' then return self.store:document(self.project,a) end
@@ -1128,6 +1187,8 @@ function App:keypressed_inner(key)
                 self.slot_index+(key=='up' and -1 or 1)))
             return
         elseif key=='return' then self:open_selected_slot();return
+        elseif key=='n' then
+            self:new_blank_slot(self:visible_slots()[self.slot_index]);return
         elseif key=='s' then self:save();self:refresh_artwork();return
         elseif key=='p' then self:inspect_pipeline();return
         elseif key=='o' then
@@ -1288,8 +1349,14 @@ function App:mousepressed_inner(x,y,button,presses)
                     self.slot_index=index
                     if presses and presses>=2 then self:open_selected_slot() end
                 end
-            elseif x>=720 and x<982 and y>=440 and y<480 then
-                self:open_selected_slot()
+            elseif x>=720 and x<982 and y>=416 and y<500 then
+                local entry=self:visible_slots()[self.slot_index]
+                if entry and entry.status=='published elsewhere' then
+                    if y<456 then self:open_selected_slot()
+                    elseif y>=466 then self:new_blank_slot(entry) end
+                elseif entry and y>=440 and y<480 then
+                    self:open_selected_slot()
+                end
             end
         end
         return true
@@ -1542,10 +1609,21 @@ function App:draw_artwork()
         if entry.asset then
             g.printf('Project asset: '..entry.asset.id,722,398,264)
         end
-        UI.button(720,440,262,40,
+        local published_elsewhere=entry.status=='published elsewhere'
+        local has_editable_art=published_elsewhere or entry.asset and
+            (entry.asset.source~='' or entry.asset.document~='')
+        if published_elsewhere then
+            g.printf('Open the published pixels as an editable project copy.',
+                722,390,264)
+        end
+        UI.button(720,published_elsewhere and 416 or 440,262,40,
             entry.kind=='theme' and 'Open UI bindings' or
             entry.kind=='world' and 'Open World tiles' or
-            entry.asset and 'Edit artwork' or 'Create artwork',false,true)
+            has_editable_art and 'Edit artwork' or
+            'Create artwork',false,true)
+        if published_elsewhere then
+            UI.button(720,466,262,34,'New blank sprite',false,true)
+        end
     else
         g.setColor(UI.color.muted)
         g.printf('No matching destinations. Change group or search.',722,260,264)
@@ -1553,7 +1631,7 @@ function App:draw_artwork()
     UI.statusbar(556,math.max(88,h-556))
     g.setColor(UI.color.muted)
     g.print('↑↓ / wheel select · Enter/double-click create or edit · Tab group · M missing',24,565)
-    g.print('Click Search or press / · S save · P publish readiness · F10 help',24,590)
+    g.print('Click Search or press / · N new blank · S save · P publish readiness · F10 help',24,590)
     g.setColor(UI.color.warning)
     g.printf(self.message,24,620,w-48)
 end

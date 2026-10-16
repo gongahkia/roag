@@ -12,7 +12,7 @@ function V.help(workspace)
     local lines={
         'ROAG STUDIO · F10 / Esc closes help',
         'Top tabs switch editors · Back/Forward revisit pages · Undo/Redo edit the current editor',
-        'Artwork: click Search or press / · Enter create/edit · Tab group · M missing',
+        'Artwork: Enter edits art · N new blank · click Search or press / · Tab group',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
         'Asset field 6: reference asset ID (same source dimensions); copy sets it',

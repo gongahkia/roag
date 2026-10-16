@@ -61,20 +61,24 @@ function love.draw()
             assert(state().mode=='world')
             click(750,46) -- Back to Artwork
             assert(state().mode=='slots')
-            love.keypressed('return') -- mapped destination: create local replacement
-            assert(state().mode=='size')
-            for _=1,5 do love.keypressed('backspace') end
-            love.textinput('16x16')
-            love.keypressed('return')
+            love.keypressed('return') -- edit a local copy of published pixels
             assert(state().mode=='canvas')
             local canvas=state().canvas
+            local has_ink=false
+            for y=0,canvas.doc.height-1 do for x=0,canvas.doc.width-1 do
+                if D.get(canvas.doc,x,y)[4]>0 then has_ink=true end
+            end end
+            assert(has_ink,'published pixels were not loaded into the editor')
             local x,y=canvas:origin()
+            local before=D.get(canvas.doc,0,0)
             click(x+3,y+3);love.mousereleased(x+3,y+3,1)
-            assert(D.get(canvas.doc,0,0)[4]>0)
+            local after=D.get(canvas.doc,0,0)
+            assert(after[1]~=before[1] or after[2]~=before[2] or
+                after[3]~=before[3] or after[4]~=before[4])
             click(900,46) -- shared Undo
-            assert(D.get(canvas.doc,0,0)[4]==0)
+            for i=1,4 do assert(D.get(canvas.doc,0,0)[i]==before[i]) end
             click(970,46) -- shared Redo
-            assert(D.get(canvas.doc,0,0)[4]>0)
+            for i=1,4 do assert(D.get(canvas.doc,0,0)[i]==after[i]) end
             love.keypressed('s')
             click(750,46) -- Back to Artwork after saving
             assert(state().mode=='slots' and slot().asset)
