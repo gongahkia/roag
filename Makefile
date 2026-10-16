@@ -14,10 +14,10 @@ endif
 .PHONY: help game test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
-	 'make game             Play ROAG with generated atlas visuals' \
+	 'make game             Play ROAG with built-in visuals' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'ROAG_GENERATED_ART=0 make game    Use built-in art instead of generated atlases'
+	 'ROAG_GENERATED_ART=1 make game    Preview the unapproved generated atlases'
 game:
 	$(LOVE_RUN) .
 test:

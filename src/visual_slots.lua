@@ -122,4 +122,19 @@ function V.terrain_bindings(biome_id,kind,shape)
     result[#result+1]=base..'base'
     return result
 end
+-- The generated sheets use dense, opaque motifs. Keep walkable ground quiet
+-- enough that walls, actors and tactical overlays remain distinguishable.
+-- Published Paint artwork retains its authored opacity.
+function V.terrain_alpha(kind,source,remembered)
+    local alpha=1
+    if source=='generated' then
+        if kind=='floor' then alpha=0.18
+        elseif kind=='wall' then alpha=0.72
+        elseif kind=='water' then alpha=0.58 end
+    end
+    return remembered and alpha*0.38 or alpha
+end
+function V.background_alpha(source)
+    return source=='generated' and 0.16 or 1
+end
 return V

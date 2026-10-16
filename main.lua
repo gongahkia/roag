@@ -269,7 +269,7 @@ local function visual_fingerprint(visuals,theme,world)
 end
 
 local function load_generated_visuals(read)
-    if os.getenv('ROAG_GENERATED_ART')=='0' then return nil,'disabled' end
+    if os.getenv('ROAG_GENERATED_ART')~='1' then return nil,'disabled' end
     local ok,visuals,status=pcall(GeneratedVisuals.new,read,
         function(bytes,path)
             local data=love.filesystem.newFileData(bytes,path)
@@ -1398,7 +1398,8 @@ local function draw_world()
     local biome_id=map.biome_id or Biomes.order[1]
     local background=bound_visual('core:background/'..biome_id:match('/([^/]+)$'))
     if background then
-        draw_visual(background,VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height)
+        draw_visual(background,VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height,
+            VisualSlots.background_alpha(background.source))
     end
     if terrain_cache_assets~=visual_assets then
         terrain_cache_assets=visual_assets;terrain_cache={}
@@ -1487,7 +1488,7 @@ local function draw_world()
                     terrain_cache[cache_key]=handle or false
                 end
                 if handle then draw_visual(handle,screen_x,screen_y,TILE,TILE,
-                    remembered and 0.38 or 1) end
+                    VisualSlots.terrain_alpha(kind,handle.source,remembered)) end
             end
             local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
             if authored_id and visual_assets then
