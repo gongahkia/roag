@@ -61,7 +61,7 @@ function R.inspect(read,visuals)
             local id=effective.slots[slot]
             if id~='' and not (visuals.resolve_id and visuals:resolve_id(id) or
                 visuals:get_id(id)) then
-                return nil,'theme image unavailable: '..slot..' ('..id..')
+                return nil,'theme image unavailable: '..slot..' ('..id..')'
             end
         end
         return effective
