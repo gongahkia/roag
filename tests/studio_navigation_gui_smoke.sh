@@ -56,8 +56,8 @@ function love.draw()
             assert(state().mode=='slots')
             click(820,46) -- Forward
             assert(state().mode=='project')
-            click(645,17) -- Artwork tab
-            click(780,17) -- World tab
+            click(790,17) -- Artwork tab (no separate Pixels tab)
+            click(865,17) -- World tab (no top-level Publish tab)
             assert(state().mode=='world')
             click(750,46) -- Back to Artwork
             assert(state().mode=='slots')

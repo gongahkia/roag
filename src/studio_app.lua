@@ -21,25 +21,26 @@ local UI=require('src.studio_chrome')
 local utf8=require('utf8')
 local App={}
 local nav_tabs={{'Assets','assets',68},{'Artwork','artwork',78},
-    {'Pixels','pixels',68},{'World','world',68},{'UI','ui',40},
-    {'Audio','audio',60},{'Publish','publish',78}}
+    {'World','world',68},{'UI','ui',40},{'Audio','audio',60}}
+local nav_tab_width=0
+for _,tab in ipairs(nav_tabs) do nav_tab_width=nav_tab_width+tab[3] end
 local nav_modes={home='assets',project='assets',slots='artwork',
-    canvas='pixels',world='world',world_size='world',world_edit='world',
+    canvas='artwork',world='world',world_size='world',world_edit='world',
     world_delete_confirm='world',theme='ui',audio='audio',
-    pipeline='publish',publish_confirm='publish',bind_asset='pixels',
-    asset_publish_confirm='pixels'}
+    pipeline='assets',publish_confirm='assets',bind_asset='artwork',
+    asset_publish_confirm='artwork'}
 local asset_actions={
     {id='edit',label='Edit pixels'},
     {id='copy',label='Duplicate & edit…'},
     {id='rename',label='Rename…'},
-    {id='bind',label='Bind as player'},
+    {id='bind',label='Use in Game…'},
 }
 local function asset_action_enabled(asset,action)
     if not asset then return false end
     if action=='edit' or action=='copy' then
         return asset.source~='' or asset.document~=''
     end
-    return action~='bind' or asset.kind=='actor'
+    return action~='bind' or asset.source~='' or asset.derived~=''
 end
 function App.requested(args)
     for _,value in ipairs(args or {}) do if value=='--studio' then return true end end
@@ -147,15 +148,19 @@ function App:can_leave_view()
     return true
 end
 function App:open_view(view)
-    if view==self:view() then return true end
+    if view==self:view() then
+        if view=='artwork' and self.mode=='canvas' then
+            if not self:can_leave_view() then return false end
+            self:open_artwork()
+        elseif view=='assets' and self.mode=='pipeline' then
+            self.mode=self.project and 'project' or 'home'
+        end
+        return true
+    end
     if not self:can_leave_view() then return false end
     self.slot_searching=false;self.slot_skip_text=nil;self.context_menu=nil
     if view=='assets' then self.mode=self.project and 'project' or 'home'
     elseif view=='artwork' then self:open_artwork()
-    elseif view=='pixels' then
-        if self.canvas and self.canvas_asset==self:selected_asset() then
-            self.mode='canvas'
-        else self:edit_pixels() end
     elseif view=='world' then self:open_world()
     elseif view=='ui' then self:open_theme()
     elseif view=='audio' then self:open_audio()
@@ -163,6 +168,12 @@ function App:open_view(view)
     return self:view()==view
 end
 function App:navigate_history(direction)
+    if direction=='back' and self.mode=='canvas' then
+        if not self:can_leave_view() then return end
+        if self.slot_return then self:open_artwork()
+        else self.mode='project';self:status('Asset metadata ready.') end
+        return
+    end
     local source=direction=='back' and self.nav_back or self.nav_forward
     local target=source[#source]
     if not target then return end
@@ -369,7 +380,7 @@ function App:binding_choices()
 end
 
 function App:use_current_artwork()
-    local asset=self.canvas_asset or self:selected_asset()
+    local asset=self.mode=='canvas' and self.canvas_asset or self:selected_asset()
     if not asset then self:status('Open an artwork asset first.');return end
     local ok=self:save()
     if not ok then return end
@@ -826,7 +837,7 @@ function App:asset_action(action)
     if action=='edit' then self:edit_pixels()
     elseif action=='copy' then self:begin_copy()
     elseif action=='rename' then self:edit('name')
-    elseif action=='bind' and a.kind=='actor' then self:keypressed('b') end
+    elseif action=='bind' then self:use_current_artwork() end
 end
 function App:asset_at(y)
     if y<166 or y>=516 then return nil end
@@ -1403,15 +1414,14 @@ end
 function App:mousepressed_inner(x,y,button,presses)
     if self.help_open then return true end
     if button==1 and y>=5 and y<60 and
-        x>=love.graphics.getWidth()-480 then
+        x>=love.graphics.getWidth()-20-math.max(nav_tab_width,276) then
         if not self:navigation_ready() then return true end
         local w=love.graphics.getWidth()
         if y<33 then
-            local x0=w-20-460
+            local x0=w-20-nav_tab_width
             for _,tab in ipairs(nav_tabs) do
                 if x>=x0 and x<x0+tab[3] then
-                    if tab[2]=='assets' or self.project and
-                        (tab[2]~='pixels' or self:selected_asset()) then
+                    if tab[2]=='assets' or self.project then
                         self:open_view(tab[2])
                     end
                     return true
@@ -2026,8 +2036,8 @@ function App:draw_content()
     end
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)
-    g.print('ASSETS · filter: '..self.filter_kind..' · 1–6 edit fields · B bind · D duplicate',24,550)
-    g.print('Double-click preview · right-click actions · S save · F10 help',24,573)
+    g.print('ASSETS · filter: '..self.filter_kind..' · 1–6 edit fields · Use in Game after drawing',24,550)
+    g.print('Double-click preview · S save · P advanced publish · F10 help',24,573)
     g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')
     if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
         self.mode=='size' or self.mode=='confirm' or
@@ -2087,10 +2097,9 @@ function App:draw_navigation()
     local w=g.getWidth()
     local active=self:view()
     local enabled=self:navigation_ready()
-    local x=w-20-460
+    local x=w-20-nav_tab_width
     for _,tab in ipairs(nav_tabs) do
-        local can_open=enabled and (tab[2]=='assets' or self.project and
-            (tab[2]~='pixels' or self:selected_asset()))
+        local can_open=enabled and (tab[2]=='assets' or self.project)
         UI.button(x,5,tab[3],27,tab[1],active==tab[2],can_open)
         x=x+tab[3]
     end

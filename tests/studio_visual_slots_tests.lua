@@ -110,4 +110,33 @@ return function(test)
         assert(visuals:resolve('core:actor/adventurer/attack'))
         assert(not visuals:resolve('core:actor/adventurer/hurt'))
     end)
+    test('all six class bindings resolve their own published image bytes',function()
+        local project=Project.new('classes','Classes')
+        local sources={}
+        for index,id in ipairs(Classes.order) do
+            local asset=Project.asset('studio:actor/class_'..index,
+                'Class '..index,'actor')
+            asset.binding=id
+            asset.source='sources/class_'..index..'.png'
+            asset.format='png';asset.width=2;asset.height=2
+            project.assets[#project.assets+1]=asset
+            sources[asset.source]=PNG.encode(2,2,
+                string.rep(string.char(index*30,40,80,255),4))
+        end
+        local files={}
+        for _,file in ipairs(Publish.plan(project,function(path)
+            return sources[path]
+        end,function() return nil end)) do files[file.path]=file.bytes end
+        local visuals=VisualAssets.new(function(path)return files[path] end,
+            function(bytes,asset)
+                return {bytes=bytes,getWidth=function()return asset.width end,
+                    getHeight=function()return asset.height end}
+            end)
+        local seen={}
+        for _,id in ipairs(Classes.order) do
+            local handle=assert(visuals:resolve(id))
+            assert(not seen[handle.texture.bytes])
+            seen[handle.texture.bytes]=true
+        end
+    end)
 end

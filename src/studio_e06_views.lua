@@ -11,13 +11,13 @@ function V.help(workspace)
     g.setColor(UI.color.text)
     local lines={
         'ROAG STUDIO · F10 / Esc closes help',
-        'Top tabs switch editors · Back/Forward revisit pages · Undo/Redo edit the current editor',
+        'Top tabs: Assets / Artwork / World / UI / Audio · drawing opens from Artwork',
         'Artwork: Enter edits art · N new blank · click Search or press / · Tab group',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
         'Asset field 6: reference asset ID (same source dimensions); copy sets it',
         'Pixels: Cmd/Ctrl+Z undo · Cmd/Ctrl+Shift+Z redo',
-        'Pixels: click Save drawing, then Use in Game to pick a slot and publish one image',
+        'Drawing canvas: Save drawing, then Use in Game to bind and publish one image',
         'Asset Binding (4): core:actor/adventurer/attack or /hurt',
         'Enemy Binding: core:enemy/<enemy_id>/attack or /hurt',
         'Boon Binding: core:boon/<boon_id>/icon or /detail',

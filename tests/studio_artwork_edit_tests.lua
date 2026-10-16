@@ -9,6 +9,54 @@ local Document=require('src.studio_document')
 local PNG=require('src.studio_png')
 
 return function(test)
+    test('Studio top navigation omits standalone Pixels and Publish tabs',function()
+        local previous_love=_G.love
+        local UI=require('src.studio_chrome')
+        local original_button=UI.button
+        local ok,reason=pcall(function()
+            _G.love={graphics={getWidth=function() return 1024 end}}
+            local labels={}
+            UI.button=function(_,y,_,_,label)
+                if y==5 then labels[#labels+1]=label end
+            end
+            local app=App.new({})
+            app.project=Project.new('roag','ROAG');app.mode='project'
+            app:draw_navigation()
+            assert(table.concat(labels,',')=='Assets,Artwork,World,UI,Audio')
+        end)
+        UI.button=original_button
+        _G.love=previous_love
+        assert(ok,reason)
+    end)
+    test('Artwork stays the active tab during drawing and returns to its list',function()
+        local app=App.new({})
+        app.project=Project.new('roag','ROAG')
+        app.mode='canvas';app.slot_return=true
+        app.canvas={finish=function() end,dirty=function() return false end}
+        app.canvas_asset={document='documents/saved.txt'}
+        app.refresh_artwork=function(self) self.slot_entries={} end
+        assert(app:view()=='artwork')
+        app:navigate_history('back')
+        assert(app.mode=='slots' and app:view()=='artwork')
+        app.mode='canvas'
+        assert(app:open_view('artwork') and app.mode=='slots')
+    end)
+    test('Assets Use in Game picks the selected art, not an old canvas',function()
+        local app=App.new({})
+        app.project=Project.new('roag','ROAG')
+        local selected=Project.asset('studio:art/actor/ranger','Ranger','actor')
+        selected.source='sources/ranger.png';selected.format='png'
+        selected.width=16;selected.height=16
+        app.project.assets[1]=selected;app.selected=1;app.mode='project'
+        app.canvas_asset={id='studio:art/actor/old'}
+        app.save=function() return true end
+        app.refresh_artwork=function(self)
+            self.slot_entries={{binding='core:actor/ranger',
+                label='Ranger',key='core:actor/ranger'}}
+        end
+        app:asset_action('bind')
+        assert(app.mode=='bind_asset' and app.binding_asset_id==selected.id)
+    end)
     test('Pixels Save and Use in Game reaches a bound one-slot publish',function()
         local previous_love=_G.love
         local GuiPublish=require('src.studio_gui_publish')

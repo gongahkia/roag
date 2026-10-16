@@ -129,7 +129,7 @@ the status meanings and project selection rules.
 In the Assets screen, drag in a PNG or click **Sample**. Click an asset and
 **Edit pixels** to draw, or **Duplicate & edit…** to name and paint a separate
 copy. Right-click an asset row for the same actions and **Rename…**; double-click
-a row or click its preview to open the canvas. In **Pixels**, click **Save drawing**
+a row or click its preview to open the drawing canvas. Click **Save drawing**
 and then **Use in Game**. Choose the game artwork slot and confirm the single
 binding replacement. This works even if another Studio project supplied the
 previous art for that slot; its other published artwork is preserved. Press
@@ -143,7 +143,8 @@ covers deterministic static atlases.
 
 ROAG Studio E06 adds a draft/published asset preview, Publish Readiness,
 and **F5** visual refresh in a running game. For publishing a whole project's
-loose images, press **P**, then **D** to preview files and **A** to apply with
+loose images or a world/UI/audio pack, use the advanced **P** path from Assets;
+press **D** to preview files and **A** to apply with
 confirmation.
 Press F5 to reload visuals without changing
 the current floor or turn state. See [Studio E06 workflow](docs/ROAG_STUDIO_E06.md).
