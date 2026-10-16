@@ -134,6 +134,15 @@ function V.terrain_alpha(kind,source,remembered)
     end
     return remembered and alpha*0.38 or alpha
 end
+-- The optional generated terrain pictures are 32px motifs with transparent
+-- borders, not edge-matched tile textures. Stamp them as deterministic accents
+-- over continuous terrain instead of repeating each picture on every cell.
+-- Authored Paint terrain remains a literal tile and is always drawn.
+function V.terrain_draws_at(kind,source,x,y)
+    if source~='generated' then return true end
+    local period=kind=='wall' and 4 or kind=='water' and 3 or 5
+    return (x+2*y)%period==0
+end
 function V.background_alpha(source)
     return source=='generated' and 0.16 or 1
 end

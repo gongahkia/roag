@@ -1586,10 +1586,13 @@ local function draw_world()
                 else r,g,b=0.24,0.19,0.29 end
                 if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
             end
-            love.graphics.setColor(r,g,b,background and not wall and 0.78 or 1)
-            love.graphics.rectangle("fill", screen_x, screen_y, TILE - 2, TILE - 2)
             local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
                 tile=='.' and 'floor' or nil
+            love.graphics.setColor(r,g,b,background and not wall and 0.78 or 1)
+            -- Generated motifs have transparent margins. Fill their terrain
+            -- continuously so those margins do not become a repeated grid.
+            local edge=kind and visual_assets and visual_assets.generated and 0 or 2
+            love.graphics.rectangle("fill", screen_x, screen_y, TILE-edge,TILE-edge)
             if kind and visual_assets and visual_assets.has_terrain then
                 local shape=VisualSlots.terrain_shape(map,x,y,kind)
                 local cache_key=biome_id..':'..kind..':'..shape
@@ -1602,8 +1605,10 @@ local function draw_world()
                     end
                     terrain_cache[cache_key]=handle or false
                 end
-                if handle then draw_visual(handle,screen_x,screen_y,TILE,TILE,
-                    VisualSlots.terrain_alpha(kind,handle.source,remembered)) end
+                if handle and VisualSlots.terrain_draws_at(kind,handle.source,x,y) then
+                    draw_visual(handle,screen_x,screen_y,TILE,TILE,
+                        VisualSlots.terrain_alpha(kind,handle.source,remembered))
+                end
             end
             local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
             if authored_id and visual_assets then
@@ -2302,9 +2307,11 @@ function love.draw()
                 map.biome_id,kind,shape)) do
                 local handle=visual_assets:resolve(binding)
                 if handle then
-                    tile_info=('%s · %s [%s]'):format(
+                    tile_info=('%s · %s [%s%s]'):format(
                         ('tile %s at %d,%d'):format(symbol,focus.x,focus.y),
-                        binding,handle.source)
+                        binding,handle.source,
+                        VisualSlots.terrain_draws_at(kind,handle.source,
+                            focus.x,focus.y) and '' or ' accent elsewhere')
                     break
                 end
             end

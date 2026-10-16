@@ -33,6 +33,23 @@ return function(test,equal)
         assert(Slots.background_alpha('generated')==0.16)
         assert(Slots.background_alpha('loose')==1)
     end)
+    test('generated terrain motifs are sparse while authored tiles remain literal',function()
+        for _,kind in ipairs({'floor','wall','water'}) do
+            local count=0
+            for y=1,20 do
+                for x=1,20 do
+                    if Slots.terrain_draws_at(kind,'generated',x,y) then
+                        count=count+1
+                        assert(not Slots.terrain_draws_at(kind,'generated',x+1,y))
+                        assert(not Slots.terrain_draws_at(kind,'generated',x,y+1))
+                    end
+                    assert(Slots.terrain_draws_at(kind,'loose',x,y))
+                    assert(Slots.terrain_draws_at(kind,'atlas',x,y))
+                end
+            end
+            assert(count>40 and count<140,kind..' motif density is unsafe')
+        end
+    end)
     test('default checkout has no hand-painted published art override',function()
         assert(read('assets/studio/manifest.txt')==nil)
         local visuals=Visual.new(read,function() error('unexpected image load') end)
