@@ -89,7 +89,7 @@ function I.build(project,world,theme,source_read,published_read)
         local entry=visual_entry(id)
         local asset,index=asset_for(project,id)
         local published=published_by_binding[id]
-        entry.asset=asset;entry.asset_index=index
+        entry.asset=asset;entry.asset_index=index;entry.published_asset=published
         if not asset then
             entry.status=published and 'published elsewhere' or 'missing'
         elseif not has_pixels(asset) then entry.status='draft'
@@ -147,6 +147,20 @@ function I.build(project,world,theme,source_read,published_read)
         return a.key<b.key
     end)
     return result
+end
+function I.progress(entry)
+    local status=entry.status
+    if status=='published' or status=='published elsewhere' then
+        return 'done','LIVE'
+    elseif status=='drawn, assigned' or status=='drawn, unpublished' or
+        status=='changed since publish' then
+        return 'work',status=='changed since publish' and 'CHANGED' or 'READY'
+    elseif status=='draft' or status=='blank canvas' then
+        return 'work','DRAFT'
+    elseif status=='broken source' or status=='broken reference' then
+        return 'repair','REPAIR'
+    end
+    return 'empty','EMPTY'
 end
 function I.filter(entries,query,group,missing_only)
     query=(query or ''):lower()

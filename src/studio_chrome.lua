@@ -36,7 +36,10 @@ function UI.begin(title,subtitle)
     g.setFont(UI.title_font)
     g.setColor(c.text);g.print(title,18,10)
     g.setFont(UI.body_font)
-    g.setColor(c.muted);g.print(subtitle or '',18,39)
+    g.setColor(c.muted)
+    g.setScissor(18,36,math.max(100,w-330),25)
+    g.print(subtitle or '',18,39)
+    g.setScissor()
 end
 function UI.panel(x,y,w,h)
     fill(c.panel,x,y,w,h)
@@ -58,6 +61,24 @@ function UI.button(x,y,w,h,label,active,enabled)
     g.setColor(enabled and c.text or c.muted)
     g.print(label,x+math.max(5,math.floor((w-g.getFont():getWidth(label))/2)),
         y+math.floor((h-g.getFont():getHeight())/2))
+end
+function UI.progress_icon(kind,x,y)
+    local g=love.graphics
+    local color=kind=='done' and {.43,.82,.55} or
+        kind=='work' and UI.color.warning or
+        kind=='repair' and {1,.43,.43} or UI.color.muted
+    g.setColor(color)
+    if kind=='done' then
+        g.rectangle('line',x+.5,y+.5,13,13)
+        g.line(x+3,y+7,x+6,y+10,x+11,y+4)
+    elseif kind=='work' then
+        g.rectangle('line',x+.5,y+.5,13,13)
+        g.line(x+3,y+10,x+10,y+3)
+        g.line(x+6,y+11,x+11,y+6)
+    else
+        g.line(x+3,y+3,x+11,y+11)
+        g.line(x+11,y+3,x+3,y+11)
+    end
 end
 function UI.rule(x,y,w)
     fill(c.border,x,y,w,1)

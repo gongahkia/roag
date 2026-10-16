@@ -11,8 +11,8 @@ function V.help(workspace)
     g.setColor(UI.color.text)
     local lines={
         'ROAG STUDIO · F10 / Esc closes help',
-        'Project: L artwork checklist · N new · O open · S save · E pixels · W world · U UI',
-        'Artwork: Enter create/edit · Tab group · M missing · / or F search · A assets',
+        'Top tabs switch editors · Back/Forward revisit pages · Undo/Redo edit the current editor',
+        'Artwork: click Search or press / · Enter create/edit · Tab group · M missing',
         'Pixels: P pencil · E eraser · I pick · F fill · M drag selection',
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
         'Asset field 6: reference asset ID (same source dimensions); copy sets it',

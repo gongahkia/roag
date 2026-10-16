@@ -1742,7 +1742,7 @@ local function draw_panel()
     g.setColor(.77,.83,.78)
     g.print('HEALTH',px+22,105)
     local hp_text=('%d/%d'):format(player.hp,player.max_hp)
-    if not (studio_theme and studio_theme:draw_text(hp_text,px+149,98,2)) then
+    if not (studio_theme and studio_theme:draw_text('HP '..hp_text,px+176,98,2)) then
         g.setFont(ui_display_font)
         g.setColor(player.hp*4<=player.max_hp and {1,.48,.42} or {.98,.88,.66})
         g.print(hp_text,px+260-g.getFont():getWidth(hp_text),94)

@@ -35,4 +35,7 @@ conf.write_text(source[:match.start(2)] + identity + source[match.end(2):])
 binary = os.environ.get("ROAG_LOVE_BIN", "")
 if not binary or not Path(binary).is_file():
     fail("Set ROAG_LOVE_BIN to love.app/Contents/MacOS/love")
-os.execv("/usr/bin/arch", ["arch", "-x86_64", binary, *sys.argv[1:]])
+# A prior test crash can trigger macOS's "reopen windows" modal before LÖVE
+# starts the fixture. Suppress state restoration for disposable GUI runs.
+os.execv("/usr/bin/arch", ["arch", "-x86_64", binary, *sys.argv[1:],
+                           "-ApplePersistenceIgnoreState", "YES"])

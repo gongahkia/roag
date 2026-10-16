@@ -20,6 +20,13 @@ local E06Views=require('src.studio_e06_views')
 local UI=require('src.studio_chrome')
 local utf8=require('utf8')
 local App={}
+local nav_tabs={{'Assets','assets',68},{'Artwork','artwork',78},
+    {'Pixels','pixels',68},{'World','world',68},{'UI','ui',40},
+    {'Audio','audio',60},{'Publish','publish',78}}
+local nav_modes={home='assets',project='assets',slots='artwork',
+    canvas='pixels',world='world',world_size='world',world_edit='world',
+    world_delete_confirm='world',theme='ui',audio='audio',
+    pipeline='publish',publish_confirm='publish'}
 local asset_actions={
     {id='edit',label='Edit pixels'},
     {id='copy',label='Duplicate & edit…'},
@@ -62,7 +69,9 @@ function App.new(args)
         filter_kind='all',world_images={},world_image_data={},
         draft_preview=false,help_open=false,pipeline_report=nil,
         current_project=current_project,slot_entries={},slot_index=1,
-        slot_group='Core',slot_query='',slot_missing=false},
+        slot_group='Core',slot_query='',slot_missing=false,slot_images={},
+        slot_image_order={},
+        nav_back={},nav_forward={},nav_depth=0},
         {__index=App})
 end
 function App:load()
@@ -94,6 +103,7 @@ function App:load()
             self:new_project(id:upper())
             if self:save() then self:open_artwork() end
         end
+        if self.mode=='slots' then self.nav_back={'assets'} end
     end
 end
 function App:status(text)
@@ -101,6 +111,92 @@ function App:status(text)
     if self.world_editor then self.world_editor.message=text end
     if self.theme_editor then self.theme_editor.message=text end
     if self.audio_editor then self.audio_editor.message=text end
+end
+function App:view()
+    return nav_modes[self.mode] or self.modal_parent_view or
+        nav_modes[self.return_mode] or 'assets'
+end
+function App:navigation_ready()
+    local mode=self.mode
+    local base=mode=='home' or mode=='project' or mode=='slots' or
+        mode=='canvas' or mode=='world' or mode=='theme' or
+        mode=='audio' or mode=='pipeline'
+    return base and not self.help_open and not self.draft_preview and
+        not (mode=='canvas' and self.canvas and self.canvas.modal) and
+        not (mode=='world' and self.world_editor and self.world_editor.generated) and
+        not (mode=='theme' and self.theme_editor and
+            (self.theme_editor.input or self.theme_editor.revert_confirm)) and
+        not (mode=='audio' and self.audio_editor and
+            (self.audio_editor.input or self.audio_editor.delete_confirm))
+end
+function App:can_leave_view()
+    if self.mode=='canvas' and self.canvas then
+        self.canvas:finish()
+        if self.canvas:dirty() or self.canvas_asset.document=='' then
+            self:status('Save this sprite before switching tabs.');return false end
+    elseif self.mode=='world' and self.world_editor then
+        self.world_editor:finish()
+        if self.world_editor:dirty() then
+            self:status('Save world changes before switching tabs.');return false end
+    elseif self.mode=='theme' and self.theme_editor and self.theme_editor:dirty() then
+        self:status('Save UI changes before switching tabs.');return false
+    elseif self.mode=='audio' and self.audio_editor and self.audio_editor:dirty() then
+        self:status('Save audio changes before switching tabs.');return false
+    end
+    return true
+end
+function App:open_view(view)
+    if view==self:view() then return true end
+    if not self:can_leave_view() then return false end
+    self.slot_searching=false;self.slot_skip_text=nil;self.context_menu=nil
+    if view=='assets' then self.mode=self.project and 'project' or 'home'
+    elseif view=='artwork' then self:open_artwork()
+    elseif view=='pixels' then
+        if self.canvas and self.canvas_asset==self:selected_asset() then
+            self.mode='canvas'
+        else self:edit_pixels() end
+    elseif view=='world' then self:open_world()
+    elseif view=='ui' then self:open_theme()
+    elseif view=='audio' then self:open_audio()
+    elseif view=='publish' then self:inspect_pipeline() end
+    return self:view()==view
+end
+function App:navigate_history(direction)
+    local source=direction=='back' and self.nav_back or self.nav_forward
+    local target=source[#source]
+    if not target then return end
+    local current=self:view()
+    if not self:open_view(target) then return end
+    table.remove(source)
+    local destination=direction=='back' and self.nav_forward or self.nav_back
+    destination[#destination+1]=current
+    if self.nav_depth>0 then self.nav_skip_once=true end
+end
+function App:editor_history(direction)
+    local editor=self.mode=='canvas' and self.canvas or
+        self.mode=='world' and self.world_editor or
+        self.mode=='theme' and self.theme_editor or
+        self.mode=='audio' and self.audio_editor
+    if not editor then return end
+    editor[direction](editor)
+    if self.mode=='world' then self.world_pack=editor.pack
+    elseif self.mode=='theme' then self.theme_pack=editor.theme
+    elseif self.mode=='audio' then self.audio_pack=editor.pack end
+    self.dirty=self.metadata_dirty or
+        (self.canvas and self.canvas:dirty() or false) or
+        (self.world_editor and self.world_editor:dirty() or false) or
+        (self.theme_editor and self.theme_editor:dirty() or false) or
+        (self.audio_editor and self.audio_editor:dirty() or false)
+end
+function App:track_view(before)
+    if self.nav_skip_once then self.nav_skip_once=false;return end
+    if not nav_modes[self.mode] then self.modal_parent_view=before end
+    local after=self:view()
+    if before~=after then
+        self.nav_back[#self.nav_back+1]=before
+        if #self.nav_back>24 then table.remove(self.nav_back,1) end
+        self.nav_forward={}
+    end
 end
 function App:ask_discard(action)
     if self.dirty then self.pending=action;self.return_mode=self.mode;self.mode='confirm'
@@ -120,6 +216,8 @@ function App:new_project(name)
     self.theme_pack=StudioTheme.new(id);self.theme_editor=nil;self.theme_blocked=false
     self.audio_pack=StudioAudio.new(id);self.audio_editor=nil;self.audio_blocked=false
     self.selected=1;self.dirty=true;self.metadata_dirty=true;self.mode='project';self.preview=nil;self.canvas=nil
+    self.nav_back={};self.nav_forward={};self.slot_images={};self.slot_image_order={}
+    if self.nav_depth>0 then self.nav_skip_once=true end
     self.context_menu=nil;self.copy_source=nil
     self:status('Created '..id..' (unsaved). Drop a PNG, click Sample, or click Sprite.')
 end
@@ -127,6 +225,8 @@ function App:open_project(id)
     local project,reason=self.store:open(id,decode)
     if not project then self:status('Open failed: '..tostring(reason));return end
     self.project=project;self.selected=1;self.dirty=false;self.metadata_dirty=false;self.mode='project'
+    self.nav_back={};self.nav_forward={};self.slot_images={};self.slot_image_order={}
+    if self.nav_depth>0 then self.nav_skip_once=true end
     self.loose_plan=nil;self.loose_publisher=nil;self.publish_last_backup=nil
     local pack,world_reason=self.world_store:open(id,project.assets)
     self.world_pack=pack or StudioWorld.new(id)
@@ -159,6 +259,7 @@ function App:open_project(id)
 end
 function App:refresh_artwork()
     if not self.project then self.slot_entries={};return end
+    self.slot_images={};self.slot_image_order={}
     local root='studio/projects/'..self.project.id..'/'
     self.slot_entries=Artwork.build(self.project,self.world_pack,self.theme_pack,
         function(path)return IO:read(root..path) end,
@@ -167,7 +268,8 @@ end
 function App:open_artwork()
     if not self.project then self:status('Open a project first');return end
     self:refresh_artwork()
-    self.slot_index=1;self.mode='slots'
+    self.slot_index=math.max(1,math.min(self.slot_index,#self.slot_entries))
+    self.mode='slots'
     self:status('Artwork checklist · select a slot and press Enter to draw or edit.')
 end
 function App:visible_slots()
@@ -692,7 +794,7 @@ function App:commit_edit()
     end
     self.mode='project';self.field=nil
 end
-function App:keypressed(key)
+function App:keypressed_inner(key)
     if self.context_menu then
         self.context_menu=nil
         if key=='escape' then return true end
@@ -1107,8 +1209,38 @@ function App:textinput(text)
         if #self.typed+#text<=100 then self.typed=self.typed..text end
     end
 end
-function App:mousepressed(x,y,button,presses)
+function App:mousepressed_inner(x,y,button,presses)
     if self.help_open then return true end
+    if button==1 and y>=5 and y<60 and
+        x>=love.graphics.getWidth()-480 then
+        if not self:navigation_ready() then return true end
+        local w=love.graphics.getWidth()
+        if y<33 then
+            local x0=w-20-460
+            for _,tab in ipairs(nav_tabs) do
+                if x>=x0 and x<x0+tab[3] then
+                    if tab[2]=='assets' or self.project and
+                        (tab[2]~='pixels' or self:selected_asset()) then
+                        self:open_view(tab[2])
+                    end
+                    return true
+                end
+                x0=x0+tab[3]
+            end
+        else
+            local actions={{'back',60},{'forward',84},{'undo',60},{'redo',60}}
+            local x0=w-20-276
+            for _,action in ipairs(actions) do
+                if x>=x0 and x<x0+action[2] then
+                    if action[1]=='back' or action[1]=='forward' then
+                        self:navigate_history(action[1])
+                    else self:editor_history(action[1]) end
+                    return true
+                end
+                x0=x0+action[2]+4
+            end
+        end
+    end
     if self.context_menu then
         local menu=self.context_menu
         self.context_menu=nil
@@ -1139,12 +1271,15 @@ function App:mousepressed(x,y,button,presses)
     end
     if self.mode=='slots' then
         if button==1 then
+            if not (x>=350 and x<730 and y>=75 and y<106) then
+                self.slot_searching=false
+            end
             if y>=75 and y<106 then
-                if x<145 then self.mode='project'
-                elseif x<290 then self:keypressed('tab')
-                elseif x<430 then self:keypressed('m')
-                elseif x<570 then self.slot_searching=true;self.slot_skip_text=nil
-                elseif x<710 then self:keypressed('p') end
+                if x>=20 and x<185 then self:keypressed('tab')
+                elseif x>=195 and x<340 then self:keypressed('m')
+                elseif x>=350 and x<730 then
+                    self.slot_searching=true;self.slot_skip_text=nil
+                elseif x>=740 and x<860 then self:keypressed('p') end
             elseif x>=24 and x<682 and y>=182 and y<542 then
                 local visible=self:visible_slots()
                 local first=math.max(1,self.slot_index-16)
@@ -1213,17 +1348,12 @@ function App:mousepressed(x,y,button,presses)
     end
     if button~=1 then return end
     if y>=72 and y<=100 then
-        if x<100 then self:keypressed('n')
-        elseif x<200 then self:keypressed('o')
-        elseif x<300 then self:keypressed('s')
-        elseif x<400 then self:keypressed('l')
-        elseif x<500 then self:keypressed('i')
-        elseif x<600 then self:keypressed('c')
-        elseif x<700 then self:keypressed('e')
-        elseif x<800 then self:keypressed('w')
-        elseif x<900 then self:keypressed('u')
-        elseif x<969 then self:keypressed('p')
-        else self:keypressed('y') end
+        if x>=20 and x<110 then self:keypressed('n')
+        elseif x>=118 and x<208 then self:keypressed('o')
+        elseif x>=216 and x<306 then self:keypressed('s')
+        elseif x>=336 and x<456 then self:keypressed('i')
+        elseif x>=464 and x<596 then self:keypressed('c')
+        elseif x>=604 and x<736 then self:keypressed('e') end
     elseif self.mode=='project' and x>=20 and x<430 and y>=166 and y<516 then
         local index=self:asset_at(y)
         if index then
@@ -1288,19 +1418,62 @@ function App:preview_image(a)
     self.preview=image;self.preview_id=a.id
     return image
 end
+function App:slot_preview(entry)
+    local asset=entry and entry.asset
+    if asset and asset.source=='' and asset.derived=='' then asset=nil end
+    asset=asset or entry and entry.published_asset
+    if not asset then return nil end
+    local source=asset.derived and asset.derived~='' and asset.derived or asset.source
+    if not source or source=='' then return nil end
+    local path=asset==entry.asset and
+        ('studio/projects/'..self.project.id..'/'..source) or
+        ('assets/studio/'..source)
+    if self.slot_images[path]~=nil then return self.slot_images[path] or nil end
+    local ok,image=pcall(function()
+        local bytes=asset==entry.asset and IO:read(path) or love.filesystem.read(path)
+        if not bytes then error('image unavailable') end
+        local data=love.image.newImageData(love.filesystem.newFileData(bytes,source))
+        local result=love.graphics.newImage(data)
+        result:setFilter('nearest','nearest')
+        return result
+    end)
+    self.slot_images[path]=ok and image or false
+    self.slot_image_order[#self.slot_image_order+1]=path
+    if #self.slot_image_order>64 then
+        local oldest=table.remove(self.slot_image_order,1)
+        self.slot_images[oldest]=nil
+    end
+    return self.slot_images[path] or nil
+end
+local function slot_thumb(image,x,y,size)
+    local g=love.graphics
+    g.setColor(UI.color.inset);g.rectangle('fill',x,y,size,size)
+    g.setColor(UI.color.border);g.rectangle('line',x+.5,y+.5,size-1,size-1)
+    if not image then return end
+    local scale=math.min((size-4)/image:getWidth(),(size-4)/image:getHeight())
+    local dx=x+math.floor((size-image:getWidth()*scale)/2)
+    local dy=y+math.floor((size-image:getHeight()*scale)/2)
+    g.setColor(1,1,1);g.draw(image,dx,dy,0,scale,scale)
+end
 function App:draw_artwork()
     local g=love.graphics
     local w,h=g.getDimensions()
     UI.begin('ROAG  /  ARTWORK','This game’s art destinations · missing slots use built-in visuals')
-    UI.button(20,75,120,30,'Assets',false,true)
-    UI.button(150,75,130,30,'Group: '..self.slot_group,false,true)
-    UI.button(290,75,130,30,self.slot_missing and 'Missing only' or 'Show all',
+    UI.button(20,75,165,30,'Group: '..self.slot_group,false,true)
+    UI.button(195,75,145,30,self.slot_missing and 'Missing only' or 'Show all',
         self.slot_missing,true)
-    UI.button(430,75,130,30,'Search /',self.slot_searching,true)
-    UI.button(570,75,130,30,'Publish P',false,true)
+    UI.inset(350,75,380,30)
+    g.setColor(self.slot_searching and UI.color.accent or UI.color.border)
+    g.rectangle('line',350.5,75.5,379,29)
+    g.setColor(UI.color.muted);g.print('Search',360,83)
+    g.setColor(UI.color.border);g.rectangle('fill',425,80,1,20)
+    g.setColor(UI.color.text)
+    g.setScissor(434,78,286,24)
+    g.print(self.slot_query..(self.slot_searching and '|' or ''),434,83)
+    g.setScissor()
+    UI.button(740,75,120,30,'Publish P',false,true)
     g.setColor(UI.color.muted)
-    local query=self.slot_query~='' and self.slot_query or '(type / to search)'
-    g.print('Search: '..query..(self.slot_searching and ' ▌' or ''),24,119)
+    g.print('Choose a destination, then create or edit its art',24,119)
     local visible=self:visible_slots()
     local missing=0
     for _,entry in ipairs(self.slot_entries) do
@@ -1312,6 +1485,12 @@ function App:draw_artwork()
     end
     g.print(('%d destinations · %d without project art · %d shown'):format(
         #self.slot_entries,missing,#visible),24,144)
+    UI.progress_icon('done',558,143)
+    g.setColor(UI.color.muted);g.print('live',576,145)
+    UI.progress_icon('work',636,143)
+    g.setColor(UI.color.muted);g.print('in progress',654,145)
+    UI.progress_icon('empty',788,143)
+    g.setColor(UI.color.muted);g.print('not started',806,145)
     UI.panel(20,177,674,371)
     UI.panel(706,177,296,371)
     self.slot_index=math.min(math.max(1,self.slot_index),math.max(1,#visible))
@@ -1321,30 +1500,40 @@ function App:draw_artwork()
         local entry=visible[index]
         local y=182+(row-1)*21
         if index==self.slot_index then UI.selected(24,y,666,21) end
-        local status=entry.status
-        g.setColor((status=='missing' or status=='unmapped' or status=='draft') and
-            UI.color.warning or UI.color.text)
-        g.setScissor(31,y,470,21)
-        g.print(entry.label,31,y+3)
+        local kind,label=Artwork.progress(entry)
+        local image=self:slot_preview(entry)
+        if image then slot_thumb(image,31,y+1,20) end
+        g.setColor(kind=='empty' and UI.color.muted or UI.color.text)
+        g.setScissor(56,y,445,21)
+        g.print(entry.label,56,y+3)
         g.setScissor()
         g.setColor(UI.color.muted)
         g.print(entry.group,508,y+3)
-        g.setColor(status=='published' and UI.color.accent or UI.color.warning)
-        g.print(status=='published' and 'PUBLISHED' or
-            (status=='missing' or status=='unmapped' or status=='not added') and 'MISSING' or
-            (status=='draft' or status=='blank canvas') and 'DRAFT' or
-            status=='drawn, assigned' and 'DRAWN' or
-            status=='drawn, unpublished' and 'DRAWN' or
-            status=='published elsewhere' and 'OTHER' or 'CHECK',602,y+3)
+        UI.progress_icon(kind,589,y+4)
+        g.setColor(kind=='done' and {.43,.82,.55} or
+            kind=='empty' and UI.color.muted or
+            kind=='repair' and {1,.43,.43} or UI.color.warning)
+        g.setScissor(606,y,83,21)
+        g.print(label,606,y+3)
+        g.setScissor()
     end
     local entry=visible[self.slot_index]
     if entry then
         g.setColor(UI.color.text)
+        g.setScissor(722,194,264,30)
         g.printf(entry.label,722,194,264)
+        g.setScissor()
+        slot_thumb(self:slot_preview(entry),722,227,66)
         g.setColor(UI.color.muted)
-        g.printf(entry.key,722,243,264)
-        g.setColor(UI.color.warning)
-        g.printf('Status: '..entry.status,722,302,264)
+        g.setScissor(800,235,186,60)
+        g.printf(entry.key,800,238,186)
+        g.setScissor()
+        local kind=Artwork.progress(entry)
+        UI.progress_icon(kind,722,305)
+        g.setColor(kind=='done' and {.43,.82,.55} or
+            kind=='empty' and UI.color.muted or
+            kind=='repair' and {1,.43,.43} or UI.color.warning)
+        g.printf('Status: '..entry.status,741,302,245)
         g.setColor(UI.color.muted)
         g.printf(entry.optional and
             'Optional variant. The game uses another slot or built-in art when absent.' or
@@ -1363,12 +1552,12 @@ function App:draw_artwork()
     end
     UI.statusbar(556,math.max(88,h-556))
     g.setColor(UI.color.muted)
-    g.print('↑↓ / wheel select · Enter/double-click create or edit · Tab group · M missing · / search',24,565)
-    g.print('Esc/A assets · S save · P publish readiness · F10 help',24,590)
+    g.print('↑↓ / wheel select · Enter/double-click create or edit · Tab group · M missing',24,565)
+    g.print('Click Search or press / · S save · P publish readiness · F10 help',24,590)
     g.setColor(UI.color.warning)
     g.printf(self.message,24,620,w-48)
 end
-function App:draw()
+function App:draw_content()
     if self.mode=='audio' then
         self.audio_editor:draw()
         if self.help_open then E06Views.help(self.workspace) end
@@ -1376,8 +1565,6 @@ function App:draw()
     end
     if self.mode=='theme' then
         self.theme_editor:draw()
-        love.graphics.setColor(.95,.83,.53)
-        love.graphics.print('DRAFT THEME · F8 audio · F10 help',520,12)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1417,8 +1604,6 @@ function App:draw()
                 'Enter / Y to delete · Esc to cancel' or self.typed,
                 190,285,640,'center')
         end
-        love.graphics.setColor(UI.color.warning)
-        love.graphics.print('DRAFT ROOM · F8 audio · F10 help',520,12)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1444,13 +1629,15 @@ function App:draw()
     local g=love.graphics
     local w,h=g.getDimensions()
     UI.begin('ROAG  /  STUDIO','ASSETS  ·  Static art, rooms, themes and audio')
-    local actions={{'New',18,82},{'Open',100,98},{'Save',200,98},
-        {'Artwork',300,98},{'Sample',400,98},{'Sprite',500,98},
-        {'Pixels',600,98},{'World',700,98},{'UI',800,98},
-        {'Publish',900,69},{'Audio',969,math.max(55,w-969)}}
+    local actions={{'New',20,90},{'Open',118,90},{'Save',216,90},
+        {'Sample art',336,120},{'New sprite',464,132},
+        {'Edit pixels',604,132}}
     for _,action in ipairs(actions) do
-        UI.button(action[2],72,action[3],29,action[1],false,true)
+        UI.button(action[2],72,action[3],29,action[1],false,
+            action[1]~='Edit pixels' or self:selected_asset()~=nil)
     end
+    g.setColor(UI.color.muted)
+    g.print('Drop PNGs to import',762,80)
     g.setColor(UI.color.muted)
     g.print('WORKSPACE  '..self.workspace,24,112)
     local p=self.project
@@ -1481,7 +1668,9 @@ function App:draw()
     local a=self:selected_asset()
     UI.panel(446,139,555,397)
     g.setColor(UI.color.text)
+    g.setScissor(458,145,260,24)
     g.print(a and ('SELECTED · '..a.name) or 'No asset selected',458,148)
+    g.setScissor()
     if a then
         g.setColor(UI.color.muted);g.print('ACTIONS',738,148)
         UI.panel(730,177,263,149)
@@ -1508,6 +1697,7 @@ function App:draw()
         g.setColor(UI.color.muted)
         local width,height=Project.output_dimensions(a)
         g.print(('PNG %d×%d · %s'):format(width,height,a.filter),458,355)
+        g.setScissor(458,365,260,165)
         g.print('Source: '..(a.source=='' and (a.derived=='' and '[draft]' or '[painted layers]') or a.source),458,370)
         local values={a.name,a.id,a.kind,a.binding,a.filter,a.reference_id or ''}
         for i,v in ipairs(values) do
@@ -1515,6 +1705,7 @@ function App:draw()
             g.print(('%d %s: %s'):format(i,({'Name','Asset ID','Kind','Binding','Filter','Reference'})[i],v),
                 458,386+(i-1)*24)
         end
+        g.setScissor()
     else
         g.setColor(UI.color.muted)
         g.printf('Select an asset to inspect its preview, source and game binding.',
@@ -1522,8 +1713,8 @@ function App:draw()
     end
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)
-    g.print('L artwork · Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
-    g.print('Click select · double-click preview · right-click actions · S save · P readiness · F10 help',24,573)
+    g.print('ASSETS · filter: '..self.filter_kind..' · 1–6 edit fields · B bind · D duplicate',24,550)
+    g.print('Double-click preview · right-click actions · S save · F10 help',24,573)
     g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')
     if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
         self.mode=='size' or self.mode=='confirm' or
@@ -1576,5 +1767,55 @@ function App:draw()
         end
     end
     if self.help_open then E06Views.help(self.workspace) end
+end
+function App:draw_navigation()
+    if self.help_open then return end
+    local g=love.graphics
+    local w=g.getWidth()
+    local active=self:view()
+    local enabled=self:navigation_ready()
+    local x=w-20-460
+    for _,tab in ipairs(nav_tabs) do
+        local can_open=enabled and (tab[2]=='assets' or self.project and
+            (tab[2]~='pixels' or self:selected_asset()))
+        UI.button(x,5,tab[3],27,tab[1],active==tab[2],can_open)
+        x=x+tab[3]
+    end
+    local editor=self.mode=='canvas' and self.canvas or
+        self.mode=='world' and self.world_editor or
+        self.mode=='theme' and self.theme_editor or
+        self.mode=='audio' and self.audio_editor
+    local undo=editor and (editor.undo_stack or editor.history) or {}
+    local redo=editor and (editor.redo_stack or editor.future) or {}
+    local actions={{'Back',60,#self.nav_back>0},
+        {'Forward',84,#self.nav_forward>0},
+        {'Undo',60,#undo>0},{'Redo',60,#redo>0}}
+    x=w-20-276
+    for _,action in ipairs(actions) do
+        UI.button(x,36,action[2],23,action[1],false,enabled and action[3])
+        x=x+action[2]+4
+    end
+end
+function App:draw()
+    self:draw_content()
+    self:draw_navigation()
+end
+function App:keypressed(key)
+    local outer=self.nav_depth==0
+    local before=outer and self:view() or nil
+    self.nav_depth=self.nav_depth+1
+    local result=self:keypressed_inner(key)
+    self.nav_depth=self.nav_depth-1
+    if outer then self:track_view(before) end
+    return result
+end
+function App:mousepressed(x,y,button,presses)
+    local outer=self.nav_depth==0
+    local before=outer and self:view() or nil
+    self.nav_depth=self.nav_depth+1
+    local result=self:mousepressed_inner(x,y,button,presses)
+    self.nav_depth=self.nav_depth-1
+    if outer then self:track_view(before) end
+    return result
 end
 return App

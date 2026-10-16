@@ -24,6 +24,7 @@ end
 local images={}
 local phase=1
 local capture_pending=false
+local deferred_action
 local original_snapshot
 local before_clock
 local page_bytes={}
@@ -65,6 +66,15 @@ function love.load(args)
     initial_heap=collectgarbage('count')
     initial_texture=love.graphics.getStats().texturememory or 0
 end
+local original_update=love.update
+function love.update(dt)
+    original_update(dt)
+    if deferred_action then
+        local action=deferred_action
+        deferred_action=nil
+        action()
+    end
+end
 function love.draw()
     original_draw()
     if capture_pending then return end
@@ -74,6 +84,7 @@ function love.draw()
         local bytes=img:encode('tga'):getString()
         local f=assert(io.open(output..'/frame-'..phase..'.tga','wb'))
         assert(f:write(bytes));assert(f:close())
+        deferred_action=function()
         if phase==1 then
             write('assets/studio/sources/actor.png',assert(read('alternate-actor.png')))
             write('assets/studio/sources/heart.png',assert(read('alternate-icon.png')))
@@ -163,5 +174,6 @@ function love.draw()
             love.event.quit()
         end
         phase=phase+1;capture_pending=false
+        end
     end)
 end

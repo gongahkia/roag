@@ -14,6 +14,7 @@ return function(test)
         assert(#entries>500 and #project.assets==0,
             'virtual slots must not consume the 256 saved-asset limit')
         assert(row(entries,'core:actor/adventurer').status=='missing')
+        assert(Inventory.progress(row(entries,'core:actor/adventurer'))=='empty')
         assert(row(entries,'core:actor/ranger').status=='missing')
         assert(row(entries,'core:actor/arcanist/attack').optional)
         assert(row(entries,'core:enemy/mossbound_guard/attack').optional)
@@ -37,20 +38,24 @@ return function(test)
                 function(path)return published and published[path] end)
         end
         assert(row(build(),'core:actor/adventurer').status=='draft')
+        assert(Inventory.progress(row(build(),'core:actor/adventurer'))=='work')
         asset.source='sources/hero.png';asset.format='png';asset.width=2;asset.height=2
         local source={['sources/hero.png']='painted pixels'}
         assert(row(build(source),'core:actor/adventurer').status=='drawn, unpublished')
         local published={['assets/studio/manifest.txt']=Project.encode(project),
             ['assets/studio/sources/hero.png']='painted pixels'}
         assert(row(build(source,published),'core:actor/adventurer').status=='published')
+        assert(Inventory.progress(row(build(source,published),'core:actor/adventurer'))=='done')
         source['sources/hero.png']='changed pixels'
         assert(row(build(source,published),'core:actor/adventurer').status==
             'changed since publish')
         source['sources/hero.png']=nil
         assert(row(build(source,published),'core:actor/adventurer').status=='broken source')
         project.assets={}
-        assert(row(build(source,published),'core:actor/adventurer').status==
-            'published elsewhere')
+        local elsewhere=row(build(source,published),'core:actor/adventurer')
+        assert(elsewhere.status=='published elsewhere' and
+            elsewhere.published_asset.source=='sources/hero.png' and
+            Inventory.progress(elsewhere)=='done')
     end)
     test('Studio artwork checklist follows theme and world asset assignments',function()
         local project=Project.new('roag','ROAG')

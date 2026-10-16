@@ -56,7 +56,7 @@ gui-studio:
 	  studio_e03_gui_smoke studio_e04_gui_smoke studio_e05_gui_smoke \
 	  studio_e06_gui_smoke studio_reference_gui_smoke \
 	  studio_gui_publish_smoke studio_visual_slots_gui_smoke \
-	  studio_artwork_gui_smoke; do \
+	  studio_artwork_gui_smoke studio_navigation_gui_smoke; do \
 	    printf 'RUN Studio %s\n' "$$suite"; \
 	    $(GUI_RUN) sh "tests/$$suite.sh"; \
 	  done
