@@ -208,6 +208,14 @@ return function(test,equal)
         local runtime,status=Runtime.inspect(function()return nil end,visuals)
         assert(runtime and status=='loaded')
         assert(runtime.theme.slots.hp_icon=='studio:art/hp')
+        local stale=Theme.new('roag')
+        stale.slots.xp_icon='studio:ui/missing'
+        local plan=Store.plan_published(stale,function()return nil end)
+        local recovered=Runtime.inspect(function(path)
+            return path==plan.path and plan.bytes or nil
+        end,visuals)
+        assert(recovered and recovered.theme.slots.hp_icon=='studio:art/hp'
+            and recovered.theme.slots.xp_icon=='' and recovered.warning)
         local previous=_G.love
         local draws,printed={},{}
         _G.love={graphics={setColor=function()end,
