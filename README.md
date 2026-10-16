@@ -117,6 +117,24 @@ Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock fo
 
 ## Paint authoring and optional visuals
 
+### Spectator art inspection
+
+Run `make spectator` to start a disposable, invulnerable inspection run using
+the **currently compiled generated atlas**. This developer view does not read
+or write active-run saves or achievement profiles and cannot earn unlocks. The
+unapproved image in `assets/generated/drafts/` is only a review sheet and is
+not yet part of the atlas.
+
+**F6** toggles god play and a free camera. In free-camera mode, **WASD/arrow
+keys** pan one tile without advancing world time; hold **Shift** to pan eight
+tiles. The map and enemies are revealed, and the cyan outline marks the
+inspected cell. The bottom overlay names that cell's resolved visual ID and
+source. **F7** cycles biomes, **F8** switches between their two generated
+floors, **F9** cycles classes, **M** advances the seed, **+/-** zoom, **F5**
+refreshes published visuals, and **Esc** quits without saving. F6 returns to
+invulnerable gameplay so you can inspect combat poses. Ordinary `make game`
+retains its normal saves, achievements and fog rules.
+
 Studio's editor code now lives in the sibling **TAMS Paint** checkout. Run
 `cd ../paint && make app` to open the ROAG artwork checklist. The migrated
 editable project uses Paint's separate `tams-paint` LÖVE save identity; the

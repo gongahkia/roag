@@ -11,15 +11,18 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game test gui gui-game gui-expansion
+.PHONY: help game spectator test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with built-in visuals' \
+	 'make spectator        Inspect the current generated atlas without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
 	 'ROAG_GENERATED_ART=1 make game    Preview the unapproved generated atlases'
 game:
 	$(LOVE_RUN) .
+spectator:
+	env ROAG_SPECTATOR=1 ROAG_GENERATED_ART=1 $(LOVE_RUN) .
 test:
 	$(LUAJIT) tests/run.lua
 gui: gui-game gui-expansion

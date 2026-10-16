@@ -18,6 +18,7 @@ local storage = require("src.love_storage")
 local VisualAssets = require("src.visual_assets")
 local GeneratedVisuals = require("src.generated_visuals")
 local VisualSlots = require("src.visual_slots")
+local Spectator = require("src.spectator")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
@@ -31,6 +32,10 @@ local PANEL_X = 742
 local BOON_ROW_Y,BOON_ROW_H=425,15
 
 local state
+local spectator_enabled=os.getenv('ROAG_SPECTATOR')=='1'
+local spectator_free=false
+local spectator_focus
+local spectator_biome_index=1
 local camera
 local camera_state
 local targeting -- nil, or a presentation-only { kind, dx, dy }.
@@ -166,8 +171,13 @@ local playback_cue_labels={
 }
 
 local function visible_at(x,y)
+    if spectator_enabled then return true end
     return not (state.generated_map or state.finale) or
         Game.is_visible(state,state.active_floor_id,x,y)
+end
+
+local function explored_at(floor_id,x,y)
+    return spectator_enabled or Game.was_explored(state,floor_id,x,y)
 end
 
 local function visible_event(event)
@@ -229,6 +239,7 @@ end
 local function reset_camera()
     local map = Content.map_for(state)
     local position = Game.player(state).position
+    if spectator_enabled then spectator_focus={x=position.x,y=position.y} end
     camera = Camera.new(map, VIEWPORT, TILE, position.x, position.y)
     hit_feedback = HitFeedback.new()
     camera_state = state
@@ -243,6 +254,9 @@ local function zoom_by(steps)
         local position=Game.player(state).position
         local x,y=Playback.position(playback,state.player_id,
             position.floor_id,position.x,position.y)
+        if spectator_enabled and spectator_free and spectator_focus then
+            x,y=spectator_focus.x,spectator_focus.y
+        end
         Camera.set_tile(camera,TILE,x,y)
     end
     notice=('Zoom %d%% — no world time'):format(TILE*100/32)
@@ -319,7 +333,14 @@ function love.load(args)
     visual_assets:check_atlas()
     visual_signature=visual_fingerprint(visual_assets,studio_theme,world_pack)
     Generation.install_studio_pack(world_pack)
-    if os.getenv("ROAG_GUI_AUTOSTART") == "1" then
+    if spectator_enabled then
+        title=false
+        state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
+            selected_class_id)
+        notice=generated and 'SPECTATOR · generated art loaded · F6 camera' or
+            ('SPECTATOR · art fallback: '..tostring(generated_status))
+        reset_camera()
+    elseif os.getenv("ROAG_GUI_AUTOSTART") == "1" then
         title=false
         state=Game.new_stage(floor_seed)
         apply_showcase()
@@ -472,7 +493,11 @@ function love.update(dt)
     local position = Game.player(state).position
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
-    Camera.update(camera, dt, visual_x, visual_y)
+    if spectator_enabled and spectator_free and spectator_focus then
+        Camera.update(camera,dt,spectator_focus.x,spectator_focus.y)
+    else
+        Camera.update(camera, dt, visual_x, visual_y)
+    end
     HitFeedback.update(hit_feedback, playback, dt, state.player_id,
         state.active_floor_id)
     Camera.set_presentation_offset(camera, HitFeedback.offset(hit_feedback))
@@ -550,6 +575,7 @@ local function continue_run()
 end
 
 local function checkpoint(force)
+    if spectator_enabled then return true end -- disposable visual inspection only
     if not force and os.getenv("ROAG_GUI_AUTOSTART") == "1" then return true end
     local pending=state.meta and state.meta.pending or {}
     if state.game_over and next(pending) then
@@ -707,13 +733,89 @@ local function submit(intent)
     return committed
 end
 
+local function spectator_restart()
+    state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
+        selected_class_id)
+    playback=Playback.new()
+    combat_numbers=CombatNumbers.new()
+    targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
+    pause_menu=false
+    reward_notices,reward_notice_time={},0
+    reset_camera()
+    notice=('SPECTATOR · %s · seed %d · no saves'):format(
+        Biomes.get(Biomes.order[spectator_biome_index]).name,floor_seed)
+end
+
 function love.keypressed(key, _, isrepeat)
-    if isrepeat then return end
+    if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
+        return
+    end
     if key=='f5' then refresh_pending=true;return end
     if key=="f3" then
         if diagnostics then diagnostics=nil
         else diagnostics=require("src.diagnostics").new() end
         return
+    end
+    if spectator_enabled and state then
+        if key=='f6' then
+            spectator_free=not spectator_free
+            if spectator_free then
+                targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
+            end
+            local p=Game.player(state).position
+            spectator_focus={x=p.x,y=p.y}
+            Camera.set_tile(camera,TILE,p.x,p.y)
+            notice=spectator_free and 'FREE CAMERA · WASD pan · Shift fast · F6 return' or
+                'GOD PLAY · invulnerable · F6 free camera'
+            return
+        elseif key=='f7' then
+            spectator_biome_index=Spectator.next_index(Biomes.order,
+                spectator_biome_index)
+            spectator_restart()
+            return
+        elseif key=='f8' then
+            local ok,reason=Spectator.switch_floor(state)
+            if ok then
+                playback=Playback.new()
+                combat_numbers=CombatNumbers.new()
+                targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
+                reset_camera()
+                notice=('SPECTATOR · floor %d/2 · no world time'):format(
+                    state.active_floor_index or 1)
+            else notice='Spectator floor: '..tostring(reason) end
+            return
+        elseif key=='f9' then
+            local index=1
+            for i,id in ipairs(Classes.order) do
+                if id==selected_class_id then index=i;break end
+            end
+            selected_class_id=Classes.order[Spectator.next_index(Classes.order,index)]
+            spectator_restart()
+            return
+        elseif key=='n' or key=='m' then
+            if key=='m' then floor_seed=floor_seed%2147483646+1 end
+            spectator_restart()
+            return
+        elseif key=='escape' then
+            if targeting or chest_menu or route_menu or boon_detail_id then
+                targeting,chest_menu,route_menu,boon_detail_id=nil,nil,nil,nil
+                notice='Inspection menu closed · no world time'
+            else love.event.quit() end
+            return
+        elseif spectator_free then
+            local direction=cardinal[key]
+            if direction then
+                spectator_focus=Spectator.camera_step(state,spectator_focus,
+                    direction[1],direction[2],
+                    love.keyboard.isDown('lshift','rshift'))
+                notice=('FREE CAMERA · %d,%d · no world time'):format(
+                    spectator_focus.x,spectator_focus.y)
+            elseif key=='=' or key=='+' or key=='kp+' then zoom_by(1)
+            elseif key=='-' or key=='kp-' then zoom_by(-1)
+            elseif key=='tab' then minimap_visible=not minimap_visible
+            end
+            return -- free camera never submits a gameplay action
+        end
     end
     if audio_runtime and (title or pause_menu or chest_menu or route_menu) then
         local cue=(key=='escape' or key=='n' and confirm_new) and
@@ -1333,9 +1435,7 @@ local function draw_minimap()
         map.height*scale+20)
     love.graphics.setColor(0.7,0.85,0.7)
     love.graphics.print("MAP · Tab",ox,oy-14)
-    for _,at in ipairs(known and known.order or {}) do
-        local x=(at-1)%map.width+1
-        local y=math.floor((at-1)/map.width)+1
+    local function draw_minimap_cell(x,y)
         local current=visible_at(x,y)
         local tile=map.rows[y]:sub(x,x)
         if tile=="~" then
@@ -1350,16 +1450,26 @@ local function draw_minimap()
         end
         love.graphics.rectangle("fill",ox+(x-1)*scale,oy+(y-1)*scale,scale,scale)
     end
+    if spectator_enabled then
+        for y=1,map.height do
+            for x=1,map.width do draw_minimap_cell(x,y) end
+        end
+    else
+        for _,at in ipairs(known and known.order or {}) do
+            draw_minimap_cell((at-1)%map.width+1,
+                math.floor((at-1)/map.width)+1)
+        end
+    end
     for _,entity in ipairs(state.entities) do
         if entity.position.floor_id==map.floor_id and entity.controller=="door" and
-            Game.was_explored(state,map.floor_id,entity.position.x,entity.position.y) then
+            explored_at(map.floor_id,entity.position.x,entity.position.y) then
             love.graphics.setColor(0.9,0.67,0.30)
             love.graphics.rectangle("fill",ox+(entity.position.x-1)*scale,
                 oy+(entity.position.y-1)*scale,2.4,2.4)
         end
     end
     for _,stair in ipairs(map.placements and map.placements.stairs or {}) do
-        if Game.was_explored(state,map.floor_id,stair.x,stair.y) then
+        if explored_at(map.floor_id,stair.x,stair.y) then
             love.graphics.setColor(0.43,0.88,0.96)
             love.graphics.rectangle("line",ox+(stair.x-1)*scale-1,
                 oy+(stair.y-1)*scale-1,4,4)
@@ -1368,7 +1478,7 @@ local function draw_minimap()
     if map.elite and (not state.stage or
         state.stage.phase=="exploring" or state.stage.phase=="elite_active")
         and (not state.floor_order or state.active_floor_index==2)
-        and Game.was_explored(state,map.floor_id,map.elite.x,map.elite.y) then
+        and explored_at(map.floor_id,map.elite.x,map.elite.y) then
         love.graphics.setColor(0.94,0.67,0.35)
         love.graphics.rectangle("line",ox+(map.elite.x-1)*scale-1,
             oy+(map.elite.y-1)*scale-1,4,4)
@@ -1376,7 +1486,7 @@ local function draw_minimap()
     if state.stage and state.stage.exit_id then
         local exit=Game.entity(state,state.stage.exit_id)
         if exit and exit.position.floor_id==map.floor_id
-            and Game.was_explored(state,map.floor_id,
+            and explored_at(map.floor_id,
             exit.position.x,exit.position.y) then
             love.graphics.setColor(0.35,0.88,0.98)
             love.graphics.rectangle("line",ox+(exit.position.x-1)*scale-1,
@@ -1387,6 +1497,11 @@ local function draw_minimap()
     love.graphics.setColor(1,0.86,0.23)
     love.graphics.rectangle("fill",ox+(p.x-1)*scale-1,
         oy+(p.y-1)*scale-1,4,4)
+    if spectator_enabled and spectator_free and spectator_focus then
+        love.graphics.setColor(0.4,0.92,1)
+        love.graphics.rectangle('line',ox+(spectator_focus.x-1)*scale-2,
+            oy+(spectator_focus.y-1)*scale-2,6,6)
+    end
 end
 
 local function draw_world()
@@ -1411,7 +1526,7 @@ local function draw_world()
     for y = min_y, max_y do
         for x = min_x, max_x do
             if not (state.generated_map or state.finale) or
-                Game.was_explored(state,map.floor_id,x,y) then
+                explored_at(map.floor_id,x,y) then
             local screen_x, screen_y = Camera.tile_top_left(camera, x, y)
             local tile=map.rows[y]:sub(x,x)
             local wall = tile == "#" or tile=="B"
@@ -1674,6 +1789,12 @@ local function draw_world()
             VIEWPORT.width-2,VIEWPORT.height-2)
     end
     draw_combat_numbers()
+    if spectator_enabled and spectator_free and spectator_focus then
+        local cx,cy=Camera.tile_top_left(camera,spectator_focus.x,
+            spectator_focus.y)
+        love.graphics.setColor(0.38,0.94,1,0.9)
+        love.graphics.rectangle('line',cx+1,cy+1,TILE-2,TILE-2)
+    end
     draw_minimap()
     if chest_menu then
         if studio_theme and studio_theme:draw_panel(70,100,640,390) then
@@ -2164,6 +2285,44 @@ function love.draw()
     if camera_state ~= state then reset_camera() end
     draw_world()
     draw_panel()
+    if spectator_enabled then
+        local actor=bound_visual(Game.player(state).definition_id)
+        local source=actor and actor.source or 'built-in'
+        local map=Content.map_for(state)
+        local biome=Biomes.get(map.biome_id)
+        local focus=spectator_free and spectator_focus or Game.player(state).position
+        local symbol=map.rows[focus.y]:sub(focus.x,focus.x)
+        local kind=symbol=='#' and 'wall' or symbol=='~' and 'water' or
+            symbol=='.' and 'floor' or nil
+        local tile_info=('tile %s at %d,%d · built-in'):format(symbol,
+            focus.x,focus.y)
+        if kind and visual_assets then
+            local shape=VisualSlots.terrain_shape(map,focus.x,focus.y,kind)
+            for _,binding in ipairs(VisualSlots.terrain_bindings(
+                map.biome_id,kind,shape)) do
+                local handle=visual_assets:resolve(binding)
+                if handle then
+                    tile_info=('%s · %s [%s]'):format(
+                        ('tile %s at %d,%d'):format(symbol,focus.x,focus.y),
+                        binding,handle.source)
+                    break
+                end
+            end
+        end
+        love.graphics.setColor(0.01,0.025,0.025,0.91)
+        love.graphics.rectangle('fill',VIEWPORT.x+7,
+            VIEWPORT.y+VIEWPORT.height-77,VIEWPORT.width-14,72)
+        love.graphics.setColor(0.94,0.92,0.65)
+        love.graphics.setFont(ui_body_font)
+        love.graphics.print(('SPECTATOR  %s  floor %d/2  %s  art: %s'):format(
+            spectator_free and 'FREE CAMERA' or 'GOD PLAY',
+            state.active_floor_index or 1,biome and biome.name or 'Unknown',source),
+            VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-72)
+        love.graphics.setColor(0.72,0.86,0.82)
+        love.graphics.print(tile_info,VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-50)
+        love.graphics.print('F6 camera/play  F7 biome  F8 floor  F9 class  M seed  Esc quit',
+            VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-28)
+    end
     draw_reward_detail()
     draw_boon_detail()
     if persistence_message~="" and not pause_menu then
