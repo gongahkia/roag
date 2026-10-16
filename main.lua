@@ -2274,10 +2274,10 @@ function love.roagAssetBacking(id)
 end
 function love.roagThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
 function love.roagAssetResolved(binding)
-    return visual_assets and visual_assets:get(binding)~=nil or false
+    return visual_assets and visual_assets:resolve(binding)~=nil or false
 end
 function love.roagAssetIdResolved(id)
-    return visual_assets and visual_assets:get_id(id)~=nil or false
+    return visual_assets and visual_assets:resolve_id(id)~=nil or false
 end
 function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end

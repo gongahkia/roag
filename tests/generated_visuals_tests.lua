@@ -4,6 +4,7 @@ local Classes=require('src.classes')
 local Biomes=require('src.biomes')
 local Boons=require('src.boon_content')
 local Game=require('src.game')
+local Project=require('src.studio_project')
 local function read(path)
     local file=io.open(path,'rb')
     if not file then return nil end
@@ -23,6 +24,11 @@ local function quad(x,y,w,h,pw,ph)
     return {x=x,y=y,w=w,h=h,pw=pw,ph=ph}
 end
 return function(test,equal)
+    test('default checkout has no hand-painted published art override',function()
+        assert(read('assets/studio/manifest.txt')==nil)
+        local visuals=Visual.new(read,function() error('unexpected image load') end)
+        assert(visuals.status=='absent' and not visuals:resolve('core:actor/adventurer'))
+    end)
     test('generated four-tone atlas covers current classes, biomes and boons',function()
         local atlas,status=Generated.new(read,image,quad)
         assert(status=='loaded' and atlas)
@@ -76,5 +82,31 @@ return function(test,equal)
         visuals:resolve('core:terrain/overgrown_ruins/floor/base')
         visuals:resolve('core:boon/storm_conductor/icon')
         equal(before,Game.snapshot(Game.restore(before)))
+    end)
+    test('published loose art takes precedence over optional generated art',function()
+        local generated=assert(Generated.new(read,image,quad))
+        local project=Project.new('fixture','Fixture')
+        local asset=Project.asset('studio:art/adventurer','Hero','actor')
+        asset.binding='core:actor/adventurer'
+        asset.source='sources/hero.png';asset.format='png'
+        asset.width=192;asset.height=192
+        project.assets[1]=asset
+        local page=assert(read('assets/generated/manifest.txt'):match(
+            'page\tactors\t([^\t]+)'))
+        local png=assert(read(page))
+        local function source(path)
+            if path=='assets/studio/manifest.txt' then return Project.encode(project) end
+            if path=='assets/studio/sources/hero.png' then return png end
+            return nil
+        end
+        local visuals=Visual.new(source,function(bytes) return image(bytes) end,
+            generated)
+        local handle=assert(visuals:resolve(asset.binding))
+        assert(handle.source=='loose' and not handle.quad)
+        local broken=Visual.new(function(path)
+            if path=='assets/studio/sources/hero.png' then return 'corrupt' end
+            return source(path)
+        end,function(bytes) return image(bytes) end,generated)
+        assert(broken:resolve(asset.binding).source=='generated')
     end)
 end
