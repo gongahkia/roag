@@ -409,6 +409,27 @@ function App:bind_selected_artwork()
     if entry.binding:match('^core:glyph/') and asset.kind~='glyph' then
         self:status('Individual letters need glyph artwork.');return
     end
+    if asset.binding~='' and asset.binding~=entry.binding and
+        (theme_slot or entry.binding:match('^core:glyph/')) then
+        self:status('This sprite already serves '..asset.binding..
+            '. Duplicate it in Assets before assigning another UI destination.')
+        return
+    end
+    if theme_slot=='hud_panel' then
+        local p=self.theme_pack.panel
+        if p.left+p.right>asset.width or p.top+p.bottom>asset.height then
+            self:status('HUD panel is too small for its UI nine-slice insets.')
+            return
+        end
+    elseif theme_slot=='bitmap_font' then
+        local f=self.theme_pack.font
+        if math.floor(asset.width/f.glyph_width)*
+            math.floor(asset.height/f.glyph_height)<#f.characters then
+            self:status('Bitmap sheet is too small for the UI glyph map. '
+                ..'Draw letters individually or change font metrics in UI.')
+            return
+        end
+    end
     for _,other in ipairs(self.project.assets) do
         if other~=asset and other.binding==entry.binding then
             self:status('This project already binds '..entry.binding..

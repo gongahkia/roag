@@ -45,27 +45,36 @@ function R.inspect(read,visuals)
         if not direct then return nil,'theme assets unavailable or from a different project' end
         theme=nil
     end
-    theme=theme or Theme.new(visuals.project_id)
-    -- Individually published Artwork slots take precedence over the optional
-    -- theme's asset choices. The theme editor still owns layout and presets.
-    local effective=Theme.decode(Theme.encode(theme))
-    for _,slot in ipairs(Theme.slots) do
-        local asset=bindings['core:ui/'..slot]
-        if asset then effective.slots[slot]=asset.id end
-    end
     local assets={}
     for _,asset in pairs(visuals.by_id) do assets[#assets+1]=asset end
-    local valid,why=pcall(Theme.validate,effective,assets)
-    if not valid then return nil,'theme asset mismatch: '..tostring(why) end
-    for _,slot in ipairs(Theme.slots) do
-        local id=effective.slots[slot]
-        if id~='' and not (visuals.resolve_id and visuals:resolve_id(id) or
-            visuals:get_id(id)) then
-            return nil,'theme image unavailable: '..slot..' ('..id..')'
+    -- Individually published Artwork slots take precedence over the optional
+    -- theme's asset choices. A stale theme cannot suppress valid direct art.
+    local function prepare(candidate)
+        local effective=Theme.decode(Theme.encode(candidate))
+        for _,slot in ipairs(Theme.slots) do
+            local asset=bindings['core:ui/'..slot]
+            if asset then effective.slots[slot]=asset.id end
         end
+        local valid,why=pcall(Theme.validate,effective,assets)
+        if not valid then return nil,'theme asset mismatch: '..tostring(why) end
+        for _,slot in ipairs(Theme.slots) do
+            local id=effective.slots[slot]
+            if id~='' and not (visuals.resolve_id and visuals:resolve_id(id) or
+                visuals:get_id(id)) then
+                return nil,'theme image unavailable: '..slot..' ('..id..')
+            end
+        end
+        return effective
     end
+    local effective,reason=prepare(theme or Theme.new(visuals.project_id))
+    local warning=not theme and status~='absent' and status or nil
+    if not effective and direct then
+        warning=reason
+        effective,reason=prepare(Theme.new(visuals.project_id))
+    end
+    if not effective then return nil,reason end
     return setmetatable({theme=effective,visuals=visuals,
-        has_direct_glyphs=direct_glyphs,quads={},panel_quads={},
+        warning=warning,has_direct_glyphs=direct_glyphs,quads={},panel_quads={},
         counts={panel=0,icon=0,glyph=0,background=0,effect=0}},
         {__index=R}),direct and 'loaded' or status
 end
