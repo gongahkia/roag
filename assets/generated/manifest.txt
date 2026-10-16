@@ -1,8 +1,8 @@
 ROAG-GENERATED-ATLAS/1
-page	actors	assets/generated/builds/d141c13f5bc4251d/actors.png	192	192	93bd010478152e0d
-page	backgrounds	assets/generated/builds/d141c13f5bc4251d/backgrounds.png	448	64	317c3bfd03f867b0
-page	icons	assets/generated/builds/d141c13f5bc4251d/icons.png	128	128	813a061413742859
-page	terrain	assets/generated/builds/d141c13f5bc4251d/terrain.png	224	96	1bbfb01c7521a832
+page	actors	assets/generated/builds/e6f7e490b979490e/actors.png	192	192	93bd010478152e0d
+page	backgrounds	assets/generated/builds/e6f7e490b979490e/backgrounds.png	448	64	7b013c1a6dd776b7
+page	icons	assets/generated/builds/e6f7e490b979490e/icons.png	128	128	813a061413742859
+page	terrain	assets/generated/builds/e6f7e490b979490e/terrain.png	224	96	16b4ad2454473fa3
 asset	core:actor/adventurer	actors	0	0	32	32
 asset	core:actor/adventurer/attack	actors	0	0	32	32
 asset	core:actor/adventurer/hurt	actors	0	0	32	32

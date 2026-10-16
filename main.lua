@@ -1633,18 +1633,30 @@ local function draw_world()
         draw_history_event(Playback.current(playback))
     end
     local visual_event=Playback.current(playback)
-    if studio_theme and visual_event and
+    if visual_event and
         (not visual_event.floor_id or visual_event.floor_id==state.active_floor_id) then
         local seen,effects={},0
         for _,event in ipairs(current_group or {visual_event}) do
             if (event.kind=='DamageTaken' or event.kind=='BoonActivated')
-                and event.x and event.y then
+                and event.x and event.y and
+                (not event.floor_id or event.floor_id==state.active_floor_id) then
                 local key=event.kind..':'..event.x..':'..event.y
                 if not seen[key] then
                     seen[key]=true
-                    studio_theme:draw_effect(event,playback,
-                        function(x,y) return Camera.tile_top_left(camera,x,y) end,
-                        visible_at)
+                    if studio_theme then
+                        studio_theme:draw_effect(event,playback,
+                            function(x,y) return Camera.tile_top_left(camera,x,y) end,
+                            visible_at)
+                    elseif visible_at(event.x,event.y) then
+                        local id=event.kind=='DamageTaken' and
+                            'core:ui/hit_effect' or 'core:ui/boon_effect'
+                        local art=bound_visual(id)
+                        if art then
+                            local x,y=Camera.tile_top_left(camera,event.x,event.y)
+                            draw_visual(art,x+TILE*0.125,y+TILE*0.125,
+                                TILE*0.75,TILE*0.75,0.82)
+                        end
+                    end
                     effects=effects+1
                     if effects>=8 then break end
                 end
@@ -1833,7 +1845,9 @@ local function draw_panel()
 
     g.setColor(.93,.94,.82)
     g.print(class.name:upper()..'  ·  LV '..state.progression.level,px,80)
-    if studio_theme then studio_theme:draw_icon('hp_icon',px,103,16) end
+    if not (studio_theme and studio_theme:draw_icon('hp_icon',px,103,16)) then
+        draw_visual(bound_visual('core:ui/hp_icon'),px,103,16,16)
+    end
     g.setColor(.77,.83,.78)
     if not (studio_theme and studio_theme:draw_text('HEALTH',px+22,105,2)) then
         g.print('HEALTH',px+22,105)
@@ -1854,14 +1868,18 @@ local function draw_panel()
     local next_xp=Game.next_level_xp(state)
     local earned=state.progression.xp_total-previous
     local needed=next_xp-previous
-    if studio_theme then studio_theme:draw_icon('xp_icon',px,155,16) end
+    if not (studio_theme and studio_theme:draw_icon('xp_icon',px,155,16)) then
+        draw_visual(bound_visual('core:ui/xp_icon'),px,155,16,16)
+    end
     g.setColor(.77,.83,.78)
     local xp_label=('XP  %d/%d'):format(earned,needed)
     if not (studio_theme and studio_theme:draw_text(xp_label,px+22,156,2)) then
         g.print(xp_label,px+22,156)
     end
     hud_meter(px,174,260,8,earned,needed,.43,.72,.94)
-    if studio_theme then studio_theme:draw_icon('currency_icon',px,192,16) end
+    if not (studio_theme and studio_theme:draw_icon('currency_icon',px,192,16)) then
+        draw_visual(bound_visual('core:ui/currency_icon'),px,192,16,16)
+    end
     g.setColor(.98,.81,.44)
     local gold_label='GOLD  '..state.currency
     if not (studio_theme and studio_theme:draw_text(gold_label,px+22,193,2)) then
