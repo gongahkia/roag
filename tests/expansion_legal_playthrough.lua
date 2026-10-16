@@ -16,7 +16,7 @@ local function cardinal(a,b)
 end
 local function ranged_direction(state,at,target)
     local class=Game.player(state).definition_id
-    local range=class==Classes.order[3] and 3 or nil
+    local range=(class==Classes.order[3] or class==Classes.order[6]) and 3 or nil
     if not range then return nil end
     local ddx,ddy=target.x-at.x,target.y-at.y
     local dx=ddx==0 and 0 or (ddx>0 and 1 or -1)
@@ -42,7 +42,7 @@ end
 local function fight_target(run,id,max_actions)
     local state=run.state
     local class=Game.player(state).definition_id
-    if class~=Classes.order[3] then
+    if class~=Classes.order[3] and class~=Classes.order[6] then
         return Play.fight(run,id,max_actions)
     end
     for _=1,max_actions do

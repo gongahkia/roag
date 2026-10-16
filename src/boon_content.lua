@@ -27,6 +27,8 @@ function Catalog.normal_order()
     for _,id in ipairs(require("src.boon_expansion_content").order) do
         result[#result+1]=id
     end
+    result[#result+1]="core:boon/aftershock"
+    result[#result+1]="core:boon/reprisal_nova"
     return result
 end
 
@@ -223,6 +225,30 @@ for _,id in ipairs(expansion.order) do
     Catalog.order[#Catalog.order+1]=id
     Catalog.definitions[id]=expansion.definitions[id]
 end
+
+-- Two ordinary-pool area boons. Each uses the existing area resolver and
+-- branch-local ancestry guard, so secondary hits cannot recurse forever.
+Catalog.order[#Catalog.order+1]="core:boon/aftershock"
+Catalog.definitions["core:boon/aftershock"]={
+    name="Aftershock",description="A direct hit bursts across the target's adjacent cells.",
+    tags={"offense","area"},triggers={"DamageTaken"},scope={kind="owner"},
+    predicate={all={{op="source_owner"},{op="target_hostile"},
+        {op="positive"},{op="direct_attack"}}},
+    stack_policy="add_power",parameters=strengths(nil,{2,3,4,6}),
+    effects={{kind="area",radius=1,damage_type="shock"}},
+    unit="adjacent burst damage before defense",
+    eligible_classes={"core:actor/sentinel","core:actor/alchemist"},
+}
+Catalog.order[#Catalog.order+1]="core:boon/reprisal_nova"
+Catalog.definitions["core:boon/reprisal_nova"]={
+    name="Reprisal Nova",description="Taking real hostile damage bursts around you.",
+    tags={"defense","area"},triggers={"DamageTaken"},scope={kind="owner"},
+    predicate={all={{op="target_owner"},{op="source_hostile"},{op="positive"}}},
+    stack_policy="add_power",parameters=strengths(nil,{2,3,4,6}),
+    effects={{kind="area",radius=1,damage_type="pulse"}},
+    unit="nearby retaliation damage before defense",
+    eligible_classes={"core:actor/sentinel","core:actor/alchemist"},
+}
 
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 

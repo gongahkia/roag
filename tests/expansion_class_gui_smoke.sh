@@ -53,7 +53,7 @@ function love.draw(...)
     labels={};old_draw(...)
     if phase>2 or pending then return end
     if phase==1 then
-        assert(has('1–4  CHOOSE CLASS') and
+        assert(has('1–6  CHOOSE CLASS') and
             has(Classes.get(target).name:upper()),"title class choice missing")
     else
         assert(tracked and Game.player(tracked).definition_id==target

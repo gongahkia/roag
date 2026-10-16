@@ -1664,11 +1664,15 @@ function Game.restore(snapshot)
         local drop_map=drop.position and maps[drop.position.floor_id]
         assert(type(drop.id) == "number" and drop.id % 1 == 0
             and drop.id >= 1 and drop.id < state.next_drop_id
-            and not drop_ids[drop.id] and drop.kind == "currency"
+            and not drop_ids[drop.id] and
+            (drop.kind == "currency" or drop.kind == "food" or drop.kind == "health")
             and type(drop.amount) == "number" and drop.amount % 1 == 0
             and drop.amount > 0 and type(drop.collected) == "boolean"
+            and (drop.kind=="currency" or
+                (drop.kind=="food" and drop.amount==4) or
+                (drop.kind=="health" and drop.amount==10))
             and drop_map and Content.walkable(drop_map, drop.position.x, drop.position.y),
-            "invalid currency drop")
+            "invalid reward drop")
         drop_ids[drop.id] = true
     end
     for id, payload in pairs(state.delayed_effects) do

@@ -16,8 +16,8 @@ return function(test,equal)
         return Game.new(7,"core:map/test_room",{class_id=class_id})
     end
 
-    test("four starting classes have explicit stats, costs and snapshot identity",function()
-        assert(Classes.validate() and #Classes.order==4)
+    test("six starting classes have explicit stats, costs and snapshot identity",function()
+        assert(Classes.validate() and #Classes.order==6)
         local ids={}
         for _,id in ipairs(Classes.order) do
             assert(not ids[id]);ids[id]=true

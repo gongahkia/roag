@@ -47,11 +47,11 @@ return function(test,equal)
         return events
     end
 
-    test("50 boon identities retain 20 originals, four unlocks and class-aware normal offers",function()
-        assert(Catalog.validate() and #Catalog.order==50)
+    test("52 boon identities retain 20 originals, four unlocks and class-aware normal offers",function()
+        assert(Catalog.validate() and #Catalog.order==52)
         local baseline=Catalog.starter_order()
         local normal=Achievements.pool({})
-        assert(#baseline==20 and #normal==46)
+        assert(#baseline==20 and #normal==48)
         for i=1,20 do assert(normal[i]==baseline[i]) end
         local expansion=require("src.boon_expansion_content")
         assert(#expansion.order==26)
@@ -431,7 +431,7 @@ return function(test,equal)
 
     test("ordinary paired-floor New Run earns and activates a purchased new boon",function()
         local run,result=require("tests.expansion_boon_acceptance").run()
-        assert(result.seed==50 and result.actions==59 and result.hp==21
+        assert(result.seed==50 and result.actions==59 and result.hp==24
             and result.clock==5900 and result.rarity=="common"
             and result.movement_activations>=1 and result.hit_activations>=1)
         assert(run.state.floor_order and #run.state.floor_order==2)

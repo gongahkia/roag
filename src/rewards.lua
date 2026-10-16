@@ -115,6 +115,36 @@ function Rewards.on_event(state, event, emit)
         Rewards.spawn_currency(state,definition.currency_drop,event.floor_id,
             event.x,event.y,emit,event.source_id,nil,event.target_id)
     end
+    -- An independent, derived roll keeps supply drops reproducible without
+    -- consuming combat/progression RNG or changing existing chest offers.
+    if state.stage and definition.ai~="hollow_regent" and definition.ai~="pursuer" then
+        local kind
+        if definition.ai=="warden" or definition.ai=="biome_elite" then
+            kind="health"
+        else
+            local roll=RNG.derive(state.root_seed or state.run_seed,
+                "supply:"..tostring(event.target_id))%100
+            if roll<5 then kind="health"
+            elseif roll<27 then kind="food" end
+        end
+        if kind then
+            Rewards.spawn_supply(state,kind,event.floor_id,event.x,event.y,
+                emit,event.source_id,event.target_id)
+        end
+    end
+end
+
+local supply_amounts={food=4,health=10}
+function Rewards.spawn_supply(state,kind,floor_id,x,y,emit,source_id,killed_entity_id)
+    local amount=assert(supply_amounts[kind],"invalid supply kind")
+    local drop={id=state.next_drop_id,kind=kind,amount=amount,
+        position={floor_id=floor_id,x=x,y=y},collected=false,
+        killed_entity_id=killed_entity_id}
+    state.next_drop_id=drop.id+1
+    state.drops[#state.drops+1]=drop
+    emit("SupplyDropped",{drop_id=drop.id,supply_kind=kind,amount=amount,
+        target_id=killed_entity_id,floor_id=floor_id,x=x,y=y},source_id)
+    return drop
 end
 
 function Rewards.spawn_currency(state,amount,floor_id,x,y,emit,source_id,secret_id,killed_entity_id)
@@ -136,12 +166,22 @@ function Rewards.pickup_at(state, actor, x, y, emit)
         local position = drop.position
         if not drop.collected and position.floor_id == actor.position.floor_id
             and position.x == x and position.y == y then
-            local old = state.currency
-            state.currency = old + drop.amount
-            drop.collected = true
-            emit("CurrencyCollected", {drop_id=drop.id, amount=drop.amount,
-                old_currency=old, new_currency=state.currency,
-                floor_id=position.floor_id, x=x, y=y}, actor.id)
+            if drop.kind=="currency" then
+                local old = state.currency
+                state.currency = old + drop.amount
+                drop.collected = true
+                emit("CurrencyCollected", {drop_id=drop.id, amount=drop.amount,
+                    old_currency=old, new_currency=state.currency,
+                    floor_id=position.floor_id, x=x, y=y}, actor.id)
+            elseif actor.hp and actor.hp>0 and actor.hp<actor.max_hp then
+                local before=actor.hp
+                actor.hp=math.min(actor.max_hp,actor.hp+drop.amount)
+                drop.collected=true
+                emit("SupplyCollected",{drop_id=drop.id,supply_kind=drop.kind,
+                    amount=drop.amount,actual_gain=actor.hp-before,
+                    hp_before=before,hp_after=actor.hp,
+                    floor_id=position.floor_id,x=x,y=y},actor.id)
+            end
         end
     end
 end

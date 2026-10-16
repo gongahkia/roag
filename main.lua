@@ -637,6 +637,9 @@ local function submit(intent)
         for _, event in ipairs(events) do
             if event.kind == "CurrencyCollected" then
                 notice = notice .. ("; +%d currency"):format(event.amount)
+            elseif event.kind == "SupplyCollected" then
+                notice = notice .. ("; +%d HP (%s)"):format(
+                    event.actual_gain,event.supply_kind)
             elseif event.kind == "SecretDiscovered" then
                 notice = notice .. "; hidden cache found"
             elseif event.kind == "FloorChanged" then
@@ -1088,11 +1091,22 @@ local function draw_rewards()
         if not drop.collected and drop.position.floor_id==state.active_floor_id
             and visible_at(drop.position.x,drop.position.y) then
             local x, y = Camera.tile_top_left(camera, drop.position.x, drop.position.y)
-            if not draw_visual(bound_visual('core:drop/currency'),x,y,TILE,TILE) then
-                love.graphics.setColor(1, 0.86, 0.26)
-                love.graphics.circle("fill", x + 16, y + 16, 6)
-                love.graphics.setColor(0.26, 0.19, 0.05)
-                love.graphics.circle("line", x + 16, y + 16, 6)
+            if not draw_visual(bound_visual('core:drop/'..drop.kind),x,y,TILE,TILE) then
+                if drop.kind=="food" then
+                    love.graphics.setColor(.48,.82,.28)
+                    love.graphics.circle("fill",x+16,y+17,7)
+                    love.graphics.setColor(.19,.45,.16)
+                    love.graphics.rectangle("fill",x+15,y+7,3,5)
+                elseif drop.kind=="health" then
+                    love.graphics.setColor(.94,.3,.38)
+                    love.graphics.rectangle("fill",x+13,y+8,6,17)
+                    love.graphics.rectangle("fill",x+8,y+13,16,6)
+                else
+                    love.graphics.setColor(1, 0.86, 0.26)
+                    love.graphics.circle("fill", x + 16, y + 16, 6)
+                    love.graphics.setColor(0.26, 0.19, 0.05)
+                    love.graphics.circle("line", x + 16, y + 16, 6)
+                end
             end
         end
     end
@@ -1536,6 +1550,8 @@ local function draw_world()
             [Classes.order[2]]={0.49,0.83,0.49},
             [Classes.order[3]]={0.67,0.62,0.96},
             [Classes.order[4]]={0.96,0.49,0.38},
+            [Classes.order[5]]={0.55,0.76,0.93},
+            [Classes.order[6]]={0.73,0.93,0.44},
         }
         love.graphics.setColor(unpack(colors[Game.player(state).definition_id]))
         love.graphics.circle("fill", screen_x + TILE / 2 - 1, screen_y + TILE / 2 - 1, 11)
@@ -1972,7 +1988,7 @@ function love.draw()
         love.graphics.setColor(.37,.57,.56)
         love.graphics.rectangle('fill',294,187,436,1)
         love.graphics.setColor(.64,.77,.75)
-        love.graphics.printf('1–4  CHOOSE CLASS',250,201,524,'center')
+        love.graphics.printf('1–6  CHOOSE CLASS',250,201,524,'center')
         love.graphics.setColor(.96,.94,.8)
         love.graphics.printf(chosen.name:upper(),250,225,524,'center')
         love.graphics.setColor(.77,.85,.79)

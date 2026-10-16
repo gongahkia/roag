@@ -49,6 +49,15 @@ return function(test,equal)
             assert(run.state.victory.hp>0)
         end
     end)
+    test('Sentinel and Alchemist each reach Victory through ordinary submitted actions',function()
+        for _,case in ipairs({{Classes.order[5],28},{Classes.order[6],9}}) do
+            local run,reason,failed=Driver.attempt(case[2],{class_id=case[1]})
+            assert(run,('%s seed %d failed after %d actions: %s'):format(
+                case[1],case[2],failed and #failed.trace or 0,tostring(reason)))
+            assert(run.state.victory and Game.player(run.state).definition_id==case[1]
+                and #run.stages==3 and #run.purchases>=1 and #run.trace>500)
+        end
+    end)
     test('ordinary legal routes defeat all seven unique biome minibosses',function()
         local cases={
             {'core:biome/overgrown_ruins',9,1,{1,2,1}},

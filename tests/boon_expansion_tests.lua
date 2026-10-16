@@ -28,7 +28,7 @@ return function(test,equal)
     end
 
     test('original twenty boons remain validated and available before unlocks',function()
-        assert(#Catalog.order==50 and Catalog.starter_count==20 and Catalog.validate())
+        assert(#Catalog.order==52 and Catalog.starter_count==20 and Catalog.validate())
         local seen={}
         for _,id in ipairs(Catalog.order) do
             assert(not seen[id]);seen[id]=true

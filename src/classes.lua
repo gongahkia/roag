@@ -3,7 +3,8 @@
 local Targeting=require("src.targeting")
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
-    "core:actor/arcanist","core:actor/berserker"}
+    "core:actor/arcanist","core:actor/berserker",
+    "core:actor/sentinel","core:actor/alchemist"}
 Classes.definitions={
     [Classes.order[1]]={id=Classes.order[1],name="Adventurer",
         description="Balanced sword, three-cell sweep, two-cell Dash",
@@ -41,6 +42,24 @@ Classes.definitions={
         special_id="core:ability/berserker_cleave",
         basic_name="Crushing Blow",special_name="Broad Cleave",dash_name="Heavy Lunge",
         ui_controls="F Crush · R Cleave · X Lunge"},
+    [Classes.order[5]]={id=Classes.order[5],name="Sentinel",
+        description="Shield strike and an eight-cell defensive pulse",
+        hp=29,damage=4,slash_damage=3,defense=2,speed=90,
+        crit_chance_ppm=0,crit_damage_percent=150,
+        costs={move=105,basic_attack=105,sweeping_slash=165,dash=145},
+        dash_distance=2,basic_id="core:ability/sentinel_strike",
+        special_id="core:ability/sentinel_pulse",
+        basic_name="Shield Strike",special_name="Shield Pulse",dash_name="Guard Step",
+        ui_controls="F Strike · R Pulse · X Step"},
+    [Classes.order[6]]={id=Classes.order[6],name="Alchemist",
+        description="Three-cell vial shot and a targeted cross-shaped blast",
+        hp=22,damage=3,slash_damage=4,defense=0,speed=105,
+        crit_chance_ppm=0,crit_damage_percent=150,
+        costs={move=100,basic_attack=105,sweeping_slash=165,dash=130},
+        dash_distance=2,basic_id="core:ability/alchemist_vial",
+        special_id="core:ability/alchemist_flask",
+        basic_name="Vial Shot",special_name="Blast Flask",dash_name="Quick Step",
+        ui_controls="F Vial · R Flask · X Step"},
 }
 local directions={{0,-1},{1,-1},{1,0},{1,1},
     {0,1},{-1,1},{-1,0},{-1,-1}}
@@ -97,6 +116,9 @@ function Classes.attack(state,player,kind,dx,dy,content)
         elseif def.id==Classes.order[3] then
             cells=line(state,content,p,dx,dy,3)
             ranged=true;damage_type="lightning"
+        elseif def.id==Classes.order[6] then
+            cells=line(state,content,p,dx,dy,3)
+            ranged=true;damage_type="acid"
         else
             cells=Targeting.cells("basic_attack",p.x,p.y,dx,dy)
         end
@@ -127,6 +149,29 @@ function Classes.attack(state,player,kind,dx,dy,content)
                 local d=directions[(index+offset-1)%8+1]
                 cells[#cells+1]={x=p.x+d[1],y=p.y+d[2]}
             end
+        elseif def.id==Classes.order[5] then
+            cells={}
+            for _,d in ipairs(directions) do
+                cells[#cells+1]={x=p.x+d[1],y=p.y+d[2]}
+            end
+            damage_type="pulse"
+        elseif def.id==Classes.order[6] then
+            local travel=line(state,content,p,dx,dy,3)
+            local center=travel[#travel]
+            cells={}
+            local map=content.map_for(state)
+            if center and center.x==p.x+3*dx and center.y==p.y+3*dy
+                and content.projectile_passable(map,center.x,center.y,state) then
+                for _,d in ipairs({{0,0},{0,-1},{1,0},{0,1},{-1,0}}) do
+                    local x,y=center.x+d[1],center.y+d[2]
+                    if content.projectile_passable(map,x,y,state) then
+                        cells[#cells+1]={x=x,y=y}
+                    end
+                end
+            else
+                cells=travel
+            end
+            ranged="area";damage_type="explosion"
         else
             cells=Targeting.cells("sweeping_slash",p.x,p.y,dx,dy)
         end
@@ -136,7 +181,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==4,"expected four starting classes")
+    assert(#Classes.order==6,"expected six starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

@@ -32,6 +32,8 @@ reference by its asset ID.
 | `core:enemy/mossbound_guard/hurt` | That enemy during positive damage |
 | `core:drop/currency` | Currency on the floor |
 | `core:drop/currency/detail` | Large currency pickup card |
+| `core:drop/food` | Green food healing pickup on the floor |
+| `core:drop/health` | Red health healing pickup on the floor |
 | `core:chest/standard` or `core:chest/free_elite` | Unclaimed chest |
 | `core:boon/storm_conductor/icon` | Small icon in chest/owned-boon UI |
 | `core:boon/storm_conductor/detail` | Large chest offer, pickup card and owned-boon detail |

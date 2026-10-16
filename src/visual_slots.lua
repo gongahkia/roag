@@ -15,6 +15,8 @@ for _,id in ipairs(Classes.order) do
 end
 add('core:drop/currency')
 add('core:drop/currency/detail')
+add('core:drop/food')
+add('core:drop/health')
 add('core:chest/standard')
 add('core:chest/free_elite')
 local enemy_ids={['core:enemy/thorn_warden']=true,

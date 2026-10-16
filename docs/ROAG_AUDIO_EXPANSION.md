@@ -5,8 +5,8 @@ on the project screen. **F8** opens the same contextual Cue Picker from a room
 or UI theme editor. The current authored room, or the UI category, is selected
 first. Audio never belongs to a game snapshot and never advances game time.
 
-The picker lists stable cue IDs for all four classes and their attacks, every
-regular enemy and biome elite, all 50 boons, six mechanical terrains, room
+The picker lists stable cue IDs for all six classes and their attacks, every
+regular enemy and biome elite, all 52 boons, six mechanical terrains, room
 templates, seven biomes, doors/rewards, UI actions, the finale, ambience and
 music. Press **F** and search by name, ID, class, enemy, boon or room. Press
 **C** to cycle categories. The left/right keys bind or unbind the selected

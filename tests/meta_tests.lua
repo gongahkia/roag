@@ -38,11 +38,11 @@ return function(test,equal)
     end
     test('four validated achievements reward four functioning locked boon IDs',function()
         assert(AchievementContent.validate() and #AchievementContent.order==4)
-        assert(#BoonContent.order==50 and #Achievements.pool({})==46)
+        assert(#BoonContent.order==52 and #Achievements.pool({})==48)
         local earned={}
         for _,id in ipairs(AchievementContent.order) do earned[id]=true end
         local pool=Achievements.pool(earned)
-        assert(#pool==50 and Achievements.validate_pool(pool))
+        assert(#pool==52 and Achievements.validate_pool(pool))
         for _,id in ipairs(AchievementContent.order) do
             local reward=AchievementContent.get(id).reward
             assert(BoonContent.get(reward))
@@ -184,14 +184,14 @@ return function(test,equal)
         local disk=storage();local profiles=Profile.new(disk)
         assert(profiles:commit_awards(run.state.meta.pending))
         local next_pool=Achievements.pool(profiles:inspect().profile.earned)
-        assert(#next_pool==47 and next_pool[47]=='core:boon/guardians_vow')
+        assert(#next_pool==49 and next_pool[49]=='core:boon/guardians_vow')
         local found=false
         for seed=1,200 do
             local next_run=Game.new_stage(seed,{available_boons=next_pool})
             for _,chest in ipairs(next_run.entities) do
                 if chest.controller=='chest' then
                     for _,offer in ipairs(chest.offers) do
-                        if offer.boon_id==next_pool[47] then found=true end
+                        if offer.boon_id==next_pool[49] then found=true end
                     end
                 end
             end

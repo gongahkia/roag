@@ -20,6 +20,8 @@ The HUD shows the current stage, biome and seed; the arena location appears only
 
 **Earned rewards:** Kill enemies, then step onto their yellow currency drops. Five paid chests are spread across the two generated floors of a biome. A cardinal move into a closed chest opens its three cached boon offers for free. Choose with 1/2/3 and press Enter to claim; Escape cancels without spending currency or world time. A claim costs five currency and one 100-base-time recovery. The claimed chest can be walked through. The chest menu blocks movement and attacks while open. Guard/Thornspitter/Skitter drops are 4/3/2 currency. A fresh run starts with no boons; there is no guarantee of enough initial currency to buy every chest.
 
+Stage enemies can also leave green food (+4 HP) or red health pickups (+10 HP); biome elites guarantee a health pickup. Move onto one while injured to heal, capped at maximum HP. A full-health player leaves it on the floor. The supply roll is derived from the run seed and killed entity ID, independent of combat/chest RNG. Title keys **5/6** choose the Sentinel or Alchemist, both with area attacks. Their normal chest pools also include **Aftershock** (direct-hit burst) and **Reprisal Nova** (burst after taking hostile damage), at all four rarities. Existing classes retain their established offer pools. See the [class and pickup notes](docs/ROAG_CLASS_EXPANSION.md).
+
 **Developer showcase:** Press **B** while idle to cycle None → Lightning → Cascade → Transformation → Firestorm → Blade and Lunge → None. This changes the test loadout without advancing world time; it is a debugging control, not the earned acquisition path. **N** restarts with the selected showcase loadout. The sidebar lists C/U/R/L stack counts, seven boons per page; **V** changes pages without world time. Firestorm demonstrates Emberbrand, Flashpoint and Grave Dividend. Blade and Lunge demonstrates Longblade Geometry, Phantom Lunge and Pulse Step. Headless callers can use `Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)` at a stable decision boundary, including zero to remove a rarity stack.
 
 Each generated floor places enemies from its biome pool across rooms and selected corridor alcoves. Thorn Warden guards Overgrown Ruins; the other six biomes have distinct named elites with two locked attack footprints. Defeating the elite creates a free elite chest and unlocks the nearby exit. The old authored demo remains `Game.new(seed, "core:map/scrolling_room", {demo_enemies=true,demo_chests=true})`. The sidebar shows player HP, level/XP, currency, combat stats, world time, last action/cost, historical playback, live windups and pending echoes. Level-up notifications are brief and do not block input. Death ends the run; N proposes restarting its seed.
@@ -155,14 +157,14 @@ for the read-only seed corpus, legal-run trace and reproducible profile commands
 Normal New Run now starts in a connected two-floor biome; reciprocal stairs
 preserve the inactive floor and its pending events. Seven biome identities,
 six gameplay terrain mechanics, 16 regular enemy archetypes and seven distinct
-biome elites are integrated. On the title, press **1–4** to choose Adventurer,
-Ranger, Arcanist or Berserker before **N**. All classes use the existing
+biome elites are integrated. On the title, press **1–6** to choose Adventurer,
+Ranger, Arcanist, Berserker, Sentinel or Alchemist before **N**. All classes use the existing
 WASD/arrow movement, **F** basic attack, **R** special and **X** mobility aim
 and confirmation flow. See the [class kit guide](docs/ROAG_CLASS_EXPANSION.md)
 and [expansion progress](docs/goal/ROAG_EXPANSION_PROGRESS.md) for exact
 mechanics, current regression evidence and outstanding milestones. Separate
 ordinary submitted-action traces now clear six generated floors and the final
-boss for all four classes; the older single-floor guide is still retained as
+boss for the original four classes; the older single-floor guide is still retained as
 a narrower regression check.
 
 Standard LÖVE gamepad callbacks provide a menu path: shoulder buttons cycle

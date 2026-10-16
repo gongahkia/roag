@@ -15,6 +15,14 @@ Class ID, stats and abilities are plain data in the normal run snapshot. Route/f
 
 This milestone provides the class ability integration seam. M6 must add class-specific transformation boons and class-aware chest eligibility. Numbers are provisional until default two-floor full-run acceptance and human playtesting.
 
+## Later pickup and area-kit addition
+
+The title now accepts **1–6**. **5 Sentinel** (`core:actor/sentinel`) starts with 29 HP, 2 defense and 90 speed. Shield Strike hits one adjacent cell; Shield Pulse hits all eight neighboring cells in one damage batch for 165 base recovery. **6 Alchemist** (`core:actor/alchemist`) starts with 22 HP and 105 speed. Vial Shot is a three-cell, first-target acid projectile; Blast Flask reaches three clear cells and hits a five-cell cross centered there for 165 base recovery. Both retain the ordinary cardinal movement, Dash and scheduler. These new kits have not had a physical playtest.
+
+Normal stage enemies now sometimes drop green **food** (+4 HP) or a red **health pickup** (+10 HP); biome elites guarantee one health pickup. The drop roll derives from the run seed and killed entity ID, so it does not consume combat or chest RNG. Walking over a pickup collects it only while injured, caps healing at maximum HP, and consumes no extra time beyond the committed move. Supply drops and collection are saved with the existing run snapshot. The new class-exclusive, normal-chest boons **Aftershock** and **Reprisal Nova** burst for 2/3/4/6 and 2/3/4/6 raw damage per rarity copy, respectively. Aftershock follows a positive direct hit around its target; Reprisal follows actual hostile damage around the owner. Existing class offer pools remain unchanged.
+
+The headless legal-action driver reached Victory with Sentinel on seed 28 in 896 actions and Alchemist on seed 9 in 1,207 actions. Its Alchemist policy was extended to use the class's three-cell basic projectile. Sentinel did not win with that policy on seeds 9 or 3; those failures do not by themselves establish an encounter defect. These are scripted decisions, not physical playtests.
+
 ## M5 evidence
 
 `TMPDIR=/var/tmp luajit tests/run.lua`: **330/330**. The seven new focused tests cover all four registries/snapshots, ranged projectile rules, Ranger volley/Dash, Arcanist terrain and batching, Berserker costs and bump, ordinary-action early combat on default paired floors and Ranger route transfer. Early encounters at seed 3 took 42/28/42/23 legal actions for Adventurer/Ranger/Arcanist/Berserker, ending at 7/17/4/27 HP respectively. This is not a default two-floor legal Victory.

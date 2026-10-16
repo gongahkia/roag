@@ -1533,6 +1533,7 @@ require("tests.expansion_class_tests")(test, equal)
 require("tests.expansion_boon_tests")(test, equal)
 require("tests.expansion_audio_tests")(test, equal)
 require("tests.expansion_full_run_tests")(test, equal)
+require("tests.pickup_aoe_tests")(test, equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end
