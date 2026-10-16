@@ -15,12 +15,10 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
-local Studio = require("src.studio_app")
 local VisualAssets = require("src.visual_assets")
 local VisualSlots = require("src.visual_slots")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
-local StudioAtlasBuild = require("src.studio_atlas_build")
 local AudioRuntime = require("src.studio_audio_runtime")
 local AudioCues = require("src.audio_cues")
 
@@ -59,7 +57,6 @@ local persistence_message = ""
 local diagnostics = os.getenv("ROAG_DIAGNOSTICS")=="1" and
     require("src.diagnostics").new() or nil
 local diagnostics_update_ms=0
-local studio
 local visual_assets
 local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
@@ -270,31 +267,6 @@ local function visual_fingerprint(visuals,theme,world)
 end
 
 function love.load(args)
-    for _,value in ipairs(args or {}) do
-        if value=='--atlas-build' then
-            local max_size=2048
-            for _,option in ipairs(args) do
-                local number=option:match('^%-%-atlas%-max=(%d+)$')
-                if number then max_size=tonumber(number) end
-            end
-            local ok,reason=pcall(function()
-                local pack,pages=StudioAtlasBuild.compile(function(path)
-                    return love.filesystem.read(path)
-                end,max_size)
-                local location=StudioAtlasBuild.save_candidate(pack,pages)
-                print(('Atlas candidate: %d page(s), %s%s'):format(
-                    #pack.pages,love.filesystem.getSaveDirectory()..'/',location))
-            end)
-            if not ok then io.stderr:write('Atlas build failed: '..tostring(reason)..'\n') end
-            love.event.quit(ok and 0 or 1)
-            return
-        end
-    end
-    if Studio.requested(args) then
-        studio=Studio.new(args)
-        studio:load()
-        return
-    end
     ui_body_font,ui_display_font=UIFont.load()
     love.graphics.setFont(ui_body_font)
     local audio_ok,audio=pcall(AudioRuntime.new,
@@ -449,7 +421,6 @@ local function refresh_visuals()
 end
 
 function love.update(dt)
-    if studio then return end
     if refresh_pending then
         refresh_pending=false
         refresh_visuals()
@@ -710,7 +681,6 @@ local function submit(intent)
 end
 
 function love.keypressed(key, _, isrepeat)
-    if studio then return studio:keypressed(key) end
     if isrepeat then return end
     if key=='f5' then refresh_pending=true;return end
     if key=="f3" then
@@ -935,7 +905,6 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
-    if studio then return end
     if title and not unlocks_view and not confirm_new then
         if button=='leftshoulder' or button=='rightshoulder' then
             local index=1
@@ -2060,7 +2029,6 @@ local function draw_boon_detail()
 end
 
 function love.draw()
-    if studio then return studio:draw() end
     if title then
         if studio_theme and studio_theme:draw_background('title_background',0,0,
             love.graphics.getWidth(),love.graphics.getHeight()) then
@@ -2234,7 +2202,7 @@ function love.roagMenuState()
         count=route_menu and #menu.routes or #menu.offers}
 end
 function love.roagAssetStatus()
-    return visual_assets and visual_assets.status or 'studio'
+    return visual_assets and visual_assets.status or 'absent'
 end
 function love.roagVisualRefreshStatus() return refresh_result end
 function love.roagAudioStatus() return audio_runtime and audio_runtime.status or audio_status end
@@ -2266,30 +2234,7 @@ end
 function love.roagAssetIdResolved(id)
     return visual_assets and visual_assets:get_id(id)~=nil or false
 end
-function love.roagStudioState()
-    if not studio then return nil end
-    return {mode=studio.mode,project=studio.project,dirty=studio.dirty,
-        message=studio.message,workspace=studio.workspace,
-        field=studio.field,context_menu=studio.context_menu,
-        visible_assets=studio:visible_assets(),
-        pipeline_report=studio.pipeline_report,draft_preview=studio.draft_preview,
-        publish_preview=studio.loose_plan and {
-            counts=studio.loose_plan.counts,blocked=studio.loose_plan.blocked},
-        selected=studio.selected,canvas=studio.canvas,
-        artwork=studio.slot_entries,visible_artwork=studio:visible_slots(),
-        artwork_group=studio.slot_group,artwork_query=studio.slot_query,
-        world=studio.world_editor and studio.world_editor.pack,
-        world_editor=studio.world_editor,
-        theme=studio.theme_editor and studio.theme_editor.theme,
-        theme_editor=studio.theme_editor,
-        audio=studio.audio_editor and studio.audio_editor.pack,
-        audio_editor=studio.audio_editor}
-end
-function love.textinput(text)
-    if studio then studio:textinput(text) end
-end
 function love.mousepressed(x,y,button,istouch,presses)
-    if studio then studio:mousepressed(x,y,button,presses);return end
     if button~=1 then return end
     if boon_detail_id then boon_detail_id=nil;return end
     if not state or title or pause_menu or chest_menu or route_menu or
@@ -2302,44 +2247,8 @@ function love.mousepressed(x,y,button,istouch,presses)
     local index=(boon_page%pages)*7+math.floor((y-BOON_ROW_Y)/BOON_ROW_H)+1
     boon_detail_id=owned[index]
 end
-function love.mousemoved(x,y,dx,dy)
-    if studio then studio:mousemoved(x,y,dx,dy) end
-end
-function love.mousereleased(x,y,button)
-    if studio then studio:mousereleased(x,y,button) end
-end
 function love.wheelmoved(dx,dy)
-    if studio then studio:wheelmoved(dx,dy) end
-    if not studio and state and not title and dy~=0 then
+    if state and not title and dy~=0 then
         zoom_by(dy>0 and 1 or -1)
-    end
-end
-function love.focus(focused)
-    if studio then studio:focus(focused) end
-end
-function love.filedropped(file)
-    if studio then studio:filedropped(file) end
-end
-function love.quit()
-    if studio and studio.canvas then
-        studio.canvas:finish()
-        studio.dirty=studio.metadata_dirty or studio.canvas:dirty() or studio.dirty
-    end
-    if studio and studio.world_editor then
-        studio.world_editor:finish()
-        studio.dirty=studio.metadata_dirty or studio.world_editor:dirty() or studio.dirty
-    end
-    if studio and studio.theme_editor then
-        studio.dirty=studio.metadata_dirty or studio.theme_editor:dirty() or studio.dirty
-    end
-    if studio and studio.audio_editor then
-        studio.audio_editor:stop_audition()
-        studio.dirty=studio.metadata_dirty or studio.audio_editor:dirty() or studio.dirty
-    end
-    if studio and studio.dirty and not studio.allow_quit then
-        studio.return_mode=studio.mode
-        studio.mode='quit_confirm'
-        studio:status('Unsaved project edits. Enter/Y closes without saving; Esc returns.')
-        return true
     end
 end
