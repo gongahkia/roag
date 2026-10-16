@@ -7,9 +7,12 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-reward-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 
 cat > "$output_dir/main.lua" <<'LUA'
 local Game = require("src.game")
+local BoonContent = require('src.boon_content')
 local original_new = Game.new
 local tracked, chest
 function Game.new(seed, map_id)
@@ -59,18 +62,19 @@ function love.draw(...)
     labels = {}
     original_draw(...)
     if phase > 4 or pending then return end
-    assert(has("Currency: ") and has("Level "))
+    assert(has('GOLD  ') and has('LV '))
     if phase == 1 then
-        assert(has("Currency: 0") and has("Level 1") and has("None equipped"))
+        assert(has('GOLD  0') and has('LV 1') and has('No boons yet'))
     elseif phase == 2 then
-        assert(has("Level 2") and has("Currency: 0") and has("Level 2:"))
+        assert(has('LV 2') and has('GOLD  0') and has('Level 2:'))
         assert(tracked.progression.xp_total == 5 and #tracked.drops == 1)
     elseif phase == 3 then
         assert(has("Boon Chest") and has("Enter claim") and has("power "))
-        assert(has("Currency: 6") and has("Level 2"))
+        assert(has('GOLD  6') and has('LV 2'))
         assert(tracked.currency == 6 and not chest.claimed)
     else
-        assert(has("Currency: 1") and has("BoonGranted"))
+        assert(has('GOLD  1') and
+            has(BoonContent.get(chest.offers[2].boon_id).name))
         assert(chest.claimed and tracked.currency == 1)
     end
     pending = true

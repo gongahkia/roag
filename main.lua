@@ -6,6 +6,9 @@ local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
 local Playback = require("src.playback")
+local CombatNumbers = require("src.combat_numbers")
+local UIFont = require("src.ui_fonts")
+local Rewards = require("src.rewards")
 local Persistence = require("src.persistence")
 local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
@@ -23,6 +26,7 @@ local AudioCues = require("src.audio_cues")
 local TILE = 32
 local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
 local PANEL_X = 742
+local BOON_ROW_Y,BOON_ROW_H=425,15
 
 local state
 local camera
@@ -30,6 +34,8 @@ local camera_state
 local targeting -- nil, or a presentation-only { kind, dx, dy }.
 local notice = "Ready"
 local playback = Playback.new()
+local combat_numbers = CombatNumbers.new()
+local ui_body_font,ui_display_font
 local minimap_visible = true
 local showcase_index = 0
 local boon_page = 0
@@ -269,6 +275,8 @@ function love.load(args)
         studio:load()
         return
     end
+    ui_body_font,ui_display_font=UIFont.load()
+    love.graphics.setFont(ui_body_font)
     local audio_ok,audio=pcall(AudioRuntime.new,
         function(path)return love.filesystem.read(path)end,
         function(bytes,sound,source_type)
@@ -435,6 +443,8 @@ function love.update(dt)
     if title or not state then return end
     if camera_state ~= state then reset_camera() end
     Playback.update(playback, dt)
+    CombatNumbers.update(combat_numbers,playback,dt,state.player_id,
+        state.active_floor_id)
     local position = Game.player(state).position
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
@@ -485,6 +495,7 @@ local function begin_new(seed)
     persistence_message=reason or ""
     targeting,chest_menu,route_menu=nil,nil,nil
     playback=Playback.new()
+    combat_numbers=CombatNumbers.new()
     notice=("Seed %d — new run"):format(floor_seed)
     reset_camera()
 end
@@ -504,6 +515,7 @@ local function continue_run()
         and "Recovered previous valid save generation" or ""
     targeting,chest_menu,route_menu=nil,nil,nil
     playback=Playback.new() -- resolved presentation never replays authoritative effects.
+    combat_numbers=CombatNumbers.new()
     notice="Continued saved run"
     reset_camera()
 end
@@ -560,6 +572,7 @@ local function submit(intent)
     if committed then
         if old_floor~=state.active_floor_id then
             playback=Playback.new() -- historical attacks belong to the retired floor.
+            combat_numbers=CombatNumbers.new()
             reset_camera()
         end
         local shown=visible_events(events)
@@ -752,6 +765,7 @@ function love.keypressed(key, _, isrepeat)
                 state=Game.new_stage(floor_seed)
                 apply_showcase()
                 playback,targeting,chest_menu,route_menu=Playback.new(),nil,nil,nil
+                combat_numbers=CombatNumbers.new()
                 reward_notices,reward_notice_time={},0
                 notice=("Seed %d — new floor"):format(floor_seed)
                 confirm_reset_seed=nil
@@ -771,6 +785,7 @@ function love.keypressed(key, _, isrepeat)
         apply_showcase()
         playback, targeting, chest_menu, route_menu, notice = Playback.new(), nil, nil, nil,
             ("Seed %d — new floor"):format(floor_seed)
+        combat_numbers=CombatNumbers.new()
         reward_notices, reward_notice_time = {}, 0
         reset_camera()
         return
@@ -1169,6 +1184,35 @@ local function draw_history_event(event)
     end
 end
 
+local function draw_combat_numbers()
+    local g=love.graphics
+    g.setFont(ui_display_font)
+    for _,hit in ipairs(combat_numbers.items) do
+        if visible_at(hit.x,hit.y) then
+            local sx,sy=Camera.tile_top_left(camera,hit.x,hit.y)
+            local t=hit.age/CombatNumbers.lifetime
+            local rise=math.floor(27*(1-(1-t)*(1-t))+0.5)
+            local drift=hit.lane*12+(hit.from_player and 3 or -3)*(1-t)
+            local label=hit.amount>0 and
+                (tostring(hit.amount)..(hit.critical and '!' or '')) or '0'
+            local side=sx+TILE*1.5<VIEWPORT.x+VIEWPORT.width and 1 or -1
+            local x=math.floor(sx+TILE/2+side*16+drift-
+                g.getFont():getWidth(label)/2+0.5)
+            local y=math.floor(sy-3-rise)
+            local alpha=t<0.58 and 1 or math.max(0,(1-t)/0.42)
+            g.setColor(0.025,0.025,0.025,alpha*0.9)
+            g.print(label,x-1,y);g.print(label,x+1,y)
+            g.print(label,x,y-1);g.print(label,x,y+1)
+            if hit.amount==0 then g.setColor(.73,.86,1,alpha)
+            elseif hit.critical then g.setColor(1,.48,.22,alpha)
+            elseif hit.from_player then g.setColor(1,.88,.45,alpha)
+            else g.setColor(1,.49,.43,alpha) end
+            g.print(label,x,y)
+        end
+    end
+    g.setFont(ui_body_font)
+end
+
 local function draw_preview()
     if not targeting or targeting.dx == nil then return end
     local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
@@ -1521,6 +1565,7 @@ local function draw_world()
             end
         end
     end
+    draw_combat_numbers()
     draw_minimap()
     if chest_menu then
         if studio_theme and studio_theme:draw_panel(70,100,640,390) then
@@ -1596,7 +1641,7 @@ local function draw_world()
             love.graphics.setColor(1,0.82,0.43)
             love.graphics.printf("VICTORY",VIEWPORT.x,130,VIEWPORT.width,"center")
             love.graphics.setColor(0.92,0.89,0.96)
-            love.graphics.printf("Hollow Regent defeated · Seed "..result.seed,
+            love.graphics.printf("Hollow Regent defeated",
                 VIEWPORT.x,168,VIEWPORT.width,"center")
             love.graphics.printf(table.concat(names," > "),VIEWPORT.x+30,199,
                 VIEWPORT.width-60,"center")
@@ -1604,10 +1649,8 @@ local function draw_world()
             love.graphics.printf(("%s · Level %d · XP %d · HP %d/%d · Currency %d"):format(
                 class.name,result.level,result.xp_total,result.hp,result.max_hp,result.currency),
                 VIEWPORT.x+30,235,VIEWPORT.width-60,"center")
-            love.graphics.printf("Simulated world time: "..result.world_time,
-                VIEWPORT.x+30,262,VIEWPORT.width-60,"center")
             love.graphics.printf("Boons: "..(#owned>0 and table.concat(owned,", ") or "none"),
-                VIEWPORT.x+45,298,VIEWPORT.width-90,"center")
+                VIEWPORT.x+45,278,VIEWPORT.width-90,"center")
             local unlocked={}
             for _,id in ipairs(AchievementContent.order) do
                 if state.meta and state.meta.earned[id] then
@@ -1615,7 +1658,7 @@ local function draw_world()
                 end
             end
             love.graphics.printf("Unlocked this run: "..(#unlocked>0 and
-                table.concat(unlocked,", ") or "none"),VIEWPORT.x+45,350,
+                table.concat(unlocked,", ") or "none"),VIEWPORT.x+45,330,
                 VIEWPORT.width-90,"center")
             love.graphics.printf("N — New Run",VIEWPORT.x,408,VIEWPORT.width,"center")
         else
@@ -1638,236 +1681,233 @@ local function draw_world()
     love.graphics.setScissor()
 end
 
+local function hud_meter(x,y,w,h,value,maximum,r,g,b)
+    local fraction=math.max(0,math.min(1,value/math.max(1,maximum)))
+    love.graphics.setColor(.09,.14,.15)
+    love.graphics.rectangle('fill',x,y,w,h)
+    love.graphics.setColor(r,g,b)
+    love.graphics.rectangle('fill',x+2,y+2,math.floor((w-4)*fraction+0.5),h-4)
+    love.graphics.setColor(.025,.045,.05,.85)
+    for i=1,11 do
+        love.graphics.rectangle('fill',x+math.floor(i*w/12),y+1,2,h-2)
+    end
+end
+
+local function hud_rule(y)
+    love.graphics.setColor(.23,.32,.33)
+    love.graphics.rectangle('fill',PANEL_X,y,260,1)
+end
+
+local function hud_action(key,label,y)
+    local g=love.graphics
+    g.setColor(.13,.21,.22)
+    g.rectangle('fill',PANEL_X,y,20,18)
+    g.setColor(.47,.75,.77)
+    g.rectangle('line',PANEL_X+.5,y+.5,19,17)
+    g.print(key,PANEL_X+6,y+3)
+    g.setColor(.9,.93,.85)
+    g.print(label,PANEL_X+30,y+3)
+end
+
 local function draw_panel()
-    if studio_theme then
-        if studio_theme:draw_panel(PANEL_X-12,16,280,608) then
-            love.graphics.setColor(0.015,0.025,0.025,0.62)
-            love.graphics.rectangle('fill',PANEL_X-9,19,274,602)
-        end
-    end
-    local position = Game.player(state).position
-    love.graphics.setColor(0.93, 0.95, 0.88)
-    love.graphics.print("ROAG — "..(state.finale and "Final Sanctum" or
-        state.stage and Biomes.get(state.stage.biome_id).name or "Overgrown Ruins"), PANEL_X, 26)
-    if state.generated_map then
-        if state.floor_order then
-            love.graphics.print(("Stage %d · Floor %d/2 · Seed %d"):format(
-                state.stage.index,state.active_floor_index,state.run_seed),PANEL_X,43)
-        else
-            love.graphics.print(("Stage %d %s · Seed %d"):format(
-                state.stage and state.stage.index or 1,
-                state.stage and state.stage.phase or "fixture",state.run_seed), PANEL_X, 43)
-        end
-    elseif state.finale then
-        love.graphics.print(("Final boss · Seed %d"):format(state.root_seed),PANEL_X,43)
-    else
-        love.graphics.print("Authored test map", PANEL_X, 43)
-    end
-    local player = Game.player(state)
-    local hp_text=("HP: %d / %d"):format(player.hp, player.max_hp)
-    if not (studio_theme and studio_theme:draw_text(hp_text,PANEL_X,58,2)) then
-        love.graphics.print(hp_text, PANEL_X, 58)
-    end
-    if studio_theme then
-        studio_theme:draw_icon('hp_icon',PANEL_X+244,58,18)
-        studio_theme:draw_icon('xp_icon',PANEL_X+244,178,18)
-        studio_theme:draw_icon('currency_icon',PANEL_X+244,195,18)
-    end
+    local g=love.graphics
+    local px=PANEL_X
+    local player=Game.player(state)
     local class=Classes.for_player(player)
-    love.graphics.print("Class: "..class.name,PANEL_X,77)
-    love.graphics.print(("Position: %d, %d"):format(position.x, position.y), PANEL_X, 91)
-    love.graphics.print(("World time: %d"):format(state.clock), PANEL_X, 106)
-    love.graphics.print(("Level %d · XP %d / %d"):format(state.progression.level,
-        state.progression.xp_total, Game.next_level_xp(state)), PANEL_X, 178)
-    love.graphics.print(("Currency: %d"):format(state.currency), PANEL_X, 195)
-    love.graphics.print(("DMG %d / SL %d · DEF %d · SPD %d"):format(
-        player.damage, player.slash_damage, player.defense, player.speed), PANEL_X, 211)
-    love.graphics.print(("Crit %.1f%% · x%.2f"):format(player.crit_chance_ppm / 10000,
-        player.crit_damage_percent / 100), PANEL_X, 227)
-    local action = state.last_action
-    local last=action and (action.kind=="basic_attack" and class.basic_name
-        or action.kind=="sweeping_slash" and class.special_name
-        or action.kind=="dash" and class.dash_name
-        or labels[action.kind]) or "none"
-    love.graphics.print("Last: " .. last, PANEL_X, 130)
-    love.graphics.print("Cost: " .. (action and action.cost or "—"), PANEL_X, 154)
-    love.graphics.printf(notice, PANEL_X, 251, 260)
-    if state.stage then
-        local stage=state.stage
-        love.graphics.setColor(1,0.72,0.42)
-        if stage.phase=="exploring" or stage.phase=="elite_active" then
-            love.graphics.print(("Danger %d · next %d time"):format(
-                stage.pressure_count,math.max(0,stage.next_pressure-state.clock)),PANEL_X,309)
-        elseif stage.phase=="extraction" then
-            love.graphics.print(("Extract: %d world time left"):format(
-                math.max(0,stage.deadline-state.clock)),PANEL_X,309)
-        elseif stage.phase=="pursuit" then
-            love.graphics.print(stage.pursuer_id and "PURSUER ACTIVE — reach exit"
-                or "No pursuer route — exit open",PANEL_X,309)
-        end
+    local map=Content.map_for(state)
+    local biome_id=state.stage and state.stage.biome_id or map.biome_id
+    local biome=state.finale and 'FINAL SANCTUM' or
+        biome_id and Biomes.get(biome_id).name:upper() or 'THE RUINS'
+    if not (studio_theme and studio_theme:draw_panel(px-12,16,280,608)) then
+        g.setColor(.055,.083,.087)
+        g.rectangle('fill',px-12,16,280,608)
+        g.setColor(.25,.36,.36)
+        g.rectangle('line',px-11.5,16.5,279,607)
     end
-    if state.finale then
-        love.graphics.setColor(0.89,0.66,0.96)
-        local boss=Game.entity(state,state.finale.boss_id)
-        if boss and visible_at(boss.position.x,boss.position.y) then
-            love.graphics.print("Hollow Regent · phase "..
-                (boss.phase_two and 2 or 1),PANEL_X,309)
-        elseif state.finale.phase=="victory" then
-            love.graphics.print("Hollow Regent defeated",PANEL_X,309)
-        else
-            love.graphics.print("Final Sanctum · foe beyond sight",PANEL_X,309)
-        end
-    end
-    if reward_notice_time > 0 and reward_notices[1] then
-        love.graphics.setColor(1, 0.87, 0.39)
-        local item=reward_notices[1]
-        love.graphics.printf(type(item)=='table' and item.text or item,
-            PANEL_X, 283, 260)
-    end
+    g.setColor(.025,.046,.05,.65)
+    g.rectangle('fill',px-9,19,274,602)
+    g.setFont(ui_body_font)
+    g.setColor(.65,.84,.79)
+    g.print(biome,px,27)
+    g.setColor(.55,.66,.65)
+    local location=state.finale and 'FINAL BOSS' or
+        state.floor_order and ('STAGE '..state.stage.index..'  /  FLOOR '..state.active_floor_index)
+        or state.stage and ('STAGE '..state.stage.index) or 'ADVENTURE'
+    g.print(location,px,46)
+    hud_rule(68)
 
-    if not targeting then
-        love.graphics.setColor(0.66, 0.86, 1)
-        local owned={}
-        for _, id in ipairs(BoonContent.order) do
-            local stacks = player.boons and player.boons[id]
-            if stacks then
-                local counts = {}
-                local short = {common="C", uncommon="U", rare="R", legendary="L"}
-                for _, rarity in ipairs(BoonContent.rarities) do
-                    if (stacks[rarity] or 0) > 0 then
-                        counts[#counts + 1] = short[rarity] .. stacks[rarity]
-                    end
-                end
-                if #counts > 0 then
-                    local label = BoonContent.get(id).name .. " " .. table.concat(counts, " ")
-                    owned[#owned+1]={label=label,id=id}
-                end
-            end
-        end
-        local pages=math.max(1,math.ceil(#owned/7))
-        local page=boon_page%pages
-        love.graphics.print(("BOONS %d/%d · V page · click"):format(page+1,pages),PANEL_X,334)
-        for line=1,7 do
-            local item=owned[page*7+line]
-            if item then
-                local icon=bound_visual(item.id..'/icon')
-                if icon then draw_visual(icon,PANEL_X,351+(line-1)*12,12,12) end
-                love.graphics.setColor(0.66,0.86,1)
-                love.graphics.print(item.label,PANEL_X+(icon and 16 or 0),
-                    351+(line-1)*12)
-            end
-        end
-        if #owned==0 then love.graphics.print("None equipped", PANEL_X, 351) end
+    g.setColor(.93,.94,.82)
+    g.print(class.name:upper()..'  ·  LV '..state.progression.level,px,80)
+    if studio_theme then studio_theme:draw_icon('hp_icon',px,103,16) end
+    g.setColor(.77,.83,.78)
+    g.print('HEALTH',px+22,105)
+    local hp_text=('%d/%d'):format(player.hp,player.max_hp)
+    if not (studio_theme and studio_theme:draw_text(hp_text,px+149,98,2)) then
+        g.setFont(ui_display_font)
+        g.setColor(player.hp*4<=player.max_hp and {1,.48,.42} or {.98,.88,.66})
+        g.print(hp_text,px+260-g.getFont():getWidth(hp_text),94)
+        g.setFont(ui_body_font)
     end
+    local low=player.hp*4<=player.max_hp
+    hud_meter(px,130,260,14,player.hp,player.max_hp,
+        low and .94 or .57,low and .31 or .75,low and .31 or .45)
 
-    local history = Playback.current(playback)
+    local level=state.progression.level
+    local previous=level>1 and Rewards.next_threshold(level-1) or 0
+    local next_xp=Game.next_level_xp(state)
+    local earned=state.progression.xp_total-previous
+    local needed=next_xp-previous
+    if studio_theme then studio_theme:draw_icon('xp_icon',px,155,16) end
+    g.setColor(.77,.83,.78)
+    g.print(('XP  %d/%d'):format(earned,needed),px+22,156)
+    hud_meter(px,174,260,8,earned,needed,.43,.72,.94)
+    if studio_theme then studio_theme:draw_icon('currency_icon',px,192,16) end
+    g.setColor(.98,.81,.44)
+    g.print('GOLD  '..state.currency,px+22,193)
+    hud_rule(214)
+
+    g.setColor(.075,.13,.14,.95)
+    g.rectangle('fill',px,224,260,59)
+    local history=Playback.current(playback)
+    local warning,detail,r,gc,b
     if history then
-        love.graphics.setColor(1, 0.67, 0.28)
-        local playback_label = history.kind
         local group=Playback.current_group(playback)
-        if group and group[#group].kind=="Died" then
-            playback_label="Lethal hit · target down"
-        elseif group and history.kind~="WindupStarted" then
-            if history.kind=="BoonActivated" and history.boon_id then
-                playback_label=("%s x%d"):format(
-                    BoonContent.get(history.boon_id).name,#group)
-            else
-                playback_label=("%s x%d"):format(
-                    playback_cue_labels[history.kind] or history.kind,#group)
-            end
-        elseif history.boon_id then
-            playback_label = history.kind .. ": " .. BoonContent.get(history.boon_id).name
-        elseif history.kind=="Moved" or history.kind=="Displaced" then
-            playback_label="Movement"
-        elseif history.kind=="WindupStarted" then
-            if group then
-                local due=history.due
-                for _,event in ipairs(group) do due=math.min(due,event.due) end
-                playback_label=("%d locked attacks: earliest T%d"):
-                    format(#group,due)
-            else
-                playback_label=("%s: T%d > T%d"):format(
-                    Content.ability_name(history.ability_id),history.time,history.due)
-            end
+        if history.kind=='WindupStarted' then
+            warning=group and (#group..' locked attacks') or 'ATTACK WINDUP'
+            detail='Resolving · input pauses'
+            r,gc,b=1,.62,.34
+        elseif group and group[#group].kind=='Died' then
+            warning='ENEMY DOWN';detail='Hit confirmed';r,gc,b=1,.84,.48
+        elseif history.kind=='DamageTaken' then
+            warning='HIT CONFIRMED';detail='Resolving · input pauses';r,gc,b=1,.84,.48
+        elseif history.kind=='BoonActivated' and history.boon_id then
+            warning='BOON ACTIVATED'
+            detail=BoonContent.get(history.boon_id).name
+            r,gc,b=.58,.83,1
+        else
+            warning='RESOLVING'
+            detail=playback_cue_labels[history.kind] or 'Input resumes shortly'
+            r,gc,b=.68,.82,.84
         end
-        love.graphics.printf("PLAYBACK: " .. playback_label, PANEL_X, 446, 265)
-        love.graphics.print(history.kind=="WindupStarted" and
-            "Past event; strike may already be due" or
-            (history.kind=="Moved" or history.kind=="Displaced") and
-            "Sliding; input resumes shortly" or
-            "Past event; input paused", PANEL_X, 465)
     else
-        local strikes = {}
+        local strikes={}
         for _,strike in ipairs(Game.pending_strikes(state)) do
             for _,cell in ipairs(strike.target_cells) do
-                if visible_at(cell.x,cell.y) then
-                    strikes[#strikes+1]=strike; break
-                end
+                if visible_at(cell.x,cell.y) then strikes[#strikes+1]=strike;break end
             end
         end
-        if #strikes > 0 then
-            love.graphics.setColor(1, 0.51, 0.43)
-            love.graphics.print(("LIVE WINDUPS: %d"):format(#strikes), PANEL_X, 446)
-            love.graphics.print(("%s in %d time"):format(
-                Content.ability_name(strikes[1].ability_id),
-                strikes[1].due-state.clock), PANEL_X, 465)
+        if #strikes>0 then
+            warning='INCOMING ATTACK  '..#strikes
+            detail=Content.ability_name(strikes[1].ability_id)..
+                ' · '..math.max(0,strikes[1].due-state.clock)..' time'
+            r,gc,b=1,.48,.42
+        elseif state.stage and state.stage.phase=='extraction' then
+            warning='REACH THE EXIT'
+            detail=math.max(0,state.stage.deadline-state.clock)..' time left'
+            r,gc,b=1,.56,.37
+        elseif state.stage and state.stage.phase=='pursuit' then
+            warning='PURSUER ACTIVE'
+            detail='Reach the exit'
+            r,gc,b=1,.46,.42
+        elseif state.finale then
+            local boss=Game.entity(state,state.finale.boss_id)
+            warning='HOLLOW REGENT'
+            detail=boss and ('Phase '..(boss.phase_two and 2 or 1)) or 'Defeated'
+            r,gc,b=.85,.64,.96
+        elseif state.stage then
+            warning='DANGER  '..state.stage.pressure_count
+            detail='Next threat in '..math.max(0,
+                (state.stage.next_pressure or state.clock)-state.clock)
+            r,gc,b=.85,.68,.43
         else
-            local effects = {}
-            for _,effect in ipairs(Game.pending_boon_effects(state)) do
-                for _,cell in ipairs(effect.target_cells or {}) do
-                    if visible_at(cell.x,cell.y) then
-                        effects[#effects+1]=effect; break
-                    end
-                end
-            end
-            if #effects > 0 then
-                love.graphics.setColor(0.54, 0.85, 1)
-                love.graphics.print(("LIVE ECHOES: %d"):format(#effects), PANEL_X, 446)
-                love.graphics.print(("Next in %d time"):format(effects[1].due - state.clock), PANEL_X, 465)
-            end
+            warning='EXPLORE';detail='Find the way forward';r,gc,b=.57,.78,.72
         end
     end
+    g.setColor(r,gc,b)
+    g.rectangle('fill',px,224,3,59)
+    g.printf(warning,px+12,234,244)
+    g.setColor(.76,.83,.79)
+    g.printf(detail,px+12,257,244)
 
-    if state.stage then
-        local id=state.stage.route_history[state.stage.index-1]
-        local name="Origin"
-        for _,route in ipairs(Content.get_stage_rules().routes) do
-            if route.id==id then name=route.name;break end
-        end
-        love.graphics.setColor(0.65,0.82,0.87)
-        love.graphics.print("Route: "..name,PANEL_X,480)
-    end
+    hud_rule(296)
+    g.setColor(.6,.73,.72)
+    g.print(targeting and 'AIMING' or 'ACTIONS',px,304)
     if targeting then
-        love.graphics.setColor(1, 0.72, 0.32)
-        love.graphics.print("AIMING: " .. labels[targeting.kind], PANEL_X, 334)
-        if targeting.dx ~= nil then
-            local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
-            love.graphics.print(("Direction: %d, %d"):format(targeting.dx, targeting.dy), PANEL_X, 358)
-            if targeting.kind == "dash" then
-                local outcome = ("Path: %d/2 open"):format(preview.distance or 0)
-                if preview.cells[1] and preview.cells[1].status ~= "open" then
-                    outcome = outcome .. " (first " .. preview.cells[1].status .. ")"
-                elseif preview.cells[2] and preview.cells[2].status ~= "open" then
-                    outcome = outcome .. " (second " .. preview.cells[2].status .. ")"
-                end
-                love.graphics.print(outcome, PANEL_X, 382)
-            else
-                love.graphics.print(("Cells: %d"):format(#preview.cells), PANEL_X, 382)
-            end
-        else
-            love.graphics.print("Select a direction", PANEL_X, 358)
-        end
-        love.graphics.print("Enter: commit  Esc: cancel", PANEL_X, 418)
+        local name=targeting.kind=='basic_attack' and class.basic_name or
+            targeting.kind=='sweeping_slash' and class.special_name or class.dash_name
+        g.setColor(.98,.83,.49)
+        g.printf(name,px,323,260)
+        g.setColor(.85,.9,.84)
+        if targeting.dx then
+            local preview=Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
+            g.print(preview.valid and 'Enter to strike' or
+                (preview.reason or 'Blocked'),px,344)
+        else g.print('Choose a direction',px,344) end
+        g.setColor(.56,.7,.7)
+        g.print('Esc cancel',px,365)
+    else
+        hud_action('F',class.basic_name,320)
+        hud_action('R',class.special_name,342)
+        hud_action('X',class.dash_name,364)
     end
 
-    love.graphics.setColor(0.80, 0.86, 0.80)
-    love.graphics.print("Tab map · F5 art/audio · B dev", PANEL_X, 495)
-    love.graphics.print("Move: WASD / arrows", PANEL_X, 513)
-    love.graphics.print("Wait: Space or .", PANEL_X, 531)
-    love.graphics.print(class.ui_controls, PANEL_X, 549)
-    love.graphics.print("Aim: WASD / Q E Z C", PANEL_X, 567)
-    love.graphics.print("Chest: bump · 1/2/3 · Enter", PANEL_X, 585)
-    love.graphics.print("Enter confirm / Esc cancel", PANEL_X, 603)
+    hud_rule(395)
+    g.setColor(.6,.75,.83)
+    local owned={}
+    for _,id in ipairs(BoonContent.order) do
+        local stacks=player.boons and player.boons[id]
+        if stacks then
+            local counts={}
+            local short={common='C',uncommon='U',rare='R',legendary='L'}
+            for _,rarity in ipairs(BoonContent.rarities) do
+                if (stacks[rarity] or 0)>0 then
+                    counts[#counts+1]=short[rarity]..stacks[rarity]
+                end
+            end
+            if #counts>0 then
+                owned[#owned+1]={id=id,label=BoonContent.get(id).name..
+                    '  '..table.concat(counts,' ')}
+            end
+        end
+    end
+    local pages=math.max(1,math.ceil(#owned/7))
+    local page=boon_page%pages
+    g.print(('BOONS  %d/%d'):format(page+1,pages),px,404)
+    g.setColor(.46,.65,.72)
+    g.print('V page · click',px+132,404)
+    for line=1,7 do
+        local item=owned[page*7+line]
+        if item then
+            local y=BOON_ROW_Y+(line-1)*BOON_ROW_H
+            local icon=bound_visual(item.id..'/icon')
+            if icon then draw_visual(icon,px,y,12,12) end
+            g.setColor(.72,.85,.92)
+            local tx=px+(icon and 17 or 0)
+            g.setScissor(tx,y,px+260-tx,14)
+            g.print(item.label,tx,y)
+            g.setScissor()
+        end
+    end
+    if #owned==0 then
+        g.setColor(.55,.67,.67)
+        g.print('No boons yet',px,BOON_ROW_Y)
+    end
+    hud_rule(533)
+    local item=reward_notice_time>0 and reward_notices[1] or nil
+    local status=type(item)=='table' and item.text or item or notice
+    if not item and (status=='Ready' or status:match('^.-: %+%d+ time$') or
+        status:match('^Dash: %d+ tiles, %+%d+ time$')) then status='' end
+    if status~='' then
+        g.setColor(item and {.98,.82,.45} or {.78,.88,.81})
+        g.setScissor(px,540,260,50)
+        g.printf(status,px,542,260)
+        g.setScissor()
+    else
+        g.setColor(.58,.72,.69)
+        g.print('WASD move  ·  Space wait',px,543)
+    end
+    g.setColor(.46,.61,.62)
+    g.print('Tab map  ·  Esc pause',px,600)
 end
 
 local function draw_reward_detail()
@@ -1918,27 +1958,47 @@ function love.draw()
             love.graphics.rectangle('fill',0,0,love.graphics.getWidth(),
                 love.graphics.getHeight())
         end
-        love.graphics.setColor(0.88,0.94,0.83)
-        love.graphics.printf("ROAG — Seven Biomes",0,120,1024,"center")
+        love.graphics.setColor(.035,.07,.075,.95)
+        love.graphics.rectangle('fill',250,78,524,460)
+        love.graphics.setColor(.29,.43,.42)
+        love.graphics.rectangle('line',250.5,78.5,523,459)
+        love.graphics.setColor(.95,.86,.6)
+        love.graphics.setFont(ui_display_font)
+        love.graphics.printf('ROAG',250,105,524,'center')
+        love.graphics.setFont(ui_body_font)
+        love.graphics.setColor(.57,.76,.73)
+        love.graphics.printf('SEVEN BIOMES',250,145,524,'center')
         local chosen=Classes.get(selected_class_id)
-        love.graphics.printf("Class 1–4: "..chosen.name,0,157,1024,"center")
-        love.graphics.printf(chosen.description,0,180,1024,"center")
-        love.graphics.printf(("HP %d · DMG %d · DEF %d · SPD %d · base costs F%d/R%d/X%d")
-            :format(chosen.hp,chosen.damage,chosen.defense,chosen.speed,
-                chosen.costs.basic_attack,chosen.costs.sweeping_slash,
-                chosen.costs.dash),0,203,1024,"center")
+        love.graphics.setColor(.37,.57,.56)
+        love.graphics.rectangle('fill',294,187,436,1)
+        love.graphics.setColor(.64,.77,.75)
+        love.graphics.printf('1–4  CHOOSE CLASS',250,201,524,'center')
+        love.graphics.setColor(.96,.94,.8)
+        love.graphics.printf(chosen.name:upper(),250,225,524,'center')
+        love.graphics.setColor(.77,.85,.79)
+        love.graphics.printf(chosen.description,278,250,468,'center')
+        love.graphics.setColor(.59,.73,.72)
+        love.graphics.printf(('HP %d  ·  ATTACK %d  ·  DEFENSE %d  ·  SPEED %d')
+            :format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
+            250,285,524,'center')
         local can_continue=save_status and
             (save_status.status=="active" or save_status.status=="recovered")
-        love.graphics.printf(can_continue and "C / Enter: Continue" or
-            "Continue unavailable",0,242,1024,"center")
-        love.graphics.printf("N: New Run",0,277,1024,"center")
-        love.graphics.printf("U: Unlocks / Achievements · Q / Esc: Quit",0,312,1024,"center")
-        love.graphics.printf("Gamepad: shoulders class · Y new · A continue · D-pad choices · B back",
-            0,337,1024,"center")
+        love.graphics.setColor(can_continue and {.95,.87,.61} or {.46,.57,.56})
+        love.graphics.printf(can_continue and 'C / Enter: Continue' or
+            'Continue unavailable',250,340,524,'center')
+        love.graphics.setColor(.94,.94,.82)
+        love.graphics.printf('N: New Run',250,369,524,'center')
+        love.graphics.setColor(.66,.8,.77)
+        love.graphics.printf('U: Achievements',250,398,524,'center')
+        love.graphics.setColor(.44,.61,.6)
+        love.graphics.printf('Q / Esc: Quit  ·  Gamepad supported',250,478,524,'center')
         local status=save_status and save_status.status or "absent"
-        love.graphics.printf("Save status: "..status,0,366,1024,"center")
         if status=="pending_terminal" then
-            love.graphics.printf("R: Retry terminal unlock recovery",0,390,1024,"center")
+            love.graphics.setColor(1,.68,.48)
+            love.graphics.printf('R: Retry reward recovery',250,432,524,'center')
+        elseif status=='terminal' then
+            love.graphics.setColor(.72,.83,.72)
+            love.graphics.printf('RUN COMPLETE',250,432,524,'center')
         end
         if unlocks_view then
             love.graphics.setColor(0.02,0.05,0.05,0.96)
@@ -1963,22 +2023,11 @@ function love.draw()
         if confirm_new then
             love.graphics.setColor(1,0.72,0.38)
             love.graphics.printf("Replace saved run? Y / Enter confirm · Esc cancel",
-                0,390,1024,"center")
+                250,432,524,"center")
         end
         if persistence_message~="" then
             love.graphics.setColor(1,0.46,0.43)
-            love.graphics.printf(persistence_message,100,435,824,"center")
-        end
-        if visual_refresh_message~='' then
-            love.graphics.setColor(.71,.9,.85)
-            love.graphics.printf('Visuals: '..visual_refresh_message,100,505,824,'center')
-        end
-        local audio_note=audio_runtime and audio_runtime.status or audio_status
-        if audio_note and (audio_note:find('corrupt',1,true) or
-            audio_note:find('rejected',1,true) or
-            audio_note:find('silent',1,true)) then
-            love.graphics.setColor(1,.73,.48)
-            love.graphics.printf('Audio: '..audio_note,100,532,824,'center')
+            love.graphics.printf(persistence_message,275,550,474,"center")
         end
         return
     end
@@ -2005,7 +2054,7 @@ function love.draw()
         love.graphics.rectangle("fill",160,150,704,330)
         if studio_theme then studio_theme:draw_background('pause_background',160,150,704,330) end
         love.graphics.setColor(0.94,0.95,0.85)
-        love.graphics.printf("PAUSED — world time stopped",160,190,704,"center")
+        love.graphics.printf("PAUSED",160,190,704,"center")
         love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
         love.graphics.printf("2 / S: Save & Quit",160,290,704,"center")
         if persistence_message~="" then
@@ -2128,12 +2177,13 @@ function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
     if boon_detail_id then boon_detail_id=nil;return end
     if not state or title or pause_menu or chest_menu or route_menu or
-        Playback.busy(playback) or x<PANEL_X or x>1008 or y<351 or y>=435 then
+        Playback.busy(playback) or x<PANEL_X or x>1008 or
+        y<BOON_ROW_Y or y>=BOON_ROW_Y+7*BOON_ROW_H then
         return
     end
     local owned=owned_boon_ids()
     local pages=math.max(1,math.ceil(#owned/7))
-    local index=(boon_page%pages)*7+math.floor((y-351)/12)+1
+    local index=(boon_page%pages)*7+math.floor((y-BOON_ROW_Y)/BOON_ROW_H)+1
     boon_detail_id=owned[index]
 end
 function love.mousemoved(x,y,dx,dy)

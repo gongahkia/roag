@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-stage-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
@@ -86,7 +88,7 @@ function love.draw(...)
     old_draw(...)
     if phase>6 or pending then return end
     if phase==1 then
-        assert(has("Stage 1 exploring") and tracked.stage.elite_id)
+        assert(has("STAGE 1") and tracked.stage.elite_id)
     elseif phase==2 then
         assert(tracked.stage.phase=="elite_active" and
             Game.entity(tracked,tracked.stage.elite_id).phase_two)
@@ -95,7 +97,7 @@ function love.draw(...)
         assert(tracked.stage.phase=="extraction" and
             Game.entity(tracked,tracked.stage.elite_reward_id).price==0)
         assert(Game.entity(tracked,tracked.stage.exit_id))
-        assert(has("Extract:"))
+        assert(has('REACH THE EXIT'))
     elseif phase==4 then
         assert(tracked.stage.phase=="pursuit" and tracked.stage.pursuer_id)
         assert(has("PURSUER ACTIVE"))
@@ -104,9 +106,9 @@ function love.draw(...)
             and has("Sunken Aqueduct"))
     elseif phase==6 then
         assert(tracked.stage.index==2 and tracked.stage.phase=="exploring")
-        assert(has("Stage 2 exploring") and tracked.generated_map.seed~=1
+        assert(has("STAGE 2") and tracked.generated_map.seed~=1
             and tracked.stage.biome_id=="core:biome/fungal_hollows"
-            and has("Fungal Hollows"))
+            and has("FUNGAL HOLLOWS"))
     end
     pending=true
     love.graphics.captureScreenshot(function(image)
@@ -129,6 +131,7 @@ function love.draw(...)
             Game.player(tracked).damage=100
             strike(elite)
             assert(tracked.stage.phase=="extraction")
+            clear_playback()
         elseif phase==3 then
             while tracked.clock<tracked.stage.deadline do
                 clear_playback();love.keypressed("space")

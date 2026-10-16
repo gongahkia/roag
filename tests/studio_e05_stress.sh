@@ -7,6 +7,8 @@ app="$out/app"
 mkdir -p "$app/assets/studio/sources" "$out/data"
 cp "$project_dir/main.lua" "$project_dir/conf.lua" "$app/"
 cp -R "$project_dir/src" "$app/src"
+mkdir -p "$app/assets"
+cp -R "$project_dir/assets/fonts" "$app/assets/fonts"
 cp -R "$project_dir/tools" "$app/tools"
 (cd "$app" && luajit - <<'LUA'
 local Project=require('src.studio_project')

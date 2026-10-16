@@ -7,6 +7,8 @@ mkdir -p "$output_dir/data" "$output_dir/tests"
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cp "$project_dir/tests/legal_playthrough.lua" "$output_dir/tests/legal_playthrough.lua"
 cp "$project_dir/tests/expansion_legal_playthrough.lua" "$output_dir/tests/expansion_legal_playthrough.lua"
 cat > "$output_dir/main.lua" <<'LUA'
@@ -139,7 +141,7 @@ function love.draw(...)
             end
         end)
     elseif step==2 then
-        assert(has('Stage 1') or has('Overgrown Ruins'))
+        assert(has('STAGE 1') or has('OVERGROWN RUINS'))
         step=3
         capture('future-run',function()
             local clock=tracked.clock

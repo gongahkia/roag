@@ -433,27 +433,33 @@ function E:draw(image_for)
     local px=width-203
     UI.panel(px,76,197,height-130)
     g.setColor(UI.color.text)
+    local tile_id=self.pack.tiles[self.selected_tile].id
+    local tile_name=tile_id:match('[^/]+$') or tile_id
     local lines={'WORLD SOURCE',room and room.id or '[no room]',
         room and (room.width..'×'..room.height..' · '..table.concat(room.roles,',')) or '',
         room and table.concat(room.biomes,','):gsub('core:biome/','') or '',
         room and ('Weight '..room.weight..'  Mirror '..tostring(room.mirror)) or '',
         room and ('Rotations '..table.concat(room.rotations,',')) or '',
-        'Tool: '..self.tool,'Tile: '..self.pack.tiles[self.selected_tile].id,
-        'Zoom: '..self.zoom..' px/tile','F1 name · F2 ID · I art',
-        'U clear art · Tab tile · K new',
-        'A add mechanics · Z tile type',
+        'Tool: '..self.tool,'Tile: '..tile_name,
+        'Zoom: '..self.zoom..' px/tile','F1 name F2 ID · I art',
+        'U clear art · Tab tile',
+        'K new · A mechanics',
+        'Z tile type · E deco',
         'F3/F4 tile name/ID',
-        'E deco · Y stair · Backspace erase',
+        'Y stair · Bksp erase',
         'R role · C/L/Q extra',
-        'B biome · J toggle','F preview biome · O overlay',
-        'T rotations · +/- weight','M mirror · P/H transform',
-        'V validate · G generate','[ / ] seed '..self.seed,
-        'Mouse paint · wheel zoom','Middle/space drag pan'}
+        'B biome · J toggle','F biome · O overlay',
+        'T rotate · +/- weight','M mirror · P/H view',
+        'V check · G generate','[ / ] seed '..self.seed,
+        'Middle/space drag pan'}
     for i,text in ipairs(lines) do
         g.setColor((i==1 or i==7 or i==9) and UI.color.accent or
             (i>=10 and UI.color.muted or UI.color.text))
-        g.print(text:sub(1,30),px+8,88+(i-1)*22)
+        local y=88+(i-1)*22
+        g.setScissor(px+8,y,181,18)
+        g.print(text,px+8,y)
     end
+    g.setScissor()
     UI.statusbar(height-52,52)
     g.setColor(UI.color.warning);g.printf(self.message,194,height-42,width-206,'left')
 end

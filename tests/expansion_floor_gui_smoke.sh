@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-floor-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Content=require('src.content')
@@ -61,7 +63,7 @@ function love.update() old_update(0) end
 function love.draw(...)
     labels={};old_draw(...)
     if phase>2 or pending then return end
-    assert(has('Floor '..phase..'/2'),'missing current-floor HUD label')
+    assert(has('FLOOR '..phase),'missing current-floor HUD label')
     pending=true
     love.graphics.captureScreenshot(function(image)
         local file=assert(io.open(output..'/floor'..phase..'.png','wb'))

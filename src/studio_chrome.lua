@@ -1,5 +1,6 @@
 -- Shared, presentation-only Studio chrome. Coordinates belong to each editor.
 local UI={}
+local Fonts=require('src.ui_fonts')
 UI.color={
     background={0.075,0.083,0.101}, header={0.125,0.140,0.168},
     panel={0.150,0.168,0.194}, inset={0.092,0.105,0.126},
@@ -20,6 +21,11 @@ local function line(color,x,y,w,h)
 end
 UI.fill=fill
 UI.line=line
+function UI.load_fonts()
+    local g=love.graphics
+    UI.body_font,UI.title_font=Fonts.load()
+    g.setFont(UI.body_font)
+end
 function UI.begin(title,subtitle)
     local g=love.graphics
     local w,h=g.getDimensions()
@@ -27,11 +33,9 @@ function UI.begin(title,subtitle)
     fill(c.header,0,0,w,65)
     fill(c.accent,0,0,3,65)
     fill(c.border,0,64,w,1)
-    local body_font=g.getFont()
-    UI.title_font=UI.title_font or g.newFont(15)
     g.setFont(UI.title_font)
     g.setColor(c.text);g.print(title,18,10)
-    g.setFont(body_font)
+    g.setFont(UI.body_font)
     g.setColor(c.muted);g.print(subtitle or '',18,39)
 end
 function UI.panel(x,y,w,h)

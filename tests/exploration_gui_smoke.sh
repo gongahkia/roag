@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-exploration-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Content=require("src.content")
@@ -129,7 +131,7 @@ function love.draw(...)
     old_draw(...)
     if phase>3 or pending then return end
     local secret=tracked.secrets[1]
-    assert(contains("MAP") and contains("Seed 1"))
+    assert(contains("MAP") and contains("HEALTH"))
     if phase==1 then
         local arena=tracked.generated_map.elite
         assert(tracked.clock==0 and

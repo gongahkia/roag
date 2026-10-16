@@ -8,6 +8,8 @@ mkdir -p "$app/assets/studio/sources" "$output/data"
 cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
+mkdir -p "$app/assets"
+cp -R "$project_dir/assets/fonts" "$app/assets/fonts"
 APP="$app" luajit - <<'LUA'
 local Project=require('src.studio_project')
 local PNG=require('src.studio_png')

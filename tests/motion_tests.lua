@@ -2,9 +2,32 @@ local Camera=require("src.camera")
 local Content=require("src.content")
 local Game=require("src.game")
 local Playback=require("src.playback")
+local CombatNumbers=require("src.combat_numbers")
 local Generation=require("src.generation")
 
 return function(test,equal)
+    test("floating hit numbers use resolved loss once per displayed beat",function()
+        local numbers=CombatNumbers.new()
+        local first={events={
+            {kind='DamageTaken',target_id=7,source_id=1,floor_id='floor',
+                x=3,y=4,actual_loss=2,critical=false},
+            {kind='DamageTaken',target_id=7,source_id=1,floor_id='floor',
+                x=3,y=4,actual_loss=3,critical=true},
+            {kind='Died',target_id=7,floor_id='floor',x=3,y=4},
+        }}
+        local playback={items={first}}
+        CombatNumbers.update(numbers,playback,0,1,'floor')
+        assert(#numbers.items==1 and numbers.items[1].amount==5 and
+            numbers.items[1].critical and numbers.items[1].from_player)
+        CombatNumbers.update(numbers,playback,0.1,1,'floor')
+        assert(#numbers.items==1 and numbers.items[1].age==0.1)
+        playback.items={{event={kind='DamageBlocked',target_id=8,
+            floor_id='floor',x=2,y=4}}}
+        CombatNumbers.update(numbers,playback,0,1,'floor')
+        assert(#numbers.items==2 and numbers.items[2].blocked)
+        CombatNumbers.update(numbers,playback,0,1,'other-floor')
+        assert(#numbers.items==0,'old floor kept floating damage')
+    end)
     local function near(a,b)
         assert(math.abs(a-b)<0.000001,("%.8f ~= %.8f"):format(a,b))
     end

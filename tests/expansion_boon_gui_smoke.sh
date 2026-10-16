@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-m6-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Scheduler=require("src.scheduler")

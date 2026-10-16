@@ -10,6 +10,8 @@ mkdir -p "$app"
 cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
+mkdir -p "$app/assets"
+cp -R "$project_dir/assets/fonts" "$app/assets/fonts"
 cat > "$app/main.lua" <<'LUA'
 local Game=require('src.game')
 local Biomes=require('src.biomes')
@@ -81,7 +83,7 @@ function love.draw(...)
     labels={};old_draw(...)
     if pending or phase>3 then return end
     local floor=phase==3 and 2 or 1
-    assert(has(biome.name) and has('Floor '..floor..'/2'),
+    assert(has(biome.name:upper()) and has('FLOOR '..floor),
         'biome/floor presentation missing')
     pending=true
     love.graphics.captureScreenshot(function(image)

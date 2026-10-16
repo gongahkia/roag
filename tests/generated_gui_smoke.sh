@@ -7,6 +7,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-generated-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
@@ -107,11 +109,11 @@ function love.draw(...)
     labels,elite_rings={},0
     original_draw(...)
     if phase>3 or pending then return end
-    assert(has("Overgrown Ruins") and has("Seed 1"))
+    assert(has("OVERGROWN RUINS") and has("HEALTH"))
     if phase==1 then
         assert(tracked.clock==0 and #tracked.generated_map.rooms>=8)
     elseif phase==2 then
-        assert(tracked.clock>0 and has("World time:"))
+        assert(tracked.clock>0 and has("HEALTH"))
         local p=Game.player(tracked).position
         local visible_chest,visible_enemy=false,false
         for _,e in ipairs(tracked.entities) do

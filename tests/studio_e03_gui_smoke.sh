@@ -8,6 +8,8 @@ mkdir -p "$app" "$output_dir/data"
 cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
+mkdir -p "$app/assets"
+cp -R "$project_dir/assets/fonts" "$app/assets/fonts"
 cp -R "$project_dir/examples" "$app/examples"
 cp -R "$project_dir/tools" "$app/tools"
 cat > "$app/main.lua" <<'LUA'

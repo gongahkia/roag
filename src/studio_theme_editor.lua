@@ -204,10 +204,10 @@ function E:draw()
         g.print(id=='' and '(default)' or id:sub(1,35),22,y+17)
     end
     g.setColor(UI.color.muted)
-    g.print('←/→ bind compatible art · click a slot',16,449)
+    g.print('←/→ bind art · click slot',16,449)
     g.print('I insets  G glyph map  H sample text',16,467)
     g.print('M metrics  B bg mode  D effect ms',16,483)
-    g.print('[ / ] scale · missing glyphs use built-in font',16,501)
+    g.print('[ / ] scale · font fallback',16,501)
     g.setColor(UI.color.warning)
     g.printf(self.message,18,height-76,width-36)
     if self.input then

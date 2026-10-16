@@ -66,6 +66,7 @@ function App.new(args)
         {__index=App})
 end
 function App:load()
+    UI.load_fonts()
     love.window.setTitle('ROAG Studio — authored assets')
     love.window.setMode(love.graphics.getWidth(),love.graphics.getHeight(),{resizable=true,minwidth=1024,minheight=640})
     love.graphics.setBackgroundColor(UI.color.background)
@@ -1221,7 +1222,7 @@ function App:mousepressed(x,y,button,presses)
         elseif x<700 then self:keypressed('e')
         elseif x<800 then self:keypressed('w')
         elseif x<900 then self:keypressed('u')
-        elseif x<960 then self:keypressed('p')
+        elseif x<969 then self:keypressed('p')
         else self:keypressed('y') end
     elseif self.mode=='project' and x>=20 and x<430 and y>=166 and y<516 then
         local index=self:asset_at(y)
@@ -1376,7 +1377,7 @@ function App:draw()
     if self.mode=='theme' then
         self.theme_editor:draw()
         love.graphics.setColor(.95,.83,.53)
-        love.graphics.print('DRAFT THEME · F8 sound/music · F10 help',520,39)
+        love.graphics.print('DRAFT THEME · F8 audio · F10 help',520,12)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1417,7 +1418,7 @@ function App:draw()
                 190,285,640,'center')
         end
         love.graphics.setColor(UI.color.warning)
-        love.graphics.print('DRAFT ROOM · F8 sound/music · F10 help',520,39)
+        love.graphics.print('DRAFT ROOM · F8 audio · F10 help',520,12)
         if self.help_open then E06Views.help(self.workspace) end
         return
     end
@@ -1446,7 +1447,7 @@ function App:draw()
     local actions={{'New',18,82},{'Open',100,98},{'Save',200,98},
         {'Artwork',300,98},{'Sample',400,98},{'Sprite',500,98},
         {'Pixels',600,98},{'World',700,98},{'UI',800,98},
-        {'Publish',900,58},{'Audio',960,math.max(45,w-978)}}
+        {'Publish',900,69},{'Audio',969,math.max(55,w-969)}}
     for _,action in ipairs(actions) do
         UI.button(action[2],72,action[3],29,action[1],false,true)
     end
@@ -1521,9 +1522,8 @@ function App:draw()
     end
     UI.statusbar(543,math.max(97,h-543))
     g.setColor(UI.color.muted)
-    g.print('L artwork checklist · Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
-    g.print('Left click select · double-click/edit preview · right-click actions · Save before close',24,573)
-    g.print('F10 help · Canvas Tab preview · P readiness',600,550)
+    g.print('L artwork · Tab filter: '..self.filter_kind..' · 1–6 edit · B bind · C sprite · D copy · E pixels',24,550)
+    g.print('Click select · double-click preview · right-click actions · S save · P readiness · F10 help',24,573)
     g.setColor(UI.color.warning);g.printf(self.message,24,601,976,'left')
     if self.mode=='name' or self.mode=='edit' or self.mode=='copy_name' or
         self.mode=='size' or self.mode=='confirm' or

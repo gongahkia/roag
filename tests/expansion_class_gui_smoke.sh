@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-class-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Classes=require("src.classes")
@@ -51,12 +53,13 @@ function love.draw(...)
     labels={};old_draw(...)
     if phase>2 or pending then return end
     if phase==1 then
-        assert(has("Class 1–4: "..Classes.get(target).name),"title class choice missing")
+        assert(has('1–4  CHOOSE CLASS') and
+            has(Classes.get(target).name:upper()),"title class choice missing")
     else
         assert(tracked and Game.player(tracked).definition_id==target
             and tracked.floor_order and tracked.clock>0,
             "class New Run did not create a normal paired stage")
-        assert(has("Class: "..Classes.get(target).name)
+        assert(has(Classes.get(target).name:upper()..'  ·  LV')
             and last_attack and last_attack.ability_id==Classes.get(target).basic_id,
             "class ability/HUD did not render")
     end

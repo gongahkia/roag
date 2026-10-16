@@ -9,7 +9,7 @@ manifest="$output_dir/results.tsv"
 printf 'round\tharness\texit\tlog\n' > "$manifest"
 failures=0
 for round in $(seq 1 "$rounds"); do
-    for harness in gui_smoke enemy_gui_smoke boon_gui_smoke reward_gui_smoke generated_gui_smoke exploration_gui_smoke stage_gui_smoke persistence_gui_smoke; do
+    for harness in gui_smoke enemy_gui_smoke combat_numbers_gui_smoke boon_gui_smoke reward_gui_smoke generated_gui_smoke exploration_gui_smoke stage_gui_smoke persistence_gui_smoke; do
         log="$output_dir/${round}-${harness}.log"
         artifacts="$output_dir/${round}-${harness}-artifacts"
         mkdir -p "$artifacts"
@@ -24,5 +24,5 @@ for round in $(seq 1 "$rounds"); do
         fi
     done
 done
-printf 'GUI repetition: %s runs, %s failures; results in %s\n' "$((rounds*8))" "$failures" "$output_dir"
+printf 'GUI repetition: %s runs, %s failures; results in %s\n' "$((rounds*9))" "$failures" "$output_dir"
 test "$failures" -eq 0

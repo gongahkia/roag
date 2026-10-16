@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/var/tmp}/roag-t15-chain-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Playback=require('src.playback')
@@ -60,13 +62,12 @@ function love.draw(...)
     original_draw(...)
     if pending or phase>2 then return end
     if phase==1 then
-        local found=false
+        local activated,boon=false,false
         for _,label in ipairs(labels) do
-            if label:find('Temporal Echo x10',1,true) then
-                found=true
-            end
+            if label:find('BOON ACTIVATED',1,true) then activated=true end
+            if label:find('Temporal Echo',1,true) then boon=true end
         end
-        assert(found,'dense boon beat did not render its grouped HUD')
+        assert(activated and boon,'dense boon beat did not render its grouped HUD')
     else
         assert(Playback.current(playback).kind~='BoonActivated')
     end

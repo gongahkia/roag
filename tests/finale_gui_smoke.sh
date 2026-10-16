@@ -6,6 +6,8 @@ output_dir=$(mktemp -d "${TMPDIR:-/tmp}/roag-finale-gui-XXXXXX")
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Content=require('src.content')
@@ -106,7 +108,7 @@ function love.draw(...)
     labels={};old_draw(...)
     if pending or phase>7 then return end
     if phase==1 then
-        assert(tracked.stage.index==3 and has('Stage 3 extraction'))
+        assert(tracked.stage.index==3 and has('STAGE 3'))
     elseif phase==2 then
         assert(has('Enter the Final Sanctum'),table.concat(labels,' | '))
     elseif phase==3 then
@@ -114,13 +116,13 @@ function love.draw(...)
             and has('HOLLOW REGENT') and not tracked.victory)
     elseif phase==4 then
         assert(had('WindupStarted') and #Game.pending_strikes(tracked)>0
-            and has('LIVE WINDUPS'))
+            and has('INCOMING ATTACK'))
     elseif phase==5 then
         local boss=Game.entity(tracked,tracked.finale.boss_id)
         local player=Game.player(tracked)
         local recent={}
         for i=math.max(1,#events-8),#events do recent[#recent+1]=events[i].kind end
-        assert(had('RegentPhaseChanged') and has('phase 2'),
+        assert(had('RegentPhaseChanged') and has('Phase 2'),
             ('phase 2 missing; seed=%s time=%s boss=%s player=%d,%d recent=%s'):format(
                 tostring(tracked.root_seed),tostring(tracked.clock),
                 boss and (boss.hp..'@'..boss.position.x..','..boss.position.y)
@@ -131,7 +133,7 @@ function love.draw(...)
             and has('VICTORY') and has('Hollow Regent defeated'))
     elseif phase==7 then
         assert(tracked.stage and tracked.stage.index==1 and not tracked.finale
-            and not tracked.victory and has('Overgrown Ruins'))
+            and not tracked.victory and has('OVERGROWN RUINS'))
     end
     pending=true
     love.graphics.captureScreenshot(function(image)

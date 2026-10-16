@@ -448,7 +448,7 @@ function C:draw()
             g.rectangle('line',sx+col*26+2,234+row*30,26,26)
         end
     end
-    g.setColor(UI.color.text);g.print('H / click: RGBA hex #'..hex(self.color),sx+4,322)
+    g.setColor(UI.color.text);g.print('H / click: RGBA hex',sx+4,322)
     g.setColor(UI.color.muted);g.print('LAYERS  /  bottom to top',sx+4,350)
     local selected_index=1;for i,l in ipairs(self.doc.layers) do if l.id==self.doc.selected then selected_index=i end end
     self.layer_offset=math.max(1,math.min(self.layer_offset,math.max(1,#self.doc.layers-4)))

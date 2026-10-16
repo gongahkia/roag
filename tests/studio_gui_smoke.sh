@@ -8,6 +8,8 @@ mkdir -p "$app" "$output_dir/data"
 cp "$project_dir/main.lua" "$app/roag_main.lua"
 cp "$project_dir/conf.lua" "$app/conf.lua"
 cp -R "$project_dir/src" "$app/src"
+mkdir -p "$app/assets"
+cp -R "$project_dir/assets/fonts" "$app/assets/fonts"
 cp -R "$project_dir/examples" "$app/examples"
 cp -R "$project_dir/tools" "$app/tools"
 cat > "$app/main.lua" <<'LUA'
@@ -18,6 +20,11 @@ local output=assert(os.getenv('ROAG_STUDIO_SMOKE_OUTPUT'))
 function love.load(args)
     original_load(args)
     if phase<=2 then
+        local chrome=require('src.studio_chrome')
+        assert(love.graphics.getFont()==chrome.body_font and chrome.title_font,
+            'Studio BigBlue Terminal fonts did not load')
+        assert(chrome.body_font:hasGlyphs('←','×','·'),
+            'Studio font is missing common editor symbols')
         local s=assert(love.roagStudioState(),'--studio did not select Studio')
         assert(love.window.getTitle():find('Studio',1,true),'Studio window title missing')
         if phase==1 then

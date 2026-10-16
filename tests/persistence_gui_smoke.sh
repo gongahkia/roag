@@ -8,6 +8,8 @@ mkdir -p "$data_dir"
 cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
+mkdir -p "$output_dir/assets"
+cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Persistence=require('src.persistence')
@@ -96,7 +98,7 @@ function love.draw(...)
         return
     end
     if captured then return end
-    assert(tracked.clock==100 and has('World time: 100'))
+    assert(tracked.clock==100 and has('HEALTH'))
     if phase=='save' then assert(has('Save & Quit')) end
     captured=true
     love.graphics.captureScreenshot(function(image)
