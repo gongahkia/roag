@@ -1350,6 +1350,9 @@ function App:keypressed_inner(key)
             end
             self.slot_group=Artwork.groups[at%#Artwork.groups+1]
             self.slot_index=1;return
+        elseif key=='l' or key=='u' then
+            self.slot_group=key=='l' and 'Letters & text' or 'UI theme'
+            self.slot_index=1;return
         elseif key=='m' then
             self.slot_missing=not self.slot_missing;self.slot_index=1;return
         elseif key=='up' or key=='down' then
@@ -1844,7 +1847,7 @@ function App:draw_artwork()
     end
     UI.statusbar(556,math.max(88,h-556))
     g.setColor(UI.color.muted)
-    g.print('↑↓ / wheel select · Enter/double-click create or edit · Tab group · M missing',24,565)
+    g.print('↑↓ / wheel select · Enter edit · Tab group · L letters · U UI · M missing',24,565)
     g.print('Click Search or press / · N new blank · S save · P publish readiness · F10 help',24,590)
     g.setColor(UI.color.warning)
     g.printf(self.message,24,620,w-48)

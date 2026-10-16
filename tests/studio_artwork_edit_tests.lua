@@ -32,6 +32,11 @@ return function(test)
         app:open_selected_slot()
         assert(app.mode=='size' and app.typed=='4x8' and
             app.pending_slot.kind=='glyph')
+        app.mode='slots';app.pending_slot=nil
+        app:keypressed_inner('u')
+        assert(app.slot_group=='UI theme')
+        app:keypressed_inner('l')
+        assert(app.slot_group=='Letters & text')
     end)
     test('Studio top navigation omits standalone Pixels and Publish tabs',function()
         local previous_love=_G.love

@@ -24,7 +24,8 @@ ordinary/base art. Unassigned destinations use the game's built-in visuals.
 
 ## Drawing from a destination
 
-1. Use **Tab** to cycle Core / All / category groups. **M** shows only
+1. Use **Tab** to cycle Core / All / category groups, **L** for Letters & text,
+   or **U** for UI theme. **M** shows only
    destinations without project art. Press **/** or **F** to search by name or
    stable ID; Enter closes search, Backspace edits it and Delete clears it.
 2. Select a row with arrow keys, wheel or mouse. Press **Enter**, double-click,
