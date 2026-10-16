@@ -1,10 +1,12 @@
 # ROAG — Game guide
-ROAG Studio's separate editor launches with `make studio`, which opens this checkout's ROAG artwork checklist and its editable project. `love . --studio --current-project` does the same when LÖVE is on `PATH`; plain `love . --studio` retains the project chooser. See the [artwork checklist](docs/ROAG_STUDIO_ARTWORK_CHECKLIST.md), [Studio E00 workflow](docs/ROAG_STUDIO_E00.md), [E01 pixel drawing](docs/ROAG_STUDIO_E01.md), [E03 room/biome authoring](docs/ROAG_STUDIO_E03.md), [E04 presentation themes](docs/ROAG_STUDIO_E04.md), [E05 optional static atlases](docs/ROAG_STUDIO_E05.md), and the [Studio audio picker and publishing guide](docs/ROAG_AUDIO_EXPANSION.md). `make game` opens the game. Intel macOS setup and isolated test commands are in the [Mac guide](docs/MAC_NATIVE.md).
+
+The game starts with built-in visuals through `make game` or `love .`. The editor now lives in the sibling [Paint project](../paint/README.md): `cd ../paint && make app`. Editable art and project data were copied there without changing ROAG run saves or achievement profiles. The game still reads compatible optional published visuals, world rooms, UI themes, audio, and atlases. Set `ROAG_GENERATED_ART=1` before launch to preview the new optional four-tone generated atlases; unset it to return to built-in art.
+
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
 ## Quick commands
 
-Run these from the checkout root: `make game` for the playable game, `make studio` for the asset/world/UI/audio editor, `make test` for headless checks, and `make gui` for isolated GUI smokes. `make help` lists publisher shortcuts. On systems with LÖVE on `PATH`, `love .` and `love . --studio` also work.
+Run these from this checkout: `make game` for the playable game, `make test` for headless gameplay/runtime checks, and `make gui` for game GUI smokes. Run `cd ../paint && make app` for artwork, room, theme, and audio authoring. `make help` lists current shortcuts. On systems with LÖVE on `PATH`, `love .` opens the game.
 
 ## Run and controls
 
@@ -113,61 +115,31 @@ The profile uses separate `profile-a.roag` / `profile-b.roag` generations in LÖ
 
 Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock followed by a seed-34 paid chest purchase and actual activation of the new boon. Run `sh tests/meta_gui_smoke.sh` for the isolated two-process title/profile/future-run demonstration. Both tests use disposable storage and do not touch a player's normal profile.
 
-## ROAG Studio
+## Paint authoring and optional visuals
 
-Run **`make studio`** from this checkout. Studio opens the current ROAG project
-(creating a safe, empty editable project if necessary) at **Artwork**. The
-checklist shows the game's actor, enemy, boon, reward, biome and terrain
-bindings, plus UI theme and World tile assignments. **Missing** means no
-artwork has been created in this Studio project; the game continues to use its
-built-in fallback. Select a binding and press **Enter** or **Create artwork**
-to make a sprite already linked to it. Search with **/**, switch groups with
-**Tab**, toggle missing-only with **M**, and return to **Assets** with **Esc**.
-See the [artwork checklist guide](docs/ROAG_STUDIO_ARTWORK_CHECKLIST.md) for
-the status meanings and project selection rules.
+Studio's editor code now lives in the sibling **TAMS Paint** checkout. Run
+`cd ../paint && make app` to open the ROAG artwork checklist. The migrated
+editable project uses Paint's separate `tams-paint` LÖVE save identity; the
+original `roag-foundation` run/profile data are untouched. Paint retains the
+World, UI and Audio editors as secondary views. Its README documents the
+individual save/bind/publish flow and the explicit CLI publishers.
 
-In the Assets screen, drag in a PNG or click **Sample**. Click an asset and
-**Edit pixels** to draw, or **Duplicate & edit…** to name and paint a separate
-copy. Right-click an asset row for the same actions and **Rename…**; double-click
-a row or click its preview to open the drawing canvas. Click **Save drawing**
-and then **Use in Game**. Choose the game artwork slot and confirm the single
-binding replacement. This works even if another Studio project supplied the
-previous art for that slot; its other published artwork is preserved. Press
-**F5** in an already running game to see the result. See the
-[pixel drawing guide](docs/ROAG_STUDIO_E01.md) for controls and advanced
-publication steps.
+ROAG retains read-only format validators and published-content readers because
+saved generated floors and optional loose/world/theme/audio/atlas packs refer
+to their stable IDs. None of these readers opens editor UI or changes simulation.
+The hand-painted published PNGs were archived in Paint and removed from this
+game checkout, so `make game` now uses built-in sprites by default. `F5` still
+refreshes compatible published visuals without changing the current floor.
 
-The [E04 guide](docs/ROAG_STUDIO_E04.md) covers HUD, bitmap text,
-background and effect authoring. The [E05 guide](docs/ROAG_STUDIO_E05.md)
-covers deterministic static atlases.
+Paint also contains the original Codex-generated sheets and a deterministic
+four-tone compiler. The derived character, terrain, icon and backdrop atlases
+are optional. Launch with `ROAG_GENERATED_ART=1 make game` to select them when
+no higher-priority loose Studio binding exists. The default launch keeps the
+built-in art. The optional atlas is checked as one complete generation and
+falls back safely if missing or corrupt.
 
-**Draw UI and letters in Artwork.** Select the **UI theme** group for HP/XP/
-currency icons, HUD panel, title/pause backgrounds and hit/boon effects. Select
-**Letters & text** for individual uppercase, lowercase, digit and punctuation
-glyphs. Each is a separate editable sprite: Enter, draw, **Save drawing**, then
-**Use in Game** and confirm the binding. In a running game, press **F5** to load
-published pixels. The **UI** page is for layout, effect settings, binding
-choices and previews; existing bitmap font sheets remain supported. Individual
-letter art currently renders in the themed HUD labels/readout and UI preview;
-other game text retains the built-in font until that text is routed through the
-theme renderer. Missing characters use the built-in fallback.
-
-ROAG Studio E06 adds a draft/published asset preview, Publish Readiness,
-and **F5** visual refresh in a running game. For publishing a whole project's
-loose images or a world/UI/audio pack, use the advanced **P** path from Assets;
-press **D** to preview files and **A** to apply with
-confirmation.
-Press F5 to reload visuals without changing
-the current floor or turn state. See [Studio E06 workflow](docs/ROAG_STUDIO_E06.md).
-Static attack/hurt sprites, boon cards, currency pickups, gameplay backdrops,
-and automatically classified terrain use the optional
-[visual slot bindings](docs/ROAG_STUDIO_VISUAL_SLOTS.md).
-
-Tranche 15 groups consecutive locked windups and dense same-kind boon cues into
-short presentation beats, and shows when a gameplay key is ignored during the
-visual input gate. Combat scheduling, event order, 80 ms movement and saves are
-unchanged. See [Tranche 15 measurements and physical playtest checklist](docs/TRANCHE_15_ACCEPTANCE.md)
-for the read-only seed corpus, legal-run trace and reproducible profile commands.
+Historical Studio E00–E06 guides remain in `docs/` for format and workflow
+background; the active authoring commands now live in Paint.
 
 ## Autonomous expansion in progress
 
