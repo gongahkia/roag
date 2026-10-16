@@ -148,9 +148,9 @@ glyphs. Each is a separate editable sprite: Enter, draw, **Save drawing**, then
 **Use in Game** and confirm the binding. In a running game, press **F5** to load
 published pixels. The **UI** page is for layout, effect settings, binding
 choices and previews; existing bitmap font sheets remain supported. Individual
-letter art currently renders in the themed HP readout and UI preview; other
-game text retains the built-in font until that text is routed through the theme
-renderer. Empty glyphs and missing assets use the built-in fallback.
+letter art currently renders in the themed HUD labels/readout and UI preview;
+other game text retains the built-in font until that text is routed through the
+theme renderer. Missing characters use the built-in fallback.
 
 ROAG Studio E06 adds a draft/published asset preview, Publish Readiness,
 and **F5** visual refresh in a running game. For publishing a whole project's

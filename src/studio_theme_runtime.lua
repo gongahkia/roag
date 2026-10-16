@@ -3,6 +3,12 @@ local Theme=require('src.studio_theme')
 local Store=require('src.studio_theme_store')
 local Slots=require('src.visual_slots')
 local R={}
+local function has_glyph_bindings(bindings)
+    for byte=32,126 do
+        if bindings[Slots.glyph_binding(string.char(byte))] then return true end
+    end
+    return false
+end
 function R.preview(theme,lookup,image_data,assets)
     local visuals={get_id=function(_,id) return lookup(id) end,
         image_data=image_data or {},bindings={}}
@@ -18,6 +24,7 @@ function R.preview(theme,lookup,image_data,assets)
             height=image:getHeight()} or nil
     end
     return setmetatable({theme=theme,visuals=visuals,
+        has_direct_glyphs=has_glyph_bindings(visuals.bindings),
         quads={},panel_quads={},counts={panel=0,icon=0,glyph=0,background=0,effect=0}},
         {__index=R})
 end
@@ -28,13 +35,8 @@ function R.inspect(read,visuals)
     for _,slot in ipairs(Theme.slots) do
         if bindings['core:ui/'..slot] then direct=true;break end
     end
-    if not direct then
-        for byte=32,126 do
-            if bindings[Slots.glyph_binding(string.char(byte))] then
-                direct=true;break
-            end
-        end
-    end
+    local direct_glyphs=has_glyph_bindings(bindings)
+    direct=direct or direct_glyphs
     if not theme and not direct then return nil,status end
     if not visuals or visuals.status~='loaded' then
         return nil,'theme assets unavailable'
@@ -62,7 +64,8 @@ function R.inspect(read,visuals)
             return nil,'theme image unavailable: '..slot..' ('..id..')'
         end
     end
-    return setmetatable({theme=effective,visuals=visuals,quads={},panel_quads={},
+    return setmetatable({theme=effective,visuals=visuals,
+        has_direct_glyphs=direct_glyphs,quads={},panel_quads={},
         counts={panel=0,icon=0,glyph=0,background=0,effect=0}},
         {__index=R}),direct and 'loaded' or status
 end
@@ -129,13 +132,7 @@ end
 function R:draw_text(value,x,y,scale)
     local handle=self:handle('bitmap_font')
     local direct_bindings=self.visuals.bindings or {}
-    local has_direct=false
-    for byte=32,126 do
-        if direct_bindings[Slots.glyph_binding(string.char(byte))] then
-            has_direct=true;break
-        end
-    end
-    if not handle and not has_direct then return false end
+    if not handle and not self.has_direct_glyphs then return false end
     local font=self.theme.font
     local id=self.theme.slots.bitmap_font
     local glyphs=handle and self.quads[id] or {}
