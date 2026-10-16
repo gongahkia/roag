@@ -17,7 +17,6 @@ help:
 	 'make game             Play ROAG with generated atlas visuals' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'cd ../paint && make app    Open TAMS Paint for artwork, rooms, UI and audio' \
 	 'ROAG_GENERATED_ART=0 make game    Use built-in art instead of generated atlases'
 game:
 	$(LOVE_RUN) .
