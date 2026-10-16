@@ -1813,10 +1813,14 @@ function App:draw_artwork()
             kind=='repair' and {1,.43,.43} or UI.color.warning)
         g.printf('Status: '..entry.status,741,302,245)
         g.setColor(UI.color.muted)
-        g.printf(entry.optional and
+        local guidance=entry.group=='Letters & text' and
+            'Draw this one character here. UI controls text size; missing letters use the built-in font.' or
+            entry.group=='UI theme' and
+            'Draw UI art here. The UI page assigns assets and previews layout/effects.' or
+            entry.optional and
             'Optional variant. The game uses another slot or built-in art when absent.' or
-            'Game destination. Built-in art remains available until you publish a replacement.',
-            722,337,264)
+            'Game destination. Built-in art remains available until you publish a replacement.'
+        g.printf(guidance,722,337,264)
         if entry.asset then
             g.printf('Project asset: '..entry.asset.id,722,398,264)
         end
