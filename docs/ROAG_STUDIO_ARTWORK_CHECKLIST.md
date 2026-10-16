@@ -30,18 +30,24 @@ ordinary/base art. Unassigned destinations use the game's built-in visuals.
    or click **Create artwork**. Enter `16x16`, `32x32` or another valid E01
    size (1–512 pixels per axis). The new editable sprite receives the selected
    game binding automatically. Existing bound art opens directly for editing.
-3. Draw with E01 tools, then press **S** to save. **Esc** returns to Artwork.
-   The status is now **drawn, unpublished** until the game art is published.
+3. Draw with E01 tools. Click **Save drawing** or press **S**. Click **Use in Game**
+   or press **U**, choose the game destination, and confirm. Studio shows the
+   precise binding and any existing art it will replace. Only that binding
+   changes; other published assets remain. The earlier manifest is backed up.
+   Press **F5** in an already running game to refresh the artwork. **Esc**
+   returns to Artwork after saving if you want to keep the art unpublished.
 4. For an **UI theme** or **World tile** destination, Enter opens the existing
    UI or World editor. Selecting a mechanical tile that is **not added** adds
    its semantic tile definition through the World editor's undoable action.
    Assign an E01 asset there; these use stable asset IDs rather than direct
    game visual bindings.
-5. Press **P** for Publish Readiness, **D** for a read-only file preview and
-   **A** for the explicit loose-art publish confirmation. In a running game,
-   **F5** refreshes published art. World and theme packs publish separately;
-   the E03/E04 guides give their commands. The artwork checklist never
-   publishes automatically.
+5. For a whole-project release, press **P** for Publish Readiness, **D** for a
+   read-only file preview and **A** for the explicit loose-art confirmation.
+   This advanced path still requires the current project to own the complete
+   published manifest. The **Use in Game** path is the direct way to update one
+   artwork slot when the existing manifest belongs to another project. World
+   and theme packs publish separately; the E03/E04 guides give their commands.
+   Saving alone never publishes.
 
 **Missing/unmapped** means no artwork is assigned in this editable project;
 **draft** means an asset entry has no pixels; **drawn, unpublished** means pixels

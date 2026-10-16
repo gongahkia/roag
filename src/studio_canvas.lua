@@ -471,7 +471,7 @@ function C:draw()
     g.setColor(UI.color.muted)
     g.print('M drag select · C recolor · Delete clear · Esc deselect',18,h-55)
     g.print('L add · R rename · O outline · G reference · Cmd/Ctrl+Z undo · Shift+Z redo',18,h-37)
-    g.print('S save · wheel zoom · middle/Space drag pan',18,h-19)
+    g.print('S save · U use in game · wheel zoom · middle/Space drag pan',18,h-19)
     if self.modal then
         UI.modal(rx+40,ry+100,rw-80,110)
         local prompt=self.modal=='color' and 'RGBA hex: RRGGBBAA' or

@@ -12,6 +12,15 @@ Launch with `love . --studio`. Plain `love .` still launches the game. Studio us
 6. Mouse wheel zooms around the cursor, using integer scales from 100–3200% plus 25%/50% overview levels for large sprites. Middle-drag or Space+left-drag pans; **0** fits the sprite. The canvas uses nearest filtering. The status line shows tool, RGBA, brush, layer, cursor, dimensions, zoom and unsaved status. **S** commits the document and its derived PNG as a verified project generation. **Esc** returns to asset metadata after saving; it will not discard an unsaved edit. New/Open and window close retain E00 discard confirmations.
 7. In asset metadata, select the sprite, press **B** to bind the Adventurer visual. The **Binding** field should read `core:actor/adventurer`. You may give the asset that same stable ID with field **2**, but the binding alone controls which image the game uses. Save again. A project save keeps editable art in the Studio workspace; game visuals require a separate publish step.
 
+For one drawing, the direct mouse workflow is now **Save drawing → Use in Game →
+choose game slot → Confirm: use in game** inside Pixels. The artwork-slot
+picker already selects the sprite's current binding when present. The final
+screen identifies the old published asset and project; it changes only the
+selected game binding, backs up the previous manifest and retains other
+published images. The same actions are **S**, then **U**, arrow keys/Search,
+**Enter**, then **Enter**. Press **F5** in an already running game. A saved
+drawing can remain unpublished if you skip Use in Game.
+
 ### Copy a sprite for an attack or hurt pose
 
 Click **Open**, then the project. Left-click the existing sprite and click **Duplicate & edit…** in the action panel, or right-click its asset row and choose the same action. Type a name and click **Continue**. Studio copies every editable layer, or initializes one layer from an imported PNG, into a **new asset** with its own stable ID. Its game binding starts empty, so the original remains the ordinary sprite. The new asset opens in the pixel editor. The original appears as a blue, translucent reference over the canvas; press **G** to hide or show it. This overlay never enters the saved layers, derived PNG, or published game image. Click **Save**, then press **Esc** to return to asset metadata. The **Rename…** action changes the display name of the selected copy; it does not change its stable ID or binding. Click the **Binding** field and enter `core:actor/adventurer/hurt` or `core:actor/adventurer/attack`, then save again. Publish from Studio with **P**, **D**, **A**. Press **F5** in the game to refresh visuals. For an enemy, use its own `core:enemy/<enemy_id>/hurt` or `/attack` binding. The old **D** shortcut still duplicates immediately with a default name.

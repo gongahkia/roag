@@ -26,9 +26,15 @@ function Camera.new(map, viewport, tile, player_x, player_y)
         viewport = viewport,
         tile = tile,
         time_constant = 0.12,
+        offset_x = 0,
+        offset_y = 0,
     }
     camera.x, camera.y = target(camera, player_x, player_y)
     return camera
+end
+
+function Camera.set_presentation_offset(camera, x, y)
+    camera.offset_x, camera.offset_y = x, y
 end
 
 function Camera.update(camera, dt, player_x, player_y)
@@ -42,8 +48,10 @@ function Camera.tile_top_left(camera, x, y)
     local viewport = camera.viewport
     -- Round the shared world-to-screen offset for tiles and sprites alike.
     -- Both stay crisp while the camera itself retains subpixel easing.
-    return math.floor(viewport.x + viewport.width / 2 + (x - 1) * camera.tile - camera.x + 0.5),
+    return math.floor(viewport.x + viewport.width / 2 + (x - 1) * camera.tile - camera.x + 0.5)
+            + camera.offset_x,
         math.floor(viewport.y + viewport.height / 2 + (y - 1) * camera.tile - camera.y + 0.5)
+            + camera.offset_y
 end
 
 return Camera

@@ -17,6 +17,7 @@ function V.help(workspace)
         'Pixels: C recolor · Delete clear · O outline · G reference · Tab preview',
         'Asset field 6: reference asset ID (same source dimensions); copy sets it',
         'Pixels: Cmd/Ctrl+Z undo · Cmd/Ctrl+Shift+Z redo',
+        'Pixels: click Save drawing, then Use in Game to pick a slot and publish one image',
         'Asset Binding (4): core:actor/adventurer/attack or /hurt',
         'Enemy Binding: core:enemy/<enemy_id>/attack or /hurt',
         'Boon Binding: core:boon/<boon_id>/icon or /detail',

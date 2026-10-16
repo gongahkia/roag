@@ -129,17 +129,22 @@ the status meanings and project selection rules.
 In the Assets screen, drag in a PNG or click **Sample**. Click an asset and
 **Edit pixels** to draw, or **Duplicate & edit…** to name and paint a separate
 copy. Right-click an asset row for the same actions and **Rename…**; double-click
-a row or click its preview to open the canvas. Save the editable project before
-publishing. See the [pixel drawing guide](docs/ROAG_STUDIO_E01.md) for controls,
-bindings and the publish steps.
+a row or click its preview to open the canvas. In **Pixels**, click **Save drawing**
+and then **Use in Game**. Choose the game artwork slot and confirm the single
+binding replacement. This works even if another Studio project supplied the
+previous art for that slot; its other published artwork is preserved. Press
+**F5** in an already running game to see the result. See the
+[pixel drawing guide](docs/ROAG_STUDIO_E01.md) for controls and advanced
+publication steps.
 
 The [E04 guide](docs/ROAG_STUDIO_E04.md) covers HUD, bitmap text,
 background and effect authoring. The [E05 guide](docs/ROAG_STUDIO_E05.md)
 covers deterministic static atlases.
 
 ROAG Studio E06 adds a draft/published asset preview, Publish Readiness,
-and **F5** visual refresh in a running game. Save in Studio, press **P**, then
-**D** to preview loose image files and **A** to publish with confirmation.
+and **F5** visual refresh in a running game. For publishing a whole project's
+loose images, press **P**, then **D** to preview files and **A** to apply with
+confirmation.
 Press F5 to reload visuals without changing
 the current floor or turn state. See [Studio E06 workflow](docs/ROAG_STUDIO_E06.md).
 Static attack/hurt sprites, boon cards, currency pickups, gameplay backdrops,

@@ -6,6 +6,7 @@ local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
 local Playback = require("src.playback")
+local HitFeedback = require("src.hit_feedback")
 local CombatNumbers = require("src.combat_numbers")
 local UIFont = require("src.ui_fonts")
 local Rewards = require("src.rewards")
@@ -34,6 +35,7 @@ local camera_state
 local targeting -- nil, or a presentation-only { kind, dx, dy }.
 local notice = "Ready"
 local playback = Playback.new()
+local hit_feedback = HitFeedback.new()
 local combat_numbers = CombatNumbers.new()
 local ui_body_font,ui_display_font
 local minimap_visible = true
@@ -227,6 +229,7 @@ local function reset_camera()
     local map = Content.map_for(state)
     local position = Game.player(state).position
     camera = Camera.new(map, VIEWPORT, TILE, position.x, position.y)
+    hit_feedback = HitFeedback.new()
     camera_state = state
 end
 
@@ -449,6 +452,9 @@ function love.update(dt)
     local visual_x,visual_y=Playback.position(playback,state.player_id,
         position.floor_id,position.x,position.y)
     Camera.update(camera, dt, visual_x, visual_y)
+    HitFeedback.update(hit_feedback, playback, dt, state.player_id,
+        state.active_floor_id)
+    Camera.set_presentation_offset(camera, HitFeedback.offset(hit_feedback))
     if #reward_notices > 0 then
         reward_notice_time = reward_notice_time - math.max(0, dt)
         while reward_notice_time <= 0 and #reward_notices > 0 do
@@ -1580,6 +1586,15 @@ local function draw_world()
                 end
             end
         end
+    end
+    local flash=HitFeedback.flash_alpha(hit_feedback)
+    if flash>0 then
+        love.graphics.setColor(1,0.20,0.16,flash)
+        love.graphics.rectangle("fill",VIEWPORT.x,VIEWPORT.y,
+            VIEWPORT.width,VIEWPORT.height)
+        love.graphics.setColor(1,0.35,0.28,math.min(0.4,flash*2))
+        love.graphics.rectangle("line",VIEWPORT.x+1,VIEWPORT.y+1,
+            VIEWPORT.width-2,VIEWPORT.height-2)
     end
     draw_combat_numbers()
     draw_minimap()

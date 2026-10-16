@@ -3,6 +3,7 @@ local Content=require("src.content")
 local Game=require("src.game")
 local Playback=require("src.playback")
 local CombatNumbers=require("src.combat_numbers")
+local HitFeedback=require("src.hit_feedback")
 local Generation=require("src.generation")
 
 return function(test,equal)
@@ -159,6 +160,67 @@ return function(test,equal)
         assert(x2-x1==32 and x1%1==0)
         Camera.update(camera,5,35,25)
         assert(camera.x<=768 and camera.y<=496)
+    end)
+
+    test("positive player damage jolts only the world during its displayed beat",function()
+        local state=Game.new(12,"core:map/test_room")
+        local saved=Game.snapshot(state)
+        local queue=Playback.new()
+        local floor=state.active_floor_id
+        local hit={kind="DamageTaken",target_id=state.player_id,
+            actual_loss=4,floor_id=floor,x=2,y=2}
+        Playback.add(queue,{{kind="WindupStarted",floor_id=floor},hit},
+            state.player_id)
+        local feedback=HitFeedback.new()
+        HitFeedback.update(feedback,queue,0,state.player_id,floor)
+        assert(HitFeedback.flash_alpha(feedback)==0)
+        Playback.update(queue,0.55)
+        assert(Playback.current(queue)==hit)
+        HitFeedback.update(feedback,queue,0,state.player_id,floor)
+        assert(HitFeedback.flash_alpha(feedback)>0)
+        local camera=Camera.new(Content.get_map("core:map/test_room"),
+            {x=16,y=16,width=704,height=608},32,2,2)
+        local old_x,old_y=Camera.tile_top_left(camera,2,2)
+        local dx,dy=HitFeedback.offset(feedback)
+        Camera.set_presentation_offset(camera,dx,dy)
+        local new_x,new_y=Camera.tile_top_left(camera,2,2)
+        assert(new_x-old_x==dx and new_y-old_y==dy)
+        assert(math.abs(dx)<=5 and math.abs(dy)<=5)
+        local flash=HitFeedback.flash_alpha(feedback)
+        HitFeedback.update(feedback,queue,0,state.player_id,floor)
+        assert(HitFeedback.flash_alpha(feedback)==flash,
+            "same playback beat must not restart the hit")
+        HitFeedback.update(feedback,queue,HitFeedback.flash_seconds,
+            state.player_id,floor)
+        assert(HitFeedback.flash_alpha(feedback)==0)
+        local settled_x,settled_y=HitFeedback.offset(feedback)
+        assert(settled_x==0 and settled_y==0)
+        equal(saved,Game.snapshot(state))
+    end)
+
+    test("blocked, enemy and old-floor hits never shake the player",function()
+        local feedback=HitFeedback.new()
+        local queue=Playback.new()
+        Playback.add(queue,{{kind="DamageBlocked",target_id=1,
+            floor_id="floor",x=2,y=2},
+            {kind="DamageTaken",target_id=2,actual_loss=5,
+                floor_id="floor",x=3,y=2},
+            {kind="DamageTaken",target_id=1,actual_loss=5,
+                floor_id="retired",x=2,y=2}},1)
+        for _=1,3 do
+            HitFeedback.update(feedback,queue,0,1,"floor")
+            assert(HitFeedback.flash_alpha(feedback)==0)
+            Playback.update(queue,0.20)
+        end
+        local grouped=Playback.new()
+        Playback.add(grouped,{{kind="DamageTaken",target_id=1,
+            actual_loss=4,floor_id="floor",x=2,y=2},
+            {kind="DamageTaken",target_id=1,actual_loss=9,
+                floor_id="floor",x=2,y=2}},1)
+        HitFeedback.update(feedback,grouped,0,1,"floor")
+        assert(feedback.strength==5 and HitFeedback.flash_alpha(feedback)>0)
+        HitFeedback.update(feedback,grouped,0,1,"new-floor")
+        assert(HitFeedback.flash_alpha(feedback)==0)
     end)
 
     test("long corridor ranged lane stays blocked by walls and strict timing is legible",function()

@@ -9,6 +9,53 @@ local Document=require('src.studio_document')
 local PNG=require('src.studio_png')
 
 return function(test)
+    test('Pixels Save and Use in Game reaches a bound one-slot publish',function()
+        local previous_love=_G.love
+        local GuiPublish=require('src.studio_gui_publish')
+        local original_new=GuiPublish.new
+        local ok,reason=pcall(function()
+            local saves,applies=0,0
+            _G.love={graphics={getHeight=function() return 640 end},
+                filesystem={getSource=function() return '/isolated-checkout' end}}
+            local app=App.new({})
+            app.project=Project.new('roag','ROAG')
+            local asset=Project.asset('studio:art/actor/adventurer',
+                'Adventurer','actor')
+            asset.binding='core:actor/adventurer'
+            app.project.assets[1]=asset;app.selected=1
+            app.canvas_asset=asset;app.canvas={modal=nil}
+            app.mode='canvas'
+            app.save=function(self) saves=saves+1;return true end
+            app.refresh_artwork=function(self)
+                self.slot_entries={{binding='core:actor/adventurer',
+                    label='Adventurer',key='core:actor/adventurer'}}
+            end
+            app.store={open=function() return app.project end}
+            GuiPublish.new=function()
+                return {plan_asset=function(_,project,id)
+                    assert(project==app.project and id==asset.id)
+                    return {binding=asset.binding,owner='player_sprite',
+                        files={},counts={create=1,overwrite=1,unchanged=0}}
+                end,apply_asset=function(_,project,id)
+                    assert(project==app.project and id==asset.id)
+                    applies=applies+1;return true,nil,'/isolated/backup'
+                end}
+            end
+            app:mousepressed_inner(35,515,1) -- visible Save drawing button
+            assert(saves==1 and app.mode=='canvas')
+            app:mousepressed_inner(35,550,1) -- visible Use in Game button
+            assert(saves==2 and app.mode=='bind_asset' and
+                app:binding_choices()[1].binding==asset.binding)
+            app:mousepressed_inner(35,555,1) -- choose selected binding
+            assert(app.mode=='asset_publish_confirm' and applies==0)
+            app:mousepressed_inner(35,510,1) -- explicit final confirmation
+            assert(applies==1 and app.mode=='slots' and
+                app.message:find('LIVE:',1,true))
+        end)
+        GuiPublish.new=original_new
+        _G.love=previous_love
+        assert(ok,reason)
+    end)
     test('published artwork opens its pixels for editing; blank art stays explicit',function()
         local previous_love=_G.love
         local ok,reason=pcall(function()

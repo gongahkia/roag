@@ -1,3 +1,8 @@
 ROAG-STUDIO-MANIFEST/1
 project	player_sprite	player sprite
-asset	studio:actor/image_001	Adventurer sample	actor	sources/player_sprite-0001-045173b4.png	png	16	16	true	nearest	core:actor/adventurer							
+asset	studio:art/actor/adventurer	Actor/adventurer	actor	sources/roag-0001-528f4f7a.png	png	16	16	true	nearest	core:actor/adventurer							
+asset	studio:art/actor/alchemist	Actor/alchemist	actor	sources/roag-0001-6b001ea7.png	png	32	32	true	nearest	core:actor/alchemist							
+asset	studio:art/actor/arcanist	Actor/arcanist	actor	sources/roag-0001-0d9dd11f.png	png	32	32	true	nearest	core:actor/arcanist							
+asset	studio:art/actor/berserker	Actor/berserker	actor	sources/roag-0001-9413ec08.png	png	32	32	true	nearest	core:actor/berserker							
+asset	studio:art/actor/ranger	Actor/ranger	actor	sources/roag-0001-3651cd98.png	png	32	32	true	nearest	core:actor/ranger							
+asset	studio:art/actor/sentinel	Actor/sentinel	actor	sources/roag-0001-73e9d3b0.png	png	32	32	true	nearest	core:actor/sentinel							

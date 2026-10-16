@@ -26,7 +26,8 @@ local nav_tabs={{'Assets','assets',68},{'Artwork','artwork',78},
 local nav_modes={home='assets',project='assets',slots='artwork',
     canvas='pixels',world='world',world_size='world',world_edit='world',
     world_delete_confirm='world',theme='ui',audio='audio',
-    pipeline='publish',publish_confirm='publish'}
+    pipeline='publish',publish_confirm='publish',bind_asset='pixels',
+    asset_publish_confirm='pixels'}
 local asset_actions={
     {id='edit',label='Edit pixels'},
     {id='copy',label='Duplicate & edit…'},
@@ -352,6 +353,110 @@ function App:save()
         self:status('Saved generation '..reason)
     else self:status('Save failed: '..tostring(reason)) end
     return ok,reason
+end
+
+function App:binding_choices()
+    local matches={}
+    local query=(self.binding_query or ''):lower()
+    for _,entry in ipairs(self.slot_entries or {}) do
+        if entry.binding and (query=='' or
+            entry.binding:lower():find(query,1,true) or
+            entry.label:lower():find(query,1,true)) then
+            matches[#matches+1]=entry
+        end
+    end
+    return matches
+end
+
+function App:use_current_artwork()
+    local asset=self.canvas_asset or self:selected_asset()
+    if not asset then self:status('Open an artwork asset first.');return end
+    local ok=self:save()
+    if not ok then return end
+    self:refresh_artwork()
+    self.binding_asset_id=asset.id
+    self.binding_query=''
+    self.binding_index=1
+    for index,entry in ipairs(self:binding_choices()) do
+        if entry.binding==asset.binding then self.binding_index=index;break end
+    end
+    self.mode='bind_asset'
+    self:status('Choose where this drawing appears in the game, then confirm.')
+end
+
+function App:bind_selected_artwork()
+    local entry=self:binding_choices()[self.binding_index]
+    if not entry then self:status('Choose an artwork slot first.');return end
+    local asset
+    for _,candidate in ipairs(self.project.assets) do
+        if candidate.id==self.binding_asset_id then asset=candidate;break end
+    end
+    if not asset then self:status('Artwork no longer exists.');return end
+    for _,other in ipairs(self.project.assets) do
+        if other~=asset and other.binding==entry.binding then
+            self:status('This project already binds '..entry.binding..
+                ' to '..other.id..'. Choose another slot or edit that asset.')
+            return
+        end
+    end
+    if asset.binding~=entry.binding then
+        asset.binding=entry.binding
+        self.dirty=true;self.metadata_dirty=true
+        if not self:save() then
+            self.dirty=true;self.metadata_dirty=true
+            return
+        end
+    end
+    local saved,reason=self.store:open(self.project.id,decode)
+    if not saved then self:status('Saved art unavailable: '..tostring(reason));return end
+    local ok,publisher,plan=pcall(function()
+        local target=GuiPublish.new(love.filesystem.getSource())
+        local base='studio/projects/'..saved.id..'/'
+        return target,target:plan_asset(saved,asset.id,function(path)
+            return IO:read(base..path)
+        end)
+    end)
+    if not ok then self:status('Cannot prepare game artwork: '..tostring(publisher));return end
+    if plan.blocked then self:status(plan.blocked);return end
+    self.asset_publish={publisher=publisher,plan=plan,project=saved,
+        asset_id=asset.id}
+    self.mode='asset_publish_confirm'
+    self:status('Review this one binding; confirm to put it in the game.')
+end
+
+function App:apply_selected_artwork()
+    local pending=self.asset_publish
+    if not pending then self:status('Choose and review an artwork slot first.');return end
+    local saved,reason=self.store:open(self.project.id,decode)
+    if not saved or Project.encode(saved)~=Project.encode(pending.project) then
+        self:status('Saved artwork changed; choose the slot again. '..tostring(reason or ''))
+        self.mode='bind_asset';self.asset_publish=nil;return
+    end
+    local base='studio/projects/'..saved.id..'/'
+    local made_backup
+    local ok,applied,why,backup=pcall(function()
+        return pending.publisher:apply_asset(saved,pending.asset_id,function(path)
+            return IO:read(base..path)
+        end,pending.plan,function(bytes)
+            made_backup=self:backup_published_manifest(bytes)
+            return made_backup
+        end)
+    end)
+    if not ok then why=applied;applied=false end
+    if not applied then
+        self:status('Could not use artwork: '..tostring(why)..
+            ' No published binding was changed.')
+        return
+    end
+    self.publish_last_backup=backup or made_backup or self.publish_last_backup
+    local binding=pending.plan.binding
+    self.asset_publish=nil;self.published_visuals=nil
+    self.slot_group='All';self.slot_missing=false;self.slot_query=''
+    self:open_artwork()
+    for index,entry in ipairs(self:visible_slots()) do
+        if entry.binding==binding then self.slot_index=index;break end
+    end
+    self:status('LIVE: '..binding..'. Press F5 in a running game to refresh.')
 end
 function App:open_audio(context)
     if not self.project then self:status('Open a project first');return end
@@ -863,6 +968,24 @@ function App:keypressed_inner(key)
         if key=='escape' then self.help_open=false end
         return true
     end
+    if self.mode=='bind_asset' then
+        if key=='escape' then self.mode='canvas'
+        elseif key=='up' or key=='down' then
+            self.binding_index=math.max(1,math.min(#self:binding_choices(),
+                self.binding_index+(key=='up' and -1 or 1)))
+        elseif key=='backspace' then
+            local offset=utf8.offset(self.binding_query,-1)
+            if offset then self.binding_query=self.binding_query:sub(1,offset-1) end
+            self.binding_index=1
+        elseif key=='delete' then self.binding_query='';self.binding_index=1
+        elseif key=='return' or key=='kpenter' then self:bind_selected_artwork() end
+        return true
+    end
+    if self.mode=='asset_publish_confirm' then
+        if key=='escape' then self.mode='bind_asset';self.asset_publish=nil
+        elseif key=='return' or key=='kpenter' then self:apply_selected_artwork() end
+        return true
+    end
     if key=='f8' and (self.mode=='project' or self.mode=='world' or
         self.mode=='theme') then
         local context
@@ -942,6 +1065,7 @@ function App:keypressed_inner(key)
             return true
         end
         if key=='s' and not self.canvas.modal then self:save();return end
+        if key=='u' and not self.canvas.modal then self:use_current_artwork();return end
         if key=='escape' and not self.canvas.modal then
             self.canvas:finish()
             if self.canvas.selection then
@@ -1254,6 +1378,12 @@ function App:textinput(text)
         return
     end
     if self.mode=='canvas' then self.canvas:textinput(text);return end
+    if self.mode=='bind_asset' then
+        if #self.binding_query+#text<=80 then
+            self.binding_query=self.binding_query..text;self.binding_index=1
+        end
+        return
+    end
     if self.mode=='theme' then self.theme_editor:textinput(text);return end
     if self.mode=='audio' then self.audio_editor:textinput(text);return end
     if self.mode=='slots' and self.slot_searching then
@@ -1330,6 +1460,32 @@ function App:mousepressed_inner(x,y,button,presses)
         end
         return true
     end
+    if self.mode=='bind_asset' then
+        if button==1 then
+            local choices=self:binding_choices()
+            local first=math.max(1,self.binding_index-13)
+            if x>=30 and x<990 and y>=156 and y<506 then
+                local index=first+math.floor((y-156)/25)
+                if choices[index] then
+                    self.binding_index=index
+                    if presses and presses>=2 then self:bind_selected_artwork() end
+                end
+            elseif y>=540 and y<580 then
+                if x>=30 and x<285 then self:bind_selected_artwork()
+                elseif x>=300 and x<490 then self.mode='canvas' end
+            end
+        end
+        return true
+    end
+    if self.mode=='asset_publish_confirm' then
+        if button==1 and y>=490 and y<535 then
+            if x>=30 and x<315 then self:apply_selected_artwork()
+            elseif x>=330 and x<520 then
+                self.mode='bind_asset';self.asset_publish=nil
+            end
+        end
+        return true
+    end
     if self.mode=='slots' then
         if button==1 then
             if not (x>=350 and x<730 and y>=75 and y<106) then
@@ -1377,6 +1533,11 @@ function App:mousepressed_inner(x,y,button,presses)
     end
     if self.mode=='canvas' then
         if self.draft_preview then self.draft_preview=false;return true end
+        local h=love.graphics.getHeight()
+        if button==1 and not self.canvas.modal and x>=24 and x<194 then
+            if y>=h-143 and y<h-113 then self:save();return true end
+            if y>=h-105 and y<h-75 then self:use_current_artwork();return true end
+        end
         local handled,reason=self.canvas:mousepressed(x,y,button)
         if reason then self:status(reason) end
         self.dirty=self.metadata_dirty or self.canvas:dirty()
@@ -1456,6 +1617,11 @@ function App:mousereleased()
         self.dirty=self.metadata_dirty or self.world_editor:dirty() end
 end
 function App:wheelmoved(dx,dy)
+    if self.mode=='bind_asset' then
+        self.binding_index=math.max(1,math.min(#self:binding_choices(),
+            self.binding_index-(dy>0 and 3 or dy<0 and -3 or 0)))
+        return
+    end
     if self.mode=='slots' then
         self.slot_index=math.max(1,math.min(#self:visible_slots(),
             self.slot_index-(dy>0 and 3 or dy<0 and -3 or 0)))
@@ -1636,6 +1802,70 @@ function App:draw_artwork()
     g.printf(self.message,24,620,w-48)
 end
 function App:draw_content()
+    if self.mode=='bind_asset' then
+        local g=love.graphics;local w,h=g.getDimensions()
+        UI.begin('ROAG  /  USE IN GAME','Saved artwork · choose one game destination')
+        UI.panel(20,72,w-40,h-145)
+        g.setColor(UI.color.text)
+        g.print('Drawing: '..tostring(self.binding_asset_id),32,88)
+        g.setColor(UI.color.muted)
+        g.print('Search by name or binding. Type to filter · Delete clears search.',32,115)
+        UI.inset(30,133,w-60,30)
+        g.setColor(UI.color.text);g.print(self.binding_query..'|',40,139)
+        local choices=self:binding_choices()
+        self.binding_index=math.max(1,math.min(self.binding_index,math.max(1,#choices)))
+        local first=math.max(1,self.binding_index-13)
+        for row=1,math.min(14,#choices-first+1) do
+            local index=first+row-1
+            local entry=choices[index]
+            local y=156+(row-1)*25
+            if index==self.binding_index then UI.selected(30,y,w-60,24) end
+            g.setColor(UI.color.text)
+            g.print(entry.label,40,y+3)
+            g.setColor(UI.color.muted)
+            g.printf(entry.binding,440,y+3,w-480,'right')
+        end
+        if #choices==0 then
+            g.setColor(UI.color.warning)
+            g.print('No matching game slots. Backspace or Delete to change search.',40,180)
+        end
+        UI.button(30,540,255,40,'Use selected game slot',false,#choices>0)
+        UI.button(300,540,190,40,'Cancel',false,true)
+        UI.statusbar(588,math.max(52,h-588))
+        g.setColor(UI.color.warning);g.printf(self.message,30,600,w-60)
+        return
+    end
+    if self.mode=='asset_publish_confirm' then
+        local g=love.graphics;local w,h=g.getDimensions()
+        local pending=self.asset_publish
+        local plan=pending and pending.plan
+        UI.begin('ROAG  /  USE IN GAME','Review one binding · other published art stays')
+        UI.panel(20,72,w-40,h-145)
+        g.setColor(UI.color.text)
+        g.print('Drawing: '..tostring(pending and pending.asset_id),32,100)
+        g.print('Game slot: '..tostring(plan and plan.binding),32,135)
+        g.setColor(UI.color.muted)
+        g.print('Current published project: '..tostring(plan and plan.owner),32,170)
+        g.print('Current slot art: '..tostring(plan and plan.replaced_asset_id or 'none'),32,195)
+        g.print('Other published bindings and their PNG files will remain untouched.',32,230)
+        if plan then
+            g.setColor(UI.color.accent)
+            g.print(('CREATE %d   REPLACE %d   UNCHANGED %d'):format(
+                plan.counts.create,plan.counts.overwrite,plan.counts.unchanged),32,270)
+            for index,file in ipairs(plan.files) do
+                g.setColor(file.status=='overwrite' and UI.color.warning or UI.color.text)
+                g.printf(file.status:upper()..'  '..file.path,32,305+(index-1)*29,w-65)
+            end
+        end
+        g.setColor(UI.color.muted)
+        g.printf('The previous manifest is backed up before replacement. This does not change your editable drawing.',
+            32,415,w-64)
+        UI.button(30,490,285,45,'Confirm: use in game',false,true)
+        UI.button(330,490,190,45,'Back',false,true)
+        UI.statusbar(555,math.max(85,h-555))
+        g.setColor(UI.color.warning);g.printf(self.message,30,577,w-60)
+        return
+    end
     if self.mode=='audio' then
         self.audio_editor:draw()
         if self.help_open then E06Views.help(self.workspace) end
@@ -1648,8 +1878,13 @@ function App:draw_content()
     end
     if self.mode=='canvas' then
         self.canvas:draw()
+        local g=love.graphics;local h=g.getHeight()
+        UI.button(24,h-143,170,30,'Save drawing',false,true)
+        UI.button(24,h-105,170,30,'Use in Game',false,true)
         love.graphics.setColor(UI.color.warning)
-        love.graphics.printf(self.message,24,love.graphics.getHeight()-133,172,'left')
+        love.graphics.setScissor(24,h-182,172,36)
+        love.graphics.printf(self.message,24,h-182,172,'left')
+        love.graphics.setScissor()
         if self.draft_preview then
             if not self.published_visuals then
                 self.published_visuals=VisualAssets.new(function(path)
