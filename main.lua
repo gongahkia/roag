@@ -361,6 +361,10 @@ function love.load(args)
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio theme: '..studio_theme_status
         end
+        if studio_theme and studio_theme.warning then
+            persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
+                'Studio theme fallback: '..studio_theme.warning
+        end
     end
     love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
     sync_audio_scene()
@@ -432,10 +436,12 @@ local function refresh_visuals()
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
     refresh_result=(same and 'checked' or 'refreshed')..' · '..backing..
-        ((state and world_status=='loaded') and ' · world geometry deferred' or '')
+        ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
+        (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
         (backing=='atlas' and 'atlas' or 'loose (atlas unavailable)')
-    notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief
+    notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
+        (theme and theme.warning and ' · theme fallback' or '')
     visual_refresh_message=refresh_result
     if not same then print('Visual refresh '..refresh_result) end
     collectgarbage('step',200)

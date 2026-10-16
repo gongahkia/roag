@@ -93,6 +93,12 @@ local function glyph_label(byte)
     if char:match('%d') then return 'Digit '..char end
     return 'Punctuation '..char
 end
+local function glyph_sort_order(byte)
+    if byte>=65 and byte<=90 then return byte-64 end
+    if byte>=97 and byte<=122 then return byte-70 end
+    if byte>=48 and byte<=57 then return byte+5 end
+    return 63+byte
+end
 function I.build(project,world,theme,source_read,published_read)
     assert(project and project.assets,'Studio project required')
     local published_by_binding={}
@@ -109,12 +115,12 @@ function I.build(project,world,theme,source_read,published_read)
     local result={}
     for id in pairs(Slots.bindings) do
         if not id:match('^core:ui/') and not id:match('^core:glyph/') then
-        local entry=visual_entry(id)
-        local asset,index=asset_for(project,id)
-        local published=published_by_binding[id]
-        entry.asset=asset;entry.asset_index=index;entry.published_asset=published
-        entry.status=published_status(asset,published,source_read,published_read)
-        result[#result+1]=entry
+            local entry=visual_entry(id)
+            local asset,index=asset_for(project,id)
+            local published=published_by_binding[id]
+            entry.asset=asset;entry.asset_index=index;entry.published_asset=published
+            entry.status=published_status(asset,published,source_read,published_read)
+            result[#result+1]=entry
         end
     end
     for _,slot in ipairs(Theme.slots) do
@@ -124,8 +130,8 @@ function I.build(project,world,theme,source_read,published_read)
         local id=theme and theme.slots[slot] or ''
         local assigned,assigned_index
         if id~='' then assigned,assigned_index=find_id(project,id) end
-        local asset=direct or assigned
-        index=index or assigned_index
+        local asset=direct or (not published and assigned or nil)
+        index=direct and index or (not published and assigned_index or nil)
         local status=direct and published_status(direct,published,source_read,published_read)
             or published and 'published elsewhere' or
             id=='' and 'missing' or
@@ -146,7 +152,7 @@ function I.build(project,world,theme,source_read,published_read)
         result[#result+1]={key=binding,binding=binding,
             label=glyph_label(byte),group='Letters & text',kind='glyph',
             asset=asset,asset_index=index,published_asset=published,
-            default_size='4x8',optional=false,
+            default_size='4x8',sort_order=glyph_sort_order(byte),optional=false,
             status=published_status(asset,published,source_read,published_read)}
     end
     local world_tiles={}
@@ -176,6 +182,9 @@ function I.build(project,world,theme,source_read,published_read)
         local ga,gb=group_order[a.group],group_order[b.group]
         if ga~=gb then return ga<gb end
         if a.optional~=b.optional then return not a.optional end
+        if a.sort_order and b.sort_order then
+            return a.sort_order<b.sort_order
+        end
         return a.key<b.key
     end)
     return result

@@ -13,7 +13,8 @@ The first screen is **Artwork**. It reads the game's actual visual binding
 registry and this project's current UI theme and World tile definitions. It
 includes all four playable classes and every regular enemy/biome elite in
 normal, attack and hurt poses; drops and chests; all
-boon icons/cards; biome backdrops; automatic terrain shapes; UI theme slots;
+boon icons/cards; biome backdrops; automatic terrain shapes; drawable UI theme
+slots; individual uppercase/lowercase letters, digits and punctuation;
 and authored World tile assignments, including six mechanical terrain types
 that can be added to a World pack from the checklist. These are destinations,
 not hundreds of saved
@@ -36,11 +37,15 @@ ordinary/base art. Unassigned destinations use the game's built-in visuals.
    changes; other published assets remain. The earlier manifest is backed up.
    Press **F5** in an already running game to refresh the artwork. **Esc**
    returns to Artwork after saving if you want to keep the art unpublished.
-4. For an **UI theme** or **World tile** destination, Enter opens the existing
-   UI or World editor. Selecting a mechanical tile that is **not added** adds
-   its semantic tile definition through the World editor's undoable action.
-   Assign an E01 asset there; these use stable asset IDs rather than direct
-   game visual bindings.
+4. **UI theme** and **Letters & text** rows now open the same pixel painter.
+   A letter defaults to 4×8 pixels; resize it if needed. Save and use it in
+   game just like an actor sprite. The **UI** page adjusts presentation
+   settings and previews those images; it is not where pixels are drawn.
+   **World tile** rows still open the World editor to assign stable image IDs.
+   Selecting a mechanical tile that is **not added** adds its semantic tile
+   definition through the World editor's undoable action. Individual glyphs
+   currently affect themed HUD text and the UI preview; other game text still
+   uses the built-in font.
 5. For a whole-project release, press **P** for Publish Readiness, **D** for a
    read-only file preview and **A** for the explicit loose-art confirmation.
    This advanced path still requires the current project to own the complete

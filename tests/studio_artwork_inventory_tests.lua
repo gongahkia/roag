@@ -27,6 +27,9 @@ return function(test)
         assert(row(entries,'core:glyph/ascii_097').label=='Lowercase a')
         assert(row(entries,'core:glyph/ascii_065').default_size=='4x8')
         assert(#Inventory.filter(entries,'uppercase','Letters & text',true)==26)
+        local letters=Inventory.filter(entries,'','Letters & text',false)
+        assert(#letters==95 and letters[1].label=='Uppercase A' and
+            letters[27].label=='Lowercase a' and letters[53].label=='Digit 0')
         assert(row(entries,'world:studio:tile/floor').status=='unmapped')
         assert(row(entries,'world:studio:tile/bramble_bed').status=='not added')
         assert(#Inventory.filter(entries,'storm conductor','Boons',true)==2)
@@ -95,6 +98,17 @@ return function(test)
         assert(row(entries,'world:studio:tile/floor').status=='drawn, assigned')
         assert(row(entries,'theme:hp_icon').asset_index==1)
         assert(row(entries,'world:studio:tile/floor').asset_index==2)
+        local foreign=Project.new('other_art','Other')
+        local live=Project.asset('studio:ui/live_hp','Live HP','ui_icon')
+        live.binding='core:ui/hp_icon';live.source='sources/live.png'
+        live.format='png';live.width=16;live.height=16
+        foreign.assets={live}
+        entries=Inventory.build(project,world,theme,nil,function(path)
+            return path=='assets/studio/manifest.txt' and Project.encode(foreign) or nil
+        end)
+        assert(row(entries,'theme:hp_icon').status=='published elsewhere')
+        assert(row(entries,'theme:hp_icon').asset==nil,
+            'the Artwork editor should open the live art, not an overridden theme image')
     end)
     test('Studio artwork checklist keeps a saved empty canvas marked unfinished',function()
         local project=Project.new('roag','ROAG')
