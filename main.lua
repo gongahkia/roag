@@ -15,8 +15,9 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
-local VisualAssets = require("src.visual_assets")
 local GeneratedVisuals = require("src.generated_visuals")
+local VisualPacks = require("src.visual_packs")
+local StudioProject = require("src.studio_project")
 local VisualSlots = require("src.visual_slots")
 local Spectator = require("src.spectator")
 local TitleMenu = require("src.title_menu")
@@ -59,7 +60,7 @@ local save_service=Persistence.new(storage)
 local profile_service = Profile.new(storage)
 local profile_status,profile,unlocks_view
 local title, pause_menu, confirm_new, save_status = true, false, false, nil
-local title_view='home' -- home, continue, class
+local title_view='home' -- home, continue, class, settings
 local title_selection=1
 local confirm_reset_seed
 local persistence_message = ""
@@ -67,10 +68,17 @@ local diagnostics = os.getenv("ROAG_DIAGNOSTICS")=="1" and
     require("src.diagnostics").new() or nil
 local diagnostics_update_ms=0
 local visual_assets
+local visual_pack_mode=VisualPacks.default
+local visual_pack_status='absent'
+local visual_pack_generated_status='disabled'
+local visual_pack_message=''
+local pause_settings=false
+local settings_selection=1
 local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
 local studio_theme,studio_theme_status
 local refresh_pending=false
+local pending_pack_mode
 local refresh_result='not requested'
 local visual_refresh_message=''
 local next_world_pack
@@ -286,7 +294,6 @@ local function visual_fingerprint(visuals,theme,world)
 end
 
 local function load_generated_visuals(read)
-    if os.getenv('ROAG_GENERATED_ART')~='1' then return nil,'disabled' end
     local ok,visuals,status=pcall(GeneratedVisuals.new,read,
         function(bytes,path)
             local data=love.filesystem.newFileData(bytes,path)
@@ -297,6 +304,19 @@ local function load_generated_visuals(read)
         end)
     if not ok then return nil,'rejected: '..tostring(visuals) end
     return visuals,status
+end
+
+local function make_visual_image(bytes,asset)
+    local data=love.filesystem.newFileData(bytes,asset.source)
+    local pixels=love.image.newImageData(data)
+    local image=love.graphics.newImage(pixels)
+    image:setFilter(asset.filter,asset.filter)
+    return image,pixels
+end
+
+local function build_selected_visuals(mode,read)
+    return VisualPacks.build(mode,read,make_visual_image,
+        load_generated_visuals,os.getenv('ROAG_GENERATED_ART')=='1')
 end
 
 function love.load(args)
@@ -310,24 +330,24 @@ function love.load(args)
         end)
     if audio_ok then audio_runtime=audio;audio_status=audio.status
     else audio_status='silent: '..tostring(audio) end
-    local generated,generated_status=load_generated_visuals(function(path)
-        return love.filesystem.read(path)
-    end)
+    local preference=VisualPacks.inspect(storage)
+    visual_pack_mode,visual_pack_status=preference.mode,preference.status
+    if spectator_enabled and os.getenv('ROAG_GENERATED_ART')=='1' then
+        visual_pack_mode='generated' -- disposable inspection override, never saved
+    end
+    settings_selection=VisualPacks.index(visual_pack_mode)
+    local read_visual=function(path)return love.filesystem.read(path)end
+    visual_assets,visual_pack_generated_status=
+        build_selected_visuals(visual_pack_mode,read_visual)
+    local generated,generated_status=visual_assets.generated,
+        visual_pack_generated_status
     if generated_status:match('^rejected') then
         print('Generated art fallback: '..generated_status)
     end
-    visual_assets=VisualAssets.new(function(path)
-        return love.filesystem.read(path)
-    end,function(bytes,asset)
-        local data=love.filesystem.newFileData(bytes,asset.source)
-        local pixels=love.image.newImageData(data)
-        local image=love.graphics.newImage(pixels)
-        image:setFilter(asset.filter,asset.filter)
-        return image,pixels
-    end,generated)
-    studio_theme,studio_theme_status=StudioThemeRuntime.inspect(function(path)
-        return love.filesystem.read(path)
-    end,visual_assets)
+    if VisualPacks.uses_published_theme(visual_pack_mode) then
+        studio_theme,studio_theme_status=StudioThemeRuntime.inspect(read_visual,
+            visual_assets)
+    else studio_theme,studio_theme_status=nil,'disabled by sprite pack' end
     local world_pack
     world_pack,studio_world_status=StudioWorldRuntime.inspect(function(path)
         return love.filesystem.read(path)
@@ -376,7 +396,8 @@ function love.load(args)
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio world: '..studio_world_status
         end
-        if studio_theme_status~='absent' and studio_theme_status~='loaded' then
+        if studio_theme_status~='absent' and studio_theme_status~='loaded' and
+            studio_theme_status~='disabled by sprite pack' then
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio theme: '..studio_theme_status
         end
@@ -391,20 +412,15 @@ end
 
 -- Build all replacement GPU handles before publishing any of them.  This is
 -- presentation state only; the active concrete floor is never regenerated.
-local function refresh_visuals()
+local function refresh_visuals(requested_mode)
+    local mode=requested_mode or visual_pack_mode
+    local switching=requested_mode~=nil
     local read=function(path) return love.filesystem.read(path) end
-    local make_image=function(bytes,asset)
-        local data=love.filesystem.newFileData(bytes,asset.source)
-        local pixels=love.image.newImageData(data)
-        local image=love.graphics.newImage(pixels)
-        image:setFilter(asset.filter,asset.filter)
-        return image,pixels
-    end
-    local ok,candidate,theme,theme_status,world,world_status=pcall(function()
-        local generated,generated_status=load_generated_visuals(read)
+    local ok,candidate,theme,theme_status,world,world_status,
+        generated_status=pcall(function()
+        local visuals,generated_status=build_selected_visuals(mode,read)
         assert(not generated_status:match('^rejected'),
             'generated art: '..generated_status)
-        local visuals=VisualAssets.new(read,make_image,generated)
         assert(visuals.status=='loaded' or visuals.status=='absent' or
             visuals.status=='generated',
             'visual manifest: '..visuals.status)
@@ -416,22 +432,39 @@ local function refresh_visuals()
                 assert(visuals:resolve_id(id),'missing or invalid visual '..id)
             end
         end
-        local new_theme,new_theme_status=StudioThemeRuntime.inspect(read,visuals)
-        assert(new_theme_status=='loaded' or new_theme_status=='absent' or
-            tostring(new_theme_status):match('^recovered'),
-            'theme: '..tostring(new_theme_status))
-        local new_world,new_world_status=StudioWorldRuntime.inspect(read)
-        assert(new_world_status=='loaded' or new_world_status=='absent' or
-            tostring(new_world_status):match('^recovered'),
-            'world: '..tostring(new_world_status))
-        if new_world then
-            local published_assets=visuals.atlas_project and
-                visuals.atlas_project.assets or {}
-            local valid,why=pcall(require('src.studio_world').validate,
-                new_world,published_assets)
-            assert(valid,'world: '..tostring(why))
+        local new_theme,new_theme_status
+        if VisualPacks.uses_published_theme(mode) then
+            new_theme,new_theme_status=StudioThemeRuntime.inspect(read,visuals)
+        else new_theme,new_theme_status=nil,'disabled by sprite pack' end
+        if not (new_theme_status=='loaded' or new_theme_status=='absent' or
+            new_theme_status=='disabled by sprite pack' or
+            tostring(new_theme_status):match('^recovered')) then
+            if switching then
+                new_theme=nil
+                new_theme_status='fallback: '..tostring(new_theme_status)
+            else error('theme: '..tostring(new_theme_status)) end
         end
-        return visuals,new_theme,new_theme_status,new_world,new_world_status
+        local new_world,new_world_status=next_world_pack,studio_world_status
+        if not switching then
+            new_world,new_world_status=StudioWorldRuntime.inspect(read)
+            assert(new_world_status=='loaded' or new_world_status=='absent' or
+                tostring(new_world_status):match('^recovered'),
+                'world: '..tostring(new_world_status))
+            if new_world then
+                local manifest=read('assets/studio/manifest.txt')
+                local published_assets={}
+                if manifest then
+                    local decoded,project=pcall(StudioProject.decode,manifest)
+                    assert(decoded,'world: published visual manifest invalid')
+                    published_assets=project.assets
+                end
+                local valid,why=pcall(require('src.studio_world').validate,
+                    new_world,published_assets)
+                assert(valid,'world: '..tostring(why))
+            end
+        end
+        return visuals,new_theme,new_theme_status,new_world,new_world_status,
+            generated_status
     end)
     if not ok then
         refresh_result='rejected: '..tostring(candidate)
@@ -440,6 +473,10 @@ local function refresh_visuals()
             tostring(candidate):find('visual manifest:',1,true) and 'visual manifest invalid' or
             'missing/corrupt visual'
         notice='F5 art rejected: '..brief
+        if switching then
+            visual_pack_message='Sprite pack unchanged: '..brief
+        else visual_pack_message='F5 rejected; previous visuals retained: '..brief
+        end
         visual_refresh_message=refresh_result
         print('Visual refresh '..refresh_result)
         return false
@@ -447,6 +484,7 @@ local function refresh_visuals()
     local signature=visual_fingerprint(candidate,theme,world)
     local same=signature==visual_signature
     visual_assets,studio_theme,studio_theme_status=candidate,theme,theme_status
+    visual_pack_generated_status=generated_status
     studio_world_status=world_status
     -- A run owns concrete floor geometry. World templates are installed only
     -- for a fresh run from the title, never into an existing run.
@@ -463,9 +501,33 @@ local function refresh_visuals()
         ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
         (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
-        (backing=='atlas' and 'atlas' or 'loose (atlas unavailable)')
+        (backing=='atlas' and 'atlas' or backing=='generated atlas' and
+            'generated atlas' or 'loose (atlas unavailable)')
     notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
         (theme and theme.warning and ' · theme fallback' or '')
+    if switching then
+        visual_pack_mode=mode
+        local saved,reason=VisualPacks.save(storage,mode)
+        if saved then
+            visual_pack_status='loaded'
+            visual_pack_message='Selected '..VisualPacks.labels[mode]..' · '..backing
+        else
+            visual_pack_message='Selected for this session; settings not saved: '..
+                tostring(reason)
+        end
+        local fallback
+        if mode=='generated' and generated_status~='loaded' then
+            fallback='Four-tone atlas '..tostring(generated_status)..
+                '; using built-in fallback'
+        elseif mode=='published' and candidate.status=='absent' then
+            fallback='No published Paint art; using built-in fallback'
+        elseif tostring(theme_status):match('^fallback:') then
+            fallback=theme_status
+        end
+        if fallback then visual_pack_message=visual_pack_message..' · '..fallback end
+        notice=visual_pack_message
+    else visual_pack_message=''
+    end
     visual_refresh_message=refresh_result
     if not same then print('Visual refresh '..refresh_result) end
     collectgarbage('step',200)
@@ -473,10 +535,13 @@ local function refresh_visuals()
 end
 
 function love.update(dt)
-    if refresh_pending then
+    if refresh_pending or pending_pack_mode then
+        local requested=pending_pack_mode
+        local reload_audio=refresh_pending
         refresh_pending=false
-        refresh_visuals()
-        if audio_runtime then
+        pending_pack_mode=nil
+        refresh_visuals(requested)
+        if reload_audio and audio_runtime then
             local _,reason=audio_runtime:refresh();audio_status=reason
             if tostring(reason):match('^rejected') then
                 notice='F5 audio: '..tostring(reason)
@@ -549,6 +614,7 @@ local function begin_new(seed)
     profile_status=profile_service:inspect()
     floor_seed=seed
     title,confirm_new,pause_menu=false,false,false
+    pause_settings=false
     title_view='home'
     save_status=nil
     persistence_message=reason or ""
@@ -571,6 +637,7 @@ local function continue_run()
     selected_class_id=Game.player(state).definition_id
     floor_seed=state.root_seed or state.run_seed
     title,confirm_new,pause_menu=false,false,false
+    pause_settings=false
     title_view='home'
     save_status=nil
     persistence_message=found.status=="recovered"
@@ -603,11 +670,29 @@ local function activate_title_selection()
         elseif title_selection==2 then
             title_view='class'
         elseif title_selection==3 then unlocks_view=true
+        elseif title_selection==4 then
+            title_view='settings'
+            settings_selection=VisualPacks.index(visual_pack_mode)
         else love.event.quit() end
     elseif title_view=='continue' then
         if resumable(save_status) then continue_run()
         else persistence_message='No compatible active run to continue' end
     elseif title_view=='class' then request_new_run() end
+end
+
+local function settings_keypressed(key,on_title)
+    if key=='up' or key=='w' or key=='left' or key=='a' then
+        settings_selection=(settings_selection+#VisualPacks.order-2)%
+            #VisualPacks.order+1
+    elseif key=='down' or key=='s' or key=='right' or key=='d' then
+        settings_selection=settings_selection%#VisualPacks.order+1
+    elseif key=='return' or key=='kpenter' then
+        pending_pack_mode=VisualPacks.order[settings_selection]
+        visual_pack_message='Loading '..VisualPacks.labels[pending_pack_mode]..'…'
+    elseif key=='escape' or key=='b' then
+        if on_title then title_view='home';title_selection=4
+        else pause_settings=false end
+    end
 end
 
 local function checkpoint(force)
@@ -792,6 +877,7 @@ local function title_keypressed(key)
         elseif key=='n' or key=='escape' then confirm_new=false end
         return
     end
+    if title_view=='settings' then settings_keypressed(key,true);return end
     if key=='r' and save_status and save_status.status=='pending_terminal' then
         local pending=save_status.state.meta and save_status.state.meta.pending or {}
         local ok,updated=profile_service:commit_awards(pending)
@@ -813,9 +899,9 @@ local function title_keypressed(key)
             title_view='class'
             return
         elseif key=='up' or key=='w' then
-            title_selection=(title_selection+2)%4+1
+            title_selection=(title_selection+3)%5+1
         elseif key=='down' or key=='s' then
-            title_selection=title_selection%4+1
+            title_selection=title_selection%5+1
         elseif key=='return' or key=='kpenter' then
             activate_title_selection()
         elseif key=='c' then
@@ -947,10 +1033,14 @@ function love.keypressed(key, _, isrepeat)
     end
     if title then title_keypressed(key);return end
     if pause_menu then
+        if pause_settings then settings_keypressed(key,false);return end
         if key=="escape" or key=="1" or key=="return" then
             pause_menu=false
         elseif key=="2" or key=="s" then
             if checkpoint(true) then love.event.quit() end
+        elseif key=='3' then
+            pause_settings=true
+            settings_selection=VisualPacks.index(visual_pack_mode)
         end
         return
     end
@@ -1020,6 +1110,7 @@ function love.keypressed(key, _, isrepeat)
     end
     if key=="escape" and not targeting then
         pause_menu=true
+        pause_settings=false
         persistence_message=""
         return
     end
@@ -1139,7 +1230,8 @@ function love.gamepadpressed(_,button)
         key=({a='return',b='escape',x='u',y='n',start='n',
             dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
     elseif pause_menu then
-        key=({a='return',b='escape',y='2',start='escape'})[button]
+        key=({a='return',b='escape',x='3',y='2',start='escape',
+            dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
     else
         key=({a='return',b='escape',x='f',y='r',
             rightshoulder='x',leftshoulder='v',start='escape',back='tab',
@@ -2273,6 +2365,70 @@ local function draw_boon_detail()
     love.graphics.print('Esc or click to close · no world time',x+18,y+275)
 end
 
+local function pack_choice_at(x,y,panel_x,panel_y,panel_w)
+    if x<panel_x+36 or x>panel_x+panel_w-36 then return nil end
+    for index=1,#VisualPacks.order do
+        local top=panel_y+150+(index-1)*82
+        if y>=top and y<=top+70 then return index end
+    end
+end
+
+local function draw_pack_settings(x,y,w,h)
+    local g=love.graphics
+    g.setColor(.025,.055,.06,.98)
+    g.rectangle('fill',x,y,w,h)
+    g.setColor(.35,.54,.52)
+    g.rectangle('line',x+.5,y+.5,w-1,h-1)
+    g.setColor(.95,.86,.60)
+    g.setFont(ui_display_font)
+    g.printf('SPRITE PACK',x,y+26,w,'center')
+    g.setFont(ui_body_font)
+    g.setColor(.69,.85,.80)
+    g.print('← BACK',x+20,y+73)
+    local source='Built-in fallback'
+    if visual_assets and visual_assets.status=='generated' then
+        source='Four-tone atlas'
+    elseif visual_assets and visual_assets.status=='loaded' then
+        source=(visual_assets.atlas_status=='loaded' or
+            tostring(visual_assets.atlas_status):match('^recovered')) and
+            'Published atlas' or 'Published loose PNGs'
+    end
+    g.setColor(.76,.86,.78)
+    g.printf('In use: '..source..'  ·  No gameplay or save changes',
+        x+30,y+107,w-60,'center')
+    local actor=bound_visual(selected_class_id)
+    if actor then draw_visual(actor,x+w-78,y+36,38,38) end
+    for index,mode in ipairs(VisualPacks.order) do
+        local top=y+150+(index-1)*82
+        local selected=settings_selection==index
+        local active=visual_pack_mode==mode
+        g.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
+        g.rectangle('fill',x+36,top,w-72,70)
+        g.setColor(selected and {.75,.91,.77} or {.28,.43,.42})
+        g.rectangle('line',x+36.5,top+.5,w-73,69)
+        g.setColor(active and {.99,.91,.64} or {.84,.89,.84})
+        g.print((active and '✓ ' or '  ')..VisualPacks.labels[mode],
+            x+53,top+11)
+        g.setColor(.60,.77,.74)
+        g.printf(VisualPacks.descriptions[mode],x+54,top+37,w-108,'left')
+    end
+    local warning=visual_pack_message
+    if warning=='' and visual_pack_status=='corrupt' then
+        warning='Damaged pack setting; using Automatic'
+    elseif warning=='' and visual_pack_status=='incompatible' then
+        warning='Newer pack setting preserved; using Automatic'
+    elseif warning=='' and visual_pack_mode=='generated' and
+        visual_pack_generated_status~='loaded' then
+        warning='Four-tone atlas unavailable; using built-in fallback'
+    elseif warning=='' and visual_pack_mode=='published' and
+        (not visual_assets or visual_assets.status~='loaded') then
+        warning='No valid published art; using built-in fallback'
+    end
+    g.setColor(warning~='' and {1,.73,.46} or {.60,.77,.74})
+    g.printf(warning~='' and warning or '↑↓ choose · Enter apply · Esc back',
+        x+28,y+h-50,w-56,'center')
+end
+
 function love.draw()
     if title then
         if studio_theme and studio_theme:draw_background('title_background',0,0,
@@ -2300,25 +2456,26 @@ function love.draw()
         if title_view=='home' then
             love.graphics.setColor(.75,.85,.81)
             love.graphics.printf('One saved run · choose what to do',210,174,604,'center')
-            local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','QUIT'}
+            local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','SETTINGS','QUIT'}
             local descriptions={
                 resumable(save_status) and 'Resume your saved character' or
                     'No compatible saved run',
                 'Choose your character, then begin',
                 'View permanent unlocks',
+                'Choose a sprite pack',
                 'Leave ROAG',
             }
             for index,label in ipairs(options) do
-                local y=206+(index-1)*83
+                local y=192+(index-1)*70
                 local selected=title_selection==index
                 love.graphics.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
-                love.graphics.rectangle('fill',230,y,564,72)
+                love.graphics.rectangle('fill',230,y,564,62)
                 love.graphics.setColor(selected and {.74,.89,.74} or {.27,.40,.40})
-                love.graphics.rectangle('line',230.5,y+.5,563,71)
+                love.graphics.rectangle('line',230.5,y+.5,563,61)
                 love.graphics.setColor(selected and {.99,.91,.67} or {.75,.83,.79})
-                love.graphics.print(label,250,y+13)
+                love.graphics.print(label,250,y+9)
                 love.graphics.setColor(.60,.76,.73)
-                love.graphics.print(descriptions[index],250,y+39)
+                love.graphics.print(descriptions[index],250,y+35)
             end
             love.graphics.setColor(.54,.70,.68)
             love.graphics.printf(resumable(save_status) and 'Saved run available' or
@@ -2386,6 +2543,8 @@ function love.draw()
             love.graphics.setColor(.59,.76,.72)
             love.graphics.printf('←→ / 1–6 choose · Enter begin · Esc back',
                 210,614,604,'center')
+        elseif title_view=='settings' then
+            draw_pack_settings(190,55,644,585)
         end
         if unlocks_view then
             love.graphics.setColor(0.02,0.05,0.05,0.96)
@@ -2484,16 +2643,21 @@ function love.draw()
         love.graphics.printf("Enter / Y confirm · Esc cancel",160,295,704,"center")
     end
     if pause_menu then
-        love.graphics.setColor(0,0,0,0.83)
-        love.graphics.rectangle("fill",160,150,704,330)
-        if studio_theme then studio_theme:draw_background('pause_background',160,150,704,330) end
-        love.graphics.setColor(0.94,0.95,0.85)
-        love.graphics.printf("PAUSED",160,190,704,"center")
-        love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
-        love.graphics.printf("2 / S: Save & Quit",160,290,704,"center")
-        if persistence_message~="" then
-            love.graphics.setColor(1,0.46,0.43)
-            love.graphics.printf(persistence_message,180,355,664,"center")
+        if pause_settings then
+            draw_pack_settings(160,85,704,560)
+        else
+            love.graphics.setColor(0,0,0,0.83)
+            love.graphics.rectangle("fill",160,150,704,360)
+            if studio_theme then studio_theme:draw_background('pause_background',160,150,704,360) end
+            love.graphics.setColor(0.94,0.95,0.85)
+            love.graphics.printf("PAUSED",160,190,704,"center")
+            love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
+            love.graphics.printf("2 / S: Save & Quit",160,290,704,"center")
+            love.graphics.printf("3: Settings · Sprite pack",160,325,704,"center")
+            if persistence_message~="" then
+                love.graphics.setColor(1,0.46,0.43)
+                love.graphics.printf(persistence_message,180,390,664,"center")
+            end
         end
     end
 end
@@ -2577,6 +2741,7 @@ function love.roagAssetBacking(id)
     local handle=visual_assets and visual_assets:resolve_id(id)
     return handle and handle.source or 'fallback'
 end
+function love.roagVisualPackMode() return visual_pack_mode end
 function love.roagThemeDrawCounts() return studio_theme and studio_theme.counts or {} end
 function love.roagAssetResolved(binding)
     return visual_assets and visual_assets:resolve(binding)~=nil or false
@@ -2596,14 +2761,16 @@ function love.mousepressed(x,y,button,istouch,presses)
             return
         end
         if title_view~='home' and x>=205 and x<=290 and y>=120 and y<=156 then
+            local was_settings=title_view=='settings'
             title_view='home'
-            title_selection=TitleMenu.default_selection(save_status)
+            title_selection=was_settings and 4 or
+                TitleMenu.default_selection(save_status)
             return
         end
         if title_view=='home' then
-            for index=1,4 do
-                local top=206+(index-1)*83
-                if x>=230 and x<=794 and y>=top and y<=top+72 then
+            for index=1,5 do
+                local top=192+(index-1)*70
+                if x>=230 and x<=794 and y>=top and y<=top+62 then
                     title_selection=index
                     activate_title_selection()
                     return
@@ -2626,6 +2793,33 @@ function love.mousepressed(x,y,button,istouch,presses)
             if x>=390 and x<=634 and y>=570 and y<=608 then
                 request_new_run()
             end
+        elseif title_view=='settings' then
+            local index=pack_choice_at(x,y,190,55,644)
+            if index then
+                settings_selection=index
+                settings_keypressed('return',true)
+            end
+        end
+        return
+    end
+    if pause_menu then
+        if pause_settings then
+            if x>=180 and x<=300 and y>=155 and y<=185 then
+                pause_settings=false;return
+            end
+            local index=pack_choice_at(x,y,160,85,704)
+            if index then
+                settings_selection=index
+                settings_keypressed('return',false)
+            end
+        elseif x>=160 and x<=864 then
+            if y>=250 and y<=282 then pause_menu=false
+            elseif y>=285 and y<=317 then
+                if checkpoint(true) then love.event.quit() end
+            elseif y>=320 and y<=352 then
+                pause_settings=true
+                settings_selection=VisualPacks.index(visual_pack_mode)
+            end
         end
         return
     end
@@ -2641,7 +2835,9 @@ function love.mousepressed(x,y,button,istouch,presses)
     boon_detail_id=owned[index]
 end
 function love.wheelmoved(dx,dy)
-    if state and not title and dy~=0 then
+    if dy~=0 and (title and title_view=='settings' or pause_settings) then
+        settings_keypressed(dy>0 and 'up' or 'down',title)
+    elseif state and not title and not pause_menu and dy~=0 then
         zoom_by(dy>0 and 1 or -1)
     end
 end

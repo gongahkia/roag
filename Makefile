@@ -14,11 +14,12 @@ endif
 .PHONY: help game spectator test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
-	 'make game             Play ROAG with built-in visuals' \
+	 'make game             Play ROAG with your selected sprite pack' \
 	 'make spectator        Inspect the current generated atlas without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'ROAG_GENERATED_ART=1 make game    Preview the unapproved generated atlases'
+	 'ROAG_GENERATED_ART=1 make game    Generated fallback in Automatic mode' \
+	 'Title Settings or Esc -> 3       Choose Classic, four-tone preview or Paint art'
 game:
 	$(LOVE_RUN) .
 spectator:
