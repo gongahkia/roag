@@ -45,7 +45,38 @@ Playback.tile_seconds = 0.08
 Playback.max_beat_seconds = 0.32
 
 function Playback.new()
-    return {items={}, remaining=0, poses={}}
+    return {items={}, remaining=0, poses={}, facings={}}
+end
+
+local function horizontal(current, dx)
+    if dx < 0 then return -1 elseif dx > 0 then return 1 end
+    return current
+end
+
+-- Use the committed cells, never the player's later position. Symmetric AOE
+-- and vertical attacks retain the previous horizontal facing.
+local function attack_facing(current, event)
+    local origin = event.from_x or event.source_x
+    if not origin then return current end
+    local dx = 0
+    for _,cell in ipairs(event.target_cells or {}) do dx=dx+cell.x-origin end
+    return horizontal(current,dx)
+end
+
+local function item_facing(item, id, current, elapsed)
+    local track=item.motions and item.motions[id]
+    if track then
+        local count=#track.path-1
+        local leg=math.min(count,math.floor(math.max(0,elapsed)/track.duration*count)+1)
+        for i=1,leg do current=horizontal(current,track.facing_dx[i] or 0) end
+    end
+    for _,event in ipairs(item.events or {item.event}) do
+        if event.source_id==id and
+            (event.kind=='WindupStarted' or event.kind=='AttackPerformed') then
+            current=attack_facing(current,event)
+        end
+    end
+    return current
 end
 
 local function motion(event)
@@ -95,7 +126,7 @@ function Playback.add(playback, events, player_id)
                 track = nil
             end
             if not track then
-                track = {floor_id=leg.floor_id, path={}, snap=false}
+                track = {floor_id=leg.floor_id, path={}, facing_dx={}, snap=false}
                 motions[id] = track
                 order[#order+1] = id
                 if not playback.poses[id] then
@@ -109,7 +140,13 @@ function Playback.add(playback, events, player_id)
                 track.path[#track.path].y ~= leg.path[1].y then
                 track.snap = true -- discontinuity must not cross the map
             end
-            for i=2,#leg.path do track.path[#track.path+1] = leg.path[i] end
+            for i=2,#leg.path do
+                local index=#track.path
+                -- Knockback changes position, not the actor's chosen facing.
+                track.facing_dx[index]=event.kind=='Moved' and
+                    leg.path[i].x-leg.path[i-1].x or 0
+                track.path[index+1] = leg.path[i]
+            end
             track.snap = track.snap or leg.snap
             first_event = first_event or event
         else
@@ -197,12 +234,35 @@ function Playback.busy(playback)
 end
 
 local function finish_item(playback, item)
+    if item.motions then
+        for _,id in ipairs(item.order) do
+            playback.facings[id]=item_facing(item,id,playback.facings[id] or 1,item.duration)
+        end
+    else
+        for _,event in ipairs(item.events or {item.event}) do
+            if event.source_id and
+                (event.kind=='WindupStarted' or event.kind=='AttackPerformed') then
+                local id=event.source_id
+                playback.facings[id]=attack_facing(playback.facings[id] or 1,event)
+            end
+        end
+    end
     if not item.motions then return end
     for _,id in ipairs(item.order) do
         local track = item.motions[id]
         local last = track.path[#track.path]
         playback.poses[id] = {floor_id=track.floor_id,x=last.x,y=last.y}
     end
+end
+
+-- Read-only presentation facing. On Continue, reconstruct a locked windup
+-- from the existing snapshot; no facing is written into simulation or saves.
+function Playback.facing(playback, id, pending_attack, last_dx)
+    local current=playback.facings[id] or 1
+    local item=playback.items[1]
+    if item then return item_facing(item,id,current,item.duration-playback.remaining) end
+    if not playback.facings[id] then current=horizontal(current,last_dx or 0) end
+    return pending_attack and attack_facing(current,pending_attack) or current
 end
 
 function Playback.update(playback, dt)

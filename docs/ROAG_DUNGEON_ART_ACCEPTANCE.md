@@ -120,3 +120,44 @@ not track `Game.restore`, so it compared `nil` against the saved run. Tracking
 restore and submitted actions fixed that fixture; disk inspection independently
 confirmed the saved snapshot itself was exact. That failed log remains in
 `/var/tmp/roag-visual-final-round1`.
+
+## Follow-up: enemy facing and clear attack borders
+
+Enemy generated/published sprites now mirror for the horizontal movement leg or
+locked attack currently being presented. Vertical motion and symmetric area
+attacks retain facing; forced displacement does not turn an actor. Completed
+facing stays in presentation memory. Continue reconstructs it from the saved
+pending attack or existing AI movement memory, without changing save formats.
+
+Windup, impact, cancellation and live pending-strike tiles use dashed borders
+instead of filled tiles. Amber means windup playback, red means impact/live
+pending strike and gray means cancellation. The old source ring no longer
+overprints attack sprites. Other effect overlays retain their existing style.
+
+Reproduce the focused actual-render check with:
+
+```sh
+TMPDIR=/var/tmp xvfb-run -a sh tests/enemy_facing_gui_smoke.sh
+```
+
+The test compares opaque atlas sprite pixels against actual captured left/right
+renders, verifies clear warning interiors, checks movement/vertical retention
+and reaches a genuine guard windup using legal wait inputs. Directed left/right
+pose checks are explicitly assisted presentation fixtures. Three isolated runs
+passed (18 captures). See [left](visuals/enemy-facing-left.png),
+[right](visuals/enemy-facing-right.png) and
+[generated-floor pending strike](visuals/dungeon-outline-combat.png).
+
+Headless regression: **325/325** (previous **321/321**), split into ranges
+1–150, 151–260 and 261–1000. Motion GUI passed its 11 frames. The full visual
+acceptance harness passed its four fresh processes including Save/Continue,
+classic/generated selection and corrupt-art fallback (21 captures). Nine
+established GUI harnesses passed in a sequential retry round. The first round
+had one enemy-harness failure reporting only `X connection to :99 broken`;
+its log remains at `/var/tmp/roag-facing-regressions/1-enemy_gui_smoke.log`.
+The isolated enemy rerun also passed. No root cause for that display failure
+is claimed. An initial new-test pixel mismatch came from the old source ring
+painting over the sprite and passed after removing that overlay for attacks.
+
+Runtime: LÖVE 11.5, Mesa llvmpipe software rendering under Xvfb. All input was
+callback-driven; no physical keyboard/mouse/Wacom or native GPU was tested.

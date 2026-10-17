@@ -37,6 +37,82 @@ return function(test,equal)
             from_x=from_x,from_y=from_y,x=x,y=y,path=path}
     end
 
+    test("enemy facing follows displayed movement legs and persists through vertical motion",function()
+        local p=Playback.new()
+        Playback.add(p,{moved(8,7,3,6,3,0),moved(8,6,3,6,4,1),
+            moved(8,6,4,7,4,2)},1)
+        assert(Playback.facing(p,8)==-1)
+        Playback.update(p,Playback.tile_seconds)
+        assert(Playback.facing(p,8)==-1,'vertical movement reset facing')
+        Playback.update(p,Playback.tile_seconds)
+        assert(Playback.facing(p,8)==1,'next horizontal leg did not turn')
+        Playback.update(p,1)
+        assert(Playback.facing(p,8)==1)
+        Playback.add(p,{moved(8,7,4,6,4,3)},1)
+        Playback.update(p,1)
+        Playback.add(p,{moved(8,6,4,6,5,4)},1)
+        assert(Playback.facing(p,8)==-1)
+        Playback.update(p,1)
+        assert(Playback.facing(p,8)==-1)
+    end)
+
+    test("enemy attack facing uses locked cells at its beat and survives idle or Continue",function()
+        local p=Playback.new()
+        local left={kind='WindupStarted',source_id=8,from_x=6,from_y=4,
+            target_cells={{x=5,y=4},{x=4,y=4}},floor_id='floor'}
+        local right={kind='AttackPerformed',source_id=8,from_x=6,from_y=4,
+            target_cells={{x=7,y=4}}}
+        Playback.add(p,{moved(8,5,4,6,4,0),left,right},1)
+        assert(Playback.facing(p,8,left)==1,'future locked attack turned actor too early')
+        Playback.update(p,.08)
+        assert(Playback.facing(p,8)==-1)
+        Playback.update(p,.55)
+        assert(Playback.facing(p,8)==1)
+        Playback.update(p,1)
+        assert(Playback.facing(p,8)==1)
+        assert(Playback.facing(Playback.new(),8,
+            {source_x=6,target_cells=left.target_cells})==-1)
+        assert(Playback.facing(Playback.new(),8,nil,-1)==-1)
+        local before={source_x=6,target_cells={{x=5,y=4},{x=7,y=4}}}
+        assert(Playback.facing(Playback.new(),8,before,-1)==-1,
+            'symmetric AOE chose an arbitrary direction')
+    end)
+
+    test("grouped enemy windups turn independently and knockback does not turn an actor",function()
+        local p=Playback.new()
+        Playback.add(p,{
+            {kind='WindupStarted',source_id=8,from_x=5,target_cells={{x=4,y=4}}},
+            {kind='WindupStarted',source_id=9,from_x=5,target_cells={{x=6,y=4}}}},1)
+        assert(Playback.facing(p,8)==-1 and Playback.facing(p,9)==1)
+        Playback.update(p,1)
+        local displaced=moved(8,5,4,6,4,1)
+        displaced.kind='Displaced';displaced.target_id=8;displaced.source_id=1
+        Playback.add(p,{displaced},1)
+        assert(Playback.facing(p,8)==-1)
+        Playback.update(p,1)
+        assert(Playback.facing(p,8)==-1)
+    end)
+
+    test("dashed attack borders stay inside tiles and leave interiors and gaps clear at every zoom",function()
+        local Outline=require('src.attack_outline')
+        for _,tile in ipairs({32,40,48,56,64}) do
+            local rects=Outline.rectangles(tile)
+            local painted={}
+            for _,r in ipairs(rects) do
+                assert(r[1]>=3 and r[2]>=3 and r[1]+r[3]<=tile-3 and r[2]+r[4]<=tile-3)
+                for y=r[2],r[2]+r[4]-1 do for x=r[1],r[1]+r[3]-1 do
+                    painted[y*tile+x]=true
+                end end
+            end
+            local gaps=0
+            for x=3,tile-4 do if not painted[3*tile+x] then gaps=gaps+1 end end
+            assert(gaps>0,'warning border is solid')
+            for y=6,tile-7 do for x=6,tile-7 do
+                assert(not painted[y*tile+x],'warning obscures tile interior')
+            end end
+        end
+    end)
+
     test("board token starts, eases through midpoint and snaps to final tile",function()
         local playback=Playback.new()
         Playback.add(playback,{moved(3,2,4,3,4,0)},1)

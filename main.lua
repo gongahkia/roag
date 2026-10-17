@@ -6,6 +6,7 @@ local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
 local Playback = require("src.playback")
+local AttackOutline = require("src.attack_outline")
 local HitFeedback = require("src.hit_feedback")
 local CombatNumbers = require("src.combat_numbers")
 local UIFont = require("src.ui_fonts")
@@ -1240,15 +1241,27 @@ function love.gamepadpressed(_,button)
     if key then love.keypressed(key) end
 end
 
-local function draw_cells(cells, red, green, blue, alpha)
+local outline_cache={}
+local function draw_cells(cells, red, green, blue, alpha, outline)
     love.graphics.setColor(red, green, blue, alpha)
     for _, cell in ipairs(cells) do
         if visible_at(cell.x,cell.y) then
         local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
+        if outline then
+            outline_cache[TILE]=outline_cache[TILE] or AttackOutline.rectangles(TILE)
+            for _,rect in ipairs(outline_cache[TILE]) do
+                local x,y=screen_x+rect[1],screen_y+rect[2]
+                love.graphics.setColor(0.08,0.02,0.02,0.85)
+                love.graphics.rectangle('fill',x-1,y-1,rect[3]+2,rect[4]+2)
+                love.graphics.setColor(red,green,blue,math.min(1,alpha+0.5))
+                love.graphics.rectangle('fill',x,y,rect[3],rect[4])
+            end
+        else
         love.graphics.rectangle("fill", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, math.min(1, alpha + 0.3))
         love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, alpha)
+        end
         end
     end
 end
@@ -1313,7 +1326,9 @@ local function draw_enemies()
                     love.graphics.setColor(0,0,0,.45)
                     love.graphics.ellipse('fill',x+TILE*.5,y+TILE*.87,TILE*.30,TILE*.08)
                 end
-                draw_visual(enemy_art,x,y,TILE,TILE)
+                local facing=Playback.facing(playback,enemy.id,enemy.pending_attack,
+                    enemy.ai_memory and enemy.ai_memory.last_dx)
+                draw_visual(enemy_art,x,y,TILE,TILE,nil,facing==-1)
             else
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
             -- camera so zoom works even without published enemy artwork.
@@ -1504,11 +1519,11 @@ local function draw_history_event(event)
     if not event then return end
     if event.kind=="Moved" or event.kind=="Displaced" then return end
     if event.kind == "WindupStarted" then
-        draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5)
+        draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true)
     elseif event.kind == "AttackPerformed" then
-        draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7)
+        draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7, true)
     elseif event.kind == "WindupCancelled" then
-        draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4)
+        draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4, true)
     elseif event.kind == "EffectApplied" or event.kind == "DelayedEffectResolved" then
         if event.damage_type=="fire" then
             draw_cells(event.target_cells or {},1,0.42,0.13,0.51)
@@ -1531,7 +1546,9 @@ local function draw_history_event(event)
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
     end
-    if event.from_x and event.from_y and visible_at(event.from_x,event.from_y) then
+    if event.kind~='WindupStarted' and event.kind~='AttackPerformed'
+        and event.kind~='WindupCancelled' and event.from_x and event.from_y
+        and visible_at(event.from_x,event.from_y) then
         local x, y = Camera.tile_top_left(camera, event.from_x, event.from_y)
         love.graphics.setColor(1, 0.92, 0.52, 0.85)
         love.graphics.circle("line", x + TILE / 2, y + TILE / 2, 13)
@@ -1908,7 +1925,7 @@ local function draw_world()
     end
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
-            draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38)
+            draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true)
         end
     end
     draw_preview()
