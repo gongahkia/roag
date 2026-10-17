@@ -70,7 +70,7 @@ Accepted artifacts under `/var/tmp/`:
 - `roag-fixed-preview-check`: five actual frames compare every previewed
   cell's interior against its baseline, verify border colors and unchanged
   snapshots, and exercise the removed wheel/+/- bindings.
-- `roag-trimmed-menu-final`: three processes, 20 frames, exact Save/Continue,
+- `roag-ui-polish-release`: three processes, 20 frames, exact Save/Continue,
   character text assertions, two-choice settings, menu input gates and 100
   open/close cycles without increased texture memory.
 - `roag-trimmed-kenney-check`: four processes, source-pixel comparisons,

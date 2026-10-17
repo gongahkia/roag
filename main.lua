@@ -617,7 +617,7 @@ local function begin_new(seed)
     targeting,chest_menu,route_menu=nil,nil,nil
     playback=Playback.new()
     combat_numbers=CombatNumbers.new()
-    notice=("Seed %d — new run"):format(floor_seed)
+    notice='New run · '..Classes.get(selected_class_id).name
     reset_camera()
 end
 
@@ -1358,7 +1358,7 @@ local function draw_enemies()
                 draw_visual(enemy_art,x,y,TILE,TILE,nil,facing==-1)
             else
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
-            -- camera so zoom works even without published enemy artwork.
+            -- camera so fallback actors retain the same tile alignment.
             love.graphics.push()
             love.graphics.translate(x,y)
             love.graphics.scale(TILE/32)
