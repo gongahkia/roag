@@ -12,6 +12,12 @@ cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Content=require("src.content")
 local Scheduler=require("src.scheduler")
+local Camera=require('src.camera')
+local camera
+local camera_new=Camera.new
+function Camera.new(...)
+    camera=camera_new(...);return camera
+end
 local original_new=Game.new
 local tracked
 function Game.new(seed,map_id,options)
@@ -136,7 +142,7 @@ function love.draw(...)
         local arena=tracked.generated_map.elite
         assert(tracked.clock==0 and
             not contains(("arena %d,%d"):format(arena.x,arena.y))
-            and not contains("LIVE WINDUPS"))
+            and not contains("INCOMING ATTACK"))
     elseif phase==2 then
         local p=Game.player(tracked).position
         assert(p.x==secret.x and p.y==secret.y)
@@ -153,15 +159,30 @@ function love.draw(...)
     end
     pending=true
     love.graphics.captureScreenshot(function(image)
+        local ok,why=pcall(function()
         local file=assert(io.open(out.."/phase"..phase..".png","wb"))
         file:write(image:encode("png"):getString()); file:close()
         if phase==1 then
             local p=Game.player(tracked).position
-            local screen_x=16+704/2+9*32+16
-            local screen_y=16+608/2+16
+            -- Sample a genuinely unexplored cell inside the actual camera at
+            -- its current zoom, outside the minimap. The previous hardcoded
+            -- 32px offset sampled visible geometry after default zoom became 48.
+            local screen_x,screen_y
+            local map=Content.map_for(tracked)
+            for yy=1,map.height do for xx=1,map.width do
+                local sx,sy=Camera.tile_top_left(camera,xx,yy)
+                sx,sy=sx+camera.tile/2,sy+camera.tile/2
+                if sx>25+map.width*1.3+5 and sx<720 and sy>=16 and sy<624 and
+                    not Game.was_explored(tracked,tracked.active_floor_id,xx,yy)then
+                    screen_x,screen_y=sx,sy;break
+                end
+            end;if screen_x then break end end
+            assert(screen_x,'no on-screen unexplored fog sample')
             local r,g,b=image:getPixel(screen_x,screen_y)
             assert(math.abs(r-0.09)<0.03 and math.abs(g-0.13)<0.03
-                and math.abs(b-0.11)<0.03,"unseen tile leaked geometry")
+                and math.abs(b-0.11)<0.03,
+                ('unseen tile leaked geometry at %.0f,%.0f: %.3f %.3f %.3f'):
+                    format(screen_x,screen_y,r,g,b))
             local clock,rng=tracked.clock,tracked.rng.state
             love.keypressed("tab")
             assert(tracked.clock==clock and tracked.rng.state==rng)
@@ -184,7 +205,20 @@ function love.draw(...)
             love.event.quit()
         end
         phase=phase+1;pending=false
+        end)
+        if not ok then
+            io.stderr:write('Exploration screenshot assertion: '..tostring(why)..'\n')
+            love.event.quit(1)
+        end
     end)
+end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Exploration draw assertion: '..tostring(why)..'\n')
+        love.event.quit(1)
+    end
 end
 LUA
 ROAG_EXPLORATION_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 20s love "$output_dir"

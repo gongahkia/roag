@@ -39,6 +39,7 @@ love.graphics.print=function(v,...) labels[#labels+1]=tostring(v);return old_pri
 love.graphics.printf=function(v,...) labels[#labels+1]=tostring(v);return old_printf(v,...) end
 local function has(fragment)
     for _,v in ipairs(labels) do if v:find(fragment,1,true) then return true end end
+    return false
 end
 local function write(path,bytes)
     local f=assert(io.open(path,'wb'));f:write(bytes);f:close()
@@ -65,7 +66,8 @@ function love.draw(...)
     labels={};old_draw(...)
     if done or pending then return end
     if phase=='load' and not continued then
-        assert(has('C / Enter: Continue'))
+        assert(has('CONTINUE') and has('Saved run available'),
+            'current single-save Continue menu missing')
         pending=true
         love.graphics.captureScreenshot(function(image)
             write(out..'/'..name..'-title.png',image:encode('png'):getString())
@@ -78,7 +80,7 @@ function love.draw(...)
         end)
         return
     end
-    assert(tracked and tracked.stage.biome_id==id and has(Biomes.get(id).name),
+    assert(tracked and tracked.stage.biome_id==id and has(Biomes.get(id).name:upper()),
         'missing biome HUD: '..table.concat(labels,' | '))
     pending=true
     love.graphics.captureScreenshot(function(image)

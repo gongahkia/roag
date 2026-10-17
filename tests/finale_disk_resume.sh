@@ -130,7 +130,8 @@ function love.draw(...)
             love.event.quit()
         end)
     elseif step==1 then
-        assert(has('C / Enter: Continue'))
+        assert(has('CONTINUE') and has('Saved run available'),
+            'current single-save Continue menu missing')
         pending=true
         love.graphics.captureScreenshot(function(image)
             write(out..'/title.png',image:encode('png'):getString())

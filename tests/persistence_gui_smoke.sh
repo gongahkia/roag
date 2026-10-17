@@ -57,6 +57,16 @@ local function has(fragment)
     for _,label in ipairs(labels) do
         if label:find(fragment,1,true) then return true end
     end
+    return false
+end
+local function capture(checked)
+    love.graphics.captureScreenshot(function(image)
+        local ok,why=pcall(checked,image)
+        if not ok then
+            io.stderr:write('Persistence screenshot assertion: '..tostring(why)..'\n')
+            love.event.quit(1)
+        end
+    end)
 end
 function love.load(...)
     old_load(...)
@@ -83,9 +93,10 @@ function love.draw(...)
     old_draw(...)
     if phase=='load' and not continued then
         if title_pending then return end
-        assert(has('C / Enter: Continue'))
+        assert(has('CONTINUE') and has('Saved run available'),
+            'current single-save Continue menu missing')
         title_pending=true
-        love.graphics.captureScreenshot(function(image)
+        capture(function(image)
             local file=assert(io.open(output_dir..'/title.png','wb'))
             file:write(image:encode('png'):getString());file:close()
             love.keypressed('c') -- fresh process Continue
@@ -101,7 +112,7 @@ function love.draw(...)
     assert(tracked.clock==100 and has('HEALTH'))
     if phase=='save' then assert(has('Save & Quit')) end
     captured=true
-    love.graphics.captureScreenshot(function(image)
+    capture(function(image)
         local file=assert(io.open(output_dir..'/'..phase..'.png','wb'))
         file:write(image:encode('png'):getString());file:close()
         if phase=='save' then
@@ -115,6 +126,14 @@ function love.draw(...)
             love.event.quit()
         end
     end)
+end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Persistence draw assertion: '..tostring(why)..'\n')
+        love.event.quit(1)
+    end
 end
 LUA
 ROAG_PERSIST_PHASE=save ROAG_PERSIST_OUTPUT="$output_dir" XDG_DATA_HOME="$data_dir" timeout 25s love "$output_dir"

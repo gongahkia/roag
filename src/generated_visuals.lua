@@ -1,4 +1,4 @@
--- Optional, presentation-only four-tone atlases generated from Paint sources.
+-- Optional, presentation-only bundled four-tone atlases and legacy art packs.
 -- The manifest is activated last; every page is checked before any handle is
 -- exposed. Bad/missing art leaves VisualAssets' loose and built-in fallbacks.
 local Atlas=require('src.studio_atlas')
@@ -20,11 +20,16 @@ function G.new(read,make_texture,make_quad)
     if not bytes then return nil,'absent' end
     local lines={}
     for line in bytes:gmatch('[^\r\n]+') do lines[#lines+1]=line end
-    assert(lines[1]=='ROAG-GENERATED-ATLAS/1','incompatible generated atlas')
-    local pages,assets={},{}
+    assert(lines[1]=='ROAG-GENERATED-ATLAS/1' or
+        lines[1]=='ROAG-GENERATED-ATLAS/2','incompatible generated atlas')
+    local pages,assets,terrain_mode={},{},'motifs'
     for index=2,#lines do
         local record=fields(lines[index])
-        if record[1]=='page' then
+        if record[1]=='terrain_mode' then
+            assert(lines[1]=='ROAG-GENERATED-ATLAS/2' and #record==2 and
+                record[2]=='tiled' and terrain_mode=='motifs','invalid terrain mode')
+            terrain_mode='tiled'
+        elseif record[1]=='page' then
             assert(#record==6,'invalid generated page')
             local name,path=record[2],record[3]
             assert(name:match('^[a-z]+$') and not pages[name],
@@ -50,6 +55,8 @@ function G.new(read,make_texture,make_quad)
         else error('unknown generated atlas record') end
     end
     assert(next(pages) and next(assets),'empty generated atlas')
+    assert(lines[1]~='ROAG-GENERATED-ATLAS/2' or terrain_mode=='tiled',
+        'generated terrain contract missing')
     make_quad=make_quad or function(x,y,w,h,pw,ph)
         return love.graphics.newQuad(x,y,w,h,pw,ph)
     end
@@ -63,7 +70,7 @@ function G.new(read,make_texture,make_quad)
                 page.width,page.height),
             width=asset.width,height=asset.height,source='generated'}
     end
-    return setmetatable({handles=handles,pages=pages,
+    return setmetatable({handles=handles,pages=pages,terrain_mode=terrain_mode,
         signature=Atlas.checksum(bytes),status='loaded'},{__index=G}), 'loaded'
 end
 function G:resolve(id) return self.handles[id] end

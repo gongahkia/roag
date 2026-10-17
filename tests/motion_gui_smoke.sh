@@ -11,6 +11,11 @@ cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require("src.game")
 local Camera=require("src.camera")
+local active_camera
+local camera_new=Camera.new
+function Camera.new(...)
+    active_camera=camera_new(...);return active_camera
+end
 local original_new_stage=Game.new_stage
 local tracked,initial_camera,latest_camera
 local runs=0
@@ -31,11 +36,15 @@ local original_load,original_update,original_draw=love.load,love.update,love.dra
 local circle,rectangle=love.graphics.circle,love.graphics.rectangle
 local player_x,guard_x
 love.graphics.circle=function(mode,x,y,radius,...)
-    if mode=="fill" and radius==11 then player_x=x end
+    if mode=="fill" and active_camera and radius==11*active_camera.tile/32 then
+        player_x=love.graphics.transformPoint(x,y)
+    end
     return circle(mode,x,y,radius,...)
 end
 love.graphics.rectangle=function(mode,x,y,width,height,...)
-    if mode=="fill" and width==20 and height==19 then guard_x=x end
+    if mode=="fill" and width==20 and height==19 then
+        guard_x=love.graphics.transformPoint(x,y)
+    end
     return rectangle(mode,x,y,width,height,...)
 end
 local output=assert(os.getenv("ROAG_MOTION_GUI_OUTPUT"))
@@ -55,6 +64,7 @@ local function capture(label)
     values[label]={player=assert(player_x),guard=guard_x,
         logical=p.x,clock=tracked.clock,camera=latest_camera or initial_camera}
     love.graphics.captureScreenshot(function(image)
+        local ok,why=pcall(function()
         local path=output.."/"..label..".png"
         local file=assert(io.open(path,"wb"))
         file:write(image:encode("png"):getString())
@@ -108,6 +118,11 @@ local function capture(label)
         end
         phase=phase+1
         pending=false
+        end)
+        if not ok then
+            io.stderr:write('Motion screenshot assertion: '..tostring(why)..'\n')
+            love.event.quit(1)
+        end
     end)
 end
 function love.draw(...)
@@ -116,6 +131,14 @@ function love.draw(...)
     if phase>#labels or pending then return end
     pending=true
     capture(labels[phase])
+end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Motion draw assertion: '..tostring(why)..'\n')
+        love.event.quit(1)
+    end
 end
 LUA
 ROAG_MOTION_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \

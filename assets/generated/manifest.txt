@@ -1,8 +1,9 @@
-ROAG-GENERATED-ATLAS/1
-page	actors	assets/generated/builds/e6f7e490b979490e/actors.png	192	192	93bd010478152e0d
-page	backgrounds	assets/generated/builds/e6f7e490b979490e/backgrounds.png	448	64	7b013c1a6dd776b7
-page	icons	assets/generated/builds/e6f7e490b979490e/icons.png	128	128	813a061413742859
-page	terrain	assets/generated/builds/e6f7e490b979490e/terrain.png	224	96	16b4ad2454473fa3
+ROAG-GENERATED-ATLAS/2
+terrain_mode	tiled
+page	actors	assets/generated/builds/82841362c2cbce75/actors.png	192	192	489067199e4c991a
+page	backgrounds	assets/generated/builds/82841362c2cbce75/backgrounds.png	448	64	7b013c1a6dd776b7
+page	icons	assets/generated/builds/82841362c2cbce75/icons.png	128	128	813a061413742859
+page	terrain	assets/generated/builds/82841362c2cbce75/terrain.png	224	96	438cfd78a66c8f1d
 asset	core:actor/adventurer	actors	0	0	32	32
 asset	core:actor/adventurer/attack	actors	0	0	32	32
 asset	core:actor/adventurer/hurt	actors	0	0	32	32
@@ -215,9 +216,9 @@ asset	core:enemy/vault_lurker/hurt	actors	96	96	32	32
 asset	core:terrain/ashen_bastion/floor/base	terrain	96	0	32	32
 asset	core:terrain/ashen_bastion/wall/base	terrain	96	32	32	32
 asset	core:terrain/ashen_bastion/water/base	terrain	96	64	32	32
-asset	core:terrain/fractured_archive/floor/base	terrain	192	0	32	32
-asset	core:terrain/fractured_archive/wall/base	terrain	192	32	32	32
-asset	core:terrain/fractured_archive/water/base	terrain	192	64	32	32
+asset	core:terrain/fractured_archive/floor/base	terrain	160	0	32	32
+asset	core:terrain/fractured_archive/wall/base	terrain	160	32	32	32
+asset	core:terrain/fractured_archive/water/base	terrain	160	64	32	32
 asset	core:terrain/fungal_hollows/floor/base	terrain	32	0	32	32
 asset	core:terrain/fungal_hollows/wall/base	terrain	32	32	32	32
 asset	core:terrain/fungal_hollows/water/base	terrain	32	64	32	32
@@ -227,9 +228,9 @@ asset	core:terrain/glacial_observatory/water/base	terrain	128	64	32	32
 asset	core:terrain/overgrown_ruins/floor/base	terrain	0	0	32	32
 asset	core:terrain/overgrown_ruins/wall/base	terrain	0	32	32	32
 asset	core:terrain/overgrown_ruins/water/base	terrain	0	64	32	32
-asset	core:terrain/sundered_forge/floor/base	terrain	160	0	32	32
-asset	core:terrain/sundered_forge/wall/base	terrain	160	32	32	32
-asset	core:terrain/sundered_forge/water/base	terrain	160	64	32	32
+asset	core:terrain/sundered_forge/floor/base	terrain	192	0	32	32
+asset	core:terrain/sundered_forge/wall/base	terrain	192	32	32	32
+asset	core:terrain/sundered_forge/water/base	terrain	192	64	32	32
 asset	core:terrain/sunken_aqueduct/floor/base	terrain	64	0	32	32
 asset	core:terrain/sunken_aqueduct/wall/base	terrain	64	32	32	32
 asset	core:terrain/sunken_aqueduct/water/base	terrain	64	64	32	32

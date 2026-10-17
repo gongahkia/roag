@@ -50,6 +50,25 @@ return function(test,equal)
             assert(count>40 and count<140,kind..' motif density is unsafe')
         end
     end)
+    test('tiled generated terrain covers every cell and omits the stretched backdrop',function()
+        for _,kind in ipairs({'floor','wall','water'})do
+            assert(Slots.terrain_alpha(kind,'generated',false,'tiled')==1)
+            assert(Slots.terrain_alpha(kind,'generated',true,'tiled')==.38)
+            for y=1,20 do for x=1,20 do
+                assert(Slots.terrain_draws_at(kind,'generated',x,y,'tiled'))
+            end end
+        end
+        assert(Slots.background_alpha('generated','tiled')==0)
+        assert(Slots.background_alpha('loose','tiled')==1)
+    end)
+    test('connected wall borders use known neighbors without exposing hidden geometry',function()
+        local map={rows={'...','.#B','...'}}
+        local e=Slots.wall_edges(map,2,2)
+        assert(e.n and e.s and e.w and not e.e)
+        e=Slots.wall_edges(map,2,2,function(x,y)return y<2 end)
+        assert(e.n and not e.s and not e.w and not e.e)
+        assert(map.rows[2]=='.#B')
+    end)
     test('default checkout has no hand-painted published art override',function()
         assert(read('assets/studio/manifest.txt')==nil)
         local visuals=Visual.new(read,function() error('unexpected image load') end)
@@ -57,7 +76,7 @@ return function(test,equal)
     end)
     test('generated four-tone atlas covers current classes, biomes and boons',function()
         local atlas,status=Generated.new(read,image,quad)
-        assert(status=='loaded' and atlas)
+        assert(status=='loaded' and atlas and atlas.terrain_mode=='tiled')
         for _,id in ipairs(Classes.order) do
             assert(atlas:resolve(id) and atlas:resolve(id..'/attack') and
                 atlas:resolve(id..'/hurt'))
@@ -104,6 +123,10 @@ return function(test,equal)
         end
         assert(not pcall(Generated.new,corrupt,image,quad))
         assert(Generated.new(function()return nil end,image,quad)==nil)
+        local missing_contract=original:gsub('terrain_mode\ttiled\n','')
+        assert(not pcall(Generated.new,function(path)
+            return path=='assets/generated/manifest.txt' and missing_contract or read(path)
+        end,image,quad))
     end)
     test('generated art fallback stays presentation-only',function()
         local atlas=assert(Generated.new(read,image,quad))

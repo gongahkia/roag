@@ -122,28 +122,39 @@ function V.terrain_bindings(biome_id,kind,shape)
     result[#result+1]=base..'base'
     return result
 end
--- The generated sheets use dense, opaque motifs. Keep walkable ground quiet
--- enough that walls, actors and tactical overlays remain distinguishable.
--- Published Paint artwork retains its authored opacity.
-function V.terrain_alpha(kind,source,remembered)
+-- Legacy motif packs retain their subdued opacity. Version-2 tiled packs and
+-- published Paint tiles cover the surface; fog dimming is presentation only.
+function V.terrain_alpha(kind,source,remembered,mode)
     local alpha=1
-    if source=='generated' then
+    if source=='generated' and mode~='tiled' then
         if kind=='floor' then alpha=0.18
         elseif kind=='wall' then alpha=0.72
         elseif kind=='water' then alpha=0.58 end
     end
     return remembered and alpha*0.38 or alpha
 end
--- The optional generated terrain pictures are 32px motifs with transparent
--- borders, not edge-matched tile textures. Stamp them as deterministic accents
--- over continuous terrain instead of repeating each picture on every cell.
--- Authored Paint terrain remains a literal tile and is always drawn.
-function V.terrain_draws_at(kind,source,x,y)
-    if source~='generated' then return true end
+-- Legacy motif packs used sparse stamps. Tiled packs and published Paint
+-- terrain are literal full-coverage surfaces.
+function V.terrain_draws_at(kind,source,x,y,mode)
+    if source~='generated' or mode=='tiled' then return true end
     local period=kind=='wall' and 4 or kind=='water' and 3 or 5
     return (x+2*y)%period==0
 end
-function V.background_alpha(source)
+function V.background_alpha(source,mode)
+    if source=='generated' and mode=='tiled' then return 0 end
     return source=='generated' and 0.16 or 1
+end
+-- Connected wall faces are presentation geometry inside the owning tile.
+-- Unknown neighbors never disclose a hidden passage through a bevel.
+function V.wall_edges(map,x,y,known)
+    local edges={}
+    for _,d in ipairs({{'n',0,-1},{'e',1,0},{'s',0,1},{'w',-1,0}})do
+        local xx,yy=x+d[2],y+d[3]
+        local row=map.rows[yy]
+        local cell=row and row:sub(xx,xx)or ''
+        edges[d[1]]=cell~='' and cell~='#' and cell~='B' and
+            (not known or known(xx,yy))or false
+    end
+    return edges
 end
 return V

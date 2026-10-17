@@ -1,16 +1,16 @@
 -- Presentation-only sprite-pack choice. This record is separate from runs and
--- profiles; bad settings fall back to the historical automatic resolver.
+-- profiles; bad settings fall back to the automatic resolver.
 local Atlas=require('src.studio_atlas')
 local VisualAssets=require('src.visual_assets')
 local P={format='roag-visual-pack/1',files={
     'visual-pack-a.roag','visual-pack-b.roag'},default='automatic',
     order={'automatic','classic','generated','published'},
     labels={automatic='Automatic',classic='Classic built-in',
-        generated='Four-tone preview',published='Published Paint'},
+        generated='Dungeon pixel art',published='Published Paint'},
     descriptions={
-        automatic='Published art when available; otherwise built-in',
+        automatic='Published Paint art, then bundled Dungeon pixel art',
         classic='Original game tokens and terrain',
-        generated='Experimental motifs, not seamless terrain tiles',
+        generated='Connected terrain, heroes and enemies',
         published='Paint art and atlas; built-in fallback',
     }}
 
@@ -90,10 +90,10 @@ end
 
 -- Only the selected renderer is handed a source. Missing assets still reach
 -- the established built-in drawing path; no simulation data is involved.
-function P.build(mode,read,make_image,load_generated,legacy_preview)
+function P.build(mode,read,make_image,load_generated)
     assert(P.valid(mode),'invalid sprite pack')
     local generated,status=nil,'disabled'
-    if mode=='generated' or mode=='automatic' and legacy_preview then
+    if mode=='generated' or mode=='automatic' then
         generated,status=load_generated(read)
     end
     local visual_read=read

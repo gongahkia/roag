@@ -75,25 +75,29 @@ return function(test,equal)
         end
         local state=Game.new_stage(37)
         local before=Game.snapshot(state)
-        local classic=Packs.build('classic',read,image,load_generated,true)
+        local classic=Packs.build('classic',read,image,load_generated)
         assert(classic.status=='absent' and
             not classic:resolve('core:actor/adventurer'))
-        local four=Packs.build('generated',read,image,load_generated,false)
+        local four=Packs.build('generated',read,image,load_generated)
         assert(four:resolve('core:actor/adventurer').source=='generated')
-        local published=Packs.build('published',read,image,load_generated,true)
+        local published=Packs.build('published',read,image,load_generated)
         assert(published:resolve('core:actor/adventurer').source=='loose')
-        local automatic=Packs.build('automatic',read,image,load_generated,true)
+        local automatic=Packs.build('automatic',read,image,load_generated)
         assert(automatic:resolve('core:actor/adventurer').source=='loose')
         assert(calls==2 and Packs.uses_published_theme('automatic') and
             not Packs.uses_published_theme('classic'))
         local missing_generated,status=Packs.build('generated',function()
-            return nil end,image,function()return nil,'absent' end,false)
+            return nil end,image,function()return nil,'absent' end)
         assert(status=='absent' and missing_generated.status=='absent' and
             not missing_generated:resolve('core:actor/adventurer'))
         local missing_published=Packs.build('published',function()
-            return nil end,image,load_generated,false)
+            return nil end,image,load_generated)
         assert(missing_published.status=='absent' and
             not missing_published:resolve('core:actor/adventurer'))
+        local bundled=Packs.build('automatic',function()return nil end,
+            image,load_generated)
+        assert(bundled:resolve('core:actor/adventurer').source=='generated',
+            'fresh Automatic must select the bundled dungeon pack')
         equal(before,Game.snapshot(state))
     end)
 end

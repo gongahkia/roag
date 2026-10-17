@@ -1,6 +1,6 @@
 # ROAG — Game guide
 
-The game starts with built-in visuals through `make game` or `love .` when no published Paint art or saved sprite-pack preference is present. Choose a pack on the title's **Settings** page or during a run with **Esc → 3 Settings**. The generated four-tone atlas is an unapproved art preview. Generated terrain images have transparent borders and appear as sparse decorative motifs over continuous terrain rather than repeated seamless tiles. Authored Paint terrain tiles still draw at every mapped cell. Optional published visuals, world rooms, UI themes, audio, and atlases remain supported; missing or invalid art falls back safely.
+`make game` or `love .` now uses the bundled **Dungeon pixel art** pack in Automatic mode, beneath any published Paint artwork. The pack has continuous stone floors, connected brick walls, seven biome palettes, six class sprites and 25 enemy/boss sprites. **Settings → Sprite Pack** (or **Esc → 3 Settings** during a run) switches between Dungeon, Classic built-in and Published Paint. Invalid artwork falls back safely. [Actual LÖVE screenshots and visual acceptance evidence](docs/ROAG_DUNGEON_ART_ACCEPTANCE.md) document the replacement of the old sparse motif preview.
 
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
@@ -12,7 +12,7 @@ Run these from this checkout: `make game` for the playable game, `make test` for
 
 Run `make game` (or `love .` when LÖVE is on `PATH`). The title starts with **Continue**, **New Game**, **Achievements**, **Settings**, and **Quit**. Continue shows the existing single saved run's character, stage, floor, seed and HP before resuming. New Game opens character selection; choose one of six characters, then begin. Replacing a resumable, incompatible or damaged save requires confirmation. Arrow keys and Enter navigate, Esc goes back, and the cards can be clicked. Existing **C** quick-continue, **N** quick-start and **1–6** class shortcuts remain available. During normal gameplay **Esc** opens a pause menu: **1/Enter/Esc Resume**, **2/S Save & Quit**, **3 Settings**. Esc still cancels aiming, chest and route menus first. Saving, loading, settings and pausing cost no world time or RNG. Save & Quit writes the latest stable player-ready state and exits only after the save is read back successfully; a failed write leaves the game open. A mid-animation save resumes with clean presentation because all authoritative effects have already resolved. Milestone autosaves follow chest claims, elite defeat, pursuer arrival, stage transition, death and Victory. Hard termination resumes from the latest verified milestone; it may lose actions since then. The game does not save every frame.
 
-**Settings → Sprite Pack** offers **Automatic** (published Paint art when present, then built-in), **Classic built-in**, **Four-tone preview**, and **Published Paint** (atlas or loose PNGs). Use ↑/↓ or the mouse wheel to highlight, Enter or click to apply, and Esc to return. The current backing and any fallback warning are shown. A choice applies to the running game immediately without restarting or changing its authoritative state; it survives relaunch in separate checked `visual-pack-a.roag` / `visual-pack-b.roag` records under LÖVE's `roag-foundation` save directory. The active-run and achievement-profile records are unchanged. If a selected optional pack is absent, the game uses built-in visuals until art is published and refreshed with F5. `ROAG_GENERATED_ART=1` remains a temporary generated-art fallback for Automatic mode; `make spectator` explicitly previews the generated pack without changing the saved choice. The four-tone preview has one non-seamless floor/wall/water motif per biome, so its terrain appears as sparse accents over the built-in map; it is not a finished full-map skin.
+**Settings → Sprite Pack** offers **Automatic** (published Paint art, then bundled Dungeon art, then built-in), **Classic built-in**, **Dungeon pixel art**, and **Published Paint** (atlas or loose PNGs, then built-in). Use ↑/↓ or the mouse wheel to highlight, Enter or click to apply, and Esc to return. The current backing and any fallback warning are shown. A choice applies immediately without restarting or changing the run; it survives relaunch in separate checked `visual-pack-a.roag` / `visual-pack-b.roag` records under LÖVE's `roag-foundation` save directory. Existing saved `generated` preferences select the new Dungeon pack automatically. The active-run and achievement-profile records are unchanged. Missing or corrupt art uses built-in visuals until restored and refreshed with F5. `make spectator` explicitly previews Dungeon art without changing the saved choice; no environment flag is needed for ordinary play.
 
 LÖVE writes two rotating `active-a.roag` / `active-b.roag` records inside its platform save directory under the stable `roag-foundation` identity. Each record stores a generation, snapshot/content compatibility IDs, payload size and checksum. The next generation is written to the inactive slot and read back; startup chooses the newest integrity-valid generation, falling back one generation if a slot is corrupt. A valid newer incompatible save is reported instead of silently loading an older run. Confirmed New Run replacement writes the inactive slot first and verifies it before replacing the older slot; if the second write fails, the game warns that only one new generation is verified, and the next checkpoint replenishes the backup. The codec is inert, length-prefixed plain data: it never evaluates save text. No hardware power-loss fsync guarantee or cross-version migration is claimed. Terminal/dead runs write verified non-resumable tombstones to both slots, so one damaged terminal slot does not revive an older active backup. Permanent unlocks use separate profile records.
 
@@ -148,15 +148,18 @@ ROAG retains read-only format validators and published-content readers because
 saved generated floors and optional loose/world/theme/audio/atlas packs refer
 to their stable IDs. None of these readers opens editor UI or changes simulation.
 The hand-painted published PNGs were archived in Paint and removed from this
-game checkout, so `make game` uses the built-in sprites by default. `F5` still
+game checkout. Automatic now selects the bundled Dungeon pack; Classic remains
+available in Settings. `F5` still
 refreshes compatible published visuals without changing the current floor.
 
-Paint also contains the original Codex-generated sheets and a deterministic
-four-tone compiler. The derived character, terrain, icon and backdrop atlases
-are an unapproved preview. Select **Four-tone preview** in game Settings to use
-them directly, or launch with `ROAG_GENERATED_ART=1 make game` for a temporary
-fallback beneath higher-priority published art in Automatic mode. The atlas is
-checked as one complete generation and falls back safely if missing or corrupt.
+The old Codex motif sheets are retained as historical source material. New
+imagegen reference sheets and an independent reproducible compiler live in this
+checkout: `sh tools/build_generated_art.sh` builds and validates a dry run;
+`sh tools/build_generated_art.sh --apply` explicitly activates all matching
+pages. Terrain is opaque and edge matched; 31 actor identities are cropped,
+quantized to four colors and aligned to 32px cells. The atlas is checked as one
+complete generation and falls back safely if missing or corrupt. Source art,
+existing icons and older builds are preserved.
 
 Historical Studio E00–E06 guides remain in `docs/` for format and workflow
 background; the active authoring commands now live in Paint.

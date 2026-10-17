@@ -52,6 +52,7 @@ love.graphics.setColor=function(r,g,bl,a)
 end
 local function has(fragment)
     for _,v in ipairs(labels) do if v:find(fragment,1,true) then return true end end
+    return false
 end
 local function approach(entity)
     local p=Game.player(tracked)
@@ -79,7 +80,7 @@ function love.draw(...)
     labels,scenery,telegraph={},0,0
     old_draw(...)
     if phase>3 or pending then return end
-    assert(has(b.name) and scenery>0,"biome identity not rendered")
+    assert(has(b.name:upper()) and scenery>0,"biome identity not rendered")
     if phase==2 then
         local strikes=Game.pending_strikes(tracked)
         assert(#strikes>=1 and strikes[1].ability_id==
@@ -93,6 +94,7 @@ function love.draw(...)
     end
     pending=true
     love.graphics.captureScreenshot(function(image)
+        local ok,why=pcall(function()
         local file=assert(io.open(out.."/"..b.strategy.."-"..phase..".png","wb"))
         file:write(image:encode("png"):getString());file:close()
         if phase==1 then
@@ -150,7 +152,20 @@ function love.draw(...)
             assert(tracked.clock==clock,"route menu spent time")
         else love.event.quit() end
         phase=phase+1;pending=false
+        end)
+        if not ok then
+            io.stderr:write('Biome screenshot assertion: '..tostring(why)..'\n')
+            love.event.quit(1)
+        end
     end)
+end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Biome draw assertion: '..tostring(why)..'\n')
+        love.event.quit(1)
+    end
 end
 LUA
 

@@ -316,7 +316,7 @@ end
 
 local function build_selected_visuals(mode,read)
     return VisualPacks.build(mode,read,make_visual_image,
-        load_generated_visuals,os.getenv('ROAG_GENERATED_ART')=='1')
+        load_generated_visuals)
 end
 
 function love.load(args)
@@ -517,7 +517,7 @@ local function refresh_visuals(requested_mode)
         end
         local fallback
         if mode=='generated' and generated_status~='loaded' then
-            fallback='Four-tone atlas '..tostring(generated_status)..
+            fallback='Dungeon atlas '..tostring(generated_status)..
                 '; using built-in fallback'
         elseif mode=='published' and candidate.status=='absent' then
             fallback='No published Paint art; using built-in fallback'
@@ -1309,6 +1309,10 @@ local function draw_enemies()
             local enemy_art=actor_visual(enemy.definition_id,enemy.id) or
                 (visual_assets and visual_assets:resolve_id(enemy.definition_id))
             if enemy_art then
+                if enemy_art.source=='generated' then
+                    love.graphics.setColor(0,0,0,.45)
+                    love.graphics.ellipse('fill',x+TILE*.5,y+TILE*.87,TILE*.30,TILE*.08)
+                end
                 draw_visual(enemy_art,x,y,TILE,TILE)
             else
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
@@ -1676,10 +1680,14 @@ local function draw_world()
     love.graphics.setColor(0.09, 0.13, 0.11)
     love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
     local biome_id=map.biome_id or Biomes.order[1]
+    local terrain_mode=visual_assets and visual_assets.generated and
+        visual_assets.generated.terrain_mode
     local background=bound_visual('core:background/'..biome_id:match('/([^/]+)$'))
-    if background then
+    if background and VisualSlots.background_alpha(background.source,terrain_mode)>0 then
         draw_visual(background,VIEWPORT.x,VIEWPORT.y,VIEWPORT.width,VIEWPORT.height,
-            VisualSlots.background_alpha(background.source))
+            VisualSlots.background_alpha(background.source,terrain_mode))
+    elseif terrain_mode=='tiled' then
+        background=nil
     end
     if terrain_cache_assets~=visual_assets then
         terrain_cache_assets=visual_assets;terrain_cache={}
@@ -1753,9 +1761,15 @@ local function draw_world()
             end
             local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
                 tile=='.' and 'floor' or nil
+            if terrain_mode=='tiled' then
+                if tile=='B'then kind='wall'
+                elseif tile=='b' or tile=='g' or tile=='i' or tile=='m' or tile=='c'then
+                    kind='floor'
+                end
+            end
             love.graphics.setColor(r,g,b,background and not wall and 0.78 or 1)
-            -- Generated motifs have transparent margins. Fill their terrain
-            -- continuously so those margins do not become a repeated grid.
+            -- A complete underlay also supports legacy motif transparency.
+            -- Version-2 terrain itself is opaque and fills every cell.
             local edge=kind and visual_assets and visual_assets.generated and 0 or 2
             love.graphics.rectangle("fill", screen_x, screen_y, TILE-edge,TILE-edge)
             if kind and visual_assets and visual_assets.has_terrain then
@@ -1770,9 +1784,38 @@ local function draw_world()
                     end
                     terrain_cache[cache_key]=handle or false
                 end
-                if handle and VisualSlots.terrain_draws_at(kind,handle.source,x,y) then
+                if handle and VisualSlots.terrain_draws_at(kind,handle.source,x,y,terrain_mode) then
+                    local tiled_generated=terrain_mode=='tiled' and handle.source=='generated'
                     draw_visual(handle,screen_x,screen_y,TILE,TILE,
-                        VisualSlots.terrain_alpha(kind,handle.source,remembered))
+                        tiled_generated and 1 or
+                            VisualSlots.terrain_alpha(kind,handle.source,remembered,terrain_mode))
+                    if tiled_generated then
+                        if tile~='.' and tile~='#' and tile~='~' then
+                            love.graphics.setColor(r,g,b,remembered and .12 or .24)
+                            love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
+                        end
+                        if remembered then
+                            love.graphics.setColor(0,0,0,.62)
+                            love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
+                        end
+                        if kind=='wall' then
+                            local edges=VisualSlots.wall_edges(map,x,y,function(xx,yy)
+                                return explored_at(map.floor_id,xx,yy)
+                            end)
+                            local pixel=TILE/32
+                            local dim=remembered and .38 or 1
+                            love.graphics.setColor(.035*dim,.06*dim,.055*dim,1)
+                            if edges.s then love.graphics.rectangle('fill',screen_x,
+                                screen_y+TILE-4*pixel,TILE,4*pixel)end
+                            if edges.e then love.graphics.rectangle('fill',screen_x+TILE-2*pixel,
+                                screen_y,2*pixel,TILE)end
+                            if edges.w then love.graphics.rectangle('fill',screen_x,
+                                screen_y,2*pixel,TILE)end
+                            love.graphics.setColor(dim,dim,dim,.16)
+                            if edges.n then love.graphics.rectangle('fill',screen_x,
+                                screen_y,TILE,pixel)end
+                        end
+                    end
                 end
             end
             local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
@@ -1792,6 +1835,10 @@ local function draw_world()
             if tile=="b" or tile=="g" or tile=="i" or tile=="B"
                 or tile=="m" or tile=="c" then
                 love.graphics.setColor(0.88,0.91,0.78,remembered and 0.25 or 0.65)
+                love.graphics.push()
+                love.graphics.translate(screen_x,screen_y)
+                love.graphics.scale(TILE/32)
+                local screen_x,screen_y=0,0
                 if tile=="b" then
                     love.graphics.line(screen_x+7,screen_y+24,screen_x+14,screen_y+8,
                         screen_x+20,screen_y+24)
@@ -1809,6 +1856,7 @@ local function draw_world()
                         screen_x+24,screen_y+16,screen_x+16,screen_y+27,
                         screen_x+8,screen_y+16)
                 end
+                love.graphics.pop()
             end
             if not remembered and visual=="k" then
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.78)
@@ -1818,32 +1866,32 @@ local function draw_world()
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.73)
                 love.graphics.circle("line",screen_x+16,screen_y+16,6)
                 love.graphics.circle("fill",screen_x+16,screen_y+16,2)
-            elseif not remembered and visual=="m" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="m" then
                 love.graphics.setColor(0.28,0.47,0.23,0.65)
                 love.graphics.circle("fill",screen_x+23,screen_y+9,3)
-            elseif not remembered and visual=="v" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="v" then
                 love.graphics.setColor(0.33,0.52,0.25,0.75)
                 love.graphics.line(screen_x+6,screen_y+3,screen_x+8,screen_y+12,
                     screen_x+14,screen_y+17)
-            elseif not remembered and visual=="r" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="r" then
                 love.graphics.setColor(0.48,0.47,0.34,0.65)
                 love.graphics.rectangle("fill",screen_x+6,screen_y+20,7,4)
                 love.graphics.rectangle("fill",screen_x+17,screen_y+15,4,3)
-            elseif not remembered and visual=="w" and map.visual_rows then
+            elseif not remembered and terrain_mode~='tiled' and visual=="w" and map.visual_rows then
                 love.graphics.setColor(0.34,0.45,0.30,0.5)
                 love.graphics.rectangle("fill",screen_x+3,screen_y+3,7,3)
-            elseif not remembered and visual=="f" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="f" then
                 love.graphics.setColor(0.42,0.81,0.77,0.60)
                 love.graphics.circle("fill",screen_x+8,screen_y+10,2)
                 love.graphics.circle("fill",screen_x+23,screen_y+23,2)
-            elseif not remembered and visual=="b" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="b" then
                 love.graphics.setColor(0.52,0.76,0.84,0.48)
                 love.graphics.line(screen_x+4,screen_y+24,screen_x+26,screen_y+24)
-            elseif not remembered and visual=="q" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="q" then
                 love.graphics.setColor(0.40,0.68,0.81,0.72)
                 love.graphics.line(screen_x+3,screen_y+10,screen_x+12,screen_y+10)
                 love.graphics.line(screen_x+17,screen_y+22,screen_x+28,screen_y+22)
-            elseif not remembered and visual=="t" then
+            elseif not remembered and terrain_mode~='tiled' and visual=="t" then
                 love.graphics.setColor(0.72,0.48,0.34,0.52)
                 love.graphics.line(screen_x+4,screen_y+14,screen_x+27,screen_y+14)
             end
@@ -1898,6 +1946,11 @@ local function draw_world()
     local screen_x, screen_y = Camera.tile_top_left(camera, visual_x, visual_y)
     local avatar=actor_visual(Game.player(state).definition_id,state.player_id)
     if avatar then
+        if avatar.source=='generated' then
+            love.graphics.setColor(0,0,0,.6)
+            love.graphics.ellipse('fill',screen_x+TILE*.5,screen_y+TILE*.88,
+                TILE*.30,TILE*.09)
+        end
         draw_visual(avatar,screen_x,screen_y,TILE,TILE,nil,player_facing==-1)
     else
         local colors={
@@ -2375,7 +2428,7 @@ end
 
 local function draw_pack_settings(x,y,w,h)
     local g=love.graphics
-    g.setColor(.025,.055,.06,.98)
+    g.setColor(.025,.055,.06,1)
     g.rectangle('fill',x,y,w,h)
     g.setColor(.35,.54,.52)
     g.rectangle('line',x+.5,y+.5,w-1,h-1)
@@ -2387,7 +2440,7 @@ local function draw_pack_settings(x,y,w,h)
     g.print('← BACK',x+20,y+73)
     local source='Built-in fallback'
     if visual_assets and visual_assets.status=='generated' then
-        source='Four-tone atlas'
+        source='Dungeon atlas'
     elseif visual_assets and visual_assets.status=='loaded' then
         source=(visual_assets.atlas_status=='loaded' or
             tostring(visual_assets.atlas_status):match('^recovered')) and
@@ -2419,7 +2472,7 @@ local function draw_pack_settings(x,y,w,h)
         warning='Newer pack setting preserved; using Automatic'
     elseif warning=='' and visual_pack_mode=='generated' and
         visual_pack_generated_status~='loaded' then
-        warning='Four-tone atlas unavailable; using built-in fallback'
+        warning='Dungeon atlas unavailable; using built-in fallback'
     elseif warning=='' and visual_pack_mode=='published' and
         (not visual_assets or visual_assets.status~='loaded') then
         warning='No valid published art; using built-in fallback'
@@ -2608,7 +2661,8 @@ function love.draw()
                         ('tile %s at %d,%d'):format(symbol,focus.x,focus.y),
                         binding,handle.source,
                         VisualSlots.terrain_draws_at(kind,handle.source,
-                            focus.x,focus.y) and '' or ' accent elsewhere')
+                            focus.x,focus.y,visual_assets.generated and
+                                visual_assets.generated.terrain_mode) and '' or ' accent elsewhere')
                     break
                 end
             end

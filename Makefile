@@ -18,8 +18,8 @@ help:
 	 'make spectator        Inspect the current generated atlas without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'ROAG_GENERATED_ART=1 make game    Generated fallback in Automatic mode' \
-	 'Title Settings or Esc -> 3       Choose Classic, four-tone preview or Paint art'
+	 'Title Settings or Esc -> 3       Choose Dungeon pixel art, Classic or Paint' \
+	 'sh tools/build_generated_art.sh  Validate/rebuild bundled art (dry run)'
 game:
 	$(LOVE_RUN) .
 spectator:
