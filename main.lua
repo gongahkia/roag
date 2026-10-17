@@ -1290,7 +1290,9 @@ end
 
 local function draw_visual(handle,x,y,w,h,alpha,flip_x)
     if not handle then return false end
-    love.graphics.setColor(1,1,1,alpha or 1)
+    local tint=handle.tint
+    love.graphics.setColor(tint and tint[1] or 1,tint and tint[2] or 1,
+        tint and tint[3] or 1,alpha or 1)
     local draw_x,scale_x=VisualSlots.horizontal_draw(x,w,handle.width,
         flip_x and -1 or 1)
     if handle.quad then
@@ -1859,7 +1861,15 @@ local function draw_world()
             local mechanical_art=mechanic and tile~='.' and tile~='#' and tile~='~'
                 and bound_visual(mechanic.id)
             if mechanical_art then
-                draw_visual(mechanical_art,screen_x,screen_y,TILE,TILE,remembered and .38 or 1)
+                if mechanical_art.ground then
+                    local color=mechanical_art.ground
+                    local dim=remembered and .38 or 1
+                    love.graphics.setColor(color[1]*dim,color[2]*dim,color[3]*dim,1)
+                    love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
+                end
+                local inset=mechanical_art.tile_inset or 0
+                draw_visual(mechanical_art,screen_x+inset,screen_y+inset,
+                    TILE-2*inset,TILE-2*inset,remembered and .38 or 1)
             elseif tile=="b" or tile=="g" or tile=="i" or tile=="B"
                 or tile=="m" or tile=="c" then
                 love.graphics.setColor(0.88,0.91,0.78,remembered and 0.25 or 0.65)
@@ -2054,9 +2064,10 @@ local function draw_world()
         for index,offer in ipairs(chest_menu.offers)do
             local definition=BoonContent.get(offer.boon_id)
             local y=178+(index-1)*76
-            PixelUI.option(index..'. '..definition.name,102,y,420,
+            draw_visual(bound_visual(offer.boon_id..'/icon'),104,y,32,32)
+            PixelUI.option(index..'. '..definition.name,146,y,376,
                 index==chest_menu.selected,ui_menu_font)
-            PixelUI.center(offer.rarity:upper(),y+24,ui_menu_font,PixelUI.colors.muted,102,420)
+            PixelUI.center(offer.rarity:upper(),y+24,ui_menu_font,PixelUI.colors.muted,146,376)
         end
         local offer=chest_menu.offers[chest_menu.selected]
         local art=bound_visual(offer.boon_id..'/detail') or bound_visual(offer.boon_id..'/icon')
@@ -2259,7 +2270,7 @@ local function draw_inventory()
         if id then
             local y=150+(line-1)*44
             local icon=bound_visual(id..'/icon')
-            if icon then draw_visual(icon,104,y,24,24)end
+            if icon then draw_visual(icon,104,y,32,32)end
             local total=0
             for _,rarity in ipairs(BoonContent.rarities)do total=total+((player.boons[id] or {})[rarity] or 0)end
             PixelUI.option(BoonContent.get(id).name..' x'..total,140,y+5,420,

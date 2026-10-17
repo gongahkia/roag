@@ -8,8 +8,11 @@ local function read(path)
 end
 local function image(bytes,path,transparent)
     assert(bytes:sub(1,8)=='\137PNG\r\n\26\n')
-    return {transparent=transparent,getWidth=function()return 128 end,
-        getHeight=function()return 80 end}
+    local function number(at)
+        local a,b,c,d=bytes:byte(at,at+3);return ((a*256+b)*256+c)*256+d
+    end
+    return {transparent=transparent,getWidth=function()return number(17)end,
+        getHeight=function()return number(21)end}
 end
 local function quad(x,y,w,h,pw,ph)return {x=x,y=y,w=w,h=h,pw=pw,ph=ph}end
 return function(test,equal)
@@ -35,10 +38,11 @@ return function(test,equal)
         end,quad))
         local calls=0
         Kenney.new(read,function(bytes,path,transparent)
-            calls=calls+1;assert(path==Kenney.path)
-            assert(transparent==({false,true,'walls'})[calls]);return image(bytes,path,transparent)
+            calls=calls+1
+            assert(path==(calls<=3 and Kenney.path or require('src.kenney_symbols').path))
+            assert(transparent==({false,true,'walls',false})[calls]);return image(bytes,path,transparent)
         end,quad)
-        assert(calls==3,'textures are created per pack, not per sprite')
+        assert(calls==4,'textures are created per pack, not per sprite')
     end)
     test('Kenney connected walls and water select native edges without revealing unknown cells',function()
         local art=assert(Kenney.new(read,image,quad))
@@ -80,6 +84,59 @@ return function(test,equal)
         end
         assert(art:resolve('core:object/door_closed').tile_index==36)
         assert(art:resolve('core:object/stairs_down').tile_index==37)
+    end)
+    test('all 52 boons have deliberate distinct native icons and matching details',function()
+        local Symbols=require('src.kenney_symbols')
+        local Boons=require('src.boon_content')
+        local art=assert(Kenney.new(read,image,quad))
+        local used,count={},0
+        for _,id in ipairs(Boons.order)do
+            local definition=assert(Symbols.boons[id],'unmapped boon '..id)
+            local h=assert(art:resolve(id..'/icon'))
+            assert(art:resolve(id..'/detail')==h and h.source=='kenney')
+            assert(h.width==16 and h.height==16 and h.symbol_index==definition[1])
+            assert(not used[h.symbol_index],'unintentionally shared boon icon '..id)
+            used[h.symbol_index]=true;count=count+1
+            assert(h.quad.x==h.symbol_index%49*16 and h.quad.y==math.floor(h.symbol_index/49)*16)
+            assert(h.quad.pw==784 and h.quad.ph==352 and h.motif~='')
+            assert(not h.tile_inset and not h.ground)
+            for _,c in ipairs(h.tint)do assert(c>=0 and c<=1)end
+        end
+        assert(count==52)
+        for id in pairs(Symbols.boons)do assert(Boons.definitions[id],'orphan boon mapping')end
+        assert(art:resolve('core:boon/unknown/icon')==nil)
+    end)
+    test('all six mechanical terrains have legible native art with exact integer inset scaling',function()
+        local Terrain=require('src.terrain')
+        local Symbols=require('src.kenney_symbols')
+        local art=assert(Kenney.new(read,image,quad))
+        local used={}
+        for _,symbol in ipairs(Terrain.order)do
+            local id=Terrain.get(symbol).id
+            local h=assert(art:resolve(id),'unmapped terrain '..id)
+            assert(h.symbol_index==Symbols.terrain[id][1] and h.width==16)
+            assert((40-h.tile_inset*2)/h.width==2 and not used[h.symbol_index])
+            used[h.symbol_index]=true
+            for _,c in ipairs(h.ground)do assert(c>=0 and c<1)end
+        end
+        assert(art:resolve('core:terrain/obscuring_mist').motif=='layered wisps')
+        assert(art:resolve('core:terrain/barricade').motif=='cross-braced crate')
+        assert(art:resolve('core:terrain/glazed_ice').motif=='ice star')
+    end)
+    test('Kenney supplement rejects missing, corrupt, wrong-sized and out-of-range inputs',function()
+        local Symbols=require('src.kenney_symbols')
+        for _,bad in ipairs({'missing','corrupt'})do
+            assert(not pcall(Kenney.new,function(path)
+                if path==Symbols.path then return bad=='corrupt' and 'broken' or nil end
+                return read(path)
+            end,image,quad))
+        end
+        assert(not pcall(Symbols.new,read,function()
+            return {getWidth=function()return 783 end,getHeight=function()return 352 end}
+        end,quad))
+        local x,y,w,h=Symbols.region(1077)
+        assert(x==768 and y==336 and w==16 and h==16)
+        for _,bad in ipairs({-1,1078,1.5,'1'})do assert(not pcall(Symbols.region,bad))end
     end)
     test('Kenney selection, persistence and refresh lookup leave simulation unchanged',function()
         local state=Game.new_stage(7);local before=Game.snapshot(state)

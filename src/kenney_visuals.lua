@@ -2,6 +2,7 @@
 -- sheet: no gutters, generated repainting, gameplay RNG or simulation state.
 local Atlas=require('src.studio_atlas')
 local Biomes=require('src.biomes')
+local Symbols=require('src.kenney_symbols')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 -- Native plain ground. Wall caps, door frames and stairs are not floor detail.
@@ -34,9 +35,6 @@ local objects={
     ['core:ui/currency_icon']=90,['core:ui/hit_effect']=130,
     ['core:ui/boon_effect']=132,['core:ui/burning_effect']=136,
     ['core:ui/block_effect']=102,
-    ['core:terrain/bramble_bed']=68,['core:terrain/sticky_bog']=69,
-    ['core:terrain/glazed_ice']=126,['core:terrain/barricade']=61,
-    ['core:terrain/resonant_crystal']=129,
 }
 K.actors=actors;K.objects=objects
 local function has(mask,bit)return math.floor(mask/bit)%2==1 end
@@ -101,6 +99,7 @@ function K.new(read,make_texture,make_quad)
             'Kenney sheet dimensions differ')
     end
     make_quad=make_quad or love.graphics.newQuad
+    local symbols=Symbols.new(read,make_texture,make_quad)
     local regions,handles,wall_regions={},{},{}
     -- ^ Fixed-size texture/quad cache; refresh replaces the whole resolver.
     local function handle(index,transparent)
@@ -118,6 +117,7 @@ function K.new(read,make_texture,make_quad)
         handles[id..'/attack']=handles[id];handles[id..'/hurt']=handles[id]
     end
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
+    for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
     for _,biome in ipairs(Biomes.order)do
         local root='core:terrain/'..biome:match('/([^/]+)$')..'/'
         handles[root..'floor/base']=handle(ground_index,false)
@@ -130,8 +130,10 @@ function K.new(read,make_texture,make_quad)
             width=w,height=h,offset_x=x,offset_y=y,source='kenney',wall_mask=mask}
     end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
-        style='kenney',signature=K.checksum..':walls-1:plain-ground-2',status='loaded',wall_regions=wall_regions,
-        pages={tiles={texture=opaque},sprites={texture=cutout},walls={texture=walls}}},{__index=K}),'loaded'
+        style='kenney',signature=K.checksum..':walls-1:plain-ground-2:'..symbols.signature,
+        status='loaded',wall_regions=wall_regions,
+        pages={tiles={texture=opaque},sprites={texture=cutout},walls={texture=walls},
+            symbols={texture=symbols.texture}}},{__index=K}),'loaded'
 end
 function K:resolve(id)return self.handles[id]end
 function K:terrain(map,x,y,kind,known)

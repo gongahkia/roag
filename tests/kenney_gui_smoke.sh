@@ -38,10 +38,12 @@ local function fail(why)
     failed=true;io.stderr:write('KENNEY '..mode..' FAILED: '..tostring(why)..'\n')
     love.event.quit(1)
 end
-if mode=='corrupt'then
+if mode=='corrupt' or mode=='corrupt-symbols'then
     local read=love.filesystem.read
     love.filesystem.read=function(path,...)
-        if path=='assets/kenney/micro-roguelike/tiles.png'then return 'broken'end
+        local bad=mode=='corrupt' and 'assets/kenney/micro-roguelike/tiles.png' or
+            require('src.kenney_symbols').path
+        if path==bad then return 'broken'end
         return read(path,...)
     end
 end
@@ -105,7 +107,7 @@ function love.load(...)
     local args={...}
     local ok,why=pcall(function()
         load(unpack(args))
-        if mode~='corrupt' then
+        if mode~='corrupt' and mode~='corrupt-symbols' then
             source=love.image.newImageData(Kenney.path)
             local walls=Kenney.wall_sheet(source)
             assert(#Kenney.wall_masks==47)
@@ -121,7 +123,7 @@ function love.load(...)
             before=snapshot()
             love.keypressed('escape');love.keypressed('3');pick('kenney')
             assert_art();assert(snapshot()==before)
-        elseif mode=='resume' or mode=='corrupt'then
+        elseif mode=='resume' or mode=='corrupt' or mode=='corrupt-symbols'then
             love.keypressed('c');update(0)
             local f=assert(io.open(output..'/expected-run.txt','rb'))
             assert(snapshot()==f:read('*a'),'Continue changed saved snapshot');f:close()
@@ -203,7 +205,7 @@ function love.draw()
     if not ok then fail(why)end
 end
 LUA
-for mode in normal resume corrupt survey;do
+for mode in normal resume corrupt corrupt-symbols survey;do
     if [ "$mode" = normal ];then autostart=1;else autostart=0;fi
     if [ "$mode" = survey ];then spectator=1;pack=kenney;else spectator=0;pack=;fi
     ROAG_KENNEY_OUTPUT="$output" ROAG_KENNEY_MODE="$mode" \

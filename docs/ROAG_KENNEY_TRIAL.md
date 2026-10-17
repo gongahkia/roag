@@ -2,6 +2,8 @@
 
 The camera is now fixed at 40px tiles, floors use plain ground, and only Classic/Kenney remain selectable; see [current cleanup](ROAG_UI_POLISH.md). The menu/HUD layout was subsequently simplified; see [current menu captures](ROAG_MICROCRAFT_MENUS.md). The captures below preserve the original art-trial evidence.
 
+The later [boon/terrain supplement](ROAG_KENNEY_SYMBOLS.md) adds all 52 boon icons and all six mechanical terrain mappings. The verification below records the earlier base-pack trial.
+
 This is a working trial of the **colored 8×8 Micro Roguelike 1.4** pack chosen
 by the user. It is not a claim that every ROAG artwork slot has a unique new
 sprite or that the visual direction has received human approval.
@@ -49,10 +51,9 @@ world tile size is an integer multiple of eight. Nearest filtering stays crisp.
 The trial covers six classes, 25 enemy/boss/pursuer bindings, native floor/water
 art, 47 connected wall variants, currency/food/health, chests, doors, stairs,
 exit, basic HUD icons and hit/boon art. Some enemies share source sprites;
-attack/hurt reuse the static body. Five terrain mechanics use approximate
-native props; mist retains its existing clear marker rather than being
-misrepresented as ordinary floor detail. Boon-specific icons, most UI panels,
-font, tactical overlays and some effects retain their existing rendering.
+attack/hurt reuse the static body. All six terrain mechanics and all boon-specific icons now use the 1-Bit Pack
+supplement; UI panels, font, tactical overlays and some effects retain their
+existing rendering.
 All seven biomes currently share the native palette. No animation, new game
 content, biome reskinning or full UI makeover is claimed.
 

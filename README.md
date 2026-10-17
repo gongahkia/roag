@@ -4,6 +4,8 @@
 
 **Artwork choices:** only **Classic built-in** (the original shapes, also the fresh-install default) and **Kenney Micro Roguelike** remain. Run `make kenney` to try Kenney, or select **Settings → Kenney Micro Roguelike → Enter** to keep it. The old Dungeon art, Automatic override mode and Published Paint art choice have been removed. Ground no longer contains scattered wall-cap sprites. [Current UI/art cleanup and captured frames](docs/ROAG_UI_POLISH.md).
 
+**Kenney boon/terrain art:** the Kenney choice now includes matching [1-Bit Pack icons](docs/ROAG_KENNEY_SYMBOLS.md) for all **52 current boons** and all **six mechanical terrain types**, including mist. Chest offers, I → Boons, and Enter → Details share the same stable mappings. Ordinary floors remain plain; only actual terrain mechanics get these markers.
+
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
 ## Quick commands

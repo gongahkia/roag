@@ -22,3 +22,8 @@ black space. A small cache shares the three textures and their Quad handles.
 No manual rescaling, generative repainting, source atlas overwrites, animation
 frames or gameplay changes. Some enemies/bosses share a native sprite, and all
 biomes currently share this pack's palette. See `docs/ROAG_KENNEY_TRIAL.md`.
+
+The Kenney option now also loads the separately licensed 1-Bit Pack under
+`assets/kenney/1-bit-pack/`: one additional cached native sheet supplies all
+52 boon icons/details and six terrain mechanics, replacing the earlier
+approximate prop mappings. The three Micro Roguelike textures are unchanged.
