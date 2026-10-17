@@ -1,6 +1,0 @@
-{
-    "name": "@<@PROJECT_NAME@>@",
-    "prefab-name": "PhysFS",
-    "version": "@<@PROJECT_VERSION@>@",
-    "git-hash": "@<@PROJECT_COMMIT@>@"
-}
