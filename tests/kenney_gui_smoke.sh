@@ -14,6 +14,7 @@ local Game=require('src.game')
 local Camera=require('src.camera')
 local Content=require('src.content')
 local Kenney=require('src.kenney_visuals')
+local Terrain=require('src.kenney_terrain')
 local Packs=require('src.visual_packs')
 local PNG=require('tools.art_png')
 local Codec=require('src.persistence')
@@ -28,6 +29,7 @@ local load,update,draw=love.load,love.update,love.draw
 local output=assert(os.getenv('ROAG_KENNEY_OUTPUT'))
 local mode=assert(os.getenv('ROAG_KENNEY_MODE'))
 local phase,pending,failed=1,false,false
+local corrupt=mode:match('^corrupt')~=nil
 local before,source
 local function snapshot()return Codec.encode(Game.snapshot(tracked))end
 local function assert_art()
@@ -38,11 +40,11 @@ local function fail(why)
     failed=true;io.stderr:write('KENNEY '..mode..' FAILED: '..tostring(why)..'\n')
     love.event.quit(1)
 end
-if mode=='corrupt' or mode=='corrupt-symbols'then
+if corrupt then
     local read=love.filesystem.read
     love.filesystem.read=function(path,...)
         local bad=mode=='corrupt' and 'assets/kenney/micro-roguelike/tiles.png' or
-            require('src.kenney_symbols').path
+            (mode=='corrupt-symbols' and require('src.kenney_symbols').path or Terrain.path)
         if path==bad then return 'broken'end
         return read(path,...)
     end
@@ -107,23 +109,24 @@ function love.load(...)
     local args={...}
     local ok,why=pcall(function()
         load(unpack(args))
-        if mode~='corrupt' and mode~='corrupt-symbols' then
+        if not corrupt then
             source=love.image.newImageData(Kenney.path)
-            local walls=Kenney.wall_sheet(source)
+            local terrain=love.image.newImageData(Terrain.path)
+            local walls=Terrain.surface_sheet(terrain);terrain:release()
             assert(#Kenney.wall_masks==47)
-            for i=1,47 do
-                for y=0,7 do for x=0,7 do
-                    assert(select(4,walls:getPixel((i-1)%16*8+x,math.floor((i-1)/16)*8+y))==1)
+            for i=1,94 do
+                for y=0,15 do for x=0,15 do
+                    assert(select(4,walls:getPixel((i-1)%29*16+x,math.floor((i-1)/29)*16+y))==1)
                 end end
             end
-            PNG.write(output..'/wall-variants.png',walls);walls:release()
+            PNG.write(output..'/terrain-surfaces.png',walls);walls:release()
         end
         if mode=='normal'then
             assert(love.roagVisualPackMode()=='classic')
             before=snapshot()
             love.keypressed('escape');love.keypressed('3');pick('kenney')
             assert_art();assert(snapshot()==before)
-        elseif mode=='resume' or mode=='corrupt' or mode=='corrupt-symbols'then
+        elseif mode=='resume' or corrupt then
             love.keypressed('c');update(0)
             local f=assert(io.open(output..'/expected-run.txt','rb'))
             assert(snapshot()==f:read('*a'),'Continue changed saved snapshot');f:close()
@@ -205,7 +208,7 @@ function love.draw()
     if not ok then fail(why)end
 end
 LUA
-for mode in normal resume corrupt corrupt-symbols survey;do
+for mode in normal resume corrupt corrupt-symbols corrupt-terrain survey;do
     if [ "$mode" = normal ];then autostart=1;else autostart=0;fi
     if [ "$mode" = survey ];then spectator=1;pack=kenney;else spectator=0;pack=;fi
     ROAG_KENNEY_OUTPUT="$output" ROAG_KENNEY_MODE="$mode" \

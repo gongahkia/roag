@@ -11,19 +11,16 @@ surrounding whitespace normalized). No AI artwork is used in this pack.
   `Tilesheet.txt` describes the alternate spaced sheet, not this packed PNG.
 - Runtime checksum (the project's checked-content checksum): `5407eab40dd3457c`.
 
-`src/kenney_visuals.lua` documents the source tile indices and stable bindings.
-Two adaptations happen once when the pack loads: a separate sprite texture
-keys the native background `#222323` to transparent, and a separate wall page
-assembles 47 connected variants from native border pixels over the native gray
-wall material. The source PNG stays untouched. Wall construction is needed
-because ROAG uses solid wall cells, while Kenney's sample uses outlines around
-black space. A small cache shares the three textures and their Quad handles.
+`src/kenney_visuals.lua` uses this sheet for characters, items and basic HUD
+symbols. One sprite texture keys the native background `#222323` to transparent
+when loading. The original PNG is unchanged.
 
-No manual rescaling, generative repainting, source atlas overwrites, animation
-frames or gameplay changes. Some enemies/bosses share a native sprite, and all
-biomes currently share this pack's palette. See `docs/ROAG_KENNEY_TRIAL.md`.
+Background floors/walls/water now come from **Roguelike Caves & Dungeons** under
+`assets/kenney/caves-dungeons/`; the earlier Micro terrain/wall adapter was
+removed. Boon icons/details and all six mechanical terrain markers use the
+1-Bit Pack under `assets/kenney/1-bit-pack/`. The combined **Kenney pixel art**
+choice caches four textures and retains the existing `kenney` preference ID.
 
-The Kenney option now also loads the separately licensed 1-Bit Pack under
-`assets/kenney/1-bit-pack/`: one additional cached native sheet supplies all
-52 boon icons/details and six terrain mechanics, replacing the earlier
-approximate prop mappings. The three Micro Roguelike textures are unchanged.
+Some enemies/bosses share a native Micro sprite, and attack/hurt retain their
+static body. No animation, generative repainting or gameplay changes. See
+`docs/ROAG_CAVES_DUNGEONS.md` for the current background and verification.

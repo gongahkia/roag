@@ -15,7 +15,7 @@ endif
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
-	 'make kenney           Try Kenney Micro Roguelike without changing settings' \
+	 'make kenney           Try Kenney artwork without changing settings' \
 	 'make spectator        Inspect Kenney art without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
@@ -34,6 +34,7 @@ gui-game:
 	@$(GUI_RUN) sh tests/menu_gui_smoke.sh
 	@$(GUI_RUN) sh tests/attack_preview_gui_smoke.sh
 	@$(GUI_RUN) sh tests/kenney_symbols_gui_smoke.sh
+	@$(GUI_RUN) sh tests/kenney_terrain_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
 gui-expansion:

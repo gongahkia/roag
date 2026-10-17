@@ -39,8 +39,9 @@ return function(test,equal)
         local calls=0
         Kenney.new(read,function(bytes,path,transparent)
             calls=calls+1
-            assert(path==(calls<=3 and Kenney.path or require('src.kenney_symbols').path))
-            assert(transparent==({false,true,'walls',false})[calls]);return image(bytes,path,transparent)
+            local terrain=require('src.kenney_terrain')
+            assert(path==({Kenney.path,require('src.kenney_symbols').path,terrain.path,terrain.path})[calls])
+            assert(transparent==({true,false,false,'caves-surfaces'})[calls]);return image(bytes,path,transparent)
         end,quad)
         assert(calls==4,'textures are created per pack, not per sprite')
     end)
@@ -52,7 +53,7 @@ return function(test,equal)
             assert(Kenney.canonical(mask)==mask and not seen[mask])
             seen[mask]=true
             local h=assert(art.wall_regions[mask])
-            assert(h.quad.x>=0 and h.quad.x+8<=128 and h.quad.y+8<=80)
+            assert(h.quad.x>=0 and h.quad.x+16<=492 and h.quad.y+16<=305)
         end
         for mask=0,255 do assert(seen[Kenney.canonical(mask)])end
         local map={rows={'###','###','###'}}
@@ -66,21 +67,24 @@ return function(test,equal)
         assert(art:terrain(map,2,2,'wall',function(x,y)return x~=3 or y~=1 end)==center,
             'hidden diagonal changed the visible inner-corner art')
         map.rows={'~~~','~~~','~~~'}
-        assert(art:terrain(map,2,2,'water').tile_index==140)
+        assert(art:terrain(map,2,2,'water').water_mask==255)
         map.rows[1]='...';map.rows[2]='.~~'
-        assert(art:terrain(map,2,2,'water').tile_index==125)
+        assert(art:terrain(map,2,2,'water').water_mask==38)
         assert(art:terrain(map,2,2,'floor')==art:terrain(map,2,2,'floor'))
     end)
-    test('Kenney floors never stamp wall caps, door frames or stair sprites on ground',function()
+    test('Caves floors use only native ground, never door frames or wall props',function()
+        local Terrain=require('src.kenney_terrain')
         local art=assert(Kenney.new(read,image,quad))
-        for y=1,40 do for x=1,40 do
-            local h=art:terrain({rows={}},x,y,'floor')
-            assert(h.tile_index==17 and not h.texture.transparent,
-                'floor decoration must use plain native ground')
-        end end
-        for _,biome in ipairs(require('src.biomes').order)do
-            assert(art:resolve('core:terrain/'..biome:match('/([^/]+)$')..
-                '/floor/base').tile_index==17)
+        for slug,style in pairs(Terrain.styles)do
+            local allowed={};for _,index in ipairs(style.floor)do allowed[index]=true end
+            local map={rows={},biome_id='core:biome/'..slug}
+            for y=1,20 do for x=1,20 do
+                local h=art:terrain(map,x,y,'floor')
+                assert(allowed[h.tile_index] and h.terrain_pack=='caves' and h.width==16)
+                assert(h.quad.x==h.tile_index%29*17 and h.quad.y==math.floor(h.tile_index/29)*17)
+                assert(h==art:terrain(map,x,y,'floor'))
+            end end
+            assert(allowed[art:resolve('core:terrain/'..slug..'/floor/base').tile_index])
         end
         assert(art:resolve('core:object/door_closed').tile_index==36)
         assert(art:resolve('core:object/stairs_down').tile_index==37)

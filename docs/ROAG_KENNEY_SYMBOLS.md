@@ -1,5 +1,7 @@
 # Kenney boon icons and mechanical terrain
 
+> Background update: [Roguelike Caves & Dungeons](ROAG_CAVES_DUNGEONS.md) now replaces Micro terrain. The current setting is **Kenney pixel art**; characters and boon bindings are retained. This report preserves its earlier verification.
+
 The existing Kenney choice now combines **Micro Roguelike 1.4** with Kenney's
 **1-Bit Pack 1.2**. The latter's blocky transparent pixel symbols complement
 the existing characters without adding another choice to Settings.

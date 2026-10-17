@@ -14,12 +14,12 @@
 
 This adds semantic boon icons and mechanical terrain markers to the existing
 **Kenney** option. It is not another selectable game pack. Character sprites,
-plain floors, connected walls and water still use Micro Roguelike.
+ordinary floors, connected walls and water use Roguelike Caves & Dungeons.
 
 `src/kenney_symbols.lua` maps every current boon and mechanical terrain ID to
 a deliberately chosen native region. Color tints are applied at draw time;
 the PNG is not recolored, regenerated or modified. Terrain markers are inset
-32px images (integer 2× scale) over a subdued semantic backing in the fixed
+32px images (integer 2× scale) over a translucent semantic wash over native ground in the fixed
 40px tile. UI icons are 32px, chest details 64px and boon details 96px.
 
 Source motifs are representative: for example, a skull for kill healing,

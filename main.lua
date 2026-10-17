@@ -17,6 +17,7 @@ local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 local KenneyVisuals = require("src.kenney_visuals")
+local KenneyTerrain = require("src.kenney_terrain")
 local Terrain = require("src.terrain")
 local VisualPacks = require("src.visual_packs")
 local StudioProject = require("src.studio_project")
@@ -284,9 +285,9 @@ local function load_native_visuals(read)
         function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
-            if transparent=='walls' then
+            if transparent=='caves-surfaces' then
                 local source=pixels
-                pixels=KenneyVisuals.wall_sheet(source)
+                pixels=KenneyTerrain.surface_sheet(source)
                 source:release()
             elseif transparent then
                 pixels:mapPixel(function(x,y,r,g,b,a)
@@ -492,7 +493,7 @@ local function refresh_visuals(requested_mode)
     local backing=candidate.atlas_status
     if candidate.status=='absent' then backing='built-in fallback'
     elseif candidate.status=='generated' then
-        backing='Kenney Micro Roguelike'
+        backing='Kenney pixel art'
     elseif backing~='loaded' and backing~='recovered previous atlas generation' then
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
@@ -500,7 +501,7 @@ local function refresh_visuals(requested_mode)
         ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
         (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
-        (backing=='Kenney Micro Roguelike' and backing or 'built-in')
+        (backing=='Kenney pixel art' and backing or 'built-in')
     notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
         (theme and theme.warning and ' · theme fallback' or '')
     if switching then
@@ -1864,7 +1865,10 @@ local function draw_world()
                 if mechanical_art.ground then
                     local color=mechanical_art.ground
                     local dim=remembered and .38 or 1
-                    love.graphics.setColor(color[1]*dim,color[2]*dim,color[3]*dim,1)
+                    -- Keep native ground texture visible beneath hazard markers.
+                    local wash=visual_assets.generated and
+                        visual_assets.generated.terrain_renderer and .42 or 1
+                    love.graphics.setColor(color[1]*dim,color[2]*dim,color[3]*dim,wash)
                     love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
                 end
                 local inset=mechanical_art.tile_inset or 0
@@ -2349,7 +2353,7 @@ local function draw_pack_settings(x,y,w,h)
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.muted)
     g.print('Esc / click BACK',x+24,y+36)
     local source=visual_assets and visual_assets.generated and
-        'Kenney Micro Roguelike' or 'Classic built-in shapes'
+        'Kenney · Caves & Dungeons' or 'Classic built-in shapes'
     PixelUI.center('In use: '..source,y+72,ui_menu_font,PixelUI.colors.text,x,w)
     local actor=bound_visual(selected_class_id)
     if actor then draw_visual(actor,x+(w-56)/2,y+100,56,56)end

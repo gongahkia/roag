@@ -6,10 +6,10 @@ local P={format='roag-visual-pack/1',files={
     'visual-pack-a.roag','visual-pack-b.roag'},default='classic',
     order={'classic','kenney'},
     labels={classic='Classic built-in',
-        kenney='Kenney Micro Roguelike'},
+        kenney='Kenney pixel art'},
     descriptions={
         classic='Original game tokens and terrain',
-        kenney='Original 8×8 terrain, characters and items · CC0 trial',
+        kenney='Micro characters · Caves & Dungeons terrain · CC0',
     }}
 local retired={automatic=true,generated=true,published=true}
 

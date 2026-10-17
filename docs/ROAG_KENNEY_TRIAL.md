@@ -1,5 +1,7 @@
 # Kenney Micro Roguelike: selectable visual trial
 
+> Background update: [Roguelike Caves & Dungeons](ROAG_CAVES_DUNGEONS.md) now replaces Micro terrain. The current setting is **Kenney pixel art**; characters and boon bindings are retained. This report preserves its earlier verification.
+
 The camera is now fixed at 40px tiles, floors use plain ground, and only Classic/Kenney remain selectable; see [current cleanup](ROAG_UI_POLISH.md). The menu/HUD layout was subsequently simplified; see [current menu captures](ROAG_MICROCRAFT_MENUS.md). The captures below preserve the original art-trial evidence.
 
 The later [boon/terrain supplement](ROAG_KENNEY_SYMBOLS.md) adds all 52 boon icons and all six mechanical terrain mappings. The verification below records the earlier base-pack trial.

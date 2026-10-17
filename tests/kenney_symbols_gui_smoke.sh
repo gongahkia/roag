@@ -16,6 +16,7 @@ local Content=require('src.content')
 local Terrain=require('src.terrain')
 local Boons=require('src.boon_content')
 local Symbols=require('src.kenney_symbols')
+local TerrainArt=require('src.kenney_terrain')
 local Codec=require('src.persistence')
 local PNG=require('tools.art_png')
 local state,camera
@@ -30,7 +31,7 @@ function Camera.new(...)camera=camera_new(...);return camera end
 assert(love.filesystem.load('roag_main.lua'))()
 local load,update,draw=love.load,love.update,love.draw
 local output=assert(os.getenv('ROAG_SYMBOLS_OUTPUT'))
-local before,source,phase,pending,failed=nil,nil,0,false,false
+local before,source,ground,phase,pending,failed=nil,nil,nil,0,false,false
 local function snapshot()return Codec.encode(Game.snapshot(state))end
 local function fail(why)
     failed=true;io.stderr:write('Kenney symbols FAILED: '..tostring(why)..'\n')
@@ -44,6 +45,7 @@ function love.load(...)
             Game.set_boon_stacks(state,state.player_id,id,'common',1)
         end
         before=snapshot();source=love.image.newImageData(Symbols.path)
+        ground=love.image.newImageData(TerrainArt.path)
         assert(love.roagVisualPackMode()=='kenney')
     end)
     if not ok then fail(why)end
@@ -76,7 +78,10 @@ local function check(image)
             local x,y=Camera.tile_top_left(camera,i+2,5)
             compare(image,definition,x+4,y+4)
             local pixel={image:getPixel(math.floor(x+1),math.floor(y+1))}
-            for channel=1,3 do assert(math.abs(pixel[channel]-definition.ground[channel])<1.1/255,
+            local sx,sy=TerrainArt.region(TerrainArt.styles.overgrown_ruins.floor[1])
+            local floor={ground:getPixel(sx,sy)}
+            for channel=1,3 do assert(math.abs(pixel[channel]-(definition.ground[channel]*.42+
+                floor[channel]*.58))<2/255,
                 'terrain ground backing mismatch')end
         end
     elseif phase<=8 then
