@@ -11,19 +11,25 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney spectator test gui gui-game gui-expansion
+.PHONY: help game kenney onebit spectator sprite-audit test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
 	 'make kenney           Try Kenney artwork without changing settings' \
+	 'make onebit           Try standalone Kenney 1-Bit artwork' \
 	 'make spectator        Inspect Kenney art without saves' \
+	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'Title Settings or Esc -> 3       Choose Classic shapes or Kenney'
+	 'Title Settings or Esc -> 3       Choose Classic, Kenney mix or Kenney 1-Bit'
 game:
 	$(LOVE_RUN) .
 kenney:
 	env ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
+onebit:
+	env ROAG_SPRITE_PACK=onebit $(LOVE_RUN) .
+sprite-audit:
+	python3 tools/sprite_audit.py
 spectator:
 	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 test:
@@ -35,6 +41,7 @@ gui-game:
 	@$(GUI_RUN) sh tests/attack_preview_gui_smoke.sh
 	@$(GUI_RUN) sh tests/kenney_symbols_gui_smoke.sh
 	@$(GUI_RUN) sh tests/kenney_terrain_gui_smoke.sh
+	@$(GUI_RUN) sh tests/onebit_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
 gui-expansion:

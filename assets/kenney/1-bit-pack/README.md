@@ -1,4 +1,4 @@
-# Kenney 1-Bit Pack 1.2 — ROAG supplement
+# Kenney 1-Bit Pack 1.2 — ROAG standalone pack and supplement
 
 - Original: <https://kenney.nl/assets/1-bit-pack>
 - Official download, retrieved 2026-10-17:
@@ -12,9 +12,13 @@
 - Checked-content checksum: `3fc46971ed866cba`.
 - SHA-256: `0d9abf9b812a441e1673bc166d61abb6236c0bc46b3775700bd4d4364ba170e0`.
 
-This adds semantic boon icons and mechanical terrain markers to the existing
-**Kenney** option. It is not another selectable game pack. Character sprites,
-ordinary floors, connected walls and water use Roguelike Caves & Dungeons.
+There are now two uses of this unchanged sheet:
+
+- **Kenney pixel art** uses it for boon icons and mechanical terrain markers,
+  alongside Micro Roguelike characters/items and Caves & Dungeons surfaces.
+- **Kenney 1-Bit**, the third Settings choice, uses this sheet alone for
+  characters, objects, terrain, HUD icons, boons and generic effects.
+  `make onebit` tries it for one launch; Settings saves the choice.
 
 `src/kenney_symbols.lua` maps every current boon and mechanical terrain ID to
 a deliberately chosen native region. Color tints are applied at draw time;
@@ -27,3 +31,8 @@ hourglass for a delayed echo, eye for distant observation, crate for a
 barricade, and layered ripple strokes used as mist wisps. These are not new
 terrain or boon mechanics. See `docs/ROAG_KENNEY_SYMBOLS.md` for the full map,
 actual game screenshots and verification.
+
+`src/onebit_visuals.lua` adds the standalone bindings and derives connected,
+opaque wall/water/floor surfaces in memory. It never writes into this PNG.
+See `docs/ROAG_ONEBIT_PACK.md` and `docs/ROAG_SPRITE_AUDIT.md` for current
+coverage, shared art, procedural graphics and the browsable unused-art catalogue.

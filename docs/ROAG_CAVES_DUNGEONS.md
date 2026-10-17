@@ -4,8 +4,9 @@ The **Kenney pixel art** setting now uses
 [Roguelike Caves & Dungeons](https://kenney.nl/assets/roguelike-caves-dungeons)
 for ordinary floors, walls and water. This replaces the Micro Roguelike
 background rendering. Micro characters/items and the existing 1-Bit boon and
-mechanical-terrain symbols remain. Settings still has only Classic and Kenney;
-the stored `kenney` ID is unchanged.
+mechanical-terrain symbols remain. The stored `kenney` ID is unchanged.
+Settings also offers a separate [standalone Kenney 1-Bit pack](ROAG_ONEBIT_PACK.md);
+that option does not load this Caves sheet.
 
 ## Use it
 

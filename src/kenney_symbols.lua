@@ -84,7 +84,8 @@ function S.region(index)
         'invalid Kenney symbol index')
     return index%49*16,math.floor(index/49)*16,16,16
 end
-function S.new(read,make_texture,make_quad)
+function S.new(read,make_texture,make_quad,options)
+    local monochrome=options and options.monochrome
     local bytes=assert(read(S.path),'missing Kenney 1-Bit symbol sheet')
     assert(Atlas.checksum(bytes)==S.checksum,'corrupt Kenney 1-Bit symbol sheet')
     -- The original PNG already has transparency. No background key/repainting.
@@ -97,8 +98,10 @@ function S.new(read,make_texture,make_quad)
         local x,y,w,h=S.region(index)
         if not quads[index]then quads[index]=make_quad(x,y,w,h,S.width,S.height)end
         return {texture=image,quad=quads[index],width=w,height=h,offset_x=x,offset_y=y,
-            source='kenney',symbol_index=index,motif=definition[2],tint=definition[3] or ink,
-            tile_inset=terrain and 4 or nil,ground=definition.ground}
+            source=monochrome and 'onebit' or 'kenney',symbol_index=index,motif=definition[2],
+            tint=monochrome and ink or definition[3] or ink,
+            tile_inset=terrain and 4 or nil,
+            ground=definition.ground and (monochrome and {.055,.07,.06} or definition.ground)}
     end
     for id,definition in pairs(S.boons)do
         handles[id..'/icon']=handle(definition)

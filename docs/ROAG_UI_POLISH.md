@@ -1,5 +1,10 @@
 # Player previews, simpler artwork choices and fixed camera
 
+Current artwork choices supersede the original two-choice list below:
+**Classic built-in**, **Kenney pixel art** (Micro actors/Caves terrain), and
+**Kenney 1-Bit**. See [the current guide](ROAG_ONEBIT_PACK.md) and
+[coverage audit](ROAG_SPRITE_AUDIT.md). Fixed camera/controls remain as described.
+
 ## Current behavior
 
 - Sword, Sweep and Dash aiming use the **same dashed tile borders** as enemy

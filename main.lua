@@ -18,6 +18,7 @@ local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 local KenneyVisuals = require("src.kenney_visuals")
 local KenneyTerrain = require("src.kenney_terrain")
+local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local VisualPacks = require("src.visual_packs")
 local StudioProject = require("src.studio_project")
@@ -280,12 +281,17 @@ local function visual_fingerprint(visuals,theme,world)
     return sum(table.concat(parts,'|'))
 end
 
-local function load_native_visuals(read)
-    local ok,visuals,status=pcall(KenneyVisuals.new,read,
+local function load_native_visuals(read,mode)
+    local loader=mode=='onebit' and OneBitVisuals or KenneyVisuals
+    local ok,visuals,status=pcall(loader.new,read,
         function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
-            if transparent=='caves-surfaces' then
+            if transparent=='onebit-surfaces' then
+                local source=pixels
+                pixels=OneBitVisuals.surface_sheet(source)
+                source:release()
+            elseif transparent=='caves-surfaces' then
                 local source=pixels
                 pixels=KenneyTerrain.surface_sheet(source)
                 source:release()
@@ -340,6 +346,7 @@ function love.load(args)
         build_selected_visuals(visual_pack_mode,read_visual)
     local generated,generated_status=visual_assets.generated,
         visual_pack_generated_status
+    PixelUI.set_style(generated and generated.style)
     if generated_status:match('^rejected') then
         print('Kenney art fallback: '..generated_status)
     end
@@ -483,6 +490,7 @@ local function refresh_visuals(requested_mode)
     local signature=visual_fingerprint(candidate,theme,world)
     local same=signature==visual_signature
     visual_assets,studio_theme,studio_theme_status=candidate,theme,theme_status
+    PixelUI.set_style(candidate.generated and candidate.generated.style)
     visual_pack_generated_status=generated_status
     studio_world_status=world_status
     -- A run owns concrete floor geometry. World templates are installed only
@@ -493,7 +501,7 @@ local function refresh_visuals(requested_mode)
     local backing=candidate.atlas_status
     if candidate.status=='absent' then backing='built-in fallback'
     elseif candidate.status=='generated' then
-        backing='Kenney pixel art'
+        backing=VisualPacks.labels[mode]
     elseif backing~='loaded' and backing~='recovered previous atlas generation' then
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
@@ -501,7 +509,7 @@ local function refresh_visuals(requested_mode)
         ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
         (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
-        (backing=='Kenney pixel art' and backing or 'built-in')
+        (candidate.generated and backing or 'built-in')
     notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
         (theme and theme.warning and ' · theme fallback' or '')
     if switching then
@@ -515,8 +523,8 @@ local function refresh_visuals(requested_mode)
                 tostring(reason)
         end
         local fallback
-        if mode=='kenney' and generated_status~='loaded' then
-            fallback='Kenney sheet '..tostring(generated_status)..
+        if (mode=='kenney' or mode=='onebit') and generated_status~='loaded' then
+            fallback=VisualPacks.labels[mode]..' sheet '..tostring(generated_status)..
                 '; using built-in fallback'
         elseif tostring(theme_status):match('^fallback:') then
             fallback=theme_status
@@ -1439,11 +1447,16 @@ local function draw_enemies()
             love.graphics.rectangle("fill",bar_x,bar_y,
                 bar_width*enemy.hp/enemy.max_hp,bar_height)
             if enemy.statuses and enemy.statuses.burning then
-                local scale=TILE/32
-                love.graphics.setColor(1,0.47,0.13,0.95)
-                love.graphics.circle("fill",x+26*scale,y+5*scale,3*scale)
-                love.graphics.polygon("fill",x+23*scale,y+5*scale,
-                    x+26*scale,y-2*scale,x+29*scale,y+5*scale)
+                local burning=bound_visual('core:ui/burning_effect')
+                if burning then
+                    draw_visual(burning,x+TILE*.66,y-TILE*.06,TILE*.32,TILE*.32)
+                else
+                    local scale=TILE/32
+                    love.graphics.setColor(1,0.47,0.13,0.95)
+                    love.graphics.circle("fill",x+26*scale,y+5*scale,3*scale)
+                    love.graphics.polygon("fill",x+23*scale,y+5*scale,
+                        x+26*scale,y-2*scale,x+29*scale,y+5*scale)
+                end
             end
             end
         end
@@ -1810,7 +1823,7 @@ local function draw_world()
                 if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
             end
             local kenney=visual_assets and visual_assets.generated and
-                visual_assets.generated.style=='kenney'
+                (visual_assets.generated.style=='kenney' or visual_assets.generated.style=='onebit')
             local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
                 tile=='.' and 'floor' or nil
             if terrain_mode=='tiled' then
@@ -2018,7 +2031,7 @@ local function draw_world()
         (not visual_event.floor_id or visual_event.floor_id==state.active_floor_id) then
         local seen,effects={},0
         for _,event in ipairs(current_group or {visual_event}) do
-            if (event.kind=='DamageTaken' or event.kind=='BoonActivated')
+            if (event.kind=='DamageTaken' or event.kind=='BoonActivated' or event.kind=='DamageBlocked')
                 and event.x and event.y and
                 (not event.floor_id or event.floor_id==state.active_floor_id) then
                 local key=event.kind..':'..event.x..':'..event.y
@@ -2029,8 +2042,8 @@ local function draw_world()
                             function(x,y) return Camera.tile_top_left(camera,x,y) end,
                             visible_at)
                     elseif visible_at(event.x,event.y) then
-                        local id=event.kind=='DamageTaken' and
-                            'core:ui/hit_effect' or 'core:ui/boon_effect'
+                        local id=event.kind=='DamageTaken' and 'core:ui/hit_effect' or
+                            event.kind=='DamageBlocked' and 'core:ui/block_effect' or 'core:ui/boon_effect'
                         local art=bound_visual(id)
                         if art then
                             local x,y=Camera.tile_top_left(camera,event.x,event.y)
@@ -2353,7 +2366,7 @@ local function draw_pack_settings(x,y,w,h)
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.muted)
     g.print('Esc / click BACK',x+24,y+36)
     local source=visual_assets and visual_assets.generated and
-        'Kenney · Caves & Dungeons' or 'Classic built-in shapes'
+        VisualPacks.labels[visual_pack_mode] or 'Classic built-in shapes'
     PixelUI.center('In use: '..source,y+72,ui_menu_font,PixelUI.colors.text,x,w)
     local actor=bound_visual(selected_class_id)
     if actor then draw_visual(actor,x+(w-56)/2,y+100,56,56)end
@@ -2367,7 +2380,7 @@ local function draw_pack_settings(x,y,w,h)
     local warning=visual_pack_message
     if warning=='' and visual_pack_status=='corrupt'then warning='Damaged preference · using Classic'
     elseif warning=='' and visual_pack_status=='retired'then warning='Previous pack removed · using Classic'
-    elseif warning=='' and visual_pack_mode=='kenney' and visual_pack_generated_status~='loaded'then
+    elseif warning=='' and visual_pack_mode~='classic' and visual_pack_generated_status~='loaded'then
         warning='Artwork unavailable · using built-in fallback'
     end
     g.setFont(ui_menu_font);g.setColor(warning~='' and PixelUI.colors.selected or PixelUI.colors.muted)

@@ -4,12 +4,13 @@ local Atlas=require('src.studio_atlas')
 local VisualAssets=require('src.visual_assets')
 local P={format='roag-visual-pack/1',files={
     'visual-pack-a.roag','visual-pack-b.roag'},default='classic',
-    order={'classic','kenney'},
+    order={'classic','kenney','onebit'},
     labels={classic='Classic built-in',
-        kenney='Kenney pixel art'},
+        kenney='Kenney pixel art',onebit='Kenney 1-Bit'},
     descriptions={
         classic='Original game tokens and terrain',
         kenney='Micro characters · Caves & Dungeons terrain · CC0',
+        onebit='Standalone monochrome actors, terrain and icons · CC0',
     }}
 local retired={automatic=true,generated=true,published=true}
 
@@ -95,10 +96,10 @@ end
 function P.build(mode,read,make_image,load_native)
     assert(P.valid(mode),'invalid sprite pack')
     local generated,status=nil,'disabled'
-    if mode=='kenney' then
+    if mode=='kenney' or mode=='onebit' then
         generated,status=load_native(read,mode)
     end
-    -- Neither game choice reads Paint loose/atlas overrides.
+    -- None of the game choices reads Paint loose/atlas overrides.
     return VisualAssets.new(function()return nil end,make_image,generated),status
 end
 

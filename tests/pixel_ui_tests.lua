@@ -8,7 +8,7 @@ return function(test)
     end)
     test('all sprite pack rows fit the shared title and pause panel layout',function()
         local count=#require('src.visual_packs').order
-        assert(count==2)
+        assert(count==3)
         for i=1,count do
             local r=UI.settings_row(190,55,644,i)
             assert(r.y+r.h<55+422)

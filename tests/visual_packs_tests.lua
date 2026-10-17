@@ -47,8 +47,9 @@ return function(test,equal)
         assert(not Packs.save(store,'classic'))
         assert(store[Packs.files[2]]==future..Atlas.checksum(future)..'\n')
     end)
-    test('only Classic and Kenney are selectable and Paint overrides cannot load',function()
-        assert(#Packs.order==2 and Packs.order[1]=='classic' and Packs.order[2]=='kenney')
+    test('Classic, Kenney mix and standalone 1-Bit select only their intended sources',function()
+        assert(#Packs.order==3 and Packs.order[1]=='classic' and Packs.order[2]=='kenney'
+            and Packs.order[3]=='onebit')
         for _,mode in ipairs({'automatic','generated','published','unsafe'})do
             assert(not Packs.valid(mode) and not Packs.save(memory(),mode))
             assert(not pcall(Packs.build,mode))
@@ -58,7 +59,7 @@ return function(test,equal)
         end}
         local calls=0
         local function load_native(read,mode)
-            calls=calls+1;assert(mode=='kenney');return native,'loaded'
+            calls=calls+1;assert(mode=='kenney' or mode=='onebit');return native,'loaded'
         end
         local function read()error('retired visual sources must not be read')end
         local function image()error('unexpected loose image load')end
@@ -67,6 +68,8 @@ return function(test,equal)
         assert(classic.status=='absent' and not classic:resolve('core:actor/adventurer'))
         local kenney=Packs.build('kenney',read,image,load_native)
         assert(kenney:resolve('core:actor/adventurer').source=='kenney' and calls==1)
+        local onebit=Packs.build('onebit',read,image,load_native)
+        assert(onebit:resolve('core:actor/adventurer') and calls==2)
         assert(not Packs.uses_published_theme('classic') and not Packs.uses_published_theme('kenney'))
         local missing,status=Packs.build('kenney',read,image,function()return nil,'absent'end)
         assert(status=='absent' and not missing:resolve('core:actor/adventurer'))
