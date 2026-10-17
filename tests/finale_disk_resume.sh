@@ -113,7 +113,7 @@ function love.draw(...)
     if pending then return end
     if phase=='save' then
         if step>1 then return end
-        assert(has('Save & Quit') and tracked.finale.phase=='active')
+        assert(has('SAVE & QUIT') and tracked.finale.phase=='active')
         pending=true
         love.graphics.captureScreenshot(function(image)
             write(out..'/save.png',image:encode('png'):getString())
@@ -172,14 +172,23 @@ function love.draw(...)
         end)
     end
 end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Finale resume draw assertion: '..tostring(why)..'\n')
+        love.event.quit(2)
+    end
+end
+
 LUA
 ROAG_GUI_AUTOSTART=1 ROAG_FINALE_RESUME_PHASE=save \
   ROAG_FINALE_RESUME_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" \
-  timeout 30s love "$output_dir"
+  timeout -k 3s 30s love "$output_dir"
 ROAG_FINALE_RESUME_PHASE=load ROAG_FINALE_RESUME_OUTPUT="$output_dir" \
-  XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
+  XDG_DATA_HOME="$output_dir/data" timeout -k 3s 30s love "$output_dir"
 ROAG_FINALE_RESUME_PHASE=terminal ROAG_FINALE_RESUME_OUTPUT="$output_dir" \
-  XDG_DATA_HOME="$output_dir/data" timeout 30s love "$output_dir"
+  XDG_DATA_HOME="$output_dir/data" timeout -k 3s 30s love "$output_dir"
 for file in expected next save.png title.png continued.png terminal.png; do
     test -s "$output_dir/$file"
 done

@@ -7,11 +7,14 @@ function Fonts.load()
     local fallback=graphics.getFont()
     local body=graphics.newFont(path,12)
     local display=graphics.newFont(path,24)
+    local menu=graphics.newFont(path,16)
     body:setFilter('nearest','nearest')
     display:setFilter('nearest','nearest')
     body:setFallbacks(fallback)
     display:setFallbacks(fallback)
-    return body,display
+    menu:setFilter('nearest','nearest')
+    menu:setFallbacks(fallback)
+    return body,display,menu
 end
 
 return Fonts

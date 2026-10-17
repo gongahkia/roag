@@ -172,7 +172,8 @@ function love.draw(...)
             for yy=1,map.height do for xx=1,map.width do
                 local sx,sy=Camera.tile_top_left(camera,xx,yy)
                 sx,sy=sx+camera.tile/2,sy+camera.tile/2
-                if sx>25+map.width*1.3+5 and sx<720 and sy>=16 and sy<624 and
+                if sx>25+map.width*1.3+5 and sx<camera.viewport.x+camera.viewport.width
+                    and sy>=camera.viewport.y and sy<camera.viewport.y+camera.viewport.height and
                     not Game.was_explored(tracked,tracked.active_floor_id,xx,yy)then
                     screen_x,screen_y=sx,sy;break
                 end

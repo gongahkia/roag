@@ -1,5 +1,7 @@
 # Kenney Micro Roguelike: selectable visual trial
 
+The menu/HUD layout was subsequently simplified; see [current menu captures](ROAG_MICROCRAFT_MENUS.md). The captures below preserve the original art-trial evidence.
+
 This is a working trial of the **colored 8×8 Micro Roguelike 1.4** pack chosen
 by the user. It is not a claim that every ROAG artwork slot has a unique new
 sprite or that the visual direction has received human approval.

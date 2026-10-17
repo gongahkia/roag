@@ -32,6 +32,7 @@ test:
 gui: gui-game gui-expansion
 gui-game:
 	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
+	@$(GUI_RUN) sh tests/menu_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
 gui-expansion:

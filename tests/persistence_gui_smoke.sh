@@ -110,7 +110,7 @@ function love.draw(...)
     end
     if captured then return end
     assert(tracked.clock==100 and has('HEALTH'))
-    if phase=='save' then assert(has('Save & Quit')) end
+    if phase=='save' then assert(has('SAVE & QUIT')) end
     captured=true
     capture(function(image)
         local file=assert(io.open(output_dir..'/'..phase..'.png','wb'))

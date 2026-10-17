@@ -24,6 +24,7 @@ local StudioProject = require("src.studio_project")
 local VisualSlots = require("src.visual_slots")
 local Spectator = require("src.spectator")
 local TitleMenu = require("src.title_menu")
+local PixelUI = require("src.pixel_ui")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
@@ -32,9 +33,10 @@ local AudioCues = require("src.audio_cues")
 local ZOOM_TILES={32,40,48,56,64}
 local zoom_index=3 -- 150% by default; gameplay geometry remains 32px logical art.
 local TILE=ZOOM_TILES[zoom_index]
-local VIEWPORT = { x = 16, y = 16, width = 704, height = 608 }
-local PANEL_X = 742
-local BOON_ROW_Y,BOON_ROW_H=425,15
+local VIEWPORT = { x = 16, y = 16, width = 992, height = 520 }
+local inventory_open,inventory_selection=false,1
+local help_open=false
+local pause_selection=1
 
 local state
 local spectator_enabled=os.getenv('ROAG_SPECTATOR')=='1'
@@ -48,7 +50,7 @@ local notice = "Ready"
 local playback = Playback.new()
 local hit_feedback = HitFeedback.new()
 local combat_numbers = CombatNumbers.new()
-local ui_body_font,ui_display_font
+local ui_body_font,ui_display_font,ui_menu_font
 local minimap_visible = true
 local showcase_index = 0
 local boon_page = 0
@@ -251,6 +253,7 @@ local function owned_boon_ids()
 end
 
 local function reset_camera()
+    inventory_open,help_open=false,false
     local map = Content.map_for(state)
     local position = Game.player(state).position
     if spectator_enabled then spectator_focus={x=position.x,y=position.y} end
@@ -335,7 +338,7 @@ local function build_selected_visuals(mode,read)
 end
 
 function love.load(args)
-    ui_body_font,ui_display_font=UIFont.load()
+    ui_body_font,ui_display_font,ui_menu_font=UIFont.load()
     love.graphics.setFont(ui_body_font)
     local audio_ok,audio=pcall(AudioRuntime.new,
         function(path)return love.filesystem.read(path)end,
@@ -964,6 +967,11 @@ function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
     end
+    if help_open then
+        if key=='f1' or key=='escape' or key=='return'then help_open=false end
+        return
+    end
+    if key=='f1' then help_open=true;return end
     if key=='f5' then refresh_pending=true;return end
     if key=="f3" then
         if diagnostics then diagnostics=nil
@@ -1052,9 +1060,26 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if title then title_keypressed(key);return end
+    if inventory_open then
+        local owned=owned_boon_ids()
+        local pages=math.max(1,math.ceil(#owned/7))
+        local count=math.min(7,math.max(0,#owned-(boon_page%pages)*7))
+        if key=='i' or key=='escape'then inventory_open=false
+        elseif key=='up' or key=='w'then inventory_selection=math.max(1,inventory_selection-1)
+        elseif key=='down' or key=='s'then inventory_selection=math.min(math.max(1,count),inventory_selection+1)
+        elseif key=='v' or key=='right'then boon_page=boon_page+1;inventory_selection=1
+        elseif key=='left'then boon_page=(boon_page-1)%pages;inventory_selection=1
+        elseif key=='return' or key=='kpenter'then
+            boon_detail_id=owned[(boon_page%pages)*7+inventory_selection]
+        end
+        return
+    end
     if pause_menu then
         if pause_settings then settings_keypressed(key,false);return end
-        if key=="escape" or key=="1" or key=="return" then
+        if key=='up' or key=='w'then pause_selection=(pause_selection+1)%3+1;return end
+        if key=='down'then pause_selection=pause_selection%3+1;return end
+        if key=='return' or key=='kpenter'then key=tostring(pause_selection)end
+        if key=="escape" or key=="1" then
             pause_menu=false
         elseif key=="2" or key=="s" then
             if checkpoint(true) then love.event.quit() end
@@ -1103,6 +1128,9 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if route_menu then
+        if key=='up' or key=='left'then
+            route_menu.selected=(route_menu.selected+#route_menu.routes-2)%#route_menu.routes+1;return
+        elseif key=='down' or key=='right'then route_menu.selected=route_menu.selected%#route_menu.routes+1;return end
         if key=="escape" then
             route_menu=nil
             notice="Route choice cancelled — no time"
@@ -1116,6 +1144,8 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if chest_menu then
+        if key=='up' or key=='left'then chest_menu.selected=(chest_menu.selected+1)%3+1;return
+        elseif key=='down' or key=='right'then chest_menu.selected=chest_menu.selected%3+1;return end
         if key == "escape" then
             chest_menu = nil
             notice = "Chest cancelled — no time; offers retained"
@@ -1130,6 +1160,7 @@ function love.keypressed(key, _, isrepeat)
     end
     if key=="escape" and not targeting then
         pause_menu=true
+        pause_selection=1
         pause_settings=false
         persistence_message=""
         return
@@ -1141,9 +1172,9 @@ function love.keypressed(key, _, isrepeat)
     end
     if key=='=' or key=='+' or key=='kp+' then zoom_by(1);return end
     if key=='-' or key=='kp-' then zoom_by(-1);return end
-    if key == "v" and not targeting then
-        boon_page=boon_page+1
-        notice="Boon list page — no time"
+    if (key=='i' or key=='v') and not targeting then
+        if key=='v'then boon_page=boon_page+1 end
+        inventory_open=true;inventory_selection=1
         return
     end
     if Playback.busy(playback) then
@@ -1249,7 +1280,7 @@ function love.gamepadpressed(_,button)
     if title then
         key=({a='return',b='escape',x='u',y='n',start='n',
             dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
-    elseif pause_menu then
+    elseif pause_menu or inventory_open or help_open then
         key=({a='return',b='escape',x='3',y='2',start='escape',
             dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
     else
@@ -1306,6 +1337,11 @@ local function actor_visual(binding,id)
     local pose=VisualSlots.pose(id,Playback.current(playback),
         Playback.current_pose_events(playback))
     return pose and bound_visual(binding..'/'..pose) or bound_visual(binding)
+end
+local function menu_frame(title,x,y,w,h)
+    if studio_theme and studio_theme:draw_panel(x,y,w,h)then
+        PixelUI.center(title,y-6,ui_display_font,PixelUI.colors.selected,x,w)
+    else PixelUI.frame(title,x,y,w,h,ui_display_font)end
 end
 local expansion_enemy_colors={
     ["core:enemy/mossbreaker"]={0.42,0.69,0.34},
@@ -2074,115 +2110,73 @@ local function draw_world()
     end
     draw_minimap()
     if chest_menu then
-        if studio_theme and studio_theme:draw_panel(70,100,640,390) then
-            love.graphics.setColor(0.02,0.04,0.04,0.72)
-            love.graphics.rectangle('fill',74,104,632,382)
-        else
-            love.graphics.setColor(0.02, 0.04, 0.04, 0.93)
-            love.graphics.rectangle("fill", 70, 100, 640, 390)
+        PixelUI.dim(.55)
+        menu_frame(chest_menu.name,80,120,472,360,ui_display_font)
+        menu_frame('DETAILS',568,120,376,360,ui_display_font)
+        for index,offer in ipairs(chest_menu.offers)do
+            local definition=BoonContent.get(offer.boon_id)
+            local y=178+(index-1)*76
+            PixelUI.option(index..'. '..definition.name,102,y,420,
+                index==chest_menu.selected,ui_menu_font)
+            PixelUI.center(offer.rarity:upper(),y+24,ui_menu_font,PixelUI.colors.muted,102,420)
         end
-        love.graphics.setColor(1, 0.88, 0.53)
-        love.graphics.print(("%s — price %d (you have %d)"):format(
-            chest_menu.name, chest_menu.price, state.currency), 90, 120)
-        for index, offer in ipairs(chest_menu.offers) do
-            local definition = BoonContent.get(offer.boon_id)
-            local power = definition.parameters[offer.rarity]
-            local chance = power.chance and power.chance > 0
-                and (" · %.1f%% chance"):format(power.chance / 10000) or ""
-            love.graphics.setColor(index == chest_menu.selected and 1 or 0.85,
-                index == chest_menu.selected and 0.89 or 0.88, 0.67)
-            love.graphics.print(("%d. %s [%s] · power %d%s"):format(
-                index, definition.name, offer.rarity, power.power, chance), 90, 158 + (index-1)*88)
-            love.graphics.printf(BoonContent.offer_text(offer.boon_id,offer.rarity),
-                110, 180 + (index-1)*88,470)
-            local art=bound_visual(offer.boon_id..'/detail') or
-                bound_visual(offer.boon_id..'/icon')
-            if art then draw_visual(art,610,151+(index-1)*88,64,64) end
-        end
-        love.graphics.setColor(0.9, 0.95, 0.9)
-        local status = chest_menu.shortfall > 0 and
-            ("Need %d more currency · Esc cancels free"):format(chest_menu.shortfall)
-            or "1/2/3 select · Enter claim · Esc cancel (no time)"
-        love.graphics.print(status, 90, 451)
+        local offer=chest_menu.offers[chest_menu.selected]
+        local art=bound_visual(offer.boon_id..'/detail') or bound_visual(offer.boon_id..'/icon')
+        if art then draw_visual(art,724,152,64,64)end
+        PixelUI.center(BoonContent.get(offer.boon_id).name,230,ui_menu_font,PixelUI.colors.selected,584,344)
+        love.graphics.setFont(ui_menu_font);love.graphics.setColor(PixelUI.colors.text)
+        love.graphics.printf(BoonContent.offer_text(offer.boon_id,offer.rarity),592,266,328)
+        local power=BoonContent.get(offer.boon_id).parameters[offer.rarity]
+        PixelUI.center(offer.rarity..' · power '..power.power,378,ui_menu_font,PixelUI.colors.muted,584,344)
+        PixelUI.center(('Price %d · GOLD  %d'):format(chest_menu.price,state.currency),414,
+            ui_menu_font,PixelUI.colors.text,102,420)
+        PixelUI.option(chest_menu.shortfall>0 and ('Need '..chest_menu.shortfall..' more gold') or 'Enter claim',
+            584,446,344,true,ui_menu_font,chest_menu.shortfall>0)
+        PixelUI.center('1/2/3 or click choose · Enter claim · Esc cancel',516,ui_menu_font,PixelUI.colors.muted)
     end
     if route_menu then
-        love.graphics.setColor(0.02,0.04,0.05,0.95)
-        love.graphics.rectangle("fill",85,135,600,350)
-        love.graphics.setColor(0.66,0.91,1)
-        love.graphics.print(route_menu.stage_index>=3
-            and "Enter the Final Sanctum"
-            or "Choose a route — next biome",105,155)
-        for index,route in ipairs(route_menu.routes) do
-            love.graphics.setColor(index==route_menu.selected and 1 or 0.76,
-                index==route_menu.selected and 0.87 or 0.85,0.67)
-            love.graphics.print(index..". "..route.name,110,190+(index-1)*75)
-            love.graphics.print(route.description,130,215+(index-1)*75)
+        PixelUI.dim(.55)
+        menu_frame(route_menu.stage_index>=3 and 'Enter the Final Sanctum' or 'Choose a route',
+            160,138,704,350,ui_display_font)
+        for i,route in ipairs(route_menu.routes)do
+            local y=216+(i-1)*64
+            PixelUI.option(i..'. '..route.name,180,y,664,i==route_menu.selected,ui_display_font)
+            PixelUI.center(route.description,y+28,ui_menu_font,PixelUI.colors.muted,190,644)
         end
-        love.graphics.setColor(0.9,0.95,0.9)
-        love.graphics.print(route_menu.stage_index>=3
-            and "Enter confirm · Esc cancel (no time)"
-            or "1/2/3 select · Enter confirm · Esc cancel (no time)",105,435)
+        PixelUI.option('CONFIRM ROUTE',320,450,384,true,ui_menu_font)
+        PixelUI.center('1/2/3 or click choose · Enter confirm · Esc cancel',520,ui_menu_font,PixelUI.colors.muted)
     end
     if state.game_over and not Playback.busy(playback) then
-        love.graphics.setColor(0, 0, 0, 0.84)
-        love.graphics.rectangle("fill", VIEWPORT.x, VIEWPORT.y, VIEWPORT.width, VIEWPORT.height)
+        PixelUI.dim(.7)
+        menu_frame(state.victory and 'VICTORY' or 'GAME OVER',160,108,704,366,ui_display_font)
+        local player=Game.player(state)
         if state.victory then
             local result=state.victory
-            local names={"Overgrown Ruins"}
-            for index=1,2 do
-                local biome_id=result.route_history[index]:gsub("^core:route/","core:biome/")
-                names[#names+1]=Biomes.get(biome_id).name
+            local names={'Overgrown Ruins'}
+            -- The final third route is the gateway, not a biome ID.
+            for index=1,math.min(2,#result.route_history)do
+                local route=result.route_history[index]
+                names[#names+1]=Biomes.get(route:gsub('^core:route/','core:biome/')).name
             end
-            local owned={}
-            for _,id in ipairs(BoonContent.order) do
-                local stacks=result.boons[id]
-                if stacks then
-                    local total=0
-                    for _,rarity in ipairs(BoonContent.rarities) do
-                        total=total+(stacks[rarity] or 0)
-                    end
-                    if total>0 then owned[#owned+1]=BoonContent.get(id).name.." x"..total end
-                end
-            end
-            love.graphics.setColor(1,0.82,0.43)
-            love.graphics.printf("VICTORY",VIEWPORT.x,130,VIEWPORT.width,"center")
-            love.graphics.setColor(0.92,0.89,0.96)
-            love.graphics.printf("Hollow Regent defeated",
-                VIEWPORT.x,168,VIEWPORT.width,"center")
-            love.graphics.printf(table.concat(names," > "),VIEWPORT.x+30,199,
-                VIEWPORT.width-60,"center")
+            PixelUI.center('Hollow Regent defeated',160,ui_menu_font,PixelUI.colors.selected,184,656)
+            PixelUI.center(table.concat(names,' > '),208,ui_menu_font,PixelUI.colors.text,184,656)
             local class=Classes.get(result.class_id or Classes.order[1])
-            love.graphics.printf(("%s · Level %d · XP %d · HP %d/%d · Currency %d"):format(
-                class.name,result.level,result.xp_total,result.hp,result.max_hp,result.currency),
-                VIEWPORT.x+30,235,VIEWPORT.width-60,"center")
-            love.graphics.printf("Boons: "..(#owned>0 and table.concat(owned,", ") or "none"),
-                VIEWPORT.x+45,278,VIEWPORT.width-90,"center")
-            local unlocked={}
-            for _,id in ipairs(AchievementContent.order) do
-                if state.meta and state.meta.earned[id] then
-                    unlocked[#unlocked+1]=BoonContent.get(AchievementContent.get(id).reward).name
-                end
-            end
-            love.graphics.printf("Unlocked this run: "..(#unlocked>0 and
-                table.concat(unlocked,", ") or "none"),VIEWPORT.x+45,330,
-                VIEWPORT.width-90,"center")
-            love.graphics.printf("N — New Run",VIEWPORT.x,408,VIEWPORT.width,"center")
+            PixelUI.center(('%s · Level %d · XP %d'):format(class.name,result.level,result.xp_total),
+                274,ui_menu_font,PixelUI.colors.text,184,656)
+            PixelUI.center(('HP %d/%d · GOLD %d · Boons %d'):format(result.hp,result.max_hp,result.currency,
+                #owned_boon_ids()),310,ui_menu_font,PixelUI.colors.text,184,656)
         else
-            love.graphics.setColor(1, 0.36, 0.33)
-            love.graphics.printf("GAME OVER — press N to restart", VIEWPORT.x,
-                VIEWPORT.y + VIEWPORT.height / 2 - 10, VIEWPORT.width, "center")
-            if state.meta then
-                local earned={}
-                for _,id in ipairs(AchievementContent.order) do
-                    if state.meta.earned[id] then
-                        earned[#earned+1]=AchievementContent.get(id).name
-                    end
-                end
-                love.graphics.printf("Achievements this run: "..(#earned>0 and
-                    table.concat(earned,", ") or "none"),VIEWPORT.x+35,380,
-                    VIEWPORT.width-70,"center")
-            end
+            PixelUI.center('Your run has ended.',188,ui_menu_font,PixelUI.colors.text,184,656)
+            PixelUI.center(('%s · Level %d · GOLD %d'):format(Classes.for_player(player).name,
+                state.progression.level,state.currency),244,ui_menu_font,PixelUI.colors.text,184,656)
         end
+        local earned={}
+        for _,id in ipairs(AchievementContent.order)do
+            if state.meta and state.meta.earned[id]then earned[#earned+1]=AchievementContent.get(id).name end
+        end
+        PixelUI.center('Unlocked this run: '..(#earned>0 and table.concat(earned,', ') or 'none'),
+            356,ui_menu_font,PixelUI.colors.muted,184,656)
+        PixelUI.center('N New Run · I inspect boons',430,ui_menu_font,PixelUI.colors.selected,184,656)
     end
     love.graphics.setScissor()
 end
@@ -2199,497 +2193,314 @@ local function hud_meter(x,y,w,h,value,maximum,r,g,b)
     end
 end
 
-local function hud_rule(y)
-    love.graphics.setColor(.23,.32,.33)
-    love.graphics.rectangle('fill',PANEL_X,y,260,1)
-end
-
-local function hud_action(key,label,y)
-    local g=love.graphics
-    g.setColor(.13,.21,.22)
-    g.rectangle('fill',PANEL_X,y,20,18)
-    g.setColor(.47,.75,.77)
-    g.rectangle('line',PANEL_X+.5,y+.5,19,17)
-    g.print(key,PANEL_X+6,y+3)
-    g.setColor(.9,.93,.85)
-    g.print(label,PANEL_X+30,y+3)
-end
-
 local function draw_panel()
     local g=love.graphics
-    local px=PANEL_X
     local player=Game.player(state)
     local class=Classes.for_player(player)
     local map=Content.map_for(state)
-    local biome_id=state.stage and state.stage.biome_id or map.biome_id
     local biome=state.finale and 'FINAL SANCTUM' or
-        biome_id and Biomes.get(biome_id).name:upper() or 'THE RUINS'
-    if not (studio_theme and studio_theme:draw_panel(px-12,16,280,608)) then
-        g.setColor(.055,.083,.087)
-        g.rectangle('fill',px-12,16,280,608)
-        g.setColor(.25,.36,.36)
-        g.rectangle('line',px-11.5,16.5,279,607)
+        Biomes.get(map.biome_id or Biomes.order[1]).name:upper()
+    if not (studio_theme and studio_theme:draw_panel(16,544,992,80))then
+        g.setColor(.025,.025,.04);g.rectangle('fill',16,544,992,80)
+        g.setColor(PixelUI.colors.edge);g.rectangle('fill',16,544,992,2)
     end
-    g.setColor(.025,.046,.05,.65)
-    g.rectangle('fill',px-9,19,274,602)
     g.setFont(ui_body_font)
-    g.setColor(.65,.84,.79)
-    g.print(biome,px,27)
-    g.setColor(.55,.66,.65)
-    local location=state.finale and 'FINAL BOSS' or
-        state.floor_order and ('STAGE '..state.stage.index..'  /  FLOOR '..state.active_floor_index)
-        or state.stage and ('STAGE '..state.stage.index) or 'ADVENTURE'
-    g.print(location,px,46)
-    hud_rule(68)
-
-    g.setColor(.93,.94,.82)
-    g.print(class.name:upper()..'  ·  LV '..state.progression.level,px,80)
-    if not (studio_theme and studio_theme:draw_icon('hp_icon',px,103,16)) then
-        draw_visual(bound_visual('core:ui/hp_icon'),px,103,16,16)
+    g.setColor(PixelUI.colors.text);g.print('HEALTH',28,553)
+    local hp=('%d/%d'):format(player.hp,player.max_hp)
+    if not (studio_theme and studio_theme:draw_icon('hp_icon',28,570,16))then
+        draw_visual(bound_visual('core:ui/hp_icon'),28,570,16,16)
     end
-    g.setColor(.77,.83,.78)
-    if not (studio_theme and studio_theme:draw_text('HEALTH',px+22,105,2)) then
-        g.print('HEALTH',px+22,105)
-    end
-    local hp_text=('%d/%d'):format(player.hp,player.max_hp)
-    if not (studio_theme and studio_theme:draw_text('HP '..hp_text,px+176,98,2)) then
-        g.setFont(ui_display_font)
-        g.setColor(player.hp*4<=player.max_hp and {1,.48,.42} or {.98,.88,.66})
-        g.print(hp_text,px+260-g.getFont():getWidth(hp_text),94)
-        g.setFont(ui_body_font)
+    if not (studio_theme and studio_theme:draw_text('HP '..hp,50,571,1))then
+        g.setColor(player.hp*4<=player.max_hp and {1,.4,.4} or PixelUI.colors.text)
+        g.print(hp,50,571)
     end
     local low=player.hp*4<=player.max_hp
-    hud_meter(px,130,260,14,player.hp,player.max_hp,
-        low and .94 or .57,low and .31 or .75,low and .31 or .45)
-
+    hud_meter(125,571,135,12,player.hp,player.max_hp,low and .94 or .65,low and .31 or .8,low and .31 or .52)
     local level=state.progression.level
     local previous=level>1 and Rewards.next_threshold(level-1) or 0
-    local next_xp=Game.next_level_xp(state)
     local earned=state.progression.xp_total-previous
-    local needed=next_xp-previous
-    if not (studio_theme and studio_theme:draw_icon('xp_icon',px,155,16)) then
-        draw_visual(bound_visual('core:ui/xp_icon'),px,155,16,16)
+    local needed=Game.next_level_xp(state)-previous
+    if not (studio_theme and studio_theme:draw_icon('xp_icon',282,570,16))then
+        draw_visual(bound_visual('core:ui/xp_icon'),282,570,16,16)
     end
-    g.setColor(.77,.83,.78)
-    local xp_label=('XP  %d/%d'):format(earned,needed)
-    if not (studio_theme and studio_theme:draw_text(xp_label,px+22,156,2)) then
-        g.print(xp_label,px+22,156)
+    g.setColor(PixelUI.colors.text)
+    g.print(('LV %d   XP %d/%d'):format(level,earned,needed),282,553)
+    hud_meter(306,573,108,8,earned,needed,.55,.65,.92)
+    if not (studio_theme and studio_theme:draw_icon('currency_icon',442,570,16))then
+        draw_visual(bound_visual('core:ui/currency_icon'),442,570,16,16)
     end
-    hud_meter(px,174,260,8,earned,needed,.43,.72,.94)
-    if not (studio_theme and studio_theme:draw_icon('currency_icon',px,192,16)) then
-        draw_visual(bound_visual('core:ui/currency_icon'),px,192,16,16)
-    end
-    g.setColor(.98,.81,.44)
-    local gold_label='GOLD  '..state.currency
-    if not (studio_theme and studio_theme:draw_text(gold_label,px+22,193,2)) then
-        g.print(gold_label,px+22,193)
-    end
-    hud_rule(214)
-
-    g.setColor(.075,.13,.14,.95)
-    g.rectangle('fill',px,224,260,59)
+    g.setColor(PixelUI.colors.selected);g.print('GOLD  '..state.currency,442,553)
+    g.setColor(PixelUI.colors.text);g.print(biome,558,553)
+    g.setColor(PixelUI.colors.muted)
+    g.print(state.finale and 'FINAL BOSS' or ('STAGE %d / FLOOR %d'):format(
+        state.stage and state.stage.index or 1,state.active_floor_index or 1),792,553)
+    local warning,detail,color='', '',PixelUI.colors.muted
     local history=Playback.current(playback)
-    local warning,detail,r,gc,b
     if history then
-        local group=Playback.current_group(playback)
-        if history.kind=='WindupStarted' then
-            warning=group and (#group..' locked attacks') or 'ATTACK WINDUP'
-            detail='Resolving · input pauses'
-            r,gc,b=1,.62,.34
-        elseif group and group[#group].kind=='Died' then
-            warning='ENEMY DOWN';detail='Hit confirmed';r,gc,b=1,.84,.48
+        warning=history.kind=='WindupStarted' and 'ATTACK WINDUP' or 'RESOLVING'
+        detail=playback_cue_labels[history.kind] or 'Input resumes shortly'
+        color=PixelUI.colors.selected
+        if history.kind=='BoonActivated' and history.boon_id then
+            warning='BOON ACTIVATED';detail=BoonContent.get(history.boon_id).name
         elseif history.kind=='DamageTaken' then
-            warning='HIT CONFIRMED';detail='Resolving · input pauses';r,gc,b=1,.84,.48
-        elseif history.kind=='BoonActivated' and history.boon_id then
-            warning='BOON ACTIVATED'
-            detail=BoonContent.get(history.boon_id).name
-            r,gc,b=.58,.83,1
-        else
-            warning='RESOLVING'
-            detail=playback_cue_labels[history.kind] or 'Input resumes shortly'
-            r,gc,b=.68,.82,.84
+            warning=history.target_id==state.player_id and 'DAMAGE TAKEN' or 'HIT CONFIRMED'
+            if history.target_id==state.player_id then color={1,.44,.4}end
         end
     else
-        local strikes={}
-        for _,strike in ipairs(Game.pending_strikes(state)) do
-            for _,cell in ipairs(strike.target_cells) do
-                if visible_at(cell.x,cell.y) then strikes[#strikes+1]=strike;break end
+        for _,strike in ipairs(Game.pending_strikes(state))do
+            local shown=false
+            for _,cell in ipairs(strike.target_cells)do if visible_at(cell.x,cell.y)then shown=true;break end end
+            if shown then
+                warning='INCOMING ATTACK'
+                detail=Content.ability_name(strike.ability_id)..' · '..math.max(0,strike.due-state.clock)..' time'
+                color={1,.44,.4};break
             end
         end
-        if #strikes>0 then
-            warning='INCOMING ATTACK  '..#strikes
-            detail=Content.ability_name(strikes[1].ability_id)..
-                ' · '..math.max(0,strikes[1].due-state.clock)..' time'
-            r,gc,b=1,.48,.42
-        elseif state.stage and state.stage.phase=='extraction' then
-            warning='REACH THE EXIT'
-            detail=math.max(0,state.stage.deadline-state.clock)..' time left'
-            r,gc,b=1,.56,.37
-        elseif state.stage and state.stage.phase=='pursuit' then
-            warning='PURSUER ACTIVE'
-            detail='Reach the exit'
-            r,gc,b=1,.46,.42
-        elseif state.finale then
-            local boss=Game.entity(state,state.finale.boss_id)
-            warning='HOLLOW REGENT'
-            detail=boss and ('Phase '..(boss.phase_two and 2 or 1)) or 'Defeated'
-            r,gc,b=.85,.64,.96
-        elseif state.stage then
-            warning='DANGER  '..state.stage.pressure_count
-            detail='Next threat in '..math.max(0,
-                (state.stage.next_pressure or state.clock)-state.clock)
-            r,gc,b=.85,.68,.43
-        else
-            warning='EXPLORE';detail='Find the way forward';r,gc,b=.57,.78,.72
+        if warning=='' and targeting then
+            warning='AIMING'
+            local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
+            detail=preview and (preview.valid and 'Enter to strike · Esc cancel' or preview.reason)
+                or 'Choose a direction · Esc cancel'
+            color=PixelUI.colors.selected
+        elseif warning=='' and state.stage and state.stage.phase=='extraction'then
+            warning='REACH THE EXIT';detail=math.max(0,state.stage.deadline-state.clock)..' time left'
+            color=PixelUI.colors.selected
+        elseif warning=='' and state.stage and state.stage.phase=='pursuit'then
+            warning='PURSUER ACTIVE';detail='Reach the exit';color={1,.44,.4}
         end
     end
-    g.setColor(r,gc,b)
-    g.rectangle('fill',px,224,3,59)
-    g.printf(warning,px+12,234,244)
-    g.setColor(.76,.83,.79)
-    g.printf(detail,px+12,257,244)
-
-    hud_rule(296)
-    g.setColor(.6,.73,.72)
-    g.print(targeting and 'AIMING' or 'ACTIONS',px,304)
-    if targeting then
-        local name=targeting.kind=='basic_attack' and class.basic_name or
-            targeting.kind=='sweeping_slash' and class.special_name or class.dash_name
-        g.setColor(.98,.83,.49)
-        g.printf(name,px,323,260)
-        g.setColor(.85,.9,.84)
-        if targeting.dx then
-            local preview=Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
-            g.print(preview.valid and 'Enter to strike' or
-                (preview.reason or 'Blocked'),px,344)
-        else g.print('Choose a direction',px,344) end
-        g.setColor(.56,.7,.7)
-        g.print('Esc cancel',px,365)
-    else
-        hud_action('F',class.basic_name,320)
-        hud_action('R',class.special_name,342)
-        hud_action('X',class.dash_name,364)
-    end
-
-    hud_rule(395)
-    g.setColor(.6,.75,.83)
-    local owned={}
-    for _,id in ipairs(BoonContent.order) do
-        local stacks=player.boons and player.boons[id]
-        if stacks then
-            local counts={}
-            local short={common='C',uncommon='U',rare='R',legendary='L'}
-            for _,rarity in ipairs(BoonContent.rarities) do
-                if (stacks[rarity] or 0)>0 then
-                    counts[#counts+1]=short[rarity]..stacks[rarity]
-                end
-            end
-            if #counts>0 then
-                owned[#owned+1]={id=id,label=BoonContent.get(id).name..
-                    '  '..table.concat(counts,' ')}
-            end
-        end
-    end
-    local pages=math.max(1,math.ceil(#owned/7))
-    local page=boon_page%pages
-    g.print(('BOONS  %d/%d'):format(page+1,pages),px,404)
-    g.setColor(.46,.65,.72)
-    g.print('V page · click',px+132,404)
-    for line=1,7 do
-        local item=owned[page*7+line]
-        if item then
-            local y=BOON_ROW_Y+(line-1)*BOON_ROW_H
-            local icon=bound_visual(item.id..'/icon')
-            if icon then draw_visual(icon,px,y,12,12) end
-            g.setColor(.72,.85,.92)
-            local tx=px+(icon and 17 or 0)
-            g.setScissor(tx,y,px+260-tx,14)
-            g.print(item.label,tx,y)
-            g.setScissor()
-        end
-    end
-    if #owned==0 then
-        g.setColor(.55,.67,.67)
-        if not (studio_theme and studio_theme:draw_text('No boons yet',
-            px,BOON_ROW_Y,2)) then
-            g.print('No boons yet',px,BOON_ROW_Y)
-        end
-    end
-    hud_rule(533)
     local item=reward_notice_time>0 and reward_notices[1] or nil
     local status=type(item)=='table' and item.text or item or notice
     if not item and (status=='Ready' or status:match('^.-: %+%d+ time$') or
-        status:match('^Dash: %d+ tiles, %+%d+ time$')) then status='' end
-    if status~='' then
-        g.setColor(item and {.98,.82,.45} or {.78,.88,.81})
-        g.setScissor(px,540,260,50)
-        g.printf(status,px,542,260)
-        g.setScissor()
-    else
-        g.setColor(.58,.72,.69)
-        g.print('WASD move  ·  Space wait',px,543)
+        status:match('^Dash: %d+ tiles, %+%d+ time$'))then status=''end
+    if warning==''then
+        detail='';color=PixelUI.colors.muted
+        if state.finale then
+            local boss=Game.entity(state,state.finale.boss_id)
+            detail='HOLLOW REGENT · Phase '..(boss and boss.phase_two and '2' or '1')..
+                (detail~='' and ' · '..detail or '')
+        end
     end
-    g.setColor(.46,.61,.62)
-    g.print('Tab map  ·  +/- zoom  ·  Esc pause',px,600)
+    g.setColor(color);g.printf((warning~=''and warning..'  ' or '')..detail,558,575,430)
+    -- One nonblocking feedback line. Important action results must not be
+    -- hidden behind an earlier stat-gain notification or an attack warning.
+    local result_notice=notice
+    if result_notice=='Ready' or result_notice:match('^.-: %+%d+ time$') or
+        result_notice:match('^Dash: %d+ tiles, %+%d+ time$')then result_notice=''end
+    local feedback=result_notice~='' and result_notice or status or ''
+    if feedback~=''then
+        g.setColor(PixelUI.colors.selected);g.setScissor(28,588,960,14)
+        g.print(feedback,28,588);g.setScissor()
+    end
+    g.setColor(PixelUI.colors.text)
+    g.print('F '..class.basic_name,28,605)
+    g.print('R '..class.special_name,250,605)
+    g.print('X '..class.dash_name,486,605)
+    g.setColor(PixelUI.colors.selected)
+    g.print('I Boons / Stats',688,605)
+    g.setColor(PixelUI.colors.muted);g.print('F1 Help',838,605);g.print('Esc Menu',930,605)
 end
 
-local function draw_reward_detail()
-    local item=reward_notice_time>0 and reward_notices[1] or nil
-    if type(item)~='table' or chest_menu or pause_menu then return end
-    local art=bound_visual(item.binding) or
-        (item.fallback and bound_visual(item.fallback))
-    if not art then return end
-    local x,y=VIEWPORT.x+VIEWPORT.width-174,VIEWPORT.y+VIEWPORT.height-150
-    love.graphics.setColor(0.025,0.045,0.05,0.93)
-    love.graphics.rectangle('fill',x,y,160,134)
-    draw_visual(art,x+32,y+8,96,96)
-    love.graphics.setColor(0.93,0.95,0.85)
-    love.graphics.printf(item.text,x+6,y+107,148,'center')
+local function draw_inventory()
+    local g=love.graphics
+    PixelUI.dim(.55)
+    menu_frame('BOONS',72,100,520,440,ui_display_font)
+    menu_frame('CHARACTER',608,100,344,440,ui_display_font)
+    local player=Game.player(state)
+    local class=Classes.for_player(player)
+    local owned=owned_boon_ids()
+    local pages=math.max(1,math.ceil(#owned/7))
+    local page=boon_page%pages
+    g.setFont(ui_menu_font)
+    if #owned==0 then
+        g.setColor(PixelUI.colors.muted);g.print('No boons yet',106,170)
+        g.printf('Open chests to choose boons. Your collected boons and stacks appear here.',106,204,440)
+    end
+    for line=1,7 do
+        local id=owned[page*7+line]
+        if id then
+            local y=150+(line-1)*44
+            local icon=bound_visual(id..'/icon')
+            if icon then draw_visual(icon,104,y,24,24)end
+            local total=0
+            for _,rarity in ipairs(BoonContent.rarities)do total=total+((player.boons[id] or {})[rarity] or 0)end
+            PixelUI.option(BoonContent.get(id).name..' x'..total,140,y+5,420,
+                inventory_selection==line,ui_menu_font)
+        end
+    end
+    PixelUI.center(('PAGE %d/%d · V next · Enter inspect'):format(page+1,pages),492,
+        ui_menu_font,PixelUI.colors.muted,88,488)
+    local art=actor_visual(player.definition_id,state.player_id)
+    if art then draw_visual(art,724,136,96,96)end
+    PixelUI.center(class.name:upper(),248,ui_menu_font,PixelUI.colors.selected,624,312)
+    local lines={('Level %d · XP %d'):format(state.progression.level,state.progression.xp_total),
+        ('HEALTH %d/%d'):format(player.hp,player.max_hp),
+        ('Attack %d · Defense %d'):format(player.damage,player.defense),
+        ('Speed %d · GOLD %d'):format(player.speed,state.currency),
+        ('Boons %d · Seed %s'):format(#owned,tostring(state.root_seed or state.run_seed)),
+        state.stage and ('Danger %d · Next threat %d'):format(state.stage.pressure_count or 0,
+            math.max(0,(state.stage.next_pressure or state.clock)-state.clock)) or 'Final encounter'}
+    g.setFont(ui_menu_font);g.setColor(PixelUI.colors.text)
+    for i,line in ipairs(lines)do g.print(line,636,286+(i-1)*26)end
+    PixelUI.center('I / Esc close · no world time',518,ui_menu_font,PixelUI.colors.muted,88,488)
+end
+
+local function draw_help()
+    PixelUI.dim(.7)
+    menu_frame('HOW TO PLAY',160,90,704,460,ui_display_font)
+    local g=love.graphics
+    local lines={
+        {'WASD / arrows','Move · bump to attack or interact'},
+        {'F / R / X','Aim your class attacks / Dash'},
+        {'Enter / Esc','Commit aim / cancel aim'},
+        {'Space','Wait one action'},
+        {'I / V','Boons and character / next page'},
+        {'Tab / +/-','Map / camera zoom'},
+        {'Esc','Pause · Save & Quit · Settings'},
+        {'F5','Refresh published visual assets'},
+    }
+    g.setFont(ui_menu_font)
+    for i,row in ipairs(lines)do
+        local y=140+(i-1)*34
+        g.setColor(PixelUI.colors.selected);g.print(row[1],194,y)
+        g.setColor(PixelUI.colors.text);g.print(row[2],372,y)
+    end
+    g.setColor(PixelUI.colors.muted)
+    g.printf('Outlined tiles are locked attacks. A fast committed strike can land before your next turn. Menus cost no world time.',194,438,630)
+    PixelUI.center('F1 / Esc / click to return',516,ui_menu_font,PixelUI.colors.selected,160,704)
 end
 
 local function draw_boon_detail()
-    if not boon_detail_id then return end
-    local definition=BoonContent.get(boon_detail_id)
+    local definition=boon_detail_id and BoonContent.get(boon_detail_id)
     if not definition then return end
-    local x,y=150,158
-    love.graphics.setColor(0.02,0.04,0.05,0.97)
-    love.graphics.rectangle('fill',x,y,550,305)
-    love.graphics.setColor(0.68,0.83,0.78)
-    love.graphics.rectangle('line',x,y,550,305)
-    local art=bound_visual(boon_detail_id..'/detail') or
-        bound_visual(boon_detail_id..'/icon')
-    if art then draw_visual(art,x+18,y+50,192,192) end
-    love.graphics.setColor(0.97,0.91,0.69)
-    love.graphics.printf(definition.name,x+225,y+24,300)
+    PixelUI.dim(.45)
+    menu_frame('BOON DETAILS',200,152,624,330,ui_display_font)
+    local art=bound_visual(boon_detail_id..'/detail') or bound_visual(boon_detail_id..'/icon')
+    if art then draw_visual(art,228,252,96,96)end
     local stacks=Game.player(state).boons[boon_detail_id] or {}
-    local rarity='common'
-    for _,candidate in ipairs(BoonContent.rarities) do
-        if (stacks[candidate] or 0)>0 then rarity=candidate end
+    local rarity='common';local counts={}
+    for _,candidate in ipairs(BoonContent.rarities)do
+        if (stacks[candidate] or 0)>0 then
+            rarity=candidate;counts[#counts+1]=candidate..' x'..stacks[candidate]
+        end
     end
-    love.graphics.setColor(0.88,0.91,0.88)
-    love.graphics.printf(BoonContent.offer_text(boon_detail_id,rarity),
-        x+225,y+65,300)
-    love.graphics.print('Esc or click to close · no world time',x+18,y+275)
+    PixelUI.center(definition.name,184,ui_menu_font,PixelUI.colors.selected,224,576)
+    PixelUI.center(table.concat(counts,' · '),218,ui_menu_font,PixelUI.colors.muted,224,576)
+    love.graphics.setFont(ui_menu_font);love.graphics.setColor(PixelUI.colors.text)
+    love.graphics.printf(rarity:upper()..' EFFECT\n\n'..BoonContent.offer_text(boon_detail_id,rarity),
+        art and 350 or 228,258,art and 446 or 568)
+    PixelUI.center('Enter / Esc / click to return',446,ui_menu_font,PixelUI.colors.selected,224,576)
 end
 
 local function pack_choice_at(x,y,panel_x,panel_y,panel_w)
-    if x<panel_x+36 or x>panel_x+panel_w-36 then return nil end
-    for index=1,#VisualPacks.order do
-        local top=panel_y+140+(index-1)*72
-        if y>=top and y<=top+62 then return index end
-    end
+    return PixelUI.settings_at(panel_x,panel_y,panel_w,#VisualPacks.order,x,y)
 end
 
 local function draw_pack_settings(x,y,w,h)
+    menu_frame('SPRITE PACK',x,y,w,h,ui_display_font)
     local g=love.graphics
-    g.setColor(.025,.055,.06,1)
-    g.rectangle('fill',x,y,w,h)
-    g.setColor(.35,.54,.52)
-    g.rectangle('line',x+.5,y+.5,w-1,h-1)
-    g.setColor(.95,.86,.60)
-    g.setFont(ui_display_font)
-    g.printf('SPRITE PACK',x,y+26,w,'center')
-    g.setFont(ui_body_font)
-    g.setColor(.69,.85,.80)
-    g.print('← BACK',x+20,y+73)
-    local source='Built-in fallback'
-    if visual_assets and visual_assets.status=='generated' then
-        source=visual_pack_mode=='kenney' and 'Kenney Micro Roguelike' or 'Dungeon atlas'
-    elseif visual_assets and visual_assets.status=='loaded' then
-        source=(visual_assets.atlas_status=='loaded' or
-            tostring(visual_assets.atlas_status):match('^recovered')) and
-            'Published atlas' or 'Published loose PNGs'
-    end
-    g.setColor(.76,.86,.78)
-    g.printf('In use: '..source..'  ·  No gameplay or save changes',
-        x+30,y+107,w-60,'center')
+    g.setFont(ui_menu_font);g.setColor(PixelUI.colors.muted)
+    g.print('Esc / click BACK',x+24,y+36)
+    local source=visual_pack_mode=='kenney' and 'Kenney Micro Roguelike' or
+        visual_assets and visual_assets.status=='generated' and 'Dungeon atlas' or
+        visual_assets and visual_assets.status=='loaded' and 'Published Paint' or 'Built-in fallback'
+    PixelUI.center('In use: '..source,y+72,ui_menu_font,PixelUI.colors.text,x,w)
     local actor=bound_visual(selected_class_id)
-    if actor then draw_visual(actor,x+w-78,y+36,38,38) end
-    for index,mode in ipairs(VisualPacks.order) do
-        local top=y+140+(index-1)*72
-        local selected=settings_selection==index
-        local active=visual_pack_mode==mode
-        g.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
-        g.rectangle('fill',x+36,top,w-72,62)
-        g.setColor(selected and {.75,.91,.77} or {.28,.43,.42})
-        g.rectangle('line',x+36.5,top+.5,w-73,61)
-        g.setColor(active and {.99,.91,.64} or {.84,.89,.84})
-        g.print((active and '✓ ' or '  ')..VisualPacks.labels[mode],
-            x+53,top+11)
-        g.setColor(.60,.77,.74)
-        g.printf(VisualPacks.descriptions[mode],x+54,top+37,w-108,'left')
+    if actor then draw_visual(actor,x+(w-56)/2,y+100,56,56)end
+    for index,mode in ipairs(VisualPacks.order)do
+        local row=PixelUI.settings_row(x,y,w,index)
+        PixelUI.option(VisualPacks.labels[mode]..(mode==visual_pack_mode and ' *' or ''),
+            row.x,row.y+7,row.w,settings_selection==index,ui_display_font)
     end
+    PixelUI.center(VisualPacks.descriptions[VisualPacks.order[settings_selection]],y+422,
+        ui_menu_font,PixelUI.colors.muted,x+24,w-48)
     local warning=visual_pack_message
-    if warning=='' and visual_pack_status=='corrupt' then
-        warning='Damaged pack setting; using Automatic'
-    elseif warning=='' and visual_pack_status=='incompatible' then
-        warning='Newer pack setting preserved; using Automatic'
-    elseif warning=='' and (visual_pack_mode=='generated' or visual_pack_mode=='kenney') and
-        visual_pack_generated_status~='loaded' then
-        warning=(visual_pack_mode=='kenney' and 'Kenney sheet' or 'Dungeon atlas')..
-            ' unavailable; using built-in fallback'
-    elseif warning=='' and visual_pack_mode=='published' and
-        (not visual_assets or visual_assets.status~='loaded') then
-        warning='No valid published art; using built-in fallback'
+    if warning=='' and visual_pack_status=='corrupt'then warning='Damaged preference · using Automatic'
+    elseif warning=='' and (visual_pack_mode=='generated' or visual_pack_mode=='kenney') and visual_pack_generated_status~='loaded'then
+        warning='Artwork unavailable · using built-in fallback'
     end
-    g.setColor(warning~='' and {1,.73,.46} or {.60,.77,.74})
-    g.printf(warning~='' and warning or '↑↓ choose · Enter apply · Esc back',
-        x+28,y+h-50,w-56,'center')
+    g.setFont(ui_menu_font);g.setColor(warning~='' and PixelUI.colors.selected or PixelUI.colors.muted)
+    g.printf(warning~='' and warning or 'Up/down choose · Enter apply · * active',x+24,y+h-68,w-48,'center')
+end
+
+local function draw_title_page()
+    local g=love.graphics
+    if studio_theme then studio_theme:draw_background('title_background',0,0,g.getDimensions())end
+    if title_view=='home'then
+        g.setFont(ui_display_font);g.setColor(PixelUI.colors.selected)
+        g.print('ROAG',(g.getWidth()-ui_display_font:getWidth('ROAG')*3)/2,104,0,3,3)
+        local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','SETTINGS','QUIT'}
+        for i,label in ipairs(options)do
+            PixelUI.option(label,280,232+(i-1)*42,464,title_selection==i,ui_display_font,
+                i==1 and not resumable(save_status))
+        end
+        local descriptions={resumable(save_status) and 'Saved run available' or 'No compatible saved run',
+            'Choose a character and begin','View your permanent unlocks','Choose a sprite pack','Leave ROAG'}
+        PixelUI.center(descriptions[title_selection],476,ui_menu_font,PixelUI.colors.muted)
+        if save_status and save_status.status~='absent' and not resumable(save_status)then
+            local headline=TitleMenu.save_summary(save_status)
+            PixelUI.center('Continue unavailable · '..headline,510,ui_menu_font,PixelUI.colors.muted)
+        end
+        PixelUI.center('Arrows / Enter · N quick start · C quick continue',552,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.center('F1  HOW TO PLAY',600,ui_menu_font,PixelUI.colors.selected)
+    elseif title_view=='continue'then
+        menu_frame('CONTINUE SAVED RUN',192,130,640,360,ui_display_font)
+        local headline,detail=TitleMenu.save_summary(save_status)
+        PixelUI.center(headline,220,ui_menu_font,PixelUI.colors.selected,224,576)
+        PixelUI.center(detail,274,ui_menu_font,PixelUI.colors.text,224,576)
+        PixelUI.option('CONTINUE RUN',320,424,384,true,ui_display_font,not resumable(save_status))
+        PixelUI.center('Enter continues · Esc / click BACK',554,ui_menu_font,PixelUI.colors.muted)
+    elseif title_view=='class'then
+        menu_frame('CHOOSE YOUR CHARACTER',160,92,704,470,ui_display_font)
+        for i,id in ipairs(Classes.order)do
+            PixelUI.option(i..' '..Classes.get(id).name:upper(),190,168+(i-1)*46,290,
+                id==selected_class_id,ui_display_font)
+        end
+        local chosen=Classes.get(selected_class_id)
+        local art=bound_visual(selected_class_id)
+        if art then draw_visual(art,614,162,96,96)end
+        PixelUI.center(chosen.name:upper(),290,ui_menu_font,PixelUI.colors.selected,496,336)
+        PixelUI.center(chosen.description,332,ui_menu_font,PixelUI.colors.text,496,336)
+        PixelUI.center(('HP %d · ATK %d · DEF %d · SPD %d'):format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
+            406,ui_menu_font,PixelUI.colors.muted,496,336)
+        PixelUI.option('BEGIN NEW GAME',496,502,336,false,ui_menu_font)
+        PixelUI.center('1–6 / arrows choose · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
+    elseif title_view=='settings'then draw_pack_settings(190,55,644,530)end
+    if title_view~='home'then
+        g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected);g.print('< BACK',192,608)
+    end
+    if unlocks_view then
+        PixelUI.dim(.65);menu_frame('ACHIEVEMENTS',96,100,832,440,ui_display_font)
+        local earned=profile and profile.earned or {}
+        g.setFont(ui_menu_font)
+        for i,id in ipairs(AchievementContent.order)do
+            local def=AchievementContent.get(id)
+            g.setColor(earned[id] and PixelUI.colors.selected or PixelUI.colors.muted)
+            g.printf((earned[id] and 'UNLOCKED' or 'LOCKED')..' — '..def.name..' · '..BoonContent.get(def.reward).name,
+                128,150+(i-1)*84,768)
+            g.setColor(PixelUI.colors.text);g.printf(def.hint,148,177+(i-1)*84,730)
+        end
+        if profile_status and (profile_status.status=='corrupt' or profile_status.status=='incompatible')then
+            PixelUI.center('Profile '..profile_status.status..' · progress preserved',516,
+                ui_menu_font,PixelUI.colors.selected)
+        end
+        PixelUI.center('Esc / click to return',570,ui_menu_font,PixelUI.colors.muted)
+    end
+    if confirm_new then
+        PixelUI.dim(.65);menu_frame('REPLACE SAVED RUN?',250,285,524,142,ui_display_font)
+        PixelUI.center('Your current run will be replaced.',325,ui_menu_font,PixelUI.colors.text,250,524)
+        PixelUI.option('REPLACE · Y / Enter',275,377,224,true,ui_menu_font)
+        PixelUI.option('CANCEL · Esc',525,377,224,false,ui_menu_font)
+    end
+    if persistence_message~=''then
+        g.setFont(ui_menu_font);g.setColor(1,.5,.45);g.printf(persistence_message,235,520,554,'center')
+    end
 end
 
 function love.draw()
     if title then
-        if studio_theme and studio_theme:draw_background('title_background',0,0,
-            love.graphics.getWidth(),love.graphics.getHeight()) then
-            love.graphics.setColor(0,0,0,.45)
-            love.graphics.rectangle('fill',0,0,love.graphics.getWidth(),
-                love.graphics.getHeight())
-        end
-        love.graphics.setColor(.035,.07,.075,.95)
-        love.graphics.rectangle('fill',190,55,644,585)
-        love.graphics.setColor(.29,.43,.42)
-        love.graphics.rectangle('line',190.5,55.5,643,584)
-        love.graphics.setColor(.95,.86,.6)
-        love.graphics.setFont(ui_display_font)
-        love.graphics.printf('ROAG',190,84,644,'center')
-        love.graphics.setFont(ui_body_font)
-        love.graphics.setColor(.57,.76,.73)
-        love.graphics.printf('SEVEN BIOMES',190,125,644,'center')
-        if title_view~='home' then
-            love.graphics.setColor(.71,.87,.82)
-            love.graphics.print('← BACK',211,128)
-        end
-        love.graphics.setColor(.37,.57,.56)
-        love.graphics.rectangle('fill',230,165,564,1)
-        if title_view=='home' then
-            love.graphics.setColor(.75,.85,.81)
-            love.graphics.printf('One saved run · choose what to do',210,174,604,'center')
-            local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','SETTINGS','QUIT'}
-            local descriptions={
-                resumable(save_status) and 'Resume your saved character' or
-                    'No compatible saved run',
-                'Choose your character, then begin',
-                'View permanent unlocks',
-                'Choose a sprite pack',
-                'Leave ROAG',
-            }
-            for index,label in ipairs(options) do
-                local y=192+(index-1)*70
-                local selected=title_selection==index
-                love.graphics.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
-                love.graphics.rectangle('fill',230,y,564,62)
-                love.graphics.setColor(selected and {.74,.89,.74} or {.27,.40,.40})
-                love.graphics.rectangle('line',230.5,y+.5,563,61)
-                love.graphics.setColor(selected and {.99,.91,.67} or {.75,.83,.79})
-                love.graphics.print(label,250,y+9)
-                love.graphics.setColor(.60,.76,.73)
-                love.graphics.print(descriptions[index],250,y+35)
-            end
-            love.graphics.setColor(.54,.70,.68)
-            love.graphics.printf(resumable(save_status) and 'Saved run available' or
-                'Continue unavailable',215,551,594,'center')
-            if save_status and save_status.status=='terminal' then
-                love.graphics.printf('RUN COMPLETE',215,570,594,'center')
-            end
-            love.graphics.printf(('↑↓ / Enter · N quick start as %s · C quick continue')
-                :format(Classes.get(selected_class_id).name),215,603,594,'center')
-        elseif title_view=='continue' then
-            love.graphics.setColor(.88,.88,.72)
-            love.graphics.printf('CONTINUE SAVED RUN',210,177,604,'center')
-            local headline,detail=TitleMenu.save_summary(save_status)
-            love.graphics.setColor(.07,.13,.14)
-            love.graphics.rectangle('fill',225,225,574,170)
-            love.graphics.setColor(.37,.57,.56)
-            love.graphics.rectangle('line',225.5,225.5,573,169)
-            love.graphics.setColor(.96,.88,.65)
-            love.graphics.printf(headline,245,258,534,'center')
-            love.graphics.setColor(.70,.82,.78)
-            love.graphics.printf(detail,245,302,534,'center')
-            if resumable(save_status) then
-                love.graphics.setColor(.17,.33,.30)
-                love.graphics.rectangle('fill',390,430,244,45)
-                love.graphics.setColor(.76,.92,.77)
-                love.graphics.rectangle('line',390.5,430.5,243,44)
-                love.graphics.printf('CONTINUE RUN',390,445,244,'center')
-            end
-            love.graphics.setColor(.59,.76,.72)
-            love.graphics.printf('Enter continues · Esc returns to title',
-                215,587,594,'center')
-        elseif title_view=='class' then
-            local chosen=Classes.get(selected_class_id)
-            love.graphics.setColor(.74,.87,.81)
-            love.graphics.printf('1–6  CHOOSE CLASS FOR NEW RUN',210,175,604,'center')
-            love.graphics.printf('Choose your character',210,195,604,'center')
-            for index,id in ipairs(Classes.order) do
-                local class=Classes.get(id)
-                local column=(index-1)%2
-                local row=math.floor((index-1)/2)
-                local x,y=225+column*290,225+row*87
-                local selected=id==selected_class_id
-                love.graphics.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
-                love.graphics.rectangle('fill',x,y,279,78)
-                love.graphics.setColor(selected and {.74,.89,.74} or {.27,.40,.40})
-                love.graphics.rectangle('line',x+.5,y+.5,278,77)
-                local portrait=bound_visual(id)
-                if portrait then draw_visual(portrait,x+10,y+18,42,42) end
-                local text_x=x+(portrait and 61 or 15)
-                love.graphics.setColor(selected and {.97,.89,.65} or {.72,.82,.78})
-                love.graphics.print(index..'  '..class.name:upper(),text_x,y+14)
-                love.graphics.setColor(.58,.75,.72)
-                love.graphics.print(('HP%d  ATK%d  DEF%d  SPD%d')
-                    :format(class.hp,class.damage,class.defense,class.speed),text_x,y+43)
-            end
-            love.graphics.setColor(.96,.94,.8)
-            love.graphics.printf(chosen.name:upper(),210,500,604,'center')
-            love.graphics.setColor(.70,.82,.78)
-            love.graphics.printf(chosen.description,220,525,584,'center')
-            love.graphics.setColor(.17,.33,.30)
-            love.graphics.rectangle('fill',390,570,244,38)
-            love.graphics.setColor(.76,.92,.77)
-            love.graphics.rectangle('line',390.5,570.5,243,37)
-            love.graphics.printf('BEGIN NEW GAME',390,581,244,'center')
-            love.graphics.setColor(.59,.76,.72)
-            love.graphics.printf('←→ / 1–6 choose · Enter begin · Esc back',
-                210,614,604,'center')
-        elseif title_view=='settings' then
-            draw_pack_settings(190,55,644,585)
-        end
-        if unlocks_view then
-            love.graphics.setColor(0.02,0.05,0.05,0.96)
-            love.graphics.rectangle("fill",75,75,874,490)
-            love.graphics.setColor(0.91,0.96,0.81)
-            love.graphics.printf("ACHIEVEMENTS · Esc to return",90,100,844,"center")
-            local earned=profile and profile.earned or {}
-            for index,id in ipairs(AchievementContent.order) do
-                local def=AchievementContent.get(id)
-                local label=earned[id] and "UNLOCKED" or "LOCKED"
-                love.graphics.printf(("%s — %s · %s"):format(label,def.name,
-                    BoonContent.get(def.reward).name),105,155+(index-1)*88,814,"left")
-                love.graphics.printf(def.hint,125,181+(index-1)*88,780,"left")
-            end
-            if profile_status and (profile_status.status=="corrupt" or
-                profile_status.status=="incompatible") then
-                love.graphics.printf("Profile "..profile_status.status.." — progress preserved",
-                    90,518,844,"center")
-            end
-            return
-        end
-        if confirm_new then
-            love.graphics.setColor(1,0.72,0.38)
-            love.graphics.setColor(.02,.04,.04,.96)
-            love.graphics.rectangle('fill',250,285,524,142)
-            love.graphics.setColor(1,0.72,0.38)
-            love.graphics.printf('Replace the saved run?',
-                260,315,504,'center')
-            love.graphics.rectangle('line',275.5,362.5,224,45)
-            love.graphics.rectangle('line',524.5,362.5,224,45)
-            love.graphics.printf('REPLACE · Y / Enter',275,377,224,'center')
-            love.graphics.printf('CANCEL · Esc',525,377,224,'center')
-        end
-        if persistence_message~="" then
-            love.graphics.setColor(1,0.46,0.43)
-            love.graphics.printf(persistence_message,235,644,554,"center")
-        end
+        draw_title_page()
+        if help_open then draw_help()end
         return
     end
     if camera_state ~= state then reset_camera() end
@@ -2736,39 +2547,45 @@ function love.draw()
         love.graphics.print('F6 camera/play  F7 biome  F8 floor  F9 class  M seed  Esc quit',
             VIEWPORT.x+15,VIEWPORT.y+VIEWPORT.height-28)
     end
-    draw_reward_detail()
-    draw_boon_detail()
-    if persistence_message~="" and not pause_menu then
+    if persistence_message~="" and not pause_menu and not confirm_reset_seed
+        and not inventory_open and not help_open and not chest_menu and not route_menu then
         love.graphics.setColor(1,0.48,0.43)
         love.graphics.printf(persistence_message,VIEWPORT.x+12,
             VIEWPORT.y+12,VIEWPORT.width-24,"center")
     end
     if confirm_reset_seed then
-        love.graphics.setColor(0,0,0,0.84)
+        PixelUI.dim(.65)
+        menu_frame('REPLACE RUN?',224,210,576,220,ui_display_font)
+        love.graphics.setColor(0,0,0,0)
         love.graphics.rectangle("fill",160,200,704,230)
         love.graphics.setColor(1,0.75,0.48)
         love.graphics.printf(("Replace run with seed %d?"):format(confirm_reset_seed),
             160,255,704,"center")
-        love.graphics.printf("Enter / Y confirm · Esc cancel",160,295,704,"center")
+        love.graphics.setFont(ui_menu_font)
+        love.graphics.printf("Enter / Y confirm · Esc cancel",160,325,704,"center")
     end
+    if inventory_open then draw_inventory()end
+    if boon_detail_id then draw_boon_detail()end
     if pause_menu then
-        if pause_settings then
-            draw_pack_settings(160,85,704,560)
+        PixelUI.dim(.6)
+        if pause_settings then draw_pack_settings(190,55,644,530)
         else
-            love.graphics.setColor(0,0,0,0.83)
-            love.graphics.rectangle("fill",160,150,704,360)
-            if studio_theme then studio_theme:draw_background('pause_background',160,150,704,360) end
-            love.graphics.setColor(0.94,0.95,0.85)
-            love.graphics.printf("PAUSED",160,190,704,"center")
-            love.graphics.printf("1 / Enter / Esc: Resume",160,255,704,"center")
-            love.graphics.printf("2 / S: Save & Quit",160,290,704,"center")
-            love.graphics.printf("3: Settings · Sprite pack",160,325,704,"center")
-            if persistence_message~="" then
-                love.graphics.setColor(1,0.46,0.43)
-                love.graphics.printf(persistence_message,180,390,664,"center")
+            if studio_theme then
+                studio_theme:draw_background('pause_background',0,0,love.graphics.getDimensions())
+                PixelUI.dim(.35)
+            end
+            menu_frame('PAUSED',288,184,448,264,ui_display_font)
+            for i,label in ipairs({'RESUME','SAVE & QUIT','SETTINGS'})do
+                PixelUI.option(i..' '..label,306,252+(i-1)*44,412,pause_selection==i,ui_display_font)
+            end
+            PixelUI.center('Up/down · Enter · Esc resume',400,ui_body_font,PixelUI.colors.muted,288,448)
+            if persistence_message~=''then
+                love.graphics.setColor(1,.5,.45);love.graphics.printf(persistence_message,304,470,416,'center')
             end
         end
     end
+    if help_open then draw_help()end
+
 end
 
 -- Keep measured callback CPU durations separate from observed frame intervals.
@@ -2824,6 +2641,14 @@ function love.roagMenuState()
     return {kind=route_menu and 'route' or 'chest',selected=menu.selected,
         count=route_menu and #menu.routes or #menu.offers}
 end
+function love.roagUIState()
+    return {page=help_open and 'help' or confirm_reset_seed and 'confirm' or boon_detail_id and 'boon-detail' or
+        inventory_open and 'inventory' or title and (unlocks_view and 'achievements' or
+        confirm_new and 'confirm' or title_view) or pause_menu and
+        (pause_settings and 'settings' or 'pause') or chest_menu and 'chest' or
+        route_menu and 'route' or 'game',class=selected_class_id,
+        selected=title and title_selection or pause_menu and pause_selection or inventory_selection}
+end
 function love.roagAssetStatus()
     return visual_assets and visual_assets.status or 'absent'
 end
@@ -2860,6 +2685,17 @@ function love.roagAssetIdResolved(id)
 end
 function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
+    if help_open then help_open=false;return end
+    if boon_detail_id then boon_detail_id=nil;return end
+    if inventory_open then
+        local owned=owned_boon_ids();local pages=math.max(1,math.ceil(#owned/7))
+        local row=PixelUI.row_at(88,150,488,38,7,44,x,y)
+        if row and owned[(boon_page%pages)*7+row]then
+            inventory_selection=row
+            if (presses or 1)>=2 then love.keypressed('return')end
+        elseif y>=550 then inventory_open=false end
+        return
+    end
     if title then
         if unlocks_view then unlocks_view=false;return end
         if confirm_new then
@@ -2869,81 +2705,66 @@ function love.mousepressed(x,y,button,istouch,presses)
             end
             return
         end
-        if title_view~='home' and x>=205 and x<=290 and y>=120 and y<=156 then
+        if title_view~='home' and x>=180 and x<=330 and y>=596 and y<=632 then
             local was_settings=title_view=='settings'
-            title_view='home'
-            title_selection=was_settings and 4 or
-                TitleMenu.default_selection(save_status)
+            title_view='home';title_selection=was_settings and 4 or TitleMenu.default_selection(save_status)
             return
         end
-        if title_view=='home' then
-            for index=1,5 do
-                local top=192+(index-1)*70
-                if x>=230 and x<=794 and y>=top and y<=top+62 then
-                    title_selection=index
-                    activate_title_selection()
-                    return
-                end
-            end
-        elseif title_view=='continue' then
-            if x>=390 and x<=634 and y>=430 and y<=475 then
-                activate_title_selection()
-            end
-        elseif title_view=='class' then
-            for index,id in ipairs(Classes.order) do
-                local column=(index-1)%2
-                local row=math.floor((index-1)/2)
-                local left,top=225+column*290,225+row*87
-                if x>=left and x<=left+279 and y>=top and y<=top+78 then
-                    selected_class_id=id
-                    return
-                end
-            end
-            if x>=390 and x<=634 and y>=570 and y<=608 then
-                request_new_run()
-            end
-        elseif title_view=='settings' then
+        if title_view=='home'then
+            if y>=590 and y<=630 then help_open=true;return end
+            local index=PixelUI.home_at(x,y)
+            if index then title_selection=index;activate_title_selection()end
+        elseif title_view=='continue'then
+            if x>=320 and x<=704 and y>=416 and y<=466 then activate_title_selection()end
+        elseif title_view=='class'then
+            local index=PixelUI.class_at(x,y)
+            if index then selected_class_id=Classes.order[index]
+            elseif x>=496 and x<=832 and y>=490 and y<=536 then request_new_run()end
+        elseif title_view=='settings'then
+            if x>=210 and x<=400 and y>=80 and y<=120 then title_keypressed('escape');return end
             local index=pack_choice_at(x,y,190,55,644)
-            if index then
-                settings_selection=index
-                settings_keypressed('return',true)
-            end
+            if index then settings_selection=index;settings_keypressed('return',true)end
         end
         return
     end
     if pause_menu then
         if pause_settings then
-            if x>=180 and x<=300 and y>=155 and y<=185 then
-                pause_settings=false;return
-            end
-            local index=pack_choice_at(x,y,160,85,704)
-            if index then
-                settings_selection=index
-                settings_keypressed('return',false)
-            end
-        elseif x>=160 and x<=864 then
-            if y>=250 and y<=282 then pause_menu=false
-            elseif y>=285 and y<=317 then
-                if checkpoint(true) then love.event.quit() end
-            elseif y>=320 and y<=352 then
-                pause_settings=true
-                settings_selection=VisualPacks.index(visual_pack_mode)
-            end
+            if x>=210 and x<=400 and y>=80 and y<=120 then pause_settings=false;return end
+            local index=pack_choice_at(x,y,190,55,644)
+            if index then settings_selection=index;settings_keypressed('return',false)end
+        else
+            local index=PixelUI.pause_at(x,y)
+            if index then pause_selection=index;love.keypressed(tostring(index))end
         end
         return
     end
-    if boon_detail_id then boon_detail_id=nil;return end
-    if not state or title or pause_menu or chest_menu or route_menu or
-        Playback.busy(playback) or x<PANEL_X or x>1008 or
-        y<BOON_ROW_Y or y>=BOON_ROW_Y+7*BOON_ROW_H then
+    if chest_menu then
+        local index=PixelUI.chest_at(x,y)
+        if index then chest_menu.selected=index
+        elseif x>=568 and x<=944 and y>=438 and y<=480 then love.keypressed('return')
+        elseif y>=500 then love.keypressed('escape')end
         return
     end
-    local owned=owned_boon_ids()
-    local pages=math.max(1,math.ceil(#owned/7))
-    local index=(boon_page%pages)*7+math.floor((y-BOON_ROW_Y)/BOON_ROW_H)+1
-    boon_detail_id=owned[index]
+    if route_menu then
+        local index=PixelUI.route_at(#route_menu.routes,x,y)
+        if index then route_menu.selected=index
+        elseif x>=320 and x<=704 and y>=440 and y<=486 then love.keypressed('return')
+        elseif y>=500 then love.keypressed('escape')end
+        return
+    end
+    if not state or title or targeting then return end
+    if y>=596 and y<=626 then
+        if x>=680 and x<832 then love.keypressed('i')
+        elseif x>=832 and x<926 then love.keypressed('f1')
+        elseif x>=926 then love.keypressed('escape')end
+    end
 end
 function love.wheelmoved(dx,dy)
+    if help_open or boon_detail_id then return end
+    if inventory_open then
+        if dy~=0 then love.keypressed(dy>0 and 'left' or 'right')end
+        return
+    end
     if dy~=0 and (title and title_view=='settings' or pause_settings) then
         settings_keypressed(dy>0 and 'up' or 'down',title)
     elseif state and not title and not pause_menu and dy~=0 then

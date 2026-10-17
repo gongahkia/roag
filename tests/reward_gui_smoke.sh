@@ -64,7 +64,8 @@ function love.draw(...)
     if phase > 4 or pending then return end
     assert(has('GOLD  ') and has('LV '))
     if phase == 1 then
-        assert(has('GOLD  0') and has('LV 1') and has('No boons yet'))
+        -- Boon details moved out of the permanent sidebar into the I menu.
+        assert(has('GOLD  0') and has('LV 1') and has('I Boons / Stats'))
     elseif phase == 2 then
         assert(has('LV 2') and has('GOLD  0') and has('Level 2:'))
         assert(tracked.progression.xp_total == 5 and #tracked.drops == 1)
@@ -118,8 +119,17 @@ function love.draw(...)
         pending = false
     end)
 end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Reward draw assertion: '..tostring(why)..'\n')
+        love.event.quit(2)
+    end
+end
+
 LUA
 
-ROAG_REWARD_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout 15s love "$output_dir"
+ROAG_REWARD_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 timeout -k 3s 15s love "$output_dir"
 for phase in 1 2 3 4; do test -s "$output_dir/phase$phase.png"; done
 printf 'Reward GUI smoke passed: four screenshots in %s\n' "$output_dir"

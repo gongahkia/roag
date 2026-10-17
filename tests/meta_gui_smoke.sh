@@ -31,6 +31,7 @@ assert(love.filesystem.load('roag_main.lua'))()
 local original_load,original_draw,original_update=love.load,love.draw,love.update
 local phase=assert(os.getenv('ROAG_META_PHASE'))
 local output=assert(os.getenv('ROAG_META_OUTPUT'))
+local function mark(text) io.stderr:write(('Meta %s %.3fs: %s\n'):format(phase,love.timer.getTime(),text))end
 local labels={}
 local old_print,old_printf=love.graphics.print,love.graphics.printf
 love.graphics.print=function(value,...)
@@ -104,9 +105,11 @@ function love.draw(...)
                 assert(live.meta.eligible and live.run_seed==9 and
                     live.floor_order and #live.floor_order==2)
                 assert(main_state()==live)
+                mark('begin legal stage driver')
                 local Driver=require('tests.expansion_legal_playthrough')
                 local guided,reason=Driver.attempt(9,{stop_after_stage=1})
                 assert(guided,reason) -- generate ordinary paired-floor commands
+                mark('driver complete: '..#guided.trace..' actions')
                 tracked=live
                 local defeated=false
                 for _,record in ipairs(guided.trace) do
@@ -117,12 +120,15 @@ function love.draw(...)
                     end
                     if defeated then break end
                 end
+                mark('replay complete')
                 assert(defeated and live.meta.pending['core:achievement/first_guardian'])
                 assert(main_state()==live and live.clock>0)
                 original_update(10)
                 love.keypressed('escape') -- pause; no world time
                 local clock=live.clock
+                mark('before Save & Quit; UI '..love.roagUIState().page)
                 love.keypressed('2') -- Save & Quit commits profile
+                mark('after Save & Quit')
                 assert(live.clock==clock)
                 local profile=Profile.new(require('src.love_storage')):inspect()
                 assert(profile.profile and profile.profile.earned['core:achievement/first_guardian'],
@@ -151,9 +157,18 @@ function love.draw(...)
         end)
     end
 end
+local checked_draw=love.draw
+function love.draw(...)
+    local ok,why=pcall(checked_draw,...)
+    if not ok then
+        io.stderr:write('Meta draw assertion: '..tostring(why)..'\n')
+        love.event.quit(2)
+    end
+end
+
 LUA
-ROAG_META_PHASE=earn ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
-ROAG_META_PHASE=future ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout 35s love "$output_dir"
+ROAG_META_PHASE=earn ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout -k 3s 35s love "$output_dir"
+ROAG_META_PHASE=future ROAG_META_OUTPUT="$output_dir" XDG_DATA_HOME="$output_dir/data" timeout -k 3s 35s love "$output_dir"
 test -s "$output_dir/earn-unlocks.png"
 test -s "$output_dir/future-unlocks.png"
 test -s "$output_dir/future-run.png"
