@@ -1,3 +1,5 @@
+> Historical report: the Dungeon pack and its compiler were removed at the user’s request. Current choices are Classic/Kenney; see [UI cleanup](ROAG_UI_POLISH.md).
+
 # Dungeon art: rendered acceptance, 2026-10-17
 
 The previous motif pack failed visual acceptance. It mixed sparse transparent

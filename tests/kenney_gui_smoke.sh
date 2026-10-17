@@ -7,7 +7,7 @@ mkdir -p "$output/app/assets" "$output/app/tools" "$output/data"
 cp "$project_dir/main.lua" "$output/app/roag_main.lua"
 cp "$project_dir/conf.lua" "$output/app/conf.lua"
 cp -R "$project_dir/src" "$output/app/src"
-cp -R "$project_dir/assets/fonts" "$project_dir/assets/generated" "$project_dir/assets/kenney" "$output/app/assets/"
+cp -R "$project_dir/assets/fonts" "$project_dir/assets/kenney" "$output/app/assets/"
 cp "$project_dir/tools/art_png.lua" "$output/app/tools/"
 cat > "$output/app/main.lua" <<'LUA'
 local Game=require('src.game')
@@ -117,7 +117,7 @@ function love.load(...)
             PNG.write(output..'/wall-variants.png',walls);walls:release()
         end
         if mode=='normal'then
-            assert(love.roagVisualPackMode()=='automatic')
+            assert(love.roagVisualPackMode()=='classic')
             before=snapshot()
             love.keypressed('escape');love.keypressed('3');pick('kenney')
             assert_art();assert(snapshot()==before)

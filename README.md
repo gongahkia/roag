@@ -2,9 +2,7 @@
 
 **Menus and HUD:** the game now uses focused pixel menus inspired by Microcraft, a compact bottom HUD and a wider map view. **I** opens boons/character stats; **F1** opens help; **Esc** opens the navigable pause menu. [Reference screenshots, actual ROAG captures and verification](docs/ROAG_MICROCRAFT_MENUS.md).
 
-**Try Kenney Micro Roguelike:** run `make kenney` for the original colored 8×8 art without changing your saved pack preference. To keep it for `make game`, choose **Settings → Kenney Micro Roguelike → Enter** (or **Esc → 3 Settings** during a run). This is a visual trial; Automatic still uses the existing Dungeon pack. [Actual game captures, source/license and trial limits](docs/ROAG_KENNEY_TRIAL.md).
-
-`make game` or `love .` now uses the bundled **Dungeon pixel art** pack in Automatic mode, beneath any published Paint artwork. The pack has continuous stone floors, connected brick walls, seven biome palettes, six class sprites and 25 enemy/boss sprites. **Settings → Sprite Pack** (or **Esc → 3 Settings** during a run) switches between Dungeon, Classic built-in and Published Paint. Invalid artwork falls back safely. [Actual LÖVE screenshots and visual acceptance evidence](docs/ROAG_DUNGEON_ART_ACCEPTANCE.md) document the replacement of the old sparse motif preview.
+**Artwork choices:** only **Classic built-in** (the original shapes, also the fresh-install default) and **Kenney Micro Roguelike** remain. Run `make kenney` to try Kenney, or select **Settings → Kenney Micro Roguelike → Enter** to keep it. The old Dungeon art, Automatic override mode and Published Paint art choice have been removed. Ground no longer contains scattered wall-cap sprites. [Current UI/art cleanup and captured frames](docs/ROAG_UI_POLISH.md).
 
 ROAG is a LÖVE 11.5 roguelike. Three biome stages lead to the Final Sanctum, where defeating the Hollow Regent earns Victory. `love .` opens a title screen for a new or saved run; a new run enters seeded Overgrown Ruins with two connected floors, fog, secrets, a Thorn Warden elite and a timed extraction route. [Connected-floor expansion notes](docs/ROAG_MULTIFLOOR_EXPANSION.md) describe stairs, saves, Studio markers and current pacing limits; [terrain notes](docs/ROAG_TERRAIN_EXPANSION.md) cover the six new mechanical tiles and World Editor controls; [biome notes](docs/ROAG_BIOME_EXPANSION.md) and [encounter notes](docs/ROAG_ENCOUNTER_EXPANSION.md) cover the seven destinations and their enemies. `docs/ROAG_SPEC_v1.0.md` is the original design baseline. The authored 15×11 foundation and 35×25 combat demo remain available by their explicit map IDs to headless tests and GUI fixtures.
 
@@ -16,11 +14,11 @@ Run these from this checkout: `make game` for the playable game, `make test` for
 
 Run `make game` (or `love .` when LÖVE is on `PATH`). The title starts with **Continue**, **New Game**, **Achievements**, **Settings**, and **Quit**. Continue shows the existing single saved run's character, stage, floor, seed and HP before resuming. New Game opens character selection; choose one of six characters, then begin. Replacing a resumable, incompatible or damaged save requires confirmation. Arrow keys and Enter navigate, Esc goes back, and the options can be clicked. Existing **C** quick-continue, **N** quick-start and **1–6** class shortcuts remain available. During normal gameplay **Esc** opens a pause menu: **1/Esc Resume**, **2/S Save & Quit**, **3 Settings**, or arrows plus **Enter** on the highlighted option. Esc still cancels aiming, chest and route menus first. Saving, loading, settings and pausing cost no world time or RNG. Save & Quit writes the latest stable player-ready state and exits only after the save is read back successfully; a failed write leaves the game open. A mid-animation save resumes with clean presentation because all authoritative effects have already resolved. Milestone autosaves follow chest claims, elite defeat, pursuer arrival, stage transition, death and Victory. Hard termination resumes from the latest verified milestone; it may lose actions since then. The game does not save every frame.
 
-**Settings → Sprite Pack** offers **Automatic** (published Paint art, then bundled Dungeon art, then built-in), **Classic built-in**, **Dungeon pixel art**, and **Published Paint** (atlas or loose PNGs, then built-in), and **Kenney Micro Roguelike** (native 8×8 colored art). Use ↑/↓ or the mouse wheel to highlight, Enter or click to apply, and Esc to return. The current backing and any fallback warning are shown. A choice applies immediately without restarting or changing the run; it survives relaunch in separate checked `visual-pack-a.roag` / `visual-pack-b.roag` records under LÖVE's `roag-foundation` save directory. Existing saved `generated` preferences select the new Dungeon pack automatically. The active-run and achievement-profile records are unchanged. Missing or corrupt art uses built-in visuals until restored and refreshed with F5. `make spectator` explicitly previews Dungeon art without changing the saved choice; no environment flag is needed for ordinary play.
+**Settings → Sprite Pack** offers **Classic built-in** and **Kenney Micro Roguelike**. Up/down or the mouse wheel selects; Enter/click applies, Esc returns. The choice applies without restarting or changing the run and survives relaunch in separate checked `visual-pack-a.roag` / `visual-pack-b.roag` records. Old removed-pack choices safely select Classic until you choose again. Missing/corrupt Kenney artwork falls back to shapes at startup; an invalid warm F5 refresh retains the working visuals. `make spectator` previews Kenney without changing the saved choice.
 
 LÖVE writes two rotating `active-a.roag` / `active-b.roag` records inside its platform save directory under the stable `roag-foundation` identity. Each record stores a generation, snapshot/content compatibility IDs, payload size and checksum. The next generation is written to the inactive slot and read back; startup chooses the newest integrity-valid generation, falling back one generation if a slot is corrupt. A valid newer incompatible save is reported instead of silently loading an older run. Confirmed New Run replacement writes the inactive slot first and verifies it before replacing the older slot; if the second write fails, the game warns that only one new generation is verified, and the next checkpoint replenishes the backup. The codec is inert, length-prefixed plain data: it never evaluates save text. No hardware power-loss fsync guarantee or cross-version migration is claimed. Terminal/dead runs write verified non-resumable tombstones to both slots, so one damaged terminal slot does not revive an older active backup. Permanent unlocks use separate profile records.
 
-The compact HUD shows health, XP/level, gold, biome, stage/floor and committed-attack feedback. **I** opens the read-only boon list and character stats, including the seed; **V** pages boons and **Enter** inspects a selected boon. **B** retains its existing developer-loadout shortcut. The minimap shows explored terrain; the arena location appears only after exploration reaches it. **N** proposes restarting the same root seed and **M** proposes the next seed; normal play requires confirmation before either reset replaces the saved run. **Tab** shows/hides the discovered map without spending world time or RNG. Normal New Run uses two floors; `Game.new_stage(seed)` remains a single-floor test fixture for older callers. Move with WASD/arrows; Space or `.` waits. Press **F** for Sword Strike, **R** for Sweeping Slash, or **X** for Dash; aim with WASD/arrows or Q/E/Z/C, then Enter. Escape cancels. Cardinal bump attacks, doors and chests use ordinary movement. After defeating the biome elite, bump the cyan exit to preview three routes; **1/2/3**, Enter and Escape select, confirm and cancel. Stage 1 offers Fungal Hollows, Sunken Aqueduct or Glacial Observatory; stage 2 offers three deterministic unvisited destinations. A third-stage exit offers **Enter the Final Sanctum**. Confirming costs no world time. The final chamber contains the Hollow Regent and no biome pressure or pursuer. Its three locked attacks are Regent Line, Broken Crown and Hollow Sigil; it changes speed below half HP. Entering alone never counts as Victory.
+The compact HUD shows health, XP/level, gold, biome, stage/floor and committed-attack feedback. **I** opens the read-only boon list and character stats; **V** pages boons and **Enter** inspects a selected boon. **B** retains its existing developer-loadout shortcut. The minimap shows explored terrain; the arena location appears only after exploration reaches it. **N** proposes restarting the same root seed and **M** proposes the next seed; normal play requires confirmation before either reset replaces the saved run. **Tab** shows/hides the discovered map without spending world time or RNG. Normal New Run uses two floors; `Game.new_stage(seed)` remains a single-floor test fixture for older callers. Move with WASD/arrows; Space or `.` waits. Press **F** for Sword Strike, **R** for Sweeping Slash, or **X** for Dash; aim with WASD/arrows or Q/E/Z/C, then Enter. Escape cancels. Cardinal bump attacks, doors and chests use ordinary movement. After defeating the biome elite, bump the cyan exit to preview three routes; **1/2/3**, Enter and Escape select, confirm and cancel. Stage 1 offers Fungal Hollows, Sunken Aqueduct or Glacial Observatory; stage 2 offers three deterministic unvisited destinations. A third-stage exit offers **Enter the Final Sanctum**. Confirming costs no world time. The final chamber contains the Hollow Regent and no biome pressure or pursuer. Its three locked attacks are Regent Line, Broken Crown and Hollow Sigil; it changes speed below half HP. Entering alone never counts as Victory.
 
 **Explore:** Sight reaches eight tiles on the logical grid. Walls and closed doors block vision; unseen tiles show no known geometry, and previously seen tiles remain dimly remembered. Enemies, drops, chests and telegraphs appear only where currently visible. The minimap uses the same explored state and never shows undiscovered branches. Enemies continue acting outside the player's view. FOV updates at simulation decision boundaries, not each render frame.
 
@@ -32,7 +30,7 @@ Stage enemies can also leave green food (+4 HP) or red health pickups (+10 HP); 
 
 **Developer showcase:** Press **B** while idle to cycle None → Lightning → Cascade → Transformation → Firestorm → Blade and Lunge → None. This changes the test loadout without advancing world time; it is a debugging control, not the earned acquisition path. **N** restarts with the selected showcase loadout. The sidebar lists C/U/R/L stack counts, seven boons per page; **V** changes pages without world time. Firestorm demonstrates Emberbrand, Flashpoint and Grave Dividend. Blade and Lunge demonstrates Longblade Geometry, Phantom Lunge and Pulse Step. Headless callers can use `Game.set_boon_stacks(state, owner_id, boon_id, rarity, count)` at a stable decision boundary, including zero to remove a rarity stack.
 
-Each generated floor places enemies from its biome pool across rooms and selected corridor alcoves. Thorn Warden guards Overgrown Ruins; the other six biomes have distinct named elites with two locked attack footprints. Defeating the elite creates a free elite chest and unlocks the nearby exit. The old authored demo remains `Game.new(seed, "core:map/scrolling_room", {demo_enemies=true,demo_chests=true})`. The sidebar shows player HP, level/XP, currency, combat stats, world time, last action/cost, historical playback, live windups and pending echoes. Level-up notifications are brief and do not block input. Death ends the run; N proposes restarting its seed.
+Each generated floor places enemies from its biome pool across rooms and selected corridor alcoves. Thorn Warden guards Overgrown Ruins; the other six biomes have distinct named elites with two locked attack footprints. Defeating the elite creates a free elite chest and unlocks the nearby exit. The old authored demo remains `Game.new(seed, "core:map/scrolling_room", {demo_enemies=true,demo_chests=true})`. The compact bottom HUD shows HP, XP, gold and attack feedback. I opens boons and character stats. Level-up notifications are brief and do not block input. Death ends the run; N proposes restarting its seed.
 
 ## Generated floor contract
 
@@ -126,18 +124,16 @@ Run `luajit tests/meta_acceptance_trace.lua` for a legal seed-1 secret unlock fo
 ### Spectator art inspection
 
 Run `make spectator` to start a disposable, invulnerable inspection run using
-the **currently compiled generated atlas**. This developer view does not read
-or write active-run saves or achievement profiles and cannot earn unlocks. The
-unapproved image in `assets/generated/drafts/` is only a review sheet and is
-not yet part of the atlas.
+the **Kenney Micro Roguelike pack**. This developer view does not read
+or write active-run saves or achievement profiles and cannot earn unlocks.
 
 **F6** toggles god play and a free camera. In free-camera mode, **WASD/arrow
 keys** pan one tile without advancing world time; hold **Shift** to pan eight
 tiles. The map and enemies are revealed, and the cyan outline marks the
 inspected cell. The bottom overlay names that cell's resolved visual ID and
 source. **F7** cycles biomes, **F8** switches between their two generated
-floors, **F9** cycles classes, **M** advances the seed, **+/-** zoom, **F5**
-refreshes published visuals, and **Esc** quits without saving. F6 returns to
+floors, **F9** cycles classes, **M** advances the seed, **F5**
+refreshes the selected sprite pack, and **Esc** quits without saving. F6 returns to
 invulnerable gameplay so you can inspect combat poses. Ordinary `make game`
 retains its normal saves, achievements and fog rules.
 
@@ -152,18 +148,11 @@ ROAG retains read-only format validators and published-content readers because
 saved generated floors and optional loose/world/theme/audio/atlas packs refer
 to their stable IDs. None of these readers opens editor UI or changes simulation.
 The hand-painted published PNGs were archived in Paint and removed from this
-game checkout. Automatic now selects the bundled Dungeon pack; Classic remains
-available in Settings. `F5` still
-refreshes compatible published visuals without changing the current floor.
-
-The old Codex motif sheets are retained as historical source material. New
-imagegen reference sheets and an independent reproducible compiler live in this
-checkout: `sh tools/build_generated_art.sh` builds and validates a dry run;
-`sh tools/build_generated_art.sh --apply` explicitly activates all matching
-pages. Terrain is opaque and edge matched; 31 actor identities are cropped,
-quantized to four colors and aligned to 32px cells. The atlas is checked as one
-complete generation and falls back safely if missing or corrupt. Source art,
-existing icons and older builds are preserved.
+game checkout. The later generated Dungeon pack and its compiler have also been
+removed at the user's request. Game artwork now comes exclusively from Classic
+shapes or Kenney; Paint visual/theme/atlas overrides are not activated by either
+choice. World geometry and audio readers remain independent. Historical Studio
+source, publication contracts and Paint authoring remain in the sibling project.
 
 Historical Studio E00–E06 guides remain in `docs/` for format and workflow
 background; the active authoring commands now live in Paint.
@@ -189,9 +178,9 @@ existing save asks for confirmation before replacement. The original single-run
 save format and files are unchanged. **C** and **N** remain direct shortcuts;
 **1–6** opens the character screen as a shortcut.
 In game, moving or aiming left/right mirrors the selected class sprite; up/down
-keeps its last horizontal facing. Press **+/-** or scroll the mouse wheel to zoom
-the world between 100% and 200% (150% by default). Zoom and facing are visual
-only and do not advance world time or alter collision.
+keeps its last horizontal facing. The camera uses a fixed 40px tile size, slightly
+wider than the previous 48px view. Wheel and +/- zoom controls are disabled.
+Facing and camera presentation do not advance world time or alter collision.
 
 Standard LÖVE gamepad callbacks provide a menu path: the D-pad moves the title
 selection, **A** opens or confirms, **B** goes back, shoulder buttons cycle

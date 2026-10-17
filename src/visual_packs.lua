@@ -1,20 +1,17 @@
 -- Presentation-only sprite-pack choice. This record is separate from runs and
--- profiles; bad settings fall back to the automatic resolver.
+-- profiles; retired or bad settings fall back to the built-in shapes.
 local Atlas=require('src.studio_atlas')
 local VisualAssets=require('src.visual_assets')
 local P={format='roag-visual-pack/1',files={
-    'visual-pack-a.roag','visual-pack-b.roag'},default='automatic',
-    order={'automatic','classic','generated','published','kenney'},
-    labels={automatic='Automatic',classic='Classic built-in',
-        generated='Dungeon pixel art',published='Published Paint',
+    'visual-pack-a.roag','visual-pack-b.roag'},default='classic',
+    order={'classic','kenney'},
+    labels={classic='Classic built-in',
         kenney='Kenney Micro Roguelike'},
     descriptions={
-        automatic='Published Paint art, then bundled Dungeon pixel art',
         classic='Original game tokens and terrain',
-        generated='Connected terrain, heroes and enemies',
-        published='Paint art and atlas; built-in fallback',
         kenney='Original 8×8 terrain, characters and items · CC0 trial',
     }}
+local retired={automatic=true,generated=true,published=true}
 
 function P.valid(mode) return P.labels[mode]~=nil end
 function P.index(mode)
@@ -35,7 +32,7 @@ local function decode(bytes)
     local sequence=tonumber(number)
     assert(sequence and sequence%1==0 and sequence>=1 and
         sequence<9007199254740991,'invalid sprite-pack generation')
-    assert(P.valid(mode),'invalid sprite-pack choice')
+    assert(P.valid(mode) or retired[mode],'invalid sprite-pack choice')
     assert(Atlas.checksum(table.concat({format,number,mode},'\n')..'\n')==hash,
         'sprite-pack checksum mismatch')
     return {format=format,sequence=sequence,mode=mode}
@@ -65,6 +62,9 @@ function P.inspect(storage)
     if latest.format~=P.format then
         return {mode=P.default,status='incompatible',record=latest}
     end
+    if retired[latest.mode] then
+        return {mode=P.default,status='retired',record=latest}
+    end
     return {mode=latest.mode,status=invalid>0 and 'recovered' or 'loaded',
         record=latest}
 end
@@ -92,24 +92,18 @@ end
 
 -- Only the selected renderer is handed a source. Missing assets still reach
 -- the established built-in drawing path; no simulation data is involved.
-function P.build(mode,read,make_image,load_generated)
+function P.build(mode,read,make_image,load_native)
     assert(P.valid(mode),'invalid sprite pack')
     local generated,status=nil,'disabled'
-    if mode=='generated' or mode=='automatic' or mode=='kenney' then
-        generated,status=load_generated(read,mode)
+    if mode=='kenney' then
+        generated,status=load_native(read,mode)
     end
-    local visual_read=read
-    if mode=='classic' or mode=='generated' or mode=='kenney' then
-        visual_read=function(path)
-            if path=='assets/studio/manifest.txt' then return nil end
-            return read(path)
-        end
-    end
-    return VisualAssets.new(visual_read,make_image,generated),status
+    -- Neither game choice reads Paint loose/atlas overrides.
+    return VisualAssets.new(function()return nil end,make_image,generated),status
 end
 
 function P.uses_published_theme(mode)
-    return mode=='automatic' or mode=='published'
+    return false
 end
 
 return P

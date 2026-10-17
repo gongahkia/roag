@@ -1,5 +1,4 @@
 local Packs=require('src.visual_packs')
-local Project=require('src.studio_project')
 local Game=require('src.game')
 local Atlas=require('src.studio_atlas')
 
@@ -16,88 +15,72 @@ return function(test,equal)
     end
     test('sprite-pack preference survives reopen and corrupt newest recovery',function()
         local store=memory()
-        assert(Packs.inspect(store).mode=='automatic')
+        assert(Packs.inspect(store).mode=='classic')
         assert(Packs.save(store,'classic'))
-        assert(Packs.save(store,'generated'))
+        assert(Packs.save(store,'kenney'))
         local found=Packs.inspect(store)
-        assert(found.status=='loaded' and found.mode=='generated')
+        assert(found.status=='loaded' and found.mode=='kenney')
         store[Packs.files[2]]='truncated'
         found=Packs.inspect(store)
         assert(found.status=='recovered' and found.mode=='classic')
         store[Packs.files[1]]='bad'
         found=Packs.inspect(store)
-        assert(found.status=='corrupt' and found.mode=='automatic')
+        assert(found.status=='corrupt' and found.mode=='classic')
     end)
     test('sprite-pack settings reject bad choices and failed writes',function()
         local store=memory()
-        assert(Packs.save(store,'published'))
+        assert(Packs.save(store,'kenney'))
         assert(not Packs.save(store,'unsafe'))
         store.fail=true
-        assert(not Packs.save(store,'generated'))
-        assert(Packs.inspect(store).mode=='published')
+        assert(not Packs.save(store,'kenney'))
+        assert(Packs.inspect(store).mode=='kenney')
         store.fail=false;store.truncate=true
         assert(not Packs.save(store,'classic'))
-        assert(Packs.inspect(store).mode=='published')
+        assert(Packs.inspect(store).mode=='kenney')
         store.truncate=false
         -- A well-formed newer record with a future format must not roll back
         -- to the older valid preference or be overwritten.
         local future='roag-visual-pack/9\n2\nclassic\n'
         store[Packs.files[2]]=future..Atlas.checksum(future)..'\n'
         local found=Packs.inspect(store)
-        assert(found.status=='incompatible' and found.mode=='automatic')
+        assert(found.status=='incompatible' and found.mode=='classic')
         assert(not Packs.save(store,'classic'))
         assert(store[Packs.files[2]]==future..Atlas.checksum(future)..'\n')
     end)
-    test('sprite-pack choices select only the intended visual resolver',function()
-        local path='assets/generated/builds/e6f7e490b979490e/icons.png'
-        local file=assert(io.open(path,'rb'))
-        local png=file:read('*a');file:close()
-        local project=Project.new('fixture','Fixture')
-        local asset=Project.asset('studio:art/hero','Hero','actor')
-        asset.binding='core:actor/adventurer'
-        asset.source='sources/hero.png';asset.format='png'
-        asset.width=128;asset.height=128
-        project.assets[1]=asset
-        local manifest=Project.encode(project)
-        local function read(name)
-            if name=='assets/studio/manifest.txt' then return manifest end
-            if name=='assets/studio/sources/hero.png' then return png end
+    test('only Classic and Kenney are selectable and Paint overrides cannot load',function()
+        assert(#Packs.order==2 and Packs.order[1]=='classic' and Packs.order[2]=='kenney')
+        for _,mode in ipairs({'automatic','generated','published','unsafe'})do
+            assert(not Packs.valid(mode) and not Packs.save(memory(),mode))
+            assert(not pcall(Packs.build,mode))
         end
-        local function image() return {getWidth=function()return 128 end,
-            getHeight=function()return 128 end} end
-        local generated={resolve=function(_,id)
-            if id=='core:actor/adventurer' then return {source='generated'} end
+        local native={resolve=function(_,id)
+            if id=='core:actor/adventurer' then return {source='kenney'} end
         end}
         local calls=0
-        local function load_generated()
-            calls=calls+1
-            return generated,'loaded'
+        local function load_native(read,mode)
+            calls=calls+1;assert(mode=='kenney');return native,'loaded'
         end
-        local state=Game.new_stage(37)
-        local before=Game.snapshot(state)
-        local classic=Packs.build('classic',read,image,load_generated)
-        assert(classic.status=='absent' and
-            not classic:resolve('core:actor/adventurer'))
-        local four=Packs.build('generated',read,image,load_generated)
-        assert(four:resolve('core:actor/adventurer').source=='generated')
-        local published=Packs.build('published',read,image,load_generated)
-        assert(published:resolve('core:actor/adventurer').source=='loose')
-        local automatic=Packs.build('automatic',read,image,load_generated)
-        assert(automatic:resolve('core:actor/adventurer').source=='loose')
-        assert(calls==2 and Packs.uses_published_theme('automatic') and
-            not Packs.uses_published_theme('classic'))
-        local missing_generated,status=Packs.build('generated',function()
-            return nil end,image,function()return nil,'absent' end)
-        assert(status=='absent' and missing_generated.status=='absent' and
-            not missing_generated:resolve('core:actor/adventurer'))
-        local missing_published=Packs.build('published',function()
-            return nil end,image,load_generated)
-        assert(missing_published.status=='absent' and
-            not missing_published:resolve('core:actor/adventurer'))
-        local bundled=Packs.build('automatic',function()return nil end,
-            image,load_generated)
-        assert(bundled:resolve('core:actor/adventurer').source=='generated',
-            'fresh Automatic must select the bundled dungeon pack')
+        local function read()error('retired visual sources must not be read')end
+        local function image()error('unexpected loose image load')end
+        local state=Game.new_stage(37);local before=Game.snapshot(state)
+        local classic=Packs.build('classic',read,image,load_native)
+        assert(classic.status=='absent' and not classic:resolve('core:actor/adventurer'))
+        local kenney=Packs.build('kenney',read,image,load_native)
+        assert(kenney:resolve('core:actor/adventurer').source=='kenney' and calls==1)
+        assert(not Packs.uses_published_theme('classic') and not Packs.uses_published_theme('kenney'))
+        local missing,status=Packs.build('kenney',read,image,function()return nil,'absent'end)
+        assert(status=='absent' and not missing:resolve('core:actor/adventurer'))
         equal(before,Game.snapshot(state))
+    end)
+    test('retired checked sprite choices fall back without erasing run or settings data',function()
+        for _,mode in ipairs({'automatic','generated','published'})do
+            local store=memory()
+            local body=Packs.format..'\n9\n'..mode..'\n'
+            store[Packs.files[1]]=body..Atlas.checksum(body)..'\n'
+            local found=Packs.inspect(store)
+            assert(found.status=='retired' and found.mode=='classic')
+            assert(store[Packs.files[1]]==body..Atlas.checksum(body)..'\n')
+            assert(Packs.save(store,'kenney') and Packs.inspect(store).mode=='kenney')
+        end
     end)
 end

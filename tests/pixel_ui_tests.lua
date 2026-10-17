@@ -7,11 +7,13 @@ return function(test)
         assert(not UI.class_at(500,200) and not UI.class_at(300,210))
     end)
     test('all sprite pack rows fit the shared title and pause panel layout',function()
-        for i=1,5 do
+        local count=#require('src.visual_packs').order
+        assert(count==2)
+        for i=1,count do
             local r=UI.settings_row(190,55,644,i)
             assert(r.y+r.h<55+422)
-            assert(UI.settings_at(190,55,644,5,r.x+4,r.y+4)==i)
-            assert(not UI.settings_at(190,55,644,5,r.x,r.y+r.h+1))
+            assert(UI.settings_at(190,55,644,count,r.x+4,r.y+4)==i)
+            assert(not UI.settings_at(190,55,644,count,r.x,r.y+r.h+1))
         end
     end)
     test('pause chest and route list targets match their visible choices',function()

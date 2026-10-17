@@ -7,7 +7,7 @@ mkdir -p "$output/app/assets" "$output/app/tools" "$output/data"
 cp "$project_dir/main.lua" "$output/app/roag_main.lua"
 cp "$project_dir/conf.lua" "$output/app/conf.lua"
 cp -R "$project_dir/src" "$output/app/src"
-cp -R "$project_dir/assets/fonts" "$project_dir/assets/generated" "$project_dir/assets/kenney" "$output/app/assets/"
+cp -R "$project_dir/assets/fonts" "$project_dir/assets/kenney" "$output/app/assets/"
 cp "$project_dir/tools/art_png.lua" "$output/app/tools/"
 cat > "$output/app/main.lua" <<'LUA'
 local Game=require('src.game')
@@ -36,6 +36,14 @@ assert(love.filesystem.load('roag_main.lua'))()
 local load,update,draw=love.load,love.update,love.draw
 local phase,pending,failed=1,false,false
 local before
+local stats_text={}
+local print_text=love.graphics.print
+love.graphics.print=function(text,x,y,...)
+    if x==636 and type(y)=='number' and y>=286 and y<460 then
+        stats_text[#stats_text+1]=tostring(text)
+    end
+    return print_text(text,x,y,...)
+end
 local sequences={
  normal={'title','help','class','class-ranger','settings','settings-kenney','hud','inventory','help-in-game','pause','pause-settings'},
  resume={'continue-summary','continued-hud','continued-stats','replace-confirmation'},
@@ -48,7 +56,7 @@ local function fail(why)
     failed=true;io.stderr:write('MENU '..mode..' FAILED: '..tostring(why)..'\n');love.event.quit(1)
 end
 local function choose_pack()
-    local row=UI.settings_row(190,55,644,5)
+    local row=UI.settings_row(190,55,644,2)
     click(row.x+row.w/2,row.y+10)
     assert(love.roagVisualPackMode()=='kenney')
 end
@@ -133,7 +141,14 @@ end
 function love.draw()
     if failed then return end
     local ok,why=pcall(function()
+        stats_text={}
         draw()
+        if love.roagUIState().page=='inventory'then
+            assert(#stats_text==5,'unexpected character stat rows')
+            local text=table.concat(stats_text,' ')
+            assert(not text:find('Seed') and not text:find('Danger') and
+                not text:find('Next threat'),'removed character details still rendered')
+        end
         if not pending then
             pending=true
             love.graphics.captureScreenshot(function(image)

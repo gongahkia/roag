@@ -4,6 +4,8 @@ local Atlas=require('src.studio_atlas')
 local Biomes=require('src.biomes')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
+-- Native plain ground. Wall caps, door frames and stairs are not floor detail.
+local ground_index=17
 local actors={
     ['core:actor/adventurer']=5,['core:actor/ranger']=11,
     ['core:actor/arcanist']=6,['core:actor/berserker']=4,
@@ -118,7 +120,7 @@ function K.new(read,make_texture,make_quad)
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
     for _,biome in ipairs(Biomes.order)do
         local root='core:terrain/'..biome:match('/([^/]+)$')..'/'
-        handles[root..'floor/base']=handle(17,false)
+        handles[root..'floor/base']=handle(ground_index,false)
         handles[root..'wall/base']=handle(66,false)
         handles[root..'water/base']=handle(110,false)
     end
@@ -128,7 +130,7 @@ function K.new(read,make_texture,make_quad)
             width=w,height=h,offset_x=x,offset_y=y,source='kenney',wall_mask=mask}
     end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
-        style='kenney',signature=K.checksum..':walls-1',status='loaded',wall_regions=wall_regions,
+        style='kenney',signature=K.checksum..':walls-1:plain-ground-2',status='loaded',wall_regions=wall_regions,
         pages={tiles={texture=opaque},sprites={texture=cutout},walls={texture=walls}}},{__index=K}),'loaded'
 end
 function K:resolve(id)return self.handles[id]end
@@ -146,8 +148,7 @@ function K:terrain(map,x,y,kind,known)
     local n,e,s,w=same(0,-1),same(1,0),same(0,1),same(-1,0)
     local index
     if kind=='floor'then
-        -- Sparse native ground detail, deterministic coordinates only.
-        index=(x*3+y*5)%13==0 and 67 or 17
+        index=ground_index
     elseif kind=='water'then
         index=not n and (not w and 125 or not e and 127 or 126)
             or not s and (not w and 154 or not e and 156 or 155)

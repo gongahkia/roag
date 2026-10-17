@@ -16,7 +16,6 @@ local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
-local GeneratedVisuals = require("src.generated_visuals")
 local KenneyVisuals = require("src.kenney_visuals")
 local Terrain = require("src.terrain")
 local VisualPacks = require("src.visual_packs")
@@ -30,9 +29,7 @@ local StudioThemeRuntime = require("src.studio_theme_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
 local AudioCues = require("src.audio_cues")
 
-local ZOOM_TILES={32,40,48,56,64}
-local zoom_index=3 -- 150% by default; gameplay geometry remains 32px logical art.
-local TILE=ZOOM_TILES[zoom_index]
+local TILE=40 -- Fixed 5× native Kenney pixels; presentation only.
 local VIEWPORT = { x = 16, y = 16, width = 992, height = 520 }
 local inventory_open,inventory_selection=false,1
 local help_open=false
@@ -262,23 +259,6 @@ local function reset_camera()
     camera_state = state
 end
 
-local function zoom_by(steps)
-    local next_index=math.max(1,math.min(#ZOOM_TILES,zoom_index+steps))
-    if next_index==zoom_index then return end
-    zoom_index=next_index
-    TILE=ZOOM_TILES[zoom_index]
-    if state and camera then
-        local position=Game.player(state).position
-        local x,y=Playback.position(playback,state.player_id,
-            position.floor_id,position.x,position.y)
-        if spectator_enabled and spectator_free and spectator_focus then
-            x,y=spectator_focus.x,spectator_focus.y
-        end
-        Camera.set_tile(camera,TILE,x,y)
-    end
-    notice=('Zoom %d%% — no world time'):format(TILE*100/32)
-end
-
 local function visual_fingerprint(visuals,theme,world)
     local sum=require('src.studio_atlas').checksum
     local parts={visuals.status,visuals.atlas_status or '',
@@ -299,9 +279,8 @@ local function visual_fingerprint(visuals,theme,world)
     return sum(table.concat(parts,'|'))
 end
 
-local function load_generated_visuals(read,mode)
-    local loader=mode=='kenney' and KenneyVisuals or GeneratedVisuals
-    local ok,visuals,status=pcall(loader.new,read,
+local function load_native_visuals(read)
+    local ok,visuals,status=pcall(KenneyVisuals.new,read,
         function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
@@ -334,7 +313,7 @@ end
 
 local function build_selected_visuals(mode,read)
     return VisualPacks.build(mode,read,make_visual_image,
-        load_generated_visuals)
+        load_native_visuals)
 end
 
 function love.load(args)
@@ -354,9 +333,6 @@ function love.load(args)
     if preview_pack and VisualPacks.valid(preview_pack) then
         visual_pack_mode=preview_pack -- launch override, never writes settings
     end
-    if spectator_enabled and os.getenv('ROAG_GENERATED_ART')=='1' then
-        visual_pack_mode='generated' -- disposable inspection override, never saved
-    end
     settings_selection=VisualPacks.index(visual_pack_mode)
     local read_visual=function(path)return love.filesystem.read(path)end
     visual_assets,visual_pack_generated_status=
@@ -364,7 +340,7 @@ function love.load(args)
     local generated,generated_status=visual_assets.generated,
         visual_pack_generated_status
     if generated_status:match('^rejected') then
-        print('Generated art fallback: '..generated_status)
+        print('Kenney art fallback: '..generated_status)
     end
     if VisualPacks.uses_published_theme(visual_pack_mode) then
         studio_theme,studio_theme_status=StudioThemeRuntime.inspect(read_visual,
@@ -442,7 +418,7 @@ local function refresh_visuals(requested_mode)
         generated_status=pcall(function()
         local visuals,generated_status=build_selected_visuals(mode,read)
         assert(not generated_status:match('^rejected'),
-            'generated art: '..generated_status)
+            'Kenney art: '..generated_status)
         assert(visuals.status=='loaded' or visuals.status=='absent' or
             visuals.status=='generated',
             'visual manifest: '..visuals.status)
@@ -516,7 +492,7 @@ local function refresh_visuals(requested_mode)
     local backing=candidate.atlas_status
     if candidate.status=='absent' then backing='built-in fallback'
     elseif candidate.status=='generated' then
-        backing=candidate.generated.style=='kenney' and 'Kenney Micro Roguelike' or 'generated atlas'
+        backing='Kenney Micro Roguelike'
     elseif backing~='loaded' and backing~='recovered previous atlas generation' then
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
@@ -524,8 +500,7 @@ local function refresh_visuals(requested_mode)
         ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
         (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
-        (backing=='Kenney Micro Roguelike' and backing or backing=='atlas' and 'atlas' or backing=='generated atlas' and
-            'generated atlas' or 'loose (atlas unavailable)')
+        (backing=='Kenney Micro Roguelike' and backing or 'built-in')
     notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
         (theme and theme.warning and ' · theme fallback' or '')
     if switching then
@@ -539,11 +514,9 @@ local function refresh_visuals(requested_mode)
                 tostring(reason)
         end
         local fallback
-        if (mode=='generated' or mode=='kenney') and generated_status~='loaded' then
-            fallback=(mode=='kenney' and 'Kenney sheet ' or 'Dungeon atlas ')..tostring(generated_status)..
+        if mode=='kenney' and generated_status~='loaded' then
+            fallback='Kenney sheet '..tostring(generated_status)..
                 '; using built-in fallback'
-        elseif mode=='published' and candidate.status=='absent' then
-            fallback='No published Paint art; using built-in fallback'
         elseif tostring(theme_status):match('^fallback:') then
             fallback=theme_status
         end
@@ -1032,8 +1005,6 @@ function love.keypressed(key, _, isrepeat)
                     love.keyboard.isDown('lshift','rshift'))
                 notice=('FREE CAMERA · %d,%d · no world time'):format(
                     spectator_focus.x,spectator_focus.y)
-            elseif key=='=' or key=='+' or key=='kp+' then zoom_by(1)
-            elseif key=='-' or key=='kp-' then zoom_by(-1)
             elseif key=='tab' then minimap_visible=not minimap_visible
             end
             return -- free camera never submits a gameplay action
@@ -1170,8 +1141,6 @@ function love.keypressed(key, _, isrepeat)
         notice = minimap_visible and "Map shown — no time" or "Map hidden — no time"
         return
     end
-    if key=='=' or key=='+' or key=='kp+' then zoom_by(1);return end
-    if key=='-' or key=='kp-' then zoom_by(-1);return end
     if (key=='i' or key=='v') and not targeting then
         if key=='v'then boon_page=boon_page+1 end
         inventory_open=true;inventory_selection=1
@@ -1292,27 +1261,30 @@ function love.gamepadpressed(_,button)
 end
 
 local outline_cache={}
-local function draw_cells(cells, red, green, blue, alpha, outline)
+local function draw_cell(cell, red, green, blue, alpha, outline)
+    if not visible_at(cell.x,cell.y) then return end
     love.graphics.setColor(red, green, blue, alpha)
-    for _, cell in ipairs(cells) do
-        if visible_at(cell.x,cell.y) then
-        local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
-        if outline then
-            outline_cache[TILE]=outline_cache[TILE] or AttackOutline.rectangles(TILE)
-            for _,rect in ipairs(outline_cache[TILE]) do
-                local x,y=screen_x+rect[1],screen_y+rect[2]
-                love.graphics.setColor(0.08,0.02,0.02,0.85)
-                love.graphics.rectangle('fill',x-1,y-1,rect[3]+2,rect[4]+2)
-                love.graphics.setColor(red,green,blue,math.min(1,alpha+0.5))
-                love.graphics.rectangle('fill',x,y,rect[3],rect[4])
-            end
-        else
+    local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
+    if outline then
+        outline_cache[TILE]=outline_cache[TILE] or AttackOutline.rectangles(TILE)
+        for _,rect in ipairs(outline_cache[TILE]) do
+            local x,y=screen_x+rect[1],screen_y+rect[2]
+            love.graphics.setColor(0.08,0.02,0.02,0.85)
+            love.graphics.rectangle('fill',x-1,y-1,rect[3]+2,rect[4]+2)
+            love.graphics.setColor(red,green,blue,math.min(1,alpha+0.5))
+            love.graphics.rectangle('fill',x,y,rect[3],rect[4])
+        end
+    else
         love.graphics.rectangle("fill", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, math.min(1, alpha + 0.3))
         love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
         love.graphics.setColor(red, green, blue, alpha)
-        end
-        end
+    end
+end
+
+local function draw_cells(cells, red, green, blue, alpha, outline)
+    for _, cell in ipairs(cells) do
+        draw_cell(cell,red,green,blue,alpha,outline)
     end
 end
 
@@ -1650,25 +1622,21 @@ local function draw_preview()
     if not targeting or targeting.dx == nil then return end
     local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
     for _, cell in ipairs(preview.cells) do
-        if visible_at(cell.x,cell.y) then
+        local r,g,b,a
         if targeting.kind == "dash" then
             if cell.status == "open" then
-                love.graphics.setColor(0.22, 0.85, 0.55, 0.55)
+                r,g,b,a=0.22,0.85,0.55,0.55
             elseif cell.status == "unreachable" then
-                love.graphics.setColor(0.55, 0.55, 0.55, 0.45)
+                r,g,b,a=0.55,0.55,0.55,0.45
             else
-                love.graphics.setColor(1.0, 0.27, 0.28, 0.65)
+                r,g,b,a=1.0,0.27,0.28,0.65
             end
         elseif targeting.kind == "sweeping_slash" then
-            love.graphics.setColor(1.0, 0.56, 0.17, 0.65)
+            r,g,b,a=1.0,0.56,0.17,0.65
         else
-            love.graphics.setColor(1.0, 0.86, 0.30, 0.65)
+            r,g,b,a=1.0,0.86,0.30,0.65
         end
-        local screen_x, screen_y = Camera.tile_top_left(camera, cell.x, cell.y)
-        love.graphics.rectangle("fill", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
-        love.graphics.setColor(1, 1, 1, 0.9)
-        love.graphics.rectangle("line", screen_x + 2, screen_y + 2, TILE - 4, TILE - 4)
-        end
+        draw_cell(cell,r,g,b,a,true)
     end
 end
 
@@ -1849,8 +1817,7 @@ local function draw_world()
                 end
             end
             love.graphics.setColor(r,g,b,background and not wall and 0.78 or 1)
-            -- A complete underlay also supports legacy motif transparency.
-            -- Version-2 terrain itself is opaque and fills every cell.
+            -- Complete ground underlay; native terrain fills every cell.
             local edge=kind and visual_assets and visual_assets.generated and 0 or 2
             love.graphics.rectangle("fill", screen_x, screen_y, TILE-edge,TILE-edge)
             if kind and visual_assets and visual_assets.has_terrain then
@@ -1870,37 +1837,8 @@ local function draw_world()
                     terrain_cache[cache_key]=handle or false
                 end
                 if handle and VisualSlots.terrain_draws_at(kind,handle.source,x,y,terrain_mode) then
-                    local tiled_generated=terrain_mode=='tiled' and handle.source=='generated'
                     draw_visual(handle,screen_x,screen_y,TILE,TILE,
-                        tiled_generated and 1 or
-                            VisualSlots.terrain_alpha(kind,handle.source,remembered,terrain_mode))
-                    if tiled_generated then
-                        if tile~='.' and tile~='#' and tile~='~' then
-                            love.graphics.setColor(r,g,b,remembered and .12 or .24)
-                            love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
-                        end
-                        if remembered then
-                            love.graphics.setColor(0,0,0,.62)
-                            love.graphics.rectangle('fill',screen_x,screen_y,TILE,TILE)
-                        end
-                        if kind=='wall' then
-                            local edges=VisualSlots.wall_edges(map,x,y,function(xx,yy)
-                                return explored_at(map.floor_id,xx,yy)
-                            end)
-                            local pixel=TILE/32
-                            local dim=remembered and .38 or 1
-                            love.graphics.setColor(.035*dim,.06*dim,.055*dim,1)
-                            if edges.s then love.graphics.rectangle('fill',screen_x,
-                                screen_y+TILE-4*pixel,TILE,4*pixel)end
-                            if edges.e then love.graphics.rectangle('fill',screen_x+TILE-2*pixel,
-                                screen_y,2*pixel,TILE)end
-                            if edges.w then love.graphics.rectangle('fill',screen_x,
-                                screen_y,2*pixel,TILE)end
-                            love.graphics.setColor(dim,dim,dim,.16)
-                            if edges.n then love.graphics.rectangle('fill',screen_x,
-                                screen_y,TILE,pixel)end
-                        end
-                    end
+                        VisualSlots.terrain_alpha(kind,handle.source,remembered,terrain_mode))
                 end
             end
             local authored_id=map.studio_visuals and map.studio_visuals[x..','..y]
@@ -2337,9 +2275,7 @@ local function draw_inventory()
         ('HEALTH %d/%d'):format(player.hp,player.max_hp),
         ('Attack %d · Defense %d'):format(player.damage,player.defense),
         ('Speed %d · GOLD %d'):format(player.speed,state.currency),
-        ('Boons %d · Seed %s'):format(#owned,tostring(state.root_seed or state.run_seed)),
-        state.stage and ('Danger %d · Next threat %d'):format(state.stage.pressure_count or 0,
-            math.max(0,(state.stage.next_pressure or state.clock)-state.clock)) or 'Final encounter'}
+        ('Boons %d'):format(#owned)}
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.text)
     for i,line in ipairs(lines)do g.print(line,636,286+(i-1)*26)end
     PixelUI.center('I / Esc close · no world time',518,ui_menu_font,PixelUI.colors.muted,88,488)
@@ -2355,9 +2291,9 @@ local function draw_help()
         {'Enter / Esc','Commit aim / cancel aim'},
         {'Space','Wait one action'},
         {'I / V','Boons and character / next page'},
-        {'Tab / +/-','Map / camera zoom'},
+        {'Tab','Show / hide map'},
         {'Esc','Pause · Save & Quit · Settings'},
-        {'F5','Refresh published visual assets'},
+        {'F5','Refresh selected sprite pack'},
     }
     g.setFont(ui_menu_font)
     for i,row in ipairs(lines)do
@@ -2401,9 +2337,8 @@ local function draw_pack_settings(x,y,w,h)
     local g=love.graphics
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.muted)
     g.print('Esc / click BACK',x+24,y+36)
-    local source=visual_pack_mode=='kenney' and 'Kenney Micro Roguelike' or
-        visual_assets and visual_assets.status=='generated' and 'Dungeon atlas' or
-        visual_assets and visual_assets.status=='loaded' and 'Published Paint' or 'Built-in fallback'
+    local source=visual_assets and visual_assets.generated and
+        'Kenney Micro Roguelike' or 'Classic built-in shapes'
     PixelUI.center('In use: '..source,y+72,ui_menu_font,PixelUI.colors.text,x,w)
     local actor=bound_visual(selected_class_id)
     if actor then draw_visual(actor,x+(w-56)/2,y+100,56,56)end
@@ -2415,8 +2350,9 @@ local function draw_pack_settings(x,y,w,h)
     PixelUI.center(VisualPacks.descriptions[VisualPacks.order[settings_selection]],y+422,
         ui_menu_font,PixelUI.colors.muted,x+24,w-48)
     local warning=visual_pack_message
-    if warning=='' and visual_pack_status=='corrupt'then warning='Damaged preference · using Automatic'
-    elseif warning=='' and (visual_pack_mode=='generated' or visual_pack_mode=='kenney') and visual_pack_generated_status~='loaded'then
+    if warning=='' and visual_pack_status=='corrupt'then warning='Damaged preference · using Classic'
+    elseif warning=='' and visual_pack_status=='retired'then warning='Previous pack removed · using Classic'
+    elseif warning=='' and visual_pack_mode=='kenney' and visual_pack_generated_status~='loaded'then
         warning='Artwork unavailable · using built-in fallback'
     end
     g.setFont(ui_menu_font);g.setColor(warning~='' and PixelUI.colors.selected or PixelUI.colors.muted)
@@ -2767,7 +2703,5 @@ function love.wheelmoved(dx,dy)
     end
     if dy~=0 and (title and title_view=='settings' or pause_settings) then
         settings_keypressed(dy>0 and 'up' or 'down',title)
-    elseif state and not title and not pause_menu and dy~=0 then
-        zoom_by(dy>0 and 1 or -1)
     end
 end

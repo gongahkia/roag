@@ -3,7 +3,7 @@
 ROAG now uses short menu lists, pixel-framed dialogs and a compact bottom HUD,
 inspired by [jdah's Microcraft](https://github.com/jdah/microcraft). The permanent
 right sidebar is gone. The map viewport is 992×520 instead of 704×608 at the
-same 1024×640 window and unchanged tile zoom. Combat, fog range, world geometry,
+same 1024×640 window. The later [UI cleanup](ROAG_UI_POLISH.md) fixes the camera at 40px tiles and keeps only Classic/Kenney. Combat, fog range, world geometry,
 RNG, scheduler, saves, profile and art binding IDs are unchanged.
 
 ## What was actually inspected
@@ -74,7 +74,7 @@ Ordinary movement, locked impacts, event order and 80ms actor slides are intact.
   previous view. Movement/attack input is consumed while help/stats is open.
 - **Chests and routes:** `1/2/3`, arrows or click select; Enter or the explicit
   confirm action commits; Esc cancels. Browsing and canceling cost no time.
-- **Gameplay:** WASD/arrows, F/R/X, Space, Tab and camera zoom are unchanged.
+- **Gameplay:** WASD/arrows, F/R/X, Space and Tab retain their existing actions. Camera zoom is now fixed.
   `B` retains its existing developer-loadout function; boons use `I`.
 
 Menu selection changes on keyboard or click. OS pointer movement alone does

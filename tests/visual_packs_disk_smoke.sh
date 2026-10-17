@@ -19,7 +19,7 @@ function store:write(name,bytes)
     local file=assert(io.open(root..'/'..name,'wb'))
     assert(file:write(bytes));assert(file:close());return true
 end
-assert(Packs.save(store,'generated'))
+assert(Packs.save(store,'kenney'))
 assert(Packs.save(store,'classic'))
 assert(Packs.inspect(store).mode=='classic')
 LUA
@@ -38,6 +38,6 @@ assert(found.status=='loaded' and found.mode=='classic')
 local file=assert(io.open(root..'/'..Packs.files[2],'wb'))
 assert(file:write('interrupted write'));assert(file:close())
 found=Packs.inspect(store)
-assert(found.status=='recovered' and found.mode=='generated')
+assert(found.status=='recovered' and found.mode=='kenney')
 print('Sprite-pack fresh-process persistence PASS: '..root)
 LUA

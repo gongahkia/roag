@@ -67,6 +67,20 @@ return function(test,equal)
         assert(art:terrain(map,2,2,'water').tile_index==125)
         assert(art:terrain(map,2,2,'floor')==art:terrain(map,2,2,'floor'))
     end)
+    test('Kenney floors never stamp wall caps, door frames or stair sprites on ground',function()
+        local art=assert(Kenney.new(read,image,quad))
+        for y=1,40 do for x=1,40 do
+            local h=art:terrain({rows={}},x,y,'floor')
+            assert(h.tile_index==17 and not h.texture.transparent,
+                'floor decoration must use plain native ground')
+        end end
+        for _,biome in ipairs(require('src.biomes').order)do
+            assert(art:resolve('core:terrain/'..biome:match('/([^/]+)$')..
+                '/floor/base').tile_index==17)
+        end
+        assert(art:resolve('core:object/door_closed').tile_index==36)
+        assert(art:resolve('core:object/stairs_down').tile_index==37)
+    end)
     test('Kenney selection, persistence and refresh lookup leave simulation unchanged',function()
         local state=Game.new_stage(7);local before=Game.snapshot(state)
         local art=assert(Kenney.new(read,image,quad))

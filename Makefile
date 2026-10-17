@@ -16,23 +16,23 @@ help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
 	 'make kenney           Try Kenney Micro Roguelike without changing settings' \
-	 'make spectator        Inspect the current generated atlas without saves' \
+	 'make spectator        Inspect Kenney art without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
-	 'Title Settings or Esc -> 3       Choose Dungeon pixel art, Classic or Paint' \
-	 'sh tools/build_generated_art.sh  Validate/rebuild bundled art (dry run)'
+	 'Title Settings or Esc -> 3       Choose Classic shapes or Kenney'
 game:
 	$(LOVE_RUN) .
 kenney:
 	env ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 spectator:
-	env ROAG_SPECTATOR=1 ROAG_GENERATED_ART=1 $(LOVE_RUN) .
+	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 test:
 	$(LUAJIT) tests/run.lua
 gui: gui-game gui-expansion
 gui-game:
 	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
 	@$(GUI_RUN) sh tests/menu_gui_smoke.sh
+	@$(GUI_RUN) sh tests/attack_preview_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_gui_smoke.sh
 	@$(GUI_RUN) sh tests/tranche15_chain_gui_smoke.sh
 gui-expansion:

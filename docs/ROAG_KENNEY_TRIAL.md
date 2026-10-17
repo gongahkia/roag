@@ -1,6 +1,6 @@
 # Kenney Micro Roguelike: selectable visual trial
 
-The menu/HUD layout was subsequently simplified; see [current menu captures](ROAG_MICROCRAFT_MENUS.md). The captures below preserve the original art-trial evidence.
+The camera is now fixed at 40px tiles, floors use plain ground, and only Classic/Kenney remain selectable; see [current cleanup](ROAG_UI_POLISH.md). The menu/HUD layout was subsequently simplified; see [current menu captures](ROAG_MICROCRAFT_MENUS.md). The captures below preserve the original art-trial evidence.
 
 This is a working trial of the **colored 8×8 Micro Roguelike 1.4** pack chosen
 by the user. It is not a claim that every ROAG artwork slot has a unique new
@@ -15,12 +15,11 @@ make kenney
 That command overrides the renderer for one launch and does not change the
 saved preference. It opens the normal game title, with ordinary New Game and
 Continue. For a persistent choice, select **Settings → Kenney Micro Roguelike
-→ Enter**. In a run, use **Esc → 3 Settings**. All five pack choices fit the
+→ Enter**. In a run, use **Esc → 3 Settings**. Both pack choices fit the
 settings panel and support keyboard, mouse and gamepad navigation.
 
-`make game` still respects your saved choice; Automatic retains the existing
-Dungeon art beneath any published Paint replacements. Classic, Dungeon and
-Paint remain available. F5 revalidates visual resources without altering the
+`make game` still respects your saved choice; Classic is the default for a fresh install. The Dungeon pack and Paint visual
+overrides have been removed. F5 revalidates visual resources without altering the
 run. A damaged Kenney sheet falls back to built-in art on startup; a damaged
 warm refresh is rejected while keeping the working visuals.
 
@@ -44,8 +43,8 @@ actor silhouettes, the HUD icons and the dashed warning's clear interior.
 Original source/license: [Kenney Micro Roguelike](https://kenney.nl/assets/micro-roguelike),
 CC0. The untouched source sheet and license are under
 `assets/kenney/micro-roguelike/`. Native 8px Quads use the **packed** sheet's 8px
-stride, not the alternate spaced sheet's 9px stride. Current 32/40/48/56/64px
-world zooms are integer multiples of eight. Nearest filtering stays crisp.
+stride, not the alternate spaced sheet's 9px stride. The fixed 40px
+world tile size is an integer multiple of eight. Nearest filtering stays crisp.
 
 The trial covers six classes, 25 enemy/boss/pursuer bindings, native floor/water
 art, 47 connected wall variants, currency/food/health, chests, doors, stairs,
@@ -61,8 +60,7 @@ The initial raw mapping made wall interiors blend into the floor, so it failed
 agent visual inspection. The adapter now constructs a bounded wall texture
 from the pack's own border pixels and gray material. It handles convex and
 concave corners and multiple missing diagonals. Unknown neighbors are treated
-as connected, so edge selection cannot expose hidden geometry. Ground detail
-uses a fixed coordinate pattern without gameplay RNG. Source art, existing
+as connected, so edge selection cannot expose hidden geometry. Floors now use plain native ground, with no scattered wall-cap detail. Source art, existing
 packs, collision, scheduling, profile and active-run schemas are unchanged.
 The earlier unfinished generative-terrain experiment was parked as
 `/var/tmp/roag-paused-terrain-expansion.patch` and
