@@ -1,0 +1,239 @@
+#ifndef MAPGAME_H
+#define MAPGAME_H
+
+#include <vector>
+#include <string>
+
+#include "Finalclass.h"
+#include "Labclass.h"
+#include "Otherlevel.h"
+#include "Spacestation2.h"
+#include "Tower.h"
+#include "TowerBG.h"
+#include "WarpClass.h"
+
+struct MapRenderData
+{
+    int zoom;
+    int xoff;
+    int yoff;
+    int legendxoff;
+    int legendyoff;
+    int startx;
+    int starty;
+    int width;
+    int height;
+    int pixelsx;
+    int pixelsy;
+};
+
+struct Roomtext
+{
+    int x, y;
+    const char* text;
+    bool rtl;
+};
+
+enum RoomnameType
+{
+    RoomnameType_STATIC,
+    RoomnameType_GLITCH,
+    RoomnameType_TRANSFORM
+};
+
+struct Roomname
+{
+    int x;
+    int y;
+    bool loop;
+    int flag;
+    RoomnameType type;
+    std::vector<std::string> text;
+    int progress;
+    int delay;
+};
+
+class mapclass
+{
+public:
+    mapclass(void);
+    void destroy(void);
+
+    int getwidth(void);
+
+    int getheight(void);
+
+    int intpol(int a, int b, float c);
+
+    void setteleporter(int x, int y);
+
+    void settrinket(int x, int y);
+
+    void setroomname(const char* name);
+
+    void resetmap(void);
+
+    void fullmap(void);
+
+    void updateroomnames(void);
+
+    void initmapdata(void);
+    void initcustommapdata(void);
+
+    void roomnamechange(int x, int y, const char** lines, size_t size);
+    void roomnameglitch(int x, int y, const char* name, const char* glitch);
+
+    int finalat(int x, int y);
+
+    int maptiletoenemycol(int t);
+
+    void changefinalcol(int t);
+
+    void setcol(TowerBG& bg_obj, const int r1, const int g1, const int b1 , const int r2, const  int g2, const int b2, const int c);
+
+    void updatebgobj(TowerBG& bg_obj);
+
+    void setbgobjlerp(TowerBG& bg_obj);
+
+    void updatetowerglow(TowerBG& bg_obj);
+
+    void nexttowercolour(void);
+    bool nexttowercolour_set;
+
+    void settowercolour(int t);
+
+    bool towerspikecollide(int x, int y);
+
+    bool collide(int x, int y, bool invincible);
+
+    void settile(int xp, int yp, int t);
+
+
+    int area(int _rx, int _ry);
+
+    void exploretower(void);
+
+    void hideship(void);
+
+    void showship(void);
+
+    void resetplayer(const bool player_died);
+    void resetplayer(void);
+
+    void warpto(int rx, int ry , int t, int tx, int ty);
+
+    void gotoroom(int rx, int ry);
+
+    void spawncompanion(void);
+
+    const char* currentarea(int roomx, int roomy);
+
+    void loadlevel(int rx, int ry);
+
+    void twoframedelayfix(void);
+
+
+    int roomdeaths[20 * 20];
+    int roomdeathsfinal[20 * 20];
+    static const int areamap[20 * 20];
+    int contents[40 * 30];
+    bool explored[20 * 20];
+
+    bool isexplored(const int rx, const int ry);
+    void setexplored(const int rx, const int ry, const bool status);
+
+    bool revealmap;
+
+    int background;
+    int rcol;
+    int tileset;
+    bool warpx;
+    bool warpy;
+
+
+    const char* roomname;
+    bool roomname_special;
+    bool roomnameset;
+    const char* hiddenname;
+
+    std::vector<Roomname> specialroomnames;
+
+    //Special tower stuff
+    bool towermode;
+    int ypos;
+    int oldypos;
+    int cameramode;
+    int cameraseek, cameraseekframe;
+    int resumedelay;
+    bool minitowermode;
+
+    int colstatedelay;
+    int colsuperstate;
+    int spikeleveltop, spikelevelbottom;
+    int oldspikeleveltop, oldspikelevelbottom;
+    //final level navigation
+    bool finalmode;
+    bool finalstretch;
+
+    //Variables for playing custom levels
+    bool custommode;
+    bool custommodeforreal;
+    bool customshowmm;
+
+    //final level colour cycling stuff
+    bool final_colormode;
+    int final_mapcol;
+    int final_aniframe;
+    int final_aniframedelay;
+    int final_colorframe, final_colorframedelay;
+
+    //Teleporters and Trinkets on the map
+    std::vector<SDL_Point> teleporters;
+    std::vector<SDL_Point> shinytrinkets;
+
+    bool showteleporters, showtargets, showtrinkets;
+
+    //Roomtext
+    bool roomtexton;
+    std::vector<Roomtext> roomtext;
+
+    //Levels
+    otherlevelclass otherlevel;
+    spacestation2class spacestation2;
+    labclass lablevel;
+    finalclass finallevel;
+    warpclass warplevel;
+    towerclass tower;
+    int extrarow;
+
+    //Accessibility options
+    bool invincibility;
+
+    //Map cursor
+    int cursorstate, cursordelay;
+
+    //Region system
+    struct Region
+    {
+        bool isvalid;
+        int rx;
+        int ry;
+        int rx2;
+        int ry2;
+    };
+    struct Region region[401];
+    void setregion(int id, int rx, int ry, int rx2, int ry2);
+    void removeregion(int id);
+    void changeregion(int id);
+    int currentregion;
+    int regionx, regiony;
+    int regionwidth, regionheight;
+
+    MapRenderData get_render_data(void);
+};
+
+#ifndef MAP_DEFINITION
+extern mapclass map;
+#endif
+
+#endif /* MAPGAME_H */

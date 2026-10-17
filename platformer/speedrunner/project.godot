@@ -1,0 +1,28 @@
+; REDLINE: a precision platformer prototype. Open this file in Godot.
+config_version=5
+
+[application]
+config/name="REDLINE / precision platformer"
+run/main_scene="res://scenes/workshop.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/custom_user_dir_name="redline-platformer"
+config/use_custom_user_dir=true
+
+[display]
+window/size/viewport_width=640
+window/size/viewport_height=360
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="canvas_items"
+
+[physics]
+common/physics_ticks_per_second=120
+common/physics_interpolation=true
+common/max_physics_steps_per_frame=16
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+textures/canvas_textures/default_texture_filter=0
+environment/defaults/default_clear_color=Color(0.035, 0.047, 0.07, 1)

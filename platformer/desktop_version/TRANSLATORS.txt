@@ -1,0 +1,87 @@
+Translators
+------------
+
+Arabic (Eternal Dream Arabization):
+ - Montassar Ghanmi
+ - Mohammed Seif Eddine Chaib
+
+Catalan:
+ - Eduard Ereza Martínez
+
+Welsh:
+ - Morgan Roberts
+
+German:
+ - Thomas Faust
+
+Esperanto:
+ - Reese Rivers
+
+Spanish (ES):
+ - Felipe Mercader
+ - Sara Marín
+
+Spanish (LATAM):
+ - LocQuest
+ - Guido Di Carlo
+
+Spanish (ARG.):
+ - LocQuest
+ - Guido Di Carlo
+
+French:
+ - Words of Magic
+
+Irish:
+ - Úna-Minh Kavanagh
+ - Seaghán Ó Modhráin
+ - Davis Sandefur
+
+Italian (gloc.team):
+ - Alain Dellepiane
+ - Matteo Scarabelli
+ - Lorenzo Bertolucci
+ - Fabio Bortolotti
+
+Japanese:
+ - Nicalis, Inc.
+ - KabanFriends
+
+Korean:
+ - Bada Im
+ - Hyungseok Cho
+
+Dutch:
+ - Dav999
+
+Polish:
+ - Kuba Kallus
+
+Brazilian Portuguese:
+ Translators:
+   - Lucas Araujo
+   - Thiago Araujo
+ Editing and LQA:
+   - Ivan Lopes
+   - Lucas Nunes
+
+European Portuguese:
+ - Locsmiths
+
+Russian:
+ - TheMysticSword
+
+Silesian:
+ - Kuba Kallus
+
+Turkish:
+ - Engin İlkiz
+
+Ukrainian:
+ - Olya Sushytska
+
+Chinese (Simplified):
+ - Sound of Mystery
+
+Chinese (Traditional):
+ - Sound of Mystery / craft
