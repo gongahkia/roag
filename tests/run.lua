@@ -13,7 +13,15 @@ local Boons = require("src.boons")
 local BoonContent = require("src.boon_content")
 local Rewards = require("src.rewards")
 
-local passed, failed = 0, 0
+local passed, failed, registered = 0, 0, 0
+local range=os.getenv('ROAG_TEST_RANGE')
+local range_first,range_last
+if range then
+    local first,last=range:match('^(%d+)%-(%d+)$')
+    range_first,range_last=tonumber(first),tonumber(last)
+    assert(range_first and range_last and range_first>=1 and
+        range_last>=range_first,'invalid ROAG_TEST_RANGE')
+end
 local function equal(a, b, path)
     path = path or "root"
     assert(type(a) == type(b), path .. " type differs")
@@ -22,6 +30,8 @@ local function equal(a, b, path)
     for key in pairs(b) do assert(a[key] ~= nil, path .. " extra key " .. tostring(key)) end
 end
 local function test(name, fn)
+    registered=registered+1
+    if range and (registered<range_first or registered>range_last) then return end
     local ok, err = pcall(fn)
     if ok then passed = passed + 1; print("PASS " .. name)
     else failed = failed + 1; io.stderr:write("FAIL " .. name .. ": " .. tostring(err) .. "\n") end
@@ -1509,6 +1519,7 @@ require("tests.generation_tests")(test, equal)
 require("tests.exploration_tests")(test, equal)
 require("tests.stage_tests")(test, equal)
 require("tests.persistence_tests")(test, equal)
+require("tests.title_menu_tests")(test, equal)
 require("tests.acceptance_tests")(test, equal)
 require("tests.motion_tests")(test, equal)
 require("tests.boon_expansion_tests")(test, equal)

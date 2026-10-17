@@ -10,7 +10,7 @@ Run these from this checkout: `make game` for the playable game, `make test` for
 
 ## Run and controls
 
-Run `make game` (or `love .` when LÖVE is on `PATH`). The title offers **C/Enter Continue**, **N New Run**, and **Q/Esc Quit**. New Run asks for confirmation before replacing a resumable or incompatible active save. During normal gameplay **Esc** opens a pause menu: **1/Enter/Esc Resume**, **2/S Save & Quit**. Esc still cancels aiming, chest and route menus first. Saving, loading and pausing cost no world time or RNG. Save & Quit writes the latest stable player-ready state and exits only after the save is read back successfully; a failed write leaves the game open. A mid-animation save resumes with clean presentation because all authoritative effects have already resolved. Milestone autosaves follow chest claims, elite defeat, pursuer arrival, stage transition, death and Victory. Hard termination resumes from the latest verified milestone; it may lose actions since then. The game does not save every frame.
+Run `make game` (or `love .` when LÖVE is on `PATH`). The title starts with **Continue**, **New Game**, **Achievements**, and **Quit**. Continue shows the existing single saved run's character, stage, floor, seed and HP before resuming. New Game opens character selection; choose one of six characters, then begin. Replacing a resumable, incompatible or damaged save requires confirmation. Arrow keys and Enter navigate, Esc goes back, and the cards can be clicked. Existing **C** quick-continue, **N** quick-start and **1–6** class shortcuts remain available. During normal gameplay **Esc** opens a pause menu: **1/Enter/Esc Resume**, **2/S Save & Quit**. Esc still cancels aiming, chest and route menus first. Saving, loading and pausing cost no world time or RNG. Save & Quit writes the latest stable player-ready state and exits only after the save is read back successfully; a failed write leaves the game open. A mid-animation save resumes with clean presentation because all authoritative effects have already resolved. Milestone autosaves follow chest claims, elite defeat, pursuer arrival, stage transition, death and Victory. Hard termination resumes from the latest verified milestone; it may lose actions since then. The game does not save every frame.
 
 LÖVE writes two rotating `active-a.roag` / `active-b.roag` records inside its platform save directory under the stable `roag-foundation` identity. Each record stores a generation, snapshot/content compatibility IDs, payload size and checksum. The next generation is written to the inactive slot and read back; startup chooses the newest integrity-valid generation, falling back one generation if a slot is corrupt. A valid newer incompatible save is reported instead of silently loading an older run. Confirmed New Run replacement writes the inactive slot first and verifies it before replacing the older slot; if the second write fails, the game warns that only one new generation is verified, and the next checkpoint replenishes the backup. The codec is inert, length-prefixed plain data: it never evaluates save text. No hardware power-loss fsync guarantee or cross-version migration is claimed. Terminal/dead runs write verified non-resumable tombstones to both slots, so one damaged terminal slot does not revive an older active backup. Permanent unlocks use separate profile records.
 
@@ -173,17 +173,21 @@ ordinary submitted-action traces now clear six generated floors and the final
 boss for the original four classes; the older single-floor guide is still retained as
 a narrower regression check.
 
-**C/Enter Continue** resumes the saved run with its original class and sprite;
-it does not start the class currently selected on the title. To play a different
-class, select it with **1–6**, press **N New Run**, and confirm replacement if asked.
+**Continue → Continue Run** resumes the saved class and sprite.
+**New Game → Character → Begin New Game** starts the selected class; an
+existing save asks for confirmation before replacement. The original single-run
+save format and files are unchanged. **C** and **N** remain direct shortcuts;
+**1–6** opens the character screen as a shortcut.
 In game, moving or aiming left/right mirrors the selected class sprite; up/down
 keeps its last horizontal facing. Press **+/-** or scroll the mouse wheel to zoom
 the world between 100% and 200% (150% by default). Zoom and facing are visual
 only and do not advance world time or alter collision.
 
-Standard LÖVE gamepad callbacks provide a menu path: shoulder buttons cycle
-classes on the title, **Y** starts a run, **A** confirms or continues,
-**B** cancels, and the D-pad selects chest/route offers. During play the D-pad
+Standard LÖVE gamepad callbacks provide a menu path: the D-pad moves the title
+selection, **A** opens or confirms, **B** goes back, shoulder buttons cycle
+characters on the character screen, and **Y** quick-starts from the home or
+character screen.
+The D-pad also selects chest/route offers. During play the D-pad
 moves or aims cardinally, **X/Y/right shoulder** choose basic/special/mobility,
 and **Start** pauses. This reuses the keyboard input gate; eight-direction
 diagonal aim still uses the keyboard. Controller hardware has not been

@@ -19,6 +19,7 @@ local VisualAssets = require("src.visual_assets")
 local GeneratedVisuals = require("src.generated_visuals")
 local VisualSlots = require("src.visual_slots")
 local Spectator = require("src.spectator")
+local TitleMenu = require("src.title_menu")
 local StudioWorldRuntime = require("src.studio_world_runtime")
 local StudioThemeRuntime = require("src.studio_theme_runtime")
 local AudioRuntime = require("src.studio_audio_runtime")
@@ -54,10 +55,12 @@ local player_facing=1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
 local route_menu -- exit offers are plain data in the authoritative exit entity.
 local reward_notices, reward_notice_time = {}, 0
-local save_service = Persistence.new(storage)
+local save_service=Persistence.new(storage)
 local profile_service = Profile.new(storage)
 local profile_status,profile,unlocks_view
 local title, pause_menu, confirm_new, save_status = true, false, false, nil
+local title_view='home' -- home, continue, class
+local title_selection=1
 local confirm_reset_seed
 local persistence_message = ""
 local diagnostics = os.getenv("ROAG_DIAGNOSTICS")=="1" and
@@ -368,6 +371,7 @@ function love.load(args)
                 persistence_message="Terminal unlock recovery needs retry: "..tostring(updated)
             end
         end
+        title_selection=TitleMenu.default_selection(save_status)
         if studio_world_status~='absent' and studio_world_status~='loaded' then
             persistence_message=(persistence_message~='' and persistence_message..' · ' or '')..
                 'Studio world: '..studio_world_status
@@ -545,6 +549,8 @@ local function begin_new(seed)
     profile_status=profile_service:inspect()
     floor_seed=seed
     title,confirm_new,pause_menu=false,false,false
+    title_view='home'
+    save_status=nil
     persistence_message=reason or ""
     targeting,chest_menu,route_menu=nil,nil,nil
     playback=Playback.new()
@@ -565,6 +571,8 @@ local function continue_run()
     selected_class_id=Game.player(state).definition_id
     floor_seed=state.root_seed or state.run_seed
     title,confirm_new,pause_menu=false,false,false
+    title_view='home'
+    save_status=nil
     persistence_message=found.status=="recovered"
         and "Recovered previous valid save generation" or ""
     targeting,chest_menu,route_menu=nil,nil,nil
@@ -572,6 +580,34 @@ local function continue_run()
     combat_numbers=CombatNumbers.new()
     notice="Continued saved run"
     reset_camera()
+end
+
+local function resumable(found)
+    return TitleMenu.resumable(found)
+end
+
+local function request_new_run()
+    save_status=save_service:inspect()
+    if save_status.status=='pending_terminal' then
+        persistence_message='Pending unlock recovery; press R to retry'
+    elseif save_status.status=='active' or save_status.status=='recovered' or
+        save_status.status=='incompatible' or save_status.status=='corrupt' then
+        confirm_new=true
+    else begin_new() end
+end
+
+local function activate_title_selection()
+    if title_view=='home' then
+        if title_selection==1 then
+            title_view='continue'
+        elseif title_selection==2 then
+            title_view='class'
+        elseif title_selection==3 then unlocks_view=true
+        else love.event.quit() end
+    elseif title_view=='continue' then
+        if resumable(save_status) then continue_run()
+        else persistence_message='No compatible active run to continue' end
+    elseif title_view=='class' then request_new_run() end
 end
 
 local function checkpoint(force)
@@ -746,6 +782,78 @@ local function spectator_restart()
         Biomes.get(Biomes.order[spectator_biome_index]).name,floor_seed)
 end
 
+local function title_keypressed(key)
+    if unlocks_view then
+        if key=='escape' or key=='u' then unlocks_view=false end
+        return
+    end
+    if confirm_new then
+        if key=='y' or key=='return' or key=='kpenter' then begin_new()
+        elseif key=='n' or key=='escape' then confirm_new=false end
+        return
+    end
+    if key=='r' and save_status and save_status.status=='pending_terminal' then
+        local pending=save_status.state.meta and save_status.state.meta.pending or {}
+        local ok,updated=profile_service:commit_awards(pending)
+        if ok then
+            profile=updated
+            local done,why=save_service:tombstone()
+            if done then
+                save_status=save_service:inspect()
+                profile_status=profile_service:inspect()
+                persistence_message='Terminal unlock recovered and saved'
+            else persistence_message='Terminal save needs retry: '..tostring(why) end
+        else persistence_message='Terminal unlock recovery needs retry: '..tostring(updated) end
+        return
+    end
+    local class_index=tonumber(key)
+    if title_view=='home' then
+        if class_index and Classes.order[class_index] then
+            selected_class_id=Classes.order[class_index]
+            title_view='class'
+            return
+        elseif key=='up' or key=='w' then
+            title_selection=(title_selection+2)%4+1
+        elseif key=='down' or key=='s' then
+            title_selection=title_selection%4+1
+        elseif key=='return' or key=='kpenter' then
+            activate_title_selection()
+        elseif key=='c' then
+            if resumable(save_status) then continue_run()
+            else persistence_message='No compatible active run to continue' end
+        elseif key=='n' then request_new_run() -- legacy quick-start shortcut
+        elseif key=='u' then unlocks_view=true
+        elseif key=='escape' or key=='q' then love.event.quit() end
+    elseif title_view=='continue' then
+        if key=='return' or key=='kpenter' or key=='c' then
+            activate_title_selection()
+        elseif key=='escape' then
+            title_view='home';title_selection=TitleMenu.default_selection(save_status)
+        end
+    elseif title_view=='class' then
+        if class_index and Classes.order[class_index] then
+            selected_class_id=Classes.order[class_index]
+        elseif key=='left' or key=='up' or key=='a' or key=='w' then
+            local index=1
+            for i,id in ipairs(Classes.order) do
+                if id==selected_class_id then index=i;break end
+            end
+            selected_class_id=Classes.order[(index+#Classes.order-2)%
+                #Classes.order+1]
+        elseif key=='right' or key=='down' or key=='d' or key=='s' then
+            local index=1
+            for i,id in ipairs(Classes.order) do
+                if id==selected_class_id then index=i;break end
+            end
+            selected_class_id=Classes.order[index%#Classes.order+1]
+        elseif key=='return' or key=='kpenter' or key=='n' then
+            request_new_run()
+        elseif key=='escape' then
+            title_view='home';title_selection=2
+        end
+    end
+end
+
 function love.keypressed(key, _, isrepeat)
     if isrepeat and not (spectator_enabled and spectator_free and cardinal[key]) then
         return
@@ -825,7 +933,8 @@ function love.keypressed(key, _, isrepeat)
                 key=='1' or key=='2' or key=='3' or key=='4') and
                 'core:cue/ui/hover' or nil
         if cue then audio_runtime:emit(cue) end
-        if title and tonumber(key) and Classes.order[tonumber(key)] then
+        if title and (title_view=='home' or title_view=='class') and
+            tonumber(key) and Classes.order[tonumber(key)] then
             local class=Classes.order[tonumber(key)]
             audio_runtime:emit('core:cue/class/'..class:match('([^/]+)$')..'/select')
         end
@@ -836,47 +945,7 @@ function love.keypressed(key, _, isrepeat)
         end
         return
     end
-    if title then
-        if unlocks_view then
-            if key=="escape" or key=="u" then unlocks_view=false end
-            return
-        end
-        if confirm_new then
-            if key=="y" or key=="return" or key=="kpenter" then begin_new()
-            elseif key=="n" or key=="escape" then confirm_new=false end
-            return
-        end
-        local class_index=tonumber(key)
-        if class_index and Classes.order[class_index] then
-            selected_class_id=Classes.order[class_index]
-            return
-        end
-        if key=="c" or key=="return" or key=="kpenter" then
-            if save_status and (save_status.status=="active" or
-                save_status.status=="recovered") then continue_run()
-            else persistence_message="No compatible active run to continue" end
-        elseif key=="n" then
-            if save_status and (save_status.status=="active" or
-                save_status.status=="recovered" or
-                save_status.status=="incompatible") then
-                confirm_new=true
-            else begin_new() end
-        elseif key=="u" then unlocks_view=true
-        elseif key=="r" and save_status and save_status.status=="pending_terminal" then
-            local pending=save_status.state.meta and save_status.state.meta.pending or {}
-            local ok,updated=profile_service:commit_awards(pending)
-            if ok then
-                profile=updated
-                local done,why=save_service:tombstone()
-                if done then
-                    save_status=save_service:inspect()
-                    profile_status=profile_service:inspect()
-                    persistence_message="Terminal unlock recovered and saved"
-                else persistence_message="Terminal save needs retry: "..tostring(why) end
-            else persistence_message="Terminal unlock recovery needs retry: "..tostring(updated) end
-        elseif key=="escape" or key=="q" then love.event.quit() end
-        return
-    end
+    if title then title_keypressed(key);return end
     if pause_menu then
         if key=="escape" or key=="1" or key=="return" then
             pause_menu=false
@@ -1034,8 +1103,12 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
-    if title and not unlocks_view and not confirm_new then
+    if title and not unlocks_view and not confirm_new and
+        (title_view=='home' or title_view=='class') then
         if button=='leftshoulder' or button=='rightshoulder' then
+            if title_view=='home' then
+                title_view='class'
+            end
             local index=1
             for i,id in ipairs(Classes.order) do
                 if id==selected_class_id then index=i;break end
@@ -2209,52 +2282,110 @@ function love.draw()
                 love.graphics.getHeight())
         end
         love.graphics.setColor(.035,.07,.075,.95)
-        love.graphics.rectangle('fill',250,78,524,460)
+        love.graphics.rectangle('fill',190,55,644,585)
         love.graphics.setColor(.29,.43,.42)
-        love.graphics.rectangle('line',250.5,78.5,523,459)
+        love.graphics.rectangle('line',190.5,55.5,643,584)
         love.graphics.setColor(.95,.86,.6)
         love.graphics.setFont(ui_display_font)
-        love.graphics.printf('ROAG',250,105,524,'center')
+        love.graphics.printf('ROAG',190,84,644,'center')
         love.graphics.setFont(ui_body_font)
         love.graphics.setColor(.57,.76,.73)
-        love.graphics.printf('SEVEN BIOMES',250,145,524,'center')
-        local chosen=Classes.get(selected_class_id)
+        love.graphics.printf('SEVEN BIOMES',190,125,644,'center')
+        if title_view~='home' then
+            love.graphics.setColor(.71,.87,.82)
+            love.graphics.print('← BACK',211,128)
+        end
         love.graphics.setColor(.37,.57,.56)
-        love.graphics.rectangle('fill',294,187,436,1)
-        love.graphics.setColor(.64,.77,.75)
-        love.graphics.printf('1–6  CHOOSE CLASS FOR NEW RUN',250,201,524,'center')
-        love.graphics.setColor(.96,.94,.8)
-        love.graphics.printf(chosen.name:upper(),250,225,524,'center')
-        love.graphics.setColor(.77,.85,.79)
-        love.graphics.printf(chosen.description,278,250,468,'center')
-        love.graphics.setColor(.59,.73,.72)
-        love.graphics.printf(('HP %d  ·  ATTACK %d  ·  DEFENSE %d  ·  SPEED %d')
-            :format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
-            250,285,524,'center')
-        local can_continue=save_status and
-            (save_status.status=="active" or save_status.status=="recovered")
-        local saved_player=can_continue and save_status.state and
-            Game.player(save_status.state)
-        local saved_class=saved_player and Classes.get(saved_player.definition_id)
-        love.graphics.setColor(.57,.72,.69)
-        love.graphics.printf('Class choice applies to New Run only',250,313,524,'center')
-        love.graphics.setColor(can_continue and {.95,.87,.61} or {.46,.57,.56})
-        love.graphics.printf(can_continue and
-            ('C / Enter: Continue saved '..(saved_class and saved_class.name or 'run')) or
-            'Continue unavailable',250,340,524,'center')
-        love.graphics.setColor(.94,.94,.82)
-        love.graphics.printf('N: New Run as '..chosen.name,250,369,524,'center')
-        love.graphics.setColor(.66,.8,.77)
-        love.graphics.printf('U: Achievements',250,398,524,'center')
-        love.graphics.setColor(.44,.61,.6)
-        love.graphics.printf('Q / Esc: Quit  ·  Gamepad supported',250,478,524,'center')
-        local status=save_status and save_status.status or "absent"
-        if status=="pending_terminal" then
-            love.graphics.setColor(1,.68,.48)
-            love.graphics.printf('R: Retry reward recovery',250,432,524,'center')
-        elseif status=='terminal' then
-            love.graphics.setColor(.72,.83,.72)
-            love.graphics.printf('RUN COMPLETE',250,432,524,'center')
+        love.graphics.rectangle('fill',230,165,564,1)
+        if title_view=='home' then
+            love.graphics.setColor(.75,.85,.81)
+            love.graphics.printf('One saved run · choose what to do',210,174,604,'center')
+            local options={'CONTINUE','NEW GAME','ACHIEVEMENTS','QUIT'}
+            local descriptions={
+                resumable(save_status) and 'Resume your saved character' or
+                    'No compatible saved run',
+                'Choose your character, then begin',
+                'View permanent unlocks',
+                'Leave ROAG',
+            }
+            for index,label in ipairs(options) do
+                local y=206+(index-1)*83
+                local selected=title_selection==index
+                love.graphics.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
+                love.graphics.rectangle('fill',230,y,564,72)
+                love.graphics.setColor(selected and {.74,.89,.74} or {.27,.40,.40})
+                love.graphics.rectangle('line',230.5,y+.5,563,71)
+                love.graphics.setColor(selected and {.99,.91,.67} or {.75,.83,.79})
+                love.graphics.print(label,250,y+13)
+                love.graphics.setColor(.60,.76,.73)
+                love.graphics.print(descriptions[index],250,y+39)
+            end
+            love.graphics.setColor(.54,.70,.68)
+            love.graphics.printf(resumable(save_status) and 'Saved run available' or
+                'Continue unavailable',215,551,594,'center')
+            if save_status and save_status.status=='terminal' then
+                love.graphics.printf('RUN COMPLETE',215,570,594,'center')
+            end
+            love.graphics.printf(('↑↓ / Enter · N quick start as %s · C quick continue')
+                :format(Classes.get(selected_class_id).name),215,603,594,'center')
+        elseif title_view=='continue' then
+            love.graphics.setColor(.88,.88,.72)
+            love.graphics.printf('CONTINUE SAVED RUN',210,177,604,'center')
+            local headline,detail=TitleMenu.save_summary(save_status)
+            love.graphics.setColor(.07,.13,.14)
+            love.graphics.rectangle('fill',225,225,574,170)
+            love.graphics.setColor(.37,.57,.56)
+            love.graphics.rectangle('line',225.5,225.5,573,169)
+            love.graphics.setColor(.96,.88,.65)
+            love.graphics.printf(headline,245,258,534,'center')
+            love.graphics.setColor(.70,.82,.78)
+            love.graphics.printf(detail,245,302,534,'center')
+            if resumable(save_status) then
+                love.graphics.setColor(.17,.33,.30)
+                love.graphics.rectangle('fill',390,430,244,45)
+                love.graphics.setColor(.76,.92,.77)
+                love.graphics.rectangle('line',390.5,430.5,243,44)
+                love.graphics.printf('CONTINUE RUN',390,445,244,'center')
+            end
+            love.graphics.setColor(.59,.76,.72)
+            love.graphics.printf('Enter continues · Esc returns to title',
+                215,587,594,'center')
+        elseif title_view=='class' then
+            local chosen=Classes.get(selected_class_id)
+            love.graphics.setColor(.74,.87,.81)
+            love.graphics.printf('1–6  CHOOSE CLASS FOR NEW RUN',210,175,604,'center')
+            love.graphics.printf('Choose your character',210,195,604,'center')
+            for index,id in ipairs(Classes.order) do
+                local class=Classes.get(id)
+                local column=(index-1)%2
+                local row=math.floor((index-1)/2)
+                local x,y=225+column*290,225+row*87
+                local selected=id==selected_class_id
+                love.graphics.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
+                love.graphics.rectangle('fill',x,y,279,78)
+                love.graphics.setColor(selected and {.74,.89,.74} or {.27,.40,.40})
+                love.graphics.rectangle('line',x+.5,y+.5,278,77)
+                local portrait=bound_visual(id)
+                if portrait then draw_visual(portrait,x+10,y+18,42,42) end
+                local text_x=x+(portrait and 61 or 15)
+                love.graphics.setColor(selected and {.97,.89,.65} or {.72,.82,.78})
+                love.graphics.print(index..'  '..class.name:upper(),text_x,y+14)
+                love.graphics.setColor(.58,.75,.72)
+                love.graphics.print(('HP%d  ATK%d  DEF%d  SPD%d')
+                    :format(class.hp,class.damage,class.defense,class.speed),text_x,y+43)
+            end
+            love.graphics.setColor(.96,.94,.8)
+            love.graphics.printf(chosen.name:upper(),210,500,604,'center')
+            love.graphics.setColor(.70,.82,.78)
+            love.graphics.printf(chosen.description,220,525,584,'center')
+            love.graphics.setColor(.17,.33,.30)
+            love.graphics.rectangle('fill',390,570,244,38)
+            love.graphics.setColor(.76,.92,.77)
+            love.graphics.rectangle('line',390.5,570.5,243,37)
+            love.graphics.printf('BEGIN NEW GAME',390,581,244,'center')
+            love.graphics.setColor(.59,.76,.72)
+            love.graphics.printf('←→ / 1–6 choose · Enter begin · Esc back',
+                210,614,604,'center')
         end
         if unlocks_view then
             love.graphics.setColor(0.02,0.05,0.05,0.96)
@@ -2278,12 +2409,19 @@ function love.draw()
         end
         if confirm_new then
             love.graphics.setColor(1,0.72,0.38)
-            love.graphics.printf("Replace saved run? Y / Enter confirm · Esc cancel",
-                250,432,524,"center")
+            love.graphics.setColor(.02,.04,.04,.96)
+            love.graphics.rectangle('fill',250,285,524,142)
+            love.graphics.setColor(1,0.72,0.38)
+            love.graphics.printf('Replace the saved run?',
+                260,315,504,'center')
+            love.graphics.rectangle('line',275.5,362.5,224,45)
+            love.graphics.rectangle('line',524.5,362.5,224,45)
+            love.graphics.printf('REPLACE · Y / Enter',275,377,224,'center')
+            love.graphics.printf('CANCEL · Esc',525,377,224,'center')
         end
         if persistence_message~="" then
             love.graphics.setColor(1,0.46,0.43)
-            love.graphics.printf(persistence_message,275,550,474,"center")
+            love.graphics.printf(persistence_message,235,644,554,"center")
         end
         return
     end
@@ -2448,6 +2586,49 @@ function love.roagAssetIdResolved(id)
 end
 function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
+    if title then
+        if unlocks_view then unlocks_view=false;return end
+        if confirm_new then
+            if y>=362 and y<=408 then
+                if x>=275 and x<=500 then begin_new()
+                elseif x>=525 and x<=750 then confirm_new=false end
+            end
+            return
+        end
+        if title_view~='home' and x>=205 and x<=290 and y>=120 and y<=156 then
+            title_view='home'
+            title_selection=TitleMenu.default_selection(save_status)
+            return
+        end
+        if title_view=='home' then
+            for index=1,4 do
+                local top=206+(index-1)*83
+                if x>=230 and x<=794 and y>=top and y<=top+72 then
+                    title_selection=index
+                    activate_title_selection()
+                    return
+                end
+            end
+        elseif title_view=='continue' then
+            if x>=390 and x<=634 and y>=430 and y<=475 then
+                activate_title_selection()
+            end
+        elseif title_view=='class' then
+            for index,id in ipairs(Classes.order) do
+                local column=(index-1)%2
+                local row=math.floor((index-1)/2)
+                local left,top=225+column*290,225+row*87
+                if x>=left and x<=left+279 and y>=top and y<=top+78 then
+                    selected_class_id=id
+                    return
+                end
+            end
+            if x>=390 and x<=634 and y>=570 and y<=608 then
+                request_new_run()
+            end
+        end
+        return
+    end
     if boon_detail_id then boon_detail_id=nil;return end
     if not state or title or pause_menu or chest_menu or route_menu or
         Playback.busy(playback) or x<PANEL_X or x>1008 or
