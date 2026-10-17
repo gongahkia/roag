@@ -6,6 +6,12 @@ local Classes=require('src.classes')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 local function slug(id) return id:match('/([^/]+)$') end
+for _,id in ipairs({'door_closed','door_open','stairs_down','stairs_up','exit','chest_open'})do
+    add('core:object/'..id)
+end
+for _,id in ipairs({'bramble_bed','sticky_bog','glazed_ice','barricade',
+    'obscuring_mist','resonant_crystal'})do add('core:terrain/'..id)end
+add('core:ui/burning_effect');add('core:ui/block_effect')
 -- One editable image per printable ASCII character. The numeric suffix keeps
 -- upper and lower case distinct while satisfying Studio's lowercase ID rule.
 local glyph_bindings={}

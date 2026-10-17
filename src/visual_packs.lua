@@ -4,14 +4,16 @@ local Atlas=require('src.studio_atlas')
 local VisualAssets=require('src.visual_assets')
 local P={format='roag-visual-pack/1',files={
     'visual-pack-a.roag','visual-pack-b.roag'},default='automatic',
-    order={'automatic','classic','generated','published'},
+    order={'automatic','classic','generated','published','kenney'},
     labels={automatic='Automatic',classic='Classic built-in',
-        generated='Dungeon pixel art',published='Published Paint'},
+        generated='Dungeon pixel art',published='Published Paint',
+        kenney='Kenney Micro Roguelike'},
     descriptions={
         automatic='Published Paint art, then bundled Dungeon pixel art',
         classic='Original game tokens and terrain',
         generated='Connected terrain, heroes and enemies',
         published='Paint art and atlas; built-in fallback',
+        kenney='Original 8×8 terrain, characters and items · CC0 trial',
     }}
 
 function P.valid(mode) return P.labels[mode]~=nil end
@@ -93,11 +95,11 @@ end
 function P.build(mode,read,make_image,load_generated)
     assert(P.valid(mode),'invalid sprite pack')
     local generated,status=nil,'disabled'
-    if mode=='generated' or mode=='automatic' then
-        generated,status=load_generated(read)
+    if mode=='generated' or mode=='automatic' or mode=='kenney' then
+        generated,status=load_generated(read,mode)
     end
     local visual_read=read
-    if mode=='classic' or mode=='generated' then
+    if mode=='classic' or mode=='generated' or mode=='kenney' then
         visual_read=function(path)
             if path=='assets/studio/manifest.txt' then return nil end
             return read(path)

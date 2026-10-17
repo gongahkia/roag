@@ -58,7 +58,7 @@ local function open_settings()
 end
 local function pick(mode)
     -- Opening settings highlights the active mode. Use known relative offsets.
-    local order={'automatic','classic','generated','published'}
+    local order=require('src.visual_packs').order
     local current,wanted
     for i,id in ipairs(order)do
         if id==love.roagVisualPackMode()then current=i end

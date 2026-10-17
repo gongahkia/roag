@@ -11,10 +11,11 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game spectator test gui gui-game gui-expansion
+.PHONY: help game kenney spectator test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
+	 'make kenney           Try Kenney Micro Roguelike without changing settings' \
 	 'make spectator        Inspect the current generated atlas without saves' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
@@ -22,6 +23,8 @@ help:
 	 'sh tools/build_generated_art.sh  Validate/rebuild bundled art (dry run)'
 game:
 	$(LOVE_RUN) .
+kenney:
+	env ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 spectator:
 	env ROAG_SPECTATOR=1 ROAG_GENERATED_ART=1 $(LOVE_RUN) .
 test:

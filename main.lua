@@ -17,6 +17,8 @@ local AchievementContent = require("src.achievement_content")
 local Achievements = require("src.achievements")
 local storage = require("src.love_storage")
 local GeneratedVisuals = require("src.generated_visuals")
+local KenneyVisuals = require("src.kenney_visuals")
+local Terrain = require("src.terrain")
 local VisualPacks = require("src.visual_packs")
 local StudioProject = require("src.studio_project")
 local VisualSlots = require("src.visual_slots")
@@ -294,11 +296,23 @@ local function visual_fingerprint(visuals,theme,world)
     return sum(table.concat(parts,'|'))
 end
 
-local function load_generated_visuals(read)
-    local ok,visuals,status=pcall(GeneratedVisuals.new,read,
-        function(bytes,path)
+local function load_generated_visuals(read,mode)
+    local loader=mode=='kenney' and KenneyVisuals or GeneratedVisuals
+    local ok,visuals,status=pcall(loader.new,read,
+        function(bytes,path,transparent)
             local data=love.filesystem.newFileData(bytes,path)
             local pixels=love.image.newImageData(data)
+            if transparent=='walls' then
+                local source=pixels
+                pixels=KenneyVisuals.wall_sheet(source)
+                source:release()
+            elseif transparent then
+                pixels:mapPixel(function(x,y,r,g,b,a)
+                    if math.floor(r*255+.5)==34 and math.floor(g*255+.5)==35
+                        and math.floor(b*255+.5)==35 then return 0,0,0,0 end
+                    return r,g,b,a
+                end)
+            end
             local image=love.graphics.newImage(pixels)
             image:setFilter('nearest','nearest')
             return image
@@ -333,6 +347,10 @@ function love.load(args)
     else audio_status='silent: '..tostring(audio) end
     local preference=VisualPacks.inspect(storage)
     visual_pack_mode,visual_pack_status=preference.mode,preference.status
+    local preview_pack=os.getenv('ROAG_SPRITE_PACK')
+    if preview_pack and VisualPacks.valid(preview_pack) then
+        visual_pack_mode=preview_pack -- launch override, never writes settings
+    end
     if spectator_enabled and os.getenv('ROAG_GENERATED_ART')=='1' then
         visual_pack_mode='generated' -- disposable inspection override, never saved
     end
@@ -361,7 +379,7 @@ function love.load(args)
         title=false
         state=Spectator.new(floor_seed,Biomes.order[spectator_biome_index],
             selected_class_id)
-        notice=generated and 'SPECTATOR · generated art loaded · F6 camera' or
+        notice=generated and ('SPECTATOR · '..(generated.style=='kenney' and 'Kenney' or 'generated')..' art loaded · F6 camera') or
             ('SPECTATOR · art fallback: '..tostring(generated_status))
         reset_camera()
     elseif os.getenv("ROAG_GUI_AUTOSTART") == "1" then
@@ -494,7 +512,8 @@ local function refresh_visuals(requested_mode)
     if title and not state then Generation.install_studio_pack(world) end
     local backing=candidate.atlas_status
     if candidate.status=='absent' then backing='built-in fallback'
-    elseif candidate.status=='generated' then backing='generated atlas'
+    elseif candidate.status=='generated' then
+        backing=candidate.generated.style=='kenney' and 'Kenney Micro Roguelike' or 'generated atlas'
     elseif backing~='loaded' and backing~='recovered previous atlas generation' then
         backing='published loose ('..tostring(backing)..')'
     else backing='atlas' end
@@ -502,7 +521,7 @@ local function refresh_visuals(requested_mode)
         ((state and world_status=='loaded') and ' · world geometry deferred' or '')..
         (theme and theme.warning and ' · theme fallback: '..theme.warning or '')
     local brief=candidate.status=='absent' and 'built-in' or
-        (backing=='atlas' and 'atlas' or backing=='generated atlas' and
+        (backing=='Kenney Micro Roguelike' and backing or backing=='atlas' and 'atlas' or backing=='generated atlas' and
             'generated atlas' or 'loose (atlas unavailable)')
     notice='F5 art '..(same and 'unchanged' or 'refreshed')..' · '..brief..
         (theme and theme.warning and ' · theme fallback' or '')
@@ -517,8 +536,8 @@ local function refresh_visuals(requested_mode)
                 tostring(reason)
         end
         local fallback
-        if mode=='generated' and generated_status~='loaded' then
-            fallback='Dungeon atlas '..tostring(generated_status)..
+        if (mode=='generated' or mode=='kenney') and generated_status~='loaded' then
+            fallback=(mode=='kenney' and 'Kenney sheet ' or 'Dungeon atlas ')..tostring(generated_status)..
                 '; using built-in fallback'
         elseif mode=='published' and candidate.status=='absent' then
             fallback='No published Paint art; using built-in fallback'
@@ -1458,8 +1477,9 @@ local function draw_rewards()
             and entity.controller == "chest" and
             visible_at(entity.position.x,entity.position.y) then
             local x, y = Camera.tile_top_left(camera, entity.position.x, entity.position.y)
-            local chest_art=bound_visual(entity.definition_id)
-            if chest_art and not entity.claimed then
+            local chest_art=bound_visual(entity.claimed and 'core:object/chest_open' or
+                entity.definition_id)
+            if chest_art then
                 draw_visual(chest_art,x,y,TILE,TILE)
             else
             begin_tile_token(x,y)
@@ -1479,6 +1499,7 @@ local function draw_rewards()
             and entity.controller == "door" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            if not draw_visual(bound_visual(entity.open and 'core:object/door_open' or 'core:object/door_closed'),x,y,TILE,TILE) then
             begin_tile_token(x,y)
             local x,y=0,0
             love.graphics.setColor(entity.open and 0.42 or 0.57,
@@ -1487,23 +1508,27 @@ local function draw_rewards()
             love.graphics.setColor(0.79,0.69,0.39)
             love.graphics.rectangle("line",x+6,y+3,20,27)
             love.graphics.pop()
+            end
         end
         if entity.position.floor_id==state.active_floor_id
             and entity.controller=="exit" and
             visible_at(entity.position.x,entity.position.y) then
             local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            if not draw_visual(bound_visual('core:object/exit'),x,y,TILE,TILE) then
             begin_tile_token(x,y)
             local x,y=0,0
             love.graphics.setColor(0.34,0.88,0.94)
             love.graphics.circle("line",x+16,y+16,12)
             love.graphics.polygon("fill",x+16,y+6,x+23,y+17,x+16,y+25,x+9,y+17)
             love.graphics.pop()
+            end
         end
     end
     for _,stair in ipairs(state.generated_map and
         state.generated_map.placements.stairs or {}) do
         if visible_at(stair.x,stair.y) then
             local x,y=Camera.tile_top_left(camera,stair.x,stair.y)
+            if not draw_visual(bound_visual(stair.id=='stair:up' and 'core:object/stairs_up' or 'core:object/stairs_down'),x,y,TILE,TILE) then
             begin_tile_token(x,y)
             local x,y=0,0
             love.graphics.setColor(0.43,0.88,0.96)
@@ -1511,6 +1536,7 @@ local function draw_rewards()
             love.graphics.line(x+9,y+13,x+16,y+19,x+23,y+13)
             love.graphics.line(x+9,y+20,x+16,y+26,x+23,y+20)
             love.graphics.pop()
+            end
         end
     end
 end
@@ -1776,10 +1802,12 @@ local function draw_world()
                 else r,g,b=0.24,0.19,0.29 end
                 if remembered then r,g,b=r*0.38,g*0.38,b*0.38 end
             end
+            local kenney=visual_assets and visual_assets.generated and
+                visual_assets.generated.style=='kenney'
             local kind=tile=='#' and 'wall' or tile=='~' and 'water' or
                 tile=='.' and 'floor' or nil
             if terrain_mode=='tiled' then
-                if tile=='B'then kind='wall'
+                if tile=='B'then kind=kenney and 'floor' or 'wall'
                 elseif tile=='b' or tile=='g' or tile=='i' or tile=='m' or tile=='c'then
                     kind='floor'
                 end
@@ -1793,7 +1821,11 @@ local function draw_world()
                 local shape=VisualSlots.terrain_shape(map,x,y,kind)
                 local cache_key=biome_id..':'..kind..':'..shape
                 local handle=terrain_cache[cache_key]
-                if handle==nil then
+                if kenney then
+                    handle=visual_assets.generated:terrain(map,x,y,kind,function(xx,yy)
+                        return explored_at(map.floor_id,xx,yy)
+                    end)
+                elseif handle==nil then
                     for _,binding in ipairs(VisualSlots.terrain_bindings(
                         biome_id,kind,shape)) do
                         handle=visual_assets:resolve(binding)
@@ -1849,7 +1881,12 @@ local function draw_world()
                     end
                 end
             end
-            if tile=="b" or tile=="g" or tile=="i" or tile=="B"
+            local mechanic=Terrain.get(tile)
+            local mechanical_art=mechanic and tile~='.' and tile~='#' and tile~='~'
+                and bound_visual(mechanic.id)
+            if mechanical_art then
+                draw_visual(mechanical_art,screen_x,screen_y,TILE,TILE,remembered and .38 or 1)
+            elseif tile=="b" or tile=="g" or tile=="i" or tile=="B"
                 or tile=="m" or tile=="c" then
                 love.graphics.setColor(0.88,0.91,0.78,remembered and 0.25 or 0.65)
                 love.graphics.push()
@@ -2438,8 +2475,8 @@ end
 local function pack_choice_at(x,y,panel_x,panel_y,panel_w)
     if x<panel_x+36 or x>panel_x+panel_w-36 then return nil end
     for index=1,#VisualPacks.order do
-        local top=panel_y+150+(index-1)*82
-        if y>=top and y<=top+70 then return index end
+        local top=panel_y+140+(index-1)*72
+        if y>=top and y<=top+62 then return index end
     end
 end
 
@@ -2457,7 +2494,7 @@ local function draw_pack_settings(x,y,w,h)
     g.print('← BACK',x+20,y+73)
     local source='Built-in fallback'
     if visual_assets and visual_assets.status=='generated' then
-        source='Dungeon atlas'
+        source=visual_pack_mode=='kenney' and 'Kenney Micro Roguelike' or 'Dungeon atlas'
     elseif visual_assets and visual_assets.status=='loaded' then
         source=(visual_assets.atlas_status=='loaded' or
             tostring(visual_assets.atlas_status):match('^recovered')) and
@@ -2469,13 +2506,13 @@ local function draw_pack_settings(x,y,w,h)
     local actor=bound_visual(selected_class_id)
     if actor then draw_visual(actor,x+w-78,y+36,38,38) end
     for index,mode in ipairs(VisualPacks.order) do
-        local top=y+150+(index-1)*82
+        local top=y+140+(index-1)*72
         local selected=settings_selection==index
         local active=visual_pack_mode==mode
         g.setColor(selected and {.16,.29,.28} or {.07,.13,.14})
-        g.rectangle('fill',x+36,top,w-72,70)
+        g.rectangle('fill',x+36,top,w-72,62)
         g.setColor(selected and {.75,.91,.77} or {.28,.43,.42})
-        g.rectangle('line',x+36.5,top+.5,w-73,69)
+        g.rectangle('line',x+36.5,top+.5,w-73,61)
         g.setColor(active and {.99,.91,.64} or {.84,.89,.84})
         g.print((active and '✓ ' or '  ')..VisualPacks.labels[mode],
             x+53,top+11)
@@ -2487,9 +2524,10 @@ local function draw_pack_settings(x,y,w,h)
         warning='Damaged pack setting; using Automatic'
     elseif warning=='' and visual_pack_status=='incompatible' then
         warning='Newer pack setting preserved; using Automatic'
-    elseif warning=='' and visual_pack_mode=='generated' and
+    elseif warning=='' and (visual_pack_mode=='generated' or visual_pack_mode=='kenney') and
         visual_pack_generated_status~='loaded' then
-        warning='Dungeon atlas unavailable; using built-in fallback'
+        warning=(visual_pack_mode=='kenney' and 'Kenney sheet' or 'Dungeon atlas')..
+            ' unavailable; using built-in fallback'
     elseif warning=='' and visual_pack_mode=='published' and
         (not visual_assets or visual_assets.status~='loaded') then
         warning='No valid published art; using built-in fallback'
