@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROAG · Room layout review</title>
+<style>
+  :root { color-scheme: dark; --bg:#111715; --surface:#1b2420; --surface2:#223029; --line:#405348; --text:#eff4e9; --muted:#aab9aa; --mint:#92d9a6; --amber:#efc36f; --red:#e9978b; --blue:#a3cbdc; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.48 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  button,select,input,textarea { font:inherit; }
+  button,select,input,textarea { color:var(--text); }
+  button { cursor:pointer; }
+  button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+  .wrap { width:min(1500px,calc(100% - 36px)); margin:auto; }
+  header { padding:36px 0 24px; background:linear-gradient(145deg,#1e3025,#121917 65%); border-bottom:1px solid var(--line); }
+  .eyebrow { color:var(--mint); text-transform:uppercase; letter-spacing:.17em; font-size:12px; font-weight:700; }
+  h1 { margin:5px 0 8px; font-size:clamp(30px,4vw,48px); line-height:1.08; letter-spacing:-.035em; }
+  h2 { font-size:23px; letter-spacing:-.02em; margin:0; }
+  h3 { font-size:19px; letter-spacing:-.015em; margin:0; }
+  p { margin:8px 0; }
+  .intro { max-width:78ch; color:var(--muted); }
+  .notice { margin-top:18px; padding:13px 16px; border-left:3px solid var(--amber); background:#2d2b21; color:#e6dfc8; max-width:92ch; }
+  .toolbar { position:sticky; top:0; z-index:10; background:#151d19f5; border-bottom:1px solid var(--line); backdrop-filter:blur(12px); }
+  .toolbar-inner { padding:14px 0; display:grid; gap:12px; }
+  .filters { display:grid; grid-template-columns:minmax(190px,2fr) repeat(3,minmax(125px,1fr)); gap:10px; }
+  .field { display:flex; flex-direction:column; gap:4px; font-size:12px; font-weight:700; color:var(--muted); }
+  .field input,.field select { min-height:42px; width:100%; padding:9px 11px; background:#19231e; border:1px solid #5b6e60; border-radius:7px; }
+  .field input::placeholder { color:#99aa9d; }
+  .tools { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; }
+  .tools label { display:inline-flex; align-items:center; gap:7px; color:var(--muted); }
+  .tools input[type=checkbox] { accent-color:var(--mint); width:17px; height:17px; }
+  .tools .spacer { flex:1; }
+  .action { min-height:40px; border:1px solid #7e9f87; border-radius:7px; background:#293d30; padding:7px 13px; font-weight:700; }
+  .action:hover { background:#365541; }
+  .action.secondary { background:#202b24; border-color:#617568; }
+  .action.secondary:hover { background:#2d3d32; }
+  #import-file { position:absolute; width:1px; height:1px; opacity:0; }
+  .status-strip { display:flex; flex-wrap:wrap; gap:7px 18px; color:var(--muted); font-size:13px; }
+  .status-strip strong { color:var(--text); font-variant-numeric:tabular-nums; }
+  #message { min-height:1.2em; color:var(--amber); font-size:13px; }
+  main { padding:28px 0 70px; }
+  .legend { padding:15px 18px; border:1px solid var(--line); background:var(--surface); border-radius:10px; margin-bottom:28px; }
+  .legend-row { display:flex; flex-wrap:wrap; gap:9px 16px; margin-top:10px; color:var(--muted); font-size:13px; }
+  .swatch { display:inline-block; width:14px; height:14px; vertical-align:-2px; margin-right:5px; border:1px solid #9aafa0; border-radius:2px; }
+  .section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); margin:32px 0 15px; padding-bottom:8px; }
+  .section-head span { color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,410px),1fr)); gap:16px; }
+  .card { min-width:0; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .card[data-vote=approve] { border-color:#6eb284; }
+  .card[data-vote=reject] { border-color:#c47d75; }
+  .card[data-vote=discuss] { border-color:#cda856; }
+  .card-head { padding:16px 18px 12px; display:flex; justify-content:space-between; gap:12px; }
+  .card-head .id { display:block; margin-top:3px; font:12px/1.3 ui-monospace,SFMono-Regular,Consolas,monospace; color:var(--muted); overflow-wrap:anywhere; }
+  .pill { flex:none; align-self:flex-start; border:1px solid #63816c; border-radius:99px; color:#cde4cf; font-size:11px; font-weight:700; padding:4px 9px; text-transform:uppercase; letter-spacing:.04em; }
+  .pill[data-vote=approve] { color:var(--mint); border-color:var(--mint); }
+  .pill[data-vote=reject] { color:var(--red); border-color:var(--red); }
+  .pill[data-vote=discuss] { color:var(--amber); border-color:var(--amber); }
+  .preview { padding:14px; background:#101714; border-top:1px solid #314136; border-bottom:1px solid #314136; }
+  .preview canvas { display:block; max-width:100%; height:auto; margin:auto; image-rendering:pixelated; border:1px solid #546457; background:#111715; }
+  .card-body { padding:13px 18px 18px; }
+  .meta { display:flex; flex-wrap:wrap; gap:4px 9px; color:var(--muted); font-size:13px; }
+  .meta span + span::before { content:"·"; margin-right:9px; color:#778b79; }
+  .markers { margin:9px 0 12px; font-size:13px; color:#c9d7ca; }
+  .markers b { font-weight:650; }
+  .vote-row { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:12px 0; }
+  .vote { min-height:40px; border:1px solid #6c8171; background:#25332a; border-radius:6px; font-size:13px; font-weight:700; }
+  .vote:hover { background:#34503b; }
+  .vote[data-choice=approve][aria-pressed=true] { background:#26543a; border-color:var(--mint); color:#d6f4df; }
+  .vote[data-choice=reject][aria-pressed=true] { background:#5d3431; border-color:var(--red); color:#ffe1dc; }
+  .vote[data-choice=discuss][aria-pressed=true] { background:#564626; border-color:var(--amber); color:#ffecba; }
+  .comment-label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin:10px 0 5px; }
+  textarea { display:block; width:100%; min-height:68px; resize:vertical; background:#121c16; border:1px solid #627768; border-radius:7px; padding:9px 10px; }
+  textarea::placeholder { color:#91a394; }
+  details { margin-top:12px; color:var(--muted); font-size:13px; }
+  summary { cursor:pointer; color:var(--blue); width:max-content; }
+  .raw { white-space:pre; overflow:auto; margin:10px 0; padding:12px; background:#101714; border:1px solid #3a4b40; border-radius:6px; color:#d9e4da; line-height:1.2; font-size:13px; }
+  .details-list { overflow-wrap:anywhere; }
+  #empty { border:1px dashed var(--line); border-radius:10px; padding:32px; text-align:center; color:var(--muted); }
+  footer { border-top:1px solid var(--line); color:var(--muted); padding:24px 0 35px; font-size:13px; }
+  @media(max-width:800px) { .toolbar { position:static; } .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:520px) { .filters { grid-template-columns:1fr; } .wrap { width:calc(100% - 24px); } .vote { font-size:12px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="eyebrow">ROAG · Design review</div>
+    <h1>Room layouts</h1>
+    <p class="intro">Review the authored tile layouts already in the game. Each biome variant has its own card, so you can approve one version and request changes to another. Your choices are saved in this browser; download the feedback file when you are ready to send it back.</p>
+    <div class="notice">These previews show room templates, not a complete generated floor or finished sprite rendering. During play, rooms can be rotated, mirrored, connected by corridors, and populated with encounters. Colored symbols show authored terrain and placement markers.</div>
+  </div>
+</header>
+<div class="toolbar"><div class="wrap toolbar-inner">
+  <div class="filters">
+    <label class="field">Find a room<input id="search" type="search" placeholder="Name, biome, role, or ID" autocomplete="off"></label>
+    <label class="field">Biome<select id="biome"><option value="">All biomes</option></select></label>
+    <label class="field">Layout<select id="family"><option value="">All layouts</option></select></label>
+    <label class="field">Review<select id="review-filter"><option value="">All decisions</option><option value="unreviewed">Unreviewed</option><option value="approve">Approved</option><option value="reject">Rejected</option><option value="discuss">Needs discussion</option><option value="commented">Has comment</option></select></label>
+  </div>
+  <div class="tools">
+    <label><input id="show-markers" type="checkbox" checked>Placement markers</label>
+    <label><input id="show-editable" type="checkbox" checked>Editable cells</label>
+    <span class="spacer"></span>
+    <input id="import-file" type="file" accept="application/json,.json" aria-label="Import room review feedback">
+    <button class="action secondary" id="import-button" type="button">Import feedback</button>
+    <button class="action" id="download-button" type="button">Download feedback JSON</button>
+  </div>
+  <div class="status-strip" id="summary" aria-live="polite"></div>
+  <div id="message" role="status" aria-live="polite"></div>
+</div></div>
+<main class="wrap">
+  <section class="legend" aria-label="Preview legend">
+    <strong>Preview key</strong>
+    <div class="legend-row" id="legend-tiles"></div>
+    <div class="legend-row"><span><b style="color:#f7e59a">P</b> player</span><span><b style="color:#ed9390">E</b> enemy</span><span><b style="color:#f2c574">C</b> chest</span><span><b style="color:#bcb1ed">L</b> landmark</span><span><b style="color:#f199cf">!</b> elite</span><span><b style="color:#91cbdc">S</b> stair / secret</span><span><b style="color:#e5e9db">◆</b> door socket</span><span><b style="color:#f1ca79">dashed outline</b> editable terrain</span></div>
+  </section>
+  <div id="rooms"></div>
+  <div id="empty" hidden>No rooms match these filters.</div>
+</main>
+<footer><div class="wrap">Generated from the game’s authored room definitions. Feedback stays on your device until you download the JSON file. Rebuild after room changes with <code>make room-review</code>.</div></footer>
+<noscript><div class="wrap">This review page needs JavaScript to display the rooms and collect feedback.</div></noscript>
+<!-- BEGIN GENERATED ROOM DATA -->
+<script id="room-data" type="application/json">{"schema":"roag-room-review-data/1","source_fingerprint":"c06402b90c0d73ac","rooms":[{"id":"core:room/entry","name":"Entry","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["####.####","#.......#","#..#....#",".........","#....#..#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/watch","name":"Watch","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["####.####","#.......#","#.#...#.#",".........","#...#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":7,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/gallery","name":"Gallery","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["#######.#######","#.............#","#..#......#...#","#.............#","#.....#.......#","...............","#.......#.....#","#.............#","#...#......#..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/cache","name":"Cache","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["#######.#######","#.............#","#..###........#","#..#..........#","#..#....###...#","...............","#.......#.....#","#.............#","#...###.......#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":10,"y":5},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/shrine","name":"Shrine","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["####.####","#.......#","#.###...#",".........","#...###.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":3,"y":3},{"x":7,"y":5}],"width":9,"height":7},{"id":"core:room/arena","name":"Arena","biome_id":"core:biome/overgrown_ruins","biome_name":"Overgrown Ruins","strategy":"ruins","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/overgrown_ruins"],"rows":["###########.###########","#.....................#","#.....................#","#....###.......###....#","#.....................#","#.....................#","#.....................#","#..##.............##..#",".......................","#..##.............##..#","#.....................#","#.....................#","#.....................#","#....###.......###....#","#.....................#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:room/fungal_entry","name":"Entry","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["####.####","#.....#.#","#..#...##",".........","##...#.##","#.#...#.#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/fungal_watch","name":"Watch","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["####.####","#.#...#.#","###...###",".........","#...#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":7,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/fungal_gallery","name":"Gallery","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["#######.#######","#...........#.#","#..#......#..##","#....#........#","#.....#.......#","...............","#.......#.....#","#.......#.....#","##..#......#.##","#.#.........#.#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/fungal_cache","name":"Cache","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["#######.#######","#...........#.#","#..###.......##","#..###........#","#..#....###...#","...............","#.......#.....#","#.......#.....#","##..###......##","#.#.........#.#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":10,"y":5},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/fungal_shrine","name":"Shrine","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["####.####","#.......#","#.###..##",".........","#...#####","#.....#.#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":3,"y":3},{"x":7,"y":5}],"width":9,"height":7},{"id":"core:room/fungal_arena","name":"Arena","biome_id":"core:biome/fungal_hollows","biome_name":"Fungal Hollows","strategy":"warrens","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fungal_hollows"],"rows":["###########.###########","#...................#.#","#....................##","#...####.......###....#","#.....................#","#.....................#","#.....................#","#..##.............##..#",".......................","#..##.............##..#","#.....................#","#.....................#","#.....................#","#....###.......###....#","##...................##","#.#.................#.#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":18,"y":4},{"x":6,"y":14}],"width":23,"height":17},{"id":"core:room/aqueduct_entry","name":"Entry","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["####.####","#.......#","#.~~....#",".........","#....~~.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/aqueduct_watch","name":"Watch","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["####.####","#.......#","#.~...~.#",".........","#...~...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":7,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/aqueduct_gallery","name":"Gallery","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["#######.#######","#.............#","#..~......~...#","#.............#","#.....~....~..#","...............","#..~....~..~..#","#.............#","#..~~......~..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/aqueduct_cache","name":"Cache","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["#######.#######","#.............#","#..~~~........#","#..~..........#","#..~....~~~~..#","...............","#..~....~..~..#","#.............#","#..~~~~....~..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":10,"y":5},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/aqueduct_shrine","name":"Shrine","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["####.####","#.......#","#.~~~...#",".........","#...~~~.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[],"width":9,"height":7},{"id":"core:room/aqueduct_arena","name":"Arena","biome_id":"core:biome/sunken_aqueduct","biome_name":"Sunken Aqueduct","strategy":"canals","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sunken_aqueduct"],"rows":["###########.###########","#.....................#","#..................~..#","#....~~~.......~~~....#","#..~...............~..#","#..~...............~..#","#..~...............~..#","#..~~.............~~..#",".......................","#..~~.............~~..#","#..~...............~..#","#..~...............~..#","#..~...............~..#","#....~~~.......~~~....#","#..~...............~..#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:room/bastion_entry","name":"Entry","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["####.####","#.......#","#.##..#.#",".........","#.#..##.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/bastion_watch","name":"Watch","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["####.####","#.......#","#.#...#.#",".........","#.#.#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/bastion_gallery","name":"Gallery","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["#######.#######","#.............#","#.###.#..##...#","#.............#","#.....#.......#","...............","#.......#.....#","#.............#","#.#.#.#..#.##.#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7}],"width":15,"height":11},{"id":"core:room/bastion_cache","name":"Cache","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["#######.#######","#.............#","#.#####..#....#","#..#..........#","#..#....###...#","...............","#.......#.....#","#.............#","#.#.###..#..#.#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":10,"y":5}],"width":15,"height":11},{"id":"core:room/bastion_shrine","name":"Shrine","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["####.####","#.......#","#.###...#",".........","#...###.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[],"width":9,"height":7},{"id":"core:room/bastion_arena","name":"Arena","biome_id":"core:biome/ashen_bastion","biome_name":"Ashen Bastion","strategy":"courtyards","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/ashen_bastion"],"rows":["###########.###########","#.....................#","#...#.##.##.##.##.#.#.#","#....###.......###....#","#.....................#","#.....................#","#.....................#","#..##.............##..#",".......................","#..##.............##..#","#.....................#","#.....................#","#.....................#","#....###.......###....#","#.#.#.##.##.##.##.#.#.#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:room/observatory_entry","name":"Entry","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["####.####","#.......#","#.##.i..#","..i...i..","#..i.##.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/observatory_watch","name":"Watch","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["####.####","#.......#","#.#..i#.#","..i......","#..i#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":7,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/observatory_gallery","name":"Gallery","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["#######.#######","#.............#","#..#.#....#...#","#.............#","#.....#.......#","...............","#.......#.....#","#..#........i.#","#..i#....#.#..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/observatory_cache","name":"Cache","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["#######.#######","#.............#","#..###........#","#.i#..........#","#..#....###...#","...............","#.......#.....#","#..#........i.#","#..i###..#....#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":10,"y":5},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/observatory_shrine","name":"Shrine","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["####.####","#.......#","#.###i..#","......i..","#...###.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[],"width":9,"height":7},{"id":"core:room/observatory_arena","name":"Arena","biome_id":"core:biome/glacial_observatory","biome_name":"Glacial Observatory","strategy":"observatory","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/glacial_observatory"],"rows":["###########.###########","#.....................#","#....#.............i..#","#..#.###.......###.#..#","#.....................#","#.....................#","#.....................#","#..##.............##..#",".......................","#..##.............##..#","#.....................#","#.....................#","#.....................#","#..#.###.......###.#i.#","#..i.............#....#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:room/archive_entry","name":"Entry","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["####.####","#.......#","#.##....#","..m......","#....##.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/archive_watch","name":"Watch","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["####.####","#.......#","#.#...#.#","..m......","#...#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":7,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/archive_gallery","name":"Gallery","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["#######.#######","#.............#","#..#m.....#...#","#.............#","#.....#.......#","...#.......#...","#.......#..#..#","#..#m.........#","#..##......#..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/archive_cache","name":"Cache","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["#######.#######","#.............#","#..###........#","#..#..........#","#..#....###...#","...#.......#...","#.......#..#..#","#..#m.........#","#..####....#..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":10,"y":5},{"x":5,"y":9}],"width":15,"height":11},{"id":"core:room/archive_shrine","name":"Shrine","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["####.####","#.......#","#.###...#",".........","#...###.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[],"width":9,"height":7},{"id":"core:room/archive_arena","name":"Arena","biome_id":"core:biome/fractured_archive","biome_name":"Fractured Archive","strategy":"archive","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/fractured_archive"],"rows":["###########.###########","#.....................#","#...m..............#..#","#....###.......###.#..#","#..#..................#","#..#...............#..#","#..................#..#","#..##.............##..#","...#...............#...","#..##.............##..#","#..#..................#","#..#...............#..#","#..................#..#","#..#m###.......###....#","#..#..............m#..#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:room/forge_entry","name":"Entry","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"entry","roles":["start"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["####.####","#.......#","#..#..#.#","..c......","#.#..#..#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"player":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}]},"editable":[{"x":4,"y":3},{"x":6,"y":5}],"width":9,"height":7},{"id":"core:room/forge_watch","name":"Watch","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"watch","roles":["combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["####.####","#.......#","#.#...#.#","..c..c...","#.#.#...#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":5}],"enemy":[{"x":4,"y":3}],"secret_anchor":[{"x":2,"y":6}],"secret_wall":[{"x":1,"y":6}]},"editable":[{"x":3,"y":3},{"x":5,"y":5}],"width":9,"height":7},{"id":"core:room/forge_gallery","name":"Gallery","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"gallery","roles":["combat","landmark"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["#######.#######","#.............#","#..####.###...#","#.............#","#.....#.......#","...............","#.......#.....#","#.............#","#...#.#.#..#..#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":4,"y":4},{"x":11,"y":8}],"landmark":[{"x":8,"y":6}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":11,"y":3},{"x":7,"y":5},{"x":9,"y":7}],"width":15,"height":11},{"id":"core:room/forge_cache","name":"Cache","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"cache","roles":["treasure","combat"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["#######.#######","#.............#","#..####.##....#","#..#..........#","#..#....###...#","...............","#.......#.....#","#.............#","#...###.#.....#","#.............#","#######.#######"],"sockets":[{"x":8,"y":1,"facing":"N","width":1},{"x":15,"y":6,"facing":"E","width":1},{"x":8,"y":11,"facing":"S","width":1},{"x":1,"y":6,"facing":"W","width":1}],"markers":{"chest":[{"x":12,"y":3}],"enemy":[{"x":11,"y":8}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":4,"y":3},{"x":10,"y":5}],"width":15,"height":11},{"id":"core:room/forge_shrine","name":"Shrine","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"shrine","roles":["landmark","treasure"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["####.####","#.......#","#.###...#",".........","#...###.#","#.......#","####.####"],"sockets":[{"x":5,"y":1,"facing":"N","width":1},{"x":9,"y":4,"facing":"E","width":1},{"x":5,"y":7,"facing":"S","width":1},{"x":1,"y":4,"facing":"W","width":1}],"markers":{"chest":[{"x":7,"y":2}],"enemy":[{"x":3,"y":5}],"landmark":[{"x":5,"y":4}],"secret_anchor":[{"x":2,"y":2}],"secret_wall":[{"x":1,"y":2}]},"editable":[{"x":3,"y":3},{"x":7,"y":5}],"width":9,"height":7},{"id":"core:room/forge_arena","name":"Arena","biome_id":"core:biome/sundered_forge","biome_name":"Sundered Forge","strategy":"forge","family":"arena","roles":["elite"],"origin":"built-in","source":"src/rooms.lua","mirror":true,"rotations":[0,90,180,270],"biomes":["core:biome/sundered_forge"],"rows":["###########.###########","#.....................#","#...###.###.###.###...#","#..c.###.......###....#","#.....................#","#.....................#","#.....................#","#..##.............##..#",".......................","#..##.............##..#","#.....................#","#.....................#","#.....................#","#....###.......###.c..#","#...#.#.#.#.#.#.#.#...#","#.....................#","###########.###########"],"sockets":[{"x":12,"y":1,"facing":"N","width":1},{"x":23,"y":9,"facing":"E","width":1},{"x":12,"y":17,"facing":"S","width":1},{"x":1,"y":9,"facing":"W","width":1}],"markers":{"elite":[{"x":12,"y":9}],"landmark":[{"x":12,"y":9}],"secret_anchor":[{"x":3,"y":3}]},"editable":[{"x":6,"y":4},{"x":18,"y":4},{"x":6,"y":14},{"x":18,"y":14}],"width":23,"height":17},{"id":"core:map/final_sanctum","name":"Final Sanctum","biome_id":"core:biome/final_sanctum","biome_name":"Final Sanctum","strategy":"authored","family":"finale","roles":["finale"],"origin":"finale","source":"src/finale.lua","mirror":false,"rotations":[0],"biomes":["core:biome/final_sanctum"],"rows":["#######################","#.....................#","#.....................#","#.....##.....##.......#","#.....................#","#.....................#","#.....................#","#....##.........##....#","#.....................#","#.....................#","#....##.........##....#","#.....................#","#.....................#","#.....................#","#.....##.....##.......#","#.....................#","#######################"],"sockets":[],"markers":{"elite":[{"x":12,"y":5}],"player":[{"x":12,"y":14}]},"editable":[],"width":23,"height":17}]}</script>
+<!-- END GENERATED ROOM DATA -->
+<script>
+(() => {
+  'use strict';
+  const data = JSON.parse(document.getElementById('room-data').textContent);
+  const rooms = data.rooms;
+  const byId = new Map(rooms.map(room => [room.id, room]));
+  const key = 'roag-room-review/1';
+  const decisions = {};
+  const $ = id => document.getElementById(id);
+  const escape = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const tiles = {
+    '#': ['Wall', '#515d59'], '.': ['Floor', '#9cae9f'],
+    '~': ['Shallow water', '#4f89a7'], b: ['Bramble bed', '#478a5b'],
+    g: ['Sticky bog', '#8d7f45'], i: ['Glazed ice', '#b2ddeb'],
+    B: ['Breakable barricade', '#ad7551'], m: ['Obscuring mist', '#898b9e'],
+    c: ['Resonant crystal', '#8d74c2'], ' ': ['Outside', '#111715']
+  };
+  const markerStyle = {
+    player:['P','#f7e59a'], enemy:['E','#ed9390'], chest:['C','#f2c574'],
+    landmark:['L','#bcb1ed'], elite:['!','#f199cf'], stair:['S','#91cbdc'],
+    secret_anchor:['S','#91cbdc'], secret_wall:['S','#91cbdc']
+  };
+  const voteLabels = {approve:'Approved',reject:'Rejected',discuss:'Needs discussion'};
+  const existing = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) { return {}; } })();
+  for (const room of rooms) {
+    const item = existing[room.id] || {};
+    decisions[room.id] = {vote:voteLabels[item.vote] ? item.vote : '',comment:typeof item.comment === 'string' ? item.comment : ''};
+  }
+  $('legend-tiles').innerHTML = Object.entries(tiles).filter(([symbol]) => symbol !== ' ').map(([symbol,[name,color]]) => `<span><i class="swatch" style="background:${color}"></i>${escape(name)} <code>${escape(symbol)}</code></span>`).join('');
+  const unique = field => [...new Map(rooms.map(room => [room[field], room[field === 'biome_id' ? 'biome_name' : field]])).entries()];
+  for (const [id,label] of unique('biome_id')) $('biome').insertAdjacentHTML('beforeend', `<option value="${escape(id)}">${escape(label)}</option>`);
+  for (const [id,label] of unique('family')) $('family').insertAdjacentHTML('beforeend', `<option value="${escape(id)}">${escape(label[0].toUpperCase()+label.slice(1))}</option>`);
+
+  function persist() {
+    try { localStorage.setItem(key, JSON.stringify(decisions)); $('message').textContent=''; return true; }
+    catch (_) { $('message').textContent='Browser storage is unavailable. Download feedback before closing this page.'; return false; }
+  }
+  function tally() {
+    const counts = {approve:0,reject:0,discuss:0,unreviewed:0,commented:0};
+    for (const room of rooms) {
+      const item = decisions[room.id];
+      counts[item.vote || 'unreviewed']++;
+      if (item.comment.trim()) counts.commented++;
+    }
+    $('summary').innerHTML = `<span><strong>${rooms.length}</strong> layouts</span><span><strong>${counts.approve}</strong> approved</span><span><strong>${counts.reject}</strong> rejected</span><span><strong>${counts.discuss}</strong> to discuss</span><span><strong>${counts.unreviewed}</strong> unreviewed</span><span><strong>${counts.commented}</strong> comments</span>`;
+  }
+  function matches(room) {
+    if ($('biome').value && room.biome_id !== $('biome').value) return false;
+    if ($('family').value && room.family !== $('family').value) return false;
+    const filter = $('review-filter').value, item = decisions[room.id];
+    if (filter === 'commented' ? !item.comment.trim() : filter === 'unreviewed' ? item.vote : filter && item.vote !== filter) return false;
+    const query = $('search').value.trim().toLowerCase();
+    return !query || [room.id,room.name,room.biome_name,room.family,...room.roles].join(' ').toLowerCase().includes(query);
+  }
+  function markerSummary(room) {
+    const found = Object.entries(room.markers).filter(([,points]) => points.length);
+    return found.length ? found.map(([kind,points]) => `<b>${escape(kind.replaceAll('_',' '))}</b> ${points.length}`).join(' · ') : 'No placement markers';
+  }
+  function exactDetails(room) {
+    const markerLines = Object.entries(room.markers).filter(([,points]) => points.length).map(([kind,points]) => `${kind}: ${points.map(point => `(${point.x},${point.y})`).join(', ')}`);
+    const sockets = room.sockets.map(point => `${point.facing} (${point.x},${point.y}), width ${point.width}`);
+    const editable = room.editable.map(point => `(${point.x},${point.y})`);
+    return `<details><summary>Exact rows and coordinates</summary><pre class="raw">${escape(room.rows.join('\n'))}</pre><div class="details-list">${escape('Sockets: '+(sockets.join('; ') || 'none'))}<br>${escape('Markers: '+(markerLines.join('; ') || 'none'))}<br>${escape('Editable cells: '+(editable.join(', ') || 'none'))}</div></details>`;
+  }
+  function card(room) {
+    const item = decisions[room.id];
+    const status = item.vote || '';
+    return `<article class="card" data-id="${escape(room.id)}" data-vote="${escape(status)}">
+      <div class="card-head"><div><h3>${escape(room.name)}</h3><span class="id">${escape(room.id)}</span></div><span class="pill" data-vote="${escape(status)}">${escape(voteLabels[status] || 'Unreviewed')}</span></div>
+      <div class="preview"><canvas data-room-id="${escape(room.id)}" role="img" aria-label="${escape(room.biome_name+' '+room.name+' tile layout, '+room.width+' by '+room.height+' cells')}"></canvas></div>
+      <div class="card-body"><div class="meta"><span>${room.width} × ${room.height} cells</span><span>${escape(room.roles.join(', '))}</span><span>${escape(room.origin)}</span><span>${escape(room.source)}</span></div>
+      <div class="markers">${markerSummary(room)}</div>
+      <div class="meta"><span>Rotation: ${escape(room.rotations.map(degrees => degrees+'°').join(', '))}</span><span>Mirror: ${room.mirror ? 'yes' : 'no'}</span>${room.origin === 'published-studio' ? `<span>Biomes: ${escape(room.biomes.join(', '))}</span>` : ''}</div>
+      <div class="vote-row" role="group" aria-label="Review ${escape(room.biome_name+' '+room.name)}">
+        <button class="vote" type="button" data-choice="approve" aria-pressed="${status === 'approve'}">✓ Approve</button>
+        <button class="vote" type="button" data-choice="reject" aria-pressed="${status === 'reject'}">× Reject</button>
+        <button class="vote" type="button" data-choice="discuss" aria-pressed="${status === 'discuss'}">? Discuss</button>
+      </div>
+      <label class="comment-label" for="comment-${escape(room.id.replace(/[^a-zA-Z0-9_-]/g,'-'))}">Comment / suggested change</label>
+      <textarea id="comment-${escape(room.id.replace(/[^a-zA-Z0-9_-]/g,'-'))}" data-comment placeholder="What should change about this layout?">${escape(item.comment)}</textarea>
+      ${exactDetails(room)}</div></article>`;
+  }
+  function draw(room, canvas) {
+    const cell = 20, pad = 8, ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width = room.width*cell+pad*2;
+    canvas.height = room.height*cell+pad*2;
+    ctx.fillStyle='#111715'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    room.rows.forEach((row,y) => [...row].forEach((symbol,x) => {
+      ctx.fillStyle=(tiles[symbol] || tiles[' '])[1];
+      ctx.fillRect(pad+x*cell,pad+y*cell,cell-1,cell-1);
+    }));
+    if ($('show-editable').checked) for (const point of room.editable) {
+      ctx.strokeStyle='#f1ca79'; ctx.lineWidth=2; ctx.setLineDash([3,2]);
+      ctx.strokeRect(pad+(point.x-1)*cell+2,pad+(point.y-1)*cell+2,cell-5,cell-5);
+    }
+    ctx.setLineDash([]);
+    if ($('show-markers').checked) {
+      for (const socket of room.sockets) {
+        const x=pad+(socket.x-.5)*cell, y=pad+(socket.y-.5)*cell;
+        ctx.fillStyle='#f1f1e7'; ctx.beginPath(); ctx.arc(x,y,4,0,2*Math.PI); ctx.fill();
+      }
+      const occupied = new Map();
+      for (const [kind,points] of Object.entries(room.markers)) for (const point of points) {
+        const k=`${point.x}:${point.y}`;
+        if (!occupied.has(k)) occupied.set(k,[]);
+        occupied.get(k).push(kind);
+      }
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='bold 13px ui-monospace, monospace';
+      for (const [coordinate,kinds] of occupied) {
+        const [x,y]=coordinate.split(':').map(Number), kind=kinds[0], [glyph,color]=markerStyle[kind] || ['?', '#fff'];
+        const cx=pad+(x-.5)*cell,cy=pad+(y-.5)*cell;
+        ctx.fillStyle='#101714'; ctx.fillRect(cx-8,cy-8,16,16);
+        ctx.fillStyle=color; ctx.fillText(kinds.length>1 ? String(kinds.length) : glyph,cx,cy+1);
+      }
+    }
+  }
+  function render() {
+    const visible = rooms.filter(matches);
+    const groups = new Map();
+    for (const room of visible) {
+      if (!groups.has(room.biome_id)) groups.set(room.biome_id,[]);
+      groups.get(room.biome_id).push(room);
+    }
+    $('rooms').innerHTML = [...groups.values()].map(group => `<section><div class="section-head"><h2>${escape(group[0].biome_name)}</h2><span>${group.length} layout${group.length === 1 ? '' : 's'}</span></div><div class="grid">${group.map(card).join('')}</div></section>`).join('');
+    $('empty').hidden = visible.length>0;
+    for (const canvas of $('rooms').querySelectorAll('canvas')) draw(byId.get(canvas.dataset.roomId),canvas);
+    tally();
+  }
+  for (const id of ['search','biome','family','review-filter']) $(id).addEventListener(id==='search'?'input':'change',render);
+  for (const id of ['show-markers','show-editable']) $(id).addEventListener('change', () => {
+    for (const canvas of $('rooms').querySelectorAll('canvas')) draw(byId.get(canvas.dataset.roomId),canvas);
+  });
+  $('rooms').addEventListener('click', event => {
+    const button=event.target.closest('[data-choice]');
+    if (!button) return;
+    const article=button.closest('.card'), id=article.dataset.id, choice=button.dataset.choice;
+    decisions[id].vote=decisions[id].vote===choice ? '' : choice;
+    persist();
+    if ($('review-filter').value) { render(); return; }
+    article.dataset.vote=decisions[id].vote;
+    const pill=article.querySelector('.pill');
+    pill.dataset.vote=decisions[id].vote; pill.textContent=voteLabels[decisions[id].vote] || 'Unreviewed';
+    for (const voteButton of article.querySelectorAll('[data-choice]')) voteButton.setAttribute('aria-pressed',String(voteButton.dataset.choice===decisions[id].vote));
+    tally();
+  });
+  $('rooms').addEventListener('input', event => {
+    if (!event.target.matches('[data-comment]')) return;
+    decisions[event.target.closest('.card').dataset.id].comment=event.target.value;
+    persist(); tally();
+  });
+  $('download-button').addEventListener('click', () => {
+    const payload={schema:'roag-room-review/1',source_fingerprint:data.source_fingerprint,exported_at:new Date().toISOString(),decisions:rooms.map(room => ({id:room.id,biome_id:room.biome_id,name:room.name,vote:decisions[room.id].vote,comment:decisions[room.id].comment}))};
+    const blob=new Blob([JSON.stringify(payload,null,2)+'\n'],{type:'application/json'});
+    const url=URL.createObjectURL(blob), link=document.createElement('a');
+    link.href=url; link.download='roag-room-review-feedback.json'; document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url),1000);
+    $('message').textContent='Feedback downloaded. Attach the JSON file in chat when you are ready.';
+  });
+  $('import-button').addEventListener('click',() => $('import-file').click());
+  $('import-file').addEventListener('change',async event => {
+    const file=event.target.files[0]; if (!file) return;
+    try {
+      const payload=JSON.parse(await file.text());
+      if (payload.schema!=='roag-room-review/1' || !Array.isArray(payload.decisions)) throw Error('This is not a ROAG room feedback file.');
+      let count=0;
+      for (const item of payload.decisions) {
+        if (!item || !byId.has(item.id)) continue;
+        decisions[item.id]={vote:voteLabels[item.vote] ? item.vote : '',comment:typeof item.comment==='string' ? item.comment : ''};
+        count++;
+      }
+      const saved=persist(); render();
+      $('message').textContent=`Imported ${count} matching rooms.${payload.source_fingerprint!==data.source_fingerprint ? ' The layouts have changed since this feedback was exported; check the previews before reusing decisions.' : ''}${saved ? '' : ' Browser storage is unavailable; download feedback before closing this page.'}`;
+    } catch (error) { $('message').textContent=`Import failed: ${error.message}`; }
+    event.target.value='';
+  });
+  render();
+})();
+</script>
+</body>
+</html>
