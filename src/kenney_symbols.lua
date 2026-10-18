@@ -4,6 +4,7 @@ local Atlas=require('src.studio_atlas')
 local S={path='assets/kenney/1-bit-pack/symbols.png',width=784,height=352,tile=16}
 S.checksum='3fc46971ed866cba'
 local ink={.90,.89,.82}
+local monochrome_ink={.90,.90,.90}
 local lightning={1,.88,.43}
 local fire={1,.58,.34}
 local defense={.65,.85,.72}
@@ -100,9 +101,9 @@ function S.new(read,make_texture,make_quad,options)
         if not quads[index]then quads[index]=make_quad(x,y,w,h,S.width,S.height)end
         return {texture=image,quad=quads[index],width=w,height=h,offset_x=x,offset_y=y,
             source=monochrome and 'onebit' or 'kenney',symbol_index=index,motif=definition[2],
-            tint=monochrome and ink or definition[3] or ink,
+            tint=monochrome and monochrome_ink or definition[3] or ink,
             tile_inset=terrain and 4 or nil,
-            ground=definition.ground and (monochrome and {.055,.07,.06} or definition.ground)}
+            ground=definition.ground and (monochrome and {.06,.06,.06} or definition.ground)}
     end
     for id,definition in pairs(S.boons)do
         handles[id..'/icon']=handle(definition)

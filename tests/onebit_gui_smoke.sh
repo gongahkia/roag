@@ -116,8 +116,9 @@ local function compare(image,index,x,y,scale,max_y)
         local r,g,b,a=source:getPixel(sx+xx,sy+yy)
         if a==1 then
             local actual={image:getPixel(math.floor(x+(xx+.5)*scale),math.floor(y+(yy+.5)*scale))}
-            for c,value in ipairs({r,g,b})do
-                assert(math.abs(actual[c]-value*O.ink[c])<=2/255+1e-6,'native 1-Bit sprite differs: '..index)
+            local gray=r*O.ink[1]*.2126+g*O.ink[2]*.7152+b*O.ink[3]*.0722
+            for c=1,3 do
+                assert(math.abs(actual[c]-gray)<=2/255+1e-6,'monochrome 1-Bit sprite differs: '..index)
             end
             count=count+1
         end
@@ -126,6 +127,13 @@ local function compare(image,index,x,y,scale,max_y)
 end
 local function check(image)
     if mode~='normal' or phase<4 then assert(snapshot()==before,'presentation changed the run/RNG')end
+    if love.roagAssetBacking(Game.player(state).definition_id)=='onebit' then
+        for y=0,image:getHeight()-1,16 do for x=0,image:getWidth()-1,16 do
+            local r,g,b=image:getPixel(x,y)
+            assert(math.abs(r-g)<=1/255+1e-6 and math.abs(g-b)<=1/255+1e-6,
+                ('1-Bit frame contains color at %d,%d'):format(x,y))
+        end end
+    end
     if mode=='normal' and phase==1 or mode=='resume'then
         local p=Game.player(state).position;local x,y=Camera.tile_top_left(camera,p.x,p.y)
         compare(image,O.actors[Game.player(state).definition_id],x,y,camera.tile/16)

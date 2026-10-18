@@ -4,9 +4,9 @@ local U={colors={background={.025,.025,.04},panel={.12,.13,.32},
     edge={.46,.48,.63},light={.75,.77,.86},text={.88,.89,.94},
     muted={.52,.54,.64},selected={1,.91,.48}}}
 local default_colors=U.colors
-local monochrome={background={.025,.035,.03},panel={.065,.08,.07},
-    edge={.4,.45,.42},light={.72,.76,.73},text={.9,.89,.82},
-    muted={.48,.53,.49},selected={1,1,.94}}
+local monochrome={background={.03,.03,.03},panel={.075,.075,.075},
+    edge={.42,.42,.42},light={.74,.74,.74},text={.9,.9,.9},
+    muted={.5,.5,.5},selected={1,1,1}}
 function U.set_style(style)U.colors=style=='onebit' and monochrome or default_colors end
 function U.contains(r,x,y)
     return x>=r.x and y>=r.y and x<r.x+r.w and y<r.y+r.h

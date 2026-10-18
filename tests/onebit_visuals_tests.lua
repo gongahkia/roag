@@ -11,6 +11,11 @@ end
 local function image()return {getWidth=function()return 784 end,getHeight=function()return 352 end}end
 local function quad(x,y,w,h,pw,ph)return {x=x,y=y,w=w,h=h,pw=pw,ph=ph}end
 return function(test,equal)
+    test('1-Bit sheet ink and composed surface background are neutral',function()
+        assert(O.ink[1]==O.ink[2] and O.ink[2]==O.ink[3])
+        assert(O.background[1]==O.background[2] and
+            O.background[2]==O.background[3])
+    end)
     test('standalone 1-Bit covers every actor, prop, boon and terrain sprite using only its own PNG',function()
         local art,status=O.new(read,image,quad)
         assert(status=='loaded' and art.style=='onebit')

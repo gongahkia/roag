@@ -88,6 +88,25 @@ local visual_refresh_message=''
 local next_world_pack
 local visual_signature
 local audio_runtime,audio_status
+-- Applied to every 1-Bit draw call, including built-in fallback effects and HUD.
+-- Sprite pack selection remains a presentation setting; gameplay colors are intact.
+local onebit_grayscale_shader
+local onebit_grayscale_source=[[
+vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
+{
+    vec4 pixel = Texel(texture, texture_coords) * color;
+    float gray = dot(pixel.rgb, vec3(0.2126, 0.7152, 0.0722));
+    return vec4(gray, gray, gray, pixel.a);
+}
+]]
+local function set_visual_style(style)
+    PixelUI.set_style(style)
+    if style=='onebit' then
+        love.graphics.setBackgroundColor(.055,.055,.055)
+    else
+        love.graphics.setBackgroundColor(.055,.075,.075)
+    end
+end
 local function local_room_audio(kind)
     if not state or not state.generated_map or not audio_runtime then return nil end
     local player=Game.player(state).position
@@ -346,7 +365,7 @@ function love.load(args)
         build_selected_visuals(visual_pack_mode,read_visual)
     local generated,generated_status=visual_assets.generated,
         visual_pack_generated_status
-    PixelUI.set_style(generated and generated.style)
+    set_visual_style(generated and generated.style)
     if generated_status:match('^rejected') then
         print('Kenney art fallback: '..generated_status)
     end
@@ -412,7 +431,6 @@ function love.load(args)
                 'Studio theme fallback: '..studio_theme.warning
         end
     end
-    love.graphics.setBackgroundColor(0.055, 0.075, 0.075)
     sync_audio_scene()
 end
 
@@ -490,7 +508,7 @@ local function refresh_visuals(requested_mode)
     local signature=visual_fingerprint(candidate,theme,world)
     local same=signature==visual_signature
     visual_assets,studio_theme,studio_theme_status=candidate,theme,theme_status
-    PixelUI.set_style(candidate.generated and candidate.generated.style)
+    set_visual_style(candidate.generated and candidate.generated.style)
     visual_pack_generated_status=generated_status
     studio_world_status=world_status
     -- A run owns concrete floor geometry. World templates are installed only
@@ -2769,7 +2787,20 @@ function love.update(dt)
     diagnostics_update_ms=(love.timer.getTime()-start)*1000
 end
 function love.draw()
-    if not diagnostics then return ordinary_draw() end
+    local onebit=visual_assets and visual_assets.generated and
+        visual_assets.generated.style=='onebit'
+    local previous_shader
+    if onebit then
+        onebit_grayscale_shader=onebit_grayscale_shader or
+            love.graphics.newShader(onebit_grayscale_source)
+        previous_shader=love.graphics.getShader()
+        love.graphics.setShader(onebit_grayscale_shader)
+    end
+    if not diagnostics then
+        ordinary_draw()
+        if onebit then love.graphics.setShader(previous_shader) end
+        return
+    end
     local frame=love.timer.getTime()
     ordinary_draw()
     local draw_ms=(love.timer.getTime()-frame)*1000
@@ -2797,6 +2828,7 @@ function love.draw()
         summary.frame_p99_ms or 0),20,37)
     love.graphics.print(("update/draw CPU p95 %.1f / %.1f ms"):format(
         summary.update_p95_ms or 0,summary.draw_p95_ms or 0),20,56)
+    if onebit then love.graphics.setShader(previous_shader) end
 end
 function love.roagDiagnostics()
     return diagnostics and require("src.diagnostics").summary(diagnostics) or nil

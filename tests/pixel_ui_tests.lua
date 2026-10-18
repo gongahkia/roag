@@ -1,5 +1,15 @@
 local UI=require('src.pixel_ui')
 return function(test)
+    test('1-Bit UI palette is neutral and other packs restore color',function()
+        UI.set_style('onebit')
+        for _,color in pairs(UI.colors)do
+            assert(color[1]==color[2] and color[2]==color[3])
+        end
+        UI.set_style('kenney')
+        assert(UI.colors.selected[1]~=UI.colors.selected[2])
+        UI.set_style('classic')
+        assert(UI.colors.selected[1]~=UI.colors.selected[2])
+    end)
     test('focused menu list hitboxes select exact rows and reject gaps and edges',function()
         for i=1,5 do assert(UI.home_at(500,232+(i-1)*42+12)==i)end
         assert(not UI.home_at(500,270) and not UI.home_at(744,240))

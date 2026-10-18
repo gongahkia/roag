@@ -4,7 +4,7 @@ local Symbols=require('src.kenney_symbols')
 local Neighbors=require('src.kenney_terrain') -- pure canonical mask geometry
 local Biomes=require('src.biomes')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
-    ink={.9,.89,.82},background={.035,.05,.04},floor_index=5,wall_index=16,
+    ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
 O.actors={
     ['core:actor/adventurer']=468,['core:actor/ranger']=472,
