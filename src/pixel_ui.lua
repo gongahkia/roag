@@ -42,8 +42,19 @@ function U.frame(title,x,y,w,h,font)
     end
 end
 function U.option(label,x,y,w,selected,font,disabled)
-    U.center((selected and '> ' or '  ')..label..(selected and ' <' or '  '),
-        y,font,disabled and U.colors.muted or selected and U.colors.selected or U.colors.text,x,w)
+    local g=love.graphics
+    if font then g.setFont(font)end
+    local face=g.getFont()
+    g.setColor(disabled and U.colors.muted or
+        selected and U.colors.selected or U.colors.text)
+    g.printf(label,x,y,w,'center')
+    if selected then
+        local label_width=face:getWidth(label)
+        local left=x+(w-label_width)/2
+        local gap=math.max(4,math.floor(face:getHeight()/4))
+        g.print('>',left-gap-face:getWidth('>'),y)
+        g.print('<',left+label_width+gap,y)
+    end
 end
 function U.settings_row(x,y,w,index)
     return U.row(x+36,y+166,w-72,40,index,48)
