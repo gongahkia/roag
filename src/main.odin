@@ -215,8 +215,6 @@ hud :: proc(
 	show: bool,
 	width, height: i32,
 	ms, p95, p99: f64,
-	frame: int,
-	captured: bool,
 	speed: f64,
 ) {
 	gl.Disable(gl.DEPTH_TEST)
@@ -228,11 +226,8 @@ hud :: proc(
 	ortho[5] = -2 / f32(height)
 	ortho[12] = -1
 	ortho[13] = 1
-	rect(r, 16, 16, 216, 44, {0.055, 0.085, 0.105, 0.9})
-	text_draw(r, 26, 25, "VOXEL / CREATIVE", 2)
-	text_draw(r, 26, 44, "ODIN  -  LOCAL WORLD", 1, {0.53, 0.75, 0.66, 1})
 	if show {
-		rect(r, 16, 72, 410, 167, {0.055, 0.085, 0.105, 0.88})
+		rect(r, 16, 16, 410, 167, {0.055, 0.085, 0.105, 0.88})
 		rows := []string {
 			fmt.tprintf("FRAME %.2F MS / GPU %.2F MS", ms, r.gpu_ms),
 			fmt.tprintf("P95 %.2F / P99 %.2F MS", p95, p99),
@@ -251,7 +246,7 @@ hud :: proc(
 			fmt.tprintf("XYZ %.0F %.0F %.0F / SPEED %.0F", pos.x, pos.y, pos.z, speed),
 		}
 		for row, i in rows {
-			text_draw(r, 25, 81 + f32(i) * 14, row, 1.25)
+			text_draw(r, 25, 25 + f32(i) * 14, row, 1.25)
 		}
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
@@ -284,35 +279,28 @@ hud :: proc(
 		BLOCK_NAMES[selected],
 		1.5,
 	)
-	if !captured {
-		rect(r, cx - 174, cy + 30, 348, 25, {0.05, 0.08, 0.1, 0.9})
-		text_draw(r, cx - 162, cy + 38, "CLICK TO CAPTURE / Q TO QUIT", 1.5)
-	}
-	text_draw(
-		r,
-		18,
-		f32(height) - 14,
-		"WASD FLY / SPACE CTRL / SHIFT FAST / F3 STATS / F5 SAVE",
-		1,
-	)
 	flat_flush(r, ortho, gl.TRIANGLES)
 	gl.Disable(gl.BLEND)
 }
 
+// Read and write one scanline at a time so captures respect small CPU budgets.
 screenshot :: proc(width, height: i32, path: string) -> bool {
-	pixels := make([]u8, int(width) * int(height) * 3)
-	defer delete(pixels)
+	file, err := os.create(path)
+	if err != nil {return false}
+	defer os.close(file)
+	header := fmt.tprintf("P6\n%d %d\n255\n", width, height)
+	_, header_err := os.write(file, transmute([]u8)header)
+	if header_err != nil {return false}
+	row := make([]u8, int(width) * 3)
+	defer delete(row)
 	gl.PixelStorei(gl.PACK_ALIGNMENT, 1)
 	gl.ReadBuffer(gl.BACK)
-	gl.ReadPixels(0, 0, width, height, gl.RGB, gl.UNSIGNED_BYTE, raw_data(pixels))
-	out := make([dynamic]u8)
-	defer delete(out)
-	header := fmt.tprintf("P6\n%d %d\n255\n", width, height)
-	append(&out, ..transmute([]u8)header)
 	for y := height - 1; y >= 0; y -= 1 {
-		append(&out, ..pixels[int(y * width * 3):int((y + 1) * width * 3)])
+		gl.ReadPixels(0, y, width, 1, gl.RGB, gl.UNSIGNED_BYTE, raw_data(row))
+		_, write_err := os.write(file, row)
+		if write_err != nil {return false}
 	}
-	return os.write_entire_file(path, out[:]) == nil
+	return gl.GetError() == gl.NO_ERROR
 }
 
 main :: proc() {
@@ -396,7 +384,7 @@ main :: proc() {
 	)
 	defer delete(draw_items)
 	stream.naive_mesh = config.naive_mesh
-	defer stream_destroy(&stream, &r)
+	defer if stream.chunks != nil {stream_destroy(&stream, &r)}
 	captured := !config.hidden
 	if captured {
 		glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
@@ -675,8 +663,6 @@ main :: proc() {
 			ms,
 			p95,
 			p99,
-			frame,
-			captured,
 			speed,
 		)
 		renderer_end(&r)
@@ -733,6 +719,7 @@ main :: proc() {
 			fmt.eprintln("Save failed:", config.save_path)
 		}
 	}
+	stream_destroy(&stream, &r)
 	sync.mutex_lock(&tracker.mutex)
 	peak_cpu := tracker.peak_memory_allocated
 	sync.mutex_unlock(&tracker.mutex)

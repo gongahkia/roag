@@ -1,0 +1,239 @@
+{
+  "date": "2026-10-18",
+  "reference_cpu": "Intel Core i7-1355U",
+  "environment": "WSL2, Mesa 26.2.4 llvmpipe (LLVM 22.1.8), software OpenGL",
+  "reports": {
+    "normal": {
+      "command": [
+        "--hidden",
+        "--benchmark",
+        "normal",
+        "--seconds",
+        "10",
+        "--profile",
+        "tiny",
+        "--screenshot",
+        "build/preview.ppm"
+      ],
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "processor": "",
+      "started_unix": 1792306725.816727,
+      "toolchain": "dev-2026-10",
+      "runtime_output": [
+        "GL: 4.6 (Core Profile) Mesa 26.2.4 / llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Profile tiny: GPU budget 64 MiB, meshes 40 MiB, CPU 256 MiB",
+        "Benchmark: benchmarks/normal.csv",
+        "Frames 360 / CPU peak 1.43 MiB / mesh peak 14.10 MiB / generated 392 / stale 0 / oversized 0 / reused buffers 0"
+      ],
+      "summary": {
+        "frames": 360,
+        "elapsed_seconds": 10.0157,
+        "warmup_seconds": 3.0,
+        "steady_frames": 197,
+        "mean_frame_ms": 35.682351776649746,
+        "p95_frame_ms": 47.2649,
+        "p99_frame_ms": 52.1836,
+        "mean_gpu_ms": 6.502102030456853,
+        "peak_cpu_mib": 1.427490234375,
+        "peak_mesh_mib": 14.099868774414062,
+        "peak_graphics_reserved_mib": 24.010025024414062,
+        "peak_upload_bytes": 333200,
+        "final_radius": 4,
+        "pressure_events": 0,
+        "stale_results": 0,
+        "steady_mean_triangles": 249833.08629441625,
+        "budgets_passed": true,
+        "allocator_peak_cpu_mib": 1.43
+      }
+    },
+    "normal-naive": {
+      "command": [
+        "--hidden",
+        "--benchmark",
+        "normal",
+        "--seconds",
+        "10",
+        "--profile",
+        "tiny",
+        "--naive-mesh"
+      ],
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "processor": "",
+      "started_unix": 1792306404.888645,
+      "toolchain": "dev-2026-10",
+      "runtime_output": [
+        "GL: 4.6 (Core Profile) Mesa 26.2.4 / llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Profile tiny: GPU budget 64 MiB, meshes 40 MiB, CPU 256 MiB",
+        "Benchmark: benchmarks/normal-naive.csv",
+        "Frames 457 / CPU peak 1.47 MiB / mesh peak 21.24 MiB / generated 392 / stale 0 / oversized 0 / reused buffers 0"
+      ],
+      "summary": {
+        "frames": 457,
+        "elapsed_seconds": 10.0038,
+        "warmup_seconds": 3.0,
+        "steady_frames": 274,
+        "mean_frame_ms": 25.575836496350366,
+        "p95_frame_ms": 33.1177,
+        "p99_frame_ms": 37.9799,
+        "mean_gpu_ms": 2.1808153284671534,
+        "peak_cpu_mib": 1.4350204467773438,
+        "peak_mesh_mib": 21.242141723632812,
+        "peak_graphics_reserved_mib": 31.152297973632812,
+        "peak_upload_bytes": 502880,
+        "final_radius": 4,
+        "pressure_events": 0,
+        "stale_results": 0,
+        "steady_mean_triangles": 367537.37226277374,
+        "budgets_passed": true,
+        "allocator_peak_cpu_mib": 1.47
+      }
+    },
+    "flight": {
+      "command": [
+        "--hidden",
+        "--benchmark",
+        "flight",
+        "--seconds",
+        "52",
+        "--profile",
+        "tiny"
+      ],
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "processor": "",
+      "started_unix": 1792306415.1302695,
+      "toolchain": "dev-2026-10",
+      "runtime_output": [
+        "GL: 4.6 (Core Profile) Mesa 26.2.4 / llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Profile tiny: GPU budget 64 MiB, meshes 40 MiB, CPU 256 MiB",
+        "Benchmark: benchmarks/flight.csv",
+        "Frames 2425 / CPU peak 1.50 MiB / mesh peak 22.48 MiB / generated 4258 / stale 0 / oversized 0 / reused buffers 1014"
+      ],
+      "summary": {
+        "frames": 2425,
+        "elapsed_seconds": 52.0047,
+        "warmup_seconds": 3.0,
+        "steady_frames": 2213,
+        "mean_frame_ms": 22.150758427474017,
+        "p95_frame_ms": 31.7539,
+        "p99_frame_ms": 36.9963,
+        "mean_gpu_ms": 2.5985107546317217,
+        "peak_cpu_mib": 1.4663848876953125,
+        "peak_mesh_mib": 22.47528076171875,
+        "peak_graphics_reserved_mib": 32.38543701171875,
+        "peak_upload_bytes": 396704,
+        "final_radius": 4,
+        "pressure_events": 0,
+        "stale_results": 0,
+        "steady_mean_triangles": 245365.75869859918,
+        "budgets_passed": true,
+        "repeated_route_plateau_passed": true,
+        "first_cycle_peak_cpu_mib": 1.4663848876953125,
+        "second_cycle_peak_cpu_mib": 1.414581298828125,
+        "allocator_peak_cpu_mib": 1.5
+      }
+    },
+    "edit": {
+      "command": [
+        "--hidden",
+        "--benchmark",
+        "edit",
+        "--seconds",
+        "8",
+        "--profile",
+        "tiny"
+      ],
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "processor": "",
+      "started_unix": 1792306609.9531093,
+      "toolchain": "dev-2026-10",
+      "runtime_output": [
+        "GL: 4.6 (Core Profile) Mesa 26.2.4 / llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Profile tiny: GPU budget 64 MiB, meshes 40 MiB, CPU 256 MiB",
+        "Benchmark: benchmarks/edit.csv",
+        "Frames 422 / CPU peak 1.47 MiB / mesh peak 14.26 MiB / generated 444 / stale 0 / oversized 0 / reused buffers 51"
+      ],
+      "summary": {
+        "frames": 422,
+        "elapsed_seconds": 8.0004,
+        "warmup_seconds": 3.0,
+        "steady_frames": 213,
+        "mean_frame_ms": 23.52685821596244,
+        "p95_frame_ms": 33.6132,
+        "p99_frame_ms": 44.1838,
+        "mean_gpu_ms": 3.0753868544600937,
+        "peak_cpu_mib": 1.3983001708984375,
+        "peak_mesh_mib": 14.255546569824219,
+        "peak_graphics_reserved_mib": 24.16570281982422,
+        "peak_upload_bytes": 372904,
+        "final_radius": 4,
+        "pressure_events": 0,
+        "stale_results": 0,
+        "steady_mean_triangles": 251355.0985915493,
+        "budgets_passed": true,
+        "allocator_peak_cpu_mib": 1.47
+      }
+    },
+    "dense": {
+      "command": [
+        "--hidden",
+        "--benchmark",
+        "dense",
+        "--seconds",
+        "8",
+        "--profile",
+        "tiny",
+        "--upload-kb",
+        "64"
+      ],
+      "platform": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+      "processor": "",
+      "started_unix": 1792306618.2214196,
+      "toolchain": "dev-2026-10",
+      "runtime_output": [
+        "GL: 4.6 (Core Profile) Mesa 26.2.4 / llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Profile tiny: GPU budget 64 MiB, meshes 40 MiB, CPU 256 MiB",
+        "Benchmark: benchmarks/dense.csv",
+        "Frames 381 / CPU peak 8.35 MiB / mesh peak 19.31 MiB / generated 381 / stale 0 / oversized 0 / reused buffers 0"
+      ],
+      "summary": {
+        "frames": 381,
+        "elapsed_seconds": 8.0195,
+        "warmup_seconds": 3.0,
+        "steady_frames": 142,
+        "mean_frame_ms": 35.35128591549296,
+        "p95_frame_ms": 50.0126,
+        "p99_frame_ms": 63.3432,
+        "mean_gpu_ms": 7.437640140845071,
+        "peak_cpu_mib": 8.310279846191406,
+        "peak_mesh_mib": 19.30815887451172,
+        "peak_graphics_reserved_mib": 29.21831512451172,
+        "peak_upload_bytes": 65536,
+        "final_radius": 4,
+        "pressure_events": 0,
+        "stale_results": 0,
+        "steady_mean_triangles": 400703.74647887325,
+        "budgets_passed": true,
+        "allocator_peak_cpu_mib": 8.35
+      }
+    },
+    "smoke-pressure": {
+      "frames": 301,
+      "elapsed_seconds": 5.0235,
+      "warmup_seconds": 1,
+      "steady_frames": 163,
+      "mean_frame_ms": 24.71502944785276,
+      "p95_frame_ms": 33.5187,
+      "p99_frame_ms": 36.0327,
+      "mean_gpu_ms": 11.350033742331288,
+      "peak_cpu_mib": 8.310005187988281,
+      "peak_mesh_mib": 9.98687744140625,
+      "peak_graphics_reserved_mib": 15.50250244140625,
+      "peak_upload_bytes": 65536,
+      "final_radius": 2,
+      "pressure_events": 2,
+      "stale_results": 0,
+      "steady_mean_triangles": 267009.509202454,
+      "budgets_passed": true
+    }
+  }
+}

@@ -114,6 +114,7 @@ stream_destroy :: proc(s: ^Stream, r: ^Renderer) {
 		free(c)
 	}
 	delete(s.chunks)
+	s.chunks = nil
 }
 
 distance2 :: proc(k, center: I3) -> int {
