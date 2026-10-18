@@ -40,6 +40,7 @@ def summarize(path, warmup=3.0):
         'frames': len(rows), 'elapsed_seconds': float(rows[-1]['elapsed_s']),
         'warmup_seconds': warmup, 'steady_frames': len(steady),
         'mean_frame_ms': statistics.mean(times),
+        'measured_fps': 1000 / statistics.mean(times),
         'p95_frame_ms': percentile(times, 0.95), 'p99_frame_ms': percentile(times, 0.99),
         'mean_gpu_ms': statistics.mean(float(row['gpu_ms']) for row in steady),
         'peak_cpu_mib': max(int(row['cpu_bytes']) for row in rows) / MIB,
@@ -61,6 +62,12 @@ def summarize(path, warmup=3.0):
         if cpu:
             summary['mean_process_cpu_percent'] = statistics.mean(float(row['process_cpu_percent']) for row in cpu)
         summary['mean_rolling_1pct_low_fps'] = statistics.mean(float(row['low_1pct_fps']) for row in steady)
+    if 'frame_cap' in rows[0]:
+        summary['display_refresh_hz'] = int(rows[-1]['display_hz'])
+        summary['frame_cap'] = int(rows[-1]['frame_cap'])  # Zero means no known software cap.
+        summary['software_renderer'] = bool(int(rows[-1]['software_renderer']))
+        summary['mean_swap_ms'] = statistics.mean(float(row['swap_ms']) for row in steady)
+        summary['mean_pacing_wait_ms'] = statistics.mean(float(row['pacing_wait_ms']) for row in steady)
     assert any(int(row['draws']) > 0 for row in rows), 'Scene never rendered terrain'
     # The flight path repeats every 24 seconds after two seconds of warmup.
     if path.stem.startswith('flight') and summary['elapsed_seconds'] >= 50:

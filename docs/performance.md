@@ -37,7 +37,9 @@ python3 scripts/benchmark.py --scene edit --seconds 8
 python3 scripts/benchmark.py --scene dense --seconds 8 --upload-kb 64
 ```
 
-The benchmark runner writes CSV and JSON under ignored `benchmarks/`. It checks sampled managed CPU use, graphics reservations, per-frame upload sizes, and repeated-route residency. The JSON includes command settings, compiler version, driver output, timings, and both sampled CPU use and allocator high-water use where available. The first three seconds are excluded from timing summaries. GPU query timings are asynchronous. Screenshot capture is outside the final frame-time sample and now uses only one scanline of scratch space.
+The benchmark runner writes CSV and JSON under ignored `benchmarks/`. It checks sampled managed CPU use, graphics reservations, per-frame upload sizes, and repeated-route residency. The JSON includes command settings, compiler version, driver output, timings, and both sampled CPU use and allocator high-water use where available. The first three seconds are excluded from timing summaries. GPU query timings are asynchronous. Screenshot capture uses only one scanline of scratch space.
+
+Current runs time completed frames, including buffer swaps and cap waits; an optional final screenshot is also included in that frame's interval. Historical snapshots above predate this timing boundary change. See [settings and measured FPS](settings.md) for display detection, frame caps, additional CSV fields, and the distinction between measured rendering FPS and monitor refresh Hz.
 
 [Recorded report snapshots](measurements.json) preserve the measured data; [architecture](architecture.md) explains accounting boundaries and failure behavior. These reports were collected from the implementation working tree during development.
 
