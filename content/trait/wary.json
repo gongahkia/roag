@@ -1,9 +1,0 @@
-{
-  "kind": "trait",
-  "id": "trait.wary",
-  "name": "wary",
-  "value": "security",
-  "aversion": "danger",
-  "workPercent": 95,
-  "fatiguePercent": 90
-}

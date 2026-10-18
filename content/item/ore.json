@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.ore",
-  "name": "Iron ore",
-  "sprite": "crystal",
-  "stack": "ore",
-  "value": 5,
-  "description": "An ingredient carried in the shared pack."
-}

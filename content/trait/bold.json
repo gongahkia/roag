@@ -1,9 +1,0 @@
-{
-  "kind": "trait",
-  "id": "trait.bold",
-  "name": "bold",
-  "value": "discovery",
-  "aversion": "confinement",
-  "workPercent": 105,
-  "fatiguePercent": 110
-}

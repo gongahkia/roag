@@ -1,8 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.gold",
-  "name": "Gold",
-  "sprite": "chest",
-  "stack": "gold",
-  "value": 1
-}

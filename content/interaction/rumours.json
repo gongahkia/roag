@@ -1,7 +1,0 @@
-{
-  "kind": "interaction",
-  "id": "interaction.rumours",
-  "name": "Ask about nearby places",
-  "description": "Learn an actual local landmark and its direction without revealing its terrain or inhabitants.",
-  "action": "rumour"
-}

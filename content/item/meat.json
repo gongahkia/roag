@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.meat",
-  "name": "Fresh meat",
-  "sprite": "meat",
-  "stack": "meat",
-  "value": 4,
-  "description": "An ingredient carried in the shared pack."
-}

@@ -1,9 +1,0 @@
-{
-  "kind": "item",
-  "id": "item.cherry",
-  "name": "Wild cherries",
-  "sprite": "cherry",
-  "stack": "cherry",
-  "value": 3,
-  "description": "An ingredient carried in the shared pack."
-}
