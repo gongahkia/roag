@@ -266,7 +266,9 @@ function R:emit(cue_id,position,listener)
     local binding=self.bindings and self.bindings[cue_id]
     if not binding then return false,'unbound' end
     local mix=self.pack.mix[category_for(cue_id)]
-    if not mix or mix.mute or mix.volume==0 then return false,'muted' end
+    if not mix or mix.mute or mix.volume==0 or self.user_effects==0 then
+        return false,'muted'
+    end
     local last=self.last_played[cue_id] or -math.huge
     if self.elapsed-last<binding.cooldown_ms/1000 then return false,'cooldown' end
     local active=0

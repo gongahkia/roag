@@ -278,4 +278,18 @@ return function(test,equal)
         assert(fallback.status:match('corrupt') and
             #fallback.pack.bindings>=27)
     end)
+    test('player music and effects volumes update active sounds independently',function()
+        local runtime=Runtime.new(function()return nil end,
+            function()return fake_source()end)
+        assert(runtime:emit('core:cue/player/move'))
+        assert(runtime:set_scene('core:cue/music/explore/overgrown_ruins'))
+        local voice=runtime.voices[1]
+        local original_effect=voice.source.volume
+        local original_music=runtime.music.target
+        runtime:set_user_mix(.25,.5)
+        assert(math.abs(voice.source.volume-original_effect*.5)<.000001)
+        assert(math.abs(runtime.music.target-original_music*.25)<.000001)
+        for _=1,20 do runtime:update(.25) end
+        assert(math.abs(runtime.music.source.volume-original_music*.25)<.000001)
+    end)
 end

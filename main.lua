@@ -746,7 +746,7 @@ local function activate_title_selection()
 end
 
 local settings_tabs={'SPRITES','SOUND','EFFECTS','ACCESSIBILITY'}
-local settings_lengths={#VisualPacks.order,3,3,4}
+local settings_lengths={#VisualPacks.order,3,4,4}
 local function settings_change(direction)
     if settings_page==1 then
         if direction~=0 then
@@ -763,7 +763,7 @@ local function settings_change(direction)
         presentation_settings[key]=math.max(0,math.min(100,
             presentation_settings[key]+(direction==0 and 1 or direction)*10))
     elseif settings_page==3 then
-        local key=({'shake','flash','damage_numbers'})[settings_selection]
+        local key=({'shake','flash','combat_effects','damage_numbers'})[settings_selection]
         presentation_settings[key]=not presentation_settings[key]
     else
         if settings_selection==1 then
@@ -2344,7 +2344,7 @@ local function draw_world()
         draw_history_event(Playback.current(playback))
     end
     local visual_event=Playback.current(playback)
-    if visual_event and
+    if presentation_settings.combat_effects and visual_event and
         (not visual_event.floor_id or visual_event.floor_id==state.active_floor_id) then
         local seen,effects={},0
         for _,event in ipairs(current_group or {visual_event}) do
@@ -2711,7 +2711,7 @@ local function draw_settings()
         'Choose the art used for actors, terrain, and icons.',
         'Set overall volume and balance music against game sounds.',
         'Adjust motion and hit feedback without changing gameplay.',
-        'Change text appearance and contrast throughout the game.'}
+        'Change menu and HUD text appearance and contrast.'}
     PixelUI.center(descriptions[settings_page],160,ui_menu_font,
         PixelUI.colors.muted,130,764)
     for index=1,settings_lengths[settings_page] do
@@ -2734,8 +2734,9 @@ local function draw_settings()
                 effects='Effects & UI'})[key]
             value=presentation_settings[key]..'%'
         elseif settings_page==3 then
-            local key=({'shake','flash','damage_numbers'})[index]
+            local key=({'shake','flash','combat_effects','damage_numbers'})[index]
             label=({shake='Screen shake',flash='Hit flash',
+                combat_effects='Combat effect sprites',
                 damage_numbers='Floating damage numbers'})[key]
             value=presentation_settings[key] and 'ON' or 'OFF'
         else
@@ -2757,6 +2758,10 @@ local function draw_settings()
     if settings_page==1 then
         info=visual_pack_message~='' and visual_pack_message or
             VisualPacks.descriptions[VisualPacks.order[settings_selection]]
+        if visual_pack_message=='' and visual_pack_mode~='classic' and
+            visual_pack_generated_status~='loaded' then
+            info='Artwork unavailable · using built-in fallback'
+        end
     end
     PixelUI.center(info,501,ui_menu_font,PixelUI.colors.muted,130,764)
     PixelUI.center('Tab / click category · ↑↓ select · ←→ adjust · Enter apply · Esc back',

@@ -3,7 +3,7 @@ local Codec=require('src.persistence')
 local S={format='roag-presentation-settings/1',file='presentation-settings.roag'}
 function S.defaults()
     return {format=S.format,master=100,music=80,effects=90,
-        shake=true,flash=true,damage_numbers=true,
+        shake=true,flash=true,combat_effects=true,damage_numbers=true,
         font='pixel',text_size='normal',high_contrast=false}
 end
 function S.validate(value)
@@ -13,7 +13,7 @@ function S.validate(value)
         assert(type(number)=='number' and number%10==0 and
             number>=0 and number<=100,'invalid '..key..' volume')
     end
-    for _,key in ipairs({'shake','flash','damage_numbers','high_contrast'}) do
+    for _,key in ipairs({'shake','flash','combat_effects','damage_numbers','high_contrast'}) do
         assert(type(value[key])=='boolean','invalid '..key..' option')
     end
     assert(value.font=='pixel' or value.font=='sans','invalid font option')
