@@ -34,6 +34,9 @@ local objects={
     ['core:ui/currency_icon']=90,['core:ui/hit_effect']=130,
     ['core:ui/boon_effect']=132,['core:ui/burning_effect']=136,
     ['core:ui/block_effect']=102,
+    ['core:object/review_ward']=106,
+    ['core:object/review_overgrowth_1']=84,
+    ['core:object/review_overgrowth_2']=85,
 }
 K.actors=actors;K.objects=objects
 -- Connectivity belongs to the Caves & Dungeons terrain adapter.
@@ -105,7 +108,32 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_plate_down']=961,
     })
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
+    local function cave_cell(index)
+        local x,y=index%29*17,math.floor(index/29)*17
+        return {texture=terrain.native,quad=make_quad(x,y,16,16,492,305),
+            width=16,height=16,offset_x=x,offset_y=y,source='kenney',
+            terrain_pack='caves',tile_index=index}
+    end
+    for id,index in pairs({
+        ['core:object/review_ore']=329,
+        ['core:object/review_ore_depleted']=358,
+        ['core:object/review_brazier_unlit']=506,
+        ['core:object/review_brazier_lit']=507,
+        ['core:object/review_mushroom_1']=87,
+        ['core:object/review_mushroom_2']=88,
+        ['core:object/review_rail_top_left']=445,
+        ['core:object/review_rail_top_right']=446,
+        ['core:object/review_rail_middle_left']=474,
+        ['core:object/review_rail_middle_right']=475,
+        ['core:object/review_rail_bottom_left']=503,
+        ['core:object/review_rail_bottom_right']=504,
+        ['core:object/review_pillar_top']=145,
+        ['core:object/review_pillar_middle']=177,
+        ['core:object/review_pillar_bottom']=174,
+    }) do handles[id]=cave_cell(index) end
     for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
+    handles['core:boon/ring_of_reversal/icon']=handle(89,true)
+    handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
         style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature,

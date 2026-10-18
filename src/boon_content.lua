@@ -29,6 +29,7 @@ function Catalog.normal_order()
     end
     result[#result+1]="core:boon/aftershock"
     result[#result+1]="core:boon/reprisal_nova"
+    result[#result+1]="core:boon/ring_of_reversal"
     return result
 end
 
@@ -248,6 +249,14 @@ Catalog.definitions["core:boon/reprisal_nova"]={
     effects={{kind="area",radius=1,damage_type="pulse"}},
     unit="nearby retaliation damage before defense",
     eligible_classes={"core:actor/sentinel","core:actor/alchemist"},
+}
+Catalog.order[#Catalog.order+1]="core:boon/ring_of_reversal"
+Catalog.definitions["core:boon/ring_of_reversal"]={
+    name="Ring of Reversal",
+    description="Escape a locked enemy attack; your next direct hit on that foe gains damage.",
+    tags={"movement","offense"},triggers={},scope={kind="owner"},
+    stack_policy="add_power",parameters=strengths(nil,{2,3,4,6}),
+    effects={},unit="bonus damage on the next direct hit against that attacker",
 }
 
 for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end

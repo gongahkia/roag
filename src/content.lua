@@ -325,9 +325,25 @@ function Content.projectile_passable(map, x, y, state)
         and not blocking_entity(state,map,x,y,"blocks_projectiles")
 end
 
+function Content.mist_blocks(map,x,y,state)
+    if not map or not map.rows[y] or map.rows[y]:sub(x,x)~='m' then
+        return false
+    end
+    for _,feature in ipairs(state and state.review_features or {}) do
+        if feature.kind=='brazier' and feature.floor_id==map.floor_id
+            and (feature.lit_until or 0)>(state.clock or 0)
+            and math.abs(feature.x-x)+math.abs(feature.y-y)<=2 then
+            return false
+        end
+    end
+    return true
+end
+
 function Content.blocks_vision(map, x, y, state)
     local tile = tile_at(map, x, y)
-    return tile == nil or tile.blocks_vision
+    return tile == nil or (tile.blocks_vision
+        and (not map.rows[y] or map.rows[y]:sub(x,x)~='m'
+            or Content.mist_blocks(map,x,y,state)))
         or blocking_entity(state,map,x,y,"blocks_vision")
 end
 

@@ -64,6 +64,7 @@ local definitions={
     battle_march={89,'marching boots',physical},
     aftershock={706,'shock burst',physical},
     reprisal_nova={716,'radial burst',defense},
+    ring_of_reversal={337,'reversal ring',movement},
 }
 S.boons={}
 for slug,definition in pairs(definitions)do

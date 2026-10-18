@@ -36,7 +36,7 @@ local function lane(state, enemy, player, minimum, maximum)
     for step = 1, distance do
         local x, y = a.x + step_x * step, a.y + step_y * step
         if not Content.projectile_passable(map, x, y, state)
-            or Terrain.symbol(map,x,y)=="m" then return nil end
+            or Content.mist_blocks(map,x,y,state) then return nil end
         cells[#cells + 1] = {x=x, y=y}
     end
     return cells
@@ -59,7 +59,7 @@ local function clear_line(state,from,to)
             return false
         end
         if not Content.projectile_passable(map,x,y,state)
-            or Terrain.symbol(map,x,y)=="m" then return false end
+            or Content.mist_blocks(map,x,y,state) then return false end
     end
     return true
 end

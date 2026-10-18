@@ -9,6 +9,18 @@ local function slug(id) return id:match('/([^/]+)$') end
 for _,id in ipairs({'door_closed','door_open','stairs_down','stairs_up','exit','chest_open'})do
     add('core:object/'..id)
 end
+for _,id in ipairs({'review_key','review_vault_top','review_vault_bottom',
+    'review_gate_top','review_gate_bottom','review_gate_tiny',
+    'review_plate_up','review_plate_down','review_plate_tiny_up',
+    'review_plate_tiny_down','review_ore','review_ore_depleted',
+    'review_brazier_unlit','review_brazier_lit','review_ward',
+    'review_mushroom_1','review_mushroom_2','review_overgrowth_1',
+    'review_overgrowth_2','review_rail_top_left','review_rail_top_right',
+    'review_rail_middle_left','review_rail_middle_right',
+    'review_rail_bottom_left','review_rail_bottom_right',
+    'review_pillar_top','review_pillar_middle','review_pillar_bottom'}) do
+    add('core:object/'..id)
+end
 for _,id in ipairs({'bramble_bed','sticky_bog','glazed_ice','barricade',
     'obscuring_mist','resonant_crystal'})do add('core:terrain/'..id)end
 add('core:ui/burning_effect');add('core:ui/block_effect')

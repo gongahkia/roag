@@ -15,6 +15,7 @@ local Stage = require("src.stage")
 local Targeting = require("src.targeting")
 local Terrain = require("src.terrain")
 local RegularAI = require("src.regular_ai")
+local Review = require("src.review_features")
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -22,7 +23,7 @@ local Game = {}
 local SCHEMA = "roag-run/11"
 Game.snapshot_schema = SCHEMA
 local COSTS = {move=100, wait=100, basic_attack=100, sweeping_slash=150,
-    dash=130, claim_chest=100, choose_route=0}
+    dash=130, claim_chest=100, open_vault=100, choose_route=0}
 local contexts = setmetatable({}, {__mode="k"}) -- resolver context never enters snapshots
 
 local function copy(value)
@@ -208,7 +209,7 @@ function Game.new(seed, map_id, options)
         progression={level=1, xp_total=0}, currency=0,
         next_drop_id=1, drops={}, rewarded_kills={}, explored={},visible={},
         secrets={},world_content_version=World.version,
-        class_special={decoy=nil,snare=nil},
+        class_special={},review_features={},review_keys={},review_clues={},
         rng=RNG.new(seed), entities={{
             id=player_id, definition_id=definition.id, controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
@@ -236,6 +237,7 @@ function Game.new(seed, map_id, options)
                     generated_pair and active.floor_id..":"..place.id or place.id)
             end
             World.populate(state,append)
+            Review.populate(state,active)
         end
         populate_active(false)
         if generated_pair then
@@ -317,7 +319,7 @@ function Game.preview(state, kind, dx, dy)
         local map = Content.map_for(state)
         local cells, distance, blocked = {}, 0, false
         local count = kind == "dash" and math.max(3,class.dash_distance) or 1
-        local reason, bump, chest_id, door_id
+        local reason, bump, chest_id, door_id, vault_id
         for step = 1, count do
             if kind=="dash" and step>class.dash_distance
                 and not Terrain.can_extend_dash(map,cells) then
@@ -340,6 +342,9 @@ function Game.preview(state, kind, dx, dy)
                         return {valid=false,reason="exit",cells={cell},exit_id=entity.id}
                     elseif kind == "move" and entity.controller == "door" and not entity.open then
                         cell.status, door_id = "door", entity.id
+                    elseif kind == "move" and entity.controller == "review_vault"
+                        and not entity.opened then
+                        cell.status, vault_id = "vault", entity.id
                     elseif kind == "move" and entity.controller == "ai" and entity.faction ~= player.faction
                         and entity.hp and entity.hp > 0 then
                         cell.status, bump = "enemy", true
@@ -371,10 +376,18 @@ function Game.preview(state, kind, dx, dy)
         if bump then
             cost=Game.effective_cost(class.costs.basic_attack,speed)
         end
-        return {valid=distance > 0 or bump == true or door_id ~= nil,
-            reason=(distance == 0 and not bump and not door_id) and reason or nil,
+        if vault_id and not (state.review_keys and
+            state.review_keys[position.floor_id]) then
+            return {valid=false,reason="find the vault key",cells=cells,
+                vault_id=vault_id}
+        end
+        return {valid=distance > 0 or bump == true or door_id ~= nil
+                or vault_id ~= nil,
+            reason=(distance == 0 and not bump and not door_id and not vault_id)
+                and reason or nil,
             cost=cost, cells=cells, distance=distance, bump=bump,
-            chest_id=chest_id,door_id=door_id,stair=stair,landing=landing}
+            chest_id=chest_id,door_id=door_id,vault_id=vault_id,
+            stair=stair,landing=landing}
     end
     local position = player.position
     local cells = Game.effective_ability(state,kind,dx,dy,true)
@@ -478,8 +491,23 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                     end
                 end
             end
+            local reversal_bonus=0
+            if direct_attack and source.id==state.player_id
+                and source.reversal_target_id==target.id
+                and source.boons and source.boons['core:boon/ring_of_reversal'] then
+                reversal_bonus=Boons.aggregate('core:boon/ring_of_reversal',
+                    source.boons['core:boon/ring_of_reversal'],'power')
+                source.reversal_target_id=nil
+            end
+            local attempted=raw_damage+reversal_bonus
             local after_defense = target.invulnerable and 0 or
-                math.max(0, raw_damage - (target.defense or 0))
+                math.max(0, attempted - (target.defense or 0))
+            local pickup_ward=false
+            if target.id==state.player_id and after_defense>0
+                and (target.pickup_ward_actions or 0)>0 then
+                pickup_ward=true;target.pickup_ward_actions=0
+                after_defense=0
+            end
             local ward_absorbed=Boons.consume_ward(state,target,after_defense)
             after_defense=after_defense-ward_absorbed
             local loss = math.min(target.hp, after_defense)
@@ -490,8 +518,10 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 damage_type=damage_type or "physical",
                 ability_id=ability_id,
                 critical=critical or false,
-                attempted_damage=raw_damage, after_defense=after_defense,
+                attempted_damage=attempted, after_defense=after_defense,
+                reversal_bonus=reversal_bonus>0 and reversal_bonus or nil,
                 ward_absorbed=ward_absorbed,
+                pickup_ward=pickup_ward or nil,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
                 source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
@@ -511,6 +541,17 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
     end
     for _, outcome in ipairs(outcomes) do
         emit(state, output, "DamageAttempted", outcome, source.id, action_id)
+        if outcome.reversal_bonus then
+            emit(state,output,'RingReversalSpent',{
+                target_id=outcome.target_id,bonus=outcome.reversal_bonus,
+                floor_id=outcome.floor_id,x=outcome.x,y=outcome.y},
+                source.id,action_id)
+        end
+        if outcome.pickup_ward then
+            emit(state,output,'WardFlaskBlocked',{
+                floor_id=outcome.floor_id,x=outcome.x,y=outcome.y,
+                target_id=outcome.target_id},source.id,action_id)
+        end
         if outcome.actual_loss > 0 then
             emit(state, output, "DamageTaken", outcome, source.id, action_id)
             local struck=Game.entity(state,outcome.target_id)
@@ -778,6 +819,30 @@ local function drain_effects(state, output)
         if context.event_head <= #context.events then
             local event = context.events[context.event_head]
             context.event_head = context.event_head + 1
+            if event.kind=='Moved' and event.source_id==state.player_id then
+                local owner=Game.player(state)
+                if owner.boons and owner.boons['core:boon/ring_of_reversal'] then
+                    for _,enemy in ipairs(state.entities) do
+                        local pending=enemy.pending_attack
+                        if pending and pending.floor_id==event.floor_id then
+                            local from_hit,to_hit=false,false
+                            for _,cell in ipairs(pending.target_cells) do
+                                if cell.x==event.from_x and cell.y==event.from_y then
+                                    from_hit=true end
+                                if cell.x==event.x and cell.y==event.y then
+                                    to_hit=true end
+                            end
+                            if from_hit and not to_hit then
+                                owner.reversal_target_id=enemy.id
+                                emit(state,output,'RingReversalPrimed',{
+                                    target_id=enemy.id,floor_id=event.floor_id,
+                                    x=event.x,y=event.y},owner.id,event.action_id)
+                                break
+                            end
+                        end
+                    end
+                end
+            end
             Boons.on_event(state, event,
                 function(activation, effect)
                     context.effects[#context.effects + 1] = {activation=activation, effect=effect}
@@ -802,6 +867,14 @@ local function drain_effects(state, output)
             }
             Rewards.on_event(state, event, function(kind, fields, source_id)
                 emit(state, output, kind, fields, source_id, event.action_id)
+            end)
+            Review.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end,function(amount,floor_id,x,y,source_id)
+                Rewards.spawn_currency(state,amount,floor_id,x,y,
+                    function(kind,fields,owner)
+                        emit(state,output,kind,fields,owner,event.action_id)
+                    end,source_id)
             end)
             World.on_event(state,event,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,event.action_id)
@@ -1216,7 +1289,8 @@ function Game.submit(state, intent)
     local action_id = state.next_action_id
     state.next_action_id = action_id + 1
     local kind = preview.bump and "basic_attack"
-        or (preview.door_id and "open_door") or intent.kind
+        or (preview.door_id and "open_door")
+        or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
     if preview.bump then action.bump = true end
     if kind == "move" or kind == "dash" then
@@ -1338,6 +1412,54 @@ function Game.submit(state, intent)
         emit(state,output,"DoorOpened",{door_id=door.id,
             floor_id=position.floor_id,x=door.position.x,y=door.position.y},
             player.id,action_id)
+    elseif kind == "open_vault" then
+        local vault=assert(Game.entity(state,preview.vault_id),"missing vault")
+        assert(state.review_keys[position.floor_id],"vault key vanished")
+        state.review_keys[position.floor_id]=nil
+        vault.opened=true;vault.blocks_movement=false
+        local outcome=RNG.derive(state.run_seed,
+            position.floor_id..':vault:'..vault.position.x..','..vault.position.y)%4+1
+        local result=({'cache','clue','boon','ambush'})[outcome]
+        action.vault_id=vault.id;action.outcome=result
+        emit(state,output,"VaultOpened",{vault_id=vault.id,outcome=result,
+            floor_id=position.floor_id,x=vault.position.x,y=vault.position.y},
+            player.id,action_id)
+        local vx,vy=vault.position.x,vault.position.y
+        local reward_emit=function(event_kind,fields,source_id)
+            emit(state,output,event_kind,fields,source_id,action_id)
+        end
+        if result=='cache' then
+            Rewards.spawn_currency(state,5,position.floor_id,vx,vy,reward_emit,player.id)
+            Rewards.spawn_supply(state,'health',position.floor_id,vx,vy,reward_emit,player.id)
+        elseif result=='clue' then
+            Rewards.spawn_currency(state,4,position.floor_id,vx,vy,reward_emit,player.id)
+            for _,secret in ipairs(state.secrets or {}) do
+                if secret.floor_id==position.floor_id and not secret.revealed then
+                    local dx,dy=secret.x-position.x,secret.y-position.y
+                    local direction=math.abs(dx)>=math.abs(dy)
+                        and (dx<0 and 'west' or 'east')
+                        or (dy<0 and 'north' or 'south')
+                    state.review_clues[position.floor_id]=direction
+                    emit(state,output,'VaultClueFound',{floor_id=position.floor_id,
+                        direction=direction},player.id,action_id)
+                    break
+                end
+            end
+        elseif result=='boon' then
+            Game.spawn_chest(state,'core:chest/free_elite',vx,vy,
+                'review:vault:'..position.floor_id)
+        else
+            local biome=Biomes.get(Content.map_for(state).biome_id)
+            local enemy_id=biome and biome.enemy_ids[1] or 'core:enemy/mossbound_guard'
+            for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}}) do
+                local x,y=vx+d[1],vy+d[2]
+                if Content.walkable(Content.map_for(state),x,y)
+                    and not occupant(state,position.floor_id,x,y,nil,false) then
+                    Game.spawn_enemy(state,enemy_id,x,y,state.clock+100)
+                    break
+                end
+            end
+        end
     elseif kind == "claim_chest" then
         local offer = Rewards.claim(state, chest, intent.offer_index,
             function(event_kind, reward_fields, source_id)
@@ -1351,6 +1473,9 @@ function Game.submit(state, intent)
     end
     state.last_action = action
     drain_effects(state, output)
+    if (player.pickup_ward_actions or 0)>0 then
+        player.pickup_ward_actions=player.pickup_ward_actions-1
+    end
     Stage.after_player_action(state,function(event_kind,fields,source_id)
         emit(state,output,event_kind,fields,source_id,action_id)
     end)
@@ -1358,6 +1483,9 @@ function Game.submit(state, intent)
     Scheduler.enqueue(state, {kind="actor_ready", due=state.clock + preview.cost,
         actor_id=player.id, is_player=true})
     advance_to_player(state, output)
+    Review.after_time(state,function(event_kind,fields,source_id)
+        emit(state,output,event_kind,fields,source_id,action_id)
+    end)
     Finale.finish(state,function(kind,fields,source_id)
         emit(state,output,kind,fields,source_id,action_id)
     end)
@@ -1543,6 +1671,10 @@ function Game.restore(snapshot)
     assert(type(snapshot.explored)=="table" and type(snapshot.secrets)=="table"
         and type(snapshot.visible)=="table","missing exploration state")
     local state = copy(snapshot)
+    state.class_special=state.class_special or {}
+    state.review_features=state.review_features or {}
+    state.review_keys=state.review_keys or {}
+    state.review_clues=state.review_clues or {}
     assert(type(state.root_seed)=="number" and type(state.retired_stages)=="table",
         "missing run stage identity")
     local scheduled={}
@@ -1627,8 +1759,25 @@ function Game.restore(snapshot)
                 Content.get_class(entity.definition_id),
                 "invalid player content reference")
         elseif entity.controller~="chest" and entity.controller~="door"
-            and entity.controller~="exit" then
+            and entity.controller~="exit"
+            and entity.controller~="review_vault"
+            and entity.controller~="review_gate"
+            and entity.controller~="review_pillar" then
             error("unknown entity controller")
+        end
+        if entity.controller=='review_vault' then
+            assert(type(entity.opened)=='boolean'
+                and entity.blocks_movement==not entity.opened,
+                'invalid vault state')
+        elseif entity.controller=='review_gate' then
+            assert(type(entity.open)=='boolean'
+                and entity.blocks_movement==not entity.open
+                and entity.blocks_vision==not entity.open
+                and entity.blocks_projectiles==not entity.open,
+                'invalid timed gate state')
+        elseif entity.controller=='review_pillar' then
+            assert(entity.blocks_movement and entity.blocks_vision
+                and entity.blocks_projectiles,'invalid pillar state')
         end
         if entity.controller=="ai" or entity.controller=="player" then
             assert(type(entity.hp)=="number" and entity.hp%1==0

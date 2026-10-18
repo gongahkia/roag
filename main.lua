@@ -840,6 +840,26 @@ local function submit(intent)
                 notice = "The Hollow Regent falls"
             elseif event.kind == "Victory" then
                 notice = "VICTORY — the Hollow Regent is defeated"
+            elseif event.kind=="VaultKeyCollected" then
+                notice="Vault key found — seek the barred side room"
+            elseif event.kind=="VaultOpened" then
+                notice="Vault opened: "..tostring(event.outcome):gsub('_',' ')
+            elseif event.kind=="VaultClueFound" then
+                notice="Vault clue points "..tostring(event.direction)
+            elseif event.kind=="WardFlaskCollected" then
+                notice="Ward flask: one full block within 3 actions"
+            elseif event.kind=="WardFlaskBlocked" then
+                notice="Ward flask blocked the hit"
+            elseif event.kind=="TimedGateOpened" then
+                notice="Timed gate open: 300 time"
+            elseif event.kind=="TimedGateClosed" then
+                notice="Timed gate closed"
+            elseif event.kind=="BrazierLit" then
+                notice="Beacon lit: nearby mist cleared for 300 time"
+            elseif event.kind=="OreBroken" then
+                notice="Ore broken: currency released"
+            elseif event.kind=="RingReversalPrimed" then
+                notice="Reversal primed: strike the escaped attacker"
             end
         end
     else
@@ -1470,6 +1490,57 @@ local function begin_tile_token(x,y)
 end
 
 local function draw_rewards()
+    local function review_sprite(binding,x,y,alpha)
+        return draw_visual(bound_visual('core:object/review_'..binding),x,y,TILE,TILE,alpha)
+    end
+    for _,feature in ipairs(state.review_features or {}) do
+        if feature.floor_id==state.active_floor_id and
+            visible_at(feature.x,feature.y) then
+            local x,y=Camera.tile_top_left(camera,feature.x,feature.y)
+            local kind=feature.kind
+            local sprite
+            if kind=='key' and not feature.collected then sprite='key'
+            elseif kind=='ward' and not feature.collected then sprite='ward'
+            elseif kind=='ore' then sprite=feature.broken and 'ore_depleted' or 'ore'
+            elseif kind=='brazier' then
+                sprite=(feature.lit_until or 0)>state.clock and 'brazier_lit' or 'brazier_unlit'
+            elseif kind=='plate' then
+                local gate=Game.entity(state,feature.gate_id)
+                local tiny=gate and gate.art_variant=='tiny' and
+                    visual_assets and visual_assets.generated and
+                    visual_assets.generated.style=='kenney'
+                sprite=(tiny and 'plate_tiny_' or 'plate_')..(gate and gate.open and 'down' or 'up')
+            elseif kind=='mushroom' or kind=='overgrowth' then
+                sprite=kind..'_'..(feature.variant or 1)
+            end
+            if sprite and not review_sprite(sprite,x,y) then
+                love.graphics.setColor(kind=='key' and .96 or .69,.81,.42,.9)
+                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.24)
+                love.graphics.circle('fill',x+TILE/2,y+TILE/2,TILE*.08)
+            end
+            if kind=='mine_rail' then
+                if bound_visual('core:object/review_rail_top_left') then
+                    local rows={'top','middle','bottom'}
+                    for row_index,row in ipairs(rows) do
+                        for col_index,col in ipairs({'left','right'}) do
+                            draw_visual(bound_visual('core:object/review_rail_'..row..'_'..col),
+                                x+(col_index-1)*TILE/2,y+(row_index-1)*TILE/3,
+                                TILE/2,TILE/3)
+                        end
+                    end
+                else
+                    love.graphics.setColor(.55,.50,.39,.7)
+                    love.graphics.line(x+6,y+6,x+6,y+34)
+                    love.graphics.line(x+30,y+6,x+30,y+34)
+                    love.graphics.line(x+6,y+13,x+30,y+13)
+                    love.graphics.line(x+6,y+28,x+30,y+28)
+                end
+            elseif kind=='brazier' and (feature.lit_until or 0)>state.clock then
+                love.graphics.setColor(.98,.78,.30,.45)
+                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.44)
+            end
+        end
+    end
     for _, drop in ipairs(state.drops) do
         if not drop.collected and drop.position.floor_id==state.active_floor_id
             and visible_at(drop.position.x,drop.position.y) then
@@ -1497,6 +1568,50 @@ local function draw_rewards()
         end
     end
     for _, entity in ipairs(state.entities) do
+        if entity.position.floor_id==state.active_floor_id
+            and visible_at(entity.position.x,entity.position.y)
+            and (entity.controller=='review_vault' or
+                entity.controller=='review_gate' or
+                entity.controller=='review_pillar') then
+            local x,y=Camera.tile_top_left(camera,entity.position.x,entity.position.y)
+            local onebit=visual_assets and visual_assets.generated and
+                visual_assets.generated.style=='onebit'
+            local kind=entity.controller
+            if kind=='review_pillar' then
+                if onebit then
+                    review_sprite('pillar_bottom',x,y)
+                else
+                    review_sprite('pillar_bottom',x,y)
+                    review_sprite('pillar_middle',x,y-TILE)
+                    review_sprite('pillar_top',x,y-2*TILE)
+                end
+            elseif kind=='review_vault' and not entity.opened then
+                local drawn=review_sprite('vault_bottom',x,y)
+                if not onebit then review_sprite('vault_top',x,y-TILE) end
+                if not drawn then
+                    love.graphics.setColor(.75,.68,.46)
+                    love.graphics.rectangle('line',x+5,y+2,TILE-10,TILE-4)
+                end
+            elseif kind=='review_gate' then
+                local tiny=entity.art_variant=='tiny' and not onebit
+                local drawn
+                if tiny then drawn=review_sprite('gate_tiny',x,y)
+                else
+                    drawn=review_sprite('gate_bottom',x,y)
+                    if not onebit then review_sprite('gate_top',x,y-TILE) end
+                end
+                if not drawn then
+                    love.graphics.setColor(.71,.73,.67)
+                    love.graphics.rectangle('line',x+5,y+2,TILE-10,TILE-4)
+                end
+                if entity.open then
+                    love.graphics.setColor(.35,.95,.71,.84)
+                    love.graphics.rectangle('line',x+4,y+4,TILE-8,TILE-8)
+                    local remaining=math.max(0,math.ceil(((entity.closes_at or state.clock)-state.clock)/100))
+                    love.graphics.print(tostring(remaining),x+TILE-13,y+2)
+                end
+            end
+        end
         if entity.position.floor_id==state.active_floor_id
             and entity.controller == "chest" and
             visible_at(entity.position.x,entity.position.y) then
@@ -1548,6 +1663,22 @@ local function draw_rewards()
             end
         end
     end
+    for _,special in ipairs({'decoy','snare'}) do
+        local marker=state.class_special and state.class_special[special]
+        if marker and marker.floor_id==state.active_floor_id
+            and visible_at(marker.x,marker.y) then
+            local x,y=Camera.tile_top_left(camera,marker.x,marker.y)
+            love.graphics.setColor(special=='decoy' and .57 or .98,
+                special=='decoy' and .67 or .54,.95,.9)
+            if special=='decoy' then
+                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.33)
+                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.17)
+            else
+                love.graphics.line(x+7,y+7,x+TILE-7,y+TILE-7)
+                love.graphics.line(x+TILE-7,y+7,x+7,y+TILE-7)
+            end
+        end
+    end
     for _,stair in ipairs(state.generated_map and
         state.generated_map.placements.stairs or {}) do
         if visible_at(stair.x,stair.y) then
@@ -1572,6 +1703,23 @@ local function draw_history_event(event)
         draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true)
     elseif event.kind == "AttackPerformed" then
         draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7, true)
+        local cells=event.target_cells or {}
+        if #cells>0 then
+            local cell=cells[math.ceil(#cells/2)]
+            if visible_at(cell.x,cell.y) then
+                local x,y=Camera.tile_top_left(camera,cell.x,cell.y)
+                local attacker=Game.entity(state,event.source_id)
+                local symbol=attacker and bound_visual(attacker.definition_id..'/attack')
+                if not symbol then symbol=bound_visual('core:ui/hit_effect') end
+                if symbol then
+                    draw_visual(symbol,x+TILE*.34,y+TILE*.34,TILE*.32,TILE*.32,.93)
+                else
+                    love.graphics.setColor(1,.89,.52,.9)
+                    love.graphics.line(x+TILE*.38,y+TILE*.5,x+TILE*.62,y+TILE*.5)
+                    love.graphics.line(x+TILE*.5,y+TILE*.38,x+TILE*.5,y+TILE*.62)
+                end
+            end
+        end
     elseif event.kind == "WindupCancelled" then
         draw_cells(event.target_cells, 0.6, 0.6, 0.6, 0.4, true)
     elseif event.kind == "EffectApplied" or event.kind == "DelayedEffectResolved" then
@@ -1914,9 +2062,12 @@ local function draw_world()
                 love.graphics.pop()
             end
             if not remembered and visual=="k" then
-                love.graphics.setColor(clue[1],clue[2],clue[3],0.78)
-                love.graphics.line(screen_x+9,screen_y+6,screen_x+17,screen_y+16,
-                    screen_x+12,screen_y+25)
+                love.graphics.setColor(clue[1],clue[2],clue[3],0.82)
+                love.graphics.setLineWidth(2)
+                love.graphics.line(screen_x+8,screen_y+5,screen_x+16,screen_y+14,
+                    screen_x+12,screen_y+21,screen_x+22,screen_y+31)
+                love.graphics.line(screen_x+16,screen_y+14,screen_x+25,screen_y+10)
+                love.graphics.setLineWidth(1)
             elseif not remembered and visual=="p" then
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.73)
                 love.graphics.circle("line",screen_x+16,screen_y+16,6)
@@ -2015,6 +2166,9 @@ local function draw_world()
             [Classes.order[4]]={0.96,0.49,0.38},
             [Classes.order[5]]={0.55,0.76,0.93},
             [Classes.order[6]]={0.73,0.93,0.44},
+            [Classes.order[7]]={0.61,0.56,0.89},
+            [Classes.order[8]]={0.96,0.69,0.35},
+            [Classes.order[9]]={0.68,0.86,0.41},
         }
         love.graphics.setColor(unpack(colors[Game.player(state).definition_id]))
         love.graphics.circle("fill", screen_x + TILE / 2 - TILE/32,
