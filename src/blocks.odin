@@ -1,79 +1,57 @@
 package sandbox
 
-CREATIVE_BLOCKS := [?]Block {
-	.Grass,
-	.Dirt,
-	.Stone,
-	.Sand,
-	.Wood,
-	.Leaves,
-	.Water,
-	.Lava,
-	.Obsidian,
-	.Coal_Ore,
-	.Iron_Ore,
-	.Copper_Ore,
-	.Gold_Ore,
-	.Diamond_Ore,
-	.Redstone_Ore,
-	.Cobblestone,
-}
-BLOCK_NAMES := [?]string {
-	"AIR",
-	"GRASS",
-	"DIRT",
-	"STONE",
-	"SAND",
-	"WOOD",
-	"LEAVES",
-	"BEDROCK",
-	"COAL ORE",
-	"IRON ORE",
-	"COPPER ORE",
-	"GOLD ORE",
-	"DIAMOND ORE",
-	"REDSTONE ORE",
-	"OBSIDIAN",
-	"COBBLESTONE",
-	"WATER",
-	"LAVA",
-}
-BLOCK_COLORS := [?]F4 {
-	{0, 0, 0, 0},
-	{0.38, 0.6, 0.25, 1},
-	{0.5, 0.35, 0.23, 1},
-	{0.5, 0.53, 0.56, 1},
-	{0.86, 0.79, 0.59, 1},
-	{0.45, 0.31, 0.19, 1},
-	{0.25, 0.47, 0.23, 1},
-	{0.25, 0.27, 0.3, 1},
-	{0.14, 0.15, 0.16, 1},
-	{0.80, 0.65, 0.5, 1},
-	{0.80, 0.45, 0.23, 1},
-	{0.95, 0.78, 0.18, 1},
-	{0.29, 0.90, 0.86, 1},
-	{0.79, 0.14, 0.19, 1},
-	{0.17, 0.11, 0.25, 1},
-	{0.47, 0.49, 0.52, 1},
-	{0.16, 0.43, 0.82, 1},
-	{0.95, 0.36, 0.06, 1},
+Block :: enum u8 {
+	Air,
+	Grass,
+	Dirt,
+	Stone,
+	Sand,
+	Wood,
+	Leaves,
+	Bedrock,
+	Coal_Ore,
+	Iron_Ore,
+	Copper_Ore,
+	Gold_Ore,
+	Diamond_Ore,
+	Redstone_Ore,
+	Obsidian,
+	Cobblestone,
+	Water,
+	Lava,
+	Water_1,
+	Water_2,
+	Water_3,
+	Water_4,
+	Water_5,
+	Water_6,
+	Water_7,
+	Water_Falling,
+	Lava_1,
+	Lava_2,
+	Lava_3,
+	Lava_Falling,
 }
 
-// Repeatable graphical fixture: elevated waterfall/lavafall and an ore wall.
-fluid_demo :: proc(w: ^World) {
-	for z in 0 ..= 24 {
-		for x in 0 ..= 24 {
-			world_apply(w, {w.sequence + 1, {i32(x), 84, i32(z)}, .Stone})
-			if x == 0 || x == 24 || z == 0 || z == 24 {
-				for y in 85 ..= 87 {world_apply(w, {w.sequence + 1, {i32(x), i32(y), i32(z)}, .Cobblestone})}
-			}
-		}
-	}
-	for i in 0 ..< 8 {
-		for y in 85 ..= 88 {
-			for x in 0 ..< 2 {world_apply(w, {w.sequence + 1, {2 + i32(i * 3 + x), i32(y), 2}, Block(int(Block.Coal_Ore) + i)})}
-		}
-	}
-	world_apply(w, {w.sequence + 1, {6, 90, 8}, .Water})
-	world_apply(w, {w.sequence + 1, {15, 90, 8}, .Lava})
+// Shader material packing reserves five bits; flowing states normalize to the
+// source material before upload. Water/lava source IDs are also the atlas layers.
+#assert(int(Block.Lava_Falling) < 32 && int(Block.Water) == 16 && int(Block.Lava) == 17)
+
+block_valid :: proc(b: Block) -> bool {return u8(b) <= u8(Block.Lava_Falling)}
+fluid_kind :: proc(b: Block) -> Block {
+	if b == .Water || (b >= .Water_1 && b <= .Water_Falling) {return .Water}
+	if b == .Lava || (b >= .Lava_1 && b <= .Lava_Falling) {return .Lava}
+	return .Air
+}
+is_fluid :: proc(b: Block) -> bool {return fluid_kind(b) != .Air}
+is_solid :: proc(b: Block) -> bool {return b != .Air && !is_fluid(b)}
+fluid_level :: proc(b: Block) -> int {
+	if b >= .Water_1 && b <= .Water_7 {return int(b) - int(Block.Water_1) + 1}
+	if b >= .Lava_1 && b <= .Lava_3 {return int(b) - int(Block.Lava_1) + 1}
+	return 0
+}
+fluid_height :: proc(b, above: Block) -> u8 {
+	if fluid_kind(above) == fluid_kind(b) || b == .Water_Falling || b == .Lava_Falling {return 8}
+	step := fluid_kind(b) == .Lava ? 2 : 1
+	return u8(max(1, 7 - fluid_level(b) * step))
 }

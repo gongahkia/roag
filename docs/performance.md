@@ -45,6 +45,10 @@ Current runs time completed frames, including buffer swaps and cap waits; an opt
 
 ## Outstanding hardware validation
 
+The ore/fluid validation snapshot records 27 passing tests and the full Linux graphical smoke suite. Its six-second fluid scene at 640×360 stays within a 16 MiB application graphics allowance and 32 MiB managed CPU budget, with 64 KiB uploads per frame. The recorded `fluids-smoke` report includes actual fluid work, queue saturation counters, memory accounting, and timings. Sources propagate and cool lava during the run, and the graphical input check places ore and water from the palette.
+
+The current player controller passes 34 tests and the expanded Linux graphical smoke suite, including floor/wall collisions, sliding, jumping and landing, rejection of body-intersecting placement, and spectator toggling through the ground. Physics uses fixed 120 Hz steps and direct world queries, with no per-frame collision allocations. macOS arm64 checking and Windows amd64 object compilation also pass; native graphical runs remain outstanding.
+
 - Establish a physical 128–256 MB GPU reference and measure total process RAM/driver VRAM externally. Application counters exclude runtime/driver overhead and deferred driver allocations.
 - Measure the Low profile at 720p against the **60 FPS target**, using warmed, repeated routes and frame-time percentiles. This target is not verified here.
 - Execute native Windows and macOS graphical runs. Native CI build/core-test jobs are configured but have not been run from this workspace. Local Linux execution and an Apple Silicon macOS compile check passed; Windows cross-checking here needs a Windows SDK.

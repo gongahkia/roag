@@ -16,7 +16,7 @@ void main() {
     vec3 tex=texture(atlas,vec3(coords,float(layer))).rgb;
     float range=immersion==1 ? 22.0 : (immersion==2 ? 5.0 : fogDistance);
     vec3 sky=immersion==1 ? vec3(0.07,0.22,0.39) : (immersion==2 ? vec3(0.60,0.13,0.015) : vec3(0.56,0.72,0.81));
-    float fog=smoothstep(range*0.3,range,distanceToCamera);
+    float fog=smoothstep(range*(immersion==0 ? 0.55 : 0.3),range,distanceToCamera);
     float alpha=material==16 ? 0.62 : 1.0;
     color=vec4(mix(tex*shade,sky,fog),alpha);
 }

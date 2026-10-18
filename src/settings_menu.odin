@@ -90,7 +90,7 @@ settings_panel :: proc(
 	if !compact {text_draw(r, l.x + 16, l.y + 39, "CHANGES APPLY IMMEDIATELY", 1)}
 	labels := [4]string{"KEYBOARD MOVEMENT", "MOUSE LOOK", "VSYNC", "FPS LIMIT"}
 	values := [4]string {
-		fmt.tprintf("%.1F BLOCKS/S", s.move_speed),
+		fmt.tprintf("WALK %.1F / FLY %.1F", s.move_speed * WALK_SPEED_SCALE, s.move_speed),
 		fmt.tprintf("%.1FX SENSITIVITY", s.mouse_sensitivity),
 		s.vsync ? "ON" : "OFF",
 		fps_limit_label(s.fps_limit),

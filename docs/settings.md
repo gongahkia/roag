@@ -1,15 +1,19 @@
 # Controls and display settings
 
-Press **Escape** or **F1** to open settings. Use the mouse buttons or Up/Down to select a row and Left/Right to adjust it. **Enter**, Escape, F1, or **Resume** returns to the game. **R** or **Reset** restores defaults. Movement, camera look, and block editing stop while the menu is open; terrain streaming continues.
+Press **Escape** or **F1** to open settings. Use the mouse buttons or Up/Down to select a row and Left/Right to adjust it. **Enter**, Escape, F1, or **Resume** returns to the game. **R** or **Reset** restores defaults. Movement, camera look, and block editing stop while the menu is open; terrain streaming and fluid simulation continue.
+
+During play the mouse is captured and the system pointer is hidden, leaving only the center crosshair. Settings and loss of window focus release the pointer; returning to play recaptures it without a camera jump. Linux X11 builds also request native cursor hiding through XFixes when available, alongside GLFW's disabled cursor mode.
 
 | Setting | Behavior |
 |---|---|
-| Keyboard movement | Flight speed from 1 to 512 blocks/second; default 14. Shift still multiplies speed by four. The existing +/- shortcuts adjust this value during play. |
+| Keyboard movement | Shows both walk and flight speeds. Default walking is 4.5 blocks/second (7.2 while sprinting); spectator flight is 14 (56 with Shift). Adjustments scale both speeds, and +/- also works during play. |
 | Mouse look | Sensitivity from 0.1× to 5×; default 1×. |
 | VSync | Requests synchronized buffer swaps and limits the software cap to the active display refresh rate when available. |
 | FPS limit | Display (default), Unlimited, or 30/60/90/120/144/165/240/360 FPS. Unlimited requires VSync off to remove the refresh cap. |
 
 Changes apply immediately and save on resume and exit to `saves/settings.cfg`, separately from world data. `--settings PATH` selects another file. `--no-save` skips settings and world reads/writes. Invalid settings fall back to defaults. Keyboard movement is already independent of frame rate; this setting adjusts travel speed, not key repeat timing.
+
+Normal play starts with **walking, gravity, and block collisions**. **WASD** moves, **Space** jumps, and **Shift** sprints. In deep water or lava, Space swims upward and Ctrl swims downward. Press **F4** to toggle **spectator/noclip**, using the previous free-flight controls: WASD, Space up, Ctrl down, and Shift for faster flight. Start with `--spectator` to select that mode on launch. The hotbar shows the active mode. Benchmarks retain free flight for reproducible camera paths. Opening settings freezes the player's motion; streaming and fluid simulation continue.
 
 The renderer checks the current video mode of the monitor covering the largest part of the window once per second. Moving to another monitor or changing its mode updates the detected refresh rate and cap. If the display reports no usable rate, the panel says **DISPLAY UNKNOWN** and does not invent a 60 Hz limit. A software limiter supplements VSync when drivers or compositors ignore the swap request. It sleeps rather than spinning, using a high-resolution waitable timer on supported Windows systems.
 

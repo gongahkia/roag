@@ -51,13 +51,18 @@ fluid_schedule :: proc(s: ^Fluid_Sim, p: I3, delay: u64 = 1) {
 fluids_notify :: proc(s: ^Fluid_Sim, w: ^World, p: I3, previous: Block = .Air) {
 	b := world_get(w, p)
 	delay: u64 = fluid_kind(b) == .Lava || fluid_kind(previous) == .Lava ? 4 : 1
-	if b == .Air || is_fluid(b) {fluid_schedule(s, p, delay)}
+	water_near := fluid_kind(b) == .Water
+	lava_near := fluid_kind(b) == .Lava || fluid_kind(previous) == .Lava
 	for n in NORMALS {
 		q := p + n
 		nb := world_get(w, q)
+		water_near = water_near || fluid_kind(nb) == .Water
+		lava_near = lava_near || fluid_kind(nb) == .Lava
 		if is_fluid(nb) {fluid_schedule(s, q, fluid_kind(nb) == .Lava ? 4 : 1)}
 		if nb == .Air && (is_fluid(b) || is_fluid(previous)) {fluid_schedule(s, q, delay)}
 	}
+	if b == .Air {delay = lava_near && !water_near ? 4 : 1}
+	if b == .Air || is_fluid(b) {fluid_schedule(s, p, delay)}
 }
 
 // Source-fed voxel flow: gravity first, then finite horizontal reach. Removing
@@ -72,11 +77,15 @@ fluid_next :: proc(w: ^World, p: I3) -> Block {
 			}
 		}
 	}
+	if fluid_kind(current) == .Water {
+		// Keep contact water until the adjacent lava reacts on its own slower
+		// tick. Fast water updates must not replace it with lava before cooling.
+		for n in NORMALS {if fluid_kind(world_get(w, p + n)) == .Lava {return current}}
+	}
 	if is_solid(current) || current == .Water || current == .Lava {return current}
 	above := world_get(w, p + I3{0, 1, 0})
 	kind := fluid_kind(above)
 	if kind != .Air {
-		if is_fluid(current) && fluid_kind(current) != kind {return .Cobblestone}
 		return kind == .Water ? .Water_Falling : .Lava_Falling
 	}
 	best_water, best_lava, water_sources := 99, 99, 0

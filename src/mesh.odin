@@ -1,7 +1,5 @@
 package sandbox
 
-import "core:time"
-
 MAX_QUADS :: 6 * CHUNK * CHUNK * CHUNK
 Vertex :: struct #packed {
 	x, y, z, data: u16,
@@ -28,12 +26,9 @@ face_equal :: proc(a, b: Face) -> bool {
 }
 
 face_mergeable :: proc(a: Face) -> bool {
-	return(
-		!is_fluid(Block(a.material)) &&
-		a.ao[0] == a.ao[1] &&
-		a.ao[0] == a.ao[2] &&
-		a.ao[0] == a.ao[3] \
-	)
+	// Height/bottom compatibility preserves steps while allowing flat pools and
+	// full-height waterfalls to use the same greedy merging as solid terrain.
+	return a.ao[0] == a.ao[1] && a.ao[0] == a.ao[2] && a.ao[0] == a.ao[3]
 }
 NORMALS := [6]I3{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}
 U_AXIS := [6]int{1, 2, 2, 0, 0, 1}
@@ -248,82 +243,4 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 	}
 	if has_water {m.water_indices = len(m.indices) - opaque_indices}
 	return m
-}
-
-Mesh_Job :: struct {
-	key:       I3,
-	revision:  u64,
-	seed:      u64,
-	edits:     [dynamic]Edit_Command,
-	naive:     bool,
-	generator: u32,
-}
-
-Mesh_Result :: struct {
-	key:                       I3,
-	revision:                  u64,
-	mesh:                      Mesh,
-	generation_ms, meshing_ms: f64,
-}
-
-build_job :: proc(job: Mesh_Job) -> Mesh_Result {
-	start := time.tick_now()
-	data := make([]u8, PAD * PAD * PAD)
-	defer delete(data)
-	// Height/tree work is shared by each vertical column.
-	for z in 0 ..< PAD {
-		for x in 0 ..< PAD {
-			wx, wz := job.key.x * 32 + i32(x) - 1, job.key.z * 32 + i32(z) - 1
-			h := terrain_height(job.seed, wx, wz)
-			trees: [9]Tree
-			ti := 0
-			for dz in -1 ..= 1 {
-				for dx in -1 ..= 1 {
-					trees[ti] = tree_at(
-						job.seed,
-						floor_div(wx, 8) + i32(dx),
-						floor_div(wz, 8) + i32(dz),
-					)
-					ti += 1
-				}
-			}
-			for y in 0 ..< PAD {
-				wy := job.key.y * 32 + i32(y) - 1
-				generator := job.generator == 0 ? u32(GENERATOR_VERSION) : job.generator
-				b := base_block(job.seed, {wx, wy, wz}, h, generator)
-				if b == .Air && wy > 0 && wy < HEIGHT {
-					for t in trees {
-						if !t.active {
-							continue
-						}
-						if wx == t.x && wz == t.z && wy > t.h && wy <= t.h + 5 {
-							b = .Wood
-							break
-						}
-						if abs(wx - t.x) <= 2 &&
-						   abs(wz - t.z) <= 2 &&
-						   wy >= t.h + 3 &&
-						   wy <= t.h + 6 &&
-						   abs(wx - t.x) + abs(wz - t.z) + abs(wy - (t.h + 4)) <= 5 {
-							b = .Leaves
-						}
-					}
-				}
-				data[block_index(x, y, z)] = u8(b)
-			}
-		}
-	}
-	for e in job.edits {
-		p := e.position - job.key * 32 + I3{1, 1, 1}
-		data[block_index(int(p.x), int(p.y), int(p.z))] = u8(e.block)
-	}
-	generated := time.tick_now()
-	mesh := mesh_build(data, !job.naive)
-	return {
-		job.key,
-		job.revision,
-		mesh,
-		time.duration_milliseconds(time.tick_diff(start, generated)),
-		time.duration_milliseconds(time.tick_since(generated)),
-	}
 }

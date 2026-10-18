@@ -53,19 +53,19 @@ hud_line :: proc(r: ^Renderer, x, y, width: f32, s: string, color: F4 = {0.83, 0
 	text_draw(r, x, y, s[:min(len(s), max_chars)], 1, color)
 }
 
-benchmark_panel :: proc(
-	r: ^Renderer,
-	s: ^Stream,
-	c: Config,
-	t: ^Telemetry,
-	pacing: ^Frame_Pacing,
-	settings: Settings,
-	fluids: ^Fluid_Sim,
-	pos: V3,
-	width, height: i32,
-	elapsed, speed: f64,
-	ortho: Mat4,
-) {
+benchmark_panel :: proc(a: ^App, ortho: Mat4) {
+	r := &a.renderer
+	s := &a.stream
+	c := a.config
+	t := &a.telemetry
+	pacing := &a.pacing
+	settings := a.settings
+	fluids := &a.fluids
+	player := &a.player
+	pos := a.position
+	width, height := a.width, a.height
+	elapsed, speed := a.elapsed, a.settings.move_speed
+
 	full := width >= 900 && height >= 520
 	panel_w := full ? 424.0 : min(344.0, max(144.0, f32(width) * 0.46))
 	panel_h := full ? 412.0 : min(244.0, f32(height) - 96)
@@ -174,7 +174,7 @@ benchmark_panel :: proc(
 		)
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
-	graphics := r.mesh_bytes + 2 * MiB + int(width) * int(height) * 16
+	graphics := graphics_reserved_bytes(r.mesh_bytes, int(width), int(height))
 	cull := r.cull_tested > 0 ? 100 * (1 - f64(r.visible_chunks) / f64(r.cull_tested)) : 0
 	profile := "TINY"; if c.profile == "low" {profile = "LOW"}; if c.profile == "standard" {profile = "STANDARD"}
 	if full {
@@ -217,10 +217,11 @@ benchmark_panel :: proc(
 				r.last_overlay_draws,
 			),
 			fmt.tprintf(
-				"TRI %d / FLUID Q %d / %.2F MS",
+				"TRI %d / FLQ %d / FL %.2F / PHYS %.2F MS",
 				r.triangles,
 				fluids.count,
 				fluids.last_ms,
+				player.last_ms,
 			),
 			fmt.tprintf("CHUNKS %d READY / %d RES / RADIUS %d", t.ready, t.resident, s.radius),
 			fmt.tprintf(
@@ -242,7 +243,13 @@ benchmark_panel :: proc(
 				f64(r.pool_bytes) / MiB,
 				r.reused_buffers,
 			),
-			fmt.tprintf("PRESSURE %d / STALE %d / OVERSIZE %d", s.pressure, s.stale, s.oversized),
+			fmt.tprintf(
+				"PRESS %d / STALE %d / OVER %d / FLUID LIMIT %d",
+				s.pressure,
+				s.stale,
+				s.oversized,
+				fluids.refused,
+			),
 			fmt.tprintf(
 				"SLOW 33MS %d / 50MS %d / WORST %.1F MS",
 				t.slow_33ms,
@@ -258,11 +265,12 @@ benchmark_panel :: proc(
 				pacing.software_renderer ? "SOFTWARE" : "GPU",
 			),
 			fmt.tprintf(
-				"XYZ %.0F %.0F %.0F / FLY %.0F / SEED %d",
+				"XYZ %.0F %.0F %.0F / %s %.1F / SEED %d",
 				pos.x,
 				pos.y,
 				pos.z,
-				speed,
+				player.spectator ? "FLY" : "WALK",
+				player.spectator ? speed : speed * WALK_SPEED_SCALE,
 				c.seed,
 			),
 		}

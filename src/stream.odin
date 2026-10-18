@@ -1,21 +1,8 @@
 package sandbox
 
-import "base:runtime"
 import "core:math"
 import "core:mem"
 import "core:sync"
-import "core:thread"
-
-Worker :: struct {
-	mutex:             sync.Mutex,
-	wake:              sync.Sema,
-	handle:            ^thread.Thread,
-	job:               Mesh_Job,
-	result:            Mesh_Result,
-	busy, ready, stop: bool,
-	upload:            GPU_Mesh,
-	uploaded:          int,
-}
 
 Chunk_State :: struct {
 	gpu:                                           GPU_Mesh,
@@ -36,27 +23,6 @@ Stream :: struct {
 	last_generation_ms, last_meshing_ms:                       f64,
 	last_upload_bytes, peak_upload_bytes:                      int,
 	tracker:                                                   ^mem.Tracking_Allocator,
-}
-
-worker_main :: proc(t: ^thread.Thread) {
-	defer runtime.default_temp_allocator_destroy(auto_cast context.temp_allocator.data)
-	w := cast(^Worker)t.data
-	for {
-		sync.sema_wait(&w.wake)
-		sync.mutex_lock(&w.mutex)
-		stop := w.stop
-		job := w.job
-		sync.mutex_unlock(&w.mutex)
-		if stop {
-			break
-		}
-		result := build_job(job)
-		delete(job.edits)
-		sync.mutex_lock(&w.mutex)
-		w.result = result
-		w.ready = true
-		sync.mutex_unlock(&w.mutex)
-	}
 }
 
 cpu_bytes :: proc(s: ^Stream) -> int {
@@ -82,32 +48,16 @@ stream_init :: proc(
 	s.tracker = tracker
 	s.center = {0x7fffffff, 0, 0}
 	for i in 0 ..< workers {
-		w := &s.workers[i]
-		w.handle = thread.create(worker_main)
-		w.handle.data = w
-		w.handle.init_context = context
-		thread.start(w.handle)
+		worker_start(&s.workers[i])
 	}
 }
 
 stream_destroy :: proc(s: ^Stream, r: ^Renderer) {
 	for i in 0 ..< s.worker_count {
-		w := &s.workers[i]
-		sync.mutex_lock(&w.mutex)
-		w.stop = true
-		sync.mutex_unlock(&w.mutex)
-		sync.sema_post(&w.wake)
+		worker_stop(&s.workers[i])
 	}
 	for i in 0 ..< s.worker_count {
-		w := &s.workers[i]
-		thread.join(w.handle)
-		thread.destroy(w.handle)
-		if w.ready {
-			mesh_destroy(&w.result.mesh)
-		} else if w.busy {
-			delete(w.job.edits)
-		}
-		mesh_release(r, &w.upload)
+		worker_join_release(&s.workers[i], r)
 	}
 	for _, c in s.chunks {
 		mesh_release(r, &c.gpu)
@@ -154,7 +104,7 @@ stream_reconcile :: proc(s: ^Stream, r: ^Renderer, pos: V3, force: bool = false)
 			for y in 0 ..< 8 {
 				k := I3{center.x + i32(x), i32(y), center.z + i32(z)}
 				if k not_in s.chunks {
-					if cpu_bytes(s) + s.worker_count * 16 * MiB + 8 * MiB > s.cpu_budget {
+					if cpu_bytes(s) + cpu_reservation(s.worker_count) > s.cpu_budget {
 						continue
 					}
 					s.next_revision += 1
@@ -333,7 +283,7 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 				busy_count += 1
 			}
 		}
-		if cpu_bytes(s) + (busy_count + 1) * 16 * MiB + 8 * MiB > s.cpu_budget {
+		if cpu_bytes(s) + cpu_reservation(busy_count + 1) > s.cpu_budget {
 			sync.mutex_unlock(&worker.mutex)
 			continue
 		}

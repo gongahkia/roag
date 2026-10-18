@@ -43,25 +43,6 @@ test_settings_roundtrip_and_validation :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_frame_caps_follow_active_display_without_guessing :: proc(t: ^testing.T) {
-	s := settings_defaults()
-	testing.expect(t, frame_target(s, 144) == 144)
-	testing.expect(t, frame_target(s, 0) == 0)
-	s.fps_limit = 240
-	testing.expect(t, frame_target(s, 60) == 60)
-	s.fps_limit = 30
-	testing.expect(t, frame_target(s, 144) == 30)
-	s.fps_limit = -1
-	testing.expect(t, frame_target(s, 165) == 165)
-	s.vsync = false
-	testing.expect(t, frame_target(s, 165) == 0)
-	s.fps_limit = 240
-	testing.expect(t, frame_target(s, 60) == 240)
-	testing.expect(t, renderer_is_software("Mesa llvmpipe (LLVM)"))
-	testing.expect(t, !renderer_is_software("Intel(R) UHD Graphics"))
-}
-
-@(test)
 test_menu_keyboard_and_mouse_at_minimum_window_size :: proc(t: ^testing.T) {
 	s := settings_defaults()
 	menu := Settings_Menu {
@@ -102,18 +83,4 @@ test_menu_keyboard_and_mouse_at_minimum_window_size :: proc(t: ^testing.T) {
 			240,
 		),
 	)
-}
-
-@(test)
-test_completed_frame_measurement_includes_pacing_and_swap :: proc(t: ^testing.T) {
-	stats: Telemetry
-	r := Renderer {
-		gpu_ms      = 0.01,
-		gpu_samples = 1,
-	}
-	// A fast GPU doesn't turn two completed 60 Hz frames into 100,000 FPS.
-	telemetry_record_frame(&stats, &r, 1000.0 / 60)
-	telemetry_record_frame(&stats, &r, 1000.0 / 60)
-	testing.expect(t, stats.frame_count == 2 && stats.frame_history.count == 2)
-	testing.expect(t, abs(frame_statistics(&stats.frame_history).fps - 60) < 0.0001)
 }

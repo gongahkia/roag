@@ -45,3 +45,17 @@ test_native_process_measurements :: proc(t: ^testing.T) {
 	testing.expect(t, sample.ram_valid && sample.rss_bytes > 0)
 	testing.expect(t, sample.peak_rss_bytes >= sample.rss_bytes)
 }
+
+@(test)
+test_completed_frame_measurement_includes_pacing_and_swap :: proc(t: ^testing.T) {
+	stats: Telemetry
+	r := Renderer {
+		gpu_ms      = 0.01,
+		gpu_samples = 1,
+	}
+	// A fast GPU doesn't turn two completed 60 Hz frames into 100,000 FPS.
+	telemetry_record_frame(&stats, &r, 1000.0 / 60)
+	telemetry_record_frame(&stats, &r, 1000.0 / 60)
+	testing.expect(t, stats.frame_count == 2 && stats.frame_history.count == 2)
+	testing.expect(t, abs(frame_statistics(&stats.frame_history).fps - 60) < 0.0001)
+}

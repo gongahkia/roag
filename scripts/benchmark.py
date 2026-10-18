@@ -68,6 +68,14 @@ def summarize(path, warmup=3.0):
         summary['software_renderer'] = bool(int(rows[-1]['software_renderer']))
         summary['mean_swap_ms'] = statistics.mean(float(row['swap_ms']) for row in steady)
         summary['mean_pacing_wait_ms'] = statistics.mean(float(row['pacing_wait_ms']) for row in steady)
+    if 'fluid_queue' in rows[0]:
+        assert all(int(row['fluid_queue']) <= 8192 and int(row['fluid_updates']) <= 128 for row in rows), 'Fluid work budget exceeded'
+        summary['peak_fluid_queue'] = max(int(row['fluid_queue']) for row in rows)
+        summary['fluid_cell_changes'] = sum(int(row['fluid_changes']) for row in rows)
+        summary['mean_fluid_ms'] = statistics.mean(float(row['fluid_ms']) for row in steady)
+        summary['max_fluid_ms'] = max(float(row['fluid_ms']) for row in rows)
+        summary['fluid_refused'] = int(rows[-1]['fluid_refused'])
+        summary['fluid_queue_overflow'] = int(rows[-1]['fluid_overflow'])
     assert any(int(row['draws']) > 0 for row in rows), 'Scene never rendered terrain'
     # The flight path repeats every 24 seconds after two seconds of warmup.
     if path.stem.startswith('flight') and summary['elapsed_seconds'] >= 50:
@@ -85,7 +93,8 @@ def summarize(path, warmup=3.0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'dense', 'fluids'), default='normal')
+    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'dense', 'fluids', 'terrain', 'sky', 'caves'), default='normal')
+    parser.add_argument('--generator', type=int, choices=(1, 2, 3))
     parser.add_argument('--seconds', type=int, default=12)
     parser.add_argument('--profile', choices=('tiny', 'low', 'standard'), default='tiny')
     parser.add_argument('--radius', type=int)
@@ -104,7 +113,7 @@ def main():
         subprocess.run(['python3' if os.name != 'nt' else 'python', 'scripts/build.py', 'build'], check=True)
     binary = ROOT / 'build' / ('voxel.exe' if os.name == 'nt' else 'voxel')
     command = [str(binary), '--hidden', '--benchmark', args.scene, '--seconds', str(args.seconds), '--profile', args.profile]
-    for flag, value in (('--radius', args.radius), ('--gpu-mb', args.gpu_mb), ('--cpu-mb', args.cpu_mb), ('--upload-kb', args.upload_kb), ('--screenshot', args.screenshot)):
+    for flag, value in (('--generator', args.generator), ('--radius', args.radius), ('--gpu-mb', args.gpu_mb), ('--cpu-mb', args.cpu_mb), ('--upload-kb', args.upload_kb), ('--screenshot', args.screenshot)):
         if value is not None:
             command += [flag, str(value)]
     if args.naive:
