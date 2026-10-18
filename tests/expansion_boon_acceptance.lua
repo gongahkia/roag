@@ -27,17 +27,29 @@ function M.run()
         assert(ok,reason)
     end
     assert(state.currency>=5 and not state.game_over,"failed to earn chest cost")
-    local chest=assert(Game.entity(state,7),"seed-50 paid chest missing")
-    assert(chest.controller=="chest" and chest.price>0
-        and chest.position.floor_id==state.active_floor_id)
+    local chest,offer_index
+    for _,candidate in ipairs(state.entities) do
+        if candidate.controller=="chest" and candidate.price>0
+            and candidate.position.floor_id==state.active_floor_id then
+            for index,offer in ipairs(candidate.offers) do
+                if offer.boon_id=="core:boon/rhythm_of_steel" then
+                    chest,offer_index=candidate,index
+                    break
+                end
+            end
+        end
+        if chest then break end
+    end
+    assert(chest and offer_index,"seed-50 rhythm chest missing")
     local ok,reason=Play.navigate(run,function(p)
         return math.abs(p.x-chest.position.x)+math.abs(p.y-chest.position.y)==1
     end,250)
     assert(ok,reason)
     local offers=assert(Game.chest_options(state,chest.id))
-    assert(offers.offers[2].boon_id=="core:boon/rhythm_of_steel")
+    assert(offers.offers[offer_index].boon_id=="core:boon/rhythm_of_steel")
     local before=state.currency
-    ok,reason=Play.action(run,{kind="claim_chest",chest_id=chest.id,offer_index=2})
+    ok,reason=Play.action(run,{kind="claim_chest",chest_id=chest.id,
+        offer_index=offer_index})
     assert(ok,reason)
     assert(chest.claimed and state.currency==before-chest.price
         and Game.player(state).boons["core:boon/rhythm_of_steel"].common==1)
@@ -60,8 +72,9 @@ function M.run()
         end
     end
     assert(movement>=1 and hit>=1,"purchased boon did not prime and hit")
-    return run,{seed=50,chest_id=chest.id,offer_index=2,
-        boon_id=offers.offers[2].boon_id,rarity=offers.offers[2].rarity,
+    return run,{seed=50,chest_id=chest.id,offer_index=offer_index,
+        boon_id=offers.offers[offer_index].boon_id,
+        rarity=offers.offers[offer_index].rarity,
         actions=#run.trace,hp=Game.player(state).hp,clock=state.clock,
         movement_activations=movement,hit_activations=hit}
 end

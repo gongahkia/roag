@@ -10,7 +10,7 @@ const embedded = id => JSON.parse(html.match(new RegExp(
   `<script id="${id}" type="application/json">([^<]+)<\\/script>`))[1]);
 const data = embedded('room-data');
 const sprites = embedded('sprite-data');
-assert.equal(data.rooms.length, 43);
+assert.equal(data.rooms.length, 148);
 assert.equal(data.proposals.families.flatMap(group => group.variants).length, 105);
 assert.equal(data.proposals.corridors.length, 5);
 for (const [name,path] of Object.entries({
@@ -83,16 +83,17 @@ const pill={dataset:{},textContent:''};
 const buttons=['approve','reject','discuss'].map(choice => ({dataset:{choice},setAttribute:noop}));
 const article={dataset:{proposalId:firstId},querySelector:() => pill,
   querySelectorAll:() => buttons};
-buttons[0].closest=selector => selector==='[data-choice]' ? buttons[0] : article;
-getElementById('proposal-families').listeners.click({target:buttons[0]});
-assert.equal(JSON.parse(storage.get('roag-room-proposal-review/1'))[firstId].vote,'approve');
+buttons[1].closest=selector => selector==='[data-choice]' ? buttons[1] : article;
+getElementById('proposal-families').listeners.click({target:buttons[1]});
+assert.equal(JSON.parse(storage.get('roag-room-proposal-review/2'))[firstId].vote,'reject');
 getElementById('proposal-families').listeners.input({target:{value:'Widen the east pocket',
   matches:() => true,closest:() => article}});
-assert.equal(JSON.parse(storage.get('roag-room-proposal-review/1'))[firstId].comment,'Widen the east pocket');
+assert.equal(JSON.parse(storage.get('roag-room-proposal-review/2'))[firstId].comment,'Widen the east pocket');
 getElementById('download-button').listeners.click();
-assert.equal(exported.decisions.length,43);
+assert.equal(exported.decisions.length,148);
 assert.equal(exported.proposals.length,20);
-assert.equal(exported.proposals.find(item => item.id===firstId).vote,'approve');
+assert.equal(exported.decisions.filter(item => item.vote==='approve').length,148);
+assert.equal(exported.proposals.find(item => item.id===firstId).vote,'reject');
 assert.equal(exported.proposals.find(item => item.id===firstId).comment,'Widen the east pocket');
 getElementById('sprite-pack').value='onebit';
 getElementById('sprite-pack').listeners.change();
@@ -102,7 +103,7 @@ getElementById('proposal-biome').listeners.change();
 assert(getElementById('proposal-families').innerHTML.includes('Fungal Hollows'));
 getElementById('existing-tab').listeners.click();
 assert.equal(getElementById('existing-section').hidden,false);
-assert.equal(canvases(getElementById('rooms').innerHTML,'canvas').length,43);
+assert.equal(canvases(getElementById('rooms').innerHTML,'canvas').length,148);
 getElementById('proposals-tab').listeners.click();
 assert.equal(getElementById('proposals-section').hidden,false);
 console.log('Room review page: data, initial proposals, biome switch, and tabs OK');

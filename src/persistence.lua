@@ -12,6 +12,8 @@ P.slots={'active-a.roag','active-b.roag'}
 P.max_bytes=32*1024*1024
 P.compatibility=table.concat({Content.version,BoonContent.version,
     Generation.room_content_version,World.version},'|')
+P.prior_room_compatibility=table.concat({Content.version,BoonContent.version,
+    'roag-rooms/2',World.version},'|')
 
 local function sorted_keys(value)
     local keys={}
@@ -143,7 +145,8 @@ local function parse_record(bytes)
 end
 local function validated(record)
     if record.format~=P.format then return false,'incompatible envelope format' end
-    if record.compatibility~=P.compatibility then
+    if record.compatibility~=P.compatibility
+        and record.compatibility~=P.prior_room_compatibility then
         return false,'incompatible content'
     end
     if record.kind=='terminal' then return true end

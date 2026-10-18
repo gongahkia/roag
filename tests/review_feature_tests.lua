@@ -30,7 +30,7 @@ return function(test,equal)
     end
 
     test('optional vault key, four outcomes and exact saved state',function()
-        for _,case in ipairs({{1,'clue'},{2,'cache'},{3,'ambush'},{9,'boon'}}) do
+        for _,case in ipairs({{7,'clue'},{1,'cache'},{2,'ambush'},{8,'boon'}}) do
             local state=Game.new_stage(case[1])
             local key=assert(feature(state,'key'))
             local vault=assert(entity(state,'review_vault'))
@@ -77,6 +77,12 @@ return function(test,equal)
             local state=Game.new_stage(seed)
             local map=state.generated_map
             local blocked={}
+            local gated_branch={}
+            for _,quest in ipairs(map.corridor_quests or {}) do
+                for _,cell in ipairs(quest.cells) do
+                    gated_branch[cell.x..','..cell.y]=true
+                end
+            end
             for _,e in ipairs(state.entities) do
                 if e.blocks_movement and e.controller:match('^review_') then
                     blocked[e.position.x..','..e.position.y]=true
@@ -113,7 +119,7 @@ return function(test,equal)
                 end
             end
             for cell in pairs(naturally_seen) do
-                assert(blocked[cell] or seen[cell],
+                assert(blocked[cell] or seen[cell] or gated_branch[cell],
                     'review objects isolated a reachable tile for seed '..seed)
             end
             local plate=feature(state,'plate')

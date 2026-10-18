@@ -139,9 +139,10 @@ function Play.navigate(run,goal,max_actions)
     return false,'navigation action limit'
 end
 
-function Play.fight(run,id,max_actions)
+function Play.fight(run,id,max_actions,stop_when)
     for _=1,max_actions do
         local state=run.state
+        if stop_when and stop_when() then return true end
         local enemy=Game.entity(state,id)
         if not enemy then return true end
         if state.game_over then return false,'dead' end
@@ -213,8 +214,14 @@ function Play.stage_one(seed,route_index,options)
     checkpoint(run,'earned_currency')
 
     local chest=assert(Play.nearest(state,function(entity)
-        return entity.controller=='chest' and not entity.claimed and entity.price>0
-    end),'no paid chest')
+        if entity.controller~='chest' or entity.claimed or entity.price<=0 then
+            return false
+        end
+        for _,offer in ipairs(entity.offers) do
+            if offer.boon_id=='core:boon/emberbrand' then return true end
+        end
+        return false
+    end),'no paid chest with Emberbrand')
     local ok,reason=Play.navigate(run,function(p)
         return cardinal(p,chest.position)
     end,200)
@@ -228,9 +235,13 @@ function Play.stage_one(seed,route_index,options)
         assert(options.offers[i].boon_id==reopened.offers[i].boon_id and
             options.offers[i].rarity==reopened.offers[i].rarity)
     end
-    -- Seed 3's reachable chest now offers Emberbrand in the expanded catalogue.
-    assert(options.offers[1].boon_id=='core:boon/emberbrand')
-    ok,reason=Play.action(run,{kind='claim_chest',chest_id=chest.id,offer_index=1})
+    local emberbrand_index
+    for index,offer in ipairs(options.offers) do
+        if offer.boon_id=='core:boon/emberbrand' then emberbrand_index=index end
+    end
+    assert(emberbrand_index,'selected chest lost Emberbrand')
+    ok,reason=Play.action(run,{kind='claim_chest',chest_id=chest.id,
+        offer_index=emberbrand_index})
     assert(ok,reason)
     assert(chest.claimed and state.currency==before_currency-chest.price)
     checkpoint(run,'paid_chest_claimed')

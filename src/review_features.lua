@@ -114,6 +114,43 @@ local function add_feature(state,map,kind,p,extra)
     return f
 end
 
+local function advance_quest(state,quest_id,emit)
+    local clue,key,plate,braziers,reward=nil,nil,nil,{},nil
+    for _,f in ipairs(state.review_features) do
+        if f.quest_id==quest_id then
+            if f.kind=='quest_clue' then clue=f
+            elseif f.kind=='quest_key' then key=f
+            elseif f.kind=='quest_plate' then plate=f
+            elseif f.kind=='quest_brazier' then braziers[#braziers+1]=f
+            elseif f.kind=='quest_reward' then reward=f end
+        end
+    end
+    if not reward then return end
+    local kind=reward.quest_kind
+    local opened=kind=='spur' and clue and clue.discovered
+        or kind=='braid' and key and key.collected
+        or kind=='switchback' and plate and plate.activated
+        or kind=='hub' and #braziers==2 and braziers[1].lit and braziers[2].lit
+        or kind=='false_end' and clue and clue.discovered
+    if opened then
+        for _,e in ipairs(state.entities) do
+            if e.controller=='review_gate' and e.quest_id==quest_id
+                and not e.open then
+                e.open=true;e.blocks_movement=false
+                e.blocks_vision=false;e.blocks_projectiles=false
+                emit('SidequestGateOpened',{floor_id=e.position.floor_id,
+                    x=e.position.x,y=e.position.y,quest_kind=kind},state.player_id)
+            end
+        end
+    end
+    local ready=opened and (kind~='false_end' or reward.enemy_defeated)
+    if ready and not reward.unlocked then
+        reward.unlocked=true
+        emit('SidequestRewardReady',{floor_id=reward.floor_id,
+            x=reward.x,y=reward.y,quest_kind=kind},state.player_id)
+    end
+end
+
 function F.populate(state,map)
     if not map or not map.rooms or #map.rooms==0 then return end
     local taken,blocking={},{}
@@ -180,7 +217,10 @@ function F.populate(state,map)
         return p.kind=='room' and open_neighbors(map,p.x,p.y)==4
             and route_clear(map,p.x,p.y,blocking,true)
     end)
-    if pillar then add_entity(state,map,'pillar',pillar) end
+    if pillar then
+        add_entity(state,map,'pillar',pillar)
+        blocking[key(pillar.x,pillar.y)]=true
+    end
     local ore=choose('ore',function(p)return p.kind=='room' end)
     if ore then add_feature(state,map,'ore',ore,{broken=false}) end
     local brazier=choose('brazier',function(p)return p.kind=='room' end)
@@ -203,6 +243,69 @@ function F.populate(state,map)
         for i=1,2 do
             local p=choose('mine_rail'..i,function(q)return q.kind=='corridor' end)
             if p then add_feature(state,map,'mine_rail',p,{variant=i}) end
+        end
+    end
+    -- Reviewed rooms author safe candidate slots; a run uses a seed-stable
+    -- subset. Blocking pillars are checked against the full traversable map.
+    for _,room in ipairs(map.rooms) do
+        for index,p in ipairs(room.structures or {}) do
+            local roll=RNG.derive(state.run_seed,map.floor_id..':structure:'..
+                room.id..':'..index)%100
+            if roll<42 and safe(state,map,p.x,p.y,taken) then
+                if p.kind~='pillar' or route_clear(map,p.x,p.y,blocking,true) then
+                    taken[key(p.x,p.y)]=true
+                    if p.kind=='pillar' then
+                        add_entity(state,map,'pillar',p)
+                        blocking[key(p.x,p.y)]=true
+                    elseif p.kind=='ward' then
+                        add_feature(state,map,'ward',p,{collected=false})
+                    elseif p.kind=='brazier' then
+                        add_feature(state,map,'brazier',p,{lit_until=0})
+                    elseif p.kind=='mushroom' then
+                        add_feature(state,map,'mushroom',p,{variant=index%2+1})
+                    elseif p.kind=='crystal' then
+                        add_feature(state,map,'crystal',p,{variant=1})
+                    end
+                end
+            end
+        end
+    end
+    for _,quest in ipairs(map.corridor_quests or {}) do
+        local reward
+        local enemy_node
+        for _,node in ipairs(quest.nodes) do
+            if node.kind=='gate' then
+                add_entity(state,map,'gate',node,{open=false,closes_at=nil,
+                    quest_id=quest.id,art_variant=quest.kind=='false_end'
+                        and 'hidden' or 'tiny'})
+            elseif node.kind=='clue' then
+                add_feature(state,map,'quest_clue',node,
+                    {quest_id=quest.id,discovered=false})
+            elseif node.kind=='key' then
+                add_feature(state,map,'quest_key',node,
+                    {quest_id=quest.id,collected=false})
+            elseif node.kind=='plate' then
+                add_feature(state,map,'quest_plate',node,
+                    {quest_id=quest.id,activated=false})
+            elseif node.kind=='brazier' then
+                add_feature(state,map,'quest_brazier',node,
+                    {quest_id=quest.id,lit=false})
+            elseif node.kind=='reward' then
+                reward=add_feature(state,map,'quest_reward',node,
+                    {quest_id=quest.id,quest_kind=quest.kind,
+                        unlocked=false,collected=false,
+                        enemy_defeated=quest.kind~='false_end'})
+            elseif node.kind=='enemy' then enemy_node=node end
+        end
+        if reward and enemy_node then
+            for _,e in ipairs(state.entities) do
+                if e.controller=='ai' and e.position.floor_id==map.floor_id
+                    and e.position.x==enemy_node.x
+                    and e.position.y==enemy_node.y then
+                    reward.target_id=e.id;break
+                end
+            end
+            if not reward.target_id then reward.enemy_defeated=true end
         end
     end
 end
@@ -256,6 +359,49 @@ function F.on_event(state,event,emit,spawn_currency)
                         break
                     end
                 end
+            elseif f.quest_id and event.kind=='TileEntered'
+                and event.source_id==state.player_id
+                and f.x==event.x and f.y==event.y then
+                local changed=false
+                if f.kind=='quest_clue' and not f.discovered then
+                    f.discovered=true;changed=true
+                    emit('SidequestClueFound',{floor_id=floor,
+                        x=f.x,y=f.y,quest_id=f.quest_id},state.player_id)
+                elseif f.kind=='quest_key' and not f.collected then
+                    f.collected=true;changed=true
+                    emit('SidequestKeyFound',{floor_id=floor,
+                        x=f.x,y=f.y,quest_id=f.quest_id},state.player_id)
+                elseif f.kind=='quest_plate' and not f.activated then
+                    f.activated=true;changed=true
+                    emit('SidequestPlatePressed',{floor_id=floor,
+                        x=f.x,y=f.y,quest_id=f.quest_id},state.player_id)
+                elseif f.kind=='quest_brazier' and not f.lit then
+                    f.lit=true;changed=true
+                    emit('SidequestBrazierLit',{floor_id=floor,
+                        x=f.x,y=f.y,quest_id=f.quest_id},state.player_id)
+                elseif f.kind=='quest_reward' and f.unlocked
+                    and not f.collected then
+                    f.collected=true
+                    local amount=5
+                    local old=state.currency
+                    state.currency=old+amount
+                    emit('SidequestCompleted',{floor_id=floor,x=f.x,y=f.y,
+                        quest_id=f.quest_id,quest_kind=f.quest_kind,
+                        amount=amount},state.player_id)
+                    emit('CurrencyCollected',{floor_id=floor,x=f.x,y=f.y,
+                        amount=amount,old_currency=old,
+                        new_currency=state.currency},state.player_id)
+                end
+                if changed then advance_quest(state,f.quest_id,emit) end
+            end
+        end
+    end
+    if event.kind=='EntityKilled' then
+        for _,f in ipairs(state.review_features or {}) do
+            if f.kind=='quest_reward' and f.target_id==event.target_id
+                and not f.enemy_defeated then
+                f.enemy_defeated=true
+                advance_quest(state,f.quest_id,emit)
             end
         end
     end
@@ -288,7 +434,9 @@ function F.validate(state,maps)
         type(state.review_keys)=='table' and type(state.review_clues)=='table' and
         type(state.class_special)=='table','invalid review state')
     local feature_kinds={key=true,ward=true,ore=true,brazier=true,plate=true,
-        mushroom=true,overgrowth=true,mine_rail=true}
+        mushroom=true,overgrowth=true,mine_rail=true,crystal=true,
+        quest_clue=true,quest_key=true,quest_plate=true,
+        quest_brazier=true,quest_reward=true}
     local seen,keys,plates={}, {}, {}
     local function position(floor_id,x,y)
         local map=maps[floor_id]
@@ -301,7 +449,36 @@ function F.validate(state,maps)
             and type(f.id)=='string' and not seen[f.id],'invalid review feature')
         seen[f.id]=true
         position(f.floor_id,f.x,f.y)
-        if f.kind=='key' then
+        if f.quest_id then
+            local map=maps[f.floor_id]
+            local matched=false
+            for _,quest in ipairs(map.corridor_quests or {}) do
+                if quest.id==f.quest_id then
+                    for _,node in ipairs(quest.nodes) do
+                        local expected='quest_'..node.kind
+                        if node.kind=='reward' then expected='quest_reward' end
+                        if node.x==f.x and node.y==f.y and
+                            f.kind==expected then matched=true end
+                    end
+                end
+            end
+            assert(matched,'quest feature lacks matching corridor node')
+            if f.kind=='quest_clue' then
+                assert(type(f.discovered)=='boolean','invalid quest clue')
+            elseif f.kind=='quest_key' then
+                assert(type(f.collected)=='boolean','invalid quest key')
+            elseif f.kind=='quest_plate' then
+                assert(type(f.activated)=='boolean','invalid quest plate')
+            elseif f.kind=='quest_brazier' then
+                assert(type(f.lit)=='boolean','invalid quest brazier')
+            elseif f.kind=='quest_reward' then
+                assert(type(f.unlocked)=='boolean' and
+                    type(f.collected)=='boolean' and
+                    type(f.enemy_defeated)=='boolean' and
+                    not (f.collected and not f.unlocked),
+                    'invalid quest reward')
+            end
+        elseif f.kind=='key' then
             assert(type(f.collected)=='boolean','invalid vault key state')
             keys[f.floor_id]=(keys[f.floor_id] or 0)+1
         elseif f.kind=='ward' then
@@ -335,7 +512,19 @@ function F.validate(state,maps)
     end
     for _,e in ipairs(state.entities) do
         if e.controller=='review_gate' then
-            assert(plates[e.id]==1,'gate without one plate')
+            if e.quest_id then
+                local map=maps[e.position.floor_id]
+                local matched=false
+                for _,quest in ipairs(map.corridor_quests or {}) do
+                    if quest.id==e.quest_id then
+                        for _,node in ipairs(quest.nodes) do
+                            if node.kind=='gate' and node.x==e.position.x
+                                and node.y==e.position.y then matched=true end
+                        end
+                    end
+                end
+                assert(matched,'quest gate lacks matching corridor node')
+            else assert(plates[e.id]==1,'gate without one plate') end
         elseif e.controller=='review_vault' then
             assert(keys[e.position.floor_id]==1,'vault without key')
         end

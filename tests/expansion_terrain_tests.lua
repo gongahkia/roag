@@ -163,7 +163,18 @@ return function(test,equal)
     end)
 
     test("pre-terrain connected-floor snapshots remain loadable as stored maps",function()
-        local snapshot=Game.snapshot(Game.new_stage(29,{multifloor=true}))
+        -- Build this compatibility fixture from the earlier six room families.
+        -- Current expanded rooms author mechanical tiles in protected cells,
+        -- so stripping those tiles from a current map would corrupt it.
+        local Rooms=require('src.rooms')
+        local order=Rooms.order
+        Rooms.order={}
+        for index=1,6 do Rooms.order[index]=order[index] end
+        local ok,state=pcall(Game.new_stage,29,{multifloor=true})
+        Rooms.order=order
+        assert(ok,state)
+        local snapshot=Game.snapshot(state)
+        snapshot.room_content_version='roag-rooms/2'
         local maps={snapshot.generated_map}
         for _,map in pairs(snapshot.inactive_floor_maps) do maps[#maps+1]=map end
         for _,map in ipairs(maps) do

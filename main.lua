@@ -966,6 +966,18 @@ local function submit(intent)
                 notice="Beacon lit: nearby mist cleared for 300 time"
             elseif event.kind=="OreBroken" then
                 notice="Ore broken: currency released"
+            elseif event.kind=='SidequestClueFound' then
+                notice='Hidden passage clue found'
+            elseif event.kind=='SidequestKeyFound' then
+                notice='Side passage key found'
+            elseif event.kind=='SidequestPlatePressed' then
+                notice='Side passage opened'
+            elseif event.kind=='SidequestBrazierLit' then
+                notice='Side brazier lit'
+            elseif event.kind=='SidequestRewardReady' then
+                notice='Sidequest reward is ready'
+            elseif event.kind=='SidequestCompleted' then
+                notice='Sidequest complete: +'..tostring(event.amount)..' gold'
             elseif event.kind=="RingReversalPrimed" then
                 notice="Reversal primed: strike the escaped attacker"
             end
@@ -1627,9 +1639,19 @@ local function draw_rewards()
                 sprite=(tiny and 'plate_tiny_' or 'plate_')..(gate and gate.open and 'down' or 'up')
             elseif kind=='mushroom' or kind=='overgrowth' then
                 sprite=kind..'_'..(feature.variant or 1)
+            elseif kind=='crystal' then
+                sprite='ore'
+            elseif kind=='quest_clue' and not feature.discovered then
+                sprite='secret_clue'
+            elseif kind=='quest_key' and not feature.collected then
+                sprite='key'
+            elseif kind=='quest_plate' then
+                sprite=feature.activated and 'plate_down' or 'plate_up'
+            elseif kind=='quest_brazier' then
+                sprite=feature.lit and 'brazier_lit' or 'brazier_unlit'
             end
             if sprite and not review_sprite(sprite,x,y) then
-                if kind=='key' then
+                if kind=='key' or kind=='quest_key' then
                     love.graphics.setColor(.97,.84,.43)
                     love.graphics.circle('line',x+14,y+17,6)
                     love.graphics.line(x+20,y+17,x+31,y+17,x+31,y+23)
@@ -1638,10 +1660,10 @@ local function draw_rewards()
                         feature.broken and .34 or .69,.42)
                     love.graphics.polygon('fill',x+8,y+30,x+13,y+12,
                         x+25,y+8,x+33,y+27)
-                elseif kind=='brazier' then
+                elseif kind=='brazier' or kind=='quest_brazier' then
                     love.graphics.setColor(.79,.57,.32)
                     love.graphics.rectangle('line',x+10,y+20,20,13)
-                    if (feature.lit_until or 0)>state.clock then
+                    if feature.lit or (feature.lit_until or 0)>state.clock then
                         love.graphics.setColor(1,.67,.28)
                         love.graphics.circle('fill',x+20,y+17,7)
                     end
@@ -1649,7 +1671,7 @@ local function draw_rewards()
                     love.graphics.setColor(.55,.78,.99)
                     love.graphics.polygon('line',x+20,y+6,x+31,y+13,
                         x+27,y+29,x+20,y+34,x+13,y+29,x+9,y+13)
-                elseif kind=='plate' then
+                elseif kind=='plate' or kind=='quest_plate' then
                     love.graphics.setColor(.63,.68,.64)
                     love.graphics.rectangle('line',x+7,y+13,26,15)
                 else
@@ -1657,6 +1679,15 @@ local function draw_rewards()
                         kind=='overgrowth' and .67 or .62,.37)
                     love.graphics.circle('fill',x+20,y+19,10)
                     love.graphics.rectangle('fill',x+18,y+19,4,13)
+                end
+            end
+            if kind=='quest_reward' and not feature.collected then
+                local chest=bound_visual('core:chest/standard')
+                if not draw_visual(chest,x,y,TILE,TILE,
+                    feature.unlocked and 1 or .57) then
+                    love.graphics.setColor(feature.unlocked and .95 or .48,
+                        feature.unlocked and .77 or .48,.35)
+                    love.graphics.rectangle('line',x+7,y+10,TILE-14,TILE-18)
                 end
             end
             if kind=='mine_rail' then
@@ -1739,7 +1770,9 @@ local function draw_rewards()
                 local tiny=entity.art_variant=='tiny' and not onebit
                 local drawn
                 if not entity.open then
-                    if tiny then drawn=review_sprite('gate_tiny',x,y)
+                    if entity.art_variant=='hidden' then
+                        drawn=review_sprite('secret_clue',x,y)
+                    elseif tiny then drawn=review_sprite('gate_tiny',x,y)
                     else
                         drawn=review_sprite('gate_bottom',x,y)
                         if not onebit then review_sprite('gate_top',x,y-TILE) end
@@ -1752,8 +1785,10 @@ local function draw_rewards()
                 if entity.open then
                     love.graphics.setColor(.35,.95,.71,.84)
                     love.graphics.rectangle('line',x+4,y+4,TILE-8,TILE-8)
-                    local remaining=math.max(0,math.ceil(((entity.closes_at or state.clock)-state.clock)/100))
-                    love.graphics.print(tostring(remaining),x+TILE-13,y+2)
+                    if entity.closes_at then
+                        local remaining=math.max(0,math.ceil((entity.closes_at-state.clock)/100))
+                        love.graphics.print(tostring(remaining),x+TILE-13,y+2)
+                    end
                 end
             end
         end

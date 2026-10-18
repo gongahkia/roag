@@ -39,13 +39,14 @@ local function ranged_direction(state,at,target)
     end
     return dx,dy
 end
-local function fight_target(run,id,max_actions)
+local function fight_target(run,id,max_actions,stop_when)
     local state=run.state
     local class=Game.player(state).definition_id
     if class~=Classes.order[3] and class~=Classes.order[6] then
-        return Play.fight(run,id,max_actions)
+        return Play.fight(run,id,max_actions,stop_when)
     end
     for _=1,max_actions do
+        if stop_when and stop_when() then return true end
         local enemy=Game.entity(state,id)
         if not enemy then return true end
         if state.game_over then return false,'dead' end
@@ -132,23 +133,62 @@ local function buy_nearest(run,max_actions)
 end
 local function earn_for_chest(run,max_kills)
     local state=run.state
+    local function collect_drops()
+        for _=1,16 do
+            if state.currency>=5 then return true end
+            local player=Game.player(state).position
+            local nearest,score
+            for _,drop in ipairs(state.drops) do
+                if drop.kind=='currency' and not drop.collected and
+                    drop.position.floor_id==state.active_floor_id then
+                    local distance=math.abs(player.x-drop.position.x)
+                        +math.abs(player.y-drop.position.y)
+                    if not nearest or distance<score then
+                        nearest,score=drop,distance
+                    end
+                end
+            end
+            if not nearest then return true end
+            local x,y=nearest.position.x,nearest.position.y
+            if score==0 then
+                local moved=false
+                for _,d in ipairs(dirs) do
+                    local preview=Game.preview(state,'move',d[1],d[2])
+                    if preview.valid and preview.distance==1 then
+                        local ok=Play.action(run,{kind='move',dx=d[1],dy=d[2]})
+                        if ok then moved=true;break end
+                    end
+                end
+                if not moved then return false,'cannot step off currency' end
+            end
+            local ok,why=Play.navigate(run,function(p)
+                return p.x==x and p.y==y
+            end,200)
+            if not ok then return false,why end
+        end
+        return state.currency>=5,state.currency>=5 and nil or
+            'currency pickup limit'
+    end
     for _=1,max_kills do
+        local collected,reason=collect_drops()
+        if not collected then return false,reason end
         if state.currency>=5 then return true end
         local enemy=nearest_enemy(state)
         if not enemy then return false,'no living ordinary enemy' end
-        local x,y,id=enemy.position.x,enemy.position.y,enemy.id
-        local ok,why=fight_target(run,id,180)
-        if not ok then return false,why end
-        ok,why=Play.navigate(run,function(p)return p.x==x and p.y==y end,200)
+        local ok,why=fight_target(run,enemy.id,180,function()
+            return state.currency>=5
+        end)
         if not ok then return false,why end
     end
+    local collected,reason=collect_drops()
+    if not collected then return false,reason end
     return state.currency>=5,state.currency>=5 and nil or 'no currency after kills'
 end
 local function handle_upper(run)
     local state=run.state
     if state.active_floor_index~=1 then return true end
     if state.stage.index==1 and #run.purchases==0 then
-        local earned,why=earn_for_chest(run,4)
+        local earned,why=earn_for_chest(run,8)
         if not earned then return false,'early economy: '..tostring(why) end
         local bought,because=buy_nearest(run,300)
         if not bought then return false,'first purchase: '..tostring(because) end
@@ -165,7 +205,7 @@ local function handle_lower(run)
     local ok,why=Play.navigate(run,function(p)
         return ranged_direction(state,p,elite.position)~=nil or
             adjacent(p,elite.position)
-    end,650)
+    end,1500)
     if not ok then return false,'elite approach: '..tostring(why) end
     ok,why=fight_target(run,elite.id,300)
     if not ok then return false,'elite combat: '..tostring(why) end

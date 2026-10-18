@@ -1,7 +1,7 @@
-"""Deterministic, review-only room and corridor proposals.
+"""Deterministic authored room families and corridor design records.
 
-These records are deliberately kept out of src/rooms.lua and live generation
-until the grouped review decisions have been considered.
+The 105 room definitions are compiled to src/room_expansion.lua. Corridor
+concepts are implemented by src/corridor_branches.lua and review_features.lua.
 """
 
 from collections import deque
@@ -124,11 +124,27 @@ def make_blueprint(family, width, height, variant):
         for index, y in enumerate((4, 7, 10, 13)):
             horizontal(y, 2, width - 1, (3 if index % 2 == 0 else width - 2,))
     elif family == "broken_cloister":
-        horizontal(4, 5, width - 4, (cx - 3, cx + 3))
-        horizontal(height - 3, 5, width - 4, (cx - 3, cx + 3))
-        vertical(5, 4, height - 3, (cy - 2, cy + 2))
-        vertical(width - 4, 4, height - 3, (cy - 2, cy + 2))
-        for x, y in ((3, 3), (width - 2, 3), (3, height - 2), (width - 2, height - 2)):
+        # The joined wall ring forces a trip around its outside to reach the
+        # one permanent north entrance. Breakable gates offer shorter exits.
+        left, right, top, bottom = 5, width - 4, 4, height - 3
+        for x in range(left, right + 1):
+            grid[top - 1][x - 1] = "#"
+            grid[bottom - 1][x - 1] = "#"
+        for y in range(top, bottom + 1):
+            grid[y - 1][left - 1] = "#"
+            grid[y - 1][right - 1] = "#"
+        grid[top - 1][cx - 1] = "."
+        for x, y in ((left, cy), (right, cy), (cx, bottom),
+                     (cx - 4, top), (cx + 4, top)):
+            grid[y - 1][x - 1] = "B"
+        # Biome variation may reshape the surrounding floor, but must never
+        # punch an unplanned opening through the joined cloister ring.
+        protected.update((x, top) for x in range(left, right + 1))
+        protected.update((x, bottom) for x in range(left, right + 1))
+        protected.update((left, y) for y in range(top, bottom + 1))
+        protected.update((right, y) for y in range(top, bottom + 1))
+        for x, y in ((3, 3), (width - 2, 3),
+                     (3, height - 2), (width - 2, height - 2)):
             wall(x, y)
     elif family == "crossroads":
         for x in (3, width - 3):
@@ -468,4 +484,4 @@ def build_proposals(existing_rooms):
                              roles=list(roles), intent=intent, variants=variants))
     assert len(families) == 15 and sum(len(group["variants"]) for group in families) == 105
     return dict(families=families, corridors=corridor_concepts(biomes),
-                status="review-only; not in live generation")
+                status="approved and implemented in live generation")

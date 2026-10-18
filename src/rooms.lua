@@ -3,7 +3,7 @@ local Content = require("src.content")
 local Biomes = require("src.biomes")
 local Terrain = require("src.terrain")
 local Rooms = {}
-Rooms.version = "roag-rooms/2"
+Rooms.version = "roag-rooms/3"
 Rooms.biome = {id="core:biome/overgrown_ruins", floor_id="core:floor/overgrown_ruins",
     width=140,height=90,room_min=8,room_max=12,standard_chests=5,
     retry_limit=2,
@@ -222,6 +222,16 @@ for index=2,#Biomes.order do
     end
 end
 
+local Expansion=require("src.room_expansion")
+for _,base_id in ipairs(Expansion.order) do
+    assert(not Rooms.definitions[base_id],"duplicate expanded room")
+    Rooms.order[#Rooms.order+1]=base_id
+end
+for id,definition in pairs(Expansion.definitions) do
+    assert(not Rooms.definitions[id],"duplicate expanded room: "..id)
+    Rooms.definitions[id]=definition
+end
+
 local facings = {N=true,E=true,S=true,W=true}
 local marker_kinds = {player=true,enemy=true,chest=true,landmark=true,
     elite=true,secret_anchor=true,secret_wall=true,stair=true}
@@ -373,6 +383,17 @@ function Rooms.validate(definitions, order, biome)
                 "editable mask violates protected geometry: " .. id)
             editable_seen[point_key(p.x,p.y)]=true
         end
+        local structure_seen={}
+        for _,p in ipairs(def.structures or {}) do
+            local k=point_key(p.x,p.y)
+            assert(type(p.kind)=="string" and
+                ({ward=true,mushroom=true,pillar=true,brazier=true,crystal=true})[p.kind]
+                and p.x>1 and p.x<w and p.y>1 and p.y<h
+                and def.rows[p.y]:sub(p.x,p.x)=="."
+                and not reserved[k] and not editable_seen[k]
+                and not structure_seen[k],"invalid optional structure: "..id)
+            structure_seen[k]=true
+        end
     end
     return true
 end
@@ -426,6 +447,11 @@ function Rooms.transform(def, turns, mirror)
         local x,y=transform_point(p.x,p.y)
         editable[#editable+1]={x=x,y=y}
     end
+    local structures={}
+    for _,p in ipairs(def.structures or {}) do
+        local x,y=transform_point(p.x,p.y)
+        structures[#structures+1]={x=x,y=y,kind=p.kind}
+    end
     local studio_protected={}
     for _,p in ipairs(def.studio_protected or {}) do
         local x,y=transform_point(p.x,p.y)
@@ -439,6 +465,7 @@ function Rooms.transform(def, turns, mirror)
     end
     return {id=def.id,roles=def.roles,width=out_w,height=out_h,rows=rows,
         sockets=sockets_out,markers=markers,editable=editable,
+        structures=structures,
         turns=turns,mirror=mirror,protected_default=true,
         studio_visual_cells=studio_visual_cells,studio_protected=studio_protected}
 end

@@ -1607,7 +1607,8 @@ function Game.restore(snapshot)
         local biome=Biomes.get(map.biome_id or Biomes.order[1])
         assert(biome and snapshot.map_id==biome.map_id and snapshot.run_seed==map.seed,
             "generated floor identity mismatch")
-        assert(snapshot.room_content_version==Generation.room_content_version,
+        assert(snapshot.room_content_version==Generation.room_content_version
+            or snapshot.room_content_version=='roag-rooms/2',
             "incompatible room content version")
         if snapshot.floor_order then
             assert(type(snapshot.floor_order)=="table" and #snapshot.floor_order==2

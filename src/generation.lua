@@ -7,6 +7,7 @@ local Biomes = require("src.biomes")
 local World = require("src.world")
 local StudioWorld = require("src.studio_world")
 local Terrain = require("src.terrain")
+local CorridorBranches=require("src.corridor_branches")
 
 local Generation = {}
 Generation.map_id = "core:map/overgrown_ruins"
@@ -215,9 +216,13 @@ local function stamp_room(map, terrain, art, footprint, rng, node, transformed,b
     local room={id=node.id,slot=node.id,role=node.role,template_id=transformed.id,
         turns=transformed.turns,mirror=transformed.mirror,
         x=ox,y=oy,width=transformed.width,height=transformed.height,
-        center={x=cx,y=cy},sockets={},markers={}}
+        center={x=cx,y=cy},sockets={},markers={},structures={}}
     for kind,points in pairs(transformed.markers) do
         room.markers[kind]=world_points(points,ox,oy)
+    end
+    for _,p in ipairs(transformed.structures or {}) do
+        room.structures[#room.structures+1]={x=ox+p.x-1,y=oy+p.y-1,
+            kind=p.kind}
     end
     for _,s in ipairs(transformed.sockets) do
         room.sockets[#room.sockets+1]={x=ox+s.x-1,y=oy+s.y-1,
@@ -335,6 +340,10 @@ end
 local function assign_placements(map,biome)
     local chest_target=map.layout and map.layout.chest_target or Generation.chest_target
     local occupied={}
+    local quest_cells={}
+    for _,quest in ipairs(map.corridor_quests or {}) do
+        for _,p in ipairs(quest.cells) do quest_cells[key(p.x,p.y)]=true end
+    end
     local chests={}
     for _,room in ipairs(map.rooms) do
         if room.role~="start" and room.role~="elite" then
@@ -374,7 +383,7 @@ local function assign_placements(map,biome)
     for _,corridor in ipairs(map.corridors) do
         if corridor.length>=24 and #corridor.alcoves>0 and corridor_encounters<2 then
             local p=corridor.alcoves[math.floor((#corridor.alcoves+1)/2)]
-            if not occupied[key(p.x,p.y)]
+            if not occupied[key(p.x,p.y)] and not quest_cells[key(p.x,p.y)]
                 and math.abs(p.x-map.start_x)+math.abs(p.y-map.start_y)>=8 then
                 count=count+1
                 corridor_encounters=corridor_encounters+1
@@ -383,6 +392,22 @@ local function assign_placements(map,biome)
                     definition_id=enemy_types[(count-1)%3+1],x=p.x,y=p.y,
                     corridor_id=corridor.edge_id}
                 occupied[key(p.x,p.y)]=true
+            end
+        end
+    end
+    for _,quest in ipairs(map.corridor_quests or {}) do
+        if quest.kind=='false_end' then
+            for _,node in ipairs(quest.nodes) do
+                if node.kind=='enemy' and not occupied[key(node.x,node.y)]
+                    and math.abs(node.x-map.start_x)
+                        +math.abs(node.y-map.start_y)>=5 then
+                    count=count+1
+                    map.placements.enemies[#map.placements.enemies+1]={
+                        id='quest_enemy:'..quest.id,
+                        definition_id=enemy_types[(count-1)%3+1],
+                        x=node.x,y=node.y,corridor_id=quest.edge_id}
+                    occupied[key(node.x,node.y)]=true
+                end
             end
         end
     end
@@ -716,6 +741,7 @@ local function build(seed,attempt,derived_seed,biome,pack,options)
         map.stair_anchor=marker and {x=marker.x,y=marker.y,
             room_id=stair_room.id,template_id=stair_room.template_id} or nil
     end
+    CorridorBranches.attach(map,terrain,art,footprint,rng,biome)
     assign_placements(map,biome)
     place_exploration(map,terrain,art,footprint,seed,attempt)
     map.rows=serialize_grid(terrain)
@@ -972,6 +998,55 @@ function Generation.validate(map,runtime_secrets)
             issue("socket_blocked",a.x,a.y,corridor.edge_id)
         end
     end
+    if map.corridor_quests then
+        if type(map.corridor_quests)~='table' or #map.corridor_quests>1 then
+            issue('corridor_quest_count',0,0,'at most one branch quest per floor')
+        else
+            local kinds={spur=true,braid=true,switchback=true,hub=true,
+                false_end=true}
+            local required={
+                spur={clue=1,reward=1},
+                braid={key=1,gate=1,reward=1},
+                switchback={plate=1,gate=1,reward=1},
+                hub={brazier=2,reward=1},
+                false_end={clue=1,gate=1,enemy=1,reward=1},
+            }
+            for _,quest in ipairs(map.corridor_quests) do
+                if not kinds[quest.kind] or not edge_seen[quest.edge_id]
+                    or type(quest.nodes)~='table' or type(quest.cells)~='table'
+                    or #quest.cells<3 then
+                    issue('corridor_quest_invalid',0,0,quest.id)
+                else
+                    local branch={}
+                    for _,p in ipairs(quest.cells) do
+                        branch[key(p.x,p.y)]=true
+                        if not walkable(map,p.x,p.y)
+                            or footprints[key(p.x,p.y)] then
+                            issue('corridor_quest_blocked',p.x,p.y,quest.id)
+                        end
+                    end
+                    local counts={}
+                    for _,p in ipairs(quest.nodes) do
+                        counts[p.kind]=(counts[p.kind] or 0)+1
+                        if not branch[key(p.x,p.y)] or
+                            not walkable(map,p.x,p.y) then
+                            issue('corridor_quest_node',p.x,p.y,quest.id)
+                        end
+                    end
+                    for kind,count in pairs(required[quest.kind]) do
+                        if counts[kind]~=count then
+                            issue('corridor_quest_node_count',0,0,quest.id..':'..kind)
+                        end
+                    end
+                    for kind in pairs(counts) do
+                        if not required[quest.kind][kind] then
+                            issue('corridor_quest_node_kind',0,0,quest.id..':'..kind)
+                        end
+                    end
+                end
+            end
+        end
+    end
     local blockers={}
     local placement_ids={}
     local used={}
@@ -995,6 +1070,13 @@ function Generation.validate(map,runtime_secrets)
         issue("chest_count",0,0,"wrong paid chest count")
     end
     local seen=reachable(map,blockers)
+    for _,quest in ipairs(map.corridor_quests or {}) do
+        for _,p in ipairs(quest.cells) do
+            if not seen[key(p.x,p.y)] then
+                issue('corridor_quest_unreachable',p.x,p.y,quest.id)
+            end
+        end
+    end
     if not seen[key(map.elite.x,map.elite.y)] then
         issue("elite_unreachable",map.elite.x,map.elite.y,"no cardinal route")
     end

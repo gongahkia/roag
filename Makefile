@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-review room-review test gui gui-game gui-expansion
+.PHONY: help game kenney onebit spectator sprite-audit sprite-review room-review room-expansion test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -21,6 +21,7 @@ help:
 	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
 	 'make sprite-review    Refresh embedded art in the review page' \
 	 'make room-review      Refresh the offline room layout review page' \
+	 'make room-expansion   Compile the approved room layouts for the game' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
 	 'Title Settings or Esc -> 3       Choose Classic, Kenney mix or Kenney 1-Bit'
@@ -37,6 +38,9 @@ sprite-review:
 	python3 tools/build_sprite_review.py
 room-review:
 	python3 tools/build_room_review.py
+
+room-expansion:
+	python3 tools/write_room_expansion.py
 spectator:
 	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 test:

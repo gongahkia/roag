@@ -1,4 +1,4 @@
-"""Headless validation for the review-only room prototype pool."""
+"""Headless validation for the approved, live room expansion."""
 
 import subprocess
 
@@ -55,9 +55,12 @@ def main():
         "local Biomes=require('src.biomes')",
         "local defs=" + lua(definitions),
         "assert(Rooms.validate(defs," + lua(list(definitions)) + "))",
-        "for id,def in pairs(defs) do Rooms.definitions[id]=def end",
-        "for _,family in ipairs(" + lua([group["family"] for group in families])
-        + ") do Rooms.order[#Rooms.order+1]='core:room/'..family end",
+        "for id,def in pairs(defs) do",
+        "  local live=assert(Rooms.definitions[id],id..' missing from game')",
+        "  assert(#live.rows==#def.rows,id..' height changed')",
+        "  for i,row in ipairs(def.rows) do assert(live.rows[i]==row,id..' geometry changed') end",
+        "  assert(#live.structures==3,id..' structure slots missing')",
+        "end",
         "local failures,seen_templates,fallbacks,repairs=0,{},0,0",
         "for _,id in ipairs(Biomes.order) do",
         "  for seed=1,100 do",
@@ -77,7 +80,7 @@ def main():
         "assert(fallbacks==0 and repairs==0,'prototype pool caused fallback or repairs')",
         "local sampled=0;for _ in pairs(seen_templates) do sampled=sampled+1 end",
         "assert(sampled==105,'some proposed templates were never selected')",
-        "print('105 templates validated; 700 biome/seed pairs generated; '..sampled..' proposals sampled; '..fallbacks..' fallbacks; '..repairs..' repairs')",
+        "print('105 live templates validated; 700 biome/seed pairs generated; '..sampled..' sampled; '..fallbacks..' fallbacks; '..repairs..' repairs')",
     ))
     result = subprocess.run(["luajit", "-"], input=code, text=True,
                             capture_output=True, check=False)
