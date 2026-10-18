@@ -1,0 +1,1646 @@
+{
+  "schema": "roag-sprite-ideas-feedback/1",
+  "proposal_fingerprint": "5a915a054757e645a396a54b70bab32033339f847ab737fbd27f8c3deb10f3c9",
+  "audit_mapping_checksum": "1202bc99da0ba099",
+  "cards": [
+    {
+      "id": "held-decisions",
+      "vote": "",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "held-modern",
+      "vote": "",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "reanimator",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "haunted-cache",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "heavy-rammer",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "web-weaver",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "discuss",
+          "comment": "Spider sprites for mixed kenny are ok (122is ok) but the 414 463 and 60 are not it, for mesh-like cue can we just use rendered lines?",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "discuss",
+          "comment": "414 463 are not it for the one-bit, find alternatives",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "hollow-wraith",
+      "vote": "discuss",
+      "priority": "",
+      "comment": "i like the idea of a hollow character that can phase through walls but he needs to be able to attack still but also sprite wise i only need him to use the 416 not the other sprites",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "gulp-toad",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "mirror-hexer",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "trail-worm",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "pain-linked-twins",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "alarm-keeper",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "ember-moth",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "bone-splitter",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "rotating-sentinel",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "brood-keeper",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "echo-duelist",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "duelist-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "geomancer-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "spiritbinder-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "pilgrim-class",
+      "vote": "discuss",
+      "priority": "",
+      "comment": "Dont make this a character, make this a boon instead ",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "tinkerer-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "stormcaller-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "wayfinder-class",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "cantor-class",
+      "vote": "reject",
+      "priority": "",
+      "comment": "But consider making 33 and 824 boon items instead, i like their sprites",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "offering-font",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "ration-cache",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "cleanse-flask",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "escape-scroll",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "great mostly agree, just don't use onebit 525",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "great mostly agree, just don't use onebit 525",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "return-token",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "charm-well",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "yes agree, just dont use rpg:855 the others are ok",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "weapon-practice",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "attunement-forge",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "travelling-trader",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "memorial-choice",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "mostly agree, just dont use onebit:24",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "mostly agree, just dont use onebit:24",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "mirror-puzzle",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "bell-sequence",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "prism-relay",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "heat-vents",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "great but do we need equivalent heat motifs for 1bit pack or will we just use the tiny pack but rendered as black and white",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "sluice-room",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "push-floor",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "for the micro pack, find all other related arrows as well",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "fragile-crossing",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "falling-fixture",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "signposted-routes",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "discuss",
+          "comment": "great all these are ok, just dont use rpg22,425, 737, 794, 851, 908",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "camp-choice",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "discuss",
+          "comment": "great, just dont use the tent parts, the other ones like 117, 508 and 509 are great and good",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "archive-contract",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "sparring-trial",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "secret-mural",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "crypt-kit",
+      "vote": "approve",
+      "priority": "",
+      "comment": "Combine with the below Pale Sanctuary's tiles where these are the foreground elements/interactables/decoration",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "sandstone-kit",
+      "vote": "discuss",
+      "priority": "",
+      "comment": "Combine this with the above Ossuary/Crypt enviornment kit as that area's background tiles",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "timber-mine-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "observatory-mosaic",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "root-garden-kit",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "drowned-sanctum",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "discuss",
+          "comment": "Great, can we just color those rpg riles from the mixed kenny set monochromatic before/at runtime for these purposes",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "forge-masonry",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "library-carpet",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "broken-cavern-kit",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "discuss",
+          "comment": "Per what I said earlier, when the 1bit is selected can we just use mixed kenney sprites but recolored/touched up to be monochromatic?",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "ruin-masonry-kit",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "open-court-ground",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "ember-ground",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "rose-geode",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "ice-crossings",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "camp-furniture",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "workshop-fixtures",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "archive-shelves",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "chapel-windows",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "prison-dressing",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "faction-banners",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "stone-column-kit",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "discuss",
+          "comment": "Like what we siad earlier, when 1-bit pack is selected, recolor the corresponding mixed kenney sprites to be monochromatic",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "boon-ring-art",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "weapon-icon-families",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "discuss",
+          "comment": "Keep everything but dont use micro78 or micro79",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "status-icon-family",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "sprite-hud-skin",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "bitmap-labels",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "map-signals",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "combat-bursts",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "trap-signals",
+      "vote": "approve",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "control-help-icons",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "oracle-choice",
+      "vote": "discuss",
+      "priority": "",
+      "comment": "Don't want this, but instead can we add a boon that is just a dice where it causes your attack to be different on every dice roll, then use the dice sprites from 1-6 as well as have the skull to instant kill enemy and cross to miss",
+      "art": {
+        "kenney": {
+          "vote": "discuss",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "discuss",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "existing-body-variants",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "tiny-dungeon-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "tiny-fixture-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "micro-wall-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "micro-prop-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "cave-portal-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "cave-material-variants",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "rpg-open-ground-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "rpg-architecture-kit",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "theme-colour-frames",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "onebit-architecture",
+      "vote": "reject",
+      "priority": "",
+      "comment": "",
+      "art": {
+        "kenney": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    },
+    {
+      "id": "onebit-symbol-library",
+      "vote": "approve",
+      "priority": "",
+      "comment": "Great, if the below icons end up not being used can u brainstorm up to 50+ more different boons that materially affect gameplay and are distinct and find appropriate icons for them, take as long as u need. Dont need to run them by me anymore",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "preferred": []
+        }
+      }
+    }
+  ],
+  "exported_at": "2026-10-18T16:15:43.164Z"
+}
