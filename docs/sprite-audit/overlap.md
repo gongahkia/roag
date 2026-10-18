@@ -3,10 +3,12 @@
 **Historical proposal snapshot (2026-10-18):** the counts and “unused” labels
 below describe the original 242-binding audit used to make review choices.
 The approved features are now implemented. The current catalogue has
-**289/289 resolved bindings** in both choices and includes two additional
+**324/324 resolved bindings** in both choices and includes two additional
 approved source sheets. Use [the current audit](../ROAG_SPRITE_AUDIT.md) and
 [regenerated catalogue](index.html) for present usage; keep this record as
-context for the review decisions.
+context for the review decisions. The [current surplus report](surplus.md)
+and [visual shortlist](surplus.html) identify what remains unused after the
+approved enemy teams.
 
 Audit of commit `3b58b1b9` (2026-10-18). This is a design inventory, not a
 change to game rules or sprite bindings. It follows the runtime coverage audit

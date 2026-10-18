@@ -114,7 +114,7 @@ def main():
                              **{pack: '; '.join(ids) for pack, ids in bindings.items()}})
                 labels = '\n'.join(pack+': '+', '.join(ids) for pack, ids in bindings.items() if ids)
                 state = 'used' if any(used.values()) else 'unused' if count else 'empty'
-                cells.append(f'<article data-state="{state}" data-kenney="{str(used["kenney"]).lower()}" '
+                cells.append(f'<article id="cell-{name}-{index}" data-state="{state}" data-kenney="{str(used["kenney"]).lower()}" '
                              f'data-onebit="{str(used["onebit"]).lower()}" title="{html.escape(labels, quote=True)}">'
                              f'<i class="{name}" style="background-position:-{x*3}px -{y*3}px"></i>'
                              f'<span>{index} · {state}</span><small>{html.escape(labels)}</small></article>')
@@ -122,10 +122,12 @@ def main():
                           'unused_union': totals['nonempty']-totals['union'],
                           'unused_kenney': totals['nonempty']-totals['kenney'],
                           'unused_onebit': totals['nonempty']-totals['onebit']})
-        sections.append(f'<section><h2>{html.escape(name)} — {totals["nonempty"]} nonempty / '
+        packs = 'kenney onebit' if name == 'onebit' else 'kenney'
+        standalone = str(totals['onebit']) if name == 'onebit' else 'not loaded'
+        sections.append(f'<section data-sheet="{name}" data-packs="{packs}"><h2>{html.escape(name)} — {totals["nonempty"]} nonempty / '
                         f'{totals["grid"]} grid cells</h2><p>{html.escape(sheet["path"])} · '
                         f'{size}px, stride {stride}. Mixed uses {totals["kenney"]}; '
-                        f'1-Bit uses {totals["onebit"]}. Numbering is zero-based.</p>'
+                        f'1-Bit: {standalone}. Numbering is zero-based.</p>'
                         f'<div class="cells">{"".join(cells)}</div></section>')
     report['pixel_inventory'] = summaries
     outputs = {'inventory.json': json.dumps(report, sort_keys=True, indent=2)+'\n'}
@@ -140,10 +142,10 @@ def main():
         styles.append(f'i.{name}{{width:{sheet["tile"]*3}px;height:{sheet["tile"]*3}px;'
                       f'background-image:url(data:image/png;base64,{encoded});'
                       f'background-size:{sheet["width"]*3}px {sheet["height"]*3}px}}')
-    document = '''<!doctype html><html lang="en"><meta charset="utf-8"><title>ROAG sprite audit</title>
+    document = '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ROAG sprite audit</title>
 <style>body{background:#151b18;color:#e5e3d1;font:16px system-ui;margin:24px}a{color:#8cd2c8}
 header{position:sticky;top:0;background:#151b18;padding:12px;z-index:2}select{padding:8px}
-.cells{display:flex;flex-wrap:wrap;gap:6px}article{width:110px;padding:8px;border:1px solid #526057}
+.cells{display:flex;flex-wrap:wrap;gap:6px}article{width:110px;padding:8px;border:1px solid #526057;scroll-margin-top:240px}
 i{display:block;image-rendering:pixelated;background-repeat:no-repeat;background-color:#222323}
 span{display:block;font-size:12px}small{display:block;max-height:60px;overflow:auto;font-size:10px;overflow-wrap:anywhere}
 [data-state=unused]{border-color:#988644}[data-state=empty]{opacity:.35}[hidden]{display:none}''' + ''.join(styles) + '''</style>
@@ -158,12 +160,17 @@ Hover/scroll a cell for bindings. “Used” includes partial material sampling;
 <label>Show <select id="filter"><option value="all">All</option><option value="unused">Unused nonempty</option>
 <option value="used">Referenced</option><option value="empty">Empty</option></select></label>
 <a href="inventory.json">JSON</a> · <a href="tiles.csv">CSV</a> ·
-<a href="enemy-review.html">Accepted enemy review archive</a> · <a href="../ROAG_ENEMY_SQUADS.md">Live squad rules and selected art</a></header>''' + ''.join(sections) + '''
+<a href="surplus.html">Unused art shortlist</a> ·
+<a href="enemy-review.html">Accepted enemy review archive</a> · <a href="../ROAG_ENEMY_SQUADS.md">Live squad rules and selected art</a><p id="count" role="status"></p></header>''' + ''.join(sections) + '''
 <script>function filter(){const p=document.querySelector('#pack').value,f=document.querySelector('#filter').value;
-document.querySelectorAll('article').forEach(a=>{const empty=a.dataset.state==='empty',
+let count=0;
+document.querySelectorAll('section[data-sheet]').forEach(s=>{s.hidden=p!=='union'&&!s.dataset.packs.split(' ').includes(p);
+s.querySelectorAll('article').forEach(a=>{const empty=a.dataset.state==='empty',
 used=p==='union'?a.dataset.state==='used':a.dataset[p]==='true';
-a.hidden=f==='used'?!used:f==='unused'?(used||empty):f==='empty'?!empty:false;});}
-document.querySelectorAll('select').forEach(s=>s.addEventListener('change',filter));</script></html>'''
+a.hidden=s.hidden||(f==='used'?!used:f==='unused'?(used||empty):f==='empty'?!empty:false);
+if(!a.hidden)count++;});});
+document.querySelector('#count').textContent=count.toLocaleString()+' source cells shown from this choice’s loaded sheets';}
+document.querySelectorAll('select').forEach(s=>s.addEventListener('change',filter));filter();</script></html>'''
     outputs['index.html'] = document
     output = args.output.resolve()
     if args.check:

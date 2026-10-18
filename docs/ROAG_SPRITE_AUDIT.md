@@ -14,6 +14,11 @@ Updated 2026-10-18 after the approved sprite/room expansion. The earlier
 and the saved HTML/JSON/CSV now reflect the current 324 requirements.
 The audit itself does not modify gameplay mechanics.
 
+**Current surplus discussion:** [visual shortlist](sprite-audit/surplus.html)
+and [reasoning/recommendations](sprite-audit/surplus.md), checked against the
+324-binding runtime. This supersedes the older proposal tables for what is
+still unused; earlier approvals and rejections remain in force.
+
 ## The choices being compared
 
 | Settings choice | Source artwork | Status |
@@ -56,7 +61,7 @@ missing wall variant.
 
 ### Art reuse and semantic approximations
 
-Both choices have **68 static pose aliases**: attack/hurt reuse each actor's
+Both choices have **88 static pose aliases**: attack/hurt reuse each actor's
 base image. No animation is provided. Boon detail reuses its icon. Currency
 drop and HUD gold deliberately share a motif. Effect sprites are generic, not
 one custom visual for every boon/element/weapon.
@@ -153,7 +158,11 @@ browser network access needed. [CSV](sprite-audit/tiles.csv) includes index,
 source coordinates, alpha/key occupancy and bindings for each choice;
 [JSON](sprite-audit/inventory.json) includes resolver coverage and shared actors.
 
-## Useful art for a subsequent design discussion
+## Earlier opportunity discussion (historical)
+
+Use the [current shortlist](sprite-audit/surplus.html) for checked unassigned
+candidates after the approved enemy teams. The broad suggestions below predate
+those implementations and include decisions already resolved by the review.
 
 | Source surplus | Potential next use | What still needs a design decision |
 | --- | --- | --- |
@@ -172,19 +181,22 @@ The catalogue's unused filter is authoritative for present source usage;
 the opportunity table above remains a design discussion, not a claim that
 every pictured asset is still unused. This refresh changes audit files only.
 
-For a checked comparison of unused motifs that can support the **same idea in
-both selectable Kenney looks**, see the [cross-pack opportunity audit](sprite-audit/overlap.md).
-Use the [interactive sprite review](sprite-audit/review.html) to approve, reject,
-or comment on those ideas and their sprite pairings before implementation.
-To serve it with `http-server` from the repository root, run `http-server .`
-and visit `http://127.0.0.1:8080/docs/sprite-audit/review.html`. The page also
-opens directly as a local HTML file; its sprite images are embedded.
+For current candidates supporting the **same idea in both selectable Kenney
+looks**, see the [unused-art shortlist](sprite-audit/surplus.html). The
+[cross-pack opportunity audit](sprite-audit/overlap.md) and
+[interactive sprite review](sprite-audit/review.html) preserve earlier proposals
+and feedback; they are not a fresh approval request. Serve the current page
+with `python3 -m http.server 8080` from the repository root and visit
+`http://127.0.0.1:8080/docs/sprite-audit/surplus.html`, or open its local HTML
+file directly. Its sprite images are embedded.
 
 ## Reproduce and maintain the audit
 
 ```sh
 make sprite-audit
 make sprite-audit-check  # read-only; rejects stale HTML/JSON/CSV
+make surplus-audit       # curate/rebuild current unused-art shortlist
+make surplus-audit-check # read-only shortlist and live usage checks
 # equivalent: Python stdlib + LuaJIT, no LÖVE window or player data access
 python3 tools/sprite_audit.py
 # inspect machine inventory only, no output files

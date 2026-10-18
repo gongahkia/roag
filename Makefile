@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
+.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check surplus-audit surplus-audit-check sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -20,6 +20,8 @@ help:
 	 'make spectator        Inspect Kenney art without saves' \
 	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
 	 'make sprite-audit-check Check saved catalogue freshness without writing' \
+	 'make surplus-audit    Rebuild the checked unused-art visual shortlist' \
+	 'make surplus-audit-check Check the shortlist against live mappings' \
 	 'make sprite-review    Refresh embedded art in the review page' \
 	 'make enemy-review     Build the five-combination approval page' \
 	 'make review-test      Check the review data, client and generated page' \
@@ -41,6 +43,10 @@ sprite-audit:
 	python3 tools/build_enemy_review.py
 sprite-audit-check:
 	python3 tools/sprite_audit.py --check
+surplus-audit: sprite-audit-check
+	python3 tools/build_sprite_surplus.py
+surplus-audit-check: sprite-audit-check
+	python3 tools/build_sprite_surplus.py --check
 sprite-review:
 	python3 tools/build_sprite_review.py
 	python3 tools/build_enemy_review.py
