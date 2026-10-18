@@ -56,7 +56,7 @@ local function fight_target(run,id,max_actions,stop_when)
         else
             local dx,dy=ranged_direction(state,p,enemy.position)
             if dx then
-                local ok,why=Play.action(run,{kind='basic_attack',dx=dx,dy=dy})
+                local ok,why=Play.action(run,Play.attack_intent(run,dx,dy))
                 if not ok then return false,why end
             else
                 local step=Play.path(state,function(at)

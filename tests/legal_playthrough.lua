@@ -101,6 +101,28 @@ function Play.escape(run,goal)
     return false
 end
 
+-- The Alchemist's existing area flask is useful against the approved squads.
+-- This driver still submits ordinary public actions; no HP/position assistance.
+function Play.attack_intent(run,dx,dy)
+    local state=run.state
+    if Game.player(state).definition_id=='core:actor/alchemist' then
+        local area=Game.preview(state,'sweeping_slash',dx,dy)
+        local targets=0
+        if area.valid then
+            for _,e in ipairs(state.entities) do
+                if e.controller=='ai' and not e.invulnerable and e.hp>0 and
+                    e.position.floor_id==state.active_floor_id then
+                    for _,cell in ipairs(area.cells) do
+                        if cell.x==e.position.x and cell.y==e.position.y then targets=targets+1;break end
+                    end
+                end
+            end
+        end
+        if targets>=2 then return {kind='sweeping_slash',dx=dx,dy=dy} end
+    end
+    return {kind='basic_attack',dx=dx,dy=dy}
+end
+
 function Play.attack_adjacent(run,excluded_id)
     local state=run.state
     local p=Game.player(state).position
@@ -115,8 +137,7 @@ function Play.attack_adjacent(run,excluded_id)
         end
     end
     if not selected then return false end
-    local ok=Play.action(run,{kind='basic_attack',
-        dx=selected.position.x-p.x,dy=selected.position.y-p.y})
+    local ok=Play.action(run,Play.attack_intent(run,selected.position.x-p.x,selected.position.y-p.y))
     return ok
 end
 
