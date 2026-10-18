@@ -12,16 +12,16 @@ import gl "vendor:OpenGL"
 import glfw "vendor:glfw"
 
 Config :: struct {
-	profile:                            string,
-	width, height:                      int,
-	radius, workers:                    int,
-	gpu_budget, mesh_budget:            int,
-	cpu_budget, upload_budget:          int,
-	seed:                               u64,
-	frames, seconds:                    int,
+	profile:                                         string,
+	width, height:                                   int,
+	radius, workers:                                 int,
+	gpu_budget, mesh_budget:                         int,
+	cpu_budget, upload_budget:                       int,
+	seed:                                            u64,
+	frames, seconds:                                 int,
 	benchmark, save_path, screenshot, settings_path: string,
-	frame_limit: int,
-	hidden, no_save, vsync, naive_mesh: bool,
+	frame_limit:                                     int,
+	hidden, no_save, vsync, naive_mesh:              bool,
 }
 
 usage :: proc() {
@@ -235,7 +235,20 @@ hud :: proc(
 		return
 	}
 	if show {
-		benchmark_panel(r, s, c, telemetry, pacing, settings, pos, width, height, elapsed, speed, ortho)
+		benchmark_panel(
+			r,
+			s,
+			c,
+			telemetry,
+			pacing,
+			settings,
+			pos,
+			width,
+			height,
+			elapsed,
+			speed,
+			ortho,
+		)
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
 	cx, cy := f32(width) / 2, f32(height) / 2
@@ -316,6 +329,14 @@ main :: proc() {
 		fmt.println("Loaded", config.save_path)
 	}
 	config.seed = w.seed
+	settings := settings_defaults()
+	if !config.no_save && os.exists(config.settings_path) {
+		loaded, ok := settings_load(config.settings_path)
+		if ok {settings = loaded} else {fmt.eprintln("Invalid settings; using defaults:", config.settings_path)}
+	}
+	if !config.vsync {settings.vsync = false; settings.fps_limit = -1}
+	if config.frame_limit != -2 {settings.fps_limit = config.frame_limit}
+	config.vsync = settings.vsync
 	if !glfw.Init() {
 		description, _ := glfw.GetError()
 		fmt.eprintln("GLFW:", description)
@@ -349,6 +370,19 @@ main :: proc() {
 	renderer_init(&r)
 	defer renderer_destroy(&r)
 	fmt.println("GL:", string(gl.GetString(gl.VERSION)), "/", string(gl.GetString(gl.RENDERER)))
+	pacing := Frame_Pacing {
+		sleeper = frame_sleep_init(),
+		display_hz        = display_refresh_rate(window),
+		software_renderer = renderer_is_software(string(gl.GetString(gl.RENDERER))),
+	}
+	defer frame_sleep_destroy(&pacing.sleeper)
+	fmt.printf(
+		"Display: %d Hz / %s / VSync %s / software renderer %t\n",
+		pacing.display_hz,
+		frame_limit_label(settings, &pacing),
+		settings.vsync ? "on" : "off",
+		pacing.software_renderer,
+	)
 	fmt.printf(
 		"Profile %s: GPU budget %d MiB, meshes %d MiB, CPU %d MiB\n",
 		config.profile,
@@ -382,7 +416,9 @@ main :: proc() {
 	previous_x, previous_y := glfw.GetCursorPos(window)
 	last := glfw.GetTime()
 	start := last
-	speed: f64 = 14
+	pacing.completed_at = last
+	pacing.last_display_check = last
+	menu: Settings_Menu
 	selected := 1
 	stats := true
 	old_keys: [512]bool
@@ -405,7 +441,7 @@ main :: proc() {
 		csv = handle
 		fmt.fprintln(
 			csv,
-			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes,fps,low_1pct_fps,process_cpu_percent,rss_bytes,rss_peak_bytes,cpu_sample_valid,ram_sample_valid,heap_peak_bytes,main_work_ms,chunks_per_second,queued_jobs,busy_workers",
+			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes,fps,low_1pct_fps,process_cpu_percent,rss_bytes,rss_peak_bytes,cpu_sample_valid,ram_sample_valid,heap_peak_bytes,main_work_ms,chunks_per_second,queued_jobs,busy_workers,display_hz,frame_cap,swap_ms,pacing_wait_ms,software_renderer",
 		)
 		fmt.println("Benchmark:", path)
 	}
@@ -418,42 +454,84 @@ main :: proc() {
 		now := glfw.GetTime()
 		elapsed := now - start
 		dt := clamp(now - last, 0, 0.1)
-		ms := (now - last) * 1000
 		last = now
-		telemetry_update(&telemetry, &stream, &r, now, ms)
+		telemetry_update(&telemetry, &stream, now)
+		if now - pacing.last_display_check >= 1 {
+			pacing.display_hz = display_refresh_rate(window)
+			pacing.last_display_check = now
+		}
 		down: [512]bool
 		for k in 32 ..< 349 {
 			down[k] = glfw.GetKey(window, i32(k)) == glfw.PRESS
 		}
-		if down[glfw.KEY_Q] {
+		if down[glfw.KEY_Q] && !menu.open {
 			break
 		}
-		if down[glfw.KEY_ESCAPE] && !old_keys[glfw.KEY_ESCAPE] {
-			captured = !captured
-			mode := glfw.CURSOR_NORMAL
-			if captured {
-				mode = glfw.CURSOR_DISABLED
+		mouse := [2]bool {
+			glfw.GetMouseButton(window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS,
+			glfw.GetMouseButton(window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS,
+		}
+		width, height := glfw.GetFramebufferSize(window)
+		mx, my := glfw.GetCursorPos(window)
+		menu_was_open := menu.open
+		if (down[glfw.KEY_ESCAPE] && !old_keys[glfw.KEY_ESCAPE]) ||
+		   (down[glfw.KEY_F1] && !old_keys[glfw.KEY_F1]) {menu.open = !menu.open}
+		if menu.open {
+			ww, wh := glfw.GetWindowSize(window)
+			ui_x := mx * f64(width) / f64(max(ww, 1))
+			ui_y := my * f64(height) / f64(max(wh, 1))
+			if settings_menu_input(
+				&menu,
+				&settings,
+				&down,
+				&old_keys,
+				mouse[0] && !old_mouse[0] && menu_was_open,
+				ui_x,
+				ui_y,
+				width,
+				height,
+			) {menu.open = false}
+		}
+		capture_changed := menu.open != menu_was_open
+		if capture_changed {
+			captured = !menu.open
+			glfw.SetInputMode(
+				window,
+				glfw.CURSOR,
+				captured ? glfw.CURSOR_DISABLED : glfw.CURSOR_NORMAL,
+			)
+			mx, my = glfw.GetCursorPos(window)
+			previous_x, previous_y = mx, my
+			if !menu.open && !config.no_save {
+				menu.save_failed = !settings_save(settings, config.settings_path)
+				if menu.save_failed {fmt.eprintln("Settings save failed:", config.settings_path)}
 			}
-			glfw.SetInputMode(window, glfw.CURSOR, i32(mode))
+		}
+		if settings.vsync != config.vsync {
+			config.vsync = settings.vsync
+			glfw.SwapInterval(i32(int(settings.vsync)))
 		}
 		if down[glfw.KEY_F3] && !old_keys[glfw.KEY_F3] {
 			stats = !stats
 		}
-		if down[glfw.KEY_EQUAL] && !old_keys[glfw.KEY_EQUAL] {
-			speed = min(speed * 1.5, 512)
+		if !menu.open && down[glfw.KEY_EQUAL] && !old_keys[glfw.KEY_EQUAL] {
+			settings.move_speed = min(settings.move_speed * 1.5, 512)
 		}
-		if down[glfw.KEY_MINUS] && !old_keys[glfw.KEY_MINUS] {
-			speed = max(speed / 1.5, 1)
+		if !menu.open && down[glfw.KEY_MINUS] && !old_keys[glfw.KEY_MINUS] {
+			settings.move_speed = max(settings.move_speed / 1.5, 1)
 		}
 		for i in 1 ..= 6 {
-			if down[glfw.KEY_0 + i] {
+			if !menu.open && down[glfw.KEY_0 + i] {
 				selected = i
 			}
 		}
-		mx, my := glfw.GetCursorPos(window)
-		if captured && config.benchmark == "" {
-			yaw += (mx - previous_x) * 0.0025
-			pitch = clamp(pitch - (my - previous_y) * 0.0025, -1.55, 1.55)
+		if captured && !capture_changed && config.benchmark == "" {
+			yaw += (mx - previous_x) * 0.0025 * settings.mouse_sensitivity
+			pitch = clamp(
+				pitch - (my - previous_y) * 0.0025 * settings.mouse_sensitivity,
+				-1.55,
+				1.55,
+			)
 		}
 		previous_x, previous_y = mx, my
 		forward := direction(yaw, pitch)
@@ -483,7 +561,7 @@ main :: proc() {
 			if down[glfw.KEY_LEFT_SHIFT] {
 				multiplier = 4
 			}
-			pos += normalize(move) * dt * speed * multiplier
+			pos += normalize(move) * dt * settings.move_speed * multiplier
 		}
 		if config.benchmark != "" {
 			// Fixed-time path gives equivalent routes even at different frame rates.
@@ -533,16 +611,13 @@ main :: proc() {
 		pos.y = clamp(pos.y, -16, 1024)
 		pos.x = clamp(pos.x, -100000000, 100000000)
 		pos.z = clamp(pos.z, -100000000, 100000000)
-		mouse := [2]bool {
-			glfw.GetMouseButton(window, glfw.MOUSE_BUTTON_LEFT) == glfw.PRESS,
-			glfw.GetMouseButton(window, glfw.MOUSE_BUTTON_RIGHT) == glfw.PRESS,
-		}
 		hit := raycast(&w, pos, forward, 8)
 		for pressed, i in mouse {
-			if pressed && !old_mouse[i] {
+			if pressed && !old_mouse[i] && !menu.open && !menu_was_open && !capture_changed {
 				if !captured {
 					captured = true
 					glfw.SetInputMode(window, glfw.CURSOR, glfw.CURSOR_DISABLED)
+					previous_x, previous_y = glfw.GetCursorPos(window)
 				} else if hit.hit {
 					p := hit.block
 					b: Block = .Air
@@ -564,7 +639,6 @@ main :: proc() {
 			}
 		}
 		old_keys = down
-		width, height := glfw.GetFramebufferSize(window)
 		if width <= 0 || height <= 0 {
 			time.sleep(16 * time.Millisecond)
 			continue
@@ -635,10 +709,25 @@ main :: proc() {
 			r.draw_calls += 1
 			r.triangles += int(item.gpu.count) / 3
 		}
-		if hit.hit {
+		if hit.hit && !menu.open {
 			outline(&r, hit.block, pos, vp)
 		}
-		hud(&r, &stream, config, pos, selected, stats, width, height, &telemetry, elapsed, speed)
+		hud(
+			&r,
+			&stream,
+			config,
+			pos,
+			selected,
+			stats,
+			width,
+			height,
+			&telemetry,
+			&menu,
+			settings,
+			&pacing,
+			elapsed,
+			settings.move_speed,
+		)
 		renderer_end(&r)
 		telemetry.main_work_ms = (glfw.GetTime() - now) * 1000
 		error := gl.GetError()
@@ -654,12 +743,17 @@ main :: proc() {
 				fmt.eprintln("Screenshot failed")
 			}
 		}
+		swap_start := glfw.GetTime()
+		glfw.SwapBuffers(window)
+		pacing.swap_ms = (glfw.GetTime() - swap_start) * 1000
+		ms := frame_pace(&pacing, settings)
+		telemetry_record_frame(&telemetry, &r, ms)
 		if csv != nil {
 			fmt.fprintf(
 				csv,
-				"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d\n",
+				"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%.4f,%.4f,%d\n",
 				frame,
-				elapsed,
+				pacing.completed_at - start,
 				ms,
 				telemetry.frames.p95_ms,
 				telemetry.frames.p99_ms,
@@ -691,9 +785,13 @@ main :: proc() {
 				telemetry.chunks_per_second,
 				telemetry.queued,
 				telemetry.busy,
+				pacing.display_hz,
+				frame_target(settings, pacing.display_hz),
+				pacing.swap_ms,
+				pacing.wait_ms,
+				int(pacing.software_renderer),
 			)
 		}
-		glfw.SwapBuffers(window)
 		frame += 1
 		if ending {
 			break
@@ -701,6 +799,10 @@ main :: proc() {
 		free_all(context.temp_allocator)
 	}
 	if !config.no_save {
+		if !settings_save(
+			settings,
+			config.settings_path,
+		) {fmt.eprintln("Settings save failed:", config.settings_path)}
 		os.make_directory_all(os.dir(config.save_path))
 		if !world_save(&w, pos, config.save_path) {
 			fmt.eprintln("Save failed:", config.save_path)

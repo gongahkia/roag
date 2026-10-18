@@ -2,13 +2,13 @@ package sandbox
 
 import "core:fmt"
 import "core:strings"
-import "core:time"
 import glfw "vendor:glfw"
 
 Frame_Pacing :: struct {
-	display_hz: int,
+	sleeper: Frame_Sleeper,
+	display_hz:                                         int,
 	last_display_check, completed_at, swap_ms, wait_ms: f64,
-	software_renderer: bool,
+	software_renderer:                                  bool,
 }
 
 // The monitor overlapping the largest part of the window determines its refresh
@@ -22,8 +22,9 @@ display_refresh_rate :: proc(window: glfw.WindowHandle) -> int {
 		mode := glfw.GetVideoMode(monitor)
 		if mode == nil {continue}
 		mx, my := glfw.GetMonitorPos(monitor)
-		area := int(max(0, min(wx + ww, mx + mode.width) - max(wx, mx))) *
-		        int(max(0, min(wy + wh, my + mode.height) - max(wy, my)))
+		area :=
+			int(max(0, min(wx + ww, mx + mode.width) - max(wx, mx))) *
+			int(max(0, min(wy + wh, my + mode.height) - max(wy, my)))
 		if area > best_area {best_area = area; hz = max(0, int(mode.refresh_rate))}
 	}
 	// In particular, virtual displays may report zero. Never invent a refresh rate.
@@ -49,7 +50,15 @@ frame_limit_label :: proc(s: Settings, p: ^Frame_Pacing) -> string {
 renderer_is_software :: proc(name: string) -> bool {
 	lower := strings.to_lower(name)
 	defer delete(lower)
-	for marker in []string{"llvmpipe", "softpipe", "software", "swiftshader", "gdi generic", "basic render"} {
+	markers := []string {
+		"llvmpipe",
+		"softpipe",
+		"software",
+		"swiftshader",
+		"gdi generic",
+		"basic render",
+	}
+	for marker in markers {
 		if strings.contains(lower, marker) {return true}
 	}
 	return false
@@ -63,7 +72,7 @@ frame_pace :: proc(p: ^Frame_Pacing, s: Settings) -> f64 {
 	target := frame_target(s, p.display_hz)
 	if target > 0 {
 		remaining := p.completed_at + 1 / f64(target) - before
-		if remaining > 0 {time.sleep(time.Duration(remaining * 1e9))}
+		if remaining > 0 {frame_sleep(&p.sleeper, remaining)}
 	}
 	after := glfw.GetTime()
 	p.wait_ms = (after - before) * 1000

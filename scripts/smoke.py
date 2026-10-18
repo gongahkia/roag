@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Graphical, persistence, input, resizing, and memory-pressure smoke checks."""
 import argparse
+import csv
 import ctypes
 import ctypes.util
 import json
@@ -44,16 +45,22 @@ def interactive(binary, env, directory):
     xlib.XFree.argtypes = [ptr]
     xlib.XSetInputFocus.argtypes = [ptr, ulong, ctypes.c_int, ulong]
     xlib.XResizeWindow.argtypes = [ptr, ulong, uint, uint]
+    xlib.XGetImage.argtypes = [ptr, ulong, ctypes.c_int, ctypes.c_int, uint, uint, ulong, ctypes.c_int]
+    xlib.XGetImage.restype = ptr
+    xlib.XGetPixel.argtypes = [ptr, ctypes.c_int, ctypes.c_int]; xlib.XGetPixel.restype = ulong
+    xlib.XDestroyImage.argtypes = [ptr]
     xlib.XSync.argtypes = [ptr, ctypes.c_int]
     xlib.XCloseDisplay.argtypes = [ptr]
     xlib.XKeysymToKeycode.argtypes = [ptr, ulong]; xlib.XKeysymToKeycode.restype = ctypes.c_ubyte
     xtest.XTestFakeKeyEvent.argtypes = [ptr, uint, ctypes.c_int, ulong]
     xtest.XTestFakeButtonEvent.argtypes = [ptr, uint, ctypes.c_int, ulong]
+    xtest.XTestFakeMotionEvent.argtypes = [ptr, ctypes.c_int, ctypes.c_int, ctypes.c_int, ulong]
     display = xlib.XOpenDisplay(env['DISPLAY'].encode())
     if not display:
         raise RuntimeError('Cannot connect input test to X server')
     save = directory / 'interactive.vox'
-    process = subprocess.Popen([str(binary), '--save', str(save), '--radius', '2', '--seconds', '15', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360'], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    settings = directory / 'settings.cfg'
+    process = subprocess.Popen([str(binary), '--save', str(save), '--settings', str(settings), '--radius', '2', '--seconds', '25', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360'], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         root = xlib.XDefaultRootWindow(display)
         window = None
@@ -93,6 +100,22 @@ def interactive(binary, env, directory):
             xtest.XTestFakeButtonEvent(display, button, 0, 0); xlib.XSync(display, 0)
             time.sleep(0.15)
 
+        def capture(name, width, height):
+            # Read the test window only; never capture the user's desktop.
+            image = xlib.XGetImage(display, window, 0, 0, width, height, ulong(-1), 2)
+            assert image, 'Cannot capture settings window'
+            try:
+                rgb = bytearray()
+                for y in range(height):
+                    for x in range(width):
+                        pixel = xlib.XGetPixel(image, x, y)
+                        rgb.extend(((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255))
+                ppm = directory / f'{name}.ppm'
+                ppm.write_bytes(f'P6\n{width} {height}\n255\n'.encode() + rgb)
+                convert(ppm, ROOT / 'build' / f'{name}.png')
+            finally:
+                xlib.XDestroyImage(image)
+
         key(ord('w'), 0.2)
         key(0xffe3, 0.85)  # Left control: descend toward the terrain.
         time.sleep(0.4)
@@ -108,14 +131,39 @@ def interactive(binary, env, directory):
         edits = struct.unpack_from('<I', data, 44)[0]
         assert position[0] > 8.5 and position[2] < 7.5, f'Movement failed: {position}'
         assert edits > 0, 'Mouse block editing did not produce an edit'
+
+        key(0xff1b)  # Escape opens settings and releases capture.
+        key(0xff53)  # Right: keyboard movement speed 14 -> 17.5.
+        key(0xff54); key(0xff53)  # Down/right: mouse sensitivity 1 -> 1.1.
+        key(ord('w'), 0.2); click(1); click(3)  # Menu must consume gameplay input.
+        key(0xffc2)
+        paused = save.read_bytes()
+        assert paused == data, 'Menu input moved the player or edited the world'
+        key(0xff0d)  # Enter resumes and saves settings immediately.
+        assert settings.exists(), 'Settings were not saved on resume'
+        saved_settings = settings.read_text()
+        assert 'move_speed 17.500000' in saved_settings, saved_settings
+        assert 'mouse_sensitivity 1.100000' in saved_settings, saved_settings
+
+        # Actual pointer input at the minimum supported size: row 1 plus button.
+        xlib.XResizeWindow(display, window, 320, 240); xlib.XSync(display, 0); time.sleep(0.3)
+        key(0xffbe)  # F1 opens settings.
+        xtest.XTestFakeMotionEvent(display, -1, 280, 86, 0); xlib.XSync(display, 0)
+        click(1)
+        capture('settings-small', 320, 240)
+        key(0xff0d)
+        assert 'mouse_sensitivity 1.200000' in settings.read_text(), settings.read_text()
+
         xlib.XResizeWindow(display, window, 1024, 768); xlib.XSync(display, 0); time.sleep(0.3)
         xlib.XResizeWindow(display, window, 640, 360); xlib.XSync(display, 0); time.sleep(0.3)
-        key(0xff1b)  # Escape releases capture; the program stays alive.
+        key(0xff1b)
+        capture('settings-menu', 640, 360)
+        key(0xff1b)  # Resume before the normal Q shortcut.
         key(ord('q'))
         output = process.communicate(timeout=5)[0]
         assert process.returncode == 0, output
         assert 'OpenGL error' not in output, output
-        print('PASS actual keyboard/mouse editing, F5 save, resize, release, and quit', flush=True)
+        print('PASS editing, settings keyboard/mouse input, persistence, paused controls, resize, and quit', flush=True)
     finally:
         if process.poll() is None:
             process.kill(); process.communicate()
@@ -151,20 +199,38 @@ def main():
             convert(ppm, ROOT / 'build' / 'smoke.png')
             print('PASS graphical rendering and screenshot', flush=True)
             save = directory / 'world.vox'
-            run(binary, env, ['--hidden', '--save', str(save), '--radius', '1', '--frames', '10'])
+            settings = directory / 'startup-settings.cfg'
+            run(binary, env, ['--hidden', '--save', str(save), '--settings', str(settings), '--radius', '1', '--frames', '10'])
             assert save.read_bytes().startswith(b'VOX1')
-            output = run(binary, env, ['--hidden', '--save', str(save), '--seed', '999', '--radius', '1', '--frames', '10'])
+            output = run(binary, env, ['--hidden', '--save', str(save), '--settings', str(settings), '--seed', '999', '--radius', '1', '--frames', '10'])
             assert 'Loaded' in output
             assert struct.unpack_from('<Q', save.read_bytes(), 4)[0] == 42
             save.write_bytes(b'invalid-existing-save')
             run(binary, env, ['--hidden', '--save', str(save), '--frames', '1'], expected=1)
             assert save.read_bytes() == b'invalid-existing-save'
             print('PASS save/reload and preservation of corrupt saves', flush=True)
-            for flags in (['--gpu-mb', '0'], ['--radius', '0'], ['--profile', 'invalid'], ['--workers', '99'], ['--frames', '-1']):
+            for flags in (['--gpu-mb', '0'], ['--radius', '0'], ['--profile', 'invalid'], ['--workers', '99'], ['--frames', '-1'], ['--fps-limit', '999']):
                 run(binary, env, flags, expected=2)
             print('PASS invalid configuration rejection', flush=True)
             if sys.platform.startswith('linux') and not args.skip_input:
                 interactive(binary, env, directory)
+            # Tiny scene isolates the software limiter from render load. Measured
+            # intervals must include its wait and agree with wall-clock duration.
+            run(binary, env, ['--hidden', '--benchmark', 'normal', '--seconds', '3', '--radius', '1', '--width', '320', '--height', '240', '--fps-limit', '30'])
+            path = ROOT / 'benchmarks' / 'normal.csv'
+            with path.open() as file:
+                rows = list(csv.DictReader(file))
+            assert all(None not in row and None not in row.values() for row in rows), 'Misaligned CSV fields'
+            times = [float(row['frame_ms']) for row in rows]
+            assert all(ms >= 1000 / 30 - 0.1 for ms in times), 'Measured FPS excluded the cap wait'
+            assert any(float(row['pacing_wait_ms']) > 1 for row in rows), 'Limiter never waited'
+            assert all(int(row['frame_cap']) == 30 for row in rows)
+            wall = float(rows[-1]['elapsed_s'])
+            assert abs(sum(times) / 1000 - wall) < 0.01, 'Completed frame intervals disagree with elapsed time'
+            steady = [row for row in rows if float(row['elapsed_s']) > 2]
+            assert all(0 < float(row['fps']) <= 30.1 for row in steady), 'HUD FPS was not measured at the cap'
+            path.replace(path.with_name('smoke-frame-cap.csv'))
+            print('PASS measured FPS, 30 FPS pacing, swap timing, and aligned CSV', flush=True)
             run(binary, env, ['--hidden', '--benchmark', 'dense', '--seconds', '5', '--radius', '4', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360', '--upload-kb', '64'])
             path = ROOT / 'benchmarks' / 'dense.csv'
             summary = benchmark.summarize(path, warmup=1)

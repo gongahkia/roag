@@ -58,6 +58,8 @@ benchmark_panel :: proc(
 	s: ^Stream,
 	c: Config,
 	t: ^Telemetry,
+	pacing: ^Frame_Pacing,
+	settings: Settings,
 	pos: V3,
 	width, height: i32,
 	elapsed, speed: f64,
@@ -79,30 +81,36 @@ benchmark_panel :: proc(
 		x + 10,
 		y + 32,
 		inner,
-		fmt.tprintf(
-			"1%% LOW %.0F / AVG %.1F / FRAME %d",
-			t.frames.low_1pct_fps,
-			t.frames.fps,
-			t.frame_count,
-		),
+		full ? fmt.tprintf("MEASURED / 1%% LOW %.0F / FRAME %d", t.frames.low_1pct_fps, t.frame_count) : fmt.tprintf("%s / %s", pacing.display_hz > 0 ? fmt.tprintf("%dHZ", pacing.display_hz) : "HZ N/A", frame_limit_label(settings, pacing)),
 	)
 	frame_top := y + (full ? 61 : 49)
 	frame_h: f32 = full ? 40 : 24
 	frame_ceiling := max(1000.0 / 30, t.frames.max_ms)
 	if full {
-		text_draw(
+		display :=
+			pacing.display_hz > 0 ? fmt.tprintf("DISPLAY %d HZ", pacing.display_hz) : "DISPLAY UNKNOWN"
+		hud_line(
 			r,
 			x + 10,
 			y + 49,
-			fmt.tprintf("FRAME TIME / %d FRAMES", t.frame_history.count),
-			1,
+			inner,
+			fmt.tprintf(
+				"%s / %s / GPU %.2F MS",
+				display,
+				frame_limit_label(settings, pacing),
+				r.gpu_ms,
+			),
 			FRAME_COLOR,
 		)
-		text_draw(r, x + panel_w - 110, y + 49, fmt.tprintf("GPU %.2F MS", r.gpu_ms), 1, GPU_COLOR)
 	}
 	chart_grid(r, x + 10, frame_top, inner, frame_h)
-	reference := frame_top + frame_h - f32((1000.0 / 60) / frame_ceiling) * frame_h
-	rect(r, x + 10, reference, inner, 1, {0.95, 0.73, 0.36, 0.65})
+	goal := frame_target(settings, pacing.display_hz)
+	if goal <= 0 {goal = pacing.display_hz}
+	if goal > 0 {
+		frame_ceiling = max(frame_ceiling, 1000 / f64(goal))
+		reference := frame_top + frame_h - f32((1000 / f64(goal)) / frame_ceiling) * frame_h
+		rect(r, x + 10, reference, inner, 1, {0.95, 0.73, 0.36, 0.65})
+	}
 	chart_plot(r, &t.frame_history, x + 10, frame_top, inner, frame_h, frame_ceiling, FRAME_COLOR)
 	chart_plot(
 		r,
@@ -236,12 +244,12 @@ benchmark_panel :: proc(
 				t.worst_frame_ms,
 			),
 			fmt.tprintf(
-				"%s / %dX%d / VSYNC %s / %.1F S",
+				"%s / %dX%d / VSYNC %s / %s",
 				profile,
 				width,
 				height,
 				c.vsync ? "ON" : "OFF",
-				elapsed,
+				pacing.software_renderer ? "SOFTWARE" : "GPU",
 			),
 			fmt.tprintf(
 				"XYZ %.0F %.0F %.0F / FLY %.0F / SEED %d",

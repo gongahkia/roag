@@ -82,8 +82,10 @@ telemetry_init :: proc(t: ^Telemetry, now: f64) {
 
 // Expensive OS queries, percentiles, and registry scans run at 4 Hz, including
 // when F3 is hidden. Histories have fixed storage and never allocate per frame.
-telemetry_update :: proc(t: ^Telemetry, s: ^Stream, r: ^Renderer, now, frame_ms: f64) {
-	if t.frame_count > 0 && frame_ms > 0 {
+// Only completed frames are counted. Their wall interval includes submission,
+// buffer swap, frame pacing, and event/CPU work, never an inverse GPU-time guess.
+telemetry_record_frame :: proc(t: ^Telemetry, r: ^Renderer, frame_ms: f64) {
+	if frame_ms > 0 {
 		history_push(&t.frame_history, frame_ms)
 		if r.gpu_samples > 0 {history_push(&t.gpu_history, r.gpu_ms)}
 		t.worst_frame_ms = max(t.worst_frame_ms, frame_ms)
@@ -91,6 +93,9 @@ telemetry_update :: proc(t: ^Telemetry, s: ^Stream, r: ^Renderer, now, frame_ms:
 		if frame_ms > 50 {t.slow_50ms += 1}
 	}
 	t.frame_count += 1
+}
+
+telemetry_update :: proc(t: ^Telemetry, s: ^Stream, now: f64) {
 	if now - t.last_sample < SAMPLE_INTERVAL && t.frames.fps > 0 {return}
 	interval := now - t.last_sample
 	t.frames = frame_statistics(&t.frame_history)
