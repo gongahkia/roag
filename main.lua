@@ -1609,14 +1609,9 @@ local function draw_rewards()
                 visual_assets.generated.style=='onebit'
             local kind=entity.controller
             if kind=='review_pillar' then
-                local drawn
-                if onebit then
-                    drawn=review_sprite('pillar_bottom',x,y)
-                else
-                    drawn=review_sprite('pillar_bottom',x,y)
-                    review_sprite('pillar_middle',x,y-TILE)
-                    review_sprite('pillar_top',x,y-2*TILE)
-                end
+                local drawn=review_sprite('pillar_bottom',x,y)
+                review_sprite('pillar_middle',x,y-TILE)
+                review_sprite('pillar_top',x,y-2*TILE)
                 if not drawn then
                     love.graphics.setColor(.62,.59,.51)
                     love.graphics.rectangle('fill',x+10,y+3,TILE-20,TILE-6)

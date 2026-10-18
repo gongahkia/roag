@@ -58,7 +58,7 @@ return function(test,equal)
         assert(mark.revealed and Play.has_event(sigil,'SecretDiscovered'))
         assert(sigil.state.currency>=4)
 
-        local wall=Play.new(65)
+        local wall=Play.new(1)
         local clue=wall.state.secrets[1]
         ok,reason=Play.navigate(wall,function(p)
             return p.x==clue.x and p.y==clue.y

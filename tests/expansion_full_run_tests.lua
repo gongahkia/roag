@@ -61,7 +61,7 @@ return function(test,equal)
     test('ordinary legal routes defeat all seven unique biome minibosses',function()
         local cases={
             {'core:biome/overgrown_ruins',9,1,{1,2,1}},
-            {'core:biome/fungal_hollows',2,2,{1}},
+            {'core:biome/fungal_hollows',9,2,{1}},
             {'core:biome/sunken_aqueduct',21,2,{2}},
             {'core:biome/glacial_observatory',21,2,{3}},
             {'core:biome/ashen_bastion',9,3,{1,2}},

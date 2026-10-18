@@ -199,8 +199,14 @@ return function(test,equal)
         local state=Game.new_generated(401)
         local map=state.generated_map
         assert(state.map_id==Generation.map_id and state.active_floor_id==Generation.floor_id)
+        local review_count=0
+        for _,entity in ipairs(state.entities) do
+            if entity.controller:match('^review_') then
+                review_count=review_count+1
+            end
+        end
         assert(#state.entities==1+#map.placements.enemies+#map.placements.chests
-            +#map.placements.doors)
+            +#map.placements.doors+review_count)
         local seen={}
         for _,e in ipairs(state.entities) do
             assert(not seen[e.id]); seen[e.id]=true

@@ -27,7 +27,7 @@ local function distance(a,b)
     return math.abs(a.x-b.x)+math.abs(a.y-b.y)
 end
 
-local function reachable(state)
+local function reachable(state,avoid_x,avoid_y,allow_doors)
     local map=Content.map_for(state)
     local player=state.entities[1]
     local queue={{x=player.position.x,y=player.position.y}}
@@ -40,7 +40,9 @@ local function reachable(state)
             local key=y*map.width+x
             local block=occupant(state,x,y)
             if not seen[key] and Content.walkable(map,x,y)
-                and (not block or block.controller=="ai") then
+                and not (x==avoid_x and y==avoid_y)
+                and (not block or block.controller=="ai" or
+                    (allow_doors and block.controller=="door")) then
                 seen[key]=true
                 queue[#queue+1]={x=x,y=y}
             end
@@ -87,7 +89,7 @@ local function anchor_candidates(state,minimum,seen)
     return candidates
 end
 
-local function free_near(state,x,y,reserved)
+local function free_near(state,x,y,reserved,accept)
     local map=Content.map_for(state)
     local cells={{x=x,y=y}}
     for radius=1,5 do
@@ -102,7 +104,7 @@ local function free_near(state,x,y,reserved)
     for _,p in ipairs(cells) do
         local key=p.x..","..p.y
         if Content.walkable(map,p.x,p.y) and not occupant(state,p.x,p.y)
-            and not reserved[key] then return p end
+            and not reserved[key] and (not accept or accept(p)) then return p end
     end
     error("elite arena has no free reward/exit cell")
 end
@@ -177,7 +179,15 @@ function Stage.on_event(state,event,emit,spawn_chest)
         local chest=spawn_chest("core:chest/free_elite",chest_at.x,chest_at.y,
             "elite:stage:"..stage.index)
         stage.elite_reward_id=chest.id
-        local exit_at=free_near(state,event.x,event.y,reserved)
+        local map=Content.map_for(state)
+        local exit_at=free_near(state,event.x,event.y,reserved,function(candidate)
+            local seen=reachable(state,candidate.x,candidate.y,true)
+            for _,d in ipairs(directions) do
+                local x,y=chest_at.x+d[1],chest_at.y+d[2]
+                if seen[y*map.width+x] then return true end
+            end
+            return false
+        end)
         local exit={id=state.next_entity_id,definition_id="core:exit/arena",
             controller="exit",faction="neutral",position={floor_id=state.active_floor_id,
                 x=exit_at.x,y=exit_at.y},blocks_movement=true,

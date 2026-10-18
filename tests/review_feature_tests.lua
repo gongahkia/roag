@@ -98,6 +98,24 @@ return function(test,equal)
             end
             assert(seen[map.elite.x..','..map.elite.y],
                 'review objects blocked the main route for seed '..seed)
+            local baseline={{x=map.start_x,y=map.start_y}}
+            local naturally_seen={[map.start_x..','..map.start_y]=true}
+            local base_head=1
+            while base_head<=#baseline do
+                local p=baseline[base_head];base_head=base_head+1
+                for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}}) do
+                    local x,y=p.x+d[1],p.y+d[2]
+                    local k=x..','..y
+                    if not naturally_seen[k] and Content.walkable(map,x,y) then
+                        naturally_seen[k]=true
+                        baseline[#baseline+1]={x=x,y=y}
+                    end
+                end
+            end
+            for cell in pairs(naturally_seen) do
+                assert(blocked[cell] or seen[cell],
+                    'review objects isolated a reachable tile for seed '..seed)
+            end
             local plate=feature(state,'plate')
             if plate then
                 assert(seen[plate.x..','..plate.y],

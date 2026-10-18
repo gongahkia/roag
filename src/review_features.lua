@@ -61,7 +61,7 @@ local function open_neighbors(map,x,y)
     end
     return count
 end
-local function route_clear(map,bx,by,blocking)
+local function route_clear(map,bx,by,blocking,preserve_all)
     local queue,seen={{x=map.start_x,y=map.start_y}},
         {[key(map.start_x,map.start_y)]=true}
     local head=1
@@ -87,6 +87,12 @@ local function route_clear(map,bx,by,blocking)
             if found then break end
         end
         if not found then return false,seen end
+    end
+    if preserve_all then
+        local _,baseline=route_clear(map,nil,nil,blocking,false)
+        for cell in pairs(baseline) do
+            if cell~=key(bx,by) and not seen[cell] then return false,seen end
+        end
     end
     return true,seen
 end
@@ -123,14 +129,14 @@ function F.populate(state,map)
     local vault=choose('vault',function(p)
         local room=room_at(map,p.x,p.y)
         return room and room.role=='treasure' and open_neighbors(map,p.x,p.y)>=3
-            and route_clear(map,p.x,p.y,blocking)
+            and route_clear(map,p.x,p.y,blocking,true)
     end)
     if not vault then
         vault=choose('vault_landmark',function(p)
             local room=room_at(map,p.x,p.y)
             return room and room.role=='landmark'
                 and open_neighbors(map,p.x,p.y)>=3
-                and route_clear(map,p.x,p.y,blocking)
+                and route_clear(map,p.x,p.y,blocking,true)
         end)
     end
     if vault then
@@ -151,7 +157,7 @@ function F.populate(state,map)
     end
     local gate=choose('gate',function(p)
         return p.kind=='corridor' and open_neighbors(map,p.x,p.y)>=2
-            and route_clear(map,p.x,p.y,blocking)
+            and route_clear(map,p.x,p.y,blocking,true)
     end)
     if gate then
         local plate
@@ -172,7 +178,7 @@ function F.populate(state,map)
     end
     local pillar=choose('pillar',function(p)
         return p.kind=='room' and open_neighbors(map,p.x,p.y)==4
-            and route_clear(map,p.x,p.y,blocking)
+            and route_clear(map,p.x,p.y,blocking,true)
     end)
     if pillar then add_entity(state,map,'pillar',pillar) end
     local ore=choose('ore',function(p)return p.kind=='room' end)
