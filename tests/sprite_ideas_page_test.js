@@ -12,8 +12,12 @@ const html=fs.readFileSync(folder+'ideas.html','utf8');
 const embedded=JSON.parse(html.match(/<script id="ideas-data" type="application\/json">([^<]+)<\/script>/)[1]);
 const copy=v=>JSON.parse(JSON.stringify(v));let passed=0;
 function test(name,fn){fn();passed++;console.log('PASS '+name);}
-test('all 3305 unused cells have one owner, with source/pack and live-usage checks',()=>{
-  const live=JSON.parse(execFileSync('luajit',['tools/sprite_audit.lua']));
+test('all 3305 reviewed unused cells have one owner, with source/pack and original-usage checks',()=>{
+  const record=JSON.parse(fs.readFileSync(folder+'ideas-decisions.json','utf8'));
+  const original=record.review_inventory;
+  const live=original?JSON.parse(fs.readFileSync(original.path,'utf8')):
+    JSON.parse(execFileSync('luajit',['tools/sprite_audit.lua']));
+  if(original)assert.equal(crypto.createHash('sha256').update(fs.readFileSync(original.path)).digest('hex'),original.sha256);
   assert.equal(data.mapping_checksum,live.mapping_checksum);
   assert.equal(data.summary.proposals,89);assert.equal(data.summary.held_groups,2);
   assert.equal(Object.keys(data.cells).length,3305);

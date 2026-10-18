@@ -105,6 +105,12 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check',action='store_true')
     args=parser.parse_args()
+    # Applying approved art deliberately makes the original "unused" snapshot
+    # historical. Never regenerate it and reinterpret the user's old votes.
+    from sprite_ideas_archive import RECORD, verify
+    if RECORD.is_file() and json.loads(RECORD.read_bytes()).get('review_inventory'):
+        verify()
+        return
     outputs,data=build()
     for name,value in outputs.items():
         path=OUT/name

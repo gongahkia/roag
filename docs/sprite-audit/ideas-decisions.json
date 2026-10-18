@@ -246,5 +246,14 @@
       "rule": "Skull may instantly kill ordinary regular enemies only. Minibosses and the final boss are exempt; a special encounter is not implicitly a regular enemy.",
       "status": "resolved"
     }
-  ]
+  ],
+  "review_inventory": {
+    "path": "docs/sprite-audit/ideas-review-inventory.json",
+    "sha256": "3b2e394d40d489ffe5d71f6f122b95ff8e801712bbaf31397a8b356807517006"
+  },
+  "superseded_reports": {
+    "docs/sprite-audit/surplus.html": "bf15f760f700b50f7bcdd250a253acbd0285668c5d046b3ae4790de360eec48f",
+    "docs/sprite-audit/surplus.json": "5f8eafcad917b6266ddfd26dc187128d076858e150207b0671ca2a2ec96a952f",
+    "docs/sprite-audit/surplus-candidates.json": "5fb89d147af5cd285712ad9f5ff1d2873c1cdfd78c5d1a524cdeb2a26eb49195"
+  }
 }
