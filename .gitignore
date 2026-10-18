@@ -5,3 +5,6 @@ benchmarks/
 *.exe
 *.pdb
 AGENTS.md
+
+__pycache__/
+*.py[cod]

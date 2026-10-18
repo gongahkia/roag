@@ -13,6 +13,8 @@ import sys
 import tempfile
 import time
 
+sys.dont_write_bytecode = True
+
 import benchmark
 import build
 from ppm_to_png import convert
@@ -51,7 +53,7 @@ def interactive(binary, env, directory):
     if not display:
         raise RuntimeError('Cannot connect input test to X server')
     save = directory / 'interactive.vox'
-    process = subprocess.Popen([str(binary), '--save', str(save), '--radius', '2', '--seconds', '15'], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    process = subprocess.Popen([str(binary), '--save', str(save), '--radius', '2', '--seconds', '15', '--gpu-mb', '16', '--cpu-mb', '32', '--width', '640', '--height', '360'], env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     try:
         root = xlib.XDefaultRootWindow(display)
         window = None
@@ -106,7 +108,7 @@ def interactive(binary, env, directory):
         edits = struct.unpack_from('<I', data, 44)[0]
         assert position[0] > 8.5 and position[2] < 7.5, f'Movement failed: {position}'
         assert edits > 0, 'Mouse block editing did not produce an edit'
-        xlib.XResizeWindow(display, window, 800, 600); xlib.XSync(display, 0); time.sleep(0.3)
+        xlib.XResizeWindow(display, window, 1024, 768); xlib.XSync(display, 0); time.sleep(0.3)
         xlib.XResizeWindow(display, window, 640, 360); xlib.XSync(display, 0); time.sleep(0.3)
         key(0xff1b)  # Escape releases capture; the program stays alive.
         key(ord('q'))

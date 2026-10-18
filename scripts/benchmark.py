@@ -6,9 +6,13 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import statistics
 import subprocess
 import time
+
+import sys
+sys.dont_write_bytecode = True
 
 import build
 
@@ -107,6 +111,9 @@ def main():
         'runtime_output': result.stdout.splitlines(),
         'summary': summarize(path),
     }
+    peak = re.search(r'CPU peak ([0-9.]+) MiB', result.stdout)
+    if peak:
+        report['summary']['allocator_peak_cpu_mib'] = float(peak.group(1))
     path.with_suffix('.json').write_text(json.dumps(report, indent=2) + '\n')
     print(json.dumps(report['summary'], indent=2))
 

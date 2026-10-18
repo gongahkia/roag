@@ -48,7 +48,7 @@ def install_odin():
         else:
             with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as archive:
                 archive.extractall(temporary, filter='data')
-        found = list(temporary.rglob(binary.name))
+        found = [p for p in temporary.rglob(binary.name) if p.is_file()]
         if len(found) != 1:
             raise SystemExit('Unexpected Odin archive structure')
         shutil.move(str(found[0].parent), target)
