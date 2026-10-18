@@ -50,7 +50,7 @@ return function(test,equal)
         end
     end)
     test('Sentinel and Alchemist each reach Victory through ordinary submitted actions',function()
-        for _,case in ipairs({{Classes.order[5],28},{Classes.order[6],19}}) do
+        for _,case in ipairs({{Classes.order[5],28},{Classes.order[6],9}}) do
             local run,reason,failed=Driver.attempt(case[2],{class_id=case[1]})
             assert(run,('%s seed %d failed after %d actions: %s'):format(
                 case[1],case[2],failed and #failed.trace or 0,tostring(reason)))

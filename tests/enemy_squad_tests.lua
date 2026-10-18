@@ -272,4 +272,22 @@ return function(test,equal)
         corrupt.enemy_snares={{source_id=scribe.id,floor_id=state.active_floor_id,x=8,y=6}}
         assert(not pcall(Game.restore,corrupt))
     end)
+    test('shield bash lowers protection through its windup and recovery for corridor counterplay',function()
+        local state,p=trial(nil,9,7)
+        local shield=member(state,'shield_bearer',9,8,nil,0)
+        shield.ai_memory.shield_dx,shield.ai_memory.shield_dy=0,-1
+        assert(S.block(state,shield,p,true))
+        assert(Game.submit(state,{kind='wait'}))
+        assert(shield.pending_attack and shield.ai_memory.shield_lowered)
+        assert(not S.block(state,shield,p,true))
+        local saved=Game.restore(Codec.decode(Codec.encode(Game.snapshot(state))))
+        for _=1,3 do
+            local intent={kind='basic_attack',dx=0,dy=1}
+            local _,_,a=Game.submit(state,intent)
+            local _,_,b=Game.submit(saved,intent)
+            equal(a,b)
+        end
+        assert(not Game.entity(state,shield.id),'frontal corridor enemy had no punish window')
+        equal(Game.snapshot(state),Game.snapshot(saved))
+    end)
 end

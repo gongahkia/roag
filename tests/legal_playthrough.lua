@@ -1,6 +1,7 @@
 -- Guided acceptance driver: reads the world, but changes it only through Game.submit.
 local Game=require('src.game')
 local Content=require('src.content')
+local Squads=require('src.enemy_squads')
 
 local Play={}
 local dirs={{0,-1},{1,0},{0,1},{-1,0}}
@@ -35,13 +36,13 @@ function Play.action(run,intent)
     return ok,reason,events
 end
 
-local function passable(state,x,y)
+local function passable(state,x,y,avoid_guarded)
     local map=Content.map_for(state)
     if not Content.walkable(map,x,y) then return false end
     for _,entity in ipairs(state.entities) do
-        if entity.controller=='ai' and entity.position.floor_id==state.active_floor_id and
+        if avoid_guarded and entity.controller=='ai' and entity.position.floor_id==state.active_floor_id and
             entity.position.x==x and entity.position.y==y and
-            require('src.enemy_squads').block(state,entity,Game.player(state),true) then return false end
+            Squads.block(state,entity,Game.player(state),true) then return false end
         if entity.blocks_movement and entity.position.floor_id==state.active_floor_id
             and entity.position.x==x and entity.position.y==y
             and entity.id~=state.player_id and entity.controller~='ai'
@@ -50,7 +51,7 @@ local function passable(state,x,y)
     return true
 end
 
-function Play.path(state,goal)
+function Play.path(state,goal,avoid_guarded)
     local p=Game.player(state).position
     if goal(p) then return {} end
     local map=Content.map_for(state)
@@ -63,7 +64,7 @@ function Play.path(state,goal)
         for _,d in ipairs(dirs) do
             local x,y=node.x+d[1],node.y+d[2]
             local k=key(x,y)
-            if not seen[k] and passable(state,x,y) then
+            if not seen[k] and passable(state,x,y,avoid_guarded) then
                 seen[k]=true
                 local first=node.first or d
                 if goal({x=x,y=y}) then return first end
@@ -140,13 +141,13 @@ function Play.attack_adjacent(run,excluded_id)
         end
     end
     if not selected then return false end
-    if require('src.enemy_squads').block(state,selected,Game.player(state),true) then
-        local ward=require('src.enemy_squads').ward_source(state,selected)
+    if Squads.block(state,selected,Game.player(state),true) then
+        local ward=Squads.ward_source(state,selected)
         local step=Play.path(state,function(at)
             if ward then return adjacent(at,ward.position) end
-            return adjacent(at,selected.position) and not require('src.enemy_squads').block(state,selected,
+            return adjacent(at,selected.position) and not Squads.block(state,selected,
                 {position={floor_id=state.active_floor_id,x=at.x,y=at.y}},true)
-        end)
+        end,true)
         if step and step[1] then return Play.action(run,{kind='move',dx=step[1],dy=step[2]}) end
         if not ward then return Play.action(run,{kind='wait'}) end
         return false
@@ -180,22 +181,24 @@ function Play.fight(run,id,max_actions,stop_when)
         if stop_when and stop_when() then return true end
         local enemy=Game.entity(state,id)
         if not enemy then return true end
-        enemy=require('src.enemy_squads').ward_source(state,enemy) or enemy
+        enemy=Squads.ward_source(state,enemy) or enemy
         if state.game_over then return false,'dead' end
         local p=Game.player(state).position
         if Play.escape(run,enemy.position) then
             -- Locked strikes are evaluated against current occupancy after this dodge.
-        elseif adjacent(p,enemy.position) and not require('src.enemy_squads').block(state,enemy,Game.player(state),true) then
+        elseif adjacent(p,enemy.position) and not Squads.block(state,enemy,Game.player(state),true) then
             local dx,dy=enemy.position.x-p.x,enemy.position.y-p.y
             local ok,reason=Play.action(run,{kind='basic_attack',dx=dx,dy=dy})
             if not ok then return false,reason end
         else
             local step=Play.path(state,function(at)
-                return adjacent(at,enemy.position) and not require('src.enemy_squads').block(state,enemy,
+                return adjacent(at,enemy.position) and not Squads.block(state,enemy,
                     {position={floor_id=state.active_floor_id,x=at.x,y=at.y}},true)
-            end)
+            end,true)
+            step=step or Play.path(state,function(at) return adjacent(at,enemy.position) end)
             if not step then return false,'no approach' end
-            local ok,reason=Play.action(run,{kind='move',dx=step[1],dy=step[2]})
+            local intent=step[1] and {kind='move',dx=step[1],dy=step[2]} or {kind='wait'}
+            local ok,reason=Play.action(run,intent)
             if not ok then return false,reason end
         end
     end

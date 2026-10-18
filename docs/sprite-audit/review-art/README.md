@@ -40,8 +40,8 @@ gray RPG vault set, both timed-gate sets, Tiny #111 for Hookrunner and Tiny
 #112 for Trapper. The runtime binds only those selected cells. Other
 shortlisted alternatives remain unapproved.
 
-The next [enemy combination review](../enemy-review.html) proposes additional
-unused cells from these same stored sources. Its
-[audit and handoff](../enemy-review-audit.md) lists exact assignments and
-existing-role overlaps. Candidate selection is not runtime publication or
-user approval; no extra sheet download or art replacement is performed.
+The [accepted enemy combination review](../enemy-review.html) selected ten
+additional actor cells and five shared cues from these stored sources.
+[The live implementation guide](../../ROAG_ENEMY_SQUADS.md) records the exact
+accepted alternatives and the user’s guard-leash / 2–5 follower comments.
+Original sheet bytes remain unchanged; the review page is an archived record.

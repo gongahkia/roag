@@ -41,7 +41,7 @@ function Game.new_stage(...)
         local ids={};for id in pairs(O.actors)do if id:match('^core:enemy/')then ids[#ids+1]=id end end
         table.sort(ids)
         for i,id in ipairs(ids)do
-            enemies[#enemies+1]=Game.spawn_enemy(state,id,4+(i-1)%9*2,({5,7,11})[math.floor((i-1)/9)+1])
+            enemies[#enemies+1]=Game.spawn_enemy(state,id,4+(i-1)%9*2,({5,7,11,13})[math.floor((i-1)/9)+1])
         end
         Game.spawn_chest(state,'core:chest/standard',5,3)
         return state
