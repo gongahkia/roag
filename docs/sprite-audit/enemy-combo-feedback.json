@@ -1,0 +1,210 @@
+{
+  "schema": "roag-enemy-combo-feedback/1",
+  "proposal_fingerprint": "f99cb126f2a59a65fc5e524008f3cc8537ed36edd87dea8136cff10a9f902a08",
+  "audit_mapping_checksum": "f55c179042aea261",
+  "combos": [
+    {
+      "id": "warded_bodyguards",
+      "vote": "approve",
+      "comment": "yes these look great thanks just that the guards should be ableto move slightly further fromthe wizardas required as long as they stay within a specific range, and the player can lure them away fromtheir mage as required",
+      "cue": {
+        "vote": "approve",
+        "comment": "",
+        "choice": "onebit:636"
+      }
+    },
+    {
+      "id": "healer_rushwings",
+      "vote": "approve",
+      "comment": "",
+      "cue": {
+        "vote": "approve",
+        "comment": "",
+        "choice": "onebit:535"
+      }
+    },
+    {
+      "id": "snares_and_siege",
+      "vote": "approve",
+      "comment": "",
+      "cue": {
+        "vote": "approve",
+        "comment": "",
+        "choice": "onebit:715"
+      }
+    },
+    {
+      "id": "shield_and_archer",
+      "vote": "approve",
+      "comment": "",
+      "cue": {
+        "vote": "approve",
+        "comment": "",
+        "choice": "onebit:239"
+      }
+    },
+    {
+      "id": "captain_and_followers",
+      "vote": "approve",
+      "comment": "but have more followers, from 2-5",
+      "cue": {
+        "vote": "approve",
+        "comment": "",
+        "choice": "onebit:527"
+      }
+    }
+  ],
+  "roles": [
+    {
+      "id": "ward_weaver",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:84"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:319"
+        }
+      }
+    },
+    {
+      "id": "bodyguard_brute",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:110"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:270"
+        }
+      }
+    },
+    {
+      "id": "mend_acolyte",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:86"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:123"
+        }
+      }
+    },
+    {
+      "id": "rushwing",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:120"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:415"
+        }
+      }
+    },
+    {
+      "id": "snare_scribe",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:124"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:221"
+        }
+      }
+    },
+    {
+      "id": "siege_wisp",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:108"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:321"
+        }
+      }
+    },
+    {
+      "id": "shield_bearer",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:96"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:126"
+        }
+      }
+    },
+    {
+      "id": "pin_archer",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:87"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:78"
+        }
+      }
+    },
+    {
+      "id": "banner_captain",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:98"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:172"
+        }
+      }
+    },
+    {
+      "id": "banner_follower",
+      "art": {
+        "kenney": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "tiny:97"
+        },
+        "onebit": {
+          "vote": "approve",
+          "comment": "",
+          "choice": "onebit:174"
+        }
+      }
+    }
+  ],
+  "exported_at": "2026-10-18T06:55:45.336Z"
+}
