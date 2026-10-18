@@ -1,8 +1,11 @@
 # Enemy combinations: sprite audit and approval handoff
 
-**Status: review ready; gameplay implementation waits for the user's feedback
-and explicit go-ahead.** No new enemies, encounters, effects, bindings, saves
-or balance rules have been added to the running game in this review stage.
+**Status: user accepted all 30 decisions on 2026-10-18.** The original review
+and the source audit below are archived unchanged in meaning. The live
+implementation is described in [ROAG_ENEMY_SQUADS.md](../ROAG_ENEMY_SQUADS.md);
+[the verbatim approval export](enemy-combo-feedback.json) records the selected alternatives
+and the guard-leash / 2–5 follower conditions. The remaining text describes
+the pre-implementation review stage, not the current live binding count.
 The five combinations are concepts the user asked to pursue; the assignments
 and detailed interaction rules below are proposals.
 

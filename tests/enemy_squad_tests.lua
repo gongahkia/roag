@@ -225,4 +225,51 @@ return function(test,equal)
         map.rows[2]='#.....#'
         assert(S.flank_reachable(map,points))
     end)
+    test('completed healer channel restores one wounded ally but does not follow a displaced target',function()
+        local state=trial()
+        local healer=member(state,'mend_acolyte',9,8,nil,0)
+        local wing=member(state,'rushwing',8,8,healer);wing.hp=1
+        assert(Game.submit(state,{kind='wait'}))
+        assert(healer.pending_attack.support.target_id==wing.id)
+        local moved=Game.restore(Game.snapshot(state))
+        assert(Game.displace(moved,wing.id,7,8))
+        local _,_,ev=Game.submit(state,{kind='wait'})
+        assert(wing.hp==3 and #events(ev,'Healed')==1)
+        assert(Game.submit(moved,{kind='wait'}))
+        assert(Game.entity(moved,wing.id).hp==1,'locked heal followed its former target')
+    end)
+    test('squad artillery retains locked cells and canonical enemy-on-enemy damage batching',function()
+        local state,p=trial()
+        Game.spawn_enemy(state,'core:enemy/siege_wisp',9,9,0)
+        local ally=Game.spawn_enemy(state,'core:enemy/mossbound_guard',10,6,100000)
+        assert(Game.submit(state,{kind='wait'}))
+        local saved=Game.restore(Game.snapshot(state))
+        local output={}
+        for _=1,2 do
+            local _,_,a=Game.submit(state,{kind='wait'})
+            local _,_,b=Game.submit(saved,{kind='wait'})
+            equal(a,b)
+            for _,e in ipairs(a) do output[#output+1]=e end
+        end
+        local batch=events(output,'DamageBatchResolved')[1]
+        assert(batch and #batch.outcomes==2 and p.hp==98 and ally.hp==9)
+        equal(Game.snapshot(state),Game.snapshot(saved))
+    end)
+    test('caster death removes its bounded snares and existing saves gain no new encounters',function()
+        local state,p=trial(nil,9,7);p.damage=30
+        local scribe=member(state,'snare_scribe',9,8)
+        state.enemy_snares={{source_id=scribe.id,floor_id=state.active_floor_id,x=8,y=6}}
+        assert(Game.restore(Game.snapshot(state)))
+        assert(Game.submit(state,{kind='basic_attack',dx=0,dy=1}))
+        assert(#state.enemy_snares==0 and not Game.entity(state,scribe.id))
+        assert(Game.restore(Game.snapshot(state)))
+        local old=Game.new_generated(41)
+        local before=Game.snapshot(old)
+        local resumed=Game.restore(Codec.decode(Codec.encode(before)))
+        equal(before,Game.snapshot(resumed))
+        for _,e in ipairs(resumed.entities) do assert(not e.squad_id) end
+        local corrupt=Game.snapshot(state)
+        corrupt.enemy_snares={{source_id=scribe.id,floor_id=state.active_floor_id,x=8,y=6}}
+        assert(not pcall(Game.restore,corrupt))
+    end)
 end

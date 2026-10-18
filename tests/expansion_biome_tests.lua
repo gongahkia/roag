@@ -111,7 +111,16 @@ return function(test,equal)
             local found=0
             for _,entity in ipairs(state.entities) do
                 if entity.controller=="ai" and entity.id~=state.stage.elite_id then
-                    assert(pool[entity.definition_id]);found=found+1
+                    if entity.squad_kind then
+                        local squads=require('src.enemy_squads')
+                        local allowed=false
+                        for _,kind in ipairs(squads.biomes[id:match('[^/]+$')]) do
+                            if kind==entity.squad_kind then allowed=true end
+                        end
+                        assert(allowed and squads.roles[entity.definition_id],
+                            'squad outside its approved biome pool')
+                    else assert(pool[entity.definition_id]) end
+                    found=found+1
                 end
             end
             assert(found>0)

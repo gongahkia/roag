@@ -1,16 +1,17 @@
 # ROAG sprite coverage and unused-art audit
 
-**Pending next review:** [five enemy combinations and sprite assignments](sprite-audit/enemy-review.html),
-with [the source/overlap audit](sprite-audit/enemy-review-audit.md).
-These proposals add zero live bindings and wait for user approval.
+**Enemy review accepted:** all 30 decisions were approved on 2026-10-18.
+The [original review](sprite-audit/enemy-review.html) is preserved as an archive;
+[the implementation guide](ROAG_ENEMY_SQUADS.md) records the exact selected art and behaviour.
+The live catalogue includes these bindings.
 
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
-game content is nine classes, 16 regular enemies, seven elites, pursuer/final
+game content is nine classes, 26 regular enemies, seven elites, pursuer/final
 boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
 Updated 2026-10-18 after the approved sprite/room expansion. The earlier
 242-binding catalogue was not regenerated with that expansion; this report
-and the saved HTML/JSON/CSV now reflect the current 289 requirements.
+and the saved HTML/JSON/CSV now reflect the current 324 requirements.
 The audit itself does not modify gameplay mechanics.
 
 ## The choices being compared
@@ -31,15 +32,16 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **289/289 active sprite bindings resolve in each choice**:
+that happen to exist. **324/324 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
-| Nine classes + 25 enemies, base/attack/hurt | 102 | 26 distinct bodies for 34 actors | 34 distinct bodies |
+| Nine classes + 35 enemies, base/attack/hurt | 132 | 36 distinct bodies for 44 actors | 44 distinct bodies |
 | Drops 3, chests 2, other objects 6 | 11 | Native Micro art | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
 | Hit, boon, Burning, block, attack center/impact | 6 | Native Micro art | Native 1-Bit art |
+| Squad field/heal/snare/shield/rally cues | 5 | Native 1-Bit art | Native 1-Bit art |
 | Class weapon symbols | 5 | Native Micro art | Native 1-Bit art |
 | 53 boon icons + their detail aliases | 106 | 52 1-Bit motifs + Micro reversal ring | 53 1-Bit motifs, monochrome |
 | Mechanical terrain markers | 6 | 1-Bit symbols + colored semantic wash | 1-Bit symbols + subdued wash |
@@ -116,7 +118,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-289 binding requirements above. Decoy/snare markers are also still drawn
+324 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -130,15 +132,15 @@ shown intact. Transparent key/background is accounted for in Micro.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Micro Roguelike 8px | 160 | 159 | 52 / **107** | Not loaded | **107** |
 | Caves & Dungeons 16px, 1px gutters | 522 | 522 | 68 / **454** | Not loaded | **454** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 56 / **1,021** | 132 / **945** | **945** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 61 / **1,016** | 147 / **930** | **930** |
 | Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 7 / **1,697** | Not loaded | **1,697** |
-| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 5 / **127** | Not loaded | **127** |
+| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 15 / **117** | Not loaded | **117** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **264 referenced by
-either choice**, **3,330 unreferenced**. Across just the original three sheets,
-there are **1,506** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **289 referenced by
+either choice**, **3,305 unreferenced**. Across just the original three sheets,
+there are **1,491** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,330 unique useful objects:
+These counts are grid occupancy, not a claim of 3,305 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the
