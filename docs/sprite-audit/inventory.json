@@ -1,8 +1,9 @@
 {
+  "mapping_checksum": "f55c179042aea261",
   "packs": {
     "kenney": {
-      "actor_count": 31,
-      "actor_silhouettes": 23,
+      "actor_count": 34,
+      "actor_silhouettes": 26,
       "bindings": [
         {
           "height": 8,
@@ -113,6 +114,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:actor/hookrunner",
+          "index": 111,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/attack",
+          "index": 111,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/hurt",
+          "index": 111,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:actor/ranger",
           "index": 11,
@@ -165,6 +193,60 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:actor/shade",
+          "index": 8,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:actor/shade/attack",
+          "index": 8,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:actor/shade/hurt",
+          "index": 8,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper",
+          "index": 112,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/attack",
+          "index": 112,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/hurt",
+          "index": 112,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 16,
@@ -921,6 +1003,24 @@
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
+        },
+        {
+          "height": 8,
+          "id": "core:boon/ring_of_reversal/detail",
+          "index": 89,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:boon/ring_of_reversal/icon",
+          "index": 89,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
         },
         {
           "height": 16,
@@ -1859,6 +1959,267 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:object/review_brazier_lit",
+          "index": 507,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_brazier_unlit",
+          "index": 506,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_bottom",
+          "index": 218,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_tiny",
+          "index": 45,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_top",
+          "index": 161,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_key",
+          "index": 671,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_1",
+          "index": 87,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_2",
+          "index": 88,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore",
+          "index": 329,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore_depleted",
+          "index": 358,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 8,
+          "id": "core:object/review_overgrowth_1",
+          "index": 84,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:object/review_overgrowth_2",
+          "index": 85,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_bottom",
+          "index": 174,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_middle",
+          "index": 177,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_top",
+          "index": 145,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_down",
+          "index": 961,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_down",
+          "index": 55,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_up",
+          "index": 54,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_up",
+          "index": 959,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_left",
+          "index": 503,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_right",
+          "index": 504,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_left",
+          "index": 474,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_right",
+          "index": 475,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_left",
+          "index": 445,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_right",
+          "index": 446,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_secret_clue",
+          "index": 95,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "caves",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_bottom",
+          "index": 215,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_top",
+          "index": 158,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 8,
+          "id": "core:object/review_ward",
+          "index": 106,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
           "height": 8,
           "id": "core:object/stairs_down",
           "index": 37,
@@ -1882,7 +2243,7 @@
           "index": 364,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1891,7 +2252,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1900,7 +2261,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1927,7 +2288,7 @@
           "index": 422,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1936,7 +2297,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1945,7 +2306,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1954,7 +2315,7 @@
           "index": 212,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1963,7 +2324,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1972,7 +2333,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1981,7 +2342,7 @@
           "index": 306,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1990,7 +2351,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -1999,7 +2360,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2026,7 +2387,7 @@
           "index": 67,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2035,7 +2396,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2044,7 +2405,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2071,7 +2432,7 @@
           "index": 393,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2080,7 +2441,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2089,7 +2450,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2098,7 +2459,7 @@
           "index": 335,
           "motif": "",
           "pose_alias": false,
-          "sheet": "micro",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2107,7 +2468,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
         },
         {
@@ -2116,8 +2477,26 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "caves-composite-or-floor",
+          "sheet": "caves",
           "width": 16
+        },
+        {
+          "height": 8,
+          "id": "core:ui/attack_center_effect",
+          "index": 131,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/attack_impact_effect",
+          "index": 133,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
         },
         {
           "height": 8,
@@ -2168,6 +2547,51 @@
           "height": 8,
           "id": "core:ui/hp_icon",
           "index": 100,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/weapon_bow_icon",
+          "index": 71,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/weapon_dagger_icon",
+          "index": 73,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/weapon_hook_icon",
+          "index": 74,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/weapon_spell_icon",
+          "index": 72,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 8,
+          "id": "core:ui/weapon_sword_icon",
+          "index": 70,
           "motif": "",
           "pose_alias": false,
           "sheet": "micro",
@@ -2242,9 +2666,18 @@
           "index": 22
         }
       ],
-      "static_pose_aliases": 62,
+      "static_pose_aliases": 68,
       "usage": {
         "caves": {
+          "145": [
+            "core:object/review_pillar_top"
+          ],
+          "174": [
+            "core:object/review_pillar_bottom"
+          ],
+          "177": [
+            "core:object/review_pillar_middle"
+          ],
           "183": [
             "earth wall material: frame"
           ],
@@ -2326,6 +2759,9 @@
           "328": [
             "green water quadrant material 11"
           ],
+          "329": [
+            "core:object/review_ore"
+          ],
           "335": [
             "sunken_aqueduct floor"
           ],
@@ -2355,6 +2791,9 @@
           ],
           "355": [
             "green water quadrant material 9"
+          ],
+          "358": [
+            "core:object/review_ore_depleted"
           ],
           "364": [
             "ashen_bastion floor"
@@ -2398,8 +2837,41 @@
           "425": [
             "fractured_archive floor"
           ],
+          "445": [
+            "core:object/review_rail_top_left"
+          ],
+          "446": [
+            "core:object/review_rail_top_right"
+          ],
+          "474": [
+            "core:object/review_rail_middle_left"
+          ],
+          "475": [
+            "core:object/review_rail_middle_right"
+          ],
+          "503": [
+            "core:object/review_rail_bottom_left"
+          ],
+          "504": [
+            "core:object/review_rail_bottom_right"
+          ],
+          "506": [
+            "core:object/review_brazier_unlit"
+          ],
+          "507": [
+            "core:object/review_brazier_lit"
+          ],
           "67": [
             "overgrown_ruins floor"
+          ],
+          "87": [
+            "core:object/review_mushroom_1"
+          ],
+          "88": [
+            "core:object/review_mushroom_2"
+          ],
+          "95": [
+            "core:object/review_secret_clue"
           ]
         },
         "micro": {
@@ -2412,6 +2884,10 @@
           ],
           "102": [
             "core:ui/block_effect"
+          ],
+          "106": [
+            "core:object/review_ward",
+            "core:object/review_ward"
           ],
           "11": [
             "core:actor/ranger"
@@ -2432,8 +2908,14 @@
           "130": [
             "core:ui/hit_effect"
           ],
+          "131": [
+            "core:ui/attack_center_effect"
+          ],
           "132": [
             "core:ui/boon_effect"
+          ],
+          "133": [
+            "core:ui/attack_impact_effect"
           ],
           "135": [
             "core:drop/health"
@@ -2515,6 +2997,21 @@
             "core:actor/alchemist",
             "core:enemy/cinder_mender"
           ],
+          "70": [
+            "core:ui/weapon_sword_icon"
+          ],
+          "71": [
+            "core:ui/weapon_bow_icon"
+          ],
+          "72": [
+            "core:ui/weapon_spell_icon"
+          ],
+          "73": [
+            "core:ui/weapon_dagger_icon"
+          ],
+          "74": [
+            "core:ui/weapon_hook_icon"
+          ],
           "75": [
             "core:chest/standard"
           ],
@@ -2523,6 +3020,20 @@
           ],
           "77": [
             "core:object/chest_open"
+          ],
+          "8": [
+            "core:actor/shade"
+          ],
+          "84": [
+            "core:object/review_overgrowth_1",
+            "core:object/review_overgrowth_1"
+          ],
+          "85": [
+            "core:object/review_overgrowth_2",
+            "core:object/review_overgrowth_2"
+          ],
+          "89": [
+            "core:boon/ring_of_reversal/icon + /detail"
           ],
           "9": [
             "core:enemy/hollow_regent",
@@ -2704,14 +3215,54 @@
           "89": [
             "core:boon/battle_march/icon + /detail"
           ]
+        },
+        "rpg": {
+          "158": [
+            "core:object/review_vault_top"
+          ],
+          "161": [
+            "core:object/review_gate_top"
+          ],
+          "215": [
+            "core:object/review_vault_bottom"
+          ],
+          "218": [
+            "core:object/review_gate_bottom"
+          ],
+          "671": [
+            "core:object/review_key"
+          ],
+          "959": [
+            "core:object/review_plate_up"
+          ],
+          "961": [
+            "core:object/review_plate_down"
+          ]
+        },
+        "tiny": {
+          "111": [
+            "core:actor/hookrunner"
+          ],
+          "112": [
+            "core:actor/trapper"
+          ],
+          "45": [
+            "core:object/review_gate_tiny"
+          ],
+          "54": [
+            "core:object/review_plate_tiny_up"
+          ],
+          "55": [
+            "core:object/review_plate_tiny_down"
+          ]
         }
       },
       "wall_masks": 47,
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 31,
-      "actor_silhouettes": 31,
+      "actor_count": 34,
+      "actor_silhouettes": 34,
       "bindings": [
         {
           "height": 16,
@@ -2823,6 +3374,33 @@
         },
         {
           "height": 16,
+          "id": "core:actor/hookrunner",
+          "index": 80,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/attack",
+          "index": 80,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/hookrunner/hurt",
+          "index": 80,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:actor/ranger",
           "index": 472,
           "motif": "",
@@ -2870,6 +3448,60 @@
           "height": 16,
           "id": "core:actor/sentinel/hurt",
           "index": 324,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade",
+          "index": 79,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade/attack",
+          "index": 79,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/shade/hurt",
+          "index": 79,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper",
+          "index": 77,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/attack",
+          "index": 77,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/trapper/hurt",
+          "index": 77,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -3627,6 +4259,24 @@
           "id": "core:boon/rhythm_of_steel/icon",
           "index": 823,
           "motif": "musical notes",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ring_of_reversal/detail",
+          "index": 337,
+          "motif": "reversal ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ring_of_reversal/icon",
+          "index": 337,
+          "motif": "reversal ring",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4569,6 +5219,267 @@
         },
         {
           "height": 16,
+          "id": "core:object/review_brazier_lit",
+          "index": 739,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_brazier_unlit",
+          "index": 738,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_bottom",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_tiny",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_gate_top",
+          "index": 607,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_key",
+          "index": 571,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_1",
+          "index": 103,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_mushroom_2",
+          "index": 54,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore",
+          "index": 6,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ore_depleted",
+          "index": 524,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_overgrowth_1",
+          "index": 49,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_overgrowth_2",
+          "index": 50,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_bottom",
+          "index": 640,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_middle",
+          "index": 591,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_pillar_top",
+          "index": 542,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_down",
+          "index": 112,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_down",
+          "index": 112,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_tiny_up",
+          "index": 111,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_plate_up",
+          "index": 111,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_left",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_bottom_right",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_left",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_middle_right",
+          "index": 294,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_left",
+          "index": 245,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_rail_top_right",
+          "index": 245,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_secret_clue",
+          "index": 3,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_bottom",
+          "index": 552,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_vault_top",
+          "index": 552,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/review_ward",
+          "index": 578,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/stairs_down",
           "index": 295,
           "motif": "",
@@ -4591,7 +5502,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4600,7 +5511,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4609,7 +5520,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4636,7 +5547,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4645,7 +5556,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4654,7 +5565,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4663,7 +5574,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4672,7 +5583,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4681,7 +5592,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4690,7 +5601,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4699,7 +5610,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4708,7 +5619,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4735,7 +5646,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4744,7 +5655,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4753,7 +5664,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4780,7 +5691,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4789,7 +5700,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4798,7 +5709,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4807,7 +5718,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4816,7 +5727,7 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4825,7 +5736,25 @@
           "index": -1,
           "motif": "",
           "pose_alias": false,
-          "sheet": "onebit-composite",
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/attack_center_effect",
+          "index": 625,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/attack_impact_effect",
+          "index": 626,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -4884,6 +5813,51 @@
         },
         {
           "height": 16,
+          "id": "core:ui/weapon_bow_icon",
+          "index": 328,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_dagger_icon",
+          "index": 331,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_hook_icon",
+          "index": 332,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_spell_icon",
+          "index": 329,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/weapon_sword_icon",
+          "index": 327,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/xp_icon",
           "index": 706,
           "motif": "",
@@ -4894,7 +5868,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 62,
+      "static_pose_aliases": 68,
       "usage": {
         "onebit": {
           "1010": [
@@ -4906,9 +5880,20 @@
           "1013": [
             "core:boon/bloodrush/icon + /detail"
           ],
+          "103": [
+            "core:object/review_mushroom_1"
+          ],
           "104": [
             "core:boon/bramble_compact/icon + /detail",
             "core:terrain/bramble_bed"
+          ],
+          "111": [
+            "core:object/review_plate_tiny_up",
+            "core:object/review_plate_up"
+          ],
+          "112": [
+            "core:object/review_plate_down",
+            "core:object/review_plate_tiny_down"
           ],
           "121": [
             "core:terrain/barricade"
@@ -4959,6 +5944,10 @@
           "238": [
             "core:drop/food"
           ],
+          "245": [
+            "core:object/review_rail_top_left",
+            "core:object/review_rail_top_right"
+          ],
           "26": [
             "core:enemy/canal_lancer"
           ],
@@ -4993,11 +5982,20 @@
           "282": [
             "core:boon/splitflight/icon + /detail"
           ],
+          "294": [
+            "core:object/review_rail_bottom_left",
+            "core:object/review_rail_bottom_right",
+            "core:object/review_rail_middle_left",
+            "core:object/review_rail_middle_right"
+          ],
           "295": [
             "core:object/stairs_down"
           ],
           "296": [
             "core:object/stairs_up"
+          ],
+          "3": [
+            "core:object/review_secret_clue"
           ],
           "301": [
             "core:chest/free_elite"
@@ -5020,8 +6018,26 @@
           "326": [
             "core:boon/opening_cut/icon + /detail"
           ],
+          "327": [
+            "core:ui/weapon_sword_icon"
+          ],
+          "328": [
+            "core:ui/weapon_bow_icon"
+          ],
+          "329": [
+            "core:ui/weapon_spell_icon"
+          ],
+          "331": [
+            "core:ui/weapon_dagger_icon"
+          ],
+          "332": [
+            "core:ui/weapon_hook_icon"
+          ],
           "333": [
             "core:boon/recurve/icon + /detail"
+          ],
+          "337": [
+            "core:boon/ring_of_reversal/icon + /detail"
           ],
           "344": [
             "core:object/chest_open"
@@ -5092,14 +6108,23 @@
           "486": [
             "core:boon/packed_powder/icon + /detail"
           ],
+          "49": [
+            "core:object/review_overgrowth_1"
+          ],
           "5": [
             "composite terrain material: floor"
+          ],
+          "50": [
+            "core:object/review_overgrowth_2"
           ],
           "522": [
             "core:boon/crystal_harmony/icon + /detail"
           ],
           "523": [
             "core:terrain/resonant_crystal"
+          ],
+          "524": [
+            "core:object/review_ore_depleted"
           ],
           "530": [
             "core:ui/hp_icon"
@@ -5110,8 +6135,18 @@
           "532": [
             "core:boon/pain_dividend/icon + /detail"
           ],
+          "54": [
+            "core:object/review_mushroom_2"
+          ],
+          "542": [
+            "core:object/review_pillar_top"
+          ],
           "548": [
             "core:object/door_closed"
+          ],
+          "552": [
+            "core:object/review_vault_bottom",
+            "core:object/review_vault_top"
           ],
           "563": [
             "core:boon/crescent_reach/icon + /detail"
@@ -5129,8 +6164,25 @@
           "569": [
             "core:boon/crossfire_omen/icon + /detail"
           ],
+          "571": [
+            "core:object/review_key"
+          ],
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
+          ],
+          "578": [
+            "core:object/review_ward"
+          ],
+          "591": [
+            "core:object/review_pillar_middle"
+          ],
+          "6": [
+            "core:object/review_ore"
+          ],
+          "607": [
+            "core:object/review_gate_bottom",
+            "core:object/review_gate_tiny",
+            "core:object/review_gate_top"
           ],
           "616": [
             "core:boon/storm_conductor/icon + /detail",
@@ -5156,8 +6208,17 @@
           "624": [
             "core:boon/windup_hunter/icon + /detail"
           ],
+          "625": [
+            "core:ui/attack_center_effect"
+          ],
+          "626": [
+            "core:ui/attack_impact_effect"
+          ],
           "629": [
             "core:boon/temporal_echo/icon + /detail"
+          ],
+          "640": [
+            "core:object/review_pillar_bottom"
           ],
           "669": [
             "core:boon/alchemical_flip/icon + /detail"
@@ -5187,14 +6248,29 @@
           "717": [
             "core:boon/mist_veil/icon + /detail"
           ],
+          "738": [
+            "core:object/review_brazier_unlit"
+          ],
+          "739": [
+            "core:object/review_brazier_lit"
+          ],
           "75": [
             "core:enemy/cinder_mender"
           ],
           "76": [
             "core:enemy/index_keeper"
           ],
+          "77": [
+            "core:actor/trapper"
+          ],
           "771": [
             "core:boon/far_witness/icon + /detail"
+          ],
+          "79": [
+            "core:actor/shade"
+          ],
+          "80": [
+            "core:actor/hookrunner"
           ],
           "818": [
             "core:boon/prospectors_heart/icon + /detail",
@@ -5220,38 +6296,62 @@
     {
       "empty": 0,
       "grid": 522,
-      "kenney": 52,
+      "kenney": 68,
       "nonempty": 522,
       "onebit": 0,
       "sheet": "caves",
-      "union": 52,
-      "unused_kenney": 470,
+      "union": 68,
+      "unused_kenney": 454,
       "unused_onebit": 522,
-      "unused_union": 470
+      "unused_union": 454
     },
     {
       "empty": 1,
       "grid": 160,
-      "kenney": 40,
+      "kenney": 52,
       "nonempty": 159,
       "onebit": 0,
       "sheet": "micro",
-      "union": 40,
-      "unused_kenney": 119,
+      "union": 52,
+      "unused_kenney": 107,
       "unused_onebit": 159,
-      "unused_union": 119
+      "unused_union": 107
     },
     {
       "empty": 1,
       "grid": 1078,
       "kenney": 56,
       "nonempty": 1077,
-      "onebit": 101,
+      "onebit": 132,
       "sheet": "onebit",
-      "union": 101,
+      "union": 132,
       "unused_kenney": 1021,
-      "unused_onebit": 976,
-      "unused_union": 976
+      "unused_onebit": 945,
+      "unused_union": 945
+    },
+    {
+      "empty": 63,
+      "grid": 1767,
+      "kenney": 7,
+      "nonempty": 1704,
+      "onebit": 0,
+      "sheet": "rpg",
+      "union": 7,
+      "unused_kenney": 1697,
+      "unused_onebit": 1704,
+      "unused_union": 1697
+    },
+    {
+      "empty": 0,
+      "grid": 132,
+      "kenney": 5,
+      "nonempty": 132,
+      "onebit": 0,
+      "sheet": "tiny",
+      "union": 5,
+      "unused_kenney": 127,
+      "unused_onebit": 132,
+      "unused_union": 127
     }
   ],
   "requirements": [
@@ -5267,12 +6367,21 @@
     "core:actor/berserker",
     "core:actor/berserker/attack",
     "core:actor/berserker/hurt",
+    "core:actor/hookrunner",
+    "core:actor/hookrunner/attack",
+    "core:actor/hookrunner/hurt",
     "core:actor/ranger",
     "core:actor/ranger/attack",
     "core:actor/ranger/hurt",
     "core:actor/sentinel",
     "core:actor/sentinel/attack",
     "core:actor/sentinel/hurt",
+    "core:actor/shade",
+    "core:actor/shade/attack",
+    "core:actor/shade/hurt",
+    "core:actor/trapper",
+    "core:actor/trapper/attack",
+    "core:actor/trapper/hurt",
     "core:boon/aftershock/detail",
     "core:boon/aftershock/icon",
     "core:boon/alchemical_flip/detail",
@@ -5357,6 +6466,8 @@
     "core:boon/resonant_wounds/icon",
     "core:boon/rhythm_of_steel/detail",
     "core:boon/rhythm_of_steel/icon",
+    "core:boon/ring_of_reversal/detail",
+    "core:boon/ring_of_reversal/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
     "core:boon/splitflight/detail",
@@ -5461,6 +6572,35 @@
     "core:object/door_closed",
     "core:object/door_open",
     "core:object/exit",
+    "core:object/review_brazier_lit",
+    "core:object/review_brazier_unlit",
+    "core:object/review_gate_bottom",
+    "core:object/review_gate_tiny",
+    "core:object/review_gate_top",
+    "core:object/review_key",
+    "core:object/review_mushroom_1",
+    "core:object/review_mushroom_2",
+    "core:object/review_ore",
+    "core:object/review_ore_depleted",
+    "core:object/review_overgrowth_1",
+    "core:object/review_overgrowth_2",
+    "core:object/review_pillar_bottom",
+    "core:object/review_pillar_middle",
+    "core:object/review_pillar_top",
+    "core:object/review_plate_down",
+    "core:object/review_plate_tiny_down",
+    "core:object/review_plate_tiny_up",
+    "core:object/review_plate_up",
+    "core:object/review_rail_bottom_left",
+    "core:object/review_rail_bottom_right",
+    "core:object/review_rail_middle_left",
+    "core:object/review_rail_middle_right",
+    "core:object/review_rail_top_left",
+    "core:object/review_rail_top_right",
+    "core:object/review_secret_clue",
+    "core:object/review_vault_bottom",
+    "core:object/review_vault_top",
+    "core:object/review_ward",
     "core:object/stairs_down",
     "core:object/stairs_up",
     "core:terrain/ashen_bastion/floor/base",
@@ -5490,12 +6630,19 @@
     "core:terrain/sunken_aqueduct/floor/base",
     "core:terrain/sunken_aqueduct/wall/base",
     "core:terrain/sunken_aqueduct/water/base",
+    "core:ui/attack_center_effect",
+    "core:ui/attack_impact_effect",
     "core:ui/block_effect",
     "core:ui/boon_effect",
     "core:ui/burning_effect",
     "core:ui/currency_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
+    "core:ui/weapon_bow_icon",
+    "core:ui/weapon_dagger_icon",
+    "core:ui/weapon_hook_icon",
+    "core:ui/weapon_spell_icon",
+    "core:ui/weapon_sword_icon",
     "core:ui/xp_icon"
   ],
   "sheets": {
@@ -5525,6 +6672,24 @@
       "stride": 16,
       "tile": 16,
       "width": 784
+    },
+    "rpg": {
+      "checksum": "a2cba6dbb9cac15d",
+      "columns": 57,
+      "height": 526,
+      "path": "assets/kenney/approved/roguelike-rpg.png",
+      "stride": 17,
+      "tile": 16,
+      "width": 968
+    },
+    "tiny": {
+      "checksum": "d407b7ab694fa5d5",
+      "columns": 12,
+      "height": 186,
+      "path": "assets/kenney/approved/tiny-dungeon.png",
+      "stride": 17,
+      "tile": 16,
+      "width": 203
     }
   },
   "version": 1

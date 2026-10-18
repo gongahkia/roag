@@ -2,12 +2,13 @@
 """Read-only sprite coverage + pixel inventory. Python standard library only.
 
 Run from anywhere; generated files go to --output (default docs/sprite-audit).
-PNG decoding intentionally accepts only the three checked repository sheets.
+PNG decoding accepts the checked repository sheets declared by the runtime audit.
 """
 import argparse
 import base64
 import csv
 import html
+import io
 import json
 from pathlib import Path
 import struct
@@ -81,6 +82,8 @@ def pixels(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT/'docs/sprite-audit')
+    parser.add_argument('--check', action='store_true',
+                        help='fail if saved HTML/JSON/CSV differ; writes nothing')
     args = parser.parse_args()
     report = json.loads(subprocess.check_output(['luajit', 'tools/sprite_audit.lua'], cwd=ROOT))
     rows, summaries, sections = [], [], []
@@ -125,13 +128,12 @@ def main():
                         f'1-Bit uses {totals["onebit"]}. Numbering is zero-based.</p>'
                         f'<div class="cells">{"".join(cells)}</div></section>')
     report['pixel_inventory'] = summaries
-    output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=True)
-    (output/'inventory.json').write_text(json.dumps(report, sort_keys=True, indent=2)+'\n')
-    with (output/'tiles.csv').open('w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]), lineterminator='\n')
-        writer.writeheader()
-        writer.writerows(rows)
+    outputs = {'inventory.json': json.dumps(report, sort_keys=True, indent=2)+'\n'}
+    csv_text = io.StringIO(newline='')
+    writer = csv.DictWriter(csv_text, fieldnames=list(rows[0]), lineterminator='\n')
+    writer.writeheader()
+    writer.writerows(rows)
+    outputs['tiles.csv'] = csv_text.getvalue()
     styles = []
     for name, sheet in sorted(report['sheets'].items()):
         encoded = base64.b64encode((ROOT/sheet['path']).read_bytes()).decode()
@@ -145,7 +147,11 @@ header{position:sticky;top:0;background:#151b18;padding:12px;z-index:2}select{pa
 i{display:block;image-rendering:pixelated;background-repeat:no-repeat;background-color:#222323}
 span{display:block;font-size:12px}small{display:block;max-height:60px;overflow:auto;font-size:10px;overflow-wrap:anywhere}
 [data-state=unused]{border-color:#988644}[data-state=empty]{opacity:.35}[hidden]{display:none}''' + ''.join(styles) + '''</style>
-<header><h1>ROAG native sprite inventory</h1><p>Read-only, generated from current mappings and decoded PNG pixels.
+<header><h1>ROAG native sprite inventory</h1>''' + (
+        '<p id="coverage">' + ' · '.join(
+            f'{html.escape(pack)}: {len(info["bindings"])}/{len(report["requirements"])} bindings, '
+            f'{len(info["missing"])} missing' for pack, info in sorted(report['packs'].items())) +
+        f' · Mapping checksum: {report["mapping_checksum"]}</p>') + '''<p>Read-only, generated from current mappings and decoded PNG pixels.
 Hover/scroll a cell for bindings. “Used” includes partial material sampling; unused art is not an implemented mechanic.</p>
 <label>Pack <select id="pack"><option value="union">Both</option><option value="kenney">Kenney mix</option>
 <option value="onebit">Standalone 1-Bit</option></select></label>
@@ -157,7 +163,19 @@ document.querySelectorAll('article').forEach(a=>{const empty=a.dataset.state==='
 used=p==='union'?a.dataset.state==='used':a.dataset[p]==='true';
 a.hidden=f==='used'?!used:f==='unused'?(used||empty):f==='empty'?!empty:false;});}
 document.querySelectorAll('select').forEach(s=>s.addEventListener('change',filter));</script></html>'''
-    (output/'index.html').write_text(document)
+    outputs['index.html'] = document
+    output = args.output.resolve()
+    if args.check:
+        stale = [name for name, content in outputs.items()
+                 if not (output/name).is_file() or (output/name).read_bytes() != content.encode('utf-8')]
+        if stale:
+            parser.exit(1, 'Stale sprite catalogue: '+', '.join(stale)+
+                        '. Run make sprite-audit and include the regenerated files.\n')
+        print('PASS sprite catalogue matches current mappings, pixels and generator (HTML/JSON/CSV)')
+        return
+    output.mkdir(parents=True, exist_ok=True)
+    for name, content in outputs.items():
+        (output/name).write_bytes(content.encode('utf-8'))
     print(json.dumps(summaries, indent=2))
     print(f'Coverage, every native cell and offline visual catalogue: {output}')
 

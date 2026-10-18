@@ -27,11 +27,14 @@ The unchanged [Kenney 1-Bit Pack](https://kenney.nl/assets/1-bit-pack) CC0
 sheet already used for boon symbols is now a complete **standalone native
 sprite source**. It does not require the Micro or Caves PNGs.
 
-- All six classes; 16 regular enemies, seven biome elites, the pursuer and
-  Hollow Regent: **31 different source silhouettes**.
+- All nine classes; 16 regular enemies, seven biome elites, the pursuer and
+  Hollow Regent: **34 different source silhouettes**.
 - Currency, food and health; both chests and open chest; closed/open doors,
   both stairs and exit; HP, XP and gold icons.
-- Every current boon: **52** different icons, reused in details and offers.
+- Every current boon: **53** different icons, reused in details and offers.
+- Approved keys/vaults, timed gates/plates, ore, braziers, ward flasks,
+  mushrooms/overgrowth, mine rails and assembled pillars. See
+  [the approved implementation record](sprite-audit/review-feedback.md).
 - All six mechanical terrain markers: bramble, bog, ice, barricade, mist,
   crystal. These retain real existing gameplay properties.
 - Generic hit, boon activation, Burning and blocked-hit art. Burning and
@@ -42,8 +45,9 @@ sprite source**. It does not require the Micro or Caves PNGs.
   Unknown neighbors are treated as connected, so joins do not reveal fogged
   passages. These are in-memory compositions from native material/frame
   pixels, not 47 newly drawn source tiles. Geometry remains unchanged.
-- Menus use a subdued monochrome palette. Tactical colors, health bars,
-  dotted attack outlines, fog and readable text remain code drawn.
+- Menus use a monochrome palette. The current 1-Bit draw shader also converts
+  health bars, tactical outlines, fog and text to grayscale; those remain
+  code-drawn graphics.
 
 Native indices and every binding are in [the audit catalogue](sprite-audit/index.html)
 and [JSON inventory](sprite-audit/inventory.json). `src/onebit_visuals.lua`
@@ -99,7 +103,11 @@ LÖVE 11.5 under isolated Xvfb/Mesa software rendering is callback-driven
 verification, not physical keyboard/mouse/Wacom testing or native GPU profiling.
 The prior intermittent GUI crash/hang has no claimed root-cause fix here.
 
-### Results for this change (2026-10-17)
+### Historical results for the initial pack (2026-10-17)
+
+These results describe the initial pack, not a new test run after the later
+class/room expansion. Current mapping counts are in
+[the refreshed audit](ROAG_SPRITE_AUDIT.md).
 
 - Previously verified baseline: **333/333**; final full suite: **339 passed,
   0 failed** (four standalone-pack tests, two inventory tests added).

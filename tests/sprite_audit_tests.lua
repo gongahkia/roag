@@ -23,4 +23,12 @@ return function(test,equal)
         assert(Audit.json(before)==Audit.json(Audit.collect()))
         assert(Audit.json({quote='"\n\\'})=='{"quote":"\\u0022\\u000a\\u005c"}')
     end)
+    test('saved sprite inventory matches the current resolver mappings',function()
+        local f=assert(io.open('docs/sprite-audit/inventory.json','rb'),
+            'missing sprite catalogue; run make sprite-audit')
+        local bytes=f:read('*a');f:close()
+        local recorded=bytes:match('"mapping_checksum":%s*"([^"]+)"')
+        assert(recorded==Audit.collect().mapping_checksum,
+            'stale sprite catalogue; run make sprite-audit and include regenerated files')
+    end)
 end

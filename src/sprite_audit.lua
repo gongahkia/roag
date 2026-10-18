@@ -5,6 +5,7 @@ local O=require('src.onebit_visuals')
 local S=require('src.kenney_symbols')
 local T=require('src.kenney_terrain')
 local Slots=require('src.visual_slots')
+local Checksum=require('src.studio_atlas').checksum
 local A={}
 local function array()return setmetatable({},{audit_array=true})end
 local function keys(t)
@@ -127,6 +128,7 @@ function A.collect()
         end
         for _,sheet in pairs(p.usage)do for _,labels in pairs(sheet)do table.sort(labels)end end
     end
+    report.mapping_checksum=Checksum(A.json(report))
     return report
 end
 -- Sorted object keys keep generated inventory byte-for-byte reproducible.
