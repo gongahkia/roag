@@ -208,6 +208,7 @@ function Game.new(seed, map_id, options)
         progression={level=1, xp_total=0}, currency=0,
         next_drop_id=1, drops={}, rewarded_kills={}, explored={},visible={},
         secrets={},world_content_version=World.version,
+        class_special={decoy=nil,snare=nil},
         rng=RNG.new(seed), entities={{
             id=player_id, definition_id=definition.id, controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
@@ -297,6 +298,17 @@ function Game.preview(state, kind, dx, dy)
     if not Targeting.direction_index(dx, dy) then
         return {valid=false, reason="invalid direction", cells={}}
     end
+    if kind=="dash" and class.id=="core:actor/shade" then
+        local decoy=state.class_special and state.class_special.decoy
+        if not decoy or decoy.floor_id~=player.position.floor_id then
+            return {valid=false,reason="place a decoy first",cells={}}
+        end
+        if occupant(state,decoy.floor_id,decoy.x,decoy.y,player.id,false) then
+            return {valid=false,reason="decoy space occupied",cells={{x=decoy.x,y=decoy.y,status="occupied"}}}
+        end
+        return {valid=true,cost=cost,cells={{x=decoy.x,y=decoy.y,status="open"}},
+            distance=1,swap=true}
+    end
     if kind == "move" or kind == "dash" then
         if not Targeting.is_cardinal(dx, dy) then
             return {valid=false, reason="movement is cardinal", cells={}}
@@ -366,6 +378,15 @@ function Game.preview(state, kind, dx, dy)
     end
     local position = player.position
     local cells = Game.effective_ability(state,kind,dx,dy,true)
+    if kind=="sweeping_slash" and (class.id=="core:actor/shade"
+        or class.id=="core:actor/trapper") then
+        local cell=cells[1]
+        local map=Content.map_for(state)
+        if not cell or not Content.walkable(map,cell.x,cell.y)
+            or occupant(state,position.floor_id,cell.x,cell.y,player.id,false) then
+            return {valid=false,reason="needs an empty adjacent tile",cells=cells}
+        end
+    end
     return {valid=true, cost=cost, cells=cells}
 end
 
@@ -853,6 +874,17 @@ end
 local function enemy_turn(state, item, output)
     local enemy = Game.entity(state, item.actor_id)
     if not enemy or enemy.hp <= 0 then return end
+    if enemy.skip_next_turn then
+        enemy.skip_next_turn=nil
+        emit(state,output,"SnareHeld",{floor_id=enemy.position.floor_id,
+            x=enemy.position.x,y=enemy.position.y,target_id=enemy.id},
+            state.player_id,nil)
+        local definition=Content.get_enemy(enemy.definition_id)
+        Scheduler.enqueue(state,{kind="actor_ready",due=state.clock+
+            Game.effective_cost(definition.move_cost,enemy.speed),
+            actor_id=enemy.id,is_player=false})
+        return
+    end
     if enemy.pending_attack then return end -- no overlapping attacks
     if (enemy.stunned_until or 0) > state.clock then
         Scheduler.enqueue(state, {kind="actor_ready", due=enemy.stunned_until,
@@ -866,6 +898,17 @@ local function enemy_turn(state, item, output)
     local position = enemy.position
     if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then
+        local decoy=state.class_special and state.class_special.decoy
+        if decoy and decoy.floor_id==position.floor_id then
+            for _,cell in ipairs(intent.cells) do
+                if cell.x==decoy.x and cell.y==decoy.y then
+                    state.class_special.decoy=nil
+                    emit(state,output,"DecoyTriggered",{floor_id=decoy.floor_id,
+                        x=decoy.x,y=decoy.y},enemy.id,action_id)
+                    break
+                end
+            end
+        end
         if enemy.ai_id=="warden" or enemy.ai_id=="hollow_regent"
             or enemy.ai_id=="biome_elite" then
             enemy.ai_memory.attacks=(enemy.ai_memory.attacks or 0)+1
@@ -910,6 +953,17 @@ local function enemy_turn(state, item, output)
             emit(state, output, "TileEntered", {
                 floor_id=position.floor_id, from_x=from_x, from_y=from_y,
                 x=x, y=y}, enemy.id, action_id)
+            local snare=state.class_special and state.class_special.snare
+            if snare and snare.floor_id==position.floor_id
+                and snare.x==x and snare.y==y then
+                state.class_special.snare=nil
+                enemy.skip_next_turn=true
+                emit(state,output,"SnareTriggered",{floor_id=position.floor_id,
+                    x=x,y=y,target_id=enemy.id},state.player_id,action_id)
+                terrain_damage(state,output,state.player_id,action_id,enemy,3,
+                    "physical","player")
+                if enemy.hp<=0 then return end
+            end
         else
             emit(state, output, "Waited", {floor_id=position.floor_id,
                 x=position.x, y=position.y}, enemy.id, action_id)
@@ -1167,9 +1221,11 @@ function Game.submit(state, intent)
     if preview.bump then action.bump = true end
     if kind == "move" or kind == "dash" then
         local from_x, from_y = position.x, position.y
-        position.x = from_x + intent.dx * preview.distance
-        position.y = from_y + intent.dy * preview.distance
-        action.dx, action.dy = intent.dx, intent.dy
+        local travel_dx=preview.swap and preview.cells[1].x-from_x or intent.dx
+        local travel_dy=preview.swap and preview.cells[1].y-from_y or intent.dy
+        position.x = from_x + travel_dx * preview.distance
+        position.y = from_y + travel_dy * preview.distance
+        action.dx, action.dy = travel_dx, travel_dy
         if kind == "dash" then action.distance = preview.distance end
         local fields = {floor_id=position.floor_id, from_x=from_x, from_y=from_y,
             x=position.x, y=position.y}
@@ -1184,8 +1240,8 @@ function Game.submit(state, intent)
         emit(state, output, "Moved", fields, player.id, action_id)
         for step = 1, preview.distance do
             local x, y = preview.cells[step].x, preview.cells[step].y
-            local from_step_x = from_x + intent.dx * (step - 1)
-            local from_step_y = from_y + intent.dy * (step - 1)
+            local from_step_x = from_x + travel_dx * (step - 1)
+            local from_step_y = from_y + travel_dy * (step - 1)
             emit(state, output, "TileEntered", {
                 floor_id=position.floor_id, from_x=from_step_x, from_y=from_step_y,
                 x=x, y=y, source_position={floor_id=position.floor_id, x=x, y=y},
@@ -1193,6 +1249,12 @@ function Game.submit(state, intent)
             Rewards.pickup_at(state, player, x, y, function(event_kind, reward_fields, source_id)
                 emit(state, output, event_kind, reward_fields, source_id, action_id)
             end)
+        end
+        if preview.swap then
+            state.class_special.decoy=nil
+            emit(state,output,"DecoySwapped",{floor_id=position.floor_id,
+                x=position.x,y=position.y,from_x=from_x,from_y=from_y},
+                player.id,action_id)
         end
         if kind=="move" and preview.stair then
             local old_floor=position.floor_id
@@ -1226,9 +1288,45 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        attack(state, output, player, action_id, ability_id,
-            cells, damage,ranged,
-            {bump=preview.bump or nil,damage_type=damage_type})
+        if ability_id=="core:ability/shade_decoy" then
+            state.class_special.decoy={floor_id=position.floor_id,
+                x=cells[1].x,y=cells[1].y}
+            emit(state,output,"DecoyPlaced",{floor_id=position.floor_id,
+                x=cells[1].x,y=cells[1].y},player.id,action_id)
+        elseif ability_id=="core:ability/trapper_snare" then
+            state.class_special.snare={floor_id=position.floor_id,
+                x=cells[1].x,y=cells[1].y}
+            emit(state,output,"SnarePlaced",{floor_id=position.floor_id,
+                x=cells[1].x,y=cells[1].y},player.id,action_id)
+        else
+            local hooked
+            if ability_id=="core:ability/hookrunner_hook" then
+                for _,cell in ipairs(cells) do
+                    hooked=occupant(state,cell.floor_id,cell.x,cell.y,player.id,true)
+                    if hooked then break end
+                end
+            end
+            attack(state, output, player, action_id, ability_id,
+                cells, damage,ranged,
+                {bump=preview.bump or nil,damage_type=damage_type})
+            if hooked and hooked.hp>0 and not hooked.invulnerable
+                and hooked.ai_id~="warden" and hooked.ai_id~="biome_elite"
+                and hooked.ai_id~="hollow_regent" then
+                for _=1,2 do
+                    local nx,ny=hooked.position.x-intent.dx,
+                        hooked.position.y-intent.dy
+                    if not Content.walkable(Content.map_for(state),nx,ny)
+                        or occupant(state,hooked.position.floor_id,nx,ny,
+                            hooked.id,false) then break end
+                    local old_x,old_y=hooked.position.x,hooked.position.y
+                    hooked.position.x,hooked.position.y=nx,ny
+                    emit(state,output,"Displaced",{
+                        floor_id=hooked.position.floor_id,from_x=old_x,
+                        from_y=old_y,x=nx,y=ny,target_id=hooked.id},
+                        player.id,action_id)
+                end
+            end
+        end
     elseif kind == "open_door" then
         local door=assert(Game.entity(state,preview.door_id),"missing door")
         assert(door.controller=="door" and not door.open,"door already opened")

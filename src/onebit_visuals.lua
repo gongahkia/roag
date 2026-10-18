@@ -10,6 +10,8 @@ O.actors={
     ['core:actor/adventurer']=468,['core:actor/ranger']=472,
     ['core:actor/arcanist']=467,['core:actor/berserker']=226,
     ['core:actor/sentinel']=324,['core:actor/alchemist']=469,
+    ['core:actor/shade']=79,['core:actor/hookrunner']=80,
+    ['core:actor/trapper']=77,
     ['core:enemy/mossbound_guard']=275,['core:enemy/thornspitter']=171,
     ['core:enemy/ruin_skitter']=459,['core:enemy/spore_herald']=418,
     ['core:enemy/canal_lancer']=26,['core:enemy/cinder_mender']=75,

@@ -138,6 +138,11 @@ function AI.choose(state, enemy)
     for _, entity in ipairs(state.entities) do
         if entity.id == state.player_id then player = entity; break end
     end
+    local decoy=state.class_special and state.class_special.decoy
+    if decoy and decoy.floor_id==enemy.position.floor_id then
+        player={id=player.id,faction=player.faction,position=decoy,
+            hp=player.hp,max_hp=player.max_hp}
+    end
     local definition = assert(Content.get_enemy(enemy.definition_id), "unknown AI content")
     local dx = player.position.x - enemy.position.x
     local dy = player.position.y - enemy.position.y

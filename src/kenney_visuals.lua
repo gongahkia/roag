@@ -9,6 +9,7 @@ local actors={
     ['core:actor/adventurer']=5,['core:actor/ranger']=11,
     ['core:actor/arcanist']=6,['core:actor/berserker']=4,
     ['core:actor/sentinel']=10,['core:actor/alchemist']=7,
+    ['core:actor/shade']=8,
     ['core:enemy/mossbound_guard']=12,['core:enemy/thornspitter']=20,
     ['core:enemy/ruin_skitter']=25,['core:enemy/spore_herald']=14,
     ['core:enemy/canal_lancer']=22,['core:enemy/cinder_mender']=7,
@@ -69,6 +70,40 @@ function K.new(read,make_texture,make_quad)
         handles[id]=handle(index,true)
         handles[id..'/attack']=handles[id];handles[id..'/hurt']=handles[id]
     end
+    local review_pages={}
+    local function approved_sheet(name,path,width,height,stride,columns,bindings)
+        local png=read(path)
+        if not png then return end
+        local texture=assert(make_texture(png,path,true),"unreadable approved "..name.." sheet")
+        assert(texture:getWidth()==width and texture:getHeight()==height,
+            "approved "..name.." dimensions differ")
+        review_pages[name]={texture=texture}
+        for id,index in pairs(bindings) do
+            local x,y=index%columns*stride,math.floor(index/columns)*stride
+            local sprite={texture=texture,quad=make_quad(x,y,16,16,width,height),
+                width=16,height=16,offset_x=x,offset_y=y,source='kenney',
+                approved_sheet=name,tile_index=index}
+            handles[id]=sprite
+            if id:match('^core:actor/') then
+                handles[id..'/attack']=sprite;handles[id..'/hurt']=sprite
+            end
+        end
+    end
+    approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',203,186,17,12,{
+        ['core:actor/hookrunner']=111,['core:actor/trapper']=112,
+        ['core:object/review_gate_tiny']=45,
+        ['core:object/review_plate_tiny_up']=54,
+        ['core:object/review_plate_tiny_down']=55,
+    })
+    approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',968,526,17,57,{
+        ['core:object/review_key']=671,
+        ['core:object/review_vault_top']=158,
+        ['core:object/review_vault_bottom']=215,
+        ['core:object/review_gate_top']=161,
+        ['core:object/review_gate_bottom']=218,
+        ['core:object/review_plate_up']=959,
+        ['core:object/review_plate_down']=961,
+    })
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
     for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
@@ -76,7 +111,8 @@ function K.new(read,make_texture,make_quad)
         style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature,
         status='loaded',wall_regions=terrain.walls.stone,terrain_renderer=terrain,
         pages={sprites={texture=cutout},symbols={texture=symbols.texture},
-            terrain={texture=terrain.native},surfaces={texture=terrain.surface}}},{__index=K}),'loaded'
+            terrain={texture=terrain.native},surfaces={texture=terrain.surface},
+            tiny=review_pages.tiny,rpg=review_pages.rpg}},{__index=K}),'loaded'
 end
 function K:resolve(id)return self.handles[id]end
 function K:terrain(map,x,y,kind,known)

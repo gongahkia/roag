@@ -1,7 +1,7 @@
 # Review-only candidate sheets
 
 These PNGs are copied unchanged from official Kenney archives for the third
-round of the [sprite review](../review.html). They are **not loaded by ROAG** and
+and fourth rounds of the [sprite review](../review.html). They are **not loaded by ROAG** and
 do not approve any art for runtime use. The review page embeds them so it works
 offline and can show exact source cells.
 
@@ -23,6 +23,18 @@ Zero-based, row-major cell IDs considered in round three:
   a style alternative; its darker palette may stand apart from the current
   Caves terrain.
 
+Round-four candidate actor cells from the same Tiny Dungeon sheet:
+
+- Hookrunner: **111** masked figure, with **84** as a more hooded alternative.
+- Trapper: **112** green scout, with **88** as a quieter alternative.
+
+The proposed 1-Bit counterparts are **80/78** for Hookrunner and **77/222**
+for Trapper. All four are unbound in the audit inventory. Unlike existing
+Micro actors, these Tiny Dungeon figures are 16px source cells; approval of
+their silhouettes does not waive a game-scale visual check.
+
 These are visual readings and proposed assemblies, not official per-cell
-labels. The user should approve or reject them from the review page before
-they become gameplay bindings.
+labels. The completed [feedback record](../review-feedback.md) approves the
+gray RPG vault set, both timed-gate sets, Tiny #111 for Hookrunner and Tiny
+#112 for Trapper. Other shortlisted alternatives remain unapproved. The
+runtime must still import and bind the selected art intentionally.

@@ -2417,8 +2417,8 @@ local function draw_title_page()
     elseif title_view=='class'then
         menu_frame('CHOOSE YOUR CHARACTER',160,92,704,470,ui_display_font)
         for i,id in ipairs(Classes.order)do
-            PixelUI.option(i..' '..Classes.get(id).name:upper(),190,168+(i-1)*46,290,
-                id==selected_class_id,ui_display_font)
+            PixelUI.option(i..' '..Classes.get(id).name:upper(),190,150+(i-1)*36,290,
+                id==selected_class_id,ui_menu_font)
         end
         local chosen=Classes.get(selected_class_id)
         local art=bound_visual(selected_class_id)
@@ -2428,7 +2428,7 @@ local function draw_title_page()
         PixelUI.center(('HP %d · ATK %d · DEF %d · SPD %d'):format(chosen.hp,chosen.damage,chosen.defense,chosen.speed),
             406,ui_menu_font,PixelUI.colors.muted,496,336)
         PixelUI.option('BEGIN NEW GAME',496,502,336,false,ui_menu_font)
-        PixelUI.center('1–6 / arrows choose · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
+        PixelUI.center('1–9 / arrows choose · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
     elseif title_view=='settings'then draw_pack_settings(190,55,644,530)end
     if title_view~='home'then
         g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected);g.print('< BACK',192,608)

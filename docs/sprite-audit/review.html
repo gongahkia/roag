@@ -62,8 +62,8 @@
     .design-jumps a { display:inline-block; border:1px solid var(--line); border-radius:7px; padding:7px 11px; color:var(--text); background:var(--surface); font-size:13px; font-weight:600; }
     .design-jumps a:hover { background:var(--raised); }
     .candidate-row { display:flex; flex-wrap:wrap; gap:12px; margin:15px 0 4px; }
-    .candidate { display:flex; gap:10px; align-items:flex-start; margin:0; padding:10px; background:#141c21; border:1px solid #344249; border-radius:9px; }
-    .candidate-sprites { display:flex; gap:5px; align-items:flex-start; }
+    .candidate { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start; max-width:100%; margin:0; padding:10px; background:#141c21; border:1px solid #344249; border-radius:9px; }
+    .candidate-sprites { display:flex; flex-wrap:wrap; gap:5px; align-items:flex-start; max-width:100%; }
     .candidate .assembly-cells { flex:none; }
     .candidate figcaption { max-width:190px; color:var(--muted); font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
     .candidate figcaption strong { display:block; margin-bottom:4px; color:var(--text); font:700 13px/1.4 system-ui,sans-serif; }
@@ -122,12 +122,13 @@
   <header class="top"><div class="wrap top-inner">
     <p class="eyebrow">ROAG / design review / 18 October 2026</p>
     <h1>Choose the next ROAG mechanics and art.</h1>
-    <p class="intro">Your first two review rounds are preserved. This round gives concrete options for the ideas you kept, including exact candidate sprites where art is still open. Your answers guide implementation; this page does not change the game.</p>
-    <div class="context"><span>12 new decisions · 10 earlier answers · 14 original proposals</span><span><a href="review-feedback.md">Read your feedback</a> · <a href="overlap.md">Read the reasoning</a> · <a href="index.html">Browse every sprite</a> · <a href="review-art/README.md">Candidate art sources</a></span></div>
+    <p class="intro">Your third review approved Shade, requested Hookrunner and Trapper as additional classes, and asked for varied vault outcomes. Review the remaining sprite pairs and vault rule here. Your answers guide implementation; this page does not change the game.</p>
+    <div class="context"><span>3 remaining choices · 12 third-round answers · 10 earlier answers · 14 original proposals</span><span><a href="review-feedback.md">Read your feedback</a> · <a href="overlap.md">Read the reasoning</a> · <a href="index.html">Browse every sprite</a> · <a href="review-art/README.md">Candidate art sources</a></span></div>
   </div></header>
   <div class="toolbar"><div class="wrap toolbar-inner">
     <nav class="tabs" aria-label="Review sections">
-      <button class="tab" type="button" data-tab="design" aria-pressed="true">New decisions</button>
+      <button class="tab" type="button" data-tab="final" aria-pressed="true">Remaining choices</button>
+      <button class="tab" type="button" data-tab="design" aria-pressed="false">Round 3 answers</button>
       <button class="tab" type="button" data-tab="followup" aria-pressed="false">Round 2 answers</button>
       <button class="tab" type="button" data-tab="all" aria-pressed="false">Original proposals</button>
       <button class="tab" type="button" data-tab="visual" aria-pressed="false">01 · Visual clarity</button>
@@ -140,12 +141,13 @@
     <button class="action primary" id="export" type="button">Download updated feedback</button>
   </div></div>
   <main class="wrap">
-    <div class="notice"><p><strong>Round three:</strong> Choose an option or write your own answer on the new cards. The art cards show exact, review-only source cells; a mechanic choice does not approve its art. Your earlier answers should still be saved in this browser. If they are missing, import <code>roag-sprite-feedback-round2.json</code>, then download the new JSON and attach it in chat.</p><span class="save-status" id="save-status" role="status"></span></div>
+    <div class="notice"><p><strong>Round four:</strong> Shade, Hookrunner and Trapper are recorded as three requested classes. Both timed-gate art sets are recorded as approved from your comment. Review the two new class sprite pairs and the varied vault outcome rule below. If earlier answers are missing, import <code>roag-sprite-feedback-round3.json</code>. Download the updated JSON and attach it in chat.</p><span class="save-status" id="save-status" role="status"></span></div>
+    <div id="final"></div>
     <div id="design"></div>
     <div id="followups"></div>
     <div id="review"></div>
   </main>
-  <footer class="footer"><div class="wrap">Based on the <a href="../ROAG_SPRITE_AUDIT.md">sprite coverage audit</a> at commit <code>3b58b1b9</code>. Sprite indices are zero-based source-sheet cells. All shown cells were unused when this review was prepared.</div></footer>
+  <footer class="footer"><div class="wrap">Based on the <a href="../ROAG_SPRITE_AUDIT.md">sprite coverage audit</a> at commit <code>3b58b1b9</code>. Sprite indices are zero-based source-sheet cells. Review-only external art is not yet loaded by the game.</div></footer>
   <script>
     'use strict';
     const SHEETS = {
@@ -243,6 +245,7 @@
       {id:'timed-gate-art',group:'art',title:'Replacement mixed art · timed gate',context:'Both sets are from official Kenney packs and are review-only. An open gate would reveal ordinary floor. The RPG pair shares more colors with Caves; Tiny Dungeon has a darker, more saturated style.',options:[
         ['rpg-teal','RPG plate and teal gate','RPG #959/#961 plate states plus #161/#218 barred gate as a two-cell vertical assembly.'],
         ['tiny-dark','Tiny Dungeon plate and door','Tiny #54/#55 plate-like states plus #45 dark door. The door uses one floor cell.'],
+        ['both','Use both sets','Your third-round comment approved both. Choose which set appears by biome or room when the mechanic is built.'],
         ['none','Neither pairing','Keep the gate idea, but find another exact mixed-look art set.']
       ]},
       {id:'fungal-art',group:'art',title:'Replacement 1-Bit mushroom scenery',context:'The previously shown #315–317 look like hanging slime. These two other unused source cells are compact cap-and-stem shapes; decide whether either reads as a mushroom at game scale.',options:[
@@ -261,18 +264,39 @@
         ['none','Find different ring art','The proposed shapes do not fit the effect you chose.']
       ]}
     ];
+    const FINAL = [
+      {id:'hookrunner-art',title:'Hookrunner · actor art for both looks',context:'Hookrunner is an additional playable class, with the pull-and-sidestep kit proposed in round three. Micro has no second spare character body. The Tiny Dungeon candidates are 16px sprites, so they will need an in-game scale check beside 8px Micro actors.',options:[
+        ['masked','Masked runner · Tiny #111 + 1-Bit #80','A masked, agile-looking figure paired with a rough-hooded 1-Bit silhouette.'],
+        ['hooded','Purple hood · Tiny #84 + 1-Bit #78','A more overt hood in both looks. It may read closer to Shade.'],
+        ['revise','Find different sprites','Keep Hookrunner as a class, but revise one or both actor sprites before implementation.']
+      ]},
+      {id:'trapper-art',title:'Trapper · actor art for both looks',context:'Trapper is also an additional playable class, with the visible snare-and-roll kit proposed in round three. The green scout distinguishes it from the existing bow-using Ranger, but that visual distinction still needs your approval.',options:[
+        ['scout','Green scout · Tiny #112 + 1-Bit #77','An outdoors-looking figure paired with a broad-capped 1-Bit silhouette.'],
+        ['plain','Plain hood · Tiny #88 + 1-Bit #222','A quieter figure in both looks, with less obvious trapping gear.'],
+        ['revise','Find different sprites','Keep Trapper as a class, but revise one or both actor sprites before implementation.']
+      ]},
+      {id:'vault-pool',title:'Variable vault outcomes',context:'You asked for currency and health, clue and currency, a free boon, and enemies. The remaining decision is whether an enemy encounter is an added challenge before a reward or can be the only outcome. All versions keep the exit reachable without the key.',options:[
+        ['guaranteed','Varied rewards · guarded vaults still pay','Choose one of currency + health, clue + currency, free boon, or a guarded cache. Clearing the guards reveals currency or health. No empty vault.'],
+        ['safe-only','Varied rewards · no ambush','Use the three reward types you named, with no enemies inside the vault.'],
+        ['wildcard','Wild card · risk can be the outcome','The pool also allows an ambush without a guaranteed item. The key sometimes buys a fight rather than a reward.'],
+        ['other','Different reward pool','Describe how rewards and enemies should combine.']
+      ]}
+    ];
     const STORAGE_KEY = 'roag-sprite-review-v1';
     const FOLLOWUP_KEY = 'roag-sprite-followups-v1';
     const DESIGN_KEY = 'roag-sprite-design-v1';
+    const FINAL_KEY = 'roag-sprite-final-v1';
     const VOTES = new Set(['approve','reject','discuss']);
     let decisions = {};
     let followups = {};
     let design = {};
-    let currentTab = 'design';
+    let finalChoices = {};
+    let currentTab = 'final';
     let storageAvailable = true;
     const byId = Object.fromEntries(PROPOSALS.map(p => [p.id,p]));
     const followupById = Object.fromEntries(FOLLOWUPS.map(q => [q.id,q]));
     const designById = Object.fromEntries(DESIGNS.map(q => [q.id,q]));
+    const finalById = Object.fromEntries(FINAL.map(q => [q.id,q]));
     const allowedSprites = p => new Set(Object.entries({...p.mixed,...p.onebit}).flatMap(([sheet,ids]) => ids.map(index => `${sheet}:${index}`)));
     function cleanRecord(p, raw) {
       const allowed = allowedSprites(p);
@@ -297,6 +321,15 @@
     function hydrateDesign(raw) {
       design = Object.fromEntries(DESIGNS.map(q => {
         const record = raw?.[q.id];
+        const comment = typeof record?.comment === 'string' ? record.comment.slice(0,10000) : '';
+        let choice = q.options.some(([value]) => value === record?.choice) ? record.choice : '';
+        if (q.id === 'timed-gate-art' && choice === 'tiny-dark' && /both look great/i.test(comment)) choice = 'both';
+        return [q.id,{choice,comment}];
+      }));
+    }
+    function hydrateFinal(raw) {
+      finalChoices = Object.fromEntries(FINAL.map(q => {
+        const record = raw?.[q.id];
         const choice = q.options.some(([value]) => value === record?.choice) ? record.choice : '';
         const comment = typeof record?.comment === 'string' ? record.comment.slice(0,10000) : '';
         return [q.id,{choice,comment}];
@@ -308,24 +341,31 @@
     catch (_) { hydrateFollowups({}); storageAvailable = false; }
     try { hydrateDesign(JSON.parse(localStorage.getItem(DESIGN_KEY) || '{}')); }
     catch (_) { hydrateDesign({}); storageAvailable = false; }
+    try { hydrateFinal(JSON.parse(localStorage.getItem(FINAL_KEY) || '{}')); }
+    catch (_) { hydrateFinal({}); storageAvailable = false; }
     const status = document.querySelector('#save-status');
     function save() {
-      try { localStorage.setItem(STORAGE_KEY,JSON.stringify(decisions)); localStorage.setItem(FOLLOWUP_KEY,JSON.stringify(followups)); localStorage.setItem(DESIGN_KEY,JSON.stringify(design)); storageAvailable = true; }
+      try { localStorage.setItem(STORAGE_KEY,JSON.stringify(decisions)); localStorage.setItem(FOLLOWUP_KEY,JSON.stringify(followups)); localStorage.setItem(DESIGN_KEY,JSON.stringify(design)); localStorage.setItem(FINAL_KEY,JSON.stringify(finalChoices)); storageAvailable = true; }
       catch (_) { storageAvailable = false; }
       status.textContent = storageAvailable ? 'Saved in this browser' : 'Browser storage unavailable — download JSON to keep your work';
       updateProgress();
     }
     function updateProgress() {
+      if (currentTab === 'final') {
+        const answered = FINAL.filter(q => finalChoices[q.id].choice || finalChoices[q.id].comment.trim()).length;
+        document.querySelector('#progress').textContent = `${answered}/${FINAL.length} remaining choices answered`;
+        return;
+      }
       if (currentTab === 'design') {
         const answered = DESIGNS.filter(q => design[q.id].choice || design[q.id].comment.trim()).length;
-        document.querySelector('#progress').textContent = `${answered}/${DESIGNS.length} new decisions answered`;
+        document.querySelector('#progress').textContent = `${answered}/${DESIGNS.length} third-round answers`;
         return;
       }
       if (currentTab === 'followup') {
         const required = FOLLOWUPS.filter(q => q.required);
         const optional = FOLLOWUPS.filter(q => !q.required);
-        const requiredDone = required.filter(q => followups[q.id].choice).length;
-        const optionalDone = optional.filter(q => followups[q.id].choice).length;
+        const requiredDone = required.filter(q => followups[q.id].choice || followups[q.id].comment.trim()).length;
+        const optionalDone = optional.filter(q => followups[q.id].choice || followups[q.id].comment.trim()).length;
         document.querySelector('#progress').textContent = `${requiredDone}/${required.length} clarifications · ${optionalDone}/${optional.length} other choices`;
         return;
       }
@@ -372,6 +412,16 @@
       const options = q.options.map(([value,label,description]) => `<button class="design-option" type="button" data-design="${q.id}" data-option="${value}" aria-pressed="${record.choice===value}"><strong>${label}</strong><span>${description}</span></button>`).join('');
       return `<article class="card design-card" id="${q.id}"><div class="card-head"><h3>${q.title}</h3><span class="tag">${q.group==='art'?'Art decision':'Mechanic decision'}</span></div><p class="pitch">${q.context}</p>${designPreview(q)}<div class="design-options" role="group" aria-label="${q.title}">${options}</div><label class="comment" for="design-comment-${q.id}">Your own idea or condition<textarea id="design-comment-${q.id}" data-design-comment="${q.id}" placeholder="Add a change, concern, or exact sprite preference."></textarea></label><p class="hint">Choose one option, or leave it blank and write your own direction. Click an active option again to clear it.</p></article>`;
     }
+    function finalPreview(q) {
+      if (q.id === 'hookrunner-art') return `<div class="candidate-row">${candidateFigure('Masked runner pair',[['tiny',[111]],['onebit',[80]]],'Tiny #111 · 1-Bit #80')}${candidateFigure('Purple hood pair',[['tiny',[84]],['onebit',[78]]],'Tiny #84 · 1-Bit #78')}</div>`;
+      if (q.id === 'trapper-art') return `<div class="candidate-row">${candidateFigure('Green scout pair',[['tiny',[112]],['onebit',[77]]],'Tiny #112 · 1-Bit #77')}${candidateFigure('Plain hood pair',[['tiny',[88]],['onebit',[222]]],'Tiny #88 · 1-Bit #222')}</div>`;
+      return '';
+    }
+    function finalCard(q) {
+      const record = finalChoices[q.id];
+      const options = q.options.map(([value,label,description]) => `<button class="design-option" type="button" data-final="${q.id}" data-option="${value}" aria-pressed="${record.choice===value}"><strong>${label}</strong><span>${description}</span></button>`).join('');
+      return `<article class="card design-card" id="${q.id}"><div class="card-head"><h3>${q.title}</h3><span class="tag">${q.id==='vault-pool'?'Reward rule':'Sprite approval'}</span></div><p class="pitch">${q.context}</p>${finalPreview(q)}<div class="design-options" role="group" aria-label="${q.title}">${options}</div><label class="comment" for="final-comment-${q.id}">Your own idea or condition<textarea id="final-comment-${q.id}" data-final-comment="${q.id}" placeholder="Add a change or exact sprite preference."></textarea></label><p class="hint">Choose one option, or leave it blank and write your own direction. Click an active option again to clear it.</p></article>`;
+    }
     function followupCard(q) {
       const record = followups[q.id];
       const options = q.options.map(([value,label]) => `<button class="followup-option" type="button" data-followup="${q.id}" data-option="${value}" aria-pressed="${record.choice===value}">${label}</button>`).join('');
@@ -390,9 +440,11 @@
       return `<article class="card" id="${p.id}"><div class="card-head"><h3><span class="index">${String(index+1).padStart(2,'0')}</span>${p.title}</h3><span class="tag">${p.tag}</span></div><p class="pitch">${p.pitch}</p><p class="caution"><b>Design note:</b> ${p.caution}</p><div class="pair">${packPanel('Mixed Kenney','Micro characters/props · Caves terrain',p.mixed,p)}${packPanel('Standalone 1-Bit','Same gameplay idea, separate art',p.onebit,p)}</div><div class="review">${voteGroup(p,'mechanic','Use this idea?')}${voteGroup(p,'art','Use this sprite pairing?')}</div><label class="comment" for="comment-${p.id}">Comment or change request<textarea id="comment-${p.id}" data-comment="${p.id}" placeholder="e.g. Keep the mechanic, but use Micro #120 and 1-Bit #572 only."></textarea></label><p class="hint">Click an active vote again to clear it. Sprite selection is optional and does not approve the art pair by itself.</p></article>`;
     }
     function render() {
-      document.querySelector('#design').innerHTML = currentTab === 'design' ? `<div class="followup-intro"><p class="eyebrow">Your second review · next decisions</p><h2>Make the approved ideas concrete</h2><p>Pick a direction for each mechanic you want built. The art section asks separately whether the replacement sprites fit. A comment can replace any listed option; unanswered cards stay open.</p><nav class="design-jumps" aria-label="Jump to new decisions">${DESIGN_GROUPS.map(g => `<a href="#design-${g.id}">${g.title}</a>`).join('')}</nav></div>${DESIGN_GROUPS.map(g => `<section class="tranche" id="design-${g.id}" aria-labelledby="design-heading-${g.id}"><div class="tranche-head"><h2 id="design-heading-${g.id}">${g.title}</h2><p>${g.description}</p></div><div class="cards">${DESIGNS.filter(q => q.group === g.id).map(designCard).join('')}</div></section>`).join('')}` : '';
+      document.querySelector('#final').innerHTML = currentTab === 'final' ? `<div class="followup-intro"><p class="eyebrow">Your third review · remaining choices</p><h2>Approve the new class art and vault pool</h2><p>These class sprite pairs are candidates, not approved bindings. You already asked for all three classes and both timed-gate art sets.</p></div><section class="tranche"><div class="cards">${FINAL.map(finalCard).join('')}</div></section>` : '';
+      document.querySelector('#design').innerHTML = currentTab === 'design' ? `<div class="followup-intro"><p class="eyebrow">Your third review · recorded answers</p><h2>Mechanics and art you selected</h2><p>Your Shade comment also requested Hookrunner and Trapper. Your timed-gate art comment approved both sets; the option now reflects that. Use the Remaining choices tab for their new sprite pairs and the vault pool.</p><nav class="design-jumps" aria-label="Jump to third-round answers">${DESIGN_GROUPS.map(g => `<a href="#design-${g.id}">${g.title}</a>`).join('')}</nav></div>${DESIGN_GROUPS.map(g => `<section class="tranche" id="design-${g.id}" aria-labelledby="design-heading-${g.id}"><div class="tranche-head"><h2 id="design-heading-${g.id}">${g.title}</h2><p>${g.description}</p></div><div class="cards">${DESIGNS.filter(q => q.group === g.id).map(designCard).join('')}</div></section>`).join('')}` : '';
       document.querySelector('#followups').innerHTML = currentTab === 'followup' ? `<div class="followup-intro"><p class="eyebrow">Your first review · follow-up</p><h2>Round two answers</h2><p>Your first two answers supersede the conflicting vault and gate idea votes from round one. The other eight define the scope you chose. The new art candidates are on the New decisions tab.</p></div><section class="tranche" aria-labelledby="clarify-heading"><div class="tranche-head"><h2 id="clarify-heading">Clarify the crossed votes</h2><p>Key vault and timed gate intent.</p></div><div class="cards">${FOLLOWUPS.filter(q => q.required).map(followupCard).join('')}</div></section><section class="tranche" aria-labelledby="other-heading"><div class="tranche-head"><h2 id="other-heading">Other scope choices</h2></div><div class="cards">${FOLLOWUPS.filter(q => !q.required).map(followupCard).join('')}</div></section>` : '';
-      document.querySelector('#review').innerHTML = currentTab === 'design' || currentTab === 'followup' ? '' : GROUPS.filter(g => currentTab === 'all' || g.id === currentTab).map(g => `<section class="tranche" aria-labelledby="heading-${g.id}"><div class="tranche-head"><h2 id="heading-${g.id}">${g.title}</h2><p>${g.description}</p></div><div class="cards">${PROPOSALS.map((p,i) => p.group === g.id ? card(p,i) : '').join('')}</div></section>`).join('');
+      document.querySelector('#review').innerHTML = currentTab === 'final' || currentTab === 'design' || currentTab === 'followup' ? '' : GROUPS.filter(g => currentTab === 'all' || g.id === currentTab).map(g => `<section class="tranche" aria-labelledby="heading-${g.id}"><div class="tranche-head"><h2 id="heading-${g.id}">${g.title}</h2><p>${g.description}</p></div><div class="cards">${PROPOSALS.map((p,i) => p.group === g.id ? card(p,i) : '').join('')}</div></section>`).join('');
+      document.querySelectorAll('[data-final-comment]').forEach(el => { el.value = finalChoices[el.dataset.finalComment].comment; });
       document.querySelectorAll('[data-design-comment]').forEach(el => { el.value = design[el.dataset.designComment].comment; });
       document.querySelectorAll('[data-followup-comment]').forEach(el => { el.value = followups[el.dataset.followupComment].comment; });
       document.querySelectorAll('[data-comment]').forEach(el => { el.value = decisions[el.dataset.comment].comment; });
@@ -404,6 +456,20 @@
       if (!button) return;
       currentTab = button.dataset.tab;
       render();
+    });
+    document.querySelector('#final').addEventListener('click',event => {
+      const button = event.target.closest('[data-final][data-option]');
+      if (!button) return;
+      const record = finalChoices[button.dataset.final];
+      record.choice = record.choice === button.dataset.option ? '' : button.dataset.option;
+      document.querySelectorAll(`[data-final="${button.dataset.final}"][data-option]`).forEach(el => el.setAttribute('aria-pressed',String(record.choice === el.dataset.option)));
+      save();
+    });
+    document.querySelector('#final').addEventListener('input',event => {
+      const id = event.target.dataset.finalComment;
+      if (!id || !finalById[id]) return;
+      finalChoices[id].comment = event.target.value.slice(0,10000);
+      save();
     });
     document.querySelector('#design').addEventListener('click',event => {
       const button = event.target.closest('[data-design][data-option]');
@@ -458,10 +524,10 @@
       save();
     });
     document.querySelector('#export').addEventListener('click',() => {
-      const feedback = {schema:'roag-sprite-review/3',audit_commit:'3b58b1b9',exported_at:new Date().toISOString(),decisions:PROPOSALS.map(p => ({id:p.id,title:p.title,...decisions[p.id]})),followups:FOLLOWUPS.map(q => ({id:q.id,title:q.title,choice:followups[q.id].choice,choice_label:q.options.find(([value]) => value === followups[q.id].choice)?.[1] || '',comment:followups[q.id].comment})),design:DESIGNS.map(q => ({id:q.id,title:q.title,choice:design[q.id].choice,choice_label:q.options.find(([value]) => value === design[q.id].choice)?.[1] || '',comment:design[q.id].comment}))};
+      const feedback = {schema:'roag-sprite-review/4',audit_commit:'3b58b1b9',exported_at:new Date().toISOString(),decisions:PROPOSALS.map(p => ({id:p.id,title:p.title,...decisions[p.id]})),followups:FOLLOWUPS.map(q => ({id:q.id,title:q.title,choice:followups[q.id].choice,choice_label:q.options.find(([value]) => value === followups[q.id].choice)?.[1] || '',comment:followups[q.id].comment})),design:DESIGNS.map(q => ({id:q.id,title:q.title,choice:design[q.id].choice,choice_label:q.options.find(([value]) => value === design[q.id].choice)?.[1] || '',comment:design[q.id].comment})),final:FINAL.map(q => ({id:q.id,title:q.title,choice:finalChoices[q.id].choice,choice_label:q.options.find(([value]) => value === finalChoices[q.id].choice)?.[1] || '',comment:finalChoices[q.id].comment}))};
       const url = URL.createObjectURL(new Blob([JSON.stringify(feedback,null,2)+'\n'],{type:'application/json'}));
       const a = document.createElement('a');
-      a.href=url; a.download='roag-sprite-feedback-round3.json'; document.body.append(a); a.click(); a.remove();
+      a.href=url; a.download='roag-sprite-feedback-round4.json'; document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url),1000);
       status.textContent = 'Feedback JSON downloaded — attach it in chat for review';
     });
@@ -471,18 +537,23 @@
       if (!file) return;
       try {
         const data = JSON.parse(await file.text());
-        if (!['roag-sprite-review/1','roag-sprite-review/2','roag-sprite-review/3'].includes(data.schema) || !Array.isArray(data.decisions)) throw Error('Unrecognized feedback format');
+        if (!['roag-sprite-review/1','roag-sprite-review/2','roag-sprite-review/3','roag-sprite-review/4'].includes(data.schema) || !Array.isArray(data.decisions)) throw Error('Unrecognized feedback format');
         if (data.schema !== 'roag-sprite-review/1' && !Array.isArray(data.followups)) throw Error('Missing follow-up answers');
-        if (data.schema === 'roag-sprite-review/3' && !Array.isArray(data.design)) throw Error('Missing new decisions');
+        if (['roag-sprite-review/3','roag-sprite-review/4'].includes(data.schema) && !Array.isArray(data.design)) throw Error('Missing third-round answers');
+        if (data.schema === 'roag-sprite-review/4' && !Array.isArray(data.final)) throw Error('Missing fourth-round answers');
         const incoming = Object.fromEntries(data.decisions.filter(r => r && byId[r.id]).map(r => [r.id,r]));
         hydrate(incoming);
         if (data.schema !== 'roag-sprite-review/1') {
           const answers = Object.fromEntries(data.followups.filter(r => r && followupById[r.id]).map(r => [r.id,r]));
           hydrateFollowups(answers);
         }
-        if (data.schema === 'roag-sprite-review/3') {
+        if (['roag-sprite-review/3','roag-sprite-review/4'].includes(data.schema)) {
           const answers = Object.fromEntries(data.design.filter(r => r && designById[r.id]).map(r => [r.id,r]));
           hydrateDesign(answers);
+        }
+        if (data.schema === 'roag-sprite-review/4') {
+          const answers = Object.fromEntries(data.final.filter(r => r && finalById[r.id]).map(r => [r.id,r]));
+          hydrateFinal(answers);
         }
         render(); save(); status.textContent = 'Feedback imported and saved in this browser';
       } catch (error) { status.textContent = `Import failed: ${error.message}`; }

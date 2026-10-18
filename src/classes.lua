@@ -4,7 +4,8 @@ local Targeting=require("src.targeting")
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
-    "core:actor/sentinel","core:actor/alchemist"}
+    "core:actor/sentinel","core:actor/alchemist",
+    "core:actor/shade","core:actor/hookrunner","core:actor/trapper"}
 Classes.definitions={
     [Classes.order[1]]={id=Classes.order[1],name="Adventurer",
         description="Balanced sword, three-cell sweep, two-cell Dash",
@@ -60,6 +61,33 @@ Classes.definitions={
         special_id="core:ability/alchemist_flask",
         basic_name="Vial Shot",special_name="Blast Flask",dash_name="Quick Step",
         ui_controls="F Vial · R Flask · X Step"},
+    [Classes.order[7]]={id=Classes.order[7],name="Shade",
+        description="Thrown blade, attack-drawing decoy, one swap",
+        hp=20,damage=3,slash_damage=0,defense=0,speed=115,
+        crit_chance_ppm=0,crit_damage_percent=150,
+        costs={move=100,basic_attack=100,sweeping_slash=155,dash=115},
+        dash_distance=2,basic_id="core:ability/shade_blade",
+        special_id="core:ability/shade_decoy",
+        basic_name="Thrown Blade",special_name="Place Decoy",dash_name="Shadow Swap",
+        ui_controls="F Blade · R Decoy · X Swap"},
+    [Classes.order[8]]={id=Classes.order[8],name="Hookrunner",
+        description="Knife, three-cell hook pull, short sidestep",
+        hp=22,damage=4,slash_damage=3,defense=0,speed=115,
+        crit_chance_ppm=0,crit_damage_percent=150,
+        costs={move=100,basic_attack=95,sweeping_slash=145,dash=110},
+        dash_distance=2,basic_id="core:ability/hookrunner_knife",
+        special_id="core:ability/hookrunner_hook",
+        basic_name="Knife",special_name="Hook Pull",dash_name="Sidestep",
+        ui_controls="F Knife · R Hook · X Step"},
+    [Classes.order[9]]={id=Classes.order[9],name="Trapper",
+        description="Knife, visible snare, short roll",
+        hp=22,damage=4,slash_damage=3,defense=0,speed=105,
+        crit_chance_ppm=0,crit_damage_percent=150,
+        costs={move=100,basic_attack=100,sweeping_slash=150,dash=120},
+        dash_distance=2,basic_id="core:ability/trapper_knife",
+        special_id="core:ability/trapper_snare",
+        basic_name="Knife",special_name="Place Snare",dash_name="Roll",
+        ui_controls="F Knife · R Snare · X Roll"},
 }
 local directions={{0,-1},{1,-1},{1,0},{1,1},
     {0,1},{-1,1},{-1,0},{-1,-1}}
@@ -119,6 +147,8 @@ function Classes.attack(state,player,kind,dx,dy,content)
         elseif def.id==Classes.order[6] then
             cells=line(state,content,p,dx,dy,3)
             ranged=true;damage_type="acid"
+        elseif def.id==Classes.order[7] then
+            cells=line(state,content,p,dx,dy,2);ranged=true
         else
             cells=Targeting.cells("basic_attack",p.x,p.y,dx,dy)
         end
@@ -172,6 +202,10 @@ function Classes.attack(state,player,kind,dx,dy,content)
                 cells=travel
             end
             ranged="area";damage_type="explosion"
+        elseif def.id==Classes.order[7] or def.id==Classes.order[9] then
+            cells={{x=p.x+dx,y=p.y+dy}}
+        elseif def.id==Classes.order[8] then
+            cells=line(state,content,p,dx,dy,3);ranged=true
         else
             cells=Targeting.cells("sweeping_slash",p.x,p.y,dx,dy)
         end
@@ -181,7 +215,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==6,"expected six starting classes")
+    assert(#Classes.order==9,"expected nine starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

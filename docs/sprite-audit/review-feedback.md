@@ -1,8 +1,7 @@
 # Sprite review feedback · 18 October 2026
 
-This records the first two completed reviews of [the interactive page](review.html).
-The page now opens on **New decisions** for the third round. The original votes
-and second-round answers remain available in their own tabs.
+This records all four completed reviews of [the interactive page](review.html).
+Earlier votes and answers remain available in their own tabs.
 The downloaded `roag-sprite-feedback.json` had schema `roag-sprite-review/1`,
 referenced audit commit `3b58b1b9`, and contained every expected proposal ID.
 It was exported at `2026-10-18T02:13:29.494Z`. There were 10 comments and no
@@ -107,7 +106,7 @@ assemblies at the same three-cell height. This answers the sheet question;
 the assembled Caves version has not yet been inspected by the user in the
 game renderer.
 
-### Current decision boundary
+### Second-round decision boundary (superseded by the third review)
 
 - The four first-round visual improvements, ore currency drops, decorative
   mine rails and the one-hit ward pickup have a clear direction. Their exact
@@ -121,13 +120,91 @@ game renderer.
   the new three-tile Caves assembly at game scale.
 - The spore pod, volatile vessel and moving cart are not selected mechanics.
 
-## Third round now open
+## Third review · 18 October 2026
 
-The [New decisions tab](review.html) offers twelve separate choices: hooded
-class kit, ring boon effect, brazier zone, pillar collision, flask ward expiry,
-vault reward, timed-gate timing, and five art approvals. The art cards include
-exact unused 1-Bit mushroom cells **54/103**, the complete pillar assemblies,
-ring cells, and [review-only Kenney pack candidates](review-art/README.md) for
-the vault and gate. This round has not yet been answered. Import the
-second-round JSON if browser storage is missing; the new export preserves all
-three rounds as `roag-sprite-review/3`.
+The downloaded `roag-sprite-feedback-round3.json` has schema
+`roag-sprite-review/3`, audit commit `3b58b1b9`, and export time
+`2026-10-18T02:48:38.501Z`. Its SHA-256 is
+`be4439fcf785445eac95932e250ca5c483837543530e8abcfddc7534820ed374`.
+It contains all twelve third-round cards and preserves the first fourteen
+decisions and ten follow-up records exactly as exported in round two.
+
+| Topic | Third-round answer | Current interpretation |
+| --- | --- | --- |
+| Playable classes | Shade selected; comment requests Hookrunner **and** Trapper as two more classes | Three new classes are wanted. Shade uses approved Micro #8 / 1-Bit #79. The other two class kits were described on the page, but their actor art needs a separate approval. The single-select Shade button does not exclude the two classes named in the comment. |
+| Ring boon | Ring of Reversal | Use Micro #89 and 1-Bit #337. The proposed evade-and-answer effect is the selected starting design. |
+| Brazier | Beacon | A two-cell radius stops mist from blocking sight for 300 simulated time; it grants no defense or unexplored-map reveal. |
+| Pillar | Permanent solid cover | A one-cell footprint blocks movement, projectiles and sight; preserve a route around it. Both three-cell art assemblies were approved. |
+| Ward flask | Full block, short window | Ignore one complete hostile hit within three committed player actions. Limit to one active pickup ward; confirm interaction with existing boon ward during implementation. |
+| Vault | User asks for variable outcomes: currency and health, clue and currency, a free boon, enemies, and possibly others | Keep the optional side vault. A single fixed reward is not the direction. The exact outcome pool and whether a hostile outcome still guarantees a reward need one concise decision. |
+| Timed gate | Either faction opens it for 300 simulated time; re-triggering refreshes the timer | Keep the exit independent of this gate; display state and countdown. |
+| Vault art | RPG gray key #671 and plain barred door #158/#215 approved | These are review-only sources until runtime assets are intentionally imported. |
+| Gate art | Button selected Tiny #54/#55 plate and #45 door; comment says **both** this and RPG #959/#961 plate with #161/#218 gate look good | Treat **both** art sets as approved. The old single-select control failed to express the user's choice; it is corrected in the page. |
+| Fungal art | 1-Bit #103 and #54 | Two mushroom scenery variants, with no hittable pod. |
+
+The three class concepts already shown to the user are distinct starting kits:
+
+| Class | F attack | R signature | X movement |
+| --- | --- | --- | --- |
+| Shade | Two-cell thrown blade | Place one adjacent decoy that draws the next enemy attack aimed at the player | Swap with the decoy once |
+| Hookrunner | Adjacent knife | Pull the first ordinary foe along a three-cell straight hook line up to two clear cells; bosses take a hit without moving | Short sidestep |
+| Trapper | Adjacent knife | Place one visible snare on an adjacent open tile; the first hostile entering takes damage and loses its next move | Short roll |
+
+These are design starting points from the review card, including provisional
+range and timing. Implementing Shade requires an explicit enemy-targeting rule;
+implementing Trapper requires visible snare state. The art review below does
+not change those class requests.
+
+### Fourth-round art shortlist
+
+The current Micro sheet has one free, complete actor silhouette in its main
+character row; that is already assigned to Shade. Hookrunner and Trapper
+therefore need different mixed-look source art or newly authored Micro-scale
+sprites. The [fourth-round cards](review.html) showed these candidate pairs
+alongside alternatives; the selected pairs are recorded below:
+
+- Hookrunner: Tiny Dungeon #111 (masked figure) with unbound 1-Bit #80;
+  alternate Tiny #84 with 1-Bit #78.
+- Trapper: Tiny Dungeon #112 (green scout) with unbound 1-Bit #77;
+  alternate Tiny #88 with 1-Bit #222.
+
+The Tiny Dungeon figures are 16px source cells while existing mixed-look
+characters are 8px Micro cells. They must be evaluated at the game's fixed
+world-cell size before binding. The alternatives are visual hypotheses, not
+assertions that a sprite's official name or intended role matches a class.
+
+The fourth round also asked whether a guarded vault must still contain a
+reward. The page imports round-three JSON and exports all four rounds as
+`roag-sprite-review/4`.
+
+## Fourth review · 18 October 2026
+
+The downloaded `roag-sprite-feedback-round4.json` has schema
+`roag-sprite-review/4`, audit commit `3b58b1b9`, and export time
+`2026-10-18T02:54:25.808Z`. Its SHA-256 is
+`b1f567adf7feefa755e1c5c7fce1ca85f04ff6de6a92c96b0e8a521e3924ad28`.
+It preserves all fourteen original decisions and ten second-round follow-ups
+exactly. Eleven third-round records are unchanged; the gate art record now has
+the explicit **both** selection, consistent with the third-round comment. All
+three fourth-round cards were answered, with no additional conditions.
+
+| Decision | Final selection | Implementation meaning |
+| --- | --- | --- |
+| Hookrunner actor art | **Masked runner**: Tiny Dungeon #111 and 1-Bit #80 | Add Hookrunner as a third new class alongside Shade and Trapper, using this pair for the two looks. |
+| Trapper actor art | **Green scout**: Tiny Dungeon #112 and 1-Bit #77 | Add Trapper using this pair. Keep the snare role distinct from Ranger's bow attacks. |
+| Vault outcomes | **Wild card** | Randomly choose among currency + health, clue + currency, a free boon, and an ambush. The ambush may be the only outcome; do not add a guaranteed item after it. The vault remains optional and the key stays on the same floor. |
+| Timed-gate art | **Both sets** (corrected control) | RPG #959/#961 plate and #161/#218 gate, plus Tiny #54/#55 plate and #45 door are approved alternatives for mixed rooms. The 1-Bit look remains independent. |
+
+The approved Tiny Dungeon actors are 16px source cells; existing Micro actors
+are 8px. Render all actors within the same world-cell footprint and check
+silhouette scale during implementation. This is a technical fit check, not a
+new approval request. The initial class ranges, durations and reward rates
+can be tuned through playtesting without changing the approved concepts.
+
+### Implementation boundary
+
+The first four approved visual changes, mushroom scenery, currency ore, mist
+beacon, ward flask, optional variable vault, timed gate, decorative mine rails,
+solid pillars, Ring of Reversal, and three new playable classes now have a
+decision path. The rejected spore pod, volatile bomb and moving cart remain
+out of scope. The review has not itself modified runtime behavior.
