@@ -201,6 +201,12 @@ return function(test,equal)
             if leader then
                 if leader.squad_kind=='captain_and_followers' then
                     assert(count>=3 and count<=6);followers[count-1]=true
+                elseif leader.squad_kind=='warded_bodyguards' then
+                    local points={{x=leader.position.x,y=leader.position.y}}
+                    for _,e in ipairs(state.entities) do if e.squad_leader_id==leader.id and e.id~=leader.id then
+                        points[#points+1]=e.position
+                    end end
+                    assert(S.flank_reachable(state.generated_map,points))
                 end
                 equal(Game.snapshot(state),Game.snapshot(Game.restore(Game.snapshot(state))))
             end
@@ -211,5 +217,12 @@ return function(test,equal)
         local state=Game.new_generated(401)
         local before=Game.snapshot(state)
         equal(before,Game.snapshot(Game.restore(before)))
+    end)
+    test('invulnerable guards cannot seal the only generated approach to their wizard',function()
+        local map={start_x=2,start_y=3,rows={'#######','#######','#.....#','#######','#######'}}
+        local points={{x=5,y=3},{x=3,y=3}}
+        assert(not S.flank_reachable(map,points))
+        map.rows[2]='#.....#'
+        assert(S.flank_reachable(map,points))
     end)
 end

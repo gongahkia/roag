@@ -46,13 +46,36 @@ S.cues={squad_ward_effect=636,squad_heal_effect=535,squad_snare_effect=715,
     squad_shield_effect=239,squad_rally_effect=527}
 local dirs={{0,-1},{1,0},{0,1},{-1,0}}
 local function key(x,y) return x..','..y end
+function S.flank_reachable(map,points)
+    local blocked={}
+    for i=2,#points do blocked[key(points[i].x,points[i].y)]=true end
+    local target=points[1]
+    local queue={{x=map.start_x,y=map.start_y}}
+    local seen={[key(map.start_x,map.start_y)]=true}
+    local head=1
+    while queue[head] do
+        local p=queue[head];head=head+1
+        if math.abs(p.x-target.x)+math.abs(p.y-target.y)==1 then return true end
+        for _,d in ipairs(dirs) do
+            local x,y=p.x+d[1],p.y+d[2]
+            local k=key(x,y)
+            local tile=map.rows[y] and Terrain.definitions[map.rows[y]:sub(x,x)]
+            if tile and tile.walkable and not seen[k] and not blocked[k] then
+                seen[k]=true;queue[#queue+1]={x=x,y=y}
+            end
+        end
+    end
+    return false
+end
 function S.distance(a,b) return math.abs(a.x-b.x)+math.abs(a.y-b.y) end
 function S.entity(state,id)
     for _,e in ipairs(state.entities) do if e.id==id then return e end end
 end
 function S.leader(state,e)
     local leader=S.entity(state,e.squad_leader_id)
+    local roster=S.groups[e.squad_kind]
     if leader and leader.hp and leader.hp>0 and leader.position.floor_id==e.position.floor_id
+        and roster and leader.definition_id=='core:enemy/'..roster[1]
         and leader.squad_id==e.squad_id then return leader end
 end
 -- Supercover line: protection never reaches through a wall, closed door,
@@ -157,7 +180,9 @@ function S.plan(state,map)
                         for i=1,count+1 do
                             points[i]={x=cx+offsets[i][1],y=cy+offsets[i][2]}
                         end
-                        return {kind=kind,points=points,room_id=room.id}
+                        if kind~='warded_bodyguards' or S.flank_reachable(map,points) then
+                            return {kind=kind,points=points,room_id=room.id}
+                        end
                     end
                 end end
             end
@@ -184,6 +209,15 @@ function S.validate(state,maps)
                 S.groups[e.squad_kind] and type(e.squad_leader_id)=='number' and
                 e.squad_leader_id%1==0 and e.squad_leader_id>0 and
                 e.squad_leader_id<state.next_entity_id,'invalid saved squad')
+            local roster=S.groups[e.squad_kind]
+            assert(e.definition_id=='core:enemy/'..roster[1] or
+                e.definition_id=='core:enemy/'..roster[2],'squad role mismatch')
+            local leader=S.entity(state,e.squad_leader_id)
+            if leader then
+                assert(leader.definition_id=='core:enemy/'..roster[1] and
+                    leader.squad_id==e.squad_id and
+                    leader.position.floor_id==e.position.floor_id,'squad leader mismatch')
+            end
             local h=e.squad_home
             local map=h and maps[h.floor_id]
             assert(map and h.floor_id==e.position.floor_id and type(h.x)=='number' and
@@ -202,6 +236,7 @@ function S.validate(state,maps)
                 'invalid shield facing')
         end
     end
+    assert(state.enemy_snares==nil or type(state.enemy_snares)=='table','invalid enemy snares')
     local counts,seen={},{}
     for _,trap in ipairs(state.enemy_snares or {}) do
         local map=maps[trap.floor_id]

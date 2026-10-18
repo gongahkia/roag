@@ -30,6 +30,23 @@ def accepted_archive():
             f'Accepted review archive/source changed: {path}'
     feedback = ROOT/'docs/sprite-audit/enemy-combo-feedback.json'
     assert hashlib.sha256(feedback.read_bytes()).hexdigest() == record['feedback_sha256']
+    approved = json.loads(feedback.read_text())
+    live = json.loads(subprocess.check_output(['luajit', 'tools/sprite_audit.lua'], cwd=ROOT))
+    for role in approved['roles']:
+        for pack, decision in role['art'].items():
+            sheet, index = decision['choice'].split(':')
+            identity = 'core:enemy/'+role['id']
+            actual = next(b for b in live['packs'][pack]['bindings'] if b['id'] == identity)
+            assert actual['sheet'] == sheet and actual['index'] == int(index), \
+                f'Runtime differs from approved {pack} art for {identity}'
+    cues = dict(warded_bodyguards='ward', healer_rushwings='heal', snares_and_siege='snare',
+                shield_and_archer='shield', captain_and_followers='rally')
+    for combo in approved['combos']:
+        sheet, index = combo['cue']['choice'].split(':')
+        for pack in live['packs'].values():
+            identity = 'core:ui/squad_'+cues[combo['id']]+'_effect'
+            actual = next(b for b in pack['bindings'] if b['id'] == identity)
+            assert actual['sheet'] == sheet and actual['index'] == int(index)
     subprocess.run(['node', '-e', """
 const fs=require('fs');
 const API=require('./tools/enemy_review_client.js');
