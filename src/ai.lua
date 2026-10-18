@@ -3,6 +3,7 @@ local Terrain = require("src.terrain")
 local EliteAI = require("src.elite_ai")
 local RegularAI = require("src.regular_ai")
 local SquadAI = require('src.squad_ai')
+local IdeaEnemies = require('src.idea_enemies')
 
 local AI = {}
 local directions = {{0,-1},{1,0},{0,1},{-1,0}} -- stable N, E, S, W
@@ -158,8 +159,10 @@ function AI.choose(state, enemy)
             clear_line=clear_line,next_step=next_step,
             adjacent_goals=adjacent_goals})
     end
-    if definition.ai=="expansion_regular" or definition.ai=='squad' then
-        local controller=definition.ai=='squad' and SquadAI or RegularAI
+    if definition.ai=="expansion_regular" or definition.ai=='squad'
+        or definition.ai=='idea_regular' then
+        local controller=definition.ai=='idea_regular' and IdeaEnemies
+            or definition.ai=='squad' and SquadAI or RegularAI
         return controller.choose(state,enemy,player,{definition=definition,
             map=Content.map_for(state),
             projectile_passable=function(map,x,y)

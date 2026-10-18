@@ -4,6 +4,7 @@ local Symbols=require('src.kenney_symbols')
 local Neighbors=require('src.kenney_terrain') -- pure canonical mask geometry
 local Biomes=require('src.biomes')
 local Squads=require('src.enemy_squads')
+local IdeaEnemies=require('src.idea_enemies')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -28,6 +29,7 @@ O.actors={
     ['core:enemy/hollow_regent']=269,
 }
 for role,index in pairs(Squads.onebit) do O.actors['core:enemy/'..role]=index end
+for id,index in pairs(IdeaEnemies.onebit) do O.actors[id]=index end
 O.objects={
     ['core:drop/currency']=818,['core:drop/food']=238,['core:drop/health']=670,
     ['core:chest/standard']=302,['core:chest/free_elite']=301,

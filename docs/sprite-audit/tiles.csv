@@ -810,7 +810,7 @@ onebit,125,432,32,88,,
 onebit,126,448,32,78,,core:enemy/shield_bearer
 onebit,127,464,32,98,,
 onebit,128,480,32,84,,core:enemy/canal_lockmaster
-onebit,129,496,32,79,,
+onebit,129,496,32,79,,core:enemy/heavy_rammer
 onebit,130,512,32,46,,
 onebit,131,528,32,44,,
 onebit,132,544,32,57,,
@@ -3615,7 +3615,7 @@ tiny,85,17,119,194,,
 tiny,86,34,119,194,core:enemy/mend_acolyte,
 tiny,87,51,119,216,core:enemy/pin_archer,
 tiny,88,68,119,199,,
-tiny,89,85,119,222,,
+tiny,89,85,119,222,core:enemy/heavy_rammer,
 tiny,90,102,119,222,,
 tiny,91,119,119,254,,
 tiny,92,136,119,254,,

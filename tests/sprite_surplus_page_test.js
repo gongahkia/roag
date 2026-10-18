@@ -11,8 +11,10 @@ const folder='docs/sprite-audit/';
 const html=fs.readFileSync(folder+'surplus.html','utf8');
 const data=JSON.parse(fs.readFileSync(folder+'surplus.json','utf8'));
 const inventory=JSON.parse(fs.readFileSync(folder+'inventory.json','utf8'));
+const record=JSON.parse(fs.readFileSync(folder+'ideas-decisions.json','utf8'));
+const reviewed=record.review_inventory?JSON.parse(fs.readFileSync(record.review_inventory.path,'utf8')):inventory;
 assert.deepEqual(JSON.parse(html.match(/<script id="surplus-data" type="application\/json">([^<]+)<\/script>/)[1]),data);
-assert.equal(data.mapping_checksum,inventory.mapping_checksum);
+assert.equal(data.mapping_checksum,reviewed.mapping_checksum);
 assert.deepEqual(data.loaded_sheets.onebit,['onebit']);
 for(const [name,s] of Object.entries(data.sources)) {
   const embedded=html.match(new RegExp('\\.sprite\\.'+name+'\\{background-image:url\\(data:image/png;base64,([^)]*)\\)'));
@@ -25,7 +27,7 @@ for(const card of data.cards)for(const pack of ['kenney','onebit'])for(const gro
   assert(data.loaded_sheets[pack].includes(group.sheet));
   for(const index of group.indices) {
     assert(catalogue.includes(`id="cell-${group.sheet}-${index}"`));
-    for(const p of Object.values(inventory.packs))assert(!p.usage[group.sheet]?.[index]);
+    for(const p of Object.values(reviewed.packs))assert(!p.usage[group.sheet]?.[index]);
   }
 }
 console.log('PASS embedded sources, unchanged native PNG bytes, current mappings and every candidate link');
@@ -80,8 +82,14 @@ async function browser(binary,output) {
       await until(()=>evaluate(`document.readyState==='complete' && !!document.querySelector('#count')`));
     };
     await navigate('index.html');
-    for(const [pack,counts] of Object.entries({union:{all:3659,unused:3305,used:289,empty:65},
-      kenney:{all:3659,unused:3391,used:203,empty:65},onebit:{all:1078,unused:930,used:147,empty:1}})) {
+    const packCounts={};
+    for(const pack of ['union','kenney','onebit']){
+      const sheets=inventory.pixel_inventory.filter(s=>pack!=='onebit'||s.sheet==='onebit');
+      const all=sheets.reduce((n,s)=>n+s.grid,0),used=sheets.reduce((n,s)=>n+s[pack],0);
+      const empty=sheets.reduce((n,s)=>n+s.empty,0);
+      packCounts[pack]={all,used,empty,unused:all-empty-used};
+    }
+    for(const [pack,counts] of Object.entries(packCounts)) {
       for(const [show,count] of Object.entries(counts)) {
         const visible=await evaluate(`(()=>{document.querySelector('#pack').value='${pack}';
           const f=document.querySelector('#filter');f.value='${show}';f.dispatchEvent(new Event('change'));

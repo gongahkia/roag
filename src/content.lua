@@ -6,6 +6,7 @@ local EliteAI = require("src.elite_ai")
 local RegularAI = require("src.regular_ai")
 local Classes = require("src.classes")
 local Squads = require('src.enemy_squads')
+local IdeaEnemies = require('src.idea_enemies')
 
 Content.version = "roag-content/8"
 
@@ -74,6 +75,10 @@ for _,id in ipairs(Classes.order) do
     ability_proc_coefficients[class.special_id]=1
     ability_names[class.basic_id]=class.basic_name
     ability_names[class.special_id]=class.special_name
+end
+for name,label in pairs(IdeaEnemies.abilities) do
+    ability_proc_coefficients['core:ability/'..name]=1
+    ability_names['core:ability/'..name]=label
 end
 for _,profile in pairs(EliteAI.profiles) do
     for _,shape in ipairs(profile) do
@@ -183,6 +188,13 @@ for _,row in ipairs(Squads.enemies) do
     enemies[id]={id=id,name=row[2],ai='squad',hp=row[3],damage=row[4],
         defense=row[5],speed=row[6],windup=row[7],recovery=row[8],
         move_cost=100,range=row[9],xp_reward=2,currency_drop=1}
+end
+
+for _,row in ipairs(IdeaEnemies.enemies) do
+    local id='core:enemy/'..row[1]
+    enemies[id]={id=id,name=row[2],ai='idea_regular',hp=row[3],damage=row[4],
+        defense=row[5],speed=row[6],windup=row[7],recovery=row[8],
+        move_cost=100,range=row[9],xp_reward=4,currency_drop=3}
 end
 
 local demo_spawns = {
@@ -429,6 +441,7 @@ function Content.validate_all()
         enemy_ids[#enemy_ids+1]="core:enemy/"..row[1]
     end
     for _,row in ipairs(Squads.enemies) do enemy_ids[#enemy_ids+1]='core:enemy/'..row[1] end
+    for _,row in ipairs(IdeaEnemies.enemies) do enemy_ids[#enemy_ids+1]='core:enemy/'..row[1] end
     for _, id in ipairs(enemy_ids) do
         assert(not seen[id], "duplicate content ID")
         seen[id] = true
@@ -438,7 +451,8 @@ function Content.validate_all()
             or definition.ai == "pursuer" or definition.ai=="spore_herald"
             or definition.ai=="canal_lancer" or definition.ai=="cinder_bellkeeper"
             or definition.ai=="hollow_regent" or definition.ai=="biome_elite"
-            or definition.ai=="expansion_regular" or definition.ai=='squad'),
+            or definition.ai=="expansion_regular" or definition.ai=='squad'
+            or definition.ai=='idea_regular'),
             "invalid enemy identity")
         for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range",
             "xp_reward", "currency_drop"}) do

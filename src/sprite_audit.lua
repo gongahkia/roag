@@ -72,26 +72,22 @@ function A.collect()
                     motif=h.motif or '',pose_alias=id:match('/attack$')~=nil or id:match('/hurt$')~=nil}
             end
         end
-        for _,id in ipairs(keys(definition.actors))do
-            local index=definition.actors[id]
-            use(name=='kenney' and 'micro' or 'onebit',index,id)
-            aliases[index]=aliases[index]or {};aliases[index][#aliases[index]+1]=id
-            p.actor_count=p.actor_count+1;p.static_pose_aliases=p.static_pose_aliases+2
-        end
-        if name=='kenney' then
-            local extra={'core:actor/hookrunner','core:actor/trapper'}
-            for _,id in ipairs(keys(K.squad_actors)) do extra[#extra+1]=id end
-            for _,id in ipairs(extra) do
+        for _,id in ipairs(report.requirements) do
+            if id:match('^core:actor/[^/]+$') or id:match('^core:enemy/[^/]+$') then
                 local h=assert(resolver:resolve(id))
-                use(h.approved_sheet,h.tile_index,id)
+                local sheet=h.approved_sheet or (h.symbol_index and 'onebit') or 'micro'
+                local index=h.symbol_index or h.tile_index
+                use(sheet,index,id)
+                local key=sheet..':'..index
+                aliases[key]=aliases[key] or {index=index,sheet=sheet,ids={}}
+                local ids=aliases[key].ids;ids[#ids+1]=id
                 p.actor_count=p.actor_count+1
-                p.actor_silhouettes=p.actor_silhouettes+1
                 p.static_pose_aliases=p.static_pose_aliases+2
             end
         end
-        for _,index in ipairs(keys(aliases))do
+        for _,key in ipairs(keys(aliases))do
             p.actor_silhouettes=p.actor_silhouettes+1
-            if #aliases[index]>1 then p.shared_actors[#p.shared_actors+1]={index=index,ids=aliases[index]}end
+            if #aliases[key].ids>1 then p.shared_actors[#p.shared_actors+1]=aliases[key] end
         end
         for _,id in ipairs(keys(definition.objects))do
             use(name=='kenney' and 'micro' or 'onebit',definition.objects[id],id)

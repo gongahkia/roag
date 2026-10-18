@@ -955,6 +955,10 @@ local function submit(intent)
                     'Frontal shield: attack from the side/rear or interrupt the bearer'
             elseif event.kind=='EnemySnareTriggered' and event.target_id==state.player_id then
                 notice='Snare: 1 damage and +40 recovery time'
+            elseif event.kind=='ShoveBlocked' and event.target_id==state.player_id then
+                notice='Shove blocked: '..event.reason
+            elseif event.kind=='Displaced' and event.target_id==state.player_id and event.reason=='shove' then
+                notice='Rammer shove: forced one tile'
             elseif event.kind=="VaultKeyCollected" then
                 notice="Vault key found — seek the barred side room"
             elseif event.kind=="VaultOpened" then
@@ -1954,6 +1958,10 @@ local function draw_history_event(event)
     if event.kind == "WindupStarted" then
         if event.support_kind then draw_cells(event.target_cells,.45,.88,.9,.7,true)
         else draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true) end
+        if event.shove then
+            local s=event.shove
+            draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,.8,.3,.5,true)
+        end
     elseif event.kind == "AttackPerformed" then
         draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7, true)
         local cells=event.target_cells or {}
@@ -2387,6 +2395,10 @@ local function draw_world()
         for _, strike in ipairs(Game.pending_strikes(state)) do
             if strike.support then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
             else draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true) end
+            if strike.shove then
+                local s=strike.shove
+                draw_cell({floor_id=s.floor_id,x=s.x+s.dx,y=s.y+s.dy},1,.8,.3,.5,true)
+            end
         end
     end
     draw_preview()

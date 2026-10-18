@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "1202bc99da0ba099",
+  "mapping_checksum": "de780399a95d24d5",
   "packs": {
     "kenney": {
-      "actor_count": 44,
-      "actor_silhouettes": 36,
+      "actor_count": 45,
+      "actor_silhouettes": 37,
       "bindings": [
         {
           "height": 8,
@@ -1653,6 +1653,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer",
+          "index": 89,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/attack",
+          "index": 89,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/hurt",
+          "index": 89,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/hollow_regent",
           "index": 9,
@@ -2926,62 +2953,70 @@
       "shared_actors": [
         {
           "ids": [
-            "core:actor/arcanist",
-            "core:enemy/index_keeper"
-          ],
-          "index": 6
-        },
-        {
-          "ids": [
-            "core:actor/alchemist",
-            "core:enemy/cinder_mender"
-          ],
-          "index": 7
-        },
-        {
-          "ids": [
-            "core:enemy/hollow_regent",
-            "core:enemy/thorn_warden"
-          ],
-          "index": 9
-        },
-        {
-          "ids": [
             "core:actor/sentinel",
             "core:enemy/prism_curator"
           ],
-          "index": 10
+          "index": 10,
+          "sheet": "micro"
         },
         {
           "ids": [
             "core:enemy/ember_crucible",
             "core:enemy/forge_conjurer"
           ],
-          "index": 13
+          "index": 13,
+          "sheet": "micro"
         },
         {
           "ids": [
             "core:enemy/mycelial_matriarch",
             "core:enemy/spore_herald"
           ],
-          "index": 14
+          "index": 14,
+          "sheet": "micro"
         },
         {
           "ids": [
             "core:enemy/ash_marshal",
             "core:enemy/cinder_bellkeeper"
           ],
-          "index": 15
+          "index": 15,
+          "sheet": "micro"
         },
         {
           "ids": [
             "core:enemy/canal_lancer",
             "core:enemy/canal_lockmaster"
           ],
-          "index": 22
+          "index": 22,
+          "sheet": "micro"
+        },
+        {
+          "ids": [
+            "core:actor/arcanist",
+            "core:enemy/index_keeper"
+          ],
+          "index": 6,
+          "sheet": "micro"
+        },
+        {
+          "ids": [
+            "core:actor/alchemist",
+            "core:enemy/cinder_mender"
+          ],
+          "index": 7,
+          "sheet": "micro"
+        },
+        {
+          "ids": [
+            "core:enemy/hollow_regent",
+            "core:enemy/thorn_warden"
+          ],
+          "index": 9,
+          "sheet": "micro"
         }
       ],
-      "static_pose_aliases": 88,
+      "static_pose_aliases": 90,
       "usage": {
         "caves": {
           "145": [
@@ -3606,6 +3641,9 @@
           "87": [
             "core:enemy/pin_archer"
           ],
+          "89": [
+            "core:enemy/heavy_rammer"
+          ],
           "96": [
             "core:enemy/shield_bearer"
           ],
@@ -3621,8 +3659,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 44,
-      "actor_silhouettes": 44,
+      "actor_count": 45,
+      "actor_silhouettes": 45,
       "bindings": [
         {
           "height": 16,
@@ -5273,6 +5311,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/heavy_rammer",
+          "index": 129,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/attack",
+          "index": 129,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/heavy_rammer/hurt",
+          "index": 129,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/hollow_regent",
           "index": 269,
           "motif": "",
@@ -6543,7 +6608,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 88,
+      "static_pose_aliases": 90,
       "usage": {
         "onebit": {
           "1010": [
@@ -6581,6 +6646,9 @@
           ],
           "128": [
             "core:enemy/canal_lockmaster"
+          ],
+          "129": [
+            "core:enemy/heavy_rammer"
           ],
           "141": [
             "core:boon/crownfire/icon + /detail"
@@ -7042,12 +7110,12 @@
       "grid": 1078,
       "kenney": 61,
       "nonempty": 1077,
-      "onebit": 147,
+      "onebit": 148,
       "sheet": "onebit",
-      "union": 147,
+      "union": 148,
       "unused_kenney": 1016,
-      "unused_onebit": 930,
-      "unused_union": 930
+      "unused_onebit": 929,
+      "unused_union": 929
     },
     {
       "empty": 63,
@@ -7064,14 +7132,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 15,
+      "kenney": 16,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 15,
-      "unused_kenney": 117,
+      "union": 16,
+      "unused_kenney": 116,
       "unused_onebit": 132,
-      "unused_union": 117
+      "unused_union": 116
     }
   ],
   "requirements": [
@@ -7258,6 +7326,9 @@
     "core:enemy/gloom_strider",
     "core:enemy/gloom_strider/attack",
     "core:enemy/gloom_strider/hurt",
+    "core:enemy/heavy_rammer",
+    "core:enemy/heavy_rammer/attack",
+    "core:enemy/heavy_rammer/hurt",
     "core:enemy/hollow_regent",
     "core:enemy/hollow_regent/attack",
     "core:enemy/hollow_regent/hurt",

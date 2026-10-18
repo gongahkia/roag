@@ -1,4 +1,8 @@
-# Current unused Kenney art: inventory and next choices
+# Reviewed unused Kenney art: historical inventory and choices
+
+> This is the preserved 324-binding review, not the live usage count. See
+> [current catalogue](index.html), [decisions](ideas-feedback-summary.md) and
+> [implementation ledger](../goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 
 Audit date: **2026-10-18**, after the approved five enemy combinations.
 Current native mapping fingerprint: `1202bc99da0ba099`.

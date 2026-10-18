@@ -17,6 +17,7 @@ local Terrain = require("src.terrain")
 local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
 local Squads = require('src.enemy_squads')
+local IdeaEnemies = require('src.idea_enemies')
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -239,7 +240,16 @@ function Game.new(seed, map_id, options)
             end
             World.populate(state,append)
             Review.populate(state,active)
-            if options and options.stage then Squads.populate(state,active,Game.spawn_enemy) end
+            if options and options.stage then
+                Squads.populate(state,active,Game.spawn_enemy)
+                IdeaEnemies.populate(state,active,function(e,id)
+                    local def=assert(Content.get_enemy(id))
+                    e.definition_id,e.ai_id=id,def.ai
+                    e.hp,e.max_hp,e.damage,e.defense,e.speed=def.hp,def.hp,
+                        def.damage,def.defense,def.speed
+                    e.ai_memory={last_dx=0,last_dy=0}
+                end)
+            end
         end
         populate_active(false)
         if generated_pair then
@@ -449,6 +459,58 @@ local function cancel_windup(state, target, output, reason, source_id, action_id
         target_id=target.id, windup_id=pending.schedule_id, reason=reason,
         target_cells=pending.target_cells,
     }, source_id, action_id)
+    return true
+end
+
+-- Shared read-only landing contract for forced movement. Landing never uses a
+-- stair/exit and never rewrites scheduler readiness or current floor identity.
+function Game.shove_landing(state,target_id,dx,dy)
+    if type(dx)~='number' or type(dy)~='number' or dx%1~=0 or dy%1~=0
+        or math.abs(dx)+math.abs(dy)~=1 then return nil,'invalid direction' end
+    local target=Game.entity(state,target_id)
+    if not target or not target.hp or target.hp<=0 or
+        (target.controller~='ai' and target.controller~='player') then
+        return nil,'invalid target'
+    end
+    if target.invulnerable then return nil,'immune' end
+    local p=target.position
+    if p.floor_id~=state.active_floor_id then return nil,'inactive floor' end
+    local x,y=p.x+dx,p.y+dy
+    if not Content.walkable(Content.map_for(state),x,y) then return nil,'wall' end
+    if Floors.portal(state,x,y) then return nil,'stairs' end
+    for _,e in ipairs(state.entities) do
+        if e.controller=='exit' and e.position.floor_id==p.floor_id
+            and e.position.x==x and e.position.y==y then return nil,'exit' end
+    end
+    if occupant(state,p.floor_id,x,y,target.id,false) then return nil,'occupied' end
+    return {floor_id=p.floor_id,x=x,y=y}
+end
+
+local function shove_actor(state,output,target,dx,dy,source_id,action_id)
+    local landing,reason=Game.shove_landing(state,target.id,dx,dy)
+    if not landing then
+        emit(state,output,'ShoveBlocked',{target_id=target.id,reason=reason,
+            floor_id=target.position.floor_id,x=target.position.x,y=target.position.y},
+            source_id,action_id)
+        return false
+    end
+    local interrupted=cancel_windup(state,target,output,'displacement',source_id,action_id)
+    local from_x,from_y=target.position.x,target.position.y
+    target.position.x,target.position.y=landing.x,landing.y
+    emit(state,output,'Displaced',{target_id=target.id,reason='shove',
+        floor_id=landing.floor_id,from_x=from_x,from_y=from_y,
+        x=landing.x,y=landing.y},source_id,action_id)
+    emit(state,output,'TileEntered',{floor_id=landing.floor_id,
+        from_x=from_x,from_y=from_y,x=landing.x,y=landing.y,forced=true},target.id,action_id)
+    if target.id==state.player_id then
+        Rewards.pickup_at(state,target,landing.x,landing.y,function(kind,fields,owner)
+            emit(state,output,kind,fields,owner,action_id)
+        end)
+    elseif interrupted then
+        local def=assert(Content.get_enemy(target.definition_id))
+        Scheduler.enqueue(state,{kind='actor_ready',actor_id=target.id,is_player=false,
+            due=state.clock+Game.effective_cost(def.recovery,target.speed)})
+    end
     return true
 end
 
@@ -883,7 +945,17 @@ local function drain_effects(state, output)
                         local victim=Game.entity(state,event.source_id)
                         if victim and victim.hp and victim.hp>0 then
                             table.remove(state.enemy_snares,i)
-                            victim.snare_delay=Squads.snare_delay
+                            local delayed=false
+                            if victim.id==state.player_id then
+                                for _,work in ipairs(state.schedule) do
+                                    if work.kind=='actor_ready' and work.actor_id==victim.id then
+                                        work.due=work.due+Squads.snare_delay;delayed=true
+                                        break
+                                    end
+                                end
+                                if delayed then Scheduler.sort(state) end
+                            end
+                            if not delayed then victim.snare_delay=Squads.snare_delay end
                             emit(state,output,'EnemySnareTriggered',{floor_id=trap.floor_id,
                                 x=trap.x,y=trap.y,target_id=victim.id},trap.source_id,event.action_id)
                             terrain_damage(state,output,trap.source_id,event.action_id,victim,1,'physical','enemy')
@@ -1035,7 +1107,7 @@ local function enemy_turn(state, item, output)
             source_x=position.x, source_y=position.y,
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
             damage=enemy.damage+(intent.damage_bonus or 0)+(Squads.rally_source(state,enemy) and 1 or 0), due=due,
-            support=copy(intent.support),advance=copy(intent.advance),
+            support=copy(intent.support),advance=copy(intent.advance),shove=copy(intent.shove),
             committed_time=state.clock,
         }
         if intent.clear_retaliate then enemy.ai_memory.retaliate=nil end
@@ -1043,6 +1115,7 @@ local function enemy_turn(state, item, output)
             windup_id=scheduled.id, due=due, ability_id=intent.ability_id,
             floor_id=position.floor_id, from_x=position.x, from_y=position.y,
             target_cells=cells,
+            shove=copy(intent.shove),
             support_kind=intent.support and intent.support.kind,
         }, enemy.id, action_id)
         return
@@ -1168,6 +1241,11 @@ local function resolve_impact(state, item, output)
         attack(state, output, enemy, pending.action_id, pending.ability_id,
             pending.target_cells, pending.damage, pending.ranged,
             {windup_id=pending.schedule_id, committed_time=pending.committed_time})
+        if pending.shove and not state.game_over then
+            local s=pending.shove
+            local target=occupant(state,s.floor_id,s.x,s.y,enemy.id,true)
+            if target then shove_actor(state,output,target,s.dx,s.dy,enemy.id,pending.action_id) end
+        end
     end
     if pending.advance and not state.game_over then
         local from_x,from_y=enemy.position.x,enemy.position.y
@@ -1924,6 +2002,7 @@ function Game.restore(snapshot)
                     and cell.y>=1 and cell.y<=entity_map.height,
                     "invalid pending target cell")
             end
+            IdeaEnemies.validate_pending(entity,entity.pending_attack)
             local found = false
             for _, item in ipairs(scheduled) do
                 if item.id == entity.pending_attack.schedule_id and item.kind == "impact"

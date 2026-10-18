@@ -4,6 +4,7 @@ local Atlas=require('src.studio_atlas')
 local Terrain=require('src.kenney_terrain')
 local Symbols=require('src.kenney_symbols')
 local Squads=require('src.enemy_squads')
+local IdeaEnemies=require('src.idea_enemies')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -48,6 +49,7 @@ local objects={
 }
 K.actors=actors;K.objects=objects
 K.squad_actors={}
+K.idea_actors=IdeaEnemies.tiny
 for role,index in pairs(Squads.tiny) do K.squad_actors['core:enemy/'..role]=index end
 -- Connectivity belongs to the Caves & Dungeons terrain adapter.
 K.canonical=Terrain.canonical
@@ -109,6 +111,7 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_plate_tiny_down']=55,
     }
     for id,index in pairs(K.squad_actors) do tiny_bindings[id]=index end
+    for id,index in pairs(K.idea_actors) do tiny_bindings[id]=index end
     approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',
         'd407b7ab694fa5d5',203,186,17,12,tiny_bindings)
     approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',

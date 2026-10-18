@@ -4,6 +4,7 @@ local Boons=require('src.boon_content')
 local Content=require('src.content')
 local Classes=require('src.classes')
 local Squads=require('src.enemy_squads')
+local IdeaEnemies=require('src.idea_enemies')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 local function slug(id) return id:match('/([^/]+)$') end
@@ -70,6 +71,7 @@ for _,biome_id in ipairs(Biomes.order) do
     end
 end
 for id in pairs(Squads.roles) do enemy_ids[id]=true end
+for id in pairs(IdeaEnemies.roles) do enemy_ids[id]=true end
 for id in pairs(enemy_ids) do
     assert(Content.get_enemy(id),'unknown visual enemy slot: '..id)
     add(id);add(id..'/attack');add(id..'/hurt')
