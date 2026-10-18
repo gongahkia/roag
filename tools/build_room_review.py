@@ -8,6 +8,11 @@ import os
 from pathlib import Path
 import subprocess
 
+if __package__:
+    from .room_prototypes import build_proposals
+else:
+    from room_prototypes import build_proposals
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "docs/room-review/review.html"
@@ -19,6 +24,7 @@ SPRITE_SHEETS = {
     "caves": "assets/kenney/caves-dungeons/terrain.png",
     "micro": "assets/kenney/micro-roguelike/tiles.png",
     "symbols": "assets/kenney/1-bit-pack/symbols.png",
+    "rpg": "assets/kenney/approved/roguelike-rpg.png",
 }
 
 
@@ -85,10 +91,15 @@ def room_data():
             assert 1 <= point["y"] <= record["height"]
     source = json.dumps(rooms, ensure_ascii=False, sort_keys=True,
                         separators=(",", ":")).encode()
+    proposals = build_proposals(rooms)
+    proposal_source = json.dumps(proposals, ensure_ascii=False, sort_keys=True,
+                                 separators=(",", ":")).encode()
     return {
         "schema": "roag-room-review-data/1",
         "source_fingerprint": hashlib.sha256(source).hexdigest()[:16],
+        "proposal_fingerprint": hashlib.sha256(proposal_source).hexdigest()[:16],
         "rooms": rooms,
+        "proposals": proposals,
     }
 
 
@@ -108,7 +119,9 @@ def main():
     PAGE.write_text(html)
     counts = {origin: sum(room["origin"] == origin for room in data["rooms"])
               for origin in {room["origin"] for room in data["rooms"]}}
-    print(f'Embedded {len(data["rooms"])} rooms in {PAGE.relative_to(ROOT)}: '
+    print(f'Embedded {len(data["rooms"])} live rooms and '
+          f'{sum(len(group["variants"]) for group in data["proposals"]["families"])} '
+          f'proposed rooms in {PAGE.relative_to(ROOT)}: '
           + ", ".join(f"{name} {count}" for name, count in sorted(counts.items())))
 
 
