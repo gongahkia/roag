@@ -31,16 +31,17 @@ Flat_Vertex :: struct {
 }
 
 Renderer :: struct {
-	program, flat_program, texture, flat_vao, flat_vbo: u32,
-	vp_loc, offset_loc, fog_loc, flat_vp_loc:           i32,
-	queries:                                            [4]u32,
-	query_pending:                                      [4]bool,
-	query_active:                                       int,
-	gpu_ms:                                             f64,
-	flats:                                              [dynamic]Flat_Vertex,
-	mesh_bytes, peak_bytes, draw_calls, triangles:      int,
-	pool:                                               [32]GPU_Mesh,
-	pool_count, pool_bytes, reused_buffers:             int,
+	program, flat_program, texture, flat_vao, flat_vbo:          u32,
+	vp_loc, offset_loc, fog_loc, flat_vp_loc:                    i32,
+	queries:                                                     [4]u32,
+	query_pending:                                               [4]bool,
+	query_active:                                                int,
+	gpu_ms:                                                      f64,
+	gpu_samples, overlay_draws, last_overlay_draws, cull_tested: int,
+	flats:                                                       [dynamic]Flat_Vertex,
+	mesh_bytes, peak_bytes, draw_calls, triangles:               int,
+	pool:                                                        [32]GPU_Mesh,
+	pool_count, pool_bytes, reused_buffers:                      int,
 }
 
 identity :: proc() -> Mat4 {
@@ -392,6 +393,9 @@ renderer_destroy :: proc(r: ^Renderer) {
 
 renderer_begin :: proc(r: ^Renderer, width, height: i32, frame: int) {
 	r.draw_calls = 0
+	r.last_overlay_draws = r.overlay_draws
+	r.overlay_draws = 0
+	r.cull_tested = 0
 	r.triangles = 0
 	slot := frame % 4
 	if r.query_pending[slot] {
@@ -401,6 +405,7 @@ renderer_begin :: proc(r: ^Renderer, width, height: i32, frame: int) {
 			ns: u64
 			gl.GetQueryObjectui64v(r.queries[slot], gl.QUERY_RESULT, &ns)
 			r.gpu_ms = f64(ns) / 1e6
+			r.gpu_samples += 1
 			r.query_pending[slot] = false
 		}
 	}
@@ -437,6 +442,7 @@ flat_flush :: proc(r: ^Renderer, transform: Mat4, mode: u32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.flat_vbo)
 	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(r.flats) * size_of(Flat_Vertex), raw_data(r.flats))
 	gl.DrawArrays(mode, 0, i32(len(r.flats)))
+	r.overlay_draws += 1
 	clear(&r.flats)
 }
 
@@ -539,6 +545,8 @@ glyph :: proc(c: u8) -> [7]u8 {
 		return {1, 2, 2, 4, 8, 8, 16}
 	case '+':
 		return {0, 4, 4, 31, 4, 4, 0}
+	case '%':
+		return {17, 18, 2, 4, 8, 9, 17}
 	case '[':
 		return {14, 8, 8, 8, 8, 8, 14}
 	case ']':

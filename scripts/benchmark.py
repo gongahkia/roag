@@ -51,6 +51,16 @@ def summarize(path, warmup=3.0):
         'steady_mean_triangles': statistics.mean(int(row['triangles']) for row in steady),
         'budgets_passed': True,
     }
+    # OS working set is distinct from the engine's managed CPU allocation budget.
+    if 'rss_bytes' in rows[0]:
+        ram = [row for row in rows if int(row['ram_sample_valid'])]
+        cpu = [row for row in steady if int(row['cpu_sample_valid'])]
+        if ram:
+            summary['peak_process_rss_mib'] = max(int(row['rss_bytes']) for row in ram) / MIB
+            summary['peak_process_rss_hwm_mib'] = max(int(row['rss_peak_bytes']) for row in ram) / MIB
+        if cpu:
+            summary['mean_process_cpu_percent'] = statistics.mean(float(row['process_cpu_percent']) for row in cpu)
+        summary['mean_rolling_1pct_low_fps'] = statistics.mean(float(row['low_1pct_fps']) for row in steady)
     assert any(int(row['draws']) > 0 for row in rows), 'Scene never rendered terrain'
     # The flight path repeats every 24 seconds after two seconds of warmup.
     if path.stem.startswith('flight') and summary['elapsed_seconds'] >= 50:

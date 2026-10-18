@@ -70,6 +70,16 @@ Graphics accounting includes allocated mesh capacity (including cached and repla
 
 `--help` lists all options. `--frames N`, `--seconds N`, `--hidden`, and `--screenshot PATH.ppm` support unattended graphical runs; they still require a working display and OpenGL context.
 
+## Live benchmarking panel
+
+The top-left panel is visible by default; **F3** hides or shows it. It includes live FPS and 1% lows, a 240-frame frame-time graph with asynchronous GPU timing, and CPU/RAM history graphs covering up to 60 seconds. The history fills the available graph width as samples arrive.
+
+CPU is the game's process utilization across all threads, normalized to the available logical CPU capacity (0–100%). Active core equivalents and aggregate CPU milliseconds per frame are shown separately. RAM is the process resident set/working set, with its OS-reported peak; it includes more than the engine's tracked heap. OS metrics and percentiles refresh at 4 Hz using fixed-size buffers.
+
+The panel also shows frame percentiles and hitches, managed heap/current/peak/budget, graphics and mesh reservations, draw calls, culled chunks, triangles and vertices, worker queues and throughput, generation/meshing times, upload traffic, reusable buffer cache, pressure events, stale jobs, resolution, and VSync. Small windows use a compact layout. Removed title branding, capture prompts, and control footers stay absent.
+
+Benchmark CSVs append CPU utilization, process RAM, FPS/1% lows, heap peaks, main-thread work time, and streaming diagnostics. CPU/RAM availability flags distinguish unsupported or failed measurements from zero usage. GPU time is asynchronous; CPU/F sums all process threads and can exceed wall-clock frame time. MAIN measures work before presentation and excludes swap waiting.
+
 ## Verify and benchmark
 
 ```sh

@@ -189,22 +189,6 @@ config_parse :: proc() -> (Config, bool) {
 	return c, true
 }
 
-percentile :: proc(samples: []f64, p: f64) -> f64 {
-	values: [240]f64
-	n := min(len(samples), 240)
-	for i in 0 ..< n {
-		values[i] = samples[i]
-		j := i
-		for j > 0 && values[j] < values[j - 1] {
-			values[j], values[j - 1] = values[j - 1], values[j]
-			j -= 1
-		}
-	}
-	if n == 0 {
-		return 0
-	}
-	return values[int(f64(n - 1) * p)]
-}
 BLOCK_NAMES := [7]string{"AIR", "GRASS", "DIRT", "STONE", "SAND", "WOOD", "LEAVES"}
 hud :: proc(
 	r: ^Renderer,
@@ -214,7 +198,8 @@ hud :: proc(
 	selected: int,
 	show: bool,
 	width, height: i32,
-	ms, p95, p99: f64,
+	telemetry: ^Telemetry,
+	elapsed: f64,
 	speed: f64,
 ) {
 	gl.Disable(gl.DEPTH_TEST)
@@ -227,27 +212,7 @@ hud :: proc(
 	ortho[12] = -1
 	ortho[13] = 1
 	if show {
-		rect(r, 16, 16, 410, 167, {0.055, 0.085, 0.105, 0.88})
-		rows := []string {
-			fmt.tprintf("FRAME %.2F MS / GPU %.2F MS", ms, r.gpu_ms),
-			fmt.tprintf("P95 %.2F / P99 %.2F MS", p95, p99),
-			fmt.tprintf("MESH %.1F / %d MIB", f64(r.mesh_bytes) / MiB, s.mesh_budget / MiB),
-			fmt.tprintf(
-				"GRAPHICS RESV %.1F / %d MIB",
-				f64(r.mesh_bytes + 2 * MiB + int(width) * int(height) * 16) / MiB,
-				c.gpu_budget / MiB,
-			),
-			fmt.tprintf("UPLOAD %d KB / WORKERS %d", s.last_upload_bytes / 1024, s.worker_count),
-			fmt.tprintf("CPU %.1F / %d MIB", f64(cpu_bytes(s)) / MiB, c.cpu_budget / MiB),
-			fmt.tprintf("CHUNKS %d / RADIUS %d", len(s.chunks), s.radius),
-			fmt.tprintf("DRAWS %d / TRIANGLES %d", r.draw_calls, r.triangles),
-			fmt.tprintf("GEN %.2F / MESH %.2F MS", s.last_generation_ms, s.last_meshing_ms),
-			fmt.tprintf("PRESSURE %d / STALE %d / HUGE %d", s.pressure, s.stale, s.oversized),
-			fmt.tprintf("XYZ %.0F %.0F %.0F / SPEED %.0F", pos.x, pos.y, pos.z, speed),
-		}
-		for row, i in rows {
-			text_draw(r, 25, 25 + f32(i) * 14, row, 1.25)
-		}
+		benchmark_panel(r, s, c, telemetry, pos, width, height, elapsed, speed, ortho)
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
 	cx, cy := f32(width) / 2, f32(height) / 2
@@ -327,6 +292,7 @@ main :: proc() {
 		}
 		fmt.println("Loaded", config.save_path)
 	}
+	config.seed = w.seed
 	if !glfw.Init() {
 		description, _ := glfw.GetError()
 		fmt.eprintln("GLFW:", description)
@@ -398,8 +364,8 @@ main :: proc() {
 	stats := true
 	old_keys: [512]bool
 	old_mouse: [2]bool
-	samples: [240]f64
-	sample_count := 0
+	telemetry: Telemetry
+	telemetry_init(&telemetry, last)
 	csv: ^os.File
 	if config.benchmark != "" {
 		os.make_directory("benchmarks")
@@ -416,7 +382,7 @@ main :: proc() {
 		csv = handle
 		fmt.fprintln(
 			csv,
-			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes",
+			"frame,elapsed_s,frame_ms,p95_ms,p99_ms,gpu_ms,cpu_bytes,mesh_bytes,graphics_reserved_bytes,chunks,radius,draws,triangles,generation_ms,meshing_ms,pressure,stale,upload_bytes,gpu_budget_bytes,cpu_budget_bytes,upload_budget_bytes,fps,low_1pct_fps,process_cpu_percent,rss_bytes,rss_peak_bytes,cpu_sample_valid,ram_sample_valid,heap_peak_bytes,main_work_ms,chunks_per_second,queued_jobs,busy_workers",
 		)
 		fmt.println("Benchmark:", path)
 	}
@@ -431,8 +397,7 @@ main :: proc() {
 		dt := clamp(now - last, 0, 0.1)
 		ms := (now - last) * 1000
 		last = now
-		samples[frame % 240] = ms
-		sample_count = min(sample_count + 1, 240)
+		telemetry_update(&telemetry, &stream, &r, now, ms)
 		down: [512]bool
 		for k in 32 ..< 349 {
 			down[k] = glfw.GetKey(window, i32(k)) == glfw.PRESS
@@ -620,6 +585,7 @@ main :: proc() {
 			if c.gpu.vao == 0 {
 				continue
 			}
+			r.cull_tested += 1
 			offset := F3 {
 				f32(f64(k.x) * 32 - pos.x),
 				f32(f64(k.y) * 32 - pos.y),
@@ -649,23 +615,9 @@ main :: proc() {
 		if hit.hit {
 			outline(&r, hit.block, pos, vp)
 		}
-		p95, p99 :=
-			percentile(samples[:sample_count], 0.95), percentile(samples[:sample_count], 0.99)
-		hud(
-			&r,
-			&stream,
-			config,
-			pos,
-			selected,
-			stats,
-			width,
-			height,
-			ms,
-			p95,
-			p99,
-			speed,
-		)
+		hud(&r, &stream, config, pos, selected, stats, width, height, &telemetry, elapsed, speed)
 		renderer_end(&r)
+		telemetry.main_work_ms = (glfw.GetTime() - now) * 1000
 		error := gl.GetError()
 		if error != gl.NO_ERROR {
 			fmt.eprintf("OpenGL error: 0x%x\n", error)
@@ -682,12 +634,12 @@ main :: proc() {
 		if csv != nil {
 			fmt.fprintf(
 				csv,
-				"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d\n",
+				"%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%.4f,%.4f,%.4f,%d,%d,%d,%d,%d,%.4f,%.4f,%d,%d\n",
 				frame,
 				elapsed,
 				ms,
-				p95,
-				p99,
+				telemetry.frames.p95_ms,
+				telemetry.frames.p99_ms,
 				r.gpu_ms,
 				cpu_bytes(&stream),
 				r.mesh_bytes,
@@ -704,6 +656,18 @@ main :: proc() {
 				config.gpu_budget,
 				config.cpu_budget,
 				stream.upload_budget,
+				telemetry.frames.fps,
+				telemetry.frames.low_1pct_fps,
+				telemetry.cpu_percent,
+				telemetry.process.rss_bytes,
+				telemetry.process.peak_rss_bytes,
+				int(telemetry.cpu_interval_valid && telemetry.process.cpu_valid),
+				int(telemetry.process.ram_valid),
+				telemetry.heap_peak_bytes,
+				telemetry.main_work_ms,
+				telemetry.chunks_per_second,
+				telemetry.queued,
+				telemetry.busy,
 			)
 		}
 		glfw.SwapBuffers(window)
