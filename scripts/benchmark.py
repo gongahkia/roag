@@ -85,7 +85,7 @@ def summarize(path, warmup=3.0):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'dense'), default='normal')
+    parser.add_argument('--scene', choices=('normal', 'flight', 'edit', 'dense', 'fluids'), default='normal')
     parser.add_argument('--seconds', type=int, default=12)
     parser.add_argument('--profile', choices=('tiny', 'low', 'standard'), default='tiny')
     parser.add_argument('--radius', type=int)

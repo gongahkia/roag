@@ -10,23 +10,30 @@ Vertex :: struct #packed {
 #assert(size_of(Vertex) == 8)
 
 Mesh :: struct {
-	vertices: [dynamic]Vertex,
-	indices:  [dynamic]u32,
-	overflow: bool,
-	faces:    int,
+	vertices:      [dynamic]Vertex,
+	indices:       [dynamic]u32,
+	overflow:      bool,
+	faces:         int,
+	water_indices: int,
 }
 
 Face :: struct {
-	material: u8,
-	ao:       [4]u8,
+	material:       u8,
+	ao:             [4]u8,
+	height, bottom: u8,
 }
 
 face_equal :: proc(a, b: Face) -> bool {
-	return a.material == b.material && a.ao == b.ao
+	return a.material == b.material && a.ao == b.ao && a.height == b.height && a.bottom == b.bottom
 }
 
 face_mergeable :: proc(a: Face) -> bool {
-	return a.ao[0] == a.ao[1] && a.ao[0] == a.ao[2] && a.ao[0] == a.ao[3]
+	return(
+		!is_fluid(Block(a.material)) &&
+		a.ao[0] == a.ao[1] &&
+		a.ao[0] == a.ao[2] &&
+		a.ao[0] == a.ao[3] \
+	)
 }
 NORMALS := [6]I3{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}}
 U_AXIS := [6]int{1, 2, 2, 0, 0, 1}
@@ -36,10 +43,25 @@ sample :: proc(data: []u8, p: I3) -> u8 {
 }
 
 solid :: proc(data: []u8, p: I3) -> int {
-	if sample(data, p) != 0 {
+	if is_solid(Block(sample(data, p))) {
 		return 1
 	}
 	return 0
+}
+
+face_visible :: proc(data: []u8, p: I3, dir: int) -> bool {
+	b := Block(sample(data, p))
+	n := Block(sample(data, p + NORMALS[dir]))
+	if b == .Air {return false}
+	if !is_fluid(b) {return n == .Air || is_fluid(n)}
+	if is_solid(n) {return false}
+	if fluid_kind(b) != fluid_kind(n) {return true}
+	if dir == 2 || dir == 3 {return false}
+	q := p + NORMALS[dir]
+	return(
+		fluid_height(b, Block(sample(data, p + I3{0, 1, 0}))) >
+		fluid_height(n, Block(sample(data, q + I3{0, 1, 0}))) \
+	)
 }
 
 face_ao :: proc(data: []u8, p: I3, dir: int) -> [4]u8 {
@@ -79,6 +101,7 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 	m: Mesh
 	// Reserve the exposed-face upper bound once; greedy merging only shrinks it.
 	face_count := 0
+	has_water := false
 	for z in 0 ..< CHUNK {
 		for y in 0 ..< CHUNK {
 			for x in 0 ..< CHUNK {
@@ -86,8 +109,9 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 				if sample(data, p) == 0 {
 					continue
 				}
-				for n in NORMALS {
-					if sample(data, p + n) == 0 {
+				if fluid_kind(Block(sample(data, p))) == .Water {has_water = true}
+				for dir in 0 ..< 6 {
+					if face_visible(data, p, dir) {
 						face_count += 1
 					}
 				}
@@ -104,92 +128,135 @@ mesh_build :: proc(data: []u8, greedy: bool = true) -> Mesh {
 	m.vertices = make([dynamic]Vertex, 0, face_count * 4)
 	m.indices = make([dynamic]u32, 0, face_count * 6)
 	mask: [CHUNK * CHUNK]Face
-	for dir in 0 ..< 6 {
-		axis := dir / 2
-		u, v := U_AXIS[dir], V_AXIS[dir]
-		for plane in 0 ..< CHUNK {
-			mask = {}
-			for j in 0 ..< CHUNK {
-				for i in 0 ..< CHUNK {
-					p: I3
-					p[axis] = i32(plane)
-					p[u] = i32(i)
-					p[v] = i32(j)
-					b := sample(data, p)
-					if b != 0 && sample(data, p + NORMALS[dir]) == 0 {
-						mask[i + j * CHUNK] = {b, face_ao(data, p, dir)}
-						m.faces += 1
-					}
-				}
-			}
-			for j := 0; j < CHUNK; j += 1 {
-				for i := 0; i < CHUNK; {
-					f := mask[i + j * CHUNK]
-					if f.material == 0 {
-						i += 1
-						continue
-					}
-					width, height := 1, 1
-					if greedy && face_mergeable(f) {
-						for i + width < CHUNK && face_equal(f, mask[i + width + j * CHUNK]) {
-							width += 1
-						}
-						grow: for j + height < CHUNK {
-							for k in 0 ..< width {
-								if !face_equal(f, mask[i + k + (j + height) * CHUNK]) {
-									break grow
+	opaque_indices := 0
+	for pass in 0 ..< (has_water ? 2 : 1) {
+		if pass == 1 {opaque_indices = len(m.indices)}
+		for dir in 0 ..< 6 {
+			axis := dir / 2
+			u, v := U_AXIS[dir], V_AXIS[dir]
+			for plane in 0 ..< CHUNK {
+				mask = {}
+				for j in 0 ..< CHUNK {
+					for i in 0 ..< CHUNK {
+						p: I3
+						p[axis] = i32(plane)
+						p[u] = i32(i)
+						p[v] = i32(j)
+						b := sample(data, p)
+						if (fluid_kind(Block(b)) == .Water) != (pass == 1) {continue}
+						if face_visible(data, p, dir) {
+							f := Face {
+								material = b,
+								ao       = face_ao(data, p, dir),
+							}
+							if is_fluid(Block(b)) {
+								f.material = u8(fluid_kind(Block(b))); f.ao = {3, 3, 3, 3}
+								f.height = fluid_height(
+									Block(b),
+									Block(sample(data, p + I3{0, 1, 0})),
+								)
+								n := p + NORMALS[dir]
+								if dir != 2 &&
+								   dir != 3 &&
+								   fluid_kind(Block(sample(data, n))) == Block(f.material) {
+									f.bottom = fluid_height(
+										Block(sample(data, n)),
+										Block(sample(data, n + I3{0, 1, 0})),
+									)
 								}
 							}
-							height += 1
+							mask[i + j * CHUNK] = f
+							m.faces += 1
 						}
 					}
-					if len(m.indices) / 6 >= MAX_QUADS {
-						m.overflow = true
-						return m
-					}
-					p: I3
-					p[axis] = i32(plane)
-					if dir % 2 == 0 {
-						p[axis] += 1
-					}
-					p[u] = i32(i)
-					p[v] = i32(j)
-					base := u32(len(m.vertices))
-					for c in 0 ..< 4 {
-						q := p
-						if c == 1 || c == 2 {
-							q[u] += i32(width)
+				}
+				for j := 0; j < CHUNK; j += 1 {
+					for i := 0; i < CHUNK; {
+						f := mask[i + j * CHUNK]
+						if f.material == 0 {
+							i += 1
+							continue
 						}
-						if c >= 2 {
-							q[v] += i32(height)
+						width, height := 1, 1
+						if greedy && face_mergeable(f) {
+							for i + width < CHUNK && face_equal(f, mask[i + width + j * CHUNK]) {
+								width += 1
+							}
+							grow: for j + height < CHUNK {
+								for k in 0 ..< width {
+									if !face_equal(f, mask[i + k + (j + height) * CHUNK]) {
+										break grow
+									}
+								}
+								height += 1
+							}
 						}
-						packed := u16(dir) | (u16(f.material) << 3) | (u16(f.ao[c]) << 7)
-						append(&m.vertices, Vertex{u16(q.x), u16(q.y), u16(q.z), packed})
-					}
-					if int(f.ao[0]) + int(f.ao[2]) > int(f.ao[1]) + int(f.ao[3]) {
-						append(&m.indices, base, base + 1, base + 3, base + 1, base + 2, base + 3)
-					} else {
-						append(&m.indices, base, base + 1, base + 2, base, base + 2, base + 3)
-					}
-					for y in 0 ..< height {
-						for x in 0 ..< width {
-							mask[i + x + (j + y) * CHUNK] = {}
+						if len(m.indices) / 6 >= MAX_QUADS {
+							m.overflow = true
+							return m
 						}
+						p: I3
+						p[axis] = i32(plane)
+						if dir % 2 == 0 {
+							p[axis] += 1
+						}
+						p[u] = i32(i)
+						p[v] = i32(j)
+						base := u32(len(m.vertices))
+						for c in 0 ..< 4 {
+							q := p
+							if c == 1 || c == 2 {
+								q[u] += i32(width)
+							}
+							if c >= 2 {
+								q[v] += i32(height)
+							}
+							packed := u16(dir) | (u16(f.material) << 3) | (u16(f.ao[c]) << 8)
+							if is_fluid(Block(f.material)) {
+								top := q.y > i32(plane) && axis == 1
+								if axis !=
+								   1 {top = (u == 1 && (c == 1 || c == 2)) || (v == 1 && c >= 2)}
+								h := top ? f.height : f.bottom
+								packed |= u16(h) << 10
+								if top {packed |= 1 << 14}
+							}
+							append(&m.vertices, Vertex{u16(q.x), u16(q.y), u16(q.z), packed})
+						}
+						if int(f.ao[0]) + int(f.ao[2]) > int(f.ao[1]) + int(f.ao[3]) {
+							append(
+								&m.indices,
+								base,
+								base + 1,
+								base + 3,
+								base + 1,
+								base + 2,
+								base + 3,
+							)
+						} else {
+							append(&m.indices, base, base + 1, base + 2, base, base + 2, base + 3)
+						}
+						for y in 0 ..< height {
+							for x in 0 ..< width {
+								mask[i + x + (j + y) * CHUNK] = {}
+							}
+						}
+						i += width
 					}
-					i += width
 				}
 			}
 		}
 	}
+	if has_water {m.water_indices = len(m.indices) - opaque_indices}
 	return m
 }
 
 Mesh_Job :: struct {
-	key:      I3,
-	revision: u64,
-	seed:     u64,
-	edits:    [dynamic]Edit_Command,
-	naive:    bool,
+	key:       I3,
+	revision:  u64,
+	seed:      u64,
+	edits:     [dynamic]Edit_Command,
+	naive:     bool,
+	generator: u32,
 }
 
 Mesh_Result :: struct {
@@ -222,7 +289,8 @@ build_job :: proc(job: Mesh_Job) -> Mesh_Result {
 			}
 			for y in 0 ..< PAD {
 				wy := job.key.y * 32 + i32(y) - 1
-				b := base_block(job.seed, {wx, wy, wz}, h)
+				generator := job.generator == 0 ? u32(GENERATOR_VERSION) : job.generator
+				b := base_block(job.seed, {wx, wy, wz}, h, generator)
 				if b == .Air && wy > 0 && wy < HEIGHT {
 					for t in trees {
 						if !t.active {

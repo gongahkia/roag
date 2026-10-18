@@ -60,6 +60,7 @@ benchmark_panel :: proc(
 	t: ^Telemetry,
 	pacing: ^Frame_Pacing,
 	settings: Settings,
+	fluids: ^Fluid_Sim,
 	pos: V3,
 	width, height: i32,
 	elapsed, speed: f64,
@@ -174,7 +175,7 @@ benchmark_panel :: proc(
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
 	graphics := r.mesh_bytes + 2 * MiB + int(width) * int(height) * 16
-	cull := r.cull_tested > 0 ? 100 * (1 - f64(r.draw_calls) / f64(r.cull_tested)) : 0
+	cull := r.cull_tested > 0 ? 100 * (1 - f64(r.visible_chunks) / f64(r.cull_tested)) : 0
 	profile := "TINY"; if c.profile == "low" {profile = "LOW"}; if c.profile == "standard" {profile = "STANDARD"}
 	if full {
 		lines := []string {
@@ -215,7 +216,12 @@ benchmark_panel :: proc(
 				cull,
 				r.last_overlay_draws,
 			),
-			fmt.tprintf("TRIANGLES %d / VERTICES %d", r.triangles, r.triangles * 2),
+			fmt.tprintf(
+				"TRI %d / FLUID Q %d / %.2F MS",
+				r.triangles,
+				fluids.count,
+				fluids.last_ms,
+			),
 			fmt.tprintf("CHUNKS %d READY / %d RES / RADIUS %d", t.ready, t.resident, s.radius),
 			fmt.tprintf(
 				"JOBS %d/%d BUSY / %d QUEUED / %.0F CH/S",

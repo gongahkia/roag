@@ -19,6 +19,28 @@ Block :: enum u8 {
 	Wood,
 	Leaves,
 	Bedrock,
+	Coal_Ore,
+	Iron_Ore,
+	Copper_Ore,
+	Gold_Ore,
+	Diamond_Ore,
+	Redstone_Ore,
+	Obsidian,
+	Cobblestone,
+	Water,
+	Lava,
+	Water_1,
+	Water_2,
+	Water_3,
+	Water_4,
+	Water_5,
+	Water_6,
+	Water_7,
+	Water_Falling,
+	Lava_1,
+	Lava_2,
+	Lava_3,
+	Lava_Falling,
 }
 
 I3 :: [3]i32
@@ -30,7 +52,8 @@ Edit_Command :: struct {
 }
 
 Edit_Bucket :: struct {
-	blocks: map[I3]Block,
+	blocks:    map[I3]Block,
+	positions: [dynamic]I3,
 }
 
 World :: struct {
@@ -40,6 +63,46 @@ World :: struct {
 	edit_count:       int,
 	tracker:          ^mem.Tracking_Allocator,
 	allocation_limit: int,
+	generator:        u32,
+}
+
+GENERATOR_VERSION :: 2
+SEA_LEVEL :: 52
+
+block_valid :: proc(b: Block) -> bool {return u8(b) <= u8(Block.Lava_Falling)}
+fluid_kind :: proc(b: Block) -> Block {
+	if b == .Water || (b >= .Water_1 && b <= .Water_Falling) {return .Water}
+	if b == .Lava || (b >= .Lava_1 && b <= .Lava_Falling) {return .Lava}
+	return .Air
+}
+is_fluid :: proc(b: Block) -> bool {return fluid_kind(b) != .Air}
+is_solid :: proc(b: Block) -> bool {return b != .Air && !is_fluid(b)}
+fluid_level :: proc(b: Block) -> int {
+	if b >= .Water_1 && b <= .Water_7 {return int(b) - int(Block.Water_1) + 1}
+	if b >= .Lava_1 && b <= .Lava_3 {return int(b) - int(Block.Lava_1) + 1}
+	return 0
+}
+fluid_height :: proc(b, above: Block) -> u8 {
+	if fluid_kind(above) == fluid_kind(b) || b == .Water_Falling || b == .Lava_Falling {return 8}
+	step := fluid_kind(b) == .Lava ? 2 : 1
+	return u8(max(1, 7 - fluid_level(b) * step))
+}
+
+// Small deterministic ellipsoid veins, including across negative chunk borders.
+ore_block :: proc(seed: u64, p: I3) -> Block {
+	g := I3{floor_div(p.x, 7), floor_div(p.y, 7), floor_div(p.z, 7)}
+	h := hash3(seed + 1801, g.x, g.y, g.z)
+	center := g * 7 + I3{1 + i32(h % 5), 1 + i32((h >> 8) % 5), 1 + i32((h >> 16) % 5)}
+	d := p - center
+	if d.x * d.x + 2 * d.y * d.y + d.z * d.z > 6 {return .Stone}
+	roll := (h >> 24) % 100
+	if p.y <= 24 && roll < 9 {return .Diamond_Ore}
+	if p.y <= 32 && roll < 24 {return .Redstone_Ore}
+	if p.y <= 40 && roll < 39 {return .Gold_Ore}
+	if p.y <= 64 && roll < 62 {return .Iron_Ore}
+	if p.y >= 24 && p.y <= 80 && roll < 79 {return .Copper_Ore}
+	if p.y <= 100 && roll < 94 {return .Coal_Ore}
+	return .Stone
 }
 
 MAX_EDITS :: 262144
@@ -127,7 +190,7 @@ tree_at :: proc(seed: u64, gx, gz: i32) -> Tree {
 	return {x, z, terrain_height(seed, x, z), h % 5 == 0}
 }
 
-base_block :: proc(seed: u64, p: I3, h: i32) -> Block {
+base_block :: proc(seed: u64, p: I3, h: i32, generator: u32 = GENERATOR_VERSION) -> Block {
 	if p.y < 0 || p.y >= HEIGHT {
 		return .Air
 	}
@@ -136,6 +199,7 @@ base_block :: proc(seed: u64, p: I3, h: i32) -> Block {
 	}
 	if p.y <= h {
 		if p.y > 5 && p.y < h - 5 && cave(seed, p.x, p.y, p.z) {
+			if generator >= 2 && p.y <= 12 {return .Lava}
 			return .Air
 		}
 		if p.y == h {
@@ -147,14 +211,16 @@ base_block :: proc(seed: u64, p: I3, h: i32) -> Block {
 		if p.y >= h - 3 {
 			return .Dirt
 		}
+		if generator >= 2 {return ore_block(seed, p)}
 		return .Stone
 	}
+	if generator >= 2 && p.y <= SEA_LEVEL {return .Water}
 	return .Air
 }
 
-generated_block :: proc(seed: u64, p: I3) -> Block {
+generated_block :: proc(seed: u64, p: I3, generator: u32 = GENERATOR_VERSION) -> Block {
 	h := terrain_height(seed, p.x, p.z)
-	b := base_block(seed, p, h)
+	b := base_block(seed, p, h, generator)
 	if b != .Air || p.y < 0 || p.y >= HEIGHT {
 		return b
 	}
@@ -180,12 +246,14 @@ generated_block :: proc(seed: u64, p: I3) -> Block {
 
 world_init :: proc(w: ^World, seed: u64) {
 	w.seed = seed
+	w.generator = GENERATOR_VERSION
 	w.edits = make(map[I3]^Edit_Bucket)
 }
 
 world_destroy :: proc(w: ^World) {
 	for _, b in w.edits {
 		delete(b.blocks)
+		delete(b.positions)
 		free(b)
 	}
 	delete(w.edits)
@@ -197,14 +265,16 @@ world_get :: proc(w: ^World, p: I3) -> Block {
 			return v
 		}
 	}
-	return generated_block(w.seed, p)
+	return generated_block(w.seed, p, w.generator)
 }
 
 world_apply :: proc(w: ^World, e: Edit_Command) -> bool {
 	if e.sequence <= w.sequence ||
 	   e.position.y <= 0 ||
 	   e.position.y >= HEIGHT ||
-	   u8(e.block) > u8(Block.Bedrock) {
+	   abs(i64(e.position.x)) > 100000000 ||
+	   abs(i64(e.position.z)) > 100000000 ||
+	   !block_valid(e.block) {
 		return false
 	}
 	k := chunk_of(e.position)
@@ -231,6 +301,7 @@ world_apply :: proc(w: ^World, e: Edit_Command) -> bool {
 	}
 	if !exists {
 		w.edit_count += 1
+		append(&b.positions, e.position)
 	}
 	b.blocks[e.position] = e.block
 	w.sequence = e.sequence
@@ -343,13 +414,14 @@ get64 :: proc(data: []u8, at: ^int) -> u64 {
 world_save :: proc(w: ^World, pos: V3, path: string) -> bool {
 	out := make([dynamic]u8)
 	defer delete(out)
-	append(&out, ..([]u8{'V', 'O', 'X', '1'}))
+	append(&out, ..([]u8{'V', 'O', 'X', '2'}))
 	put64(&out, w.seed)
 	put64(&out, w.sequence)
 	for v in pos {
 		put64(&out, transmute(u64)v)
 	}
 	put32(&out, u32(w.edit_count))
+	put32(&out, w.generator)
 	for _, b in w.edits {
 		for p, v in b.blocks {
 			for c in p {
@@ -372,7 +444,7 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 	}
 	defer os.close(file)
 	length, size_err := os.file_size(file)
-	if size_err != nil || length < 48 || length > 48 + MAX_EDITS * 13 {
+	if size_err != nil || length < 48 || length > 52 + MAX_EDITS * 13 {
 		return false
 	}
 	data, ok := os.read_entire_file(file, context.allocator)
@@ -380,7 +452,7 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 		return false
 	}
 	defer delete(data)
-	if len(data) < 48 || string(data[:4]) != "VOX1" {
+	if len(data) < 48 || (string(data[:4]) != "VOX1" && string(data[:4]) != "VOX2") {
 		return false
 	}
 	at := 4
@@ -394,11 +466,20 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 		}
 	}
 	count := int(get32(data, &at))
-	if count > MAX_EDITS || len(data) != 48 + count * 13 {
+	generator: u32 = 1
+	if string(data[:4]) == "VOX2" {
+		if len(data) < 52 {return false}
+		generator = get32(data, &at)
+	}
+	if generator < 1 ||
+	   generator > GENERATOR_VERSION ||
+	   count > MAX_EDITS ||
+	   len(data) != at + count * 13 {
 		return false
 	}
 	candidate: World
 	world_init(&candidate, seed)
+	candidate.generator = generator
 	candidate.tracker = w.tracker
 	candidate.allocation_limit = w.allocation_limit
 	for _ in 0 ..< count {
@@ -408,6 +489,8 @@ world_load :: proc(w: ^World, pos: ^V3, path: string) -> bool {
 		}
 		b := Block(data[at])
 		at += 1
+		if string(data[:4]) == "VOX1" &&
+		   u8(b) > u8(Block.Bedrock) {world_destroy(&candidate); return false}
 		if bucket, ok := candidate.edits[chunk_of(q)]; ok {
 			if q in bucket.blocks {
 				world_destroy(&candidate)

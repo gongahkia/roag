@@ -201,7 +201,7 @@ def main():
             save = directory / 'world.vox'
             settings = directory / 'startup-settings.cfg'
             run(binary, env, ['--hidden', '--save', str(save), '--settings', str(settings), '--radius', '1', '--frames', '10'])
-            assert save.read_bytes().startswith(b'VOX1')
+            assert save.read_bytes().startswith(b'VOX2')
             output = run(binary, env, ['--hidden', '--save', str(save), '--settings', str(settings), '--seed', '999', '--radius', '1', '--frames', '10'])
             assert 'Loaded' in output
             assert struct.unpack_from('<Q', save.read_bytes(), 4)[0] == 42

@@ -31,10 +31,10 @@ Usage: voxel [--profile tiny|low|standard] [--seed N] [--radius N]
   --gpu-mb N --cpu-mb N --workers N --upload-kb N --width N --height N
   --save PATH --no-save --no-vsync --hidden --frames N --seconds N --screenshot PATH
   --settings PATH --fps-limit display|unlimited|30|60|90|120|144|165|240|360
-  --benchmark normal|flight|edit|dense --naive-mesh (benchmark baseline)
+  --benchmark normal|flight|edit|dense|fluids --naive-mesh (benchmark baseline)
 WASD fly / SPACE up / CTRL down / SHIFT fast / +/- speed
 Mouse look / ESC or F1 settings / click recapture / Q quit
-LMB break / RMB place / 1-6 select / F3 stats / F5 save`,
+LMB break / RMB place / 1-9 select / TAB palette page / F3 stats / F5 save`,
 	)
 }
 
@@ -169,6 +169,7 @@ config_parse :: proc() -> (Config, bool) {
 	   c.benchmark != "normal" &&
 	   c.benchmark != "flight" &&
 	   c.benchmark != "edit" &&
+	   c.benchmark != "fluids" &&
 	   c.benchmark != "dense" {
 		return c, false
 	}
@@ -204,7 +205,6 @@ config_parse :: proc() -> (Config, bool) {
 	return c, true
 }
 
-BLOCK_NAMES := [7]string{"AIR", "GRASS", "DIRT", "STONE", "SAND", "WOOD", "LEAVES"}
 hud :: proc(
 	r: ^Renderer,
 	s: ^Stream,
@@ -217,6 +217,8 @@ hud :: proc(
 	menu: ^Settings_Menu,
 	settings: Settings,
 	pacing: ^Frame_Pacing,
+	fluids: ^Fluid_Sim,
+	immersion: Block,
 	elapsed: f64,
 	speed: f64,
 ) {
@@ -229,6 +231,11 @@ hud :: proc(
 	ortho[5] = -2 / f32(height)
 	ortho[12] = -1
 	ortho[13] = 1
+	if immersion != .Air {
+		tint: F4 = immersion == .Water ? F4{0.08, 0.27, 0.54, 0.23} : F4{0.9, 0.23, 0.02, 0.48}
+		rect(r, 0, 0, f32(width), f32(height), tint)
+		flat_flush(r, ortho, gl.TRIANGLES)
+	}
 	if menu.open {
 		settings_panel(r, menu, settings, pacing, width, height, ortho)
 		gl.Disable(gl.BLEND)
@@ -242,6 +249,7 @@ hud :: proc(
 			telemetry,
 			pacing,
 			settings,
+			fluids,
 			pos,
 			width,
 			height,
@@ -254,32 +262,28 @@ hud :: proc(
 	cx, cy := f32(width) / 2, f32(height) / 2
 	rect(r, cx - 5, cy - 1, 10, 2, {1, 1, 1, 0.9})
 	rect(r, cx - 1, cy - 5, 2, 10, {1, 1, 1, 0.9})
-	start := cx - 156
-	for i in 1 ..= 6 {
-		x := start + f32(i - 1) * 52
+	page := selected / 9
+	pitch := min(44, (f32(width) - 16) / 9)
+	start := cx - pitch * 4.5
+	for i in 0 ..< 9 {
+		index := page * 9 + i
+		x := start + f32(i) * pitch
 		tint: F4 = {0.08, 0.12, 0.14, 0.9}
-		if i == selected {
+		if index == selected {
 			tint = {0.28, 0.44, 0.35, 0.95}
 		}
-		rect(r, x, f32(height) - 64, 48, 43, tint)
-		text_draw(r, x + 5, f32(height) - 59, fmt.tprintf("%d", i), 1)
-		colors := [6]F4 {
-			{0.38, 0.6, 0.25, 1},
-			{0.5, 0.35, 0.23, 1},
-			{0.5, 0.53, 0.56, 1},
-			{0.86, 0.79, 0.59, 1},
-			{0.45, 0.31, 0.19, 1},
-			{0.25, 0.47, 0.23, 1},
+		rect(r, x, f32(height) - 64, pitch - 3, 43, tint)
+		if index >= len(CREATIVE_BLOCKS) {continue}
+		text_draw(r, x + 4, f32(height) - 59, fmt.tprintf("%d", i + 1), 1)
+		b := CREATIVE_BLOCKS[index]
+		rect(r, x + pitch / 2 - 7, f32(height) - 49, 15, 16, BLOCK_COLORS[int(b)])
+		if b >= .Coal_Ore && b <= .Redstone_Ore {
+			rect(r, x + pitch / 2 - 5, f32(height) - 47, 4, 5, BLOCK_COLORS[int(Block.Stone)])
 		}
-		rect(r, x + 17, f32(height) - 52, 18, 18, colors[i - 1])
 	}
-	text_draw(
-		r,
-		cx - f32(len(BLOCK_NAMES[selected])) * 4.5,
-		f32(height) - 82,
-		BLOCK_NAMES[selected],
-		1.5,
-	)
+	name := BLOCK_NAMES[int(CREATIVE_BLOCKS[selected])]
+	text_draw(r, cx - f32(len(name)) * 4.5, f32(height) - 82, name, 1.5)
+	text_draw(r, cx - 42, f32(height) - 12, fmt.tprintf("TAB: PAGE %d/2", page + 1), 1)
 	flat_flush(r, ortho, gl.TRIANGLES)
 	gl.Disable(gl.BLEND)
 }
@@ -329,6 +333,8 @@ main :: proc() {
 		fmt.println("Loaded", config.save_path)
 	}
 	config.seed = w.seed
+	if w.generator ==
+	   1 {fmt.println("Legacy terrain preserved; a new save generates ores and natural fluids.")}
 	settings := settings_defaults()
 	if !config.no_save && os.exists(config.settings_path) {
 		loaded, ok := settings_load(config.settings_path)
@@ -371,7 +377,7 @@ main :: proc() {
 	defer renderer_destroy(&r)
 	fmt.println("GL:", string(gl.GetString(gl.VERSION)), "/", string(gl.GetString(gl.RENDERER)))
 	pacing := Frame_Pacing {
-		sleeper = frame_sleep_init(),
+		sleeper           = frame_sleep_init(),
 		display_hz        = display_refresh_rate(window),
 		software_renderer = renderer_is_software(string(gl.GetString(gl.RENDERER))),
 	}
@@ -419,7 +425,12 @@ main :: proc() {
 	pacing.completed_at = last
 	pacing.last_display_check = last
 	menu: Settings_Menu
-	selected := 1
+	selected := 0
+	fluids: Fluid_Sim
+	fluids_init(&fluids)
+	defer fluids_destroy(&fluids)
+	if config.benchmark == "fluids" {fluid_demo(&w)}
+	fluids_reseed(&fluids, &w, pos, last)
 	stats := true
 	old_keys: [512]bool
 	old_mouse: [2]bool
@@ -520,9 +531,14 @@ main :: proc() {
 		if !menu.open && down[glfw.KEY_MINUS] && !old_keys[glfw.KEY_MINUS] {
 			settings.move_speed = max(settings.move_speed / 1.5, 1)
 		}
-		for i in 1 ..= 6 {
+		if !menu.open && down[glfw.KEY_TAB] && !old_keys[glfw.KEY_TAB] {
+			page := (selected / 9 + 1) % 2
+			selected = min(page * 9 + selected % 9, len(CREATIVE_BLOCKS) - 1)
+		}
+		for i in 1 ..= 9 {
 			if !menu.open && down[glfw.KEY_0 + i] {
-				selected = i
+				index := selected / 9 * 9 + i - 1
+				if index < len(CREATIVE_BLOCKS) {selected = index}
 			}
 		}
 		if captured && !capture_changed && config.benchmark == "" {
@@ -582,6 +598,7 @@ main :: proc() {
 				yaw = -0.8
 				pitch = -0.5
 			}
+			if config.benchmark == "fluids" {pos = {26, 97, 26}; yaw = -2.25; pitch = -0.55}
 			forward = direction(yaw, pitch)
 			if config.benchmark == "edit" && frame % 8 == 0 {
 				p := I3{12 + i32((frame / 8) % 16), 84, 12 + i32((frame / 128) % 16)}
@@ -623,15 +640,21 @@ main :: proc() {
 					b: Block = .Air
 					if i == 1 {
 						p = hit.adjacent
-						b = Block(selected)
+						b = CREATIVE_BLOCKS[selected]
+						if is_fluid(world_get(&w, hit.block)) {p = hit.block}
 					}
+					previous := world_get(&w, p)
 					if world_apply(&w, {w.sequence + 1, p, b}) {
 						stream_invalidate(&stream, p)
+						fluids_notify(&fluids, &w, p, previous)
 					}
 				}
 			}
 		}
 		old_mouse = mouse
+		fluids_reseed(&fluids, &w, pos, now)
+		fluids_step(&fluids, &w, u64(now * 10))
+		for i in 0 ..< fluids.changed_count {stream_invalidate(&stream, fluids.changed[i])}
 		if down[glfw.KEY_F5] && !old_keys[glfw.KEY_F5] && !config.no_save {
 			os.make_directory_all(os.dir(config.save_path))
 			if !world_save(&w, pos, config.save_path) {
@@ -677,6 +700,13 @@ main :: proc() {
 		vp := camera_matrix(forward, f32(width) / f32(height), f32((stream.radius + 2) * 32))
 		gl.UniformMatrix4fv(r.vp_loc, 1, false, &vp[0])
 		gl.Uniform1f(r.fog_loc, f32(stream.radius * 32))
+		gl.Uniform1f(r.time_loc, f32(math.mod(elapsed, 4096)))
+		camera_block := world_get(
+			&w,
+			{i32(math.floor(pos.x)), i32(math.floor(pos.y)), i32(math.floor(pos.z))},
+		)
+		immersion := fluid_kind(camera_block)
+		gl.Uniform1i(r.immersion_loc, immersion == .Water ? 1 : (immersion == .Lava ? 2 : 0))
 		clear(&draw_items)
 		for k, c in stream.chunks {
 			if c.gpu.vao == 0 {
@@ -691,6 +721,7 @@ main :: proc() {
 			if !visible(vp, offset) {
 				continue
 			}
+			r.visible_chunks += 1
 			center := offset + F3{16, 16, 16}
 			append(
 				&draw_items,
@@ -703,12 +734,28 @@ main :: proc() {
 		}
 		slice.sort_by(draw_items[:], draw_nearer)
 		for item in draw_items {
+			count := item.gpu.count - item.gpu.water_count
+			if count == 0 {continue}
 			gl.Uniform3f(r.offset_loc, item.offset.x, item.offset.y, item.offset.z)
 			gl.BindVertexArray(item.gpu.vao)
-			gl.DrawElements(gl.TRIANGLES, item.gpu.count, gl.UNSIGNED_INT, nil)
+			gl.DrawElements(gl.TRIANGLES, count, gl.UNSIGNED_INT, nil)
 			r.draw_calls += 1
-			r.triangles += int(item.gpu.count) / 3
+			r.triangles += int(count) / 3
 		}
+		// Opaque terrain/lava establish depth. Water blends back to front without
+		// writing depth, using the same compact buffers and no extra framebuffer.
+		gl.Enable(gl.BLEND); gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+		gl.DepthMask(false); gl.Disable(gl.CULL_FACE)
+		for i := len(draw_items) - 1; i >= 0; i -= 1 {
+			item := draw_items[i]
+			if item.gpu.water_count == 0 {continue}
+			gl.Uniform3f(r.offset_loc, item.offset.x, item.offset.y, item.offset.z)
+			gl.BindVertexArray(item.gpu.vao)
+			offset := uintptr(item.gpu.count - item.gpu.water_count) * 4
+			gl.DrawElements(gl.TRIANGLES, item.gpu.water_count, gl.UNSIGNED_INT, rawptr(offset))
+			r.draw_calls += 1; r.triangles += int(item.gpu.water_count) / 3
+		}
+		gl.DepthMask(true); gl.Disable(gl.BLEND)
 		if hit.hit && !menu.open {
 			outline(&r, hit.block, pos, vp)
 		}
@@ -725,6 +772,8 @@ main :: proc() {
 			&menu,
 			settings,
 			&pacing,
+			&fluids,
+			immersion,
 			elapsed,
 			settings.move_speed,
 		)

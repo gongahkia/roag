@@ -387,14 +387,14 @@ test_invalid_save_payload_is_transactional :: proc(t: ^testing.T) {
 		copy(data, original)
 		switch scenario {
 		case 0:
-			data[60] = 255 // Invalid block identifier.
+			data[64] = 255 // Invalid block identifier.
 		case 1:
-			for i in 52 ..< 56 {
+			for i in 56 ..< 60 {
 				data[i] = 0
 			}
 		// Protected bottom layer.
 		case 2:
-			copy(data[61:73], data[48:60]) // Duplicate edited position.
+			copy(data[65:77], data[52:64]) // Duplicate edited position.
 		case 3:
 			data[26] = 0xf8
 			data[27] = 0x7f // Non-finite player X.

@@ -372,6 +372,7 @@ stream_schedule :: proc(s: ^Stream, w: ^World, pos: V3) {
 				w.seed,
 				world_snapshot(w, best_key),
 				s.naive_mesh,
+				w.generator,
 			}
 			worker.busy = true
 			sync.sema_post(&worker.wake)

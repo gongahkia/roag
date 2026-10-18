@@ -12,6 +12,7 @@ F4 :: [4]f32
 GPU_Mesh :: struct {
 	vao, vbo, ibo: u32,
 	count:         i32,
+	water_count:   i32,
 	bytes:         int,
 }
 
@@ -33,11 +34,13 @@ Flat_Vertex :: struct {
 Renderer :: struct {
 	program, flat_program, texture, flat_vao, flat_vbo:          u32,
 	vp_loc, offset_loc, fog_loc, flat_vp_loc:                    i32,
+	time_loc, immersion_loc:                                     i32,
 	queries:                                                     [4]u32,
 	query_pending:                                               [4]bool,
 	query_active:                                                int,
 	gpu_ms:                                                      f64,
 	gpu_samples, overlay_draws, last_overlay_draws, cull_tested: int,
+	visible_chunks:                                              int,
 	flats:                                                       [dynamic]Flat_Vertex,
 	mesh_bytes, peak_bytes, draw_calls, triangles:               int,
 	pool:                                                        [32]GPU_Mesh,
@@ -187,13 +190,15 @@ renderer_init :: proc(r: ^Renderer) {
 	r.vp_loc = gl.GetUniformLocation(r.program, "vp")
 	r.offset_loc = gl.GetUniformLocation(r.program, "offset")
 	r.fog_loc = gl.GetUniformLocation(r.program, "fogDistance")
+	r.time_loc = gl.GetUniformLocation(r.program, "worldTime")
+	r.immersion_loc = gl.GetUniformLocation(r.program, "immersion")
 	r.flat_vp_loc = gl.GetUniformLocation(r.flat_program, "vp")
 	gl.UseProgram(r.program)
 	gl.Uniform1i(gl.GetUniformLocation(r.program, "atlas"), 0)
 	gl.GenTextures(1, &r.texture)
 	gl.BindTexture(gl.TEXTURE_2D_ARRAY, r.texture)
-	pixels: [16 * 16 * 10 * 4]u8
-	colors := [10][3]u8 {
+	pixels: [16 * 16 * 20 * 4]u8
+	colors := [20][3]u8 {
 		{0, 0, 0},
 		{115, 92, 59},
 		{126, 91, 61},
@@ -202,23 +207,40 @@ renderer_init :: proc(r: ^Renderer) {
 		{111, 80, 47},
 		{66, 119, 58},
 		{65, 69, 77},
+		{36, 38, 42},
+		{205, 166, 129},
+		{205, 114, 58},
+		{243, 199, 45},
+		{73, 230, 220},
+		{201, 35, 49},
+		{44, 29, 63},
+		{119, 126, 133},
+		{40, 110, 210},
+		{243, 92, 15},
 		{99, 151, 65},
 		{157, 124, 76},
 	}
-	for layer in 0 ..< 10 {
+	for layer in 0 ..< 20 {
 		for y in 0 ..< 16 {
 			for x in 0 ..< 16 {
 				noise := i32(hash3(19, i32(x), i32(layer), i32(y)) % 31) - 15
 				color := colors[layer]
 				if layer == 1 && y > 11 {
-					color = colors[8]
+					color = colors[18]
 				}
 				if layer == 5 && x % 4 == 0 {
 					noise -= 22
 				}
-				if layer == 9 && (x == 3 || x == 12 || y == 3 || y == 12) {
+				if layer == 19 && (x == 3 || x == 12 || y == 3 || y == 12) {
 					noise -= 25
 				}
+				if layer >= 8 && layer <= 13 {
+					if hash3(711, i32(x / 3), i32(layer), i32(y / 3)) % 5 >= 2 ||
+					   (x + y) % 3 == 0 {color = colors[3]}
+				}
+				if layer == 15 && (x % 8 == 0 || (y + (x / 8) * 3) % 8 == 0) {noise -= 30}
+				if layer == 17 &&
+				   hash3(921, i32(x / 2), 0, i32(y / 2)) % 3 == 0 {color = {255, 187, 32}}
 				for c in 0 ..< 3 {
 					pixels[((layer * 16 + y) * 16 + x) * 4 + c] = u8(
 						clamp(i32(color[c]) + noise, 0, 255),
@@ -234,7 +256,7 @@ renderer_init :: proc(r: ^Renderer) {
 		gl.RGBA8,
 		16,
 		16,
-		10,
+		20,
 		0,
 		gl.RGBA,
 		gl.UNSIGNED_BYTE,
@@ -292,11 +314,13 @@ mesh_allocate :: proc(r: ^Renderer, m: Mesh) -> GPU_Mesh {
 		r.pool[slot] = r.pool[r.pool_count]
 		r.pool_bytes -= g.bytes
 		g.count = i32(len(m.indices))
+		g.water_count = i32(m.water_indices)
 		r.reused_buffers += 1
 		return g
 	}
 	g: GPU_Mesh
 	g.count = i32(len(m.indices))
+	g.water_count = i32(m.water_indices)
 	g.bytes = bytes
 	gl.GenVertexArrays(1, &g.vao)
 	gl.GenBuffers(1, &g.vbo)
@@ -396,6 +420,7 @@ renderer_begin :: proc(r: ^Renderer, width, height: i32, frame: int) {
 	r.last_overlay_draws = r.overlay_draws
 	r.overlay_draws = 0
 	r.cull_tested = 0
+	r.visible_chunks = 0
 	r.triangles = 0
 	slot := frame % 4
 	if r.query_pending[slot] {
