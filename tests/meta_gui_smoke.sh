@@ -15,6 +15,7 @@ cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Profile=require('src.profile')
 local Persistence=require('src.persistence')
+local RunSeed=require('src.run_seed')
 local tracked
 local original_new,original_restore,original_submit=Game.new_stage,Game.restore,Game.submit
 function Game.new_stage(...)
@@ -59,16 +60,6 @@ local function capture(name,then_do)
         end
     end)
 end
-local function set_seed(seed)
-    for index=1,100 do
-        local name=debug.getupvalue(love.keypressed,index)
-        if name=='floor_seed' then
-            debug.setupvalue(love.keypressed,index,seed)
-            return
-        end
-    end
-    error('fixture cannot find title seed')
-end
 local function main_state()
     for index=1,100 do
         local name,value=debug.getupvalue(love.keypressed,index)
@@ -98,16 +89,16 @@ function love.draw(...)
         capture(phase..'-unlocks',function()
             love.keypressed('escape')
             if phase=='earn' then
-                set_seed(9)
                 love.keypressed('n')
                 local live=assert(main_state())
                 tracked=live
-                assert(live.meta.eligible and live.run_seed==9 and
+                assert(live.meta.eligible and
+                    live.run_seed==RunSeed.for_serial(1) and
                     live.floor_order and #live.floor_order==2)
                 assert(main_state()==live)
                 mark('begin legal stage driver')
                 local Driver=require('tests.expansion_legal_playthrough')
-                local guided,reason=Driver.attempt(9,{stop_after_stage=1})
+                local guided,reason=Driver.attempt(live.run_seed,{stop_after_stage=1})
                 assert(guided,reason) -- generate ordinary paired-floor commands
                 mark('driver complete: '..#guided.trace..' actions')
                 tracked=live
@@ -137,6 +128,8 @@ function love.draw(...)
                 love.keypressed('n') -- existing active save requires confirmation
                 love.keypressed('return')
                 tracked=assert(main_state())
+                assert(tracked.run_seed==RunSeed.for_serial(2) and
+                    tracked.run_seed~=RunSeed.for_serial(1))
                 local unlocked=false
                 for _,id in ipairs(tracked.available_boons) do
                     if id=='core:boon/guardians_vow' then unlocked=true end

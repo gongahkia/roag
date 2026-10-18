@@ -11,6 +11,7 @@ local HitFeedback = require("src.hit_feedback")
 local CombatNumbers = require("src.combat_numbers")
 local UIFont = require("src.ui_fonts")
 local Rewards = require("src.rewards")
+local RunSeed = require("src.run_seed")
 local Persistence = require("src.persistence")
 local Profile = require("src.profile")
 local AchievementContent = require("src.achievement_content")
@@ -55,6 +56,7 @@ local showcase_index = 0
 local boon_page = 0
 local boon_detail_id
 local floor_seed = 1
+local FRESH_RUN_SEED='fresh'
 local selected_class_id=Classes.order[1]
 local player_facing=1
 local chest_menu -- presentation focus only; offers live in authoritative chest state.
@@ -607,7 +609,6 @@ function love.update(dt)
 end
 
 local function begin_new(seed)
-    seed=seed or floor_seed
     if save_service:inspect().status=="pending_terminal" then
         persistence_message="Terminal unlock is pending; retry recovery before New Run"
         return
@@ -622,6 +623,7 @@ local function begin_new(seed)
         persistence_message="New Run profile write failed: "..tostring(updated)
         return
     end
+    seed=seed or RunSeed.for_serial(updated.next_run_serial-1,floor_seed)
     Generation.install_studio_pack(next_world_pack)
     local candidate=Game.new_stage(seed,{meta=Achievements.new_run(true,run_id),
         available_boons=Achievements.pool(updated.earned),multifloor=true,
@@ -644,7 +646,7 @@ local function begin_new(seed)
     targeting,chest_menu,route_menu=nil,nil,nil
     playback=Playback.new()
     combat_numbers=CombatNumbers.new()
-    notice='New run · '..Classes.get(selected_class_id).name
+    notice=('New run · seed %d · %s'):format(seed,Classes.get(selected_class_id).name)
     reset_camera()
 end
 
@@ -1118,8 +1120,9 @@ function love.keypressed(key, _, isrepeat)
         elseif key=="return" or key=="kpenter" or key=="y" then
             local requested=confirm_reset_seed
             if os.getenv("ROAG_GUI_AUTOSTART")~="1" then
-                begin_new(requested)
-                if state and state.run_seed==requested then confirm_reset_seed=nil end
+                local old_state=state
+                begin_new(requested==FRESH_RUN_SEED and nil or requested)
+                if state~=old_state then confirm_reset_seed=nil end
             else
                 floor_seed=requested
                 state=Game.new_stage(floor_seed)
@@ -1136,7 +1139,8 @@ function love.keypressed(key, _, isrepeat)
     end
     if key == "n" or key == "m" then
         if os.getenv("ROAG_GUI_AUTOSTART")~="1" then
-            confirm_reset_seed=key=="m" and floor_seed%2147483646+1 or floor_seed
+            confirm_reset_seed=key=="m" and floor_seed%2147483646+1 or
+                FRESH_RUN_SEED
             persistence_message="Replace current run? Enter/Y confirm · Esc cancel"
             return
         end
@@ -2748,7 +2752,9 @@ function love.draw()
         love.graphics.setColor(0,0,0,0)
         love.graphics.rectangle("fill",160,200,704,230)
         love.graphics.setColor(1,0.75,0.48)
-        love.graphics.printf(("Replace run with seed %d?"):format(confirm_reset_seed),
+        love.graphics.printf(confirm_reset_seed==FRESH_RUN_SEED and
+            'Replace run with a new seed?' or
+            ("Replace run with seed %d?"):format(confirm_reset_seed),
             160,255,704,"center")
         love.graphics.setFont(ui_menu_font)
         love.graphics.printf("Enter / Y confirm · Esc cancel",160,325,704,"center")
