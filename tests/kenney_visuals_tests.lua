@@ -40,10 +40,12 @@ return function(test,equal)
         Kenney.new(read,function(bytes,path,transparent)
             calls=calls+1
             local terrain=require('src.kenney_terrain')
-            assert(path==({Kenney.path,require('src.kenney_symbols').path,terrain.path,terrain.path})[calls])
-            assert(transparent==({true,false,false,'caves-surfaces'})[calls]);return image(bytes,path,transparent)
+            assert(path==({Kenney.path,require('src.kenney_symbols').path,terrain.path,terrain.path,
+                'assets/kenney/approved/tiny-dungeon.png',
+                'assets/kenney/approved/roguelike-rpg.png'})[calls])
+            assert(transparent==({true,false,false,'caves-surfaces',true,true})[calls]);return image(bytes,path,transparent)
         end,quad)
-        assert(calls==4,'textures are created per pack, not per sprite')
+        assert(calls==6,'textures are created per pack, not per sprite')
     end)
     test('Kenney connected walls and water select native edges without revealing unknown cells',function()
         local art=assert(Kenney.new(read,image,quad))
@@ -89,7 +91,7 @@ return function(test,equal)
         assert(art:resolve('core:object/door_closed').tile_index==36)
         assert(art:resolve('core:object/stairs_down').tile_index==37)
     end)
-    test('all 52 boons have deliberate distinct native icons and matching details',function()
+    test('all boons have deliberate native icons and matching details',function()
         local Symbols=require('src.kenney_symbols')
         local Boons=require('src.boon_content')
         local art=assert(Kenney.new(read,image,quad))
@@ -98,15 +100,20 @@ return function(test,equal)
             local definition=assert(Symbols.boons[id],'unmapped boon '..id)
             local h=assert(art:resolve(id..'/icon'))
             assert(art:resolve(id..'/detail')==h and h.source=='kenney')
-            assert(h.width==16 and h.height==16 and h.symbol_index==definition[1])
-            assert(not used[h.symbol_index],'unintentionally shared boon icon '..id)
-            used[h.symbol_index]=true;count=count+1
-            assert(h.quad.x==h.symbol_index%49*16 and h.quad.y==math.floor(h.symbol_index/49)*16)
-            assert(h.quad.pw==784 and h.quad.ph==352 and h.motif~='')
-            assert(not h.tile_inset and not h.ground)
-            for _,c in ipairs(h.tint)do assert(c>=0 and c<=1)end
+            if id=='core:boon/ring_of_reversal' then
+                assert(h.width==8 and h.tile_index==89 and h.quad.pw==128)
+            else
+                assert(h.width==16 and h.height==16 and h.symbol_index==definition[1])
+                assert(not used[h.symbol_index],'unintentionally shared boon icon '..id)
+                used[h.symbol_index]=true
+                assert(h.quad.x==h.symbol_index%49*16 and h.quad.y==math.floor(h.symbol_index/49)*16)
+                assert(h.quad.pw==784 and h.quad.ph==352 and h.motif~='')
+                assert(not h.tile_inset and not h.ground)
+                for _,c in ipairs(h.tint)do assert(c>=0 and c<=1)end
+            end
+            count=count+1
         end
-        assert(count==52)
+        assert(count==53)
         for id in pairs(Symbols.boons)do assert(Boons.definitions[id],'orphan boon mapping')end
         assert(art:resolve('core:boon/unknown/icon')==nil)
     end)

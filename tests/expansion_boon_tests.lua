@@ -48,10 +48,10 @@ return function(test,equal)
     end
 
     test("52 boon identities retain 20 originals, four unlocks and class-aware normal offers",function()
-        assert(Catalog.validate() and #Catalog.order==52)
+        assert(Catalog.validate() and #Catalog.order==53)
         local baseline=Catalog.starter_order()
         local normal=Achievements.pool({})
-        assert(#baseline==20 and #normal==48)
+        assert(#baseline==20 and #normal==49)
         for i=1,20 do assert(normal[i]==baseline[i]) end
         local expansion=require("src.boon_expansion_content")
         assert(#expansion.order==26)

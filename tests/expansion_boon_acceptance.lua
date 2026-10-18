@@ -4,8 +4,14 @@ local Game=require("src.game")
 local Achievements=require("src.achievements")
 local M={}
 function M.run()
+    local prior_pool={}
+    for _,id in ipairs(Achievements.pool({})) do
+        if id~='core:boon/ring_of_reversal' then
+            prior_pool[#prior_pool+1]=id
+        end
+    end
     local run=Play.new(50,{meta=Achievements.new_run(true,"m6-acceptance/50"),
-        available_boons=Achievements.pool({}),multifloor=true})
+        available_boons=prior_pool,multifloor=true})
     local state=run.state
     local function enemy(actor)
         return actor.controller=="ai" and actor.position.floor_id==state.active_floor_id

@@ -175,7 +175,7 @@ local diagonal = {
 local labels = {
     move = "Move", wait = "Wait", basic_attack = "Sword Strike",
     sweeping_slash = "Sweeping Slash", dash = "Dash", claim_chest = "Claim Chest",
-    open_door = "Open Door",
+    open_door = "Open Door", open_vault="Open Vault",
     choose_route = "Choose Route",
 }
 local playback_cue_labels={
@@ -802,7 +802,8 @@ local function submit(intent)
         if milestone then checkpoint() end
         local action = state.last_action
         if action.kind == "dash" then
-            notice = ("Dash: %d tiles, +%d time"):format(action.distance, action.cost)
+            local dash_name=Classes.for_player(Game.player(state)).dash_name
+            notice = ("%s: %d tiles, +%d time"):format(dash_name,action.distance, action.cost)
         elseif action.kind == "claim_chest" then
             notice = ("Claimed %s (%s), +%d time"):format(
                 BoonContent.get(action.boon_id).name, action.rarity, action.cost)
@@ -813,7 +814,11 @@ local function submit(intent)
                 or ("Stage %d: %s"):format(state.stage.index,
                     Biomes.get(state.stage.biome_id).name)
         else
-            notice = ("%s: +%d time"):format(labels[action.kind], action.cost)
+            local class=Classes.for_player(Game.player(state))
+            local name=action.kind=='basic_attack' and class.basic_name or
+                action.kind=='sweeping_slash' and class.special_name or
+                labels[action.kind] or action.kind
+            notice = ("%s: +%d time"):format(name, action.cost)
         end
         for _, event in ipairs(events) do
             if event.kind == "CurrencyCollected" then
@@ -1595,12 +1600,14 @@ local function draw_rewards()
             elseif kind=='review_gate' then
                 local tiny=entity.art_variant=='tiny' and not onebit
                 local drawn
-                if tiny then drawn=review_sprite('gate_tiny',x,y)
-                else
-                    drawn=review_sprite('gate_bottom',x,y)
-                    if not onebit then review_sprite('gate_top',x,y-TILE) end
+                if not entity.open then
+                    if tiny then drawn=review_sprite('gate_tiny',x,y)
+                    else
+                        drawn=review_sprite('gate_bottom',x,y)
+                        if not onebit then review_sprite('gate_top',x,y-TILE) end
+                    end
                 end
-                if not drawn then
+                if not drawn and not entity.open then
                     love.graphics.setColor(.71,.73,.67)
                     love.graphics.rectangle('line',x+5,y+2,TILE-10,TILE-4)
                 end
@@ -1709,14 +1716,24 @@ local function draw_history_event(event)
             if visible_at(cell.x,cell.y) then
                 local x,y=Camera.tile_top_left(camera,cell.x,cell.y)
                 local attacker=Game.entity(state,event.source_id)
-                local symbol=attacker and bound_visual(attacker.definition_id..'/attack')
-                if not symbol then symbol=bound_visual('core:ui/hit_effect') end
-                if symbol then
-                    draw_visual(symbol,x+TILE*.34,y+TILE*.34,TILE*.32,TILE*.32,.93)
+                local center=bound_visual('core:ui/attack_center_effect')
+                if center then
+                    draw_visual(center,x+TILE*.29,y+TILE*.29,TILE*.42,TILE*.42,.93)
                 else
                     love.graphics.setColor(1,.89,.52,.9)
                     love.graphics.line(x+TILE*.38,y+TILE*.5,x+TILE*.62,y+TILE*.5)
                     love.graphics.line(x+TILE*.5,y+TILE*.38,x+TILE*.5,y+TILE*.62)
+                end
+                if attacker and attacker.controller=='player' then
+                    local id=attacker.definition_id
+                    local weapon=id=='core:actor/ranger' and 'bow' or
+                        (id=='core:actor/arcanist' or id=='core:actor/alchemist') and 'spell' or
+                        (id=='core:actor/hookrunner' and
+                            event.ability_id=='core:ability/hookrunner_hook') and 'hook' or
+                        (id=='core:actor/shade' or id=='core:actor/trapper' or
+                            id=='core:actor/hookrunner') and 'dagger' or 'sword'
+                    draw_visual(bound_visual('core:ui/weapon_'..weapon..'_icon'),
+                        x+TILE*.64,y+TILE*.10,TILE*.27,TILE*.27,.95)
                 end
             end
         end
@@ -1743,6 +1760,12 @@ local function draw_history_event(event)
         draw_cells({{x=event.x,y=event.y}},0.90,0.72,0.34,0.52)
     elseif event.x and event.y then
         draw_cells({{x=event.x,y=event.y}}, 1, 0.20, 0.22, 0.5)
+    end
+    if event.kind=='DamageTaken' and event.x and event.y
+        and visible_at(event.x,event.y) then
+        local x,y=Camera.tile_top_left(camera,event.x,event.y)
+        draw_visual(bound_visual('core:ui/attack_impact_effect'),
+            x+TILE*.19,y+TILE*.19,TILE*.62,TILE*.62,.85)
     end
     if event.kind~='WindupStarted' and event.kind~='AttackPerformed'
         and event.kind~='WindupCancelled' and event.from_x and event.from_y
@@ -2062,6 +2085,8 @@ local function draw_world()
                 love.graphics.pop()
             end
             if not remembered and visual=="k" then
+                draw_visual(bound_visual('core:object/review_secret_clue'),
+                    screen_x+TILE*.13,screen_y+TILE*.13,TILE*.74,TILE*.74,.76)
                 love.graphics.setColor(clue[1],clue[2],clue[3],0.82)
                 love.graphics.setLineWidth(2)
                 love.graphics.line(screen_x+8,screen_y+5,screen_x+16,screen_y+14,
@@ -2469,7 +2494,7 @@ local function draw_help()
     local g=love.graphics
     local lines={
         {'WASD / arrows','Move · bump to attack or interact'},
-        {'F / R / X','Aim your class attacks / Dash'},
+        {'F / R / X','Use your class attacks and movement skill'},
         {'Enter / Esc','Commit aim / cancel aim'},
         {'Space','Wait one action'},
         {'I / V','Boons and character / next page'},

@@ -3,8 +3,8 @@ return function(test)
     test('focused menu list hitboxes select exact rows and reject gaps and edges',function()
         for i=1,5 do assert(UI.home_at(500,232+(i-1)*42+12)==i)end
         assert(not UI.home_at(500,270) and not UI.home_at(744,240))
-        for i=1,6 do assert(UI.class_at(300,168+(i-1)*46+10)==i)end
-        assert(not UI.class_at(500,200) and not UI.class_at(300,210))
+        for i=1,9 do assert(UI.class_at(300,150+(i-1)*36+10)==i)end
+        assert(not UI.class_at(500,200) and not UI.class_at(300,185))
     end)
     test('all sprite pack rows fit the shared title and pause panel layout',function()
         local count=#require('src.visual_packs').order

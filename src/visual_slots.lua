@@ -9,7 +9,7 @@ local function slug(id) return id:match('/([^/]+)$') end
 for _,id in ipairs({'door_closed','door_open','stairs_down','stairs_up','exit','chest_open'})do
     add('core:object/'..id)
 end
-for _,id in ipairs({'review_key','review_vault_top','review_vault_bottom',
+for _,id in ipairs({'review_secret_clue','review_key','review_vault_top','review_vault_bottom',
     'review_gate_top','review_gate_bottom','review_gate_tiny',
     'review_plate_up','review_plate_down','review_plate_tiny_up',
     'review_plate_tiny_down','review_ore','review_ore_depleted',
@@ -24,6 +24,9 @@ end
 for _,id in ipairs({'bramble_bed','sticky_bog','glazed_ice','barricade',
     'obscuring_mist','resonant_crystal'})do add('core:terrain/'..id)end
 add('core:ui/burning_effect');add('core:ui/block_effect')
+for _,id in ipairs({'attack_center_effect','attack_impact_effect',
+    'weapon_sword_icon','weapon_bow_icon','weapon_spell_icon',
+    'weapon_dagger_icon','weapon_hook_icon'}) do add('core:ui/'..id) end
 -- One editable image per printable ASCII character. The numeric suffix keeps
 -- upper and lower case distinct while satisfying Studio's lowercase ID rule.
 local glyph_bindings={}

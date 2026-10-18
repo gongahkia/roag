@@ -61,7 +61,7 @@ local function open_neighbors(map,x,y)
     end
     return count
 end
-local function route_clear(map,bx,by)
+local function route_clear(map,bx,by,blocking)
     local queue,seen={{x=map.start_x,y=map.start_y}},
         {[key(map.start_x,map.start_y)]=true}
     local head=1
@@ -71,6 +71,7 @@ local function route_clear(map,bx,by)
             local x,y=p.x+d[1],p.y+d[2]
             local k=key(x,y)
             if not seen[k] and not (x==bx and y==by)
+                and not (blocking and blocking[k])
                 and Content.walkable(map,x,y) then
                 seen[k]=true;queue[#queue+1]={x=x,y=y}
             end
@@ -109,7 +110,7 @@ end
 
 function F.populate(state,map)
     if not map or not map.rooms or #map.rooms==0 then return end
-    local taken={}
+    local taken,blocking={},{}
     local function choose(kind,condition)
         for _,p in ipairs(ordered(map,state.run_seed,kind)) do
             if safe(state,map,p.x,p.y,taken)
@@ -122,14 +123,24 @@ function F.populate(state,map)
     local vault=choose('vault',function(p)
         local room=room_at(map,p.x,p.y)
         return room and room.role=='treasure' and open_neighbors(map,p.x,p.y)>=3
-            and route_clear(map,p.x,p.y)
+            and route_clear(map,p.x,p.y,blocking)
     end)
+    if not vault then
+        vault=choose('vault_landmark',function(p)
+            local room=room_at(map,p.x,p.y)
+            return room and room.role=='landmark'
+                and open_neighbors(map,p.x,p.y)>=3
+                and route_clear(map,p.x,p.y,blocking)
+        end)
+    end
     if vault then
         add_entity(state,map,'vault',vault,{opened=false})
         local key_pos=choose('key',function(p)
             return distance(p,vault)>=8 and open_neighbors(map,p.x,p.y)>=2
         end)
-        if key_pos then add_feature(state,map,'key',key_pos)
+        if key_pos then
+            add_feature(state,map,'key',key_pos,{collected=false})
+            blocking[key(vault.x,vault.y)]=true
         else
             local e=state.entities[#state.entities]
             if e and e.controller=='review_vault' then
@@ -140,7 +151,7 @@ function F.populate(state,map)
     end
     local gate=choose('gate',function(p)
         return p.kind=='corridor' and open_neighbors(map,p.x,p.y)>=2
-            and route_clear(map,p.x,p.y)
+            and route_clear(map,p.x,p.y,blocking)
     end)
     if gate then
         local plate
@@ -151,13 +162,14 @@ function F.populate(state,map)
         if plate then
             local e=add_entity(state,map,'gate',gate,{open=false,closes_at=nil,
                 art_variant=(map.biome_id=='core:biome/sunken_aqueduct') and 'rpg' or 'tiny'})
+            blocking[key(gate.x,gate.y)]=true
             taken[key(plate.x,plate.y)]=true
             add_feature(state,map,'plate',plate,{gate_id=e.id})
         else taken[key(gate.x,gate.y)]=nil end
     end
     local pillar=choose('pillar',function(p)
         return p.kind=='room' and open_neighbors(map,p.x,p.y)==4
-            and route_clear(map,p.x,p.y)
+            and route_clear(map,p.x,p.y,blocking)
     end)
     if pillar then add_entity(state,map,'pillar',pillar) end
     local ore=choose('ore',function(p)return p.kind=='room' end)
@@ -260,6 +272,78 @@ function F.mist_cleared(state,map,x,y)
             and math.abs(f.x-x)+math.abs(f.y-y)<=2 then return true end
     end
     return false
+end
+
+function F.validate(state,maps)
+    assert(type(state.review_features)=='table' and
+        type(state.review_keys)=='table' and type(state.review_clues)=='table' and
+        type(state.class_special)=='table','invalid review state')
+    local feature_kinds={key=true,ward=true,ore=true,brazier=true,plate=true,
+        mushroom=true,overgrowth=true,mine_rail=true}
+    local seen,keys,plates={}, {}, {}
+    local function position(floor_id,x,y)
+        local map=maps[floor_id]
+        assert(map and type(x)=='number' and x%1==0 and
+            type(y)=='number' and y%1==0 and Content.walkable(map,x,y),
+            'review object outside floor')
+    end
+    for _,f in ipairs(state.review_features) do
+        assert(type(f)=='table' and feature_kinds[f.kind]
+            and type(f.id)=='string' and not seen[f.id],'invalid review feature')
+        seen[f.id]=true
+        position(f.floor_id,f.x,f.y)
+        if f.kind=='key' then
+            assert(type(f.collected)=='boolean','invalid vault key state')
+            keys[f.floor_id]=(keys[f.floor_id] or 0)+1
+        elseif f.kind=='ward' then
+            assert(type(f.collected)=='boolean','invalid ward flask state')
+        elseif f.kind=='ore' then
+            assert(type(f.broken)=='boolean','invalid ore state')
+        elseif f.kind=='brazier' then
+            assert(type(f.lit_until)=='number' and f.lit_until>=0,
+                'invalid brazier state')
+        elseif f.kind=='plate' then
+            local gate
+            for _,e in ipairs(state.entities) do
+                if e.id==f.gate_id then gate=e;break end
+            end
+            assert(gate and gate.controller=='review_gate'
+                and gate.position.floor_id==f.floor_id,'plate without gate')
+            plates[f.gate_id]=(plates[f.gate_id] or 0)+1
+        else
+            assert(f.variant==1 or f.variant==2,'invalid scenery variant')
+        end
+    end
+    for floor_id,count in pairs(keys) do
+        assert(count==1,'duplicate vault key')
+        local has_vault=false
+        for _,e in ipairs(state.entities) do
+            if e.controller=='review_vault' and e.position.floor_id==floor_id then
+                has_vault=true;break
+            end
+        end
+        assert(has_vault,'vault key without vault')
+    end
+    for _,e in ipairs(state.entities) do
+        if e.controller=='review_gate' then
+            assert(plates[e.id]==1,'gate without one plate')
+        elseif e.controller=='review_vault' then
+            assert(keys[e.position.floor_id]==1,'vault without key')
+        end
+    end
+    for floor_id,has_key in pairs(state.review_keys) do
+        assert(maps[floor_id] and has_key==true and keys[floor_id]==1,
+            'invalid held vault key')
+    end
+    for floor_id,direction in pairs(state.review_clues) do
+        assert(maps[floor_id] and
+            (direction=='north' or direction=='east' or
+                direction=='south' or direction=='west'),'invalid vault clue')
+    end
+    for _,kind in ipairs({'decoy','snare'}) do
+        local marker=state.class_special[kind]
+        if marker then position(marker.floor_id,marker.x,marker.y) end
+    end
 end
 
 return F

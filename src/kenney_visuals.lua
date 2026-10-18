@@ -34,6 +34,13 @@ local objects={
     ['core:ui/currency_icon']=90,['core:ui/hit_effect']=130,
     ['core:ui/boon_effect']=132,['core:ui/burning_effect']=136,
     ['core:ui/block_effect']=102,
+    ['core:ui/attack_center_effect']=131,
+    ['core:ui/attack_impact_effect']=133,
+    ['core:ui/weapon_sword_icon']=70,
+    ['core:ui/weapon_bow_icon']=71,
+    ['core:ui/weapon_spell_icon']=72,
+    ['core:ui/weapon_dagger_icon']=73,
+    ['core:ui/weapon_hook_icon']=74,
     ['core:object/review_ward']=106,
     ['core:object/review_overgrowth_1']=84,
     ['core:object/review_overgrowth_2']=85,
@@ -115,6 +122,7 @@ function K.new(read,make_texture,make_quad)
             terrain_pack='caves',tile_index=index}
     end
     for id,index in pairs({
+        ['core:object/review_secret_clue']=95,
         ['core:object/review_ore']=329,
         ['core:object/review_ore_depleted']=358,
         ['core:object/review_brazier_unlit']=506,

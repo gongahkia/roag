@@ -1,5 +1,18 @@
 # Sprite review feedback · 18 October 2026
 
+## Implementation
+
+The approved round-four mechanics and art are implemented in `src/review_features.lua`,
+`src/game.lua`, `src/classes.lua`, and the two native sprite resolvers. The mixed
+look loads the approved Tiny Dungeon and RPG source sheets from
+`assets/kenney/approved/`; the 1-Bit look uses approved cells from its existing
+sheet. Generated floors now place optional key vaults, timed plate gates,
+ore, braziers, ward flasks, pillars, and biome scenery. Shade, Hookrunner,
+Trapper, and Ring of Reversal are available in the normal game. The rejected
+spore pod, bomb, and moving cart have no behavior. These mechanics use plain
+saved state; old saves remain loadable without newly generated review objects.
+
+
 This records all four completed reviews of [the interactive page](review.html).
 Earlier votes and answers remain available in their own tabs.
 The downloaded `roag-sprite-feedback.json` had schema `roag-sprite-review/1`,

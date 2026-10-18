@@ -13,9 +13,14 @@ end
 local function read(path)
     local f=assert(io.open(path,'rb'));local bytes=f:read('*a');f:close();return bytes
 end
-local function image(_,path)
-    local source=path==K.path and K or path==T.path and T or S
-    return {getWidth=function()return source.width end,getHeight=function()return source.height end}
+local function image(bytes)
+    assert(bytes:sub(1,8)=='\137PNG\r\n\26\n','invalid sprite sheet')
+    local function dimension(at)
+        local a,b,c,d=bytes:byte(at,at+3)
+        return ((a*256+b)*256+c)*256+d
+    end
+    return {getWidth=function()return dimension(17)end,
+        getHeight=function()return dimension(21)end}
 end
 local function quad(x,y,w,h)return {x=x,y=y,w=w,h=h}end
 function A.collect()
@@ -53,7 +58,8 @@ function A.collect()
             else
                 p.bindings[#p.bindings+1]={id=id,width=h.width,height=h.height,
                     index=h.symbol_index or h.tile_index or -1,
-                    sheet=h.symbol_index and 'onebit' or h.tile_index and 'micro' or
+                    sheet=h.approved_sheet or h.terrain_pack or
+                        (h.symbol_index and 'onebit') or h.tile_index and 'micro' or
                         (name=='kenney' and 'caves-composite-or-floor' or 'onebit-composite'),
                     motif=h.motif or '',pose_alias=id:match('/attack$')~=nil or id:match('/hurt$')~=nil}
             end
@@ -64,6 +70,15 @@ function A.collect()
             aliases[index]=aliases[index]or {};aliases[index][#aliases[index]+1]=id
             p.actor_count=p.actor_count+1;p.static_pose_aliases=p.static_pose_aliases+2
         end
+        if name=='kenney' then
+            for _,id in ipairs({'core:actor/hookrunner','core:actor/trapper'}) do
+                local h=assert(resolver:resolve(id))
+                use(h.approved_sheet,h.tile_index,id)
+                p.actor_count=p.actor_count+1
+                p.actor_silhouettes=p.actor_silhouettes+1
+                p.static_pose_aliases=p.static_pose_aliases+2
+            end
+        end
         for _,index in ipairs(keys(aliases))do
             p.actor_silhouettes=p.actor_silhouettes+1
             if #aliases[index]>1 then p.shared_actors[#p.shared_actors+1]={index=index,ids=aliases[index]}end
@@ -71,9 +86,21 @@ function A.collect()
         for _,id in ipairs(keys(definition.objects))do
             use(name=='kenney' and 'micro' or 'onebit',definition.objects[id],id)
         end
-        for _,id in ipairs(keys(S.boons))do use('onebit',S.boons[id][1],id..'/icon + /detail')end
+        for _,id in ipairs(keys(S.boons))do
+            local h=resolver:resolve(id..'/icon')
+            use(h.approved_sheet or h.terrain_pack or
+                (h.symbol_index and 'onebit' or 'micro'),
+                h.symbol_index or h.tile_index,id..'/icon + /detail')
+        end
         for _,id in ipairs(keys(S.terrain))do use('onebit',S.terrain[id][1],id)end
         if name=='kenney'then
+            for _,id in ipairs(keys(Slots.bindings))do
+                if id:match('^core:object/review_') then
+                    local h=resolver:resolve(id)
+                    if h then use(h.approved_sheet or h.terrain_pack or 'micro',
+                        h.tile_index or h.symbol_index,id) end
+                end
+            end
             for _,biome in ipairs(keys(T.styles))do
                 for _,index in ipairs(T.styles[biome].floor)do use('caves',index,biome..' floor')end
             end

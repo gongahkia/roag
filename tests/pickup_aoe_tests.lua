@@ -18,7 +18,7 @@ return function(test,equal)
     end
 
     test("Sentinel and Alchemist are selectable plain-data classes with distinct area kits",function()
-        assert(Classes.validate() and #Classes.order==6)
+        assert(Classes.validate() and #Classes.order==9)
         local sentinel=new("core:actor/sentinel")
         local s=Game.player(sentinel)
         assert(s.defense==2 and s.max_hp==29)
@@ -117,7 +117,7 @@ return function(test,equal)
     end)
 
     test("new area boons batch secondary hits and are offered only to new kits",function()
-        assert(Catalog.validate() and #Catalog.order==52)
+        assert(Catalog.validate() and #Catalog.order==53)
         for _,id in ipairs({"core:boon/aftershock","core:boon/reprisal_nova"}) do
             local def=Catalog.get(id)
             for _,rarity in ipairs(Catalog.rarities) do

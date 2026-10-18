@@ -1865,6 +1865,7 @@ function Game.restore(snapshot)
             assert(found, "pending windup has no matching impact")
         end
     end
+    Review.validate(state,maps)
     if state.generated_map then
         local expected_secret_count=0
         local floor_maps={map}

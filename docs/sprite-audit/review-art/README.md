@@ -1,9 +1,9 @@
 # Review-only candidate sheets
 
 These PNGs are copied unchanged from official Kenney archives for the third
-and fourth rounds of the [sprite review](../review.html). They are **not loaded by ROAG** and
-do not approve any art for runtime use. The review page embeds them so it works
-offline and can show exact source cells.
+and fourth rounds of the [sprite review](../review.html). The approved cells
+are now loaded by ROAG from copies in `assets/kenney/approved/`. The review
+page embeds these source sheets so it works offline and shows exact cells.
 
 | Local PNG | Official source | Archive path | Grid | SHA-256 |
 | --- | --- | --- | --- | --- |
@@ -36,5 +36,5 @@ their silhouettes does not waive a game-scale visual check.
 These are visual readings and proposed assemblies, not official per-cell
 labels. The completed [feedback record](../review-feedback.md) approves the
 gray RPG vault set, both timed-gate sets, Tiny #111 for Hookrunner and Tiny
-#112 for Trapper. Other shortlisted alternatives remain unapproved. The
-runtime must still import and bind the selected art intentionally.
+#112 for Trapper. The runtime binds only those selected cells. Other
+shortlisted alternatives remain unapproved.
