@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion
+.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion gui-enemy-squads
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -27,6 +27,7 @@ help:
 	 'make room-expansion   Compile the approved room layouts for the game' \
 	 'make test             Run gameplay and runtime headless tests' \
 	 'make gui              Run game GUI smoke groups' \
+	 'make gui-enemy-squads  Check approved squads in all three sprite packs' \
 	 'Title Settings or Esc -> 3       Choose Classic, Kenney mix or Kenney 1-Bit'
 game:
 	$(LOVE_RUN) .
@@ -58,7 +59,9 @@ spectator:
 	env ROAG_SPECTATOR=1 ROAG_SPRITE_PACK=kenney $(LOVE_RUN) .
 test: sprite-audit-check
 	$(LUAJIT) tests/run.lua
-gui: gui-game gui-expansion
+gui: gui-game gui-expansion gui-enemy-squads
+gui-enemy-squads:
+	@$(GUI_RUN) sh tests/enemy_squad_gui_smoke.sh
 gui-game:
 	@$(GUI_RUN) sh tests/repeat_gui_smokes.sh 1
 	@$(GUI_RUN) sh tests/menu_gui_smoke.sh

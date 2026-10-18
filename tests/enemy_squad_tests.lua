@@ -224,6 +224,8 @@ return function(test,equal)
         assert(not S.flank_reachable(map,points))
         map.rows[2]='#.....#'
         assert(S.flank_reachable(map,points))
+        assert(not S.flank_reachable(map,points,{['3,2']=true}),
+            'bypass crossed an existing locked prop or permanent pillar')
     end)
     test('completed healer channel restores one wounded ally but does not follow a displaced target',function()
         local state=trial()

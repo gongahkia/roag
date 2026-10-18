@@ -13,7 +13,7 @@ const data=JSON.parse(html.match(/<script id="enemy-data" type="application\/jso
 const copy=value=>JSON.parse(JSON.stringify(value));
 let passed=0;
 function test(name,fn){fn();passed++;console.log('PASS '+name);}
-test('all five combinations and ten roles have bounds-checked, unbound native candidates',()=>{
+test('archived review preserves bounds-checked candidates and their original unused-art audit',()=>{
   assert.equal(data.combos.length,5);assert.equal(data.roles.length,10);
   assert.equal(data.audit.requirements,289);
   assert.equal(Object.keys(data.sources).length,5);

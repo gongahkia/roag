@@ -46,8 +46,9 @@ S.cues={squad_ward_effect=636,squad_heal_effect=535,squad_snare_effect=715,
     squad_shield_effect=239,squad_rally_effect=527}
 local dirs={{0,-1},{1,0},{0,1},{-1,0}}
 local function key(x,y) return x..','..y end
-function S.flank_reachable(map,points)
+function S.flank_reachable(map,points,obstacles)
     local blocked={}
+    for k in pairs(obstacles or {}) do blocked[k]=true end
     for i=2,#points do blocked[key(points[i].x,points[i].y)]=true end
     local target=points[1]
     local queue={{x=map.start_x,y=map.start_y}}
@@ -152,10 +153,16 @@ function S.plan(state,map)
     local kind=pool[RNG.next_int(rng,#pool)]
     local roster=S.groups[kind]
     local count=kind=='captain_and_followers' and 1+RNG.next_int(rng,4) or roster[3]
-    local blocked={}
+    local blocked,hard_blocks={},{}
     for _,e in ipairs(state.entities) do
         if e.blocks_movement and e.position.floor_id==map.floor_id then
-            blocked[key(e.position.x,e.position.y)]=true
+            local k=key(e.position.x,e.position.y)
+            blocked[k]=true
+            -- Ordinary foes can be defeated and doors/chests can be opened.
+            -- Don't require a locked optional prop or pillar to be traversed
+            -- to bypass the protected front line.
+            if e.controller~='ai' and e.controller~='player' and
+                e.controller~='door' and e.controller~='chest' then hard_blocks[k]=true end
         end
     end
     for _,stair in ipairs(map.placements.stairs or {}) do blocked[key(stair.x,stair.y)]=true end
@@ -180,7 +187,7 @@ function S.plan(state,map)
                         for i=1,count+1 do
                             points[i]={x=cx+offsets[i][1],y=cy+offsets[i][2]}
                         end
-                        if kind~='warded_bodyguards' or S.flank_reachable(map,points) then
+                        if kind~='warded_bodyguards' or S.flank_reachable(map,points,hard_blocks) then
                             return {kind=kind,points=points,room_id=room.id}
                         end
                     end
