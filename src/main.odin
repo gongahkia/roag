@@ -19,7 +19,8 @@ Config :: struct {
 	cpu_budget, upload_budget:          int,
 	seed:                               u64,
 	frames, seconds:                    int,
-	benchmark, save_path, screenshot:   string,
+	benchmark, save_path, screenshot, settings_path: string,
+	frame_limit: int,
 	hidden, no_save, vsync, naive_mesh: bool,
 }
 
@@ -29,9 +30,10 @@ usage :: proc() {
 Usage: voxel [--profile tiny|low|standard] [--seed N] [--radius N]
   --gpu-mb N --cpu-mb N --workers N --upload-kb N --width N --height N
   --save PATH --no-save --no-vsync --hidden --frames N --seconds N --screenshot PATH
+  --settings PATH --fps-limit display|unlimited|30|60|90|120|144|165|240|360
   --benchmark normal|flight|edit|dense --naive-mesh (benchmark baseline)
 WASD fly / SPACE up / CTRL down / SHIFT fast / +/- speed
-Mouse look / ESC release mouse / click recapture / Q quit
+Mouse look / ESC or F1 settings / click recapture / Q quit
 LMB break / RMB place / 1-6 select / F3 stats / F5 save`,
 	)
 }
@@ -43,6 +45,8 @@ config_parse :: proc() -> (Config, bool) {
 		workers       = 2,
 		upload_budget = 2 * MiB,
 		save_path     = "saves/creative.vox",
+		settings_path = "saves/settings.cfg",
+		frame_limit   = -2,
 		vsync         = true,
 	}
 	for i := 1; i < len(os.args); i += 1 {
@@ -105,6 +109,11 @@ config_parse :: proc() -> (Config, bool) {
 				c.save_path = v
 				continue
 			}
+			if arg == "--settings" {c.settings_path = v; continue}
+			if arg == "--fps-limit" {
+				if v == "display" {c.frame_limit = 0; continue}
+				if v == "unlimited" {c.frame_limit = -1; continue}
+			}
 			if arg == "--screenshot" {
 				c.screenshot = v
 				continue
@@ -145,10 +154,16 @@ config_parse :: proc() -> (Config, bool) {
 				c.frames = n
 			case "--seconds":
 				c.seconds = n
+			case "--fps-limit":
+				c.frame_limit = n
 			case:
 				return c, false
 			}
 		}
+	}
+	if c.frame_limit != -2 {
+		test_settings := settings_defaults(); test_settings.fps_limit = c.frame_limit
+		if !settings_valid(test_settings) {return c, false}
 	}
 	if c.benchmark != "" &&
 	   c.benchmark != "normal" &&
@@ -199,6 +214,9 @@ hud :: proc(
 	show: bool,
 	width, height: i32,
 	telemetry: ^Telemetry,
+	menu: ^Settings_Menu,
+	settings: Settings,
+	pacing: ^Frame_Pacing,
 	elapsed: f64,
 	speed: f64,
 ) {
@@ -211,8 +229,13 @@ hud :: proc(
 	ortho[5] = -2 / f32(height)
 	ortho[12] = -1
 	ortho[13] = 1
+	if menu.open {
+		settings_panel(r, menu, settings, pacing, width, height, ortho)
+		gl.Disable(gl.BLEND)
+		return
+	}
 	if show {
-		benchmark_panel(r, s, c, telemetry, pos, width, height, elapsed, speed, ortho)
+		benchmark_panel(r, s, c, telemetry, pacing, settings, pos, width, height, elapsed, speed, ortho)
 	}
 	flat_flush(r, ortho, gl.TRIANGLES)
 	cx, cy := f32(width) / 2, f32(height) / 2
