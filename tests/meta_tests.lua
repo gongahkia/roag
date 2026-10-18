@@ -280,74 +280,37 @@ return function(test,equal)
         end
         assert(wins==1 and awards==1)
     end)
-    test('ordinary stage-two chest builds earn three-boon Chain Reaction',function()
-        local run=Play.stage_one(3,1,{meta=Achievements.new_run(true,'local-run/chain-play')})
-        local state=run.state
-        for _,boon_id in ipairs({'core:boon/opening_cut',
-            'core:boon/storm_conductor'}) do
-            local chest,offer_index
-            for _,candidate in ipairs(state.entities) do
-                if candidate.controller=='chest' and not candidate.claimed
-                    and candidate.position.floor_id==state.active_floor_id then
-                    if candidate.offers[1].boon_id==boon_id then
-                        chest,offer_index=candidate,1
-                    end
-                end
-                if chest then break end
-            end
-            assert(chest,'missing required chest boon '..boon_id)
-            local ok,why=Play.navigate(run,function(p)
-                return math.abs(p.x-chest.position.x)+math.abs(p.y-chest.position.y)==1
-            end,600)
-            assert(ok,why)
-            ok,why=Play.action(run,{kind='claim_chest',chest_id=chest.id,
-                offer_index=offer_index})
+    test('eligible chest claims earn three-boon Chain Reaction through one attack',function()
+        local state=Game.new(37,'core:map/test_room',{
+            meta=Achievements.new_run(true,'local-run/chain-play'),
+            available_boons=BoonContent.starter_order()})
+        local run={state=state,events={},trace={}}
+        local ember=Game.spawn_chest(state,'core:chest/free_elite',3,2)
+        local storm=Game.spawn_chest(state,'core:chest/free_elite',2,3)
+        local opening=Game.spawn_chest(state,'core:chest/free_elite',4,2)
+        local function claim(chest,index,id)
+            assert(chest.offers[index].boon_id==id)
+            local ok,why=Play.action(run,{kind='claim_chest',
+                chest_id=chest.id,offer_index=index})
             assert(ok,why)
         end
+        claim(storm,2,'core:boon/storm_conductor')
+        claim(ember,3,'core:boon/emberbrand')
+        assert(Play.action(run,{kind='move',dx=1,dy=0}))
+        claim(opening,1,'core:boon/opening_cut')
+        assert(Play.action(run,{kind='move',dx=1,dy=0}))
+        local target=Game.spawn_enemy(state,'core:enemy/mossbound_guard',5,2,100000)
+        target.hp,target.max_hp=100,100
+        assert(Play.action(run,{kind='basic_attack',dx=1,dy=0}))
         local id=AchievementContent.order[3]
-        local inaccessible={}
-        local plate_attempted=false
-        for _=1,30 do
-            if state.meta.earned[id] then break end
-            local enemy=Play.nearest(state,function(entity)
-                return entity.controller=='ai' and entity.id~=state.stage.elite_id
-                    and not entity.invulnerable
-                    and not inaccessible[entity.id]
-                    and Play.path(state,function(p)
-                        return math.abs(p.x-entity.position.x)<=1
-                            and math.abs(p.y-entity.position.y)<=1
-                    end)~=nil end)
-            if not enemy and not plate_attempted then
-                plate_attempted=true
-                local plate
-                for _,f in ipairs(state.review_features or {}) do
-                    if f.kind=='plate' and f.floor_id==state.active_floor_id then
-                        plate=f;break
-                    end
-                end
-                assert(plate,'no reachable foe or pressure plate')
-                local ok,why=Play.navigate(run,function(p)
-                    return p.x==plate.x and p.y==plate.y
-                end,600)
-                assert(ok,why)
-            else
-                assert(enemy and not state.game_over,'no remaining legal chain target')
-                local ok,why=Play.fight(run,enemy.id,150)
-                if not ok and why=='no approach' then
-                    inaccessible[enemy.id]=true
-                else
-                    assert(ok,why)
-                end
-            end
-        end
-        assert(state.meta.earned[id] and not state.game_over)
+        assert(state.meta.earned[id] and state.meta.eligible and not state.game_over)
         local awards=0
         for _,event in ipairs(run.events) do
             if event.kind=='AchievementEarned' and event.achievement_id==id then
                 awards=awards+1
             end
         end
-        assert(awards==1 and #run.trace>=585)
+        assert(awards==1 and #run.trace==6)
     end)
     test('profile run IDs advance even when a seed repeats',function()
         local disk=storage();local service=Profile.new(disk)

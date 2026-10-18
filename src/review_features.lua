@@ -77,7 +77,7 @@ local function route_clear(map,bx,by,blocking)
             end
         end
     end
-    if not seen[key(map.elite.x,map.elite.y)] then return false end
+    if not seen[key(map.elite.x,map.elite.y)] then return false,seen end
     for _,room in ipairs(map.rooms) do
         local found=false
         for y=room.y,room.y+room.height-1 do
@@ -86,9 +86,9 @@ local function route_clear(map,bx,by,blocking)
             end
             if found then break end
         end
-        if not found then return false end
+        if not found then return false,seen end
     end
-    return true
+    return true,seen
 end
 local function add_entity(state,map,kind,p,extra)
     local e={id=state.next_entity_id,definition_id='core:object/review_'..kind,
@@ -155,9 +155,12 @@ function F.populate(state,map)
     end)
     if gate then
         local plate
+        local _,reachable=route_clear(map,gate.x,gate.y,blocking)
         for _,d in ipairs(directions) do
             local x,y=gate.x+d[1],gate.y+d[2]
-            if safe(state,map,x,y,taken) then plate={x=x,y=y};break end
+            if safe(state,map,x,y,taken) and reachable[key(x,y)] then
+                plate={x=x,y=y};break
+            end
         end
         if plate then
             local e=add_entity(state,map,'gate',gate,{open=false,closes_at=nil,

@@ -1519,9 +1519,35 @@ local function draw_rewards()
                 sprite=kind..'_'..(feature.variant or 1)
             end
             if sprite and not review_sprite(sprite,x,y) then
-                love.graphics.setColor(kind=='key' and .96 or .69,.81,.42,.9)
-                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.24)
-                love.graphics.circle('fill',x+TILE/2,y+TILE/2,TILE*.08)
+                if kind=='key' then
+                    love.graphics.setColor(.97,.84,.43)
+                    love.graphics.circle('line',x+14,y+17,6)
+                    love.graphics.line(x+20,y+17,x+31,y+17,x+31,y+23)
+                elseif kind=='ore' then
+                    love.graphics.setColor(feature.broken and .35 or .74,
+                        feature.broken and .34 or .69,.42)
+                    love.graphics.polygon('fill',x+8,y+30,x+13,y+12,
+                        x+25,y+8,x+33,y+27)
+                elseif kind=='brazier' then
+                    love.graphics.setColor(.79,.57,.32)
+                    love.graphics.rectangle('line',x+10,y+20,20,13)
+                    if (feature.lit_until or 0)>state.clock then
+                        love.graphics.setColor(1,.67,.28)
+                        love.graphics.circle('fill',x+20,y+17,7)
+                    end
+                elseif kind=='ward' then
+                    love.graphics.setColor(.55,.78,.99)
+                    love.graphics.polygon('line',x+20,y+6,x+31,y+13,
+                        x+27,y+29,x+20,y+34,x+13,y+29,x+9,y+13)
+                elseif kind=='plate' then
+                    love.graphics.setColor(.63,.68,.64)
+                    love.graphics.rectangle('line',x+7,y+13,26,15)
+                else
+                    love.graphics.setColor(kind=='overgrowth' and .33 or .78,
+                        kind=='overgrowth' and .67 or .62,.37)
+                    love.graphics.circle('fill',x+20,y+19,10)
+                    love.graphics.rectangle('fill',x+18,y+19,4,13)
+                end
             end
             if kind=='mine_rail' then
                 if bound_visual('core:object/review_rail_top_left') then
@@ -1583,12 +1609,19 @@ local function draw_rewards()
                 visual_assets.generated.style=='onebit'
             local kind=entity.controller
             if kind=='review_pillar' then
+                local drawn
                 if onebit then
-                    review_sprite('pillar_bottom',x,y)
+                    drawn=review_sprite('pillar_bottom',x,y)
                 else
-                    review_sprite('pillar_bottom',x,y)
+                    drawn=review_sprite('pillar_bottom',x,y)
                     review_sprite('pillar_middle',x,y-TILE)
                     review_sprite('pillar_top',x,y-2*TILE)
+                end
+                if not drawn then
+                    love.graphics.setColor(.62,.59,.51)
+                    love.graphics.rectangle('fill',x+10,y+3,TILE-20,TILE-6)
+                    love.graphics.setColor(.84,.79,.62)
+                    love.graphics.rectangle('line',x+6,y+2,TILE-12,TILE-4)
                 end
             elseif kind=='review_vault' and not entity.opened then
                 local drawn=review_sprite('vault_bottom',x,y)

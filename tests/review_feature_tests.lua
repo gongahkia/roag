@@ -98,6 +98,11 @@ return function(test,equal)
             end
             assert(seen[map.elite.x..','..map.elite.y],
                 'review objects blocked the main route for seed '..seed)
+            local plate=feature(state,'plate')
+            if plate then
+                assert(seen[plate.x..','..plate.y],
+                    'closed gate hides its own switch for seed '..seed)
+            end
         end
     end)
 
