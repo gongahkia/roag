@@ -121,13 +121,14 @@
 <body>
   <header class="top"><div class="wrap top-inner">
     <p class="eyebrow">ROAG / design review / 18 October 2026</p>
-    <h1>Choose the next ROAG mechanics and art.</h1>
-    <p class="intro">Your third review approved Shade, requested Hookrunner and Trapper as additional classes, and asked for varied vault outcomes. Review the remaining sprite pairs and vault rule here. Your answers guide implementation; this page does not change the game.</p>
+    <h1>Sprite and mechanic reviews.</h1>
+    <p class="intro">The earlier four-round review is preserved below. Its approved features are now implemented. The next review covers five enemy combinations and ten proposed role assignments; those new encounters await your approval.</p>
+    <div class="notice"><p><strong>New review:</strong> <a href="enemy-review.html">Review wizard/bodyguards, healer/attackers, trapper/artillery, shield/shooter and commander/followers.</a> Select sprites for both Kenney looks, approve/reject/discuss, and export comments before gameplay implementation.</p></div>
     <div class="context"><span>3 remaining choices · 12 third-round answers · 10 earlier answers · 14 original proposals</span><span><a href="review-feedback.md">Read your feedback</a> · <a href="overlap.md">Read the reasoning</a> · <a href="index.html">Browse every sprite</a> · <a href="review-art/README.md">Candidate art sources</a></span></div>
   </div></header>
   <div class="toolbar"><div class="wrap toolbar-inner">
     <nav class="tabs" aria-label="Review sections">
-      <button class="tab" type="button" data-tab="final" aria-pressed="true">Remaining choices</button>
+      <button class="tab" type="button" data-tab="final" aria-pressed="true">Round 4 archive</button>
       <button class="tab" type="button" data-tab="design" aria-pressed="false">Round 3 answers</button>
       <button class="tab" type="button" data-tab="followup" aria-pressed="false">Round 2 answers</button>
       <button class="tab" type="button" data-tab="all" aria-pressed="false">Original proposals</button>
@@ -141,13 +142,13 @@
     <button class="action primary" id="export" type="button">Download updated feedback</button>
   </div></div>
   <main class="wrap">
-    <div class="notice"><p><strong>Round four:</strong> Shade, Hookrunner and Trapper are recorded as three requested classes. Both timed-gate art sets are recorded as approved from your comment. Review the two new class sprite pairs and the varied vault outcome rule below. If earlier answers are missing, import <code>roag-sprite-feedback-round3.json</code>. Download the updated JSON and attach it in chat.</p><span class="save-status" id="save-status" role="status"></span></div>
+    <div class="notice"><p><strong>Earlier review archive:</strong> All four rounds are recorded in <a href="review-feedback.md">the feedback record</a>; their approved features have been implemented. These older controls and browser drafts remain available. Use the separate <a href="enemy-review.html">enemy combination review</a> for the pending work.</p><span class="save-status" id="save-status" role="status"></span></div>
     <div id="final"></div>
     <div id="design"></div>
     <div id="followups"></div>
     <div id="review"></div>
   </main>
-  <footer class="footer"><div class="wrap">Based on the <a href="../ROAG_SPRITE_AUDIT.md">sprite coverage audit</a> at commit <code>3b58b1b9</code>. Sprite indices are zero-based source-sheet cells. Review-only external art is not yet loaded by the game.</div></footer>
+  <footer class="footer"><div class="wrap">Based on the <a href="../ROAG_SPRITE_AUDIT.md">sprite coverage audit</a> at commit <code>3b58b1b9</code>. Sprite indices are zero-based source-sheet cells. Approved Tiny Dungeon/RPG cells are now loaded by the game. New enemy assignments are separate proposals and are not bound yet.</div></footer>
   <script>
     'use strict';
     const SHEETS = {

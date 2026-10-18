@@ -1,5 +1,9 @@
 # ROAG sprite coverage and unused-art audit
 
+**Pending next review:** [five enemy combinations and sprite assignments](sprite-audit/enemy-review.html),
+with [the source/overlap audit](sprite-audit/enemy-review-audit.md).
+These proposals add zero live bindings and wait for user approval.
+
 Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
 game content is nine classes, 16 regular enemies, seven elites, pursuer/final

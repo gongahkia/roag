@@ -157,7 +157,8 @@ Hover/scroll a cell for bindings. “Used” includes partial material sampling;
 <option value="onebit">Standalone 1-Bit</option></select></label>
 <label>Show <select id="filter"><option value="all">All</option><option value="unused">Unused nonempty</option>
 <option value="used">Referenced</option><option value="empty">Empty</option></select></label>
-<a href="inventory.json">JSON</a> · <a href="tiles.csv">CSV</a></header>''' + ''.join(sections) + '''
+<a href="inventory.json">JSON</a> · <a href="tiles.csv">CSV</a> ·
+<a href="enemy-review.html">Review proposed enemy combinations (not implemented)</a></header>''' + ''.join(sections) + '''
 <script>function filter(){const p=document.querySelector('#pack').value,f=document.querySelector('#filter').value;
 document.querySelectorAll('article').forEach(a=>{const empty=a.dataset.state==='empty',
 used=p==='union'?a.dataset.state==='used':a.dataset[p]==='true';

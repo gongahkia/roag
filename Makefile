@@ -11,7 +11,7 @@ LOVE_RUN = "$(LOVE_BIN)"
 GUI_RUN = env
 endif
 
-.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check sprite-review room-review room-expansion test gui gui-game gui-expansion
+.PHONY: help game kenney onebit spectator sprite-audit sprite-audit-check sprite-review enemy-review enemy-review-check review-test room-review room-expansion test gui gui-game gui-expansion
 help:
 	@printf '%s\n' \
 	 'make game             Play ROAG with your selected sprite pack' \
@@ -21,6 +21,8 @@ help:
 	 'make sprite-audit     Rebuild read-only coverage and unused-art catalogue' \
 	 'make sprite-audit-check Check saved catalogue freshness without writing' \
 	 'make sprite-review    Refresh embedded art in the review page' \
+	 'make enemy-review     Build the five-combination approval page' \
+	 'make review-test      Check the review data, client and generated page' \
 	 'make room-review      Refresh the offline room layout review page' \
 	 'make room-expansion   Compile the approved room layouts for the game' \
 	 'make test             Run gameplay and runtime headless tests' \
@@ -35,10 +37,18 @@ onebit:
 sprite-audit:
 	python3 tools/sprite_audit.py
 	python3 tools/build_sprite_review.py
+	python3 tools/build_enemy_review.py
 sprite-audit-check:
 	python3 tools/sprite_audit.py --check
 sprite-review:
 	python3 tools/build_sprite_review.py
+	python3 tools/build_enemy_review.py
+enemy-review:
+	python3 tools/build_enemy_review.py
+enemy-review-check:
+	python3 tools/build_enemy_review.py --check
+review-test: enemy-review-check
+	node tests/enemy_review_page_test.js
 room-review:
 	python3 tools/build_room_review.py
 

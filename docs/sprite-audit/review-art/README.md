@@ -28,8 +28,9 @@ Round-four candidate actor cells from the same Tiny Dungeon sheet:
 - Hookrunner: **111** masked figure, with **84** as a more hooded alternative.
 - Trapper: **112** green scout, with **88** as a quieter alternative.
 
-The proposed 1-Bit counterparts are **80/78** for Hookrunner and **77/222**
-for Trapper. All four are unbound in the audit inventory. Unlike existing
+The earlier proposed 1-Bit counterparts were **80/78** for Hookrunner and **77/222**
+for Trapper. Approved cells **80** and **77** are now bound; alternatives
+**78** and **222** remain unbound. Unlike existing
 Micro actors, these Tiny Dungeon figures are 16px source cells; approval of
 their silhouettes does not waive a game-scale visual check.
 
@@ -38,3 +39,9 @@ labels. The completed [feedback record](../review-feedback.md) approves the
 gray RPG vault set, both timed-gate sets, Tiny #111 for Hookrunner and Tiny
 #112 for Trapper. The runtime binds only those selected cells. Other
 shortlisted alternatives remain unapproved.
+
+The next [enemy combination review](../enemy-review.html) proposes additional
+unused cells from these same stored sources. Its
+[audit and handoff](../enemy-review-audit.md) lists exact assignments and
+existing-role overlaps. Candidate selection is not runtime publication or
+user approval; no extra sheet download or art replacement is performed.
