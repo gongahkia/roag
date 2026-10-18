@@ -152,6 +152,14 @@ adding mechanics merely to consume art. Review this inventory together and
 choose a few source indices; no balance, inventory, classes, enemies, terrain
 rules or world generation were changed in this work.
 
+For a checked comparison of unused motifs that can support the **same idea in
+both selectable Kenney looks**, see the [cross-pack opportunity audit](sprite-audit/overlap.md).
+Use the [interactive sprite review](sprite-audit/review.html) to approve, reject,
+or comment on those ideas and their sprite pairings before implementation.
+To serve it with `http-server` from the repository root, run `http-server .`
+and visit `http://127.0.0.1:8080/docs/sprite-audit/review.html`. The page also
+opens directly as a local HTML file; its sprite images are embedded.
+
 ## Reproduce and maintain the audit
 
 ```sh
