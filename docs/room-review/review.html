@@ -44,6 +44,7 @@
   main { padding:28px 0 70px; }
   .legend { padding:15px 18px; border:1px solid var(--line); background:var(--surface); border-radius:10px; margin-bottom:28px; }
   .legend-row { display:flex; flex-wrap:wrap; gap:9px 16px; margin-top:10px; color:var(--muted); font-size:13px; }
+  .legend-row canvas { width:20px; height:20px; vertical-align:-5px; margin-right:5px; image-rendering:pixelated; }
   .swatch { display:inline-block; width:14px; height:14px; vertical-align:-2px; margin-right:5px; border:1px solid #9aafa0; border-radius:2px; }
   .section-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); margin:32px 0 15px; padding-bottom:8px; }
   .section-head span { color:var(--muted); font-size:13px; }
@@ -90,7 +91,7 @@
     <div class="eyebrow">ROAG · Design review</div>
     <h1>Room layouts</h1>
     <p class="intro">Review the authored tile layouts already in the game. Each biome variant has its own card, so you can approve one version and request changes to another. Your choices are saved in this browser; download the feedback file when you are ready to send it back.</p>
-    <div class="notice">These are room templates: Kenney previews use the game's terrain and sprite sheets, while Classic uses a colored layout diagram. Placement markers stay labeled because encounters are assigned during play. Rooms can be rotated, mirrored, and connected by corridors.</div>
+    <div class="notice">These are room templates. Kenney previews use the game's sprite sheets; Classic uses built-in style shapes. Enemy and landmark sprites are examples: generation may choose another enemy or leave an optional placement unused. Rooms can be rotated, mirrored, and connected by corridors.</div>
   </div>
 </header>
 <div class="toolbar"><div class="wrap toolbar-inner">
@@ -102,7 +103,7 @@
   </div>
   <div class="tools">
     <label class="pack-control" for="sprite-pack">Sprite pack <select id="sprite-pack"><option value="kenney">Kenney pixel art</option><option value="onebit">Kenney 1-Bit</option><option value="classic">Classic built-in</option></select></label>
-    <label><input id="show-markers" type="checkbox" checked>Placement markers</label>
+    <label><input id="show-markers" type="checkbox" checked>Placement sprites</label>
     <label><input id="show-editable" type="checkbox" checked>Editable cells</label>
     <span class="spacer"></span>
     <input id="import-file" type="file" accept="application/json,.json" aria-label="Import room review feedback">
@@ -116,7 +117,8 @@
   <section class="legend" aria-label="Preview legend">
     <strong>Preview key · <span id="pack-label">Kenney pixel art</span></strong>
     <div class="legend-row" id="legend-tiles"></div>
-    <div class="legend-row"><span><b style="color:#f7e59a">P</b> player</span><span><b style="color:#ed9390">E</b> enemy</span><span><b style="color:#f2c574">C</b> chest</span><span><b style="color:#bcb1ed">L</b> landmark</span><span><b style="color:#f199cf">!</b> elite</span><span><b style="color:#91cbdc">S</b> stair / secret</span><span><b style="color:#e5e9db">◆</b> door socket</span><span><b style="color:#f1ca79">dashed outline</b> editable terrain</span></div>
+    <div class="legend-row" id="legend-markers"></div>
+    <div class="legend-row"><span><b style="color:#e5e9db">◆</b> door socket</span><span><b style="color:#f1ca79">dashed outline</b> editable terrain</span><span>Secret markers show possible locations, not revealed secrets.</span></div>
   </section>
   <div id="rooms"></div>
   <div id="empty" hidden>No rooms match these filters.</div>
@@ -182,6 +184,18 @@
     player:['P','#f7e59a'], enemy:['E','#ed9390'], chest:['C','#f2c574'],
     landmark:['L','#bcb1ed'], elite:['!','#f199cf'], stair:['S','#91cbdc'],
     secret_anchor:['S','#91cbdc'], secret_wall:['S','#91cbdc']
+  };
+  // First biome enemy, biome elite, and one existing game prop as a landmark sample.
+  // The first two pairs are the exact sprite indices used by KenneyVisuals/OneBitVisuals.
+  const markerExamples = {
+    overgrown_ruins:{enemy:[12,275],elite:[9,272],landmark:[['micro',106],['symbols',578]]},
+    fungal_hollows:{enemy:[14,418],elite:[14,419],landmark:[['caves',87],['symbols',103]]},
+    sunken_aqueduct:{enemy:[22,26],elite:[22,128],landmark:[['caves',145],['symbols',542]]},
+    ashen_bastion:{enemy:[15,32],elite:[15,43],landmark:[['caves',507],['symbols',739]]},
+    glacial_observatory:{enemy:[29,410],elite:[10,227],landmark:[['caves',145],['symbols',542]]},
+    fractured_archive:{enemy:[21,420],elite:[6,76],landmark:[['caves',145],['symbols',542]]},
+    sundered_forge:{enemy:[13,471],elite:[13,273],landmark:[['caves',507],['symbols',739]]},
+    final_sanctum:{enemy:[9,269],elite:[9,269],landmark:[['micro',106],['symbols',578]]}
   };
   const voteLabels = {approve:'Approved',reject:'Rejected',discuss:'Needs discussion'};
   const existing = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch (_) { return {}; } })();
@@ -355,13 +369,75 @@
     iconCache.set(key,canvas);
     return canvas;
   }
+  function biomeKey(room) {
+    const id=room.biome_id==='studio:published' ? room.biomes?.[0] : room.biome_id;
+    return (id || 'core:biome/overgrown_ruins').split('/').pop();
+  }
+  function markerSprite(room,kind,pack) {
+    const examples=markerExamples[biomeKey(room)] || markerExamples.overgrown_ruins;
+    const index=pack==='kenney' ? 0 : 1;
+    if (kind==='enemy'||kind==='elite') return [pack==='kenney' ? 'micro' : 'symbols',examples[kind][index]];
+    if (kind==='landmark') return examples.landmark[index];
+    const common={
+      player:[['micro',5],['symbols',468]],
+      chest:[['micro',75],['symbols',302]],
+      stair:[['micro',37],['symbols',295]],
+      secret_anchor:[['symbols',709],['symbols',709]],
+      secret_wall:[['caves',95],['symbols',3]]
+    };
+    return common[kind]?.[index] || null;
+  }
+  function drawClassicMarker(ctx,kind,x,y,size) {
+    ctx.save();ctx.translate(x,y);ctx.scale(size/16,size/16);
+    const color=markerStyle[kind]?.[1] || '#ffffff';
+    ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=2;
+    if (kind==='player'||kind==='enemy'||kind==='elite') {
+      ctx.fillRect(5,2,6,6);ctx.fillRect(4,9,8,5);
+      if (kind==='elite') { ctx.fillRect(3,0,2,3);ctx.fillRect(7,-1,2,4);ctx.fillRect(11,0,2,3); }
+      if (kind==='enemy') { ctx.fillStyle='#17110f';ctx.fillRect(6,4,1,1);ctx.fillRect(9,4,1,1); }
+    } else if (kind==='chest') {
+      ctx.fillRect(2,5,12,9);ctx.fillStyle='#281c12';ctx.fillRect(3,7,10,2);ctx.fillRect(7,5,2,5);
+    } else if (kind==='landmark') {
+      ctx.beginPath();ctx.moveTo(8,1);ctx.lineTo(12,5);ctx.lineTo(11,13);ctx.lineTo(5,13);ctx.lineTo(4,5);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#262037';ctx.fillRect(7,5,2,5);
+    } else if (kind==='stair') {
+      ctx.fillRect(2,11,4,3);ctx.fillRect(6,8,4,6);ctx.fillRect(10,5,4,9);
+    } else if (kind==='secret_anchor') {
+      ctx.beginPath();ctx.arc(8,8,5,0,Math.PI*2);ctx.stroke();ctx.fillRect(7,7,2,2);
+    } else if (kind==='secret_wall') {
+      ctx.beginPath();ctx.moveTo(4,2);ctx.lineTo(9,6);ctx.lineTo(6,10);ctx.lineTo(12,14);ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function drawMarker(ctx,room,kind,pack,x,y,size) {
+    if (pack==='classic') { drawClassicMarker(ctx,kind,x,y,size);return; }
+    if (kind==='secret_anchor' && pack==='kenney') {
+      const sigil=tintedSymbol(709,'#91cbdc');
+      if (sigil) { ctx.drawImage(sigil,x,y,size,size);return; }
+    }
+    const sprite=markerSprite(room,kind,pack);
+    if (sprite && drawSheet(ctx,sprite[0],sprite[1],x,y,size)) return;
+    drawClassicMarker(ctx,kind,x,y,size);
+  }
+  function drawMarkerLegend() {
+    const kinds=['player','enemy','chest','landmark','elite','stair','secret_anchor','secret_wall'];
+    $('legend-markers').innerHTML=kinds.map(kind => `<span><canvas data-kind="${kind}" width="20" height="20" aria-hidden="true"></canvas>${escape(kind.replaceAll('_',' '))}</span>`).join('');
+    const example=rooms.find(room => biomeKey(room)==='overgrown_ruins') || rooms[0];
+    const pack=$('sprite-pack').value;
+    for (const canvas of $('legend-markers').querySelectorAll('canvas')) {
+      const ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+      ctx.fillStyle=pack==='onebit' ? '#0b0b0b' : '#4f5b54';ctx.fillRect(0,0,20,20);
+      drawMarker(ctx,example,canvas.dataset.kind,pack,2,2,16);
+    }
+  }
   function redrawCanvases() {
     for (const canvas of $('rooms').querySelectorAll('canvas')) draw(byId.get(canvas.dataset.roomId),canvas);
+    drawMarkerLegend();
   }
   function draw(room, canvas) {
     const cell = 20, pad = 8, ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const pack=$('sprite-pack').value, biome=room.biome_id.split('/').pop();
+    const pack=$('sprite-pack').value, biome=biomeKey(room);
     const style=biomeStyles[biome] || biomeStyles.overgrown_ruins;
     canvas.width = room.width*cell+pad*2;
     canvas.height = room.height*cell+pad*2;
@@ -412,21 +488,14 @@
         if (!occupied.has(k)) occupied.set(k,[]);
         occupied.get(k).push(kind);
       }
-      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.font='bold 13px ui-monospace, monospace';
       for (const [coordinate,kinds] of occupied) {
-        const [x,y]=coordinate.split(':').map(Number), kind=kinds[0], [glyph,color]=markerStyle[kind] || ['?', '#fff'];
+        const [x,y]=coordinate.split(':').map(Number);
         const cx=pad+(x-.5)*cell,cy=pad+(y-.5)*cell;
-        ctx.fillStyle=pack==='onebit' ? '#0b0b0b' : '#101714'; ctx.fillRect(cx-8,cy-8,16,16);
-        const sprite=pack==='kenney' ? {player:['micro',5],chest:['micro',75],stair:['micro',37]}
-                     : pack==='onebit' ? {player:['symbols',468],chest:['symbols',302],stair:['symbols',295]} : {};
-        const icon=kinds.length===1 ? sprite[kind] : null;
-        if (icon && drawSheet(ctx,icon[0],icon[1],cx-8,cy-8,16)) {
-          ctx.fillStyle=pack==='onebit' ? '#e6e6e6' : color;
-          ctx.font='bold 8px ui-monospace, monospace';ctx.fillText(glyph,cx+6,cy+7);
-          ctx.font='bold 13px ui-monospace, monospace';
-        } else {
-          ctx.fillStyle=pack==='onebit' ? '#e6e6e6' : color;
-          ctx.fillText(kinds.length>1 ? String(kinds.length) : glyph,cx,cy+1);
+        if (kinds.length===1) drawMarker(ctx,room,kinds[0],pack,cx-9,cy-9,18);
+        else {
+          const columns=Math.ceil(Math.sqrt(kinds.length)), size=Math.floor(cell/columns);
+          kinds.forEach((kind,index) => drawMarker(ctx,room,kind,pack,
+            cx-10+(index%columns)*size,cy-10+Math.floor(index/columns)*size,size));
         }
       }
     }
@@ -440,7 +509,7 @@
     }
     $('rooms').innerHTML = [...groups.values()].map(group => `<section><div class="section-head"><h2>${escape(group[0].biome_name)}</h2><span>${group.length} layout${group.length === 1 ? '' : 's'}</span></div><div class="grid">${group.map(card).join('')}</div></section>`).join('');
     $('empty').hidden = visible.length>0;
-    for (const canvas of $('rooms').querySelectorAll('canvas')) draw(byId.get(canvas.dataset.roomId),canvas);
+    redrawCanvases();
     tally();
   }
   for (const id of ['search','biome','family','review-filter']) $(id).addEventListener(id==='search'?'input':'change',render);
