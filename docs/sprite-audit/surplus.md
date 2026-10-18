@@ -5,6 +5,10 @@ Current native mapping fingerprint: `1202bc99da0ba099`.
 This is a read-only design audit. No sprite assignments or gameplay rules
 have changed. Candidates are proposals, not approvals.
 
+**Ready to decide?** The [full idea review](ideas.html) expands this shortlist
+into 89 proposals with separate behaviour/art votes, preferences, comments
+and downloadable feedback. [How to review and send it back](ideas-guide.md).
+
 **Open the [visual shortlist](surplus.html)** for enlarged native art beside
 each idea, or the [complete catalogue](index.html) for every source cell.
 Both pages embed their PNGs and work offline. From the repository root:

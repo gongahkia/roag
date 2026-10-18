@@ -161,6 +161,7 @@ Hover/scroll a cell for bindings. “Used” includes partial material sampling;
 <option value="used">Referenced</option><option value="empty">Empty</option></select></label>
 <a href="inventory.json">JSON</a> · <a href="tiles.csv">CSV</a> ·
 <a href="surplus.html">Unused art shortlist</a> ·
+<a href="ideas.html">Approve / reject new ideas</a> ·
 <a href="enemy-review.html">Accepted enemy review archive</a> · <a href="../ROAG_ENEMY_SQUADS.md">Live squad rules and selected art</a><p id="count" role="status"></p></header>''' + ''.join(sections) + '''
 <script>function filter(){const p=document.querySelector('#pack').value,f=document.querySelector('#filter').value;
 let count=0;

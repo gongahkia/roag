@@ -19,6 +19,10 @@ and [reasoning/recommendations](sprite-audit/surplus.md), checked against the
 324-binding runtime. This supersedes the older proposal tables for what is
 still unused; earlier approvals and rejections remain in force.
 
+**New idea approval page:** [89 grouped proposals](sprite-audit/ideas.html),
+covering all unused cells with separate idea/art votes, preferences, comments
+and downloadable feedback. See the [review guide](sprite-audit/ideas-guide.md).
+
 ## The choices being compared
 
 | Settings choice | Source artwork | Status |

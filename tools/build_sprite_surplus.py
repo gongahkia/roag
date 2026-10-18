@@ -124,6 +124,7 @@ article{padding:20px;margin:20px 0;border:1px solid #526057;border-radius:10px;s
 Counts include fragments and variants. They are not a count of ready-made new mechanics.</p>
 <p>@@MAPPING@@ · @@REQUIREMENTS@@ live sprite bindings per choice.</p>
 <p><a href="index.html">Every source cell</a> · <a href="surplus.json">Checked JSON</a> · <a href="surplus.md">Reasoning and recommendation</a> · <a href="review-feedback.md">Earlier decisions</a></p></header>
+<p class="note"><strong>Ready to review more directions?</strong> <a href="ideas.html">Open the full idea review — approve, reject, comment, choose preferred sprites and download feedback.</a></p>
 <div class="scroll"><table><thead><tr><th>Source</th><th>Nonempty</th><th>Mixed uses</th><th>1-Bit uses</th><th>Unused by either</th></tr></thead><tbody>@@TABLE@@</tbody></table></div>
 <p>Mixed loads all five sheets: <strong>@@MIXED_UNUSED@@ unused</strong> of @@MIXED_TOTAL@@ nonempty cells. Standalone loads its 1-Bit sheet only: <strong>@@ONEBIT_UNUSED@@ unused</strong> of @@ONEBIT_TOTAL@@. Those totals overlap; do not add them. All candidates below are checked unused in both current looks.</p>
 <div class="note"><strong>Prior decisions preserved</strong><ul>@@DECISIONS@@</ul></div>
