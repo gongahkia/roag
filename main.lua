@@ -22,6 +22,7 @@ local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local VisualPacks = require("src.visual_packs")
+local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
 local VisualSlots = require("src.visual_slots")
 local Spectator = require("src.spectator")
@@ -51,6 +52,7 @@ local playback = Playback.new()
 local hit_feedback = HitFeedback.new()
 local combat_numbers = CombatNumbers.new()
 local ui_body_font,ui_display_font,ui_menu_font
+local presentation_settings=PresentationSettings.defaults()
 local minimap_visible = true
 local showcase_index = 0
 local boon_page = 0
@@ -78,8 +80,11 @@ local visual_pack_mode=VisualPacks.default
 local visual_pack_status='absent'
 local visual_pack_generated_status='disabled'
 local visual_pack_message=''
+local settings_message=''
 local pause_settings=false
+local settings_page=1
 local settings_selection=1
+local achievement_page=0
 local terrain_cache_assets,terrain_cache=nil,{}
 local studio_world_status='absent'
 local studio_theme,studio_theme_status
@@ -102,12 +107,32 @@ vec4 effect(vec4 color, Image texture, vec2 texture_coords, vec2 screen_coords)
 }
 ]]
 local function set_visual_style(style)
-    PixelUI.set_style(style)
+    PixelUI.set_style(style,presentation_settings.high_contrast)
     if style=='onebit' then
         love.graphics.setBackgroundColor(.055,.055,.055)
     else
         love.graphics.setBackgroundColor(.055,.075,.075)
     end
+end
+local function apply_presentation_settings()
+    ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
+        presentation_settings.font,presentation_settings.text_size)
+    love.graphics.setFont(ui_body_font)
+    if love.audio.setVolume then
+        love.audio.setVolume(presentation_settings.master/100)
+    end
+    if audio_runtime then
+        audio_runtime:set_user_mix(presentation_settings.music/100,
+            presentation_settings.effects/100)
+    end
+    set_visual_style(visual_assets and visual_assets.generated and
+        visual_assets.generated.style)
+end
+local function save_presentation_settings()
+    apply_presentation_settings()
+    local ok,reason=PresentationSettings.save(storage,presentation_settings)
+    if not ok then settings_message='Settings not saved: '..tostring(reason)
+    else settings_message='Settings saved' end
 end
 local function local_room_audio(kind)
     if not state or not state.generated_map or not audio_runtime then return nil end
@@ -345,7 +370,9 @@ local function build_selected_visuals(mode,read)
 end
 
 function love.load(args)
-    ui_body_font,ui_display_font,ui_menu_font=UIFont.load()
+    presentation_settings=PresentationSettings.load(storage)
+    ui_body_font,ui_display_font,ui_menu_font=UIFont.load(
+        presentation_settings.font,presentation_settings.text_size)
     love.graphics.setFont(ui_body_font)
     local audio_ok,audio=pcall(AudioRuntime.new,
         function(path)return love.filesystem.read(path)end,
@@ -355,6 +382,13 @@ function love.load(args)
         end)
     if audio_ok then audio_runtime=audio;audio_status=audio.status
     else audio_status='silent: '..tostring(audio) end
+    if love.audio.setVolume then
+        love.audio.setVolume(presentation_settings.master/100)
+    end
+    if audio_runtime then
+        audio_runtime:set_user_mix(presentation_settings.music/100,
+            presentation_settings.effects/100)
+    end
     local preference=VisualPacks.inspect(storage)
     visual_pack_mode,visual_pack_status=preference.mode,preference.status
     local preview_pack=os.getenv('ROAG_SPRITE_PACK')
@@ -594,7 +628,9 @@ function love.update(dt)
     end
     HitFeedback.update(hit_feedback, playback, dt, state.player_id,
         state.active_floor_id)
-    Camera.set_presentation_offset(camera, HitFeedback.offset(hit_feedback))
+    if presentation_settings.shake then
+        Camera.set_presentation_offset(camera, HitFeedback.offset(hit_feedback))
+    else Camera.set_presentation_offset(camera,0,0) end
     if #reward_notices > 0 then
         reward_notice_time = reward_notice_time - math.max(0, dt)
         while reward_notice_time <= 0 and #reward_notices > 0 do
@@ -688,6 +724,10 @@ local function request_new_run()
     else begin_new() end
 end
 
+local function settings_reset_focus()
+    settings_page=1
+    settings_selection=VisualPacks.index(visual_pack_mode)
+end
 local function activate_title_selection()
     if title_view=='home' then
         if title_selection==1 then
@@ -697,7 +737,7 @@ local function activate_title_selection()
         elseif title_selection==3 then unlocks_view=true
         elseif title_selection==4 then
             title_view='settings'
-            settings_selection=VisualPacks.index(visual_pack_mode)
+            settings_reset_focus()
         else love.event.quit() end
     elseif title_view=='continue' then
         if resumable(save_status) then continue_run()
@@ -705,15 +745,55 @@ local function activate_title_selection()
     elseif title_view=='class' then request_new_run() end
 end
 
+local settings_tabs={'SPRITES','SOUND','EFFECTS','ACCESSIBILITY'}
+local settings_lengths={#VisualPacks.order,3,3,4}
+local function settings_change(direction)
+    if settings_page==1 then
+        if direction~=0 then
+            settings_selection=(settings_selection-1+direction+
+                #VisualPacks.order)%#VisualPacks.order+1
+        else
+            pending_pack_mode=VisualPacks.order[settings_selection]
+            visual_pack_message='Loading '..VisualPacks.labels[pending_pack_mode]..'…'
+        end
+        return
+    end
+    if settings_page==2 then
+        local key=({'master','music','effects'})[settings_selection]
+        presentation_settings[key]=math.max(0,math.min(100,
+            presentation_settings[key]+(direction==0 and 1 or direction)*10))
+    elseif settings_page==3 then
+        local key=({'shake','flash','damage_numbers'})[settings_selection]
+        presentation_settings[key]=not presentation_settings[key]
+    else
+        if settings_selection==1 then
+            presentation_settings.font=presentation_settings.font=='pixel' and 'sans' or 'pixel'
+        elseif settings_selection==2 then
+            presentation_settings.text_size=presentation_settings.text_size=='normal' and 'large' or 'normal'
+        elseif settings_selection==3 then
+            presentation_settings.high_contrast=not presentation_settings.high_contrast
+        else
+            presentation_settings=PresentationSettings.defaults()
+        end
+    end
+    save_presentation_settings()
+end
 local function settings_keypressed(key,on_title)
-    if key=='up' or key=='w' or key=='left' or key=='a' then
-        settings_selection=(settings_selection+#VisualPacks.order-2)%
-            #VisualPacks.order+1
-    elseif key=='down' or key=='s' or key=='right' or key=='d' then
-        settings_selection=settings_selection%#VisualPacks.order+1
-    elseif key=='return' or key=='kpenter' then
-        pending_pack_mode=VisualPacks.order[settings_selection]
-        visual_pack_message='Loading '..VisualPacks.labels[pending_pack_mode]..'…'
+    if key=='up' or key=='w' then
+        settings_selection=(settings_selection+settings_lengths[settings_page]-2)%
+            settings_lengths[settings_page]+1
+    elseif key=='down' or key=='s' then
+        settings_selection=settings_selection%settings_lengths[settings_page]+1
+    elseif key=='tab' or key==']' then
+        settings_page=settings_page%#settings_tabs+1
+        settings_selection=1
+    elseif key=='[' then
+        settings_page=(settings_page+#settings_tabs-2)%#settings_tabs+1
+        settings_selection=1
+    elseif key=='left' or key=='a' then settings_change(-1)
+    elseif key=='right' or key=='d' then settings_change(1)
+    elseif key=='return' or key=='kpenter' or key=='space' then
+        settings_change(0)
     elseif key=='escape' or key=='b' then
         if on_title then title_view='home';title_selection=4
         else pause_settings=false end
@@ -804,9 +884,12 @@ local function submit(intent)
                     if reward_notice_time==0 then reward_notice_time=3 end
                 end
             elseif event.kind=="AchievementEarned" then
-                reward_notices[#reward_notices+1]="Unlocked: "..
-                    AchievementContent.get(event.achievement_id).name.." → "..
-                    BoonContent.get(event.reward_boon_id).name
+                local message="Achievement: "..
+                    AchievementContent.get(event.achievement_id).name
+                if event.reward_boon_id then
+                    message=message.." → "..BoonContent.get(event.reward_boon_id).name
+                end
+                reward_notices[#reward_notices+1]=message
                 if reward_notice_time==0 then reward_notice_time=3 end
             end
         end
@@ -919,7 +1002,12 @@ end
 
 local function title_keypressed(key)
     if unlocks_view then
-        if key=='escape' or key=='u' then unlocks_view=false end
+        local pages=math.max(1,math.ceil(#AchievementContent.order/5))
+        if key=='escape' or key=='u' then unlocks_view=false
+        elseif key=='right' or key=='down' or key=='d' or key=='s' then
+            achievement_page=(achievement_page+1)%pages
+        elseif key=='left' or key=='up' or key=='a' or key=='w' then
+            achievement_page=(achievement_page+pages-1)%pages end
         return
     end
     if confirm_new then
@@ -1110,7 +1198,7 @@ function love.keypressed(key, _, isrepeat)
             if checkpoint(true) then love.event.quit() end
         elseif key=='3' then
             pause_settings=true
-            settings_selection=VisualPacks.index(visual_pack_mode)
+            settings_reset_focus()
         end
         return
     end
@@ -2286,7 +2374,7 @@ local function draw_world()
             end
         end
     end
-    local flash=HitFeedback.flash_alpha(hit_feedback)
+    local flash=presentation_settings.flash and HitFeedback.flash_alpha(hit_feedback) or 0
     if flash>0 then
         love.graphics.setColor(1,0.20,0.16,flash)
         love.graphics.rectangle("fill",VIEWPORT.x,VIEWPORT.y,
@@ -2295,7 +2383,7 @@ local function draw_world()
         love.graphics.rectangle("line",VIEWPORT.x+1,VIEWPORT.y+1,
             VIEWPORT.width-2,VIEWPORT.height-2)
     end
-    draw_combat_numbers()
+    if presentation_settings.damage_numbers then draw_combat_numbers() end
     if spectator_enabled and spectator_free and spectator_focus then
         local cx,cy=Camera.tile_top_left(camera,spectator_focus.x,
             spectator_focus.y)
@@ -2585,35 +2673,94 @@ local function draw_boon_detail()
     PixelUI.center('Enter / Esc / click to return',446,ui_menu_font,PixelUI.colors.selected,224,576)
 end
 
-local function pack_choice_at(x,y,panel_x,panel_y,panel_w)
-    return PixelUI.settings_at(panel_x,panel_y,panel_w,#VisualPacks.order,x,y)
+local function settings_tab_at(x,y)
+    if y<91 or y>=139 then return nil end
+    for i=1,#settings_tabs do
+        if x>=120+(i-1)*190 and x<300+(i-1)*190 then return i end
+    end
 end
-
-local function draw_pack_settings(x,y,w,h)
-    menu_frame('SPRITE PACK',x,y,w,h,ui_display_font)
+local function settings_row_at(x,y)
+    return PixelUI.row_at(145,202,734,54,settings_lengths[settings_page],70,x,y)
+end
+local function settings_click(x,y)
+    local tab=settings_tab_at(x,y)
+    if tab then settings_page=tab;settings_selection=1;return true end
+    local row=settings_row_at(x,y)
+    if row then
+        settings_selection=row
+        if settings_page==2 then
+            if x>=795 then settings_change(1)
+            elseif x>=705 and x<765 then settings_change(-1) end
+        else settings_change(0) end
+        return true
+    end
+    return false
+end
+local function draw_settings()
     local g=love.graphics
-    g.setFont(ui_menu_font);g.setColor(PixelUI.colors.muted)
-    g.print('Esc / click BACK',x+24,y+36)
-    local source=visual_assets and visual_assets.generated and
-        VisualPacks.labels[visual_pack_mode] or 'Classic built-in shapes'
-    PixelUI.center('In use: '..source,y+72,ui_menu_font,PixelUI.colors.text,x,w)
-    local actor=bound_visual(selected_class_id)
-    if actor then draw_visual(actor,x+(w-56)/2,y+100,56,56)end
-    for index,mode in ipairs(VisualPacks.order)do
-        local row=PixelUI.settings_row(x,y,w,index)
-        PixelUI.option(VisualPacks.labels[mode]..(mode==visual_pack_mode and ' *' or ''),
-            row.x,row.y+7,row.w,settings_selection==index,ui_display_font)
+    menu_frame('SETTINGS',100,40,824,550,ui_display_font)
+    for i,label in ipairs(settings_tabs) do
+        local x=120+(i-1)*190
+        g.setColor(i==settings_page and PixelUI.colors.edge or PixelUI.colors.panel)
+        g.rectangle('fill',x,91,180,48)
+        g.setFont(ui_menu_font)
+        g.setColor(i==settings_page and PixelUI.colors.selected or PixelUI.colors.text)
+        g.printf(label,x,103,180,'center')
     end
-    PixelUI.center(VisualPacks.descriptions[VisualPacks.order[settings_selection]],y+422,
-        ui_menu_font,PixelUI.colors.muted,x+24,w-48)
-    local warning=visual_pack_message
-    if warning=='' and visual_pack_status=='corrupt'then warning='Damaged preference · using Classic'
-    elseif warning=='' and visual_pack_status=='retired'then warning='Previous pack removed · using Classic'
-    elseif warning=='' and visual_pack_mode~='classic' and visual_pack_generated_status~='loaded'then
-        warning='Artwork unavailable · using built-in fallback'
+    local descriptions={
+        'Choose the art used for actors, terrain, and icons.',
+        'Set overall volume and balance music against game sounds.',
+        'Adjust motion and hit feedback without changing gameplay.',
+        'Change text appearance and contrast throughout the game.'}
+    PixelUI.center(descriptions[settings_page],160,ui_menu_font,
+        PixelUI.colors.muted,130,764)
+    for index=1,settings_lengths[settings_page] do
+        local y=202+(index-1)*70
+        local selected=settings_selection==index
+        g.setColor(selected and PixelUI.colors.edge or PixelUI.colors.muted)
+        g.rectangle('line',145,y,734,54)
+        if selected then
+            g.setColor(PixelUI.colors.background)
+            g.rectangle('fill',147,y+2,730,50)
+        end
+        local label,value
+        if settings_page==1 then
+            local mode=VisualPacks.order[index]
+            label=VisualPacks.labels[mode]
+            value=mode==visual_pack_mode and 'IN USE' or 'SELECT'
+        elseif settings_page==2 then
+            local key=({'master','music','effects'})[index]
+            label=({master='Master volume',music='Music & ambience',
+                effects='Effects & UI'})[key]
+            value=presentation_settings[key]..'%'
+        elseif settings_page==3 then
+            local key=({'shake','flash','damage_numbers'})[index]
+            label=({shake='Screen shake',flash='Hit flash',
+                damage_numbers='Floating damage numbers'})[key]
+            value=presentation_settings[key] and 'ON' or 'OFF'
+        else
+            label=({'Font','Text size','High contrast','Restore defaults'})[index]
+            value=({presentation_settings.font=='pixel' and 'PIXEL' or 'SANS',
+                presentation_settings.text_size=='large' and 'LARGE' or 'NORMAL',
+                presentation_settings.high_contrast and 'ON' or 'OFF','RESET'})[index]
+        end
+        g.setFont(ui_menu_font)
+        g.setColor(selected and PixelUI.colors.selected or PixelUI.colors.text)
+        g.print(label,164,y+14)
+        g.printf(value,695,y+14,164,'right')
+        if settings_page==2 then
+            g.print('−',719,y+14)
+            g.print('+',805,y+14)
+        end
     end
-    g.setFont(ui_menu_font);g.setColor(warning~='' and PixelUI.colors.selected or PixelUI.colors.muted)
-    g.printf(warning~='' and warning or 'Up/down choose · Enter apply · * active',x+24,y+h-68,w-48,'center')
+    local info=settings_message
+    if settings_page==1 then
+        info=visual_pack_message~='' and visual_pack_message or
+            VisualPacks.descriptions[VisualPacks.order[settings_selection]]
+    end
+    PixelUI.center(info,501,ui_menu_font,PixelUI.colors.muted,130,764)
+    PixelUI.center('Tab / click category · ↑↓ select · ←→ adjust · Enter apply · Esc back',
+        545,ui_body_font,PixelUI.colors.selected,130,764)
 end
 
 local function draw_title_page()
@@ -2628,7 +2775,7 @@ local function draw_title_page()
                 i==1 and not resumable(save_status))
         end
         local descriptions={resumable(save_status) and 'Saved run available' or 'No compatible saved run',
-            'Choose a character and begin','View your permanent unlocks','Choose a sprite pack','Leave ROAG'}
+            'Choose a character and begin','View your permanent unlocks','Audio, visuals, and accessibility','Leave ROAG'}
         PixelUI.center(descriptions[title_selection],476,ui_menu_font,PixelUI.colors.muted)
         if save_status and save_status.status~='absent' and not resumable(save_status)then
             local headline=TitleMenu.save_summary(save_status)
@@ -2658,26 +2805,45 @@ local function draw_title_page()
             406,ui_menu_font,PixelUI.colors.muted,496,336)
         PixelUI.option('BEGIN NEW GAME',496,502,336,false,ui_menu_font)
         PixelUI.center('1–9 / arrows choose · Enter begin · Esc back',598,ui_menu_font,PixelUI.colors.muted)
-    elseif title_view=='settings'then draw_pack_settings(190,55,644,530)end
+    elseif title_view=='settings'then draw_settings()end
     if title_view~='home'then
         g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected);g.print('< BACK',192,608)
     end
     if unlocks_view then
-        PixelUI.dim(.65);menu_frame('ACHIEVEMENTS',96,100,832,440,ui_display_font)
+        PixelUI.dim(.65);menu_frame('ACHIEVEMENTS',96,100,832,480,ui_display_font)
         local earned=profile and profile.earned or {}
-        g.setFont(ui_menu_font)
-        for i,id in ipairs(AchievementContent.order)do
+        local count=0
+        for _,id in ipairs(AchievementContent.order) do
+            if earned[id] then count=count+1 end
+        end
+        g.setFont(ui_body_font);g.setColor(PixelUI.colors.muted)
+        g.printf(count..' / '..#AchievementContent.order..' earned',128,130,768,'right')
+        for slot=1,5 do
+            local i=achievement_page*5+slot
+            local id=AchievementContent.order[i]
+            if id then
             local def=AchievementContent.get(id)
+            local y=165+(slot-1)*68
+            g.setFont(ui_menu_font)
             g.setColor(earned[id] and PixelUI.colors.selected or PixelUI.colors.muted)
-            g.printf((earned[id] and 'UNLOCKED' or 'LOCKED')..' — '..def.name..' · '..BoonContent.get(def.reward).name,
-                128,150+(i-1)*84,768)
-            g.setColor(PixelUI.colors.text);g.printf(def.hint,148,177+(i-1)*84,730)
+            local reward=def.reward and ' · '..BoonContent.get(def.reward).name or ''
+            g.printf((earned[id] and 'EARNED' or 'LOCKED')..' — '..def.name..reward,
+                128,y,768)
+            g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
+            g.printf(def.hint,148,y+29,730)
+            end
         end
         if profile_status and (profile_status.status=='corrupt' or profile_status.status=='incompatible')then
-            PixelUI.center('Profile '..profile_status.status..' · progress preserved',516,
+            PixelUI.center('Profile '..profile_status.status..' · progress preserved',492,
                 ui_menu_font,PixelUI.colors.selected)
         end
-        PixelUI.center('Esc / click to return',570,ui_menu_font,PixelUI.colors.muted)
+        local pages=math.max(1,math.ceil(#AchievementContent.order/5))
+        g.setFont(ui_menu_font);g.setColor(PixelUI.colors.selected)
+        g.print('< PREV',146,525)
+        g.printf('PAGE '..(achievement_page+1)..' / '..pages,378,525,268,'center')
+        g.print('NEXT >',778,525)
+        PixelUI.center('Left / right browse · Esc return',590,
+            ui_body_font,PixelUI.colors.muted)
     end
     if confirm_new then
         PixelUI.dim(.65);menu_frame('REPLACE SAVED RUN?',250,285,524,142,ui_display_font)
@@ -2763,7 +2929,7 @@ function love.draw()
     if boon_detail_id then draw_boon_detail()end
     if pause_menu then
         PixelUI.dim(.6)
-        if pause_settings then draw_pack_settings(190,55,644,530)
+        if pause_settings then draw_settings()
         else
             if studio_theme then
                 studio_theme:draw_background('pause_background',0,0,love.graphics.getDimensions())
@@ -2906,7 +3072,17 @@ function love.mousepressed(x,y,button,istouch,presses)
         return
     end
     if title then
-        if unlocks_view then unlocks_view=false;return end
+        if unlocks_view then
+            local pages=math.max(1,math.ceil(#AchievementContent.order/5))
+            if y>=515 and y<=555 and x>=126 and x<=330 then
+                achievement_page=(achievement_page+pages-1)%pages
+            elseif y>=515 and y<=555 and x>=740 and x<=900 then
+                achievement_page=(achievement_page+1)%pages
+            elseif x<96 or x>928 or y<100 or y>580 then
+                unlocks_view=false
+            end
+            return
+        end
         if confirm_new then
             if y>=362 and y<=408 then
                 if x>=275 and x<=500 then begin_new()
@@ -2930,17 +3106,13 @@ function love.mousepressed(x,y,button,istouch,presses)
             if index then selected_class_id=Classes.order[index]
             elseif x>=496 and x<=832 and y>=490 and y<=536 then request_new_run()end
         elseif title_view=='settings'then
-            if x>=210 and x<=400 and y>=80 and y<=120 then title_keypressed('escape');return end
-            local index=pack_choice_at(x,y,190,55,644)
-            if index then settings_selection=index;settings_keypressed('return',true)end
+            settings_click(x,y)
         end
         return
     end
     if pause_menu then
         if pause_settings then
-            if x>=210 and x<=400 and y>=80 and y<=120 then pause_settings=false;return end
-            local index=pack_choice_at(x,y,190,55,644)
-            if index then settings_selection=index;settings_keypressed('return',false)end
+            settings_click(x,y)
         else
             local index=PixelUI.pause_at(x,y)
             if index then pause_selection=index;love.keypressed(tostring(index))end
@@ -2970,6 +3142,10 @@ function love.mousepressed(x,y,button,istouch,presses)
 end
 function love.wheelmoved(dx,dy)
     if help_open or boon_detail_id then return end
+    if title and unlocks_view and dy~=0 then
+        title_keypressed(dy>0 and 'left' or 'right')
+        return
+    end
     if inventory_open then
         if dy~=0 then love.keypressed(dy>0 and 'left' or 'right')end
         return

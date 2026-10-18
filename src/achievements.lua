@@ -5,7 +5,8 @@ local ids=Content.order
 function A.pool(earned)
     local result=Boons.normal_order()
     for _,id in ipairs(ids) do
-        if earned and earned[id] then result[#result+1]=Content.get(id).reward end
+        local reward=Content.get(id).reward
+        if reward and earned and earned[id] then result[#result+1]=reward end
     end
     return result
 end
@@ -78,6 +79,33 @@ function A.observe(state,event,emit)
         if count>=3 then award(state,ids[3],emit) end
     elseif event.kind=="Victory" and state.victory then
         award(state,ids[4],emit)
+    end
+    if event.kind=="EntityKilled" and event.source_id==state.player_id
+        and event.target_id~=state.player_id then award(state,ids[5],emit)
+    elseif event.kind=="FloorChanged" then award(state,ids[6],emit)
+    elseif event.kind=="ChestClaimed" then award(state,ids[7],emit)
+    elseif event.kind=="CurrencyCollected" and event.source_id==state.player_id
+        and (event.new_currency or 0)>=50 then award(state,ids[8],emit)
+    elseif event.kind=="LevelUp" and event.target_id==state.player_id then
+        award(state,ids[9],emit)
+        if (event.new_level or 0)>=5 then award(state,ids[10],emit) end
+    elseif event.kind=="BoonGranted" then award(state,ids[11],emit)
+    elseif event.kind=="TerrainBroken" and event.source_id==state.player_id then
+        award(state,ids[12],emit)
+    elseif event.kind=="OreBroken" and event.source_id==state.player_id then
+        award(state,ids[13],emit)
+    elseif event.kind=="TimedGateOpened" then award(state,ids[14],emit)
+    elseif event.kind=="VaultKeyCollected" then award(state,ids[15],emit)
+    elseif event.kind=="WardFlaskCollected" then award(state,ids[16],emit)
+    elseif event.kind=="BrazierLit" and event.source_id==state.player_id then
+        award(state,ids[17],emit)
+    elseif event.kind=="SupplyCollected" and event.source_id==state.player_id then
+        award(state,ids[18],emit)
+    elseif event.kind=="PursuerArrived" then award(state,ids[19],emit)
+    elseif event.kind=="StageEntered" and (event.stage_index or 0)>=2 then
+        award(state,ids[20],emit)
+    elseif event.kind=="FinalSanctumEntered" then award(state,ids[21],emit)
+    elseif event.kind=="RegentPhaseChanged" then award(state,ids[22],emit)
     end
 end
 function A.prune(state)

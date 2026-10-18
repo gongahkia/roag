@@ -7,7 +7,16 @@ local default_colors=U.colors
 local monochrome={background={.03,.03,.03},panel={.075,.075,.075},
     edge={.42,.42,.42},light={.74,.74,.74},text={.9,.9,.9},
     muted={.5,.5,.5},selected={1,1,1}}
-function U.set_style(style)U.colors=style=='onebit' and monochrome or default_colors end
+local high_contrast={background={0,0,0},panel={.04,.06,.12},
+    edge={.85,.87,.97},light={1,1,1},text={1,1,1},
+    muted={.78,.82,.88},selected={1,.92,.35}}
+local monochrome_contrast={background={0,0,0},panel={.04,.04,.04},
+    edge={.88,.88,.88},light={1,1,1},text={1,1,1},
+    muted={.78,.78,.78},selected={1,1,1}}
+function U.set_style(style,contrast)
+    U.colors=style=='onebit' and (contrast and monochrome_contrast or monochrome)
+        or (contrast and high_contrast or default_colors)
+end
 function U.contains(r,x,y)
     return x>=r.x and y>=r.y and x<r.x+r.w and y<r.y+r.h
 end

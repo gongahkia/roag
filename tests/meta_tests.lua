@@ -36,17 +36,45 @@ return function(test,equal)
         Scheduler.remove_for_actor(s,e.id)
         return e
     end
-    test('four validated achievements reward four functioning locked boon IDs',function()
-        assert(AchievementContent.validate() and #AchievementContent.order==4)
+    test('twenty-two achievements preserve four functioning boon unlocks',function()
+        assert(AchievementContent.validate() and #AchievementContent.order==22)
         assert(#BoonContent.order==53 and #Achievements.pool({})==49)
         local earned={}
         for _,id in ipairs(AchievementContent.order) do earned[id]=true end
         local pool=Achievements.pool(earned)
         assert(#pool==53 and Achievements.validate_pool(pool))
-        for _,id in ipairs(AchievementContent.order) do
+        for i=1,4 do
+            local id=AchievementContent.order[i]
             local reward=AchievementContent.get(id).reward
             assert(BoonContent.get(reward))
         end
+        for i=5,#AchievementContent.order do
+            assert(AchievementContent.get(AchievementContent.order[i]).reward==nil)
+        end
+    end)
+    test('new milestones award once and never alter the boon pool',function()
+        local s=Game.new_stage(3,{meta=Achievements.new_run(true,'local-run/badges')})
+        local emitted={}
+        local function emit(kind,fields) emitted[#emitted+1]={kind=kind,fields=fields} end
+        local before=#Achievements.pool(s.meta.earned)
+        local events={
+            {kind='EntityKilled',source_id=s.player_id,target_id=999},
+            {kind='CurrencyCollected',source_id=s.player_id,new_currency=49},
+            {kind='CurrencyCollected',source_id=s.player_id,new_currency=50},
+            {kind='LevelUp',target_id=s.player_id,new_level=5},
+            {kind='TerrainBroken',source_id=s.player_id},
+            {kind='StageEntered',stage_index=2},
+            {kind='FinalSanctumEntered'},
+        }
+        for _,event in ipairs(events) do Achievements.observe(s,event,emit) end
+        assert(#emitted==7)
+        for _,event in ipairs(emitted) do
+            assert(event.kind=='AchievementEarned' and
+                not event.fields.reward_boon_id)
+        end
+        assert(#Achievements.pool(s.meta.earned)==before)
+        for _,event in ipairs(events) do Achievements.observe(s,event,emit) end
+        assert(#emitted==7)
     end)
     test('eligible run freezes chest pool and fixture grants remove eligibility',function()
         local meta=Achievements.new_run(true,'local-run/1')
@@ -179,7 +207,11 @@ return function(test,equal)
         local id=AchievementContent.order[1]
         assert(run.state.meta.earned[id] and run.state.meta.pending[id])
         local award_events=0
-        for _,e in ipairs(run.events) do if e.kind=='AchievementEarned' then award_events=award_events+1 end end
+        for _,e in ipairs(run.events) do
+            if e.kind=='AchievementEarned' and e.achievement_id==id then
+                award_events=award_events+1
+            end
+        end
         assert(award_events==1)
         local disk=storage();local profiles=Profile.new(disk)
         assert(profiles:commit_awards(run.state.meta.pending))

@@ -179,9 +179,30 @@ function R.new(read,make_source)
         elapsed=0,voices={},music=nil,retiring_music=nil,
         scene_id=nil,ambient_id=nil,ambience=nil,retiring_ambience=nil,
         variant_counter=0,last_played={},status='absent',
-        paused=false,max_total_voices=24,played_count=0}, {__index=R})
+        paused=false,max_total_voices=24,played_count=0,
+        user_music=1,user_effects=1}, {__index=R})
     self:refresh()
     return self
+end
+function R:set_user_mix(music,effects)
+    assert(type(music)=='number' and music>=0 and music<=1 and
+        type(effects)=='number' and effects>=0 and effects<=1,
+        'invalid user audio mix')
+    self.user_music,self.user_effects=music,effects
+    for _,voice in ipairs(self.voices) do
+        voice.source:setVolume(voice.base_volume*effects)
+    end
+    for _,entry in pairs({music=self.music,old_music=self.retiring_music,
+            ambience=self.ambience,old_ambience=self.retiring_ambience}) do
+        if entry then
+            entry.target=entry.base_volume*music
+            if entry.duration==0 then entry.source:setVolume(entry.target)
+            elseif not entry.delay or entry.delay==0 then
+                entry.source:setVolume(entry.target*
+                    math.min(1,(entry.elapsed or 0)/entry.duration))
+            end
+        end
+    end
 end
 function R:refresh()
     local loaded,reason=candidate(self.read,self.make_source)
@@ -273,13 +294,15 @@ function R:emit(cue_id,position,listener)
     local asset_id=self:select_variant(binding)
     local okay,source=pcall(clone,self.templates[asset_id])
     if not okay then self.status='audio clone failed: '..tostring(source);return false,self.status end
-    source:setVolume(binding.volume*mix.volume*distance)
+    local base_volume=binding.volume*mix.volume*distance
+    source:setVolume(base_volume*self.user_effects)
     source:setPitch(binding.pitch)
     source:setLooping(binding.loop)
     local played,err=pcall(source.play,source)
     if not played then self.status='audio play failed: '..tostring(err);return false,self.status end
     self.last_played[cue_id]=self.elapsed
-    self.voices[#self.voices+1]={source=source,cue_id=cue_id,priority=binding.priority}
+    self.voices[#self.voices+1]={source=source,cue_id=cue_id,
+        priority=binding.priority,base_volume=base_volume}
     self.played_count=self.played_count+1
     return true,asset_id
 end
@@ -312,7 +335,8 @@ function R:set_scene(cue_id)
     local okay,source=pcall(clone,self.templates[asset_id])
     if not okay then self.status='music clone failed: '..tostring(source);return false,self.status end
     local mix=self.pack.mix[category_for(cue_id)] or {volume=1,mute=false}
-    local target=mix.mute and 0 or binding.volume*mix.volume
+    local base_volume=mix.mute and 0 or binding.volume*mix.volume
+    local target=base_volume*self.user_music
     local transition=binding.transition
     local duration=transition.mode=='instant' and 0 or transition.duration_ms/1000
     local fade_time=transition.mode=='fade' and duration/2 or duration
@@ -328,7 +352,8 @@ function R:set_scene(cue_id)
     if self.retiring_music and transition.mode=='instant' then
         self.retiring_music.source:stop();self.retiring_music=nil
     end
-    self.music={source=source,target=target,duration=fade_time,delay=delay,elapsed=0}
+    self.music={source=source,target=target,base_volume=base_volume,
+        duration=fade_time,delay=delay,elapsed=0}
     self.played_count=self.played_count+1
     return true,asset_id
 end
@@ -346,7 +371,8 @@ function R:set_ambience(cue_id)
     if not okay then self.status='ambience clone failed: '..tostring(source)
         return false,self.status end
     local mix=self.pack.mix[category_for(cue_id)] or {volume=1,mute=false}
-    local target=mix.mute and 0 or binding.volume*mix.volume
+    local base_volume=mix.mute and 0 or binding.volume*mix.volume
+    local target=base_volume*self.user_music
     local transition=binding.transition
     local duration=transition.mode=='instant' and 0 or transition.duration_ms/1000
     local fade_time=transition.mode=='fade' and duration/2 or duration
@@ -363,7 +389,8 @@ function R:set_ambience(cue_id)
     if self.retiring_ambience and duration==0 then
         self.retiring_ambience.source:stop();self.retiring_ambience=nil
     end
-    self.ambience={source=source,target=target,duration=fade_time,delay=delay,elapsed=0}
+    self.ambience={source=source,target=target,base_volume=base_volume,
+        duration=fade_time,delay=delay,elapsed=0}
     self.played_count=self.played_count+1
     return true,asset_id
 end
