@@ -16,6 +16,7 @@ local Targeting = require("src.targeting")
 local Terrain = require("src.terrain")
 local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
+local Squads = require('src.enemy_squads')
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -238,6 +239,7 @@ function Game.new(seed, map_id, options)
             end
             World.populate(state,append)
             Review.populate(state,active)
+            if options and options.stage then Squads.populate(state,active,Game.spawn_enemy) end
         end
         populate_active(false)
         if generated_pair then
@@ -500,7 +502,8 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 source.reversal_target_id=nil
             end
             local attempted=raw_damage+reversal_bonus
-            local after_defense = target.invulnerable and 0 or
+            local block_reason,protecting_id=Squads.block(state,target,source,direct_attack)
+            local after_defense = (target.invulnerable or block_reason) and 0 or
                 math.max(0, attempted - (target.defense or 0))
             local pickup_ward=false
             if target.id==state.player_id and after_defense>0
@@ -522,6 +525,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 reversal_bonus=reversal_bonus>0 and reversal_bonus or nil,
                 ward_absorbed=ward_absorbed,
                 pickup_ward=pickup_ward or nil,
+                block_reason=block_reason,protecting_id=protecting_id,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
                 source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
@@ -865,6 +869,28 @@ local function drain_effects(state, output)
                 source_faction=event.source_faction,
                 source_position=event.source_position,
             }
+            if event.kind=='Died' then
+                for i=#(state.enemy_snares or {}),1,-1 do
+                    if state.enemy_snares[i].source_id==event.target_id then
+                        table.remove(state.enemy_snares,i)
+                    end
+                end
+            elseif event.kind=='TileEntered' then
+                for i=#(state.enemy_snares or {}),1,-1 do
+                    local trap=state.enemy_snares[i]
+                    if trap.floor_id==event.floor_id and trap.x==event.x and trap.y==event.y
+                        and trap.source_id~=event.source_id then
+                        local victim=Game.entity(state,event.source_id)
+                        if victim and victim.hp and victim.hp>0 then
+                            table.remove(state.enemy_snares,i)
+                            victim.snare_delay=Squads.snare_delay
+                            emit(state,output,'EnemySnareTriggered',{floor_id=trap.floor_id,
+                                x=trap.x,y=trap.y,target_id=victim.id},trap.source_id,event.action_id)
+                            terrain_damage(state,output,trap.source_id,event.action_id,victim,1,'physical','enemy')
+                        end
+                    end
+                end
+            end
             Rewards.on_event(state, event, function(kind, fields, source_id)
                 emit(state, output, kind, fields, source_id, event.action_id)
             end)
@@ -947,6 +973,12 @@ end
 local function enemy_turn(state, item, output)
     local enemy = Game.entity(state, item.actor_id)
     if not enemy or enemy.hp <= 0 then return end
+    if enemy.snare_delay then
+        local delay=enemy.snare_delay;enemy.snare_delay=nil
+        Scheduler.enqueue(state,{kind='actor_ready',due=state.clock+delay,
+            actor_id=enemy.id,is_player=false})
+        return
+    end
     if enemy.skip_next_turn then
         enemy.skip_next_turn=nil
         emit(state,output,"SnareHeld",{floor_id=enemy.position.floor_id,
@@ -969,6 +1001,9 @@ local function enemy_turn(state, item, output)
     local action_id = state.next_action_id
     state.next_action_id = action_id + 1
     local position = enemy.position
+    if intent.shield_dx then
+        enemy.ai_memory.shield_dx,enemy.ai_memory.shield_dy=intent.shield_dx,intent.shield_dy
+    end
     if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then
         local decoy=state.class_special and state.class_special.decoy
@@ -998,7 +1033,7 @@ local function enemy_turn(state, item, output)
             source_id=enemy.id, floor_id=position.floor_id,
             source_x=position.x, source_y=position.y,
             ability_id=intent.ability_id, target_cells=cells, ranged=intent.ranged,
-            damage=enemy.damage+(intent.damage_bonus or 0), due=due,
+            damage=enemy.damage+(intent.damage_bonus or 0)+(Squads.rally_source(state,enemy) and 1 or 0), due=due,
             support=copy(intent.support),advance=copy(intent.advance),
             committed_time=state.clock,
         }
@@ -1007,6 +1042,7 @@ local function enemy_turn(state, item, output)
             windup_id=scheduled.id, due=due, ability_id=intent.ability_id,
             floor_id=position.floor_id, from_x=position.x, from_y=position.y,
             target_cells=cells,
+            support_kind=intent.support and intent.support.kind,
         }, enemy.id, action_id)
         return
     end
@@ -1066,7 +1102,8 @@ local function resolve_impact(state, item, output)
             for _,cell in ipairs(pending.target_cells) do
                 local target=occupant(state,cell.floor_id,cell.x,cell.y,
                     enemy.id,true)
-                if target and target.faction==enemy.faction then
+                if target and target.faction==enemy.faction and
+                    (not pending.support.target_id or target.id==pending.support.target_id) then
                     local amount=math.min(pending.support.power,
                         target.max_hp-target.hp)
                     if amount>0 then
@@ -1075,6 +1112,31 @@ local function resolve_impact(state, item, output)
                             amount=amount,floor_id=cell.floor_id,x=cell.x,y=cell.y},
                             enemy.id,pending.action_id)
                     end
+                end
+            end
+        elseif pending.support.kind=='ward' then
+            enemy.ai_memory.ward_ready=true
+            emit(state,output,'SquadWardRaised',{floor_id=enemy.position.floor_id,
+                x=enemy.position.x,y=enemy.position.y},enemy.id,pending.action_id)
+        elseif pending.support.kind=='snare' then
+            local count=0
+            for _,trap in ipairs(state.enemy_snares or {}) do
+                if trap.source_id==enemy.id then count=count+1 end
+            end
+            for _,cell in ipairs(pending.target_cells) do
+                local duplicate=false
+                for _,trap in ipairs(state.enemy_snares or {}) do
+                    if trap.floor_id==cell.floor_id and trap.x==cell.x and trap.y==cell.y then duplicate=true end
+                end
+                if count<Squads.snare_cap and not duplicate and
+                    Content.walkable(Content.map_for(state),cell.x,cell.y) and
+                    not occupant(state,cell.floor_id,cell.x,cell.y,nil,false) then
+                    state.enemy_snares=state.enemy_snares or {}
+                    state.enemy_snares[#state.enemy_snares+1]={floor_id=cell.floor_id,
+                        x=cell.x,y=cell.y,source_id=enemy.id}
+                    count=count+1
+                    emit(state,output,'EnemySnarePlaced',{floor_id=cell.floor_id,
+                        x=cell.x,y=cell.y},enemy.id,pending.action_id)
                 end
             end
         elseif pending.support.kind=="summon" then
@@ -1477,7 +1539,9 @@ function Game.submit(state, intent)
         emit(state,output,event_kind,fields,source_id,action_id)
     end)
     drain_effects(state,output)
-    Scheduler.enqueue(state, {kind="actor_ready", due=state.clock + preview.cost,
+    local snare_delay=player.snare_delay or 0;player.snare_delay=nil
+    action.cost=action.cost+snare_delay
+    Scheduler.enqueue(state, {kind="actor_ready", due=state.clock + preview.cost+snare_delay,
         actor_id=player.id, is_player=true})
     advance_to_player(state, output)
     Review.after_time(state,function(event_kind,fields,source_id)
@@ -1737,6 +1801,7 @@ function Game.restore(snapshot)
         "invalid player crit stats")
     assert(type(player.hp) == "number" and player.hp >= 0 and player.hp <= player.max_hp,
         "invalid player health")
+    Squads.validate(state,maps)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do
         assert(type(entity.id)=="number" and entity.id%1==0
@@ -1833,7 +1898,10 @@ function Game.restore(snapshot)
                     and Content.get_enemy(support.enemy_id)
                     and type(support.max_active)=="number"
                     and support.max_active%1==0 and support.max_active>=1
-                    and support.max_active<=3),"invalid pending support windup")
+                    and support.max_active<=3)
+                    or (support.kind=='ward' and entity.definition_id=='core:enemy/ward_weaver')
+                    or (support.kind=='snare' and entity.definition_id=='core:enemy/snare_scribe'),
+                    "invalid pending support windup")
             end
             local advance=entity.pending_attack.advance
             if advance then

@@ -21,6 +21,7 @@ local KenneyVisuals = require("src.kenney_visuals")
 local KenneyTerrain = require("src.kenney_terrain")
 local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
+local EnemySquads = require('src.enemy_squads')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -948,6 +949,12 @@ local function submit(intent)
                 notice = "The Hollow Regent falls"
             elseif event.kind == "Victory" then
                 notice = "VICTORY — the Hollow Regent is defeated"
+            elseif event.kind=='DamageBlocked' and event.source_id==state.player_id and event.block_reason then
+                notice=event.block_reason=='forcefield' and
+                    'Forcefield: reach the Ward Weaver or lure the guard out of range' or
+                    'Frontal shield: attack from the side/rear or interrupt the bearer'
+            elseif event.kind=='EnemySnareTriggered' and event.target_id==state.player_id then
+                notice='Snare: 1 damage and +40 recovery time'
             elseif event.kind=="VaultKeyCollected" then
                 notice="Vault key found — seek the barred side room"
             elseif event.kind=="VaultOpened" then
@@ -1563,6 +1570,11 @@ local function draw_enemies()
                 love.graphics.setColor(0.12,0.17,0.20)
                 love.graphics.print(Content.get_enemy(enemy.definition_id).name:sub(1,1),
                     x+12,y+8)
+            elseif enemy.ai_id=='squad' then
+                love.graphics.setColor(.68,.72,.94)
+                love.graphics.polygon('fill',x+16,y+2,x+29,y+17,x+16,y+28,x+3,y+17)
+                love.graphics.setColor(.08,.12,.14)
+                love.graphics.print(Content.get_enemy(enemy.definition_id).name:sub(1,1),x+12,y+8)
             elseif enemy.ai_id=="hollow_regent" then
                 love.graphics.setColor(0.59,0.31,0.76)
                 love.graphics.polygon("fill",x+16,y+1,x+29,y+12,
@@ -1605,6 +1617,64 @@ local function draw_enemies()
                         x+26*scale,y-2*scale,x+29*scale,y+5*scale)
                 end
             end
+            end
+        end
+    end
+end
+
+local function draw_squad_cues()
+    local function badge(name,x,y)
+        if not draw_visual(bound_visual('core:ui/squad_'..name..'_effect'),
+            x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95) then
+            love.graphics.setColor(.8,.92,1)
+            love.graphics.print(({ward='W',heal='+',shield='S',rally='!'})[name] or '*',x+TILE*.72,y)
+        end
+    end
+    for _,enemy in ipairs(state.entities) do
+        local p=enemy.position
+        if enemy.controller=='ai' and p.floor_id==state.active_floor_id and visible_at(p.x,p.y) then
+            local x,y=Camera.tile_top_left(camera,p.x,p.y)
+            local role=EnemySquads.roles[enemy.definition_id]
+            local leader=EnemySquads.ward_source(state,enemy) or EnemySquads.rally_source(state,enemy)
+            if leader and visible_at(leader.position.x,leader.position.y) then
+                local lp=leader.position
+                local steps=math.max(math.abs(lp.x-p.x),math.abs(lp.y-p.y))*4
+                love.graphics.setColor(.56,.86,1,.6)
+                for i=1,steps do
+                    local t=i/steps
+                    local tx,ty=p.x+(lp.x-p.x)*t,p.y+(lp.y-p.y)*t
+                    if visible_at(math.floor(tx+.5),math.floor(ty+.5)) then
+                        local sx,sy=Camera.tile_top_left(camera,tx,ty)
+                        love.graphics.rectangle('fill',sx+TILE*.5,sy+TILE*.5,2,2)
+                    end
+                end
+            end
+            if role=='bodyguard_brute' and EnemySquads.ward_source(state,enemy) then
+                love.graphics.setColor(.57,.83,1,.8)
+                love.graphics.circle('line',x+TILE/2,y+TILE/2,TILE*.46)
+                badge('ward',x,y)
+            elseif role=='ward_weaver' then badge('ward',x,y)
+            elseif role=='mend_acolyte' then badge('heal',x,y)
+            elseif role=='banner_captain' or EnemySquads.rally_source(state,enemy) then badge('rally',x,y)
+            elseif role=='shield_bearer' then
+                local m=enemy.ai_memory
+                local fx,fy=m.shield_dx or 0,m.shield_dy or 1
+                love.graphics.setColor(.65,.85,1,.95)
+                love.graphics.line(x+TILE*(.5+fx*.43-fy*.28),y+TILE*(.5+fy*.43+fx*.28),
+                    x+TILE*(.5+fx*.43+fy*.28),y+TILE*(.5+fy*.43-fx*.28))
+                badge('shield',x,y)
+            elseif role=='pin_archer' then
+                draw_visual(bound_visual('core:ui/weapon_bow_icon'),x+TILE*.7,y,TILE*.3,TILE*.3)
+            end
+        end
+    end
+    for _,trap in ipairs(state.enemy_snares or {}) do
+        if trap.floor_id==state.active_floor_id and visible_at(trap.x,trap.y) then
+            local x,y=Camera.tile_top_left(camera,trap.x,trap.y)
+            if not draw_visual(bound_visual('core:ui/squad_snare_effect'),
+                x+TILE*.2,y+TILE*.2,TILE*.6,TILE*.6,.9) then
+                love.graphics.setColor(1,.7,.35)
+                love.graphics.line(x+8,y+8,x+TILE-8,y+TILE-8,x+TILE-8,y+8,x+8,y+TILE-8)
             end
         end
     end
@@ -1880,7 +1950,8 @@ local function draw_history_event(event)
     if not event then return end
     if event.kind=="Moved" or event.kind=="Displaced" then return end
     if event.kind == "WindupStarted" then
-        draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true)
+        if event.support_kind then draw_cells(event.target_cells,.45,.88,.9,.7,true)
+        else draw_cells(event.target_cells, 1, 0.64, 0.18, 0.5, true) end
     elseif event.kind == "AttackPerformed" then
         draw_cells(event.target_cells, 1, 0.22, 0.20, 0.7, true)
         local cells=event.target_cells or {}
@@ -2312,12 +2383,14 @@ local function draw_world()
     end
     if not Playback.busy(playback) then
         for _, strike in ipairs(Game.pending_strikes(state)) do
-            draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true)
+            if strike.support then draw_cells(strike.target_cells,.45,.88,.9,.7,true)
+            else draw_cells(strike.target_cells, 0.95, 0.26, 0.31, 0.38, true) end
         end
     end
     draw_preview()
     draw_rewards()
     draw_enemies()
+    draw_squad_cues()
     if state.stage and state.stage.phase=="elite_active" then
         local elite=Game.entity(state,state.stage.elite_id)
         if elite and visible_at(elite.position.x,elite.position.y) then
@@ -2569,7 +2642,7 @@ local function draw_panel()
             local shown=false
             for _,cell in ipairs(strike.target_cells)do if visible_at(cell.x,cell.y)then shown=true;break end end
             if shown then
-                warning='INCOMING ATTACK'
+                warning=strike.support and 'SUPPORT CHANNEL' or 'INCOMING ATTACK'
                 detail=Content.ability_name(strike.ability_id)..' · '..math.max(0,strike.due-state.clock)..' time'
                 color={1,.44,.4};break
             end

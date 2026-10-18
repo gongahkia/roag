@@ -18,6 +18,27 @@ OUTPUT = ROOT/'docs/sprite-audit/enemy-review.html'
 SOURCE = ROOT/'docs/sprite-audit/enemy-combos.json'
 TEMPLATE = ROOT/'tools/enemy_review_template.html'
 CLIENT = ROOT/'tools/enemy_review_client.js'
+ACCEPTANCE = ROOT/'docs/sprite-audit/enemy-combo-acceptance.json'
+
+
+def accepted_archive():
+    """Preserve the exact page the user reviewed after its candidates go live."""
+    record = json.loads(ACCEPTANCE.read_text())
+    assert record['schema'] == 'roag-enemy-combo-acceptance/1'
+    for path, checksum in {**record['files'], **record['sources']}.items():
+        assert hashlib.sha256((ROOT/path).read_bytes()).hexdigest() == checksum, \
+            f'Accepted review archive/source changed: {path}'
+    feedback = ROOT/'docs/sprite-audit/enemy-combo-feedback.json'
+    assert hashlib.sha256(feedback.read_bytes()).hexdigest() == record['feedback_sha256']
+    subprocess.run(['node', '-e', """
+const fs=require('fs');
+const API=require('./tools/enemy_review_client.js');
+const html=fs.readFileSync('docs/sprite-audit/enemy-review.html','utf8');
+const data=JSON.parse(html.match(/<script id="enemy-data" type="application\\/json">([^<]+)<\\/script>/)[1]);
+const state=API.checked(data,JSON.parse(fs.readFileSync('docs/sprite-audit/enemy-combo-feedback.json','utf8')));
+if(API.progress(state).approved!==30)throw Error('Incomplete approval');
+"""], cwd=ROOT, check=True)
+    print('PASS accepted review archive and 30/30 approved user decisions preserved; live catalogue is separate')
 
 
 def review_data():
@@ -121,6 +142,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check',action='store_true')
     args = parser.parse_args()
+    if ACCEPTANCE.is_file():
+        accepted_archive()
+        return
     rendered = render().encode('utf-8')
     if args.check:
         if not OUTPUT.is_file() or OUTPUT.read_bytes() != rendered:

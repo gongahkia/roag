@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "f55c179042aea261",
+  "mapping_checksum": "1202bc99da0ba099",
   "packs": {
     "kenney": {
-      "actor_count": 34,
-      "actor_silhouettes": 26,
+      "actor_count": 44,
+      "actor_silhouettes": 36,
       "bindings": [
         {
           "height": 8,
@@ -1275,6 +1275,60 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/banner_captain",
+          "index": 98,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/attack",
+          "index": 98,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/hurt",
+          "index": 98,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower",
+          "index": 97,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/attack",
+          "index": 97,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/hurt",
+          "index": 97,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/bastion_bulwark",
           "index": 30,
@@ -1300,6 +1354,33 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute",
+          "index": 110,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/attack",
+          "index": 110,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/hurt",
+          "index": 110,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 8,
@@ -1626,6 +1707,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte",
+          "index": 86,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/attack",
+          "index": 86,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/hurt",
+          "index": 86,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/mire_binder",
           "index": 21,
@@ -1761,6 +1869,33 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/pin_archer",
+          "index": 87,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/attack",
+          "index": 87,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/hurt",
+          "index": 87,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/prism_curator",
           "index": 10,
@@ -1813,6 +1948,114 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing",
+          "index": 120,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/attack",
+          "index": 120,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/hurt",
+          "index": 120,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer",
+          "index": 96,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/attack",
+          "index": 96,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/hurt",
+          "index": 96,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp",
+          "index": 108,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/attack",
+          "index": 108,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/hurt",
+          "index": 108,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe",
+          "index": 124,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/attack",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/hurt",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 8,
@@ -1921,6 +2164,33 @@
           "pose_alias": true,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver",
+          "index": 84,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/attack",
+          "index": 84,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/hurt",
+          "index": 84,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 8,
@@ -2553,6 +2823,51 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:ui/squad_heal_effect",
+          "index": 535,
+          "motif": "squad_heal_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_rally_effect",
+          "index": 527,
+          "motif": "squad_rally_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_shield_effect",
+          "index": 239,
+          "motif": "squad_shield_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_snare_effect",
+          "index": 715,
+          "motif": "squad_snare_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_ward_effect",
+          "index": 636,
+          "motif": "squad_ward_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:ui/weapon_bow_icon",
           "index": 71,
@@ -2666,7 +2981,7 @@
           "index": 22
         }
       ],
-      "static_pose_aliases": 68,
+      "static_pose_aliases": 88,
       "usage": {
         "caves": {
           "145": [
@@ -3085,6 +3400,9 @@
           "236": [
             "core:boon/guardians_vow/icon + /detail"
           ],
+          "239": [
+            "core:ui/squad_shield_effect"
+          ],
           "262": [
             "core:boon/stonewake/icon + /detail"
           ],
@@ -3127,11 +3445,17 @@
           "523": [
             "core:terrain/resonant_crystal"
           ],
+          "527": [
+            "core:ui/squad_rally_effect"
+          ],
           "531": [
             "core:boon/shared_agony/icon + /detail"
           ],
           "532": [
             "core:boon/pain_dividend/icon + /detail"
+          ],
+          "535": [
+            "core:ui/squad_heal_effect"
           ],
           "563": [
             "core:boon/crescent_reach/icon + /detail"
@@ -3176,6 +3500,9 @@
           "629": [
             "core:boon/temporal_echo/icon + /detail"
           ],
+          "636": [
+            "core:ui/squad_ward_effect"
+          ],
           "669": [
             "core:boon/alchemical_flip/icon + /detail"
           ],
@@ -3193,6 +3520,9 @@
           ],
           "709": [
             "core:boon/expanding_sigil/icon + /detail"
+          ],
+          "715": [
+            "core:ui/squad_snare_effect"
           ],
           "716": [
             "core:boon/reprisal_nova/icon + /detail"
@@ -3240,11 +3570,23 @@
           ]
         },
         "tiny": {
+          "108": [
+            "core:enemy/siege_wisp"
+          ],
+          "110": [
+            "core:enemy/bodyguard_brute"
+          ],
           "111": [
             "core:actor/hookrunner"
           ],
           "112": [
             "core:actor/trapper"
+          ],
+          "120": [
+            "core:enemy/rushwing"
+          ],
+          "124": [
+            "core:enemy/snare_scribe"
           ],
           "45": [
             "core:object/review_gate_tiny"
@@ -3254,6 +3596,24 @@
           ],
           "55": [
             "core:object/review_plate_tiny_down"
+          ],
+          "84": [
+            "core:enemy/ward_weaver"
+          ],
+          "86": [
+            "core:enemy/mend_acolyte"
+          ],
+          "87": [
+            "core:enemy/pin_archer"
+          ],
+          "96": [
+            "core:enemy/shield_bearer"
+          ],
+          "97": [
+            "core:enemy/banner_follower"
+          ],
+          "98": [
+            "core:enemy/banner_captain"
           ]
         }
       },
@@ -3261,8 +3621,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 34,
-      "actor_silhouettes": 34,
+      "actor_count": 44,
+      "actor_silhouettes": 44,
       "bindings": [
         {
           "height": 16,
@@ -4535,6 +4895,60 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/banner_captain",
+          "index": 172,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/attack",
+          "index": 172,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_captain/hurt",
+          "index": 172,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower",
+          "index": 174,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/attack",
+          "index": 174,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/banner_follower/hurt",
+          "index": 174,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/bastion_bulwark",
           "index": 274,
           "motif": "",
@@ -4555,6 +4969,33 @@
           "height": 16,
           "id": "core:enemy/bastion_bulwark/hurt",
           "index": 274,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute",
+          "index": 270,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/attack",
+          "index": 270,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/bodyguard_brute/hurt",
+          "index": 270,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -4886,6 +5327,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/mend_acolyte",
+          "index": 123,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/attack",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/mend_acolyte/hurt",
+          "index": 123,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/mire_binder",
           "index": 420,
           "motif": "",
@@ -5021,6 +5489,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/pin_archer",
+          "index": 78,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/attack",
+          "index": 78,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/pin_archer/hurt",
+          "index": 78,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/prism_curator",
           "index": 227,
           "motif": "",
@@ -5068,6 +5563,114 @@
           "height": 16,
           "id": "core:enemy/ruin_skitter/hurt",
           "index": 459,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing",
+          "index": 415,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/attack",
+          "index": 415,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/rushwing/hurt",
+          "index": 415,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer",
+          "index": 126,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/attack",
+          "index": 126,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/shield_bearer/hurt",
+          "index": 126,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp",
+          "index": 321,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/attack",
+          "index": 321,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/siege_wisp/hurt",
+          "index": 321,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe",
+          "index": 221,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/attack",
+          "index": 221,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/snare_scribe/hurt",
+          "index": 221,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -5176,6 +5779,33 @@
           "height": 16,
           "id": "core:enemy/vault_lurker/hurt",
           "index": 31,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver",
+          "index": 319,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/attack",
+          "index": 319,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/ward_weaver/hurt",
+          "index": 319,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -5813,6 +6443,51 @@
         },
         {
           "height": 16,
+          "id": "core:ui/squad_heal_effect",
+          "index": 535,
+          "motif": "squad_heal_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_rally_effect",
+          "index": 527,
+          "motif": "squad_rally_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_shield_effect",
+          "index": 239,
+          "motif": "squad_shield_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_snare_effect",
+          "index": 715,
+          "motif": "squad_snare_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/squad_ward_effect",
+          "index": 636,
+          "motif": "squad_ward_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/weapon_bow_icon",
           "index": 328,
           "motif": "",
@@ -5868,7 +6543,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 68,
+      "static_pose_aliases": 88,
       "usage": {
         "onebit": {
           "1010": [
@@ -5898,6 +6573,12 @@
           "121": [
             "core:terrain/barricade"
           ],
+          "123": [
+            "core:enemy/mend_acolyte"
+          ],
+          "126": [
+            "core:enemy/shield_bearer"
+          ],
           "128": [
             "core:enemy/canal_lockmaster"
           ],
@@ -5913,6 +6594,12 @@
           "171": [
             "core:enemy/thornspitter"
           ],
+          "172": [
+            "core:enemy/banner_captain"
+          ],
+          "174": [
+            "core:enemy/banner_follower"
+          ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
           ],
@@ -5924,6 +6611,9 @@
           ],
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
+          ],
+          "221": [
+            "core:enemy/snare_scribe"
           ],
           "226": [
             "core:actor/berserker"
@@ -5944,6 +6634,9 @@
           "238": [
             "core:drop/food"
           ],
+          "239": [
+            "core:ui/squad_shield_effect"
+          ],
           "245": [
             "core:object/review_rail_top_left",
             "core:object/review_rail_top_right"
@@ -5963,6 +6656,9 @@
           ],
           "269": [
             "core:enemy/hollow_regent"
+          ],
+          "270": [
+            "core:enemy/bodyguard_brute"
           ],
           "271": [
             "core:enemy/crystal_bombardier"
@@ -6006,8 +6702,14 @@
           "31": [
             "core:enemy/vault_lurker"
           ],
+          "319": [
+            "core:enemy/ward_weaver"
+          ],
           "32": [
             "core:enemy/cinder_bellkeeper"
+          ],
+          "321": [
+            "core:enemy/siege_wisp"
           ],
           "324": [
             "core:actor/sentinel"
@@ -6062,6 +6764,9 @@
           ],
           "410": [
             "core:enemy/glass_charger"
+          ],
+          "415": [
+            "core:enemy/rushwing"
           ],
           "418": [
             "core:enemy/spore_herald"
@@ -6126,6 +6831,9 @@
           "524": [
             "core:object/review_ore_depleted"
           ],
+          "527": [
+            "core:ui/squad_rally_effect"
+          ],
           "530": [
             "core:ui/hp_icon"
           ],
@@ -6134,6 +6842,9 @@
           ],
           "532": [
             "core:boon/pain_dividend/icon + /detail"
+          ],
+          "535": [
+            "core:ui/squad_heal_effect"
           ],
           "54": [
             "core:object/review_mushroom_2"
@@ -6217,6 +6928,9 @@
           "629": [
             "core:boon/temporal_echo/icon + /detail"
           ],
+          "636": [
+            "core:ui/squad_ward_effect"
+          ],
           "640": [
             "core:object/review_pillar_bottom"
           ],
@@ -6242,6 +6956,9 @@
           "709": [
             "core:boon/expanding_sigil/icon + /detail"
           ],
+          "715": [
+            "core:ui/squad_snare_effect"
+          ],
           "716": [
             "core:boon/reprisal_nova/icon + /detail"
           ],
@@ -6265,6 +6982,9 @@
           ],
           "771": [
             "core:boon/far_witness/icon + /detail"
+          ],
+          "78": [
+            "core:enemy/pin_archer"
           ],
           "79": [
             "core:actor/shade"
@@ -6320,14 +7040,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 56,
+      "kenney": 61,
       "nonempty": 1077,
-      "onebit": 132,
+      "onebit": 147,
       "sheet": "onebit",
-      "union": 132,
-      "unused_kenney": 1021,
-      "unused_onebit": 945,
-      "unused_union": 945
+      "union": 147,
+      "unused_kenney": 1016,
+      "unused_onebit": 930,
+      "unused_union": 930
     },
     {
       "empty": 63,
@@ -6344,14 +7064,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 5,
+      "kenney": 15,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 5,
-      "unused_kenney": 127,
+      "union": 15,
+      "unused_kenney": 117,
       "unused_onebit": 132,
-      "unused_union": 127
+      "unused_union": 117
     }
   ],
   "requirements": [
@@ -6496,9 +7216,18 @@
     "core:enemy/ash_marshal",
     "core:enemy/ash_marshal/attack",
     "core:enemy/ash_marshal/hurt",
+    "core:enemy/banner_captain",
+    "core:enemy/banner_captain/attack",
+    "core:enemy/banner_captain/hurt",
+    "core:enemy/banner_follower",
+    "core:enemy/banner_follower/attack",
+    "core:enemy/banner_follower/hurt",
     "core:enemy/bastion_bulwark",
     "core:enemy/bastion_bulwark/attack",
     "core:enemy/bastion_bulwark/hurt",
+    "core:enemy/bodyguard_brute",
+    "core:enemy/bodyguard_brute/attack",
+    "core:enemy/bodyguard_brute/hurt",
     "core:enemy/canal_lancer",
     "core:enemy/canal_lancer/attack",
     "core:enemy/canal_lancer/hurt",
@@ -6535,6 +7264,9 @@
     "core:enemy/index_keeper",
     "core:enemy/index_keeper/attack",
     "core:enemy/index_keeper/hurt",
+    "core:enemy/mend_acolyte",
+    "core:enemy/mend_acolyte/attack",
+    "core:enemy/mend_acolyte/hurt",
     "core:enemy/mire_binder",
     "core:enemy/mire_binder/attack",
     "core:enemy/mire_binder/hurt",
@@ -6550,12 +7282,27 @@
     "core:enemy/pack_chorister",
     "core:enemy/pack_chorister/attack",
     "core:enemy/pack_chorister/hurt",
+    "core:enemy/pin_archer",
+    "core:enemy/pin_archer/attack",
+    "core:enemy/pin_archer/hurt",
     "core:enemy/prism_curator",
     "core:enemy/prism_curator/attack",
     "core:enemy/prism_curator/hurt",
     "core:enemy/ruin_skitter",
     "core:enemy/ruin_skitter/attack",
     "core:enemy/ruin_skitter/hurt",
+    "core:enemy/rushwing",
+    "core:enemy/rushwing/attack",
+    "core:enemy/rushwing/hurt",
+    "core:enemy/shield_bearer",
+    "core:enemy/shield_bearer/attack",
+    "core:enemy/shield_bearer/hurt",
+    "core:enemy/siege_wisp",
+    "core:enemy/siege_wisp/attack",
+    "core:enemy/siege_wisp/hurt",
+    "core:enemy/snare_scribe",
+    "core:enemy/snare_scribe/attack",
+    "core:enemy/snare_scribe/hurt",
     "core:enemy/spore_herald",
     "core:enemy/spore_herald/attack",
     "core:enemy/spore_herald/hurt",
@@ -6568,6 +7315,9 @@
     "core:enemy/vault_lurker",
     "core:enemy/vault_lurker/attack",
     "core:enemy/vault_lurker/hurt",
+    "core:enemy/ward_weaver",
+    "core:enemy/ward_weaver/attack",
+    "core:enemy/ward_weaver/hurt",
     "core:object/chest_open",
     "core:object/door_closed",
     "core:object/door_open",
@@ -6638,6 +7388,11 @@
     "core:ui/currency_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
+    "core:ui/squad_heal_effect",
+    "core:ui/squad_rally_effect",
+    "core:ui/squad_shield_effect",
+    "core:ui/squad_snare_effect",
+    "core:ui/squad_ward_effect",
     "core:ui/weapon_bow_icon",
     "core:ui/weapon_dagger_icon",
     "core:ui/weapon_hook_icon",

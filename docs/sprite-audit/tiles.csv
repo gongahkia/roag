@@ -759,7 +759,7 @@ onebit,74,400,16,83,,
 onebit,75,416,16,73,,core:enemy/cinder_mender
 onebit,76,432,16,68,,core:enemy/index_keeper
 onebit,77,448,16,68,,core:actor/trapper
-onebit,78,464,16,66,,
+onebit,78,464,16,66,,core:enemy/pin_archer
 onebit,79,480,16,77,,core:actor/shade
 onebit,80,496,16,88,,core:actor/hookrunner
 onebit,81,512,16,78,,
@@ -804,10 +804,10 @@ onebit,119,336,32,29,,
 onebit,120,352,32,111,,
 onebit,121,368,32,162,core:terrain/barricade,core:terrain/barricade
 onebit,122,384,32,86,,
-onebit,123,400,32,88,,
+onebit,123,400,32,88,,core:enemy/mend_acolyte
 onebit,124,416,32,90,,
 onebit,125,432,32,88,,
-onebit,126,448,32,78,,
+onebit,126,448,32,78,,core:enemy/shield_bearer
 onebit,127,464,32,98,,
 onebit,128,480,32,84,,core:enemy/canal_lockmaster
 onebit,129,496,32,79,,
@@ -853,9 +853,9 @@ onebit,168,336,48,63,,
 onebit,169,352,48,111,,composite terrain material: frame
 onebit,170,368,48,136,,
 onebit,171,384,48,80,,core:enemy/thornspitter
-onebit,172,400,48,76,,
+onebit,172,400,48,76,,core:enemy/banner_captain
 onebit,173,416,48,82,,
-onebit,174,432,48,82,,
+onebit,174,432,48,82,,core:enemy/banner_follower
 onebit,175,448,48,70,,
 onebit,176,464,48,82,,
 onebit,177,480,48,54,,
@@ -902,7 +902,7 @@ onebit,217,336,64,62,,
 onebit,218,352,64,22,,
 onebit,219,368,64,25,,
 onebit,220,384,64,83,,
-onebit,221,400,64,76,,
+onebit,221,400,64,76,,core:enemy/snare_scribe
 onebit,222,416,64,72,,
 onebit,223,432,64,74,,
 onebit,224,448,64,71,,
@@ -920,7 +920,7 @@ onebit,235,624,64,72,,
 onebit,236,640,64,106,core:boon/guardians_vow/icon + /detail,core:boon/guardians_vow/icon + /detail
 onebit,237,656,64,58,,
 onebit,238,672,64,79,,core:drop/food
-onebit,239,688,64,78,,
+onebit,239,688,64,78,core:ui/squad_shield_effect,core:ui/squad_shield_effect
 onebit,240,704,64,58,,
 onebit,241,720,64,75,,
 onebit,242,736,64,84,,
@@ -951,7 +951,7 @@ onebit,266,336,80,60,,
 onebit,267,352,80,66,core:terrain/obscuring_mist,core:terrain/obscuring_mist
 onebit,268,368,80,72,core:terrain/sticky_bog,composite terrain material: water; core:terrain/sticky_bog
 onebit,269,384,80,82,,core:enemy/hollow_regent
-onebit,270,400,80,94,,
+onebit,270,400,80,94,,core:enemy/bodyguard_brute
 onebit,271,416,80,70,,core:enemy/crystal_bombardier
 onebit,272,432,80,86,,core:enemy/thorn_warden
 onebit,273,448,80,99,,core:enemy/ember_crucible
@@ -1000,9 +1000,9 @@ onebit,315,336,96,61,,
 onebit,316,352,96,86,,
 onebit,317,368,96,60,,
 onebit,318,384,96,66,,
-onebit,319,400,96,78,,
+onebit,319,400,96,78,,core:enemy/ward_weaver
 onebit,320,416,96,82,,
-onebit,321,432,96,88,,
+onebit,321,432,96,88,,core:enemy/siege_wisp
 onebit,322,448,96,98,,
 onebit,323,464,96,76,,
 onebit,324,480,96,116,,core:actor/sentinel
@@ -1096,7 +1096,7 @@ onebit,411,304,128,72,,
 onebit,412,320,128,72,,
 onebit,413,336,128,70,,
 onebit,414,352,128,80,,
-onebit,415,368,128,59,,
+onebit,415,368,128,59,,core:enemy/rushwing
 onebit,416,384,128,66,,
 onebit,417,400,128,96,,
 onebit,418,416,128,68,,core:enemy/spore_herald
@@ -1208,7 +1208,7 @@ onebit,523,528,160,51,core:terrain/resonant_crystal,core:terrain/resonant_crysta
 onebit,524,544,160,56,,core:object/review_ore_depleted
 onebit,525,560,160,64,,
 onebit,526,576,160,28,,
-onebit,527,592,160,65,,
+onebit,527,592,160,65,core:ui/squad_rally_effect,core:ui/squad_rally_effect
 onebit,528,608,160,42,,
 onebit,529,624,160,52,,
 onebit,530,640,160,56,,core:ui/hp_icon
@@ -1216,7 +1216,7 @@ onebit,531,656,160,71,core:boon/shared_agony/icon + /detail,core:boon/shared_ago
 onebit,532,672,160,86,core:boon/pain_dividend/icon + /detail,core:boon/pain_dividend/icon + /detail
 onebit,533,688,160,68,,
 onebit,534,704,160,82,,
-onebit,535,720,160,82,,
+onebit,535,720,160,82,core:ui/squad_heal_effect,core:ui/squad_heal_effect
 onebit,536,736,160,82,,
 onebit,537,752,160,82,,
 onebit,538,768,160,176,,
@@ -1317,7 +1317,7 @@ onebit,632,704,192,76,,
 onebit,633,720,192,76,,
 onebit,634,736,192,76,,
 onebit,635,752,192,76,,
-onebit,636,768,192,172,,
+onebit,636,768,192,172,core:ui/squad_ward_effect,core:ui/squad_ward_effect
 onebit,637,0,208,107,,
 onebit,638,16,208,85,,
 onebit,639,32,208,83,,
@@ -1396,7 +1396,7 @@ onebit,711,400,224,24,,
 onebit,712,416,224,48,,
 onebit,713,432,224,52,,
 onebit,714,448,224,24,,
-onebit,715,464,224,40,,
+onebit,715,464,224,40,core:ui/squad_snare_effect,core:ui/squad_snare_effect
 onebit,716,480,224,44,core:boon/reprisal_nova/icon + /detail,core:boon/reprisal_nova/icon + /detail
 onebit,717,496,224,36,core:boon/mist_veil/icon + /detail,core:boon/mist_veil/icon + /detail
 onebit,718,512,224,38,,
@@ -3610,10 +3610,10 @@ tiny,80,136,102,226,,
 tiny,81,153,102,248,,
 tiny,82,170,102,200,,
 tiny,83,187,102,248,,
-tiny,84,0,119,215,,
+tiny,84,0,119,215,core:enemy/ward_weaver,
 tiny,85,17,119,194,,
-tiny,86,34,119,194,,
-tiny,87,51,119,216,,
+tiny,86,34,119,194,core:enemy/mend_acolyte,
+tiny,87,51,119,216,core:enemy/pin_archer,
 tiny,88,68,119,199,,
 tiny,89,85,119,222,,
 tiny,90,102,119,222,,
@@ -3622,9 +3622,9 @@ tiny,92,136,119,254,,
 tiny,93,153,119,218,,
 tiny,94,170,119,248,,
 tiny,95,187,119,218,,
-tiny,96,0,136,186,,
-tiny,97,17,136,195,,
-tiny,98,34,136,194,,
+tiny,96,0,136,186,core:enemy/shield_bearer,
+tiny,97,17,136,195,core:enemy/banner_follower,
+tiny,98,34,136,194,core:enemy/banner_captain,
 tiny,99,51,136,204,,
 tiny,100,68,136,203,,
 tiny,101,85,136,96,,
@@ -3634,9 +3634,9 @@ tiny,104,136,136,96,,
 tiny,105,153,136,109,,
 tiny,106,170,136,114,,
 tiny,107,187,136,124,,
-tiny,108,0,153,134,,
+tiny,108,0,153,134,core:enemy/siege_wisp,
 tiny,109,17,153,216,,
-tiny,110,34,153,242,,
+tiny,110,34,153,242,core:enemy/bodyguard_brute,
 tiny,111,51,153,215,core:actor/hookrunner,
 tiny,112,68,153,199,core:actor/trapper,
 tiny,113,85,153,110,,
@@ -3646,11 +3646,11 @@ tiny,116,136,153,110,,
 tiny,117,153,153,142,,
 tiny,118,170,153,190,,
 tiny,119,187,153,141,,
-tiny,120,0,170,164,,
+tiny,120,0,170,164,core:enemy/rushwing,
 tiny,121,17,170,202,,
 tiny,122,34,170,230,,
 tiny,123,51,170,192,,
-tiny,124,68,170,192,,
+tiny,124,68,170,192,core:enemy/snare_scribe,
 tiny,125,85,170,86,,
 tiny,126,102,170,86,,
 tiny,127,119,170,86,,

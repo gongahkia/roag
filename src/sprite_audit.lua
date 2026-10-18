@@ -5,6 +5,7 @@ local O=require('src.onebit_visuals')
 local S=require('src.kenney_symbols')
 local T=require('src.kenney_terrain')
 local Slots=require('src.visual_slots')
+local Squads=require('src.enemy_squads')
 local Checksum=require('src.studio_atlas').checksum
 local A={}
 local function array()return setmetatable({},{audit_array=true})end
@@ -78,7 +79,9 @@ function A.collect()
             p.actor_count=p.actor_count+1;p.static_pose_aliases=p.static_pose_aliases+2
         end
         if name=='kenney' then
-            for _,id in ipairs({'core:actor/hookrunner','core:actor/trapper'}) do
+            local extra={'core:actor/hookrunner','core:actor/trapper'}
+            for _,id in ipairs(keys(K.squad_actors)) do extra[#extra+1]=id end
+            for _,id in ipairs(extra) do
                 local h=assert(resolver:resolve(id))
                 use(h.approved_sheet,h.tile_index,id)
                 p.actor_count=p.actor_count+1
@@ -100,6 +103,7 @@ function A.collect()
                 h.symbol_index or h.tile_index,id..'/icon + /detail')
         end
         for _,id in ipairs(keys(S.terrain))do use('onebit',S.terrain[id][1],id)end
+        for _,cue in ipairs(keys(Squads.cues)) do use('onebit',Squads.cues[cue],'core:ui/'..cue) end
         if name=='kenney'then
             for _,id in ipairs(keys(Slots.bindings))do
                 if id:match('^core:object/review_') then

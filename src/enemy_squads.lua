@@ -119,9 +119,9 @@ function S.block(state,target,source,direct)
     end
 end
 
--- Entire squad must fit an open 5x5 patch inside a non-start/non-elite room.
--- The access flood treats guards as walls and still reaches a side of the
--- caster. This rejects chokepoints rather than promising reaction time.
+-- Entire squad fits an open 3x3 patch near a non-start/non-elite marker.
+-- Guards occupy opposite bottom corners, leaving both sides and the center
+-- approach open. No terrain/cover is removed to force a formation to fit.
 function S.plan(state,map)
     local pool=S.biomes[(map.biome_id or ''):match('/([^/]+)$')]
     if not pool then return nil end
@@ -137,6 +137,7 @@ function S.plan(state,map)
     end
     for _,stair in ipairs(map.placements.stairs or {}) do blocked[key(stair.x,stair.y)]=true end
     for _,p in ipairs(map.placements.chests or {}) do blocked[key(p.x,p.y)]=true end
+    if map.elite then blocked[key(map.elite.x,map.elite.y)]=true end
     local offsets={{0,0},{-1,1},{1,1},{-1,0},{1,0},{0,1}}
     for _,room in ipairs(map.rooms) do
         if room.role~='start' and room.role~='elite' then
@@ -146,8 +147,9 @@ function S.plan(state,map)
                 for oy=-2,2 do for ox=-2,2 do
                     local cx,cy=marker.x+ox,marker.y+oy
                     local fits=S.distance({x=cx,y=cy},{x=map.start_x,y=map.start_y})>=10
-                    for yy=cy-2,cy+2 do for xx=cx-2,cx+2 do
-                        if not map.rows[yy] or map.rows[yy]:sub(xx,xx)~='.' or
+                    for yy=cy-1,cy+1 do for xx=cx-1,cx+1 do
+                        local tile=map.rows[yy] and Terrain.definitions[map.rows[yy]:sub(xx,xx)]
+                        if not tile or not tile.walkable or
                             blocked[key(xx,yy)] then fits=false end
                     end end
                     if fits then

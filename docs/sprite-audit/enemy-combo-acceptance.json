@@ -1,0 +1,20 @@
+{
+  "schema": "roag-enemy-combo-acceptance/1",
+  "approved_at": "2026-10-18T06:55:45.336Z",
+  "feedback_sha256": "c7926800d7164bc3b4c2d6ba911f49314ae7adf0327335d870734b78377a74b3",
+  "proposal_fingerprint": "f99cb126f2a59a65fc5e524008f3cc8537ed36edd87dea8136cff10a9f902a08",
+  "review_mapping_checksum": "f55c179042aea261",
+  "files": {
+    "docs/sprite-audit/enemy-review.html": "202043fa1f0a072e167d705f2a1b025221bd6c99a7a9cef9fc6cbc5839bde805",
+    "docs/sprite-audit/enemy-combos.json": "99479d95c62a7d5bb1ddb104b6eb022383ec880b65b2f7b9ff0314e60c200355",
+    "tools/enemy_review_client.js": "95b4cea77b13a434c13b1b45faf5b50c5096dd1689ae22a58c4e8d475865c85f",
+    "tools/enemy_review_template.html": "957ef8a05d513fb8df0f36d1d98fad45f3e946dca25b68b7b0c8d2499a003598"
+  },
+  "sources": {
+    "assets/kenney/caves-dungeons/terrain.png": "3abd8d294c523fe78078e2123146a2b9d2c0f2dd3cfbbd60dec8f508c3fe8c2c",
+    "assets/kenney/micro-roguelike/tiles.png": "a3ef37b07dfee7367f17513d0d3ff1256e2cc208af76bd094666b61db69d3812",
+    "assets/kenney/1-bit-pack/symbols.png": "0d9abf9b812a441e1673bc166d61abb6236c0bc46b3775700bd4d4364ba170e0",
+    "assets/kenney/approved/roguelike-rpg.png": "808c8d734480bc949b284f3bcc252e87e1ee53b24178791a6838cce6a319c439",
+    "assets/kenney/approved/tiny-dungeon.png": "5653222ac495d89e942f9b636300759b3f38e85b26e9b888676f2e9ab834095a"
+  }
+}

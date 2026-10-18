@@ -3,6 +3,7 @@ local Biomes=require('src.biomes')
 local Boons=require('src.boon_content')
 local Content=require('src.content')
 local Classes=require('src.classes')
+local Squads=require('src.enemy_squads')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
 local function slug(id) return id:match('/([^/]+)$') end
@@ -24,6 +25,7 @@ end
 for _,id in ipairs({'bramble_bed','sticky_bog','glazed_ice','barricade',
     'obscuring_mist','resonant_crystal'})do add('core:terrain/'..id)end
 add('core:ui/burning_effect');add('core:ui/block_effect')
+for name in pairs(Squads.cues) do add('core:ui/'..name) end
 for _,id in ipairs({'attack_center_effect','attack_impact_effect',
     'weapon_sword_icon','weapon_bow_icon','weapon_spell_icon',
     'weapon_dagger_icon','weapon_hook_icon'}) do add('core:ui/'..id) end
@@ -67,6 +69,7 @@ for _,biome_id in ipairs(Biomes.order) do
         end
     end
 end
+for id in pairs(Squads.roles) do enemy_ids[id]=true end
 for id in pairs(enemy_ids) do
     assert(Content.get_enemy(id),'unknown visual enemy slot: '..id)
     add(id);add(id..'/attack');add(id..'/hurt')

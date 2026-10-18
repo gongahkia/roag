@@ -1,6 +1,7 @@
 -- Kenney 1-Bit Pack 1.2, CC0. Explicit semantic bindings to untouched native
 -- 16px art; packed stride is 16, not the alternative spaced sheet's 17.
 local Atlas=require('src.studio_atlas')
+local Squads=require('src.enemy_squads')
 local S={path='assets/kenney/1-bit-pack/symbols.png',width=784,height=352,tile=16}
 S.checksum='3fc46971ed866cba'
 local ink={.90,.89,.82}
@@ -110,6 +111,9 @@ function S.new(read,make_texture,make_quad,options)
         handles[id..'/detail']=handles[id..'/icon']
     end
     for id,definition in pairs(S.terrain)do handles[id]=handle(definition,true)end
+    for name,index in pairs(Squads.cues) do
+        handles['core:ui/'..name]=handle({index,name,arcane})
+    end
     return {texture=image,handles=handles,signature=S.checksum..':semantic-1'}
 end
 return S

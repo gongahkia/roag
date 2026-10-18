@@ -67,6 +67,7 @@ function A.choose(state,e,player,h)
         if wounded then return wind('acolyte_mend',{cell(wounded.position)},
             {support={kind='heal',power=2,target_id=wounded.id}}) end
         if distance<=2 then return retreat() or tap('acolyte_tap') end
+        if distance>5 then return close() end
         return {kind='wait'}
     elseif role=='rushwing' or role=='banner_follower' then
         if distance==1 then return wind(role=='rushwing' and 'rushwing_bite' or 'follower_strike',
@@ -126,16 +127,17 @@ function A.choose(state,e,player,h)
         if (dx==0 or dy==0) and distance>=2 and line then
             local sx,sy=dx==0 and 0 or dx/math.abs(dx),dy==0 and 0 or dy/math.abs(dy)
             local cells={}
+            local blocked=false
             for i=1,distance do
                 local x,y=pos.x+sx*i,pos.y+sy*i
                 for _,other in ipairs(state.entities) do
                     if other.id~=e.id and other.faction==e.faction and other.hp and other.hp>0 and
                         other.position.floor_id==pos.floor_id and other.position.x==x and
-                        other.position.y==y then return {kind='wait'} end
+                        other.position.y==y then blocked=true end
                 end
                 cells[#cells+1]={x=x,y=y}
             end
-            return wind('pin_shot',cells,{ranged=true})
+            if not blocked then return wind('pin_shot',cells,{ranged=true}) end
         end
         if distance<=2 then return retreat() or tap('pin_tap') end
         local goals={}

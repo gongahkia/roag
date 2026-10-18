@@ -5,6 +5,7 @@ local Terrain = require("src.terrain")
 local EliteAI = require("src.elite_ai")
 local RegularAI = require("src.regular_ai")
 local Classes = require("src.classes")
+local Squads = require('src.enemy_squads')
 
 Content.version = "roag-content/8"
 
@@ -60,6 +61,13 @@ local ability_names={
     ["core:ability/regent_crown"]="Broken Crown",
     ["core:ability/regent_sigil"]="Hollow Sigil",
 }
+for _,name in ipairs({'ward_channel','ward_tap','brute_sweep','acolyte_mend',
+    'acolyte_tap','rushwing_bite','scribe_snare','scribe_tap','siege_square',
+    'shield_bash','pin_shot','pin_tap','captain_cut','follower_strike'}) do
+    local id='core:ability/'..name
+    ability_proc_coefficients[id]=1
+    ability_names[id]=name:gsub('_',' ')
+end
 for _,id in ipairs(Classes.order) do
     local class=Classes.get(id)
     ability_proc_coefficients[class.basic_id]=1
@@ -168,6 +176,13 @@ for _,row in ipairs(expansion_regulars) do
         damage=row[4],defense=row[5],speed=row[6],windup=row[7],
         recovery=row[8],move_cost=100,range=row[9],
         xp_reward=4,currency_drop=3}
+end
+
+for _,row in ipairs(Squads.enemies) do
+    local id='core:enemy/'..row[1]
+    enemies[id]={id=id,name=row[2],ai='squad',hp=row[3],damage=row[4],
+        defense=row[5],speed=row[6],windup=row[7],recovery=row[8],
+        move_cost=100,range=row[9],xp_reward=2,currency_drop=1}
 end
 
 local demo_spawns = {
@@ -413,6 +428,7 @@ function Content.validate_all()
     for _,row in ipairs(expansion_regulars) do
         enemy_ids[#enemy_ids+1]="core:enemy/"..row[1]
     end
+    for _,row in ipairs(Squads.enemies) do enemy_ids[#enemy_ids+1]='core:enemy/'..row[1] end
     for _, id in ipairs(enemy_ids) do
         assert(not seen[id], "duplicate content ID")
         seen[id] = true
@@ -422,7 +438,7 @@ function Content.validate_all()
             or definition.ai == "pursuer" or definition.ai=="spore_herald"
             or definition.ai=="canal_lancer" or definition.ai=="cinder_bellkeeper"
             or definition.ai=="hollow_regent" or definition.ai=="biome_elite"
-            or definition.ai=="expansion_regular"),
+            or definition.ai=="expansion_regular" or definition.ai=='squad'),
             "invalid enemy identity")
         for _, field in ipairs({"hp", "damage", "defense", "speed", "windup", "recovery", "move_cost", "range",
             "xp_reward", "currency_drop"}) do
