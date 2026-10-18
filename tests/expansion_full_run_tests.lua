@@ -39,7 +39,7 @@ return function(test,equal)
     test('all four classes can win through six floors with ordinary submitted actions',function()
         for _,case in ipairs({
             {Classes.order[1],9}, {Classes.order[2],9},
-            {Classes.order[3],45}, {Classes.order[4],28},
+            {Classes.order[3],45}, {Classes.order[4],21},
         }) do
             local run,reason,failed=Driver.attempt(case[2],{class_id=case[1]})
             assert(run,('%s seed %d failed after %d actions: %s'):format(

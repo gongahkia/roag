@@ -17,7 +17,7 @@ FAMILIES = (
     ("switchback", "Switchback", 11, 15, ("combat",),
      "Offset internal shelves make a long room feel like a short maze."),
     ("broken_cloister", "Broken Cloister", 21, 15, ("landmark", "combat"),
-     "A large open court surrounded by a broken walkable ring."),
+     "A joined wall ring forces a detour; breakable gates offer shorter exits."),
     ("crossroads", "Crossroads", 13, 13, ("start",),
      "An alternate arrival room with four readable exits and quadrant cover."),
     ("long_gallery", "Long Gallery", 23, 7, ("combat",),
