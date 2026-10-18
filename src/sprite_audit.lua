@@ -30,6 +30,12 @@ function A.collect()
             tile=def.tile,stride=def.stride or def.tile,
             columns=def.columns or def.width/def.tile,checksum=def.checksum}
     end
+    report.sheets.tiny={path='assets/kenney/approved/tiny-dungeon.png',
+        width=203,height=186,tile=16,stride=17,columns=12,
+        checksum='d407b7ab694fa5d5'}
+    report.sheets.rpg={path='assets/kenney/approved/roguelike-rpg.png',
+        width=968,height=526,tile=16,stride=17,columns=57,
+        checksum='a2cba6dbb9cac15d'}
     for _,id in ipairs(keys(Slots.bindings))do
         if id:match('^core:actor/') or id:match('^core:enemy/') or
             id:match('^core:object/') or id:match('^core:chest/') or

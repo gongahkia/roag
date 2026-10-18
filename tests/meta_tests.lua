@@ -38,11 +38,11 @@ return function(test,equal)
     end
     test('four validated achievements reward four functioning locked boon IDs',function()
         assert(AchievementContent.validate() and #AchievementContent.order==4)
-        assert(#BoonContent.order==52 and #Achievements.pool({})==48)
+        assert(#BoonContent.order==53 and #Achievements.pool({})==49)
         local earned={}
         for _,id in ipairs(AchievementContent.order) do earned[id]=true end
         local pool=Achievements.pool(earned)
-        assert(#pool==52 and Achievements.validate_pool(pool))
+        assert(#pool==53 and Achievements.validate_pool(pool))
         for _,id in ipairs(AchievementContent.order) do
             local reward=AchievementContent.get(id).reward
             assert(BoonContent.get(reward))
@@ -184,14 +184,14 @@ return function(test,equal)
         local disk=storage();local profiles=Profile.new(disk)
         assert(profiles:commit_awards(run.state.meta.pending))
         local next_pool=Achievements.pool(profiles:inspect().profile.earned)
-        assert(#next_pool==49 and next_pool[49]=='core:boon/guardians_vow')
+        assert(#next_pool==50 and next_pool[50]=='core:boon/guardians_vow')
         local found=false
         for seed=1,200 do
             local next_run=Game.new_stage(seed,{available_boons=next_pool})
             for _,chest in ipairs(next_run.entities) do
                 if chest.controller=='chest' then
                     for _,offer in ipairs(chest.offers) do
-                        if offer.boon_id==next_pool[49] then found=true end
+                        if offer.boon_id==next_pool[50] then found=true end
                     end
                 end
             end
@@ -283,27 +283,62 @@ return function(test,equal)
     test('ordinary stage-two chest builds earn three-boon Chain Reaction',function()
         local run=Play.stage_one(3,1,{meta=Achievements.new_run(true,'local-run/chain-play')})
         local state=run.state
-        for _,choice in ipairs({{58,1,'core:boon/opening_cut'},
-            {57,1,'core:boon/storm_conductor'}}) do
-            local chest=assert(Game.entity(state,choice[1]))
-            assert(chest.offers[choice[2]].boon_id==choice[3])
+        for _,boon_id in ipairs({'core:boon/opening_cut',
+            'core:boon/storm_conductor'}) do
+            local chest,offer_index
+            for _,candidate in ipairs(state.entities) do
+                if candidate.controller=='chest' and not candidate.claimed
+                    and candidate.position.floor_id==state.active_floor_id then
+                    if candidate.offers[1].boon_id==boon_id then
+                        chest,offer_index=candidate,1
+                    end
+                end
+                if chest then break end
+            end
+            assert(chest,'missing required chest boon '..boon_id)
             local ok,why=Play.navigate(run,function(p)
                 return math.abs(p.x-chest.position.x)+math.abs(p.y-chest.position.y)==1
             end,600)
             assert(ok,why)
             ok,why=Play.action(run,{kind='claim_chest',chest_id=chest.id,
-                offer_index=choice[2]})
+                offer_index=offer_index})
             assert(ok,why)
         end
         local id=AchievementContent.order[3]
-        for _=1,10 do
+        local inaccessible={}
+        local plate_attempted=false
+        for _=1,30 do
             if state.meta.earned[id] then break end
             local enemy=Play.nearest(state,function(entity)
                 return entity.controller=='ai' and entity.id~=state.stage.elite_id
-                    and not entity.invulnerable end)
-            assert(enemy and not state.game_over,'no remaining legal chain target')
-            local ok,why=Play.fight(run,enemy.id,150)
-            assert(ok,why)
+                    and not entity.invulnerable
+                    and not inaccessible[entity.id]
+                    and Play.path(state,function(p)
+                        return math.abs(p.x-entity.position.x)<=1
+                            and math.abs(p.y-entity.position.y)<=1
+                    end)~=nil end)
+            if not enemy and not plate_attempted then
+                plate_attempted=true
+                local plate
+                for _,f in ipairs(state.review_features or {}) do
+                    if f.kind=='plate' and f.floor_id==state.active_floor_id then
+                        plate=f;break
+                    end
+                end
+                assert(plate,'no reachable foe or pressure plate')
+                local ok,why=Play.navigate(run,function(p)
+                    return p.x==plate.x and p.y==plate.y
+                end,600)
+                assert(ok,why)
+            else
+                assert(enemy and not state.game_over,'no remaining legal chain target')
+                local ok,why=Play.fight(run,enemy.id,150)
+                if not ok and why=='no approach' then
+                    inaccessible[enemy.id]=true
+                else
+                    assert(ok,why)
+                end
+            end
         end
         assert(state.meta.earned[id] and not state.game_over)
         local awards=0

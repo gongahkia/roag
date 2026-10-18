@@ -36,6 +36,14 @@ return function(test,equal)
         assert(not pcall(Kenney.new,read,function()
             return {getWidth=function()return 129 end,getHeight=function()return 80 end}
         end,quad))
+        assert(not pcall(Kenney.new,function(path)
+            if path=='assets/kenney/approved/tiny-dungeon.png' then return nil end
+            return read(path)
+        end,image,quad))
+        assert(not pcall(Kenney.new,function(path)
+            if path=='assets/kenney/approved/roguelike-rpg.png' then return 'changed' end
+            return read(path)
+        end,image,quad))
         local calls=0
         Kenney.new(read,function(bytes,path,transparent)
             calls=calls+1

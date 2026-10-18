@@ -72,6 +72,35 @@ return function(test,equal)
         end
     end)
 
+    test('closed review objects leave the required elite route reachable',function()
+        for seed=1,20 do
+            local state=Game.new_stage(seed)
+            local map=state.generated_map
+            local blocked={}
+            for _,e in ipairs(state.entities) do
+                if e.blocks_movement and e.controller:match('^review_') then
+                    blocked[e.position.x..','..e.position.y]=true
+                end
+            end
+            local queue={{x=map.start_x,y=map.start_y}}
+            local seen={[map.start_x..','..map.start_y]=true}
+            local head=1
+            while head<=#queue do
+                local p=queue[head];head=head+1
+                for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}}) do
+                    local x,y=p.x+d[1],p.y+d[2]
+                    local k=x..','..y
+                    if not seen[k] and not blocked[k] and
+                        Content.walkable(map,x,y) then
+                        seen[k]=true;queue[#queue+1]={x=x,y=y}
+                    end
+                end
+            end
+            assert(seen[map.elite.x..','..map.elite.y],
+                'review objects blocked the main route for seed '..seed)
+        end
+    end)
+
     test('plate opens a timed gate and expiration survives Continue',function()
         local state=Game.new_stage(3)
         local plate=assert(feature(state,'plate'))
@@ -128,5 +157,80 @@ return function(test,equal)
             end
             equal(Game.snapshot(Game.restore(Game.snapshot(state))),Game.snapshot(state))
         end
+    end)
+
+    test('hook pulls an ordinary foe while a snare deals damage and skips one move',function()
+        local Scheduler=require('src.scheduler')
+        local hook=Game.new(7,'core:map/test_room',
+            {class_id='core:actor/hookrunner'})
+        local pulled=Game.spawn_enemy(hook,'core:enemy/mossbound_guard',5,2)
+        Scheduler.remove_for_actor(hook,pulled.id)
+        local ok,reason,events=Game.submit(hook,
+            {kind='sweeping_slash',dx=1,dy=0})
+        assert(ok,reason)
+        assert(pulled.position.x==3 and pulled.position.y==2
+            and has(events,'Displaced') and pulled.hp<pulled.max_hp)
+
+        local trap=Game.new(7,'core:map/test_room',
+            {class_id='core:actor/trapper'})
+        local victim=Game.spawn_enemy(trap,'core:enemy/mossbound_guard',5,2)
+        assert(Game.submit(trap,{kind='sweeping_slash',dx=1,dy=0}))
+        ok,reason,events=Game.submit(trap,{kind='wait'})
+        assert(ok,reason)
+        assert(has(events,'SnareTriggered') and victim.position.x==3
+            and victim.hp<victim.max_hp and victim.skip_next_turn)
+        ok,reason,events=Game.submit(trap,{kind='wait'})
+        assert(ok,reason)
+        assert(has(events,'SnareHeld') and victim.position.x==3
+            and not victim.skip_next_turn)
+    end)
+
+    test('ward flask consumes one entire hostile hit before ordinary defense',function()
+        local state=Game.new(7)
+        local player=Game.player(state)
+        player.position.x,player.position.y=8,5
+        player.pickup_ward_actions=4
+        Game.spawn_enemy(state,'core:enemy/thornspitter',8,2)
+        local hp=player.hp
+        local ok,reason,events=Game.submit(state,{kind='wait'})
+        assert(ok,reason)
+        assert(has(events,'WardFlaskBlocked') and player.hp==hp
+            and player.pickup_ward_actions==0)
+        equal(Game.snapshot(Game.restore(Game.snapshot(state))),Game.snapshot(state))
+    end)
+
+    test('Ring of Reversal primes on escaped windup and spends on that attacker',function()
+        local state=Game.new(37)
+        local player=Game.player(state)
+        player.position.x,player.position.y=8,5
+        player.speed=300
+        Game.set_boon_stacks(state,player.id,'core:boon/ring_of_reversal','rare',1)
+        local attacker=Game.spawn_enemy(state,'core:enemy/thornspitter',8,2)
+        attacker.hp,attacker.max_hp=100,100
+        assert(Game.submit(state,{kind='wait'}))
+        assert(attacker.pending_attack)
+        local ok,reason,events=Game.submit(state,{kind='move',dx=-1,dy=0})
+        assert(ok,reason)
+        assert(has(events,'RingReversalPrimed') and
+            player.reversal_target_id==attacker.id)
+        player.position.x,player.position.y=8,3
+        ok,reason,events=Game.submit(state,{kind='basic_attack',dx=0,dy=-1})
+        assert(ok,reason)
+        assert(has(events,'RingReversalSpent') and attacker.hp==92
+            and not player.reversal_target_id)
+        equal(Game.snapshot(Game.restore(Game.snapshot(state))),Game.snapshot(state))
+    end)
+
+    test('lit brazier clears nearby mist sight only until its clock deadline',function()
+        local map=Content.get_map('core:map/test_room')
+        local rows={}
+        for i,row in ipairs(map.rows) do rows[i]=row end
+        map=setmetatable({rows=rows},{__index=map})
+        map.rows[5]=map.rows[5]:sub(1,7)..'m'..map.rows[5]:sub(9)
+        local state={clock=100,review_features={{kind='brazier',
+            floor_id=map.floor_id,x=7,y=5,lit_until=300}},entities={}}
+        assert(not Content.blocks_vision(map,8,5,state))
+        state.clock=300
+        assert(Content.blocks_vision(map,8,5,state))
     end)
 end

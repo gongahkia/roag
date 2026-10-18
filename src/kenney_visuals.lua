@@ -81,9 +81,9 @@ function K.new(read,make_texture,make_quad)
         handles[id..'/attack']=handles[id];handles[id..'/hurt']=handles[id]
     end
     local review_pages={}
-    local function approved_sheet(name,path,width,height,stride,columns,bindings)
-        local png=read(path)
-        if not png then return end
+    local function approved_sheet(name,path,checksum,width,height,stride,columns,bindings)
+        local png=assert(read(path),'missing approved '..name..' sheet')
+        assert(Atlas.checksum(png)==checksum,'corrupt approved '..name..' sheet')
         local texture=assert(make_texture(png,path,true),"unreadable approved "..name.." sheet")
         assert(texture:getWidth()==width and texture:getHeight()==height,
             "approved "..name.." dimensions differ")
@@ -99,13 +99,15 @@ function K.new(read,make_texture,make_quad)
             end
         end
     end
-    approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',203,186,17,12,{
+    approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',
+        'd407b7ab694fa5d5',203,186,17,12,{
         ['core:actor/hookrunner']=111,['core:actor/trapper']=112,
         ['core:object/review_gate_tiny']=45,
         ['core:object/review_plate_tiny_up']=54,
         ['core:object/review_plate_tiny_down']=55,
     })
-    approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',968,526,17,57,{
+    approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',
+        'a2cba6dbb9cac15d',968,526,17,57,{
         ['core:object/review_key']=671,
         ['core:object/review_vault_top']=158,
         ['core:object/review_vault_bottom']=215,
@@ -144,7 +146,8 @@ function K.new(read,make_texture,make_quad)
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
     return setmetatable({handles=handles,region=handle,terrain_mode='tiled',
-        style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature,
+        style='kenney',signature=K.checksum..':'..symbols.signature..':'..terrain.signature..
+            ':d407b7ab694fa5d5:a2cba6dbb9cac15d',
         status='loaded',wall_regions=terrain.walls.stone,terrain_renderer=terrain,
         pages={sprites={texture=cutout},symbols={texture=symbols.texture},
             terrain={texture=terrain.native},surfaces={texture=terrain.surface},

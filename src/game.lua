@@ -1473,9 +1473,6 @@ function Game.submit(state, intent)
     end
     state.last_action = action
     drain_effects(state, output)
-    if (player.pickup_ward_actions or 0)>0 then
-        player.pickup_ward_actions=player.pickup_ward_actions-1
-    end
     Stage.after_player_action(state,function(event_kind,fields,source_id)
         emit(state,output,event_kind,fields,source_id,action_id)
     end)
@@ -1490,6 +1487,9 @@ function Game.submit(state, intent)
         emit(state,output,kind,fields,source_id,action_id)
     end)
     drain_effects(state,output)
+    if (player.pickup_ward_actions or 0)>0 then
+        player.pickup_ward_actions=player.pickup_ward_actions-1
+    end
     Visibility.recompute(state)
     Boons.prune_histories(state)
     Achievements.prune(state)
