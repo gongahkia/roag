@@ -81,7 +81,7 @@ function love.load(...)
         if mode~='corrupt'then source=love.image.newImageData(O.path)end
         if mode=='normal'then
             before=snapshot();love.keypressed('escape');love.keypressed('3')
-            local row=UI.settings_row(190,55,644,3)
+            local row=UI.row(145,202,734,54,3,70)
             love.mousepressed(row.x+12,row.y+12,1);update(0)
             assert(love.roagVisualPackMode()=='onebit')
             assert(love.roagAssetBacking(Game.player(state).definition_id)=='onebit')

@@ -1003,6 +1003,7 @@ local function enemy_turn(state, item, output)
     local position = enemy.position
     if intent.shield_dx then
         enemy.ai_memory.shield_dx,enemy.ai_memory.shield_dy=intent.shield_dx,intent.shield_dy
+        enemy.ai_memory.shield_lowered=intent.kind=='windup'
     end
     if intent.alert then enemy.ai_memory.alerted=true end
     if intent.kind == "windup" then

@@ -1659,9 +1659,11 @@ local function draw_squad_cues()
             elseif role=='shield_bearer' then
                 local m=enemy.ai_memory
                 local fx,fy=m.shield_dx or 0,m.shield_dy or 1
-                love.graphics.setColor(.65,.85,1,.95)
-                love.graphics.line(x+TILE*(.5+fx*.43-fy*.28),y+TILE*(.5+fy*.43+fx*.28),
-                    x+TILE*(.5+fx*.43+fy*.28),y+TILE*(.5+fy*.43-fx*.28))
+                if not m.shield_lowered then
+                    love.graphics.setColor(.65,.85,1,.95)
+                    love.graphics.line(x+TILE*(.5+fx*.43-fy*.28),y+TILE*(.5+fy*.43+fx*.28),
+                        x+TILE*(.5+fx*.43+fy*.28),y+TILE*(.5+fy*.43-fx*.28))
+                end
                 badge('shield',x,y)
             elseif role=='pin_archer' then
                 draw_visual(bound_visual('core:ui/weapon_bow_icon'),x+TILE*.7,y,TILE*.3,TILE*.3)

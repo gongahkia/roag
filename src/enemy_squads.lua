@@ -130,7 +130,7 @@ function S.block(state,target,source,direct)
     if ward then return 'forcefield',ward.id end
     if direct and S.roles[target.definition_id]=='shield_bearer' and source.position and
         source.position.floor_id==target.position.floor_id and
-        (target.stunned_until or 0)<=state.clock then
+        (target.stunned_until or 0)<=state.clock and not target.ai_memory.shield_lowered then
         local m,p=target.ai_memory,target.position
         local dx,dy=source.position.x-p.x,source.position.y-p.y
         local fx,fy=m.shield_dx or 0,m.shield_dy or 1
@@ -234,6 +234,10 @@ function S.validate(state,maps)
             assert(S.roles[e.definition_id]=='shield_bearer' and
                 math.abs(e.ai_memory.shield_dx)+math.abs(e.ai_memory.shield_dy)==1,
                 'invalid shield facing')
+        end
+        if e.ai_memory and e.ai_memory.shield_lowered~=nil then
+            assert(S.roles[e.definition_id]=='shield_bearer' and
+                type(e.ai_memory.shield_lowered)=='boolean','invalid shield phase')
         end
     end
     assert(state.enemy_snares==nil or type(state.enemy_snares)=='table','invalid enemy snares')
