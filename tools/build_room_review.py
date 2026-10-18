@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Embed current room definitions in the offline room review page."""
 
+import base64
 import hashlib
 import json
 import os
@@ -12,6 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "docs/room-review/review.html"
 BEGIN = "<!-- BEGIN GENERATED ROOM DATA -->"
 END = "<!-- END GENERATED ROOM DATA -->"
+SPRITES_BEGIN = "<!-- BEGIN GENERATED SPRITE DATA -->"
+SPRITES_END = "<!-- END GENERATED SPRITE DATA -->"
+SPRITE_SHEETS = {
+    "caves": "assets/kenney/caves-dungeons/terrain.png",
+    "micro": "assets/kenney/micro-roguelike/tiles.png",
+    "symbols": "assets/kenney/1-bit-pack/symbols.png",
+}
+
+
+def replace_block(html, begin, end, contents):
+    assert html.count(begin) == html.count(end) == 1
+    before, _, rest = html.partition(begin)
+    _, _, after = rest.partition(end)
+    return before + begin + "\n" + contents + "\n" + end + after
 
 
 def room_data():
@@ -80,14 +95,17 @@ def room_data():
 def main():
     data = room_data()
     html = PAGE.read_text()
-    assert html.count(BEGIN) == html.count(END) == 1
-    before, _, rest = html.partition(BEGIN)
-    _, _, after = rest.partition(END)
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     encoded = encoded.replace("<", "\\u003c")
-    embedded = (f'{BEGIN}\n<script id="room-data" type="application/json">'
-                f'{encoded}</script>\n{END}')
-    PAGE.write_text(before + embedded + after)
+    html = replace_block(html, BEGIN, END,
+                         f'<script id="room-data" type="application/json">{encoded}</script>')
+    sprites = {name: "data:image/png;base64," + base64.b64encode(
+        (ROOT / path).read_bytes()).decode("ascii")
+        for name, path in SPRITE_SHEETS.items()}
+    encoded_sprites = json.dumps(sprites, separators=(",", ":"))
+    html = replace_block(html, SPRITES_BEGIN, SPRITES_END,
+                         f'<script id="sprite-data" type="application/json">{encoded_sprites}</script>')
+    PAGE.write_text(html)
     counts = {origin: sum(room["origin"] == origin for room in data["rooms"])
               for origin in {room["origin"] for room in data["rooms"]}}
     print(f'Embedded {len(data["rooms"])} rooms in {PAGE.relative_to(ROOT)}: '
