@@ -10,6 +10,7 @@ local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
+local Interactions=require('src.idea_interaction_content')
 local O={path=Symbols.path,checksum=Symbols.checksum,width=784,height=352,tile=16,
     ink={.9,.9,.9},background={.045,.045,.045},floor_index=5,wall_index=16,
     water_index=268,frame_index=169}
@@ -93,6 +94,7 @@ O.objects={
     ['core:object/review_pillar_bottom']=640,
 }
 O.masks=Neighbors.masks
+for kind,art in pairs(Interactions.art)do O.objects[Interactions.binding(kind)]=art[3]end
 for id,index in pairs(IdeaEnemies.objects or {})do O.objects[id]=index end
 O.canonical=Neighbors.canonical
 function O.surface_sheet(source)

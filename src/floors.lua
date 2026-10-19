@@ -79,6 +79,9 @@ function Floors.resume(state,floor_id)
     end
     local storm=state.class_special and state.class_special.storm
     if storm and storm.floor_id==floor_id then storm.due=storm.due+delta end
+    for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
+        if n.floor_id==floor_id and n.pending then n.pending.due=n.pending.due+delta end
+    end
     for _,ember in ipairs(state.idea_embers or {})do
         if ember.floor_id==floor_id then
             ember.next_due=ember.next_due+delta;ember.expires=ember.expires+delta

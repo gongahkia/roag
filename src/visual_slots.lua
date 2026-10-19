@@ -5,8 +5,10 @@ local Content=require('src.content')
 local Classes=require('src.classes')
 local Squads=require('src.enemy_squads')
 local IdeaEnemies=require('src.idea_enemies')
+local Interactions=require('src.idea_interaction_content')
 local V={bindings={}}
 local function add(id) V.bindings[id]=true end
+for kind in pairs(Interactions.art)do add(Interactions.binding(kind))end
 add('core:object/geomancer_bulwark')
 add('core:object/bound_spirit')
 add('core:object/bolt_sentry')

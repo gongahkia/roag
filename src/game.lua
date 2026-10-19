@@ -21,6 +21,7 @@ local Targeting = require("src.targeting")
 local Terrain = require("src.terrain")
 local RegularAI = require("src.regular_ai")
 local Review = require("src.review_features")
+local Interactions=require('src.idea_interactions')
 local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaSentinel = require('src.idea_sentinel')
@@ -224,6 +225,7 @@ function Game.new(seed, map_id, options)
         next_drop_id=1, drops={}, rewarded_kills={}, explored={},visible={},
         secrets={},world_content_version=World.version,
         class_special={},review_features={},review_keys={},review_clues={},
+        idea_rooms={version=1,nodes={},groups={}},
         rng=RNG.new(seed), entities={{
             id=player_id, definition_id=definition.id, controller="player", faction="player",
             position={floor_id=map.floor_id, x=map.start_x, y=map.start_y},
@@ -262,6 +264,7 @@ function Game.new(seed, map_id, options)
                     e.ai_memory={last_dx=0,last_dy=0}
                 end,Game.spawn_enemy)
             end
+            Interactions.populate(state,active)
         end
         populate_active(false)
         if generated_pair then
@@ -312,8 +315,15 @@ function Game.new_finale(seed,options)
     return state
 end
 
-function Game.preview(state, kind, dx, dy)
+function Game.preview(state, kind, dx, dy, steps)
     if kind == "cancel" then return {valid=false, reason="cancelled", cells={}} end
+    if kind=='use_utility' then
+        local preview=Interactions.utility_preview(state,{dx=dx,dy=dy,steps=steps})
+        local p=Game.player(state);local extra=preview.utility_move and not preview.utility_return and
+            (Terrain.move_extra(Content.map_for(state),'dash',preview.cells)+IdeaSilt.move_extra(state,'dash',preview.cells)) or 0
+        preview.cost=Game.effective_cost(100+extra,p.speed+Boons.speed_bonus(state,p))
+        return preview
+    end
     if not COSTS[kind] then return {valid=false, reason="unknown action", cells={}} end
     local player = Game.player(state)
     local class=Classes.for_player(player)
@@ -465,6 +475,28 @@ function Game.chest_options(state, chest_id)
     end
     return Rewards.chest_options(state, chest)
 end
+function Game.interaction_options(state,id,selection)
+    local options,reason=Interactions.options(state,id,selection)
+    if not options then return nil,reason end
+    for _,e in ipairs(options.entries)do
+        if e.remove and e.enabled then
+            local probe=copy(state);local p=Game.player(probe);local r=e.remove
+            Boons.set_stacks(p,r.id,r.rarity,p.boons[r.id][r.rarity]-1)
+            if not p.boons[r.id] and p.boon_memory then p.boon_memory[r.id]=nil end
+            if e.offer then local o=e.offer;Boons.set_stacks(p,o.boon_id,o.rarity,(p.boons[o.boon_id] and p.boons[o.boon_id][o.rarity] or 0)+1)end
+            local changes={}
+            for _,kind in ipairs({'basic_attack','sweeping_slash'})do
+                local a,ad=Game.effective_ability(state,kind,1,0,true)
+                local b,bd=Game.effective_ability(probe,kind,1,0,true)
+                changes[#changes+1]=(kind=='basic_attack' and 'F' or 'R')..(' east: %d→%d cells, %d→%d damage'):format(#a,#b,ad,bd)
+            end
+            e.detail=(e.detail or '')..' '..table.concat(changes,'; ')..'. Automatic stats/HP and committed effects are preserved.'
+        end
+    end
+    return options
+end
+function Game.nearby_interactions(state)return Interactions.nearby(state)end
+function Game.utility_options(state)return Interactions.utility_options(state)end
 
 function Game.route_options(state,exit_id)
     local options,reason=Stage.route_options(state,exit_id)
@@ -488,7 +520,7 @@ function Game.effective_ability(state, kind, dx, dy, explicit)
     if ability_id~='core:ability/hookrunner_hook' and ability_id~='core:ability/duelist_thrust'then
         routed,reflection=IdeaMirrors.route(state,owner,cells,modified_ranged)
     end
-    return routed,damage,ability_id,modified_ranged,damage_type,reflection
+    return routed,damage+Interactions.focus_bonus(owner),ability_id,modified_ranged,damage_type,reflection
 end
 
 local function cancel_windup(state, target, output, reason, source_id, action_id)
@@ -1074,6 +1106,9 @@ local function drain_effects(state, output)
                         emit(state,output,kind,fields,owner,event.action_id)
                     end,source_id)
             end)
+            Interactions.on_event(state,event,function(kind,fields,source_id)
+                emit(state,output,kind,fields,source_id,event.action_id)
+            end)
             World.on_event(state,event,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,event.action_id)
             end,function(definition_id,x,y,stable_id)
@@ -1122,6 +1157,11 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
             class_generated=extra and extra.class_generated}
     end
     local position = source.position
+    if source.id==state.player_id and not (extra and extra.class_generated)then
+        local bonus=Interactions.focus(Game.player(state))
+        if not (extra and extra.focus_included)then raw_damage=raw_damage+bonus end
+        if bonus>0 then emit(state,output,'SupplyFocusSpent',{bonus=bonus,floor_id=position.floor_id,x=position.x,y=position.y},source.id,action_id)end
+    end
     local critical = false
     if source.controller == "player" and Classes.is_attack(ability_id)
         and (source.crit_chance_ppm or 0) > 0 then
@@ -1138,7 +1178,7 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     if #cells == 1 and ability_id == "core:ability/basic_attack" then
         fields.target_x, fields.target_y = cells[1].x, cells[1].y
     end
-    if extra then for key, value in pairs(extra) do fields[key] = value end end
+    if extra then for key, value in pairs(extra) do if key~='focus_included'then fields[key] = value end end end
     if #(state.idea_webs or {})>0 then
         -- Capture actual projectile reach BEFORE primary deaths remove blockers.
         -- Anchor cuts cannot pass through a creature stopped by the same shot.
@@ -1555,6 +1595,15 @@ local function advance_to_player(state, output)
                     context.cause=prior
                 end
             end)
+        elseif item.idea_fixture then
+            Interactions.resolve(state,item,function(n,pending)
+                local source=copy(Game.player(state));source.position={floor_id=n.floor_id,x=n.center_x,y=n.center_y};source.collision_id=0
+                local context=contexts[output];local previous=context.cause
+                context.cause={proc_coefficient=0,class_generated=true,root_action_id=pending.action_id,chain_id=pending.action_id,ancestry={}}
+                emit(state,output,'FixtureFell',{floor_id=n.floor_id,x=n.center_x,y=n.center_y,target_cells=pending.cells},source.id,pending.action_id)
+                damage_batch(state,output,source,pending.action_id,pending.cells,4,'area','physical',false,false,'core:ability/falling_fixture')
+                context.cause=previous
+            end)
         elseif item.idea_sentry then
             Comp.resolve(state,item,Content,Visibility.can_see,function(kind,fields)
                 emit(state,output,kind,fields,state.player_id,item.attack_id)
@@ -1673,6 +1722,7 @@ function Game.submit(state, intent)
         for key,value in pairs(old_player) do replacement[key]=copy(value) end
         replacement.id=new_id
         replacement.position=new_position
+        if replacement.utility and replacement.utility.planted then replacement.utility=nil end
         fresh.progression=copy(state.progression)
         fresh.currency=state.currency
         fresh.rng=copy(state.rng)
@@ -1688,6 +1738,10 @@ function Game.submit(state, intent)
             route_id=route.id,stage_seed=next_seed,floor_id=state.active_floor_id,
             x=new_position.x,y=new_position.y},state.player_id,fresh.next_action_id-1)
         return true,nil,output
+    elseif intent.kind=='interact'then
+        preview=Interactions.preview(state,intent)
+        if not preview.valid then return false,preview.reason,{},preview end
+        local p=Game.player(state);preview.cost=Game.effective_cost(100,p.speed+Boons.speed_bonus(state,p))
     elseif intent.kind == "claim_chest" then
         chest = Game.entity(state, intent.chest_id)
         if not chest or chest.controller ~= "chest" then
@@ -1698,7 +1752,7 @@ function Game.submit(state, intent)
         preview = {valid=true, cost=Game.effective_cost(COSTS.claim_chest,
             Game.player(state).speed+Boons.speed_bonus(state,Game.player(state)))}
     else
-        preview = Game.preview(state, intent.kind, intent.dx, intent.dy)
+        preview = Game.preview(state, intent.kind, intent.dx, intent.dy,intent.steps)
         if not preview.valid then return false, preview.reason, {}, preview end
     end
 
@@ -1714,6 +1768,9 @@ function Game.submit(state, intent)
         or (preview.vault_id and "open_vault") or intent.kind
     local action = {kind=kind, time=state.clock, cost=preview.cost}
     if preview.bump then action.bump = true end
+    local function interaction_emit(k,fields,owner)emit(state,output,k,fields,owner,action_id)end
+    Interactions.before_action(state,kind,preview,interaction_emit)
+    if kind=='use_utility'then Interactions.use_utility(state,preview,interaction_emit)end
     if kind=='dash' and preview.beacon_return then
         local b=assert(state.class_special.beacon);local x,y=position.x,position.y
         position.x,position.y=b.x,b.y;state.class_special.beacon=nil
@@ -1722,17 +1779,17 @@ function Game.submit(state, intent)
         emit(state,output,'TileEntered',{floor_id=position.floor_id,from_x=x,from_y=y,x=b.x,y=b.y,forced=true},player.id,action_id)
         Rewards.pickup_at(state,player,b.x,b.y,function(kind,fields,source_id)emit(state,output,kind,fields,source_id,action_id)end)
         emit(state,output,'BeaconReturned',{floor_id=position.floor_id,x=b.x,y=b.y},player.id,action_id)
-    elseif kind == "move" or kind == "dash" then
+    elseif kind == "move" or kind == "dash" or kind=='use_utility' and preview.utility_move then
         local from_x, from_y = position.x, position.y
-        local travel_dx=preview.swap and preview.cells[1].x-from_x or intent.dx
-        local travel_dy=preview.swap and preview.cells[1].y-from_y or intent.dy
+        local travel_dx=(preview.swap or preview.utility_return) and preview.cells[1].x-from_x or intent.dx
+        local travel_dy=(preview.swap or preview.utility_return) and preview.cells[1].y-from_y or intent.dy
         position.x = from_x + travel_dx * preview.distance
         position.y = from_y + travel_dy * preview.distance
         action.dx, action.dy = travel_dx, travel_dy
         if kind == "dash" then action.distance = preview.distance end
         local fields = {floor_id=position.floor_id, from_x=from_x, from_y=from_y,
             x=position.x, y=position.y}
-        if kind == "dash" then
+        if kind == "dash" or preview.utility_move then
             fields.ability_id = "core:ability/dash"
             fields.path = {}
             for index = 1, preview.distance do
@@ -1846,7 +1903,7 @@ function Game.submit(state, intent)
             end
             attack(state, output, player, action_id, ability_id,
                 cells, damage,ranged,
-                {bump=preview.bump or nil,damage_type=damage_type,reflection=copy(reflection)})
+                {bump=preview.bump or nil,damage_type=damage_type,reflection=copy(reflection),focus_included=true})
             if hooked and hooked.hp>0 and not hooked.invulnerable
                 and hooked.ai_id~="warden" and hooked.ai_id~="biome_elite"
                 and hooked.ai_id~="hollow_regent" then
@@ -1924,6 +1981,12 @@ function Game.submit(state, intent)
                 end
             end
         end
+    elseif kind=='interact'then
+        Interactions.apply(state,preview,action_id,interaction_emit)
+        action.node_id=preview.node_id;action.choice_id=intent.choice_id
+    elseif kind=='use_utility'then
+        -- Non-movement utility effects were applied above; no Waited event.
+        action.utility_kind=preview.utility_kind
     elseif kind == "claim_chest" then
         local offer = Rewards.claim(state, chest, intent.offer_index,
             function(event_kind, reward_fields, source_id)
@@ -1957,6 +2020,8 @@ function Game.submit(state, intent)
     if (player.pickup_ward_actions or 0)>0 then
         player.pickup_ward_actions=player.pickup_ward_actions-1
     end
+    Interactions.after_action(state,interaction_emit)
+    drain_effects(state,output)
     Visibility.recompute(state)
     Boons.prune_histories(state)
     Achievements.prune(state)
@@ -2017,6 +2082,13 @@ end
 
 function Game.pending_strikes(state)
     local result = {}
+    for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
+        if n.pending and n.floor_id==state.active_floor_id then
+            result[#result+1]={sequence=n.pending.schedule_id,schedule_id=n.pending.schedule_id,
+                source_id=n.pending.owner_id,floor_id=n.floor_id,ability_id='core:ability/falling_fixture',
+                target_cells=copy(n.pending.cells),damage=4,due=n.pending.due,fixture=true}
+        end
+    end
     for _, entity in ipairs(state.entities) do
         if entity.pending_attack and entity.position.floor_id==state.active_floor_id then
             result[#result + 1] = copy(entity.pending_attack)
@@ -2233,6 +2305,7 @@ function Game.restore(snapshot)
     Comp.validate(state,maps)
     Storm.validate(state,maps)
     Way.validate(state,maps,player)
+    Interactions.validate(state,maps)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do

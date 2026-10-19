@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "cf0769721bd03f2f",
+  "mapping_checksum": "2c67a074153a8111",
   "packs": {
     "kenney": {
       "actor_count": 65,
@@ -2841,6 +2841,150 @@
           "width": 16
         },
         {
+          "height": 16,
+          "id": "core:object/interaction_archive_contract",
+          "index": 901,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_attunement_forge",
+          "index": 13,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell",
+          "index": 681,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell_clue",
+          "index": 896,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 8,
+          "id": "core:object/interaction_camp",
+          "index": 117,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "micro",
+          "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_charm_well",
+          "index": 853,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_cleanse_flask",
+          "index": 114,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_escape_scroll",
+          "index": 898,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_falling_fixture",
+          "index": 475,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_memorial",
+          "index": 564,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_offering_font",
+          "index": 74,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_ration_cache",
+          "index": 23,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_marker",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_token",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_route_sign",
+          "index": 19,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_travelling_trader",
+          "index": 239,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "rpg",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:object/return_beacon",
           "index": 95,
@@ -3920,6 +4064,9 @@
           "116": [
             "core:object/geomancer_bulwark"
           ],
+          "117": [
+            "core:object/interaction_camp"
+          ],
           "118": [
             "core:object/stairs_up"
           ],
@@ -4232,6 +4379,8 @@
             "core:boon/crossfire_omen/icon + /detail"
           ],
           "574": [
+            "core:object/interaction_return_marker",
+            "core:object/interaction_return_token",
             "core:ui/idea_oath_effect"
           ],
           "575": [
@@ -4315,11 +4464,17 @@
           ]
         },
         "rpg": {
+          "13": [
+            "core:object/interaction_attunement_forge"
+          ],
           "158": [
             "core:object/review_vault_top"
           ],
           "161": [
             "core:object/review_gate_top"
+          ],
+          "19": [
+            "core:object/interaction_route_sign"
           ],
           "215": [
             "core:object/review_vault_bottom"
@@ -4327,8 +4482,35 @@
           "218": [
             "core:object/review_gate_bottom"
           ],
+          "23": [
+            "core:object/interaction_ration_cache"
+          ],
+          "239": [
+            "core:object/interaction_travelling_trader"
+          ],
+          "475": [
+            "core:object/interaction_falling_fixture"
+          ],
+          "564": [
+            "core:object/interaction_memorial"
+          ],
           "671": [
             "core:object/review_key"
+          ],
+          "681": [
+            "core:object/interaction_bell"
+          ],
+          "853": [
+            "core:object/interaction_charm_well"
+          ],
+          "896": [
+            "core:object/interaction_bell_clue"
+          ],
+          "898": [
+            "core:object/interaction_escape_scroll"
+          ],
+          "901": [
+            "core:object/interaction_archive_contract"
           ],
           "959": [
             "core:object/review_plate_up"
@@ -4357,6 +4539,9 @@
           "112": [
             "core:actor/trapper"
           ],
+          "114": [
+            "core:object/interaction_cleanse_flask"
+          ],
           "120": [
             "core:enemy/rushwing"
           ],
@@ -4377,6 +4562,9 @@
           ],
           "55": [
             "core:object/review_plate_tiny_down"
+          ],
+          "74": [
+            "core:object/interaction_offering_font"
           ],
           "84": [
             "core:enemy/ward_weaver"
@@ -7261,6 +7449,150 @@
         },
         {
           "height": 16,
+          "id": "core:object/interaction_archive_contract",
+          "index": 392,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_attunement_forge",
+          "index": 400,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell",
+          "index": 867,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_bell_clue",
+          "index": 392,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_camp",
+          "index": 508,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_charm_well",
+          "index": 435,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_cleanse_flask",
+          "index": 580,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_escape_scroll",
+          "index": 139,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_falling_fixture",
+          "index": 549,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_memorial",
+          "index": 72,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_offering_font",
+          "index": 690,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_ration_cache",
+          "index": 650,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_marker",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_return_token",
+          "index": 574,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_route_sign",
+          "index": 674,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/interaction_travelling_trader",
+          "index": 768,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:object/return_beacon",
           "index": 408,
           "motif": "",
@@ -8087,6 +8419,9 @@
           "129": [
             "core:enemy/heavy_rammer"
           ],
+          "139": [
+            "core:object/interaction_escape_scroll"
+          ],
           "141": [
             "core:boon/crownfire/icon + /detail"
           ],
@@ -8301,6 +8636,13 @@
           "384": [
             "core:boon/crowdbreaker/icon + /detail"
           ],
+          "392": [
+            "core:object/interaction_archive_contract",
+            "core:object/interaction_bell_clue"
+          ],
+          "400": [
+            "core:object/interaction_attunement_forge"
+          ],
           "408": [
             "core:object/return_beacon"
           ],
@@ -8337,6 +8679,9 @@
           ],
           "43": [
             "core:enemy/ash_marshal"
+          ],
+          "435": [
+            "core:object/interaction_charm_well"
           ],
           "443": [
             "core:object/door_open"
@@ -8389,6 +8734,9 @@
           "50": [
             "core:object/review_overgrowth_2"
           ],
+          "508": [
+            "core:object/interaction_camp"
+          ],
           "522": [
             "core:boon/crystal_harmony/icon + /detail"
           ],
@@ -8425,6 +8773,9 @@
           "548": [
             "core:object/door_closed"
           ],
+          "549": [
+            "core:object/interaction_falling_fixture"
+          ],
           "552": [
             "core:object/review_vault_bottom",
             "core:object/review_vault_top"
@@ -8449,6 +8800,8 @@
             "core:object/review_key"
           ],
           "574": [
+            "core:object/interaction_return_marker",
+            "core:object/interaction_return_token",
             "core:ui/idea_oath_effect"
           ],
           "575": [
@@ -8456,6 +8809,9 @@
           ],
           "578": [
             "core:object/review_ward"
+          ],
+          "580": [
+            "core:object/interaction_cleanse_flask"
           ],
           "591": [
             "core:object/review_pillar_middle"
@@ -8510,11 +8866,20 @@
           "640": [
             "core:object/review_pillar_bottom"
           ],
+          "650": [
+            "core:object/interaction_ration_cache"
+          ],
           "669": [
             "core:boon/alchemical_flip/icon + /detail"
           ],
           "670": [
             "core:drop/health"
+          ],
+          "674": [
+            "core:object/interaction_route_sign"
+          ],
+          "690": [
+            "core:object/interaction_offering_font"
           ],
           "705": [
             "core:boon/pulse_step/icon + /detail"
@@ -8541,6 +8906,9 @@
           "717": [
             "core:boon/mist_veil/icon + /detail"
           ],
+          "72": [
+            "core:object/interaction_memorial"
+          ],
           "738": [
             "core:object/review_brazier_unlit"
           ],
@@ -8552,6 +8920,9 @@
           ],
           "76": [
             "core:enemy/index_keeper"
+          ],
+          "768": [
+            "core:object/interaction_travelling_trader"
           ],
           "77": [
             "core:actor/trapper"
@@ -8578,6 +8949,9 @@
           ],
           "830": [
             "core:boon/cluster_rupture/icon + /detail"
+          ],
+          "867": [
+            "core:object/interaction_bell"
           ],
           "89": [
             "core:boon/battle_march/icon + /detail"
@@ -8607,50 +8981,50 @@
     {
       "empty": 1,
       "grid": 160,
-      "kenney": 55,
+      "kenney": 56,
       "nonempty": 159,
       "onebit": 0,
       "sheet": "micro",
-      "union": 55,
-      "unused_kenney": 104,
+      "union": 56,
+      "unused_kenney": 103,
       "unused_onebit": 159,
-      "unused_union": 104
+      "unused_union": 103
     },
     {
       "empty": 1,
       "grid": 1078,
       "kenney": 77,
       "nonempty": 1077,
-      "onebit": 174,
+      "onebit": 187,
       "sheet": "onebit",
-      "union": 174,
+      "union": 187,
       "unused_kenney": 1000,
-      "unused_onebit": 903,
-      "unused_union": 903
+      "unused_onebit": 890,
+      "unused_union": 890
     },
     {
       "empty": 63,
       "grid": 1767,
-      "kenney": 7,
+      "kenney": 18,
       "nonempty": 1704,
       "onebit": 0,
       "sheet": "rpg",
-      "union": 7,
-      "unused_kenney": 1697,
+      "union": 18,
+      "unused_kenney": 1686,
       "unused_onebit": 1704,
-      "unused_union": 1697
+      "unused_union": 1686
     },
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 25,
+      "kenney": 27,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 25,
-      "unused_kenney": 107,
+      "union": 27,
+      "unused_kenney": 105,
       "unused_onebit": 132,
-      "unused_union": 107
+      "unused_union": 105
     }
   ],
   "requirements": [
@@ -8969,6 +9343,22 @@
     "core:object/geomancer_bulwark",
     "core:object/idea_cache_dormant",
     "core:object/idea_silt_trail",
+    "core:object/interaction_archive_contract",
+    "core:object/interaction_attunement_forge",
+    "core:object/interaction_bell",
+    "core:object/interaction_bell_clue",
+    "core:object/interaction_camp",
+    "core:object/interaction_charm_well",
+    "core:object/interaction_cleanse_flask",
+    "core:object/interaction_escape_scroll",
+    "core:object/interaction_falling_fixture",
+    "core:object/interaction_memorial",
+    "core:object/interaction_offering_font",
+    "core:object/interaction_ration_cache",
+    "core:object/interaction_return_marker",
+    "core:object/interaction_return_token",
+    "core:object/interaction_route_sign",
+    "core:object/interaction_travelling_trader",
     "core:object/return_beacon",
     "core:object/review_brazier_lit",
     "core:object/review_brazier_unlit",

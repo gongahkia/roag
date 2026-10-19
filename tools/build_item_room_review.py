@@ -129,6 +129,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
+    approval = OUT/'items-rooms-approval.json'
+    if approval.is_file():
+        verify()
+        record = json.loads(approval.read_bytes())
+        assert record['authority'] == 'explicit_user_message'
+        for name, checksum in record['review_files'].items():
+            path = (ROOT/name).resolve()
+            assert path.is_relative_to(ROOT) and hashlib.sha256(path.read_bytes()).hexdigest() == checksum, 'Approved item/room review changed: '+name
+        print('PASS preserved all-14 explicit user approval; reviewed mappings remain historical')
+        raise SystemExit(0)
     outputs, data = build()
     for name, content in outputs.items():
         path = OUT/name

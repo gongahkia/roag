@@ -1,4 +1,11 @@
-# Vote on items and interactive rooms
+# Items and interactive rooms — preserved detail review
+
+**Approved and implemented:** the user approved all fourteen by explicit
+message. The [approval record](items-rooms-approval.json) hashes the reviewed
+files; the original vote UI remains a historical design/art record. For
+current controls, rules and verification limits, use the
+[implementation guide](../ROAG_IDEA_INTERACTIONS.md). The 399-binding review
+context below is intentionally historical; the live catalogue now has 415.
 
 Open [the focused review](items-rooms.html). This is a **design/artwork vote**,
 not an implementation or publisher. The original 89-proposal review, its

@@ -9,8 +9,8 @@ Scope: **current** native renderer, classes, enemies, biome/terrain content,
 boon catalogue, props, menu/HUD, playback effects and fallback paths. Current
 game content is fifteen classes, 39 regular enemies and one finite fragment, one optional champion, seven elites, pursuer/final
 boss, seven two-floor biomes, six mechanical terrains and **53 boons**.
-Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller and Wayfinder.
-The live HTML/JSON/CSV reflect 399
+Updated 2026-10-19 with Heavy Rammer, Hollow Wraith, Grave Cantor, Gulp Toad, Haunted Cache, Bone Splitter, Alarm Keeper, Web Weaver, Oath Twins, Rotating Sentinel, Mirror Hexer, Silt Worm, Ember Moth, Duelist, Geomancer, Spiritbinder, Tinkerer, Stormcaller, Wayfinder and the fourteen finite item/room interactions.
+The live HTML/JSON/CSV reflect 415
 requirements; the original 324-binding review remains frozen with the user’s
 decisions. See [implementation progress](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
 The audit itself does not modify gameplay mechanics.
@@ -24,11 +24,12 @@ the live catalogue is the authority for what remains unused.
 covering all unused cells with separate idea/art votes, preferences, comments
 and downloadable feedback. See the [review guide](sprite-audit/ideas-guide.md).
 
-**Next detail vote:** [items and interactive rooms](sprite-audit/items-rooms.html)
-refines the six approved items and eight approved interactions after the class
-batch. It preserves earlier feedback, enforces excluded art, labels current
-sprite reuse and flags ambiguous assignments. See [opening/voting instructions](sprite-audit/items-rooms-guide.md).
-These proposed mechanics have not been added to gameplay.
+**Approved detail review:** [items and interactive rooms](sprite-audit/items-rooms.html)
+is preserved against its historical 399-binding snapshot. All fourteen were
+approved by explicit user message and now have finite gameplay interactions,
+menus and both Kenney mappings. See [actual rules and controls](ROAG_IDEA_INTERACTIONS.md).
+LÖVE GUI/human readability acceptance remains pending; headless checks are
+separate from visual acceptance.
 
 ## The choices being compared
 
@@ -48,13 +49,14 @@ CC0; provenance/checksums are in `assets/kenney/*/README.md` and
 The audit runs both actual native resolvers with headless texture/Quad handles,
 then independently decodes every source PNG cell and rejects referenced empty
 cells. Requirements come from registered content IDs, not merely the mappings
-that happen to exist. **399/399 active sprite bindings resolve in each choice**:
+that happen to exist. **415/415 active sprite bindings resolve in each choice**:
 
 | Actual runtime category | Binding count | Mixed Kenney | Standalone 1-Bit |
 | --- | ---: | --- | --- |
 | Fifteen classes + 50 enemy forms, base/attack/hurt | 195 | 54 distinct bodies for 65 actor IDs | 63 bodies for 65 actor IDs |
 | Drops 3, chests 2, other objects 12 | 17 | Micro art + 1-Bit familiar | Native 1-Bit art |
 | Reviewed object/scenery bindings | 29 | Micro/Caves/RPG/Tiny art | Native 1-Bit art |
+| Finite item/room objects, plaque and token marker | 16 | Reviewed Micro/RPG/Tiny/1-Bit motifs | Native 1-Bit art; labelled gong and falling slab |
 | HP/XP/currency HUD icons | 3 | Native Micro art | Native 1-Bit art |
 | Hit, boon, Burning, block, attack center/impact | 6 | Native Micro art | Native 1-Bit art |
 | Squad, corpse, alarm, oath, reflector and charge cues | 11 | Native 1-Bit art | Native 1-Bit art |
@@ -138,7 +140,7 @@ overrides. Those contracts are not automatically active sprites just because
 their IDs exist. In particular the game currently uses TTF text, not missing
 letter sprites. `core:drop/currency/detail` is an optional conditional detail
 image, not a required token render. The catalogue separates these from the
-399 binding requirements above. Decoy/snare markers are also still drawn
+415 binding requirements above. Decoy/snare markers are also still drawn
 geometry; the new class bodies are sprite-backed.
 
 ## Exact unused/excess inventory
@@ -150,17 +152,17 @@ shown intact. Transparent key/background is accounted for in Micro.
 
 | Original sheet | Grid cells | Nonempty | Mixed referenced / unused | Standalone referenced / unused | Unused by either |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Micro Roguelike 8px | 160 | 159 | 55 / **104** | Not loaded | **104** |
+| Micro Roguelike 8px | 160 | 159 | 56 / **103** | Not loaded | **103** |
 | Caves & Dungeons 16px, 1px gutters | 522 | 522 | 69 / **453** | Not loaded | **453** |
-| 1-Bit 16px packed | 1,078 | 1,077 | 77 / **1,000** | 174 / **903** | **903** |
-| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 7 / **1,697** | Not loaded | **1,697** |
-| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 25 / **107** | Not loaded | **107** |
+| 1-Bit 16px packed | 1,078 | 1,077 | 77 / **1,000** | 187 / **890** | **890** |
+| Approved Roguelike/RPG 16px, 1px gutters | 1,767 | 1,704 | 18 / **1,686** | Not loaded | **1,686** |
+| Approved Tiny Dungeon 16px, 1px gutters | 132 | 132 | 27 / **105** | Not loaded | **105** |
 
-Across the five stored sheets: **3,594 nonempty cells**, **330 referenced by
-either choice**, **3,264 unreferenced**. Across just the original three sheets,
-there are **1,460** unreferenced cells. The additional source sheets increase
+Across the five stored sheets: **3,594 nonempty cells**, **357 referenced by
+either choice**, **3,237 unreferenced**. Across just the original three sheets,
+there are **1,446** unreferenced cells. The additional source sheets increase
 the total inventory; this is not an increase in missing game mappings.
-These counts are grid occupancy, not a claim of 3,264 unique useful objects:
+These counts are grid occupancy, not a claim of 3,237 unique useful objects:
 borders, variants and multi-cell assemblies
 contribute to that number. For example, Caves' official “520 files” description
 is not the same measurement as its 522 nonempty packed-sheet regions; the

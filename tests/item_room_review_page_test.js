@@ -43,8 +43,12 @@ test('prior exclusions apply to both looks, and every suggested sprite is a lega
   }
   assert(!data.cards.some(c=>['oracle-choice','cantor-class','secret-mural','heat-vents'].includes(c.id)));
 });
-test('current binding usage is exact, including all three newly occupied candidate cells',()=>{
-  const live=JSON.parse(execFileSync('luajit',['tools/sprite_audit.lua']));
+test('reviewed binding usage is exact, including all three occupied candidate cells',()=>{
+  const approvalPath=folder+'items-rooms-approval.json';
+  const record=fs.existsSync(approvalPath)?JSON.parse(fs.readFileSync(approvalPath,'utf8')):null;
+  const snapshot=record&&record.inventory_path;
+  const live=snapshot?JSON.parse(fs.readFileSync(snapshot,'utf8')):JSON.parse(execFileSync('luajit',['tools/sprite_audit.lua']));
+  if(snapshot)assert.equal(hash(fs.readFileSync(snapshot)),record.review_files[snapshot]);
   assert.equal(data.mapping_checksum,live.mapping_checksum);assert.equal(data.requirements,live.requirements.length);
   assert.equal(data.summary.reused,3);
   for(const [key,cell] of Object.entries(data.cells)){

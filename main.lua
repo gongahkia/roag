@@ -7,6 +7,8 @@ local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
+local Interactions=require('src.idea_interactions')
+local InteractionMenu=require('src.interaction_menu')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -48,6 +50,7 @@ local AudioCues = require("src.audio_cues")
 local TILE=40 -- Fixed 5× native Kenney pixels; presentation only.
 local VIEWPORT = { x = 16, y = 16, width = 992, height = 520 }
 local inventory_open,inventory_selection=false,1
+local interaction_ui={controller=InteractionMenu}
 local help_open=false
 local pause_selection=1
 
@@ -311,6 +314,7 @@ end
 
 local function reset_camera()
     inventory_open,help_open=false,false
+    interaction_ui.menu=nil
     local map = Content.map_for(state)
     local position = Game.player(state).position
     if spectator_enabled then spectator_focus={x=position.x,y=position.y} end
@@ -941,6 +945,8 @@ local function submit(intent)
             elseif event.kind == "SupplyCollected" then
                 notice = notice .. ("; +%d HP (%s)"):format(
                     event.actual_gain,event.supply_kind)
+            elseif event.kind=='Healed' and event.target_id==state.player_id then
+                notice=notice..('; +%d HP recovery'):format(event.actual_gain)
             elseif event.kind == "SecretDiscovered" then
                 notice = notice .. "; hidden cache found"
             elseif event.kind == "FloorChanged" then
@@ -1080,6 +1086,24 @@ local function submit(intent)
                 notice='Sidequest complete: +'..tostring(event.amount)..' gold'
             elseif event.kind=="RingReversalPrimed" then
                 notice="Reversal primed: strike the escaped attacker"
+            elseif event.kind=='UtilityCollected'then
+                notice=Interactions.definitions.names[event.utility_kind]..' collected · U to inspect/use'
+            elseif event.kind=='ReturnTokenExpired'then
+                notice='Return token forfeited: left its room'
+            elseif event.kind=='BellRung'then
+                notice=event.correct and ('Bell correct · '..event.progress..'/3') or 'Wrong bell · sequence reset'
+            elseif event.kind=='ContractChanged'then
+                notice='Contract '..event.status..(event.reason and (': '..event.reason) or event.reward and (' · +'..event.reward..' gold') or '')
+            elseif event.kind=='StatusCleansed' and event.target_id==state.player_id then
+                notice='Burning removed · pending burn ticks cancelled'
+            elseif event.kind=='SupplyPrepared'then
+                notice=event.condition=='focus' and 'Focus: next direct attack +2, within 3 actions' or 'Ward: one positive hit, within 3 actions'
+            elseif event.kind=='FontOfferingPaid'then
+                notice='Offering paid: '..event.amount..' HP · boon granted'
+            elseif event.kind=='BoonRetired'then
+                notice='Retired one '..event.rarity..' '..BoonContent.get(event.boon_id).name
+            elseif event.kind=='FixtureLocked'then
+                notice='Fixture locked · impact at '..event.due..' · friendly fire'
             end
         end
     else
@@ -1097,6 +1121,49 @@ local function submit(intent)
         end
     end
     return committed
+end
+
+function interaction_ui.open(id,selection)
+    if state.game_over then return end
+    local options,reason=Game.interaction_options(state,id,selection)
+    if not options then notice=reason;return end
+    inventory_open=false;targeting=nil
+    interaction_ui.menu=InteractionMenu.new(options,{node_id=id,selection=selection})
+end
+function interaction_ui.utility()
+    if state.game_over then return end
+    inventory_open=false;targeting=nil
+    interaction_ui.menu=InteractionMenu.new(Game.utility_options(state),{utility=true})
+end
+function interaction_ui.nearby()
+    local nodes=Game.nearby_interactions(state)
+    if #nodes==0 then notice='No nearby interaction — stand beside a visible font, cache, sign or room object';return end
+    if #nodes==1 then interaction_ui.open(nodes[1].node_id);return end
+    local entries={}
+    for _,n in ipairs(nodes)do entries[#entries+1]={id=n.node_id,node_id=n.node_id,label=n.title..(n.spent and ' · used' or ''),enabled=true}end
+    interaction_ui.menu=InteractionMenu.new({title='NEARBY',detail='Choose an object to inspect. No world time.',entries=entries},{nearby=true})
+end
+function interaction_ui.response(action,entry)
+    local menu=interaction_ui.menu
+    if not menu then return end
+    if action=='status'then notice=entry;return end
+    if action=='close'then
+        if menu.context.selection then interaction_ui.open(menu.context.node_id)
+        else interaction_ui.menu=nil end
+        return
+    end
+    if action~='choose'then return end
+    if menu.context.nearby then interaction_ui.open(entry.node_id);return end
+    if entry.select then interaction_ui.open(menu.context.node_id,entry.select);return end
+    if Playback.busy(playback)then notice='Input ignored during playback — confirm again when ready';return end
+    if menu.context.utility then
+        local u=Game.player(state).utility
+        if u and u.kind=='escape_scroll'then
+            interaction_ui.menu=nil;targeting={kind='use_utility',steps=3}
+            notice='Escape Scroll: choose direction · 1/2/3 tiles · Enter use · Esc cancel'
+        elseif submit({kind='use_utility'})then interaction_ui.menu=nil end
+    elseif submit({kind='interact',node_id=menu.context.node_id,selection=menu.context.selection,
+        choice_id=entry.id,replace=entry.replace_required or nil})then interaction_ui.menu=nil end
 end
 
 local function spectator_restart()
@@ -1285,11 +1352,15 @@ function love.keypressed(key, _, isrepeat)
         return
     end
     if title then title_keypressed(key);return end
+    if interaction_ui.menu then
+        interaction_ui.response(interaction_ui.controller.key(interaction_ui.menu,key));return
+    end
     if inventory_open then
         local owned=owned_boon_ids()
         local pages=math.max(1,math.ceil(#owned/7))
         local count=math.min(7,math.max(0,#owned-(boon_page%pages)*7))
-        if key=='i' or key=='escape'then inventory_open=false
+        if key=='u'then interaction_ui.utility()
+        elseif key=='i' or key=='escape'then inventory_open=false
         elseif key=='up' or key=='w'then inventory_selection=math.max(1,inventory_selection-1)
         elseif key=='down' or key=='s'then inventory_selection=math.min(math.max(1,count),inventory_selection+1)
         elseif key=='v' or key=='right'then boon_page=boon_page+1;inventory_selection=1
@@ -1402,6 +1473,8 @@ function love.keypressed(key, _, isrepeat)
         inventory_open=true;inventory_selection=1
         return
     end
+    if key=='e' and not targeting then interaction_ui.nearby();return end
+    if key=='u' and not targeting then interaction_ui.utility();return end
     if Playback.busy(playback) then
         if cardinal[key] or diagonal[key] or key=="space" or key=="."
             or key=="f" or key=="r" or key=="x"
@@ -1424,11 +1497,14 @@ function love.keypressed(key, _, isrepeat)
             notice = "Targeting cancelled — no time"
             return
         end
+        if targeting.kind=='use_utility' and (key=='1' or key=='2' or key=='3')then
+            targeting.steps=tonumber(key);notice='Escape Scroll: '..key..' tiles · Enter use · Esc cancel';return
+        end
         local direction = cardinal[key] or diagonal[key]
         if direction then
             targeting.dx, targeting.dy = direction[1], direction[2]
             player_facing=VisualSlots.facing(player_facing,direction[1])
-            local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
+            local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps)
             notice = preview.valid and "Preview ready; Enter to commit" or
                 ((preview.reason or "Invalid target") .. " — no time")
             return
@@ -1439,7 +1515,7 @@ function love.keypressed(key, _, isrepeat)
                 return
             end
             local committed = submit({
-                kind = targeting.kind, dx = targeting.dx, dy = targeting.dy,
+                kind = targeting.kind, dx = targeting.dx, dy = targeting.dy,steps=targeting.steps,
             })
             if committed then targeting = nil end
         end
@@ -1474,6 +1550,10 @@ end
 -- LÖVE's standard gamepad buttons reuse the same validated key path and
 -- presentation gate. D-pad menu selection never submits a world action.
 function love.gamepadpressed(_,button)
+    if interaction_ui.menu then
+        local key=({a='return',b='escape',dpup='up',dpdown='down',dpleft='left',dpright='right',start='escape'})[button]
+        if key then love.keypressed(key)end;return
+    end
     if title and not unlocks_view and not confirm_new and
         (title_view=='home' or title_view=='class') then
         if button=='leftshoulder' or button=='rightshoulder' then
@@ -1514,7 +1594,7 @@ function love.gamepadpressed(_,button)
             dpup='up',dpdown='down',dpleft='left',dpright='right'})[button]
     else
         key=({a='return',b='escape',x='f',y='r',
-            rightshoulder='x',leftshoulder='v',start='escape',back='tab',
+            rightshoulder='x',leftshoulder='v',leftstick='e',rightstick='u',start='escape',back='tab',
             dpup='w',dpdown='s',dpleft='a',dpright='d'})[button]
     end
     if key then love.keypressed(key) end
@@ -1720,6 +1800,12 @@ local function draw_enemies()
             love.graphics.setColor(0.94, 0.28, 0.29)
             love.graphics.rectangle("fill",bar_x,bar_y,
                 bar_width*enemy.hp/enemy.max_hp,bar_height)
+            if Interactions.marked(state,enemy)then
+                if not draw_visual(bound_visual(Interactions.definitions.binding('archive_contract')),
+                    x+TILE*.02,y+TILE*.02,TILE*.27,TILE*.27)then
+                    love.graphics.setColor(1,.88,.4);love.graphics.rectangle('line',x+2,y+2,9,9)
+                end
+            end
             if enemy.statuses and enemy.statuses.burning then
                 local burning=bound_visual('core:ui/burning_effect')
                 if burning then
@@ -1909,6 +1995,37 @@ local function begin_tile_token(x,y)
 end
 
 local function draw_rewards()
+    for _,n in ipairs(state.idea_rooms and state.idea_rooms.nodes or {})do
+        if n.floor_id==state.active_floor_id and visible_at(n.x,n.y)then
+            local x,y=Camera.tile_top_left(camera,n.x,n.y)
+            local art=bound_visual(Interactions.definitions.binding(n.kind))
+            local alpha=(n.spent or n.status=='failed') and .35 or 1
+            local ax,ay=x,y
+            if n.kind=='falling_fixture'then
+                draw_visual(bound_visual('core:object/review_plate_up'),x+TILE*.15,y+TILE*.15,TILE*.7,TILE*.7,alpha)
+                ax,ay=Camera.tile_top_left(camera,n.center_x,n.center_y)
+                if not visible_at(n.center_x,n.center_y)then art=nil end
+            end
+            if (n.kind~='falling_fixture' or visible_at(n.center_x,n.center_y)) and not draw_visual(art,ax+TILE*.1,ay+TILE*.1,TILE*.8,TILE*.8,alpha)then
+                love.graphics.setColor(.88,.78,.46,alpha)
+                love.graphics.rectangle('line',ax+TILE*.2,ay+TILE*.2,TILE*.6,TILE*.6)
+            end
+            if n.kind=='bell'then
+                love.graphics.setFont(ui_body_font);love.graphics.setColor(1,.91,.59)
+                love.graphics.print(tostring(n.bell),x+TILE*.68,y+TILE*.03)
+            elseif n.kind=='route_sign'then
+                love.graphics.setFont(ui_body_font);love.graphics.setColor(1,.91,.59)
+                love.graphics.print(n.dx<0 and '←' or n.dx>0 and '→' or n.dy<0 and '↑' or '↓',x+TILE*.55,y)
+            elseif n.kind=='archive_contract' and n.status=='active'then
+                love.graphics.setColor(1,.83,.35);love.graphics.rectangle('line',x+2,y+2,TILE-4,TILE-4)
+            end
+        end
+    end
+    local token=Game.player(state).utility and Game.player(state).utility.planted
+    if token and token.floor_id==state.active_floor_id and visible_at(token.x,token.y)then
+        local x,y=Camera.tile_top_left(camera,token.x,token.y)
+        draw_visual(bound_visual(Interactions.definitions.binding('return_marker')),x+TILE*.2,y+TILE*.2,TILE*.6,TILE*.6,.9)
+    end
     local function review_sprite(binding,x,y,alpha)
         return draw_visual(bound_visual('core:object/review_'..binding),x,y,TILE,TILE,alpha)
     end
@@ -2285,7 +2402,7 @@ end
 
 local function draw_preview()
     if not targeting or targeting.dx == nil then return end
-    local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy)
+    local preview = Game.preview(state, targeting.kind, targeting.dx, targeting.dy,targeting.steps)
     if preview.reflection and visible_at(preview.reflection.x,preview.reflection.y)then
         local x,y=Camera.tile_top_left(camera,preview.reflection.x,preview.reflection.y)
         draw_visual(bound_visual('core:ui/idea_reflect_effect'),
@@ -2293,7 +2410,7 @@ local function draw_preview()
     end
     for _, cell in ipairs(preview.cells) do
         local r,g,b,a
-        if targeting.kind == "dash" then
+        if targeting.kind == "dash" or targeting.kind=='use_utility' then
             if cell.status == "open" then
                 r,g,b,a=0.22,0.85,0.55,0.55
             elseif cell.status == "unreachable" then
@@ -2917,8 +3034,8 @@ local function draw_panel()
         end
         if warning=='' and targeting then
             warning='AIMING'
-            local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy)
-            detail=preview and (preview.valid and Classes.preview_hint(Game.player(state),targeting.kind,preview) or preview.reason)
+            local preview=targeting.dx and Game.preview(state,targeting.kind,targeting.dx,targeting.dy,targeting.steps)
+            detail=preview and (preview.valid and (targeting.kind=='use_utility' and ('Scroll '..(targeting.steps or 3)..' tiles · 1/2/3 distance · Enter use') or Classes.preview_hint(Game.player(state),targeting.kind,preview)) or preview.reason)
                 or 'Choose a direction · Esc cancel'
             color=PixelUI.colors.selected
         elseif warning=='' and state.stage and state.stage.phase=='extraction'then
@@ -2958,6 +3075,14 @@ local function draw_panel()
         g.setColor(PixelUI.colors.selected);g.setScissor(28,588,960,14)
         g.print(feedback,28,588);g.setScissor()
     end
+    if feedback=='' and not Playback.busy(playback)then
+        local nearby=Game.nearby_interactions(state)
+        local hint=#nearby>0 and ('E Interact: '..nearby[1].title) or Interactions.status(state)
+        if hint~=''then
+            g.setColor(PixelUI.colors.selected);g.setScissor(28,588,960,14)
+            g.print(hint..' · U utility',28,588);g.setScissor()
+        end
+    end
     g.setColor(PixelUI.colors.text)
     g.print('F '..class.basic_name,28,605)
     g.print('R '..class.special_name,250,605)
@@ -2965,6 +3090,28 @@ local function draw_panel()
     g.setColor(PixelUI.colors.selected)
     g.print('I Boons / Stats',688,605)
     g.setColor(PixelUI.colors.muted);g.print('F1 Help',838,605);g.print('Esc Menu',930,605)
+end
+
+local function draw_interaction_menu()
+    local menu=interaction_ui.menu;if not menu then return end
+    local o=menu.options;local g=love.graphics
+    if o.cells then draw_cells(o.cells,1,.68,.3,.8,true)end
+    PixelUI.dim(.55);menu_frame(o.title:upper(),96,64,832,496,ui_display_font)
+    g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
+    g.printf(o.detail or '',120,108,784)
+    for line,row in ipairs(InteractionMenu.rows(menu))do
+        PixelUI.option(line..'. '..row.entry.label,120,row.y,776,
+            row.index==menu.selected,ui_menu_font,row.entry.enabled==false)
+    end
+    local e=o.entries[menu.selected]
+    g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
+    local detail=e and ((e.detail or '')..(e.enabled==false and (' '..(e.reason or 'Unavailable')) or '')) or 'No available action. Esc / Back closes without spending time.'
+    if menu.confirm and e then detail='CONFIRM: '..e.label..'. '..(e.replace_required and 'The carried utility will be replaced. ' or '')..detail end
+    g.printf(detail,120,386,784)
+    local pages=math.max(1,math.ceil(#o.entries/InteractionMenu.page_size))
+    PixelUI.center(('Page %d/%d · ↑/↓ select · ←/→ page · Enter inspect/confirm'):format(InteractionMenu.page(menu)+1,pages),478,ui_body_font,PixelUI.colors.muted,120,784)
+    PixelUI.option(menu.confirm and 'CANCEL CONFIRMATION' or 'BACK / ESC',120,518,320,false,ui_menu_font)
+    PixelUI.option(menu.confirm and 'CONFIRM · Enter' or 'SELECT · Enter',600,518,296,true,ui_menu_font,#o.entries==0)
 end
 
 local function draw_inventory()
@@ -3006,6 +3153,11 @@ local function draw_inventory()
         ('Boons %d'):format(#owned)}
     g.setFont(ui_menu_font);g.setColor(PixelUI.colors.text)
     for i,line in ipairs(lines)do g.print(line,636,286+(i-1)*26)end
+    local u=player.utility
+    if u then draw_visual(bound_visual(Interactions.definitions.binding(u.kind)),636,432,32,32)end
+    g.setFont(ui_body_font);g.setColor(PixelUI.colors.text)
+    g.printf(Interactions.status(state)~='' and Interactions.status(state) or 'Utility slot empty',676,432,252)
+    PixelUI.option('U · UTILITY / ITEMS',636,486,292,false,ui_menu_font)
     PixelUI.center('I / Esc close · no world time',518,ui_menu_font,PixelUI.colors.muted,88,488)
 end
 
@@ -3018,14 +3170,15 @@ local function draw_help()
         {'F / R / X','Use your class attacks and movement skill'},
         {'Enter / Esc','Commit aim / cancel aim'},
         {'Space','Wait one action'},
-        {'I / V','Boons and character / next page'},
+        {'I / V / U','Boons / next page / carried utility'},
+        {'E','Inspect nearby room objects · confirm a choice'},
         {'Tab','Show / hide map'},
         {'Esc','Pause · Save & Quit · Settings'},
         {'F5','Refresh selected sprite pack'},
     }
     g.setFont(ui_menu_font)
     for i,row in ipairs(lines)do
-        local y=140+(i-1)*34
+        local y=136+(i-1)*31
         g.setColor(PixelUI.colors.selected);g.print(row[1],194,y)
         g.setColor(PixelUI.colors.text);g.print(row[2],372,y)
     end
@@ -3319,6 +3472,7 @@ function love.draw()
         love.graphics.printf("Enter / Y confirm · Esc cancel",160,325,704,"center")
     end
     if inventory_open then draw_inventory()end
+    if interaction_ui.menu then draw_interaction_menu()end
     if boon_detail_id then draw_boon_detail()end
     if pause_menu then
         PixelUI.dim(.6)
@@ -3404,13 +3558,14 @@ function love.roagPlaybackPending()
     return Playback.busy(playback)
 end
 function love.roagMenuState()
+    if interaction_ui.menu then return {kind='interaction',selected=interaction_ui.menu.selected,count=#interaction_ui.menu.options.entries,confirm=interaction_ui.menu.confirm}end
     local menu=route_menu or chest_menu
     if not menu then return nil end
     return {kind=route_menu and 'route' or 'chest',selected=menu.selected,
         count=route_menu and #menu.routes or #menu.offers}
 end
 function love.roagUIState()
-    return {page=help_open and 'help' or confirm_reset_seed and 'confirm' or boon_detail_id and 'boon-detail' or
+    return {page=interaction_ui.menu and 'interaction' or help_open and 'help' or confirm_reset_seed and 'confirm' or boon_detail_id and 'boon-detail' or
         inventory_open and 'inventory' or title and (unlocks_view and 'achievements' or
         confirm_new and 'confirm' or title_view) or pause_menu and
         (pause_settings and 'settings' or 'pause') or chest_menu and 'chest' or
@@ -3455,7 +3610,9 @@ function love.mousepressed(x,y,button,istouch,presses)
     if button~=1 then return end
     if help_open then help_open=false;return end
     if boon_detail_id then boon_detail_id=nil;return end
+    if interaction_ui.menu then interaction_ui.response(interaction_ui.controller.mouse(interaction_ui.menu,x,y,presses));return end
     if inventory_open then
+        if x>=636 and x<=928 and y>=478 and y<=516 then interaction_ui.utility();return end
         local owned=owned_boon_ids();local pages=math.max(1,math.ceil(#owned/7))
         local row=PixelUI.row_at(88,150,488,38,7,44,x,y)
         if row and owned[(boon_page%pages)*7+row]then
@@ -3515,6 +3672,13 @@ function love.mousepressed(x,y,button,istouch,presses)
         end
         return
     end
+    if not title and not pause_menu and not chest_menu and not route_menu and not targeting and not Playback.busy(playback)
+        and x>=VIEWPORT.x and x<VIEWPORT.x+VIEWPORT.width and y>=VIEWPORT.y and y<VIEWPORT.y+VIEWPORT.height then
+        for _,n in ipairs(Game.nearby_interactions(state))do
+            local sx,sy=Camera.tile_top_left(camera,n.x,n.y)
+            if x>=sx and x<sx+TILE and y>=sy and y<sy+TILE then interaction_ui.open(n.node_id);return end
+        end
+    end
     if chest_menu then
         local index=PixelUI.chest_at(x,y)
         if index then chest_menu.selected=index
@@ -3537,6 +3701,7 @@ function love.mousepressed(x,y,button,istouch,presses)
     end
 end
 function love.wheelmoved(dx,dy)
+    if interaction_ui.menu then if dy~=0 then interaction_ui.response(interaction_ui.controller.key(interaction_ui.menu,dy>0 and 'up' or 'down'))end;return end
     if help_open or boon_detail_id then return end
     if title and unlocks_view and dy~=0 then
         title_keypressed(dy>0 and 'left' or 'right')

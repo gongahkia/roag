@@ -10,6 +10,7 @@ local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
 local Storm=require('src.idea_stormcaller')
 local Way=require('src.idea_wayfinder')
+local Interactions=require('src.idea_interaction_content')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -56,6 +57,7 @@ local objects={
     ['core:object/review_overgrowth_2']=85,
 }
 K.actors=actors;K.objects=objects
+for kind,art in pairs(Interactions.art)do if art[1]=='micro'then objects[Interactions.binding(kind)]=art[2]end end
 K.squad_actors={}
 K.idea_actors=IdeaEnemies.tiny
 for role,index in pairs(Squads.tiny) do K.squad_actors['core:enemy/'..role]=index end
@@ -124,10 +126,10 @@ function K.new(read,make_texture,make_quad)
     tiny_bindings[Geo.id]=Geo.tiny
     tiny_bindings[Comp.spirit_id]=85
     tiny_bindings[Comp.tinker_id]=109
+    for kind,art in pairs(Interactions.art)do if art[1]=='tiny'then tiny_bindings[Interactions.binding(kind)]=art[2]end end
     approved_sheet('tiny','assets/kenney/approved/tiny-dungeon.png',
         'd407b7ab694fa5d5',203,186,17,12,tiny_bindings)
-    approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png',
-        'a2cba6dbb9cac15d',968,526,17,57,{
+    local rpg_bindings={
         ['core:object/review_key']=671,
         ['core:object/review_vault_top']=158,
         ['core:object/review_vault_bottom']=215,
@@ -135,7 +137,9 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_gate_bottom']=218,
         ['core:object/review_plate_up']=959,
         ['core:object/review_plate_down']=961,
-    })
+    }
+    for kind,art in pairs(Interactions.art)do if art[1]=='rpg'then rpg_bindings[Interactions.binding(kind)]=art[2]end end
+    approved_sheet('rpg','assets/kenney/approved/roguelike-rpg.png','a2cba6dbb9cac15d',968,526,17,57,rpg_bindings)
     for id,index in pairs(objects)do handles[id]=handle(index,true)end
     local function cave_cell(index)
         local x,y=index%29*17,math.floor(index/29)*17
@@ -171,6 +175,11 @@ function K.new(read,make_texture,make_quad)
             width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=index}
         handles[id]=sprite;handles[id..'/attack']=sprite;handles[id..'/hurt']=sprite
     end
+    for kind,art in pairs(Interactions.art)do if art[1]=='onebit'then
+        local x,y,w,h=Symbols.region(art[2])
+        handles[Interactions.binding(kind)]={texture=symbols.texture,quad=make_quad(x,y,w,h,Symbols.width,Symbols.height),
+            width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=art[2]}
+    end end
     handles['core:boon/ring_of_reversal/icon']=handle(89,true)
     handles['core:boon/ring_of_reversal/detail']=handles['core:boon/ring_of_reversal/icon']
     for id,tile in pairs(terrain.bindings)do handles[id]=tile end
