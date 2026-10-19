@@ -29,10 +29,14 @@ local original_load,original_update,original_draw=love.load,love.update,love.dra
 local output=assert(os.getenv('ROAG_T15_GUI_OUTPUT'))
 local phase,pending,next_action=1,false,nil
 local printed={}
-local old_printf=love.graphics.printf
+local old_printf,old_print=love.graphics.printf,love.graphics.print
 love.graphics.printf=function(value,...)
     printed[#printed+1]=tostring(value)
     return old_printf(value,...)
+end
+love.graphics.print=function(value,...)
+    printed[#printed+1]=tostring(value)
+    return old_print(value,...)
 end
 function love.load(...)
     original_load(...)
@@ -94,7 +98,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROAG_T15_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
+ROAG_T15_GUI_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data" \
     timeout -k 3s 20s love "$output_dir" > "$output_dir/love.log" 2>&1 || {
         cat "$output_dir/love.log" >&2
         printf 'Tranche 15 GUI artifacts: %s\n' "$output_dir" >&2

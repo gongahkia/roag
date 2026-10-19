@@ -1591,6 +1591,7 @@ require('tests.idea_control_boon_tests')(test,equal)
 require('tests.idea_weapon_form_tests')(test,equal)
 require('tests.idea_cadence_boon_tests')(test,equal)
 require('tests.idea_support_boon_tests')(test,equal)
+require('tests.idea_playback_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

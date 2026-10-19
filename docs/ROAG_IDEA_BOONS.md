@@ -5,8 +5,8 @@
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
 **All fifty additions are implemented: 103 total, 99 in the normal unearned
-New Run ID list, plus the four existing achievement unlocks. Final combined
-integration/acceptance is still in progress; the sustained goal is not complete.** These groups do not complete the goal.
+New Run ID list, plus the four existing achievement unlocks. Combined engineering acceptance is verified in [the current report](ROAG_IDEA_ACCEPTANCE.md).
+Human play and physical-device/native-hardware acceptance remain separate.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
 appears in the preview and cannot kill the player. Oracle's
@@ -471,3 +471,22 @@ looked for mist outside its Archive biome, placed a foe on the spirit instead
 of beside it, and forged a chest price without its matching definition. The
 corrected fixtures use natural Archive mist / Observatory ice and validated
 existing class/chest contracts. Failed logs remain retained.
+
+## Final integrated verification
+
+The complete frozen gate passes **837/837**, including five new causal-playback
+regressions; see the acceptance guide for timings and exact GUI/save/corpus
+results. A measured mixed-event backlog was corrected: the same 764-event action
+now has four ordered timestamp/chain-local display beats, 1.44 seconds, instead
+of 219 beats / 45.19 seconds. No simulation event is dropped or reordered;
+windups, enemy impacts, movement, separate roots/times/floors and later submitted
+actions remain presentation boundaries. Same-time same-chain deaths and damage
+retain all victims and summed critical numbers. The HUD identifies dense chains
+and prioritizes actual player damage. Visible grouped windup counts are restored.
+
+A current-pool, normal-action offer corpus replays exactly: seeds 9 and 21 win
+with both the existing guided strategy and an unbiased first-offer policy;
+seed 50 loses to the first-stage elite under both. No actor, reward price,
+scheduler timing or balance value was changed to force success. Prepared synergy
+and crowd fixtures are separately labeled. Failed GUI assertions and a silent
+exit-139 remain documented; no engine-crash root-cause fix is claimed.

@@ -15,14 +15,14 @@ The font choices are accessibility options, not alternate sprite packs.
 Current content: fifteen classes, 39 regular enemies plus finite fragment and
 optional champion, seven elites, pursuer/final boss, seven two-floor biomes,
 six original terrain mechanics plus three optional mechanics, fourteen finite
-item/room interactions, and **53 boons**. The additional-boon batch remains
-paused in [the implementation ledger](goal/ROAG_IDEAS_IMPLEMENTATION_PROGRESS.md).
+item/room interactions, and **103 boons**. The 50-addition batch and combined engineering acceptance
+are recorded in [the current acceptance guide](ROAG_IDEA_ACCEPTANCE.md).
 
 ## Active coverage
 
 The live catalogue inspects the actual fixed resolver, then independently
 checks source PNG bytes, dimensions, CRCs and nonempty sampled regions.
-**491/491 required bindings resolve; none are missing.**
+**599/599 required bindings resolve; none are missing.**
 
 | Runtime category | Bindings | Artwork |
 | --- | ---: | --- |
@@ -34,7 +34,8 @@ checks source PNG bytes, dimensions, CRCs and nonempty sampled regions.
 | Hit, boon, Burning, block, attack center/impact | 6 | Native 1-Bit |
 | Squad/corpse/alarm/oath/reflector/charge cues | 11 | Native 1-Bit |
 | Original class weapon symbols | 5 | Native 1-Bit |
-| 53 boon icons and detail aliases | 106 | Native 1-Bit |
+| 103 boon icons and detail aliases | 206 | Native 1-Bit |
+| Eight last-roll dice cues | 8 | Native 1-Bit |
 | Original terrain mechanic markers | 6 | Native 1-Bit symbols |
 | Vent phases, arrows and fragile shortcut states | 10 | Native symbols plus monochrome Tiny vents |
 | Approved room materials and props | 37 | Native counterparts and approved monochrome derivatives |
@@ -76,7 +77,7 @@ including partial composition inputs. They are not numbers of new mechanics.
 
 | Current source | Nonempty cells | Referenced | Unused |
 | --- | ---: | ---: | ---: |
-| 1-Bit packed 16px | 1,077 | 248 | 829 |
+| 1-Bit packed 16px | 1,077 | 297 | 780 |
 | Caves & Dungeons, 16px / 1px gutters | 522 | 10 | 512 |
 | Approved RPG, 16px / 1px gutters | 1,704 | 13 | 1,691 |
 | Approved Tiny Dungeon, 16px / 1px gutters | 132 | 2 | 130 |
@@ -129,7 +130,7 @@ Existing readability settings remain independent of gameplay.
 These are frozen approval records, including their historical comparison
 controls and original source hashes. They cannot change the game's appearance.
 The original 324-binding and 399-binding review snapshots are not regenerated
-from the current 491-binding runtime. Archive verification checks current
+from the current 599-binding runtime. Archive verification checks current
 1-Bit assignments while retaining retired mixed-pack decisions as history.
 
 ## Inspect and verify

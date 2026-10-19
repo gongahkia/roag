@@ -119,7 +119,10 @@ local function advance(image)
             local shown=false
             for _=1,400 do
                 local event=Playback.current(pb)
-                if event and event.kind=='BoonActivated' and event.boon_id==id then shown=true;break end
+                for _,e in ipairs(Playback.current_group(pb)or (event and {event}or {}))do
+                    if e.kind=='BoonActivated' and e.boon_id==id then shown=true end
+                end
+                if shown then break end
                 update(.01)
             end
             assert(shown,'real activation cue never appeared in playback')

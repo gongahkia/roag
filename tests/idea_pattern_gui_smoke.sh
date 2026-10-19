@@ -147,11 +147,16 @@ local function border(image,cells,clear_interiors)
     end
     assert(checked>0,'no unobscured world cells checked')
 end
+local function current_effect()
+    local first=Playback.current(pb)
+    for _,event in ipairs(Playback.current_group(pb)or (first and {first}or {}))do
+        if (event.kind=='EffectApplied' or event.kind=='DelayedEffectResolved')
+            and event.boon_id==id then return event end
+    end
+end
 local function seek_effect()
     for _=1,400 do
-        local event=Playback.current(pb)
-        if event and (event.kind=='EffectApplied' or event.kind=='DelayedEffectResolved')
-            and event.boon_id==id then return end
+        if current_effect()then return end
         update(.01)
     end
     error('real playback never displayed the boon effect')
@@ -230,7 +235,7 @@ local function advance(image)
         love.event.quit();return
     else
         assert(stage=='effect')
-        local actual=Playback.current(pb)
+        local actual=current_effect()
         assert(actual and #actual.target_cells>0)
         local damaged=false
         for _,e in ipairs(foes)do if e.hp<100 then damaged=true end end

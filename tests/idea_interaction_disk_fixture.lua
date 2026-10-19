@@ -71,6 +71,18 @@ if mode=='write'then
  elseif kind=='utility'then
   n=I.place(s,'escape_scroll',map,7,5);use(s,n,'take')
   plan={{kind='use_utility',dx=1,dy=0,steps=2},{kind='wait'}}
+ elseif ({offering_font=true,ration_cache=true,charm_well=true,
+    travelling_trader=true,memorial=true,camp=true,route_sign=true})[kind]then
+  p.hp=10;s.currency=10
+  n=I.place(s,kind,map,7,5,kind=='route_sign' and {dx=1,dy=0,hint='Treasure'}or nil)
+  local choice=kind=='offering_font' and '1' or kind=='charm_well' and 'focus'
+   or kind=='camp' and 'ward' or 'food'
+  if kind=='memorial'then
+   G.set_boon_stacks(s,p.id,'core:boon/crescent_reach','common',2)
+   choice='core:boon/crescent_reach|common'
+  end
+  plan=kind=='route_sign' and {{kind='wait'}}or
+   {{kind='interact',node_id=n.id,choice_id=choice},{kind='wait'}}
  else error('unknown disk scenario')end
  assert(store:save(s));storage:write('plan.data',P.encode(plan))
  local b=G.restore(G.snapshot(s));storage:write('events.data',advance(b,plan));storage:write('expected.data',P.encode(G.snapshot(b)))

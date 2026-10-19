@@ -11,6 +11,7 @@ cp -R "$project_dir/src" "$output_dir/app/src"
 cp -R "$project_dir/assets/fonts" "$project_dir/assets/kenney" "$output_dir/app/assets/"
 cp "$project_dir/tools/art_png.lua" "$output_dir/app/tools/"
 cat > "$output_dir/app/main.lua" <<'LUA'
+local Palette=require('src.visual_palette')
 local Game=require('src.game')
 local Playback=require('src.playback')
 local Camera=require('src.camera')
@@ -32,6 +33,7 @@ local load,update,draw=love.load,love.update,love.draw
 local output=assert(os.getenv('ROAG_FACING_OUTPUT'))
 local labels={'baseline','attack-left','attack-right','move-left','move-vertical','ai-locked-attack'}
 local phase,pending,failure=1,false,false
+local captured,check,advance
 local baseline,source,region,drawn,before
 local function snapshot()return Codec.encode(Game.snapshot(tracked))end
 local function event(kind,dx)
@@ -59,6 +61,8 @@ end
 function love.load(...)
     local args={...}
     local ok,why=pcall(function()
+        love.mouse.getPosition=function()return 0,0 end
+        love.keyboard.isDown=function()return false end
         load(unpack(args))
         assert(enemy and enemy.id)
         assert(love.roagAssetBacking(enemy.definition_id)=='onebit')
@@ -69,9 +73,17 @@ function love.load(...)
     end)
     if not ok then fail(why)end
 end
-function love.update()end
+function love.update()
+    if failure or not captured then return end
+    local image=captured;captured=nil
+    local good,why=pcall(function()
+        PNG.write(output..'/'..labels[phase]..'.png',image);check(image)
+        advance();pending=false
+    end)
+    if not good then fail(why)end
+end
 local function same(a,b)for i=1,4 do if math.abs(a[i]-b[i])>1/255 then return false end end return true end
-local function check(image)
+check=function(image)
     assert(drawn,'actual enemy draw was not observed')
     if phase<=5 then assert(snapshot()==before,'presentation changed authoritative state')end
     if phase==1 then baseline=image
@@ -89,7 +101,7 @@ local function check(image)
                 local screen_y=math.floor(drawn.y+(y+.5)*drawn.sy)
                 local actual={image:getPixel(screen_x,screen_y)}
                 local gray=(rgba[1]*.2126+rgba[2]*.7152+rgba[3]*.0722)*Kenney.ink[1]
-                for channel=1,3 do assert(math.abs(actual[channel]-gray)<=2/255+1e-6,
+                for channel=1,3 do assert(math.abs(actual[channel]-gray*Palette.enemy[channel])<=2/255+1e-6,
                     ('phase %d mirrored 1-Bit body pixel differs at %d,%d'):format(phase,x,y))end
                 matches=matches+1
             end
@@ -105,8 +117,9 @@ local function check(image)
             local rectangles=require('src.attack_outline').rectangles(camera.tile)
             local r=rectangles[1]
             local red,green,blue=image:getPixel(math.floor(tx+r[1]+1),math.floor(ty+r[2]))
-            local gray=.2126+.64*.7152+.18*.0722
-            assert(math.abs(red-gray)<.04 and math.abs(red-green)<1/255 and math.abs(green-blue)<1/255,'monochrome dashed windup border was not rendered')
+            for channel,value in ipairs({red,green,blue})do
+                assert(math.abs(value-Palette.hostile[channel])<.04,'red dashed windup border was not rendered')
+            end
         end
     elseif phase==4 or phase==5 then assert(drawn.sx<0,'movement or vertical retention did not mirror')
     else
@@ -114,7 +127,7 @@ local function check(image)
         assert(drawn.sx<0,'genuine AI locked attack did not face the player')
     end
 end
-local function advance()
+advance=function()
     if phase==1 then Playback.add(queue,{event('WindupStarted',-1)},tracked.player_id)
     elseif phase==2 then reset_queue();Playback.add(queue,{event('WindupStarted',1)},tracked.player_id)
     elseif phase==3 then
@@ -144,19 +157,15 @@ function love.draw()
         drawn=nil;draw()
         if not pending then
             pending=true
-            love.graphics.captureScreenshot(function(image)
-                local good,err=pcall(function()
-                    PNG.write(output..'/'..labels[phase]..'.png',image);check(image)
-                    advance();pending=false
-                end)
-                if not good then fail(err)end
-            end)
+            love.graphics.captureScreenshot(function(image)captured=image end)
         end
     end)
     if not ok then fail(why)end
 end
 LUA
 ROAG_FACING_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data" \
-    timeout 30s love "$output_dir/app" > "$output_dir/run.log" 2>&1
+    timeout -k 3s 30s love "$output_dir/app" > "$output_dir/run.log" 2>&1 || {
+    cat "$output_dir/run.log";printf 'Retained failed facing artifacts: %s\n' "$output_dir";exit 1;
+}
 cat "$output_dir/result.txt"
 printf 'Enemy facing GUI smoke: 6 rendered frames in %s\n' "$output_dir"

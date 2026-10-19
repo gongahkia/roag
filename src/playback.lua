@@ -43,6 +43,7 @@ local cascade = {
     DelayedEffectScheduled=true, DelayedEffectResolved=true,
     TerrainTriggered=true,
     Healed=true,SupplyCollected=true,
+    Died=true,
 }
 Playback.max_cascade_seconds = 0.36
 
@@ -170,9 +171,13 @@ function Playback.add(playback, events, player_id)
                 -- movement to show. Routine boon/damage feedback similarly
                 -- shares a bounded beat. Both groups retain event order.
                 local previous = playback.items[#playback.items]
+                local causal=cascade[event.kind] and type(event.chain_id)=='number'
+                    and type(event.time)=='number'
                 local group_kind = event.kind == "WindupStarted" and "windup"
-                    or cascade[event.kind] and event.kind or nil
+                    or causal and 'causal_cascade'
+                    or event.kind~='Died' and cascade[event.kind] and event.kind or nil
                 if event.kind == "Died" and #playback.items >= first_new_item
+                    and not causal
                     and previous and previous.event.kind == "DamageTaken"
                     and not previous.events and event.target_id and
                     previous.event.target_id == event.target_id and
@@ -185,7 +190,12 @@ function Playback.add(playback, events, player_id)
                     previous.group_kind="lethal"
                 elseif group_kind and #playback.items >= first_new_item and previous
                     and previous.group_kind == group_kind and
-                    previous.event.floor_id == event.floor_id then
+                    (not causal and previous.event.floor_id == event.floor_id
+                        or causal and previous.event.chain_id==event.chain_id
+                        and previous.event.time==event.time
+                        and (previous.event.floor_id or previous.event.source_position
+                            and previous.event.source_position.floor_id)==
+                            (event.floor_id or event.source_position and event.source_position.floor_id)) then
                     previous.events = previous.events or {previous.event}
                     previous.events[#previous.events+1] = event
                     if cascade[event.kind] then

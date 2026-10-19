@@ -8,9 +8,12 @@ cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 mkdir -p "$output_dir/assets"
-cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
+cp -R "$project_dir/assets/." "$output_dir/assets/"
 
 cat > "$output_dir/main.lua" <<'LUA'
+function love.errorhandler(why)
+ io.stderr:write(debug.traceback(tostring(why),2).."\n");return function()return 1 end
+end
 local Game=require("src.game")
 local Biomes=require("src.biomes")
 local Content=require("src.content")
@@ -25,18 +28,30 @@ function Game.new_stage(seed,options)
         route_history={(id:gsub("^core:biome/","core:route/"))}}})
     return tracked
 end
+local Filter=require('src.onebit_shader')
+local filter;local make_filter=Filter.new
+function Filter.new(...)filter=make_filter(...);return filter end
 assert(love.filesystem.load("roag_main.lua"))()
 local old_load,old_update,old_draw=love.load,love.update,love.draw
-local old_print,old_color=love.graphics.print,love.graphics.setColor
+local old_print,old_rectangle=love.graphics.print,love.graphics.rectangle
+local Palette=require("src.visual_palette")
 local labels,telegraph={},0
 local out=assert(os.getenv("ROAG_ENCOUNTER_OUTPUT"))
 love.graphics.print=function(v,...)
     labels[#labels+1]=tostring(v)
     return old_print(v,...)
 end
-love.graphics.setColor=function(r,g,b,a)
-    if r==0.95 and g==0.26 and b==0.31 then telegraph=telegraph+1 end
-    return old_color(r,g,b,a)
+love.graphics.rectangle=function(mode,x,y,w,h,...)
+    local r,g,b=love.graphics.getColor()
+    if filter and filter.shader and love.graphics.getShader()==filter.shader then
+        local gray=r*.2126+g*.7152+b*.0722
+        r,g,b=gray*filter.ink[1],gray*filter.ink[2],gray*filter.ink[3]
+    end
+    for _,ink in ipairs({Palette.hostile,Palette.enemy})do
+        if mode=='fill' and (w==2 or h==2) and math.abs(r-ink[1])<.001
+            and math.abs(g-ink[2])<.001 and math.abs(b-ink[3])<.001 then telegraph=telegraph+1 end
+    end
+    return old_rectangle(mode,x,y,w,h,...)
 end
 local function near(entity)
     local p=Game.player(tracked)
@@ -121,7 +136,9 @@ for kind in elite regular; do
     ROAG_GUI_AUTOSTART=1 ROAG_ENCOUNTER_KIND="$kind" \
         ROAG_ENCOUNTER_OUTPUT="$output_dir" \
         XDG_DATA_HOME="$output_dir/save-$kind" \
-        timeout 20s love "$output_dir" >"$output_dir/$kind.log" 2>&1
+        timeout -k 3s 20s love "$output_dir" >"$output_dir/$kind.log" 2>&1 || {
+        cat "$output_dir/$kind.log";printf 'Retained failed encounter: %s\n' "$output_dir";exit 1;
+    }
     test -s "$output_dir/$kind.png"
 done
 printf 'Encounter GUI PASS: %s\n' "$output_dir"

@@ -1,6 +1,6 @@
 # Approved idea implementation — sustained goal
 
-Status: **ACTIVE — user resumed the 50+ additional-boon batch and final acceptance**.
+Status: **ENGINEERING ACCEPTANCE VERIFIED — production cleanup and researched proposals are the active follow-up**.
 The previous terrain/environment stop was honored. The user has now explicitly
 requested the remaining boon and final-integration passes, web research as
 needed, atomic commits, and LÖVE testing for final acceptance. Earlier paused
@@ -104,9 +104,9 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
-| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 30 new boon icons + eight face bindings; 37 unique native regions; original PNGs preserved |
+| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | verified | 50 new boon icons + eight face bindings; all 15 original asset files byte-identical; live coverage 599/599 |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | implemented — 50 additions / 103 total; final acceptance pending | current 185 focused; final twelve 36 GUI and 12 disk scenarios; combined 832-case gate pending |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | engineering verified — 50 additions / 103 total | final full 837/837; 190 focused; exact save/Victory/replay, actual native GUI and bounded refresh/performance checks; see current acceptance guide |
 
 ## Dependency-based batches
 
@@ -1606,3 +1606,42 @@ Complete 832-case headless gate, combined earlier-feature GUI/save/seed/Victory,
 readability and performance acceptance remain. Only after those pass proceed to
 the user's production cleanup / one cleanup commit / Controls-only README edit /
 web-researched visual-juice proposals. No goal completion claim yet.
+
+## Final combined engineering gate — 19 October 2026
+
+Original additional-boon and integration deliverables are implemented and
+verified. Current authority is `docs/ROAG_IDEA_ACCEPTANCE.md`; earlier pending
+notes remain historical evidence, not the current remaining-work list.
+
+- 50 additions / 103 total, 99 normal unearned IDs; all 15 original asset files
+  unchanged; native coverage 599/599, no missing IDs.
+- Full 832/832 at `43cbbab0` (585.22 s, 155376 KiB). Measured playback backlog
+  then fixed with five new regressions. Final **837/837**, 784.45 s / 156608 KiB,
+  `/var/tmp/roag-final-integration-full-20261019.log`. The longer final run
+  overlapped GUI/regression work; it is not a matched CPU-speed comparison.
+- 190 focused new-boon/playback tests. 162 live runtime/Lua-test files match
+  the final frozen gate byte-for-byte; subsequent changes are GUI fixtures/docs.
+- Current nine gameplay GUI suites: 27/27. Fourteen additional GUI groups:
+  42/42 group runs, including all 15 title/class/New Run/attack paths.
+- Earlier mechanics: 36 paired GUI Save & Quit/Continue scenarios in three
+  rounds (216 processes), plus one wider-window paired round (72 processes).
+- Nine generated environment families: 27 centered native GUI processes,
+  20 F5 replacements each, 540 refreshes with identical world pixels and bounded
+  images/texture memory. These are assisted views, not ordinary-action runs.
+- All selected new forms/patterns, 50 native boon icons and eight last-roll
+  histories verified in actual LÖVE renderings; headless checked-store scripts
+  and a pre-addition executable -> current legacy Continue pass.
+- Six legal current-pool offer/replay attempts: four Victories, two Defeats;
+  no balance tuning. Prepared 100-actor and new-boon stress are clearly assisted.
+- Mixed causal playback: 764 events, old 219 beats / 45.19 s -> four beats /
+  1.44 s; full event order, simulation/saved state and tactical boundaries kept.
+- Two stale old boon screenshot-callback errors and one **silent exit 139**
+  retained separately. No causal claim connecting them. Protected update checks
+  now pass ten isolated boon rounds and the complete three-round game matrix.
+  Historical native crash/hang risk remains unresolved.
+- LÖVE 11.5 / Fedora WSL / Mesa 26.2.4 llvmpipe; no human/physical
+  keyboard/mouse/Wacom/controller or native GPU acceptance claimed.
+
+Next: audit/remove confirmed obsolete intermediates, one cleanup commit with
+Controls-only README edits, then present researched visual-polish ideas for
+approval in chat. Do not implement those proposals automatically.

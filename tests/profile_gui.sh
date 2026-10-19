@@ -8,7 +8,7 @@ cp "$project_dir/main.lua" "$output_dir/roag_main.lua"
 cp "$project_dir/conf.lua" "$output_dir/conf.lua"
 cp -R "$project_dir/src" "$output_dir/src"
 mkdir -p "$output_dir/assets"
-cp -R "$project_dir/assets/fonts" "$output_dir/assets/fonts"
+cp -R "$project_dir/assets/." "$output_dir/assets/"
 cat > "$output_dir/main.lua" <<'LUA'
 local Game=require('src.game')
 local Biomes=require('src.biomes')
@@ -48,17 +48,29 @@ if mode=='boon' or mode=='crowd' then
             local Content=require('src.content')
             local map=Content.map_for(tracked)
             local count=0
-            for y=2,10 do
-                for x=2,14 do
-                    if count<40 and not (x==3 and y==3) and
+            for y=2,map.height-1 do
+                for x=2,map.width-1 do
+                    if count<tonumber(os.getenv("ROAG_PROFILE_CROWD") or "40") and not (x==3 and y==3) and
                         Content.walkable(map,x,y) then
                         Game.spawn_enemy(tracked,'core:enemy/mossbound_guard',x,y)
                         count=count+1
                     end
                 end
             end
-            assert(count==40,'crowd fixture is too small')
+            assert(count==tonumber(os.getenv('ROAG_PROFILE_CROWD') or '40'),'crowd fixture is too small')
         end
+        return tracked
+    end
+end
+if mode=='newboon' then
+    function Game.new_stage()
+        tracked=Game.new(37,'core:map/scrolling_room',{class_id='core:actor/berserker'})
+        local p=Game.player(tracked);p.position.x,p.position.y=15,16;p.hp=10
+        for y=-2,2 do for x=-2,2 do if x~=0 or y~=0 then
+            local e=Game.spawn_enemy(tracked,'core:enemy/mossbound_guard',15+x,16+y,100000)
+            e.hp=1000;e.max_hp=1000
+        end end end
+        require('src.visibility').recompute(tracked)
         return tracked
     end
 end
@@ -76,6 +88,16 @@ local frames=0
 local output=assert(os.getenv('ROAG_PROFILE_OUTPUT'))
 function love.load(...)
     old_load(...)
+    if mode=='newboon' then
+        local p=Game.player(tracked)
+        for _,slug in ipairs({'backswing','threefold_remedy','fourfold_ledger','long_wick',
+            'passing_ember','rooks_wake','fan_of_blades','emberbrand','temporal_echo',
+            'cluster_rupture','grave_dividend','storm_conductor'})do
+            require('src.boons').set_stacks(p,'core:boon/'..slug,'rare',2)
+        end
+        love.keypressed('r');love.keypressed('d');love.keypressed('return')
+        assert(boon_activations>10,'new-boon chain did not activate')
+    end
     if mode=='finale' then love.keypressed('space') end
     if mode=='crowd' then
         local before=tracked.clock
@@ -152,10 +174,10 @@ function love.draw(...)
     end
 end
 LUA
-for scene in generated boon crowd fungal aqueduct bastion finale; do
+for scene in ${ROAG_PROFILE_SCENES:-generated boon newboon crowd fungal aqueduct bastion finale}; do
     ROAG_PROFILE_SCENE="$scene" ROAG_PROFILE_OUTPUT="$output_dir" \
       ROAG_GUI_AUTOSTART=1 ROAG_DIAGNOSTICS=1 XDG_DATA_HOME="$output_dir/data" \
-      timeout 30s love "$output_dir"
+      timeout -k 3s 30s love "$output_dir"
     test -s "$output_dir/$scene.tsv"
     test -s "$output_dir/$scene.tga"
 done

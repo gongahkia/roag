@@ -136,7 +136,7 @@ local function buy_nearest(run,max_actions)
     local offers=assert(Game.chest_options(state,chest.id)).offers
     local best,score=1,-math.huge
     for index,offer in ipairs(offers) do
-        local value=chest_score(offer)
+        local value=run.offer_policy=='first' and -index or chest_score(offer)
         if value>score then best,score=index,value end
     end
     ok,why=Play.action(run,{kind='claim_chest',chest_id=chest.id,
@@ -244,6 +244,8 @@ function P.attempt(seed,options)
     local class_id=options.class_id or Classes.order[1]
     local run=Play.new(seed,{multifloor=true,class_id=class_id,
         available_boons=Achievements.pool({})})
+    assert(options.offer_policy==nil or options.offer_policy=='first','unknown offer policy')
+    run.offer_policy=options.offer_policy
     run.purchases={}
     local state=run.state
     local stages={}

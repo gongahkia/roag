@@ -13,7 +13,7 @@ local Game=require('src.game')
 local Playback=require('src.playback')
 local Persistence=require('src.persistence')
 local original_new,original_add=Game.new,Playback.add
-local tracked,playback
+local tracked,playback,first_item
 function Game.new(seed)
     tracked=original_new(21)
     for _,p in ipairs({{3,2},{3,3},{2,3},{4,2},{5,2}}) do
@@ -30,10 +30,14 @@ local original_load,original_update,original_draw=love.load,love.update,love.dra
 local output=assert(os.getenv('ROAG_T15_CHAIN_OUTPUT'))
 local phase,pending,next_action=1,false,nil
 local labels={}
-local old_printf=love.graphics.printf
+local old_printf,old_print=love.graphics.printf,love.graphics.print
 love.graphics.printf=function(value,...)
     labels[#labels+1]=tostring(value)
     return old_printf(value,...)
+end
+love.graphics.print=function(value,...)
+    labels[#labels+1]=tostring(value)
+    return old_print(value,...)
 end
 function love.load(...)
     original_load(...)
@@ -47,8 +51,13 @@ function love.load(...)
     love.keypressed('r');love.keypressed('d');love.keypressed('return')
     assert(tracked.clock==150)
     original_update(0.22)
-    assert(Playback.current(playback).kind=='BoonActivated')
-    assert(#Playback.current_group(playback)>=10)
+    first_item=playback.items[1]
+    local group=assert(Playback.current_group(playback));assert(#group>=10)
+    local found=false;local duration=0
+    for _,event in ipairs(group)do if event.kind=='BoonActivated' and
+        event.boon_id=='core:boon/temporal_echo'then found=true end end
+    for _,item in ipairs(playback.items)do duration=duration+item.duration end
+    assert(found and duration<3,'dense causal feedback became an unbounded presentation backlog')
 end
 function love.update(dt)
     original_update(0)
@@ -64,12 +73,12 @@ function love.draw(...)
     if phase==1 then
         local activated,boon=false,false
         for _,label in ipairs(labels) do
-            if label:find('BOON ACTIVATED',1,true) then activated=true end
-            if label:find('Temporal Echo',1,true) then boon=true end
+            if label:find('BOON CHAIN',1,true) then activated=true end
+            if label:find('procs',1,true) then boon=true end
         end
         assert(activated and boon,'dense boon beat did not render its grouped HUD')
     else
-        assert(Playback.current(playback).kind~='BoonActivated')
+        assert(playback.items[1]~=first_item)
     end
     pending=true
     local label=phase==1 and 'boon' or 'later'
@@ -89,7 +98,7 @@ function love.draw(...)
     end)
 end
 LUA
-ROAG_T15_CHAIN_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 \
+ROAG_T15_CHAIN_OUTPUT="$output_dir" ROAG_GUI_AUTOSTART=1 XDG_DATA_HOME="$output_dir/data" \
     timeout -k 3s 20s love "$output_dir" > "$output_dir/love.log" 2>&1 || {
         cat "$output_dir/love.log" >&2
         printf 'Tranche 15 chain artifacts: %s\n' "$output_dir" >&2

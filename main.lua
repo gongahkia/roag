@@ -3024,11 +3024,34 @@ local function draw_panel()
         warning=history.kind=='WindupStarted' and 'ATTACK WINDUP' or 'RESOLVING'
         detail=playback_cue_labels[history.kind] or 'Input resumes shortly'
         color=PixelUI.colors.selected
-        if history.kind=='BoonActivated' and history.boon_id then
+        if history.kind=='WindupStarted' then
+            local shown=0
+            for _,event in ipairs(Playback.current_group(playback)or {history})do
+                if event.kind=='WindupStarted' and event.floor_id==state.active_floor_id then
+                    for _,cell in ipairs(event.target_cells or {})do
+                        if visible_at(cell.x,cell.y)then shown=shown+1;break end
+                    end
+                end
+            end
+            if shown>1 then detail=('%d locked attacks · scheduler timing'):format(shown)end
+        elseif history.kind=='BoonActivated' and history.boon_id then
             warning='BOON ACTIVATED';detail=BoonContent.get(history.boon_id).name
         elseif history.kind=='DamageTaken' then
             warning=history.target_id==state.player_id and 'DAMAGE TAKEN' or 'HIT CONFIRMED'
             if history.target_id==state.player_id then color={1,.44,.4}end
+        end
+        local procs,first_boon,loss=0,nil,0
+        for _,event in ipairs(Playback.current_group(playback)or {})do
+            if event.kind=='BoonActivated' then procs=procs+1;first_boon=first_boon or event.boon_id end
+            if event.kind=='DamageTaken' and event.target_id==state.player_id then
+                loss=loss+(event.actual_loss or 0)
+            end
+        end
+        if loss>0 then
+            warning='DAMAGE TAKEN';detail=('-%d HP%s'):format(loss,procs>1 and (' · %d procs'):format(procs)or '')
+            color={1,.44,.4}
+        elseif procs>1 then
+            warning='BOON CHAIN';detail=('%d procs · %s'):format(procs,BoonContent.get(first_boon).name)
         end
     else
         for _,strike in ipairs(Game.pending_strikes(state))do
