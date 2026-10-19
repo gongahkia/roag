@@ -77,6 +77,27 @@ terrain_find_landscape :: proc(seed: u64, biome: Biome, generator: u32 = 3) -> (
 // general landscape finder stays stable for compatibility/golden fixtures.
 terrain_biome_view :: proc(seed: u64, biome: Biome, generator: u32) -> (p: I3, ok: bool) {
 	if generator < 4 {return terrain_find_landscape(seed, biome, generator)}
+	if generator >= 5 && (biome == .Mountains || biome == .Snowy_Peaks) {
+		p, ok := terrain_find_landscape(seed, biome, generator)
+		if !ok {return p, false}
+		best := p
+		for dz: i32 = -64; dz <= 64; dz += 16 {for dx: i32 = -64; dx <= 64; dx += 16 {
+				c := geography_dry_column(seed, p.x + dx, p.z + dz)
+				if c.height > best.y {best = {p.x + dx, c.height, p.z + dz}}
+			}}
+		return best, true
+	}
+	if generator >= 5 && biome == .Ocean {
+		for ring: i32 = 0;
+		    ring <= 48;
+		    ring += 1 {for z := -ring; z <= ring; z += 1 {for x := -ring; x <= ring; x += 1 {
+					if max(abs(x), abs(z)) != ring {continue}
+					c := geography_dry_column(seed, x * 64, z * 64)
+					if c.biome == .Ocean &&
+					   c.height >= 36 &&
+					   c.temperature > TQ * 40 / 100 {return {x * 64, c.height, z * 64}, true}
+				}}}
+	}
 	vegetated :=
 		biome == .Birch_Forest ||
 		biome == .Cherry_Grove ||
@@ -100,6 +121,16 @@ terrain_biome_view :: proc(seed: u64, biome: Biome, generator: u32) -> (p: I3, o
 						   biome {interior = false}
 					}}
 				if !interior {continue}
+				if generator >= 5 {
+					form := ground_form(
+						seed,
+						floor_div(x * 64, 128),
+						floor_div(z * 64, 128),
+						generator,
+					)
+					if form.active &&
+					   max(abs(form.x - x * 64), abs(form.z - z * 64)) < 64 {continue}
+				}
 				for dz: i32 = -2; dz <= 2; dz += 1 {for dx: i32 = -2; dx <= 2; dx += 1 {
 						t := plant_at(seed, x * 8 + dx, z * 8 + dz, generator)
 						if t.active &&
@@ -195,12 +226,17 @@ benchmark_prepare :: proc(a: ^App) {
 		p, ok := terrain_find_river(a.world.seed, scene == "lake")
 		if !ok {fmt.eprintln("No drainage fixture for seed"); os.exit(2)}
 		a.benchmark_target = {f64(p.x), f64(p.y), f64(p.z)}
-		a.benchmark_camera = a.benchmark_target + V3{28, 28, 28}
+		a.benchmark_camera = a.benchmark_target + V3{36, 50, 36}
 	} else if landscape {
 		p, ok := terrain_biome_view(a.world.seed, biome, a.world.generator)
 		if !ok {fmt.eprintln("No landscape benchmark fixture for seed"); os.exit(2)}
 		a.benchmark_target = {f64(p.x), f64(p.y), f64(p.z)}
+		if a.world.generator >= 5 && biome == .Ocean {a.benchmark_target.y = SEA_LEVEL}
 		a.benchmark_camera = a.benchmark_target + V3{24, 22, 24}
+		if a.world.generator >= 5 &&
+		   (biome == .Mountains ||
+				   biome ==
+					   .Snowy_Peaks) {a.benchmark_camera = a.benchmark_target + V3{46, 42, 46}}
 		if a.world.generator < 5 {
 			a.benchmark_camera.y = max(
 				a.benchmark_camera.y,

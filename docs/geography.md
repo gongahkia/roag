@@ -36,7 +36,7 @@ The dune, badlands, and glacial shapes are inspired by the landforms described i
 
 ## Rivers, lakes, and drainage
 
-A jittered 128-block grid samples a coarse terrain potential. Every node chooses its lowest strictly lower neighbor. The strict decrease prevents cycles. Connected reaches share their endpoint positions and water grades, so adjacent chunks independently reconstruct the same network. Terminal inland nodes receiving flow become lakes; ocean reaches merge into sea-level water.
+The design separates elevation, moisture, and drainage as described in [Red Blob Games’ terrain notes](https://www.redblobgames.com/maps/terrain-from-noise/), with a bounded local graph for streaming. A jittered 128-block grid samples a coarse terrain potential. Every node chooses its lowest strictly lower neighbor. The strict decrease prevents cycles. Connected reaches share their endpoint positions and water grades, so adjacent chunks independently reconstruct the same network. Terminal inland nodes receiving flow become lakes, with water kept below sampled nearby rims. Coastal reaches stop at their first sea crossing, and ocean columns retain sea-level water instead of growing elevated embankments.
 
 Each source with incoming flow continues downstream, while a bounded two-step rainfall/runoff estimate controls channel width. This is a local approximation, not the total area of an unbounded catchment. Some river systems terminate in closed inland lakes; reaching the ocean is not guaranteed. Wind and rainfall fields are spatial proxies, not seasonal weather.
 
@@ -48,7 +48,7 @@ Generated water is an initial, mostly sleeping voxel state. It uses the existing
 
 Generation uses Q16 integer fields and bounded descriptors. No persistent heightmap, biome texture, global erosion buffer, or growing drainage graph is allocated. A padded chunk prepares at most 100 coarse nodes and retains at most sixteen reaches, sharing them across columns, tree anchors, and cave/formation checks. Tree and drainage halos are included before meshing. All sampled block decisions remain functions of seed, generator version, and coordinates.
 
-Workers still use one temporary 34³ block buffer and produce the same eight-byte vertices. GPU materials, texture layers, and the blended water/ice pass do not grow. The existing graphics, CPU, upload, residency, and edit admission limits remain active. The main-thread column/feature caches include the generator version.
+Workers still use one temporary 34³ block buffer and produce the same eight-byte vertices. GPU materials, texture layers, and the blended water/ice pass do not grow. Ice renders its exterior faces to avoid compositing its back faces through the front layer at chunk borders. The existing graphics, CPU, upload, residency, and edit admission limits remain active. The main-thread column/feature caches include the generator version.
 
 Source responsibilities:
 
@@ -72,6 +72,12 @@ The headless benchmark alternates v4/v5 order over matching coordinates, after w
 
 The graphical suite checks all seventeen biomes, rivers, lakes, and caves. Stress scenes use 640×360, radius two, 16 MiB application graphics reservations, 32 MiB managed CPU, and 64 KiB uploads. Wide previews use 960×540, radius four, and 64 MiB graphics/CPU allowances. `--flight` checks memory/residency over two repeated route cycles. Linux runs use a private Xvfb display with software OpenGL when available. A software-renderer run does not establish physical GPU memory use or hardware frame rates.
 
-Reports are saved under `benchmarks/geography-v5-{stress,wide}.json`; CSV files preserve the frame/job measurements. Images are `build/geography-v5-{scene}.png`. Native `--benchmark river`, `lake`, and `ocean` scenes join the existing biome previews; `--no-hud` produces unobstructed screenshots. The default gameplay HUD is unchanged.
+Reports are saved under `benchmarks/geography-v5-{stress,wide}.json`; CSV files preserve the frame/job measurements. Images are `build/geography-v5-{stress,wide}-{scene}.png`. Native `--benchmark river`, `lake`, and `ocean` scenes join the existing biome previews; `--no-hud` produces unobstructed screenshots. The default gameplay HUD is unchanged.
 
-The v5 tests cover all biome distributions, relative terrain elevations, exact worker/query equality including padded borders, seventeen golden chunk hashes, versioned caches, strict downhill node potentials, canonical shared reaches, graded water, lake containment, ordinary edits, 128 spawn seeds, descriptor bounds, extreme coordinates, and concurrent workers. Older generator hashes and save roundtrips remain in the same suite. See [performance](performance.md) and [measurements](measurements.json) for measured results and platform coverage.
+The 57-test native suite includes v5 checks for all biome distributions, relative terrain elevations, exact worker/query equality including padded borders, seventeen golden chunk hashes, versioned caches, strict downhill node potentials, canonical shared reaches, graded water, lake containment, ordinary edits, 128 spawn seeds, descriptor bounds, extreme coordinates, and concurrent workers. Older generator hashes and save roundtrips remain in the same suite. See [performance](performance.md) and [measurements](measurements.json) for measured results and platform coverage.
+
+For a shorter wide preview run:
+
+```sh
+python3 scripts/geography_benchmark.py --skip-build --graphics --wide --scenes desert badlands terrain snowy-peaks taiga river lake ocean
+```

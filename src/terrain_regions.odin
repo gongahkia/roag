@@ -45,6 +45,7 @@ Terrain_Column :: struct {
 	river, relief:             i64,
 	temperature, moisture:     i64,
 	biome:                     Biome,
+	rocky:                     bool,
 	slope, sky:                i64,
 	island_bottom, island_top: i32,
 	form_bottom, form_top:     i32,

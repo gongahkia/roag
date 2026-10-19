@@ -10,6 +10,9 @@ flat in int layer;
 flat in int material;
 out vec4 color;
 void main() {
+    // Solid ice has an exterior surface; rendering its back faces through the
+    // front layer caused chunk-shaped compositing seams above frozen water.
+    if(material==31 && !gl_FrontFacing) discard;
     vec2 coords=uv;
     if(material==16) coords+=vec2(worldTime*0.045,worldTime*0.065);
     if(material==17) coords+=vec2(worldTime*0.018,-worldTime*0.026);

@@ -1,6 +1,7 @@
 package sandbox
 
 geography_surface :: proc(c: Terrain_Column, y: i32) -> Block {
+	if c.rocky {return .Stone}
 	top := y == c.height
 	depth := c.height - y
 	if c.river > TQ / 3 {

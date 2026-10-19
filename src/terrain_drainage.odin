@@ -3,9 +3,10 @@ package sandbox
 DRAIN_CELL :: 128
 DRAIN_MAX_NODES :: 100
 River_Reach :: struct {
-	a, mid, b: I3,
-	width:     i32,
-	lake:      bool,
+	a, mid, b:    I3,
+	target:       I3,
+	width:        i32,
+	lake, outlet: bool,
 }
 River_Set :: struct {
 	reaches: [16]River_Reach,
@@ -62,6 +63,16 @@ river_set_for :: proc(seed: u64, key: I3) -> River_Set {
 					if nodes[j].potential < best {best = nodes[j].potential; nodes[i].down = j}
 				}}
 		}}
+	for z in 1 ..< depth - 1 {for x in 1 ..< width - 1 {
+			i := x + z * width
+			if nodes[i].down >= 0 || nodes[i].position.y <= SEA_LEVEL {continue}
+			rim := nodes[i].position.y
+			for o in ([]I3{{24, 0, 0}, {-24, 0, 0}, {0, 0, 24}, {0, 0, -24}, {17, 0, 17}, {17, 0, -17}, {-17, 0, 17}, {-17, 0, -17}}) {
+				p := nodes[i].position + o
+				rim = min(rim, geography_dry_column(seed, p.x, p.z).height - 2)
+			}
+			nodes[i].position.y = max(SEA_LEVEL, rim)
+		}}
 	result: River_Set
 	for gz := gz0; gz <= gz1; gz += 1 {for gx := gx0; gx <= gx1; gx += 1 {
 			i := int(gx - gx0) + 3 + (int(gz - gz0) + 3) * width
@@ -95,6 +106,7 @@ river_set_for :: proc(seed: u64, key: I3) -> River_Set {
 					   r.b.z - r.a.z,
 				   ) {r.mid.z += i32(h % 17) - 8} else {r.mid.x += i32(h % 17) - 8}
 			}
+			if !r.lake {r.target = r.b; river_clip_coast(seed, &r)}
 			result.reaches[result.count] = r; result.count += 1
 		}}
 	return result
@@ -109,6 +121,9 @@ river_segment_sample :: proc(x, z: i32, a, b: I3) -> (distance2, level: i64) {
 }
 
 river_carve :: proc(c: ^Terrain_Column, x, z: i32, set: ^River_Set) {
+	// Ocean terrain already belongs to the sea-level water body. A stream
+	// cannot manufacture elevated embankments across an existing ocean.
+	if c.height < SEA_LEVEL {return}
 	best := i64(1 << 60)
 	best_d, best_level: i64
 	best_r: River_Reach
@@ -159,4 +174,28 @@ terrain_find_river :: proc(seed: u64, lake: bool) -> (p: I3, ok: bool) {
 			}}
 	}
 	return {}, false
+}
+
+// Coastal reaches terminate at the first sea-level shore crossing. This avoids
+// an elevated water grade carrying a causeway across a bay between coarse nodes.
+river_clip_coast :: proc(seed: u64, r: ^River_Reach) {
+	middle := geography_dry_column(seed, r.mid.x, r.mid.z)
+	if r.b.y > SEA_LEVEL + 12 && middle.height > SEA_LEVEL + 14 {return}
+	previous := r.a
+	for step: i32 = 1; step <= 16; step += 1 {
+		a, b := r.a, r.mid
+		along := step
+		if step > 8 {a, b = r.mid, r.b; along = step - 8}
+		p := a + (b - a) * along / 8
+		if geography_dry_column(seed, p.x, p.z).height >= SEA_LEVEL {previous = p; continue}
+		lo, hi := previous, p
+		for _ in 0 ..< 5 {
+			mid := (lo + hi) / 2
+			if geography_dry_column(seed, mid.x, mid.z).height >=
+			   SEA_LEVEL {lo = mid} else {hi = mid}
+		}
+		r.b = hi; r.b.y = SEA_LEVEL; r.outlet = true
+		if step <= 8 {r.mid = (r.a + r.b) / 2} else {r.mid.y = (r.a.y + r.b.y) / 2}
+		return
+	}
 }

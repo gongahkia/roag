@@ -85,3 +85,24 @@ Ten five-second fixed biome scenes at 640×360, radius two, one worker, 16 MiB a
 The texture array grows to 75 small layers, approximately 100 KiB with mipmaps. Vertices still occupy eight bytes; ice reuses the water blending pass. Climate and vegetation data stay in bounded CPU descriptors/caches, with no persistent dense biome grids or GPU climate textures. Process RSS in these software-rendered scenes reaches roughly 107–116 MiB, including allocations outside engine accounting. These results do not establish physical GPU memory use or performance on low-memory hardware.
 
 A final 52-second v4 flight completes 2,479 chunk jobs. Both repeated route cycles peak at 1.548 MiB sampled managed heap, with no residency-growth failure or radius reduction. The route is mostly ocean/lowland; the separate biome scenes exercise dense vegetation and peaks. Twelve wider 960×540, radius-four previews use 64 MiB graphics/CPU allowances and retain the 64 KiB upload ceiling. They show all ten new biomes plus the retained floating islands and underground lakes. Final commands, renderer output, and summaries are recorded in the `terrain_v4` section of [measurements](measurements.json).
+
+## Generator 5 geography validation — 2026-10-19
+
+The final geography implementation passes **57 core tests** and the complete Linux graphical/input smoke suite. Coverage includes all seventeen biomes, relative dry-land elevations, exact padded worker/query agreement, seventeen new golden hashes, concurrent workers, 128 canonical reach descriptors, 64 distinct downhill traces, coastal outlet checks, 870 surface-water samples around a contained lake, ordinary edits, extreme coordinates, and 128 naturally supported spawn seeds. Generators 3/4 retain their original golden hashes, and saves for versions 1–5 roundtrip. macOS arm64 checking and Windows amd64 object compilation pass; native cross-platform runtime agreement remains pending CI.
+
+The new [headless benchmark](../scripts/geography_benchmark.py) compares 36 identical padded chunk coordinates over three measured repeats, after warmup, alternating version order. Coordinates include two vertical slices per biome and surface drainage. It checks stable block digests and a 16 MiB worker heap ceiling. The timing regression ceiling is 1.5× v4's median total generation time.
+
+| Measurement | Generator 4 | Generator 5 |
+|---|---:|---:|
+| Mean generation per chunk | 2.553 ms | 2.520 ms |
+| Mean meshing per chunk | 2.338 ms | 2.939 ms |
+| Peak recorded worker heap | 0.218 MiB | 0.242 MiB |
+| Mean output vertices | 1836 | 2559 |
+
+V5/v4 median total generation time is **0.934×** in this fixture matrix, within the regression guard. Terrain and output geometry differ even at identical coordinates; these figures are local CPU measurements, not a general rendering-speedup or hardware FPS claim. Sampling, conditional profile work, fixed-size drainage preparation, and unchanged vertex/material storage keep the added geography bounded.
+
+All twenty graphical surface/biome/drainage/cave stress scenes at 640×360, radius two, 16 MiB graphics reservations, 32 MiB managed CPU, and 64 KiB uploads pass. They retain radius two. Across those scenes, graphics reservations peak at **8.832 MiB**, sampled managed heap at **1.619 MiB**, and process RSS at about **111.3 MiB**. No scene exceeds its upload allowance or overflows/refuses fluid work. Graphics reservations are application estimates, and the managed heap excludes driver/runtime allocations.
+
+The 52-second repeated flight completes 2,479 chunk jobs. Its first and second cycles peak at 1.506 and 1.506 MiB sampled managed heap; the residency-growth check passes. The route is mainly ocean/lowland, so separate scenes cover the other landforms.
+
+Eight wider previews cover dunes, badlands, mountains, snowy peaks, taiga, rivers, lakes, and ocean shelves at 960×540, radius four, and 64 MiB graphics/CPU allowances. Images are `build/geography-v5-wide-{scene}.png`; small stress images are `build/geography-v5-stress-{scene}.png`. The [geography guide](geography.md) describes the landforms, approximate hydrology, physical limitations, and commands. Raw commands, binary/source fingerprints, driver output, and summaries are in `geography_v5` in [measurements](measurements.json). Physical low-memory GPU validation remains outstanding.

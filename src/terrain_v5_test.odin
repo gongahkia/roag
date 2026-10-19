@@ -69,17 +69,17 @@ test_v5_all_biomes_padded_queries_and_golden_chunks :: proc(t: ^testing.T) {
 	fmt.printf("V5 golden digests %v\n", digests)
 	expected := [len(BIOME_NAMES)]u64 {
 		10096591280673462559,
-		6635394767417705784,
+		13304158260861012539,
 		10451022035058305963,
 		3403611120663444,
 		11159293630703837868,
 		18086006992855410969,
 		506461552626657295,
-		13301434914795677964,
+		8263712067721152265,
 		12026828065221375174,
 		17206187212722986746,
 		16708736472258246468,
-		3947074321278856212,
+		10280853424301777972,
 		3860286201332337373,
 		13762340226583495058,
 		9269088576987334022,
@@ -101,7 +101,11 @@ test_v5_drainage_downhill_continuity_and_order :: proc(t: ^testing.T) {
 				if exists {testing.expect(t, r == old)} else {seen[r.a] = r}
 				if r.lake {continue}
 				a := drain_node(42, floor_div(r.a.x, DRAIN_CELL), floor_div(r.a.z, DRAIN_CELL))
-				b := drain_node(42, floor_div(r.b.x, DRAIN_CELL), floor_div(r.b.z, DRAIN_CELL))
+				b := drain_node(
+					42,
+					floor_div(r.target.x, DRAIN_CELL),
+					floor_div(r.target.z, DRAIN_CELL),
+				)
 				testing.expect(
 					t,
 					b.potential < a.potential && r.a.y >= r.mid.y && r.mid.y >= r.b.y,
@@ -119,6 +123,13 @@ test_v5_drainage_downhill_continuity_and_order :: proc(t: ^testing.T) {
 							c.water_level <= previous + 1,
 							fmt.tprintf("uphill surface at %v", p),
 						)
+						if geography_dry_column(42, p.x, p.z).height < SEA_LEVEL {
+							testing.expect(
+								t,
+								c.water_level == SEA_LEVEL,
+								fmt.tprintf("raised coastal river at %v", p),
+							)
+						}
 						previous = c.water_level
 					}
 					checked += 1

@@ -13,12 +13,14 @@ benchmark_generation :: proc(c: Config) {
 	for i in 0 ..< len(BIOME_NAMES) {
 		p, ok := terrain_find_landscape(c.seed, Biome(i), 5)
 		if !ok {fmt.eprintf("Missing geography fixture %s\n", BIOME_NAMES[i]); os.exit(2)}
+		p.y = geography_column(c.seed, p.x, p.z).height
 		keys[count] = chunk_of(p); count += 1
 		keys[count] = chunk_of(p + I3{0, 32, 0}); count += 1
 	}
 	for lake in ([2]bool{false, true}) {
 		p, ok := terrain_find_river(c.seed, lake)
-		if ok {keys[count] = chunk_of(p); count += 1}
+		if ok {p.y = geography_column(c.seed, p.x, p.z).height
+			keys[count] = chunk_of(p); count += 1}
 	}
 	os.make_directory_all("benchmarks")
 	file, err := os.create("benchmarks/generation.csv")

@@ -147,8 +147,13 @@ geography_dry_column :: proc(seed: u64, x, z: i32) -> Terrain_Column {
 	if column.height <
 	   SEA_LEVEL -
 		   3 {column.biome = .Ocean} else if column.height <= SEA_LEVEL + 3 && biome != .Swamp {column.biome = .Coast}
-	if column.biome == .Swamp {column.water_level = SEA_LEVEL + 2}
 	if sky >= TQ / 2 {column.biome = .Sky_Islands}
+	column.rocky =
+		column.biome == .Savanna &&
+		mid > TQ * 72 / 100 &&
+		mid < TQ * 85 / 100 &&
+		abs(m.dx) + abs(m.dz) > TQ / 4
+	if column.rocky {column.slope = max(column.slope, TQ)}
 	return column
 }
 

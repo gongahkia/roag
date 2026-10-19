@@ -2,6 +2,7 @@
 """Compare v4/v5 generation at identical coordinates; optionally validate graphics."""
 import argparse
 import csv
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -26,9 +27,12 @@ def generation_summary(path, max_ratio):
     with path.open() as file:
         rows = list(csv.DictReader(file))
     assert rows and {int(r['generator']) for r in rows} == {4, 5}
-    digests, coordinates = {}, {}
+    digests, coordinates, samples = {}, {}, set()
     for r in rows:
         fixture, version = int(r['fixture']), int(r['generator'])
+        sample = (fixture, version, int(r['repeat']))
+        assert sample not in samples, 'Duplicate benchmark sample'
+        samples.add(sample)
         position = tuple(int(r[a]) for a in ('x', 'y', 'z'))
         assert coordinates.setdefault(fixture, position) == position, 'Unmatched coordinates'
         assert digests.setdefault((fixture, version), r['digest']) == r['digest'], 'Nondeterministic terrain'
@@ -37,6 +41,7 @@ def generation_summary(path, max_ratio):
     for version in (4, 5):
         selected = [r for r in rows if int(r['generator']) == version]
         repeats = sorted({int(r['repeat']) for r in selected})
+        assert len(selected) == len(coordinates) * len(repeats), 'Incomplete benchmark samples'
         totals = [sum(float(r['generation_ms']) for r in selected if int(r['repeat']) == repeat) for repeat in repeats]
         versions[str(version)] = {
             'fixtures': len(coordinates), 'repeats': len(repeats),
@@ -72,10 +77,17 @@ def main():
     env = build.environment()
     command = [str(binary), '--benchmark', 'generation', '--frames', str(args.repeats)]
     output = subprocess.check_output(command, env=env, text=True, timeout=180)
-    report = {'platform': platform.platform(), 'toolchain': json.loads(Path('toolchain.json').read_text()),
+    source_hash = hashlib.sha256()
+    for path in sorted([p for p in Path('src').glob('*.odin') if not p.name.endswith('_test.odin')] + list(Path('shaders').glob('*'))):
+        if path.is_file():
+            source_hash.update(str(path).encode() + b'\0' + path.read_bytes())
+    report = {'source_sha256': source_hash.hexdigest(), 'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(), 'platform': platform.platform(), 'toolchain': json.loads(Path('toolchain.json').read_text()),
               'generation_command': command[1:], 'generation_output': output.splitlines(),
               'generation': generation_summary(Path('benchmarks/generation.csv'), args.max_generation_ratio),
               'scenes': []}
+    matrix = Path('benchmarks') / f'generation-v5-{"wide" if args.wide else "stress"}.csv'
+    matrix.write_bytes(Path('benchmarks/generation.csv').read_bytes())
+    report['generation_csv'] = str(matrix)
     print(json.dumps(report['generation'], indent=2), flush=True)
     server = None
     try:
@@ -90,14 +102,14 @@ def main():
             if args.flight:
                 scenes.append('flight')
             for scene in scenes:
-                ppm = build.ROOT / 'build' / f'geography-v5-{scene}.ppm'
+                ppm = build.ROOT / 'build' / f'geography-v5-{"wide" if args.wide else "stress"}-{scene}.ppm'
                 command = [str(binary), '--hidden', '--no-hud', '--benchmark', scene, '--generator', '5',
                            '--seconds', str(52 if scene == 'flight' else args.seconds),
                            '--radius', '4' if args.wide else '2', '--gpu-mb', '64' if args.wide else '16',
                            '--cpu-mb', '64' if args.wide else '32', '--upload-kb', '64',
                            '--width', '960' if args.wide else '640', '--height', '540' if args.wide else '360',
                            '--screenshot', str(ppm)]
-                result = subprocess.run(command, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=85)
+                result = subprocess.run(command, env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=(52 if scene == 'flight' else args.seconds) + 30)
                 assert result.returncode == 0 and 'OpenGL error' not in result.stdout, result.stdout
                 path = Path('benchmarks') / f'{scene}.csv'
                 summary = benchmark.summarize(path, warmup=2)
