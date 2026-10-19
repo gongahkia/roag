@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "a3d6b34596a92159",
+  "mapping_checksum": "b16564af50e9e311",
   "packs": {
     "kenney": {
-      "actor_count": 53,
-      "actor_silhouettes": 44,
+      "actor_count": 55,
+      "actor_silhouettes": 46,
       "bindings": [
         {
           "height": 8,
@@ -2058,6 +2058,60 @@
           "width": 8
         },
         {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a",
+          "index": 99,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/attack",
+          "index": 99,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/hurt",
+          "index": 99,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b",
+          "index": 100,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/attack",
+          "index": 100,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/hurt",
+          "index": 100,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:enemy/pack_chorister",
           "index": 28,
@@ -3094,6 +3148,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_oath_effect",
+          "index": 574,
+          "motif": "core:ui/idea_oath_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -3267,7 +3330,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 106,
+      "static_pose_aliases": 110,
       "usage": {
         "caves": {
           "145": [
@@ -3771,6 +3834,9 @@
           "569": [
             "core:boon/crossfire_omen/icon + /detail"
           ],
+          "574": [
+            "core:ui/idea_oath_effect"
+          ],
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
           ],
@@ -3872,6 +3938,9 @@
           ]
         },
         "tiny": {
+          "100": [
+            "core:enemy/oath_twin_b"
+          ],
           "108": [
             "core:enemy/siege_wisp"
           ],
@@ -3934,6 +4003,9 @@
           ],
           "98": [
             "core:enemy/banner_captain"
+          ],
+          "99": [
+            "core:enemy/oath_twin_a"
           ]
         }
       },
@@ -3941,8 +4013,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 53,
-      "actor_silhouettes": 52,
+      "actor_count": 55,
+      "actor_silhouettes": 54,
       "bindings": [
         {
           "height": 16,
@@ -5998,6 +6070,60 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/oath_twin_a",
+          "index": 124,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/attack",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_a/hurt",
+          "index": 124,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b",
+          "index": 127,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/attack",
+          "index": 127,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/oath_twin_b/hurt",
+          "index": 127,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/pack_chorister",
           "index": 461,
           "motif": "",
@@ -7033,6 +7159,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/idea_oath_effect",
+          "index": 574,
+          "motif": "core:ui/idea_oath_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/squad_heal_effect",
           "index": 535,
           "motif": "squad_heal_effect",
@@ -7142,7 +7277,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 106,
+      "static_pose_aliases": 110,
       "usage": {
         "onebit": {
           "1010": [
@@ -7175,8 +7310,14 @@
           "123": [
             "core:enemy/mend_acolyte"
           ],
+          "124": [
+            "core:enemy/oath_twin_a"
+          ],
           "126": [
             "core:enemy/shield_bearer"
+          ],
+          "127": [
+            "core:enemy/oath_twin_b"
           ],
           "128": [
             "core:enemy/canal_lockmaster"
@@ -7508,6 +7649,9 @@
           "571": [
             "core:object/review_key"
           ],
+          "574": [
+            "core:ui/idea_oath_effect"
+          ],
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
           ],
@@ -7673,14 +7817,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 66,
+      "kenney": 67,
       "nonempty": 1077,
-      "onebit": 158,
+      "onebit": 161,
       "sheet": "onebit",
-      "union": 158,
-      "unused_kenney": 1011,
-      "unused_onebit": 919,
-      "unused_union": 919
+      "union": 161,
+      "unused_kenney": 1010,
+      "unused_onebit": 916,
+      "unused_union": 916
     },
     {
       "empty": 63,
@@ -7697,14 +7841,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 21,
+      "kenney": 23,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 21,
-      "unused_kenney": 111,
+      "union": 23,
+      "unused_kenney": 109,
       "unused_onebit": 132,
-      "unused_union": 111
+      "unused_union": 109
     }
   ],
   "requirements": [
@@ -7936,6 +8080,12 @@
     "core:enemy/mycelial_matriarch",
     "core:enemy/mycelial_matriarch/attack",
     "core:enemy/mycelial_matriarch/hurt",
+    "core:enemy/oath_twin_a",
+    "core:enemy/oath_twin_a/attack",
+    "core:enemy/oath_twin_a/hurt",
+    "core:enemy/oath_twin_b",
+    "core:enemy/oath_twin_b/attack",
+    "core:enemy/oath_twin_b/hurt",
     "core:enemy/pack_chorister",
     "core:enemy/pack_chorister/attack",
     "core:enemy/pack_chorister/hurt",
@@ -8051,6 +8201,7 @@
     "core:ui/hp_icon",
     "core:ui/idea_alarm_effect",
     "core:ui/idea_corpse_effect",
+    "core:ui/idea_oath_effect",
     "core:ui/squad_heal_effect",
     "core:ui/squad_rally_effect",
     "core:ui/squad_shield_effect",

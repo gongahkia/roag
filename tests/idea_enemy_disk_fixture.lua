@@ -4,7 +4,8 @@ local P=require('src.persistence')
 local mode,dir=arg[1],arg[2]
 local scenario=arg[3] or 'rammer'
 assert(scenario=='rammer' or scenario=='wraith' or scenario=='cantor' or scenario=='toad'
-    or scenario=='cache' or scenario=='bones' or scenario=='alarm' or scenario=='web','unknown fixture scenario')
+    or scenario=='cache' or scenario=='bones' or scenario=='alarm' or scenario=='web'
+    or scenario=='oath','unknown fixture scenario')
 assert((mode=='write' or mode=='continue' or mode=='cross' and scenario=='web') and type(dir)=='string'
     and dir:match('^/var/tmp/roag%-idea%-disk%-[%w%-]+$'),'isolated fixture directory required')
 local allowed={['active-a.roag']=true,['active-b.roag']=true,
@@ -30,7 +31,14 @@ end
 if mode=='write' then
     local s=Game.new(37);local p=Game.player(s)
     local enemy
-    if scenario=='web' then
+    if scenario=='oath' then
+        p.position.x,p.position.y=7,6
+        enemy=Game.spawn_enemy(s,'core:enemy/oath_twin_a',8,6,100000)
+        local other=Game.spawn_enemy(s,'core:enemy/oath_twin_b',9,6,100000)
+        enemy.oath_partner_id=other.id;other.oath_partner_id=enemy.id
+        assert(Game.submit(s,{kind='basic_attack',dx=1,dy=0}))
+        assert(enemy.hp==6 and other.hp==6)
+    elseif scenario=='web' then
         p.position.x,p.position.y=7,6
         enemy=Game.spawn_enemy(s,'core:enemy/web_weaver',10,6,50)
     elseif scenario=='alarm' then
@@ -62,11 +70,11 @@ if mode=='write' then
         p.position.x,p.position.y=7,6
         enemy=Game.spawn_enemy(s,'core:enemy/heavy_rammer',6,6,0)
     end
-    if scenario~='bones' then
+    if scenario~='bones' and scenario~='oath' then
         assert(Game.submit(s,scenario=='cache' and {kind='move',dx=1,dy=0} or {kind='wait'}))
     end
     assert(s.clock==(scenario=='cache' and 200 or scenario=='cantor' and 300 or 100)
-        and (scenario=='bones' or enemy.pending_attack.due==(scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
+        and (scenario=='bones' or scenario=='oath' or enemy.pending_attack.due==(scenario=='web' and 206 or scenario=='alarm' and 343 or scenario=='cache' and 370 or scenario=='cantor' and 388 or scenario=='wraith' and 111
             or scenario=='toad' and 175 or 157)))
     assert(store:save(s));assert(store:inspect().record.seq==1)
     local expected=Game.restore(Game.snapshot(s))
@@ -80,9 +88,15 @@ elseif mode=='continue' then
     assert(P.encode(events)==storage:read('expected-events.roag-data'))
     assert(P.encode(Game.snapshot(s))==storage:read('expected.roag-data'))
     assert(Game.player(s).position.x==(scenario=='cache' and 9 or
-        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web') and 7 or 8)
+        (scenario=='cantor' or scenario=='bones' or scenario=='alarm' or scenario=='web' or scenario=='oath') and 7 or 8)
         and s.clock==(scenario=='web' and 300 or (scenario=='cantor' or scenario=='cache' or scenario=='alarm') and 400 or 200))
-    if scenario=='web' then
+    if scenario=='oath' then
+        local count=0
+        for _,e in ipairs(s.entities)do if require('src.idea_oaths').is_twin(e)then
+            assert(require('src.idea_oaths').partner(s,e) and e.hp==6);count=count+1
+        end end
+        assert(count==2)
+    elseif scenario=='web' then
         assert(#s.idea_webs==1 and s.idea_webs[1].expires==606)
     elseif scenario=='alarm' then
         local count=0

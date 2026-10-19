@@ -23,6 +23,7 @@ local OneBitVisuals = require("src.onebit_visuals")
 local Terrain = require("src.terrain")
 local EnemySquads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
+local IdeaOaths = require('src.idea_oaths')
 local VisualPacks = require("src.visual_packs")
 local PresentationSettings = require("src.presentation_settings")
 local StudioProject = require("src.studio_project")
@@ -977,6 +978,9 @@ local function submit(intent)
             elseif event.kind=='WebAnchorCut' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Web anchor cut: line cleared'
+            elseif event.kind=='DamageTaken' and event.oath_given and
+                event.floor_id==state.active_floor_id and visible_at(event.x,event.y)then
+                notice='Oath shared '..event.oath_given..' damage: separate the twins or break their sight line'
             elseif event.kind=='RevivalBlocked' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Revival blocked: the Cantor has spent its only attempt'
@@ -1716,6 +1720,11 @@ local function draw_squad_cues()
             local x,y=Camera.tile_top_left(camera,p.x,p.y)
             local role=EnemySquads.roles[enemy.definition_id]
             local carried=enemy.carried_drop_id and IdeaEnemies.drop(state,enemy.carried_drop_id)
+            local oath=IdeaOaths.partner(state,enemy)
+            if oath then
+                draw_visual(bound_visual('core:ui/idea_oath_effect'),
+                    x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95)
+            end
             if enemy.definition_id=='core:enemy/alarm_keeper' and
                 (not enemy.ai_memory.alarm_spent or enemy.pending_attack
                     and enemy.pending_attack.support and enemy.pending_attack.support.kind=='alarm')then
@@ -1726,11 +1735,12 @@ local function draw_squad_cues()
                 draw_visual(bound_visual('core:drop/'..carried.kind),
                     x+TILE*.68,y-TILE*.08,TILE*.34,TILE*.34,.95)
             end
-            local leader=EnemySquads.ward_source(state,enemy) or EnemySquads.rally_source(state,enemy)
-            if leader and visible_at(leader.position.x,leader.position.y) then
+            local leader=EnemySquads.ward_source(state,enemy) or EnemySquads.rally_source(state,enemy) or oath
+            if leader and (not oath or enemy.id<oath.id) and visible_at(leader.position.x,leader.position.y) then
                 local lp=leader.position
                 local steps=math.max(math.abs(lp.x-p.x),math.abs(lp.y-p.y))*4
-                love.graphics.setColor(.56,.86,1,.6)
+                if oath then love.graphics.setColor(.95,.64,.83,.7)
+                else love.graphics.setColor(.56,.86,1,.6)end
                 for i=1,steps do
                     local t=i/steps
                     local tx,ty=p.x+(lp.x-p.x)*t,p.y+(lp.y-p.y)*t

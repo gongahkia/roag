@@ -19,6 +19,7 @@ local Review = require("src.review_features")
 local Squads = require('src.enemy_squads')
 local IdeaEnemies = require('src.idea_enemies')
 local IdeaWebs = require('src.idea_webs')
+local IdeaOaths = require('src.idea_oaths')
 local Visibility = require("src.visibility")
 local World = require("src.world")
 
@@ -605,6 +606,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
             if ranged==true then break end
         end
     end
+    IdeaOaths.redistribute(state,outcomes)
     -- Commit the entire batch before exposing any dependent damage/death record.
     for _, outcome in ipairs(outcomes) do
         Game.entity(state, outcome.target_id).hp = outcome.hp_after
@@ -647,7 +649,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
     end
     for _, outcome in ipairs(outcomes) do
         local target=Game.entity(state,outcome.target_id)
-        if not (target and target.invulnerable) then
+        if not outcome.oath_shared_only and not (target and target.invulnerable) then
             emit(state, output, "HitConfirmed", outcome, source.id, action_id)
         end
     end
@@ -885,6 +887,7 @@ end
 
 local function drain_effects(state, output)
     IdeaWebs.prune(state,Content.map_for(state))
+    IdeaOaths.prune(state)
     local context = assert(contexts[output], "missing boon resolution context")
     local steps = 0
     while context.event_head <= #context.events or context.effect_head <= #context.effects do
@@ -942,6 +945,7 @@ local function drain_effects(state, output)
             if event.kind=='Died' or event.kind=='WindupCancelled' then
                 IdeaEnemies.prune_corpses(state)
                 IdeaWebs.prune(state,Content.map_for(state))
+                IdeaOaths.prune(state)
             end
             if event.kind=='Died' then
                 IdeaEnemies.split(state,event,Content.map_for(state),function(x,y)
@@ -1049,6 +1053,7 @@ local function drain_effects(state, output)
         end
     end
     IdeaWebs.prune(state,Content.map_for(state))
+    IdeaOaths.prune(state)
 end
 
 local function attack(state, output, source, action_id, ability_id, cells, raw_damage, ranged, extra)

@@ -805,10 +805,10 @@ onebit,120,352,32,111,,
 onebit,121,368,32,162,core:terrain/barricade,core:terrain/barricade
 onebit,122,384,32,86,,
 onebit,123,400,32,88,,core:enemy/mend_acolyte
-onebit,124,416,32,90,,
+onebit,124,416,32,90,,core:enemy/oath_twin_a
 onebit,125,432,32,88,,
 onebit,126,448,32,78,,core:enemy/shield_bearer
-onebit,127,464,32,98,,
+onebit,127,464,32,98,,core:enemy/oath_twin_b
 onebit,128,480,32,84,,core:enemy/canal_lockmaster
 onebit,129,496,32,79,,core:enemy/heavy_rammer
 onebit,130,512,32,46,,
@@ -1255,7 +1255,7 @@ onebit,570,496,176,54,,
 onebit,571,512,176,49,,core:object/review_key
 onebit,572,528,176,58,,
 onebit,573,544,176,44,,
-onebit,574,560,176,40,,
+onebit,574,560,176,40,core:ui/idea_oath_effect,core:ui/idea_oath_effect
 onebit,575,576,176,46,core:boon/circuit_chorus/icon + /detail,core:boon/circuit_chorus/icon + /detail
 onebit,576,592,176,80,,
 onebit,577,608,176,70,,
@@ -3625,8 +3625,8 @@ tiny,95,187,119,218,,
 tiny,96,0,136,186,core:enemy/shield_bearer,
 tiny,97,17,136,195,core:enemy/banner_follower,
 tiny,98,34,136,194,core:enemy/banner_captain,
-tiny,99,51,136,204,,
-tiny,100,68,136,203,,
+tiny,99,51,136,204,core:enemy/oath_twin_a,
+tiny,100,68,136,203,core:enemy/oath_twin_b,
 tiny,101,85,136,96,,
 tiny,102,102,136,94,,
 tiny,103,119,136,78,,

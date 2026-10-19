@@ -2,6 +2,7 @@
 local RNG=require('src.rng')
 local Squads=require('src.enemy_squads')
 local Webs=require('src.idea_webs')
+local Oaths=require('src.idea_oaths')
 local I={version='roag-idea-enemies/1'}
 I.enemies={
     -- id, name, HP, damage, defense, speed, windup, recovery, range
@@ -14,31 +15,36 @@ I.enemies={
     {'bone_fragment','Bone Fragment',2,1,0,95,100,110,1},
     {'alarm_keeper','Alarm Keeper',6,1,0,75,220,150,1},
     {'web_weaver','Web Weaver',7,1,0,90,140,140,4},
+    {'oath_twin_a','Oath Twin — Pike',8,2,0,90,100,130,1},
+    {'oath_twin_b','Oath Twin — Blade',8,1,0,100,110,130,1},
 }
-I.secondary={bone_fragment=true}
+I.secondary={bone_fragment=true,oath_twin_b=true}
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
     ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
     ['core:enemy/haunted_cache']='cache',['core:enemy/bone_splitter']='bone',
     ['core:enemy/bone_fragment']='fragment',['core:enemy/alarm_keeper']='alarm',
-    ['core:enemy/web_weaver']='web'}
+    ['core:enemy/web_weaver']='web',['core:enemy/oath_twin_a']='oath',
+    ['core:enemy/oath_twin_b']='oath'}
 I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
     ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90,
-    ['core:enemy/web_weaver']=122}
+    ['core:enemy/web_weaver']=122,['core:enemy/oath_twin_a']=99,['core:enemy/oath_twin_b']=100}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416,['core:enemy/bone_splitter']=323,
     ['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
     ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417,
     ['core:enemy/bone_splitter']=323,['core:enemy/bone_fragment']=323,['core:enemy/alarm_keeper']=173,
-    ['core:enemy/web_weaver']=366}
+    ['core:enemy/web_weaver']=366,['core:enemy/oath_twin_a']=124,['core:enemy/oath_twin_b']=127}
 I.objects={['core:object/idea_cache_dormant']=303}
-I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915}
+I.symbols={['core:ui/idea_corpse_effect']=539,['core:ui/idea_alarm_effect']=915,
+    ['core:ui/idea_oath_effect']=574}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
     cantor_revive='cantor revival',cantor_touch='cantor touch',
     toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite',
     bone_strike='bone strike',fragment_stab='fragment stab',
     keeper_alarm='reinforcement alarm',keeper_touch='keeper touch',
-    weaver_web='anchored web',weaver_bite='weaver bite'}
+    weaver_web='anchored web',weaver_bite='weaver bite',
+    oath_pike='oath pike',oath_blade='oath blade',oath_share='shared oath loss'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -180,6 +186,13 @@ function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
     local role=I.roles[enemy.definition_id]
+    if role=='oath'then
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id=enemy.definition_id==Oaths.a and
+                'core:ability/oath_pike' or 'core:ability/oath_blade',cells={{x=b.x,y=b.y}}}
+        end
+        return h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+    end
     if role=='web'then return Webs.choose(state,enemy,player,h)end
     if role=='alarm' then
         if not enemy.ai_memory.alarm_spent and h.visible(a.x,a.y)then
@@ -299,6 +312,11 @@ function I.revival_company(state,map,caster)
             and math.abs(a.x-b.x)+math.abs(a.y-b.y)<=4
             and Squads.clear(state,a,b)then return true end
     end
+    local point=I.companion_cell(state,map,caster)
+    return point~=nil,point
+end
+function I.companion_cell(state,map,caster)
+    local a=caster.position
     local blocked={}
     local function reserve(p)if p and p.x and p.y then blocked[p.x..','..p.y]=true end end
     for _,e in ipairs(state.entities)do if e.position.floor_id==map.floor_id then reserve(e.position)end end
@@ -311,17 +329,24 @@ function I.revival_company(state,map,caster)
         if map.rows[y] and map.rows[y]:sub(x,x)=='.' and not blocked[x..','..y]
             and math.abs(x-map.start_x)+math.abs(y-map.start_y)>=8
             and (not map.elite or math.abs(x-map.elite.x)+math.abs(y-map.elite.y)>2)then
-            return true,{x=x,y=y}
+            return {x=x,y=y}
         end
     end
-    return false
+    return nil
 end
 
 -- At most one idea replacement and, only for an isolated Cantor, one ordinary
 -- companion. Existing saved floors are not repopulated; no combat RNG draw.
+function I.selection(root_seed,floor_id)
+    local seed=RNG.derive(root_seed,'idea-enemies:'..floor_id)
+    if seed%4~=0 then return nil,seed end
+    local pool={}
+    for _,row in ipairs(I.enemies)do if not I.secondary[row[1]]then pool[#pool+1]=row end end
+    return pool[math.floor(seed/16)%#pool+1],seed
+end
 function I.populate(state,map,replace,spawn)
-    local seed=RNG.derive(state.root_seed or state.run_seed,'idea-enemies:'..map.floor_id)
-    if seed%4~=0 then return end
+    local definition,seed=I.selection(state.root_seed or state.run_seed,map.floor_id)
+    if not definition then return end
     local choices={}
     for _,e in ipairs(state.entities) do
         local p=e.position
@@ -333,15 +358,20 @@ function I.populate(state,map,replace,spawn)
     end
     table.sort(choices,function(a,b)return a.id<b.id end)
     if #choices==0 then return end
-    local pool={}
-    for _,row in ipairs(I.enemies)do if not I.secondary[row[1]]then pool[#pool+1]=row end end
-    local definition=pool[math.floor(seed/16)%#pool+1]
     local offset=math.floor(seed/4)%#choices
     local target,companion
     for index=1,#choices do
         local candidate=choices[(offset+index-1)%#choices+1]
         local fits,point=true,nil
         if definition[1]=='grave_cantor' then fits,point=I.revival_company(state,map,candidate)end
+        if definition[1]=='oath_twin_a'then
+            point=I.companion_cell(state,map,candidate);fits=point~=nil
+            if fits then
+                local other={floor_id=map.floor_id,x=point.x,y=point.y}
+                fits=Squads.clear(state,candidate.position,other)
+                    and Squads.clear(state,other,candidate.position)
+            end
+        end
         if fits and (not point or spawn)then target,companion=candidate,point;break end
     end
     if not target then return end
@@ -353,7 +383,11 @@ function I.populate(state,map,replace,spawn)
             break
         end
     end
-    if companion then spawn(state,original,companion.x,companion.y)end
+    if companion then
+        local paired=definition[1]=='oath_twin_a'
+        local other=spawn(state,paired and Oaths.b or original,companion.x,companion.y)
+        if paired then target.oath_partner_id=other.id;other.oath_partner_id=target.id end
+    end
 end
 
 function I.validate_pending(enemy,pending)
@@ -419,6 +453,7 @@ function I.validate_pending(enemy,pending)
 end
 
 function I.validate(state,maps,content)
+    Oaths.validate(state)
     Webs.validate(state,maps)
     local corpses=state.idea_corpses
     assert(corpses==nil or type(corpses)=='table' and #corpses<=32,'invalid corpse store')

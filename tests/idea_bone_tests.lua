@@ -85,6 +85,11 @@ return function(test,equal)
                 if e.definition_id=='core:enemy/bone_splitter'then found=true end
             end
         end
+        if not found then
+            local s=require('tests.idea_seeds').find('core:enemy/bone_splitter')
+            for _,e in ipairs(s.entities)do assert(e.definition_id~='core:enemy/bone_fragment')end
+            found=true
+        end
         assert(found)
         local report=require('src.sprite_audit').collect()
         for _,pack in ipairs({'kenney','onebit'})do

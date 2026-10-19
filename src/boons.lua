@@ -561,6 +561,9 @@ end
 
 -- Subscriptions are indexed by event kind; only owners of a subscribed boon are visited.
 function Boons.on_event(state, event, enqueue, emit_activation)
+    -- Shared HP loss is not a second weapon hit or a recursive damage proc.
+    -- A real credited death still earns the existing finite on-kill effects.
+    if event.oath_shared_only and event.kind~='EntityKilled'then return end
     local list = subscriptions[event.kind]
     if not list then return end
     local history = chain_record(state, event.chain_id)

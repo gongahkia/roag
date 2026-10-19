@@ -27,12 +27,12 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
 | `haunted-cache` | Haunted cache / chest mimic | headless verified; GUI pending | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; `b73eeb4a` |
 | `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
-| `web-weaver` | Web Weaver + anchored webs | headless verified; GUI pending | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; this feature commit |
+| `web-weaver` | Web Weaver + anchored webs | headless verified; GUI pending | 444/444 full, nine focused cases, eight disk scenarios including third-process web crossing and save generation 3; `e6c911d7` |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
 | `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
-| `pain-linked-twins` | Oath Twins + breakable pain link | pending | — |
+| `pain-linked-twins` | Oath Twins + breakable pain link | headless verified; GUI pending | 453/453 full, nine focused cases, 100-stage pair corpus, nine fresh-process disk scenarios; this feature commit |
 | `alarm-keeper` | Alarm Keeper + one interruptible call | headless verified; GUI pending | 434/434 full, seven focused cases, seven fresh-process scenarios; `33f22d03` |
 | `ember-moth` | Ember Moth + readable burning landing | pending | — |
 | `bone-splitter` | Bone Splitter + reward-bounded fragments | headless verified; GUI pending | 427/427 full, six focused cases, six fresh-process disk scenarios, native skeleton/fragment art; `087ec1ad` |
@@ -149,8 +149,14 @@ No feature is complete merely because a schema, fixture or metadata record exist
   copied into the live checkout match this verified tree. Nine focused web
   cases and eight fresh-process disk scenarios pass. The web scenario also
   crosses the same saved line in a third process and checks generation 3.
-- Both Kenney choices now resolve **354/354** required bindings, 53 actor IDs and
-  106 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Oath Twins: **453 passed, 0 failed**, frozen source
+  `/var/tmp/roag-oaths-8hajnz9s`, log
+  `/var/tmp/roag-oath-final-headless-20261019.log` (the initial log filename
+  says combined/focused, but this was the complete unfiltered suite). Nine
+  focused cases, a 100-stage natural pair corpus and nine disk scenarios pass.
+  The integrated runtime/tests match that verified source exactly.
+- Both Kenney choices now resolve **361/361** required bindings, 55 actor IDs and
+  110 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -196,16 +202,28 @@ legacy gates. The earlier Bone gate using an outdated copied driver was
 stopped and retained as `roag-bone-stale-strategy-aborted-20261019.log`.
 These are strategy/staging diagnoses, not claimed simulation bug fixes.
 
-Oath Twins development is isolated at `/var/tmp/roag-oaths-8hajnz9s`.
-Focused pair/batch/interrupt/reward/save tests and a fresh-process continuation
-pass; broad acceptance is running. Twins share half the mitigated loss in the
-same primary HP batch. Distance or blocked LOS breaks their link permanently;
-shared loss cannot manufacture another hit proc. The expanded natural pool
-exposed a narrow Bone spawn fixture: its first 50 seeds no longer selected a
-Splitter. A pure selection query identifies a candidate, then tests construct
-and validate the genuine generated stage. Exact before/after snapshots of
-24 generated seeds confirm that extracting this query changes no generation.
-It is not integrated or claimed complete until its full gate passes.
+Oath Twins is integrated. The expanded natural pool exposed a narrow Bone
+spawn fixture: its first 50 seeds no longer selected a Splitter. A pure
+selection query now identifies a candidate, then the test constructs and
+validates that genuine generated stage. Exact before/after snapshots of
+24 generated seeds confirm that extracting the query changes no generation.
+The initial combined run was 75/1; its failure log is retained at
+`/var/tmp/roag-oath-combined-focused-20261019.log`. Final full gate: 453/453.
+
+Rotating Sentinel is isolated at `/var/tmp/roag-sentinel-ol4fnv3b`. Eight
+focused cases, all 84 combined encounter checks and ten fresh-process disk
+scenarios pass. It is an optional champion in noncritical rooms, with four
+separately locked clockwise strikes. Stun/displacement ends the sequence even
+in the recovery gap. The first 6/2 focused result was fixture timing/map API
+assumptions, corrected against actual event traces and `Floors.map`. Its
+complete regression gate is running; this slice is not yet integrated.
+
+Mirror Hexer is isolated at `/var/tmp/roag-mirrors-m1xoqczk`. Eleven focused
+checks cover one directional bounce, range preservation, pre-damage blocking,
+original shooter/friendly fire, fixed enemy windups and exact saves. Disk
+checking caught the missing new support kind in the pending-windup save
+allowlist. That integration is being corrected and reverified before any
+completion claim. All unused/held/rejected art constraints remain in force.
 
 Headless browser inspection of the catalogue passed 12 pack/filter cases,
 mobile layout and search without JS errors at the earlier 341-binding state:

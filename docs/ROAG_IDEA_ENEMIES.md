@@ -209,6 +209,31 @@ The disk test saves an active line, reopens it in a second process, then
 crosses it and checks the third save generation in a third process. No preview
 or drawing call advances simulation time or consumes RNG.
 
+## Oath Twins
+
+| Parameter | Pike / Blade |
+| --- | ---: |
+| HP / defense | 8 / 0 each |
+| Raw damage / speed | 2 / 90; 1 / 100 |
+| Base windup / recovery | 100 / 130; 110 / 130 |
+| Mixed / standalone art | Tiny 99 + 100 / 1-Bit 124 + 127 |
+| Maximum link distance | 4 Manhattan tiles |
+
+These warriors enter generation together in a safe adjacent formation. The
+visible link shares half (rounded down) of each mitigated, HP-capped loss
+inside the same primary HP batch. Recipient armor is not applied a second
+time. An area attack computes both original losses before exchanging shares;
+all HP is committed before death or secondary boons. Shared loss does not
+manufacture a second hit or recursive damage proc. Actual deaths retain each
+original warrior's normal finite XP, currency and kill-boon behavior.
+
+Death, distance beyond four tiles or blocked sight in either direction breaks
+the oath permanently. Returning to range cannot reconnect it. The sprite badge
+and dotted link are fog-clipped, read-only presentation. Nine focused checks
+cover batch symmetry, mitigation, proc exclusion, simultaneous kills, breaks,
+malformed saves and a 100-stage natural paired-ownership corpus. A real disk
+save/reopen preserves both bodies, exact shared HP and their reciprocal IDs.
+
 ## Verification
 
 ```sh
