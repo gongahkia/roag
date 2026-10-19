@@ -99,3 +99,13 @@ HP 23, attack 3, defense 0, speed 95. Base move/F/R/X costs: 100/100/160/120.
 Shots deal fixed 3 raw damage with armor, first-body collision and **friendly fire**, including the owner. The owner's genuine enemy kills receive normal credit exactly once. Sentry-generated records explicitly suppress boon activation: a zero coefficient alone does not suppress guaranteed Echo. No free crit, Echo or proc chain is manufactured by a timed shot. Visibility is checked at commit and impact; there is no scouting or wall penetration. The stand is not a damageable actor or reward source. After three attempts, waiting cannot produce further shots. Frozen-floor work rebases exactly.
 
 Mixed art uses approved Tiny 109 and Micro 119 stand; standalone uses approved 1-Bit 222 and the existing 262 stone/stand motif. Seven focused checks and 59 combined contracts pass. `sh tests/idea_class_disk_resume.sh tinkerer` resumes an actual pending shot in a new process. Physical/GUI readability remains pending.
+
+## Stormcaller
+
+HP 21, attack 2, base discharge 2, defense 0, speed 100. Base move/F/R/X costs: 100/100/150/130.
+
+- **F — Charging Bolt:** three-cell lightning projectile. A real positive direct hit grants one charge per paid action, capped at three. Misses, previews, Echo, sentry and secondary damage do not grant charge.
+- **R — Locked Discharge:** spend all charge on a visible cross centered two directional tiles away. It hits its locked cells after 100 simulation time for base discharge plus twice the spent charge. Walls truncate arms. It does not track targets, crit or activate extra boon chains. Only one discharge may be pending.
+- **X — Grounding Dash:** normal two-cell Dash; any held charge is spent into one ward. It blocks one positive-damage hit after armor, including DOT. Zero-damage hits do not consume it; repeated grounding cannot stack wards.
+
+The HUD exposes charge and held ward. Charge, ward and pending cross survive exact checked saves; parked discharge time rebases with its floor. Both sprite choices use approved 1-Bit 175; discharge cue 615 is also registered. Seven focused checks, 66 combined contracts and a fresh-process pending-cross Continue pass. The initial cross fixture expected five cells despite a real wall blocking one arm; corrected against actual terrain. No LÖVE visual check is claimed.

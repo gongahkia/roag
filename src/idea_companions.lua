@@ -3,7 +3,7 @@
 local Scheduler=require('src.scheduler')
 local C={spirit_id='core:actor/spiritbinder',controller='idea_companion',
  spirit_object='core:object/bound_spirit'}
-C.symbols={[C.spirit_object]=417}
+C.symbols={[C.spirit_object]=417,['core:ui/storm_charge_effect']=615}
 C.tinker_id='core:actor/tinkerer';C.sentry_object='core:object/bolt_sentry'
 C.tinker={id=C.tinker_id,name='Tinkerer',description='Hand bolt, one three-charge sentry, utility roll',
  hp=23,damage=3,slash_damage=0,defense=0,speed=95,crit_chance_ppm=0,crit_damage_percent=150,

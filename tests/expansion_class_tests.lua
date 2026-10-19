@@ -17,7 +17,7 @@ return function(test,equal)
     end
 
     test("six starting classes have explicit stats, costs and snapshot identity",function()
-        assert(Classes.validate() and #Classes.order==13)
+        assert(Classes.validate() and #Classes.order==14)
         local ids={}
         for _,id in ipairs(Classes.order) do
             assert(not ids[id]);ids[id]=true

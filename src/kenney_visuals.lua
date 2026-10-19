@@ -8,6 +8,7 @@ local IdeaEnemies=require('src.idea_enemies')
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
+local Storm=require('src.idea_stormcaller')
 local K={path='assets/kenney/micro-roguelike/tiles.png',
     checksum='5407eab40dd3457c',width=128,height=80,tile=8}
 local actors={
@@ -159,7 +160,10 @@ function K.new(read,make_texture,make_quad)
         ['core:object/review_pillar_bottom']=174,
     }) do handles[id]=cave_cell(index) end
     for id,symbol in pairs(symbols.handles)do handles[id]=symbol end
-    for id,index in pairs(IdeaEnemies.shared_onebit or {}) do
+    local shared={}
+    for id,index in pairs(IdeaEnemies.shared_onebit or {})do shared[id]=index end
+    shared[Storm.id]=175
+    for id,index in pairs(shared) do
         local x,y,w,h=Symbols.region(index)
         local sprite={texture=symbols.texture,quad=make_quad(x,y,w,h,Symbols.width,Symbols.height),
             width=w,height=h,offset_x=x,offset_y=y,source='kenney',symbol_index=index}

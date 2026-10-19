@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "2a134d8986dcb053",
+  "mapping_checksum": "deeae82c00285885",
   "packs": {
     "kenney": {
-      "actor_count": 63,
-      "actor_silhouettes": 52,
+      "actor_count": 64,
+      "actor_silhouettes": 53,
       "bindings": [
         {
           "height": 8,
@@ -300,6 +300,33 @@
           "motif": "",
           "pose_alias": true,
           "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller",
+          "index": 175,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/attack",
+          "index": 175,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/hurt",
+          "index": 175,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
           "width": 16
         },
         {
@@ -3471,6 +3498,15 @@
           "width": 16
         },
         {
+          "height": 16,
+          "id": "core:ui/storm_charge_effect",
+          "index": 615,
+          "motif": "core:ui/storm_charge_effect",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
           "height": 8,
           "id": "core:ui/weapon_bow_icon",
           "index": 71,
@@ -3616,7 +3652,7 @@
           "sheet": "tiny"
         }
       ],
-      "static_pose_aliases": 126,
+      "static_pose_aliases": 128,
       "usage": {
         "caves": {
           "145": [
@@ -4026,6 +4062,9 @@
           "173": [
             "core:enemy/alarm_keeper"
           ],
+          "175": [
+            "core:actor/stormcaller"
+          ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
           ],
@@ -4155,6 +4194,9 @@
           ],
           "575": [
             "core:boon/circuit_chorus/icon + /detail"
+          ],
+          "615": [
+            "core:ui/storm_charge_effect"
           ],
           "616": [
             "core:boon/storm_conductor/icon + /detail",
@@ -4337,8 +4379,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 63,
-      "actor_silhouettes": 61,
+      "actor_count": 64,
+      "actor_silhouettes": 62,
       "bindings": [
         {
           "height": 16,
@@ -4632,6 +4674,33 @@
           "height": 16,
           "id": "core:actor/spiritbinder/hurt",
           "index": 122,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller",
+          "index": 175,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/attack",
+          "index": 175,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:actor/stormcaller/hurt",
+          "index": 175,
           "motif": "",
           "pose_alias": true,
           "sheet": "onebit",
@@ -7807,6 +7876,15 @@
         },
         {
           "height": 16,
+          "id": "core:ui/storm_charge_effect",
+          "index": 615,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/weapon_bow_icon",
           "index": 328,
           "motif": "",
@@ -7879,7 +7957,7 @@
           "sheet": "onebit"
         }
       ],
-      "static_pose_aliases": 126,
+      "static_pose_aliases": 128,
       "usage": {
         "onebit": {
           "1010": [
@@ -7951,6 +8029,9 @@
           ],
           "174": [
             "core:enemy/banner_follower"
+          ],
+          "175": [
+            "core:actor/stormcaller"
           ],
           "184": [
             "core:boon/perfect_guard/icon + /detail"
@@ -8303,6 +8384,9 @@
             "core:object/review_gate_tiny",
             "core:object/review_gate_top"
           ],
+          "615": [
+            "core:ui/storm_charge_effect"
+          ],
           "616": [
             "core:boon/storm_conductor/icon + /detail",
             "core:terrain/glazed_ice",
@@ -8451,14 +8535,14 @@
     {
       "empty": 1,
       "grid": 1078,
-      "kenney": 74,
+      "kenney": 76,
       "nonempty": 1077,
-      "onebit": 170,
+      "onebit": 172,
       "sheet": "onebit",
-      "union": 170,
-      "unused_kenney": 1003,
-      "unused_onebit": 907,
-      "unused_union": 907
+      "union": 172,
+      "unused_kenney": 1001,
+      "unused_onebit": 905,
+      "unused_union": 905
     },
     {
       "empty": 63,
@@ -8519,6 +8603,9 @@
     "core:actor/spiritbinder",
     "core:actor/spiritbinder/attack",
     "core:actor/spiritbinder/hurt",
+    "core:actor/stormcaller",
+    "core:actor/stormcaller/attack",
+    "core:actor/stormcaller/hurt",
     "core:actor/tinkerer",
     "core:actor/tinkerer/attack",
     "core:actor/tinkerer/hurt",
@@ -8871,6 +8958,7 @@
     "core:ui/squad_shield_effect",
     "core:ui/squad_snare_effect",
     "core:ui/squad_ward_effect",
+    "core:ui/storm_charge_effect",
     "core:ui/weapon_bow_icon",
     "core:ui/weapon_dagger_icon",
     "core:ui/weapon_hook_icon",

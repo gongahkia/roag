@@ -42,7 +42,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
 | `pilgrim-class` | Pilgrim — spend health for a measured vow | pending | — |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
-| `stormcaller-class` | Stormcaller — charge, ground, discharge | pending | — |
+| `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
 | `wayfinder-class` | Wayfinder — a visible return beacon | pending | — |
 | `offering-font` | One-use HP offering font | pending | — |
 | `ration-cache` | Sealed ration cache | pending | — |
@@ -318,3 +318,5 @@ Rechecked the unmodified baseline: **510/510**, log `/var/tmp/roag-five-classes-
 Spiritbinder is integrated: six final focused cases and two-process paid-command continuation pass; 52 combined class/art/UI contracts passed before the deployment-near-enemy usability correction, and final integration reruns remain required. Deployment now stops before an enemy rather than requiring the first familiar to be placed in a different direction. The initial disk assertion exposed that usability issue; its diagnostic was retained. Geomancer task commit: `6fecf05c`. LÖVE remains closed.
 
 Tinkerer is integrated: seven final focused cases, 59 combined contracts and new-process pending-shot continuation pass. A regression caught guaranteed Temporal Echo still activating at coefficient zero; the new sentry-generated event flag explicitly excludes these automatic records from boon activation. Existing attack/proc rules remain unchanged for untagged events. Failure logs are retained. The Geomancer frozen full gate has now passed **519/519** at `/var/tmp/roag-geomancer-full-20261019.log`; Spiritbinder commit `9507efcb`. No LÖVE windows opened.
+
+Stormcaller is integrated: seven focused cases, 66 combined contracts and fresh-process pending-cross continuation pass. Charge only comes from positive direct bolts, capped at three; discharge and ground ward are alternative spent-charge choices. Its delayed cross is fixed and explicitly cannot activate boon chains. Fixture corrections handled a real wall truncating the cross and made the disk fixture earn charge before casting. Tinkerer commit `0b084f9f`. Four of this five-class batch are integrated; Wayfinder is next.

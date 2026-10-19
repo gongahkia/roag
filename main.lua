@@ -5,6 +5,7 @@ local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
+local Storm=require('src.idea_stormcaller')
 local Biomes = require("src.biomes")
 local Game = require("src.game")
 local Generation = require("src.generation")
@@ -977,6 +978,12 @@ local function submit(intent)
             elseif event.kind=='AlarmReinforcement' and event.floor_id==state.active_floor_id
                 and visible_at(event.x,event.y) then
                 notice='Alarm Keeper: its only call has resolved; reinforcements give no extra rewards'
+            elseif event.kind=='StormChargeGained'then
+                notice='Storm charge '..event.charge..'/3: R locked cross, or X ground one-hit ward'
+            elseif event.kind=='StormDischargeLocked'then
+                notice='Discharge locked: '..event.damage..' damage after 100 world time; no extra boon procs'
+            elseif event.kind=='StormGrounded'then
+                notice='Charge grounded: one positive-damage hit is warded'
             elseif event.kind=='SentryDeployed'then
                 notice='Sentry deployed: three finite attempts, locked bolts, friendly fire; replacement discards charges'
             elseif event.kind=='SentryCommitted'then
@@ -2888,6 +2895,10 @@ local function draw_panel()
                 detail=Content.ability_name(strike.ability_id)..' · '..math.max(0,strike.due-state.clock)..' time'
                 color={1,.44,.4};break
             end
+        end
+        if warning=='' and not targeting and Game.player(state).definition_id==Storm.id then
+            local p=Game.player(state);warning=('CHARGE %d/3'):format(p.storm_charge or 0)
+            detail=p.storm_ward and 'Grounded ward ready' or 'R discharge · X ground ward';color=PixelUI.colors.selected
         end
         if warning=='' and not targeting and Game.player(state).duelist_riposte then
             warning='RIPOSTE READY';detail='Next paid thrust +2 damage';color=PixelUI.colors.selected

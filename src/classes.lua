@@ -4,6 +4,7 @@ local Targeting=require("src.targeting")
 local D=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
+local Storm=require('src.idea_stormcaller')
 local Classes={}
 Classes.order={"core:actor/adventurer","core:actor/ranger",
     "core:actor/arcanist","core:actor/berserker",
@@ -103,6 +104,8 @@ Classes.order[#Classes.order+1]=Comp.spirit_id
 Classes.definitions[Comp.spirit_id]=Comp.spirit
 Classes.order[#Classes.order+1]=Comp.tinker_id
 Classes.definitions[Comp.tinker_id]=Comp.tinker
+Classes.order[#Classes.order+1]=Storm.id
+Classes.definitions[Storm.id]=Storm.definition
 
 function Classes.get(id) return Classes.definitions[id] end
 function Classes.for_player(player)
@@ -151,7 +154,9 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
     local cells,ability_id,ranged,damage_type
     if kind=="basic_attack" then
         ability_id=def.basic_id
-        if def.id==Comp.spirit_id or def.id==Comp.tinker_id then
+        if def.id==Storm.id then
+            cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='lightning'
+        elseif def.id==Comp.spirit_id or def.id==Comp.tinker_id then
             cells=line(state,content,p,dx,dy,3);ranged=true;damage_type='spirit'
         elseif def.id==Geo.id then
             cells=line(state,content,p,dx,dy,3);ranged=true
@@ -172,7 +177,16 @@ function Classes.attack(state,player,kind,dx,dy,content,explicit)
         end
     else
         ability_id=def.special_id
-        if def.id==Comp.spirit_id or def.id==Comp.tinker_id then
+        if def.id==Storm.id then
+            cells={};local map=content.map_for(state)
+            local travel=line(state,content,p,dx,dy,2);local center=travel[2]
+            if center and center.x==p.x+2*dx and center.y==p.y+2*dy and content.projectile_passable(map,center.x,center.y,state)then
+                for _,d in ipairs({{0,0},{0,-1},{1,0},{0,1},{-1,0}})do
+                    local x,y=center.x+d[1],center.y+d[2]
+                    if content.projectile_passable(map,x,y,state)then cells[#cells+1]={x=x,y=y}end
+                end
+            end
+        elseif def.id==Comp.spirit_id or def.id==Comp.tinker_id then
             cells=Comp.cells(state,player,dx,dy,content)
         elseif def.id==Geo.id then
             cells={{x=p.x+dx,y=p.y+dy}}
@@ -239,7 +253,7 @@ end
 
 function Classes.validate()
     local ids={}
-    assert(#Classes.order==13,"expected thirteen starting classes")
+    assert(#Classes.order==14,"expected fourteen starting classes")
     for _,id in ipairs(Classes.order) do
         local def=assert(Classes.get(id),"missing class")
         assert(def.id==id and not ids[id] and type(def.name)=="string"

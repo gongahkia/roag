@@ -856,7 +856,7 @@ onebit,171,384,48,80,,core:enemy/thornspitter
 onebit,172,400,48,76,,core:enemy/banner_captain
 onebit,173,416,48,82,core:enemy/alarm_keeper,core:enemy/alarm_keeper
 onebit,174,432,48,82,,core:enemy/banner_follower
-onebit,175,448,48,70,,
+onebit,175,448,48,70,core:actor/stormcaller,core:actor/stormcaller
 onebit,176,464,48,82,,
 onebit,177,480,48,54,,
 onebit,178,496,48,60,,
@@ -1296,7 +1296,7 @@ onebit,611,368,192,112,,
 onebit,612,384,192,102,,
 onebit,613,400,192,156,,
 onebit,614,416,192,144,,
-onebit,615,432,192,58,,
+onebit,615,432,192,58,core:ui/storm_charge_effect,core:ui/storm_charge_effect
 onebit,616,448,192,68,core:boon/storm_conductor/icon + /detail; core:terrain/glazed_ice,core:boon/storm_conductor/icon + /detail; core:terrain/glazed_ice; core:ui/boon_effect
 onebit,617,464,192,36,core:boon/turncoat_spark/icon + /detail,core:boon/turncoat_spark/icon + /detail
 onebit,618,480,192,36,core:boon/detonation_bloom/icon + /detail,core:boon/detonation_bloom/icon + /detail; core:ui/hit_effect

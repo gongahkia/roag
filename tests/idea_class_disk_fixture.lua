@@ -13,10 +13,15 @@ local function advance(s)
  return P.encode(events)
 end
 if mode=='write'then
- assert(class=='geomancer' or class=='spiritbinder' or class=='tinkerer')
+ assert(class=='geomancer' or class=='spiritbinder' or class=='tinkerer' or class=='stormcaller')
  local s=G.new(37,nil,{class_id='core:actor/'..class});local p=G.player(s);p.position.x,p.position.y=7,6
- if class=='spiritbinder' or class=='tinkerer'then G.spawn_enemy(s,'core:enemy/mossbound_guard',10,6,100000)end
- assert(G.submit(s,{kind='sweeping_slash',dx=(class=='spiritbinder' or class=='tinkerer') and 1 or 0,dy=(class=='spiritbinder' or class=='tinkerer') and 0 or 1}))
+ if class=='spiritbinder' or class=='tinkerer' or class=='stormcaller'then G.spawn_enemy(s,'core:enemy/mossbound_guard',10,6,100000)end
+ if class=='stormcaller'then
+  assert(G.submit(s,{kind='basic_attack',dx=1,dy=0}));p.speed=300
+  assert(G.submit(s,{kind='sweeping_slash',dx=1,dy=0}));assert(s.class_special.storm)
+ else
+  assert(G.submit(s,{kind='sweeping_slash',dx=(class=='spiritbinder' or class=='tinkerer') and 1 or 0,dy=(class=='spiritbinder' or class=='tinkerer') and 0 or 1}))
+ end
  assert(store:save(s));local b=G.restore(G.snapshot(s))
  storage:write('events.roag-data',advance(b));storage:write('expected.roag-data',P.encode(G.snapshot(b)))
  print('PASS '..class..' prepared special saved in checked generation 1')

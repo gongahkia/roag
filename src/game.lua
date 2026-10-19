@@ -7,6 +7,7 @@ local Classes = require("src.classes")
 local Duelist=require('src.idea_duelist')
 local Geo=require('src.idea_geomancer')
 local Comp=require('src.idea_companions')
+local Storm=require('src.idea_stormcaller')
 local Biomes = require("src.biomes")
 local Generation = require("src.generation")
 local Finale = require("src.finale")
@@ -422,6 +423,11 @@ function Game.preview(state, kind, dx, dy)
             return {valid=false,reason="needs an empty adjacent tile",cells=cells}
         end
     end
+    if kind=='sweeping_slash' and class.id==Storm.id then
+        local valid=(player.storm_charge or 0)>0 and not state.class_special.storm and #cells>0
+        for _,c in ipairs(cells)do if not Visibility.can_see(state,position.floor_id,c.x,c.y)then valid=false end end
+        return {valid=valid,cost=cost,cells=cells,reason=not valid and 'needs charge, a visible clear cross and no pending discharge' or nil}
+    end
     if kind=='sweeping_slash' and (class.id==Comp.spirit_id or class.id==Comp.tinker_id) then
         local valid,reason,mode=Comp.preview(state,player,cells,Content,Visibility.can_see)
         return {valid=valid,reason=reason,cost=cost,cells=cells,companion_mode=mode}
@@ -597,6 +603,7 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 math.max(0, attempted - (target.defense or 0))
             local parried=Duelist.parry(state,target,source,direct_attack,ranged,after_defense)
             if parried then after_defense=0;block_reason='parry' end
+            if Storm.absorb(target,after_defense)then after_defense=0;block_reason='grounded ward'end
             local pickup_ward=false
             if target.id==state.player_id and after_defense>0
                 and (target.pickup_ward_actions or 0)>0 then
@@ -950,6 +957,7 @@ local function drain_effects(state, output)
                     end
                 end
             end
+            Storm.on_event(state,event,function(kind,fields)emit(state,output,kind,fields,state.player_id,event.action_id)end)
             if not event.class_generated then Boons.on_event(state, event,
                 function(activation, effect)
                     context.effects[#context.effects + 1] = {activation=activation, effect=effect}
@@ -1523,6 +1531,17 @@ local function advance_to_player(state, output)
             Stage.resolve_due(state,item,function(kind,fields,source_id)
                 emit(state,output,kind,fields,source_id,nil)
             end,Game.spawn_enemy)
+        elseif item.idea_storm then
+            Storm.resolve(state,item,function(r)
+                local source=Game.entity(state,r.owner_id)
+                if source and source.hp>0 then
+                    local context=contexts[output];local prior=context.cause
+                    context.cause={proc_coefficient=0,class_generated=true,root_action_id=r.action_id,chain_id=r.action_id,ancestry={}}
+                    emit(state,output,'StormDischarged',{target_cells=r.cells,damage=r.damage,floor_id=r.floor_id},source.id,r.action_id)
+                    damage_batch(state,output,source,r.action_id,r.cells,r.damage,'area','lightning',false,false,'core:ability/stormcaller_discharge')
+                    context.cause=prior
+                end
+            end)
         elseif item.idea_sentry then
             Comp.resolve(state,item,Content,Visibility.can_see,function(kind,fields)
                 emit(state,output,kind,fields,state.player_id,item.attack_id)
@@ -1751,7 +1770,9 @@ function Game.submit(state, intent)
         for index, cell in ipairs(target) do
             cells[index] = {floor_id=position.floor_id, x=cell.x, y=cell.y}
         end
-        if ability_id==Comp.tinker.special_id then
+        if ability_id==Storm.definition.special_id then
+            Storm.lock(state,player,cells,action_id,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
+        elseif ability_id==Comp.tinker.special_id then
             Comp.deploy(state,player,cells[1],action_id,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)
         elseif ability_id==Comp.spirit.special_id then
             local _,_,mode,spirit=Comp.preview(state,player,cells,Content,Visibility.can_see)
@@ -1888,6 +1909,7 @@ function Game.submit(state, intent)
         emit(state, output, "Waited", {floor_id=position.floor_id,
             x=position.x, y=position.y}, player.id, action_id)
     end
+    if kind=='dash' then Storm.ground(player,function(kind,fields)emit(state,output,kind,fields,player.id,action_id)end)end
     state.last_action = action
     drain_effects(state, output)
     Stage.after_player_action(state,function(event_kind,fields,source_id)
@@ -1981,6 +2003,12 @@ function Game.pending_strikes(state)
                 ability_id='core:ability/tinkerer_sentry',target_cells=copy(e.sentry_cells),damage=3,
                 due=e.sentry_due,companion=true}
         end
+    end
+    local storm=state.class_special.storm
+    if storm and storm.floor_id==state.active_floor_id then
+        result[#result+1]={sequence=storm.schedule_id,schedule_id=storm.schedule_id,source_id=storm.owner_id,
+            floor_id=storm.floor_id,ability_id=Storm.definition.special_id,target_cells=copy(storm.cells),
+            damage=storm.damage,due=storm.due,companion=true}
     end
     for _,r in ipairs(state.idea_embers or {})do
         if r.floor_id==state.active_floor_id then
@@ -2177,6 +2205,7 @@ function Game.restore(snapshot)
     Duelist.validate(state)
     Geo.validate(state,maps)
     Comp.validate(state,maps)
+    Storm.validate(state,maps)
     IdeaEnemies.validate(state,maps,Content)
     local occupied,entity_ids = {},{}
     for _, entity in ipairs(state.entities) do

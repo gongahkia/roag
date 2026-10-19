@@ -10,6 +10,7 @@ local function add(id) V.bindings[id]=true end
 add('core:object/geomancer_bulwark')
 add('core:object/bound_spirit')
 add('core:object/bolt_sentry')
+add('core:ui/storm_charge_effect')
 local function slug(id) return id:match('/([^/]+)$') end
 for _,id in ipairs({'door_closed','door_open','stairs_down','stairs_up','exit','chest_open'})do
     add('core:object/'..id)
