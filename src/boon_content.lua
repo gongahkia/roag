@@ -273,13 +273,13 @@ for _, id in ipairs(Catalog.order) do Catalog.definitions[id].id = id end
 local valid_events = {HitConfirmed=true, EntityKilled=true, DamageTaken=true,
     DamageBlocked=true,TileEntered=true, AttackPerformed=true,WindupStarted=true,Moved=true,
     CurrencyCollected=true,BoonActivated=true,TerrainTriggered=true,TerrainBroken=true,
-    SupplyCollected=true,ChestClaimed=true,Waited=true}
+    SupplyCollected=true,ChestClaimed=true,Waited=true,StatusApplied=true,StatusCleansed=true}
 local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=true,
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
     mark_damage=true,status_neighbors=true,cleanse_owner=true,refund_purchase=true,
     enrich_drop=true,pattern=true,displace_target=true,stun_target=true,
-    ward_to_heal=true,consume_burning=true,gather_pickups=true}
+    ward_to_heal=true,consume_burning=true,gather_pickups=true,extend_burning=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
@@ -294,7 +294,8 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     event_distance=true,visible_source=true,visible_event=true,supply_kind=true,
     supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true,
     pattern_axis=true,actual_dash=true,regular_target=true,basic_attack=true,
-    cooldown_ready=true,owner_missing_hp=true,active_ward=true,burning_target=true,owner_axis=true}
+    cooldown_ready=true,owner_missing_hp=true,active_ward=true,burning_target=true,owner_axis=true,
+    back_to_wall=true,event_status=true,target_entity_hostile=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -305,7 +306,9 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op=='pattern_axis' or node.op=='owner_axis' then
+        if node.op=='event_status' then
+            assert(node.value=='burning','invalid event status')
+        elseif node.op=='pattern_axis' or node.op=='owner_axis' then
             assert(node.value=='cardinal' or node.value=='diagonal','invalid pattern axis')
         elseif node.op=='roll_face' then
             assert(type(node.value)=='number' and node.value%1==0 and node.value>=1
@@ -323,6 +326,7 @@ local function validate_predicate(node)
             assert(type(node.min)=="number" and node.min%1==0 and node.min>=1,"invalid adjacent count")
         elseif node.op == "distinct_chain_group" then
             assert(type(node.size)=="number" and node.size%1==0 and node.size>=2,"invalid group size")
+            assert(node.field==nil or node.field=='target_id' or node.field=='boon_id','invalid group field')
         elseif node.op == "source_in_radius" then
             assert(type(node.radius)=="number" and node.radius%1==0 and node.radius>=0,"invalid source radius")
         elseif node.op == "owner_hp_percent" then
@@ -399,6 +403,19 @@ function Catalog.validate(definitions, order)
                     and type(effect.cooldown)=='number' and effect.cooldown%1==0
                     and effect.cooldown>=400 and effect.cooldown<=10000,
                     'invalid finite stun declaration')
+            elseif effect.kind=='extend_burning' then
+                assert(type(effect.cap)=='number' and effect.cap%1==0
+                    and effect.cap>=3 and effect.cap<=8,'invalid Burning extension cap')
+            end
+            if effect.target~=nil then
+                assert(effect.kind=='apply_status' and effect.target=='nearest'
+                    and type(effect.radius)=='number' and effect.radius>=1 and effect.radius<=8,
+                    'invalid status target')
+            end
+            if effect.clear_path~=nil then
+                assert(effect.clear_path==true and (effect.kind=='damage_nearest'
+                    or effect.kind=='apply_status' and effect.target=='nearest'),
+                    'invalid clear-path effect')
             end
             if effect.pattern or effect.kind=='pattern' then
                 assert(require('src.boon_patterns').names[effect.pattern]

@@ -192,4 +192,49 @@ weapon('split_thrust','Split Thrust',
     'Duelist: aimed F keeps its first step, then forks into two clear side endpoints instead of the straight second cell. Walls and corners stop each branch. Bump stays narrow; F gains bonus damage.',
     1062,'paired pointed projectiles','duelist','duelist_thrust')
 
+add('threefold_remedy','Threefold Remedy',
+    'Each disjoint group of three different foes damaged by one primary attack restores health. Repeated damage to one victim cannot count again in that attack chain.',
+    953,'three-pip remedy card',{'DamageTaken'},
+    {all={hit,{op='distinct_chain_group',size=3}}},
+    {{kind='heal_owner'}},{1,2,3,4},'health per three distinct primary victims')
+add('twin_seals','Twin Seals',
+    'Two different credited, reward-eligible kills in one causal chain grant a one-hit ward for 300 world time. Summoned and revived reward-exempt foes cannot count.',
+    903,'two diamond seals',{'EntityKilled'},
+    {all={owner,{op='target_hostile'},{op='rewarded_drop'},
+        {op='distinct_chain_group',size=2}}},
+    {{kind='ward',duration=300}},{2,3,4,6},'damage absorbed by the one-hit ward')
+add('fourfold_ledger','Fourfold Ledger',
+    'Each group of four different other triggered boons in one causal chain restores health. Repeated activations of one boon do not count again; passive weapon forms are not triggered activations.',
+    856,'four-club ledger card',{'BoonActivated'},
+    {all={owner,{op='other_boon'},{op='distinct_chain_group',size=4,field='boon_id'}}},
+    {{kind='heal_owner'}},{2,3,4,6},'health per four different triggered boons')
+add('stone_backstop','Stone Backstop',
+    'Positive primary hits gain bonus damage when the victim is in your row or column and a wall, closed door or blocking object is immediately behind it, away from you.',
+    1077,'rigid backstop frame',{'DamageTaken'},
+    {all={hit,{op='back_to_wall'}}},
+    {{kind='damage_target',damage_type='stone'}},{2,3,4,6},'bonus pinned-victim damage before defense')
+add('borrowed_guard','Borrowed Guard',
+    'A fully blocked primary attack against a surviving regular foe grants a one-hit ward. One trigger per attack, with a 300-world-time cooldown; bosses and exempt foes do not qualify.',
+    1066,'blocked strike seal',{'DamageBlocked'},
+    {all={owner,{op='target_hostile'},{op='direct_attack'},{op='regular_target'},
+        {op='cooldown_ready'},{op='unique_action'}}},
+    {{kind='ward',duration=300}},{1,2,3,4},'damage absorbed by the one-hit ward')
+add('long_wick','Long Wick',
+    'Your Burning applications add remaining ticks, capped at eight total. Tick power, interval and the already queued next tick do not change. More copies add ticks up to that cap.',
+    488,'long burning candle',{'StatusApplied'},
+    {all={owner,{op='event_status',value='burning'},{op='target_entity_hostile'}}},
+    {{kind='extend_burning',cap=8}},{1,2,3,4},'additional Burning ticks; eight total maximum')
+add('passing_ember','Passing Ember',
+    'Credited reward-eligible kills of Burning foes ignite the nearest other foe within three clear tiles for two ticks. Ordinary ancestry guards prevent an endless automatic fire chain.',
+    195,'lit passing fuse',{'EntityKilled'},
+    {all={owner,{op='target_hostile'},{op='burning_target'},{op='rewarded_drop'}}},
+    {{kind='apply_status',target='nearest',radius=3,clear_path=true,
+        status='burning',interval=100,ticks=2}},
+    {1,2,3,4},'passed Burning damage per tick before defense')
+add('purging_seal','Purging Seal',
+    'Actually cleansing Burning from you releases a one-cell fire burst around you. Empty cleansing attempts and consuming a foe\'s Burning cannot trigger it.',
+    1065,'cleansing cross seal',{'StatusCleansed'},
+    {all={{op='target_owner'},{op='event_status',value='burning'}}},
+    {{kind='area',radius=1,damage_type='fire'}},{1,2,3,4},'cleansing burst damage per cell before defense')
+
 return I

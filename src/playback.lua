@@ -158,6 +158,7 @@ function Playback.add(playback, events, player_id)
             first_event = first_event or event
         else
             local duration = durations[event.kind]
+            if event.kind=='Healed' and (event.actual_gain or 0)<=0 then duration=nil end
             if event.kind == "AttackPerformed" and event.source_id == player_id then
                 flush()
                 -- Player attacks used to have no presentation beat. Show the

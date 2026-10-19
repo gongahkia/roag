@@ -876,7 +876,7 @@ local function submit(intent)
                 notice=notice..'; Dice: '..event.face_name
             elseif event.kind=='FateSkullResisted' then
                 notice=notice..'; skull resisted: '..event.reason
-            elseif event.kind=='Healed' and event.target_id==state.player_id then
+            elseif event.kind=='Healed' and event.target_id==state.player_id and (event.actual_gain or 0)>0 then
                 notice=notice..('; +%d HP recovery'):format(event.actual_gain)
             elseif event.kind == "SecretDiscovered" then
                 notice = notice .. "; hidden cache found"

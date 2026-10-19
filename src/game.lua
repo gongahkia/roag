@@ -728,6 +728,9 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
                 pattern_origin=copy(pattern_origin),
+                wall_backed=direct_attack and source.boons
+                    and source.boons['core:boon/stone_backstop']
+                    and Boons.backstop(state,Game.entity(state,source.id)or source,cell)or nil,
                 reward_exempt=target.reward_exempt or nil,
                 fate_face=fate_roll and fate_roll.face or nil,
                 fate_skull=skull or nil,
@@ -892,7 +895,9 @@ local function effect_cells(state, activation, effect)
                 and target.hp and target.hp > 0 and target.faction ~= owner.faction
                 and target.position.floor_id == floor_id then
                 local d = math.abs(target.position.x - x) + math.abs(target.position.y - y)
-                if d <= effect.radius and (not best or d < best_distance
+                if d <= effect.radius and (not effect.clear_path or
+                    BoonPatterns.clear_segment(state,floor_id,x,y,target.position.x,target.position.y))
+                    and (not best or d < best_distance
                     or (d == best_distance and target.id < best.id)) then
                     best, best_distance = target, d
                 end
@@ -1070,8 +1075,25 @@ local function execute_effect(state, output, activation, effect)
                 end
             end
         end
+    elseif effect.kind=='extend_burning' then
+        local target=Game.entity(state,activation.event.target_id)
+        local status=target and target.statuses and target.statuses.burning
+        if target and target.hp and target.hp>0 and status then
+            local before=status.remaining
+            status.remaining=math.min(effect.cap,before+activation.power)
+            emit(state,output,'BoonStateApplied',{boon_id=activation.boon_id,
+                effect_kind=effect.kind,target_id=target.id,remaining=status.remaining,
+                added_ticks=status.remaining-before,floor_id=target.position.floor_id,
+                x=target.position.x,y=target.position.y},source.id,activation.root_action_id)
+        end
     elseif effect.kind=="apply_status" then
         local target=Game.entity(state,activation.event.target_id)
+        if effect.target=='nearest' then
+            local cells=effect_cells(state,activation,{kind='damage_nearest',radius=effect.radius,
+                clear_path=effect.clear_path})
+            local c=cells[1]
+            target=c and occupant(state,c.floor_id,c.x,c.y,source.id,true)or nil
+        end
         if target and target.hp and target.hp>0 then
             target.statuses=target.statuses or {}
             local status=target.statuses[effect.status]

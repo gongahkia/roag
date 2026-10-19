@@ -106,7 +106,7 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 30 new boon icons + eight face bindings; 37 unique native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 30 additions / 83 total | current full 780/780; 133 focused plus native GUI/save checks; at least 20 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 38 additions / 91 total | last full 780/780 at 30; current 157 focused plus 24 cadence GUI and eight disk scenarios; at least 12 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1562,3 +1562,28 @@ made that different-size suites are matched performance comparisons.
 Next group: finite sustain/cadence, wall-position and Burning/cleanse synergies.
 The 50+ goal remains active; twenty or more additions and final combined
 acceptance still remain before production cleanup and approval-only juice ideas.
+
+## Cadence/status checkpoint — 38 additions, goal remains ACTIVE
+
+Eight further distinct boons are implemented: Threefold Remedy, Twin Seals,
+Fourfold Ledger, Stone Backstop, Borrowed Guard, Long Wick, Passing Ember and
+Purging Seal. Details and powers are in `docs/ROAG_IDEA_BOONS.md`.
+
+- Current catalogue: 91 total / 87 normal unearned IDs; at least 12 more additions
+  required. The prior complete full gate remains 780/780; no new full-suite claim.
+- New tests 24/24, combined new-boon tests 157/157, log
+  `/var/tmp/roag-cadence-combined-focus-20261019.log`.
+- Eight cases in three isolated LÖVE rounds, 24/24, retained logs
+  `/var/tmp/roag-cadence-gui-accepted-round{1,2,3}-20261019.log`.
+- Eight new checked-store fresh-process continuations, exact later events and
+  snapshots. Logs `/var/tmp/roag-cadence-disk-20261019.log` (first three pass,
+  then retained setup failure) and `roag-cadence-disk-retry-20261019.log` (remaining
+  five pass). Earlier reused-directory experiment failed the expected generation
+  assertion; corrected runs use a new directory per case.
+- Initial test failures and screenshot assertions retained and documented;
+  these are fixture errors, not evidence of a native engine-crash fix.
+- Authoritative healing events retained; +0 HP text and empty healing beats
+  removed from presentation. Backstop is captured before terrain destruction.
+- Last twelve boons, final combined acceptance, then requested production cleanup
+  and researched visual-polish proposals remain. No new speculative visual juice
+  implemented ahead of the user's approval.

@@ -4,9 +4,9 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Thirty additions are implemented so far: 83 total, 79 in the normal unearned
-New Run ID list, plus the four existing achievement unlocks. At least 20 more
-additions are still required.** These groups do not complete the goal.
+**Thirty-eight additions are implemented so far: 91 total, 87 in the normal
+unearned New Run ID list, plus the four existing achievement unlocks. At least
+12 more additions are still required.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
 appears in the preview and cannot kill the player. Oracle's
@@ -363,7 +363,7 @@ fresh process. Their complete frozen **754-case** gate passes **754/754**, 519.5
 151,852 KiB peak LuaJIT RSS, log `/var/tmp/roag-idea-control-boons-full-20261019.log`. These are assisted
 callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
 
-- Finish the remaining 20+ boons and verify
+- Finish the remaining 12+ boons and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.
@@ -399,3 +399,39 @@ status text.
 - [Lua 5.1 `next`: traversal order is unspecified](https://www.lua.org/manual/5.1/manual.html#pdf-next). Simulation effects use explicit catalogue/array ordering.
 - [Kenney 1-Bit Pack](https://kenney.nl/assets/1-bit-pack). CC0 source art; local checked PNG regions remain the mapping authority.
 - [LÖVE `captureScreenshot`](https://www.love2d.org/wiki/love.graphics.captureScreenshot). Capture is queued for the frame; assertion handling is outside its callback.
+
+## Cadence, defense and Burning slice
+
+| Boon / source icon | Actual behavior |
+| --- | --- |
+| Threefold Remedy / 953 | Each disjoint group of three distinct primary victims in one attack chain heals 1/2/3/4; repeated or secondary damage cannot count |
+| Twin Seals / 903 | Two distinct rewarded kills in one causal chain grant a one-hit 300-time ward, power 2/3/4/6 |
+| Fourfold Ledger / 856 | Four different other triggered boons in one causal chain heal 2/3/4/6; repeated activations and passive forms do not count |
+| Stone Backstop / 1077 | A positive primary hit on an owner-cardinal victim backed by blocking terrain adds defended stone damage 2/3/4/6 |
+| Borrowed Guard / 1066 | A fully blocked primary attack against a regular foe grants one 300-time ward/cooldown, power 1/2/3/4 |
+| Long Wick / 488 | Actual Burning applications add 1/2/3/4 remaining ticks, capped at eight, retaining power, interval and next scheduled tick |
+| Passing Ember / 195 | Rewarded Burning deaths ignite the nearest other clear foe within three tiles for two ticks, power 1/2/3/4; ancestry prevents endless automatic passing |
+| Purging Seal / 1065 | Actually cleansing the owner's Burning releases a one-cell fire burst, power 1/2/3/4; empty cleanses and consuming enemy Burning do not count |
+
+Backstop captures its blocking predicate during the primary batch, before that
+same attack can break the barricade behind a victim. Existing unowned-boon
+outcomes retain their old fields. Nearest-ember ties use entity ID. All resource
+and cadence state uses existing validated save contracts. Zero-gain `Healed`
+events remain authoritative but no longer create empty playback beats or +0 HP
+notices.
+
+Verification: **24/24** new focused cases, **157/157** combined new-boon cases;
+**24/24** actual GUI processes (eight cases, three rounds); eight separate-process
+checked-store continuations retain exact later events and snapshots. Native
+source-pixel icon checks include all 38 additions. Full combined regression is
+still required after the final twelve additions. Logs are retained under
+`/var/tmp/roag-cadence-*20261019.log`.
+
+Initial focused failures were fixture assumptions about normal defense, Burning
+power, nil status tables and pickup ordering; they remain in the first focus
+log. One disk fixture improperly labeled a static map as generated and correctly
+failed save validation; the corrected fixture uses a real closed door. The first
+GUI ledger check looked only at the first event of a coalesced beat; it now checks
+the full ordered visible group. No gameplay damage, timing or save validation was
+weakened to make these tests pass. Callback-driven GUI and llvmpipe remain distinct
+from physical input or human play acceptance.

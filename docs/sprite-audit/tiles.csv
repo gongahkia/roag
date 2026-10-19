@@ -716,7 +716,7 @@ onebit,191,704,48,44,
 onebit,192,720,48,68,
 onebit,193,736,48,66,
 onebit,194,752,48,68,core:boon/volatile_vial/icon + /detail
-onebit,195,768,48,57,
+onebit,195,768,48,57,core:boon/passing_ember/icon + /detail
 onebit,196,0,64,53,
 onebit,197,16,64,72,
 onebit,198,32,64,66,
@@ -1009,7 +1009,7 @@ onebit,484,688,144,47,
 onebit,485,704,144,69,
 onebit,486,720,144,58,core:boon/packed_powder/icon + /detail
 onebit,487,736,144,49,
-onebit,488,752,144,50,
+onebit,488,752,144,50,core:boon/long_wick/icon + /detail
 onebit,489,768,144,196,core:boon/brokers_seal/icon + /detail
 onebit,490,0,160,96,
 onebit,491,16,160,100,
@@ -1377,7 +1377,7 @@ onebit,852,304,272,84,environment carpet
 onebit,853,320,272,69,
 onebit,854,336,272,68,core:boon/ward_ledger/icon + /detail
 onebit,855,352,272,68,
-onebit,856,368,272,66,
+onebit,856,368,272,66,core:boon/fourfold_ledger/icon + /detail
 onebit,857,384,272,68,
 onebit,858,400,272,69,
 onebit,859,416,272,64,
@@ -1424,7 +1424,7 @@ onebit,899,272,288,59,
 onebit,900,288,288,80,
 onebit,901,304,288,124,
 onebit,902,320,288,70,
-onebit,903,336,288,69,
+onebit,903,336,288,69,core:boon/twin_seals/icon + /detail
 onebit,904,352,288,69,
 onebit,905,368,288,67,
 onebit,906,384,288,69,
@@ -1474,7 +1474,7 @@ onebit,949,288,304,62,
 onebit,950,304,304,86,
 onebit,951,320,304,71,
 onebit,952,336,304,70,
-onebit,953,352,304,70,
+onebit,953,352,304,70,core:boon/threefold_remedy/icon + /detail
 onebit,954,368,304,68,
 onebit,955,384,304,70,
 onebit,956,400,304,71,
@@ -1586,8 +1586,8 @@ onebit,1061,512,336,43,
 onebit,1062,528,336,77,core:boon/split_thrust/icon + /detail
 onebit,1063,544,336,58,core:boon/needle_flight/icon + /detail
 onebit,1064,560,336,80,
-onebit,1065,576,336,124,
-onebit,1066,592,336,108,
+onebit,1065,576,336,124,core:boon/purging_seal/icon + /detail
+onebit,1066,592,336,108,core:boon/borrowed_guard/icon + /detail
 onebit,1067,608,336,80,
 onebit,1068,624,336,136,
 onebit,1069,640,336,106,
@@ -1598,7 +1598,7 @@ onebit,1073,704,336,81,
 onebit,1074,720,336,86,
 onebit,1075,736,336,88,
 onebit,1076,752,336,109,
-onebit,1077,768,336,100,
+onebit,1077,768,336,100,core:boon/stone_backstop/icon + /detail
 rpg,0,0,0,256,
 rpg,1,17,0,256,
 rpg,2,34,0,256,environment drowned

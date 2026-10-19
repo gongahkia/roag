@@ -57,6 +57,15 @@ local function hostile(owner, faction)
     return faction ~= nil and faction ~= owner.faction
 end
 
+function Boons.backstop(state,owner,event)
+    local p=owner.position
+    if not Patterns.axis(event,'cardinal',p)then return false end
+    local dx,dy=event.x-p.x,event.y-p.y
+    dx=dx==0 and 0 or dx>0 and 1 or -1
+    dy=dy==0 and 0 or dy>0 and 1 or -1
+    return not Content.projectile_passable(Content.map_for(state),event.x+dx,event.y+dy,state)
+end
+
 local function pair_key(a, b)
     if a > b then a, b = b, a end
     return a .. ":" .. b
@@ -96,6 +105,12 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='event_status' then return event.status==node.value end
+    if op=='target_entity_hostile' then
+        local target=entity(state,event.target_id)
+        return target and target.hp and target.hp>0 and hostile(owner,target.faction)or false
+    end
+    if op=='back_to_wall' then return event.wall_backed==true end
     if op=='owner_axis' then return Patterns.axis(event,node.value,owner.position)end
     if op=='regular_target' then
         local target=entity(state,event.target_id)
@@ -271,13 +286,14 @@ local function predicate(node, state, owner, boon_id, event, history)
         return false
     end
     if op == "distinct_chain_group" then
-        if not event.target_id then return false end
+        local value=event[node.field or 'target_id']
+        if not value then return false end
         history.groups=history.groups or {}
-        local key=owner.id..":"..boon_id
+        local key=owner.id..":"..boon_id..(node.field and ':'..node.field or '')
         local group=history.groups[key] or {seen={},count=0}
         history.groups[key]=group
-        if group.seen[event.target_id] then return false end
-        group.seen[event.target_id]=true
+        if group.seen[value] then return false end
+        group.seen[value]=true
         group.count=group.count+1
         if group.count<node.size then return false end
         group.count=0

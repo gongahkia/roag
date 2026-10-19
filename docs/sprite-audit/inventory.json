@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "2eaead6003928855",
+  "mapping_checksum": "58e0dc58b467812b",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -592,6 +592,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/borrowed_guard/detail",
+          "index": 1066,
+          "motif": "blocked strike seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/borrowed_guard/icon",
+          "index": 1066,
+          "motif": "blocked strike seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/bramble_compact/detail",
           "index": 104,
           "motif": "thorn bush",
@@ -1024,6 +1042,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/fourfold_ledger/detail",
+          "index": 856,
+          "motif": "four-club ledger card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fourfold_ledger/icon",
+          "index": 856,
+          "motif": "four-club ledger card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/fracture_dividend/detail",
           "index": 2,
           "motif": "stone fragments",
@@ -1240,6 +1276,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/long_wick/detail",
+          "index": 488,
+          "motif": "long burning candle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/long_wick/icon",
+          "index": 488,
+          "motif": "long burning candle",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/longblade_geometry/detail",
           "index": 378,
           "motif": "long sword",
@@ -1384,6 +1438,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/passing_ember/detail",
+          "index": 195,
+          "motif": "lit passing fuse",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/passing_ember/icon",
+          "index": 195,
+          "motif": "lit passing fuse",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/perfect_guard/detail",
           "index": 184,
           "motif": "round shield",
@@ -1486,6 +1558,24 @@
           "id": "core:boon/pulse_step/icon",
           "index": 705,
           "motif": "pulse ring",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/purging_seal/detail",
+          "index": 1065,
+          "motif": "cleansing cross seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/purging_seal/icon",
+          "index": 1065,
+          "motif": "cleansing cross seal",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1744,6 +1834,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/stone_backstop/detail",
+          "index": 1077,
+          "motif": "rigid backstop frame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/stone_backstop/icon",
+          "index": 1077,
+          "motif": "rigid backstop frame",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/stonewake/detail",
           "index": 262,
           "motif": "stone block",
@@ -1834,6 +1942,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/threefold_remedy/detail",
+          "index": 953,
+          "motif": "three-pip remedy card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/threefold_remedy/icon",
+          "index": 953,
+          "motif": "three-pip remedy card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/turncoat_spark/detail",
           "index": 617,
           "motif": "small spark",
@@ -1846,6 +1972,24 @@
           "id": "core:boon/turncoat_spark/icon",
           "index": 617,
           "motif": "small spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/twin_seals/detail",
+          "index": 903,
+          "motif": "two diamond seals",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/twin_seals/icon",
+          "index": 903,
+          "motif": "two diamond seals",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -5237,8 +5381,17 @@
           "1063": [
             "core:boon/needle_flight/icon + /detail"
           ],
+          "1065": [
+            "core:boon/purging_seal/icon + /detail"
+          ],
+          "1066": [
+            "core:boon/borrowed_guard/icon + /detail"
+          ],
           "1072": [
             "core:boon/hourglass_clasp/icon + /detail"
+          ],
+          "1077": [
+            "core:boon/stone_backstop/icon + /detail"
           ],
           "111": [
             "core:object/review_plate_tiny_up",
@@ -5362,6 +5515,9 @@
           ],
           "194": [
             "core:boon/volatile_vial/icon + /detail"
+          ],
+          "195": [
+            "core:boon/passing_ember/icon + /detail"
           ],
           "2": [
             "core:boon/fracture_dividend/icon + /detail"
@@ -5700,6 +5856,9 @@
           ],
           "486": [
             "core:boon/packed_powder/icon + /detail"
+          ],
+          "488": [
+            "core:boon/long_wick/icon + /detail"
           ],
           "489": [
             "core:boon/brokers_seal/icon + /detail"
@@ -6051,6 +6210,9 @@
           "854": [
             "core:boon/ward_ledger/icon + /detail"
           ],
+          "856": [
+            "core:boon/fourfold_ledger/icon + /detail"
+          ],
           "867": [
             "core:object/interaction_bell"
           ],
@@ -6060,6 +6222,9 @@
           "89": [
             "core:boon/battle_march/icon + /detail"
           ],
+          "903": [
+            "core:boon/twin_seals/icon + /detail"
+          ],
           "915": [
             "core:ui/idea_alarm_effect"
           ],
@@ -6068,6 +6233,9 @@
           ],
           "930": [
             "core:boon/hollow_sigil/icon + /detail"
+          ],
+          "953": [
+            "core:boon/threefold_remedy/icon + /detail"
           ],
           "965": [
             "core:boon/road_flask/icon + /detail"
@@ -6147,11 +6315,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 277,
+      "onebit": 285,
       "sheet": "onebit",
-      "union": 277,
-      "unused_onebit": 800,
-      "unused_union": 800
+      "union": 285,
+      "unused_onebit": 792,
+      "unused_union": 792
     },
     {
       "empty": 63,
@@ -6240,6 +6408,8 @@
     "core:boon/bishops_wake/icon",
     "core:boon/bloodrush/detail",
     "core:boon/bloodrush/icon",
+    "core:boon/borrowed_guard/detail",
+    "core:boon/borrowed_guard/icon",
     "core:boon/bramble_compact/detail",
     "core:boon/bramble_compact/icon",
     "core:boon/brokers_seal/detail",
@@ -6288,6 +6458,8 @@
     "core:boon/final_spark/icon",
     "core:boon/flashpoint/detail",
     "core:boon/flashpoint/icon",
+    "core:boon/fourfold_ledger/detail",
+    "core:boon/fourfold_ledger/icon",
     "core:boon/fracture_dividend/detail",
     "core:boon/fracture_dividend/icon",
     "core:boon/froststep_catalyst/detail",
@@ -6312,6 +6484,8 @@
     "core:boon/knights_gambit/icon",
     "core:boon/linebreaker_pawn/detail",
     "core:boon/linebreaker_pawn/icon",
+    "core:boon/long_wick/detail",
+    "core:boon/long_wick/icon",
     "core:boon/longblade_geometry/detail",
     "core:boon/longblade_geometry/icon",
     "core:boon/mist_veil/detail",
@@ -6328,6 +6502,8 @@
     "core:boon/packed_powder/icon",
     "core:boon/pain_dividend/detail",
     "core:boon/pain_dividend/icon",
+    "core:boon/passing_ember/detail",
+    "core:boon/passing_ember/icon",
     "core:boon/perfect_guard/detail",
     "core:boon/perfect_guard/icon",
     "core:boon/phantom_lunge/detail",
@@ -6340,6 +6516,8 @@
     "core:boon/prospectors_heart/icon",
     "core:boon/pulse_step/detail",
     "core:boon/pulse_step/icon",
+    "core:boon/purging_seal/detail",
+    "core:boon/purging_seal/icon",
     "core:boon/pursuit_spark/detail",
     "core:boon/pursuit_spark/icon",
     "core:boon/ration_reserve/detail",
@@ -6368,6 +6546,8 @@
     "core:boon/splitflight/icon",
     "core:boon/static_footsteps/detail",
     "core:boon/static_footsteps/icon",
+    "core:boon/stone_backstop/detail",
+    "core:boon/stone_backstop/icon",
     "core:boon/stonewake/detail",
     "core:boon/stonewake/icon",
     "core:boon/storm_conductor/detail",
@@ -6378,8 +6558,12 @@
     "core:boon/temporal_echo/icon",
     "core:boon/thorn_mirror/detail",
     "core:boon/thorn_mirror/icon",
+    "core:boon/threefold_remedy/detail",
+    "core:boon/threefold_remedy/icon",
     "core:boon/turncoat_spark/detail",
     "core:boon/turncoat_spark/icon",
+    "core:boon/twin_seals/detail",
+    "core:boon/twin_seals/icon",
     "core:boon/volatile_vial/detail",
     "core:boon/volatile_vial/icon",
     "core:boon/ward_ledger/detail",
