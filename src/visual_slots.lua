@@ -18,6 +18,7 @@ add('core:object/geomancer_bulwark')
 add('core:object/bound_spirit')
 add('core:object/bolt_sentry')
 add('core:ui/storm_charge_effect')
+for _,cue in ipairs(require('src.idea_boon_content').cues)do add(cue.id)end
 add('core:object/return_beacon')
 local function slug(id) return id:match('/([^/]+)$') end
 for _,id in ipairs({'door_closed','door_open','stairs_down','stairs_up','exit','chest_open'})do

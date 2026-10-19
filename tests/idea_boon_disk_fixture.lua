@@ -8,7 +8,7 @@ local Catalog=require('src.boon_content')
 local mode,dir,scenario=arg[1],arg[2],arg[3]
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
-assert(scenario=='supply' or scenario=='legacy' or scenario=='vow')
+assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice' or scenario=='handoff')
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -30,12 +30,31 @@ local function advance(s,plan)
     for _,intent in ipairs(plan)do events[#events+1]=submit(s,intent)end
     return P.encode(events)
 end
+local function save_expected(s,plan,label)
+    assert(store:save(s));storage:write('plan.data',P.encode(plan))
+    local restored=G.restore(G.snapshot(s))
+    storage:write('events.data',advance(restored,plan))
+    storage:write('expected.data',P.encode(G.snapshot(restored)))
+    print('PASS '..scenario..': '..label..', generation 1')
+end
 if mode=='write' then
+    if scenario=='handoff' then
+        local F=require('tests.idea_boon_handoff_fixture')
+        local s,p,exit=F.burning()
+        G.set_boon_stacks(s,p.id,'core:boon/road_flask','rare',1)
+        p.boon_memory={['core:boon/road_flask']={speed=20,expires_at=s.clock+120}}
+        F.route(s,exit);p=G.player(s)
+        assert(s.clock==0 and p.statuses.burning and
+            p.boon_memory['core:boon/road_flask'].expires_at==120)
+        save_expected(s,{{kind='wait'},{kind='wait'},{kind='wait'}},
+            'saved actual traveling Burning with rebased timer/schedule and frozen retired floor')
+        return
+    end
     local pool={}
     for n,id in ipairs(Catalog.normal_order())do
         if scenario~='legacy' or n<=49 then pool[#pool+1]=id end
     end
-    local s=G.new(37,nil,{available_boons=pool});local p=G.player(s)
+    local s=G.new(scenario=='dice' and 4 or 37,nil,{available_boons=pool});local p=G.player(s)
     local function grant(slug)G.set_boon_stacks(s,p.id,'core:boon/'..slug,'rare',1)end
     grant('temporal_echo');grant('emberbrand')
     local foe=G.spawn_enemy(s,'core:enemy/mossbound_guard',4,2,100000)
@@ -60,20 +79,20 @@ if mode=='write' then
         assert(p.boon_memory['core:boon/ration_reserve'].charges==1)
         assert(p.boon_memory['core:boon/road_flask'].speed==20)
     else
-        grant('pilgrims_vow')
+        if scenario=='dice' then grant('fateful_dice')else grant('pilgrims_vow')end
         R.spawn_supply(s,'food',s.active_floor_id,3,2,function()end,p.id)
         submit(s,{kind='move',dx=1,dy=0})
     end
     submit(s,{kind='basic_attack',dx=1,dy=0,vow=scenario=='vow' or nil})
     if scenario=='vow' then assert(p.hp==22)end
+    if scenario=='dice' then
+        assert(p.boon_memory['core:boon/fateful_dice'].face==4
+            and p.boon_memory['core:boon/fateful_dice'].ward==3)
+    end
     assert(next(s.delayed_effects) and foe.statuses.burning)
     local plan={{kind='wait'},{kind='basic_attack',dx=1,dy=0,vow=scenario=='vow' or nil},
         {kind='move',dx=-1,dy=0},{kind='wait'},{kind='move',dx=1,dy=0}}
-    assert(store:save(s));storage:write('plan.data',P.encode(plan))
-    local restored=G.restore(G.snapshot(s))
-    storage:write('events.data',advance(restored,plan))
-    storage:write('expected.data',P.encode(G.snapshot(restored)))
-    print('PASS '..scenario..': saved pending Echo/Burning and finite boon state, generation 1')
+    save_expected(s,plan,'saved pending Echo/Burning and finite boon state')
 else
     local s=assert(store:load())
     local plan=P.decode(assert(storage:read('plan.data')))

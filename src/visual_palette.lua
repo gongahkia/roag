@@ -10,7 +10,7 @@ local items={ration_cache=true,cleanse_flask=true,escape_scroll=true,
 local hues={{1,0,0},{1,1,0},{0,1,0},{0,1,1},{0,0,1},{1,0,1}}
 function P.binding(id)
     if type(id)~='string' then return end
-    if id:match('^core:boon/') or id:match('^core:drop/') or
+    if id:match('^core:boon/') or id:match('^core:drop/') or id:match('^core:ui/fate_') or
         id=='core:ui/currency_icon' or id=='core:ui/xp_icon' or
         id=='core:ui/boon_effect' or id=='core:ui/cue_boon_effect' or
         id=='core:ui/status_heal_icon' then

@@ -291,7 +291,7 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     special_attack=true,target_hp_percent_before=true,owner_in_locked_cells=true,
     overlapping_windups=true,approaching_owner=true,aligned_hostiles=true,
     event_distance=true,visible_source=true,visible_event=true,supply_kind=true,
-    supply_excess=true,event_amount=true,rewarded_drop=true}
+    supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -302,7 +302,10 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op=='supply_kind' then
+        if node.op=='roll_face' then
+            assert(type(node.value)=='number' and node.value%1==0 and node.value>=1
+                and node.value<=8,'invalid dice face predicate')
+        elseif node.op=='supply_kind' then
             assert(node.value=='food' or node.value=='health','invalid supply predicate')
         elseif node.op=='event_amount' then
             assert(({amount=true,actual_gain=true,price=true})[node.field]

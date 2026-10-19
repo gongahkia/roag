@@ -472,8 +472,12 @@ function Game.preview(state,kind,dx,dy,steps,options)
         return {valid=false,reason='invalid vow option',cells={}}
     end
     local preview=preview_action(state,kind,dx,dy,steps)
-    if not (options and options.vow) or not preview.valid then return preview end
     local owner=Game.player(state)
+    if preview.valid and Classes.immediate_attack(owner,
+        preview.bump and 'basic_attack' or kind,preview) then
+        preview.fate_power=Boons.dice_power(owner)
+    end
+    if not (options and options.vow) or not preview.valid then return preview end
     local vow=Boons.attack_vow(owner)
     if not vow then
         preview.valid=false;preview.reason="requires Pilgrim's Vow"
@@ -639,7 +643,7 @@ local function remove_dead(state, target, output, source_id, action_id)
 end
 
 local function damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-    damage_type, critical, direct_attack, ability_id)
+    damage_type, critical, direct_attack, ability_id, fate_roll)
     local outcomes = {}
     local map = Content.map_for(state)
     for _, cell in ipairs(cells) do
@@ -674,7 +678,9 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                     source.boons['core:boon/ring_of_reversal'],'power')
                 source.reversal_target_id=nil
             end
-            local attempted=raw_damage+reversal_bonus
+            local skull=fate_roll and fate_roll.face==7 and Boons.skull_target(target)
+            local attempted=(skull and math.max(raw_damage,target.hp+(target.defense or 0))
+                or raw_damage)+reversal_bonus
             local block_reason,protecting_id=Squads.block(state,target,source,direct_attack)
             local after_defense = (target.invulnerable or block_reason) and 0 or
                 math.max(0, attempted - (target.defense or 0))
@@ -705,6 +711,9 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
                 hp_before=target.hp, hp_after=target.hp - loss, actual_loss=loss,
                 target_max_hp=target.max_hp,direct_attack=direct_attack or false,
                 reward_exempt=target.reward_exempt or nil,
+                fate_face=fate_roll and fate_roll.face or nil,
+                fate_skull=skull or nil,
+                fate_skull_resisted=fate_roll and fate_roll.face==7 and not skull or nil,
                 source_hp_at_attack=source.hp,source_max_hp_at_attack=source.max_hp,
                 adjacent_hostile_count=adjacent_hostile_count,
                 target_burning=target.statuses and target.statuses.burning~=nil or false,
@@ -723,6 +732,13 @@ local function damage_batch(state, output, source, action_id, cells, raw_damage,
     end
     for _, outcome in ipairs(outcomes) do
         emit(state, output, "DamageAttempted", outcome, source.id, action_id)
+        if outcome.fate_face==7 and (outcome.fate_skull_resisted
+            or outcome.actual_loss<outcome.hp_before) then
+            emit(state,output,'FateSkullResisted',{target_id=outcome.target_id,
+                floor_id=outcome.floor_id,x=outcome.x,y=outcome.y,
+                reason=outcome.fate_skull_resisted and 'regular enemies only'
+                    or outcome.block_reason or 'ward absorbed the hit'},source.id,action_id)
+        end
         if outcome.reversal_bonus then
             emit(state,output,'RingReversalSpent',{
                 target_id=outcome.target_id,bonus=outcome.reversal_bonus,
@@ -908,7 +924,7 @@ local function execute_effect(state, output, activation, effect)
             memory.expires_at=state.clock+effect.duration
             if effect.kind=="prime" then memory.charges=1
             elseif effect.kind=="speed_boost" then
-                memory.speed=math.max(memory.speed or 0,activation.power)
+                memory.speed=math.max(unexpired and (memory.speed or 0) or 0,activation.power)
             else
                 local power=activation.power
                 if effect.scale=='supply_excess' then
@@ -1243,7 +1259,21 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
             class_generated=extra and extra.class_generated}
     end
     local position = source.position
+    local fate_roll
     if source.id==state.player_id and not (extra and extra.class_generated)then
+        if context and not context.dice_checked then
+            context.dice_checked=true
+            context.fate_roll=Boons.roll_dice(state,Game.player(state),action_id)
+            if context.fate_roll then
+                local roll=context.fate_roll
+                emit(state,output,'FateRolled',{boon_id='core:boon/fateful_dice',
+                    face=roll.face,face_name=require('src.idea_boon_content').faces[roll.face],
+                    power=roll.power,binding_id='core:ui/fate_'..roll.face..'_icon',
+                    floor_id=position.floor_id,x=position.x,y=position.y},source.id,action_id)
+            end
+        end
+        fate_roll=context and context.fate_roll
+        if fate_roll and fate_roll.face==2 then raw_damage=raw_damage+fate_roll.power end
         if context and context.vow and not context.vow_spent then
             raw_damage=raw_damage+context.vow.bonus
             context.vow_spent=true
@@ -1252,8 +1282,12 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
         if not (extra and extra.focus_included)then raw_damage=raw_damage+bonus end
         if bonus>0 then emit(state,output,'SupplyFocusSpent',{bonus=bonus,floor_id=position.floor_id,x=position.x,y=position.y},source.id,action_id)end
     end
+    local aimed_cells
+    if fate_roll and fate_roll.face==8 then
+        aimed_cells=cells;cells={};raw_damage=0
+    end
     local critical = false
-    if source.controller == "player" and Classes.is_attack(ability_id)
+    if not aimed_cells and source.controller == "player" and Classes.is_attack(ability_id)
         and (source.crit_chance_ppm or 0) > 0 then
         critical = RNG.next_int(state.rng, 1000000) <= source.crit_chance_ppm
         if critical then
@@ -1263,6 +1297,8 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     local fields = {
         floor_id=position.floor_id, from_x=position.x, from_y=position.y,
         ability_id=ability_id, target_cells=cells, raw_damage=raw_damage,
+        fate_face=fate_roll and fate_roll.face or nil,
+        fate_miss=aimed_cells and true or nil,aim_cells=aimed_cells,
     }
     if critical then fields.critical = true end
     if #cells == 1 and ability_id == "core:ability/basic_attack" then
@@ -1282,11 +1318,12 @@ local function attack(state, output, source, action_id, ability_id, cells, raw_d
     end
     emit(state, output, "AttackPerformed", fields, source.id, action_id)
     damage_batch(state, output, source, action_id, cells, raw_damage, ranged,
-        extra and extra.damage_type, critical,true,ability_id)
+        extra and extra.damage_type, critical,true,ability_id,fate_roll)
     if Boons.active(state) then
         emit(state, output, "AbilityUsed", fields, source.id, action_id)
     end
     if context then context.cause = previous_cause end
+    return fields
 end
 
 local function enemy_turn(state, item, output)
@@ -1825,6 +1862,18 @@ function Game.submit(state, intent)
         replacement.id=new_id
         replacement.position=new_position
         if replacement.utility and replacement.utility.planted then replacement.utility=nil end
+        -- A new stage has its own zero-based clock. Carry remaining duration,
+        -- never the previous stage's absolute expiry or stale scheduler IDs.
+        Boons.rebase_stage_memory(replacement,state.clock,fresh.clock)
+        local burning=replacement.statuses and replacement.statuses.burning
+        if burning then
+            local due=fresh.clock+burning.next_due-state.clock
+            local work=Scheduler.enqueue(fresh,{kind='effect',due=due,
+                actor_id=new_id,attack_id=burning.activation.root_action_id,
+                floor_id=new_position.floor_id})
+            work.effect_id=work.id
+            burning.next_due=due;burning.schedule_id=work.id
+        end
         fresh.progression=copy(state.progression)
         fresh.currency=state.currency
         fresh.rng=copy(state.rng)
@@ -2013,10 +2062,10 @@ function Game.submit(state, intent)
                     if hooked then break end
                 end
             end
-            attack(state, output, player, action_id, ability_id,
+            local performed=attack(state, output, player, action_id, ability_id,
                 cells, damage,ranged,
                 {bump=preview.bump or nil,damage_type=damage_type,reflection=copy(reflection),focus_included=true})
-            if hooked and hooked.hp>0 and not hooked.invulnerable
+            if hooked and not performed.fate_miss and hooked.hp>0 and not hooked.invulnerable
                 and hooked.ai_id~="warden" and hooked.ai_id~="biome_elite"
                 and hooked.ai_id~="hollow_regent" then
                 for _=1,2 do
@@ -2482,7 +2531,7 @@ function Game.restore(snapshot)
                 and type(entity.speed)=="number" and entity.speed%1==0
                 and entity.speed>0,"invalid combatant state")
         end
-        Boons.validate_inventory(entity)
+        Boons.validate_inventory(entity,snapshot)
         if entity.controller == "chest" then
             Rewards.validate_chest(entity)
             local allowed={}

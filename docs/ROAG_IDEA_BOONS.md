@@ -4,19 +4,19 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Eight additions are implemented so far: 61 total, 57 in a normal unearned
-New Run pool, plus the four existing achievement unlocks. At least 42 more
+**Nine additions are implemented so far: 62 total, 58 in a normal unearned
+New Run pool, plus the four existing achievement unlocks. At least 41 more
 additions are still required.** This first group does not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
 appears in the preview and cannot kill the player. Oracle's
-redirect remains the pending dice boon: six numbered outcomes, skull and miss;
+redirect is Fateful Dice: six numbered outcomes, skull and miss;
 skull kills regular enemies only, never minibosses, the finale or special
 reward-exempt encounter actors. The rejected Oracle room and Cantor class stay
 rejected. Cantor's requested hat 33 and cup 824 now have the uses below.
 
 Remaining groups will cover positional attack shapes/movement, limited control,
-terrain/status interactions, defense/cadence, and the vow/dice redirects. Each
+terrain/status interactions, defense/cadence and skill transformations. Each
 addition needs an actual tactical difference, accurate text and artwork, real
 action tests and saved-state continuation. Renamed damage bonuses do not meet
 the requested distinct-mechanic requirement.
@@ -82,7 +82,7 @@ than assuming a new-to-new round trip proves it.
 
 Icons use untouched native Kenney 1-Bit regions, the existing Image/Quad reader
 and muted gold presentation ink. Every new boon has both `/icon` and `/detail`
-bindings. Current coverage is **507/507** with no missing bindings and the same
+bindings. Current required native coverage is **517/517** with no missing bindings and the same
 13 approved monochrome cross-sheet counterparts. The live HTML/JSON/CSV
 catalogue is regenerated; frozen review/feedback archives and source PNGs are
 unchanged.
@@ -113,12 +113,63 @@ aim state; committed HP/action state uses the existing snapshot/save contract.
 
 ![Actual Pilgrim price and target preview](visuals/idea-boon-vow.png)
 
+## Fateful Dice: one committed roll, eight equal faces
+
+The ninth addition uses native die **728**, plus six numbered faces **728–733**,
+skull **727** and cross **726**. Every immediate player attack rolls once through
+the existing unbiased seeded RNG. Copies add **1/2/3/4 power per copy**, not
+extra rolls or better odds. Preview, aiming/canceling, utility/placement,
+generated sentry shots, Storm discharge and later Echoes do not roll.
+
+| Face | Actual effect |
+| --- | --- |
+| 1 | Heal by power after a positive hostile primary hit; once per attack, capped by missing HP |
+| 2 | Add power to primary damage before criticals/defense |
+| 3 | Ignite each actually damaged hostile target: power per tick, three ticks at 100-time intervals |
+| 4 | First positive primary hit stores a one-hit ward, power absorption, 200 time |
+| 5 | First positive primary hit arcs power damage to the nearest other foe within 3 cells |
+| 6 | First positive primary hit makes one power-damage burst in its victim's adjacent cells, including the center |
+| Skull | A landed, unblocked hit executes ordinary enemy AI; bosses, minibosses, special encounters, reward-exempt or invulnerable actors are excluded |
+| Cross | A genuine miss: zero hit/contact damage, no Burning/charge, new Echo, terrain/web cut or Hook pull |
+
+The primary batch commits before on-hit roll bonuses. One sweep still has one
+roll; its targets use that face. Skull respects forcefields, directional shields
+and wards, including a bodyguard whose wizard dies in the same primary batch.
+It executes a selected ordinary Oath twin without turning fatal damage into
+shared chip damage. Boss/special resistance is reported while ordinary attack
+damage may still land. A cross spends normal recovery, Focus/riposte and any
+explicit Pilgrim payment; it does not cancel an earlier committed Echo.
+
+There is no empty-attack healing farm: the numbered proc effects require actual
+positive hostile damage. Last face/action ID and any ward are plain validated
+save data; the next attack rolls anew. The character panel shows the native
+face icon, and combat feedback names the outcome. F5 does not reroll it.
+
+![A real skull outcome in the native character panel](visuals/idea-boon-dice-skull.png)
+
+### Finite timers across stage transitions
+
+New stages intentionally start a zero-based stage clock. Carrying absolute
+expiry values from the prior stage extended temporary buffs; copying Burning's
+old schedule ID also lost its matching work. The route handoff now preserves
+**remaining** boon duration, zeroes expired charges/speed/wards, and requeues
+travelling player Burning with the new actor/floor/schedule IDs. Retired stages
+stay frozen, and handoff still consumes no time or gameplay RNG. Refreshing
+expired speed after retiring a stronger rarity now uses current power.
+
+Four regressions failed before these fixes and pass afterward, including actual
+Burning, exact codec/save continuation and the inclusive zero-time expiry edge.
+The corrections apply to subsequent handoffs/refreshes; they do not rewrite a
+previously persisted inflated expiry whose original timer basis was not stored.
+
 ## Reproducible checks
 
 ```sh
 TMPDIR=/var/tmp luajit tests/run.lua
 sh tests/idea_boon_disk_resume.sh
 TMPDIR=/var/tmp sh tests/idea_boon_gui_smoke.sh
+TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh
+ROAG_DICE_REFRESHES=12 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh 4
 python3 tools/sprite_audit.py --check
 git diff --check
 ```
@@ -155,6 +206,19 @@ classes pass the current-pool Victory gate; seed-9 Ranger also has an exact
 action replay. No actor, geometry or combat timing was weakened. A clean full
 retry remains required after the working dice addition.
 
+With dice and the transition fixes, focused new cases are **64/64** (22 supply,
+14 vow/compile, 24 dice, four transition/expiry), plus **169/169** combined
+checks before the final Hook-miss regression was added. The full current
+711-case gate remains pending until its actual result is recorded.
+
+All eight native roll icons pass pixel checks in **24 isolated LÖVE processes**
+(three rounds). Eight further processes verify F5 with a saved roll. A 12-refresh
+stress process preserves the exact run/RNG/roll snapshot and stays at **25 image
+handles / 20,099,400 reported texture bytes** on llvmpipe. This is resource
+accounting, not a native GPU or FPS claim. Five fresh-process scenarios now
+cover supplies, legacy state, Vow, Dice+ward+pending Echo/Burning, and actual
+stage-travelling Burning with rebased speed and a frozen retired floor.
+
 Pilgrim also passes three independent GUI processes for actual keyboard aim,
 cancel, payment and ordinary follow-up, plus controller LB callback verification
 and the native two-page inventory/detail check. One attempted GUI exposed
@@ -176,7 +240,7 @@ All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 
 ### Still required for final acceptance
 
-- Finish the remaining 42+ boons, including dice, and verify
+- Finish the remaining 41+ boons and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.
@@ -186,6 +250,8 @@ All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 - Check actual burst/readability/performance. This first GUI already shows two
   presentation follow-ups: the character panel currently lists base speed rather
   than temporary speed, and capped extra healing can produce zero-gain notices.
+  The last-roll badge also needs a clear history label and visibility when the
+  character's existing three-status display is full.
 - Human gameplay and physical input acceptance remain explicitly outstanding.
 
 ## Primary references

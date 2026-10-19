@@ -872,6 +872,10 @@ local function submit(intent)
                     event.actual_gain,event.supply_kind)
             elseif event.kind=='VowPaid' then
                 notice=notice..('; -%d HP (vow)'):format(event.hp_cost)
+            elseif event.kind=='FateRolled' then
+                notice=notice..'; Dice: '..event.face_name
+            elseif event.kind=='FateSkullResisted' then
+                notice=notice..'; skull resisted: '..event.reason
             elseif event.kind=='Healed' and event.target_id==state.player_id then
                 notice=notice..('; +%d HP recovery'):format(event.actual_gain)
             elseif event.kind == "SecretDiscovered" then

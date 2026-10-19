@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "2898e5d16b4c39b6",
+  "mapping_checksum": "c25ccc305356526c",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -802,6 +802,24 @@
           "id": "core:boon/far_witness/icon",
           "index": 771,
           "motif": "eye",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fateful_dice/detail",
+          "index": 728,
+          "motif": "one-pip die",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/fateful_dice/icon",
+          "index": 728,
+          "motif": "one-pip die",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4378,6 +4396,78 @@
         },
         {
           "height": 16,
+          "id": "core:ui/fate_1_icon",
+          "index": 728,
+          "motif": "1: heal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_2_icon",
+          "index": 729,
+          "motif": "2: heavy",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_3_icon",
+          "index": 730,
+          "motif": "3: Burning",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_4_icon",
+          "index": 731,
+          "motif": "4: ward",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_5_icon",
+          "index": 732,
+          "motif": "5: arc",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_6_icon",
+          "index": 733,
+          "motif": "6: burst",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_7_icon",
+          "index": 727,
+          "motif": "SKULL",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:ui/fate_8_icon",
+          "index": 726,
+          "motif": "MISS",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:ui/hit_effect",
           "index": 618,
           "motif": "",
@@ -5473,6 +5563,9 @@
             "core:object/env_grave_b",
             "core:object/interaction_memorial"
           ],
+          "728": [
+            "core:boon/fateful_dice/icon + /detail"
+          ],
           "738": [
             "core:object/review_brazier_unlit"
           ],
@@ -5613,11 +5706,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 255,
+      "onebit": 256,
       "sheet": "onebit",
-      "union": 255,
-      "unused_onebit": 822,
-      "unused_union": 822
+      "union": 256,
+      "unused_onebit": 821,
+      "unused_union": 821
     },
     {
       "empty": 63,
@@ -5730,6 +5823,8 @@
     "core:boon/expanding_sigil/icon",
     "core:boon/far_witness/detail",
     "core:boon/far_witness/icon",
+    "core:boon/fateful_dice/detail",
+    "core:boon/fateful_dice/icon",
     "core:boon/field_dressing/detail",
     "core:boon/field_dressing/icon",
     "core:boon/final_spark/detail",
@@ -6119,6 +6214,14 @@
     "core:ui/cue_slash_effect",
     "core:ui/cue_spark_effect",
     "core:ui/currency_icon",
+    "core:ui/fate_1_icon",
+    "core:ui/fate_2_icon",
+    "core:ui/fate_3_icon",
+    "core:ui/fate_4_icon",
+    "core:ui/fate_5_icon",
+    "core:ui/fate_6_icon",
+    "core:ui/fate_7_icon",
+    "core:ui/fate_8_icon",
     "core:ui/hit_effect",
     "core:ui/hp_icon",
     "core:ui/idea_alarm_effect",

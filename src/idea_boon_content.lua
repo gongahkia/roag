@@ -1,6 +1,6 @@
 -- Approved surplus-art boon pass. Data only; ordered merges preserve every
 -- earlier ID and the pool frozen into an existing run.
-local I={order={},definitions={}}
+local I={order={},definitions={},cues={}}
 local tiers={'common','uncommon','rare','legendary'}
 local function add(slug,name,description,icon,motif,triggers,predicate,effects,powers,unit)
     local id='core:boon/'..slug
@@ -58,5 +58,27 @@ add('pilgrims_vow',"Pilgrim's Vow",
     318,'hooded pilgrim',{},nil,{},
     {3,4,6,8},'bonus primary damage for the 2 HP vow')
 I.definitions['core:boon/pilgrims_vow'].attack_payment={hp=2}
+
+local hit={all={{op='source_owner'},{op='target_hostile'},
+    {op='direct_attack'},{op='positive'}}}
+local function face(n)return {op='roll_face',value=n}end
+local once_per_attack={all={{any={face(1),face(4),face(5),face(6)}},
+    {op='unique_action'}}}
+local dice_hit={all={hit,{any={face(3),once_per_attack}}}}
+add('fateful_dice','Fateful Dice',
+    'Each attack rolls one of 8 equal faces: 1 heal, 2 heavy, 3 Burning, 4 ward, 5 arc, 6 burst, skull executes regular foes, cross misses. Bonuses need a hit. Utility never rolls; bosses/specials resist skull.',
+    728,'one-pip die',{'DamageTaken'},
+    dice_hit,
+    {{kind='heal_owner',when=face(1)},
+        {kind='apply_status',status='burning',interval=100,ticks=3,when=face(3)},
+        {kind='ward',duration=200,when=face(4)},
+        {kind='damage_nearest',radius=3,damage_type='lightning',when=face(5)},
+        {kind='area',radius=1,damage_type='explosion',when=face(6)}},
+    {1,2,3,4},'rolled bonus/heal/ward/tick/burst power')
+I.faces={'1: heal','2: heavy','3: Burning','4: ward','5: arc','6: burst','SKULL','MISS'}
+for n=1,8 do
+    I.cues[n]={id='core:ui/fate_'..n..'_icon',index=n<=6 and 727+n or n==7 and 727 or 726,
+        label=I.faces[n]}
+end
 
 return I

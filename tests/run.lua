@@ -1584,6 +1584,8 @@ require('tests.settings_controls_tests')(test,equal)
 require('tests.visual_palette_tests')(test,equal)
 require('tests.idea_boon_tests')(test,equal)
 require('tests.idea_vow_tests')(test,equal)
+require('tests.idea_dice_tests')(test,equal)
+require('tests.idea_boon_handoff_tests')(test,equal)
 
 print(("%d passed, %d failed"):format(passed, failed))
 if failed > 0 then os.exit(1) end

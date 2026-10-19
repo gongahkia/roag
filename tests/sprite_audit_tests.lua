@@ -2,7 +2,8 @@ local Audit=require('src.sprite_audit')
 return function(test,equal)
     test('native sprite inventory checks runtime coverage and distinguishes shared/static poses',function()
         local report=Audit.collect()
-        assert(#report.requirements==491+2*#require('src.idea_boon_content').order)
+        local ideas=require('src.idea_boon_content')
+        assert(#report.requirements==491+2*#ideas.order+#ideas.cues)
         for _,pack in pairs(report.packs)do
             assert(#pack.missing==0 and #pack.bindings==#report.requirements)
             for kind in pairs(require('src.idea_interaction_content').art)do

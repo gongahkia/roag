@@ -1249,7 +1249,7 @@ onebit,724,608,224,128,
 onebit,725,624,224,52,
 onebit,726,640,224,88,
 onebit,727,656,224,76,
-onebit,728,672,224,56,
+onebit,728,672,224,56,core:boon/fateful_dice/icon + /detail
 onebit,729,688,224,60,
 onebit,730,704,224,64,
 onebit,731,720,224,68,

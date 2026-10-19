@@ -27,9 +27,23 @@ local Palette=require('src.visual_palette')
 local P=require('src.persistence')
 local PNG=require('tools.art_png')
 local mode=os.getenv('ROAG_IDEA_BOON_CASE') or 'supply'
-assert(mode=='supply' or mode=='vow')
+assert(mode=='supply' or mode=='vow' or mode=='dice')
+local wanted_face=mode=='dice' and assert(tonumber(os.getenv('ROAG_DICE_FACE')))or nil
+if wanted_face then assert(wanted_face%1==0 and wanted_face>=1 and wanted_face<=8)end
 local s,p,events
 function G.new_stage()
+    if mode=='dice' then
+        for seed=1,80 do
+            s=G.new(seed)
+            if require('src.rng').next_int({state=s.rng.state},8)==wanted_face then break end
+        end
+        p=G.player(s);p.hp=10
+        local e=G.spawn_enemy(s,'core:enemy/mossbound_guard',3,2,100000)
+        e.hp=100;e.max_hp=100
+        local other=G.spawn_enemy(s,'core:enemy/mossbound_guard',4,2,100000)
+        other.hp=100;other.max_hp=100
+        return s
+    end
     s=G.new(37);p=G.player(s);p.hp=6
     if mode=='vow' then
         local e=G.spawn_enemy(s,'core:enemy/mossbound_guard',3,2,100000)
@@ -84,7 +98,12 @@ function love.load(...)
         load(unpack(args));source=love.image.newImageData(S.path)
         -- AUTOSTART applies the game's developer showcase after new_stage;
         -- install this fixture's inventory after that deliberate reset.
-        for _,id in ipairs(I.order)do G.set_boon_stacks(s,p.id,id,'rare',1)end
+        for _,id in ipairs(I.order)do
+            if mode=='supply' or mode=='vow' and id=='core:boon/pilgrims_vow'
+                or mode=='dice' and id=='core:boon/fateful_dice' then
+                G.set_boon_stacks(s,p.id,id,'rare',1)
+            end
+        end
         print('Renderer:',love.graphics.getRendererInfo())
         assert(love.roagAssetBacking(p.definition_id)=='onebit')
         if mode=='vow' then
@@ -93,6 +112,7 @@ function love.load(...)
             love.gamepadpressed(nil,'dpright')
             assert(snapshot()==before,'arming a vow changed the run')
             stage='vow-preview'
+        elseif mode=='dice' then stage='dice-ready'
         else love.keypressed('i')end
         before=snapshot();started=love.timer.getTime()
     end,debug.traceback)
@@ -102,7 +122,53 @@ local function check_and_advance(image)
     assert(snapshot()==before,'drawing or menu changed authoritative state')
     local label=stage=='inventory' and 'inventory-'..page or stage
     PNG.write(output..'/'..label..'.png',image)
-    if stage=='vow-preview' then
+    if stage=='dice-ready' then
+        love.keypressed('f');love.keypressed('d');love.keypressed('return');update(10)
+        local rolls=0
+        for _,e in ipairs(events)do if e.kind=='FateRolled' then
+            rolls=rolls+1;assert(e.face==wanted_face)
+        end end
+        assert(rolls==1 and p.boon_memory['core:boon/fateful_dice'].face==wanted_face)
+        stage='dice-result'
+    elseif stage=='dice-result' then
+        local refreshes=tonumber(os.getenv('ROAG_DICE_REFRESHES') or '1')
+        assert(refreshes%1==0 and refreshes>=1 and refreshes<=20)
+        local baseline
+        for n=1,refreshes do
+            local expected=snapshot()
+            love.keypressed('f5');update(0);collectgarbage('collect')
+            assert(snapshot()==expected,'visual refresh changed saved roll, RNG or run')
+            local stats=love.graphics.getStats()
+            if n==2 then baseline=stats end
+            if baseline and stats.images and baseline.images then
+                assert(stats.images<=baseline.images+4,'visual refresh accumulated image handles')
+            end
+        end
+        local stats=love.graphics.getStats()
+        print('Dice F5 refreshes:',refreshes,'images:',stats.images,'texture bytes:',stats.texturememory)
+        love.keypressed('i');stage='dice-status'
+    elseif stage=='dice-status' then
+        local statuses=require('src.idea_presentation').statuses(p)
+        local found
+        for n,status in ipairs(statuses)do
+            if status.id==I.cues[wanted_face].id then found=n;break end
+        end
+        assert(found and found<=3,'rolled icon not shown in character panel')
+        local sx,sy=S.region(I.cues[wanted_face].index)
+        local checked=0
+        for y=0,15 do for x=0,15 do
+            local r,g,b,a=source:getPixel(sx+x,sy+y)
+            if a==1 then
+                local actual={image:getPixel(636+(found-1)*96+x,410+y)}
+                local gray=r*O.ink[1]*.2126+g*O.ink[2]*.7152+b*O.ink[3]*.0722
+                for c=1,3 do assert(math.abs(actual[c]-gray*Palette.gold[c])<=2/255+1e-6,
+                    'rolled face pixels differ: '..wanted_face)end
+                checked=checked+1
+            end
+        end end
+        assert(checked>5);print('PASS real rolled face '..wanted_face..' native pixels and pure status view')
+        love.event.quit();return
+    elseif stage=='vow-preview' then
         love.keypressed('escape');assert(snapshot()==before,'canceling vow changed the run')
         love.keypressed('f');love.keypressed('p');love.keypressed('d');love.keypressed('return');update(10)
         assert(p.hp==4 and s.clock==100)
@@ -180,7 +246,11 @@ ROAG_GUI_AUTOSTART=1 ROAG_IDEA_BOON_OUTPUT="$output" XDG_DATA_HOME="$output/data
     timeout -k 3s 30s love "$output/app" > "$output/love.log" 2>&1 || {
     cat "$output/love.log";printf 'Retained failed GUI artifacts: %s\n' "$output";exit 1;
 }
-if [ "${ROAG_IDEA_BOON_CASE:-supply}" = vow ]; then
+if [ "${ROAG_IDEA_BOON_CASE:-supply}" = dice ]; then
+    test -s "$output/dice-ready.png"
+    test -s "$output/dice-result.png"
+    test -s "$output/dice-status.png"
+elif [ "${ROAG_IDEA_BOON_CASE:-supply}" = vow ]; then
     test -s "$output/vow-preview.png"
     test -s "$output/vow-paid.png"
     test -s "$output/vow-finished.png"

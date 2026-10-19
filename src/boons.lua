@@ -86,6 +86,14 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='roll_face' then return event.fate_face==node.value end
+    if op=='unique_action' then
+        if not event.root_action_id then return false end
+        history.actions=history.actions or {}
+        local key=owner.id..':'..boon_id..':'..event.root_action_id
+        if history.actions[key] then return false end
+        history.actions[key]=true;return true
+    end
     if op=='supply_kind' then return event.supply_kind==node.value end
     if op=='supply_excess' then
         return (event.amount or 0)>(event.actual_gain or 0)
@@ -352,7 +360,7 @@ function Boons.set_stacks(owner, id, rarity, count)
     if next(stacks) then owner.boons[id] = stacks else owner.boons[id] = nil end
 end
 
-function Boons.validate_inventory(owner)
+function Boons.validate_inventory(owner,state)
     for id, stacks in pairs(owner.boons or {}) do
         assert(Catalog.get(id), "unknown owned boon")
         assert(type(stacks) == "table", "invalid boon stacks")
@@ -385,6 +393,15 @@ function Boons.validate_inventory(owner)
         if memory.mark_count then
             assert(memory.mark_target_id~=nil,"boon mark missing target")
         end
+        if memory.face~=nil then
+            assert(id=='core:boon/fateful_dice' and type(memory.face)=='number'
+                and memory.face%1==0 and memory.face>=1 and memory.face<=8
+                and type(memory.roll_action_id)=='number' and memory.roll_action_id%1==0
+                and memory.roll_action_id>=1,'invalid saved dice roll')
+            if state then
+                assert(memory.roll_action_id<state.next_action_id,'future saved dice roll')
+            end
+        end
     end
 end
 
@@ -395,6 +412,46 @@ function Boons.attack_vow(owner)
     local def=Catalog.get(id)
     return {boon_id=id,hp_cost=def.attack_payment.hp,
         bonus=magnitude(def,stacks,'power')}
+end
+
+function Boons.dice_power(owner)
+    local id='core:boon/fateful_dice'
+    local stacks=owner.boons and owner.boons[id]
+    if stacks then return magnitude(Catalog.get(id),stacks,'power') end
+end
+function Boons.roll_dice(state,owner,action_id)
+    local power=Boons.dice_power(owner)
+    if not power then return end
+    local face=RNG.next_int(state.rng,8)
+    owner.boon_memory=owner.boon_memory or {}
+    local memory=owner.boon_memory['core:boon/fateful_dice'] or {}
+    memory.face=face;memory.roll_action_id=action_id
+    owner.boon_memory['core:boon/fateful_dice']=memory
+    return {face=face,power=power}
+end
+function Boons.rebase_stage_memory(owner,old_clock,new_clock)
+    for _,id in ipairs(Catalog.order)do
+        local memory=owner.boon_memory and owner.boon_memory[id]
+        if memory and memory.expires_at then
+            local remaining=memory.expires_at-old_clock
+            memory.expires_at=new_clock+math.max(0,remaining)
+            if remaining<0 then
+                -- Clock zero is a valid inclusive expiry, so merely clamping
+                -- an expired timer to zero would revive it for one action.
+                for _,field in ipairs({'charges','speed','ward','mark_count'})do
+                    if memory[field]~=nil then memory[field]=0 end
+                end
+            end
+        end
+    end
+end
+local regular_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
+    canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true,squad=true,idea_regular=true}
+function Boons.skull_target(target)
+    local def=Content.get_enemy(target.definition_id)
+    return target.controller=='ai' and target.faction=='enemy'
+        and not target.reward_exempt and not target.invulnerable
+        and def and not def.special_encounter and regular_ai[def.ai] or false
 end
 
 function Boons.speed_bonus(state,owner)
@@ -592,6 +649,9 @@ end
 
 -- Subscriptions are indexed by event kind; only owners of a subscribed boon are visited.
 function Boons.on_event(state, event, enqueue, emit_activation)
+    -- A rolled cross is a paid miss, not an invisible Temporal Echo or other
+    -- on-attack proc. Ordinary empty non-dice attacks retain their old rules.
+    if event.fate_miss and (event.kind=='AttackPerformed' or event.kind=='AbilityUsed') then return end
     -- Shared HP loss is not a second weapon hit or a recursive damage proc.
     -- A real credited death still earns the existing finite on-kill effects.
     if event.oath_shared_only and event.kind~='EntityKilled'then return end

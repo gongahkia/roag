@@ -39,6 +39,11 @@ function P.statuses(player)
   local charge=math.max(0,math.min(3,player.storm_charge or 0))
   out[#out+1]={id='core:ui/status_charge_'..charge..'_icon',label='Charge '..charge}
  end
+ local fate=player.boon_memory and player.boon_memory['core:boon/fateful_dice']
+ if fate and fate.face and player.boons and player.boons['core:boon/fateful_dice']then
+  out[#out+1]={id='core:ui/fate_'..fate.face..'_icon',
+   label=require('src.idea_boon_content').faces[fate.face]}
+ end
  return out
 end
 function P.signal(phase)

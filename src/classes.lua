@@ -271,9 +271,10 @@ end
 
 function Classes.preview_hint(player,kind,preview)
     if preview.vow then
-        return ('VOW: %d HP -> +%d damage · P off · Enter strike'):format(
-            preview.vow.hp_cost,preview.vow.bonus)
+        return ('VOW: %d HP -> +%d damage%s · P off · Enter'):format(
+            preview.vow.hp_cost,preview.vow.bonus,preview.fate_power and ' · die on commit' or '')
     end
+    if preview.fate_power then return 'Die rolls on commit · Enter attack · Esc cancel' end
     if kind=='dash' then return 'Enter to move · Esc cancel' end
     if kind~='sweeping_slash' then return 'Enter to strike · Esc cancel' end
     local id=player.definition_id

@@ -122,6 +122,9 @@ function S.new(read,make_texture,make_quad,options)
     end
     for id,index in pairs(IdeaEnemies.symbols or {})do handles[id]=handle({index,id,arcane})end
     for id,index in pairs(Comp.symbols)do handles[id]=handle({index,id,arcane})end
+    for _,cue in ipairs(require('src.idea_boon_content').cues)do
+        handles[cue.id]=handle({cue.index,cue.label,arcane})
+    end
     return {texture=image,handles=handles,signature=S.checksum..':semantic-1'}
 end
 return S

@@ -88,10 +88,10 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `status-icon-family` | Status, supplies and reward pictograms | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `oracle-choice` | Oracle art redirect; no Oracle room | pending boon/presentation batch | Preserve the rejected room constraint |
+| `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; focused/GUI/save verified, updated full gate pending | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
 | `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 8 additions / 61 total | First seven full 669/669; current 36 focused, 101 combined; real GUI/save/native pixel checks; full Pilgrim gate pending; at least 42 more required |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 9 additions / 62 total | First seven full 669/669; current 64 focused, native GUI/save checks; full updated gate pending; at least 41 more required |
 
 ## Dependency-based batches
 
@@ -1190,3 +1190,63 @@ acquisition evidence. All four original class Victory cases pass under the
 current working pool. The Ranger gate additionally requires a real primary bow
 hit at distance 2–4, preventing a return to the accidental melee-only strategy.
 A full integrated clean gate is still required for the working dice slice.
+
+
+## Fateful Dice and finite carry-over — ninth addition (2026-10-19)
+
+Fateful Dice is one boon, **not eight additions**. Current catalogue 62,
+normal unearned pool 58; approved additions **9/50+**, at least 41 more still
+required. The Oracle room/Cantor class stay rejected. Six equal numbered
+outcomes use 728–733, skull 727, cross 726; every valid immediate attack rolls
+once, previews/utility/generated attacks never roll. On actual positive hits:
+1 heal, 2 primary heavy damage, 3 Burning, 4 one-hit ward, 5 arc, 6 one victim-
+centered burst. Skull excludes every miniboss/finale/pursuer/special/exempt actor,
+respects forcefields/shields and preserves simultaneous wizard/brute blocking.
+It executes ordinary twins without leaking fatal damage into the pain link.
+Cross has no primary hit, hidden Echo/charge/Burning/terrain cut or Hook pull;
+earlier committed Echoes still resolve. Pilgrim still pays on a rolled miss.
+
+**24/24** dice tests plus four proven timer regressions bring the new focus to
+**64/64**. Combined prior boon/art/environment/settings/palette/Oath/squad/stage
+checks pass **169/169** before the last Hook-miss regression was appended; a
+clean combined/full run remains required for the exact final tree. All three
+rounds of eight actual dice GUI processes pass (**24/24**), checking each rolled
+native icon against original PNG pixels. Eight additional face/F5 processes
+pass; a 12-refresh process retains exact authoritative state/RNG/last roll and
+reports a stable **25 images / 20,099,400 texture bytes** on Mesa llvmpipe.
+Representative inspected screenshots: `/var/tmp/roag-idea-boon-gui-INiwX7`
+(skull), `/var/tmp/roag-idea-boon-gui-nKE335` (miss). Refresh stress artifact:
+`/var/tmp/roag-idea-boon-gui-s79HFY`. No physical controller, keyboard, mouse,
+Wacom or native GPU was tested.
+
+The timer audit reproduced four failures before the fix: absolute boon expiry
+values were copied into a new zero-based stage clock; expired values could
+revive; player Burning kept an old actor/schedule ID; and expired stronger speed
+could survive a rarity retirement/refresh. Remaining durations now rebase at
+route handoff, expired consumable fields zero without erasing the saved die,
+travelling Burning gets matching new work, and expired speed renews at current
+power. The inclusive same-clock boundary is preserved, retired snapshots remain
+byte-identical, and route selection consumes no extra time/RNG. No save schema
+or balance constants changed. Already persisted inflated timers cannot be
+retroactively inferred and are not silently rewritten.
+
+Five separate-process checked-save cases pass: supply, legacy, Vow, Dice with
+ward+pending Echo/Burning, and actual travelling Burning+speed after a stage
+handoff. Last case artifact `/var/tmp/roag-boons-disk-eku24N`; all advance to
+checked generation 2. These are explicitly assisted prerequisite fixtures, not
+legal Victories. Required native coverage is **517/517**, retaining the same 13
+approved cross-sheet derivatives and all original source PNG bytes.
+
+The README's unrelated campaign/body-reconstruction control table did not
+match current `main.lua` (notably B was documented as a bomb but actually sets
+an ineligible developer showcase). Commit `3adcfc50` replaces it with verified
+current title/movement/aim/utility/save controls. No gameplay was changed by that
+documentation correction.
+
+Next: run the clean **711-case** gate for the exact dice/carry-over tree, then
+continue the remaining boon families. Final readability still needs temporary
+speed/ward visibility, zero-gain notice suppression and an explicit last-roll
+history label that is not hidden by three other status badges. Existing broad
+GUI acceptance, all approved earlier feature rows, final balance/legal/save
+corpora and human/physical input handoff remain open; do not call the goal
+complete based on this slice.

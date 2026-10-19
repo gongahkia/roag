@@ -42,7 +42,7 @@ function O.redistribute(state,outcomes)
         local hit=outcomes[i]
         local e=actor(state,hit.target_id)
         local partner=e and O.partner(state,e)
-        if partner and not hit.oath_shared_only then
+        if partner and not hit.oath_shared_only and not hit.fate_skull then
             local transfer=math.floor(hit.actual_loss/2)
             if transfer>0 then
                 hit.actual_loss=hit.actual_loss-transfer
