@@ -278,7 +278,8 @@ local valid_effects = {damage_nearest=true, damage_source=true, area=true, echo=
     apply_status=true,heal_owner=true,damage_target=true,adjacent_hostiles=true,
     path_adjacent_hostiles=true,prime=true,speed_boost=true,ward=true,
     mark_damage=true,status_neighbors=true,cleanse_owner=true,refund_purchase=true,
-    enrich_drop=true,pattern=true}
+    enrich_drop=true,pattern=true,displace_target=true,stun_target=true,
+    ward_to_heal=true,consume_burning=true,gather_pickups=true}
 local valid_predicates = {source_owner=true, target_owner=true, target_hostile=true,
     source_not_owner=true, positive=true, source_target_same_faction=true,
     pair_adjacent_damage=true, source_id=true, target_id=true,
@@ -292,7 +293,8 @@ local valid_predicates = {source_owner=true, target_owner=true, target_hostile=t
     overlapping_windups=true,approaching_owner=true,aligned_hostiles=true,
     event_distance=true,visible_source=true,visible_event=true,supply_kind=true,
     supply_excess=true,event_amount=true,rewarded_drop=true,roll_face=true,unique_action=true,
-    pattern_axis=true,actual_dash=true}
+    pattern_axis=true,actual_dash=true,regular_target=true,basic_attack=true,
+    cooldown_ready=true,owner_missing_hp=true,active_ward=true,burning_target=true,owner_axis=true}
 
 local function validate_predicate(node)
     assert(type(node) == "table", "invalid boon predicate")
@@ -303,7 +305,7 @@ local function validate_predicate(node)
     elseif node.not_ then validate_predicate(node.not_)
     else
         assert(valid_predicates[node.op], "unknown boon predicate")
-        if node.op=='pattern_axis' then
+        if node.op=='pattern_axis' or node.op=='owner_axis' then
             assert(node.value=='cardinal' or node.value=='diagonal','invalid pattern axis')
         elseif node.op=='roll_face' then
             assert(type(node.value)=='number' and node.value%1==0 and node.value>=1
@@ -387,6 +389,17 @@ function Catalog.validate(definitions, order)
         end
         for _, effect in ipairs(def.effects) do
             assert(valid_effects[effect.kind], "invalid boon effect")
+            if effect.kind=='displace_target' then
+                assert(effect.mode=='pull' or effect.mode=='push','invalid displacement mode')
+                assert(effect.collision_damage==nil or effect.collision_damage==true,
+                    'invalid collision damage')
+            elseif effect.kind=='stun_target' then
+                assert(type(effect.cap)=='number' and effect.cap%1==0
+                    and effect.cap>=1 and effect.cap<=100
+                    and type(effect.cooldown)=='number' and effect.cooldown%1==0
+                    and effect.cooldown>=400 and effect.cooldown<=10000,
+                    'invalid finite stun declaration')
+            end
             if effect.pattern or effect.kind=='pattern' then
                 assert(require('src.boon_patterns').names[effect.pattern]
                     and (effect.kind=='pattern' or effect.kind=='echo'),

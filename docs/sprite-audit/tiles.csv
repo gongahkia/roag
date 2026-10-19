@@ -1375,7 +1375,7 @@ onebit,850,272,272,124,
 onebit,851,288,272,35,
 onebit,852,304,272,84,environment carpet
 onebit,853,320,272,69,
-onebit,854,336,272,68,
+onebit,854,336,272,68,core:boon/ward_ledger/icon + /detail
 onebit,855,352,272,68,
 onebit,856,368,272,66,
 onebit,857,384,272,68,
@@ -1437,7 +1437,7 @@ onebit,912,480,288,66,
 onebit,913,496,288,71,
 onebit,914,512,288,68,
 onebit,915,528,288,78,core:ui/idea_alarm_effect
-onebit,916,544,288,95,
+onebit,916,544,288,95,core:boon/cinder_stopper/icon + /detail
 onebit,917,560,288,50,
 onebit,918,576,288,58,
 onebit,919,592,288,44,
@@ -1574,9 +1574,9 @@ onebit,1049,320,336,56,
 onebit,1050,336,336,48,
 onebit,1051,352,336,48,
 onebit,1052,368,336,50,core:boon/field_dressing/icon + /detail
-onebit,1053,384,336,50,
-onebit,1054,400,336,50,
-onebit,1055,416,336,50,
+onebit,1053,384,336,50,core:boon/scavengers_hook/icon + /detail
+onebit,1054,400,336,50,core:boon/grasping_hand/icon + /detail
+onebit,1055,416,336,50,core:boon/anchor_maul/icon + /detail
 onebit,1056,432,336,40,
 onebit,1057,448,336,86,
 onebit,1058,464,336,86,
@@ -1593,7 +1593,7 @@ onebit,1068,624,336,136,
 onebit,1069,640,336,106,
 onebit,1070,656,336,68,
 onebit,1071,672,336,80,
-onebit,1072,688,336,118,
+onebit,1072,688,336,118,core:boon/hourglass_clasp/icon + /detail
 onebit,1073,704,336,81,
 onebit,1074,720,336,86,
 onebit,1075,736,336,88,

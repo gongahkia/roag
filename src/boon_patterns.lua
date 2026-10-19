@@ -7,8 +7,8 @@ local cardinal={{0,-1},{1,0},{0,1},{-1,0}}
 local diagonal={{-1,-1},{1,-1},{1,1},{-1,1}}
 local function sign(n)return n<0 and -1 or n>0 and 1 or 0 end
 
-function P.axis(event,axis)
-    local p=event.pattern_origin or event.source_position
+function P.axis(event,axis,origin)
+    local p=origin or event.pattern_origin or event.source_position
     if not p or not event.x or not event.y or p.floor_id~=event.floor_id then return false end
     local dx,dy=event.x-p.x,event.y-p.y
     if axis=='cardinal' then return (dx==0)~=(dy==0) end

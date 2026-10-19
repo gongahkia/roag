@@ -937,6 +937,86 @@ local function execute_effect(state, output, activation, effect)
             boon_id=activation.boon_id, activation_id=activation.id,
             due=due, effect_id=scheduled.id, target_cells=locked.event.target_cells,
         }, source.id, activation.root_action_id)
+    elseif effect.kind=='displace_target' then
+        local target=Game.entity(state,activation.event.target_id)
+        if owner and target and Boons.skull_target(target)then
+            local p,q=owner.position,target.position
+            local dx,dy=q.x-p.x,q.y-p.y
+            if p.floor_id==q.floor_id and ((dx==0)~=(dy==0))then
+                dx=dx==0 and 0 or dx>0 and 1 or -1
+                dy=dy==0 and 0 or dy>0 and 1 or -1
+                if effect.mode=='pull'then dx,dy=-dx,-dy end
+                local moved=shove_actor(state,output,target,dx,dy,source.id,activation.root_action_id)
+                if not moved and effect.collision_damage then
+                    damage_batch(state,output,source,activation.root_action_id,
+                        {{floor_id=q.floor_id,x=q.x,y=q.y}},activation.power,false,effect.damage_type)
+                end
+            end
+        end
+    elseif effect.kind=='stun_target' then
+        local target=Game.entity(state,activation.event.target_id)
+        if owner and target and Boons.skull_target(target)then
+            local until_time=math.max(target.stunned_until or 0,
+                state.clock+math.min(effect.cap,activation.power))
+            local due=until_time
+            -- A stun must never bring an already later recovery forward.
+            for _,item in ipairs(state.schedule)do
+                if item.actor_id==target.id and item.kind=='actor_ready'then
+                    due=math.max(due,item.due)
+                end
+            end
+            cancel_windup(state,target,output,'stun',source.id,activation.root_action_id)
+            target.stunned_until=until_time
+            Scheduler.remove_for_actor(state,target.id,'actor_ready')
+            Scheduler.enqueue(state,{kind='actor_ready',due=due,actor_id=target.id,is_player=false})
+            owner.boon_memory=owner.boon_memory or {}
+            owner.boon_memory[activation.boon_id]={expires_at=state.clock+effect.cooldown}
+            emit(state,output,'Stunned',{target_id=target.id,until_time=until_time,
+                boon_id=activation.boon_id},source.id,activation.root_action_id)
+        end
+    elseif effect.kind=='ward_to_heal' then
+        if owner and owner.hp and owner.hp>0 and owner.hp<owner.max_hp then
+            local power=math.min(activation.power,owner.max_hp-owner.hp)
+            local gain=Boons.consume_ward(state,owner,power)
+            if gain>0 then
+                local before=owner.hp;owner.hp=before+gain
+                emit(state,output,'Healed',{target_id=owner.id,requested=activation.power,
+                    actual_gain=gain,hp_before=before,hp_after=owner.hp,
+                    spent_wards=true},source.id,activation.root_action_id)
+            end
+        end
+    elseif effect.kind=='consume_burning' then
+        local target=Game.entity(state,activation.event.target_id)
+        local status=target and target.statuses and target.statuses.burning
+        if target and target.hp and target.hp>0 and status then
+            for n=#state.schedule,1,-1 do
+                if state.schedule[n].id==status.schedule_id then table.remove(state.schedule,n)end
+            end
+            target.statuses.burning=nil
+            emit(state,output,'StatusCleansed',{status='burning',target_id=target.id,
+                floor_id=target.position.floor_id,x=target.position.x,y=target.position.y,
+                consumed=true},source.id,activation.root_action_id)
+            damage_batch(state,output,source,activation.root_action_id,
+                {{floor_id=target.position.floor_id,x=target.position.x,y=target.position.y}},
+                math.min(activation.power,status.power*status.remaining),false,effect.damage_type)
+        end
+    elseif effect.kind=='gather_pickups' then
+        if owner and owner.id==state.player_id and owner.hp and owner.hp>0 then
+            local gathered=0;local p=owner.position;local map=Content.map_for(state)
+            for _,d in ipairs({{0,-1},{1,0},{0,1},{-1,0}})do
+                local x,y=p.x+d[1],p.y+d[2]
+                if gathered<activation.power and Content.walkable(map,x,y)
+                    and Content.projectile_passable(map,x,y,state)
+                    and Visibility.can_see(state,p.floor_id,x,y)then
+                    local collected=false
+                    Rewards.pickup_at(state,owner,x,y,function(kind,fields,source_id)
+                        collected=true
+                        emit(state,output,kind,fields,source_id,activation.root_action_id)
+                    end)
+                    if collected then gathered=gathered+1 end
+                end
+            end
+        end
     elseif effect.kind=="prime" or effect.kind=="speed_boost"
         or effect.kind=="ward" then
         if owner and owner.hp and owner.hp>0 then

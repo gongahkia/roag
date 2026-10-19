@@ -1,5 +1,5 @@
 {
-  "mapping_checksum": "9754d3a1bf2db240",
+  "mapping_checksum": "127af4836d5132a5",
   "packs": {
     "onebit": {
       "actor_count": 65,
@@ -448,6 +448,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/anchor_maul/detail",
+          "index": 1055,
+          "motif": "curled impact hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/anchor_maul/icon",
+          "index": 1055,
+          "motif": "curled impact hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/backtrail_mantle/detail",
           "index": 87,
           "motif": "travelling mantle",
@@ -586,6 +604,24 @@
           "id": "core:boon/brokers_seal/icon",
           "index": 489,
           "motif": "star seal",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cinder_stopper/detail",
+          "index": 916,
+          "motif": "sealed fire flask",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/cinder_stopper/icon",
+          "index": 916,
+          "motif": "sealed fire flask",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1006,6 +1042,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/grasping_hand/detail",
+          "index": 1054,
+          "motif": "open grasping hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/grasping_hand/icon",
+          "index": 1054,
+          "motif": "open grasping hand",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/grave_dividend/detail",
           "index": 622,
           "motif": "skull",
@@ -1072,6 +1126,24 @@
           "id": "core:boon/hollow_crown/icon",
           "index": 816,
           "motif": "crowned card",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hourglass_clasp/detail",
+          "index": 1072,
+          "motif": "small hourglass",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/hourglass_clasp/icon",
+          "index": 1072,
+          "motif": "small hourglass",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -1492,6 +1564,24 @@
         },
         {
           "height": 16,
+          "id": "core:boon/scavengers_hook/detail",
+          "index": 1053,
+          "motif": "curved gathering hook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/scavengers_hook/icon",
+          "index": 1053,
+          "motif": "curved gathering hook",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:boon/shared_agony/detail",
           "index": 531,
           "motif": "paired hearts",
@@ -1648,6 +1738,24 @@
           "id": "core:boon/turncoat_spark/icon",
           "index": 617,
           "motif": "small spark",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ward_ledger/detail",
+          "index": 854,
+          "motif": "ace medical cross",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:boon/ward_ledger/icon",
+          "index": 854,
+          "motif": "ace medical cross",
           "pose_alias": false,
           "sheet": "onebit",
           "width": 16
@@ -4985,6 +5093,18 @@
           "1052": [
             "core:boon/field_dressing/icon + /detail"
           ],
+          "1053": [
+            "core:boon/scavengers_hook/icon + /detail"
+          ],
+          "1054": [
+            "core:boon/grasping_hand/icon + /detail"
+          ],
+          "1055": [
+            "core:boon/anchor_maul/icon + /detail"
+          ],
+          "1072": [
+            "core:boon/hourglass_clasp/icon + /detail"
+          ],
           "111": [
             "core:object/review_plate_tiny_up",
             "core:object/review_plate_up"
@@ -5784,6 +5904,9 @@
           "852": [
             "environment carpet"
           ],
+          "854": [
+            "core:boon/ward_ledger/icon + /detail"
+          ],
           "867": [
             "core:object/interaction_bell"
           ],
@@ -5795,6 +5918,9 @@
           ],
           "915": [
             "core:ui/idea_alarm_effect"
+          ],
+          "916": [
+            "core:boon/cinder_stopper/icon + /detail"
           ],
           "965": [
             "core:boon/road_flask/icon + /detail"
@@ -5874,11 +6000,11 @@
       "empty": 1,
       "grid": 1078,
       "nonempty": 1077,
-      "onebit": 264,
+      "onebit": 270,
       "sheet": "onebit",
-      "union": 264,
-      "unused_onebit": 813,
-      "unused_union": 813
+      "union": 270,
+      "unused_onebit": 807,
+      "unused_union": 807
     },
     {
       "empty": 63,
@@ -5951,6 +6077,8 @@
     "core:boon/aftershock/icon",
     "core:boon/alchemical_flip/detail",
     "core:boon/alchemical_flip/icon",
+    "core:boon/anchor_maul/detail",
+    "core:boon/anchor_maul/icon",
     "core:boon/backtrail_mantle/detail",
     "core:boon/backtrail_mantle/icon",
     "core:boon/battle_march/detail",
@@ -5967,6 +6095,8 @@
     "core:boon/bramble_compact/icon",
     "core:boon/brokers_seal/detail",
     "core:boon/brokers_seal/icon",
+    "core:boon/cinder_stopper/detail",
+    "core:boon/cinder_stopper/icon",
     "core:boon/circuit_chorus/detail",
     "core:boon/circuit_chorus/icon",
     "core:boon/cluster_rupture/detail",
@@ -6013,6 +6143,8 @@
     "core:boon/froststep_catalyst/icon",
     "core:boon/funeral_coin/detail",
     "core:boon/funeral_coin/icon",
+    "core:boon/grasping_hand/detail",
+    "core:boon/grasping_hand/icon",
     "core:boon/grave_dividend/detail",
     "core:boon/grave_dividend/icon",
     "core:boon/guardians_vow/detail",
@@ -6021,6 +6153,8 @@
     "core:boon/harriers_response/icon",
     "core:boon/hollow_crown/detail",
     "core:boon/hollow_crown/icon",
+    "core:boon/hourglass_clasp/detail",
+    "core:boon/hourglass_clasp/icon",
     "core:boon/knights_gambit/detail",
     "core:boon/knights_gambit/icon",
     "core:boon/linebreaker_pawn/detail",
@@ -6067,6 +6201,8 @@
     "core:boon/road_flask/icon",
     "core:boon/rooks_wake/detail",
     "core:boon/rooks_wake/icon",
+    "core:boon/scavengers_hook/detail",
+    "core:boon/scavengers_hook/icon",
     "core:boon/shared_agony/detail",
     "core:boon/shared_agony/icon",
     "core:boon/splitflight/detail",
@@ -6085,6 +6221,8 @@
     "core:boon/thorn_mirror/icon",
     "core:boon/turncoat_spark/detail",
     "core:boon/turncoat_spark/icon",
+    "core:boon/ward_ledger/detail",
+    "core:boon/ward_ledger/icon",
     "core:boon/windup_hunter/detail",
     "core:boon/windup_hunter/icon",
     "core:chest/free_elite",

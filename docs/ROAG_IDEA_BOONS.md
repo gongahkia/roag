@@ -4,8 +4,8 @@
 
 The resumed goal requires **50+ additional distinct boons**, followed by final
 integration/visual acceptance. The starting catalogue contained 53 boons.
-**Seventeen additions are implemented so far: 70 total, 66 in a normal unearned
-New Run pool, plus the four existing achievement unlocks. At least 33 more
+**Twenty-three additions are implemented so far: 76 total, 72 in a normal unearned
+New Run pool, plus the four existing achievement unlocks. At least 27 more
 additions are still required.** These groups do not complete the goal.
 
 Pilgrim is an implemented **boon**, never a new class. Its explicit HP payment
@@ -15,8 +15,8 @@ skull kills regular enemies only, never minibosses, the finale or special
 reward-exempt encounter actors. The rejected Oracle room and Cantor class stay
 rejected. Cantor's requested hat 33 and cup 824 now have the uses below.
 
-Remaining groups will cover positional attack shapes/movement, limited control,
-terrain/status interactions, defense/cadence and skill transformations. Each
+Remaining groups will expand terrain/status interactions, defense/cadence and
+skill transformations. Each
 addition needs an actual tactical difference, accurate text and artwork, real
 action tests and saved-state continuation. Renamed damage bonuses do not meet
 the requested distinct-mechanic requirement.
@@ -59,6 +59,35 @@ Backtrail copies its activation before replacing locked cells, so it cannot
 mutate the shared triggering event or a Temporal Echo. Walking, escape-scroll
 movement and Wayfinder beacon returns do not trigger it. Impact keeps the
 original cells if the player moves; save/Continue and F5 retain them exactly.
+
+## Control and resource conversions
+
+| Boon / native icon | Committed behavior | Power C/U/R/L |
+| --- | --- | --- |
+| Grasping Hand / 1054 | Positive special hits on regular foes in the owner's row/column add defended damage, then pull surviving victims one cell toward the owner | 1 / 2 / 3 / 4 bonus damage |
+| Anchor Maul / 1055 | Cardinal-adjacent basic hits push a regular foe one cell; a blocked push deals collision damage instead | 1 / 2 / 3 / 4 collision damage |
+| Hourglass Clasp / 1072 | First surviving regular primary victim is stunned; one trigger per attack and a 400-time cooldown | 10 / 20 / 30 / 40 stun time per copy, capped at 100 |
+| Ward Ledger / 854 | A paid Wait while hurt consumes active one-hit wards for capped healing; consumed wards lose unused capacity | 1 / 2 / 3 / 4 maximum healing |
+| Cinder Stopper / 916 | A primary hit on an already Burning foe consumes its remaining Burning for one capped fire hit; its exact queued tick is removed | 3 / 5 / 7 / 10 captured damage before defense |
+| Scavenger's Hook / 1053 | A paid Wait gathers adjacent clear/visible pickup tiles in N/E/S/W order; normal pickup rules and effects apply | 1 / 2 / 3 / 4 tiles, naturally capped at four |
+
+The three control boons exclude minibosses, the finale, pursuer, special
+encounters and reward-exempt actors. Displacement uses existing collision,
+stairs/exit protection and windup cancellation. Hourglass never brings a later
+recovery forward, does not guarantee a player reaction turn, and uses saved
+world-time cooldowns that rebase correctly at stage handoff. Uncapped mixed
+rarity ownership remains; its disclosed stun cap is separate from stack count.
+
+Ward conversion cannot farm empty/expired wards or waste wards at full health.
+Burning conversion only triggers when Burning existed at the primary hit;
+ordinary Emberbrand can subsequently ignite the foe again. Collection leaves
+full-health food, carried drops, blocked tiles and other floors alone. It never
+silently changes food's 4 HP or health pickups' 10 HP. These effects add no
+render timers, extra inputs or gameplay RNG draws.
+
+Owner-based pulls deliberately use the owner's alignment even when a commanded
+Spirit also owns strike-origin pattern boons; a regression checks that adding
+Linebreaker's Pawn cannot change Grasping Hand's eligibility.
 
 ## First group: supplies and rewards
 
@@ -210,6 +239,7 @@ TMPDIR=/var/tmp sh tests/idea_boon_gui_smoke.sh
 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh
 ROAG_DICE_REFRESHES=12 TMPDIR=/var/tmp sh tests/idea_dice_gui_smoke.sh 4
 ROAG_PATTERN_CASE=backtrail_mantle TMPDIR=/var/tmp sh tests/idea_pattern_gui_smoke.sh
+ROAG_CONTROL_BOON_CASE=anchor_maul TMPDIR=/var/tmp sh tests/idea_control_boon_gui_smoke.sh
 python3 tools/sprite_audit.py --check
 git diff --check
 ```
@@ -285,7 +315,22 @@ All saves/screenshots/logs live in isolated `/var/tmp/roag-*` directories.
 
 ### Still required for final acceptance
 
-- Finish the remaining 33+ boons and verify
+Latest clean full gate for **17 additions**: **732/732**, 432.31 s,
+152,544 KiB peak LuaJIT RSS, log
+`/var/tmp/roag-idea-patterns-retry-full-20261019.log`. An earlier frozen copy
+omitted the required saved sprite catalogue, producing 731 pass / 1 fail; that
+setup failure remains retained. All nine established game GUI harnesses pass
+three isolated rounds (**27/27**) at that checkpoint.
+
+With the subsequent six control/resource additions, current focused tests pass
+**107/107** (the earlier 85 plus 22). Their actual GUI passes **18/18**, all 23
+native icons pass original-source pixel checks, the expanded 76-boon gallery
+passes, and the new checked-store control scenario continues exactly in a
+fresh process. Their full **754-case** gate is running separately; do not claim
+it passed from focused results or the older complete run. These are assisted
+callback fixtures on LÖVE 11.5 / llvmpipe, not human input or native GPU tests.
+
+- Finish the remaining 27+ boons and verify
   every mechanic/shape/preview, rarity/stack rule, icon and saved state.
 - Re-run the complete integrated headless, seed/replay, fresh-process save,
   ordinary-action Victory, class/route and reward/balance gates after all changes.

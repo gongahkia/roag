@@ -104,9 +104,9 @@ This is ordered follow-up, not a replacement for the unfinished active goal.
 | `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
-| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | Nine new boon icons + eight face bindings; 16 unique new native regions; original PNGs preserved |
+| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | 23 new boon icons + eight face bindings; 30 unique native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 17 additions / 70 total | Prior full 711/711; 85 focused, native GUI/save checks; current 732-case gate running; at least 33 more required, then final acceptance |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 23 additions / 76 total | 17-addition full 732/732; current 107 focused, native GUI/save checks; 754-case full gate running; at least 27 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1370,3 +1370,90 @@ executable also writes a legacy save that continues under current pattern code
 with identical subsequent events/state, artifact `/var/tmp/roag-boons-disk-vsYm1G`.
 The first legacy retry directory contained an underscore rejected by the
 fixture's strict safe-path guard; no save was written, and its log is retained.
+
+
+## Positional-group full-gate setup correction (2026-10-19)
+
+The first frozen full run ended **731 passed / 1 failed**, 488.72 s,
+155,248 KiB peak LuaJIT RSS. The frozen-copy script omitted `docs/`; the retained
+sprite-catalogue test correctly rejected missing
+`docs/sprite-audit/inventory.json`. All 21 new cases and every gameplay/save
+case passed, but this is not a clean full result. Failed source/log/timing
+remain at `/var/tmp/roag-idea-patterns-final-pf8fh0yn` and
+`/var/tmp/roag-idea-patterns-full-20261019.log`. No test was relaxed.
+
+A complete new frozen copy includes docs and all current runtime/Lua tests:
+`/var/tmp/roag-idea-patterns-retry-n__dd7gp`, retry log
+`/var/tmp/roag-idea-patterns-retry-full-20261019.log`. Its live exec session is
+recorded in `/var/tmp/roag-idea-patterns-retry-full-record.json`; wait for the
+terminal result, do not restart just because polling yields. All 190 runtime/
+Lua-test source files matched the first frozen runtime exactly before retry;
+the separately committed shell gallery correction does not alter headless
+execution. Existing game GUI repetition is also being exercised against this
+checkpoint; it will still need final combined acceptance after all 50+ additions.
+
+
+## Positional-group clean full gate (2026-10-19)
+
+The corrected complete frozen copy passes **732/732**, **432.31 s**,
+**152,544 KiB** peak LuaJIT RSS; terminal exec exit 0. Frozen source
+`/var/tmp/roag-idea-patterns-retry-n__dd7gp`, log
+`/var/tmp/roag-idea-patterns-retry-full-20261019.log`, runtime task commit
+`53a492b9`. This covers 17 additions, not the subsequent six control/resource
+boons. Existing game GUI repetition passes **27/27** (nine established harnesses
+x three isolated rounds), manifest
+`/var/tmp/roag-pattern-game-gui-rounds-20261019/results.tsv`.
+The gallery repair is separately committed as `d3f19930`.
+
+
+## Control/resource group — twenty-three additions (2026-10-19)
+
+Six actual additions: Grasping Hand, Anchor Maul, Hourglass Clasp, Ward Ledger,
+Cinder Stopper and Scavenger's Hook. Current catalogue **76**, normal unearned
+pool **72**, approved additions **23/50+**; at least 27 remain. Their mechanics
+are respectively pull/bonus damage, push-or-collision, first-victim finite stun
+with cooldown, spending wards as healing, consuming remaining Burning, and
+paid adjacent pickup collection. Control excludes bosses/special/exempt actors.
+Existing shove collision and interruption are reused; stun never accelerates a
+later recovery, caps at 100 and cools down for 400 world time. Food stays 4 HP,
+health 10 HP, all normal pickup procs remain. No source PNG or save schema changed.
+
+**22/22** new cases and **107/107** combined new-boon cases pass. Saved cooldown,
+ward, Burning and Hook actions continue exactly in a checked-store fresh process
+(`/var/tmp/roag-boons-disk-PHHpBt`), and actual route handoff retains only the
+remaining cooldown. A composition audit caught an origin dependency: pull
+alignment must use the owner even if a Spirit also owns strike-origin patterns.
+The separate owner-axis predicate and actual Spirit regression prevent adding
+Pawn from changing Hand eligibility. The first eligibility fixture expected an
+eligible default test run, but defaults are intentionally ineligible; it now
+uses the existing valid explicit eligible-run metadata and verifies that actual
+boon effects retain it. Those failure logs remain.
+
+Actual GUI checks pass **18/18** isolated processes (six mechanics x three
+rounds), logs `/var/tmp/roag-control-boon-gui-accepted-round{1,2,3}-20261019.log`.
+All 23 native boon icons also pass original-source pixel checks over four pages,
+artifact `/var/tmp/roag-idea-boon-gui-6cK7sz`. Inspected real-frame examples:
+`/var/tmp/roag-control-boon-gui-8OIod3/after.png` (pull),
+`/var/tmp/roag-control-boon-gui-5MUYgS/after.png` (stun activation),
+`/var/tmp/roag-control-boon-gui-uSynHh/after.png` (actual food/health/gold).
+Every case checks F5 with an exact unchanged run snapshot.
+Early Hourglass/Cinder captures fast-forwarded past their transient activation
+cue; the fixture now captures the real playback beat, rather than lowering the
+pixel-change assertion. An early Hook fixture incorrectly expected a 12-HP
+health pickup; it now asserts the unchanged authored 10 HP (20 HP after food +
+health from 6 HP). Failed GUI logs/artifacts remain at
+`/var/tmp/roag-control-boon-gui-{round1,retry-round1,verified-round1}-20261019.log`.
+These are caught fixture assertions, not demonstrated native engine crashes.
+
+Native coverage **545/545**, same approved derivatives and all 15 original asset
+files byte-identical. The existing complete 1-Bit harness also passes all five
+modes with every 50 actor / 76 boon entry (two actor / eleven boon pages),
+artifact `/var/tmp/roag-onebit-gui-rrqpS1`. Frozen review gates remain 6/6 and 7/7.
+The current full **754-case** gate is running from complete frozen source
+`/var/tmp/roag-idea-control-boons-final-hwi_fi8w`, log
+`/var/tmp/roag-idea-control-boons-full-20261019.log`, exec session **74990**;
+record `/var/tmp/roag-idea-control-boons-full-record.json`. All 191 runtime/Lua
+test files match. Poll that live handle rather than launching a duplicate.
+It must not be called covered by the prior 732-case result. Full broad
+acceptance and the queued production cleanup/Controls README/approval-only
+visual-juice proposals remain unfinished.

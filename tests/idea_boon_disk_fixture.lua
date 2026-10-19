@@ -9,7 +9,7 @@ local mode,dir,scenario=arg[1],arg[2],arg[3]
 assert((mode=='write' or mode=='continue') and
     dir:match('^/var/tmp/roag%-boons%-disk%-[%w%-]+$'))
 assert(scenario=='supply' or scenario=='legacy' or scenario=='vow' or scenario=='dice'
-    or scenario=='handoff' or scenario=='patterns')
+    or scenario=='handoff' or scenario=='patterns' or scenario=='controls')
 local names={['active-a.roag']=true,['active-b.roag']=true,
     ['expected.data']=true,['events.data']=true,['plan.data']=true}
 local storage={}
@@ -39,6 +39,24 @@ local function save_expected(s,plan,label)
     print('PASS '..scenario..': '..label..', generation 1')
 end
 if mode=='write' then
+    if scenario=='controls'then
+        local s=G.new(37);local p=G.player(s);p.hp=10
+        for _,slug in ipairs({'hourglass_clasp','ward_ledger','scavengers_hook','cinder_stopper','emberbrand'})do
+            G.set_boon_stacks(s,p.id,'core:boon/'..slug,'rare',1)
+        end
+        G.set_boon_stacks(s,p.id,'core:boon/beggars_cap','rare',1)
+        p.boon_memory={['core:boon/beggars_cap']={ward=4,expires_at=500}}
+        local foe=G.spawn_enemy(s,'core:enemy/mossbound_guard',3,2,100000)
+        foe.hp=100;foe.max_hp=100
+        R.spawn_currency(s,2,s.active_floor_id,2,3,function()end,p.id)
+        submit(s,{kind='basic_attack',dx=1,dy=0})
+        assert(p.boon_memory['core:boon/hourglass_clasp'].expires_at==400
+            and foe.statuses.burning)
+        save_expected(s,{{kind='wait'},{kind='basic_attack',dx=1,dy=0},
+            {kind='wait'},{kind='basic_attack',dx=1,dy=0},{kind='wait'}},
+            'saved cooldown, one-hit ward, Burning, adjacent pickup and real later control')
+        return
+    end
     if scenario=='patterns'then
         local s=G.new(37);local p=G.player(s);p.position.x,p.position.y=7,6
         for _,slug in ipairs({'backtrail_mantle','linebreaker_pawn','crosswind','temporal_echo'})do

@@ -87,6 +87,19 @@ local function predicate(node, state, owner, boon_id, event, history)
     end
     if node.not_ then return not predicate(node.not_, state, owner, boon_id, event, history) end
     local op = node.op
+    if op=='owner_axis' then return Patterns.axis(event,node.value,owner.position)end
+    if op=='regular_target' then
+        local target=entity(state,event.target_id)
+        return target and Boons.skull_target(target) or false
+    end
+    if op=='basic_attack' then return event.ability_id==Classes.for_player(owner).basic_id end
+    if op=='burning_target' then return event.target_burning==true end
+    if op=='owner_missing_hp' then return owner.hp and owner.hp>0 and owner.hp<owner.max_hp or false end
+    if op=='active_ward' then return Boons.ward_total(state,owner)>0 end
+    if op=='cooldown_ready' then
+        local memory=owner.boon_memory and owner.boon_memory[boon_id]
+        return not memory or not memory.expires_at or state.clock>=memory.expires_at
+    end
     if op=='pattern_axis' then return Patterns.axis(event,node.value)end
     if op=='actual_dash' then
         return event.kind=='Moved' and event.ability_id=='core:ability/dash'
@@ -566,6 +579,17 @@ function Boons.consume_ward(state,owner,damage)
         end
     end
     return absorbed
+end
+
+function Boons.ward_total(state,owner)
+    local total=0
+    for _,id in ipairs(Catalog.order)do
+        local memory=owner.boon_memory and owner.boon_memory[id]
+        if memory and (memory.expires_at or -1)>=state.clock then
+            total=total+(memory.ward or 0)
+        end
+    end
+    return total
 end
 
 function Boons.ability(state, owner, ability_id, base_cells, base_damage, dx, dy,

@@ -125,4 +125,40 @@ pattern('backtrail_mantle','Backtrail Mantle',
     'A committed Dash locks a five-cell cross at its starting tile, striking after 150 world time. Utility movement and beacon returns do not trigger it.',
     87,'travelling mantle','backtrail','dash',nil,150)
 
+local regular_hit={all={hit,{op='regular_target'}}}
+add('grasping_hand','Grasping Hand',
+    'Positive special hits on regular foes in your row or column deal bonus damage, then pull surviving victims one cardinal cell toward you. Occupied cells, exits and walls stop the pull.',
+    1054,'open grasping hand',{'DamageTaken'},
+    {all={regular_hit,{op='special_attack'},{op='owner_axis',value='cardinal'}}},
+    {{kind='damage_target',damage_type='physical'},{kind='displace_target',mode='pull'}},
+    {1,2,3,4},'bonus damage before one-cell pull')
+add('anchor_maul','Anchor Maul',
+    'Basic hits against cardinal-adjacent regular foes push them one cell. If the push is blocked, deal collision damage instead. A successful push interrupts a windup; bosses are exempt.',
+    1055,'curled impact hand',{'DamageTaken'},
+    {all={regular_hit,{op='basic_attack'},{op='owner_axis',value='cardinal'},
+        {op='event_distance',min=1,max=1}}},
+    {{kind='displace_target',mode='push',collision_damage=true,damage_type='physical'}},
+    {1,2,3,4},'collision damage when the one-cell push is blocked')
+add('hourglass_clasp','Hourglass Clasp',
+    'A positive primary hit briefly stuns the first surviving regular foe. One trigger per attack, then a 400-time cooldown. Stun caps at 100 time; it never gives a guaranteed player reaction action.',
+    1072,'small hourglass',{'DamageTaken'},
+    {all={regular_hit,{op='cooldown_ready'},{op='unique_action'}}},
+    {{kind='stun_target',cap=100,cooldown=400}},
+    {10,20,30,40},'stun time, capped at 100; cooldown 400')
+add('ward_ledger','Ward Ledger',
+    'Wait while hurt spends active one-hit wards to restore health, up to your power. Consumed wards lose unused capacity. Empty wards and full health cannot trigger it.',
+    854,'ace medical cross',{'Waited'},
+    {all={owner,{op='owner_missing_hp'},{op='active_ward'}}},
+    {{kind='ward_to_heal'}},{1,2,3,4},'maximum health recovered by spending wards')
+add('cinder_stopper','Cinder Stopper',
+    'A primary hit on an already Burning foe consumes its remaining Burning for one immediate fire hit, capped by your power. The queued ticks are removed; normal defenses still apply.',
+    916,'sealed fire flask',{'DamageTaken'},
+    {all={hit,{op='burning_target'}}},
+    {{kind='consume_burning',damage_type='fire'}},
+    {3,5,7,10},'maximum captured remaining Burning damage')
+add('scavengers_hook',"Scavenger's Hook",
+    'Wait gathers pickups from up to four adjacent cardinal tiles, limited by power, in north/east/south/west order. Requires clear visible ground; full-health food and carried drops stay put. Normal pickup effects apply.',
+    1053,'curved gathering hook',{'Waited'},owner,
+    {{kind='gather_pickups'}},{1,2,3,4},'adjacent pickup tiles gathered per Wait, capped at four')
+
 return I
