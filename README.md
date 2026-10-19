@@ -38,22 +38,7 @@ $ git clone https://github.com/gongahkia/roag && cd roag
 $ make game
 ```
 
-Artwork is fixed to Kenney 1-Bit with the approved monochrome Kenney
-counterparts. Settings adjust sound, effects and accessibility; there is no art
-pack selector. `F5` refreshes artwork/audio. See the [sprite coverage guide](docs/ROAG_SPRITE_AUDIT.md).
-Rewards use muted brown/gold ink, enemies blue-gray, hostile attack outlines red
-and player previews green. Damage numbers smoothly cycle through vivid colors;
-they can be disabled under Settings → Effects → Floating damage numbers.
-
-In **Settings → Sound**, click or drag each volume slider; the percentage appears
-on its right and saves when released. Arrow keys adjust the selected volume too.
-**Settings → Accessibility → Text size** cycles through Small, Normal and Large.
-
 ## Controls
-
-On the title screen, select **Continue** for the saved run or **New Run** to
-choose a class. A new run replaces the single active save after confirmation.
-The camera has a fixed zoom.
 
 | Key | Action |
 | --- | --- |
@@ -80,18 +65,6 @@ The camera has a fixed zoom.
 | Controller D-pad, A / B, Start / Back | Move or aim; confirm / cancel; pause / minimap |
 | Controller X / Y / RB | Aim basic attack / special / movement skill |
 | Controller LB / left-stick click / right-stick click | Open/advance boons (toggle Vow when aiming) / nearby services / utility |
-
-Attacks resolve immediately; committed recovery and enemy telegraphs still
-advance through the deterministic scheduler. During visual playback, wait for
-the input gate to clear before committing the next action.
-
-**Developer shortcut:** `B` changes the showcase loadout and makes the run
-ineligible for permanent achievements. It is not a bomb command.
-`make spectator` opens disposable artwork inspection without using the active
-save: `F6` toggles the free camera, `F7` cycles biomes, `F8` changes floors,
-`F9` changes classes, and movement keys pan the free camera (Shift pans faster).
-See the [additional boon guide](docs/ROAG_IDEA_BOONS.md) for the current pass and
-its verification limits.
 
 ## Reference
 
