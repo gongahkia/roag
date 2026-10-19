@@ -21,6 +21,8 @@ floor state, save/profile contracts, stable IDs and presentation-only F5 remain.
 | Starting headless baseline | 647/647 |
 | Fifty-boon complete gate | 832/832; 585.22 s; peak LuaJIT RSS 155376 KiB |
 | Final integration gate | **837/837**; 784.45 s; peak RSS 156608 KiB |
+| Visual accents 1 / 4 / 5 | 845/845; 538.46 s; peak RSS 153424 KiB |
+| Current visual accents 3 / 6 / 7 | **851/851**; 546.77 s; peak RSS 152432 KiB |
 | Focused added-boon/playback cases | 190/190 |
 | Nine established gameplay GUI harnesses | Three isolated rounds, 27/27 |
 | Fourteen additional GUI groups | Three rounds, 42/42 group invocations; class group exercises all fifteen classes |
@@ -278,6 +280,19 @@ remains visible. An independent shadow simulation checks every committed event
 and snapshot. Eighty repeated blocked attacks per process check bounded cleanup
 and unchanged texture memory. Existing pending-accent Save & Quit / separate-
 process Continue and menu stress remain in the same harness.
+
+Final verification: prior **845/845**, now **851/851**, exit 0, **546.77 s**,
+peak RSS **152432 KiB**. All 93 frozen runtime/test source hashes still match
+the checkout. Standard gameplay GUI passes **27/27**; the expanded accent GUI
+passes three rounds / **18 processes / 99 frames**, and five related menu,
+1-Bit/fallback, aim, facing and dense-chain groups pass. Full logs are
+`/var/tmp/roag-juice-next-headless-20261019.log`,
+`roag-juice-next-final-gui-20261019/results.tsv`,
+`roag-juice-next-game-gui-20261019/results.tsv`, and
+`roag-juice-next-related-20261019/results.tsv`. `git diff --check` is clean.
+Verification uses LÖVE 11.5 under Xvfb/Mesa on Fedora WSL; physical input and
+native-GPU performance remain unverified. The existing meta-driver and historic
+native-crash limitations documented above remain unresolved.
 
 The first added crumble screenshot assertion omitted the existing native handle
 tint; the renderer's pixels were correct. The test now compares source pixels,

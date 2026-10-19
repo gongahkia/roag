@@ -1728,6 +1728,13 @@ Continue/menu stress. Standard game GUI **27/27** and five related menu/art/aim/
 facing/chain groups pass. All use Xvfb and synthetic callbacks, not physical
 input or a native GPU.
 
+The full frozen-source headless run finishes **851/851**, exit 0: **546.77 s**,
+peak RSS **152432 KiB**, versus the previous 845/845. All 93 runtime/test hashes
+still match the checkout. Log: `/var/tmp/roag-juice-next-headless-20261019.log`;
+timing: `roag-juice-next-headless-time-20261019.txt`. The suite retains legal
+Victories, exact replay, progression and disk-save continuation. Change hygiene
+passes `git diff --check`; README, game rules, source art and save format remain.
+
 Native GUI records: `/var/tmp/roag-juice-next-final-gui-20261019/results.tsv`,
 `roag-juice-next-game-gui-20261019/results.tsv`, and
 `roag-juice-next-related-20261019/results.tsv`. A new fixture assertion initially
