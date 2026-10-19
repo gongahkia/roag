@@ -77,6 +77,7 @@ O.objects={
     ['core:object/review_pillar_bottom']=640,
 }
 O.masks=Neighbors.masks
+for id,index in pairs(IdeaEnemies.objects or {})do O.objects[id]=index end
 O.canonical=Neighbors.canonical
 function O.surface_sheet(source)
     local out=source:clone()

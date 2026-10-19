@@ -25,11 +25,11 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | ID | Approved direction | State | Evidence / task commit |
 | --- | --- | --- | --- |
 | `reanimator` | Grave Cantor + finite resurrection | headless verified; GUI pending | 407/407 full, nine focused cases, 210-stage natural company corpus, fresh-process pending-revival Continue; `f8140a41` |
-| `haunted-cache` | Haunted cache / chest mimic | pending | — |
+| `haunted-cache` | Haunted cache / chest mimic | headless verified; GUI pending | 421/421 full, six focused wake/bite/art/save tests, five fresh-process disk scenarios; this feature commit |
 | `heavy-rammer` | Heavy Rammer + positional shove | headless verified; GUI pending | Source `38c34a96`, hardening `0f643d9e`; 389/389 full, 12 focused, fresh-process rotating-store Continue |
 | `web-weaver` | Web Weaver + anchored webs | pending | — |
 | `hollow-wraith` | Hollow Wraith + announced phase step | headless verified; GUI pending | 398/398 full, nine focused phase/art/save checks, fresh-process Continue; `707c0aec` |
-| `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; this feature commit |
+| `gulp-toad` | Gulp Toad + recoverable stolen drop | headless verified; GUI pending | 415/415 full, seven drop tests plus a committed-box Dash fixture, four fresh-process disk scenarios, 337/337 native bindings; `ae231d75` |
 | `mirror-hexer` | Mirror Hexer + reflected lane | pending | — |
 | `trail-worm` | Silt Worm + temporary bog trail | pending | — |
 | `pain-linked-twins` | Oath Twins + breakable pain link | pending | — |
@@ -126,8 +126,13 @@ No feature is complete merely because a schema, fixture or metadata record exist
   `/var/tmp/roag-toad-final-verified-l34a8ps4`, log
   `/var/tmp/roag-toad-final-verified-headless-20261019.log`. All legal class and
   route gates, old seed-3 Victory/profile, fresh-process drops and native art pass.
-- Both Kenney choices now resolve **337/337** required bindings, 48 actor IDs and
-  96 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
+- Haunted Cache: **421 passed, 0 failed**, full source
+  `/var/tmp/roag-cache-strategy-check`, log
+  `/var/tmp/roag-cache-final-verified-headless-20261019.log`. The copied live
+  implementation matches those source/test bytes exactly. Five disk scenarios
+  pass; the original review and all PNG bytes remain unchanged.
+- Both Kenney choices now resolve **341/341** required bindings, 49 actor IDs and
+  98 static pose aliases; the user-reviewed 324-binding archive remains unchanged.
   Original source PNGs, archived comments and prior selected bindings pass checks.
 - No LÖVE window, physical keyboard/mouse/tablet or native GPU was exercised.
 
@@ -169,8 +174,12 @@ ally or adds one ordinary companion on free, unreserved adjacent floor; it
 skips an unfit formation and never changes geometry. Every Cantor in the same
 corpus now has company. Corpse caps and fog-clipped messages are also checked.
 
-Next: commit the verified Toad slice, then integrate the independently verified
-Haunted Cache in a separate task commit. A Toad staging run exposed two obsolete pre-Wraith
+Next: commit the verified Haunted Cache slice, then finish broad acceptance
+for Bone Splitter and Alarm Keeper separately. Their full gates are running
+from their isolated workspaces. The initial Bone full check was stopped before
+broad acceptance because its copied ranged driver was outdated; its partial
+log is `/var/tmp/roag-bone-stale-strategy-aborted-20261019.log`. Future workspaces
+now all match the verified strategy files before starting a full gate. A Toad staging run exposed two obsolete pre-Wraith
 catalogue-count assertions; its log is retained at
 `/var/tmp/roag-toad-final-headless-20261019.log`. The corrected catalogue assertions have all
 eight native-art checks green. That full run finished **412/2**: Alchemist
@@ -201,7 +210,10 @@ the combined 43 encounter checks pass. Its original full run was **420/420**,
 `/var/tmp/roag-cache-final-verified-headless-20261019.log`.
 - Bone Splitter staging `/var/tmp/roag-bones-qj45lqig`: six focused tests, six
 fresh-process disk scenarios and 49 combined encounter checks pass. Primary
-HP batches finish before two reward-exempt fragments appear. Two early fixture
+HP batches finish before two reward-exempt fragments appear. Native-pixel
+inspection showed that proposed cell 374 is a rat, not a skeleton. The
+fragments instead reuse approved 323 at a smaller whole-pixel render size;
+that single shared body is explicitly permitted and reported by the audit. Two early fixture
 assumptions about standing fragments and a supposed wall were corrected; logs
 are retained. Broad acceptance remains pending.
 - Alarm Keeper staging `/var/tmp/roag-alarm-_f_mxyws`: seven focused tests pass,

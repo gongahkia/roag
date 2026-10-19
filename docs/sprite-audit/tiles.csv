@@ -984,7 +984,7 @@ onebit,299,80,96,130,,
 onebit,300,96,96,74,,
 onebit,301,112,96,64,,core:chest/free_elite
 onebit,302,128,96,122,,core:chest/standard
-onebit,303,144,96,116,,
+onebit,303,144,96,116,,core:object/idea_cache_dormant
 onebit,304,160,96,122,,
 onebit,305,176,96,114,,
 onebit,306,192,96,108,,
@@ -1098,7 +1098,7 @@ onebit,413,336,128,70,,
 onebit,414,352,128,80,,
 onebit,415,368,128,59,,core:enemy/rushwing
 onebit,416,384,128,66,core:enemy/hollow_wraith,core:enemy/hollow_wraith
-onebit,417,400,128,96,,
+onebit,417,400,128,96,,core:enemy/haunted_cache
 onebit,418,416,128,68,,core:enemy/spore_herald
 onebit,419,432,128,82,,core:enemy/mycelial_matriarch
 onebit,420,448,128,109,,core:enemy/mire_binder
@@ -3616,9 +3616,9 @@ tiny,86,34,119,194,core:enemy/mend_acolyte,
 tiny,87,51,119,216,core:enemy/pin_archer,
 tiny,88,68,119,199,core:enemy/grave_cantor,
 tiny,89,85,119,222,core:enemy/heavy_rammer,
-tiny,90,102,119,222,,
+tiny,90,102,119,222,core:object/idea_cache_dormant,
 tiny,91,119,119,254,,
-tiny,92,136,119,254,,
+tiny,92,136,119,254,core:enemy/haunted_cache,
 tiny,93,153,119,218,,
 tiny,94,170,119,248,,
 tiny,95,187,119,218,,

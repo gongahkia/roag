@@ -8,18 +8,22 @@ I.enemies={
     {'hollow_wraith','Hollow Wraith',7,2,0,90,100,120,1},
     {'grave_cantor','Grave Cantor',7,1,0,80,150,160,4},
     {'gulp_toad','Gulp Toad',14,2,1,80,100,140,1},
+    {'haunted_cache','Haunted Cache',8,2,0,75,140,140,1},
 }
 I.roles={['core:enemy/heavy_rammer']='rammer',['core:enemy/hollow_wraith']='wraith',
-    ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad'}
-I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123}
+    ['core:enemy/grave_cantor']='reviver',['core:enemy/gulp_toad']='toad',
+    ['core:enemy/haunted_cache']='cache'}
+I.tiny={['core:enemy/heavy_rammer']=89,['core:enemy/grave_cantor']=88,['core:enemy/gulp_toad']=123,
+    ['core:enemy/haunted_cache']=92,['core:object/idea_cache_dormant']=90}
 -- The reviewed redirect permits only 416, in BOTH settings choices.
 I.shared_onebit={['core:enemy/hollow_wraith']=416}
 I.onebit={['core:enemy/heavy_rammer']=129,['core:enemy/hollow_wraith']=416,
-    ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422}
+    ['core:enemy/grave_cantor']=318,['core:enemy/gulp_toad']=422,['core:enemy/haunted_cache']=417}
+I.objects={['core:object/idea_cache_dormant']=303}
 I.symbols={['core:ui/idea_corpse_effect']=539}
 I.abilities={rammer_shove='rammer shove',wraith_phase='wraith phase',wraith_touch='wraith touch',
     cantor_revive='cantor revival',cantor_touch='cantor touch',
-    toad_gulp='swallow loose drop',toad_bite='toad bite'}
+    toad_gulp='swallow loose drop',toad_bite='toad bite',cache_bite='haunted cache bite'}
 local directions={{0,-1},{1,0},{0,1},{-1,0}}
 local corpse_ai={guard=true,spitter=true,skitter=true,spore_herald=true,
     canal_lancer=true,cinder_bellkeeper=true,expansion_regular=true}
@@ -108,6 +112,15 @@ end
 function I.choose(state,enemy,player,h)
     local a,b=enemy.position,player.position
     local dx,dy=b.x-a.x,b.y-a.y
+    if I.roles[enemy.definition_id]=='cache' then
+        if math.abs(dx)+math.abs(dy)==1 then
+            return {kind='windup',ability_id='core:ability/cache_bite',
+                cells={{x=b.x,y=b.y}},alert=true}
+        end
+        if not enemy.ai_memory.alerted and enemy.hp==enemy.max_hp then return {kind='wait'}end
+        local intent=h.next_step(state,enemy,h.adjacent_goals(state,enemy,player,false)) or {kind='wait'}
+        intent.alert=true;return intent
+    end
     if I.roles[enemy.definition_id]=='toad' then
         local best,score
         if not enemy.carried_drop_id then
@@ -318,6 +331,9 @@ function I.validate(state,maps,content)
         assert(e.definition_id=='core:enemy/gulp_toad' and carriers[e.id],'missing swallowed drop')
     end end
     for _,e in ipairs(state.entities)do
+        if e.definition_id=='core:enemy/haunted_cache' then
+            assert(e.ai_memory.alerted==nil or type(e.ai_memory.alerted)=='boolean','invalid cache wake state')
+        end
         if e.definition_id=='core:enemy/grave_cantor' then
             assert(e.ai_memory.revival_spent==nil or e.ai_memory.revival_spent==true,'invalid revival budget')
         end

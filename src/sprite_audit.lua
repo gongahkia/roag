@@ -103,6 +103,12 @@ function A.collect()
         for _,cue in ipairs(keys(Squads.cues)) do use('onebit',Squads.cues[cue],'core:ui/'..cue) end
         for _,id in ipairs(keys(IdeaEnemies.symbols or {}))do use('onebit',IdeaEnemies.symbols[id],id)end
         if name=='kenney'then
+            for _,id in ipairs(keys(IdeaEnemies.objects or {}))do
+                local h=assert(resolver:resolve(id))
+                use(h.approved_sheet or 'onebit',h.tile_index or h.symbol_index,id)
+            end
+        end
+        if name=='kenney'then
             for _,id in ipairs(keys(Slots.bindings))do
                 if id:match('^core:object/review_') then
                     local h=resolver:resolve(id)

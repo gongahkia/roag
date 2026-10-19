@@ -115,6 +115,21 @@ enemy reward. One Toad carries at most one drop. There is no replacement-loot
 roll or combat RNG draw. Pending gulps, carried loot, ownership, interception
 and release survive exact save/Continue; malformed ownership is rejected.
 
+## Haunted Cache
+
+This is a suspicious **enemy**, not a paid boon chest. It uses Tiny 90 while
+dormant and Tiny 92 after waking; standalone uses 1-Bit 303 then 417. A visible
+question mark is its tell. Classic also uses a question mark while dormant.
+It retains ordinary enemy/minimap treatment and never offers chest choices.
+
+HP/damage/defense are 8/2/0, speed 75, base windup/recovery 140/140. It stays
+still at full HP until a player approaches cardinally adjacent or injures it.
+Waking grants no instant strike: the adjacent bite locks a tile and uses the
+ordinary scheduler. Leaving that cell avoids that bite; interruption and
+friendly fire retain their usual rules. An injured cache may approach through
+normal movement. It pays one ordinary 4 XP / 3 currency reward, with the normal
+seeded supply policy. Awake state, pending bites and rewards persist exactly.
+
 ## Verification
 
 ```sh
@@ -136,6 +151,10 @@ The Toad disk scenario similarly saves before a gulp and restores the original
 cargo in another process. Focused tests also cover all three drop kinds,
 post-release pickup exactly once, a full-health player protecting food and two
 competing claims at the same timestamp.
+Cache checks cover dormancy, real ranged wake-up, the locked delayed bite,
+leaving its target cell, one normal kill reward, invalid wake data and native
+art. Its disk scenario saves an awakened pending bite, restarts LuaJIT and
+resolves that same legal attack and the second checked save generation.
 The disk script uses two separate LuaJIT processes and an isolated `/var/tmp`
 directory, comparing full snapshots and events, including RNG and scheduler.
 It does not open LÖVE or touch personal saves.

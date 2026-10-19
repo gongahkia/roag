@@ -1530,6 +1530,9 @@ local function draw_enemies()
             local x, y = Camera.tile_top_left(camera, visual_x, visual_y)
             local enemy_art=actor_visual(enemy.definition_id,enemy.id) or
                 (visual_assets and visual_assets:resolve_id(enemy.definition_id))
+            local dormant_cache=enemy.definition_id=='core:enemy/haunted_cache'
+                and not enemy.ai_memory.alerted and enemy.hp==enemy.max_hp
+            if dormant_cache then enemy_art=bound_visual('core:object/idea_cache_dormant') or enemy_art end
             if enemy_art then
                 if enemy_art.source=='generated' then
                     love.graphics.setColor(0,0,0,.45)
@@ -1538,6 +1541,10 @@ local function draw_enemies()
                 local facing=Playback.facing(playback,enemy.id,enemy.pending_attack,
                     enemy.ai_memory and enemy.ai_memory.last_dx)
                 draw_visual(enemy_art,x,y,TILE,TILE,nil,facing==-1)
+                if dormant_cache then
+                    love.graphics.setColor(1,.75,.4,1)
+                    love.graphics.print('?',x+TILE*.68,y)
+                end
             else
             -- Built-in tokens were drawn on a 32px tile. Scale them with the
             -- camera so fallback actors retain the same tile alignment.
@@ -1594,7 +1601,7 @@ local function draw_enemies()
                 local label=({['core:enemy/heavy_rammer']='R',['core:enemy/hollow_wraith']='W',
                     ['core:enemy/grave_cantor']='C'})[enemy.definition_id]
                     or Content.get_enemy(enemy.definition_id).name:sub(1,1)
-                love.graphics.print(label,x+12,y+8)
+                love.graphics.print(dormant_cache and '?' or label,x+12,y+8)
             elseif enemy.ai_id=='squad' then
                 love.graphics.setColor(.68,.72,.94)
                 love.graphics.polygon('fill',x+16,y+2,x+29,y+17,x+16,y+28,x+3,y+17)

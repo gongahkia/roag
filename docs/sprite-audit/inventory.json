@@ -1,9 +1,9 @@
 {
-  "mapping_checksum": "e6fedd8581cf8974",
+  "mapping_checksum": "2ae2750beaa99db9",
   "packs": {
     "kenney": {
-      "actor_count": 48,
-      "actor_silhouettes": 40,
+      "actor_count": 49,
+      "actor_silhouettes": 41,
       "bindings": [
         {
           "height": 8,
@@ -1708,6 +1708,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/haunted_cache",
+          "index": 92,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/attack",
+          "index": 92,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/hurt",
+          "index": 92,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "tiny",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 89,
           "motif": "",
@@ -2335,6 +2362,15 @@
           "pose_alias": false,
           "sheet": "micro",
           "width": 8
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_cache_dormant",
+          "index": 90,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "tiny",
+          "width": 16
         },
         {
           "height": 16,
@@ -3106,7 +3142,7 @@
           "sheet": "micro"
         }
       ],
-      "static_pose_aliases": 96,
+      "static_pose_aliases": 98,
       "usage": {
         "caves": {
           "145": [
@@ -3746,6 +3782,12 @@
           "89": [
             "core:enemy/heavy_rammer"
           ],
+          "90": [
+            "core:object/idea_cache_dormant"
+          ],
+          "92": [
+            "core:enemy/haunted_cache"
+          ],
           "96": [
             "core:enemy/shield_bearer"
           ],
@@ -3761,8 +3803,8 @@
       "water_masks": 47
     },
     "onebit": {
-      "actor_count": 48,
-      "actor_silhouettes": 48,
+      "actor_count": 49,
+      "actor_silhouettes": 49,
       "bindings": [
         {
           "height": 16,
@@ -5467,6 +5509,33 @@
         },
         {
           "height": 16,
+          "id": "core:enemy/haunted_cache",
+          "index": 417,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/attack",
+          "index": 417,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:enemy/haunted_cache/hurt",
+          "index": 417,
+          "motif": "",
+          "pose_alias": true,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
           "id": "core:enemy/heavy_rammer",
           "index": 129,
           "motif": "",
@@ -6090,6 +6159,15 @@
           "height": 16,
           "id": "core:object/exit",
           "index": 451,
+          "motif": "",
+          "pose_alias": false,
+          "sheet": "onebit",
+          "width": 16
+        },
+        {
+          "height": 16,
+          "id": "core:object/idea_cache_dormant",
+          "index": 303,
           "motif": "",
           "pose_alias": false,
           "sheet": "onebit",
@@ -6800,7 +6878,7 @@
       ],
       "missing": [],
       "shared_actors": [],
-      "static_pose_aliases": 96,
+      "static_pose_aliases": 98,
       "usage": {
         "onebit": {
           "1010": [
@@ -6959,6 +7037,9 @@
           "302": [
             "core:chest/standard"
           ],
+          "303": [
+            "core:object/idea_cache_dormant"
+          ],
           "31": [
             "core:enemy/vault_lurker"
           ],
@@ -7033,6 +7114,9 @@
           ],
           "416": [
             "core:enemy/hollow_wraith"
+          ],
+          "417": [
+            "core:enemy/haunted_cache"
           ],
           "418": [
             "core:enemy/spore_herald"
@@ -7314,12 +7398,12 @@
       "grid": 1078,
       "kenney": 63,
       "nonempty": 1077,
-      "onebit": 152,
+      "onebit": 154,
       "sheet": "onebit",
-      "union": 152,
+      "union": 154,
       "unused_kenney": 1014,
-      "unused_onebit": 925,
-      "unused_union": 925
+      "unused_onebit": 923,
+      "unused_union": 923
     },
     {
       "empty": 63,
@@ -7336,14 +7420,14 @@
     {
       "empty": 0,
       "grid": 132,
-      "kenney": 18,
+      "kenney": 20,
       "nonempty": 132,
       "onebit": 0,
       "sheet": "tiny",
-      "union": 18,
-      "unused_kenney": 114,
+      "union": 20,
+      "unused_kenney": 112,
       "unused_onebit": 132,
-      "unused_union": 114
+      "unused_union": 112
     }
   ],
   "requirements": [
@@ -7536,6 +7620,9 @@
     "core:enemy/gulp_toad",
     "core:enemy/gulp_toad/attack",
     "core:enemy/gulp_toad/hurt",
+    "core:enemy/haunted_cache",
+    "core:enemy/haunted_cache/attack",
+    "core:enemy/haunted_cache/hurt",
     "core:enemy/heavy_rammer",
     "core:enemy/heavy_rammer/attack",
     "core:enemy/heavy_rammer/hurt",
@@ -7606,6 +7693,7 @@
     "core:object/door_closed",
     "core:object/door_open",
     "core:object/exit",
+    "core:object/idea_cache_dormant",
     "core:object/review_brazier_lit",
     "core:object/review_brazier_unlit",
     "core:object/review_gate_bottom",
