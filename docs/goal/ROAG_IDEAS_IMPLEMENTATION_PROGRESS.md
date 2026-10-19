@@ -47,7 +47,7 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `duelist-class` | Duelist — precision and paid riposte | headless verified; GUI pending | 510/510 full, twelve focused cases, 133 combined, legal seed-9 Victory at 977 actions / 26 HP, two-process checked-store riposte Continue; see [class guide](../ROAG_IDEA_CLASSES.md) |
 | `geomancer-class` | Geomancer — one temporary bulwark | headless verified; GUI pending | nine focused, 46 contracts, fresh-process finite-expiry Continue; frozen full regression running separately |
 | `spiritbinder-class` | Spiritbinder — one commanded familiar | headless verified; GUI pending | six focused, 52 contracts, checked-store fresh-process commanded attack; source `/var/tmp/roag-spiritbinder-4t12eze6` |
-| `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | implemented; focused/headless/GUI/save verified; full updated gate pending | P / controller LB opt-in, 2 HP for one primary attack batch; 14 focused tests, all 15 basic attacks, 3 actual GUI processes + controller/native-art checks; no Pilgrim class |
+| `pilgrim-class` | Pilgrim — user redirect into a boon, not a class | implemented; full 711/711, GUI/save verified | P / controller LB opt-in, 2 HP for one primary attack batch; 14 focused tests, all 15 basic attacks, 3 actual GUI processes + controller/native-art checks; no Pilgrim class |
 | `tinkerer-class` | Tinkerer — one limited bolt sentry | headless verified; GUI pending | seven focused, 59 contracts, fresh-process pending-shot Continue; source `/var/tmp/roag-tinkerer-d3ip3v1q` |
 | `stormcaller-class` | Stormcaller — charge, ground, discharge | headless verified; GUI pending | seven focused, 66 contracts, fresh-process pending-cross Continue; source `/var/tmp/roag-stormcaller-dd_9qvib` |
 | `wayfinder-class` | Wayfinder — a visible return beacon | headless verified; GUI pending | eight focused, twelve-seed room-bound checks, checked-store fresh-process return; combined all-class 553/553 gate |
@@ -88,10 +88,10 @@ No feature is complete merely because a schema, fixture or metadata record exist
 | `status-icon-family` | Status, supplies and reward pictograms | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `combat-bursts` | Static combat impact cue family | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
 | `trap-signals` | Switch, hazard and trap state markers | headless verified; LÖVE/human pending | 20 focused, 70-floor family corpus, two fresh-process saves and 18 real-render-path CPU pixel views; see [environment guide](../ROAG_IDEA_ENVIRONMENTS.md) |
-| `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; focused/GUI/save verified, updated full gate pending | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
-| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | pending | — |
+| `oracle-choice` | Oracle art redirect; no Oracle room | Fateful Dice implemented; full 711/711, GUI/save verified | Eight equal outcomes; native 728–733 / 727 / 726; regular-only skull, real cross miss; no Oracle room |
+| `onebit-symbol-library` | Remaining 1-Bit item, cue and label library | in progress | Nine new boon icons + eight face bindings; 16 unique new native regions; original PNGs preserved |
 | `cantor-art-redirect` | Hat 33 / cup 824 for boon/item concepts; no Cantor class | first two uses headless/GUI verified | Beggar's Cap / Overflow Chalice; see [new boon guide](../ROAG_IDEA_BOONS.md) |
-| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 9 additions / 62 total | First seven full 669/669; current 64 focused, native GUI/save checks; full updated gate pending; at least 41 more required |
+| `remaining-icon-boons` | 50+ distinct meaningful boon concepts, suitable unused icons, catalogue comparison and deterministic integration | in progress — 9 additions / 62 total | Current full 711/711; 64 focused, native GUI/save checks; at least 41 more required, then final acceptance |
 
 ## Dependency-based batches
 
@@ -1250,3 +1250,33 @@ history label that is not hidden by three other status badges. Existing broad
 GUI acceptance, all approved earlier feature rows, final balance/legal/save
 corpora and human/physical input handoff remain open; do not call the goal
 complete based on this slice.
+
+
+## Nine-addition clean gate — verified checkpoint (2026-10-19)
+
+**711 passed / 0 failed**, exact frozen runtime/Lua-test tree
+`/var/tmp/roag-idea-boons-dice-final-qhtvyk6w`; log
+`/var/tmp/roag-idea-boons-dice-full-20261019.log`; **497.15 s**, peak LuaJIT RSS
+**158,456 KiB**. The run includes all 647 starting cases and 64 meaningful new
+supply/vow/dice/timer cases, the corrected historical M6 trace, current normal-
+pool class Victories, biome/miniboss routes, exact replay, save validation and
+all retained native-art/environment contracts. Task source commit `4c556c51`.
+
+The exact current seed-9 Ranger trace/replay is regenerated at
+`/var/tmp/roag-dice-ranger-current-legal-victory.trace`: **1,063 ordinary legal
+actions / 25 HP / 92,507 world time / three paid purchases**. No invulnerability,
+teleports, actor weakening or fixture grants occur in that driver. The freshly
+written original pre-boon executable's legacy checked save also still continues
+under the current dice/timer code with byte-identical events and snapshot.
+Source assets remain 15/15 byte-identical; frozen feedback checks remain 6/6
+ideas and 7/7 focused item/room checks. `git diff --check` passes.
+
+This completes the first nine implementations, not the 50+ goal. It does not
+complete the broad final GUI matrix, current-pool balance corpus, all earlier
+feature GUI acceptance or human/physical input checks. The next group should
+add genuinely distinct positional attack patterns (chess/lane/fan/ring and
+locked dash-wake ideas using still-unused native art), sharing actual execution
+and read-only preview geometry. At least 41 further boons and final integration
+remain active; do not create another goal, reset the tree or resume the rejected
+classes/room/bitmap skin. No further approval is needed for the already
+approved boon brainstorming/implementation.

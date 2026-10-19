@@ -209,12 +209,17 @@ retry remains required after the working dice addition.
 With dice and the transition fixes, focused new cases are **64/64** (22 supply,
 14 vow/compile, 24 dice, four transition/expiry), plus **169/169** combined
 checks before the final Hook-miss regression was added. The full current
-711-case gate remains pending until its actual result is recorded.
+711-case gate now passes **711/711**, 497.15 s / 158,456 KiB peak LuaJIT RSS;
+log `/var/tmp/roag-idea-boons-dice-full-20261019.log`, frozen source
+`/var/tmp/roag-idea-boons-dice-final-qhtvyk6w`. Runtime and Lua-test bytes matched
+the checked tree exactly. Current seed-9 Ranger Victory/replay is **1,063 legal
+actions / 25 HP / 92,507 world time / three paid purchases**, trace
+`/var/tmp/roag-dice-ranger-current-legal-victory.trace`.
 
 All eight native roll icons pass pixel checks in **24 isolated LÖVE processes**
 (three rounds). Eight further processes verify F5 with a saved roll. A 12-refresh
-stress process preserves the exact run/RNG/roll snapshot and stays at **25 image
-handles / 20,099,400 reported texture bytes** on llvmpipe. This is resource
+stress process preserves the exact run/RNG/roll snapshot within the image-handle
+bound, ending at **25 images / 20,099,400 reported texture bytes** on llvmpipe. This is resource
 accounting, not a native GPU or FPS claim. Five fresh-process scenarios now
 cover supplies, legacy state, Vow, Dice+ward+pending Echo/Burning, and actual
 stage-travelling Burning with rebased speed and a frozen retired floor.
